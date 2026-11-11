@@ -9,7 +9,7 @@ repository.workspace = true
 publish.workspace = true
 
 [dependencies]
-axum.workspace = true
+axum = { workspace = true, features = ["http1", "tokio"] }
 base64.workspace = true
 bytes.workspace = true
 futures-util.workspace = true
@@ -20,7 +20,7 @@ rust-embed = { workspace = true, optional = true, features = ["debug-embed"] }
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
-tokio.workspace = true
+tokio = { workspace = true, features = ["net", "rt-multi-thread"] }
 tower.workspace = true
 vc-contracts.workspace = true
 vc-engine.workspace = true

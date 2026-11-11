@@ -14,9 +14,13 @@ path = "src/main.rs"
 
 [dependencies]
 axum.workspace = true
-clap.workspace = true
 serde_json.workspace = true
-tokio.workspace = true
+
+# The binary serves on a socket; the playground's WebAssembly build calls the router in process.
+[target.'cfg(not(target_family = "wasm"))'.dependencies]
+axum = { workspace = true, features = ["http1", "tokio"] }
+clap.workspace = true
+tokio = { workspace = true, features = ["net", "rt-multi-thread"] }
 
 [dev-dependencies]
 tower.workspace = true

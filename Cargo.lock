@@ -5324,11 +5324,39 @@ dependencies = [
 ]
 
 [[package]]
+name = "vc-browser"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "axum",
+ "bytes",
+ "http",
+ "http-body-util",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+ "tokio",
+ "tower",
+ "vc-adapter-auth",
+ "vc-adapter-reporters",
+ "vc-adapter-system",
+ "vc-compiler",
+ "vc-demo",
+ "vc-diagnostics",
+ "vc-executor",
+ "vc-interfaces",
+ "vc-model",
+ "vc-planner",
+ "vc-testkit",
+]
+
+[[package]]
 name = "vc-cli"
 version = "0.1.0"
 dependencies = [
  "anyhow",
  "assert_cmd",
+ "axum",
  "clap",
  "clap_complete",
  "criterion",
@@ -5338,6 +5366,8 @@ dependencies = [
  "serde_json",
  "tempfile",
  "tokio",
+ "vc-browser",
+ "vc-demo",
  "vc-engine",
  "vc-mcp",
  "vc-mock-server",
