@@ -181,10 +181,10 @@ The agent writes the file, runs `vc check`, applies certain fixes, and runs the 
    0 errors · 1 warning · 4 files checked
    ```
 
-4. Apply the certain fix. `vc check --fix` shows the diff and asks before writing. It has no flag to skip the question, so a script pipes the answer in:
+4. Apply the certain fix. `vc check --fix` shows the diff and asks before writing; `--yes` applies it without asking:
 
    ```console
-   $ echo y | vc check --fix
+   $ vc check --fix --yes
    --- a/services/people/lookup.test.yaml
    +++ b/services/people/lookup.test.yaml
    @@ -1,7 +1,7 @@
@@ -196,7 +196,7 @@ The agent writes the file, runs `vc check`, applies certain fixes, and runs the 
         name: Gets Grace by id
         call: people#getPerson
         vars:
-   Apply 1 fix? [y/N] ✓ applied 1 fix
+   ✓ applied 1 fix
    0 errors · 0 warnings · 4 files checked
    ```
 

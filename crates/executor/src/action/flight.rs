@@ -15,7 +15,7 @@ use super::call::{bind, subject};
 use super::hooks::{self, HookBridge, HookStage};
 use super::request;
 use crate::check::{self, Judge, MatcherRegistry, Subject};
-use crate::{Call, Pipeline, PipelineParts, Render};
+use crate::{ActionReport, Call, Pipeline, PipelineParts, Render};
 
 /// A call's pipeline, with its api's hooks set, and the matchers that judge it.
 pub struct Flight {
@@ -24,6 +24,26 @@ pub struct Flight {
     after: Vec<HookRef>,
     refused: watch::Receiver<Option<Failure>>,
     matchers: Arc<MatcherRegistry>,
+}
+
+/// Why a call stopped before its checks: the failure, and the exchanges it got until then,
+/// which its events still show.
+pub struct Halted {
+    failure: Failure,
+    exchanges: Vec<Exchange>,
+}
+
+impl From<Failure> for Halted {
+    fn from(failure: Failure) -> Self {
+        Self { failure, exchanges: Vec::new() }
+    }
+}
+
+impl Halted {
+    /// The failed call's report, with the exchanges it got.
+    pub fn report(self) -> ActionReport {
+        ActionReport { exchanges: self.exchanges, ..ActionReport::failed(self.failure) }
+    }
 }
 
 impl Flight {
@@ -72,8 +92,9 @@ impl Flight {
     ///
     /// # Errors
     ///
-    /// As [`Self::send`], or V5104 when `poll.until` does not hold within `poll.timeout`.
-    pub async fn poll(&self, render: &mut Render<'_>, (call, poll): (Call, &Poll)) -> Result<Exchange, Failure> {
+    /// As [`Self::send`], or V5104 with the last exchange when `poll.until` does not hold
+    /// within `poll.timeout`, so the events show what the server last answered.
+    pub async fn poll(&self, render: &mut Render<'_>, (call, poll): (Call, &Poll)) -> Result<Exchange, Halted> {
         let deadline = Instant::now() + poll.timeout.get();
         loop {
             let exchange = self.send(call.clone()).await?;
@@ -82,7 +103,8 @@ impl Flight {
             let Some(failure) = check::verdict(&results) else { return Ok(exchange) };
             if Instant::now() + poll.every.get() > deadline {
                 let message = format!("`poll.until` did not hold within {:?}: {}", poll.timeout.get(), failure.message);
-                return Err(Failure::new(message).with_code(Code::V5104.to_string()));
+                let failure = Failure::new(message).with_code(Code::V5104.to_string());
+                return Err(Halted { failure, exchanges: vec![exchange] });
             }
             time::sleep(poll.every.get()).await;
         }

@@ -4,7 +4,7 @@ description: "How many test instances run at the same time."
 sidebar: { order: 22 }
 ---
 
-import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
 import Playground from '~/components/Playground.svelte';
 
 `defaults.concurrency` is how many test instances run at once.
@@ -57,8 +57,7 @@ profiles:
 
 - Connections to one host are also capped by [`defaults.perHost`](/vc-rs/reference/config/defaults-per-host/). The lower limit wins.
 - Override it with `--set defaults.concurrency=4`, `VIB_DEFAULTS_CONCURRENCY=4` or the user config.
-
-<Aside type="caution">Write a number of 1 or more. `concurrency: 0` in the file is not reported by `vc check` today.</Aside>
+- A number below 1 in a file is an error, `V2302`: `defaults.concurrency` takes a whole number of at least 1.
 
 ## Related
 

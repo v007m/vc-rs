@@ -107,6 +107,8 @@ pub struct SkippedTest {
     pub test: TestId,
     /// `skip.reason`.
     pub reason: String,
+    /// `skip.until`, the date after which the skip expires, as written.
+    pub until: Option<String>,
 }
 
 /// What a run will do, made by the planner from the program and the selection (D103).

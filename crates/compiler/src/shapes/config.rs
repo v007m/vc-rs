@@ -54,8 +54,8 @@ shape! {
 shape! {
     defaults = Shape::new("defaults", "Defaults for every request and test", &[
         types::key("timeout", Ty::Duration).default("30s").doc("Per request"),
-        types::key("concurrency", Ty::Int).default("16").doc("Test instances in flight"),
-        types::key("perHost", Ty::Int).default("8").doc("Connections per host"),
+        types::key("concurrency", Ty::Int).default("16").min(1).doc("Test instances in flight"),
+        types::key("perHost", Ty::Int).default("8").min(1).doc("Connections per host"),
         types::key("retry", Ty::Obj(common::retry)).doc("Applied to every test unless overridden (D126)"),
         types::key("headers", TEMPLATES).doc("Sent with every request"),
     ])

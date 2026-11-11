@@ -1,17 +1,19 @@
 ---
 title: "urlEncode"
-description: "Percent-encode text for use in a URL path or query."
+description: "Percent-encode text you build into a URL or a form body yourself."
 sidebar: { order: 12 }
 ---
 
 import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
 import Playground from '~/components/Playground.svelte';
 
-`urlEncode` percent-encodes text so it is safe in a URL path segment or a query value. Only letters, digits and `-`, `.`, `_`, `~` are left as they are.
+`urlEncode` percent-encodes text so it is safe in a URL or a form body you write as text. Only letters, digits and `-`, `.`, `_`, `~` are left as they are.
 
 ```yaml
-      path: /search?q=${var.term | urlEncode}
+      body: grant_type=password&username=${var.user | urlEncode}
 ```
+
+A [`path`](/vc-rs/reference/syntax/path/) and a [`query`](/vc-rs/reference/syntax/query/) encode their values already, so the pipe is not needed there. In a `path`, `vc check` warns with [V4007](/vc-rs/reference/diagnostics/v4007/) and its fix removes it.
 
 ## Syntax
 
@@ -49,12 +51,14 @@ Chain with [`trim`](/vc-rs/reference/pipes/trim/): `"\t hi \n"` piped to `trim |
 
 - Non-ASCII letters are encoded as their UTF-8 bytes.
 - `/` is encoded too, so the result is one path segment.
+- A `path` value whose last pipe is `urlEncode` is sent as the pipe left it, not encoded twice.
 
 ## Common errors
 
 - [V2304](/vc-rs/reference/diagnostics/v2304/): the input is known not to be text.
 - [V2308](/vc-rs/reference/diagnostics/v2308/): an unknown pipe name, or the wrong number of arguments.
 - [V5111](/vc-rs/reference/diagnostics/v5111/): the value is not text at run time, or it is missing.
+- [V4007](/vc-rs/reference/diagnostics/v4007/): the pipe ends a value in a `path`, which is encoded already.
 
 ## Related
 

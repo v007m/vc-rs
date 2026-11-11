@@ -43,8 +43,8 @@ pub enum ConfigCommand {
     },
 }
 
-/// `vc explain <code|id>`: a code when it is `V` and four digits, which works outside any
-/// project; a test or api otherwise. Exit 0 shown, 2 unknown.
+/// `vc explain <code|id>`: a code when it is `V` (or `v`) and four digits, which works outside
+/// any project; a test or api otherwise. Exit 0 shown, 2 unknown.
 pub fn run(args: &ExplainArgs, project: Option<&Path>) -> anyhow::Result<Outcome> {
     if is_code(&args.target) {
         return code(&args.target);
@@ -66,13 +66,15 @@ impl LayerArgs {
     }
 }
 
-/// `V` followed by four ASCII digits (D180).
+/// `V` followed by four ASCII digits (D180); a lowercase `v` too, as an id never looks like that.
 fn is_code(target: &str) -> bool {
-    target.strip_prefix('V').is_some_and(|digits| digits.len() == 4 && digits.bytes().all(|b| b.is_ascii_digit()))
+    target
+        .strip_prefix(['V', 'v'])
+        .is_some_and(|digits| digits.len() == 4 && digits.bytes().all(|b| b.is_ascii_digit()))
 }
 
 fn code(target: &str) -> anyhow::Result<Outcome> {
-    match target.parse::<Code>() {
+    match target.to_ascii_uppercase().parse::<Code>() {
         Ok(code) => {
             write!(stdout::out(), "{}", code.explain())?;
             Ok(Outcome::Done)

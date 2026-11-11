@@ -77,7 +77,7 @@ Credentials from auth. The server echoed the headers it received:
 
 The regex masked the number, the secret was masked as a secret, `fields` masked the nested `password`, and the CEL rule masked `ssn`.
 
-A rule that breaks masks more, never less. With `regex: '(['`, which does not compile, every text is masked, even the expected value:
+A rule that breaks masks more, never less. With `regex: '(['`, which does not compile, a run masks every text, even the expected value; `vc check` reports such a pattern as V2311 first:
 
 ```console
   15 |           password: x
@@ -85,7 +85,7 @@ A rule that breaks masks more, never less. With `regex: '(['`, which does not co
 ```
 
 <Aside type="caution">
-In this version, a check on a field listed in `redact.fields` prints the field's own value unmasked when it fails: `expect.body.match.password` shows `got "hunter22"`, in the terminal, in `vc history show` and in the reports. The field is masked when it appears inside a larger value. Do not write checks against such fields until this is fixed. `vc check` also does not report a regex that does not compile.
+In this version, a check on a field listed in `redact.fields` prints the field's own value unmasked when it fails: `expect.body.match.password` shows `got "hunter22"`, in the terminal, in `vc history show` and in the reports. The field is masked when it appears inside a larger value. Do not write checks against such fields until this is fixed.
 </Aside>
 
 <Playground client:visible kind="config" code={`syntaxVersion: 2
@@ -105,12 +105,12 @@ redact:
 - Masked text shows as `••••`.
 - History and reports are masked the same way before they are written: the URL, every header and both bodies. A secret in a URL is also masked in its percent-encoded form.
 - Bodies are cut at `history.maxBodySize` after masking, so a cut never leaves part of a secret showing.
-- Rules fail closed. A regex that does not compile masks every text. A CEL rule that errors masks the field. A hook that throws, runs past its budget or returns a non-string for a text masks the whole piece.
+- Rules fail closed. A regex that does not compile masks every text; `vc check` reports it as [V2311](/vc-rs/reference/diagnostics/v2311/) before a run. A CEL rule that errors masks the field. A hook that throws, runs past its budget or returns a non-string for a text masks the whole piece.
 - Output from a [`command:` action](/vc-rs/reference/lifecycle/command/) is masked too.
 
 ## Common errors
 
-Redaction has no error codes of its own. A rule that breaks masks more instead of stopping the run, so output full of `••••` usually means a rule that does not compile or a CEL rule that errors.
+At run time a rule that breaks masks more instead of stopping the run, so output full of `••••` usually means a CEL rule that errors or a hook that fails. A regex that does not compile is caught earlier: `vc check` reports it as [V2311](/vc-rs/reference/diagnostics/v2311/).
 
 ## Related
 

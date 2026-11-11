@@ -134,3 +134,13 @@ fn list_tests_takes_a_path_selector() {
         .code(0)
         .stdout("users.crud#listsUsers  Lists users\n");
 }
+
+#[test]
+fn a_relative_path_with_no_base_url_names_the_api_and_how_to_set_one() {
+    let api = ("services/users/users.api.yaml", "apis:\n  - id: list\n    path: /users\n");
+    let dir = project(&[CONFIG, api, PASSING]).unwrap();
+    let message = "error[V5111]: `users#list` sends to `/users`, which is not a full URL: no `baseUrl` is set for \
+                   `users` (profile dev); help: add `baseUrl: ${var.usersUrl}` to its api file and set `usersUrl` in \
+                   the config, a profile, or with `--set vars.usersUrl=http://…`";
+    vc(dir.path(), &["run"]).assert().code(1).stdout(str::contains(message));
+}

@@ -6,3 +6,6 @@ tests:
   - id: createsUser
     call: users#createUser
     skip: flaky upstream, see 212
+  - id: deletesUser
+    call: users#getUser
+    skip: true

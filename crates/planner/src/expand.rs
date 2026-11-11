@@ -68,7 +68,7 @@ impl<'p> Expander<'p> {
         let tests = file.tests.iter().filter_map(|id| Some((self.program.tests.get(id)?, picked.get(id)?)));
         for (test, pick) in tests.filter(|(test, _)| test.standalone) {
             match self.not_run(file, test, pick)? {
-                Some(reason) => skipped.push(SkippedTest { test: test.id, reason }),
+                Some(Skip { reason, until }) => skipped.push(SkippedTest { test: test.id, reason, until }),
                 None => instances.extend(self.instances(test, pick)?),
             }
         }
@@ -78,12 +78,12 @@ impl<'p> Expander<'p> {
     /// Why `test` does not run: its file's `skip` or its own, else examples that gave no rows;
     /// `None` when it runs. An instance picked by number (`:n`) is never skipped for having no
     /// rows: it does not exist, which the selection reports.
-    fn not_run(&self, file: &TestFile, test: &Test, pick: &Pick) -> Result<Option<String>, PlanError> {
-        if let Some(reason) = self.skip(file, test) {
-            return Ok(Some(reason));
+    fn not_run(&self, file: &TestFile, test: &Test, pick: &Pick) -> Result<Option<Skip>, PlanError> {
+        if let Some(skip) = self.skip(file, test) {
+            return Ok(Some(skip.clone()));
         }
         let every = matches!(pick, Pick::All);
-        Ok((every && self.rows(test)? == Some(0)).then(|| NO_ROWS.to_owned()))
+        Ok((every && self.rows(test)? == Some(0)).then(|| Skip { reason: NO_ROWS.to_owned(), until: None }))
     }
 
     /// The picked tests that run and read their rows from a template that the options do not
@@ -106,12 +106,12 @@ impl<'p> Expander<'p> {
     }
 
     /// The reason `test` is skipped, from its file's `skip` or its own; `None` when it runs.
-    fn skip(&self, file: &TestFile, test: &Test) -> Option<String> {
+    fn skip<'t>(&self, file: &'t TestFile, test: &'t Test) -> Option<&'t Skip> {
         if self.include_skipped {
             return None;
         }
         let active = |skip: &&Skip| !self.expired(skip);
-        file.skip.as_ref().filter(active).or_else(|| test.skip.as_ref().filter(active)).map(|skip| skip.reason.clone())
+        file.skip.as_ref().filter(active).or_else(|| test.skip.as_ref().filter(active))
     }
 
     /// After `until`, the skip no longer holds.

@@ -1,0 +1,74 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2004_spec_not_found/project
+---
+{
+  "summary": {
+    "errors": 2,
+    "warnings": 0,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "code": "V2004",
+      "severity": "error",
+      "message": "`source.openapi` names ../outside.yaml, which is not in the project",
+      "primary": {
+        "span": {
+          "path": "services/orders/orders.api.yaml",
+          "line": 3,
+          "column": 12,
+          "endLine": 3,
+          "endColumn": 27
+        },
+        "text": "leads out of the project"
+      },
+      "secondary": [],
+      "notes": [
+        "`vc sync` reads the spec from it"
+      ],
+      "help": [
+        "`source.openapi` paths are relative to the project root"
+      ],
+      "fixes": []
+    },
+    {
+      "code": "V2004",
+      "severity": "error",
+      "message": "`source.openapi` names specs/user.yaml, which is not in the project",
+      "primary": {
+        "span": {
+          "path": "services/users/users.api.yaml",
+          "line": 3,
+          "column": 12,
+          "endLine": 3,
+          "endColumn": 27
+        },
+        "text": "no file at specs/user.yaml"
+      },
+      "secondary": [],
+      "notes": [
+        "`vc sync` reads the spec from it"
+      ],
+      "help": [
+        "did you mean `specs/users.yaml`?"
+      ],
+      "fixes": [
+        {
+          "title": "Replace with specs/users.yaml",
+          "certain": true,
+          "edits": [
+            {
+              "path": "services/users/users.api.yaml",
+              "range": {
+                "start": 43,
+                "end": 58
+              },
+              "newText": "specs/users.yaml"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

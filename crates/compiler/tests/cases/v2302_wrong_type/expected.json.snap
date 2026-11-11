@@ -12,7 +12,7 @@ input_file: crates/compiler/tests/cases/v2302_wrong_type/project
     {
       "code": "V2302",
       "severity": "error",
-      "message": "expected list of apiEntry, found a map",
+      "message": "expected a list of maps of `id`, `name`, `method`, …, found a map",
       "primary": {
         "span": {
           "path": "services/users/users.api.yaml",
@@ -21,7 +21,7 @@ input_file: crates/compiler/tests/cases/v2302_wrong_type/project
           "endLine": 1,
           "endColumn": 9
         },
-        "text": "expected list of apiEntry"
+        "text": "expected a list of maps of `id`, `name`, `method`, …"
       },
       "secondary": [],
       "notes": [],

@@ -96,10 +96,11 @@
         },
         "parallel": {
           "default": 1,
-          "description": "Iterations at a time",
+          "description": "Iterations at a time, with `repeat` or `forEach`",
           "examples": [
             5
           ],
+          "minimum": 1,
           "type": "integer"
         },
         "poll": {
@@ -125,6 +126,7 @@
           "examples": [
             10
           ],
+          "minimum": 1,
           "type": "integer"
         },
         "retry": {
@@ -148,6 +150,7 @@
           "examples": [
             "30s"
           ],
+          "pattern": "^[0-9]+(ms|s|m|h)$",
           "type": "string"
         },
         "vars": {
@@ -220,6 +223,7 @@
           "examples": [
             "12h"
           ],
+          "pattern": "^[0-9]+(ms|s|m|h)$",
           "type": "string"
         }
       },
@@ -335,6 +339,7 @@
           "examples": [
             "2s"
           ],
+          "pattern": "^[0-9]+(ms|s|m|h)$",
           "type": "string"
         },
         "timeout": {
@@ -342,6 +347,7 @@
           "examples": [
             "1m"
           ],
+          "pattern": "^[0-9]+(ms|s|m|h)$",
           "type": "string"
         },
         "until": {
@@ -387,6 +393,7 @@
           "examples": [
             2
           ],
+          "minimum": 0,
           "type": "integer"
         },
         "delay": {
@@ -395,6 +402,7 @@
           "examples": [
             "1s"
           ],
+          "pattern": "^[0-9]+(ms|s|m|h)$",
           "type": "string"
         }
       },
@@ -410,7 +418,7 @@
         "reason": {
           "description": "Shown in reports",
           "examples": [
-            "flaky upstream, see"
+            "flaky upstream, see issue 123"
           ],
           "type": "string"
         },
@@ -518,6 +526,7 @@
         "repeat": {
           "default": 1,
           "description": "Run the whole test this many times",
+          "minimum": 1,
           "type": "integer"
         },
         "retry": {
@@ -564,6 +573,7 @@
           "examples": [
             "30s"
           ],
+          "pattern": "^[0-9]+(ms|s|m|h)$",
           "type": "string"
         },
         "vars": {

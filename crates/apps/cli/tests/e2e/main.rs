@@ -28,6 +28,7 @@ mod lifecycle;
 mod load;
 mod mcp;
 mod migrate;
+mod paths;
 mod playground;
 mod plugin;
 mod redaction;

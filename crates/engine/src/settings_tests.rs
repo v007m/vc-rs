@@ -1,6 +1,8 @@
+use std::sync::Arc;
 use std::time::Duration;
 
 use vc_interfaces::{ConfigEntry, ConfigSource, ConfigSourceError};
+use vc_model::{Program, Retry};
 
 use super::{Named, Settings};
 use crate::EngineError;
@@ -45,6 +47,8 @@ fn every_key_reads_its_value() {
     let pairs = [
         ("defaults.perHost", "3"),
         ("defaults.timeout", "2s"),
+        ("defaults.retry.attempts", "0"),
+        ("defaults.retry.delay", "250ms"),
         ("reports.dir", "out"),
         ("reports.formats", "ctrf,junit"),
         ("reports.html.layout", "single"),
@@ -52,6 +56,8 @@ fn every_key_reads_its_value() {
     let settings = Settings::resolve(&[&layer("--set", &pairs)], &[]).unwrap();
     assert_eq!(settings.per_host, Some(3));
     assert_eq!(settings.timeout.map(vc_model::Duration::get), Some(Duration::from_secs(2)));
+    assert_eq!(settings.retry_attempts, Some(0));
+    assert_eq!(settings.retry_delay.map(vc_model::Duration::get), Some(Duration::from_millis(250)));
     assert_eq!(settings.reports_dir.as_deref(), Some("out"));
     assert_eq!(settings.formats.map(|formats| formats.names), Some(vec!["ctrf".into(), "junit".into()]));
     assert_eq!(settings.html_single_file, Some(true));
@@ -67,12 +73,33 @@ fn an_unknown_key_or_a_bad_value_names_its_layer() {
         ("defaults.concurrency", "0"),
         ("defaults.perHost", "x"),
         ("defaults.timeout", "soon"),
+        ("defaults.retry.attempts", "-1"),
+        ("defaults.retry.delay", "soon"),
         ("reports.dir", " "),
         ("reports.html.layout", "x"),
     ] {
         let error = Settings::resolve(&[&layer("VIB_PROFILE", &[(key, value)])], &[]).unwrap_err();
         assert!(matches!(&error, EngineError::Setting { origin, .. } if origin == "VIB_PROFILE"), "{error:?}");
     }
+}
+
+#[test]
+fn applied_settings_replace_the_configs_defaults_field_by_field() {
+    let written = Retry { attempts: 2, delay: vc_model::Duration::new(Duration::from_secs(1)) };
+    let mut program = Program::default();
+    program.config.defaults.retry = Some(written);
+    let mut program = Arc::new(program);
+    let attempts = Settings { retry_attempts: Some(5), ..Settings::default() };
+    attempts.apply(&mut program);
+    assert_eq!(program.config.defaults.retry, Some(Retry { attempts: 5, ..written }));
+    let mut bare = Arc::new(Program::default());
+    let delay = Settings { retry_delay: Some(written.delay), timeout: Some(written.delay), ..Settings::default() };
+    delay.apply(&mut bare);
+    assert_eq!(bare.config.defaults.retry, Some(Retry { attempts: 0, delay: written.delay }));
+    assert_eq!(bare.config.defaults.timeout, Some(written.delay));
+    let mut untouched = Arc::new(Program::default());
+    Settings::default().apply(&mut untouched);
+    assert_eq!((untouched.config.defaults.retry, untouched.config.defaults.timeout), (None, None));
 }
 
 #[test]

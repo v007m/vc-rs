@@ -27,7 +27,7 @@ fn template(parts: Vec<Part>) -> TemplateValue {
 }
 
 fn var(name: &str, value: TemplateValue) -> Var {
-    Var { name: name.to_owned(), value, origin: "test".to_owned() }
+    Var { name: name.to_owned(), value, origin: "test".to_owned(), saved: false }
 }
 
 #[test]
@@ -35,7 +35,7 @@ fn plain_vars_are_filled_in_and_other_references_shown_as_written() {
     let program = Program::default();
     let pipe =
         PipeCall { name: "default".into(), args: vec![json!("x"), json!(2)], name_span: nowhere(), span: nowhere() };
-    let piped = Reference { pipes: vec![pipe], ..reference(Namespace::Var, &["host"]) };
+    let piped = Reference { pipes: vec![pipe], ..reference(Namespace::Var, &["unset"]) };
     let fake = Reference { args: vec![json!(5)], ..reference(Namespace::Fake, &["lorem", "words"]) };
     let value = template(vec![
         Part::Literal("http://".into()),
@@ -49,7 +49,7 @@ fn plain_vars_are_filled_in_and_other_references_shown_as_written() {
     let vars = [var("host", literal("api"))];
     let shown = Shown { program: &program, vars: &vars };
     let expected =
-        "http://api${var.unset}${var.host | default('x', 2)}${response.body.id}${var.host.name}${fake.lorem.words(5)}";
+        "http://api${var.unset}${var.unset | default('x', 2)}${response.body.id}${var.host.name}${fake.lorem.words(5)}";
     assert_eq!(shown.value(&value), expected);
 }
 
@@ -83,4 +83,29 @@ fn a_set_var_replaces_the_one_before_in_its_place() {
     let shown: Vec<(&str, &str)> = vars.iter().map(|var| (var.name.as_str(), var.origin.as_str())).collect();
     assert_eq!(shown, [("a", "later"), ("b", "test")]);
     assert_eq!(Shown { program: &Program::default(), vars: &[] }.value(&vars[0].value), "3");
+}
+
+fn piped(name: &str, pipe: &str) -> Part {
+    let call = PipeCall { name: pipe.into(), args: Vec::new(), name_span: nowhere(), span: nowhere() };
+    Part::Ref(Reference { pipes: vec![call], ..reference(Namespace::Var, &[name]) })
+}
+
+#[test]
+fn a_known_var_is_shown_through_its_pipes() {
+    let program = Program::default();
+    let vars = [var("userId", literal("a b")), var("name", literal("Ada"))];
+    let shown = Shown { program: &program, vars: &vars };
+    let path = template(vec![Part::Literal("/users/".into()), piped("userId", "urlEncode"), piped("name", "upper")]);
+    assert_eq!(shown.value(&path), "/users/a%20bADA");
+    let list = template(vec![piped("name", "random")]);
+    assert_eq!(shown.value(&list), "${var.name | random}", "a pipe that fails is shown as written");
+}
+
+#[test]
+fn a_saved_var_is_shown_as_written() {
+    let program = Program::default();
+    let vars = [Var { saved: true, ..var("userId", literal("${response.body.id}")) }];
+    let shown = Shown { program: &program, vars: &vars };
+    let path = template(vec![Part::Literal("/users/".into()), Part::Ref(reference(Namespace::Var, &["userId"]))]);
+    assert_eq!(shown.value(&path), "/users/${var.userId}");
 }

@@ -115,7 +115,14 @@ auth:
   warning: plugin `summary`: its `config`: a plugin's `config` takes literal values; the plugin reads a secret with `secrets/get`
   ```
 
-  Neither `vc check` nor `vc plugin list` flags this yet; only the run does.
+  `vc check` warns about it before any run:
+
+  ```console
+  warning[V5120]: a run cannot use plugin `summary`: its `config`: a plugin's `config` takes literal values; the plugin reads a secret with `secrets/get`
+  ```
+
+  `vc plugin list` does not show it yet.
+- `vc check` gives the same V5120 warning for an entry that `vibranium.lock` does not approve, that is not installed, or whose installed manifest asks for more than the lock grants.
 - To give a plugin a secret, list it under `permissions.secrets` in the manifest; the plugin asks for it with `secrets/get`. The one other way is a `${secret.x}` in an auth definition's `config`, which [auth plugins](/vc-rs/reference/plugins/auth-plugins/) receive.
 - A plugin that fails, or is not ready, fails only the work that used it: a reporter's report, or the requests that use an auth plugin.
 

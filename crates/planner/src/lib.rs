@@ -27,5 +27,5 @@ pub use error::PlanError;
 pub use expand::{NO_ROWS, no_rows_notices};
 pub use options::{PlanOptions, Selection};
 pub use profiles::{ActiveProfiles, active_profiles};
-pub use render::{action_label, check_lines, dot, explain, json, plan_line, tree};
+pub use render::{action_label, check_lines, dot, explain, json, plan_line, shown_check_lines, tree};
 pub use select::{closest, select_apis, select_files};

@@ -1,0 +1,58 @@
+---
+title: "V4005 — baseUrl ends in /, or a path does not start with one"
+description: "An api's URL is its baseUrl and its path joined as plain text, so the two must meet at exactly one /."
+sidebar:
+  label: "V4005 baseUrl ends in /, or a path does not start with one"
+  order: 4005
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="warning" variant="caution" /> <Badge text="Conventions" variant="note" />
+
+| | |
+| --- | --- |
+| Code | `V4005` |
+| Category | V4xxx: Conventions |
+| Severity | warning |
+| Certain fix | remove or add the `/` |
+
+An api's URL is its `baseUrl` and its `path` joined as plain text, so the two must meet at exactly one `/`. A
+`baseUrl` that ends in `/` makes every path start with `//`; a `path` without its leading `/` runs into the host
+(`https://api.example.comusers`). Write `baseUrl` without a trailing `/` and every `path` with a leading one.
+`vc check --fix` removes the trailing `/` or adds the leading one. A `path` that is a full URL or starts with a
+template (`${var.usersUrl}/users`) is left alone.
+
+## Wrong
+
+```yaml title="services/users/users.api.yaml"
+baseUrl: https://api.example.com/
+apis:
+  - id: getUser
+    path: users/1
+```
+
+## Right
+
+```yaml title="services/users/users.api.yaml"
+baseUrl: https://api.example.com
+apis:
+  - id: getUser
+    path: /users/1
+```
+
+
+## Explain it in your terminal
+
+The same page is built into the binary, so this works anywhere, even outside a project:
+
+```console
+$ vc explain V4005
+```
+
+## Related
+
+- [All diagnostic codes](/vc-rs/reference/diagnostics/)
+- [`vc explain`](/vc-rs/reference/cli/explain/)
+- [`vc check`](/vc-rs/reference/cli/check/)
+- [Errors and fixes](/vc-rs/guides/errors-and-fixes/)

@@ -4,7 +4,7 @@ input_file: crates/compiler/tests/cases/v2002_unknown_fake/project
 ---
 {
   "summary": {
-    "errors": 2,
+    "errors": 4,
     "warnings": 0,
     "infos": 0
   },
@@ -27,8 +27,25 @@ input_file: crates/compiler/tests/cases/v2002_unknown_fake/project
       "notes": [
         "the generators are `commerce.price`, `date.future`, `date.past`, `date.recent`, `helpers.arrayElement`, `internet.email`, `internet.userName`, `location.city`, `location.country`, `location.countryCode`, `location.streetAddress`, `location.zipCode`, `lorem.paragraphs`, `lorem.sentence`, `lorem.word`, `lorem.words`, `number.float`, `number.int`, `person.firstName`, `person.fullName`, `person.jobTitle`, `phone.number`, `string.alphanumeric`, `string.fromRegExp`, `string.uuid`"
       ],
-      "help": [],
-      "fixes": []
+      "help": [
+        "did you mean `person.fullName`?"
+      ],
+      "fixes": [
+        {
+          "title": "Replace with person.fullName",
+          "certain": true,
+          "edits": [
+            {
+              "path": "services/users/users.api.yaml",
+              "range": {
+                "start": 55,
+                "end": 69
+              },
+              "newText": "person.fullName"
+            }
+          ]
+        }
+      ]
     },
     {
       "code": "V2002",
@@ -67,6 +84,67 @@ input_file: crates/compiler/tests/cases/v2002_unknown_fake/project
           ]
         }
       ]
+    },
+    {
+      "code": "V2002",
+      "severity": "error",
+      "message": "`fake.person.fullname` is not a generator",
+      "primary": {
+        "span": {
+          "path": "services/users/users.api.yaml",
+          "line": 5,
+          "column": 9,
+          "endLine": 5,
+          "endColumn": 32
+        },
+        "text": "no generator has this name"
+      },
+      "secondary": [],
+      "notes": [
+        "the generators are `commerce.price`, `date.future`, `date.past`, `date.recent`, `helpers.arrayElement`, `internet.email`, `internet.userName`, `location.city`, `location.country`, `location.countryCode`, `location.streetAddress`, `location.zipCode`, `lorem.paragraphs`, `lorem.sentence`, `lorem.word`, `lorem.words`, `number.float`, `number.int`, `person.firstName`, `person.fullName`, `person.jobTitle`, `phone.number`, `string.alphanumeric`, `string.fromRegExp`, `string.uuid`"
+      ],
+      "help": [
+        "did you mean `person.fullName`?"
+      ],
+      "fixes": [
+        {
+          "title": "Replace with person.fullName",
+          "certain": true,
+          "edits": [
+            {
+              "path": "services/users/users.api.yaml",
+              "range": {
+                "start": 118,
+                "end": 133
+              },
+              "newText": "person.fullName"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "V2002",
+      "severity": "error",
+      "message": "`fake.lorem.wordz` is not a generator",
+      "primary": {
+        "span": {
+          "path": "services/users/users.api.yaml",
+          "line": 6,
+          "column": 10,
+          "endLine": 6,
+          "endColumn": 29
+        },
+        "text": "no generator has this name"
+      },
+      "secondary": [],
+      "notes": [
+        "the generators are `commerce.price`, `date.future`, `date.past`, `date.recent`, `helpers.arrayElement`, `internet.email`, `internet.userName`, `location.city`, `location.country`, `location.countryCode`, `location.streetAddress`, `location.zipCode`, `lorem.paragraphs`, `lorem.sentence`, `lorem.word`, `lorem.words`, `number.float`, `number.int`, `person.firstName`, `person.fullName`, `person.jobTitle`, `phone.number`, `string.alphanumeric`, `string.fromRegExp`, `string.uuid`"
+      ],
+      "help": [
+        "did you mean one of `lorem.word`, `lorem.words`?"
+      ],
+      "fixes": []
     }
   ]
 }

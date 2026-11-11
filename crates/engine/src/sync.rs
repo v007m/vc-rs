@@ -99,12 +99,21 @@ fn selected(project: &Authoring, files: &[String]) -> Result<Vec<String>, Engine
         let with_source = apis.filter(|&found| sourced(found));
         return Ok(with_source.map(|(_, file)| FileKind::Api.file_id(file.path.as_str())).collect());
     }
-    for file_id in files {
-        if project.find(FileKind::Api, file_id).is_none() {
-            return Err(Authoring::unknown("api file", file_id, &project.known(FileKind::Api, "apis")));
+    if let Some(wanted) = files.iter().find(|wanted| project.find(FileKind::Api, wanted).is_none()) {
+        if let Some(file_id) = api_file_at(project, wanted) {
+            let reason = format!("`{wanted}` is a path; `vc sync` names an api file by its file ID");
+            return Err(refused(reason, &format!("did you mean `vc sync {file_id}`?")));
         }
+        return Err(Authoring::unknown("api file", wanted, &project.known(FileKind::Api, "apis")));
     }
     Ok(files.to_vec())
+}
+
+/// The file ID of the api file at the project path `path` (`./` in front or not), if there is one.
+fn api_file_at(project: &Authoring, path: &str) -> Option<String> {
+    let path = path.strip_prefix("./").unwrap_or(path);
+    let mut apis = project.entries().filter(|(_, file)| file.kind() == Some(FileKind::Api));
+    apis.find(|(_, file)| file.path.as_str() == path).map(|_| FileKind::Api.file_id(path))
 }
 
 /// Whether the api file has a `source` at its root; one that does not parse has none.

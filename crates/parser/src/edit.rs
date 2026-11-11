@@ -6,6 +6,7 @@
 //! refuses an edit adding an error lives in the engine.
 
 mod command;
+mod comments;
 mod format;
 mod format_tree;
 mod items;

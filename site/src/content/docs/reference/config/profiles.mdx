@@ -4,7 +4,7 @@ description: "Named sets of var values, one per environment, picked with --profi
 sidebar: { order: 41 }
 ---
 
-import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
 import Playground from '~/components/Playground.svelte';
 
 A profile is a named set of values that replace the config's [`vars`](/vc-rs/reference/config/vars/). Use one per environment: `dev`, `staging`, `prod`.
@@ -124,11 +124,9 @@ profiles:
 - A var a profile sets replaces the config's value whole. A map is not merged.
 - Api and test files may have their own `profiles` list, to change that file's `vars`. Each ID there must exist in the config.
 
-<Aside type="caution">If no profile is marked `default: true`, `vc check` still passes, but `vc run` stops with `error: no profile is active` until you pass `--profile`. Keep one default.</Aside>
-
 ## Common errors
 
-- [V3101](/vc-rs/reference/diagnostics/v3101/): no profiles.
+- [V3101](/vc-rs/reference/diagnostics/v3101/): no profiles, or none marked `default: true` while neither the user config, `.env` nor `VIB_PROFILE` names one. A run without `--profile` would have none active.
 - [V3102](/vc-rs/reference/diagnostics/v3102/): a second default profile.
 - [V4004](/vc-rs/reference/diagnostics/v4004/): a profile ID that is not a lower-case word.
 

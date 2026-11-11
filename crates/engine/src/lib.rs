@@ -42,6 +42,8 @@ mod call;
 mod call_report;
 mod check;
 mod check_alerts;
+mod check_plugins;
+mod check_profiles;
 mod complete;
 mod config_explain;
 mod config_values;

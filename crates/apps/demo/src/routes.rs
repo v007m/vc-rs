@@ -17,6 +17,10 @@ use serde_json::{Value, json};
 /// The largest body `/echo` reads.
 const BODY_LIMIT: usize = 1024 * 1024;
 
+/// The header `/echo` names this process in, so `vc demo start` knows the demo it launched is the
+/// one that answers.
+pub const PID_HEADER: &str = "x-vc-demo-pid";
+
 /// The ID the first created user gets, after the two canned ones.
 const FIRST_ID: u64 = 3;
 
@@ -65,7 +69,8 @@ async fn remove(Path(_id): Path<String>) -> StatusCode {
     StatusCode::NO_CONTENT
 }
 
-/// `ANY /echo`: the request's method, path, query, headers and body as JSON.
+/// `ANY /echo`: the request's method, path, query, headers and body as JSON, with this process's
+/// pid in [`PID_HEADER`].
 async fn echo(request: Request<Body>) -> Response {
     let (parts, body) = request.into_parts();
     let bytes = match body::to_bytes(body, BODY_LIMIT).await {
@@ -79,7 +84,7 @@ async fn echo(request: Request<Body>) -> Response {
         "headers": headers_of(&parts),
         "body": body_of(&bytes),
     });
-    Json(echoed).into_response()
+    ([(PID_HEADER, std::process::id().to_string())], Json(echoed)).into_response()
 }
 
 fn query_of(parts: &Parts) -> BTreeMap<String, String> {

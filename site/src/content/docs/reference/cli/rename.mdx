@@ -51,7 +51,7 @@ $ vc rename auth.partnerToken auth.partnerAuth
 
 The config key and every `${var.billingUrl}` or `auth: partnerToken` change together.
 
-Comments are not rewritten. The `# users#listUsers · …` lines that [`vc new`](/vc-rs/reference/cli/new/) wrote keep the old ID; drop them with [`vc fmt --strip-comments`](/vc-rs/reference/cli/fmt/) or edit them.
+The comments [`vc new`](/vc-rs/reference/cli/new/) wrote (`# users#listUsers · GET /users · keys: …`, `# users.crud · test file · …`, `# partnerToken · bearer · …`) follow the rename. Any other comment is yours and keeps the old ID.
 
 ## Exit codes
 

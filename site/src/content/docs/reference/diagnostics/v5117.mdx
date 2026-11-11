@@ -22,6 +22,10 @@ results and exit code are unchanged: an alert is a notice about the run, never p
 channel and the HTTP status or the network error, never the webhook URL or a routing key, which are secrets. Check
 the channel's settings, and that the secret it reads is set in the profile the run used.
 
+`vc check` gives the same warning before any run for a channel name the engine does not know, and for settings
+the channel refuses, such as a missing `webhook` or an unknown PagerDuty `severity`. A setting written as a
+`${…}` template is checked only when the run ends.
+
 ## Wrong
 
 ```yaml title="vibranium.config.yaml"

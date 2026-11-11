@@ -48,3 +48,11 @@ async fn echo_describes_the_request() {
     assert_eq!(send(&app, Method::GET, "/echo", "plain").await.1["body"], "plain");
     assert_eq!(send(&app, Method::GET, "/echo", "").await.1["body"], Value::Null);
 }
+
+#[tokio::test]
+async fn echo_names_the_pid_of_the_demo() {
+    let request = Request::builder().uri("/echo").body(Body::empty()).unwrap();
+    let response = router().oneshot(request).await.unwrap();
+    let pid = response.headers().get(super::PID_HEADER).and_then(|value| value.to_str().ok());
+    assert_eq!(pid, Some(std::process::id().to_string().as_str()));
+}

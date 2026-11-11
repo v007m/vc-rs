@@ -18,7 +18,7 @@ import Playground from '~/components/Playground.svelte';
 
 | Field | Type | Default | Required | Notes |
 | --- | --- | --- | --- | --- |
-| `skip` | string | — | no | The reason. Short form. |
+| `skip` | string | — | no | The reason. Short form. A blank reason, `true` or `false` is an error (V3103). |
 | `skip.reason` | string | — | yes | The reason, in the map form. |
 | `skip.until` | date `YYYY-MM-DD` | — | no | The last day of the skip, in UTC. After it, the test runs again and `vc check` warns (V3104). |
 

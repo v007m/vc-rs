@@ -1,0 +1,61 @@
+---
+title: "V4007 — A value in a path ends in the urlEncode pipe, which a run applies already"
+description: "A run percent-encodes each ${…} value in an api's path as one segment, so a/b c is sent as a%2Fb%20c."
+sidebar:
+  label: "V4007 A value in a path ends in the urlEncode pipe, which a run applies already"
+  order: 4007
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="warning" variant="caution" /> <Badge text="Conventions" variant="note" />
+
+| | |
+| --- | --- |
+| Code | `V4007` |
+| Category | V4xxx: Conventions |
+| Severity | warning |
+| Certain fix | remove the pipe (certain fix) |
+
+A run percent-encodes each `${…}` value in an api's `path` as one segment, so `a/b c` is sent as `a%2Fb%20c`. A value
+whose last pipe is `urlEncode` is already encoded, so the run sends it as the pipe left it rather than encoding it
+twice. The pipe does nothing there. The certain fix removes it, together with its `|`. Pipes before it stay, and a
+`urlEncode` followed by another pipe is not reported.
+
+## Wrong
+
+```yaml title="services/users/users.api.yaml"
+baseUrl: https://api.example.com
+apis:
+  - id: getUser
+    path: /users/${var.userId | urlEncode}
+    vars:
+      userId: a b
+```
+
+## Right
+
+```yaml title="services/users/users.api.yaml"
+baseUrl: https://api.example.com
+apis:
+  - id: getUser
+    path: /users/${var.userId}
+    vars:
+      userId: a b
+```
+
+
+## Explain it in your terminal
+
+The same page is built into the binary, so this works anywhere, even outside a project:
+
+```console
+$ vc explain V4007
+```
+
+## Related
+
+- [All diagnostic codes](/vc-rs/reference/diagnostics/)
+- [`vc explain`](/vc-rs/reference/cli/explain/)
+- [`vc check`](/vc-rs/reference/cli/check/)
+- [Errors and fixes](/vc-rs/guides/errors-and-fixes/)

@@ -6,7 +6,7 @@ sidebar: { order: 12 }
 
 import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
 
-Rewrites definition files so they all look alike: block YAML instead of `{…}` flow maps, keys in a fixed order (`id`, `name`, `method`, `path`, …), and quotes only where YAML needs them. The meaning of a file never changes.
+Rewrites definition files so they all look alike: block YAML instead of `{…}` flow maps, keys in a fixed order (`id`, `name`, `method`, `path`, …), and quotes only where YAML needs them, on keys as on values (`"pinned": true` becomes `pinned: true`; `"[*].id"` keeps its quotes). The meaning of a file never changes.
 
 ```console
 $ vc fmt [OPTIONS] [PATHS]...

@@ -42,6 +42,7 @@ The server received `GET /whoami?tenant=t-822b33ad&profiles=default`.
 | `vars` | map | — | no | Values passed to the function, over every other level |
 | `provides` | list of names | — | no | The names it saves; see [provides](/vc-rs/reference/lifecycle/provides/) |
 | `timeout` | duration | `200ms` | no | The function's run budget |
+| `repeat`, `forEach`, `parallel` | number, list, number | — | no | Runs the function several times; see [loops](/vc-rs/reference/lifecycle/loops/) |
 
 ## The function's input and output
 

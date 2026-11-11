@@ -1,0 +1,84 @@
+---
+/** Two panes side by side, stacked below 56rem, each with an optional caption over its content. */
+interface Props {
+  startLabel?: string;
+  endLabel?: string;
+}
+
+const { startLabel, endLabel } = Astro.props;
+---
+
+<div class="lp-split">
+  <div class="lp-pane">
+    {startLabel && <p class="lp-pane-label"><span class="lp-pane-dot" aria-hidden="true"></span>{startLabel}</p>}
+    <slot name="start" />
+  </div>
+  <div class="lp-pane">
+    {endLabel && <p class="lp-pane-label"><span class="lp-pane-dot is-end" aria-hidden="true"></span>{endLabel}</p>}
+    <slot name="end" />
+  </div>
+</div>
+
+<style>
+  .lp-split {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.5rem;
+    align-items: start;
+  }
+  @media (min-width: 56rem) {
+    .lp-split {
+      grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+      gap: 2rem;
+    }
+  }
+  /* Wide screens: grow past the 67.5rem column so real CLI output fits without scrolling. */
+  @media (min-width: 72rem) {
+    .lp-split {
+      --lp-split-w: min(100vw - 4rem, 80rem);
+      width: var(--lp-split-w);
+      margin-inline: calc((100% - var(--lp-split-w)) / 2);
+    }
+  }
+  .lp-split :global(.expressive-code) {
+    --ec-codeFontSize: 0.75rem;
+  }
+  .lp-pane > :global(div) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1rem;
+  }
+  .lp-pane > :global(div > *) {
+    margin: 0;
+  }
+  .lp-pane {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    min-width: 0;
+  }
+  .lp-pane > :global(*) {
+    margin: 0;
+  }
+  .lp-pane-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: var(--sl-text-sm);
+    font-weight: 600;
+    color: var(--sl-color-gray-2);
+  }
+  .lp-pane-dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background: var(--sl-color-accent);
+  }
+  .lp-pane-dot.is-end {
+    background: var(--lp-ok);
+  }
+  .lp-pane :global(p:not(.lp-pane-label)) {
+    font-size: var(--sl-text-sm);
+    color: var(--sl-color-gray-3);
+  }
+</style>

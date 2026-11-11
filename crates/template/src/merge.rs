@@ -4,16 +4,32 @@
 use serde_json::Value;
 use vc_model::{Path, Segment};
 
-use crate::select;
+use crate::{RenderError, select};
 
 /// `base` with `changes` merged over it and each path in `remove` taken out.
-#[must_use]
-pub fn extend(base: Value, changes: Value, remove: &[Path]) -> Value {
-    let mut merged = merge(base, changes);
+///
+/// # Errors
+///
+/// [`RenderError`] when `base` is not an object: there is nothing to start from.
+pub fn extend(base: Value, changes: Value, remove: &[Path]) -> Result<Value, RenderError> {
+    let mut merged = merge(object(base)?, changes);
     for path in remove {
         remove_at(&mut merged, &path.segments);
     }
-    merged
+    Ok(merged)
+}
+
+/// The base an `$extend` renders, which must be an object.
+fn object(base: Value) -> Result<Value, RenderError> {
+    let found = match &base {
+        Value::Object(_) => return Ok(base),
+        Value::Null => "null",
+        Value::Bool(_) => "a boolean",
+        Value::Number(_) => "a number",
+        Value::String(_) => "text",
+        Value::Array(_) => "a list",
+    };
+    Err(RenderError::invalid(format!("`$extend` needs an object to start from, but its base is {found}")))
 }
 
 /// Objects merge key by key, recursively; anything else in `changes` replaces the base, and a

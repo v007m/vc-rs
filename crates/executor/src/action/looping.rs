@@ -9,7 +9,7 @@ use tokio::task::{Id, JoinSet};
 use vc_diagnostics::Code;
 use vc_model::{ActionOutcome, Failure, Loop};
 
-use super::{ActionExecutor, ActionRequest, request};
+use super::{ActionExecutor, ActionRequest, called, request};
 use crate::{ActionReport, CleanupSink, Frame, Iteration, Render, Saved};
 
 /// Runs `request`'s action once per turn of `spec` with `executor`. Once a turn fails no more
@@ -20,6 +20,9 @@ pub async fn iterate(executor: Arc<dyn ActionExecutor>, request: ActionRequest, 
         Ok(turns) => turns,
         Err(failure) => return ActionReport::failed(failure.at(request.action)),
     };
+    if turns.is_empty() {
+        return ActionReport { saved: none_saved(&request), ..ActionReport::passed() };
+    }
     let mut running = Running::new(executor, turns.len());
     for (slot, turn) in turns.into_iter().enumerate() {
         if !running.make_room(width(spec)).await {
@@ -28,6 +31,16 @@ pub async fn iterate(executor: Arc<dyn ActionExecutor>, request: ActionRequest, 
         running.start(slot, ActionRequest { frame: turned(&request.frame, turn), ..request.clone() });
     }
     gather(running.finish().await)
+}
+
+/// Each name the action behind `request` saves (by its `save`, its api's and its `provides`) as
+/// an empty list: what a loop with no turns saves, so a later step reads `[]`, not an unset var.
+fn none_saved(request: &ActionRequest) -> Saved {
+    let program = &request.cx.program;
+    let Some(action) = request.cx.action(request.action) else { return Saved::new() };
+    let api = called(program, action).map(|api| &api.save);
+    let names = std::iter::once(&action.save).chain(api).flat_map(|spec| spec.values.keys()).chain(&action.provides);
+    names.filter_map(|name| program.str(name.sym())).map(|name| (name.to_owned(), Value::Array(Vec::new()))).collect()
 }
 
 /// How many turns may run at once.

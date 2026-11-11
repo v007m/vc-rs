@@ -295,14 +295,17 @@ fn extend_merges_deeply_and_removes_what_it_finds() {
         Path { segments: vec![key("f"), key("h"), key("i")] },
     ];
     let expected = json!({"a": {"b": null, "c": [2, 3], "g": 2}, "d": [{}, 5], "f": {"h": 1}});
-    assert_eq!(vc_template::extend(base, changes, &remove), expected);
+    assert_eq!(vc_template::extend(base, changes, &remove).ok(), Some(expected));
     let cleared = vc_template::extend(
         json!({"l": [1, 2], "m": {"n": 1}}),
         json!({}),
         &[Path { segments: vec![key("l"), Segment::All] }, Path { segments: vec![key("m"), Segment::All] }],
     );
-    assert_eq!(cleared, json!({"l": [], "m": {"n": 1}}));
-    assert_eq!(vc_template::extend(json!([1]), json!({"a": 1}), &[]), json!({"a": 1}));
+    assert_eq!(cleared.ok(), Some(json!({"l": [], "m": {"n": 1}})));
+    for (base, found) in [(json!([1]), "a list"), (json!(5), "a number"), (json!("x"), "text"), (Value::Null, "null")] {
+        let refused = vc_template::extend(base, json!({"a": 1}), &[]).map_err(|error| error.to_string());
+        assert!(refused.is_err_and(|error| error.ends_with(&format!("but its base is {found}"))), "{found}");
+    }
 }
 
 fn json_value() -> impl Strategy<Value = Value> {

@@ -97,8 +97,9 @@ pub fn hint(
     let mut close = suggest::close(written, candidates.iter().map(String::as_str));
     close.truncate(MAX_SUGGESTIONS);
     match close.as_slice() {
+        [] if known.folder.is_empty() => diagnostic.help(format!("{} are relative to the project root", known.what)),
         [] => {
-            let place = if known.folder.is_empty() { "the project root".to_owned() } else { known.folder.join("/") };
+            let place = known.folder.join("/");
             diagnostic.help(format!("{} are relative to the file that holds them, here {place}", known.what))
         }
         [one] => {

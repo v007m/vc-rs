@@ -120,6 +120,7 @@
         },
         "timeout": {
           "description": "Per request attempt",
+          "pattern": "^[0-9]+(ms|s|m|h)$",
           "type": "string"
         },
         "vars": {
@@ -163,6 +164,7 @@
         "base": {
           "default": "100ms",
           "description": "First pause",
+          "pattern": "^[0-9]+(ms|s|m|h)$",
           "type": "string"
         },
         "jitter": {
@@ -173,6 +175,7 @@
         "max": {
           "default": "2s",
           "description": "Longest pause",
+          "pattern": "^[0-9]+(ms|s|m|h)$",
           "type": "string"
         }
       },
@@ -349,6 +352,7 @@
           "examples": [
             2
           ],
+          "minimum": 0,
           "type": "integer"
         },
         "backoff": {

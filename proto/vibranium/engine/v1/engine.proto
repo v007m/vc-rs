@@ -87,7 +87,8 @@ message ListDefinitionsRequest {
   // Tests when unspecified.
   DefinitionKind kind = 1;
   Selection selection = 2;
-  // List only the skipped tests, as `vc list --skipped` does; without it, skipped tests are listed with the rest.
+  // List only the skipped tests, and those whose skip has ended, as `vc list --skipped` does; without it, skipped
+  // tests are listed with the rest.
   bool skipped = 3;
 }
 

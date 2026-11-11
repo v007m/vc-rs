@@ -1,0 +1,11 @@
+syntaxVersion: 2
+project: shop
+vars:
+  usersUrl: http://localhost
+  traceHeader: X-Trace-Id
+profiles:
+  - id: dev
+    default: true
+defaults:
+  headers:
+    "Accept Language": en

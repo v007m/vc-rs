@@ -64,7 +64,9 @@ fn a_load_file_defaults_to_api_checks_and_no_pause() {
     let scenario = program.loads.values().next().unwrap();
     assert!(!scenario.full_checks && scenario.thresholds.is_empty() && scenario.abort_on.is_empty());
     assert_eq!((seconds(scenario.think_time.0), seconds(scenario.think_time.1)), (0, 0));
-    let fixed = build("mix:\n  - {test: users.crud#getsUser, weight: 1}\nstages: []\nthinkTime: 2s\n");
+    let fixed = build(
+        "mix:\n  - {test: users.crud#getsUser, weight: 1}\nstages:\n  - {duration: 2s, users: 1}\nthinkTime: 2s\n",
+    );
     let scenario = fixed.loads.values().next().unwrap();
     assert_eq!((seconds(scenario.think_time.0), seconds(scenario.think_time.1)), (2, 2));
 }
@@ -81,7 +83,7 @@ fn an_unknown_mix_test_is_v2003() {
 fn an_error_rate_takes_a_percentage_or_a_share() {
     let rate = |threshold: &str| {
         let program = build(&format!(
-            "mix:\n  - {{test: users.crud#getsUser, weight: 1}}\nstages: []\nthresholds: {{errorRate: {threshold}}}\n"
+            "mix:\n  - {{test: users.crud#getsUser, weight: 1}}\nstages:\n  - {{duration: 2s, users: 1}}\nthresholds: {{errorRate: {threshold}}}\n"
         ));
         let scenario = program.loads.values().next().unwrap();
         let Some(Matcher::All(calls)) = scenario.thresholds.get("errorRate") else { panic!("a matcher") };

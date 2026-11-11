@@ -155,7 +155,7 @@ fn new_test_auth_adds_a_test_calling_with_no_auth() {
     let project = Project::new(&[CONFIG, USERS]);
     project.vc(&["new", "test", "users.crud#listsUsers", "--from", "users#list", "--auth"]).assert().code(0);
     let text = project.read(CRUD.0);
-    let anonymous = "  - id: listRejectsAnonymous\n    name: List needs a signed-in caller\n    call: users#list\n";
+    let anonymous = "  - id: rejectsAnonymousList\n    name: List needs a signed-in caller\n    call: users#list\n";
     assert!(text.contains("  - id: listsUsers\n") && text.contains(anonymous), "{text}");
     assert!(text.ends_with("    auth: none\n    expect:\n      status: 401\n"), "{text}");
     checks_clean(&project);

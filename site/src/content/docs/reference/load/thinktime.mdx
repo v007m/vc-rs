@@ -4,7 +4,6 @@ description: "The pause each virtual user takes between iterations, as a fixed d
 sidebar: { order: 5 }
 ---
 
-import { Aside } from '@astrojs/starlight/components';
 import Playground from '~/components/Playground.svelte';
 
 `thinkTime` is how long each user waits after one iteration before starting the next, like a person reading a page.
@@ -24,7 +23,7 @@ thinkTime:                # random, between the two
 | Field | Type | Default | Required | Notes |
 | --- | --- | --- | --- | --- |
 | `thinkTime` | duration, or a map of `min` and `max` | `0s` | no | `0s` means users start the next iteration at once. |
-| `min` | duration | — | with `max` | Shortest pause. |
+| `min` | duration | — | with `max` | Shortest pause; no longer than `max`. |
 | `max` | duration | — | with `min` | Longest pause. |
 
 ## Examples
@@ -74,10 +73,7 @@ thinkTime:
 
 - The pause comes after each iteration and is not part of any latency metric.
 - With think time, `rps` is roughly users ÷ (think time + iteration time). Raise users, not lower think time, to model more people.
-
-<Aside type="caution">
-`vc check` doesn't yet reject a `min` larger than `max`. Keep `min` at or below `max`.
-</Aside>
+- A `min` longer than `max` is an error (`V2302`).
 
 ## Related
 

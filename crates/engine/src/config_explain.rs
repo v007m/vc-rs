@@ -30,6 +30,8 @@ const SETTINGS: &[Setting] = &[
     ("defaults.concurrency", Some("16"), concurrency),
     ("defaults.perHost", Some("8"), per_host),
     ("defaults.timeout", Some(TIMEOUT), timeout),
+    ("defaults.retry.attempts", Some("0"), retry_attempts),
+    ("defaults.retry.delay", Some("0s"), retry_delay),
     ("reports.dir", Some(reporting::REPORTS_DIR), reports_dir),
     ("reports.formats", Some("ctrf"), formats),
     ("reports.html.layout", Some("folder"), html_layout),
@@ -48,10 +50,18 @@ impl Engine {
     /// setting or an unknown profile, and [`EngineError::Selection`] when `key` is not a setting
     /// or a var anything sets, with the closest keys as help.
     pub async fn config_explain(&self, key: &str, request: &ExplainRequest) -> Result<ExplainReport, EngineError> {
-        let found = self.config_values(&[key.to_owned()], request).await?;
-        let text = found.values.first().map(text).unwrap_or_default();
+        let found = self.config_values(&keys_under(key), request).await?;
+        let text = found.values.iter().map(text).collect();
         Ok(ExplainReport { text, notices: found.notices })
     }
+}
+
+/// The settings under `key` when it names a group of them (`defaults.retry`), else `key`.
+fn keys_under(key: &str) -> Vec<String> {
+    let group = format!("{key}.");
+    let under: Vec<String> =
+        SETTINGS.iter().map(|(name, _, _)| *name).filter(|name| name.starts_with(&group)).map(str::to_owned).collect();
+    if under.is_empty() { vec![key.to_owned()] } else { under }
 }
 
 /// The values `key` had, lowest first; `None` when it is no setting, and none when it is a
@@ -153,6 +163,14 @@ fn per_host(program: &Program) -> Option<String> {
 
 fn timeout(program: &Program) -> Option<String> {
     program.config.defaults.timeout.map(|timeout| duration(timeout.get()))
+}
+
+fn retry_attempts(program: &Program) -> Option<String> {
+    program.config.defaults.retry.map(|retry| retry.attempts.to_string())
+}
+
+fn retry_delay(program: &Program) -> Option<String> {
+    program.config.defaults.retry.map(|retry| duration(retry.delay.get()))
 }
 
 fn reports_dir(program: &Program) -> Option<String> {

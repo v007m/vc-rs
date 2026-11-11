@@ -64,7 +64,7 @@ Use [`int`](/vc-rs/reference/pipes/int/) instead when the api needs a whole numb
 
 ## How it behaves
 
-- `vc check` accepts text, a number or a boolean as input. At run time a boolean fails (see Common errors).
+- `vc check` accepts text or a number as input: a var known to be a boolean is V2304. A value known only at run time, such as a saved one, fails there when it is a boolean (see Common errors).
 - The whole template must be the pipe for the number to stay a number. Inside other text, such as `n=${var.price | number}`, the result is text again. See [Types](/vc-rs/reference/templates/types/).
 - Text that is not a number fails the action at run time with V5111.
 
@@ -73,7 +73,7 @@ Use [`int`](/vc-rs/reference/pipes/int/) instead when the api needs a whole numb
 A list at check time:
 
 ```console
-error[V2304]: pipe `number` takes text, a number or a boolean, not a list
+error[V2304]: pipe `number` takes text or a number, not a list
   --> services/tpl/pe.test.yaml:12:27
    |
 12 |         c: ${var.cities | number}
@@ -88,9 +88,9 @@ At run time:
      = at: call sample#echo
 ```
 
-With `yes: true`, `${var.yes | number}` passes `vc check` but fails at run time: ``pipe `number` cannot take true: it takes text or a number``.
+With `yes: true`, `${var.yes | number}` is V2304 too: ``pipe `number` takes text or a number, not a boolean``. A saved boolean fails at run time: ``pipe `number` cannot take true: it takes text or a number``.
 
-- [V2304](/vc-rs/reference/diagnostics/v2304/): the input is known to be a list or an object.
+- [V2304](/vc-rs/reference/diagnostics/v2304/): the input is known to be a list, an object or a boolean.
 - [V2308](/vc-rs/reference/diagnostics/v2308/): an unknown pipe name, or the wrong number of arguments.
 - [V5111](/vc-rs/reference/diagnostics/v5111/): the text is not a number, or the input is a boolean.
 

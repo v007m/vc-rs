@@ -85,3 +85,15 @@ fn skip_refuses_a_date_that_is_not_one() {
     assert!(!project.vc(&args).output().unwrap().status.success());
     assert_eq!(project.read(CRUD.0), CRUD.1);
 }
+
+#[test]
+fn skip_refuses_an_until_that_is_already_past() {
+    let project = Project::new(&[CONFIG, USERS, CRUD]);
+    let args = ["skip", "users.crud#listsUsers", "--reason", "x", "--until", "2020-01-01"];
+    let output = project.vc(&args).output().unwrap();
+    let text = said(&output);
+    assert_eq!(output.status.code(), Some(2), "{text}");
+    assert!(text.contains("V3104: `--until 2020-01-01` is before today"), "{text}");
+    assert!(text.contains("give today or a later date, or leave `--until` out"), "{text}");
+    assert_eq!(project.read(CRUD.0), CRUD.1);
+}

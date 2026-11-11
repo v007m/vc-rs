@@ -1,3 +1,5 @@
 tests:
   - id: listsLegacyUsers
     call: users#listLegacyUsers
+  - id: listsOldUsers
+    call: users#listOldUsers

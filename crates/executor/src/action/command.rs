@@ -101,7 +101,7 @@ fn line(render: &Render<'_>, template: &Template) -> Result<String, Failure> {
     let (_, _, word) = SHELL;
     let part = |part: &Part| match part {
         Part::Literal(text) => Ok(text.clone()),
-        Part::Ref(reference) => word(&render.text(&lone(reference.clone())).map_err(request::failed)?),
+        Part::Ref(reference) => word(&render.text(&request::lone(reference.clone())).map_err(request::failed)?),
     };
     template.parts.iter().map(part).collect()
 }
@@ -120,13 +120,9 @@ fn exported(render: &Render<'_>, action: &Action) -> Vec<(String, String)> {
             span: action.span,
             root_span: action.span,
         };
-        Some((format!("{VAR_PREFIX}{name}"), render.text(&lone(reference)).ok()?))
+        Some((format!("{VAR_PREFIX}{name}"), render.text(&request::lone(reference)).ok()?))
     };
     names.into_iter().filter_map(var).collect()
-}
-
-fn lone(reference: Reference) -> Template {
-    Template { parts: vec![Part::Ref(reference)] }
 }
 
 /// One POSIX shell word: single quotes, with `'` written as `'\''`.

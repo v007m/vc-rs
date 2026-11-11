@@ -102,15 +102,14 @@ An unknown value in `on`:
 
 ```console
 $ vc check
-error[V2302]: expected one of connect, timeout, found `teapot`
+error[V2302]: expected an integer or one of connect, timeout, found `teapot`
   --> vibranium.config.yaml:23:19
    |
 23 |     on: [timeout, teapot]
    |                   ^^^^^^ not a known value
-   = help: expected one of `connect`, `timeout`
 ```
 
-Status codes such as `503` are allowed too, even though the message lists only the words.
+The integer is a status code, such as `503`.
 
 An unknown key under `http`:
 

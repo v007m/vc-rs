@@ -1,0 +1,210 @@
+---
+/**
+ * A terminal window that replays a real `vc` session: commands type in, output lines fade in.
+ * The text is always in the DOM; the animation is CSS only and is off for reduced motion.
+ */
+interface Props {
+  title: string;
+  /** The session as captured, one string per line; a command line starts with `$ `. */
+  lines: string[];
+}
+
+const { title, lines } = Astro.props;
+
+type Part = [cls: string, text: string];
+
+/** Colours one output line the way the `spec` reporter does in a colour terminal. */
+function paint(line: string): Part[] {
+  const rules: Array<[RegExp, string[]]> = [
+    [/^(✓)( \S+)(\s+)(\S+)$/, ['ok', '', '', 'dim']],
+    [/^(✕)( \S+)(\s+)(\S+)$/, ['bad', '', '', 'dim']],
+    [/^(plan)(.*)$/, ['accent', 'dim']],
+    [/^(\d+ passed)(.*)$/, ['ok strong', 'dim']],
+    [/^(reports)(.*)$/, ['dim', '']],
+    [/^(0 errors)(.*)$/, ['ok', 'dim']],
+  ];
+  for (const [re, classes] of rules) {
+    const m = line.match(re);
+    if (m) return classes.map((cls, i) => [cls, m[i + 1]]);
+  }
+  return [['', line]];
+}
+
+const TYPE_MS = 45;
+const LINE_MS = 90;
+let at = 400;
+const rows = lines.map((line) => {
+  if (line.startsWith('$ ')) {
+    const cmd = line.slice(2);
+    const row = { cmd, delay: at, chars: cmd.length };
+    at += cmd.length * TYPE_MS + 350;
+    return row;
+  }
+  const row = { parts: paint(line), delay: at };
+  at += line ? LINE_MS : LINE_MS / 2;
+  return row;
+});
+const caretDelay = at;
+---
+
+<figure class="term not-content" aria-label={`Terminal: ${title}`}>
+  <div class="term-bar" aria-hidden="true">
+    <span class="dots"><i></i><i></i><i></i></span>
+    <span class="term-title">{title}</span>
+    <span class="dots-spacer"></span>
+  </div>
+  <pre class="term-body"><code>{
+    rows.map((r) =>
+      'cmd' in r ? (
+        <span class="ln" style={`--d:${r.delay}ms`}><span class="prompt">$ </span><span class="typed" style={`--n:${r.chars};--d:${r.delay}ms`}>{r.cmd}</span></span>
+      ) : (
+        <span class="ln out" style={`--d:${r.delay}ms`}>{r.parts.map(([cls, text]) => (cls ? <span class={cls}>{text}</span> : text))}</span>
+      ),
+    )
+  }<span class="ln" style={`--d:${caretDelay}ms`}><span class="prompt">$ </span><span class="caret" aria-hidden="true"></span></span></code></pre>
+</figure>
+
+<style>
+  .term {
+    --t-bg: #0d0c17;
+    --t-bar: #15131f;
+    --t-fg: #e2e3ee;
+    --t-dim: #9196ad;
+    --t-ok: #6ee7a0;
+    --t-bad: #ff7b8f;
+    --t-accent: #b9a8ff;
+    margin: 0;
+    border-radius: 0.875rem;
+    background: var(--t-bg);
+    border: 1px solid rgb(255 255 255 / 0.09);
+    box-shadow:
+      0 0 0 1px rgb(0 0 0 / 0.35),
+      0 30px 80px -20px rgb(91 54 242 / 0.45),
+      0 12px 30px -10px rgb(0 0 0 / 0.5);
+    overflow: hidden;
+    text-align: start;
+  }
+  .term-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.7rem 1rem;
+    background: var(--t-bar);
+    border-bottom: 1px solid rgb(255 255 255 / 0.06);
+  }
+  .dots,
+  .dots-spacer {
+    display: flex;
+    gap: 0.45rem;
+    width: 3.5rem;
+  }
+  .dots i {
+    width: 0.7rem;
+    height: 0.7rem;
+    border-radius: 50%;
+    background: #3a3750;
+  }
+  .term-title {
+    flex: 1;
+    text-align: center;
+    font-family: var(--__sl-font-mono);
+    font-size: 0.75rem;
+    color: var(--t-dim);
+  }
+  .term-body {
+    margin: 0;
+    padding: 1.1rem 1.25rem 1.3rem;
+    overflow-x: auto;
+    background: none;
+    border: 0;
+    font-family: var(--__sl-font-mono);
+    font-size: clamp(0.6875rem, 0.55rem + 0.55vw, 0.8125rem);
+    line-height: 1.7;
+    color: var(--t-fg);
+    scrollbar-width: thin;
+    scrollbar-color: #3a3750 transparent;
+  }
+  .term-body code {
+    font: inherit;
+    background: none;
+    padding: 0;
+    color: inherit;
+  }
+  .ln {
+    display: block;
+    min-height: 1.7em;
+    white-space: pre;
+  }
+  .prompt {
+    color: var(--t-accent);
+    user-select: none;
+  }
+  .ok {
+    color: var(--t-ok);
+  }
+  .bad {
+    color: var(--t-bad);
+  }
+  .dim {
+    color: var(--t-dim);
+  }
+  .accent {
+    color: var(--t-accent);
+  }
+  .strong {
+    font-weight: 600;
+  }
+  .typed {
+    display: inline-block;
+    vertical-align: bottom;
+    white-space: pre;
+    overflow: hidden;
+  }
+  .caret {
+    display: inline-block;
+    width: 0.6em;
+    height: 1.15em;
+    vertical-align: text-bottom;
+    background: var(--t-accent);
+    opacity: 0.85;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .ln {
+      animation: show 0.01ms linear var(--d) both;
+    }
+    .ln.out {
+      animation: rise 0.35s ease-out var(--d) both;
+    }
+    .typed {
+      animation: type calc(var(--n) * 45ms) steps(var(--n), end) var(--d) both;
+    }
+    .caret {
+      animation: blink 1.1s steps(1, end) infinite;
+    }
+  }
+  @keyframes show {
+    from {
+      visibility: hidden;
+    }
+  }
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(0.25rem);
+    }
+  }
+  @keyframes type {
+    from {
+      width: 0;
+    }
+    to {
+      width: calc(var(--n) * 1ch);
+    }
+  }
+  @keyframes blink {
+    50% {
+      opacity: 0;
+    }
+  }
+</style>

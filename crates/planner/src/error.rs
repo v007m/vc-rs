@@ -22,6 +22,15 @@ pub enum PlanError {
         /// Test and file IDs close to it, closest first.
         suggestions: Vec<String>,
     },
+    /// A positional selector picks only tests with `standalone: false`, which run only when a
+    /// `test:` action reuses them.
+    #[error("`{selector}` picks only tests with `standalone: false`, which run only when a `test:` action reuses them")]
+    ReuseOnly {
+        /// The selector as given.
+        selector: String,
+        /// The first test it picks, by its full ID.
+        test: String,
+    },
     /// A `:n` selector asked for an instance the test does not have.
     #[error("`{selector}` asks for an instance the test does not have; it has {count}")]
     NoSuchInstance {
@@ -76,6 +85,9 @@ impl PlanError {
             Self::UnknownSelector { suggestions, .. } => {
                 suggestions.first().map(|best| format!("did you mean `{best}`?"))
             }
+            Self::ReuseOnly { test, .. } => {
+                Some(format!("run a test that has a `test: {test}` action, or remove `standalone: false`"))
+            }
             Self::NoSuchInstance { count, .. } => Some(format!("pick an instance from 1 to {count}")),
             Self::BadTagExpr { .. } => {
                 Some("`,` means or, `&` means and, `!` excludes: `smoke,checkout & !slow`".into())
@@ -105,5 +117,10 @@ mod tests {
         assert_eq!(row.help().as_deref(), Some("pick an instance from 1 to 3"));
         assert!(PlanError::BadTagExpr { expr: "!".into(), reason: "empty".into() }.help().is_some());
         assert_eq!(PlanError::RowsNotLoaded { test: "a.b#c".into() }.help(), None);
+        let reuse = PlanError::ReuseOnly { selector: "a.b".into(), test: "a.b#c".into() };
+        assert_eq!(
+            reuse.help().as_deref(),
+            Some("run a test that has a `test: a.b#c` action, or remove `standalone: false`")
+        );
     }
 }

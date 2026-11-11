@@ -1,0 +1,45 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2302_below_least/project
+---
+error[V2302]: `weight` takes a whole number of at least 1, found 0
+ --> load/users/browse.load.yaml:3:13
+  |
+3 |     weight: 0
+  |             ^ below 1
+  = help: write 1 or more: `weight: 3`
+
+error[V2302]: `users` takes a whole number of at least 0, found -1
+ --> load/users/browse.load.yaml:6:12
+  |
+6 |     users: -1
+  |            ^^ below 0
+  = help: write 0 or more: `users: 50`
+
+error[V2302]: `repeat` takes a whole number of at least 1, found 0
+ --> services/users/crud.test.yaml:4:13
+  |
+4 |     repeat: 0
+  |             ^ below 1
+  = help: write 1 or more
+
+error[V2302]: `parallel` takes a whole number of at least 1, found 0
+ --> services/users/crud.test.yaml:9:19
+  |
+9 |         parallel: 0
+  |                   ^ below 1
+  = help: write 1 or more: `parallel: 5`
+
+error[V2302]: `concurrency` takes a whole number of at least 1, found 0
+ --> vibranium.config.yaml:9:16
+  |
+9 |   concurrency: 0
+  |                ^ below 1
+  = help: write 1 or more
+
+error[V2302]: `perHost` takes a whole number of at least 1, found -1
+  --> vibranium.config.yaml:10:12
+   |
+10 |   perHost: -1
+   |            ^^ below 1
+   = help: write 1 or more

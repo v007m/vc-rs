@@ -156,17 +156,24 @@ error[V1005]: a source needs `openapi`
   = help: add `openapi: specs/users.yaml`: A URL or a file, JSON or YAML
 ```
 
-`vc check` does not open the spec. A wrong path shows up when you sync:
+A spec path that names no file in the project fails `vc check`. A URL is not fetched; a wrong one shows up when you
+sync.
 
 ```console
-$ vc sync src1
-error: cannot fetch specs/nope.yaml: specs/nope.yaml: cannot be read: No such file or directory (os error 2)
-  = help: check `source.openapi` in the api file: a URL, or a path inside the project
+$ vc check
+error[V2004]: `source.openapi` names specs/nope.yaml, which is not in the project
+ --> services/src1/src1.api.yaml:3:12
+  |
+3 |   openapi: specs/nope.yaml
+  |            ^^^^^^^^^^^^^^^ no file at specs/nope.yaml
+  = note: `vc sync` reads the spec from it
+  = help: `source.openapi` paths are relative to the project root
 ```
 
 | Code | When |
 | --- | --- |
 | [V1005](/vc-rs/reference/diagnostics/v1005/) | `source` is present without `openapi` |
+| [V2004](/vc-rs/reference/diagnostics/v2004/) | `openapi` is a path that names no file in the project |
 
 Exit code `4` from `vc sync --check` means drift, not an error in your files.
 
