@@ -32,6 +32,30 @@ async fn list_definitions_gives_each_test_with_its_span_and_the_apis_it_calls() 
 }
 
 #[tokio::test]
+async fn list_definitions_gives_a_skip_with_its_reason_and_until_and_one_past_its_until_as_ended() {
+    let (dir, api) = project();
+    let skips = "tests:\n  - id: listsUsers\n    call: users#list\n    skip: {reason: flaky upstream, until: 2099-12-01}\n  - id: listsAgain\n    call: users#list\n    skip: {reason: old outage, until: 2020-01-01}\n";
+    std::fs::write(dir.path().join(TESTS), skips).unwrap();
+    let request = wire::ListDefinitionsRequest {
+        kind: wire::DefinitionKind::Tests.into(),
+        ..wire::ListDefinitionsRequest::default()
+    };
+    let found = list_definitions(api, request).await.unwrap();
+    let skips: Vec<String> = found
+        .definitions
+        .iter()
+        .map(|test| format!("{} {:?} {:?} {}", test.skipped, test.skip_reason, test.skip_until, test.skip_expired))
+        .collect();
+    assert_eq!(
+        skips,
+        [
+            r#"true Some("flaky upstream") Some("2099-12-01") false"#,
+            r#"false Some("old outage") Some("2020-01-01") true"#
+        ]
+    );
+}
+
+#[tokio::test]
 async fn check_compiles_unsaved_text_in_place_of_the_file() {
     let (_dir, api) = project();
     let broken = "tests:\n  - id: listsUsers\n    call: users#lst\n";

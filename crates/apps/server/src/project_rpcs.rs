@@ -83,9 +83,9 @@ fn definition(item: Listed) -> wire::Definition {
         path: item.path,
         tags: item.tags,
         skipped: item.skipped,
-        skip_reason: None,
-        skip_until: None,
-        skip_expired: false,
+        skip_reason: item.skip_reason,
+        skip_until: item.skip_until,
+        skip_expired: item.skip_expired,
         span,
         calls: item.calls.into_iter().map(api_call).collect(),
         steps: item.steps,
@@ -143,7 +143,8 @@ async fn explain_config(
     })
 }
 
-fn config_value(value: ConfigValue) -> wire::ConfigValue {
+/// A setting or var with its masked layers, in its wire form.
+pub fn config_value(value: ConfigValue) -> wire::ConfigValue {
     let layers = value.layers.into_iter().map(|layer| wire::ConfigLayer { value: layer.value, source: layer.source });
     wire::ConfigValue { key: value.key, layers: layers.collect() }
 }

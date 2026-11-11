@@ -143,7 +143,7 @@ async fn a_skip_previews_then_writes_and_its_unskip_gives_back_the_original_byte
     let preview = skip(api.clone(), request.clone()).await.unwrap();
     assert_eq!(
         (preview.files[0].path.as_str(), preview.titles.as_slice()),
-        (TESTS, ["Skip users.crud#listsUsers"].as_slice())
+        (TESTS, ["Skip users.crud#listsUsers".to_owned()].as_slice())
     );
     assert!(preview.files[0].after.contains("until: 2099-12-01"), "{preview:?}");
     assert_eq!(on_disk(), CRUD, "a preview writes nothing");
