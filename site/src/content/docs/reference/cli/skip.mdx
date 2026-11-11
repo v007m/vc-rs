@@ -18,7 +18,7 @@ $ vc skip [OPTIONS] --reason <REASON> <TARGET>
 | --- | --- | --- |
 | `<TARGET>` | | The test (`users.crud#listsUsers`) or test file (`users.crud`) to skip |
 | `--reason` | `<REASON>` | Required. Why, for the report |
-| `--until` | `<DATE>` | The last day of the skip, `YYYY-MM-DD` in UTC. The test runs again after it |
+| `--until` | `<DATE>` | The last day of the skip, `YYYY-MM-DD` in UTC: today or later. The test runs again after it |
 | `--project` | `<DIR>` | See [global flags](/vc-rs/reference/cli/#global-flags) |
 
 ## Examples
@@ -73,7 +73,7 @@ Both show the reason; `vc list tests --skipped` adds the `until` date. A file sk
 | Code | When |
 | --- | --- |
 | `0` | The skip was written |
-| `2` | Nothing was written: no such test or file, it is already skipped, `--reason` is missing, or the date is not `YYYY-MM-DD` |
+| `2` | Nothing was written: no such test or file, it is already skipped, `--reason` is missing, or the date is not `YYYY-MM-DD` or is before today |
 
 ```console
 $ vc skip users.crud#nope --reason x
@@ -82,12 +82,15 @@ error: there is no test `users.crud#nope`
 $ vc skip users.crud --reason x --until 12/01/2026
 error: `12/01/2026` is not a date
   = help: write it as YYYY-MM-DD: `--until 2026-12-01`
+$ vc skip users.crud --reason x --until 2026-11-01
+error: V3104: `--until 2026-11-01` is before today (2026-11-11), so the skip has expired
+  = help: give today or a later date, or leave `--until` out
 $ vc skip users.crud --reason x
 error: `users.crud` is already skipped
   = help: `vc unskip users.crud` first
 ```
 
-A date in the past is accepted. The skip is then already expired, so the tests run, and `vc check` warns with [V3104](/vc-rs/reference/diagnostics/v3104/).
+A date before today is refused with [V3104](/vc-rs/reference/diagnostics/v3104/), the warning `vc check` gives a skip whose date has passed: such a skip would have expired already, so the tests would run. A skip until today holds for the rest of the day.
 
 ## Related
 

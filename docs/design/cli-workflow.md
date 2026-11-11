@@ -325,7 +325,7 @@ Commands are grouped by the job they do. `vc help <command>` shows every flag wi
 | `vc run [selector...]` | Runs tests (see Selecting what to run) |
 | `vc watch [selector...]` | Runs the selection, then re-runs the affected tests 200 ms after a definition file, `.env` or `.env.schema` is saved. Takes `vc run`'s flags; Ctrl-C ends it with exit 130 |
 | `vc load <scenarioId>` | Runs a load scenario: `beforeRun` and `beforeAll` once, a live line each second on stderr, then the summary (`--json` for the report as JSON). Exit 0 within thresholds, 1 blocked by a shared action, 2 unknown scenario, 3 a threshold breached, 130 cancelled |
-| `vc skip <testId\|fileId> --reason <text> [--until <date>]`, `vc unskip <id>` | Writes or removes a `skip` in the YAML (see Skipping) |
+| `vc skip <testId\|fileId> --reason <text> [--until <date>]`, `vc unskip <id>` | Writes or removes a `skip` in the YAML (see Skipping). An `--until` before today (UTC) is refused with V3104, as the skip would have expired already |
 
 **Keep in sync**
 
