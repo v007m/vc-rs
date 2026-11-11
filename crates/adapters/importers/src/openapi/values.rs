@@ -153,6 +153,34 @@ pub fn ty(schema: &Value) -> Option<&str> {
     }
 }
 
+/// The JSON types `schema` accepts, `$ref`s followed: its `type` or types, `null` among them,
+/// else those of every `anyOf` or `oneOf` alternative; none when some part accepts any type.
+pub fn types<'a>(doc: &'a Value, schema: &'a Value) -> Option<Vec<&'a str>> {
+    accepted(doc, schema, 0)
+}
+
+/// [`types`], `depth` alternatives down.
+fn accepted<'a>(doc: &'a Value, schema: &'a Value, depth: usize) -> Option<Vec<&'a str>> {
+    let schema = resolve(doc, schema);
+    match schema.get("type") {
+        Some(Value::String(ty)) => return Some(vec![ty]),
+        Some(Value::Array(types)) => return Some(types.iter().filter_map(Value::as_str).collect()),
+        _ => {}
+    }
+    let choices = ["anyOf", "oneOf"].iter().find_map(|key| schema.get(*key).and_then(Value::as_array));
+    let choices = choices.filter(|_| depth < MAX_HOPS)?;
+    let mut all = Vec::new();
+    for choice in choices {
+        all.extend(accepted(doc, choice, depth + 1)?);
+    }
+    Some(all.into_iter().fold(Vec::new(), |mut once, ty| {
+        if !once.contains(&ty) {
+            once.push(ty);
+        }
+        once
+    }))
+}
+
 fn integer(schema: &Value) -> Value {
     let bound = |inclusive: &str, exclusive: &str, step: i64| {
         let exclusive = schema.get(exclusive).and_then(Value::as_i64).map(|limit| limit.saturating_add(step));

@@ -301,5 +301,6 @@ async fn bytes_that_do_not_decode_are_invalid_at_their_location() {
     assert!(matches!(result, Err(ImportError::Invalid { location, .. }) if location == "broken.yaml"));
 }
 
+mod mistyped;
 mod needs;
 mod pointers;

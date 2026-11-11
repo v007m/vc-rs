@@ -5,7 +5,7 @@ use serde_json::{Map, Value, json};
 use vc_interfaces::{DraftApi, DraftExample};
 
 use super::draft::{Reader, Route};
-use super::values::{fields, shape, ty};
+use super::values::{fields, shape, types};
 
 /// A value of the wrong type for a field of each schema type, as JSON.
 const WRONG: [(&str, &str); 6] = [
@@ -30,6 +30,8 @@ const BREAKERS: [Breaker; 3] = [missing, mistyped, unlisted];
 /// A field of the drafted body, as the body's schema describes it.
 struct Field<'s> {
     schema: &'s Value,
+    /// The JSON types it accepts; none when it accepts any.
+    types: Option<Vec<&'s str>>,
     required: bool,
 }
 
@@ -43,7 +45,11 @@ impl Reader<'_> {
         let sent = filled(sent, api);
         let mut rows = Vec::new();
         for (name, schema) in sent.keys().filter_map(|name| Some((name, properties.get(name)?))) {
-            let field = Field { schema: shape(self.doc, schema), required: required.contains(name) };
+            let field = Field {
+                schema: shape(self.doc, schema),
+                types: types(self.doc, schema),
+                required: required.contains(name),
+            };
             for (case, value) in BREAKERS.iter().filter_map(|breaker| breaker(&field)) {
                 rows.push(DraftExample { name: format!("{name} {case}"), body: with(&sent, name, value) });
             }
@@ -83,12 +89,40 @@ fn missing(field: &Field<'_>) -> Option<(String, Option<Value>)> {
     field.required.then(|| ("missing".to_owned(), None))
 }
 
+/// A value of none of the field's types: the first of [`WRONG`]'s for its types, in order,
+/// that no type accepts.
 fn mistyped(field: &Field<'_>) -> Option<(String, Option<Value>)> {
-    let kind = ty(field.schema)?;
-    let (_, wrong) = WRONG.iter().find(|(known, _)| *known == kind)?;
-    let wrong: Value = serde_json::from_str(wrong).ok()?;
-    let article = if kind.starts_with(['a', 'e', 'i', 'o', 'u']) { "an" } else { "a" };
-    Some((format!("is not {article} {kind}"), Some(wrong)))
+    let allowed = field.types.as_deref()?;
+    let candidates = allowed.iter().filter_map(|ty| WRONG.iter().find(|(known, _)| known == ty));
+    let mut values = candidates.filter_map(|(_, wrong)| serde_json::from_str::<Value>(wrong).ok());
+    let wrong = values.find(|value| !allowed.iter().any(|ty| accepts(ty, value)))?;
+    Some((format!("is not {}", listed(allowed)), Some(wrong)))
+}
+
+/// Whether a schema of type `ty` accepts `value`'s JSON type; a number accepts an integer.
+fn accepts(ty: &str, value: &Value) -> bool {
+    match value {
+        Value::Null => ty == "null",
+        Value::Bool(_) => ty == "boolean",
+        Value::Number(number) if number.is_f64() => ty == "number",
+        Value::Number(_) => matches!(ty, "integer" | "number"),
+        Value::String(_) => ty == "string",
+        Value::Array(_) => ty == "array",
+        Value::Object(_) => ty == "object",
+    }
+}
+
+/// The types a row names, `null` left out: `a string`, `an integer`, `a string or integer`,
+/// `a string, integer or boolean`.
+fn listed(types: &[&str]) -> String {
+    let named: Vec<&str> = types.iter().copied().filter(|ty| *ty != "null").collect();
+    let article = if named.first().is_some_and(|ty| ty.starts_with(['a', 'e', 'i', 'o', 'u'])) { "an" } else { "a" };
+    let words = match named.split_last() {
+        Some((last, [])) => (*last).to_owned(),
+        Some((last, rest)) => format!("{} or {last}", rest.join(", ")),
+        None => String::new(),
+    };
+    format!("{article} {words}")
 }
 
 fn unlisted(field: &Field<'_>) -> Option<(String, Option<Value>)> {
