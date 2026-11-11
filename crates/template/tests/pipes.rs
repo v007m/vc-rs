@@ -35,6 +35,14 @@ fn chain_err(pipes: &str, input: ValueType) -> Diagnostic {
 }
 
 #[test]
+fn only_random_and_shuffle_draw_from_the_seed() {
+    let pipes = PipeRegistry::builtin();
+    let draws = |name: &str| pipes.get(name).unwrap().draws;
+    assert!(draws("random") && draws("shuffle"));
+    assert!(!draws("take") && !draws("default") && !draws("upper"));
+}
+
+#[test]
 fn builtin_pipes_chain_their_types() {
     assert_eq!(chain("trim | number", ValueType::Text).unwrap(), ValueType::Number);
     assert_eq!(chain("take(2) | random", ValueType::List).unwrap(), ValueType::Any);

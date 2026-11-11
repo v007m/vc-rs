@@ -43,6 +43,9 @@ pub struct RunReport {
     pub exit: u8,
     /// The seed of the run's random values, for `--seed` to repeat them.
     pub seed: u64,
+    /// Whether the run generated data from the seed (`${fake.…}`, `random`, `shuffle`), so
+    /// that `--seed` repeats something.
+    pub generated: bool,
     /// Problems that did not change the result, such as a report that could not be written.
     pub notices: Vec<String>,
     /// The run's number in the history, when it is recorded.
@@ -107,7 +110,9 @@ impl Engine {
         let mut notices = prepared.notices;
         notices.extend(unrecorded);
         notices.extend(swept);
-        let closing = Closing { seed, run: Some(run_id).filter(|id| *id > 0), notices, alerting, watching, heard };
+        let generated = crate::examples::generates(&prepared.program, &prepared.plan);
+        let run_id = Some(run_id).filter(|id| *id > 0);
+        let closing = Closing { seed: (seed, generated), run: run_id, notices, alerting, watching, heard };
         let closed = close(fanout.reporters, closing, (ran, run)).await;
         plugins.shutdown().await;
         closed
@@ -136,7 +141,7 @@ impl Engine {
             vc_version: env!("CARGO_PKG_VERSION").to_owned(),
             ..RunStart::default()
         };
-        let mut notices = plugins.notices();
+        let mut notices = plugins.notices(&chosen.plugins);
         let recording = self.recording(&start).inspect_err(|error| {
             notices.push(format!("history: {error}; this run is not recorded"));
         });
@@ -250,10 +255,11 @@ fn flags(request: &RunRequest) -> Vec<ConfigEntry> {
     flags
 }
 
-/// What a run's end needs besides its reporters: the seed, the history run, the notices so
+/// What a run's end needs besides its reporters: the seed and whether the run generated data
+/// from it, the history run, the notices so
 /// far, the alerts, the watch, and what the plugins said as they started.
 struct Closing {
-    seed: u64,
+    seed: (u64, bool),
     run: Option<u64>,
     notices: Vec<String>,
     alerting: Option<Alerting>,
@@ -268,7 +274,7 @@ async fn close(
     closing: Closing,
     (ran, run): (Result<vc_executor::RunSummary, EngineError>, RunSummary),
 ) -> Result<RunReport, EngineError> {
-    let Closing { seed, run: id, mut notices, alerting, watching, mut heard } = closing;
+    let Closing { seed: (seed, generated), run: id, mut notices, alerting, watching, mut heard } = closing;
     let (problems, ending) = reporters.finish(run.clone()).await;
     notices.extend(problems);
     notices.extend(std::iter::from_fn(|| heard.try_recv().ok()));
@@ -278,13 +284,13 @@ async fn close(
             notices.push(error.to_string());
             let exit = if error.is_internal() { EXIT_INTERNAL } else { vc_executor::EXIT_NOTHING_RAN };
             if let Some(watching) = watching {
-                watching.finish(RunReport { exit, seed, notices, run: id });
+                watching.finish(RunReport { exit, seed, generated, notices, run: id });
             }
             return Err(error);
         }
     };
     notices.extend(notify::send(alerting, run, ending).await);
-    let report = RunReport { exit: vc_executor::exit_code(ran), seed, notices, run: id };
+    let report = RunReport { exit: vc_executor::exit_code(ran), seed, generated, notices, run: id };
     if let Some(watching) = watching {
         watching.finish(report.clone());
     }

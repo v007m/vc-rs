@@ -5,6 +5,7 @@ use std::path::Path;
 
 use assert_cmd::Command;
 use assert_cmd::cargo::cargo_bin_cmd;
+use predicates::prelude::PredicateBooleanExt;
 use predicates::str;
 use tempfile::TempDir;
 use vc_mock_server::MockServer;
@@ -24,6 +25,11 @@ const PASSING: (&str, &str) = (
 const FAILING: (&str, &str) = (
     "services/users/broken.test.yaml",
     "tests:\n  - id: readsMissingUser\n    call: users#missing\n    expect: {status: 200}\n",
+);
+/// A failing test whose vars are generated, so its seed is worth repeating.
+const FAKED: (&str, &str) = (
+    "services/users/broken.test.yaml",
+    "tests:\n  - id: readsMissingUser\n    call: users#missing\n    vars: {email: '${fake.internet.email}'}\n    expect: {status: 200}\n",
 );
 
 fn project(files: &[(&str, &str)]) -> std::io::Result<TempDir> {
@@ -60,15 +66,26 @@ async fn a_passing_run_exits_0_and_writes_ctrf_and_junit() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn a_failing_run_exits_1_and_prints_its_seed() {
+async fn a_failing_run_that_generates_data_exits_1_and_prints_its_seed() {
     let server = MockServer::start().await.unwrap();
-    let dir = project(&[CONFIG, USERS, PASSING, FAILING]).unwrap();
+    let dir = project(&[CONFIG, USERS, PASSING, FAKED]).unwrap();
     let base = format!("vars.baseUrl={}", server.base_url());
     vc(dir.path(), &["run", "--set", &base, "--seed", "42", "--out", "out"])
         .assert()
         .code(1)
         .stderr(str::contains("seed 42: pass `--seed 42`"));
     assert!(dir.path().join("out/ctrf.json").is_file(), "ctrf is the default report");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_failing_run_with_no_generated_data_prints_no_seed_hint() {
+    let server = MockServer::start().await.unwrap();
+    let dir = project(&[CONFIG, USERS, PASSING, FAILING]).unwrap();
+    let base = format!("vars.baseUrl={}", server.base_url());
+    let run = vc(dir.path(), &["run", "--set", &base, "--seed", "42", "--out", "out"]).assert().code(1);
+    run.stderr(str::contains("--seed").not());
+    let ctrf = fs::read_to_string(dir.path().join("out/ctrf.json")).unwrap();
+    assert!(ctrf.contains(r#""seed": 42"#), "the report keeps the seed: {ctrf}");
 }
 
 #[tokio::test(flavor = "multi_thread")]

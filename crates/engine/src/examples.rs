@@ -14,7 +14,7 @@ use vc_executor::{ExampleRows, RunInputs, RunValues, UnreadVar};
 use vc_interfaces::Random;
 use vc_model::{Examples, Plan, Program, Test, TestId};
 use vc_planner::{NO_ROWS, PlanOptions, Selection};
-use vc_template::{ROW_HELP, RenderError};
+use vc_template::{PipeRegistry, ROW_HELP, RenderError};
 
 use crate::EngineError;
 use crate::plan::plan_error;
@@ -59,6 +59,13 @@ pub fn planned(
         }
     }
     vc_planner::plan(program, selection, &options).map_err(|error| plan_error(error, program))
+}
+
+/// Whether running `plan` generates data from the run's seed: a `${fake.…}`, or a built-in pipe
+/// that draws from it, in anything the run reads. Only then does `--seed` repeat something.
+pub fn generates(program: &Program, plan: &Plan) -> bool {
+    let pipes = PipeRegistry::builtin();
+    vc_planner::generates(program, plan, |name| pipes.get(name).is_some_and(|pipe| pipe.draws))
 }
 
 /// A notice for each planned test skipped because its examples gave no rows, so a run that

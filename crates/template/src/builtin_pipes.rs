@@ -27,7 +27,7 @@ pub const BUILTIN: &[(&str, PipeDef)] = &[
         PipeDef::new(PipeSignature::new(ValueType::Any, ValueType::Any, &[ArgType::Any]), run::default)
             .taking_missing(),
     ),
-    ("random", pipe(ValueType::List, ValueType::Any, run::random)),
-    ("shuffle", pipe(ValueType::List, ValueType::List, run::shuffle)),
+    ("random", pipe(ValueType::List, ValueType::Any, run::random).drawing()),
+    ("shuffle", pipe(ValueType::List, ValueType::List, run::shuffle).drawing()),
     ("take", PipeDef::new(PipeSignature::new(ValueType::List, ValueType::List, &[ArgType::Count]), run::take)),
 ];

@@ -118,19 +118,28 @@ pub struct PipeDef {
     pub apply: PipeFn,
     /// Whether it also runs on a value that is missing, given as `null` (`default`).
     pub takes_missing: bool,
+    /// Whether it draws from the run's random source, so `--seed` repeats it (`random`).
+    pub draws: bool,
 }
 
 impl PipeDef {
     /// A pipe with `signature` that runs `apply` on values that are present.
     #[must_use]
     pub const fn new(signature: PipeSignature, apply: PipeFn) -> Self {
-        Self { signature, apply, takes_missing: false }
+        Self { signature, apply, takes_missing: false, draws: false }
     }
 
     /// The same pipe, also run on a missing value, given as `null`.
     #[must_use]
     pub const fn taking_missing(mut self) -> Self {
         self.takes_missing = true;
+        self
+    }
+
+    /// The same pipe, marked as drawing from the run's random source.
+    #[must_use]
+    pub const fn drawing(mut self) -> Self {
+        self.draws = true;
         self
     }
 }
