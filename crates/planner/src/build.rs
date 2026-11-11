@@ -23,9 +23,10 @@ pub fn plan(program: &Program, selection: &Selection, options: &PlanOptions) -> 
     Ok(PlanBuilder::new(program).build(expanded))
 }
 
-/// The tests a run of `selection` plans whose rows come from a file or a template that `options`
-/// does not count yet, in plan order: the engine reads those, and only those, then plans once
-/// (D132). A test the selection leaves out, or skips, is not among them.
+/// The tests a run of `selection` plans whose rows come from a template that `options` does not
+/// count yet, in plan order: the engine renders those, and only those, then plans once (D132). A
+/// test the selection leaves out, or skips, is not among them, nor is one whose rows come from a
+/// `$file`, which the compile gives (unloaded, it is [`PlanError::RowsNotLoaded`]).
 ///
 /// # Errors
 ///
