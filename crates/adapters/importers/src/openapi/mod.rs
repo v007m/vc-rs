@@ -61,6 +61,10 @@ impl Importer for OpenApiImporter {
     fn read_help(&self) -> Option<&'static str> {
         Some("fix the spec, or import part of it with `--include` or `--only`")
     }
+
+    fn keeps_snapshot(&self) -> bool {
+        true
+    }
 }
 
 /// `doc` as `OpenAPI` 3.1, or why it cannot be.

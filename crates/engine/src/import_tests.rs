@@ -137,7 +137,8 @@ async fn a_spec_kept_at_its_snapshot_path_is_refused_so_it_is_never_overwritten(
         panic!("importing the snapshot path over itself is refused")
     };
     assert_eq!(reason, "openapi/coll.yaml is where `vc import` keeps the snapshot `vc sync coll` merges against");
-    let moved = "move the spec out of `openapi/` (to `specs/coll.yaml`, say) and import it from there";
+    let moved = "move the spec out of `openapi/` (to `specs/coll.yaml`, say), then import it from there or point \
+                 `source.openapi` at it";
     assert_eq!(help.as_deref(), Some(moved));
     let named = engine.import(&request("openapi", "./openapi/coll.yaml")).await;
     assert!(matches!(&named, Err(EngineError::Edit { reason, .. }) if reason.contains("snapshot")), "{named:?}");

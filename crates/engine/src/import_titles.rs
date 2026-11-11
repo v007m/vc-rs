@@ -27,10 +27,15 @@ pub struct Written<'w> {
     pub flow: Option<String>,
 }
 
+/// The origin a draft group was recorded at: its base-URL var's value.
+pub fn origin_of(group: &DraftGroup) -> &str {
+    group.config_vars.values().next().and_then(serde_json::Value::as_str).unwrap_or_default()
+}
+
 impl Placed {
     /// `group`, going to the api file `file`, which exists or is new.
     pub fn of(group: &DraftGroup, file: &str, existing: bool) -> Self {
-        let origin = group.config_vars.values().next().and_then(serde_json::Value::as_str).unwrap_or_default();
+        let origin = origin_of(group);
         let host = origin.split_once("://").map_or(origin, |(_, host)| host).to_owned();
         Self { host, file: file.to_owned(), existing, ..Self::default() }
     }

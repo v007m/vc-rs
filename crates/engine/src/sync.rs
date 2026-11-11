@@ -7,13 +7,14 @@ use std::sync::Arc;
 use indexmap::IndexMap;
 use serde_json::Value;
 use vc_adapter_importers::ImporterRegistry;
-use vc_interfaces::{DraftApi, ImportOptions, ImportSource, Importer, SpecFetcher};
+use vc_interfaces::{DraftApi, ImportOptions, ImportSource, Importer, SourceProvider, SpecFetcher};
 use vc_model::{FileKind, SourceFile, SourceFileId};
 use vc_parser::Node;
 
 use crate::authoring::{Authoring, Named, Opened, refused};
 use crate::edit::{FileChange, internal};
 use crate::fetch::ProjectFetcher;
+use crate::import::not_the_snapshot;
 use crate::sync_plan::{Mine, SyncSide, Versions, plan};
 use crate::sync_snapshot::kept;
 use crate::{Changes, Engine, EngineError, import_write, sync_apply};
@@ -65,11 +66,12 @@ impl Engine {
     /// # Errors
     ///
     /// [`EngineError::Edit`] for an unknown file, one with no `source`, a spec that cannot be
-    /// fetched or read, or a change that cannot be made in the file as written;
+    /// fetched or read, a snapshot path that is the spec or leads to another file, or a change
+    /// that cannot be made in the file as written;
     /// [`EngineError::Invalid`] when the result would not compile.
     pub async fn sync(&self, request: &SyncRequest) -> Result<SyncReport, EngineError> {
         let project = self.authoring()?;
-        let syncing = Syncing { project: &project, fetcher: self.fetcher()?, request };
+        let syncing = Syncing { project: &project, fetcher: self.fetcher()?, sources: self.sources.as_ref(), request };
         let mut report = SyncReport::default();
         let mut snapshots = Vec::new();
         for file_id in selected(&project, &request.files)? {
@@ -111,6 +113,7 @@ fn sourced(found: (SourceFileId, &SourceFile)) -> bool {
 struct Syncing<'p> {
     project: &'p Authoring,
     fetcher: Arc<ProjectFetcher>,
+    sources: &'p dyn SourceProvider,
     request: &'p SyncRequest,
 }
 
@@ -144,6 +147,7 @@ impl<'p> Syncing<'p> {
         let found = self.project.find(FileKind::Api, file_id).ok_or_else(|| internal("the file went away"))?;
         let opened = Authoring::open(found)?;
         let Source { location, include, only } = source(opened.document.root(), file_id)?;
+        not_the_snapshot(self.sources, &location, file_id)?;
         let opts = ImportOptions { file_id: file_id.to_owned(), include, only, ..ImportOptions::default() };
         let fetcher: Arc<dyn SpecFetcher> = Arc::clone(&self.fetcher) as _;
         let reader =

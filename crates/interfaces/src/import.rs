@@ -41,6 +41,14 @@ pub trait Importer: Send + Sync {
     fn reads_folders(&self) -> bool {
         false
     }
+
+    /// Whether this kind's draft keeps a spec snapshot, `openapi/<fileId>.yaml`, that `vc sync`
+    /// merges against. The engine then refuses, before it fetches the spec, a source that is the
+    /// snapshot path or a snapshot path that leads to another file, and checks again before it
+    /// writes; a kind without one is never refused for what is at that path.
+    fn keeps_snapshot(&self) -> bool {
+        false
+    }
 }
 
 /// The file being imported: where it came from and its bytes, already fetched or read.

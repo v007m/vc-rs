@@ -301,6 +301,17 @@ async fn bytes_that_do_not_decode_are_invalid_at_their_location() {
     assert!(matches!(result, Err(ImportError::Invalid { location, .. }) if location == "broken.yaml"));
 }
 
+#[test]
+fn a_spec_that_cannot_be_read_says_how_to_fix_or_narrow_it() {
+    let help = "fix the spec, or import part of it with `--include` or `--only`";
+    assert_eq!(importer().read_help(), Some(help));
+}
+
+#[test]
+fn a_spec_keeps_a_snapshot_for_sync_to_merge_against() {
+    assert!(importer().keeps_snapshot());
+}
+
 mod mistyped;
 mod needs;
 mod pointers;

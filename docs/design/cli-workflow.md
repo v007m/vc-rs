@@ -653,7 +653,7 @@ source:
 
 ### Do you need to keep a copy of the spec?
 
-You don't keep one yourself, but Vibranium does: every import and sync writes `openapi/<fileId>.yaml`, a snapshot of the spec as it was at that moment. It is converted to OpenAPI 3.1 YAML with references bundled, so it diffs cleanly in pull requests. Commit it. It is the merge base that lets `vc sync` tell a change in the spec from a change you made, and it lets everyone on the team, and CI, sync the same way. Only `vc import` and `vc sync` write it; the tests `vc import openapi --tests` writes point their schemas into it. Runs never need the spec or the network to reach it.
+You don't keep one yourself, but Vibranium does: every import and sync writes `openapi/<fileId>.yaml`, a snapshot of the spec as it was at that moment. It is converted to OpenAPI 3.1 YAML with references bundled, so it diffs cleanly in pull requests. Commit it. It is the merge base that lets `vc sync` tell a change in the spec from a change you made, and it lets everyone on the team, and CI, sync the same way. Only `vc import` and `vc sync` write it; the tests `vc import openapi --tests` writes point their schemas into it. Both refuse (exit 2, nothing written) when `openapi/<fileId>.yaml` is the spec itself, or leads to another file: a link, or a file named in another case on a file system that ignores case. Runs never need the spec or the network to reach it.
 
 ### What sync does
 

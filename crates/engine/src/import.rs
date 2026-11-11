@@ -5,13 +5,16 @@ use std::sync::Arc;
 
 use vc_adapter_importers::ImporterRegistry;
 use vc_adapter_system::SystemEnvironment;
-use vc_interfaces::{DraftGroup, FetchError, ImportOptions, ImportSource, Importer, RecordingFilter, SpecFetcher};
+use vc_interfaces::{
+    DraftGroup, FetchError, ImportOptions, ImportSource, Importer, RecordingFilter, SourceProvider, SpecFetcher,
+};
 use vc_model::SourcePath;
 
 use crate::authoring::refused;
 use crate::fetch::ProjectFetcher;
 use crate::import_homes::Home;
 use crate::import_recorded::{Recording, recorded};
+use crate::import_titles::origin_of;
 use crate::{Changes, Engine, EngineError, import_write};
 
 /// What `vc import <kind> <url-or-file>` reads and what it makes of it.
@@ -90,7 +93,9 @@ impl Engine {
             refused(error.to_string(), &format!("the importers are {}", Self::importers().join(", ")))
         })?;
         let mut opts = options(request);
-        self.not_the_snapshot(&request.source, &opts.file_id)?;
+        if importer.keeps_snapshot() {
+            not_the_snapshot(self.sources.as_ref(), &request.source, &opts.file_id)?;
+        }
         let source = source(importer.as_ref(), fetcher.as_ref(), request).await?;
         let homes = self.homes(&request.profiles);
         opts.recording.hosts = hosts(&homes);
@@ -102,6 +107,7 @@ impl Engine {
             let recording = Recording { project: &project, homes: &homes, schema: schema.as_ref(), file_id };
             return self.guarded(&project, recorded(&recording, &draft, &request.source)?);
         }
+        not_the_snapshot(self.sources.as_ref(), &request.source, &opts.file_id)?;
         let (mut changes, snapshots) = import_write::drafted(&project, &draft, request)?;
         changes.files.extend(snapshots);
         self.guarded(&project, changes)
@@ -164,28 +170,29 @@ async fn source(
     Ok(ImportSource { location, bytes })
 }
 
-impl Engine {
-    /// Refuses an import that would write its snapshot `openapi/<fileId>.yaml` over the spec it
-    /// reads: one read from that path, or from the file a link there leads to. A snapshot path
-    /// that leads elsewhere (a link, or a file in another case on a file system that ignores
-    /// case) is refused too, as writing it would change that other file.
-    fn not_the_snapshot(&self, source: &str, file_id: &str) -> Result<(), EngineError> {
-        let snapshot = format!("openapi/{file_id}.yaml");
-        let slashed = source.replace('\\', "/");
-        let path = slashed.trim_start_matches("./");
-        let real = |path: &str| SourcePath::new(path).ok().and_then(|path| self.sources.real(&path));
-        let at = real(&snapshot);
-        if let Some(elsewhere) = at.as_ref().filter(|at| at.as_str() != snapshot) {
-            let reason = format!("{snapshot}, where `vc import` keeps the snapshot, leads to {elsewhere}");
-            return Err(refused(reason, &format!("make `{snapshot}` a plain file, or import with another `--id`")));
-        }
-        if path != snapshot && (at.is_none() || at != real(path)) {
-            return Ok(());
-        }
-        let reason = format!("{path} is where `vc import` keeps the snapshot `vc sync {file_id}` merges against");
-        let help = format!("move the spec out of `openapi/` (to `specs/{file_id}.yaml`, say) and import it from there");
-        Err(refused(reason, &help))
+/// Refuses an import or sync that would write the snapshot `openapi/<fileId>.yaml` over the spec
+/// it reads: one read from that path, or from the file a link there leads to. A snapshot path
+/// that leads elsewhere (a link, or a file in another case on a file system that ignores case)
+/// is refused too, as writing it would change that other file.
+pub fn not_the_snapshot(sources: &dyn SourceProvider, source: &str, file_id: &str) -> Result<(), EngineError> {
+    let snapshot = format!("openapi/{file_id}.yaml");
+    let slashed = source.replace('\\', "/");
+    let path = slashed.trim_start_matches("./");
+    let real = |path: &str| SourcePath::new(path).ok().and_then(|path| sources.real(&path));
+    let at = real(&snapshot);
+    if let Some(elsewhere) = at.as_ref().filter(|at| at.as_str() != snapshot) {
+        let reason = format!("{snapshot}, where `vc import` keeps the snapshot, leads to {elsewhere}");
+        return Err(refused(reason, &format!("make `{snapshot}` a plain file of its own, or use another file ID")));
     }
+    if path != snapshot && (at.is_none() || at != real(path)) {
+        return Ok(());
+    }
+    let reason = format!("{path} is where `vc import` keeps the snapshot `vc sync {file_id}` merges against");
+    let help = format!(
+        "move the spec out of `openapi/` (to `specs/{file_id}.yaml`, say), then import it from there or point \
+         `source.openapi` at it"
+    );
+    Err(refused(reason, &help))
 }
 
 /// The file `--id` names for a recording, refused when the recording calls several origins:
@@ -194,7 +201,10 @@ fn one_origin<'id>(file_id: Option<&'id str>, groups: &[DraftGroup]) -> Result<O
     let Some(id) = file_id.filter(|_| groups.len() > 1) else {
         return Ok(file_id);
     };
-    let origins: Vec<&str> = groups.iter().map(origin).collect();
+    let origins: Vec<&str> = groups
+        .iter()
+        .map(|group| Some(origin_of(group)).filter(|url| !url.is_empty()).unwrap_or(&group.file_id))
+        .collect();
     let reason = format!(
         "`--id {id}` names one api file, but the recording calls {} origins: {}",
         origins.len(),
@@ -204,11 +214,6 @@ fn one_origin<'id>(file_id: Option<&'id str>, groups: &[DraftGroup]) -> Result<O
         reason,
         "import without `--id`: each origin goes to the api file whose base URL renders to it, or to a new one",
     ))
-}
-
-/// The origin a recording's group calls: its base-URL var's value, or its file ID.
-fn origin(group: &DraftGroup) -> &str {
-    group.config_vars.values().next().and_then(|url| url.as_str()).unwrap_or(&group.file_id)
 }
 
 const FETCH_HELP: &str = "give a URL, or a path inside the project";
@@ -252,3 +257,7 @@ fn hosts(homes: &[Home]) -> Vec<String> {
 #[cfg(test)]
 #[path = "import_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "import_guard_tests.rs"]
+mod guard_tests;

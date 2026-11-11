@@ -15,7 +15,7 @@ use crate::create::{DOCS, ListItem, block, commented_item, derived_path, header,
 use crate::create_api::{base_var_in, config};
 use crate::edit::{Changes, FileChange, declaring, internal};
 use crate::import_homes::{Home, path_vars, shape};
-use crate::import_titles::{Placed, Written, titles};
+use crate::import_titles::{Placed, Written, origin_of, titles};
 use crate::import_write::{api_fields, api_file, new_file};
 use crate::rename::item_ids;
 use crate::staged::{Edited, Staged};
@@ -208,11 +208,6 @@ fn appended_test(opened: &Opened<'_>, test: &str, new: &ListItem<'_>) -> Result<
     }
     let (change, _) = commented_item(opened, new)?;
     Ok((Some(change), ()))
-}
-
-/// The origin a draft group was recorded at: its base-URL var's value.
-fn origin_of(group: &DraftGroup) -> &str {
-    group.config_vars.values().next().and_then(serde_json::Value::as_str).unwrap_or_default()
 }
 
 /// `path` with `prefix` taken off, when it is under it: `/v1/carts` under `/v1` is `/carts`.

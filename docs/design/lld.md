@@ -70,7 +70,7 @@ vibranium/
   sdks/                      typescript/ python/ go/ java/
   bench/
     mock/                    vc-mock-server: axum mock server; a library tests start in-process on port 0, plus a bin (D100);
-                             CRUD, echo, scripted, `/auth/*`, an OAuth 2.0 server (`/oauth/token`, `/oauth/authorize`) and
+                             CRUD (`/users`, `/orders`, and a user's orders at `/users/{id}/orders`), echo, scripted, `/auth/*`, an OAuth 2.0 server (`/oauth/token`, `/oauth/authorize`) and
                              a users OpenAPI spec in two versions (`/openapi/users-v1.yaml`, `-v2`, and `/openapi/users.yaml`,
                              switched by `POST /__openapi/users/v2`; files in `bench/mock/specs/`)
                              (generated projects come from vc-testkit's generate_project; the benches live in
@@ -1105,7 +1105,10 @@ All importers produce the same intermediate form and hand it to `parser::edit` (
 pub trait Importer: Send + Sync {
     async fn read(&self, source: &ImportSource, opts: &ImportOptions) -> Result<ImportDraft, ImportError>;
     fn source_help(&self) -> Option<&'static str> { None }   // help when the source cannot be fetched
+    fn read_help(&self) -> Option<&'static str> { None }     // help when the source cannot be read as this kind
     fn reads_folders(&self) -> bool { false }                 // Bruno: a folder source is read file by file
+    fn keeps_snapshot(&self) -> bool { false }                // OpenAPI: the draft has a snapshot, so the engine
+                                                              // guards openapi/<fileId>.yaml before the fetch and the write
 }
 
 pub struct ImportDraft {
