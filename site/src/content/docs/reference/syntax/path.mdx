@@ -145,14 +145,16 @@ apis:
 ## How it behaves
 
 - The URL is `baseUrl` followed by `path`, joined as plain text. vc adds no `/` and removes none.
-- A path without a leading `/` runs into the host. With `baseUrl` `http://localhost:7432` and `path: echo`, the URL is `http://localhost:7432echo`. `vc check` does not warn, and the run fails to connect. See below.
-- A `baseUrl` that ends in `/` plus a path that starts with `/` gives `//`, which most servers answer with 404.
+- A path without a leading `/` runs into the host. With `baseUrl` `http://localhost:7432` and `path: echo`, the URL is `http://localhost:7432echo`. `vc check` warns with [V4005](/vc-rs/reference/diagnostics/v4005/), and `vc check --fix` adds the `/`. See below.
+- A `baseUrl` that ends in `/` plus a path that starts with `/` gives `//`, which most servers answer with 404. `vc check` warns with V4005 here too.
+- A path that is a full URL or starts with a template (`${var.usersUrl}/users`) is not checked.
 - Templates in the path are rendered, not encoded. Use `| urlEncode` for user-supplied text. Values in [`query`](/vc-rs/reference/syntax/query/) are encoded automatically, so don't use the pipe there.
 - Any var in scope can be used: the api's own `vars`, the file's, the config's, a test's, or a saved value.
 
 ## Common errors
 
-A missing leading slash passes `vc check` and fails at run time. `7432echo` is not a port, so vc ends up connecting to port 80:
+A missing leading slash is a V4005 warning. Left as it is, the run fails: `7432echo` is not a port, so vc ends up
+connecting to port 80:
 
 ```yaml title="services/h/h.api.yaml"
   - id: noSlash
@@ -160,6 +162,11 @@ A missing leading slash passes `vc check` and fails at run time. `7432echo` is n
 ```
 
 ```console
+$ vc check
+warning[V4005]: `path` does not start with `/`
+  = help: start it with `/`: `path: /echo`
+  = fix: Add the leading `/` (certain)
+
 $ vc explain h#noSlash
 h#noSlash
 profile  default

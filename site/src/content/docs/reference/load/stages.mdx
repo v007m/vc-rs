@@ -4,7 +4,6 @@ description: "How many virtual users a load run has over time; users ramp in a s
 sidebar: { order: 4 }
 ---
 
-import { Aside } from '@astrojs/starlight/components';
 import Playground from '~/components/Playground.svelte';
 
 Each stage says how long it lasts and how many users there are at its end; the count changes in a straight line from the previous stage's.
@@ -21,9 +20,9 @@ stages:
 
 | Field | Type | Default | Required | Notes |
 | --- | --- | --- | --- | --- |
-| `stages` | list | — | yes | Run one after another. The run starts at 0 users. |
+| `stages` | list | — | yes | At least one. Run one after another. The run starts at 0 users. |
 | `duration` | duration: `250ms`, `2s`, `1m`, `12h` | — | yes | A whole number and a unit ([V2301](/vc-rs/reference/diagnostics/v2301/)). |
-| `users` | whole number | — | yes | Virtual users at the end of the stage. |
+| `users` | whole number, at least 0 | — | yes | Virtual users at the end of the stage. |
 
 ## Examples
 
@@ -99,10 +98,7 @@ stages:
 
 - The run lasts the sum of the stage durations, unless [`abortOn`](/vc-rs/reference/load/abort-on/) stops it early.
 - Each user runs iterations back to back, with [`thinkTime`](/vc-rs/reference/load/thinktime/) between them.
-
-<Aside type="caution">
-`vc check` doesn't yet reject `stages: []` or a negative `users`. Give every scenario at least one stage with a count of 0 or more.
-</Aside>
+- `stages: []` and a negative `users` are errors (`V2302`): a scenario needs at least one stage, each with 0 users or more.
 
 ## Common errors
 

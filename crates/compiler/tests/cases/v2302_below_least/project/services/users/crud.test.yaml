@@ -1,0 +1,9 @@
+tests:
+  - id: listsUsers
+    call: users#list
+    repeat: 0
+  - id: listsUsersInTurn
+    steps:
+      - call: users#list
+        repeat: 3
+        parallel: 0

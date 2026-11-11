@@ -23,6 +23,10 @@ fn table(shape: &Shape) -> String {
 
 fn row(key: &Key) -> String {
     let ty = key.ty.describe();
+    let ty = match key.min {
+        Some(min) => format!("{ty}, at least {min}"),
+        None => ty,
+    };
     let ty = if key.required { format!("{ty}, required") } else { ty };
     let default = key.default.unwrap_or_default();
     format!("| `{}` | {} | {} | {} |\n", key.name, cell(&ty), cell(default), cell(key.doc))

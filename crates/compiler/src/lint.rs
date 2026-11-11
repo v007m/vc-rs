@@ -7,7 +7,10 @@ mod convention_tests;
 mod default_profiles;
 mod deprecated_calls;
 mod expired_skips;
+mod header_names;
 mod item_ids;
+mod load_ranges;
+mod lone_keys;
 mod names;
 mod reuse_keys;
 mod shared_writes;
@@ -16,6 +19,7 @@ mod test_cache;
 #[cfg(test)]
 mod tests;
 mod unused_defaults;
+mod urls;
 
 use std::ops::Range;
 
@@ -62,6 +66,9 @@ impl LintRegistry {
             Box::new(body_on_read::BodyOnRead),
             Box::new(unused_defaults::UnusedDefaults),
             Box::new(reuse_keys::ReuseKeys),
+            Box::new(lone_keys::LoneKeys),
+            Box::new(load_ranges::LoadRanges),
+            Box::new(header_names::HeaderNames),
         ];
         Self { lints }
     }
@@ -73,6 +80,7 @@ impl LintRegistry {
             Box::new(item_ids::ApiIds),
             Box::new(names::FileNames),
             Box::new(names::Labels),
+            Box::new(urls::ApiUrls),
         ];
         Self { lints }
     }

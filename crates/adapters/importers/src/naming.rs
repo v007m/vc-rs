@@ -1,6 +1,8 @@
 //! Names in a draft: camelCase IDs and vars, the third-person verbs tests are named with, and
 //! the file ID an origin gives.
 
+pub use vc_model::third_person;
+
 use crate::url::host;
 
 /// `text` in camelCase: words split at anything not a letter or digit, the first lowercased,
@@ -17,21 +19,6 @@ pub fn camel(text: &str) -> String {
 /// (`POST /users/{id}/deactivate` gives `postUsersIdDeactivate`).
 pub fn from_route(method: &str, path: &str) -> String {
     camel(&format!("{} {path}", method.to_ascii_lowercase()))
-}
-
-/// `id` with its first word as a third-person verb (`getUser` gives `getsUser`,
-/// `searchUsers` gives `searchesUsers`, `copyUser` gives `copiesUser`).
-pub fn third_person(id: &str) -> String {
-    let split = id.find(|c: char| c.is_ascii_uppercase()).unwrap_or(id.len());
-    let (verb, rest) = id.split_at_checked(split).unwrap_or((id, ""));
-    let verb = if ["s", "sh", "ch", "x", "z"].iter().any(|end| verb.ends_with(end)) {
-        format!("{verb}es")
-    } else if let Some(stem) = verb.strip_suffix('y').filter(|stem| !stem.ends_with(['a', 'e', 'i', 'o', 'u'])) {
-        format!("{stem}ies")
-    } else {
-        format!("{verb}s")
-    };
-    verb + rest
 }
 
 /// The singular of an English plural, as far as a path needs it (`orders` gives `order`,
@@ -88,7 +75,7 @@ fn lowered(word: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{camel, from_route, singular, third_person};
+    use super::{camel, from_route, singular};
 
     #[test]
     fn ids_are_camel_case_whatever_the_spec_wrote() {
@@ -105,15 +92,6 @@ mod tests {
         assert_eq!(from_route("POST", "/users/{id}/deactivate"), "postUsersIdDeactivate");
         assert_eq!(from_route("GET", "/"), "get");
         assert_eq!(from_route("GET", "/userGroups"), "getUserGroups");
-    }
-
-    #[test]
-    fn test_ids_start_with_a_third_person_verb() {
-        assert_eq!(third_person("getUser"), "getsUser");
-        assert_eq!(third_person("searchUsers"), "searchesUsers");
-        assert_eq!(third_person("copyUser"), "copiesUser");
-        assert_eq!(third_person("deployApp"), "deploysApp");
-        assert_eq!(third_person("list"), "lists");
     }
 
     #[test]

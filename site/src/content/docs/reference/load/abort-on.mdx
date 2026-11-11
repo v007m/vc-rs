@@ -4,7 +4,6 @@ description: "Stop a load run early when one of the listed thresholds is breache
 sidebar: { order: 8 }
 ---
 
-import { Aside } from '@astrojs/starlight/components';
 import Playground from '~/components/Playground.svelte';
 
 `abortOn` lists metrics whose threshold, once breached, stops the run before its stages end.
@@ -86,10 +85,7 @@ abortOn: [errorRate, p99]
 - The check uses the live, rolling window (the last 10 seconds), so a bad stretch stops the run as soon as it shows up.
 - The exit code still comes from the final verdict over the whole run: 3 if a threshold is breached.
 - Use it to protect a shared environment: there is no point sending ten more minutes of traffic to a server that is already failing.
-
-<Aside type="caution">
-`vc check` doesn't yet warn when `abortOn` names a metric with no threshold.
-</Aside>
+- A metric with no threshold, in the scenario or in a mix test, is an error (`V2211`): the run could never stop for it.
 
 ## Related
 

@@ -123,14 +123,14 @@ Settings are layered, lowest to highest: built-in defaults < user config (`~/.co
 
 | Key | Type | Default | Purpose |
 | --- | --- | --- | --- |
-| `syntaxVersion` | integer | required, `2` | File-format version (see Files at a glance) |
+| `syntaxVersion` | integer | required, `2` | File-format version (see Files at a glance); a version below 2 or above the newest this `vc` reads is V1003 |
 | `project` | string | `vibranium` (`vc init` writes the folder name) | Display name in reports (CTRF's `environment.appName`, JUnit's `<testsuites name>`) and on the server |
 | `paths.include`, `paths.exclude` | lists of globs | everything except `node_modules` and `.vibranium` | Where definition files are found; written excludes replace the default ones, and `vibranium.config.yaml` itself is always read |
 | `defaults.timeout` | duration | `30s` | Per request |
-| `defaults.concurrency` | integer | `16` | Test instances in flight |
-| `defaults.perHost` | integer | `8` | Connections per host |
+| `defaults.concurrency` | integer, at least 1 | `16` | Test instances in flight |
+| `defaults.perHost` | integer, at least 1 | `8` | Connections per host |
 | `defaults.retry` | `attempts`, `delay` | none | Applied to every test unless overridden; re-runs the whole test instance (D126) |
-| `defaults.headers` | map | none | Sent with every request |
+| `defaults.headers` | map | none | Sent with every request; each name an HTTP token, never a template (V2310) |
 | `http.retry` | `attempts`, `on`, `methods`, `backoff` | `attempts: 0` (off) | Transport retry of one request (D143). `on` defaults to `[connect, timeout, 502, 503, 504]`, `methods` to `[GET, HEAD, OPTIONS, PUT, DELETE]`, `backoff` to `{ base: 100ms, max: 2s, jitter: true }` (exponential). Each attempt gets the full `timeout` |
 | `vars` | map | — | Project-wide values |
 | `profiles` | list | required, at least one; `vc init` creates `default` | Each: `id`, `name`, `default`, `vars`, `agents` (see Vars and profiles) |
@@ -302,7 +302,7 @@ File-level keys:
 | --- | --- | --- |
 | `id` | file ID, optional; must match the path (D139) | Prefix of every api in the file |
 | `name` | text | Shown in listings |
-| `baseUrl` | template | Prefixed to every `path` |
+| `baseUrl` | template | Prefixed to every `path`; written without a trailing `/` (V4005) |
 | `auth` | auth ID, or `none` | Default auth for the file |
 | `headers` | map | Default headers |
 | `vars` | map | Defaults for every api in the file |
@@ -318,7 +318,7 @@ Each item in `apis`:
 | `id` | camelCase, required | — | Reference, e.g. `create` → `users#create` |
 | `name` | text | — | Shown in listings |
 | `method` | `GET` `POST` `PUT` `PATCH` `DELETE` `HEAD` `OPTIONS` | `GET` | HTTP method |
-| `path` | template | required | Appended to `baseUrl`, e.g. `/users/${var.id}` |
+| `path` | template | required | Appended to `baseUrl`, e.g. `/users/${var.id}`; starts with `/` unless it is a full URL or starts with a template (V4005) |
 | `vars` | map | — | Defaults for this api; callers override them |
 | `query` | map of templates | — | Query string |
 | `headers` | map of templates | — | Merged over the file's headers |
@@ -507,7 +507,7 @@ Each item in `tests`:
 | `save` | map of templates over `response` | — | Name values for later steps, `after` and `afterEach`; with `steps`, reads the last step's response (D124) |
 | `poll` | `until`, `every`, `timeout` | none: all three are required (D156) | Re-send until `until` (checks) holds, then check `expect` |
 | `examples` | list of maps, `$file`, or one template giving a list of maps | — | One test instance per row; values in `${example.*}`. A template is read once before the run, from `var`, `env` and `dataset` only. A run skips a test given no rows, with a warning |
-| `repeat` | integer | `1` | Run the whole test this many times, each reported as its own instance |
+| `repeat` | integer, at least 1 | `1` | Run the whole test this many times, each reported as its own instance |
 | `retry` | `attempts`, `delay` | `defaults.retry` | Re-run the whole test instance after a failure, cleanups included; a pass after a failure is reported as flaky (D126) |
 | `timeout` | duration | per-request timeout × calls | Whole-test limit, per attempt. `after` and `afterEach` actions are outside it: one with its own `timeout` is limited by that, one without only by its requests' timeouts |
 | `skip` | a reason, or reason and until | — | Skip with a reason, optionally until a date; reported as skipped (see Skipping) |
@@ -695,7 +695,7 @@ Any `call` or `test` action can run several times without being written several 
 | --- | --- | --- |
 | `repeat: 10` | 10 times | `${iteration.index}` (from 1) and `${iteration.count}` |
 | `forEach: <list>` | once per element of a literal list, a list-valued template (`${var.cities}`) or a `$file` with a CSV, JSON or YAML list | `${item}` is the element (`${item.name}` for a row), plus `iteration` |
-| `parallel: 5` | up to 5 iterations at a time | default `1`: one after another, in order |
+| `parallel: 5` | up to 5 iterations at a time; at least 1, and only with `repeat` or `forEach` (V2211) | default `1`: one after another, in order |
 
 Write one of `repeat` and `forEach` on an action; when both are written, `forEach` is used.
 
@@ -941,12 +941,12 @@ A load file turns existing tests into a traffic mix; it adds no request or check
 | --- | --- | --- | --- |
 | `id` | file ID, optional; must match the path (D139) | path-derived | Scenario ID for `vc load <id>` |
 | `name` | text | — | Shown in the load report |
-| `mix` | list | required | Each: `test` (ID), `weight` (integer), optional `thresholds` for that test |
-| `stages` | list | required | Each: `duration`, `users`; users ramp from the previous stage's count |
-| `thinkTime` | duration, or `min` and `max` | `0s` | Pause between iterations |
+| `mix` | list | required | Each: `test` (ID), `weight` (integer, at least 1), optional `thresholds` for that test |
+| `stages` | list, at least one | required | Each: `duration`, `users` (at least 0); users ramp from the previous stage's count |
+| `thinkTime` | duration, or `min` and `max` (`min` no longer than `max`) | `0s` | Pause between iterations |
 | `checks` | `api` \| `full` | `api` | `full` evaluates every test's `expect`; `api` evaluates only the apis' own `expect`, to keep the tool fast |
 | `thresholds` | map of metric → matcher | — | `p50`, `p90`, `p95`, `p99`, `max`, `errorRate`, `rps`; rolling thresholds use the last 10 s; the final verdict uses the whole run |
-| `abortOn` | list of metrics | `[]` | Stop early when one of these thresholds is breached on the rolling window; exit code 3 comes from the final verdict |
+| `abortOn` | list of metrics, each with a threshold (V2211) | `[]` | Stop early when one of these thresholds is breached on the rolling window; exit code 3 comes from the final verdict |
 
 The metrics count one sample per iteration of a mix test, timed from its scheduled start, so a tool that falls behind cannot hide a slow server. Scenario `thresholds` cover every mix test together; a mix entry's `thresholds` cover only that test. Requests made by `beforeEach` and `before` are not samples.
 
@@ -1155,7 +1155,7 @@ Then `${fake.teamName}`, `${fake.quantity}`. Each generator has exactly one kind
 
 ### Datasets
 
-A dataset is a named list of rows from your own file. Every CSV (with a header row), JSON array or YAML list in `datasets/` is a dataset named after its path, so `datasets/capitals.csv` is `capitals` and `datasets/users/admins.json` is `users.admins`; files kept elsewhere are listed under `datasets.files` in the config, and an entry there wins over a file with the same ID. `${dataset.capitals}` is the whole list, and there are three ways to use it.
+A dataset is a named list of rows from your own file. Every CSV (with a header row), JSON array or YAML list in `datasets/` is a dataset named after its path, each word in camelCase, so `datasets/capitals.csv` is `capitals`, `datasets/world-cities.csv` is `worldCities` and `datasets/users/admins.json` is `users.admins`; files kept elsewhere are listed under `datasets.files` in the config, and an entry there wins over a file with the same ID. `${dataset.capitals}` is the whole list, and there are three ways to use it.
 
 ```
 # datasets/capitals.csv

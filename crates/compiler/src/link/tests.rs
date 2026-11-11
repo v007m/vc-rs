@@ -51,6 +51,19 @@ fn a_save_sets_its_name_for_the_steps_after_it() {
 }
 
 #[test]
+fn an_unset_var_in_an_api_names_every_call_that_reaches_it_once() {
+    let text = tests(concat!(
+        "  - id: putsOnce\n    call: users#put\n",
+        "  - id: putsTwice\n    call: users#put\n",
+        "  - id: putsSet\n    call: users#put\n    vars: {id: u1}\n",
+    ));
+    let found = diagnostics(CONFIG, APIS, &text);
+    assert_eq!(found.iter().map(|found| found.code).collect::<Vec<_>>(), [Code::V2101]);
+    let sites: Vec<_> = found[0].secondary.iter().map(|site| (site.span.start.line, site.text.as_str())).collect();
+    assert_eq!(sites, [(3, "called from here"), (5, "called from here")]);
+}
+
+#[test]
 fn a_step_id_can_be_read_after_that_step_runs() {
     let text = tests(
         "  - id: putsFetched\n    steps:\n      - id: fetch\n        call: users#get\n      - call: users#put\n        vars: {id: '${fetch.body.id}'}\n",

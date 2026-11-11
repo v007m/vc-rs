@@ -52,6 +52,7 @@ code_table! {
     V2201 = 2201, Error, "Exactly one of `call` or `steps` needed";
     V2205 = 2205, Error, "Cycle through `test:` reuse";
     V2210 = 2210, Error, "Shared action saves values but has no `id`";
+    V2211 = 2211, Error, "A key that works only beside another one that is missing";
     V2301 = 2301, Error, "Invalid duration or size";
     V2302 = 2302, Error, "Wrong value type";
     V2303 = 2303, Error, "Invalid status code or class, or an empty status map or list";
@@ -60,6 +61,7 @@ code_table! {
     V2306 = 2306, Error, "Matcher argument invalid";
     V2308 = 2308, Error, "Unknown pipe or wrong pipe arguments";
     V2309 = 2309, Error, "fromRegExp pattern not supported";
+    V2310 = 2310, Error, "Invalid HTTP header name";
     // V3xxx: lifecycle
     V3101 = 3101, Error, "No profile defined, or no active profile for this run";
     V3102 = 3102, Error, "More than one default profile";
@@ -78,6 +80,7 @@ code_table! {
     V4002 = 4002, Warning, "Api ID breaks the convention";
     V4003 = 4003, Warning, "File name or folder breaks the convention";
     V4004 = 4004, Warning, "Tag, profile or dataset name breaks the convention";
+    V4005 = 4005, Warning, "`baseUrl` ends in `/`, or a `path` does not start with one";
     // V5xxx: run time
     V5101 = 5101, Error, "Expectation failed";
     V5102 = 5102, Error, "CEL check false";

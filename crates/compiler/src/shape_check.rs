@@ -1,5 +1,6 @@
 //! The shape-check stage: walks a parsed file against its [`Shape`] and reports unknown keys
-//! (V1004), missing keys (V1005, V1003), wrong value types (V2302) and one-of groups (V2201).
+//! (V1004), missing keys (V1005, V1003), wrong value types and numbers below a key's least
+//! (V2302), and one-of groups (V2201).
 //! Values the next stage compiles (templates, units, matchers, CEL) are collected as leaves.
 
 use vc_diagnostics::{Code, Diagnostic, Diagnostics, Fix, TextEdit};
@@ -138,10 +139,28 @@ impl Walker {
             self.path.push(index);
             self.value(&entry.value, key.ty, scope.with(key.scope).with(sibling_scope(shape, entries, key)));
             self.path.pop();
+            self.least(&entry.value, key);
         }
         self.required(node, shape);
         self.one_of(node, shape);
         self.step(node, shape);
+    }
+
+    /// V2302 for a whole number below the least `key` takes: `repeat: 0`.
+    fn least(&mut self, node: &Node, key: &Key) {
+        let Some(min) = key.min else { return };
+        let scalar = node.as_scalar().filter(|scalar| scalar.kind == ScalarKind::Int);
+        let Some(number) = scalar.and_then(|scalar| scalar.text.parse::<i64>().ok()).filter(|number| *number < min)
+        else {
+            return;
+        };
+        let message = format!("`{}` takes a whole number of at least {min}, found {number}", key.name);
+        let help = key.example.map_or_else(
+            || format!("write {min} or more"),
+            |example| format!("write {min} or more: `{}: {example}`", key.name),
+        );
+        let diagnostic = Diagnostic::new(Code::V2302, node.span, message).label(format!("below {min}"));
+        self.push(diagnostic.help(help));
     }
 
     fn required(&mut self, node: &Node, shape: &'static Shape) {

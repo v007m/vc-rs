@@ -1,4 +1,4 @@
-use vc_diagnostics::Diagnostics;
+use vc_diagnostics::{Diagnostics, Label};
 use vc_model::{SourceFile, SourceFileId, SourceFiles};
 
 use crate::EngineError;
@@ -26,11 +26,13 @@ impl Selection {
         Ok(Self { prefixes })
     }
 
-    /// The diagnostics whose primary span is in a selected file.
+    /// The diagnostics with a label in a selected file: at their primary span, or at a place
+    /// involved, such as the test call that reaches an api's unset var (V2101).
     pub fn keep(&self, diagnostics: Diagnostics, files: &SourceFiles) -> Diagnostics {
+        let selected = |label: &Label| files.get(label.span.file).is_some_and(|file| self.selects(file));
         diagnostics
             .into_iter()
-            .filter(|d| files.get(d.primary.span.file).is_some_and(|file| self.selects(file)))
+            .filter(|d| std::iter::once(&d.primary).chain(&d.secondary).any(selected))
             .collect()
     }
 

@@ -19,8 +19,8 @@ import Playground from '~/components/Playground.svelte';
 
 | Field | Type | Default | Required | Notes |
 | --- | --- | --- | --- | --- |
-| `repeat` (test) | integer | `1` | no | Runs the whole test this many times. Each run is a separate instance. |
-| `repeat` (step or action) | integer | `1` | no | Runs that one call or command this many times, in order. Add [`parallel`](/vc-rs/reference/syntax/parallel/) to overlap them. |
+| `repeat` (test) | integer, at least 1 | `1` | no | Runs the whole test this many times. Each run is a separate instance. |
+| `repeat` (step or action) | integer, at least 1 | `1` | no | Runs that one call or command this many times, in order. Add [`parallel`](/vc-rs/reference/syntax/parallel/) to overlap them. |
 | `${iteration.index}` | integer | — | — | The current run, counting from 1. |
 | `${iteration.count}` | integer | — | — | The total number of runs. |
 
@@ -148,11 +148,10 @@ plan  1 test in 1 file · profile default
 - If one iteration of a step fails, the step fails. The cleanups of the iterations that passed still run.
 - With both [`examples`](/vc-rs/reference/syntax/examples/) and `repeat`, every row runs `repeat` times: `[row 1, repeat 1]`, `[row 1, repeat 2]`, `[row 2, repeat 1]` and so on.
 - `repeat` and [`forEach`](/vc-rs/reference/syntax/for-each/) on the same step: `forEach` wins and `repeat` is ignored.
+- `repeat: 0`, or any number below 1, is an error (`V2302`). Use [`skip`](/vc-rs/reference/syntax/skip/) to park a test.
 
 <Aside type="caution">
 With `--repeat`, `${iteration.count}` still reads the test's own `repeat`. A test with `repeat: 3` run with `--repeat 2` sends `run 1 of 3` and `run 2 of 3`.
-
-`repeat: 0` on a test drops it from the run without a warning. Use [`skip`](/vc-rs/reference/syntax/skip/) to park a test.
 </Aside>
 
 ## Common errors
