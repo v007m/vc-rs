@@ -6,7 +6,7 @@ use serde_json::{Value, json};
 use vc_interfaces::{DraftApi, DraftBefore, DraftTest};
 use vc_model::Method;
 
-use super::creators::{Link, Needs, provide};
+use super::creators::{Link, Needs, passed, provide, unique};
 use super::draft::{Reader, Route};
 use super::responses::{escaped, rejected, success};
 use crate::naming::{capitalised, sentence, third_person};
@@ -24,22 +24,26 @@ struct Case<'c> {
 
 impl Reader<'_> {
     /// The tests for `apis`, made from `routes` in the same order. An api that creates what a
-    /// test needs first gets the `save` the test reads and the `cleanup` that removes it.
+    /// test needs first gets the `save` the test reads and the `cleanup` that removes it; a
+    /// test that creates first passes each parameter its creator's save.
     pub fn tests(&self, file_id: &str, routes: &[Route<'_>], apis: &mut [DraftApi]) -> Vec<DraftTest> {
-        let needs: Vec<Needs> = routes.iter().map(|route| self.needs(routes, route)).collect();
+        let mut needs: Vec<Needs> = routes.iter().map(|route| self.needs(routes, route)).collect();
+        let drafted: Vec<Vec<DraftTest>> = routes
+            .iter()
+            .zip(apis.iter())
+            .zip(&needs)
+            .map(|((route, api), needs)| self.cases(&Case { file_id, route, api, needs }))
+            .collect();
+        let used: Vec<bool> = drafted.iter().map(|tests| tests.iter().any(|test| !test.before.is_empty())).collect();
+        unique(&mut needs, &used);
         let mut tests = Vec::new();
-        let mut used: Vec<&Link> = Vec::new();
-        for ((route, api), needs) in routes.iter().zip(apis.iter()).zip(&needs) {
-            let drafted = self.cases(&Case { file_id, route, api, needs });
-            if let Needs::Made(links) = needs
-                && drafted.iter().any(|test| !test.before.is_empty())
-            {
-                used.extend(links);
+        for ((mut drafted, needs), used) in drafted.into_iter().zip(&needs).zip(used) {
+            if used {
+                needs.links().iter().for_each(|link| provide(apis, routes, link));
+                let creating = drafted.iter_mut().filter(|test| !test.before.is_empty());
+                creating.for_each(|test| test.vars = passed(needs.links()));
             }
             tests.extend(drafted);
-        }
-        for link in used {
-            provide(apis, routes, link);
         }
         tests
     }

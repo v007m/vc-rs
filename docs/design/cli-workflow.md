@@ -494,14 +494,14 @@ A `name` in an example row labels that instance in reports, so a failure reads "
 
 - **Names and IDs.** A test is named after the operation's summary without its full stop, else the api's ID as a sentence (`deletePetsPetId` → "Delete pets pet id"). IDs are the api ID as a third-person verb (`createUser` → `createsUser`, `login` → `logsIn`), `rejectsInvalid<Api>` and `rejects<Api>WithoutAuth`; the negative and auth names add ": rejects an invalid body" and ": needs a signed-in caller".
 - **Status and schema.** The happy test expects the operation's first documented 2xx (`201` for a create that lists only `201`) and, when that response has a JSON schema, `body.schema` pointing into the snapshot: at `#/components/schemas/<Name>` for a `$ref`, else at the schema inside the operation, with what a URI fragment cannot hold percent-encoded (`/items/{id}` is `~1items~1%7Bid%7D`). A percent-encoded `$ref` in the spec is followed decoded. The negative test expects `400`, or `422` when the spec lists that and not `400`.
-- **What a call needs.** For each `{param}` in the path, the `POST` on the collection above it (`POST /users` for `/users/{id}`) is the creator when its success response has a property named like the parameter, or `id`. The creator gets `save: {<param>: ${response.body.<property>}}`, and a `cleanup` calling the `DELETE` on the item's path when the spec has one; each test calls it in `before`, outermost first. When the test's call is the `DELETE` of the item its last `before` creates, that `before` has `keep: true`, as the call itself removes the item; a `DELETE` of something else (`DELETE /users/{id}/orders`) keeps nothing, so the user is still cleaned up. When nothing creates an item, the test is written with `skip: {reason: "needs an existing <item>: set vars.<param> to one and remove this skip"}` instead.
+- **What a call needs.** For each `{param}` in the path, the `POST` on the collection above it (`POST /users` for `/users/{id}`) is the creator when its success response has a property named like the parameter, or `id`. The creator gets `save: {<resource>Id: ${response.body.<property>}}`, named after the collection's last word in the singular (`/users` saves `userId`, `/line_items` `lineItemId`; a second creator in the file whose name clashes saves `userId2`, then `userId3`, in route order), and a `cleanup` calling the `DELETE` on the item's path when the spec has one, its `vars` keyed by that `DELETE`'s own parameter. Each test calls the creators in `before`, outermost first, and passes each parameter whose name differs from the save its creator's value on the call: `vars: {id: ${var.userId}}` for `/users/{id}`; a `/users/{userId}` needs no `vars`. When the test's call is the `DELETE` of the item its last `before` creates, that `before` has `keep: true`, as the call itself removes the item; a `DELETE` of something else (`DELETE /users/{id}/orders`) keeps nothing, so the user is still cleaned up. When nothing creates an item, the test is written with `skip: {reason: "needs an existing <item>: set vars.<param> to one and remove this skip"}` instead.
 - **Invalid bodies.** The rows start from the api's drafted JSON body, its vars filled in, and break one field it sends at a time: missing when required, a value of the wrong type, a value outside its enum. The wrong value is one no type the field allows accepts, counting each type in a `type` list and each `anyOf` or `oneOf` alternative (an integer passes as a number), and the row is named after them (`flag is not a boolean or integer`); a field the row cannot break that way, such as `type: [string, number]`, gets no such row.
 
 From the mock users spec with `--tests --negative`, the api file's `createUser` gains
 
 ```yaml
     save:
-      id: ${response.body.id}
+      userId: ${response.body.id}
     cleanup:
       call: deleteUser
       vars:
@@ -556,6 +556,8 @@ tests:
     before:
       - call: users#createUser
     call: users#getUser
+    vars:
+      id: ${var.userId}
     expect:
       status: 200
       body:
@@ -567,6 +569,8 @@ tests:
       - call: users#createUser
         keep: true
     call: users#deleteUser
+    vars:
+      id: ${var.userId}
     expect:
       status: 204
 ```
