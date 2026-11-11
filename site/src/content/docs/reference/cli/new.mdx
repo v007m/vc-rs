@@ -115,7 +115,7 @@ tests:
   - id: listsUsers
     name: Lists users
     call: users#listUsers
-  - id: listUsersRejectsAnonymous
+  - id: rejectsAnonymousListUsers
     name: List users needs a signed-in caller
     call: users#listUsers
     auth: none

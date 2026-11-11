@@ -484,7 +484,7 @@ What the generator fills in for you:
     expect:
       status: 400
 
-  - id: deactivateRejectsAnonymous
+  - id: rejectsAnonymousDeactivate
     name: Deactivate needs a signed-in caller
     call: users#deactivate
     auth: none
