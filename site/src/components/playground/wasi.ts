@@ -38,8 +38,9 @@ export interface WasiOptions {
 /** Nanoseconds on the clock `id`: the wall clock (`Date.now()`), or the page's monotonic clock
  * (`performance.now()`). */
 export function now(id: number): bigint {
-  const ms = id === CLOCK_REALTIME ? Date.now() : performance.now();
-  return BigInt(Math.round(ms * 1e6));
+  // The wall clock in nanoseconds is past 2^53, so it is scaled as a bigint, not a float.
+  if (id === CLOCK_REALTIME) return BigInt(Date.now()) * 1_000_000n;
+  return BigInt(Math.round(performance.now() * 1e6));
 }
 
 /** A clock subscription: which clock, its timeout in nanoseconds, and whether the timeout is an
