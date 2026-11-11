@@ -1,0 +1,64 @@
+---
+/** The closing call to action: a glowing panel with a heading, a line of copy and two buttons. */
+import LineIcon from './LineIcon.astro';
+
+interface Props {
+  title: string;
+  primary: { text: string; href: string };
+  secondary: { text: string; href: string };
+}
+
+const { title, primary, secondary } = Astro.props;
+---
+
+<section class="lp-cta not-content" aria-labelledby="get-started">
+  <h2 id="get-started" set:html={title} />
+  <div class="lp-cta-copy"><slot /></div>
+  <div class="lp-actions">
+    <a class="lp-btn lp-btn-primary" href={primary.href}>{primary.text}<LineIcon name="arrow" class="lp-btn-arrow" /></a>
+    <a class="lp-btn lp-btn-secondary" href={secondary.href}>{secondary.text}</a>
+  </div>
+</section>
+
+<style>
+  .lp-cta {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    margin-block: clamp(3rem, 2rem + 4vw, 6rem) 0;
+    padding: clamp(2.5rem, 2rem + 4vw, 4.5rem) clamp(1.25rem, 1rem + 3vw, 4rem);
+    border: 1px solid var(--lp-accent-border);
+    border-radius: 1.5rem;
+    background:
+      radial-gradient(36rem 16rem at 50% 0%, var(--lp-glow-1), transparent 70%),
+      var(--lp-card);
+    text-align: center;
+  }
+  h2 {
+    margin: 0 auto;
+    max-width: 20ch;
+    font-size: clamp(1.75rem, 1.2rem + 2.2vw, 2.75rem);
+    font-weight: 700;
+    line-height: 1.12;
+    letter-spacing: -0.025em;
+    color: var(--sl-color-white);
+    text-wrap: balance;
+  }
+  .lp-cta-copy {
+    max-width: 36rem;
+    margin: 1rem auto 0;
+    font-size: var(--sl-text-lg);
+    line-height: 1.6;
+    color: var(--sl-color-gray-2);
+  }
+  .lp-cta-copy > :global(*) {
+    margin: 0;
+  }
+  .lp-cta-copy :global(code) {
+    font-family: var(--__sl-font-mono);
+    font-size: 0.9em;
+  }
+  .lp-actions {
+    margin-top: 2rem;
+  }
+</style>
