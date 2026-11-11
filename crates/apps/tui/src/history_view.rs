@@ -68,20 +68,33 @@ fn draw_runs(screen: &HistoryScreen, frame: &mut Frame<'_>, area: Rect) {
     frame.render_stateful_widget(table, area, &mut TableState::default().with_selected(chosen));
 }
 
-/// `#482  2026-11-05 09:30Z  main@a1c9e4f  96.1%  396  6  4  3  48.2s`.
+/// `#482  2026-11-05 09:30Z  main@a1c9e4f  96.1%  396  6  4  3  48.2s`; a load run's
+/// iterations and errors take the place of its checkout, pass rate and counts.
 fn run_row(run: &RunRow) -> Row<'static> {
-    let totals = &run.totals;
-    let counts = [(totals.passed, theme::PASS), (totals.failed, theme::FAIL), (totals.blocked, theme::WARN)];
-    let mut cells = vec![
-        Cell::from(format!("#{}", run.id.get())),
-        Cell::from(started(run.start.started_ms)),
-        Cell::from(checkout(run)),
-        Cell::from(Span::styled(percent(totals), ending(run.status))),
-    ];
-    cells
-        .extend(counts.into_iter().chain([(totals.flaky, theme::WARN)]).map(|(count, style)| count_cell(count, style)));
+    let mut cells = vec![Cell::from(format!("#{}", run.id.get())), Cell::from(started(run.start.started_ms))];
+    if history_model::ran_tests(run) {
+        cells.extend(test_cells(run));
+    } else {
+        cells.extend(load_cells(run));
+    }
     cells.push(Cell::from(took(run).map_or_else(|| "running".to_owned(), seconds)));
     Row::new(cells)
+}
+
+/// A run of tests' checkout, pass rate and counts.
+fn test_cells(run: &RunRow) -> Vec<Cell<'static>> {
+    let totals = &run.totals;
+    let counts = [(totals.passed, theme::PASS), (totals.failed, theme::FAIL), (totals.blocked, theme::WARN)];
+    let mut cells = vec![Cell::from(checkout(run)), Cell::from(Span::styled(percent(totals), ending(run.status)))];
+    cells
+        .extend(counts.into_iter().chain([(totals.flaky, theme::WARN)]).map(|(count, style)| count_cell(count, style)));
+    cells
+}
+
+/// A load run's iterations and errors, then nothing under the columns of tests.
+fn load_cells(run: &RunRow) -> Vec<Cell<'static>> {
+    let label = Cell::from(Span::styled(history_model::iterations(&run.totals), ending(run.status)));
+    std::iter::once(label).chain(std::iter::repeat_with(Cell::default).take(5)).collect()
 }
 
 /// A count, dimmed when it is zero.
