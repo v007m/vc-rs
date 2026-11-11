@@ -27,6 +27,7 @@ impl Resolve for Lookup<'_> {
                 let (name, rest) = named("env", reference)?;
                 vc_template::select(&format!("env.{name}"), &self.env(name)?, rest)
             }
+            Namespace::Secret => self.secret(reference),
             Namespace::Fake => self.fake(reference),
             ns => {
                 let label = self.render.label(ns);
@@ -59,6 +60,19 @@ impl Lookup<'_> {
         }
         let value = self.render.values.inputs().environment.var(name);
         value.map(Value::String).ok_or_else(|| RenderError::missing(format!("`env.{name}` is not set")))
+    }
+
+    /// A loaded secret, as text; a name that did not load is V5114. No message shows a value.
+    fn secret(&self, reference: &Reference) -> Result<Value, RenderError> {
+        let (name, rest) = named("secret", reference)?;
+        let secrets = self.render.values.secrets();
+        let Some(value) = secrets.get(name) else {
+            return Err(RenderError::missing(format!("the secret `{name}` did not load")).coded(Code::V5114));
+        };
+        if !rest.is_empty() {
+            return Err(RenderError::invalid(format!("`secret.{name}` is text and has no fields")));
+        }
+        Ok(value.clone())
     }
 
     fn fake(&self, reference: &Reference) -> Result<Value, RenderError> {

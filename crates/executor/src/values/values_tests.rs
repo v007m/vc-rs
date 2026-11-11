@@ -4,6 +4,7 @@ use std::sync::Arc;
 use indexmap::IndexMap;
 use serde_json::{Value, json};
 use vc_diagnostics::Code;
+use vc_interfaces::{Secret, Secrets};
 use vc_model::{
     ActionId, ActionKind, AgentPolicy, Dataset, DatasetId, Examples, GeneratorDef, HookRef, Instance, InstanceId,
     Needs, OwnerKey, Profile, ProfileId, TemplateValue,
@@ -219,6 +220,23 @@ fn env_reads_the_environment_port() {
     assert_eq!(run_level(&cx, action, &set), Ok(json!("Bearer t-1")));
     let error = run_level(&cx, action, &unset).unwrap_err();
     assert_eq!((error.missing, error.message.as_str()), (true, "`env.NOPE` is not set"));
+}
+
+#[test]
+fn a_secret_that_did_not_load_is_v5114_and_shows_no_other_secret() {
+    let mut fixture = Fixture::new();
+    let action = fixture.call("/users");
+    let (loaded, unloaded) = (fixture.value("${secret.TOKEN}"), fixture.value("${secret.NOPE}"));
+    let inside = fixture.value("${secret.TOKEN.part}");
+    let mut secrets = Secrets::new();
+    secrets.insert("TOKEN", Secret::new("tok-fixture-71"));
+    let cx = fixture.cx_with(ActionExecutors::new(), fixture::inputs(&[]).with_secrets(secrets));
+    assert_eq!(run_level(&cx, action, &loaded), Ok(json!("tok-fixture-71")));
+    let error = run_level(&cx, action, &unloaded).unwrap_err();
+    let shown = (error.missing, error.code, error.message.as_str());
+    assert_eq!(shown, (true, Some(Code::V5114), "the secret `NOPE` did not load"));
+    let error = run_level(&cx, action, &inside).unwrap_err();
+    assert_eq!(error.message, "`secret.TOKEN` is text and has no fields");
 }
 
 #[test]
