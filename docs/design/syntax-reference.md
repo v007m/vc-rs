@@ -1251,12 +1251,14 @@ Packages, `node:` modules and `import()` are V2008: hooks run inside the engine,
 | Where | Key | The function receives |
 | --- | --- | --- |
 | api file or api | `beforeRequest` | the rendered request, which it may change and return (e.g. to sign it) |
-| api file or api | `afterResponse` | the response, read-only (e.g. to log it) |
+| api file or api | `afterResponse` | the request and the response, read-only; what it returns is ignored, and a throw fails the call (e.g. to guard against a server error) |
 | any lifecycle block or steps | a `function:` action | vars and run info (`afterRun` also gets the results); it may return an object whose fields are saved |
 
 Custom checks go under `expect.custom`, receive the response and resolved values, and return `true` or a failure message.
 
 Every hook can call the global `secret(name)`, which returns a secret the run loaded (a name `.env.schema` declares); a name the run did not load throws. A value it returns is masked wherever it shows, like `${secret.X}`.
+
+Hooks have no `console` yet: a hook that calls `console.log` throws `ReferenceError: console is not defined`, which fails its call or action (V5115). D267 sends `console` output to the run log, tagged with the hook's name and shown with `-v`; that lands with the run log and `-v`.
 
 ```ts
 // hooks/sign.ts

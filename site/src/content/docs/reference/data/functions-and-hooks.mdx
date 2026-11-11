@@ -44,7 +44,7 @@ apis:
 - `vibranium:std`: `hmacSha256Hex(key, data)`, `sha256Hex(data)`, `base64Encode`, `base64Decode`, `urlEncode`, `urlDecode`.
 - Types, with `import type { … } from "@vibranium/sdk"`. Types are stripped before the hook runs.
 
-Packages and `node:` modules are not allowed ([V2008](/vc-rs/reference/diagnostics/v2008/)). Hooks run inside the engine, not in Node, so there is no `fs`, no network and no `console`.
+Packages and `node:` modules are not allowed ([V2008](/vc-rs/reference/diagnostics/v2008/)). Hooks run inside the engine, not in Node, so there is no `fs`, no network and no `console` (a call to `console.log` throws `console is not defined` and fails the call, [V5115](/vc-rs/reference/diagnostics/v5115/)).
 
 ## Examples
 
