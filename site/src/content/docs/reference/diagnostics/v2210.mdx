@@ -22,7 +22,7 @@ ID (`${var.member.userId}`), so without one nothing can read them.
 
 ## Wrong
 
-```yaml wrong title="services/users/users.api.yaml"
+```yaml wrong V2210 title="services/users/users.api.yaml"
 apis:
   - id: getUser
     path: /users/1
@@ -38,7 +38,7 @@ apis:
       name: Bo
 ```
 
-```yaml wrong title="services/users/crud.test.yaml"
+```yaml wrong V2210 title="services/users/crud.test.yaml"
 beforeAll:
   - call: users#createUser
 tests:

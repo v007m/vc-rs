@@ -39,7 +39,7 @@ fn written(node: &Node) -> Option<&str> {
         return Some(text);
     }
     let [only] = node.entries() else { return None };
-    only.value.as_str().filter(|_| only.key == "$file")
+    only.value.as_str().filter(|_| only.key == vc_model::FILE_KEY)
 }
 
 /// The project path of the file the schema at `node` is read from, when the compiler can know it:

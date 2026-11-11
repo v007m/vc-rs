@@ -62,4 +62,7 @@ pub use redactor::{MASKED, RedactingSink, Redactor};
 pub use shell::{Executor, IterationSetup, ProgramIterations, RunHandle, RunInterrupter, RunOptions};
 pub use slots::{SharedResult, SharedSlots};
 use values::{Around, Render};
-pub use values::{Defined, ExampleRows, Frame, Iteration, RunInputs, RunValues, UnreadVar, example_rows, unread_var};
+pub use values::{
+    BodyFiles, Defined, ExampleRows, Frame, Iteration, RunInputs, RunValues, Unread, UnreadVar, example_rows,
+    unread_var,
+};

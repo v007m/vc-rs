@@ -31,6 +31,7 @@ use std::sync::Arc;
 use vc_diagnostics::Diagnostics;
 use vc_model::{Date, FileKind, Program, SourceFiles, SourcePath, StringTable};
 
+pub use assets::folder;
 pub use build::{body_path, flag, method};
 pub use data::DataWanted;
 pub use project::{Project, Source, TEST_BLOCKS, actions, list, text};

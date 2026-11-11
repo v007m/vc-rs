@@ -59,7 +59,11 @@ impl CallExecutor {
             .ok_or_else(|| Failure::new("the action calls no api in the program"))?;
         let mut render = Render::new(request).map_err(request::failed)?;
         let timeout = timeout(render.program(), api, action);
-        let call = Call { request: request::rendered(&render, api, action)?, timeout, ctx: SendContext::default() };
+        let call = Call {
+            request: request::rendered(&render, api, (request.action, action))?,
+            timeout,
+            ctx: SendContext::default(),
+        };
         let trip = self.flight(request, &mut render, (api, action))?;
         let exchange = match &action.poll {
             Some(poll) => trip.poll(&mut render, (call, poll)).await?,

@@ -28,7 +28,8 @@ fn settings(extra: &Value) -> Value {
 /// The query of `url`, decoded.
 fn query(url: &str) -> Vec<(String, String)> {
     let query = url.split_once('?').map(|(_, query)| query).unwrap_or_default();
-    let decode = |text: &str| percent_encoding::percent_decode_str(text).decode_utf8_lossy().into_owned();
+    let decode =
+        |text: &str| percent_encoding::percent_decode_str(&text.replace('+', " ")).decode_utf8_lossy().into_owned();
     query.split('&').filter_map(|pair| pair.split_once('=')).map(|(key, value)| (decode(key), decode(value))).collect()
 }
 

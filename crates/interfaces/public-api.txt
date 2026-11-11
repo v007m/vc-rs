@@ -1520,6 +1520,7 @@ pub trait vc_interfaces::SourceProvider: core::marker::Send + core::marker::Sync
 pub fn vc_interfaces::SourceProvider::discover(&self, &vc_interfaces::SourceFilter) -> core::result::Result<vc_interfaces::Discovery, vc_interfaces::SourceError>
 pub fn vc_interfaces::SourceProvider::ignores(&self, &vc_model::source::SourcePath) -> bool
 pub fn vc_interfaces::SourceProvider::read(&self, &[vc_model::source::SourcePath]) -> core::result::Result<vc_interfaces::Discovery, vc_interfaces::SourceError>
+pub fn vc_interfaces::SourceProvider::read_bytes(&self, &vc_model::source::SourcePath) -> core::result::Result<alloc::vec::Vec<u8>, vc_interfaces::SourceError>
 pub fn vc_interfaces::SourceProvider::read_outside(&self, &[(vc_model::source::SourcePath, vc_model::source::SourcePath)]) -> core::result::Result<vc_interfaces::Discovery, vc_interfaces::SourceError>
 pub trait vc_interfaces::SourceWriter: core::marker::Send + core::marker::Sync
 pub fn vc_interfaces::SourceWriter::remove(&self, &vc_model::source::SourcePath) -> core::result::Result<(), vc_interfaces::SourceError>

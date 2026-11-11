@@ -23,7 +23,7 @@ they have no effect. Remove the key, or set it in the reused test.
 
 ## Wrong
 
-```yaml title="services/users/users.api.yaml"
+```yaml wrong V3207 title="services/users/users.api.yaml"
 apis:
   - id: getUser
     path: /users/1
@@ -34,7 +34,7 @@ apis:
       userId: ${response.body.id}
 ```
 
-```yaml title="services/users/crud.test.yaml"
+```yaml wrong V3207 title="services/users/crud.test.yaml"
 tests:
   - id: makesUser
     standalone: false

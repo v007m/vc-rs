@@ -14,6 +14,7 @@
 mod agents;
 mod alerts;
 mod api;
+mod body_file;
 mod builder;
 mod config;
 mod date;
@@ -23,6 +24,7 @@ mod event;
 mod exchange;
 mod expect;
 mod files;
+mod form;
 mod history;
 mod hooks;
 mod ids;
@@ -42,6 +44,7 @@ mod units;
 pub use agents::{AgentPolicy, WriteDefinitions};
 pub use alerts::{Alert, AlertChannel, AlertTrigger};
 pub use api::{Api, ApiGroup, ApiSource, BodySpec, PartSpec};
+pub use body_file::{FILE_KEY, MULTIPART, basename, file_parts, file_path, is_multipart, part_pointer};
 pub use builder::ProgramBuilder;
 pub use config::{
     AUTH_NEEDS, AuthDef, Config, Dataset, Defaults, GeneratorDef, HttpRetry, LoadScenario, LoadStage, MixEntry,
@@ -57,6 +60,7 @@ pub use event::{Event, Feed, Sequenced};
 pub use exchange::{ConnectionInfo, Exchange, HttpResponse, Protocol, RenderedRequest, Timing};
 pub use expect::{Check, CheckKind, CheckResult, Expect, Matcher, MatcherArg, MatcherCall, Origin};
 pub use files::SourceFiles;
+pub use form::{form_pairs, form_text};
 pub use history::{Bodies, DEFAULT_KEEP, DEFAULT_MAX_BODY, HistoryConfig, Keep, cut_body};
 pub use hooks::{HookModule, HookModules, import_paths};
 pub use ids::{ActionId, ApiId, AuthId, DatasetId, FileId, ProfileId, SourceFileId, TestId, VarName};

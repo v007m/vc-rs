@@ -22,7 +22,7 @@ A test-level `body` is a default for every step, and here it reaches a `GET` or 
 
 ## Wrong
 
-```yaml title="services/users/users.api.yaml"
+```yaml wrong V3205 title="services/users/users.api.yaml"
 apis:
   - id: getUser
     path: /users/1
@@ -38,7 +38,7 @@ apis:
       name: Bo
 ```
 
-```yaml title="services/users/crud.test.yaml"
+```yaml wrong V3205 title="services/users/crud.test.yaml"
 tests:
   - id: createsThenReads
     body: {name: Ada}

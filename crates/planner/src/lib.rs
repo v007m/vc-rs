@@ -7,6 +7,7 @@
 //! [`PlanOptions`] (D132); [`rows_wanted`] names the templated tests whose rows the engine must
 //! render first, and a test whose examples gave no rows is skipped ([`NO_ROWS`]).
 
+mod bodies;
 mod build;
 mod error;
 mod expand;
@@ -18,6 +19,7 @@ mod select;
 mod testing;
 mod visit;
 
+pub use bodies::{bodies, bodies_from};
 pub use build::{plan, rows_wanted};
 pub use error::PlanError;
 pub use expand::NO_ROWS;

@@ -28,9 +28,13 @@ naming it, and the run's report records it (D260).
 
 ## Wrong
 
-```yaml wrong V2302 title="vibranium.config.yaml"
+`vc` runs inside a sandbox, so `acmeAuth` cannot start confined and the calls that use it fail with V5119. Switching
+confinement off in the project has no effect: `plugins` there is the list of plugins, not a setting.
+
+```yaml title="vibranium.config.yaml"
 plugins:
-  allowUnconfined: true
+  - id: acmeAuth
+    source: path:./plugins/acme-auth
 ```
 
 ## Right

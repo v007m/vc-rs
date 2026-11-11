@@ -26,13 +26,13 @@ template.
 
 ## Wrong
 
-```yaml wrong title="services/users/users.api.yaml"
+```yaml wrong V2301 title="services/users/users.api.yaml"
 apis:
   - id: getUser
     path: /users/1
 ```
 
-```yaml wrong title="services/users/crud.test.yaml"
+```yaml wrong V2301 title="services/users/crud.test.yaml"
 tests:
   - id: getsUser
     call: users#getUser
@@ -58,7 +58,7 @@ tests:
 
 This is real output from `vc`, run against the files below.
 
-```yaml wrong title="services/users/users.api.yaml"
+```yaml wrong V2301 title="services/users/users.api.yaml"
 id: users
 name: Users
 baseUrl: http://localhost:7421

@@ -17,7 +17,8 @@ use vc_testkit::{FakeTransport, Recorded, RecordingTransport};
 use crate::fixture;
 use crate::fixture::{Fixture, Server};
 use crate::{
-    ActionExecutors, ActionReport, ActionRequest, Frame, HostLimits, MASKED, PendingCleanup, PipelineParts, Saved,
+    ActionExecutors, ActionReport, ActionRequest, BodyFiles, Frame, HostLimits, MASKED, PendingCleanup, PipelineParts,
+    Saved, Unread,
 };
 
 fn json_response(code: u16, body: &Value) -> HttpResponse {
@@ -125,6 +126,21 @@ async fn sent_body(
     Ok((recorded.request.body.clone(), kind.to_owned()))
 }
 
+/// The action a [`sent_body`] body is sent by: the fixture's last.
+fn sender(fixture: &Fixture) -> ActionId {
+    ActionId::new(u32::try_from(fixture.program.actions.len() - 1).unwrap())
+}
+
+/// A written map body of `pairs`.
+fn written(pairs: Vec<(&str, TemplateValue)>) -> TemplateValue {
+    TemplateValue::Map(pairs.into_iter().map(|(key, value)| (key.to_owned(), value)).collect())
+}
+
+/// A written `{$file: path}` map.
+fn file_map(path: &str) -> TemplateValue {
+    written(vec![("$file", TemplateValue::String(fixture::literal(path)))])
+}
+
 fn object(pairs: &[(&str, i32)]) -> TemplateValue {
     TemplateValue::Map(pairs.iter().map(|(key, n)| ((*key).to_owned(), TemplateValue::Number((*n).into()))).collect())
 }
@@ -151,6 +167,23 @@ async fn each_body_kind_sets_its_content_type_unless_one_is_given() {
 }
 
 #[tokio::test]
+async fn a_file_body_sends_the_bytes_read_before_the_run_with_its_extensions_type() {
+    let logo = Bytes::from_static(&[0x89, b'P', 0xff, 0]);
+    let file = |path: &'static str| {
+        let logo = logo.clone();
+        move |fixture: &mut Fixture| {
+            fixture.bodies = BodyFiles::new([((sender(fixture), String::new()), Ok(logo))]);
+            BodySpec::File(fixture::literal(path))
+        }
+    };
+    let png = sent_body(file("services/users/logo.png"), &[]).await;
+    assert_eq!(png, Ok((logo.clone(), "image/png".to_owned())));
+    let given = sent_body(file("dump.bin"), &[("content-type", "application/x-thing")]).await;
+    assert_eq!(given, Ok((logo.clone(), "application/x-thing".to_owned())), "a header given is kept");
+    assert_eq!(sent_body(file("dump.bin"), &[]).await, Ok((logo, "application/octet-stream".to_owned())));
+}
+
+#[tokio::test]
 async fn a_body_that_is_one_reference_to_a_map_is_sent_as_json() {
     let lone = |fixture: &mut Fixture| {
         fixture.program.config.vars.values = [(fixture.var("token"), object(&[("a", 1)]))].into();
@@ -160,10 +193,59 @@ async fn a_body_that_is_one_reference_to_a_map_is_sent_as_json() {
 }
 
 #[tokio::test]
+async fn a_json_body_sends_a_file_map_as_written() {
+    let json = sent_body(|_| BodySpec::Json(written(vec![("doc", file_map("a.pdf"))])), &[]).await;
+    assert_eq!(json, Ok((Bytes::from(r#"{"doc":{"$file":"a.pdf"}}"#), "application/json".to_owned())));
+}
+
+#[tokio::test]
+async fn multipart_file_parts_are_the_bytes_read_at_their_pointer() {
+    let parts = |fixture: &mut Fixture| {
+        let at = |pointer: &str| (sender(fixture), pointer.to_owned());
+        fixture.bodies =
+            BodyFiles::new([(at("/doc"), Ok(Bytes::from("pdf"))), (at("/scans/0"), Ok(Bytes::from("png")))]);
+        BodySpec::Json(written(vec![
+            ("doc", file_map("a.pdf")),
+            ("scans", TemplateValue::List(vec![file_map("b.png")])),
+        ]))
+    };
+    let (body, kind) = sent_body(parts, &[("content-type", "multipart/form-data; boundary=b")]).await.unwrap();
+    assert_eq!(kind, "multipart/form-data; boundary=b");
+    let body = String::from_utf8_lossy(&body).into_owned();
+    assert!(body.contains("filename=\"a.pdf\"\r\nContent-Type: application/pdf\r\n\r\npdf\r\n"), "{body}");
+    assert!(body.contains("filename=\"b.png\"\r\nContent-Type: image/png\r\n\r\npng\r\n"), "{body}");
+}
+
+#[tokio::test]
+async fn a_multipart_file_part_with_a_templated_path_or_from_a_reference_fails_with_v5111() {
+    let v5111 = Err(Some(Code::V5111.to_string()));
+    let multipart = [("content-type", "multipart/form-data")];
+    let templated = |fixture: &mut Fixture| {
+        fixture.bodies = BodyFiles::new([((sender(fixture), "/doc".to_owned()), Err(Unread::Templated))]);
+        let path = written(vec![("$file", fixture.value("${var.greeting}.pdf"))]);
+        BodySpec::Json(written(vec![("doc", path)]))
+    };
+    assert_eq!(sent_body(templated, &multipart).await, v5111);
+    let referenced = |fixture: &mut Fixture| {
+        fixture.program.config.vars.values = [(fixture.var("token"), file_map("a.pdf"))].into();
+        BodySpec::Json(written(vec![("doc", fixture.value("${var.token}"))]))
+    };
+    assert_eq!(sent_body(referenced, &multipart).await, v5111);
+}
+
+#[tokio::test]
 async fn bodies_and_headers_that_cannot_be_built_fail_before_sending() {
     let v5111 = Err(Some(Code::V5111.to_string()));
     assert_eq!(sent_body(|_| BodySpec::Base64(fixture::literal("not base64!")), &[]).await, v5111);
-    assert_eq!(sent_body(|_| BodySpec::File(fixture::literal("avatar.png")), &[]).await, v5111);
+    assert_eq!(sent_body(|_| BodySpec::File(fixture::literal("avatar.png")), &[]).await, v5111, "not read");
+    let unreadable = |fixture: &mut Fixture| {
+        let gone = Err(Unread::Failed("no such file".to_owned()));
+        fixture.bodies = BodyFiles::new([((sender(fixture), String::new()), gone)]);
+        BodySpec::File(fixture::literal("gone.png"))
+    };
+    assert_eq!(sent_body(unreadable, &[]).await, v5111);
+    let templated = |fixture: &mut Fixture| BodySpec::File(fixture.template("${var.greeting}.png"));
+    assert_eq!(sent_body(templated, &[]).await, v5111);
     assert_eq!(sent_body(|_| BodySpec::Form(IndexMap::new()), &[]).await, v5111);
     assert_eq!(sent_body(|_| BodySpec::Multipart(IndexMap::new()), &[]).await, v5111);
     assert_eq!(sent_body(|_| BodySpec::None, &[("x-bad", "line\nbreak")]).await, v5111);

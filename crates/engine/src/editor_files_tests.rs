@@ -53,6 +53,10 @@ impl SourceProvider for Unsearchable {
     fn read(&self, paths: &[SourcePath]) -> Result<Discovery, SourceError> {
         self.0.read(paths)
     }
+
+    fn read_bytes(&self, path: &SourcePath) -> Result<Vec<u8>, SourceError> {
+        self.0.read_bytes(path)
+    }
 }
 
 #[test]
