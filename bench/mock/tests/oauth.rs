@@ -39,6 +39,21 @@ async fn each_grant_issues_a_token_that_auth_me_accepts() -> TestResult {
 }
 
 #[tokio::test]
+async fn each_refresh_token_is_new_whoever_issues_it() -> TestResult {
+    let mock = Mock::start().await?;
+    let (_, signed_in) =
+        token(&mock, None, "grant_type=password&username=ada&password=lovelace&client_id=vc-public").await?;
+    let granted = signed_in["refresh_token"].as_str().ok_or("no refresh_token")?.to_owned();
+    let (first, second) = (mock.handle.refresh_token().await?, mock.handle.refresh_token().await?);
+    assert!(first != second && first != granted && second != granted, "{granted} {first} {second}");
+    for refresh in [first, second, granted] {
+        let (status, _) = token(&mock, Some(CLIENT), &format!("grant_type=refresh_token&refresh_token={refresh}")).await?;
+        assert_eq!(status, StatusCode::OK, "{refresh} is still unused");
+    }
+    Ok(())
+}
+
+#[tokio::test]
 async fn expires_in_on_the_token_url_sets_the_lifetime() -> TestResult {
     let mock = Mock::start().await?;
     let request = mock.request(Method::POST, "/oauth/token?expiresIn=30").header(AUTHORIZATION, CLIENT);

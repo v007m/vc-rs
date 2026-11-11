@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 
-/// Issued bearer tokens, OAuth refresh tokens and codes, and the login counter.
+/// Issued bearer tokens, OAuth refresh tokens and codes, the login counter, and the counter
+/// that names each refresh token and code.
 #[derive(Default)]
 pub struct Sessions {
     logins: u64,
@@ -20,7 +21,8 @@ impl Sessions {
 
     /// Issues a refresh token that [`Self::refreshes`] accepts until it is used.
     pub fn refresh_token(&mut self) -> String {
-        let token = format!("mock-refresh-{}", self.logins);
+        self.issued += 1;
+        let token = format!("mock-refresh-{}", self.issued);
         self.refresh.insert(token.clone());
         token
     }
