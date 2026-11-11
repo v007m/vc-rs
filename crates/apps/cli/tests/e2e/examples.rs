@@ -115,7 +115,9 @@ async fn a_profile_whose_rows_read_a_secret_refuses_the_run_only_under_that_prof
     let tests = "tests:\n  - id: visitsEachCity\n    examples: ${var.rows}\n    call: scripted#echo\n\
                  \x20   body: {city: '${example.name}'}\n";
     let schema = (".env.schema", "# a token the rows must not read\nROWS_TOKEN=\n");
-    let project = Project::new(&[config, CITIES, SCRIPTED, ("services/scripted/cities.test.yaml", tests), schema]);
+    let token = (".env", "ROWS_TOKEN=not-before-the-run\n");
+    let project =
+        Project::new(&[config, CITIES, SCRIPTED, ("services/scripted/cities.test.yaml", tests), schema, token]);
     let check = project.vc(&["check"]).output().unwrap();
     assert_eq!(check.status.code(), Some(0), "only a profile reads the secret, so it compiles: {}", said(&check));
     let staging = project.run(&server.base_url(), &["--profile", "staging"]).output().unwrap();

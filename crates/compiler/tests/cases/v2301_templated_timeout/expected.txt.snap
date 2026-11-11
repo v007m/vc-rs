@@ -7,7 +7,7 @@ error[V2301]: a duration cannot be a template: `${var.t}`
   |
 4 |     timeout: ${var.t}
   |              ^^^^^^^^
-  = help: write it out, such as `2s`; to change the default timeout per run, use `--set defaults.timeout=10s` or `VIB_DEFAULTS_TIMEOUT`
+  = help: write it out, such as `2s`
 
 error[V2301]: a duration cannot be a template: `${var.t}`
  --> services/users/crud.test.yaml:8:18

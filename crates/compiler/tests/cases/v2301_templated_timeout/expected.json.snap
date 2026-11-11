@@ -26,7 +26,7 @@ input_file: crates/compiler/tests/cases/v2301_templated_timeout/project
       "secondary": [],
       "notes": [],
       "help": [
-        "write it out, such as `2s`; to change the default timeout per run, use `--set defaults.timeout=10s` or `VIB_DEFAULTS_TIMEOUT`"
+        "write it out, such as `2s`"
       ],
       "fixes": []
     },
