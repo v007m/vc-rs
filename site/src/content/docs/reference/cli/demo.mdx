@@ -81,12 +81,12 @@ Stopping when none runs is not an error. `stop` ends only a demo that `start --d
 | `1` | The foreground demo ended with an error |
 | `2` | A bad flag, or `vc-demo` is not installed |
 
-`vc demo` runs a separate program, `vc-demo`, which the installers put next to `vc`:
+`vc demo` runs a separate program, `vc-demo`. It looks in the folder `vc` is in, then on your `PATH`, and names both when it finds neither:
 
 ```console
 $ vc demo start --detach
-error: `vc-demo` is not next to vc or on PATH
-  = help: install `vc-demo` next to `vc`; the installers ship both
+error: `vc-demo` is not next to vc (in /home/me/.cargo/bin) or on PATH
+  = help: install it with `cargo install --git https://github.com/v007m/vc-rs vc-demo --locked`, or put `vc-demo` next to `vc`
 $ vc demo start --port 99999
 error: invalid value '99999' for '--port <PORT>': 99999 is not in 0..=65535
 ```

@@ -43,12 +43,12 @@ You need Rust 1.99 or later. If you use [rustup](https://rustup.rs), the repo's 
   </TabItem>
 </Tabs>
 
-Install both packages. `vc demo start` looks for `vc-demo` next to `vc` or on your `PATH`. Without it you get:
+Install both packages. `vc demo start` looks for `vc-demo` in the folder `vc` is in, then on your `PATH`. Without it you get:
 
 ```console
 $ vc demo start
-error: `vc-demo` is not next to vc or on PATH
-  = help: install `vc-demo` next to `vc`; the installers ship both
+error: `vc-demo` is not next to vc (in /home/me/.cargo/bin) or on PATH
+  = help: install it with `cargo install --git https://github.com/v007m/vc-rs vc-demo --locked`, or put `vc-demo` next to `vc`
 ```
 
 ## Check the install
@@ -60,11 +60,11 @@ vc 0.1.0
 
 ## The `vibranium` name
 
-The full name of the command is `vibranium`, and `vc` is the short form. The build installs only `vc`. Some other tools also install a `vc` command (the Vercel CLI, for example), and some shells alias it. If `vc` runs something else on your machine, link the binary under its long name:
+The full name of the command is `vibranium`, and `vc` is the short form. `vc-cli` installs both. `vibranium` runs the `vc` in its own folder, so it still works when another tool's `vc` comes first on your `PATH` (the Vercel CLI has one, for example) or a shell aliases it:
 
 ```console
-ln -s ~/.cargo/bin/vc ~/.cargo/bin/vibranium
-vibranium --version
+$ vibranium --version
+vc 0.1.0
 ```
 
 Every example in these docs uses `vc`. Swap in `vibranium` if you need to.
@@ -89,11 +89,13 @@ Every example in these docs uses `vc`. Swap in `vibranium` if you need to.
   <TabItem label="bash">
     ```console
     vc completion bash > ~/.local/share/bash-completion/completions/vc
+    ln -s vc ~/.local/share/bash-completion/completions/vibranium
     ```
   </TabItem>
   <TabItem label="fish">
     ```console
     vc completion fish > ~/.config/fish/completions/vc.fish
+    ln -s vc.fish ~/.config/fish/completions/vibranium.fish
     ```
   </TabItem>
   <TabItem label="PowerShell">
@@ -104,7 +106,7 @@ Every example in these docs uses `vc`. Swap in `vibranium` if you need to.
 </Tabs>
 
 <Aside>
-The scripts register completion for the command name `vc` only. If you call it `vibranium`, completion does not follow.
+The scripts complete both names, `vc` and `vibranium`. bash and fish load a completion file by the command's name, so the link lets `vibranium` find the same script.
 </Aside>
 
 ID completion reads your project, so open a new shell inside a project folder and try `vc run sample.<Tab>`.

@@ -115,6 +115,16 @@ fn isolate(vc: &mut Command, home: &Path) {
     }
 }
 
+/// A copy of this build's `name` binary alone in a new folder, so it finds nothing beside it.
+pub(crate) fn alone(name: &str) -> (tempfile::TempDir, std::path::PathBuf) {
+    let folder = tempfile::tempdir().unwrap();
+    let file = format!("{name}{}", std::env::consts::EXE_SUFFIX);
+    let built = std::path::Path::new(env!("CARGO_BIN_EXE_vc")).with_file_name(&file);
+    let copy = folder.path().join(file);
+    std::fs::copy(built, &copy).unwrap();
+    (folder, copy)
+}
+
 /// The JSON lines a `--reporter json` run printed.
 pub(crate) fn events(stdout: &[u8]) -> Vec<Value> {
     let text = String::from_utf8_lossy(stdout);

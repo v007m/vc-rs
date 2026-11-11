@@ -1,6 +1,7 @@
 //! `vc completion <shell>` and the hidden `vc __complete <command> <word>` it calls (D180): the
 //! `clap_complete` script for the commands and flags, plus a hook that asks `vc` for the
-//! project's own IDs, profiles and tags.
+//! project's own IDs, profiles and tags. Each script completes both names, `vc` and
+//! `vibranium`, and the hook asks the name that was typed.
 
 use std::io::Write;
 use std::path::Path;
@@ -47,6 +48,9 @@ const KINDS: &[(&str, CompleteKind)] = &[
     ("--tag", CompleteKind::Tags),
 ];
 
+/// The first line of the generated zsh script, which `compinit` reads for the names it completes.
+const ZSH_NAMES: &str = "#compdef vc\n";
+
 /// The generated PowerShell completer is kept under this name, so the hook can call it first.
 const POWERSHELL_STATIC: &str = "Register-ArgumentCompleter -Native -CommandName 'vc' -ScriptBlock {";
 
@@ -56,10 +60,10 @@ _vc_ids() {
     local cur="${COMP_WORDS[COMP_CWORD]}" kind="${COMP_WORDS[1]}" prev="${COMP_WORDS[COMP_CWORD-1]}"
     case "$prev" in --profile|-t|--tag) kind="$prev" ;; esac
     if [[ $COMP_CWORD -ge 2 && "$cur" != -* ]]; then
-        COMPREPLY+=($(compgen -W "$(vc __complete "$kind" "$cur" 2>/dev/null)" -- "$cur"))
+        COMPREPLY+=($(compgen -W "$("${COMP_WORDS[0]}" __complete "$kind" "$cur" 2>/dev/null)" -- "$cur"))
     fi
 }
-complete -F _vc_ids -o bashdefault -o default vc
+complete -F _vc_ids -o bashdefault -o default vc vibranium
 "#;
 
 const ZSH_HOOK: &str = r#"
@@ -69,21 +73,22 @@ _vc_ids() {
     [[ $prev == (--profile|-t|--tag) ]] && kind=$prev
     if (( CURRENT > 2 )) && [[ $words[CURRENT] != -* ]]; then
         local -a ids
-        ids=(${(f)"$(vc __complete $kind $words[CURRENT] 2>/dev/null)"})
+        ids=(${(f)"$($words[1] __complete $kind $words[CURRENT] 2>/dev/null)"})
         (( $#ids )) && compadd -Q -- $ids
     fi
 }
-compdef _vc_ids vc
+compdef _vc_ids vc vibranium
 "#;
 
 const FISH_HOOK: &str = r"
-complete -c vc -f -n '__fish_seen_subcommand_from run watch plan list explain call skip unskip rename' -a '(vc __complete (commandline -opc)[2] (commandline -ct))'
-complete -c vc -l profile -x -a '(vc __complete --profile (commandline -ct))'
-complete -c vc -s t -l tag -x -a '(vc __complete --tag (commandline -ct))'
+complete -c vc -f -n '__fish_seen_subcommand_from run watch plan list explain call skip unskip rename' -a '(command (commandline -opc)[1] __complete (commandline -opc)[2] (commandline -ct))'
+complete -c vc -l profile -x -a '(command (commandline -opc)[1] __complete --profile (commandline -ct))'
+complete -c vc -s t -l tag -x -a '(command (commandline -opc)[1] __complete --tag (commandline -ct))'
+complete -c vibranium -w vc
 ";
 
 const POWERSHELL_HOOK: &str = r"
-Register-ArgumentCompleter -Native -CommandName 'vc' -ScriptBlock {
+Register-ArgumentCompleter -Native -CommandName 'vc', 'vibranium' -ScriptBlock {
     param($wordToComplete, $commandAst, $cursorPosition)
     & $global:VcStaticCompleter $wordToComplete $commandAst $cursorPosition
     $words = $commandAst.CommandElements
@@ -92,7 +97,7 @@ Register-ArgumentCompleter -Native -CommandName 'vc' -ScriptBlock {
         $prev = $words[$words.Count - 1].ToString()
         if ($prev -eq $wordToComplete -and $words.Count -ge 3) { $prev = $words[$words.Count - 2].ToString() }
         if ($prev -in '--profile', '-t', '--tag') { $kind = $prev }
-        vc __complete $kind $wordToComplete 2>$null | ForEach-Object {
+        & $words[0].ToString() __complete $kind $wordToComplete 2>$null | ForEach-Object {
             [CompletionResult]::new($_, $_, [CompletionResultType]::ParameterValue, $_)
         }
     }
@@ -109,7 +114,11 @@ pub fn run(args: &CompletionArgs) -> anyhow::Result<Outcome> {
     };
     let mut script = Vec::new();
     clap_complete::generate(generator, &mut crate::Cli::command(), "vc", &mut script);
-    let script = String::from_utf8(script)?.replacen(POWERSHELL_STATIC, "$global:VcStaticCompleter = {", 1);
+    let script = String::from_utf8(script)?.replacen(POWERSHELL_STATIC, "$global:VcStaticCompleter = {", 1).replacen(
+        ZSH_NAMES,
+        "#compdef vc vibranium\n",
+        1,
+    );
     write!(std::io::stdout().lock(), "{script}{hook}")?;
     Ok(Outcome::Done)
 }
