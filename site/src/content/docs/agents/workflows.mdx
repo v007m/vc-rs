@@ -450,7 +450,7 @@ breached p95 at 14.967 ms (lt 1 ms)
 An agent reads the result with `vc load people.browse --json`, which prints one object and no live lines. `exit` and `breaches` say what happened (full shape in [JSON output](/vc-rs/agents/json-and-events/#vc-load---json)):
 
 ```json
-{ "exit": 3, "ending": "finished", "breaches": [ { "actual": 17.663, "limit": { "lt": 1.0 }, "metric": "p95", "test": null, "unit": "ms" } ], "errors": 0, "p95Ms": 17.663 }
+{ "exit": 3, "ending": "finished", "breaches": [ { "actual": 2.677, "limit": { "lt": 1.0 }, "metric": "p95", "test": null, "unit": "ms" } ], "errors": 0, "p95Ms": 2.677 }
 ```
 
 ## 6. Run only what changed in a PR
