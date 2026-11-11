@@ -20,5 +20,18 @@ fn approving_an_unknown_request_exits_2() {
         let said = said(&output);
         assert!(said.contains("no approval request 7"), "{args:?}: {said}");
         assert!(said.contains("`vc approvals` lists the waiting requests"), "{args:?}: {said}");
+        assert!(!said.contains("history:"), "an unknown request is not a history problem: {said}");
     }
+}
+
+#[test]
+fn a_request_id_is_its_number_with_or_without_the_hash() {
+    let project = Project::new(&[CONFIG]);
+    let output = project.vc(&["approve", "#7"]).assert().code(2).get_output().clone();
+    assert!(said(&output).starts_with("error: no approval request 7\n"), "{}", said(&output));
+    let output = project.vc(&["approve", "abc"]).assert().code(2).get_output().clone();
+    let said = said(&output);
+    assert!(said.starts_with("error: `abc` is not a request number\n"), "{said}");
+    assert!(said.contains("help: pass the number `vc approvals` lists"), "{said}");
+    assert!(!said.contains("invalid digit"), "no raw parser error: {said}");
 }
