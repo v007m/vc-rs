@@ -1,16 +1,23 @@
 //! `vc new auth`: an auth definition appended to the config's `auth` list. A credential is
-//! written only as a template (`${secret.PARTNER_TOKEN}`), never as itself.
+//! written only as a template (`${secret.PARTNER_TOKEN}`), never as itself; one the type needs
+//! and the author left out is a `${secret.…}` placeholder, declared in `.env.schema`. Any other
+//! key the type needs and the author left out is theirs to add: the guard lets its V1005 pass,
+//! and `vc check` reports it.
 
-use vc_compiler::{camel_id, is_camel_id, secret_name};
-use vc_model::FileKind;
+use std::ops::Range;
+
+use vc_compiler::{camel_id, is_camel_id};
+use vc_diagnostics::{Code, Diagnostic};
+use vc_model::{DEFAULT_SECRETS_SCHEMA, FileKind, auth_needs, secret_name};
 use vc_parser::write_text;
 
 use crate::authoring::{Authoring, item, refused};
 use crate::create::{DOCS, ListItem, commented_item};
-use crate::edit::{Changes, internal};
+use crate::edit::{Changes, declaring, internal};
 use crate::{Added, Engine, EngineError};
 
-/// Each auth type, with the fields `vc new auth` asks for, in order.
+/// Each auth type, with the fields `vc new auth` asks for, in order: every key the type needs
+/// ([`vc_model::AUTH_NEEDS`]) but a flow's `steps`, and the optional ones worth asking for.
 const FIELDS: [(&str, &[&str]); 9] = [
     ("basic", &["username", "password"]),
     ("bearer", &["token"]),
@@ -25,9 +32,6 @@ const FIELDS: [(&str, &[&str]); 9] = [
 
 /// The fields that hold a credential, so are written only as templates.
 const SECRET: [&str; 5] = ["password", "token", "value", "clientSecret", "refreshToken"];
-
-/// The credentials a type cannot work without; one left out is written as a secret to declare.
-const NEEDED: [&str; 4] = ["password", "token", "value", "refreshToken"];
 
 /// What `vc new auth` asks for.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -74,8 +78,40 @@ impl Engine {
         let comment = format!("# {id} · {} · keys: {DOCS}#authentication", request.auth_type);
         let (change, line) = commented_item(&opened, &ListItem { list: "auth", yaml: &yaml, comment: &comment })?;
         let path = change.path.clone();
-        let changes = Changes { files: vec![change], titles: vec![format!("Add auth {id}")] };
-        Ok(Added { changes: self.guarded(&project, changes)?, id: id.to_owned(), path, line })
+        let mut changes = Changes { files: vec![change], titles: vec![format!("Add auth {id}")] };
+        self.declare_placeholders(request, &mut changes)?;
+        let entry = Entry { path: &path, lines: line..line + yaml.lines().count() };
+        let changes =
+            self.guarded_expecting(&project, (changes, &|new: &Diagnostic, at: &str| entry.leaves(new, at)))?;
+        Ok(Added { changes, id: id.to_owned(), path, line })
+    }
+
+    /// Declares in `.env.schema` each placeholder secret `request` gets; nothing when the project
+    /// has no schema, since then no secret name is checked.
+    fn declare_placeholders(&self, request: &NewAuth, changes: &mut Changes) -> Result<(), EngineError> {
+        let missing = placeholders(request, auth_fields(&request.auth_type));
+        let names: Vec<&str> = missing.iter().map(|(_, name)| name.as_str()).collect();
+        let Some(schema) = self.secrets_schema()? else { return Ok(()) };
+        if let Some((change, added)) = declaring(&schema, &names) {
+            changes.titles.push(format!("Declare {} in {DEFAULT_SECRETS_SCHEMA}", added.join(", ")));
+            changes.files.push(change);
+        }
+        Ok(())
+    }
+}
+
+/// Where the new auth entry is written: its file and lines.
+struct Entry<'p> {
+    path: &'p str,
+    lines: Range<usize>,
+}
+
+impl Entry<'_> {
+    /// Whether `new`, in the file at `at`, is a key the entry's type needs and the author left
+    /// out: V1005 within the entry.
+    fn leaves(&self, new: &Diagnostic, at: &str) -> bool {
+        let line = usize::try_from(new.primary.span.start.line).unwrap_or(usize::MAX);
+        new.code == Code::V1005 && at == self.path && self.lines.contains(&line)
     }
 }
 
@@ -103,21 +139,23 @@ fn auth_yaml(request: &NewAuth) -> Result<String, EngineError> {
         }
         lines.push(format!("{field}: {}", write_text(value.trim(), false)));
     }
-    lines.extend(placeholders(request, takes));
+    let missing = placeholders(request, takes);
+    lines.extend(missing.iter().map(|(field, name)| format!("{field}: ${{secret.{name}}}")));
     Ok(lines.join("\n"))
 }
 
-/// A `${secret.…}` line for each credential the type needs that was not given, named after
-/// the auth and the field (`partnerToken`'s `token` is `PARTNER_TOKEN_TOKEN`).
-fn placeholders(request: &NewAuth, takes: &[&str]) -> Vec<String> {
+/// Each credential the type needs that was not given, with the secret written for it, named
+/// after the auth and the field (`partnerToken`'s `token` is `PARTNER_TOKEN_TOKEN`).
+fn placeholders<'t>(request: &NewAuth, takes: &[&'t str]) -> Vec<(&'t str, String)> {
+    let needs = auth_needs(&request.auth_type).unwrap_or_default();
     let given = |field: &str| request.fields.iter().any(|(name, value)| name == field && !value.trim().is_empty());
-    let missing = takes.iter().filter(|field| NEEDED.contains(field) && !given(field));
-    missing.map(|field| format!("{field}: ${{secret.{}}}", secret_name(&format!("{} {field}", request.id)))).collect()
+    let missing = takes.iter().filter(|field| SECRET.contains(field) && needs.contains(field) && !given(field));
+    missing.map(|field| (*field, secret_name(&format!("{} {field}", request.id)))).collect()
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{NewAuth, auth_fields, auth_yaml};
+    use super::{FIELDS, NewAuth, auth_fields, auth_yaml};
 
     fn request(auth_type: &str, fields: &[(&str, &str)]) -> NewAuth {
         let fields = fields.iter().map(|(name, value)| ((*name).to_owned(), (*value).to_owned())).collect();
@@ -143,6 +181,18 @@ mod tests {
             auth_yaml(&request("basic", &[("username", "${var.user}")])).ok().as_deref(),
             Some("id: partnerToken\ntype: basic\nusername: ${var.user}\npassword: ${secret.PARTNER_TOKEN_PASSWORD}")
         );
+    }
+
+    #[test]
+    fn each_type_asks_for_every_key_it_needs_but_a_flow_s_steps() {
+        let types: Vec<&str> = FIELDS.iter().map(|(name, _)| *name).collect();
+        let built_in: Vec<&str> = vc_model::AUTH_NEEDS.iter().map(|(name, _)| *name).collect();
+        assert_eq!(types, built_in);
+        for (name, needs) in vc_model::AUTH_NEEDS {
+            let asked = auth_fields(name);
+            let left: Vec<&&str> = needs.iter().filter(|key| !asked.contains(key)).collect();
+            assert_eq!(left, if name == "flow" { vec![&"steps"] } else { vec![] }, "{name}");
+        }
     }
 
     #[test]

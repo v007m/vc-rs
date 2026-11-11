@@ -8,6 +8,7 @@
 
 use serde_json::{Value, json};
 use vc_interfaces::SecretFinding;
+use vc_model::secret_name;
 
 use crate::body::Scrub;
 use crate::path_vars::identifier;
@@ -33,7 +34,7 @@ impl Secrets<'_> {
     /// The reference to the secret found in `place` (`query api_key`), named after its last word.
     pub fn reference(&mut self, place: &str) -> String {
         let field = place.rsplit(' ').next().unwrap_or(place);
-        let name = upper_snake(&format!("{} {field}", self.file));
+        let name = secret_name(&format!("{} {field}", self.file));
         if !self.found.secrets.iter().any(|secret| secret.name == name) {
             let found_at = format!("{}: {place}", self.at);
             self.found.secrets.push(SecretFinding { name: name.clone(), found_at });
@@ -130,30 +131,9 @@ fn different(word: &str) -> usize {
     seen.len()
 }
 
-/// `text` in upper snake case: `pay api_key` and `pay apiKey` give `PAY_API_KEY`.
-fn upper_snake(text: &str) -> String {
-    let mut out = String::new();
-    let mut lower_before = false;
-    for c in text.chars() {
-        if !c.is_ascii_alphanumeric() {
-            lower_before = false;
-            if !out.is_empty() && !out.ends_with('_') {
-                out.push('_');
-            }
-            continue;
-        }
-        if c.is_ascii_uppercase() && lower_before {
-            out.push('_');
-        }
-        lower_before = c.is_ascii_lowercase() || c.is_ascii_digit();
-        out.push(c.to_ascii_uppercase());
-    }
-    out.trim_end_matches('_').to_owned()
-}
-
 #[cfg(test)]
 mod tests {
-    use super::{random, upper_snake};
+    use super::random;
 
     #[test]
     fn a_word_is_random_when_long_mixed_and_varied_but_not_an_id() {
@@ -189,13 +169,5 @@ mod tests {
             "ord_0123456789abcdef0123456789abcdef",
         ];
         assert!(plain.iter().all(|word| !random(word)), "{plain:?}");
-    }
-
-    #[test]
-    fn secret_names_are_upper_snake_case() {
-        assert_eq!(upper_snake("pay api_key"), "PAY_API_KEY");
-        assert_eq!(upper_snake("pay apiKey"), "PAY_API_KEY");
-        assert_eq!(upper_snake("shop x-auth-token"), "SHOP_X_AUTH_TOKEN");
-        assert_eq!(upper_snake("shop2 card"), "SHOP2_CARD");
     }
 }

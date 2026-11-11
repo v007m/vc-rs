@@ -2,7 +2,7 @@
 //! a change that would add an error `vc check` reports is refused, so nothing is written.
 
 use vc_diagnostics::{Diagnostic, Diagnostics};
-use vc_model::{SourceFile, SourceFiles, SourcePath};
+use vc_model::{SourceFile, SourceFiles, SourcePath, schema_names};
 
 use crate::project::sources_error;
 use crate::{Engine, EngineError};
@@ -83,14 +83,34 @@ impl Engine {
     /// [`EngineError::Edit`] naming the first new error; as [`Engine::check`] when the project
     /// cannot be read.
     pub(crate) fn guard(&self, before: &Diagnostics, changes: &Changes) -> Result<(), EngineError> {
+        self.guard_expecting(before, (changes, &|_, _| false))
+    }
+
+    /// As [`Engine::guard`], but a new error that `expected` takes, given the path of its file,
+    /// passes: one the change leaves for the author to fix, as `vc check` reports it.
+    ///
+    /// # Errors
+    ///
+    /// As [`Engine::guard`].
+    pub(crate) fn guard_expecting(
+        &self,
+        before: &Diagnostics,
+        (changes, expected): (&Changes, Expected<'_>),
+    ) -> Result<(), EngineError> {
         let after = self.compiled_with(&changes.files)?;
-        let known = |new: &&Diagnostic| before.iter().any(|old| same_error(old, new));
+        let path = |new: &Diagnostic| after.files.get(new.primary.span.file).map(|file| file.path.to_string());
+        let known = |new: &&Diagnostic| {
+            before.iter().any(|old| same_error(old, new)) || expected(new, &path(new).unwrap_or_default())
+        };
         match after.diagnostics.iter().filter(|d| d.is_error()).find(|new| !known(new)) {
             None => Ok(()),
             Some(new) => Err(refusal(new, &after.files)),
         }
     }
 }
+
+/// Whether a new error, in the file at the path given, is one a change means to leave.
+pub type Expected<'e> = &'e dyn Fn(&Diagnostic, &str) -> bool;
 
 /// `files` with each change in place: a changed file replaced, a new one added, a moved one
 /// taken from where it was.
@@ -106,6 +126,21 @@ pub fn overlay(files: &mut Vec<SourceFile>, changes: &[FileChange]) -> Result<()
         files.push(file);
     }
     Ok(())
+}
+
+/// The change to `schema` that declares each of `names` it does not declare yet, as `NAME=`
+/// lines at its end, with those names; none when it declares them all.
+pub fn declaring<'n>(schema: &SourceFile, names: &[&'n str]) -> Option<(FileChange, Vec<&'n str>)> {
+    let declared = schema_names(&schema.text);
+    let missing: Vec<&str> = names.iter().copied().filter(|name| !declared.iter().any(|known| known == name)).collect();
+    if missing.is_empty() {
+        return None;
+    }
+    let lead = if schema.text.is_empty() || schema.text.ends_with('\n') { "" } else { "\n" };
+    let lines: String = missing.iter().flat_map(|name| [*name, "=\n"]).collect();
+    let after = format!("{}{lead}{lines}", schema.text);
+    let path = schema.path.to_string();
+    Some((FileChange { path, before: Some(schema.text.clone()), after, moved_from: None }, missing))
 }
 
 /// Whether `old` and `new` are the same error, wherever each is.

@@ -38,13 +38,6 @@ pub fn tag(text: &str) -> String {
     words(text).iter().map(|word| word.to_lowercase()).collect::<Vec<_>>().join("-")
 }
 
-/// `text` as a secret name, upper case with `_` between words: `partnerToken token` gives
-/// `PARTNER_TOKEN_TOKEN`.
-#[must_use]
-pub fn secret_name(text: &str) -> String {
-    words(text).iter().map(|word| word.to_uppercase()).collect::<Vec<_>>().join("_")
-}
-
 /// Whether `name` is a lower-case single word (a profile), or with dashes (a file ID word).
 #[must_use]
 pub fn is_lower_word(name: &str, dashes: bool) -> bool {
@@ -86,7 +79,7 @@ fn words(text: &str) -> Vec<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{camel_id, file_id, is_camel_id, is_file_id, is_lower_word, is_tag, secret_name, tag};
+    use super::{camel_id, file_id, is_camel_id, is_file_id, is_lower_word, is_tag, tag};
 
     #[test]
     fn derives_camel_case_ids() {
@@ -111,12 +104,6 @@ mod tests {
         assert!(!is_tag("SlowNetwork") && !is_tag("slow--network") && !is_tag("") && !is_tag("slow_network"));
         assert_eq!(tag("SlowNetwork"), "slow-network");
         assert_eq!(tag("slow_network"), "slow-network");
-    }
-
-    #[test]
-    fn derives_secret_names() {
-        assert_eq!(secret_name("partnerToken token"), "PARTNER_TOKEN_TOKEN");
-        assert_eq!(secret_name("pay refreshToken"), "PAY_REFRESH_TOKEN");
     }
 
     #[test]

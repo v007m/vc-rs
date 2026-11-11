@@ -72,6 +72,49 @@ pub fn schema_names(text: &str) -> Vec<String> {
     found
 }
 
+/// The names a `.env.schema` gives a default, with it: each `NAME=value` line whose value is
+/// not blank, quotes taken off and a ` #` comment after it left out.
+#[must_use]
+pub fn schema_defaults(text: &str) -> Vec<(String, String)> {
+    let lines = text.lines().map(str::trim).filter(|line| !line.starts_with('#'));
+    let pairs = lines.filter_map(|line| line.strip_prefix("export ").unwrap_or(line).split_once('='));
+    let pairs = pairs.map(|(name, value)| (name.trim(), unquoted(value.split(" #").next().unwrap_or_default().trim())));
+    pairs
+        .filter(|(name, value)| is_name(name) && !value.is_empty())
+        .map(|(n, v)| (n.to_owned(), v.to_owned()))
+        .collect()
+}
+
+/// `value` without the quotes around it, if it has a matching pair.
+fn unquoted(value: &str) -> &str {
+    ["\"", "'"].iter().find_map(|quote| value.strip_prefix(quote)?.strip_suffix(quote)).unwrap_or(value)
+}
+
+/// `text` as a secret name, upper case with `_` between words.
+///
+/// `partnerToken token`, `pay api_key` and `shop x-auth-token` give `PARTNER_TOKEN_TOKEN`,
+/// `PAY_API_KEY` and `SHOP_X_AUTH_TOKEN`. A capital after a lower-case letter or a digit starts a word.
+#[must_use]
+pub fn secret_name(text: &str) -> String {
+    let mut out = String::new();
+    let mut lower_before = false;
+    for c in text.chars() {
+        if !c.is_ascii_alphanumeric() {
+            lower_before = false;
+            if !out.is_empty() && !out.ends_with('_') {
+                out.push('_');
+            }
+            continue;
+        }
+        if c.is_ascii_uppercase() && lower_before {
+            out.push('_');
+        }
+        lower_before = c.is_ascii_lowercase() || c.is_ascii_digit();
+        out.push(c.to_ascii_uppercase());
+    }
+    out.trim_end_matches('_').to_owned()
+}
+
 /// An environment variable name: letters, digits and `_`, not starting with a digit.
 fn is_name(name: &str) -> bool {
     let mut chars = name.chars();
@@ -81,7 +124,7 @@ fn is_name(name: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{SecretsConfig, schema_names};
+    use super::{SecretsConfig, schema_defaults, schema_names, secret_name};
 
     #[test]
     fn the_default_provider_is_env_and_declares_nothing() {
@@ -97,5 +140,26 @@ mod tests {
     fn a_schema_declares_each_assigned_name_once() {
         let text = "# @defaultSensitive=true\n\n# @required\nAPI_TOKEN=\nexport DB_URL=op(x)\n_X1 = 2\nAPI_TOKEN=again\n1BAD=x\nno equals\nA-B=1\n";
         assert_eq!(schema_names(text), ["API_TOKEN", "DB_URL", "_X1"]);
+    }
+
+    #[test]
+    fn a_schema_default_is_a_value_after_the_name() {
+        let text =
+            "# @required\nAPI_TOKEN=\nREGION=eu # the closest\nexport TENANT=\"acme\"\nQUIET='' \n# OFF=1\n1BAD=x\n";
+        let found = schema_defaults(text);
+        let pairs: Vec<(&str, &str)> = found.iter().map(|(name, value)| (name.as_str(), value.as_str())).collect();
+        assert_eq!(pairs, [("REGION", "eu"), ("TENANT", "acme")]);
+    }
+
+    #[test]
+    fn secret_names_are_upper_snake_case() {
+        assert_eq!(secret_name("partnerToken token"), "PARTNER_TOKEN_TOKEN");
+        assert_eq!(secret_name("pay refreshToken"), "PAY_REFRESH_TOKEN");
+        assert_eq!(secret_name("pay api_key"), "PAY_API_KEY");
+        assert_eq!(secret_name("pay apiKey"), "PAY_API_KEY");
+        assert_eq!(secret_name("shop x-auth-token"), "SHOP_X_AUTH_TOKEN");
+        assert_eq!(secret_name("shop2 card"), "SHOP2_CARD");
+        assert_eq!(secret_name("shopAdmin"), "SHOP_ADMIN");
+        assert_eq!(secret_name(" a--b "), "A_B");
     }
 }

@@ -20,6 +20,7 @@ SHOP_CLIENT_SECRET=
 | Line | Example | Notes |
 | --- | --- | --- |
 | `NAME=` | `API_TOKEN=` | Declares one secret. Leave the value empty. |
+| `NAME=value` | `REGION=eu` | Declares one with a default, used when the environment and `.env` leave it unset. Only for a value that is not secret. |
 | `# comment` | `# @required` | Comments and `# @...` annotations are allowed. |
 
 The file's path is set by [`secrets.schema`](/vc-rs/reference/config/secrets/). The default is `.env.schema` at the project root.
@@ -91,6 +92,7 @@ profiles:
 - `vc check` compares every `${secret.X}` and `${env.X}` with the schema.
 - A declared secret is reachable only as `${secret.X}`.
 - Values come from the [secrets provider](/vc-rs/reference/config/secrets/): the environment and `.env` by default.
+- Every declared secret without a value or a default fails `vc run`, `vc call` and `vc load` with V5114 before any request is sent.
 - Commit `.env.schema`. It holds no values.
 
 ## Common errors

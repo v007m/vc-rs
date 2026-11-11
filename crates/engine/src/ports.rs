@@ -14,10 +14,10 @@ use vc_adapter_secrets::SecretProviders;
 use vc_adapter_system::{DotEnv, SeededRandom, SetFlags, SystemBrowser, SystemEnvironment, UserConfig, VibVars};
 use vc_diagnostics::Code;
 use vc_interfaces::{
-    AuthProvider, ConfigEntry, Environment, HookRunner, NotifierFactory, PluginKind, Random, SecretError, SecretQuery,
-    Secrets, Transport,
+    AuthProvider, ConfigEntry, Environment, HookRunner, NotifierFactory, PluginKind, Random, Secret, SecretError,
+    SecretQuery, Secrets, Transport,
 };
-use vc_model::{Program, SecretsConfig};
+use vc_model::{Program, SecretsConfig, schema_defaults};
 
 use crate::plugin_hosts::Hosts;
 use crate::settings::{self, Settings};
@@ -109,8 +109,8 @@ impl Engine {
         self.notifiers.as_ref().map_or_else(NotifierRegistry::standard_channels, |notifiers| notifiers.channels())
     }
 
-    /// The secrets `.env.schema` declares, every one with a value: a run, call or load that
-    /// would send one without stops here, before any request (V5114).
+    /// The secrets `.env.schema` declares, every one with a value or a default: a run, call or
+    /// load that would send one without stops here, before any request (V5114).
     ///
     /// # Errors
     ///
@@ -128,7 +128,8 @@ impl Engine {
 
     /// The secrets `.env.schema` declares, from the provider `secrets.provider` names (D163):
     /// `env` reads them from the run's `environment`, `varlock` runs through the command runner.
-    /// Nothing is loaded when nothing is declared, and a name without a value is left out.
+    /// A name the provider leaves out takes its `NAME=value` default from the schema, if it has
+    /// one. Nothing is loaded when nothing is declared, and a name without a value is left out.
     ///
     /// # Errors
     ///
@@ -144,7 +145,21 @@ impl Engine {
         let commands = Arc::clone(&self.commands);
         let providers = SecretProviders::standard(Arc::clone(environment), commands, self.root().to_path_buf());
         let provider = providers.get(&config.provider).map_err(|error| secret_error(&error))?;
-        provider.load(&SecretQuery::new(config.declared.iter().cloned())).await.map_err(|error| secret_error(&error))
+        let query = SecretQuery::new(config.declared.iter().cloned());
+        let loaded = provider.load(&query).await.map_err(|error| secret_error(&error))?;
+        self.with_defaults(loaded)
+    }
+
+    /// `loaded`, with each `NAME=value` default `.env.schema` gives filling a name the provider
+    /// left out or blank.
+    fn with_defaults(&self, mut loaded: Secrets) -> Result<Secrets, EngineError> {
+        let Some(schema) = self.secrets_schema()? else { return Ok(loaded) };
+        for (name, value) in schema_defaults(&schema.text) {
+            if loaded.get(&name).is_none_or(|secret| secret.expose().trim().is_empty()) {
+                loaded.insert(name, Secret::new(value));
+            }
+        }
+        Ok(loaded)
     }
 }
 

@@ -6,7 +6,7 @@ use vc_diagnostics::{Diagnostics, TextEdit};
 use vc_model::{FileKind, SourceFile, SourceFileId, SourceFiles};
 use vc_parser::{Document, Node, Syntax};
 
-use crate::edit::{Changes, FileChange};
+use crate::edit::{Changes, Expected, FileChange};
 use crate::{Engine, EngineError};
 
 /// The project as an authoring command finds it: every file and its diagnostics now.
@@ -37,7 +37,17 @@ impl Engine {
 
     /// `changes` once the compile guard passes them against `project`.
     pub(crate) fn guarded(&self, project: &Authoring, changes: Changes) -> Result<Changes, EngineError> {
-        self.guard(&project.diagnostics, &changes)?;
+        self.guarded_expecting(project, (changes, &|_, _| false))
+    }
+
+    /// `changes` once the compile guard passes them against `project`, letting through the new
+    /// errors `expected` takes.
+    pub(crate) fn guarded_expecting(
+        &self,
+        project: &Authoring,
+        (changes, expected): (Changes, Expected<'_>),
+    ) -> Result<Changes, EngineError> {
+        self.guard_expecting(&project.diagnostics, (&changes, expected))?;
         Ok(changes)
     }
 }

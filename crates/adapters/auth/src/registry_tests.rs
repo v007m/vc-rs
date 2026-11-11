@@ -57,6 +57,25 @@ async fn every_oauth_grant_meets_the_auth_provider_contract() {
 }
 
 #[tokio::test]
+async fn every_key_a_type_requires_is_one_the_compiler_checks_for() {
+    let keychain = Arc::new(MemoryKeychain::new());
+    keychain.set("vibranium", "api@cli", &Secret::new("kept")).unwrap();
+    let types = types(Some(keychain));
+    let flow = Arc::new(FixedFlow::new(Ok(Credentials::header("authorization", "Bearer f"))));
+    let value = |key: &str| if key.ends_with("Url") { "https://id.test/token" } else { "cli" };
+    for (kind, needs) in vc_model::AUTH_NEEDS.iter().filter(|(kind, _)| *kind != "plugin") {
+        let settings: serde_json::Map<String, Value> =
+            needs.iter().map(|key| ((*key).to_owned(), json!(value(key)))).collect();
+        let request = request(kind, &Value::Object(settings)).with_flow(Arc::clone(&flow) as _);
+        let answer = types.credentials(&request).await;
+        assert!(
+            !matches!(answer, Err(AuthError::Missing { .. })),
+            "{kind} requires a key AUTH_NEEDS leaves out: {answer:?}"
+        );
+    }
+}
+
+#[tokio::test]
 async fn the_fixed_types_build_their_headers_and_query() {
     let types = types(None);
     let basic = types.credentials(&request("basic", &json!({"username": "u", "password": "p"}))).await.unwrap();

@@ -155,6 +155,37 @@ fn new_auth_without_a_terminal_takes_flags_and_never_prompts() {
 }
 
 #[test]
+fn new_auth_without_a_terminal_leaves_a_key_it_cannot_write_to_vc_check() {
+    let project = Project::new(&[CONFIG]);
+    for (id, kind) in [("partnerFlow", "flow"), ("partnerClient", "oauth2ClientCredentials")] {
+        let mut vc = project.vc(&["new", "auth", id, "--type", kind]);
+        let output = vc.write_stdin("").timeout(Duration::from_secs(20)).output().unwrap();
+        assert_eq!(output.status.code(), Some(0), "{kind}: {}", said(&output));
+        let config = project.read(CONFIG.0);
+        assert!(config.contains(&format!("id: {id}")) && config.contains(&format!("type: {kind}")), "{config}");
+    }
+    let check = said(&project.vc(&["check"]).output().unwrap());
+    for missing in ["a `flow` auth needs `steps`", "a `oauth2ClientCredentials` auth needs `tokenUrl`"] {
+        assert!(check.contains("V1005") && check.contains(missing), "{missing}:\n{check}");
+    }
+}
+
+#[test]
+fn new_auth_in_a_new_project_declares_the_secret_it_writes() {
+    let project = Project::empty();
+    project.vc(&["init"]).assert().code(0);
+    let schema = project.read(".env.schema");
+    let mut vc = project.vc(&["new", "auth", "partnerToken", "--type", "bearer"]);
+    let output = vc.write_stdin("").timeout(Duration::from_secs(20)).output().unwrap();
+    assert_eq!(output.status.code(), Some(0), "{}", said(&output));
+    assert!(project.read(CONFIG.0).contains("token: ${secret.PARTNER_TOKEN_TOKEN}"));
+    let declared = project.read(".env.schema");
+    assert!(declared.starts_with(&schema), "the schema's bytes are kept:\n{declared}");
+    assert!(declared.lines().any(|line| line == "PARTNER_TOKEN_TOKEN="), "{declared}");
+    checks_clean(&project);
+}
+
+#[test]
 fn new_auth_with_json_never_prompts() {
     let project = Project::new(&[CONFIG]);
     let mut vc = project.vc(&["new", "auth", "partnerToken", "--type", "bearer", "--json"]);
