@@ -37,8 +37,4 @@ pub struct PlanOptions {
     /// How many rows each test whose `examples` come from a file or a template has, as the
     /// engine counted them when it preloaded them (D132).
     pub example_rows: BTreeMap<TestId, u32>,
-    /// Plans a test whose examples give no rows as skipped ([`crate::NO_ROWS`]), as a run's plan
-    /// does; `false` plans it with no instances, as `vc list` and the catalog count without
-    /// reading rows.
-    pub skip_empty: bool,
 }

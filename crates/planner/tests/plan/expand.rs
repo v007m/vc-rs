@@ -26,6 +26,9 @@ tests:
   - id: listsNoPages
     call: users#list
     examples: []
+  - id: listsEnvPages
+    call: users#list
+    examples: ${env.PAGES}
 ";
 
 fn with_examples() -> Program {
@@ -85,54 +88,38 @@ fn rows_from_a_file_come_preloaded_in_the_options() {
     assert_eq!(common::slots(&program, &plan, "users.rows#listsFilePages"), [(Some(0), 0), (Some(0), 1)]);
 }
 
-/// A run's options: a test whose examples give no rows is skipped.
-fn run(change: impl FnOnce(&mut PlanOptions)) -> PlanOptions {
-    options(|options| {
-        options.skip_empty = true;
-        change(options);
-    })
-}
-
 #[test]
 fn a_test_whose_examples_give_no_rows_is_skipped_not_dropped() {
     let program = with_examples();
-    let none = vc_planner::plan(&program, &common::ids(&["users.rows#listsNoPages"]), &run(|_| {})).unwrap();
+    let none = common::planned(&program, &common::ids(&["users.rows#listsNoPages"]));
     assert_eq!(common::skipped(&program, &none), ["listsNoPages"]);
     assert_eq!(none.skipped[0].reason, NO_ROWS);
     let selection = common::ids(&["users.rows#listsFilePages"]);
     let test = common::test_id(&program, "users.rows#listsFilePages");
-    let empty = run(|options| options.example_rows = BTreeMap::from([(test, 0)]));
+    let empty = options(|options| options.example_rows = BTreeMap::from([(test, 0)]));
     let plan = vc_planner::plan(&program, &selection, &empty).unwrap();
     assert_eq!(common::skipped(&program, &plan), ["listsFilePages"]);
     assert!(plan.files.iter().all(|file| file.instances.is_empty()));
 }
 
 #[test]
-fn outside_a_run_a_test_given_no_rows_has_no_instances_and_is_not_skipped() {
-    let program = with_examples();
-    let listed = common::planned(&program, &common::ids(&["users.rows#listsNoPages"]));
-    assert_eq!(common::skipped(&program, &listed), Vec::<&str>::new());
-    assert!(listed.files.iter().all(|file| file.instances.is_empty()));
-}
-
-#[test]
 fn an_instance_picked_by_number_from_no_rows_does_not_exist() {
     let program = with_examples();
     let selector = "users.rows#listsNoPages:1";
-    let picked = vc_planner::plan(&program, &common::ids(&[selector]), &run(|_| {}));
+    let picked = common::try_plan(&program, &common::ids(&[selector]));
     assert_eq!(picked, Err(PlanError::NoSuchInstance { selector: selector.into(), count: 0 }));
 }
 
 #[test]
-fn the_rows_wanted_are_the_selected_unskipped_tests_whose_rows_are_not_counted() {
+fn the_rows_wanted_are_the_selected_unskipped_templated_tests_whose_rows_are_not_counted() {
     let program = with_examples();
-    let test = common::test_id(&program, "users.rows#listsFilePages");
-    let wanted = vc_planner::rows_wanted(&program, &common::ids(&["users.rows"]), &run(|_| {})).unwrap();
-    assert_eq!(wanted, [test]);
-    let counted = run(|options| options.example_rows = BTreeMap::from([(test, 3)]));
+    let test = common::test_id(&program, "users.rows#listsEnvPages");
+    let wanted = vc_planner::rows_wanted(&program, &common::ids(&["users.rows"]), &options(|_| {})).unwrap();
+    assert_eq!(wanted, [test], "rows from a file are the compile's to give, not the engine's to render");
+    let counted = options(|options| options.example_rows = BTreeMap::from([(test, 3)]));
     assert_eq!(vc_planner::rows_wanted(&program, &common::ids(&["users.rows"]), &counted).unwrap(), []);
     let other = common::ids(&["users.rows#listsPages"]);
-    assert_eq!(vc_planner::rows_wanted(&program, &other, &run(|_| {})).unwrap(), []);
+    assert_eq!(vc_planner::rows_wanted(&program, &other, &options(|_| {})).unwrap(), []);
 }
 
 #[test]

@@ -64,19 +64,20 @@ impl<'p> Expander<'p> {
         Ok(instances)
     }
 
-    /// Why `test` does not run: its file's `skip` or its own, else, in a run's plan, examples
-    /// that gave no rows; `None` when it runs. An instance picked by number (`:n`) is never
-    /// skipped for having no rows: it does not exist, which the selection reports.
+    /// Why `test` does not run: its file's `skip` or its own, else examples that gave no rows;
+    /// `None` when it runs. An instance picked by number (`:n`) is never skipped for having no
+    /// rows: it does not exist, which the selection reports.
     fn not_run(&self, file: &TestFile, test: &Test, pick: &Pick) -> Result<Option<String>, PlanError> {
         if let Some(reason) = self.skip(file, test) {
             return Ok(Some(reason));
         }
-        let counted = self.options.skip_empty && matches!(pick, Pick::All);
-        Ok((counted && self.rows(test)? == Some(0)).then(|| NO_ROWS.to_owned()))
+        let every = matches!(pick, Pick::All);
+        Ok((every && self.rows(test)? == Some(0)).then(|| NO_ROWS.to_owned()))
     }
 
-    /// The picked tests that run and read their rows from a file or a template that the options
-    /// do not count yet, in plan order.
+    /// The picked tests that run and read their rows from a template that the options do not
+    /// count yet, in plan order. Rows from a file are the compile's to give, so one not given
+    /// stays [`PlanError::RowsNotLoaded`].
     pub fn unloaded(&self, picked: &BTreeMap<TestId, Pick>) -> Vec<TestId> {
         let mut wanted = Vec::new();
         for file in self.program.test_files.values() {
@@ -88,10 +89,9 @@ impl<'p> Expander<'p> {
         wanted
     }
 
-    /// Whether `test`'s rows come from a file or a template the options do not count.
+    /// Whether `test`'s rows come from a template the options do not count.
     fn unread(&self, test: &Test) -> bool {
-        let loaded = matches!(test.examples, Some(Examples::File(_) | Examples::Template(_)));
-        loaded && !self.options.example_rows.contains_key(&test.id)
+        matches!(test.examples, Some(Examples::Template(_))) && !self.options.example_rows.contains_key(&test.id)
     }
 
     /// The reason `test` is skipped, from its file's `skip` or its own; `None` when it runs.

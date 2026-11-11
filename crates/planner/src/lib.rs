@@ -4,8 +4,8 @@
 //! and `beforeAll` blocks only where an instance runs (D122) and records which shared actions
 //! each instance reads. The render functions turn the plan into the plan line, the `vc plan` tree,
 //! JSON, DOT and the `--explain` listing. No I/O: preloaded example row counts arrive in
-//! [`PlanOptions`] (D132); [`rows_wanted`] names the tests whose rows the engine must read first,
-//! and in a run's plan a test whose examples gave no rows is skipped ([`NO_ROWS`]).
+//! [`PlanOptions`] (D132); [`rows_wanted`] names the templated tests whose rows the engine must
+//! render first, and a test whose examples gave no rows is skipped ([`NO_ROWS`]).
 
 mod build;
 mod error;

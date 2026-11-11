@@ -95,6 +95,24 @@ fn tests_carry_their_calls_and_steps_and_apis_their_vars() {
 }
 
 #[test]
+fn a_test_given_no_rows_is_listed_as_skipped_not_dropped() {
+    let config = "syntaxVersion: 2\nvars: {baseUrl: 'http://x'}\nprofiles:\n  - id: dev\n    default: true\n";
+    let api = "baseUrl: ${var.baseUrl}\napis:\n  - id: get\n    path: /users\n";
+    let rows = "tests:\n  - id: listsNoPages\n    call: users#get\n    examples: []\n";
+    let files: [(&str, &[u8]); 3] = [
+        ("vibranium.config.yaml", config.as_bytes()),
+        ("services/users/users.api.yaml", api.as_bytes()),
+        ("services/users/rows.test.yaml", rows.as_bytes()),
+    ];
+    let listing = builder(FakeVcs::default()).sources(Arc::new(MemorySources::new(&files))).build().unwrap();
+    let tests = listing.list(&ListRequest::default()).unwrap();
+    let listed: Vec<_> = tests.items.iter().map(|item| (item.id.as_str(), item.skipped)).collect();
+    assert_eq!(listed, [("users.rows#listsNoPages", true)]);
+    let catalog = listing.catalog().unwrap();
+    assert!(catalog.items.iter().any(|item| item.id == "users.rows#listsNoPages" && item.skipped));
+}
+
+#[test]
 fn the_catalog_is_the_apis_then_the_tests() {
     let catalog = engine(FakeVcs::default()).catalog().unwrap();
     let ids: Vec<&str> = catalog.items.iter().map(|item| item.id.as_str()).collect();
