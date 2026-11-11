@@ -8,7 +8,7 @@ use async_trait::async_trait;
 use axum::Router;
 use axum::body::Body;
 use http::header::{ACCEPT_ENCODING, CONTENT_LENGTH, HOST};
-use http::{HeaderValue, Request, StatusCode};
+use http::{HeaderValue, Request, StatusCode, Uri};
 use http_body_util::LengthLimitError;
 use tower::ServiceExt as _;
 use vc_interfaces::{SendContext, Transport, TransportError};
@@ -38,7 +38,7 @@ impl InProcessTransport {
     /// `router`, answering on `hosts` (`host:port`); every other host is not reached.
     #[must_use]
     pub fn new(router: Router, hosts: &[&str]) -> Self {
-        Self { router, hosts: hosts.iter().map(|&host| host.to_owned()).collect() }
+        Self { router, hosts: hosts.iter().map(|host| host.to_ascii_lowercase()).collect() }
     }
 
     /// The demo service, fresh, on [`DEMO_HOSTS`].
@@ -47,26 +47,40 @@ impl InProcessTransport {
         Self::new(vc_demo::router(), DEMO_HOSTS)
     }
 
-    fn wire_request(&self, request: &RenderedRequest) -> Result<Request<Body>, TransportError> {
-        let authority = request.uri.authority().filter(|_| matches!(request.uri.scheme_str(), Some("http" | "https")));
-        let Some(authority) = authority else {
-            return Err(TransportError::InvalidRequest { reason: format!("{} is not an http(s) URL", request.uri) });
+    /// Checks that `uri` is for one of the hosts, matched without regard to case, over plain
+    /// HTTP: every other host is not reached, and `https://` to the demo fails as the handshake
+    /// would with `vc run`, since the demo serves plain HTTP.
+    fn reach(&self, uri: &Uri) -> Result<(), TransportError> {
+        let scheme = uri.scheme_str();
+        let Some(authority) = uri.authority().filter(|_| matches!(scheme, Some("http" | "https"))) else {
+            return Err(TransportError::InvalidRequest { reason: format!("{uri} is not an http(s) URL") });
         };
-        let default = if request.uri.scheme_str() == Some("https") { 443 } else { 80 };
-        let port = authority.port_u16().unwrap_or(default);
-        let host = format!("{}:{port}", authority.host());
+        let secure = scheme == Some("https");
+        let port = authority.port_u16().unwrap_or(if secure { 443 } else { 80 });
+        let host = format!("{}:{port}", authority.host().to_ascii_lowercase());
         if !self.hosts.contains(&host) {
             let reason =
                 format!("the playground has no network: only the demo service at {} answers", self.hosts.join(" and "));
             return Err(TransportError::Connect { host, reason });
         }
+        if secure {
+            let reason = format!("the demo service serves plain HTTP, as it does for `vc run`; write `http://{host}`");
+            return Err(TransportError::Tls { host, reason });
+        }
+        Ok(())
+    }
+
+    fn wire_request(&self, request: &RenderedRequest) -> Result<Request<Body>, TransportError> {
+        self.reach(&request.uri)?;
         let mut wire = Request::new(Body::from(request.body.clone()));
         *wire.method_mut() = request.method.clone();
         *wire.uri_mut() = request.uri.clone();
         *wire.headers_mut() = request.headers.clone();
         let headers = wire.headers_mut();
         headers.entry(ACCEPT_ENCODING).or_insert(HeaderValue::from_static(ACCEPT));
-        if let Ok(value) = HeaderValue::from_str(authority.as_str()) {
+        if let Some(authority) = request.uri.authority()
+            && let Ok(value) = HeaderValue::from_str(authority.as_str())
+        {
             headers.entry(HOST).or_insert(value);
         }
         if !request.body.is_empty() {
@@ -146,6 +160,29 @@ mod tests {
         let TransportError::Connect { host, reason } = error else { panic!("{error:?}") };
         assert_eq!(host, "users.staging.example:443");
         assert!(reason.contains("only the demo service at localhost:7421"), "{reason}");
+    }
+
+    #[tokio::test]
+    async fn the_demo_host_matches_in_any_case() {
+        let request = RenderedRequest::new(Method::GET, Uri::from_static("http://LocalHost:7421/users"));
+        let exchange = InProcessTransport::demo().send(request, &SendContext::default()).await.unwrap();
+        assert_eq!(exchange.response.status, StatusCode::OK);
+        let shouted = InProcessTransport::new(vc_demo::router(), &["LOCALHOST:7421"]);
+        let request = RenderedRequest::new(Method::GET, Uri::from_static("http://localhost:7421/users"));
+        assert!(shouted.send(request, &SendContext::default()).await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn https_to_the_demo_fails_as_a_handshake_with_help() {
+        let request = RenderedRequest::new(Method::GET, Uri::from_static("https://localhost:7421/users"));
+        let error = InProcessTransport::demo().send(request, &SendContext::default()).await.unwrap_err();
+        let TransportError::Tls { host, reason } = &error else { panic!("{error:?}") };
+        assert_eq!(host, "localhost:7421");
+        assert_eq!(
+            reason,
+            "the demo service serves plain HTTP, as it does for `vc run`; write `http://localhost:7421`"
+        );
+        assert_eq!(error.code(), vc_diagnostics::Code::V5105);
     }
 
     #[tokio::test]
