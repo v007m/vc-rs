@@ -44,12 +44,12 @@ fn project(page: &str, section: &str) -> Outcome<Vec<(String, String)>> {
     let blocks = support::blocks(page).into_iter().filter(|(heading, _, _)| heading == section);
     let file = |(_, _, block): (String, String, support::Block)| -> Outcome<(String, String)> {
         if !LANGUAGES.contains(&block.info.as_str()) {
-            return Err(format!("a block in {section} is `{}`", block.info).into());
+            return Err(format!("the block at line {} in {section} is `{}`", block.line, block.info).into());
         }
         let path = block
             .first
             .strip_prefix("# file: ")
-            .ok_or_else(|| format!("a block in {section} has no `# file:` line"))?;
+            .ok_or_else(|| format!("the block at line {} in {section} has no `# file:` line", block.line))?;
         Ok((path.to_owned(), block.body))
     };
     blocks.map(file).collect()
