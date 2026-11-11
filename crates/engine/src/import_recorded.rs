@@ -27,6 +27,9 @@ pub struct Recording<'a> {
     pub project: &'a Authoring,
     pub homes: &'a [Home],
     pub schema: Option<&'a SourceFile>,
+    /// `--id`, for a draft of one origin: the api file it goes to, whatever file its host
+    /// renders to.
+    pub file_id: Option<&'a str>,
 }
 
 /// Where a draft api went: its full ID in the project, and the names its path vars have there.
@@ -71,9 +74,10 @@ impl Writing {
         let origin = origin_of(group).to_ascii_lowercase();
         let homes = recording.homes.iter().filter(|home| home.origin == origin);
         let homes = homes.filter(|home| group.apis.iter().all(|api| under(&api.path, &home.prefix).is_some()));
+        let homes = homes.filter(|home| recording.file_id.is_none_or(|id| home.file_id == id));
         match homes.max_by_key(|home| home.prefix.len()) {
             Some(home) => self.merge(recording.project, home, group),
-            None => self.create(recording.project, group),
+            None => self.create(recording.project, group, recording.file_id.unwrap_or(&group.file_id)),
         }
     }
 
@@ -103,9 +107,8 @@ impl Writing {
         Ok(())
     }
 
-    /// `group` as a new api file, its origin a config var.
-    fn create(&mut self, project: &Authoring, group: &DraftGroup) -> Result<(), EngineError> {
-        let id = group.file_id.as_str();
+    /// `group` as the new api file `id`, its origin a config var.
+    fn create(&mut self, project: &Authoring, group: &DraftGroup, id: &str) -> Result<(), EngineError> {
         if project.find(FileKind::Api, id).is_some() {
             return Err(refused(
                 format!("`{id}` already has an api file, whose base URL is not {}", origin_of(group)),
@@ -118,10 +121,11 @@ impl Writing {
             let var = self.staged.edit(config(project)?, |opened| base_var_in(opened, id, origin))?;
             base = base.replace(&format!("${{var.{draft_var}}}"), &format!("${{var.{var}}}"));
         }
-        self.staged.keep(new_file(FileKind::Api, id, &api_file(group, &base, None))?);
+        let named = DraftGroup { file_id: id.to_owned(), ..group.clone() };
+        self.staged.keep(new_file(FileKind::Api, id, &api_file(&named, &base, None))?);
         for api in &group.apis {
             let call = format!("{id}#{}", api.id);
-            self.calls.insert(call.clone(), Called { call, ..Called::default() });
+            self.calls.insert(format!("{}#{}", group.file_id, api.id), Called { call, ..Called::default() });
         }
         self.placed.push(Placed { added: group.apis.len(), ..Placed::of(group, id, false) });
         Ok(())

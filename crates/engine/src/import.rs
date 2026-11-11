@@ -93,7 +93,8 @@ impl Engine {
         let draft = importer.read(&source, &opts).await.map_err(|error| refused(error.to_string(), READ_HELP))?;
         if draft.snapshot.is_none() {
             let schema = self.secrets_schema()?;
-            let recording = Recording { project: &project, homes: &homes, schema: schema.as_ref() };
+            let file_id = request.file_id.as_deref().filter(|_| draft.groups.len() == 1);
+            let recording = Recording { project: &project, homes: &homes, schema: schema.as_ref(), file_id };
             return self.guarded(&project, recorded(&recording, &draft, &request.source)?);
         }
         let (changes, snapshots) = import_write::drafted(&project, &draft, request)?;

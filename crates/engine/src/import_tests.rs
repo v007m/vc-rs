@@ -282,6 +282,27 @@ async fn a_recording_merges_into_the_file_its_host_renders_to_and_declares_its_s
 }
 
 #[tokio::test]
+async fn an_explicit_id_puts_a_recording_of_one_origin_in_that_file() {
+    let curl = ImportRequest { text: Some(SHOP.to_owned()), ..request("curl", "rec/shop.curl") };
+    let matched = shop_engine().import(&curl).await.unwrap();
+    assert!(after(&matched, "services/shop/shop.api.yaml").contains("id: getCart"), "matched by host: {matched:?}");
+    let pinned = ImportRequest { file_id: Some("demo".to_owned()), ..curl.clone() };
+    let changes = shop_engine().import(&pinned).await.unwrap();
+    let paths: Vec<_> = changes.files.iter().map(|file| file.path.as_str()).collect();
+    assert!(
+        paths.contains(&"services/demo/demo.api.yaml") && !paths.contains(&"services/shop/shop.api.yaml"),
+        "{paths:?}"
+    );
+    let demo = after(&changes, "services/demo/demo.api.yaml");
+    assert!(demo.starts_with("id: demo\n") && demo.contains("baseUrl: ${var.demoUrl}\n"), "{demo}");
+    assert!(after(&changes, "vibranium.config.yaml").contains("demoUrl: https://api.shop.test"), "{changes:?}");
+    assert!(changes.titles.iter().any(|title| title.contains("api.shop.test → demo")), "{:?}", changes.titles);
+    let into_shop = ImportRequest { file_id: Some("shop".to_owned()), ..curl };
+    let merged = shop_engine().import(&into_shop).await.unwrap();
+    assert!(after(&merged, "services/shop/shop.api.yaml").contains("id: getCart"), "{merged:?}");
+}
+
+#[tokio::test]
 async fn a_recorded_secret_never_reaches_a_file_a_title_or_a_diff() {
     let changes = shop_import().await;
     let diffs: Vec<_> = changes.files.iter().map(FileChange::diff).collect();

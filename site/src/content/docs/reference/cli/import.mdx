@@ -24,7 +24,7 @@ $ vc import [OPTIONS] <KIND> <SOURCE>
 
 | Flag | Value | Applies to | Description |
 | --- | --- | --- | --- |
-| `--id` | `<FILE_ID>` | all | The file ID of the api file to fill, such as `users`. Derived from the spec or the host when left out |
+| `--id` | `<FILE_ID>` | all | The file ID of the api file to fill, such as `users`. Derived from the spec or the host when left out. A recording of one host goes to this file even when another file's base URL renders to that host |
 | `--tests` | | openapi | Also writes a happy-path test per api |
 | `--negative` | | openapi | Also writes tests that send what the schema rejects |
 | `--auth` | | openapi | Also writes a test per secured api that expects 401 without auth |
