@@ -146,7 +146,7 @@ import Playground from '~/components/Playground.svelte';
    seed 626245841719629220: pass `--seed 626245841719629220` to run with the same generated data
    ```
 
-   `rejectsInvalidCreateUser` sends four bodies the schema rejects, one per row, and expects a `400` for each. The mock stores any JSON you send it, so every row gets a `201`.
+   `rejectsInvalidCreateUser` sends four bodies the schema rejects, one per row, and expects a `400` for each. The mock stores any JSON you send it, so every row gets a `201`. Tests run in parallel, so `listsUsers` can fail as well in this run: it may list the users those rows made, which break the schema, before each row's cleanup deletes its user.
 
 4. **See how the tests get a user to work on.** `getsUser` and `deletesUser` need a user that exists, so each creates one in `before` and passes its saved ID to the path's `id`:
 
