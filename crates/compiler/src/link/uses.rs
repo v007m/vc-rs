@@ -88,7 +88,7 @@ impl<'p, 'a> Checker<'p, 'a> {
 
     /// Whether the reference's first pipe also runs on a missing value (`default`), so an
     /// unset var is not an error.
-    fn takes_missing(&self, reference: &Reference) -> bool {
+    pub fn takes_missing(&self, reference: &Reference) -> bool {
         let first = reference.pipes.first().and_then(|call| self.pipes.get(&call.name));
         first.is_some_and(|pipe| pipe.takes_missing)
     }

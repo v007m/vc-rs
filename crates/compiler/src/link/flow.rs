@@ -1,5 +1,6 @@
 //! Walks every test and block in run order with the levels each spot sees, so [`Checker`] can
-//! check vars per profile (V2101, V2304) and step ids against what ran before (V2105).
+//! check vars per profile (V2101, V2304), step ids against what ran before (V2105) and the vars
+//! an `examples:` template reads before the run (V2105).
 
 use vc_diagnostics::Diagnostics;
 use vc_model::{FileKind, SourceSpan};
@@ -93,9 +94,10 @@ impl<'p, 'a> Flow<'p, 'a> {
         self.block(source, project::list(root, "afterAll"), (&mut file, Saved::Plain));
     }
 
-    /// One test: `before`, its call or steps, then `after`.
+    /// One test: its `examples`, `before`, its call or steps, then `after`.
     fn test(&mut self, source: &'p Source<'a>, test: &'a Node, scope: &Scope<'a>) {
         let mut run = scope.with(Layer::vars(source, test));
+        self.checker.examples(source, test, &run);
         self.block(source, project::list(test, "before"), (&mut run, Saved::Plain));
         if test.get("call").is_some() {
             let saved = self.action(source, test, &run);

@@ -9,6 +9,7 @@ mod build;
 mod columns;
 mod cycles;
 mod data;
+mod examples;
 mod fakes;
 mod flow;
 mod hooks;
