@@ -172,7 +172,9 @@ fn named_path(heading: &str, block: &Block) -> Option<String> {
 
 /// The `.yaml` file a [`WRONG`] block's title names, as written: it may be a name `vc` refuses.
 fn written(block: &Block) -> Option<String> {
-    title(&block.info).filter(|title| title.ends_with(".yaml")).map(str::to_owned)
+    title(&block.info)
+        .filter(|title| Path::new(title).extension().is_some_and(|ext| ext.eq_ignore_ascii_case("yaml")))
+        .map(str::to_owned)
 }
 
 /// Whether `text` is an excerpt though it names its file: its top level is a list or indented,
@@ -208,7 +210,7 @@ struct Example {
 }
 
 impl Example {
-    fn is_empty(&self) -> bool {
+    const fn is_empty(&self) -> bool {
         self.listing.is_empty()
     }
 
@@ -246,16 +248,16 @@ impl Reading {
     /// Adds a block marked [`WRONG`], at `at` on the page under `under`, to the wrong example: its
     /// `file` is its path, when it names one, and its text. A new heading, or a path the example
     /// holds already, starts the next example.
-    fn wrong(&mut self, at: String, under: (String, String), file: (Option<String>, String)) -> Outcome<()> {
+    fn wrong(&mut self, at: &str, under: (String, String), file: (Option<String>, String)) -> Outcome<()> {
         let again = file.0.as_ref().is_some_and(|path| self.example.files.contains_key(path));
         if again || self.example.under != under {
             self.close_example()?;
         }
         if self.example.is_empty() {
-            self.example.at.clone_from(&at);
+            at.clone_into(&mut self.example.at);
             self.example.under = under;
         }
-        self.example.add(&at, file);
+        self.example.add(at, file);
         Ok(())
     }
 
@@ -308,7 +310,7 @@ fn read(name: &str, doc: &str) -> Outcome<Page> {
         let path = named_path(if first_under { &heading } else { "" }, &block);
         if wrong(&block) {
             let path = path.or_else(|| written(&block)).filter(|_| !excerpt(&text));
-            reading.wrong(format!("{name}:{}", block.line), (section, heading), (path, text))?;
+            reading.wrong(&format!("{name}:{}", block.line), (section, heading), (path, text))?;
             reading.example.named.extend(named_codes(&block));
             continue;
         }
@@ -391,14 +393,14 @@ fn fails(page: &Files, example: &Example) -> Outcome<bool> {
     let report = support::check(&files)?;
     let shown: BTreeSet<String> = example.keys().map(String::as_str).map(shown_as).collect();
     let in_example = |found: &&Diagnostic| shown.contains(&file_of(found, &report.files));
-    let shows = |found: &Diagnostic| {
+    let counts = |found: &Diagnostic| {
         if named.is_empty() {
             found.severity == Severity::Error && !elsewhere(found)
         } else {
             named.contains(&found.code)
         }
     };
-    Ok(report.diagnostics.iter().filter(in_example).any(shows))
+    Ok(report.diagnostics.iter().filter(in_example).any(counts))
 }
 
 /// `path` as a diagnostic names it: a name `vc` refuses (V1012) has its bad characters replaced.
@@ -493,6 +495,10 @@ fn wrong_examples_are_left_out_and_configs_completed() {
     );
     assert!(!checked(&block(r#"json title="call""#)) && !checked(&block("ts")));
     assert_eq!(named_path("", &block(r#"yaml title="vibranium.config.yaml (excerpt)""#)), None);
+}
+
+#[test]
+fn a_config_gets_only_the_required_keys_it_leaves_out() {
     assert_eq!(completed("vars: {}\n"), format!("vars: {{}}\n{DEFAULTS}"));
     assert_eq!(completed("vars: {}"), format!("vars: {{}}\n{DEFAULTS}"));
     assert_eq!(completed("syntaxVersion: 2\nprofiles: []\n"), "syntaxVersion: 2\nprofiles: []\n");
