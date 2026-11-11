@@ -72,8 +72,9 @@ impl Engine {
         Ok(ConfigValues { values, notices: layered.notices })
     }
 
-    /// Checks `request`'s `--profile` and `--set` layers before a long-lived server starts, so a
-    /// bad one is refused up front. A project with errors passes: the server reports them.
+    /// Checks the layers before a long-lived server starts, so a bad `--set` or a profile no
+    /// project has, from `--profile`, `VIB_PROFILE` or the user config, is refused up front. A
+    /// project with errors passes: the server reports them.
     ///
     /// # Errors
     ///
@@ -85,8 +86,9 @@ impl Engine {
             Err(EngineError::Invalid(_)) => return Ok(()),
             Err(error) => return Err(error),
         };
-        if !request.profiles.is_empty() {
-            plan::profiles(layered.program.as_ref(), layered.settings.profiles.as_ref())?;
+        let named = layered.settings.profiles.as_ref().filter(|named| !named.names.is_empty());
+        if named.is_some() {
+            plan::profiles(layered.program.as_ref(), named)?;
         }
         Ok(())
     }

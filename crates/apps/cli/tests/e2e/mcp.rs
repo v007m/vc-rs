@@ -150,6 +150,31 @@ fn an_unknown_profile_is_refused_before_the_server_starts() {
     assert!(refused.stdout.is_empty(), "stdout carries only the protocol: {}", said(&refused));
 }
 
+/// A profile from any layer is checked, not only `--profile`.
+#[test]
+fn an_unknown_profile_from_the_environment_or_the_user_config_is_refused() {
+    let project = Project::new(&[CONFIG, USERS, CRUD]);
+    let from_env = project.vc(&["mcp"]).env("VIB_PROFILE", "nope").stdin(Stdio::null()).output().unwrap();
+    assert_eq!(from_env.status.code(), Some(2), "{}", said(&from_env));
+    assert!(said(&from_env).contains("error: VIB_PROFILE: no profile `nope`"), "{}", said(&from_env));
+    let user = project.home().join("vibranium");
+    std::fs::create_dir_all(&user).unwrap();
+    std::fs::write(user.join("config.yaml"), "profile: nope\n").unwrap();
+    let from_user = project.vc(&["mcp"]).stdin(Stdio::null()).output().unwrap();
+    assert_eq!(from_user.status.code(), Some(2), "{}", said(&from_user));
+    assert!(said(&from_user).contains("no profile `nope`"), "{}", said(&from_user));
+    assert!(said(&from_user).contains("  = help: the profiles are dev\n"), "{}", said(&from_user));
+}
+
+#[test]
+fn a_bad_set_is_refused_before_the_server_starts() {
+    let project = Project::new(&[CONFIG, USERS, CRUD]);
+    let refused = project.vc(&["mcp", "--set", "colour=red"]).stdin(Stdio::null()).output().unwrap();
+    assert_eq!(refused.status.code(), Some(2), "{}", said(&refused));
+    assert!(said(&refused).contains("error: --set: `colour`: not a setting"), "{}", said(&refused));
+    assert!(refused.stdout.is_empty(), "stdout carries only the protocol: {}", said(&refused));
+}
+
 #[test]
 fn a_known_profile_serves_as_before() {
     let project = Project::new(&[CONFIG, USERS, CRUD]);
