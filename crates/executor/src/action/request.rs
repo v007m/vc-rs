@@ -85,9 +85,10 @@ fn unbased(render: &Render<'_>, api: &Api, url: &str) -> Failure {
     let name = program.str(api.id.sym()).unwrap_or_default();
     let file = name.split_once('#').map_or(name, |(file, _)| file);
     let var = format!("{}Url", file.rsplit('.').next().unwrap_or(file));
-    let profiles = render.values().profile_names().join(", ");
+    let names = render.values().profile_names();
+    let profiles = if names.is_empty() { "no profile".to_owned() } else { format!("profile {}", names.join(", ")) };
     rendering(&format!(
-        "`{name}` sends to `{url}`, which is not a full URL: no `baseUrl` is set for `{file}` (profile {profiles}); \
+        "`{name}` sends to `{url}`, which is not a full URL: no `baseUrl` is set for `{file}` ({profiles}); \
          help: add `baseUrl: ${{var.{var}}}` to its api file and set `{var}` in the config, a profile, or with \
          `--set vars.{var}=http://…`"
     ))
