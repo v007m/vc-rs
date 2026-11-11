@@ -316,7 +316,7 @@ Commands are grouped by the job they do. `vc help <command>` shows every flag wi
 | `vc list apis\|tests\|files [selector] [--skipped] [--tag] [--json]` | Lists definitions: one line per item (full ID, name, tags, `(skipped)`), or `--json` (`id`, `name`, `path`, `tags`, `skipped`) for scripts and agents (D130). `tests` takes the selectors and flags of `vc run` and lists the skipped tests too; `--skipped` lists only those. `apis` take the same positional selectors, `--grep` and `--changed` (an api file ID such as `users` names its apis; `-t` is refused, as apis have no tags), and `files` take them all, a file's tags being its test file's |
 | `vc explain <id> [--profile] [--set]` | Shows one api or test fully resolved for the active profile: final URL, vars and where each came from, auth, merged `expect`, the lifecycle actions it triggers and the cleanups it registers. An unknown ID exits 2 and names the closest |
 | `vc plan [selector] [--dot] [--json]` | Shows what a run would do, in order, without sending a request: the plan line, then a tree of lifecycle blocks and test instances. Takes the selectors, `--profile`, `--set` and `--repeat` of `vc run`; `--json` for scripts and agents (D130), `--dot` for a Graphviz graph |
-| `vc explain <code>` | Explains a diagnostic code (V2003, V2101, …) with a wrong and a right example. The pages are built into the binary, so it works outside a project; an unknown code exits 2 |
+| `vc explain <code>` | Explains a diagnostic code (V2003, V2101, …; a lowercase `v2101` too) with a wrong and a right example. The pages are built into the binary, so it works outside a project; an unknown code exits 2 |
 
 **Run**
 
