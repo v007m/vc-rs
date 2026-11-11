@@ -197,13 +197,29 @@ pub enum PluginError {
         /// What was wrong.
         reason: String,
     },
+    /// The plugin was not started, as it cannot be held to its permissions here and running it
+    /// unconfined is not allowed (D260).
+    #[error(
+        "plugin `{plugin}` cannot be confined to its permissions: {reason}; to run it unconfined, set \
+         `plugins.allowUnconfined: true` in your user config or VIB_PLUGINS_ALLOW_UNCONFINED=1"
+    )]
+    Unconfined {
+        /// The plugin's ID.
+        plugin: String,
+        /// Why it cannot be confined.
+        reason: String,
+    },
 }
 
 impl PluginError {
-    /// The diagnostic code: every plugin failure is V5118.
+    /// The diagnostic code: V5119 for a plugin that cannot be confined, V5118 for every other
+    /// failure.
     #[must_use]
     pub const fn code(&self) -> Code {
-        Code::V5118
+        match self {
+            Self::Unconfined { .. } => Code::V5119,
+            _ => Code::V5118,
+        }
     }
 
     /// The JSON-RPC error code the failure carries, if it has one.
@@ -213,7 +229,7 @@ impl PluginError {
             Self::Permission { .. } => Some(PERMISSION_DENIED),
             Self::Deadline { .. } => Some(DEADLINE_PASSED),
             Self::Remote { code, .. } => Some(*code),
-            Self::Start { .. } | Self::Crashed { .. } | Self::Protocol { .. } => None,
+            Self::Start { .. } | Self::Crashed { .. } | Self::Protocol { .. } | Self::Unconfined { .. } => None,
         }
     }
 }
@@ -261,5 +277,15 @@ mod tests {
         assert_eq!(late.to_string(), "plugin `p` did not answer `auth/credentials` within 30s");
         assert_eq!(late.rpc_code(), Some(DEADLINE_PASSED));
         assert_eq!(PluginError::Crashed { plugin: "p".into(), reason: "exit 1".into() }.rpc_code(), None);
+    }
+
+    #[test]
+    fn a_plugin_that_cannot_be_confined_is_v5119_and_names_the_opt_out() {
+        let unconfined = PluginError::Unconfined { plugin: "p".into(), reason: "`sandbox-exec` cannot start".into() };
+        assert_eq!((unconfined.code(), unconfined.rpc_code()), (Code::V5119, None));
+        let message = unconfined.to_string();
+        assert!(message.starts_with("plugin `p` cannot be confined to its permissions: `sandbox-exec`"), "{message}");
+        assert!(message.contains("`plugins.allowUnconfined: true` in your user config"), "{message}");
+        assert!(message.ends_with("VIB_PLUGINS_ALLOW_UNCONFINED=1"), "{message}");
     }
 }

@@ -1,8 +1,8 @@
 //! `vc import openapi` writes an api file, its tests, the base-URL var and the snapshot from a
 //! served spec, and they compile and run; `vc init --from-openapi` imports into a new project;
 //! `vc sync` merges the next version of the spec; a HAR recorded against the mock server, and a
-//! Postman or Bruno collection calling it, import into its api file and their flows run green;
-//! a Bruno collection folder is refused with how to export it.
+//! Postman or Bruno collection calling it (a Bruno one as its export or its folder), import into
+//! its api file and their flows run green; a folder without `bruno.json` is refused.
 
 use vc_mock_server::MockServer;
 
@@ -110,27 +110,42 @@ async fn a_recorded_session_imports_into_its_api_file_and_replays_green() {
     assert_eq!(run.status.code(), Some(0), "{}\n{}", said(&run), texts.join("\n"));
 }
 
-/// A collection exported from an api client, whose base URL is the mock server's,
-/// `http://127.0.0.1:7421`.
+/// A collection from an api client, whose base URL is the mock server's, `http://127.0.0.1:7421`:
+/// the files it is written as and the one (or the folder) imported.
 struct Collection {
     kind: &'static str,
-    file: &'static str,
-    text: &'static str,
+    source: &'static str,
+    files: &'static [(&'static str, &'static str)],
     /// The token it holds, which must never be written or printed.
     token: &'static str,
 }
 
 const POSTMAN: Collection = Collection {
     kind: "postman",
-    file: "mock.postman.json",
-    text: include_str!("../fixtures/mock.postman.json"),
+    source: "mock.postman.json",
+    files: &[("mock.postman.json", include_str!("../fixtures/mock.postman.json"))],
     token: "e2eCollectionToken8Rk3Wn5Qz",
 };
 
 const BRUNO: Collection = Collection {
     kind: "bruno",
-    file: "mock.bruno.json",
-    text: include_str!("../fixtures/mock.bruno.json"),
+    source: "mock.bruno.json",
+    files: &[("mock.bruno.json", include_str!("../fixtures/mock.bruno.json"))],
+    token: "e2eBrunoToken5Vd8Kq2Jx6Wm",
+};
+
+/// The same Bruno collection as its folder, as Bruno keeps it.
+const BRUNO_FOLDER: Collection = Collection {
+    kind: "bruno",
+    source: "bruno/mock",
+    files: &[
+        ("bruno/mock/bruno.json", include_str!("../fixtures/mock.bruno/bruno.json")),
+        ("bruno/mock/collection.bru", include_str!("../fixtures/mock.bruno/collection.bru")),
+        ("bruno/mock/environments/Local.bru", include_str!("../fixtures/mock.bruno/environments/Local.bru")),
+        ("bruno/mock/get-user.bru", include_str!("../fixtures/mock.bruno/get-user.bru")),
+        ("bruno/mock/rename-user.bru", include_str!("../fixtures/mock.bruno/rename-user.bru")),
+        ("bruno/mock/sign-up.bru", include_str!("../fixtures/mock.bruno/sign-up.bru")),
+    ],
     token: "e2eBrunoToken5Vd8Kq2Jx6Wm",
 };
 
@@ -139,9 +154,11 @@ async fn imports_and_runs_green(collection: &Collection) {
     let server = MockServer::start().await.unwrap();
     let config = CONFIG.1.replace("baseUrl: 'http://x'", &format!("baseUrl: '{}'", server.base_url()));
     let project = Project::new(&[(CONFIG.0, &config), USERS]);
-    project.write(collection.file, &collection.text.replace("http://127.0.0.1:7421", &server.base_url()));
+    for (file, text) in collection.files {
+        project.write(file, &text.replace("http://127.0.0.1:7421", &server.base_url()));
+    }
     let flow = "users.collection#signsUpAndRenames";
-    let args = ["import", collection.kind, collection.file, "--flow", flow];
+    let args = ["import", collection.kind, collection.source, "--flow", flow];
     let preview = project.vc(&args).arg("--dry-run").output().unwrap();
     assert_eq!(preview.status.code(), Some(0), "{}", said(&preview));
     assert!(!project.path().join("services/users/collection.test.yaml").exists());
@@ -169,12 +186,16 @@ async fn a_bruno_export_imports_into_its_api_file_and_its_flow_runs_green() {
     imports_and_runs_green(&BRUNO).await;
 }
 
+#[tokio::test(flavor = "multi_thread")]
+async fn a_bruno_collection_folder_imports_into_its_api_file_and_its_flow_runs_green() {
+    imports_and_runs_green(&BRUNO_FOLDER).await;
+}
+
 #[test]
-fn a_bruno_collection_folder_is_refused_with_how_to_export_it() {
+fn a_folder_without_bruno_json_is_refused() {
     let project = Project::new(&[CONFIG, ("bruno/mock/sign-up.bru", "meta {\n  name: Sign up\n}\n")]);
     let output = project.vc(&["import", "bruno", "bruno/mock"]).output().unwrap();
     assert_eq!(output.status.code(), Some(2), "{}", said(&output));
-    for line in ["it is a folder, not a file", "export the collection as JSON from Bruno"] {
-        assert!(said(&output).contains(line), "{line} not in {}", said(&output));
-    }
+    let line = "it is not a Bruno collection: the folder has no bruno.json";
+    assert!(said(&output).contains(line), "{line} not in {}", said(&output));
 }

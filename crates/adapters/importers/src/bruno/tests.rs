@@ -1,11 +1,64 @@
-use serde_json::json;
-use vc_interfaces::{ImportDraft, ImportError, ImportNote, ImportOptions, ImportSource, Importer};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
+
+use async_trait::async_trait;
+use serde_json::{Value, json};
+use vc_interfaces::{
+    FetchError, ImportDraft, ImportError, ImportNote, ImportOptions, ImportSource, Importer, SpecFetcher,
+};
 use vc_testkit::importer_suite;
 
 use super::BrunoImporter;
 use crate::shop_sample::{assert_files, checkout, secrets as shop_secrets};
 
 const SAMPLE: &str = include_str!("../../fixtures/shop.bruno.json");
+
+/// The same collection as its folder of `.bru` files, with a folder `bruno.json` leaves out.
+const FOLDER: [(&str, &str); 16] = [
+    ("Carts/add-item.bru", include_str!("../../fixtures/shop.bruno/Carts/add-item.bru")),
+    ("Carts/create-cart.bru", include_str!("../../fixtures/shop.bruno/Carts/create-cart.bru")),
+    ("Carts/folder.bru", include_str!("../../fixtures/shop.bruno/Carts/folder.bru")),
+    ("Carts/get-cart.bru", include_str!("../../fixtures/shop.bruno/Carts/get-cart.bru")),
+    ("Checkout/folder.bru", include_str!("../../fixtures/shop.bruno/Checkout/folder.bru")),
+    ("Checkout/pay.bru", include_str!("../../fixtures/shop.bruno/Checkout/pay.bru")),
+    ("Checkout/upload-receipt.bru", include_str!("../../fixtures/shop.bruno/Checkout/upload-receipt.bru")),
+    ("bruno.json", include_str!("../../fixtures/shop.bruno/bruno.json")),
+    ("collection.bru", include_str!("../../fixtures/shop.bruno/collection.bru")),
+    ("drafts/later.bru", include_str!("../../fixtures/shop.bruno/drafts/later.bru")),
+    ("environments/Local.bru", include_str!("../../fixtures/shop.bruno/environments/Local.bru")),
+    ("environments/Staging.bru", include_str!("../../fixtures/shop.bruno/environments/Staging.bru")),
+    ("health.bru", include_str!("../../fixtures/shop.bruno/health.bru")),
+    ("login.bru", include_str!("../../fixtures/shop.bruno/login.bru")),
+    ("search.bru", include_str!("../../fixtures/shop.bruno/search.bru")),
+    ("stream-prices.bru", include_str!("../../fixtures/shop.bruno/stream-prices.bru")),
+];
+
+/// Serves the files of one folder, `bruno/shop`, which also lists a receipt it cannot fetch:
+/// only `bruno.json` and the `.bru` files are read.
+struct Folder(Vec<(&'static str, &'static str)>);
+
+#[async_trait]
+impl SpecFetcher for Folder {
+    async fn fetch(&self, location: &str) -> Result<Vec<u8>, FetchError> {
+        let path = location.strip_prefix("bruno/shop/");
+        let found = self.0.iter().find(|(file, _)| path == Some(*file));
+        let missing = || FetchError::Failed { location: location.to_owned(), reason: "not found".to_owned() };
+        found.map(|(_, text)| text.as_bytes().to_vec()).ok_or_else(missing)
+    }
+
+    async fn list(&self, folder: &str) -> Result<Vec<String>, FetchError> {
+        let files = self.0.iter().map(|(file, _)| (*file).to_owned()).chain(["receipt.pdf".to_owned()]);
+        Ok(if folder == "bruno/shop" { files.collect() } else { Vec::new() })
+    }
+
+    fn decode(&self, location: &str, _bytes: &[u8]) -> Result<Value, FetchError> {
+        Err(FetchError::Undecodable { location: location.to_owned(), reason: "never".to_owned() })
+    }
+}
+
+fn importer(files: &[(&'static str, &'static str)]) -> BrunoImporter {
+    BrunoImporter::new(Arc::new(Folder(files.to_vec())))
+}
 
 /// The values the sample holds that must never be written: a token in a secret environment
 /// variable, a nonce, a basic credential and a password.
@@ -17,12 +70,93 @@ fn source(text: &str) -> ImportSource {
 
 async fn read(text: &str) -> Result<ImportDraft, ImportError> {
     let opts = ImportOptions { file_id: "shop".to_owned(), ..ImportOptions::default() };
-    BrunoImporter.read(&source(text), &opts).await
+    importer(&FOLDER).read(&source(text), &opts).await
+}
+
+fn folder(location: &str) -> ImportSource {
+    ImportSource { location: location.to_owned(), bytes: Vec::new() }
 }
 
 #[tokio::test]
 async fn behaves_as_an_importer() {
-    importer_suite(&BrunoImporter, &source(SAMPLE)).await;
+    importer_suite(&importer(&FOLDER), &source(SAMPLE)).await;
+    importer_suite(&importer(&FOLDER), &folder("bruno/shop")).await;
+}
+
+#[tokio::test]
+async fn a_collection_folder_drafts_what_its_json_export_drafts() {
+    let opts = ImportOptions {
+        file_id: "shop".to_owned(),
+        flow: Some("shop.checkout#buysACart".to_owned()),
+        ..ImportOptions::default()
+    };
+    let exported = importer(&[]).read(&source(SAMPLE), &opts).await;
+    let read = importer(&FOLDER).read(&folder("bruno/shop"), &opts).await;
+    assert!(read.is_ok(), "{read:?}");
+    assert_eq!(read, exported);
+}
+
+#[tokio::test]
+async fn a_folder_without_bruno_json_or_with_a_broken_file_is_invalid() {
+    let opts = ImportOptions { file_id: "shop".to_owned(), ..ImportOptions::default() };
+    let refusal =
+        async |files: &[(&'static str, &'static str)]| match importer(files).read(&folder("bruno/shop"), &opts).await {
+            Err(ImportError::Invalid { location, reason }) if location == "bruno/shop" => reason,
+            other => format!("not invalid: {other:?}"),
+        };
+    let no_config = refusal(&FOLDER[..7]).await;
+    assert_eq!(no_config, "it is not a Bruno collection: the folder has no bruno.json");
+    let broken = [("bruno.json", "{\"name\": \"Shop\"}"), ("health.bru", "get {\n  url: http://x/health\n")];
+    assert_eq!(refusal(&broken).await, "health.bru: its get block has no closing }");
+    let none = [("bruno.json", "{\"name\": \"Empty\"}"), ("Later/folder.bru", "meta {\n  name: Later\n}\n")];
+    assert_eq!(refusal(&none).await, "it holds no request to an api: collection Empty · 0 requests in 1 folder");
+}
+
+#[tokio::test]
+async fn an_empty_file_or_folder_is_invalid_as_empty() {
+    let opts = ImportOptions { file_id: "shop".to_owned(), ..ImportOptions::default() };
+    let empty = "it is empty: give the Bruno collection's folder (the one with its bruno.json) or the collection \
+        exported as JSON";
+    for location in ["shop.bruno.json", "bruno/empty"] {
+        let read = importer(&FOLDER).read(&folder(location), &opts).await;
+        assert_eq!(read, Err(ImportError::Invalid { location: location.to_owned(), reason: empty.to_owned() }));
+    }
+}
+
+/// The folder, counting the most files it is asked for at once.
+#[derive(Default)]
+struct Counted {
+    at_once: AtomicUsize,
+    most: AtomicUsize,
+}
+
+#[async_trait]
+impl SpecFetcher for Counted {
+    async fn fetch(&self, location: &str) -> Result<Vec<u8>, FetchError> {
+        let now = self.at_once.fetch_add(1, Ordering::SeqCst) + 1;
+        self.most.fetch_max(now, Ordering::SeqCst);
+        tokio::task::yield_now().await;
+        self.at_once.fetch_sub(1, Ordering::SeqCst);
+        Folder(FOLDER.to_vec()).fetch(location).await
+    }
+
+    async fn list(&self, folder: &str) -> Result<Vec<String>, FetchError> {
+        Folder(FOLDER.to_vec()).list(folder).await
+    }
+
+    fn decode(&self, location: &str, bytes: &[u8]) -> Result<Value, FetchError> {
+        Folder(Vec::new()).decode(location, bytes)
+    }
+}
+
+#[tokio::test]
+async fn a_collection_folder_reads_several_files_at_once_in_order() {
+    let counted = Arc::new(Counted::default());
+    let opts = ImportOptions { file_id: "shop".to_owned(), ..ImportOptions::default() };
+    let read =
+        BrunoImporter::new(Arc::clone(&counted) as Arc<dyn SpecFetcher>).read(&folder("bruno/shop"), &opts).await;
+    assert_eq!(read, importer(&FOLDER).read(&folder("bruno/shop"), &opts).await);
+    assert_eq!(counted.most.load(Ordering::SeqCst), 8);
 }
 
 #[tokio::test]
@@ -77,19 +211,21 @@ async fn auth_headers_scripts_tests_and_other_requests_that_are_left_out_are_not
 #[tokio::test]
 async fn the_flow_calls_each_request_in_order_sending_on_what_post_response_vars_save() {
     let opts = ImportOptions { flow: Some("shop.checkout#buysACart".to_owned()), ..ImportOptions::default() };
-    let flow = BrunoImporter.read(&source(SAMPLE), &opts).await.ok().and_then(|draft| draft.flow);
+    let flow = importer(&[]).read(&source(SAMPLE), &opts).await.ok().and_then(|draft| draft.flow);
     assert_eq!(flow, Some(checkout()));
 }
 
 #[tokio::test]
 async fn a_secret_in_the_collection_never_reaches_the_draft_or_its_notes() {
     let opts = ImportOptions { flow: Some("shop.checkout#buysACart".to_owned()), ..ImportOptions::default() };
-    let draft = BrunoImporter.read(&source(SAMPLE), &opts).await;
-    let notes = draft.as_ref().map(|draft| draft.notes.clone()).unwrap_or_default();
-    let notes: Vec<_> = notes.iter().map(|note| format!("{} {}", note.at, note.message)).collect();
-    let output = format!("{draft:?}\n{}", notes.join("\n"));
-    let leaked: Vec<_> = RECORDED.iter().filter(|value| output.contains(*value)).collect();
-    assert!(leaked.is_empty(), "{leaked:?} in {output}");
+    for source in [source(SAMPLE), folder("bruno/shop")] {
+        let draft = importer(&FOLDER).read(&source, &opts).await;
+        let notes = draft.as_ref().map(|draft| draft.notes.clone()).unwrap_or_default();
+        let notes: Vec<_> = notes.iter().map(|note| format!("{} {}", note.at, note.message)).collect();
+        let output = format!("{draft:?}\n{}", notes.join("\n"));
+        let leaked: Vec<_> = RECORDED.iter().filter(|value| output.contains(*value)).collect();
+        assert!(leaked.is_empty(), "{leaked:?} in {output}");
+    }
 }
 
 async fn reason(text: &str) -> String {

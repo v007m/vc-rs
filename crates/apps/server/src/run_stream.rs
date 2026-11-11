@@ -35,9 +35,9 @@ async fn run(
     let request = run_request(&api, request, RunWatch::new(sender));
     let (interrupter, interrupts) = vc_engine::interrupts();
     let running = api.blocking(move |engine| Handle::current().block_on(engine.run(&request, interrupts)));
-    let (ran, ()) = tokio::join!(running, relay(feed, &sink, &interrupter));
+    let (ran, relayed) = tokio::join!(running, relay(feed, &sink, &interrupter));
     ran?;
-    Ok(())
+    relayed
 }
 
 /// The engine's request for `request`, over the server's profiles and `--set` values, with
@@ -58,15 +58,21 @@ fn run_request(api: &EngineApi, request: wire::RunRequest, watch: RunWatch) -> R
 }
 
 /// Sends the feed's events to `sink` until every sender has gone, which is once the run has
-/// returned. When the client goes, the run is interrupted once and the rest is drained unsent.
-async fn relay(mut feed: Receiver<RunFeed>, sink: &Sink<wire::RunResponse>, interrupter: &Interrupter) {
-    let (mut wire, mut open) = (WireFeed::default(), true);
+/// returned. When the client goes, or an event cannot be sent, the run is interrupted once and
+/// the rest is drained unsent; the error the first unsent event met, if any.
+async fn relay(
+    mut feed: Receiver<RunFeed>,
+    sink: &Sink<wire::RunResponse>,
+    interrupter: &Interrupter,
+) -> Result<(), ConnectError> {
+    let (mut wire, mut unsent) = (WireFeed::default(), Ok(()));
+    let mut open = true;
     loop {
         tokio::select! {
             item = feed.recv() => {
-                let Some(item) = item else { return };
-                if open && !send(sink, wire.events(item)).await {
-                    open = false;
+                let Some(item) = item else { return unsent };
+                if open && let Err(error) = send(sink, wire.events(item)).await {
+                    (open, unsent) = (false, Err(error));
                     interrupter.interrupt();
                 }
             }
@@ -78,14 +84,12 @@ async fn relay(mut feed: Receiver<RunFeed>, sink: &Sink<wire::RunResponse>, inte
     }
 }
 
-/// Sends `events` in order; false once the client has gone.
-async fn send(sink: &Sink<wire::RunResponse>, events: Vec<wire::RunEvent>) -> bool {
+/// Sends `events` in order, stopping at the first that cannot be sent.
+async fn send(sink: &Sink<wire::RunResponse>, events: Vec<wire::RunEvent>) -> Result<(), ConnectError> {
     for event in events {
-        if !sink.send(&wire::RunResponse { event: Some(event) }).await {
-            return false;
-        }
+        sink.send(&wire::RunResponse { event: Some(event) }).await?;
     }
-    true
+    Ok(())
 }
 
 #[cfg(test)]

@@ -10,6 +10,10 @@ use vc_interfaces::{ConfigEntry, ConfigSource, ConfigSourceError, Environment};
 /// other commands read.
 const SETTINGS: &[&str] = &["profile", "defaults", "reports", "vars"];
 
+/// The user's own preference that lets a plugin run unconfined where it cannot be confined
+/// (D260): read only here, never from the project's config, a profile or `.env`.
+const ALLOW_UNCONFINED: &str = "plugins.allowUnconfined";
+
 /// Where the user config lives, under the user's config folder.
 const FILE: [&str; 2] = ["vibranium", "config.yaml"];
 
@@ -18,11 +22,13 @@ const FILE: [&str; 2] = ["vibranium", "config.yaml"];
 /// A YAML map read as dotted keys: `defaults: {timeout: 5s}` sets `defaults.timeout`, and a list
 /// is joined with commas, so `reports: {formats: [ctrf, junit]}` sets `reports.formats` to
 /// `ctrf,junit`. Only `profile`, `defaults.*`, `reports.*` and `vars.*` are settings. Each
-/// entry's origin is the file's path.
+/// entry's origin is the file's path. `plugins.allowUnconfined: true` is a preference
+/// ([`UserConfig::allows_unconfined_plugins`]).
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct UserConfig {
     origin: String,
     entries: Vec<(String, String)>,
+    unconfined: bool,
 }
 
 impl UserConfig {
@@ -46,7 +52,7 @@ impl UserConfig {
     pub fn read(path: &Path) -> Result<Self, ConfigSourceError> {
         let origin = path.display().to_string();
         match std::fs::read_to_string(path) {
-            Err(error) if error.kind() == ErrorKind::NotFound => Ok(Self { origin, entries: Vec::new() }),
+            Err(error) if error.kind() == ErrorKind::NotFound => Ok(Self { origin, ..Self::default() }),
             Err(error) => Err(ConfigSourceError::Unreadable { origin, reason: error.to_string() }),
             Ok(text) => Self::parse(&text, origin),
         }
@@ -68,8 +74,16 @@ impl UserConfig {
             })?;
             flat.event(event);
         }
+        let unconfined = flat.entries.iter().any(|(key, value)| key == ALLOW_UNCONFINED && value == "true");
         let setting = |(key, _): &(String, String)| SETTINGS.contains(&key.split('.').next().unwrap_or_default());
-        Ok(Self { origin, entries: flat.entries.into_iter().filter(setting).collect() })
+        Ok(Self { origin, entries: flat.entries.into_iter().filter(setting).collect(), unconfined })
+    }
+
+    /// Whether the user lets a plugin run unconfined, with a warning, where it cannot be confined
+    /// (`plugins.allowUnconfined: true`, D260).
+    #[must_use]
+    pub const fn allows_unconfined_plugins(&self) -> bool {
+        self.unconfined
     }
 }
 
@@ -188,6 +202,17 @@ mod tests {
             ConfigEntry::new("vars.items", "", "u.yaml"),
         ];
         assert_eq!(entries, expected);
+    }
+
+    #[test]
+    fn allowing_unconfined_plugins_is_a_preference_not_a_setting() {
+        let allowing = UserConfig::parse("plugins:\n  allowUnconfined: true\n", "u.yaml").unwrap();
+        assert!(allowing.allows_unconfined_plugins());
+        assert_eq!(allowing.entries().unwrap(), []);
+        let other = |text: &str| UserConfig::parse(text, "u.yaml").unwrap().allows_unconfined_plugins();
+        assert!(!other("plugins:\n  allowUnconfined: false\n"));
+        assert!(!other("allowUnconfined: true\n"));
+        assert!(!UserConfig::default().allows_unconfined_plugins());
     }
 
     #[test]

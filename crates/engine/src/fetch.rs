@@ -1,15 +1,17 @@
 //! The importers' [`SpecFetcher`]: a URL through the transport, a path through the project's
 //! sources (so nothing outside the project is read, nor a hidden file such as `.env` that a
 //! pasted spec's `$ref` names), YAML and JSON read with `vc-parser`. A pasted spec's fetcher has
-//! no transport, so its `$ref`s never reach the network.
+//! no transport, so its `$ref`s never reach the network. A folder (a Bruno collection) is listed
+//! through the sources' discovery, so it holds only what discovery reads: no hidden file, nothing
+//! the project's ignore files or `node_modules` leave out.
 
 use std::sync::Arc;
 
 use async_trait::async_trait;
 use serde_json::Value;
 use vc_diagnostics::Diagnostics;
-use vc_interfaces::{FetchError, SendContext, SourceProvider, SpecFetcher, Transport};
-use vc_model::{RenderedRequest, SourceFileId, SourcePath};
+use vc_interfaces::{FetchError, SendContext, SourceFilter, SourceProvider, SpecFetcher, Transport};
+use vc_model::{RenderedRequest, SourceFileId, SourcePath, hidden_part};
 use vc_parser::Syntax;
 
 /// Fetches specs for one import or sync.
@@ -23,6 +25,22 @@ pub struct ProjectFetcher {
 impl SpecFetcher for ProjectFetcher {
     async fn fetch(&self, location: &str) -> Result<Vec<u8>, FetchError> {
         if location.contains("://") { self.get(location).await } else { self.read(location) }
+    }
+
+    async fn list(&self, folder: &str) -> Result<Vec<String>, FetchError> {
+        let failed = |reason: String| FetchError::Failed { location: folder.to_owned(), reason };
+        if folder.contains("://") || hidden_part(folder) {
+            return Ok(Vec::new());
+        }
+        let found = self.sources.discover(&SourceFilter::default()).map_err(|error| failed(error.to_string()))?;
+        let prefix = if folder.is_empty() { String::new() } else { format!("{}/", folder.trim_end_matches('/')) };
+        let paths = found.files.iter().map(|file| &file.path).chain(&found.assets);
+        let mut listed: Vec<String> = paths
+            .filter(|path| !path.is_hidden())
+            .filter_map(|path| path.as_str().strip_prefix(prefix.as_str()).map(str::to_owned))
+            .collect();
+        listed.sort();
+        Ok(listed)
     }
 
     fn decode(&self, location: &str, bytes: &[u8]) -> Result<Value, FetchError> {

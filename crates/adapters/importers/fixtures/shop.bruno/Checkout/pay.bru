@@ -1,0 +1,28 @@
+meta {
+  name: Pay
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{payUrl}}/payments?currency={{currency}}
+  body: formUrlEncoded
+  auth: inherit
+}
+
+params:query {
+  currency: {{currency}}
+}
+
+body:form-urlencoded {
+  cartId: {{cartId}}
+  nonce: Xk9pQ2mZ7vR4tL8wB3nY6cH1
+  merchant: {{process.env.MERCHANT_ID}}
+  email: {{$randomEmail}}
+  ~coupon: WELCOME
+}
+
+vars:post-response {
+  orderId: res.body.order.id
+  stamp: Date.now()
+}

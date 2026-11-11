@@ -3,7 +3,7 @@ source: crates/apps/tui/tests/explore.rs
 expression: "screen(&tui, SIZE)"
 ---
 ◆ vibranium shop  profile staging                1 Run   2 Explore   3 History   4 Load   5 Import
-4 tests and 2 apis · enter explains, t skips or unskips
+4 tests and 2 apis · enter explains, t skips or unskips, e edits
 ┌ Project ──────────────────────────────────┐┌ Details ────────────────────────────────────────────┐
 │  services/orders/flow.test.yaml           ││id      users.crud#listsUsers                        │
 │    listsOrders                            ││name    —                                            │
@@ -25,4 +25,4 @@ expression: "screen(&tui, SIZE)"
 │                                           ││                                                     │
 │                                           ││                                                     │
 └───────────────────────────────────────────┘└─────────────────────────────────────────────────────┘
-  ↑↓  move  enter  explain  pgup/pgdn  scroll  t  skip/unskip  r  reload  ?  help  q  quit
+  ↑↓  move  enter  explain  pgup/pgdn  scroll  t  skip/unskip  e  edit  r  reload  ?  help  q  quit
