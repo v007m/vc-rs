@@ -172,14 +172,14 @@ Without `run`, the output is `{runs: [...]}`, newest first. `kind` is `run` for 
       "finishedMs": 1794332281152, "id": 26, "kind": "run", "profiles": ["default"],
       "seed": 12141534653887325439, "selector": "people.diff",
       "startedMs": 1794332280956, "status": "failed",
-      "totals": { "blocked": 0, "failed": 1, "flaky": 0, "passed": 0, "skipped": 0 },
+      "totals": { "allowedFailures": 0, "blocked": 0, "failed": 1, "flaky": 0, "passed": 0, "skipped": 0 },
       "vcVersion": "0.1.0"
     },
     {
       "finishedMs": 1794332280917, "id": 25, "kind": "adhoc", "profiles": ["default"],
       "seed": null, "selector": "people#getPerson",
       "startedMs": 1794332280755, "status": "passed",
-      "totals": { "blocked": 0, "failed": 0, "flaky": 0, "passed": 1, "skipped": 0 },
+      "totals": { "allowedFailures": 0, "blocked": 0, "failed": 0, "flaky": 0, "passed": 1, "skipped": 0 },
       "vcVersion": "0.1.0"
     }
   ]
@@ -247,7 +247,7 @@ Output: `{run, results, definition}`. `results` holds one row per instance of th
     "finishedMs": 1794332281152, "id": 26, "kind": "run", "profiles": ["default"],
     "seed": 12141534653887325439, "selector": "people.diff",
     "startedMs": 1794332280956, "status": "failed",
-    "totals": { "blocked": 0, "failed": 1, "flaky": 0, "passed": 0, "skipped": 0 },
+    "totals": { "allowedFailures": 0, "blocked": 0, "failed": 1, "flaky": 0, "passed": 0, "skipped": 0 },
     "vcVersion": "0.1.0"
   }
 }

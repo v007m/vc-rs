@@ -7,6 +7,7 @@
 #![cfg(test)]
 
 mod alerts;
+mod allowed;
 mod approvals;
 mod auth;
 mod bodies;

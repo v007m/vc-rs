@@ -26,6 +26,9 @@ pub struct RunArgs {
     /// The console format: `spec` (the default) or `json`.
     #[arg(long, value_name = "FORMAT")]
     reporter: Option<String>,
+    /// Same as `--reporter json` (D264).
+    #[arg(long, conflicts_with = "reporter")]
+    json: bool,
     /// The report files to write, as a comma list or repeated: `ctrf`, `junit`, `html`. Over
     /// the config's `reports.formats`; `ctrf` when neither names any.
     #[arg(long = "report", value_name = "FORMATS")]
@@ -43,6 +46,9 @@ pub struct RunArgs {
     /// Runs `cache:` actions every time, neither reading nor writing the cross-run cache.
     #[arg(long)]
     no_cache: bool,
+    /// Fails the run on every failure, including those under `allowFailure` (D248).
+    #[arg(long)]
+    strict: bool,
 }
 
 /// `vc run [selectors] [flags]`: exit 0 passed, 1 failed or blocked, 2 nothing ran, 130
@@ -80,11 +86,12 @@ impl RunArgs {
             seed: self.seed,
             bail: self.bail,
             concurrency: self.concurrency,
-            console: self.reporter.clone(),
+            console: if self.json { Some("json".to_owned()) } else { self.reporter.clone() },
             files: ReportFlags { formats: self.reports.clone(), out, single_file: self.single_file },
             color: use_color(&std::io::stdout()),
             failed: self.failed,
             no_cache: self.no_cache,
+            strict: self.strict,
             agent: None,
             watch: None,
         }))

@@ -153,8 +153,8 @@ There is no prebuilt release, installer or GitHub setup action for `vc` yet. The
 
    ```json
    {"event":"runStarted","files":1,"instances":4}
-   {"event":"runFinished","status":"passed","totals":{"blocked":0,"failed":0,"flaky":0,"passed":4,"skipped":0}}
-   {"artifacts":[{"path":"/home/you/shop/reports/ctrf.json","reporter":"ctrf"}],"durationMs":124,"event":"summary","profiles":["ci"],"startedMs":1794332325603,"status":"passed","totals":{"blocked":0,"failed":0,"flaky":0,"passed":4,"skipped":0}}
+   {"event":"runFinished","status":"passed","totals":{"allowedFailures":0,"blocked":0,"failed":0,"flaky":0,"passed":4,"skipped":0}}
+   {"artifacts":[{"path":"/home/you/shop/reports/ctrf.json","reporter":"ctrf"}],"durationMs":124,"event":"summary","profiles":["ci"],"startedMs":1794332325603,"status":"passed","totals":{"allowedFailures":0,"blocked":0,"failed":0,"flaky":0,"passed":4,"skipped":0}}
    ```
 
    A failed test carries its diagnostic code and message:

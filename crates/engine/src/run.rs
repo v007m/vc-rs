@@ -10,7 +10,7 @@ use vc_executor::{
     ActionCx, ActionExecutors, ActionKindTag, CommandExecutor, Defined, EventBus, Executor, ExecutorError, HostLimits,
     MaskRules, PipelineParts, RuleHooks, RunHandle, RunInputs, RunOptions,
 };
-use vc_interfaces::{ConfigEntry, HookRunner, Random, RunId, RunStart, RunSummary, Secrets, Transport};
+use vc_interfaces::{ConfigEntry, HookRunner, Random, RunId, RunStart, RunSummary, Secrets, TestRow, Transport};
 use vc_model::{ActionId, Feed, Part, RunStatus, Template, TemplateValue, Totals};
 
 use crate::agent_gate::run_call;
@@ -62,9 +62,7 @@ impl Engine {
     /// reaches an action this build cannot run; with `--failed`, [`EngineError::History`] when
     /// no run is stored and [`EngineError::Selection`] when the last one had nothing to rerun.
     pub async fn run(&self, request: &RunRequest, mut interrupts: Interrupts) -> Result<RunReport, EngineError> {
-        let planned = self
-            .rerun(request)
-            .and_then(|(plan, rerun)| self.prepare(&plan, Extra { flags: flags(request), rerun, seed: request.seed }));
+        let planned = self.rerun(request).and_then(|(plan, rerun)| self.prepare(&plan, extra(request, rerun)));
         let prepared = self.before_gate(run_call(request).as_ref(), planned).await?;
         let admitted = self.run_gate(request, &prepared).await?;
         let report = self.execute(request, prepared, &mut interrupts).await?;
@@ -228,6 +226,11 @@ impl Engine {
         let inputs = inputs.with_secrets(secrets).with_started_at(self.clock.now_ms());
         Ok(Arc::new(self.action_cx(prepared, (inputs, &plugins))?))
     }
+}
+
+/// What the run adds to its plan request: `rerun`, its setting flags, `--seed` and `--strict`.
+fn extra(request: &RunRequest, rerun: Vec<TestRow>) -> Extra {
+    Extra { flags: flags(request), rerun, seed: request.seed, strict: request.strict }
 }
 
 /// The run flags that are settings, as the layer between `VIB_*` and `--set` (D129).

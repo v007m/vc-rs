@@ -82,6 +82,36 @@ async fn the_json_reporter_prints_json_lines() {
     assert!(serde_json::from_str::<serde_json::Value>(first).is_ok(), "{stdout}");
 }
 
+/// The NDJSON a run printed, with every number zeroed, since timings differ between runs.
+fn ndjson(output: &std::process::Output) -> Vec<serde_json::Value> {
+    fn zeroed(value: serde_json::Value) -> serde_json::Value {
+        match value {
+            serde_json::Value::Number(_) => 0.into(),
+            serde_json::Value::Array(items) => items.into_iter().map(zeroed).collect(),
+            serde_json::Value::Object(map) => map.into_iter().map(|(key, value)| (key, zeroed(value))).collect(),
+            other => other,
+        }
+    }
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    stdout.lines().map(|line| zeroed(serde_json::from_str(line).unwrap())).collect()
+}
+
+/// D264: `--json` is `--reporter json`, and cannot be given beside `--reporter`.
+#[tokio::test(flavor = "multi_thread")]
+async fn json_is_the_json_reporter_under_a_shorter_name() {
+    let server = MockServer::start().await.unwrap();
+    let dir = project(&[CONFIG, USERS, PASSING]).unwrap();
+    let base = format!("vars.baseUrl={}", server.base_url());
+    let printed = |flags: &[&str]| {
+        let args = [&["run", "--set", base.as_str(), "--out", "out"][..], flags].concat();
+        ndjson(vc(dir.path(), &args).assert().code(0).get_output())
+    };
+    let (alias, reporter) = (printed(&["--json"]), printed(&["--reporter", "json"]));
+    assert!(alias.len() > 2, "{alias:?}");
+    assert_eq!(alias, reporter);
+    vc(dir.path(), &["run", "--json", "--reporter", "spec"]).assert().code(2).stderr(str::contains("--reporter"));
+}
+
 #[test]
 fn a_selector_that_matches_nothing_exits_2() {
     let dir = project(&[CONFIG, USERS, PASSING]).unwrap();

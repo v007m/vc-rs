@@ -15,7 +15,7 @@ This is how a developer works with Vibranium day to day from the terminal: start
 | Keep in step with the backend | `vc sync users`; in CI, `vc sync --check` | Spec changes merged into api files without losing your edits; CI fails when the spec drifts |
 | Park a flaky test | `vc skip orders.checkout#appliesCoupon --reason "…" --until 2026-11-15` | The test is reported as skipped with its reason, and runs again after the date |
 
-Every command that writes a file compiles the result first and refuses to write something `vc check` would reject, so generated files always load. The commands that print data (`check`, `plan`, `list`, `history`, `cache list`, `load`, `new auth`) take `--json` for scripts and agents; `vc run` takes `--reporter json` instead (D287). `--profile` is taken where a profile matters.
+Every command that writes a file compiles the result first and refuses to write something `vc check` would reject, so generated files always load. The commands that print data (`check`, `plan`, `list`, `history`, `cache list`, `load`, `new auth`) take `--json` for scripts and agents; `vc run` takes `--reporter json`, with `--json` as its alias (D287, D264). `--profile` is taken where a profile matters.
 
 ## What `vc init` writes
 
@@ -293,7 +293,7 @@ One service per folder keeps an api file next to the tests that use it, and test
 
 ## Commands
 
-Commands are grouped by the job they do. `vc help <command>` shows every flag with an example; `--json` prints structured output instead of text where a command takes it, and `vc run --reporter json` streams JSON events. `vc import` reads `openapi`, `curl`, `har`, `http`, `postman` and `bruno`; another kind exits 2, naming the importers there are.
+Commands are grouped by the job they do. `vc help <command>` shows every flag with an example; `--json` prints structured output instead of text where a command takes it, and `vc run --reporter json` (or its alias `--json`) streams JSON events. `vc import` reads `openapi`, `curl`, `har`, `http`, `postman` and `bruno`; another kind exits 2, naming the importers there are.
 
 **Start and author**
 
@@ -398,7 +398,7 @@ Commands are grouped by the job they do. `vc help <command>` shows every flag wi
 
 A full ID joins the file ID and the item ID with `#` (`users.crud#getsCreatedUser`); a bare dotted word is always a file ID (D138). A `#` inside a word is not a comment in bash, zsh, fish or PowerShell, so selectors work unquoted; quote them only under zsh's `extendedglob` option. Web UI URLs percent-encode it (`%23`).
 
-Useful run flags: `--profile staging,eu` (profiles, as a comma list or repeated; later wins), `--bail` (start no more tests after the first failure), `--repeat 20` (run every selected test this many times instead of its own `repeat`, to hunt flakiness), `--concurrency 4`, `--seed 42` (repeatable generated data; a failing run prints the seed it used), `--set key=value` (override one config value for this run, D129), `--no-cache` (`cache:` actions run every time; the cache is neither read nor written, and no expired entry is cleaned up), `--reporter spec|json` (console format; `dots` comes later), `--report ctrf,junit,html` (files to write, as a comma list or repeated, over the config's `reports.formats`; `ctrf` when neither names any), `--out <dir>` (where the report files go, as they are, over the config's `reports.dir`; without it each run's files go in `<reports.dir>/<run>/`, named by the run's number in the history), `--single-file` (the HTML report as one self-contained `report.html`, over `reports.html.layout`). Every run is stored in `.vibranium/history.db` (D170); a history that cannot be opened leaves the run unrecorded with a warning and its files straight in `reports.dir`. `plan`, `run` and `list` exit 2 when they refuse to start: errors in the definitions, an empty selection, a selector that picks only `standalone: false` tests (the error says they run only when reused), or an unknown flag value.
+Useful run flags: `--profile staging,eu` (profiles, as a comma list or repeated; later wins), `--bail` (start no more tests after the first failure), `--repeat 20` (run every selected test this many times instead of its own `repeat`, to hunt flakiness), `--concurrency 4`, `--seed 42` (repeatable generated data; a failing run prints the seed it used), `--set key=value` (override one config value for this run, D129), `--no-cache` (`cache:` actions run every time; the cache is neither read nor written, and no expired entry is cleaned up), `--reporter spec|json` (console format; `dots` comes later; `--json` is `--reporter json`, D264), `--strict` (an `allowFailure` test that fails fails the run, D248), `--report ctrf,junit,html` (files to write, as a comma list or repeated, over the config's `reports.formats`; `ctrf` when neither names any), `--out <dir>` (where the report files go, as they are, over the config's `reports.dir`; without it each run's files go in `<reports.dir>/<run>/`, named by the run's number in the history), `--single-file` (the HTML report as one self-contained `report.html`, over `reports.html.layout`). Every run is stored in `.vibranium/history.db` (D170); a history that cannot be opened leaves the run unrecorded with a warning and its files straight in `reports.dir`. `plan`, `run` and `list` exit 2 when they refuse to start: errors in the definitions, an empty selection, a selector that picks only `standalone: false` tests (the error says they run only when reused), or an unknown flag value.
 
 `--set` takes `profile`, `defaults.concurrency`, `defaults.perHost`, `defaults.timeout`, `defaults.retry.attempts`, `defaults.retry.delay`, `reports.dir`, `reports.formats`, `reports.html.layout` and `vars.<name>`; any other key exits 2 and lists these.
 
@@ -777,13 +777,13 @@ reports  .vibranium/reports/483/{ctrf.json,junit.xml,report.html}
 next     vc run --failed · vc report 483 --open
 ```
 
-Every test instance ends as `passed`, `failed`, `blocked` (a setup it needs failed; never retried), `skipped` or `flaky` (failed, then passed when its `retry` re-ran the whole test) (D126).
+Every test instance ends as `passed`, `failed`, `blocked` (a setup it needs failed; never retried), `skipped`, `flaky` (failed, then passed when its `retry` re-ran the whole test) (D126) or `allowedFailure` (failed under `allowFailure`; shown as `⚠ … allowed to fail: <reason>` with its failure block, and counted as `N allowed to fail`) (D248).
 
 Console formats: `spec` (above, the default in a terminal), `dots` (compact), `json` (one event per line, for tools). In CI, where there is no terminal, colour and progress bars switch off and output stays line-based. When the reader of stdout goes away (`vc run | head -1`), the rest of the output is dropped quietly and the command ends with the exit code it would have had.
 
 | Exit code | Means |
 | --- | --- |
-| 0 | Every selected test passed or was skipped; flaky passes count as passed |
+| 0 | Every selected test passed or was skipped; flaky passes count as passed, and failures under `allowFailure` do not count (unless `--strict`) |
 | 1 | At least one test failed or was blocked |
 | 2 | Nothing ran: `vc check` errors, an empty selection, or no active profile |
 | 3 | A load threshold was breached |

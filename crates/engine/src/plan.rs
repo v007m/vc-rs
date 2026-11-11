@@ -95,12 +95,13 @@ pub struct Prepared {
 }
 
 /// What `vc run` adds to a plan request: its flags that are settings, the results `--failed`
-/// runs again, and `--seed`, which the example rows are drawn with too.
+/// runs again, `--seed`, which the example rows are drawn with too, and `--strict` (D248).
 #[derive(Default)]
 pub struct Extra {
     pub flags: Vec<ConfigEntry>,
     pub rerun: Vec<TestRow>,
     pub seed: Option<u64>,
+    pub strict: bool,
 }
 
 impl Prepared {
@@ -129,7 +130,7 @@ impl Engine {
 
     /// Reads the settings, compiles, applies the settings, picks the profiles and plans.
     pub(crate) fn prepare(&self, request: &PlanRequest, extra: Extra) -> Result<Prepared, EngineError> {
-        let Extra { mut flags, rerun, seed } = extra;
+        let Extra { mut flags, rerun, seed, strict } = extra;
         flags.splice(0..0, profile_flag(&request.profiles));
         let Layered { mut program, notices, settings, environment, dot_env, .. } =
             self.layered(&request.sets, &flags)?;
@@ -143,7 +144,7 @@ impl Engine {
         let inputs = RunInputs::new(Arc::clone(&draw.random), Arc::clone(&environment));
         let inputs = inputs.with_profiles(profiles.clone()).with_vars(run::vars(&settings.vars));
         let today = Some(self.clock.today().to_string());
-        let options = PlanOptions { repeat: request.repeat, today, ..PlanOptions::default() };
+        let options = PlanOptions { repeat: request.repeat, today, strict, ..PlanOptions::default() };
         let plan = examples::planned(&program, &selection, (inputs, &mut draw, options))?;
         let mut notices = notices;
         notices.extend(examples::empty(&program, &plan));
