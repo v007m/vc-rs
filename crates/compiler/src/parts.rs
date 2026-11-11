@@ -14,7 +14,7 @@ use vc_model::{
     StringTable, Sym, Template, TemplateValue,
 };
 use vc_parser::{Node, Value};
-use vc_template::{CelCompiler, PipeRegistry, Roots, TemplateError, ValueType};
+use vc_template::{CelCompiler, PipeRegistry, ROW_HELP, ROW_ROOTS, Roots, TemplateError, ValueType};
 
 use crate::shape_check;
 use crate::shape_check::{Leaf, LeafTy, Walk};
@@ -122,7 +122,7 @@ const DURATION: UnitKind = UnitKind {
     parse: |text, span| vc_template::parse_duration(text, span).map(Piece::Duration),
 };
 
-/// A `timeout:` other than a poll's: the one `defaults.timeout` sets per run.
+/// A request's `timeout:`: the one `defaults.timeout` sets per run.
 const TIMEOUT: UnitKind = UnitKind {
     name: "duration",
     help: "write it out, such as `2s`; to change the default timeout per run, use `--set defaults.timeout=10s` or `VIB_DEFAULTS_TIMEOUT`",
@@ -147,12 +147,26 @@ fn unit(cx: &mut Cx<'_>, at: At<'_>, kind: &UnitKind) -> Option<Piece> {
     cx.check((kind.parse)(text, at.node.span))
 }
 
-/// Whether the leaf at `path` is a `timeout:` that `defaults.timeout` stands in for: any but a
-/// `poll`'s, which bounds the polling, not one request.
+/// Whether the leaf at `path` is a request's `timeout:`, which `defaults.timeout` stands in for:
+/// `defaults.timeout` itself, an api's and a `call` action's. A test's `timeout` limits the whole
+/// test, a `poll`'s the polling, and a `test:`, `function:` or `command:` action's its own run,
+/// so those get the plain help.
 fn is_timeout(root: &Node, path: &[usize]) -> bool {
     let Some((&last, parent)) = path.split_last() else { return false };
-    let in_poll = parent.split_last().is_some_and(|(&at, above)| key(root, above, at) == Some("poll"));
-    key(root, parent, last) == Some("timeout") && !in_poll
+    if key(root, parent, last) != Some("timeout") {
+        return false;
+    }
+    match holder_key(root, parent) {
+        Some("defaults" | "apis") => true,
+        Some("tests") | None => false,
+        Some(_) => shape_check::at(root, parent).is_some_and(|holder| holder.get("call").is_some()),
+    }
+}
+
+/// The key the node at `path` is under: its own, or for a list item, its list's.
+fn holder_key<'n>(root: &'n Node, path: &[usize]) -> Option<&'n str> {
+    let (&at, above) = path.split_last()?;
+    key(root, above, at).or_else(|| holder_key(root, above))
 }
 
 /// The key of entry `index` of the map at `path`.
@@ -227,13 +241,8 @@ const SCOPE_ROOTS: &[(Scope, AddRoots)] = &[
     (Scope::FOR_EACH, Roots::in_for_each),
 ];
 
-/// The roots a row source reads: the engine renders it before the run starts, when nothing else
-/// has a value (V6).
-const ROW_ROOTS: &[Namespace] = &[Namespace::Var, Namespace::Env, Namespace::Dataset];
-
-/// Why a row source reads only [`ROW_ROOTS`].
-const ROW_HELP: &str = "`examples` is read before the run starts, so it reads only `var`, `env` and `dataset`";
-
+/// The roots a spot's templates read; a row source reads only [`ROW_ROOTS`], since the engine
+/// renders it before the run starts, when nothing else has a value.
 fn roots(scope: Scope) -> Roots {
     let roots =
         SCOPE_ROOTS.iter().filter(|(added, _)| scope.has(*added)).fold(Roots::new(), |roots, (_, add)| add(roots));

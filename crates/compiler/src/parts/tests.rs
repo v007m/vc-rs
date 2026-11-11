@@ -69,18 +69,44 @@ fn unit_with(body: &str) -> FileUnit {
     unit(FileKind::Test, &test(body))
 }
 
+/// The help of each V2301 in `text`, one per template it holds.
+fn unit_helps(kind: FileKind, text: &str) -> Vec<String> {
+    let unit = unit(kind, text);
+    let templated: Vec<_> = unit.diagnostics.iter().filter(|found| found.code == Code::V2301).collect();
+    assert_eq!(templated.len(), text.matches("${").count(), "{:?}", unit.diagnostics);
+    templated.into_iter().flat_map(|found| found.help.clone()).collect()
+}
+
+fn steps(step: &str) -> String {
+    format!("tests:\n  - id: getsUser\n    steps:\n      - {step}\n        timeout: ${{var.wait}}\n")
+}
+
 #[test]
-fn names_the_default_timeout_only_for_a_timeout_it_sets() {
-    let help = |body: &str| {
-        let unit = unit_with(body);
-        assert_eq!(codes(&unit.diagnostics), vec![Code::V2301; body.matches("${").count()], "{:?}", unit.diagnostics);
-        unit.diagnostics.iter().flat_map(|found| found.help.clone()).collect::<Vec<_>>()
-    };
-    let timeout = help("    timeout: ${var.wait}\n");
-    assert!(timeout.iter().all(|help| help.contains("--set defaults.timeout=10s")), "{timeout:?}");
-    let polled = help("    poll:\n      until: {status: 200}\n      every: ${var.wait}\n      timeout: ${var.wait}\n");
-    let retried = help("    retry:\n      attempts: 2\n      delay: ${var.wait}\n");
-    for help in polled.iter().chain(&retried) {
+fn names_the_default_timeout_only_for_a_request_timeout() {
+    let requests = [
+        unit_helps(FileKind::Config, "defaults:\n  timeout: ${var.wait}\n"),
+        unit_helps(FileKind::Api, "apis:\n  - id: get\n    path: /users\n    timeout: ${var.wait}\n"),
+        unit_helps(FileKind::Test, &steps("call: users#get")),
+        unit_helps(
+            FileKind::Test,
+            &test("    before:\n      - id: seeds\n        call: users#get\n        timeout: ${var.wait}\n"),
+        ),
+    ];
+    for help in requests.iter().flatten() {
+        assert!(help.contains("--set defaults.timeout=10s"), "{help}");
+    }
+    let others = [
+        unit_helps(FileKind::Test, &test("    timeout: ${var.wait}\n")),
+        unit_helps(FileKind::Test, &steps("test: users.crud#makesUser")),
+        unit_helps(FileKind::Test, &steps("function: hooks/seed.ts#seedDb")),
+        unit_helps(FileKind::Test, &steps("command: make seed")),
+        unit_helps(
+            FileKind::Test,
+            &test("    poll:\n      until: {status: 200}\n      every: ${var.wait}\n      timeout: ${var.wait}\n"),
+        ),
+        unit_helps(FileKind::Test, &test("    retry:\n      attempts: 2\n      delay: ${var.wait}\n")),
+    ];
+    for help in others.iter().flatten() {
         assert_eq!(help, "write it out, such as `2s`");
     }
 }
