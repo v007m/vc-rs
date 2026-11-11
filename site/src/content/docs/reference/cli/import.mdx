@@ -24,7 +24,7 @@ $ vc import [OPTIONS] <KIND> <SOURCE>
 
 | Flag | Value | Applies to | Description |
 | --- | --- | --- | --- |
-| `--id` | `<FILE_ID>` | all | The file ID of the api file to fill, such as `users`. Derived from the spec or the host when left out. A recording of one host goes to this file even when another file's base URL renders to that host |
+| `--id` | `<FILE_ID>` | all | The file ID of the api file to fill, such as `users`. Derived from the spec or the host when left out. A recording of one origin goes to this file even when another file's base URL renders to that origin. For a recording of several origins it is refused with exit 2, naming them: leave `--id` out and each origin goes to its own file |
 | `--tests` | | openapi | Also writes a happy-path test per api |
 | `--negative` | | openapi | Also writes tests that send what the schema rejects |
 | `--auth` | | openapi | Also writes a test per secured api that expects 401 without auth |
@@ -186,7 +186,7 @@ A request whose host and path match an existing api is reported as `matched` and
 | Code | When |
 | --- | --- |
 | `0` | Imported, or the dry run printed |
-| `2` | The source cannot be read, the kind is unknown, the api file exists already, or the spec is at its own snapshot path `openapi/<fileId>.yaml`, or that path is a link or names another file in a different case |
+| `2` | The source cannot be read, the kind is unknown, the api file exists already, the spec is at its own snapshot path `openapi/<fileId>.yaml`, that path is a link or names another file in a different case, or `--id` is given for a recording of several origins |
 
 ```console
 $ vc import openapi specs/users.yaml

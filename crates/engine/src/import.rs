@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use vc_adapter_importers::ImporterRegistry;
 use vc_adapter_system::SystemEnvironment;
-use vc_interfaces::{FetchError, ImportOptions, ImportSource, Importer, RecordingFilter, SpecFetcher};
+use vc_interfaces::{DraftGroup, FetchError, ImportOptions, ImportSource, Importer, RecordingFilter, SpecFetcher};
 use vc_model::SourcePath;
 
 use crate::authoring::refused;
@@ -80,7 +80,9 @@ impl Engine {
     /// # Errors
     ///
     /// [`EngineError::Edit`] when the spec cannot be fetched or read, the kind is unknown, a
-    /// file to create exists, or the spec is read from the snapshot path it would write; [`EngineError::Invalid`] when the result would not compile.
+    /// file to create exists, the spec is read from the snapshot path it would write, or `--id` is
+    /// given for a recording of several origins; [`EngineError::Invalid`] when the result would
+    /// not compile.
     pub async fn import(&self, request: &ImportRequest) -> Result<Changes, EngineError> {
         let project = self.authoring()?;
         let fetcher = if request.text.is_some() { self.pasted_fetcher() } else { self.fetcher()? };
@@ -96,7 +98,7 @@ impl Engine {
         let draft = importer.read(&source, &opts).await.map_err(|error| refused(error.to_string(), help))?;
         if draft.snapshot.is_none() {
             let schema = self.secrets_schema()?;
-            let file_id = request.file_id.as_deref().filter(|_| draft.groups.len() == 1);
+            let file_id = one_origin(request.file_id.as_deref(), &draft.groups)?;
             let recording = Recording { project: &project, homes: &homes, schema: schema.as_ref(), file_id };
             return self.guarded(&project, recorded(&recording, &draft, &request.source)?);
         }
@@ -184,6 +186,25 @@ impl Engine {
         let help = format!("move the spec out of `openapi/` (to `specs/{file_id}.yaml`, say) and import it from there");
         Err(refused(reason, &help))
     }
+}
+
+/// The file `--id` names for a recording, refused when the recording calls several origins:
+/// one api file has one base URL.
+fn one_origin<'id>(file_id: Option<&'id str>, groups: &[DraftGroup]) -> Result<Option<&'id str>, EngineError> {
+    let Some(id) = file_id.filter(|_| groups.len() > 1) else {
+        return Ok(file_id);
+    };
+    let origin = |group: &'_ DraftGroup| group.config_vars.values().next().and_then(|url| url.as_str());
+    let origins: Vec<&str> = groups.iter().map(|group| origin(group).unwrap_or(&group.file_id)).collect();
+    let reason = format!(
+        "`--id {id}` names one api file, but the recording calls {} origins: {}",
+        origins.len(),
+        origins.join(", ")
+    );
+    Err(refused(
+        reason,
+        "import without `--id`: each origin goes to the api file whose base URL renders to it, or to a new one",
+    ))
 }
 
 const FETCH_HELP: &str = "give a URL, or a path inside the project";

@@ -303,6 +303,21 @@ async fn an_explicit_id_puts_a_recording_of_one_origin_in_that_file() {
 }
 
 #[tokio::test]
+async fn an_explicit_id_for_a_recording_of_several_origins_is_refused_naming_them() {
+    let har = ImportRequest {
+        text: Some(SHOP_HAR.to_owned()),
+        file_id: Some("demo".to_owned()),
+        ..request("har", "rec/checkout.har")
+    };
+    let Err(EngineError::Edit { reason, help }) = shop_engine().import(&har).await else {
+        panic!("one api file cannot hold two origins")
+    };
+    assert!(reason.starts_with("`--id demo` names one api file, but the recording calls 2 origins: "), "{reason}");
+    assert!(reason.contains("https://api.shop.test") && reason.contains("https://pay.shop.test"), "{reason}");
+    assert!(help.is_some_and(|help| help.starts_with("import without `--id`")));
+}
+
+#[tokio::test]
 async fn a_recording_to_hosts_no_api_file_is_on_names_them_and_include_host_makes_their_files() {
     let files: [(&str, &[u8]); 2] = [
         ("vibranium.config.yaml", b"syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\n"),
