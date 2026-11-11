@@ -2,7 +2,7 @@ use std::iter;
 use std::time::{Duration, Instant};
 
 use tempfile::TempDir;
-use tokio::sync::mpsc::unbounded_channel;
+use tokio::sync::mpsc::{UnboundedSender, unbounded_channel};
 use vc_interfaces::{ApprovalRequest, ApprovalStatus, Approvals, Decision, Verdict};
 use vc_model::Method;
 use vc_testkit::{agent_action_reader_suite, agent_action_writer_suite, approvals_suite};
@@ -95,4 +95,27 @@ async fn a_wait_nothing_ends_does_not_keep_waking_itself() {
     assert_eq!(agent.wait(id, Duration::from_secs(2)).await, Ok(ApprovalStatus::Expired));
     let count = iter::from_fn(|| events.try_recv().ok()).count();
     assert!(count < LIMIT, "{count} file events in a 2s wait: its own looks kept waking it");
+}
+
+/// A watcher as slow to start as the macOS file event service was in a full gates run.
+const SLOW_WATCH: Duration = Duration::from_secs(6);
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_decision_ends_the_wait_while_its_watcher_is_still_starting() {
+    let mut dirs = Vec::new();
+    let agent = fresh(&mut dirs);
+    let id = agent.create(&request()).unwrap();
+    let person = agent.clone();
+    let decided = std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_millis(100));
+        person.decide(&Decision { id, verdict: Verdict::Approve, by: "sam".into() })
+    });
+    let slow = |_: UnboundedSender<()>| {
+        std::thread::sleep(SLOW_WATCH);
+        None::<()>
+    };
+    let started = Instant::now();
+    assert_eq!(agent.wait_watched((id, Duration::from_secs(30)), slow).await, Ok(ApprovalStatus::Approved));
+    assert!(started.elapsed() < SLOW_WATCH / 2, "the wait waited for its watcher: {:?}", started.elapsed());
+    assert_eq!(decided.join().unwrap(), Ok(ApprovalStatus::Approved));
 }

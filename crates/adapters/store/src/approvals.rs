@@ -37,7 +37,9 @@ const COLUMNS: &str = "id, created_at, agent, tool, profile, methods, summary, a
 /// agent waiting in `vc mcp` sees a decision made by `vc approve` or the web UI. A wait wakes
 /// on file events in the database's folder, and looks again every second in case one was
 /// missed. It looks on one connection it keeps: a connection opened per look makes and
-/// removes the WAL files each time, and their file events would wake it again at once.
+/// removes the WAL files each time, and their file events would wake it again at once. It
+/// makes its watcher on a blocking thread and looks every second meanwhile, since starting a
+/// watch can take seconds while the OS's file event service is busy.
 #[derive(Clone, Debug)]
 pub struct SqliteApprovals {
     path: PathBuf,
@@ -100,6 +102,34 @@ impl SqliteApprovals {
         watcher.watch(folder, RecursiveMode::NonRecursive).ok()?;
         Some(watcher)
     }
+
+    /// [`Approvals::wait`] for request `id` and `timeout`, woken by what `watch` makes. That is
+    /// made on a blocking thread while the wait looks every [`RECHECK`], because the OS's file
+    /// event service can take seconds to start a watch when it is busy.
+    async fn wait_watched<W: Send + 'static>(
+        &self,
+        (id, timeout): (ApprovalId, Duration),
+        watch: impl FnOnce(UnboundedSender<()>) -> Option<W> + Send + 'static,
+    ) -> Result<ApprovalStatus, ApprovalError> {
+        let reader = schema::open_for_reading(&self.path).map_err(|error| self.failed(&error))?;
+        let reader = reader.ok_or(ApprovalError::Unknown { id })?;
+        let (wake, mut woken) = unbounded_channel();
+        let given = wake.clone();
+        let _watching = tokio::task::spawn_blocking(move || watch(given));
+        let deadline = Instant::now() + timeout;
+        loop {
+            let looked = status_of(&reader, id).map_err(|error| self.failed(&error))?;
+            let status = self.known(id, looked)?;
+            let now = Instant::now();
+            if status != ApprovalStatus::Pending {
+                return Ok(status);
+            }
+            if now >= deadline {
+                return self.expire(id);
+            }
+            tokio::time::timeout(RECHECK.min(deadline - now), woken.recv()).await.ok();
+        }
+    }
 }
 
 #[async_trait]
@@ -152,23 +182,8 @@ impl Approvals for SqliteApprovals {
     }
 
     async fn wait(&self, id: ApprovalId, timeout: Duration) -> Result<ApprovalStatus, ApprovalError> {
-        let reader = schema::open_for_reading(&self.path).map_err(|error| self.failed(&error))?;
-        let reader = reader.ok_or(ApprovalError::Unknown { id })?;
-        let (wake, mut woken) = unbounded_channel();
-        let _watching = self.watch(wake.clone());
-        let deadline = Instant::now() + timeout;
-        loop {
-            let looked = status_of(&reader, id).map_err(|error| self.failed(&error))?;
-            let status = self.known(id, looked)?;
-            let now = Instant::now();
-            if status != ApprovalStatus::Pending {
-                return Ok(status);
-            }
-            if now >= deadline {
-                return self.expire(id);
-            }
-            tokio::time::timeout(RECHECK.min(deadline - now), woken.recv()).await.ok();
-        }
+        let queue = self.clone();
+        self.wait_watched((id, timeout), move |wake| queue.watch(wake)).await
     }
 
     fn always_allowed(&self, rule: &StandingRule) -> Result<bool, ApprovalError> {
