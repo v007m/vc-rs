@@ -68,8 +68,9 @@ impl Engine {
     /// `openapi/<fileId>.yaml`, the config's base-URL var and the generated tests, each passed
     /// through the compile guard (D107).
     ///
-    /// The spec is read once; the snapshot is not a definition file, so the guard does not
-    /// compile it. What the importer could not carry over is in the titles, `at: message`.
+    /// The spec is read once. The guard sees the snapshot as a file of no kind, which it only
+    /// parses, so a test's schema `$file` pointing into it resolves. What the importer could not
+    /// carry over is in the titles, `at: message`.
     ///
     /// A recording (a draft with no spec snapshot: HAR, curl) is merged instead: each host goes
     /// to the api file whose base URL renders to it under `request.profiles`, reusing its apis,
@@ -98,10 +99,9 @@ impl Engine {
             let recording = Recording { project: &project, homes: &homes, schema: schema.as_ref(), file_id };
             return self.guarded(&project, recorded(&recording, &draft, &request.source)?);
         }
-        let (changes, snapshots) = import_write::drafted(&project, &draft, request)?;
-        let mut guarded = self.guarded(&project, changes)?;
-        guarded.files.extend(snapshots);
-        Ok(guarded)
+        let (mut changes, snapshots) = import_write::drafted(&project, &draft, request)?;
+        changes.files.extend(snapshots);
+        self.guarded(&project, changes)
     }
 
     /// Where to read the spec `source` names, as [`ImportRequest::source`] takes it: a URL as
