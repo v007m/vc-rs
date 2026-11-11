@@ -40,11 +40,13 @@ pub fn run(args: &InitArgs, project: Option<&Path>) -> anyhow::Result<Outcome> {
     for folder in INIT_FOLDERS {
         std::fs::create_dir_all(root.join(folder))?;
     }
-    writeln!(stdout::out(), "✓ created a Vibranium project in {}", root.display())?;
+    let mut out = stdout::out();
+    writeln!(out, "✓ created a Vibranium project in {}", root.display())?;
     for file in &changes.files {
-        writeln!(stdout::out(), "  {}", file.path)?;
+        writeln!(out, "  {}", file.path)?;
     }
-    writeln!(stdout::out(), "  {}/", INIT_FOLDERS.join("/  "))?;
+    writeln!(out, "  {}/", INIT_FOLDERS.join("/  "))?;
+    drop(out);
     if let Some(source) = &args.from_openapi {
         return crate::import::openapi(project, source);
     }

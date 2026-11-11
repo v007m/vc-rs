@@ -47,8 +47,9 @@ pub fn run(args: &ReportArgs, project: Option<&Path>) -> anyhow::Result<Outcome>
     for notice in &written.notices {
         eprintln!("warning: {notice}");
     }
+    let mut out = stdout::out();
     for file in &written.files {
-        writeln!(stdout::out(), "{}", file.display())?;
+        writeln!(out, "{}", file.display())?;
     }
     Ok(if written.files.is_empty() { Outcome::Failed } else { Outcome::Done })
 }

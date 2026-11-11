@@ -38,11 +38,12 @@ pub fn run(command: &MigrateCommand, project: Option<&Path>) -> anyhow::Result<O
         Ok(changes) => changes,
         Err(error) => return Ok(Outcome::Engine(error)),
     };
-    writeln!(stdout::out(), "✓ migrated {} into {}", path.display(), root.display())?;
+    let mut out = stdout::out();
+    writeln!(out, "✓ migrated {} into {}", path.display(), root.display())?;
     for title in &changes.titles {
-        writeln!(stdout::out(), "  {title}")?;
+        writeln!(out, "  {title}")?;
     }
-    writeln!(stdout::out(), "next: vc check")?;
+    writeln!(out, "next: vc check")?;
     Ok(Outcome::Done)
 }
 

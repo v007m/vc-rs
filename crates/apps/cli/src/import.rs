@@ -139,8 +139,9 @@ fn imported(engine: &Engine, request: &ImportRequest) -> anyhow::Result<Outcome>
     let notes = made.as_ref().map(|made| lines(request, &made.titles)).unwrap_or_default();
     let outcome = changes::write(engine, made, &format!("✓ imported {}", request.source));
     if matches!(outcome, Outcome::Done) {
+        let mut out = stdout::out();
         for note in &notes {
-            writeln!(stdout::out(), "{note}")?;
+            writeln!(out, "{note}")?;
         }
     }
     Ok(outcome)
@@ -153,10 +154,12 @@ fn previewed(engine: &Engine, request: &ImportRequest) -> anyhow::Result<Outcome
         Ok(made) => made,
         Err(error) => return Ok(Outcome::Engine(error)),
     };
-    writeln!(stdout::out(), "{}", made.titles.first().map_or("", String::as_str))?;
+    let mut out = stdout::out();
+    writeln!(out, "{}", made.titles.first().map_or("", String::as_str))?;
     for line in lines(request, &made.titles) {
-        writeln!(stdout::out(), "{line}")?;
+        writeln!(out, "{line}")?;
     }
+    drop(out);
     changes::preview(&made).map(|()| Outcome::Done)
 }
 
@@ -193,9 +196,11 @@ pub fn sync(args: &SyncArgs, project: Option<&Path>) -> anyhow::Result<Outcome> 
         Ok(report) => report,
         Err(error) => return Ok(Outcome::Engine(error)),
     };
+    let mut out = stdout::out();
     for line in &report.changes.titles {
-        writeln!(stdout::out(), "{line}")?;
+        writeln!(out, "{line}")?;
     }
+    drop(out);
     match request.mode {
         SyncMode::Check => Ok(Outcome::Exit(if report.drift || report.conflicts > 0 { 4 } else { 0 })),
         SyncMode::DryRun => changes::preview(&report.changes).map(|()| Outcome::Done),
