@@ -1,9 +1,9 @@
-use std::ffi::OsString;
+use std::ffi::{OsStr, OsString};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use super::{SANDBOX_EXEC, entry, profile};
-use crate::confine::Policy;
+use super::{SANDBOX_EXEC, entry, launch, profile};
+use crate::confine::{Confiner, Policy};
 
 /// Whether `sandbox-exec` can apply a profile here: not inside another sandbox, which refuses
 /// it. The tests that rely on it skip otherwise.
@@ -62,4 +62,35 @@ fn a_confined_process_reads_and_writes_only_what_its_policy_opens() {
     assert_eq!(String::from_utf8_lossy(&ran.stdout), "echo plugin");
     assert_eq!(std::fs::read_to_string(data.join("out.txt")).unwrap(), "ok\n");
     assert!(!root.join("leaked.txt").exists());
+}
+
+/// Set in the copy of this test binary that runs inside a sandbox that may not run `sandbox-exec`.
+const INSIDE: &str = "VC_TEST_INSIDE_SANDBOX";
+
+/// A sandbox like the one `vc` may itself run in: everything allowed but `sandbox-exec`.
+const NO_SANDBOX_EXEC: &str = "(version 1)(allow default)(deny process-exec (literal \"/usr/bin/sandbox-exec\"))";
+
+#[tokio::test]
+async fn inside_a_sandbox_no_plugin_can_be_confined() {
+    if seatbelt() {
+        assert!(std::env::var_os(INSIDE).is_none(), "sandbox-exec ran inside a sandbox that denies it");
+        let name = "confine_macos::tests::inside_a_sandbox_no_plugin_can_be_confined";
+        let mut sandboxed = Command::new(SANDBOX_EXEC);
+        sandboxed.args(["-p", NO_SANDBOX_EXEC]).arg(std::env::current_exe().unwrap());
+        let ran = sandboxed.args(["--exact", name, "--nocapture"]).env(INSIDE, "1").output().unwrap();
+        let said = String::from_utf8_lossy(&ran.stdout);
+        assert!(ran.status.success() && said.contains("1 passed"), "{said}{}", String::from_utf8_lossy(&ran.stderr));
+        return;
+    }
+    let why = super::ready(None).unwrap_err();
+    assert!(why.starts_with(&format!("`{SANDBOX_EXEC}` cannot")), "{why}");
+    assert_eq!(crate::confine::ready(None), Err(why.clone()));
+    assert_eq!(Confiner::new(None).ready().await, Err(why), "the confiner asks the OS the same");
+}
+
+#[test]
+fn there_is_no_plugin_launcher_on_macos() {
+    let policy = Policy::closed(Path::new("/p"), Path::new("/p/plugin"), Path::new("/p/data"));
+    let why = launch(&policy, OsStr::new("python3"), vec![OsString::from("main.py")]);
+    assert_eq!(why, "the plugin launcher confines plugins on Linux only");
 }
