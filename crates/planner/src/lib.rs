@@ -15,6 +15,7 @@ mod expand;
 mod needs;
 mod options;
 mod render;
+mod secrets;
 mod select;
 #[cfg(test)]
 mod testing;
@@ -27,4 +28,5 @@ pub use error::PlanError;
 pub use expand::NO_ROWS;
 pub use options::{PlanOptions, Selection};
 pub use render::{action_label, check_lines, dot, explain, json, plan_line, shown_check_lines, tree};
+pub use secrets::{alert_secrets, secrets, secrets_from};
 pub use select::{closest, select_apis, select_files};

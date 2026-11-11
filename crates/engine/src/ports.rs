@@ -3,6 +3,7 @@
 //! source. Each is the injected one when the builder was given it, else the system, HTTP, auth
 //! or secrets adapter.
 
+use std::collections::BTreeSet;
 use std::hash::{BuildHasher as _, Hasher as _, RandomState};
 use std::sync::Arc;
 
@@ -17,8 +18,9 @@ use vc_interfaces::{
     AuthProvider, ConfigEntry, Environment, HookRunner, NotifierFactory, PluginKind, Random, SecretError, SecretQuery,
     Secrets, Transport,
 };
-use vc_model::{Program, SecretsConfig};
+use vc_model::{Plan, Program, SecretsConfig};
 
+use crate::plan::Prepared;
 use crate::plugin_hosts::Hosts;
 use crate::settings::{self, Settings};
 use crate::user::UnderProject;
@@ -109,20 +111,19 @@ impl Engine {
         self.notifiers.as_ref().map_or_else(NotifierRegistry::standard_channels, |notifiers| notifiers.channels())
     }
 
-    /// The secrets `.env.schema` declares, every one with a value: a run, call or load that
-    /// would send one without stops here, before any request (V5114).
+    /// The secrets `.env.schema` declares, each of those `read` names with a value unless it is
+    /// `# @optional`: a run, call or load that reads one without stops here, before any request
+    /// (V5114). A secret nothing it runs reads may be unset (D280).
     ///
     /// # Errors
     ///
-    /// [`EngineError::Setting`] when the provider fails or a declared name has no value.
-    pub(crate) async fn secrets(
-        &self,
-        config: &SecretsConfig,
-        environment: &Arc<dyn Environment>,
-    ) -> Result<Secrets, EngineError> {
-        let loaded = self.loaded_secrets(config, environment).await?;
+    /// [`EngineError::Setting`] when the provider fails or a required name it reads has no value.
+    pub(crate) async fn secrets(&self, prepared: &Prepared, read: &BTreeSet<String>) -> Result<Secrets, EngineError> {
+        let config = &prepared.program.config.secrets;
+        let loaded = self.loaded_secrets(config, &prepared.environment).await?;
+        let wanted = |name: &&String| read.contains(*name) && config.requires(name);
         let blank = |name: &&String| loaded.get(name).is_none_or(|secret| secret.expose().trim().is_empty());
-        let unset: Vec<&str> = config.declared.iter().filter(blank).map(String::as_str).collect();
+        let unset: Vec<&str> = config.declared.iter().filter(wanted).filter(blank).map(String::as_str).collect();
         if unset.is_empty() { Ok(loaded) } else { Err(unset_error(&unset)) }
     }
 
@@ -146,6 +147,17 @@ impl Engine {
         let provider = providers.get(&config.provider).map_err(|error| secret_error(&error))?;
         provider.load(&SecretQuery::new(config.declared.iter().cloned())).await.map_err(|error| secret_error(&error))
     }
+}
+
+/// The secrets a run of `plan` reads (D280): what it runs, the api cleanups the cache's sweep
+/// can run when the program caches, and the alert channels its end sends to.
+pub(crate) fn run_reads(program: &Program, plan: &Plan) -> BTreeSet<String> {
+    let mut read = vc_planner::secrets(program, plan);
+    if crate::body_files::caches(program) {
+        read.extend(vc_planner::secrets_from(program, &crate::body_files::cleanups(program)));
+    }
+    read.extend(vc_planner::alert_secrets(program));
+    read
 }
 
 /// The declared secrets in `unset` have no value: named, never with any other secret.

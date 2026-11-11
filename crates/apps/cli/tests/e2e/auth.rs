@@ -4,12 +4,12 @@
 //! fetched once (D193), a client-credentials `audience`, an `oauth2Refresh` `refreshToken`, a
 //! `refreshOn` 401 that fetches the token again once, and a `flow` of requests with its headers
 //! and cookies. `oauth2AuthorizationCode` needs a browser, so the engine's unit tests sign in
-//! through a fake one instead.
+//! through a fake one instead. Last, which declared secrets a run needs set (D280).
 
 use vc_mock_server::MockServer;
 
 use crate::redaction::{assert_hidden, files, history_text};
-use crate::{Project, said};
+use crate::{CONFIG, Project, said};
 
 const TOKEN: &str = "Hb3N-7tYq-Wd5K-1mZr-Pg8C";
 
@@ -178,4 +178,34 @@ async fn a_flow_applies_its_cookies_after_the_requests_own() {
     let run = project(auth, api, &calling(&["Cookies"])).run(&server.base_url(), &[]).output().unwrap();
     assert_eq!(run.status.code(), Some(0), "{}", said(&run));
     assert_eq!(server.stats().await.unwrap().count("POST /auth/token"), 1);
+}
+
+/// Three apis, each sending one secret, and a test calling each.
+const KEYS_API: &str = "baseUrl: ${var.baseUrl}\napis:\n\
+                        \x20 - id: open\n    path: /echo\n    headers: {x-key: '${secret.OPEN_KEY}'}\n\
+                        \x20 - id: admin\n    path: /echo\n    headers: {x-admin: '${secret.ADMIN_KEY}'}\n\
+                        \x20 - id: beta\n    path: /echo\n    headers: {x-beta: '${secret.BETA_KEY}'}\n";
+const KEYS_TESTS: &str = "tests:\n  - id: callsOpen\n    call: svc#open\n  - id: callsAdmin\n    call: svc#admin\n\
+                          \x20 - id: callsBeta\n    call: svc#beta\n";
+const KEYS_SCHEMA: &str = "OPEN_KEY=\nADMIN_KEY=\n# @optional\nBETA_KEY=\n";
+
+/// The check before a run asks a value only of the secrets the selected tests read, and never of
+/// an `# @optional` one: a test that reads an unset optional secret fails alone, with V5114.
+#[tokio::test(flavor = "multi_thread")]
+async fn only_the_secrets_a_selection_reads_must_be_set_and_an_optional_one_never() {
+    let server = MockServer::start().await.unwrap();
+    let (api, tests) = (("services/svc/svc.api.yaml", KEYS_API), ("services/svc/keys.test.yaml", KEYS_TESTS));
+    let project = Project::new(&[CONFIG, api, tests, (".env.schema", KEYS_SCHEMA)]);
+    let run = |args: &[&str]| project.run(&server.base_url(), args).env("OPEN_KEY", TOKEN).output().unwrap();
+    let open = run(&["svc.keys#callsOpen"]);
+    assert_eq!(open.status.code(), Some(0), "ADMIN_KEY is read only by callsAdmin: {}", said(&open));
+    let all = run(&[]);
+    assert_eq!(all.status.code(), Some(1), "{}", said(&all));
+    assert!(said(&all).contains("V5114: the declared secret `ADMIN_KEY` has no value"), "{}", said(&all));
+    assert!(!said(&all).contains("BETA_KEY"), "an optional secret is not required: {}", said(&all));
+    assert_eq!(server.stats().await.unwrap().count("GET /echo"), 1, "the refused run sent nothing");
+    let beta = run(&["svc.keys#callsOpen", "svc.keys#callsBeta"]);
+    assert_eq!(beta.status.code(), Some(1), "{}", said(&beta));
+    assert!(said(&beta).contains("V5114") && said(&beta).contains("BETA_KEY"), "{}", said(&beta));
+    assert_eq!(server.stats().await.unwrap().count("GET /echo"), 2, "callsOpen ran; callsBeta sent nothing");
 }

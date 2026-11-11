@@ -147,7 +147,7 @@ pub fn overlay(files: &mut Vec<SourceFile>, changes: &[FileChange]) -> Result<()
 /// lines at its end in the file's own line endings, with those names; none when it declares
 /// them all.
 pub fn declaring<'n>(schema: &SourceFile, names: &[&'n str]) -> Option<(FileChange, Vec<&'n str>)> {
-    let declared = schema_names(&schema.text);
+    let declared = schema_names(&schema.text).declared;
     let missing: Vec<&str> = names.iter().copied().filter(|name| !declared.iter().any(|known| known == name)).collect();
     if missing.is_empty() {
         return None;

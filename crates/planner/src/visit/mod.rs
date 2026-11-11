@@ -51,6 +51,14 @@ impl<'p, V: Visit> Walker<'p, V> {
         }
     }
 
+    /// The settings of every alert channel, which a run's end renders.
+    pub fn alerts(&mut self) {
+        let program = self.program;
+        for channel in program.config.alerts.iter().flat_map(|alert| &alert.notify) {
+            self.value(&channel.settings);
+        }
+    }
+
     /// Everything an instance of `test` runs: its file's vars and `beforeEach`/`afterEach`, then
     /// the test itself.
     pub fn instance(&mut self, test: &Test) {

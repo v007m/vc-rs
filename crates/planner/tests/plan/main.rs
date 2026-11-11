@@ -7,4 +7,5 @@ mod expand;
 mod listing;
 mod properties;
 mod render;
+mod secrets;
 mod select;

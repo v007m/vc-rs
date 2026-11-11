@@ -41,7 +41,7 @@ impl Engine {
         if rules.is_empty() {
             return Ok(Vec::new());
         }
-        let secrets = self.secrets(&program.config.secrets, &prepared.environment).await?;
+        let secrets = self.secrets(&prepared, &vc_planner::alert_secrets(program)).await?;
         let senders = self.senders(&prepared, &secrets)?;
         Ok(sent(&senders, (program, &rules), &notice).await)
     }

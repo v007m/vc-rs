@@ -21,6 +21,8 @@ pub struct SecretsConfig {
     pub schema: String,
     /// The names the schema declares, in the order written; empty when the compile had no schema.
     pub declared: Vec<String>,
+    /// Those of them marked `# @optional`, which may be left without a value (D280).
+    pub optional: Vec<String>,
 }
 
 impl Default for SecretsConfig {
@@ -29,6 +31,7 @@ impl Default for SecretsConfig {
             provider: DEFAULT_SECRETS_PROVIDER.to_owned(),
             schema: DEFAULT_SECRETS_SCHEMA.to_owned(),
             declared: Vec::new(),
+            optional: Vec::new(),
         }
     }
 }
@@ -38,6 +41,13 @@ impl SecretsConfig {
     #[must_use]
     pub fn declares(&self, name: &str) -> bool {
         self.declared.iter().any(|declared| declared == name)
+    }
+
+    /// Whether `.env.schema` declares `name` without `# @optional`: a run that reads it stops
+    /// before any request when it has no value (V5114, D280).
+    #[must_use]
+    pub fn requires(&self, name: &str) -> bool {
+        self.declares(name) && !self.optional.iter().any(|optional| optional == name)
     }
 }
 
@@ -56,20 +66,70 @@ pub enum RedactRule {
     Function(HookRef),
 }
 
-/// The names a `.env.schema` declares: each `NAME=` line, with or without a value or an
-/// `export ` before it; `#` lines (Varlock's decorators) and blank lines declare nothing.
-#[must_use]
-pub fn schema_names(text: &str) -> Vec<String> {
-    let lines = text.lines().map(str::trim).filter(|line| !line.is_empty() && !line.starts_with('#'));
-    let names = lines.filter_map(|line| line.strip_prefix("export ").unwrap_or(line).split_once('='));
-    let names = names.map(|(name, _)| name.trim()).filter(|name| is_name(name));
-    let mut found: Vec<String> = Vec::new();
-    for name in names {
-        if !found.iter().any(|seen| seen == name) {
-            found.push(name.to_owned());
+/// The names a `.env.schema` declares, required and optional apart (D280).
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
+pub struct SchemaNames {
+    /// Every declared name, once, in the order written.
+    pub declared: Vec<String>,
+    /// Those marked `# @optional`, which may be left without a value.
+    pub optional: Vec<String>,
+}
+
+impl SchemaNames {
+    /// The declared names not marked `# @optional`.
+    pub fn required(&self) -> impl Iterator<Item = &str> {
+        self.declared.iter().map(String::as_str).filter(|name| !self.optional.iter().any(|optional| optional == name))
+    }
+
+    /// Adds `name` unless it is declared already: the first line that declares a name decides
+    /// whether it is optional.
+    fn add(&mut self, name: &str, optional: bool) {
+        if self.declared.iter().any(|seen| seen == name) {
+            return;
+        }
+        self.declared.push(name.to_owned());
+        if optional {
+            self.optional.push(name.to_owned());
         }
     }
-    found
+}
+
+/// The names a `.env.schema` declares: each `NAME=` line, with or without a value or an
+/// `export ` before it. `#` lines are Varlock's decorators: a name is optional when `@optional`
+/// is in the comment lines just above it (no blank line between) or in a `#` comment after its
+/// `=`, as Varlock reads it (D280). Blank lines declare nothing.
+#[must_use]
+pub fn schema_names(text: &str) -> SchemaNames {
+    let mut names = SchemaNames::default();
+    let mut marked = false;
+    for line in text.lines().map(str::trim) {
+        if let Some(comment) = line.strip_prefix('#') {
+            marked |= optional(comment);
+            continue;
+        }
+        if let Some((name, value)) = item(line) {
+            let after = value.split_once('#').is_some_and(|(_, comment)| optional(comment));
+            names.add(name, marked || after);
+        }
+        marked = false;
+    }
+    names
+}
+
+/// The name and value of a `NAME=value` line, `export ` or not; none for any other line.
+fn item(line: &str) -> Option<(&str, &str)> {
+    let (name, value) = line.strip_prefix("export ").unwrap_or(line).split_once('=')?;
+    let name = name.trim();
+    is_name(name).then_some((name, value))
+}
+
+/// Whether a comment holds the `@optional` decorator (or `@optional=true`).
+fn optional(comment: &str) -> bool {
+    comment.split_whitespace().any(|word| word == "@optional" || word == "@optional=true")
 }
 
 /// `text` as a secret name, upper case with `_` between words.
@@ -114,7 +174,7 @@ fn is_name(name: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{SecretsConfig, schema_names, secret_name};
+    use super::{SchemaNames, SecretsConfig, schema_names, secret_name};
 
     #[test]
     fn the_default_provider_is_env_and_declares_nothing() {
@@ -129,7 +189,42 @@ mod tests {
     #[test]
     fn a_schema_declares_each_assigned_name_once() {
         let text = "# @defaultSensitive=true\n\n# @required\nAPI_TOKEN=\nexport DB_URL=op(x)\n_X1 = 2\nAPI_TOKEN=again\n1BAD=x\nno equals\nA-B=1\n";
-        assert_eq!(schema_names(text), ["API_TOKEN", "DB_URL", "_X1"]);
+        assert_eq!(schema_names(text).declared, ["API_TOKEN", "DB_URL", "_X1"]);
+        assert!(schema_names(text).optional.is_empty(), "`@required` and `@defaultSensitive` mark none optional");
+    }
+
+    #[test]
+    fn a_name_is_optional_when_optional_is_in_the_comments_just_above_or_after_it() {
+        let text = concat!(
+            "# @defaultSensitive=true\n",
+            "# ---\n\n",
+            "# The partner sandbox, which only some tests call.\n",
+            "# @optional @sensitive\n",
+            "PARTNER_KEY=\n",
+            "API_TOKEN=\n",
+            "# @optional\n\n",
+            "DB_URL=\n",
+            "WEBHOOK_URL= # @optional\n",
+            "# @optional=true\n",
+            "export TRACE_KEY=\n",
+            "# @optional=false\n",
+            "AUDIT_KEY=\n",
+            "API_TOKEN= # @optional\n",
+        );
+        let names = schema_names(text);
+        assert_eq!(names.declared, ["PARTNER_KEY", "API_TOKEN", "DB_URL", "WEBHOOK_URL", "TRACE_KEY", "AUDIT_KEY"]);
+        assert_eq!(names.optional, ["PARTNER_KEY", "WEBHOOK_URL", "TRACE_KEY"], "a blank line ends a comment's reach");
+        assert_eq!(names.required().collect::<Vec<_>>(), ["API_TOKEN", "DB_URL", "AUDIT_KEY"]);
+        assert_eq!(SchemaNames::default().required().count(), 0);
+    }
+
+    #[test]
+    fn a_secret_is_required_when_declared_and_not_optional() {
+        let declared = vec!["TOKEN".to_owned(), "SANDBOX".to_owned()];
+        let secrets = SecretsConfig { declared, optional: vec!["SANDBOX".to_owned()], ..SecretsConfig::default() };
+        assert!(secrets.requires("TOKEN"));
+        assert!(!secrets.requires("SANDBOX") && secrets.declares("SANDBOX"));
+        assert!(!secrets.requires("OTHER"));
     }
 
     #[test]

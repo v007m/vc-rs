@@ -30,7 +30,7 @@ use std::collections::{BTreeSet, HashSet};
 use std::sync::Arc;
 
 use vc_diagnostics::Diagnostics;
-use vc_model::{Date, FileKind, Program, SourceFiles, SourcePath, StringTable};
+use vc_model::{Date, FileKind, Program, SchemaNames, SourceFiles, SourcePath, StringTable};
 
 pub use assets::folder;
 pub use build::{body_path, duration, flag, method};
@@ -63,7 +63,7 @@ pub struct World<'w> {
     /// The project's other files, for `$file` paths; `None` leaves them unchecked.
     pub assets: Option<&'w BTreeSet<SourcePath>>,
     /// The secret names `.env.schema` declares; `None` leaves V2106 and V2107 out.
-    pub secrets: Option<&'w [String]>,
+    pub secrets: Option<&'w SchemaNames>,
 }
 
 /// Links the units in `entries`, whose spans point into `files`.
@@ -91,7 +91,7 @@ pub fn link(entries: &[CacheEntry], files: &SourceFiles, world: &World<'_>) -> L
     diagnostics.extend(fakes::check(&project));
     diagnostics.extend(auth_keys::check(&project));
     diagnostics.extend(shared::profiles(&project));
-    diagnostics.extend(world.secrets.map(|declared| secrets::check(&project, declared)).unwrap_or_default());
+    diagnostics.extend(world.secrets.map(|names| secrets::check(&project, &names.declared)).unwrap_or_default());
     if !clean {
         return Linked { diagnostics, program: None, data_wanted, hooks_wanted };
     }
@@ -101,7 +101,8 @@ pub fn link(entries: &[CacheEntry], files: &SourceFiles, world: &World<'_>) -> L
     let program = if diagnostics.has_errors() {
         None
     } else {
-        build::program((&project, &data), (files.clone(), hooks.modules), world.secrets.unwrap_or_default())
+        let none = SchemaNames::default();
+        build::program((&project, &data), (files.clone(), hooks.modules), world.secrets.unwrap_or(&none))
     };
     if let Some(program) = &program {
         let cx = LintCx { project: &project, program, today: world.today };

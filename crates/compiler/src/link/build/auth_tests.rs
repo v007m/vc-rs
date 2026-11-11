@@ -97,6 +97,7 @@ fn secrets_and_redact_rules_reach_the_config() {
     assert_eq!(config.secrets.provider, "varlock");
     assert_eq!(config.secrets.schema, ".env.schema");
     assert_eq!(config.secrets.declared, ["CLIENT_SECRET", "API_TOKEN"]);
+    assert!(config.secrets.optional.is_empty(), "`@sensitive` does not make a secret optional");
     assert!(
         matches!(&config.redact_rules[..], [RedactRule::Regex(regex), RedactRule::Cel(_)] if regex == "\\d{3}-\\d{4}")
     );
@@ -132,4 +133,15 @@ fn without_a_schema_secret_names_are_not_checked() {
     let compiled = compiled(api, None);
     assert!(!compiled.diagnostics.iter().any(|found| matches!(found.code, Code::V2106 | Code::V2107)));
     assert_eq!(compiled.program.unwrap().config.secrets.declared.len(), 0);
+}
+
+#[test]
+fn an_optional_secret_is_declared_and_kept_apart_in_the_config() {
+    let schema = "CLIENT_SECRET=\n# @optional\nAPI_TOKEN=\n";
+    let api = "apis:\n  - id: list\n    path: /users\n    headers: {x-a: '${secret.API_TOKEN}'}\n";
+    let compiled = compiled(api, Some(schema));
+    assert!(!compiled.diagnostics.has_errors(), "an optional secret is still declared: {:?}", compiled.diagnostics);
+    let program = compiled.program.unwrap();
+    assert_eq!(program.config.secrets.declared, ["CLIENT_SECRET", "API_TOKEN"]);
+    assert_eq!(program.config.secrets.optional, ["API_TOKEN"]);
 }
