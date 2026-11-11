@@ -70,6 +70,13 @@ impl Duration {
     }
 }
 
+/// The instant `ms` milliseconds after the epoch, as RFC 3339 in UTC (`${run.startedAt}`); `None`
+/// past the year 9999.
+#[must_use]
+pub fn rfc3339(ms: u64) -> Option<String> {
+    Timestamp::from_nanos(i128::from(ms) * 1_000_000).map(|time| time.to_string())
+}
+
 /// Reads an RFC 3339 timestamp: `2024-05-01T12:30:00Z`, `2024-05-01T14:30:00.5+02:00`.
 ///
 /// # Errors

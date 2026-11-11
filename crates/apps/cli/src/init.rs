@@ -1,11 +1,13 @@
 //! `vc init`: a new project in the working folder, or in `--project <dir>` (D89, D175).
 
+use std::io::Write;
 use std::path::Path;
 
 use clap::Args;
 use vc_engine::{EngineBuilder, INIT_FOLDERS};
 
 use crate::Outcome;
+use crate::stdout;
 
 #[derive(Args)]
 pub struct InitArgs {
@@ -38,14 +40,16 @@ pub fn run(args: &InitArgs, project: Option<&Path>) -> anyhow::Result<Outcome> {
     for folder in INIT_FOLDERS {
         std::fs::create_dir_all(root.join(folder))?;
     }
-    println!("✓ created a Vibranium project in {}", root.display());
+    let mut out = stdout::out();
+    writeln!(out, "✓ created a Vibranium project in {}", root.display())?;
     for file in &changes.files {
-        println!("  {}", file.path);
+        writeln!(out, "  {}", file.path)?;
     }
-    println!("  {}/", INIT_FOLDERS.join("/  "));
+    writeln!(out, "  {}/", INIT_FOLDERS.join("/  "))?;
+    drop(out);
     if let Some(source) = &args.from_openapi {
         return crate::import::openapi(project, source);
     }
-    println!("next: {}", if args.no_sample { "vc new api <service>#<id> --path /…" } else { "vc run" });
+    writeln!(stdout::out(), "next: {}", if args.no_sample { "vc new api <service>#<id> --path /…" } else { "vc run" })?;
     Ok(Outcome::Done)
 }

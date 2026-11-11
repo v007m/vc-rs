@@ -16,6 +16,7 @@ mod changed;
 mod command;
 mod completion;
 mod demo;
+mod examples;
 mod explain;
 mod history;
 mod hooks;

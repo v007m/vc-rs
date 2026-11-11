@@ -70,7 +70,7 @@ The host answers only for a secret the manifest declares, the lock grants and th
 | `-32601` | Method not found |
 | `-32603` | Internal error (also used for an error object without a code) |
 
-Every plugin failure is [V5118](/vc-rs/reference/diagnostics/v5118/), naming the plugin, the method and the code. A reporter's failure becomes a run warning and its report is not written. An auth plugin's failure fails the requests that use it, as [V5114](/vc-rs/reference/diagnostics/v5114/).
+Every plugin failure is [V5118](/vc-rs/reference/diagnostics/v5118/), naming the plugin, the method and the code. A reporter's failure becomes a run warning, `warning[V5118]: …`, and its report is not written. An auth plugin's failure fails the requests that use it, as [V5114](/vc-rs/reference/diagnostics/v5114/).
 
 ## Examples
 

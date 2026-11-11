@@ -30,12 +30,12 @@ A test entry has either `call` or `steps`, never both. Each step is an action: e
 | --- | --- | --- | --- | --- |
 | `steps` | list of actions | — | yes (or `call`) | Run in order. The test fails at the first step that fails. |
 | step `id` | camelCase | — | no | Exposes that step's response as `${<id>.status}`, `${<id>.body…}`, `${<id>.headers…}`. `response` is reserved. |
-| test `auth`, `headers`, `query`, `body`, `poll`, `expect` | | — | no | Defaults for every `call` and `test:` step. See below. |
+| test `auth`, `headers`, `query`, `body`, `poll`, `expect` | | — | no | Defaults for every `call` step. See below. |
 | test `save` | map | — | no | Reads `${response…}` of the **last** step. |
 
 ## Step defaults
 
-Six test-level keys are defaults for the steps: `auth`, `headers`, `query`, `body`, `poll` and `expect`. They reach every `call` and `test:` step. `function` and `command` steps take none of them.
+Six test-level keys are defaults for the steps: `auth`, `headers`, `query`, `body`, `poll` and `expect`. They reach every `call` step. `test:`, `function` and `command` steps take none of them: a `test:` step runs the reused test as written (D270).
 
 A step's own value wins:
 
@@ -189,7 +189,7 @@ tests:
 - A step `id` gives later steps the step's response: `${created.body.id}`, `${created.status}`. `${created.status}` is a number.
 - Step IDs are unique across the whole file, like test IDs. Two tests cannot both name a step `created` (V2001, duplicate ID).
 - Cleanups registered by steps run after the test, newest first. See [cleanup](/vc-rs/reference/syntax/cleanup/).
-- Step defaults reach `call` and `test:` steps only. `after` actions do not get the test's headers or query.
+- Step defaults reach `call` steps only. `after` actions do not get the test's headers or query.
 
 ## Common errors
 
@@ -215,9 +215,11 @@ warning[V3206]: no step uses the test-level `headers.x-trace`
    |
 33 |       x-trace: "1"
    |       ^^^^^^^ unused default
-   = note: `call` and `test:` steps take the test's defaults and their own values win; `function` and `command` steps take none
+   = note: `call` steps take the test's defaults and their own values win; `test:`, `function` and `command` steps take none
    = help: remove it, or remove the steps' own values that replace it
 ```
+
+**V3207**: `auth`, `headers`, `query`, `body`, `poll` or `expect` on a `test:` step. The reused test runs as written, so the key has no effect. Set it in the reused test instead. See [V3207](/vc-rs/reference/diagnostics/v3207/).
 
 **V2006**: a step `id` of `response` clashes with the `${response…}` template root.
 

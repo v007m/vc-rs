@@ -34,7 +34,8 @@ pub struct PlanOptions {
     pub repeat: Option<u32>,
     /// Today as `YYYY-MM-DD`, for `skip.until`; `None` keeps every skip in force.
     pub today: Option<String>,
-    /// How many rows each test whose `examples` come from a file or a template has, as the
-    /// engine counted them when it preloaded them (D132).
+    /// How many rows each test whose `examples` come from a template has, as the engine counted
+    /// them when it rendered them before the run (D132). `vc list` and the catalog render none,
+    /// so they count every file or template test as one row.
     pub example_rows: BTreeMap<TestId, u32>,
 }

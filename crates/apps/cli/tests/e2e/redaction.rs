@@ -2,7 +2,8 @@
 //! (masked there by a `redact.rules` regex), and a `redact.fields` password, never reach the
 //! history or a report file, even where `history.maxBodySize` cuts a body in the middle of one
 //! (masked first, then cut: D184). A `${secret.X}` the environment gives is sent, and shows
-//! nowhere either. Nor does a hidden field a failed check quotes.
+//! nowhere either, also when an inline example row reads it. Nor does a hidden field a failed
+//! check quotes.
 
 use std::fs;
 use std::path::Path;
@@ -10,7 +11,7 @@ use std::path::Path;
 use rusqlite::types::ValueRef;
 use vc_mock_server::MockServer;
 
-use crate::{Project, said};
+use crate::{Project, events, of_kind, said};
 
 const SECRET: &str = "Sx7Q-9vLk-Tz3W-8pRn-Mq2D";
 const PASSWORD: &str = "Pw9-Qz7x-Lm4k-Rt2v";
@@ -132,6 +133,44 @@ async fn a_secret_from_the_environment_is_sent_and_shown_nowhere() {
     let mut seen = vec![("history.db rows".to_owned(), history), ("vc output".to_owned(), said(&run))];
     files(project.path().join(".vibranium").as_path(), &mut seen);
     assert!(seen.iter().any(|(name, _)| name.ends_with("index.html")), "the HTML report was written");
+    assert_hidden(&seen, &[TOKEN]);
+}
+
+/// A test whose one inline row reads `${secret.API_TOKEN}` (D125 lets an inline row read a secret)
+/// and sends it as the body's `token`.
+const ROW_TEST: (&str, &str) = (
+    "services/echo/send.test.yaml",
+    "tests:\n  - id: sendsTheRowToken\n    examples:\n      - token: '${secret.API_TOKEN}'\n\
+     \x20   call: echo#send\n    vars: {token: '${example.token}'}\n",
+);
+
+#[tokio::test(flavor = "multi_thread")]
+async fn an_inline_row_reading_a_secret_is_sent_and_its_instance_shows_it_nowhere() {
+    let server = MockServer::start().await.unwrap();
+    let config = (
+        "vibranium.config.yaml",
+        "syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\nvars: {baseUrl: 'http://x'}\nhistory: {bodies: all}\n",
+    );
+    let api = (
+        "services/echo/echo.api.yaml",
+        "baseUrl: ${var.baseUrl}\napis:\n  - id: send\n    method: POST\n    path: /echo\n\
+         \x20   body: {token: '${var.token}'}\n",
+    );
+    let project = Project::new(&[config, api, ROW_TEST, (".env.schema", "# the api's token\nAPI_TOKEN=\n")]);
+    let mut vc = project.run(&server.base_url(), &["--reporter", "json", "--report", "ctrf,junit,html"]);
+    let run = vc.env("API_TOKEN", TOKEN).output().unwrap();
+    assert_eq!(run.status.code(), Some(0), "the row's secret was resolved and sent: {}", said(&run));
+    let events = events(&run.stdout);
+    let labels: Vec<_> = of_kind(&events, "testFinished").iter().map(|event| event["label"].clone()).collect();
+    assert_eq!(
+        labels,
+        ["echo.send#sendsTheRowToken [row 1]"],
+        "an instance is named by its row number, never its values"
+    );
+
+    let history = history_text(&project.path().join(".vibranium/history.db"));
+    let mut seen = vec![("history.db rows".to_owned(), history), ("vc output".to_owned(), said(&run))];
+    files(project.path().join(".vibranium").as_path(), &mut seen);
     assert_hidden(&seen, &[TOKEN]);
 }
 

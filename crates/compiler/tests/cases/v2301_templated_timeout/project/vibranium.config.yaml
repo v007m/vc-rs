@@ -1,0 +1,9 @@
+syntaxVersion: 2
+project: shop
+vars:
+  t: 1s
+profiles:
+  - id: dev
+    default: true
+defaults:
+  timeout: ${var.t}

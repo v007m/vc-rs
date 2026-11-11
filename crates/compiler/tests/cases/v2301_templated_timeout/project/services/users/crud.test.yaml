@@ -1,0 +1,8 @@
+tests:
+  - id: getsUser
+    call: users#getUser
+    timeout: ${var.t}
+  - id: getsUserInSteps
+    steps:
+      - call: users#getUser
+        timeout: ${var.t}

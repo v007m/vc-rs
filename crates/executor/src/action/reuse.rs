@@ -10,8 +10,9 @@ use crate::{ActionReport, CleanupCollector, Defined};
 
 /// Runs `test:` reuse: the reused test's call or steps, in order, in the current frame.
 ///
-/// It stops at the first failure. The reused test's own `before`, `after` and test-level checks
-/// are not run. The reusing action's own `timeout` limits the whole reuse (D192): the step
+/// It stops at the first failure. The reused test runs as written (D270): its calls carry its
+/// own test-level checks, merged in at link time, and none of the reusing test's step defaults;
+/// its own `before` and `after` are not run. The reusing action's own `timeout` limits the whole reuse (D192): the step
 /// running when it passes is dropped and fails with V5104. Each step's cleanups are handed to
 /// the reuse's [`CleanupCollector`] as it finishes, as are those of a dropped step's finished
 /// parts, so none is lost, and neither are the reuse's own when a caller's deadline drops it.

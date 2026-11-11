@@ -14,9 +14,9 @@ use crate::suggest::{self, Misspelling};
 pub enum LeafTy {
     /// A template.
     Template,
-    /// A duration, or a template for one.
+    /// A duration, written out (a template is V2301).
     Duration,
-    /// A size, or a template for one.
+    /// A size, written out (a template is V2301).
     Size,
     /// A status, a list of them, or a matcher.
     Status,
@@ -89,7 +89,7 @@ impl Walker {
             Ty::List(item) | Ty::MapOf(item) => self.children(node, *item, scope),
             Ty::Either(alternatives) => self.either(node, alternatives, scope),
             Ty::Enum(words) => self.word(node, words),
-            other => self.leaf(other, scope),
+            other => self.leaf(other, row_source(node, scope)),
         }
     }
 
@@ -180,6 +180,12 @@ impl Walker {
 }
 
 /// The roots that sibling keys such as `examples` and `forEach` add for `key`.
+/// Inline rows are rendered per instance, so they read every root a test may; only a row source
+/// read before the run (one template, a `$file` map) keeps [`Scope::ROWS`].
+const fn row_source(node: &Node, scope: Scope) -> Scope {
+    if matches!(node.value, Value::Seq(_)) { scope.without(Scope::ROWS) } else { scope }
+}
+
 fn sibling_scope(shape: &Shape, entries: &[Entry], key: &Key) -> Scope {
     shape
         .scopes

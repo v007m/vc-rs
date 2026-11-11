@@ -187,9 +187,7 @@ tests:
 - `after` and `afterEach` actions are outside a test's `timeout`.
 - Durations are a whole number and a unit: `ms`, `s`, `m` or `h`. Decimals and words are rejected.
 
-<Aside type="caution" title="Known issue: templated timeouts are ignored">
-`timeout: ${var.t}` passes `vc check`, but the value is not applied. An api with `timeout: ${var.t}` and `t: 100ms` waited 2 s for a slow reply and passed. The same api with `timeout: 100ms` failed with `no response within 100ms`. Write the duration literally.
-</Aside>
+- A `timeout` is written out; a template such as `timeout: ${var.t}` is V2301. To change the default per run, use `--set defaults.timeout=10s` or `VIB_DEFAULTS_TIMEOUT`.
 
 ## Common errors
 

@@ -4,7 +4,7 @@
 use std::collections::HashSet;
 
 use vc_diagnostics::{Code, Diagnostic, Diagnostics, Fix, TextEdit};
-use vc_model::{Matcher, MatcherArg, Namespace, Part, Reference, Segment, SourceSpan, TemplateValue};
+use vc_model::{Matcher, MatcherArg, Namespace, Reference, Segment, SourceSpan};
 use vc_template::{PipeRegistry, Roots};
 
 use super::layer::Scope;
@@ -86,9 +86,14 @@ impl<'p, 'a> Checker<'p, 'a> {
         (problem.code == Code::V2304).then_some(*problem)
     }
 
+    /// The pipes templates may call.
+    pub const fn pipes(&self) -> &PipeRegistry {
+        &self.pipes
+    }
+
     /// Whether the reference's first pipe also runs on a missing value (`default`), so an
     /// unset var is not an error.
-    fn takes_missing(&self, reference: &Reference) -> bool {
+    pub fn takes_missing(&self, reference: &Reference) -> bool {
         let first = reference.pipes.first().and_then(|call| self.pipes.get(&call.name));
         first.is_some_and(|pipe| pipe.takes_missing)
     }
@@ -157,38 +162,17 @@ pub fn references<'a>(source: &Source<'a>, ns: Namespace) -> Vec<&'a Reference> 
 /// Every reference in a piece, in order.
 pub fn piece_refs<'p>(piece: &'p Piece, found: &mut Vec<&'p Reference>) {
     match piece {
-        Piece::Template(template) => template_refs(&template.parts, found),
-        Piece::Value(value) => value_refs(value, found),
+        Piece::Template(template) => found.extend(template.references()),
+        Piece::Value(value) => value.collect_references(found),
         Piece::Matcher(matcher) => matcher_refs(matcher, found),
         Piece::Cel(cel) => found.extend(&cel.refs),
         Piece::Duration(_) | Piece::Size(_) => {}
     }
 }
 
-fn template_refs<'p>(parts: &'p [Part], found: &mut Vec<&'p Reference>) {
-    found.extend(parts.iter().filter_map(|part| match part {
-        Part::Ref(reference) => Some(reference),
-        Part::Literal(_) => None,
-    }));
-}
-
-fn value_refs<'p>(value: &'p TemplateValue, found: &mut Vec<&'p Reference>) {
-    match value {
-        TemplateValue::String(template) => template_refs(&template.parts, found),
-        TemplateValue::List(items) => items.iter().for_each(|item| value_refs(item, found)),
-        TemplateValue::Map(entries) => entries.values().for_each(|item| value_refs(item, found)),
-        TemplateValue::Cel(cel) => found.extend(&cel.refs),
-        TemplateValue::Extend { base, changes, .. } => {
-            template_refs(&base.parts, found);
-            value_refs(changes, found);
-        }
-        TemplateValue::Null | TemplateValue::Bool(_) | TemplateValue::Number(_) => {}
-    }
-}
-
 fn matcher_refs<'p>(matcher: &'p Matcher, found: &mut Vec<&'p Reference>) {
     match matcher {
-        Matcher::Equals(value) => value_refs(value, found),
+        Matcher::Equals(value) => value.collect_references(found),
         Matcher::All(calls) => calls.iter().for_each(|call| arg_refs(&call.arg, found)),
         Matcher::Status(_) => {}
     }
@@ -196,7 +180,7 @@ fn matcher_refs<'p>(matcher: &'p Matcher, found: &mut Vec<&'p Reference>) {
 
 fn arg_refs<'p>(arg: &'p MatcherArg, found: &mut Vec<&'p Reference>) {
     match arg {
-        MatcherArg::Value(value) => value_refs(value, found),
+        MatcherArg::Value(value) => value.collect_references(found),
         MatcherArg::Range(pair) => pair.iter().for_each(|arg| arg_refs(arg, found)),
         MatcherArg::Matcher(matcher) => matcher_refs(matcher, found),
         MatcherArg::Matchers(matchers) => matchers.iter().for_each(|matcher| matcher_refs(matcher, found)),

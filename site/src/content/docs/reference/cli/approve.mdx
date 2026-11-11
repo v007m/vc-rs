@@ -17,7 +17,7 @@ $ vc approve [OPTIONS] <ID>
 | Flag | Value | Description |
 | --- | --- | --- |
 | `<ID>` | | The request number, as `vc approvals` lists it, without the `#` |
-| `--always` | | Also allows calls like it (same profile, tool and method) from now on |
+| `--always` | | Also allows calls like it (same profile, tool and method) from now on. A write, or a run that reaches a `command:` or `function:` action, still asks every time |
 | `--deny` | | Refuses the call instead. Cannot be combined with `--always` |
 | `--project` | `<DIR>` | See [global flags](/vc-rs/reference/cli/#global-flags) |
 
@@ -39,7 +39,14 @@ $ vc approve 2 --deny
 
 ```console
 $ vc approve 3 --always
-✓ approved request #3, and calls like it from now on
+✓ approved request #3, and POST, DELETE calls like it from now on; a write or code still asks
+```
+
+For a request no rule can cover, it approves the call once and says so:
+
+```console
+$ vc approve 4 --always
+✓ approved request #4 once; no rule kept: a write or a run that reaches code asks every time
 ```
 
 The rule is kept in `.vibranium/history.db`, never in the YAML, so it stays on this machine. It covers every method the call needed: approving a `POST` whose cleanup sends a `DELETE` allows both. A run or call that reaches a `command:` or `function:` action still asks every time; see [what "always allow" covers](/vc-rs/agents/policy-and-approvals/).

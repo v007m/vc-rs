@@ -189,8 +189,8 @@ A test with both `examples` and [`repeat`](/vc-rs/reference/syntax/repeat/) runs
 - A `$file` path is relative to the test file, not the project root.
 - A row's `name` key is an ordinary column. Reports label instances `[row 1]`, `[row 2]` and so on, not by `name`.
 
-<Aside type="caution">
-`examples: ${var.rows}`, with a list in a var, passes `vc check` but fails at run time with `error: the example rows of ... were not loaded`. Use inline rows, a dataset or `$file` instead.
+<Aside type="note">
+`examples` written as one template, such as `${var.rows}` or `${dataset.people | shuffle | take(3)}`, is read once before the run starts, under the run's profiles and `--set`. It reads only `var`, `env` and `dataset` (anything else is [V2105](/vc-rs/reference/diagnostics/v2105/)), and `--seed` repeats a `shuffle`. Rows that are not a list of maps stop the run with [V5111](/vc-rs/reference/diagnostics/v5111/). Inline rows are rendered per instance and may read any root, `secret` included; reports name an instance by its row number, never by its values.
 </Aside>
 
 ## Common errors

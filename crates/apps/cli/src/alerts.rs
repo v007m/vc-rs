@@ -9,6 +9,7 @@ use vc_engine::AlertSent;
 use crate::Outcome;
 use crate::explain::LayerArgs;
 use crate::project;
+use crate::stdout;
 
 /// `vc alerts …`.
 #[derive(Args)]
@@ -44,7 +45,7 @@ pub fn run(args: &AlertsArgs, project: Option<&Path>) -> anyhow::Result<Outcome>
         let help = "add an `alerts` rule, or name the profiles one lists with `--profile`";
         return Ok(Outcome::Helped("no alert rule matches these profiles".to_owned(), Some(help.to_owned())));
     }
-    let mut out = std::io::stdout().lock();
+    let mut out = stdout::out();
     for line in sent.iter().map(line) {
         writeln!(out, "{line}")?;
     }

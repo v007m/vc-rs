@@ -149,7 +149,7 @@ mod tests {
 
     #[test]
     fn gives_each_scope_its_own_root() {
-        let all = [Scope::CALL, Scope::EXAMPLES, Scope::LOOP, Scope::FOR_EACH];
+        let all = [Scope::CALL, Scope::EXAMPLES, Scope::LOOP, Scope::FOR_EACH, Scope::ROWS];
         for (index, scope) in all.iter().enumerate() {
             assert!(!Scope::NONE.has(*scope));
             assert_eq!(scope.with(*scope), *scope);

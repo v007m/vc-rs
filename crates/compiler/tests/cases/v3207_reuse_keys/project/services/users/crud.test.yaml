@@ -1,0 +1,10 @@
+tests:
+  - id: makesUser
+    standalone: false
+    call: users#createUser
+  - id: readsNewUser
+    steps:
+      - test: users.crud#makesUser
+        headers: {x-trace: '1'}
+        expect: {status: 201}
+      - call: users#getUser

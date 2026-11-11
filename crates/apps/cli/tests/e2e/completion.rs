@@ -1,6 +1,10 @@
 //! `vc completion <shell>` writes a script that completes commands and flags and asks
 //! `vc __complete` for the project's IDs, profiles and tags (D180).
 
+use std::process::Stdio;
+
+use assert_cmd::cargo::cargo_bin;
+
 use crate::{CONFIG, Project, USERS, said};
 
 const CRUD: (&str, &str) =
@@ -44,4 +48,19 @@ fn complete_offers_nothing_outside_a_project() {
 fn complete_is_hidden_from_help() {
     let output = Project::new(&[CONFIG]).vc(&["--help"]).output().unwrap();
     assert!(!String::from_utf8_lossy(&output.stdout).contains("__complete"), "{}", said(&output));
+}
+
+#[test]
+fn a_reader_that_has_gone_ends_the_output_quietly() {
+    let project = Project::new(&[CONFIG, USERS, CRUD]);
+    for args in [&["completion", "bash"][..], &["list", "tests"], &["__complete", "run", ""]] {
+        let (reader, writer) = std::io::pipe().unwrap();
+        drop(reader);
+        let mut vc = std::process::Command::new(cargo_bin!("vc"));
+        vc.current_dir(project.path()).env("HOME", project.home()).args(args);
+        let output = vc.stdout(Stdio::from(writer)).stderr(Stdio::piped()).output().unwrap();
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert_eq!(output.status.code(), Some(0), "{args:?}: {stderr}");
+        assert!(stderr.is_empty(), "{args:?}: {stderr}");
+    }
 }

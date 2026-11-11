@@ -1,0 +1,7 @@
+apis:
+  - id: getUser
+    path: /users/1
+  - id: createUser
+    method: POST
+    path: /users
+    save: {userId: '${response.body.id}'}

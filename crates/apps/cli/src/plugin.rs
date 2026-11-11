@@ -1,12 +1,13 @@
 //! `vc plugin add <source>`, `vc plugin list` and `vc plugin remove <id>`: plugins and what
 //! `vibranium.lock` lets them reach.
 
-use std::io::IsTerminal;
+use std::io::{IsTerminal, Write};
 use std::path::Path;
 
 use clap::{Args, Subcommand};
 use vc_engine::{Engine, PluginListing, PluginOffer, PluginPermissions};
 
+use crate::stdout;
 use crate::{Outcome, changes, project};
 
 /// `vc plugin …`.
@@ -45,7 +46,7 @@ pub fn run(args: &PluginArgs, project: Option<&Path>) -> anyhow::Result<Outcome>
     let engine = &located.engine;
     match &args.command {
         PluginCommand::Add { source, yes } => add(engine, source, *yes),
-        PluginCommand::List => Ok(list(engine)),
+        PluginCommand::List => list(engine),
         PluginCommand::Remove { id } => {
             Ok(changes::write(engine, engine.plugin_remove(id), &format!("✓ removed plugin {id}")))
         }
@@ -94,20 +95,18 @@ fn offered(offer: &PluginOffer) -> String {
 }
 
 /// `vc plugin list`: one line for each plugin.
-fn list(engine: &Engine) -> Outcome {
+fn list(engine: &Engine) -> anyhow::Result<Outcome> {
+    let mut out = stdout::out();
     match engine.plugin_list() {
-        Ok(listed) if listed.is_empty() => {
-            println!("no plugins; `vc plugin add <source>` adds one");
-            Outcome::Done
-        }
+        Ok(listed) if listed.is_empty() => writeln!(out, "no plugins; `vc plugin add <source>` adds one")?,
         Ok(listed) => {
             for plugin in &listed {
-                println!("{}", row(plugin));
+                writeln!(out, "{}", row(plugin))?;
             }
-            Outcome::Done
         }
-        Err(error) => Outcome::Engine(error),
+        Err(error) => return Ok(Outcome::Engine(error)),
     }
+    Ok(Outcome::Done)
 }
 
 /// `report  reporter 1.0.0  path:plugin  ready  may reach: secret reportToken`.

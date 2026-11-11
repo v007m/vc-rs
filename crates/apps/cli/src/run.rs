@@ -123,12 +123,32 @@ pub fn finished(report: &RunReport) -> Outcome {
     Outcome::Exit(report.exit)
 }
 
+/// `warning: <notice>`, or `warning[V5118]: <rest>` for a notice that starts with its code.
+fn warning(notice: &str) -> String {
+    let coded = notice.split_once(": ").filter(|(code, _)| {
+        code.len() == 5 && code.starts_with('V') && code[1..].bytes().all(|byte| byte.is_ascii_digit())
+    });
+    coded.map_or_else(|| format!("warning: {notice}"), |(code, rest)| format!("warning[{code}]: {rest}"))
+}
+
 /// Prints the run's notices, and the seed of a failed run.
 pub fn notes(report: &RunReport) {
     for notice in &report.notices {
-        eprintln!("warning: {notice}");
+        eprintln!("{}", warning(notice));
     }
     if report.exit == 1 {
         eprintln!("seed {}: pass `--seed {}` to run with the same generated data", report.seed, report.seed);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::warning;
+
+    #[test]
+    fn a_warning_carries_the_code_its_notice_starts_with() {
+        assert_eq!(warning("V5118: plugin `report` failed: x"), "warning[V5118]: plugin `report` failed: x");
+        assert_eq!(warning("history: locked"), "warning: history: locked");
+        assert_eq!(warning("V51x8: odd"), "warning: V51x8: odd");
     }
 }

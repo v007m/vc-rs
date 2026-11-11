@@ -15,6 +15,7 @@ use vc_model::{
 
 use crate::agent_gate::{Gated, call_reach};
 use crate::call_report::CallReport;
+use crate::examples::Draw;
 use crate::explain::did_you_mean;
 use crate::history::Recording;
 use crate::plan::{self, Prepared, profile_flag};
@@ -92,7 +93,8 @@ impl Engine {
             Arc::make_mut(&mut program).config.defaults.timeout = Some(timeout);
         }
         let (profiles, names) = plan::profiles(&program, settings.profiles.as_ref())?;
-        Ok(Prepared { program, plan: Arc::default(), settings, profiles, names, notices, environment, dot_env })
+        let (plan, draw) = (Arc::default(), Draw::new(None));
+        Ok(Prepared { program, plan, settings, profiles, names, notices, environment, dot_env, draw })
     }
 
     /// The history entry of the call, or `None` and a notice that it is not recorded.

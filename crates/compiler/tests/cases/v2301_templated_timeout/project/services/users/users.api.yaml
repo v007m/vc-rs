@@ -1,0 +1,4 @@
+apis:
+  - id: getUser
+    path: /users/1
+    timeout: ${var.t}

@@ -1,5 +1,5 @@
-//! One action, with the test-level defaults a step inherits (D124) and its checks merged over
-//! the api's (D123).
+//! One action, with the test-level defaults a `call` step inherits (D124, D270) and its checks
+//! merged over the api's (D123).
 
 use vc_model::{
     Action, ActionKind, ApiId, AuthRef, BodySpec, CacheSpec, Expect, Origin, Owner, Poll, SaveSpec, TestId, VarDefs,
@@ -12,6 +12,9 @@ use crate::link::project;
 use crate::link::project::Source;
 use crate::shapes;
 
+/// What a step sends, checks and polls for.
+type Sent = (Request, Expect, Option<Poll>);
+
 /// The test a step takes its defaults from, and its node.
 pub type Defaults<'n> = Option<(TestId, &'n Node)>;
 
@@ -20,7 +23,7 @@ pub struct Place<'n> {
     /// Who owns its results.
     pub owner: Owner,
     /// The test whose `auth`, `headers`, `query`, `body`, `poll` and `expect` are this step's
-    /// defaults (D124).
+    /// defaults when it is a `call` (D124); a `test:` step runs the reused test as written (D270).
     pub defaults: Defaults<'n>,
     /// Set when the node is a test with `call`: its vars, checks, retry and repeat belong to the
     /// test.
@@ -28,6 +31,7 @@ pub struct Place<'n> {
 }
 
 /// The request parts an action sends over the api's.
+#[derive(Default)]
 struct Request {
     auth: Option<AuthRef>,
     headers: indexmap::IndexMap<String, vc_model::Template>,
@@ -41,10 +45,8 @@ impl<'a> Build<'_, 'a> {
         let Some(kind) = self.kind(source, node)? else { return Ok(None) };
         let cache = self.cache(source, node, place.owner)?;
         let origin = place.test.map_or(self.builder.next_action().map(Origin::Action)?, Origin::Test);
-        let defaults = place.defaults.filter(|_| matches!(kind, ActionKind::Call(_) | ActionKind::Test(_)));
-        let request = self.request(source, node, defaults.map(|(_, test)| test))?;
-        let expect = self.checks(source, (node, &kind), (origin, defaults));
-        let poll = node.get("poll").or_else(|| defaults.and_then(|(_, test)| test.get("poll")));
+        let defaults = place.defaults.filter(|_| matches!(kind, ActionKind::Call(_)));
+        let (request, expect, poll) = self.sent(source, (node, &kind), (origin, defaults))?;
         let vars = if place.test.is_some() { VarDefs::default() } else { self.vars(source, node)? };
         let id = project::text(node, "id").filter(|_| place.test.is_none()).map(|id| self.sym(id)).transpose()?;
         Ok(Some(Action {
@@ -58,7 +60,7 @@ impl<'a> Build<'_, 'a> {
             body: request.body,
             expect,
             save: SaveSpec { values: self.values(source, node.get("save"))? },
-            poll: poll.and_then(|poll| poll_of(source, poll, origin)),
+            poll,
             retry: read::retry(source, node).filter(|_| place.test.is_none()),
             timeout: read::duration(source, node, "timeout").filter(|_| place.test.is_none()),
             keep: read::flag(shapes::action(), node, "keep"),
@@ -100,6 +102,23 @@ impl<'a> Build<'_, 'a> {
         Ok(Some(CacheSpec { ttl, check }))
     }
 
+    /// What the step sends, checks and polls for. A `test:` step has none of it: it runs the
+    /// reused test as written (D270), and V3207 reports the keys it ignores.
+    fn sent(
+        &mut self,
+        source: &Source<'a>,
+        (node, kind): (&Node, &ActionKind),
+        (origin, defaults): (Origin, Defaults<'_>),
+    ) -> Built<Sent> {
+        if matches!(kind, ActionKind::Test(_)) {
+            return Ok((Request::default(), Expect::default(), None));
+        }
+        let request = self.request(source, node, defaults.map(|(_, test)| test))?;
+        let expect = self.checks(source, (node, kind), (origin, defaults));
+        let poll = node.get("poll").or_else(|| defaults.and_then(|(_, test)| test.get("poll")));
+        Ok((request, expect, poll.and_then(|poll| poll_of(source, poll, origin))))
+    }
+
     /// The step's own request parts, over the test's defaults; headers and query merge by name.
     fn request(&mut self, source: &Source<'a>, node: &Node, defaults: Option<&Node>) -> Built<Request> {
         let auth = match self.auth(source, node)? {
@@ -116,8 +135,8 @@ impl<'a> Build<'_, 'a> {
         Ok(Request { auth, headers: merged("headers"), query: merged("query"), body })
     }
 
-    /// The api's checks, then the test's defaults, then the action's own (D123); a `test:` step
-    /// has no api, and a `function` or `command` step only its own.
+    /// The api's checks, then the test's defaults, then the action's own (D123); a `function`,
+    /// `command` or inline step has only its own.
     fn checks(
         &self,
         source: &Source<'_>,
@@ -127,8 +146,9 @@ impl<'a> Build<'_, 'a> {
         let own = expect::read(source, node.get("expect"), origin);
         let api = match kind {
             ActionKind::Call(api) => self.api_expects.get(api),
-            ActionKind::Test(_) => None,
-            ActionKind::Function(_) | ActionKind::Command(_) | ActionKind::Inline(_) => return own,
+            ActionKind::Test(_) | ActionKind::Function(_) | ActionKind::Command(_) | ActionKind::Inline(_) => {
+                return own;
+            }
         };
         let test = defaults.map(|(id, test)| expect::read(source, test.get("expect"), Origin::Test(id)));
         let empty = Expect::default();

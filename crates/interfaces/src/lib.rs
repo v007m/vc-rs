@@ -85,7 +85,7 @@ pub use action_cache::{CacheEntry, CacheKey, CacheListing, CacheStore, CacheStor
 pub use agent_log::{AgentActionLog, AgentActionReader, LoggedAction};
 pub use approvals::{
     AgentAction, AgentActionWriter, Approval, ApprovalError, ApprovalId, ApprovalRequest, ApprovalStatus, Approvals,
-    Decision, StandingRule, Verdict,
+    Decided, Decision, StandingRule, Verdict,
 };
 pub use auth::{ActionRunner, AuthError, AuthProvider, AuthRequest, Credentials};
 pub use browser::{Browser, BrowserError};

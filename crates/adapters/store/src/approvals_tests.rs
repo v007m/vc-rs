@@ -1,11 +1,18 @@
+use std::iter;
 use std::time::{Duration, Instant};
 
 use tempfile::TempDir;
+use tokio::sync::mpsc::{UnboundedSender, unbounded_channel};
 use vc_interfaces::{ApprovalRequest, ApprovalStatus, Approvals, Decision, Verdict};
 use vc_model::Method;
 use vc_testkit::{agent_action_reader_suite, agent_action_writer_suite, approvals_suite};
 
 use super::SqliteApprovals;
+
+/// More file events than a 2s wait nothing ends makes: about 10, for the WAL files its first
+/// look makes and its expiry. One that opened a connection per look made and removed those
+/// files at every look, woke on that, and made 600 to 2000.
+const LIMIT: usize = 100;
 
 /// A queue in a fresh history in a directory `dirs` keeps alive.
 fn fresh(dirs: &mut Vec<TempDir>) -> SqliteApprovals {
@@ -70,10 +77,50 @@ async fn a_decision_from_another_process_ends_the_wait_at_once() {
     let person = agent.clone();
     let decided = std::thread::spawn(move || {
         std::thread::sleep(Duration::from_millis(100));
-        person.decide(&Decision { id, verdict: Verdict::Approve, by: "sam".into() })
+        person.decide(&Decision { id, verdict: Verdict::Approve, by: "sam".into() }).map(|decided| decided.status)
     });
     let started = Instant::now();
     assert_eq!(agent.wait(id, Duration::from_secs(30)).await, Ok(ApprovalStatus::Approved));
     assert!(started.elapsed() < Duration::from_secs(10), "{:?}", started.elapsed());
+    assert_eq!(decided.join().unwrap(), Ok(ApprovalStatus::Approved));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_wait_nothing_ends_does_not_keep_waking_itself() {
+    let mut dirs = Vec::new();
+    let agent = fresh(&mut dirs);
+    let id = agent.create(&request()).unwrap();
+    let (seen, mut events) = unbounded_channel();
+    let _watching = agent.watch(seen).unwrap();
+    assert_eq!(agent.wait(id, Duration::from_secs(2)).await, Ok(ApprovalStatus::Expired));
+    let count = iter::from_fn(|| events.try_recv().ok()).count();
+    assert!(count < LIMIT, "{count} file events in a 2s wait: its own looks kept waking it");
+}
+
+/// A watcher as slow to start as the macOS file event service was in a full gates run.
+const SLOW_WATCH: Duration = Duration::from_secs(6);
+
+/// Its runtime shuts down in the background, so the test does not wait for the slow watcher.
+#[test]
+fn a_decision_ends_the_wait_while_its_watcher_is_still_starting() {
+    let mut dirs = Vec::new();
+    let agent = fresh(&mut dirs);
+    let id = agent.create(&request()).unwrap();
+    let person = agent.clone();
+    let decided = std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_millis(100));
+        person.decide(&Decision { id, verdict: Verdict::Approve, by: "sam".into() }).map(|decided| decided.status)
+    });
+    let slow = |_: UnboundedSender<()>| {
+        std::thread::sleep(SLOW_WATCH);
+        None::<()>
+    };
+    let runtime = tokio::runtime::Runtime::new().unwrap();
+    let started = Instant::now();
+    let waited = runtime.block_on(agent.wait_watched((id, Duration::from_secs(30)), slow));
+    let elapsed = started.elapsed();
+    runtime.shutdown_background();
+    assert_eq!(waited, Ok(ApprovalStatus::Approved));
+    assert!(elapsed < SLOW_WATCH / 2, "the wait waited for its watcher: {elapsed:?}");
     assert_eq!(decided.join().unwrap(), Ok(ApprovalStatus::Approved));
 }

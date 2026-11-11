@@ -65,7 +65,7 @@ plugins:
 **Files changed after approval.** Someone edited the installed copy of a `path:` plugin. The run refuses it on its first call:
 
 ```console
-warning: cannot write the `summary` report: plugin `summary` could not start: V5118: its installed files changed since vibranium.lock approved them: write state to $VIB_PLUGIN_DATA; re-approve with `vc plugin add` if the change was intended
+warning[V5118]: cannot write the `summary` report: plugin `summary` could not start: V5118: its installed files changed since vibranium.lock approved them: write state to $VIB_PLUGIN_DATA; re-approve with `vc plugin add` if the change was intended
 ```
 
 **The manifest asks for more than the lock grants.** A new secret was added to `permissions`:

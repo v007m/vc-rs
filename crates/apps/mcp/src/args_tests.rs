@@ -1,6 +1,6 @@
 use serde_json::json;
 
-use super::{count, flag, optional_text, pairs, text, texts};
+use super::{count, flag, known, optional_text, pairs, text, texts};
 use crate::fixture::args;
 
 fn reason<T: std::fmt::Debug>(result: Result<T, crate::McpError>) -> String {
@@ -42,4 +42,19 @@ fn an_object_argument_becomes_name_value_pairs() {
     assert_eq!(pairs(&given, "vars").unwrap(), ["name=Ada", "userId=7"]);
     assert_eq!(pairs(&given, "absent").unwrap(), Vec::<String>::new());
     assert_eq!(reason(pairs(&given, "bad")), "argument `bad`: must be an object of names to values");
+}
+
+#[test]
+fn an_argument_the_schema_does_not_name_is_refused_naming_those_it_does() {
+    let schema = json!({"type": "object", "properties": {"ids": {}, "tags": {}}});
+    assert!(known(&schema, &args(json!({"ids": ["a"], "tags": null}))).is_ok());
+    assert_eq!(
+        reason(known(&schema, &args(json!({"ids": [], "select": "people.listing"})))),
+        "argument `select`: is not one this tool takes; it takes `ids`, `tags`"
+    );
+    let bare = json!({"type": "object", "properties": {}});
+    assert_eq!(
+        reason(known(&bare, &args(json!({"bogus": 1})))),
+        "argument `bogus`: is not one this tool takes; it takes none"
+    );
 }

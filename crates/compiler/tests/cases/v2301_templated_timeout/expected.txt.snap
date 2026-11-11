@@ -1,0 +1,31 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2301_templated_timeout/project
+---
+error[V2301]: a duration cannot be a template: `${var.t}`
+ --> services/users/crud.test.yaml:4:14
+  |
+4 |     timeout: ${var.t}
+  |              ^^^^^^^^
+  = help: write it out, such as `2s`
+
+error[V2301]: a duration cannot be a template: `${var.t}`
+ --> services/users/crud.test.yaml:8:18
+  |
+8 |         timeout: ${var.t}
+  |                  ^^^^^^^^
+  = help: write it out, such as `2s`; to change the default timeout per run, use `--set defaults.timeout=10s` or `VIB_DEFAULTS_TIMEOUT`
+
+error[V2301]: a duration cannot be a template: `${var.t}`
+ --> services/users/users.api.yaml:4:14
+  |
+4 |     timeout: ${var.t}
+  |              ^^^^^^^^
+  = help: write it out, such as `2s`; to change the default timeout per run, use `--set defaults.timeout=10s` or `VIB_DEFAULTS_TIMEOUT`
+
+error[V2301]: a duration cannot be a template: `${var.t}`
+ --> vibranium.config.yaml:9:12
+  |
+9 |   timeout: ${var.t}
+  |            ^^^^^^^^
+  = help: write it out, such as `2s`; to change the default timeout per run, use `--set defaults.timeout=10s` or `VIB_DEFAULTS_TIMEOUT`

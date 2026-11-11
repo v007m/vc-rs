@@ -7,6 +7,7 @@ use vc_engine::{ListKind, ListRequest};
 use crate::Outcome;
 use crate::project;
 use crate::select::SelectArgs;
+use crate::stdout;
 
 /// What `vc list` lists.
 #[derive(Clone, Copy, ValueEnum)]
@@ -56,7 +57,7 @@ pub fn run(args: &ListArgs, project: Option<&Path>) -> anyhow::Result<Outcome> {
     for notice in &report.notices {
         eprintln!("warning: {notice}");
     }
-    let mut out = std::io::stdout().lock();
+    let mut out = stdout::out();
     if args.json {
         writeln!(out, "{:#}", report.json())?;
     } else {

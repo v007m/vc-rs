@@ -65,9 +65,9 @@ Every dynamic value is written `${namespace.path}`; `vc check` resolves each ref
 | `iteration` | `index` (from 1) and `count` in a `repeat` or `forEach` loop, or a repeated test | `${iteration.index}` |
 | `fake` | Generated data (see Generators and datasets) | `${fake.location.city}` |
 | `dataset` | One of your datasets: its whole list of rows (see Generators and datasets) | `${dataset.capitals}` |
-| `run` | `id`, `startedAt`, `profiles` | `${run.id}` |
+| `run` | `id` (the history run number, 0 when unrecorded), `startedAt` (RFC 3339 in UTC), `profiles` | `${run.id}` |
 
-Where each root is available (D125): `response` and `request` exist only once a call has been made (in `expect`, `save`, `poll` and an api's `cleanup`); `item` only inside `forEach`; `iteration` only inside `repeat`, `forEach` or a repeated test; `example` only in a test with `examples`; an action or step id only after that action, in the same test or block. `var`, `env`, `secret`, `fake`, `dataset` and `run` are available everywhere. There are no shorthands: write `response.status`, `response.headers` and `response.body`, in `expect` too. A bare `status`, `headers` or `body` that is not a step id is V2105, with a fix that inserts `response.` (D150). Using a root where it is not available is V2105 (`${item}` outside `forEach`, `${example}` without `examples` and `${iteration}` outside a loop are V2102) (D125, D137).
+Where each root is available (D125): `response` and `request` exist only once a call has been made (in `expect`, `save`, `poll` and an api's `cleanup`); `item` only inside `forEach`; `iteration` only inside `repeat`, `forEach` or a repeated test; `example` only in a test with `examples`; an action or step id only after that action, in the same test or block. `var`, `env`, `secret`, `fake`, `dataset` and `run` are available everywhere, except in an `examples` written as one template (`examples: ${…}`): it is read once before the run starts, so it reads only `var`, `env` and `dataset`, and any other root there is V2105. Inline rows are rendered per instance and may read every root. There are no shorthands: write `response.status`, `response.headers` and `response.body`, in `expect` too. A bare `status`, `headers` or `body` that is not a step id is V2105, with a fix that inserts `response.` (D150). Using a root where it is not available is V2105 (`${item}` outside `forEach`, `${example}` without `examples` and `${iteration}` outside a loop are V2102) (D125, D137).
 
 Paths: after a namespace, and as keys under `expect.body.match`, paths use dotted names, `[n]` for an index (negative counts from the end), `[*]` for every element, and quotes for unusual keys (`headers["x-request-id"]` or `['x-request-id']`; quoted keys and text arguments have no escapes). Arguments to pipes and generators are numbers written as in JSON (`-2`, `0.5`, `1e3`, without leading zeros), `true`, `false` and single-quoted text (`default('none')`); `null` and double-quoted text are V2305 (D151). Filtering is done with CEL.
 
@@ -506,14 +506,14 @@ Each item in `tests`:
 | `expect` | checks | the api's `expect` | Merged with the api's checks (see Checks and matchers) |
 | `save` | map of templates over `response` | — | Name values for later steps, `after` and `afterEach`; with `steps`, reads the last step's response (D124) |
 | `poll` | `until`, `every`, `timeout` | none: all three are required (D156) | Re-send until `until` (checks) holds, then check `expect` |
-| `examples` | list of maps, or `$file` | — | One test instance per row; values in `${example.*}` |
+| `examples` | list of maps, `$file`, or one template giving a list of maps | — | One test instance per row; values in `${example.*}`. A template is read once before the run, from `var`, `env` and `dataset` only. A run skips a test given no rows, with a warning |
 | `repeat` | integer | `1` | Run the whole test this many times, each reported as its own instance |
 | `retry` | `attempts`, `delay` | `defaults.retry` | Re-run the whole test instance after a failure, cleanups included; a pass after a failure is reported as flaky (D126) |
 | `timeout` | duration | per-request timeout × calls | Whole-test limit, per attempt. `after` and `afterEach` actions are outside it: one with its own `timeout` is limited by that, one without only by its requests' timeouts |
 | `skip` | a reason, or reason and until | — | Skip with a reason, optionally until a date; reported as skipped (see Skipping) |
 | `standalone` | boolean | `true` | `false`: runs only when reused with `test:`, never on its own |
 
-With `steps`, the test-level `auth`, `headers`, `query`, `body`, `poll` and `expect` are defaults for every `call` and `test:` step, and a step's own value wins; `function` and `command` steps take none (D124). A test-level `save` reads the last step's response. `vc check` warns when a `body` default reaches a `GET` or `HEAD` step (V3205) and when no step uses a default (V3206).
+With `steps`, the test-level `auth`, `headers`, `query`, `body`, `poll` and `expect` are defaults for every `call` step, and a step's own value wins; `test:`, `function` and `command` steps take none (D124). A `test:` step runs the reused test as written, so neither the defaults nor those keys written on the step itself reach its calls (D270). A test-level `save` reads the last step's response. `vc check` warns when a `body` default reaches a `GET` or `HEAD` step (V3205), when no step uses a default (V3206), and when a `test:` action has one of those keys (V3207).
 
 ```yaml
   - id: renamesUser
@@ -645,7 +645,7 @@ An action is one entry in a lifecycle block or in a test's `steps`. Most actions
 | Action | Does | Use it for |
 | --- | --- | --- |
 | `call: <api>` | Calls an api with its base URL, auth, checks, saves and cleanup | Almost everything |
-| `test: <test>` | Runs another test's calls in order, each with its api's checks; that test's own test-level `expect` is not checked | A multi-step flow that already exists as a test (see Reusing a multi-step flow) |
+| `test: <test>` | Runs another test as written: its calls in order, each with its api's checks and that test's own test-level `expect` (D270) | A multi-step flow that already exists as a test (see Reusing a multi-step flow) |
 | `function: path#export` | Runs a function from a code file | Work no api does: seeding a database, reading a mailbox; it may return an object whose fields are saved |
 | `command: <shell command>` | Runs a command through `sh -c` (`cmd /C` on Windows) in the project root; a non-zero exit fails the action (V5110), and its output is attached to the report (details below) | Starting services, `docker compose up -d --wait` |
 
@@ -834,7 +834,7 @@ beforeRun:
 
 ### Reusing a multi-step flow
 
-Most blocks call apis directly. When the data takes several calls that already exist together as a test, `test:` runs that test's calls instead of repeating them. Its saved values arrive as if the calls were written in place (under the action's `id` in shared blocks), its test-level `expect` is not checked, and its apis' cleanups are registered as usual. A test meant only for reuse has `standalone: false`, so it never runs or appears in reports on its own.
+Most blocks call apis directly. When the data takes several calls that already exist together as a test, `test:` runs that test's calls instead of repeating them. Its saved values arrive as if the calls were written in place (under the action's `id` in shared blocks), its test-level `expect` is checked as when it runs on its own (D270), and its apis' cleanups are registered as usual. A test meant only for reuse has `standalone: false`, so it never runs or appears in reports on its own.
 
 ```yaml
 # services/shared/flows.test.yaml
@@ -1215,7 +1215,9 @@ beforeAll:
 Rules:
 
 - Large datasets can be trimmed with pipes: `${dataset.capitals | take(10)}` keeps the first ten rows, and `${dataset.capitals | shuffle | take(10)}` keeps ten random ones.
-- `random` and `shuffle` follow `--seed`, so a run can be repeated exactly.
+- `random` and `shuffle` follow `--seed`, so a run can be repeated exactly. Each test's rows draw from the seed and the test's full ID alone, so a seed gives a test the same rows whatever else the run selects, and `--failed --seed` re-runs a failed row against the same data.
+- `examples: ${…}` is read once before the run starts, under the run's profiles and `--set`, so a profile can choose the rows (`examples: ${var.rows}`). It is read only for the tests the run selects and does not skip. It reads only `var`, `env` and `dataset`, as do the vars it reads, followed as the rows render them (the test's vars, its file's, then the config's): `vc check` reports V2105 for the definitions written without a profile, and a var a profile defines is checked when a run starts under that profile, with the same V2105. A var only a save sets has no value yet, so reading it is V2105 too; a read with `default` (`${var.seeded | default([])}`) gives its default instead, but a var defined in `vars` is still followed. Inside a var `examples` follows, `${secret.ROWS | default('[]')}` gives its default too, since no secret is loaded before the run; `examples: ${secret.ROWS | default('[]')}` written directly is still V2105, and a response, `run`, `item`, `iteration` or `example` read with `default` is V2105 either way, since it has no value at all before the run. A `$file` in `examples` holds only its path (any other key is V1004), written as it is; one holding a template is V2105. Rows that are not a list of maps stop the run with V5111.
+- A test whose `examples` give no rows (`examples: []`, an empty file or dataset, or a template that keeps none) is skipped with the reason "examples gave no rows", and a run warns about it, so it is never passed over without a trace; `vc list` shows `examples: []` as skipped. Selecting one of its rows (`id:n`, or a `--failed` rerun) is still a selection error. `vc list` renders no rows, so it lists a test whose rows come from a template or file as one instance.
 - CSV cells are text: convert with a pipe (`${item.population | int}`), or use JSON or YAML when the data has types.
 - A dataset is read once per run and never changed by it.
 - `examples` and `forEach` may also read a file next to the test: `examples: { $file: rows.yaml }`.
