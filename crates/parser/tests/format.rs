@@ -101,3 +101,13 @@ fn refuses_to_lose_a_comment_before_a_flow_collection_closes() {
     let text = "name: x\ntags: [a,\n  # why\n]\n";
     assert!(matches!(format(text, false), Err(ParserError::Unformattable(_))));
 }
+
+#[test]
+fn drops_the_quotes_a_key_does_not_need() {
+    let text =
+        "name: x\nbody: {text: \"hi\", \"pinned\": true, 'a b': 1, \"[*].id\": 2, \"200\": 3}\nstatus: {200: ok}\n";
+    let tidy =
+        "name: x\nbody:\n  text: hi\n  pinned: true\n  a b: 1\n  \"[*].id\": 2\n  \"200\": 3\nstatus:\n  200: ok\n";
+    assert_eq!(format(text, false), Ok(tidy.to_owned()));
+    assert_eq!(format(tidy, false), Ok(tidy.to_owned()), "formatting twice changes nothing");
+}

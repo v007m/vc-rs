@@ -60,7 +60,7 @@ Case matters. `" TRUE "` fails with `` the text is not `true` or `false` ``.
 
 - A boolean passes through unchanged.
 - Only lowercase `true` and `false` convert. `yes`, `1` and `TRUE` fail.
-- A number fails at run time.
+- A var known to be a number is V2304 at check time: ``pipe `bool` takes text or a boolean, not a number``. A number known only at run time fails there.
 
 ## Common errors
 
@@ -69,7 +69,7 @@ Case matters. `" TRUE "` fails with `` the text is not `true` or `false` ``.
 | `"abc"` | `` pipe `bool` cannot take "abc": the text is not `true` or `false` `` |
 | `5` | `` pipe `bool` cannot take 5: it takes `true` or `false` `` |
 
-- [V2304](/vc-rs/reference/diagnostics/v2304/): the input is known to be a list or an object.
+- [V2304](/vc-rs/reference/diagnostics/v2304/): the input is known to be a list, an object or a number.
 - [V2308](/vc-rs/reference/diagnostics/v2308/): an unknown pipe name, or the wrong number of arguments.
 - [V5111](/vc-rs/reference/diagnostics/v5111/): the text is not `true` or `false`, or the input is a number.
 

@@ -6,7 +6,7 @@ sidebar:
   badge: { text: 'api + test', variant: 'note' }
 ---
 
-import { Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+import { Tabs, TabItem } from '@astrojs/starlight/components';
 import Playground from '~/components/Playground.svelte';
 
 Every api and test has a camelCase `id`. Its file has an ID too, taken from its path. Together they make the full ID, `<fileId>#<id>`, which is how you call, select and report on anything.
@@ -135,11 +135,7 @@ tests:
 - **File IDs must be unique across the project.** `services/prec/saveon.api.yaml` and `services/prec/saveon.test.yaml` both have the ID `prec.saveon`, which is error V2001. Rename one.
 - **The `id:` key at the top of a file is optional.** If you write it, it must match the path, or `vc check` reports V2007 with a certain fix.
 - **Some words are reserved.** An item cannot be called `var`, `env`, `secret`, `response`, `request`, `example`, `item`, `iteration`, `fake`, `dataset` or `run` (V2006). These are template roots, so a step with that ID would be ambiguous.
-- **Naming is linted.** `vc check` warns when a test ID (V4001) or an api ID (V4002) is not camelCase, and `vc check --fix` renames it and every reference.
-
-<Aside type="caution">
-Today V4001 and V4002 only check that an ID is camelCase. A camelCase test ID that is not a third-person verb, such as `getUser`, passes without a warning. Follow the convention anyway: reports read better.
-</Aside>
+- **Naming is linted.** `vc check` warns when a test ID is not a camelCase third-person verb (V4001: `getUser` and `userTest` warn, `getsUser` does not) or an api ID is not camelCase (V4002). `vc check --fix` renames the item and every reference: a test from its `name`, or, when the name does not give a good ID, with its first word conjugated, which `--fix` asks about first. A plural noun such as `usersList` reads as a verb and is not flagged.
 
 ## Common errors
 

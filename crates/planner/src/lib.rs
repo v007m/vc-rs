@@ -26,5 +26,5 @@ pub use draws::generates;
 pub use error::PlanError;
 pub use expand::NO_ROWS;
 pub use options::{PlanOptions, Selection};
-pub use render::{action_label, check_lines, dot, explain, json, plan_line, tree};
+pub use render::{action_label, check_lines, dot, explain, json, plan_line, shown_check_lines, tree};
 pub use select::{closest, select_apis, select_files};

@@ -44,6 +44,20 @@ async fn defaults_retry_applies_unless_the_test_writes_its_own() {
     assert_eq!(server.stats().await.unwrap().count("GET /flaky"), 3);
 }
 
+/// `--set defaults.retry.attempts=1` retries a test the project gives no `retry`.
+#[tokio::test(flavor = "multi_thread")]
+async fn set_defaults_retry_retries_a_test_without_its_own() {
+    let server = MockServer::start().await.unwrap();
+    let test = "tests:\n  - id: passesOnTheRetry\n    call: scripted#flaky\n    expect: {status: 200}\n";
+    let project = Project::new(&[CONFIG, SCRIPTED, ("services/scripted/flaky.test.yaml", test)]);
+    let args = ["--set", "defaults.retry.attempts=1", "--set", "defaults.retry.delay=10ms", "--reporter", "json"];
+    let output = project.run(&server.base_url(), &args).assert().code(0).get_output().clone();
+    let events = events(&output.stdout);
+    let finished = of_kind(&events, "testFinished");
+    assert_eq!((&finished[0]["status"], &finished[0]["attempts"]), (&"flaky".into(), &2.into()), "{events:#?}");
+    assert_eq!(server.stats().await.unwrap().count("GET /flaky"), 2);
+}
+
 #[tokio::test(flavor = "multi_thread")]
 async fn a_poll_resends_until_its_check_holds() {
     let server = MockServer::start().await.unwrap();
@@ -53,6 +67,23 @@ async fn a_poll_resends_until_its_check_holds() {
     let project = Project::new(&[CONFIG, SCRIPTED, ("services/scripted/poll.test.yaml", test)]);
     project.run(&server.base_url(), &[]).assert().code(0);
     assert_eq!(server.stats().await.unwrap().count("GET /poll/{id}"), 3, "pending, pending, done");
+}
+
+/// A poll that gives up still reports what the server last answered, so the events show why.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_poll_that_gives_up_reports_its_last_exchange() {
+    let server = MockServer::start().await.unwrap();
+    let test = "tests:\n  - id: givesUp\n    call: scripted#poll\n    query: {after: '1000'}\n\
+                \x20   poll: {until: {body: {match: {status: done}}}, every: 10ms, timeout: 100ms}\n";
+    let project = Project::new(&[CONFIG, SCRIPTED, ("services/scripted/poll.test.yaml", test)]);
+    let output = project.run(&server.base_url(), &["--reporter", "json"]).assert().code(1).get_output().clone();
+    let events = events(&output.stdout);
+    let exchanged = of_kind(&events, "exchanged");
+    assert_eq!(exchanged.len(), 1, "{events:#?}");
+    assert_eq!(exchanged[0]["status"], 200, "{events:#?}");
+    assert!(exchanged[0]["url"].as_str().is_some_and(|url| url.contains("/poll/job?after=1000")), "{events:#?}");
+    let sent = server.stats().await.unwrap().count("GET /poll/{id}");
+    assert!(sent > 1, "it polled more than once, and reported only the last: {sent}");
 }
 
 /// The iterations finish out of order, but what they save is in iteration order.

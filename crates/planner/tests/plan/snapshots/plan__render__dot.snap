@@ -1,14 +1,15 @@
 ---
 source: crates/planner/tests/plan/render.rs
-expression: "dot(&program, &plan)"
+expression: "vc_planner::dot(&program, &plan)"
 ---
 digraph plan {
   rankdir=LR;
-  a0 [label="warm"];
-  a1 [label="cold"];
+  a0 [label="beforeRun warm"];
+  a1 [label="beforeRun cold"];
+  a0 -> a1 [style=dashed];
   subgraph cluster_0 {
     label="orders.checkout";
-    a4 [label="prime"];
+    a4 [label="beforeAll prime"];
     i0 [label="orders.checkout#paysOrder"];
     i1 [label="orders.checkout#voidsOrder"];
   }
@@ -16,7 +17,8 @@ digraph plan {
   i0 -> a4;
   subgraph cluster_1 {
     label="users.crud";
-    a8 [label="seed"];
+    a8 [label="beforeAll seed"];
+    a9 [label="beforeEach call users#list"];
     i2 [label="users.crud#listsUsers [repeat 1]"];
     i3 [label="users.crud#listsUsers [repeat 2]"];
     i4 [label="users.crud#createsUser"];
@@ -24,4 +26,20 @@ digraph plan {
   }
   i4 -> a8;
   i5 -> a0;
+  a2 [label="afterRun bye"];
+  a1 -> a4 [style=dashed];
+  a4 -> i0 [style=dashed];
+  a4 -> i1 [style=dashed];
+  i0 -> a2 [style=dashed];
+  i1 -> a2 [style=dashed];
+  a1 -> a8 [style=dashed];
+  a8 -> a9 [style=dashed];
+  a9 -> i2 [style=dashed];
+  a9 -> i3 [style=dashed];
+  a9 -> i4 [style=dashed];
+  a9 -> i5 [style=dashed];
+  i2 -> a2 [style=dashed];
+  i3 -> a2 [style=dashed];
+  i4 -> a2 [style=dashed];
+  i5 -> a2 [style=dashed];
 }

@@ -1,0 +1,13 @@
+vars:
+  yes: true
+  count: 5
+  word: "7"
+apis:
+  - id: listUsers
+    path: /users
+    query:
+      a: ${var.yes | number}
+      b: ${var.yes | int}
+      c: ${var.count | bool}
+      d: ${var.word | int}
+      e: ${var.word | bool}

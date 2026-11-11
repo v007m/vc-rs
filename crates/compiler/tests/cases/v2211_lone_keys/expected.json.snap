@@ -1,0 +1,57 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2211_lone_keys/project
+---
+{
+  "summary": {
+    "errors": 2,
+    "warnings": 0,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "code": "V2211",
+      "severity": "error",
+      "message": "`abortOn` names `p95`, which has no threshold",
+      "primary": {
+        "span": {
+          "path": "load/users/browse.load.yaml",
+          "line": 13,
+          "column": 27,
+          "endLine": 13,
+          "endColumn": 30
+        },
+        "text": "never breached"
+      },
+      "secondary": [],
+      "notes": [
+        "a run stops early only when a threshold on the metric is breached"
+      ],
+      "help": [
+        "add a threshold such as `thresholds: {p95: {lt: …}}`, or remove `p95` from `abortOn`"
+      ],
+      "fixes": []
+    },
+    {
+      "code": "V2211",
+      "severity": "error",
+      "message": "`parallel` on an action that does not loop",
+      "primary": {
+        "span": {
+          "path": "services/users/crud.test.yaml",
+          "line": 5,
+          "column": 9,
+          "endLine": 5,
+          "endColumn": 17
+        },
+        "text": "needs `repeat` or `forEach`"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "`parallel` sets how many iterations run at a time: add `repeat: 10` or `forEach`, or remove `parallel`"
+      ],
+      "fixes": []
+    }
+  ]
+}

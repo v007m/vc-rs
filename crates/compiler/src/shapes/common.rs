@@ -77,14 +77,14 @@ shape! {
 
 shape! {
     skip = Shape::new("skip", "Why and until when to skip", &[
-        types::key("reason", Ty::Text).required().doc("Shown in reports").example("flaky upstream, see #123"),
+        types::key("reason", Ty::Text).required().doc("Shown in reports").example("flaky upstream, see issue 123"),
         types::key("until", Ty::Date).doc("Last day of the skip; after it the test runs again and `vc check` warns (V3104)").example("2026-12-01"),
     ])
 }
 
 shape! {
     retry = Shape::new("retry", "Re-run the whole test instance after a failure (D126)", &[
-        types::key("attempts", Ty::Int).required().doc("Further attempts after the first").example("2"),
+        types::key("attempts", Ty::Int).required().min(0).doc("Further attempts after the first").example("2"),
         types::key("delay", Ty::Duration).default("0s").doc("Pause between attempts").example("1s"),
     ])
 }
@@ -144,9 +144,9 @@ shape! {
         types::key("command", Ty::Template).doc("A shell command to run").example("docker compose up -d --wait"),
         types::key("keep", Ty::Bool).default("false").doc("Skip the api's cleanup"),
         types::key("cache", Ty::Obj(cache)).doc("Reuse the saves across runs"),
-        types::key("repeat", Ty::Int).doc("Run the action this many times").example("10"),
+        types::key("repeat", Ty::Int).min(1).doc("Run the action this many times").example("10"),
         types::key("forEach", Ty::Value).doc("Run once per element of a list").example("${dataset.capitals}"),
-        types::key("parallel", Ty::Int).default("1").doc("Iterations at a time").example("5"),
+        types::key("parallel", Ty::Int).default("1").min(1).doc("Iterations at a time, with `repeat` or `forEach`").example("5"),
         types::key("provides", TEXTS).doc("Names a `function` or `test` action saves (D128)"),
     ])
     .mixins(&[request])
@@ -162,7 +162,7 @@ shape! {
 
 shape! {
     http_retry = Shape::new("httpRetry", "Transport retry of one request (D143)", &[
-        types::key("attempts", Ty::Int).default("0").doc("Further attempts; 0 is off").example("2"),
+        types::key("attempts", Ty::Int).default("0").min(0).doc("Further attempts; 0 is off").example("2"),
         types::key("on", Ty::List(&Ty::Either(&[Ty::Int, Ty::Enum(&["connect", "timeout"])])))
             .default("[connect, timeout, 502, 503, 504]").doc("Failures and statuses that are retried"),
         types::key("methods", Ty::List(&Ty::Enum(METHODS))).default("[GET, HEAD, OPTIONS, PUT, DELETE]")

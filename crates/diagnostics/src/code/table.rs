@@ -38,7 +38,7 @@ code_table! {
     V2001 = 2001, Error, "Duplicate ID";
     V2002 = 2002, Error, "Unknown auth, profile, dataset or generator";
     V2003 = 2003, Error, "Unknown api or test";
-    V2004 = 2004, Error, "`$file` or snapshot reference not found";
+    V2004 = 2004, Error, "`$file`, spec or snapshot reference not found";
     V2005 = 2005, Error, "Hook export not found";
     V2006 = 2006, Error, "Reserved ID";
     V2007 = 2007, Error, "File ID doesn't match its path";
@@ -52,6 +52,7 @@ code_table! {
     V2201 = 2201, Error, "Exactly one of `call` or `steps` needed";
     V2205 = 2205, Error, "Cycle through `test:` reuse";
     V2210 = 2210, Error, "Shared action saves values but has no `id`";
+    V2211 = 2211, Error, "A key that works only beside another one that is missing";
     V2301 = 2301, Error, "Invalid duration or size";
     V2302 = 2302, Error, "Wrong value type";
     V2303 = 2303, Error, "Invalid status code or class, or an empty status map or list";
@@ -60,6 +61,8 @@ code_table! {
     V2306 = 2306, Error, "Matcher argument invalid";
     V2308 = 2308, Error, "Unknown pipe or wrong pipe arguments";
     V2309 = 2309, Error, "fromRegExp pattern not supported";
+    V2310 = 2310, Error, "Invalid HTTP header name";
+    V2311 = 2311, Error, "Redact pattern does not compile";
     // V3xxx: lifecycle
     V3101 = 3101, Error, "No profile defined, or no active profile for this run";
     V3102 = 3102, Error, "More than one default profile";
@@ -78,6 +81,9 @@ code_table! {
     V4002 = 4002, Warning, "Api ID breaks the convention";
     V4003 = 4003, Warning, "File name or folder breaks the convention";
     V4004 = 4004, Warning, "Tag, profile or dataset name breaks the convention";
+    V4005 = 4005, Warning, "`baseUrl` ends in `/`, or a `path` does not start with one";
+    V4006 = 4006, Warning, "A `path` holds a `{name}` placeholder";
+    V4007 = 4007, Warning, "A value in a `path` ends in the `urlEncode` pipe, which a run applies already";
     // V5xxx: run time
     V5101 = 5101, Error, "Expectation failed";
     V5102 = 5102, Error, "CEL check false";
@@ -98,4 +104,5 @@ code_table! {
     V5117 = 5117, Warning, "An alert could not be sent";
     V5118 = 5118, Error, "A plugin failed, ran past its deadline or asked for what it was not granted";
     V5119 = 5119, Error, "A plugin cannot be confined to its permissions";
+    V5120 = 5120, Warning, "A run cannot use a plugin in the config";
 }

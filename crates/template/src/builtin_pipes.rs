@@ -10,9 +10,9 @@ const fn pipe(input: ValueType, output: ValueType, apply: run::PipeFn) -> PipeDe
 
 /// Each built-in pipe's name, signature and run-time function.
 pub const BUILTIN: &[(&str, PipeDef)] = &[
-    ("number", pipe(ValueType::Scalar, ValueType::Number, run::number)),
-    ("int", pipe(ValueType::Scalar, ValueType::Number, run::int)),
-    ("bool", pipe(ValueType::Scalar, ValueType::Bool, run::bool)),
+    ("number", pipe(ValueType::TextOrNumber, ValueType::Number, run::number)),
+    ("int", pipe(ValueType::TextOrNumber, ValueType::Number, run::int)),
+    ("bool", pipe(ValueType::TextOrBool, ValueType::Bool, run::bool)),
     ("string", pipe(ValueType::Any, ValueType::Text, run::string)),
     ("json", pipe(ValueType::Text, ValueType::Any, run::json)),
     ("jsonString", pipe(ValueType::Any, ValueType::Text, run::json_string)),

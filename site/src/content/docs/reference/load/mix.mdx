@@ -4,7 +4,6 @@ description: "The tests a load scenario runs, each with a weight that sets its s
 sidebar: { order: 3 }
 ---
 
-import { Aside } from '@astrojs/starlight/components';
 import Playground from '~/components/Playground.svelte';
 
 `mix` lists existing tests by full ID; each user picks the next test by weight.
@@ -21,9 +20,9 @@ mix:
 
 | Field | Type | Default | Required | Notes |
 | --- | --- | --- | --- | --- |
-| `mix` | list | — | yes | At least one entry with a weight above 0. |
+| `mix` | list | — | yes | At least one entry. |
 | `test` | full test ID, `<fileId>#<id>` | — | yes | Must name an existing test ([V2003](/vc-rs/reference/diagnostics/v2003/)). |
-| `weight` | whole number | — | yes | Relative share. Weights don't need to add up to anything. |
+| `weight` | whole number, at least 1 | — | yes | Relative share. Weights don't need to add up to anything. |
 | `thresholds` | metric → matcher | — | no | Like the scenario's [`thresholds`](/vc-rs/reference/load/thresholds/), but measured on this test's iterations only. |
 
 ## Examples
@@ -102,10 +101,7 @@ stages:
 
 - An iteration runs the whole test: its `before` actions and its call or steps. See [Lifecycle in load runs](/vc-rs/reference/load/lifecycle/).
 - By default only the apis' own `expect` decides whether an iteration failed. Set [`checks: full`](/vc-rs/reference/load/checks/) to use each test's `expect` too.
-
-<Aside type="caution">
-A mix whose weights are all `0` passes `vc check`, but `vc load` stops with `error: the mix has no test with a weight above 0` and exits 2. Give at least one test a weight of 1 or more.
-</Aside>
+- A weight below 1 is an error (`V2302`): a test with weight `0` would never run. Remove it from the mix instead.
 
 ## Common errors
 

@@ -40,6 +40,7 @@ mod strings;
 mod template;
 mod test;
 mod units;
+mod verbs;
 
 pub use agents::{AgentPolicy, WriteDefinitions};
 pub use alerts::{Alert, AlertChannel, AlertTrigger};
@@ -80,3 +81,4 @@ pub use template::{
 };
 pub use test::{Action, ActionKind, InlineRequest, Test, TestBody, TestFile};
 pub use units::{Duration, Size};
+pub use verbs::{is_third_person, third_person};

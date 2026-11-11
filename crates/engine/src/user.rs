@@ -13,6 +13,8 @@ const PROJECT: &[(&str, Sets)] = &[
     ("defaults.concurrency", |program| program.config.defaults.concurrency.is_some()),
     ("defaults.perHost", |program| program.config.defaults.per_host.is_some()),
     ("defaults.timeout", |program| program.config.defaults.timeout.is_some()),
+    ("defaults.retry.attempts", |program| program.config.defaults.retry.is_some()),
+    ("defaults.retry.delay", |program| program.config.defaults.retry.is_some()),
     ("reports.dir", |program| program.config.reports_dir.is_some()),
     ("reports.formats", |program| !program.config.report_formats.is_empty()),
 ];
@@ -66,7 +68,7 @@ mod tests {
     use super::UnderProject;
     use crate::EngineBuilder;
 
-    const CONFIG: &[u8] = b"syntaxVersion: 2\ndefaults: {timeout: 5s}\nvars: {userId: 1}\n\
+    const CONFIG: &[u8] = b"syntaxVersion: 2\ndefaults: {timeout: 5s, retry: {attempts: 1}}\nvars: {userId: 1}\n\
         profiles:\n  - id: dev\n    default: true\n    vars: {region: eu}\n";
 
     struct Layer(Vec<ConfigEntry>);
@@ -90,6 +92,8 @@ mod tests {
             ("profile", "prod"),
             ("defaults.timeout", "9s"),
             ("defaults.concurrency", "3"),
+            ("defaults.retry.attempts", "4"),
+            ("defaults.retry.delay", "1s"),
             ("vars.userId", "2"),
             ("vars.region", "us"),
             ("vars.mine", "x"),

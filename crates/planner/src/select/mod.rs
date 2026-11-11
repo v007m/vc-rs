@@ -31,6 +31,7 @@ pub fn select(program: &Program, selection: &Selection) -> Result<BTreeMap<TestI
     let candidates: Vec<_> = program.tests.values().map(|test| Candidate::new(program, test)).collect();
     let known = Known { files: names(program, program.test_files.keys()), items: "test or test file" };
     known.check(&positionals, &candidates)?;
+    positionals.iter().try_for_each(|positional| runnable(positional, &candidates))?;
     let picked = candidates.iter().filter(|candidate| filter.matches(candidate));
     let test = |candidate: &Candidate<'_>| if let Item::Test(test) = candidate.item { Some(test.id) } else { None };
     Ok(picked.filter_map(|candidate| Some((test(candidate)?, pick(&positionals, candidate)?))).collect())
@@ -109,6 +110,17 @@ fn pick(positionals: &[Positional], candidate: &Candidate<'_>) -> Option<Pick> {
         ordinals.entry(ordinal).or_insert_with(|| positional.text.clone());
     }
     (!ordinals.is_empty()).then_some(Pick::Ordinals(ordinals))
+}
+
+/// Fails when every test `positional` picks has `standalone: false`, so the run would plan none
+/// of them and say nothing of why.
+fn runnable(positional: &Positional, candidates: &[Candidate<'_>]) -> Result<(), PlanError> {
+    let mut matched = candidates.iter().filter(|candidate| positional.spec.matches(candidate)).peekable();
+    let Some(first) = matched.peek().map(|candidate| candidate.full_id) else { return Ok(()) };
+    if !matched.all(|candidate| matches!(candidate.item, Item::Test(test) if !test.standalone)) {
+        return Ok(());
+    }
+    Err(PlanError::ReuseOnly { selector: positional.text.clone(), test: first.to_owned() })
 }
 
 /// What a positional selector may name besides a candidate: the files that hold none, and what

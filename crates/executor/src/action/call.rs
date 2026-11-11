@@ -11,7 +11,7 @@ use vc_model::{
     Namespace, Origin, Program, SaveSpec, SourceSpan, StatusPattern,
 };
 
-use super::flight::Flight;
+use super::flight::{Flight, Halted};
 use super::hooks::{self, HookBridge};
 use super::request;
 use super::{ActionExecutor, ActionRequest};
@@ -52,7 +52,7 @@ impl CallExecutor {
         Self { parts, matchers: Arc::new(MatcherRegistry::standard()) }
     }
 
-    async fn call(&self, request: &ActionRequest) -> Result<ActionReport, Failure> {
+    async fn call(&self, request: &ActionRequest) -> Result<ActionReport, Halted> {
         let action =
             request.cx.action(request.action).ok_or_else(|| Failure::new("the action is not in the program"))?;
         let api = called(&request.cx.program, action)
@@ -139,7 +139,7 @@ pub async fn send(pipeline: &Pipeline, call: Call) -> Result<Exchange, Failure> 
 #[async_trait]
 impl ActionExecutor for CallExecutor {
     async fn execute(&self, request: ActionRequest) -> ActionReport {
-        let mut report = self.call(&request).await.unwrap_or_else(ActionReport::failed);
+        let mut report = self.call(&request).await.unwrap_or_else(Halted::report);
         if let ActionOutcome::Failed(failure) = report.outcome {
             report.outcome = ActionOutcome::Failed(failure.at(request.action));
         }

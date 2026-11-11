@@ -144,7 +144,7 @@ $ vc run flows.signup#getsMember            # one test
 $ vc run -t users                           # every test tagged users
 ```
 
-Selecting a `standalone: false` test on its own runs nothing and exits with code 2.
+Selecting a `standalone: false` test on its own is refused with exit code 2, and the error says it runs only when a `test:` action reuses it.
 
 ## Try it
 

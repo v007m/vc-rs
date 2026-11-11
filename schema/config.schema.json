@@ -96,10 +96,11 @@
         },
         "parallel": {
           "default": 1,
-          "description": "Iterations at a time",
+          "description": "Iterations at a time, with `repeat` or `forEach`",
           "examples": [
             5
           ],
+          "minimum": 1,
           "type": "integer"
         },
         "poll": {
@@ -125,6 +126,7 @@
           "examples": [
             10
           ],
+          "minimum": 1,
           "type": "integer"
         },
         "retry": {
@@ -148,6 +150,7 @@
           "examples": [
             "30s"
           ],
+          "pattern": "^[0-9]+(ms|s|m|h)$",
           "type": "string"
         },
         "vars": {
@@ -365,6 +368,7 @@
         "refreshBefore": {
           "default": "1m",
           "description": "`flow`: re-run this long before expiry",
+          "pattern": "^[0-9]+(ms|s|m|h)$",
           "type": "string"
         },
         "refreshOn": {
@@ -466,6 +470,7 @@
         "base": {
           "default": "100ms",
           "description": "First pause",
+          "pattern": "^[0-9]+(ms|s|m|h)$",
           "type": "string"
         },
         "jitter": {
@@ -476,6 +481,7 @@
         "max": {
           "default": "2s",
           "description": "Longest pause",
+          "pattern": "^[0-9]+(ms|s|m|h)$",
           "type": "string"
         }
       },
@@ -521,6 +527,7 @@
           "examples": [
             "12h"
           ],
+          "pattern": "^[0-9]+(ms|s|m|h)$",
           "type": "string"
         }
       },
@@ -587,6 +594,7 @@
         "concurrency": {
           "default": 16,
           "description": "Test instances in flight",
+          "minimum": 1,
           "type": "integer"
         },
         "headers": {
@@ -599,6 +607,7 @@
         "perHost": {
           "default": 8,
           "description": "Connections per host",
+          "minimum": 1,
           "type": "integer"
         },
         "retry": {
@@ -608,6 +617,7 @@
         "timeout": {
           "default": "30s",
           "description": "Per request",
+          "pattern": "^[0-9]+(ms|s|m|h)$",
           "type": "string"
         }
       },
@@ -850,6 +860,7 @@
           "examples": [
             "1mb"
           ],
+          "pattern": "^[0-9]+(b|kb|mb|gb)$",
           "type": "string"
         }
       },
@@ -894,6 +905,7 @@
           "examples": [
             2
           ],
+          "minimum": 0,
           "type": "integer"
         },
         "backoff": {
@@ -1038,6 +1050,7 @@
           "examples": [
             "2s"
           ],
+          "pattern": "^[0-9]+(ms|s|m|h)$",
           "type": "string"
         },
         "timeout": {
@@ -1045,6 +1058,7 @@
           "examples": [
             "1m"
           ],
+          "pattern": "^[0-9]+(ms|s|m|h)$",
           "type": "string"
         },
         "until": {
@@ -1178,6 +1192,7 @@
           "examples": [
             2
           ],
+          "minimum": 0,
           "type": "integer"
         },
         "delay": {
@@ -1186,6 +1201,7 @@
           "examples": [
             "1s"
           ],
+          "pattern": "^[0-9]+(ms|s|m|h)$",
           "type": "string"
         }
       },

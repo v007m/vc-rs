@@ -16,6 +16,10 @@ pub enum ValueType {
     Any,
     /// A string, number or boolean.
     Scalar,
+    /// A string or a number.
+    TextOrNumber,
+    /// A string or a boolean.
+    TextOrBool,
     /// A string.
     Text,
     /// A number.
@@ -32,8 +36,13 @@ impl ValueType {
     /// Whether a value of type `actual` may be passed where `self` is expected.
     #[must_use]
     pub fn accepts(self, actual: Self) -> bool {
-        let scalar = matches!(actual, Self::Text | Self::Number | Self::Bool);
-        self == actual || self == Self::Any || actual == Self::Any || (self == Self::Scalar && scalar)
+        let within = match self {
+            Self::Scalar => matches!(actual, Self::Text | Self::Number | Self::Bool),
+            Self::TextOrNumber => matches!(actual, Self::Text | Self::Number),
+            Self::TextOrBool => matches!(actual, Self::Text | Self::Bool),
+            _ => false,
+        };
+        self == actual || self == Self::Any || actual == Self::Any || within
     }
 
     /// The type in the syntax reference's words: `a list`, `text`.
@@ -42,6 +51,8 @@ impl ValueType {
         match self {
             Self::Any => "any value",
             Self::Scalar => "text, a number or a boolean",
+            Self::TextOrNumber => "text or a number",
+            Self::TextOrBool => "text or a boolean",
             Self::Text => "text",
             Self::Number => "a number",
             Self::Bool => "a boolean",

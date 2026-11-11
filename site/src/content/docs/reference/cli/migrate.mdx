@@ -16,7 +16,7 @@ $ vc migrate v1 [OPTIONS] <PATH>
 
 | Flag | Value | Description |
 | --- | --- | --- |
-| `<PATH>` | | The v1 project folder. It must sit inside the folder you run the command in |
+| `<PATH>` | | The v1 project folder. It must sit inside the folder the v2 project is written to (the one you run the command in, or `--project`), which has no project yet |
 | `--project` | `<DIR>` | The folder to write the v2 project into. It must not have a `vibranium.config.yaml` yet |
 
 ## Example
@@ -122,7 +122,8 @@ $ vc migrate v1 shop-v1
 error: vibranium.config.yaml already exists
   = help: `vc migrate v1` writes a new project; run it in a folder without one
 $ vc migrate v1 /tmp
-error: /tmp is not inside the project /home/ada/shop
+error: /tmp is not inside /home/ada/shop, where the v2 project is written
+  = help: move the v1 folder into it, or pass `--project <dir>` for a folder that holds it
 ```
 
 <Aside type="tip">

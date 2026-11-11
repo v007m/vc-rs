@@ -1,12 +1,16 @@
-//! V3103: a `skip` on a test file or a test that gives no reason.
+//! V3103: a `skip` on a test file or a test that gives no reason: a blank one, or `true` or
+//! `false` in its place.
 
 use vc_diagnostics::{Code, Diagnostic};
-use vc_parser::Node;
+use vc_parser::{Node, ScalarKind};
 
 use super::{Lint, LintCx};
 use crate::link;
 
-/// Reports every `skip` whose reason is blank.
+/// What the help suggests as a reason: no ` #`, which YAML would read as a comment.
+const EXAMPLE: &str = "`skip: flaky upstream, see issue 123`";
+
+/// Reports every `skip` whose reason is blank or a boolean.
 pub struct SkipReasons;
 
 impl Lint for SkipReasons {
@@ -24,11 +28,17 @@ impl Lint for SkipReasons {
 impl SkipReasons {
     fn blank(&self, skip: &Node) -> Option<Diagnostic> {
         let reason = skip.get("reason").unwrap_or(skip);
-        let text = reason.as_scalar().map_or("", |scalar| scalar.text.as_str());
-        if !text.trim().is_empty() {
+        let scalar = reason.as_scalar();
+        let text = scalar.map_or("", |scalar| scalar.text.as_str());
+        let boolean = scalar.is_some_and(|scalar| scalar.kind == ScalarKind::Bool);
+        if !boolean && !text.trim().is_empty() {
             return None;
         }
-        let diagnostic = Diagnostic::new(self.code(), reason.span, "`skip` needs a reason").label("no reason given");
-        Some(diagnostic.help("say why, for the report: `skip: flaky upstream, see #123`"))
+        let diagnostic = Diagnostic::new(self.code(), reason.span, "`skip` needs a reason");
+        if !boolean {
+            return Some(diagnostic.label("no reason given").help(format!("say why, for the report: {EXAMPLE}")));
+        }
+        let help = format!("`skip` takes the reason itself, not `{text}`: {EXAMPLE}; to run the test, delete `skip`");
+        Some(diagnostic.label(format!("`{text}` is not a reason")).help(help))
     }
 }

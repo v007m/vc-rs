@@ -123,14 +123,14 @@ Settings are layered, lowest to highest: built-in defaults < user config (`~/.co
 
 | Key | Type | Default | Purpose |
 | --- | --- | --- | --- |
-| `syntaxVersion` | integer | required, `2` | File-format version (see Files at a glance) |
+| `syntaxVersion` | integer | required, `2` | File-format version (see Files at a glance); a version below 2 or above the newest this `vc` reads is V1003 |
 | `project` | string | `vibranium` (`vc init` writes the folder name) | Display name in reports (CTRF's `environment.appName`, JUnit's `<testsuites name>`) and on the server |
 | `paths.include`, `paths.exclude` | lists of globs | everything except `node_modules` and `.vibranium` | Where definition files are found; written excludes replace the default ones, and `vibranium.config.yaml` itself is always read |
 | `defaults.timeout` | duration | `30s` | Per request |
-| `defaults.concurrency` | integer | `16` | Test instances in flight |
-| `defaults.perHost` | integer | `8` | Connections per host |
+| `defaults.concurrency` | integer, at least 1 | `16` | Test instances in flight |
+| `defaults.perHost` | integer, at least 1 | `8` | Connections per host |
 | `defaults.retry` | `attempts`, `delay` | none | Applied to every test unless overridden; re-runs the whole test instance (D126) |
-| `defaults.headers` | map | none | Sent with every request |
+| `defaults.headers` | map | none | Sent with every request; each name an HTTP token, never a template (V2310) |
 | `http.retry` | `attempts`, `on`, `methods`, `backoff` | `attempts: 0` (off) | Transport retry of one request (D143). `on` defaults to `[connect, timeout, 502, 503, 504]`, `methods` to `[GET, HEAD, OPTIONS, PUT, DELETE]`, `backoff` to `{ base: 100ms, max: 2s, jitter: true }` (exponential). Each attempt gets the full `timeout` |
 | `vars` | map | — | Project-wide values |
 | `profiles` | list | required, at least one; `vc init` creates `default` | Each: `id`, `name`, `default`, `vars`, `agents` (see Vars and profiles). A profile's `name` follows its ID in the run summary (`profile dev "Local dev"`), in the json summary's `profileNames` and in CTRF's `results.extra.profileNames` |
@@ -302,12 +302,12 @@ File-level keys:
 | --- | --- | --- |
 | `id` | file ID, optional; must match the path (D139) | Prefix of every api in the file |
 | `name` | text | Shown in listings |
-| `baseUrl` | template | Prefixed to every `path` |
+| `baseUrl` | template | Prefixed to every `path`; written without a trailing `/` (V4005) |
 | `auth` | auth ID, or `none` | Default auth for the file |
 | `headers` | map | Default headers |
 | `vars` | map | Defaults for every api in the file |
 | `profiles` | list | Per-profile overrides of the file's `vars` |
-| `source.openapi` | path or URL | Spec this file syncs from: a URL or a file, JSON or YAML; with source.headers for a protected URL, source.include to take only some tags or path prefixes, and source.only to take only some operation IDs (D277) |
+| `source.openapi` | path or URL | Spec this file syncs from: a URL or a file, JSON or YAML (a path is relative to the project root and must exist, V2004); with source.headers for a protected URL, source.include to take only some tags or path prefixes, and source.only to take only some operation IDs (D277) |
 | `beforeRequest`, `afterResponse` | lists of functions | Run around every request in the file (see Functions and request hooks) |
 | `apis` | list | The apis |
 
@@ -318,7 +318,7 @@ Each item in `apis`:
 | `id` | camelCase, required | — | Reference, e.g. `create` → `users#create` |
 | `name` | text | — | Shown in listings |
 | `method` | `GET` `POST` `PUT` `PATCH` `DELETE` `HEAD` `OPTIONS` | `GET` | HTTP method |
-| `path` | template | required | Appended to `baseUrl`, e.g. `/users/${var.id}` |
+| `path` | template | required | Appended to `baseUrl`, e.g. `/users/${var.id}`; starts with `/` unless it is a full URL or starts with a template (V4005); a path parameter is `${var.name}`, never `{name}` (V4006). Literal text is sent as written; each `${…}` value is percent-encoded as one segment, so a `/`, `?`, `#`, `%` or space in it stays data and `.` or `..` names no other path (D278). A value before the first `/` is sent as written only when it is an absolute `http(s)://` URL (`${var.usersUrl}/users`), and one after a literal `?` is encoded as a query value. The `urlEncode` pipe is not needed, and is not applied twice (V4007) |
 | `vars` | map | — | Defaults for this api; callers override them |
 | `query` | map of templates | — | Query string |
 | `headers` | map of templates | — | Merged over the file's headers |
@@ -332,7 +332,7 @@ Each item in `apis`:
 | `cleanup` | `call` + `vars` | — | How to undo a successful call; registered automatically (see Cleanup on an api) |
 | `operationId` | text | — | Link to the OpenAPI operation, kept by sync |
 | `beforeRequest`, `afterResponse` | lists of functions | — | Run around this api's requests, after the file's |
-| `deprecated` | boolean | false | Set by sync when the operation leaves the spec; vc check warns where tests still call it |
+| `deprecated` | boolean | false | Set by sync when the operation leaves the spec, or by hand; vc check warns (V3203) where tests still call it, saying the operation left the spec only for an api with an `operationId` or in a file with a `source` |
 
 ### Request body
 
@@ -426,7 +426,7 @@ OpenAPI import and sync (`vc import openapi`, `vc sync users`) are described in 
 
 ### Reusing a payload with changes
 
-`$extend` starts a map from an existing object, usually a response body or a saved value, and the keys beside it change it. Maps merge deeply, so `shipping.city` changes one field and keeps the rest of `shipping`; lists and plain values are replaced whole; `null` sets a field to null. `$remove` lists paths to drop, such as server-generated fields. Both work in any map value: a body, a var, a saved object.
+`$extend` starts a map from an existing object, usually a response body or a saved value, and the keys beside it change it. Maps merge deeply, so `shipping.city` changes one field and keeps the rest of `shipping`; lists and plain values are replaced whole; `null` sets a field to null. `$remove` lists paths to drop, such as server-generated fields. Both work in any map value: a body, a var, a saved object. The base must be a template that renders an object: a written value is V2302, a `$remove` without `$extend` is V2211, and a base that renders anything else fails the action (V5111).
 
 `body` on a test, step or action replaces the api's body for that one call. Use it when a test needs a body the api's vars cannot express, as here:
 
@@ -505,9 +505,9 @@ Each item in `tests`:
 | `body` | as an api's `body` | the api's | Replaces the api's body for this test |
 | `expect` | checks | the api's `expect` | Merged with the api's checks (see Checks and matchers) |
 | `save` | map of templates over `response` | — | Name values for later steps, `after` and `afterEach`; with `steps`, reads the last step's response (D124) |
-| `poll` | `until`, `every`, `timeout` | none: all three are required (D156) | Re-send until `until` (checks) holds, then check `expect` |
+| `poll` | `until`, `every`, `timeout` | none: all three are required (D156) | Re-send until `until` (checks) holds, then check `expect`. Only the last exchange is reported, also when the poll gives up (V5104) |
 | `examples` | list of maps, `$file`, or one template giving a list of maps | — | One test instance per row; values in `${example.*}`. A row's `name` labels its instance (`users.pages#listsEachPage › first page`), inline, from a template or from a `$file`; a row without one is labelled by its number (`[row 2]`), and rows of one test sharing a `name` carry both (`› Bob [row 3]`). A row's `name` goes through the run's redactor first, so one holding a secret's value reads `› ••••`. A template is read once before the run, from `var`, `env` and `dataset` only. A run skips a test given no rows, with a warning |
-| `repeat` | integer | `1` | Run the whole test this many times, each reported as its own instance and labelled `[repeat n]`, the same as with `vc run --repeat` |
+| `repeat` | integer, at least 1 | `1` | Run the whole test this many times, each reported as its own instance and labelled `[repeat n]`, the same as with `vc run --repeat` |
 | `retry` | `attempts`, `delay` | `defaults.retry` | Re-run the whole test instance after a failure, cleanups included; a pass after a failure is reported as flaky (D126). A failure that repeats across attempts is shown once, under the attempts it happened in (`attempts 1, 2 and 3 of 3:`) |
 | `timeout` | duration | per-request timeout × calls | Whole-test limit, per attempt. `after` and `afterEach` actions are outside it: one with its own `timeout` is limited by that, one without only by its requests' timeouts |
 | `skip` | a reason, or reason and until | — | Skip with a reason, optionally until a date; reported as skipped (see Skipping) |
@@ -649,9 +649,9 @@ An action is one entry in a lifecycle block or in a test's `steps`. Most actions
 | `function: path#export` | Runs a function from a code file | Work no api does: seeding a database, reading a mailbox; it may return an object whose fields are saved |
 | `command: <shell command>` | Runs a command through `sh -c` (`cmd /C` on Windows) in the project root; a non-zero exit fails the action (V5110), and its output is attached to the report (details below) | Starting services, `docker compose up -d --wait` |
 
-**`command:` safety (D181).** The text you write runs as written; each `${…}` in it is quoted. On unix every rendered value becomes one POSIX word in single quotes (a `'` inside is written `'\''`), so `--set "vars.word=it's; touch x"` echoes that text and runs nothing else. On Windows a value is wrapped in double quotes, and a value holding any of `& | < > ^ % ! " ( )` or a newline fails the action with V5111 before anything runs; pass such a value through an environment variable instead. The child's environment is the process environment, plus the `.env` lines the process does not set, plus `VIB_VAR_<name>` for each config var; it is never logged. It keeps the last 64 KiB of stdout and of stderr, both passing through the redactor, and a V5110 failure shows the exit code and the last 20 lines. The limit is the action's own `timeout`, else `defaults.timeout` (30 s when unset); past it the whole process group is killed (unix) and the action fails with V5104. Ctrl-C ends the command the same way. The action ends when the command exits: a process it leaves in the background (`./server &`) keeps running while vc runs, and what that process writes after the command's exit (and a further 200 ms) is discarded. Once vc exits, such a process ends at its next write to that output; one that must outlive vc should send its output elsewhere (`./server > server.log 2>&1 &`).
+**`command:` safety (D181).** The text you write runs as written; each `${…}` in it is quoted. On unix every rendered value becomes one POSIX word in single quotes (a `'` inside is written `'\''`), so `--set "vars.word=it's; touch x"` echoes that text and runs nothing else. On Windows a value is wrapped in double quotes, and a value holding any of `& | < > ^ % ! " ( )` or a newline fails the action with V5111 before anything runs; pass such a value through an environment variable instead. The child's environment is the process environment, plus the `.env` lines the process does not set, plus `VIB_VAR_<name>` for each config var; it is never logged. The folder of the running `vc` goes on the end of its `PATH` when it is not there yet, so `vc …` in a line finds the running vc even when vc was started by its path; a `vc` already on `PATH` is still the one found. It keeps the last 64 KiB of stdout and of stderr, both passing through the redactor, and a V5110 failure shows the exit code and the last 20 lines. The limit is the action's own `timeout`, else `defaults.timeout` (30 s when unset); past it the whole process group is killed (unix) and the action fails with V5104. Ctrl-C ends the command the same way. The action ends when the command exits: a process it leaves in the background (`./server &`) keeps running while vc runs, and what that process writes after the command's exit (and a further 200 ms) is discarded. Once vc exits, such a process ends at its next write to that output; one that must outlive vc should send its output elsewhere (`./server > server.log 2>&1 &`).
 
-`call` and `test` actions also take `id`, `vars`, `auth`, `headers`, `query`, `body`, `expect`, `save`, `poll`, `retry`, `keep`, `cache` and the loop keys `repeat`, `forEach` and `parallel`, each meaning the same as on a test. `function` and `command` take `id`, `vars` and `timeout`. `timeout` on an action is that action's own limit (D192): a `command`'s process timeout, a `function`'s run budget (200 ms by default), a `call`'s limit on each request attempt (it wins over the api's `timeout` and `defaults.timeout`), and a reused `test`'s limit on all its calls together (past it the call in flight fails with V5104). Without it, each kind keeps its usual limit. `function` and `test` actions may also declare `provides` (below).
+`call` and `test` actions also take `id`, `vars`, `auth`, `headers`, `query`, `body`, `expect`, `save`, `poll`, `retry`, `keep`, `cache` and the loop keys `repeat`, `forEach` and `parallel`, each meaning the same as on a test. `function` and `command` take `id`, `vars`, `timeout` and the same loop keys; a loop runs any action kind once per turn. `timeout` on an action is that action's own limit (D192): a `command`'s process timeout, a `function`'s run budget (200 ms by default), a `call`'s limit on each request attempt (it wins over the api's `timeout` and `defaults.timeout`), and a reused `test`'s limit on all its calls together (past it the call in flight fails with V5104). Without it, each kind keeps its usual limit. `function` and `test` actions may also declare `provides` (below).
 
 In `beforeRun` and `beforeAll` every action that produces values needs an `id`, and everything it saves, including its api's `save`, is shared under that id: `${var.catalog.productIds}`. In per-test blocks and steps, saved names are plain (`${var.userId}`), as for any step.
 
@@ -695,11 +695,11 @@ Any `call` or `test` action can run several times without being written several 
 | --- | --- | --- |
 | `repeat: 10` | 10 times | `${iteration.index}` (from 1) and `${iteration.count}` |
 | `forEach: <list>` | once per element of a literal list, a list-valued template (`${var.cities}`) or a `$file` with a CSV, JSON or YAML list | `${item}` is the element (`${item.name}` for a row), plus `iteration` |
-| `parallel: 5` | up to 5 iterations at a time | default `1`: one after another, in order |
+| `parallel: 5` | up to 5 iterations at a time; at least 1, and only with `repeat` or `forEach` (V2211) | default `1`: one after another, in order |
 
 Write one of `repeat` and `forEach` on an action; when both are written, `forEach` is used.
 
-Every name saved inside a loop collects a list, one entry per iteration in iteration order, even when iterations run in parallel. `${var.cities[*].id}` reads one field from every entry. Each successful iteration registers its own cleanup. If an iteration fails, the action fails once the iterations in flight finish, and the cleanups of the ones that succeeded still run.
+Every name saved inside a loop collects a list, one entry per iteration in iteration order, even when iterations run in parallel. A `forEach` whose items render as an empty list runs nothing and passes, and each name the action (or its api) saves is an empty list. `${var.cities[*].id}` reads one field from every entry. Each successful iteration registers its own cleanup. If an iteration fails, the action fails once the iterations in flight finish, and the cleanups of the ones that succeeded still run.
 
 `repeat` on a test is different: it runs the whole test that many times and reports each instance.
 
@@ -810,7 +810,7 @@ Data that is slow or rate-limited to create can outlive a run. `cache` on a `cal
 Rules:
 
 - The cache key is the api (or test), the action's own resolved `vars` and the active profiles, so `users#create` with `role: admin` and with `role: member` are cached separately. Vars that read `fake.*` are left out of the key, so a fresh fake name does not defeat the cache.
-- A hit returns only what the action saved; no request is made and nothing is checked. `cache.check` runs first, seeing the cached values both by name and under the action's `id` (`${var.admin.userId}`); when the check fails, the action runs again, its new result replaces the entry and the old entry's cleanup runs at the end of that run, after every test, since another test may still be using what it made. If that run is killed or interrupted a third time first, the next run cleans the old entry up when it starts, as an expired one.
+- A hit returns only what the action saved; the action sends no request and nothing is checked. `cache.check` runs first, and its call is reported (an `exchanged` event, hit or miss) before the action's own, seeing the cached values both by name and under the action's `id` (`${var.admin.userId}`); when the check fails, the action runs again, its new result replaces the entry and the old entry's cleanup runs at the end of that run, after every test, since another test may still be using what it made; it belongs to no test, so only a failure shows, as a warning. If that run is killed or interrupted a third time first, the next run cleans the old entry up when it starts, as an expired one.
 - Only a result that passed is stored, and only when each cleanup it registered is its api's `cleanup`; anything else runs every time.
 - A cached action's cleanup does not run at the end of the run. It runs, under the profiles the entry was made with, when the entry expires (at the start of the next run that finds it expired), when a fresh result replaces it (at the end of that run), or on `vc cache clear [id]`. A cleanup that fails is a warning, not a failure.
 - The whole entry is encrypted (ChaCha20-Poly1305). The key is `VIB_CACHE_KEY` (64 hex digits) when it is set, else the one the OS keychain holds, generated and stored there on first use. Where there is neither, as in most CI, the cache is off: `cache` actions run every time and the run prints warning V5113. An entry sealed under another key, or changed on disk, reads as a miss.
@@ -941,12 +941,12 @@ A load file turns existing tests into a traffic mix; it adds no request or check
 | --- | --- | --- | --- |
 | `id` | file ID, optional; must match the path (D139) | path-derived | Scenario ID for `vc load <id>` |
 | `name` | text | — | Shown in the load report, after the scenario ID in its summary line (`checkout.peak — Peak checkout · finished after …`) and as `name` in `vc load --json` |
-| `mix` | list | required | Each: `test` (ID), `weight` (integer), optional `thresholds` for that test |
-| `stages` | list | required | Each: `duration`, `users`; users ramp from the previous stage's count |
-| `thinkTime` | duration, or `min` and `max` | `0s` | Pause between iterations |
+| `mix` | list | required | Each: `test` (ID), `weight` (integer, at least 1), optional `thresholds` for that test |
+| `stages` | list, at least one | required | Each: `duration`, `users` (at least 0); users ramp from the previous stage's count |
+| `thinkTime` | duration, or `min` and `max` (`min` no longer than `max`) | `0s` | Pause between iterations |
 | `checks` | `api` \| `full` | `api` | `full` evaluates every test's `expect`; `api` evaluates only the apis' own `expect`, to keep the tool fast |
 | `thresholds` | map of metric → matcher | — | `p50`, `p90`, `p95`, `p99`, `max`, `errorRate`, `rps`; rolling thresholds use the last 10 s; the final verdict uses the whole run |
-| `abortOn` | list of metrics | `[]` | Stop early when one of these thresholds is breached on the rolling window; exit code 3 comes from the final verdict |
+| `abortOn` | list of metrics, each with a threshold (V2211) | `[]` | Stop early when one of these thresholds is breached on the rolling window; exit code 3 comes from the final verdict |
 
 The metrics count one sample per iteration of a mix test, timed from its scheduled start, so a tool that falls behind cannot hide a slow server. Scenario `thresholds` cover every mix test together; a mix entry's `thresholds` cover only that test. Requests made by `beforeEach` and `before` are not samples.
 
@@ -1105,7 +1105,7 @@ redact:
     - function: hooks/redact.ts#maskCards   # a hook masks what it chooses
 ```
 
-A `regex` rule masks every match in any text; a `cel` rule sees each JSON field as `item` (`item.name`, `item.value`); a `function` rule is a hook (`path#export`, relative to the project root) that runs within its hook budget (D185) and is given each piece of output whole, `{ text }` for a text or `{ json }` for a JSON value, and returns it masked (a string for a text). Like every hook it can read `secret(name)`; what it returns is masked again, so a secret it read never shows. Rules fail closed: a regex that does not compile masks every text, a CEL rule that errors masks the field, and a hook that throws, overruns or returns a text that is not a string masks the whole piece.
+A `regex` rule masks every match in any text; a `cel` rule sees each JSON field as `item` (`item.name`, `item.value`); a `function` rule is a hook (`path#export`, relative to the project root) that runs within its hook budget (D185) and is given each piece of output whole, `{ text }` for a text or `{ json }` for a JSON value, and returns it masked (a string for a text). Like every hook it can read `secret(name)`; what it returns is masked again, so a secret it read never shows. Rules fail closed: a regex that does not compile masks every text (`vc check` reports such a pattern as V2311), a CEL rule that errors masks the field, and a hook that throws, overruns or returns a text that is not a string masks the whole piece.
 
 The requests and responses kept in `history.db` and reports are masked the same way before they are stored: the URL (path and query, where a secret also counts in its percent-encoded form), every header and both bodies. Bodies are cut at `history.maxBodySize` only after masking, so a cut never leaves part of a secret showing.
 
@@ -1151,11 +1151,11 @@ generators:
       words: 500
 ```
 
-Then `${fake.teamName}`, `${fake.quantity}`. Each generator has exactly one kind: `fromRegExp` (a pattern, as `string.fromRegExp`), `oneOf` (a list, as `helpers.arrayElement`), `int` (`min` and `max`, either optional, as `number.int`) or `lorem` (`words`, as `lorem.words`). None is V1005; several, or settings of the wrong shape, are V2302. A named generator takes no arguments (`${fake.quantity(2)}` is V2302) and cannot reuse a Faker module name such as `person` (V2006).
+Then `${fake.teamName}`, `${fake.quantity}`. Each generator has exactly one kind: `fromRegExp` (a pattern, as `string.fromRegExp`), `oneOf` (a list, as `helpers.arrayElement`), `int` (`min` and `max`, either optional, as `number.int`) or `lorem` (`words`, as `lorem.words`). None is V1005; several, or settings of the wrong shape, are V2302, once per problem (an unknown settings key such as `lorem: {wordz: 3}` is V1004). A named generator takes no arguments (`${fake.quantity(2)}` is V2302) and cannot reuse a Faker module name such as `person` (V2006).
 
 ### Datasets
 
-A dataset is a named list of rows from your own file. Every CSV (with a header row), JSON array or YAML list in `datasets/` is a dataset named after its path, so `datasets/capitals.csv` is `capitals` and `datasets/users/admins.json` is `users.admins`; files kept elsewhere are listed under `datasets.files` in the config, and an entry there wins over a file with the same ID. `${dataset.capitals}` is the whole list, and there are three ways to use it.
+A dataset is a named list of rows from your own file. Every CSV (with a header row), JSON array or YAML list in `datasets/` is a dataset named after its path, each word in camelCase, so `datasets/capitals.csv` is `capitals`, `datasets/world-cities.csv` is `worldCities` and `datasets/users/admins.json` is `users.admins`; files kept elsewhere are listed under `datasets.files` in the config, and an entry there wins over a file with the same ID. `${dataset.capitals}` is the whole list, and there are three ways to use it.
 
 ```
 # datasets/capitals.csv
@@ -1331,7 +1331,7 @@ plugins:
 
 `integrity` is npm's hash for an `npm:` source and a `blake3-…` hash over the folder's files for a `path:` one. A run checks a `blake3-…` hash against the installed files and refuses the plugin (V5118) when they changed.
 
-A plugin's `config` holds literal values only: a `${…}` in it makes the plugin unusable for the run, with a notice. A plugin reads a secret with `secrets/get`, and gets only those its lock entry grants. The one other way a secret reaches a plugin is a `${secret.x}` in the `config` of a `type: plugin` auth definition, which the author writes on purpose. A reporter plugin runs when its ID is in `reports.formats`, and an auth plugin when an auth definition of `type: plugin` names it:
+A plugin's `config` holds literal values only: a `${…}` in it makes the plugin unusable for the run, with a notice. `vc check` gives a V5120 warning for it, and for an entry the lock does not approve, that is not installed or that asks for more than the lock grants; a `reports.formats` name that is an installed plugin other than a reporter is V2302. A plugin reads a secret with `secrets/get`, and gets only those its lock entry grants. The one other way a secret reaches a plugin is a `${secret.x}` in the `config` of a `type: plugin` auth definition, which the author writes on purpose. A reporter plugin runs when its ID is in `reports.formats`, and an auth plugin when an auth definition of `type: plugin` names it:
 
 ```yaml
 reports:

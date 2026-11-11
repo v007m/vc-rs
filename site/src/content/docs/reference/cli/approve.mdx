@@ -16,7 +16,7 @@ $ vc approve [OPTIONS] <ID>
 
 | Flag | Value | Description |
 | --- | --- | --- |
-| `<ID>` | | The request number, as `vc approvals` lists it, without the `#` |
+| `<ID>` | | The request number, as `vc approvals` lists it, with or without the `#` (`3` or `#3`) |
 | `--always` | | Also allows calls like it (same profile, tool and method) from now on. A write, or a run that reaches a `command:` or `function:` action, still asks every time |
 | `--deny` | | Refuses the call instead. Cannot be combined with `--always` |
 | `--project` | `<DIR>` | See [global flags](/vc-rs/reference/cli/#global-flags) |
@@ -60,11 +60,14 @@ The rule is kept in `.vibranium/history.db`, never in the YAML, so it stays on t
 
 ```console
 $ vc approve 3
-error: history: approval request 3 is no longer pending
+error: approval request 3 is no longer pending
   = help: `vc approvals` lists the waiting requests
 $ vc approve 99
-error: history: no approval request 99
+error: no approval request 99
   = help: `vc approvals` lists the waiting requests
+$ vc approve abc
+error: `abc` is not a request number
+  = help: pass the number `vc approvals` lists, such as `vc approve 3`
 ```
 
 ## Related

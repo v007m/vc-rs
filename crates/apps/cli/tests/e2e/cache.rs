@@ -76,6 +76,24 @@ async fn a_replaced_entry_is_cleaned_up_after_every_test_and_a_failed_cleanup_wa
     assert_eq!(listed.as_array().map(Vec::len), Some(1), "the replaced entry's tombstone is gone: {listed}");
 }
 
+/// A hit's `cache.check` call is an `exchanged` event like any other, before the test's own.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_cache_check_shows_its_call_in_the_events() {
+    let server = MockServer::start().await.unwrap();
+    let checked = config(&server.base_url()).replace("{for: 1h}", "{for: 1h, check: {call: users#list}}");
+    let project = Project::new(&[("vibranium.config.yaml", &checked), USERS, LISTS]);
+    keyed(&project, &["run"]).assert().code(0);
+    let run = keyed(&project, &["run", "--reporter", "json"]).output().unwrap();
+    assert_eq!(run.status.code(), Some(0), "{}", said(&run));
+    let events = crate::events(&run.stdout);
+    let exchanged: Vec<String> = crate::of_kind(&events, "exchanged")
+        .iter()
+        .map(|event| format!("{} {}", event["method"].as_str().unwrap_or_default(), event["status"]))
+        .collect();
+    assert_eq!(exchanged, ["GET 200", "GET 200"], "the check's GET, then the test's: {events:#?}");
+    assert_eq!(server.stats().await.unwrap().count("POST /users"), 1, "the hit sends no POST");
+}
+
 #[tokio::test(flavor = "multi_thread")]
 async fn no_cache_runs_the_action_and_its_cleanup_every_time() {
     let server = MockServer::start().await.unwrap();

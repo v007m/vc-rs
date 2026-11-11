@@ -35,7 +35,7 @@ use super::project;
 use super::project::{Project, Source};
 use action::Place;
 pub use expect::path as body_path;
-pub use read::{flag, method};
+pub use read::{duration, flag, method};
 
 /// What a build step gives; it fails only when a table is full.
 type Built<T> = Result<T, ModelError>;

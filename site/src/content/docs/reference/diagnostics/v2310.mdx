@@ -1,0 +1,62 @@
+---
+title: "V2310 — Invalid HTTP header name"
+description: "A headers key is sent as the header's name, and an HTTP header name is a token: letters, digits and  !#$%&'*+-.^_|~ , with no spaces, colons or other characters."
+sidebar:
+  label: "V2310 Invalid HTTP header name"
+  order: 2310
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="error" variant="danger" /> <Badge text="References and types" variant="note" />
+
+| | |
+| --- | --- |
+| Code | `V2310` |
+| Category | V2xxx: References and types |
+| Severity | error |
+| Certain fix | none; `vc check --fix` leaves this one to you |
+
+A `headers` key is sent as the header's name, and an HTTP header name is a token: letters, digits and
+`` !#$%&'*+-.^_`|~ ``, with no spaces, colons or other characters. A name outside that cannot be sent, so `vc check`
+reports it before a run fails on it. This holds wherever `headers` is written: on an api, its file, a call or step,
+the config's `defaults`, an auth flow's `steps` and `apply`, and the header checks in `expect`. A header name is never
+rendered, so a `$\{…\}` template in a name is reported too; the value is where a template goes.
+
+## Wrong
+
+```yaml wrong V2310 title="services/users/users.api.yaml"
+baseUrl: ${var.usersUrl}
+apis:
+  - id: list
+    path: /users
+    headers:
+      "Request Id": ${var.requestId}
+```
+
+## Right
+
+```yaml title="services/users/users.api.yaml"
+baseUrl: ${var.usersUrl}
+apis:
+  - id: list
+    path: /users
+    headers:
+      X-Request-Id: ${var.requestId}
+```
+
+
+## Explain it in your terminal
+
+The same page is built into the binary, so this works anywhere, even outside a project:
+
+```console
+$ vc explain V2310
+```
+
+## Related
+
+- [All diagnostic codes](/vc-rs/reference/diagnostics/)
+- [`vc explain`](/vc-rs/reference/cli/explain/)
+- [`vc check`](/vc-rs/reference/cli/check/)
+- [Errors and fixes](/vc-rs/guides/errors-and-fixes/)

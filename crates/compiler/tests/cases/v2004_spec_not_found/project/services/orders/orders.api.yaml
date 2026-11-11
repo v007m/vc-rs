@@ -1,0 +1,6 @@
+baseUrl: ${var.baseUrl}
+source:
+  openapi: ../outside.yaml
+apis:
+  - id: listOrders
+    path: /orders

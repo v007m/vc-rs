@@ -28,6 +28,7 @@ mod lifecycle;
 mod load;
 mod mcp;
 mod migrate;
+mod paths;
 mod plugin;
 mod redaction;
 mod reports;

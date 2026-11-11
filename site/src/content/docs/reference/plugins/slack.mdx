@@ -65,6 +65,8 @@ alerts:
 warning: V5117: the `slack` alert channel needs `webhook`
 ```
 
+`vc check` reports this too, at the channel's key, when the settings hold no `${…}` template; a templated setting is checked when the run ends.
+
 ## Try it
 
 <Playground client:visible kind="config" code={`syntaxVersion: 2

@@ -252,11 +252,13 @@ fn append(opened: &Opened<'_>, new: &NewItem<'_>) -> Result<(FileChange, usize),
 }
 
 /// The `--auth` test of a test file `file`: `api` called with `auth: none` and its path `vars`,
-/// expecting 401, and its comment. Its ID is the api's with `RejectsAnonymous`:
-/// `deactivateRejectsAnonymous`.
+/// expecting 401, and its comment. Its ID is `rejectsAnonymous` and the api's, so it starts with
+/// a third-person verb (V4001): `rejectsAnonymousDeactivate`.
 fn anonymous(file: &str, api: &str, vars: &str) -> (String, String) {
     let verb = Named::parse(api).item.unwrap_or_default();
-    let id = format!("{verb}RejectsAnonymous");
+    let mut chars = verb.chars();
+    let upper: String = chars.next().into_iter().flat_map(char::to_uppercase).chain(chars).collect();
+    let id = format!("rejectsAnonymous{upper}");
     let name = write_text(&format!("{} needs a signed-in caller", sentence(verb)), false);
     let yaml = format!("id: {id}\nname: {name}\ncall: {api}\nauth: none{vars}\nexpect:\n  status: 401");
     (yaml, format!("# {file}#{id} · calls {api} with no auth · keys: {DOCS}#tests"))

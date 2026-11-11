@@ -1,0 +1,11 @@
+baseUrl: ${var.usersUrl}
+headers:
+  X-Client: vc
+apis:
+  - id: list
+    path: /users
+    headers:
+      "x bad": "1"
+    expect:
+      headers:
+        "content:type": application/json

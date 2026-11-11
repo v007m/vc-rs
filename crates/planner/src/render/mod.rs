@@ -4,6 +4,7 @@
 mod dot;
 mod explain;
 mod json;
+mod matcher;
 mod tree;
 
 use std::collections::HashSet;
@@ -12,7 +13,7 @@ use std::fmt::Write as _;
 use vc_model::{ActionId, ActionKind, Instance, Plan, PlannedFile, Program, Sym};
 
 pub use self::dot::dot;
-pub use self::explain::{check_lines, explain};
+pub use self::explain::{check_lines, explain, shown_check_lines};
 pub use self::json::json;
 pub use self::tree::tree;
 

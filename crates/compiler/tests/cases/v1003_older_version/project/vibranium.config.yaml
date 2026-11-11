@@ -1,0 +1,5 @@
+syntaxVersion: 1
+project: shop
+profiles:
+  - id: dev
+    default: true

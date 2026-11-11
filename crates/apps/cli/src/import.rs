@@ -72,7 +72,7 @@ struct RecordingArgs {
 /// `vc sync …`.
 #[derive(Args)]
 pub struct SyncArgs {
-    /// The api files to sync; every file with a `source` when none is given.
+    /// The api files to sync, by file ID (`users`); every file with a `source` when none is given.
     files: Vec<String>,
     /// Prints the changes without writing them.
     #[arg(long, conflicts_with = "check")]

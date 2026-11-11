@@ -23,7 +23,7 @@ vc config explain [--profile <IDS>] [--set <KEY=VALUE>] [--project <DIR>] <KEY>
 
 | Argument or flag | Type | Default | Required | Notes |
 | --- | --- | --- | --- | --- |
-| `KEY` | text | — | yes | A settable key: `profile`, `defaults.concurrency`, `defaults.perHost`, `defaults.timeout`, `reports.dir`, `reports.formats`, `reports.html.layout` or `vars.<name>`. |
+| `KEY` | text | — | yes | A settable key: `profile`, `defaults.concurrency`, `defaults.perHost`, `defaults.timeout`, `defaults.retry.attempts`, `defaults.retry.delay`, `reports.dir`, `reports.formats`, `reports.html.layout` or `vars.<name>`. A group such as `defaults.retry` shows each setting in it. |
 | `--profile` | comma list | the default profile | no | The active profiles. Later ones win. |
 | `--set` | `KEY=VALUE` | — | no | Adds a value on the top layer, as `vc run` would. |
 | `--project` | folder | nearest config upward | no | The project to read. |
@@ -70,7 +70,7 @@ A key it does not know (exit 2). The help line lists every key you can ask about
 ```console
 $ vc config explain history.keep
 error: no setting `history.keep`
-  = help: the settings are profile, defaults.concurrency, defaults.perHost, defaults.timeout, reports.dir, reports.formats, reports.html.layout, vars.region, vars.sampleUrl and vars.<name>
+  = help: the settings are profile, defaults.concurrency, defaults.perHost, defaults.timeout, defaults.retry.attempts, defaults.retry.delay, reports.dir, reports.formats, reports.html.layout, vars.region, vars.sampleUrl and vars.<name>
 ```
 
 ## Try it

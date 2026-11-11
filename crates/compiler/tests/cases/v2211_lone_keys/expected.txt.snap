@@ -1,0 +1,18 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2211_lone_keys/project
+---
+error[V2211]: `abortOn` names `p95`, which has no threshold
+  --> load/users/browse.load.yaml:13:27
+   |
+13 | abortOn: [errorRate, p99, p95]
+   |                           ^^^ never breached
+   = note: a run stops early only when a threshold on the metric is breached
+   = help: add a threshold such as `thresholds: {p95: {lt: …}}`, or remove `p95` from `abortOn`
+
+error[V2211]: `parallel` on an action that does not loop
+ --> services/users/crud.test.yaml:5:9
+  |
+5 |         parallel: 5
+  |         ^^^^^^^^ needs `repeat` or `forEach`
+  = help: `parallel` sets how many iterations run at a time: add `repeat: 10` or `forEach`, or remove `parallel`

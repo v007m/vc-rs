@@ -19,7 +19,7 @@ expression: "screen(&tui, SIZE)"
 │                                           ││  vars                                               │
 │                                           ││    baseUrl  http://x  (vibranium.config.yaml)       │
 │                                           ││  expect                                             │
-│                                           ││                                                     │
+│                                           ││    status: 2xx  (default)                           │
 │                                           ││                                                     │
 │                                           ││                                                     │
 │                                           ││                                                     │

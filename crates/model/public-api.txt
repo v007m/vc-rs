@@ -1245,6 +1245,7 @@ pub struct vc_model::HookModule
 pub vc_model::HookModule::js: alloc::string::String
 pub vc_model::HookModule::lines: alloc::vec::Vec<u32>
 impl vc_model::HookModule
+pub const vc_model::HookModule::LOOP_TICK: &str
 pub fn vc_model::HookModule::ts_line(&self, u32) -> core::option::Option<u32>
 impl core::clone::Clone for vc_model::HookModule
 pub fn vc_model::HookModule::clone(&self) -> Self
@@ -1895,6 +1896,7 @@ impl core::marker::StructuralPartialEq for vc_model::Skip
 pub struct vc_model::SkippedTest
 pub vc_model::SkippedTest::reason: alloc::string::String
 pub vc_model::SkippedTest::test: vc_model::TestId
+pub vc_model::SkippedTest::until: core::option::Option<alloc::string::String>
 impl core::clone::Clone for vc_model::SkippedTest
 pub fn vc_model::SkippedTest::clone(&self) -> Self
 impl core::cmp::Eq for vc_model::SkippedTest
@@ -2264,7 +2266,9 @@ pub fn vc_model::form_text(&str) -> alloc::string::String
 pub fn vc_model::hidden_part(&str) -> bool
 pub fn vc_model::import_paths(&str) -> alloc::vec::Vec<alloc::string::String>
 pub fn vc_model::is_multipart(&str) -> bool
+pub fn vc_model::is_third_person(&str) -> bool
 pub fn vc_model::part_pointer(&str, core::option::Option<usize>) -> alloc::string::String
 pub fn vc_model::resolve_path(&[&str], &str) -> core::option::Option<alloc::string::String>
 pub fn vc_model::schema_names(&str) -> alloc::vec::Vec<alloc::string::String>
 pub fn vc_model::secret_name(&str) -> alloc::string::String
+pub fn vc_model::third_person(&str) -> alloc::string::String

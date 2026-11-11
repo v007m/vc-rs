@@ -27,7 +27,7 @@ pub struct ListArgs {
     /// What to list; apis take every selector but `-t`.
     #[command(flatten)]
     select: SelectArgs,
-    /// Lists only the skipped tests.
+    /// Lists only the skipped tests, and the tests whose skip has ended.
     #[arg(long)]
     skipped: bool,
     /// Prints the list as JSON on stdout, for scripts and agents.

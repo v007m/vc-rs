@@ -1,0 +1,139 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2302_below_least/project
+---
+{
+  "summary": {
+    "errors": 6,
+    "warnings": 0,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "code": "V2302",
+      "severity": "error",
+      "message": "`weight` takes a whole number of at least 1, found 0",
+      "primary": {
+        "span": {
+          "path": "load/users/browse.load.yaml",
+          "line": 3,
+          "column": 13,
+          "endLine": 3,
+          "endColumn": 14
+        },
+        "text": "below 1"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "write 1 or more: `weight: 3`"
+      ],
+      "fixes": []
+    },
+    {
+      "code": "V2302",
+      "severity": "error",
+      "message": "`users` takes a whole number of at least 0, found -1",
+      "primary": {
+        "span": {
+          "path": "load/users/browse.load.yaml",
+          "line": 6,
+          "column": 12,
+          "endLine": 6,
+          "endColumn": 14
+        },
+        "text": "below 0"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "write 0 or more: `users: 50`"
+      ],
+      "fixes": []
+    },
+    {
+      "code": "V2302",
+      "severity": "error",
+      "message": "`repeat` takes a whole number of at least 1, found 0",
+      "primary": {
+        "span": {
+          "path": "services/users/crud.test.yaml",
+          "line": 4,
+          "column": 13,
+          "endLine": 4,
+          "endColumn": 14
+        },
+        "text": "below 1"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "write 1 or more"
+      ],
+      "fixes": []
+    },
+    {
+      "code": "V2302",
+      "severity": "error",
+      "message": "`parallel` takes a whole number of at least 1, found 0",
+      "primary": {
+        "span": {
+          "path": "services/users/crud.test.yaml",
+          "line": 9,
+          "column": 19,
+          "endLine": 9,
+          "endColumn": 20
+        },
+        "text": "below 1"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "write 1 or more: `parallel: 5`"
+      ],
+      "fixes": []
+    },
+    {
+      "code": "V2302",
+      "severity": "error",
+      "message": "`concurrency` takes a whole number of at least 1, found 0",
+      "primary": {
+        "span": {
+          "path": "vibranium.config.yaml",
+          "line": 9,
+          "column": 16,
+          "endLine": 9,
+          "endColumn": 17
+        },
+        "text": "below 1"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "write 1 or more"
+      ],
+      "fixes": []
+    },
+    {
+      "code": "V2302",
+      "severity": "error",
+      "message": "`perHost` takes a whole number of at least 1, found -1",
+      "primary": {
+        "span": {
+          "path": "vibranium.config.yaml",
+          "line": 10,
+          "column": 12,
+          "endLine": 10,
+          "endColumn": 14
+        },
+        "text": "below 1"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "write 1 or more"
+      ],
+      "fixes": []
+    }
+  ]
+}

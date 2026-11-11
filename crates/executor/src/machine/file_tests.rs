@@ -218,7 +218,7 @@ fn inputs_out_of_place_are_ignored() {
 #[test]
 fn a_skipped_test_is_reported_after_the_file_starts_and_counted_in_its_totals() {
     let mut file = (*sim::planned_file(vec![], vec![sim::instance(0, &[])], &[])).clone();
-    file.skipped = vec![SkippedTest { test: sim::file_and_test().1, reason: "flaky upstream".into() }];
+    file.skipped = vec![SkippedTest { test: sim::file_and_test().1, reason: "flaky upstream".into(), until: None }];
     let file = std::sync::Arc::new(file);
     let trace = sim::drive_file(FileOrchestrator::new(file, 1), &mut passing, &mut |_| TestStatus::Passed);
     assert!(matches!(trace.log.first(), Some(FileCommand::Emit(Event::FileStarted { .. }))));

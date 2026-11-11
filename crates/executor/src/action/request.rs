@@ -11,13 +11,15 @@ use percent_encoding::{AsciiSet, NON_ALPHANUMERIC};
 use serde_json::{Map, Value, json};
 use vc_diagnostics::Code;
 use vc_model::{
-    Action, ActionId, Api, BodySpec, Exchange, Failure, InlineRequest, Method, RenderedRequest, Template, Timing,
+    Action, ActionId, Api, BodySpec, Exchange, Failure, InlineRequest, Method, Part, Reference, RenderedRequest,
+    Template, Timing,
 };
 use vc_template::RenderError;
 
 use crate::Render;
 use crate::action::encode::{self, Encoder, Encoding};
 use crate::action::media::{self, OCTETS};
+use crate::action::path;
 
 /// RFC 3986 unreserved characters stay as they are in a query.
 const UNRESERVED: &AsciiSet = &NON_ALPHANUMERIC.remove(b'-').remove(b'.').remove(b'_').remove(b'~');
@@ -65,14 +67,31 @@ fn with_body(
     Ok(request)
 }
 
-/// The api file's `baseUrl`, the api's `path` and the query.
+/// The api file's `baseUrl` as written, the api's `path` with each value encoded (D278), and
+/// the query.
 fn uri(render: &Render<'_>, api: &Api, action: &Action) -> Result<Uri, Failure> {
     let base = render.program().api_groups.get(&api.group).and_then(|group| group.base_url.as_ref());
-    let mut url = String::new();
-    for template in base.into_iter().chain([&api.path]) {
-        url.push_str(&render.text(template).map_err(failed)?);
+    let mut url = base.map(|base| render.text(base)).transpose().map_err(failed)?.unwrap_or_default();
+    url.push_str(&path::rendered(render, &api.path)?);
+    if base.is_none() && !url.contains("://") {
+        return Err(unbased(render, api, &url));
     }
     with_query(url, &query(render, [&api.query, &action.query])?)
+}
+
+/// The V5111 failure of `api`, whose file has no `baseUrl`, sending to the relative `url`.
+fn unbased(render: &Render<'_>, api: &Api, url: &str) -> Failure {
+    let program = render.program();
+    let name = program.str(api.id.sym()).unwrap_or_default();
+    let file = name.split_once('#').map_or(name, |(file, _)| file);
+    let var = format!("{}Url", file.rsplit('.').next().unwrap_or(file));
+    let names = render.values().profile_names();
+    let profiles = if names.is_empty() { "no profile".to_owned() } else { format!("profile {}", names.join(", ")) };
+    rendering(&format!(
+        "`{name}` sends to `{url}`, which is not a full URL: no `baseUrl` is set for `{file}` ({profiles}); \
+         help: add `baseUrl: ${{var.{var}}}` to its api file and set `{var}` in the config, a profile, or with \
+         `--set vars.{var}=http://…`"
+    ))
 }
 
 /// `url` with `query` appended, parsed.
@@ -99,6 +118,11 @@ fn query<const N: usize>(render: &Render<'_>, levels: [&IndexMap<String, Templat
         pairs.extend(items.map(|item| format!("{}={}", encode(key), encode(&vc_template::to_text(item)))));
     }
     Ok(pairs.join("&"))
+}
+
+/// `reference` as a template of its own.
+pub fn lone(reference: Reference) -> Template {
+    Template { parts: vec![Part::Ref(reference)] }
 }
 
 /// `text` percent-encoded for a query, leaving only the unreserved characters.
@@ -179,7 +203,7 @@ fn body(render: &Render<'_>, spec: &BodySpec, sending: &Sending<'_>) -> Result<O
         BodySpec::Base64(template) => (decode(&render.text(template).map_err(failed)?)?, ContentType::Implied(OCTETS)),
         BodySpec::Extend { base, changes, remove } => {
             let base = render.template(base).map_err(failed)?;
-            let value = vc_template::extend(base, render.value(changes).map_err(failed)?, remove);
+            let value = vc_template::extend(base, render.value(changes).map_err(failed)?, remove).map_err(failed)?;
             structured(render, value, sending)?
         }
         BodySpec::File(path) => file(render, path, sending.action)?,

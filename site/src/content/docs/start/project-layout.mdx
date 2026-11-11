@@ -99,7 +99,7 @@ error[V2007]: the file ID is `payments.refunds.partial` from its path, not `paym
 `vc check` warns (V4 codes) when an item breaks a convention. See [diagnostics](/vc-rs/reference/diagnostics/).
 
 <Aside>
-A dataset's ID is its file name as written, so `datasets/world-cities.csv` has the ID `world-cities`. A dash is not valid in a dotted template path, so you would have to write `${dataset['world-cities']}`. Name dataset files in camelCase (`worldCities.csv`) and use `${dataset.worldCities}`.
+A dataset's ID is its path below `datasets/` in camelCase, without the suffix: `datasets/world-cities.csv` has the ID `worldCities`, read as `${dataset.worldCities}`, and `datasets/eu-west/top-users.json` is `euWest.topUsers`.
 </Aside>
 
 ## `.vibranium/`

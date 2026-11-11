@@ -1,0 +1,6 @@
+tests:
+  - id: listsUsers
+    call: users#list
+    headers:
+      ${var.traceHeader}: abc
+      X-Request-Id: req-1

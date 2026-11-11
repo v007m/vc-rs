@@ -25,6 +25,14 @@ fn a_code_is_explained_outside_any_project() {
 }
 
 #[test]
+fn a_lowercase_code_is_the_same_code() {
+    let (mut vc, _folder) = outside(&["explain", "v2101"]);
+    let output = vc.output().unwrap();
+    assert_eq!(output.status.code(), Some(0), "{}", said(&output));
+    assert!(String::from_utf8_lossy(&output.stdout).starts_with("V2101: "), "{}", said(&output));
+}
+
+#[test]
 fn an_unknown_code_exits_2() {
     let (mut vc, _folder) = outside(&["explain", "V9999"]);
     let output = vc.output().unwrap();

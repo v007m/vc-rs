@@ -92,8 +92,10 @@ fn the_status_follows_the_totals() {
 #[test]
 fn skipped_tests_are_reported_and_counted() {
     let (_, test) = sim::file_and_test();
-    let plan =
-        Arc::new(Plan { skipped: vec![SkippedTest { test, reason: "flaky upstream".into() }], ..Plan::default() });
+    let plan = Arc::new(Plan {
+        skipped: vec![SkippedTest { test, reason: "flaky upstream".into(), until: None }],
+        ..Plan::default()
+    });
     let log = sim::drive_run(RunOrchestrator::new(plan, false), &mut |_| ActionReport::passed(), &[]);
     assert!(log.iter().any(|c| matches!(c, RunCommand::Emit(Event::TestFinished { result })
         if result.status == TestStatus::Skipped && result.skip_reason.as_deref() == Some("flaky upstream"))));
@@ -103,7 +105,7 @@ fn skipped_tests_are_reported_and_counted() {
 #[test]
 fn a_skipped_test_of_a_running_file_is_left_to_the_file() {
     let (_, test) = sim::file_and_test();
-    let skip = SkippedTest { test, reason: "flaky upstream".into() };
+    let skip = SkippedTest { test, reason: "flaky upstream".into(), until: None };
     let mut planned = file();
     planned.skipped = vec![skip.clone()];
     let plan = Arc::new(Plan { files: vec![planned], skipped: vec![skip], ..Plan::default() });

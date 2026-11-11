@@ -93,12 +93,12 @@ skipped
   sample.parked#getsUser: flaky upstream, see #7
 ```
 
-`vc list tests --skipped` lists them without reasons, one per line, for scripts:
+`vc list tests --skipped` lists them one per line, each with its reason and `until` date:
 
 ```console
 $ vc list tests --skipped
-sample.parked#searchesUsers  Searches users by name  [slow]  (skipped)
-sample.parked#getsUser  Gets a user  (skipped)
+sample.parked#searchesUsers  Searches users by name  [slow]  (skipped: demo service has no search yet)
+sample.parked#getsUser  Gets a user  (skipped: flaky upstream, see #7, until 2026-11-30)
 ```
 
 The reports keep the reason too:

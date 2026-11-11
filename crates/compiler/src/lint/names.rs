@@ -1,13 +1,15 @@
 //! V4003 and V4004: file IDs, tags and profiles that break the naming conventions.
 
 use vc_diagnostics::{Code, Diagnostic, Fix, TextEdit};
+use vc_model::{FileKind, SourceSpan};
 use vc_parser::Node;
 
 use super::{Lint, LintCx};
 use crate::link::{self, Source};
 use crate::naming;
 
-/// V4003: a file ID word that is not lower case (`services/users/CRUD.test.yaml`).
+/// V4003: a file ID word that is not lower case (`services/users/CRUD.test.yaml`), or a test
+/// file named after its service instead of an area (`services/users/users.test.yaml`).
 pub struct FileNames;
 
 /// V4004: a tag that is not lower kebab-case, or a profile that is not a lower-case word.
@@ -26,13 +28,26 @@ impl Lint for FileNames {
 impl FileNames {
     fn file(&self, source: &Source<'_>) -> Option<Diagnostic> {
         let id = source.id.as_deref()?;
-        if naming::is_file_id(id) {
-            return None;
-        }
         let spot = source.root.entries().first().map_or(source.root.span, |entry| entry.key_span);
+        if naming::is_file_id(id) {
+            return self.area(source, id, spot);
+        }
         let message = format!("the file ID `{id}` is not lower case");
         let diagnostic = Diagnostic::new(self.code(), spot, message).label("in this file's path");
         let help = format!("move it with `vc rename {id} {}`, which updates every reference", naming::file_id(id));
+        Some(diagnostic.help(help))
+    }
+
+    /// A test file whose area repeats its service: `users.users`.
+    fn area(&self, source: &Source<'_>, id: &str, spot: SourceSpan) -> Option<Diagnostic> {
+        let mut words = id.rsplit('.');
+        let (area, service) = (words.next()?, words.next()?);
+        if source.kind != FileKind::Test || area != service {
+            return None;
+        }
+        let message = format!("the file ID `{id}` repeats the service name `{service}`");
+        let diagnostic = Diagnostic::new(self.code(), spot, message).label("in this file's path");
+        let help = format!("name the file after what its tests cover: `vc rename {id} {service}.crud`");
         Some(diagnostic.help(help))
     }
 }

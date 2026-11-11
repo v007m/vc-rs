@@ -1,0 +1,7 @@
+tests:
+  - id: readsAStepNoActionDeclares
+    steps:
+      - id: fetch
+        call: users#getUser
+      - call: users#getUser
+        vars: {id: "${fecth.body.id}", note: "${nowhere.status}"}

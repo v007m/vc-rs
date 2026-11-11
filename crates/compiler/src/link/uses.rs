@@ -1,14 +1,14 @@
 //! What a spot reads: vars set at some level for every profile (V2101), pipes that fit the
 //! var's type (V2304), and step ids that ran earlier in the same test or block (V2105).
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use vc_diagnostics::{Code, Diagnostic, Diagnostics, Fix, TextEdit};
 use vc_model::{Matcher, MatcherArg, Namespace, Reference, Segment, SourceSpan};
 use vc_template::{PipeRegistry, Roots};
 
 use super::layer::Scope;
-use super::project::{Project, Source};
+use super::project::{self, Project, Source};
 use crate::parts::Piece;
 use crate::suggest;
 
@@ -31,8 +31,11 @@ pub struct Checker<'p, 'a> {
     /// The profiles every var is looked up for; one unnamed profile when there are none.
     pub profiles: Vec<String>,
     pipes: PipeRegistry,
-    reported: HashSet<SourceSpan>,
-    /// What was found.
+    /// Where each reference reported is in `found`.
+    reported: HashMap<SourceSpan, usize>,
+    /// What the references were found to get wrong.
+    found: Vec<Diagnostic>,
+    /// What else was found.
     pub diagnostics: Diagnostics,
 }
 
@@ -41,7 +44,7 @@ impl<'p, 'a> Checker<'p, 'a> {
     pub fn new(project: &'p Project<'a>, profiles: Vec<String>) -> Self {
         let profiles = if profiles.is_empty() { vec![String::new()] } else { profiles };
         let pipes = PipeRegistry::builtin();
-        Self { project, profiles, pipes, reported: HashSet::new(), diagnostics: Diagnostics::new() }
+        Self { project, profiles, pipes, reported: HashMap::new(), found: Vec::new(), diagnostics: Diagnostics::new() }
     }
 
     /// Checks every reference in `spot` against `scope`.
@@ -51,27 +54,55 @@ impl<'p, 'a> Checker<'p, 'a> {
             piece_refs(piece, &mut found);
         }
         for reference in found {
-            if self.reported.contains(&reference.span) {
-                continue;
-            }
             let diagnostic = match reference.ns {
                 Namespace::Var => self.var(spot, reference, scope),
-                Namespace::Step(id) => self.step(reference, id, scope),
+                Namespace::Step(id) => self.step((spot.source, reference), id, scope),
                 _ => None,
             };
             if let Some(diagnostic) = diagnostic {
-                self.reported.insert(reference.span);
-                self.diagnostics.push(diagnostic);
+                self.report(reference.span, diagnostic);
             }
         }
     }
 
-    fn step(&self, reference: &Reference, id: vc_model::Sym, scope: &Scope<'_>) -> Option<Diagnostic> {
+    /// Everything found.
+    pub fn finish(mut self) -> Diagnostics {
+        self.diagnostics.extend(self.found);
+        self.diagnostics
+    }
+
+    /// Keeps `diagnostic`, or, when one was already reported at `span`, adds its call sites to
+    /// that one: an api's unset var names every call that reaches it, so `vc check` on any of
+    /// those test files reports it.
+    fn report(&mut self, span: SourceSpan, diagnostic: Diagnostic) {
+        let Some(&at) = self.reported.get(&span) else {
+            self.reported.insert(span, self.found.len());
+            self.found.push(diagnostic);
+            return;
+        };
+        let Some(first) = self.found.get_mut(at).filter(|first| first.code == diagnostic.code) else { return };
+        let sites: Vec<_> = diagnostic.secondary.into_iter().filter(|site| !first.secondary.contains(site)).collect();
+        first.secondary.extend(sites);
+    }
+
+    /// V2105 for a step id that did not run earlier: "not available here" when an action in the
+    /// file or the config declares it, else "not a root or a step id".
+    fn step(
+        &self,
+        (source, reference): (&Source<'_>, &Reference),
+        id: vc_model::Sym,
+        scope: &Scope<'_>,
+    ) -> Option<Diagnostic> {
         let name = self.project.strings.resolve(id)?;
         if scope.ran(name) {
             return None;
         }
-        Roots::new().check(reference, self.project.strings).err().map(|diagnostic| *diagnostic)
+        let unavailable = *Roots::new().check(reference, self.project.strings).err()?;
+        let mut declared = std::iter::once(source).chain(self.project.config()).flat_map(project::actions);
+        if declared.any(|action| project::text(action, "id") == Some(name)) {
+            return Some(unavailable);
+        }
+        Some(Roots::undeclared(reference, name, &scope.steps).unwrap_or(unavailable))
     }
 
     fn var(&self, spot: &Spot<'_, '_>, reference: &Reference, scope: &Scope<'_>) -> Option<Diagnostic> {
@@ -134,13 +165,26 @@ impl<'p, 'a> Checker<'p, 'a> {
     }
 }
 
-/// Offers the one close name that is known, as a certain fix when the name's span is exact.
+/// Offers the known names close to the name: one as a certain fix when the name's span is exact.
 pub fn did_you_mean(
     diagnostic: Diagnostic,
     (source, reference, name): (&Source<'_>, &Reference, &str),
     known: &[&str],
 ) -> Diagnostic {
-    let [one] = suggest::close(name, known.iter().copied())[..] else { return diagnostic };
+    offer(diagnostic, (source, reference, name), &suggest::close(name, known.iter().copied()))
+}
+
+/// Offers the `close` names: one as a certain fix when the name's span is exact, several as help.
+pub fn offer(
+    diagnostic: Diagnostic,
+    (source, reference, name): (&Source<'_>, &Reference, &str),
+    close: &[&str],
+) -> Diagnostic {
+    let one = match *close {
+        [] => return diagnostic,
+        [one] => one,
+        ref several => return diagnostic.help(format!("did you mean one of {}?", suggest::quoted(several))),
+    };
     let diagnostic = diagnostic.help(format!("did you mean `{one}`?"));
     let at = reference.root_span.end;
     let exact = source.text.get(at.offset..=at.offset) == Some(".");

@@ -9,6 +9,7 @@ use vc_parser::{Document, Node};
 
 use crate::authoring::{Authoring, Named, Opened, item, refused};
 use crate::edit::{Changes, FileChange, internal};
+use crate::format::is_generated;
 use crate::rename_name::renamed_name;
 use crate::{Engine, EngineError};
 
@@ -120,6 +121,7 @@ fn rename_file(project: &Authoring, from: &str, to: &str) -> Result<Vec<FileChan
     let ids = item_ids(opened.document.root());
     let renames: Vec<(String, String)> = ids.iter().map(|id| (format!("{from}#{id}"), format!("{to}#{id}"))).collect();
     let mut edits = renamed_refs(&opened.document, to, &renames)?;
+    edits.extend(opened.document.rename_in_comments((from, to), &is_generated));
     if let Some(id) = opened.document.root().get("id") {
         edits.push(opened.document.set_scalar(id, to).map_err(internal)?);
     }
@@ -156,11 +158,13 @@ pub fn item_ids(root: &Node) -> Vec<&str> {
     items.filter_map(|item| item.get("id")?.as_str()).collect()
 }
 
-/// The edits that rename every reference in `document`, the file `file_id`, by `renames`.
+/// The edits that rename every reference in `document`, the file `file_id`, by `renames`, and
+/// each full ID the comments `vc new` wrote name.
 fn renamed_refs(document: &Document, file_id: &str, renames: &Renames) -> Result<Vec<TextEdit>, EngineError> {
     let mut edits = Vec::new();
     for (from, to) in renames {
         edits.extend(document.rename_refs(file_id, from, to).map_err(internal)?);
+        edits.extend(document.rename_in_comments((from, to), &is_generated));
     }
     Ok(edits)
 }

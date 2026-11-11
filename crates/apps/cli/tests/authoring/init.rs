@@ -79,7 +79,11 @@ fn no_sample_writes_the_config_and_folders_only() {
     project.vc(&["init", "--no-sample"]).assert().code(0);
     assert!(project.exists("vibranium.config.yaml") && project.path().join("load").is_dir());
     assert!(!project.exists("services/sample"), "no sample");
+    let config = project.read("vibranium.config.yaml");
+    assert!(!config.contains("sample"), "no sample var or comment:\n{config}");
     project.vc(&["check"]).assert().code(0).stdout("0 errors · 0 warnings · 1 file checked\n");
+    project.vc(&["fmt"]).assert().code(0);
+    assert_eq!(project.read("vibranium.config.yaml"), config, "already in the house style");
 }
 
 #[test]
