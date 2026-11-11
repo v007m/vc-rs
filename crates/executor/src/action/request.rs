@@ -72,7 +72,24 @@ fn uri(render: &Render<'_>, api: &Api, action: &Action) -> Result<Uri, Failure> 
     for template in base.into_iter().chain([&api.path]) {
         url.push_str(&render.text(template).map_err(failed)?);
     }
+    if base.is_none() && !url.contains("://") {
+        return Err(unbased(render, api, &url));
+    }
     with_query(url, &query(render, [&api.query, &action.query])?)
+}
+
+/// The V5111 failure of `api`, whose file has no `baseUrl`, sending to the relative `url`.
+fn unbased(render: &Render<'_>, api: &Api, url: &str) -> Failure {
+    let program = render.program();
+    let name = program.str(api.id.sym()).unwrap_or_default();
+    let file = name.split_once('#').map_or(name, |(file, _)| file);
+    let var = format!("{}Url", file.rsplit('.').next().unwrap_or(file));
+    let profiles = render.values().profile_names().join(", ");
+    rendering(&format!(
+        "`{name}` sends to `{url}`, which is not a full URL: no `baseUrl` is set for `{file}` (profile {profiles}); \
+         help: add `baseUrl: ${{var.{var}}}` to its api file and set `{var}` in the config, a profile, or with \
+         `--set vars.{var}=http://…`"
+    ))
 }
 
 /// `url` with `query` appended, parsed.
