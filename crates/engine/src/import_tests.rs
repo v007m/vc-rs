@@ -5,7 +5,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use vc_interfaces::SourceProvider;
 use vc_testkit::{FakeTransport, FakeVcs, MemoryEnvironment, MemorySources, status};
 
-use super::{ImportRequest, options};
+use super::{ImportRequest, Keep, options};
 use crate::sample::builder;
 use crate::{Changes, Engine, EngineBuilder, EngineError, FileChange};
 
@@ -300,6 +300,28 @@ async fn an_explicit_id_puts_a_recording_of_one_origin_in_that_file() {
     let into_shop = ImportRequest { file_id: Some("shop".to_owned()), ..curl };
     let merged = shop_engine().import(&into_shop).await.unwrap();
     assert!(after(&merged, "services/shop/shop.api.yaml").contains("id: getCart"), "{merged:?}");
+}
+
+#[tokio::test]
+async fn a_recording_to_hosts_no_api_file_is_on_names_them_and_include_host_makes_their_files() {
+    let files: [(&str, &[u8]); 2] = [
+        ("vibranium.config.yaml", b"syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\n"),
+        ("services/sample/sample.api.yaml", b"baseUrl: http://localhost:7421\napis:\n  - id: ping\n    path: /ping\n"),
+    ];
+    let served = FakeTransport::new(|_, _| Ok(status(200)));
+    let sources: Arc<dyn SourceProvider> = Arc::new(MemorySources::new(&files));
+    let engine = builder(FakeVcs::default()).sources(sources).transport(Arc::new(served)).build().unwrap();
+    let har = ImportRequest { text: Some(SHOP_HAR.to_owned()), ..request("har", "rec/checkout.har") };
+    let Err(EngineError::Edit { reason, help }) = engine.import(&har).await else {
+        panic!("every call is third-party")
+    };
+    assert!(reason.ends_with("`--include-host api.shop.test` or `--include-host pay.shop.test`"), "{reason}");
+    assert!(help.is_some_and(|help| help.contains("`--include-host <host>`") && !help.contains("--only")));
+    let hosts = vec!["api.shop.test".to_owned(), "pay.shop.test".to_owned()];
+    let kept = ImportRequest { keep: Keep { hosts, ..Keep::default() }, ..har };
+    let changes = engine.import(&kept).await.unwrap();
+    let paths: Vec<_> = changes.files.iter().map(|file| file.path.as_str()).collect();
+    assert_eq!(paths, ["services/pay/pay.api.yaml", "services/shop/shop.api.yaml", "vibranium.config.yaml"]);
 }
 
 #[tokio::test]

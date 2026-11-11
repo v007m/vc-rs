@@ -29,6 +29,12 @@ pub trait Importer: Send + Sync {
         None
     }
 
+    /// What to do when the source was fetched but cannot be read as this kind, when this kind
+    /// has more to say than the engine's generic help.
+    fn read_help(&self) -> Option<&'static str> {
+        None
+    }
+
     /// Whether this kind reads a folder (a Bruno collection) as well as a file. The engine then
     /// hands it a folder as an [`ImportSource`] with no bytes, and the importer reads the
     /// folder's files through its [`crate::SpecFetcher`].

@@ -218,3 +218,16 @@ async fn a_file_that_is_not_a_har_or_calls_no_api_is_invalid() {
         "it records no call to an api: read 1 entries · filtered 1 static, 0 third-party, 0 OPTIONS → 0 requests";
     assert_eq!(reason(&only_assets).await, expected);
 }
+
+#[tokio::test]
+async fn a_recording_with_every_call_third_party_names_the_hosts_and_how_to_keep_them() {
+    let elsewhere = RecordingFilter { hosts: vec!["localhost".to_owned()], ..RecordingFilter::default() };
+    let opts = ImportOptions { recording: elsewhere, ..ImportOptions::default() };
+    let read = HarImporter.read(&source(SAMPLE), &opts).await;
+    let Err(ImportError::Invalid { reason, .. }) = read else { panic!("nothing is kept: {read:?}") };
+    let expected = "it records no call to an api: read 12 entries · filtered 3 static, 8 third-party, 1 OPTIONS → 0 \
+                    requests; keep a third-party host with `--include-host www.google-analytics.com`, \
+                    `--include-host api.shop.test` or `--include-host pay.shop.test`";
+    assert_eq!(reason, expected);
+    assert!(HarImporter.read_help().is_some_and(|help| help.contains("--include-host")));
+}

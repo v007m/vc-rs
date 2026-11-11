@@ -2,7 +2,8 @@
 //! served spec, and they compile and run; `vc init --from-openapi` imports into a new project;
 //! `vc sync` merges the next version of the spec; a HAR recorded against the mock server, and a
 //! Postman or Bruno collection calling it (a Bruno one as its export or its folder), import into
-//! its api file and their flows run green; a folder without `bruno.json` is refused.
+//! its api file and their flows run green; a folder without `bruno.json` is refused; a recording
+//! whose every host is third-party names them, and `--include-host` previews their new files.
 
 use vc_mock_server::MockServer;
 
@@ -198,4 +199,24 @@ fn a_folder_without_bruno_json_is_refused() {
     assert_eq!(output.status.code(), Some(2), "{}", said(&output));
     let line = "it is not a Bruno collection: the folder has no bruno.json";
     assert!(said(&output).contains(line), "{line} not in {}", said(&output));
+}
+
+#[test]
+fn a_recording_to_a_host_no_api_file_is_on_names_it_and_include_host_previews_its_new_file() {
+    let project = Project::new(&[CONFIG, USERS]);
+    project.write("recorded.har", RECORDED);
+    let refused = project.vc(&["import", "har", "recorded.har"]).output().unwrap();
+    assert_eq!(refused.status.code(), Some(2), "{}", said(&refused));
+    for line in ["`--include-host www.google-analytics.com` or `--include-host 127.0.0.1`", "`--include-host <host>`"] {
+        assert!(said(&refused).contains(line), "{line} not in {}", said(&refused));
+    }
+    assert!(!said(&refused).contains("--only"), "{}", said(&refused));
+    let kept = ["import", "har", "recorded.har", "--include-host", "127.0.0.1", "--dry-run"];
+    let preview = project.vc(&kept).output().unwrap();
+    assert_eq!(preview.status.code(), Some(0), "{}", said(&preview));
+    for line in ["  127.0.0.1:7421 → recorded (new)  6 new", "+++ b/services/recorded/recorded.api.yaml"] {
+        assert!(said(&preview).contains(line), "{line} not in {}", said(&preview));
+    }
+    assert!(!project.path().join("services/recorded").exists());
+    assert!(!said(&preview).contains(TOKEN), "{}", said(&preview));
 }

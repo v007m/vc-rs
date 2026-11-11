@@ -54,6 +54,10 @@ impl Importer for OpenApiImporter {
         group.tests = reader.tests(&opts.file_id, &routes, &group.apis);
         Ok(ImportDraft { groups: vec![group], notes, snapshot: Some(doc), ..ImportDraft::default() })
     }
+
+    fn read_help(&self) -> Option<&'static str> {
+        Some("fix the spec, or import part of it with `--include` or `--only`")
+    }
 }
 
 /// `doc` as `OpenAPI` 3.1, or why it cannot be.

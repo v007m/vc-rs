@@ -511,8 +511,8 @@ $ vc import har ~/Downloads/checkout-session.har --flow orders.checkout#recorded
 
 What the import does, in order:
 
-1. **Filters noise.** It drops static assets, third-party hosts (analytics, CDNs) and `OPTIONS` preflights; `--include-host` and `--keep-static` override this.
-2. **Maps hosts to api files.** Each host goes to the api file whose `baseUrl` renders to it under the active profile (`--profile`), the longest base path winning; an unknown host creates a new api file named by the conventions (`api.shop.test` → `shop`), with a base-URL var such as `shopUrl` added to the config. A new host whose file ID already has an api file pointing elsewhere is refused: pass the `--profile` whose vars point that file there, or rename the file first.
+1. **Filters noise.** It drops static assets, third-party hosts (analytics, CDNs) and `OPTIONS` preflights; `--include-host` and `--keep-static` override this. A host is third-party when its site (its last two labels) is not the site of any api file's base URL (D206), so an api on a new domain is dropped too until `--include-host` names it. When nothing is left, the error names each host it dropped as third-party with the `--include-host` that keeps it.
+2. **Maps hosts to api files.** Each host goes to the api file whose `baseUrl` renders to it under the active profile (`--profile`), the longest base path winning; an unknown host it kept creates a new api file named by the conventions (`api.shop.test` → `shop`), with a base-URL var such as `shopUrl` added to the config. A new host whose file ID already has an api file pointing elsewhere is refused: pass the `--profile` whose vars point that file there, or rename the file first.
 3. **Turns requests into apis.**
    - IDs come from the method and path (`POST /carts/{id}/items` → `addItem`).
    - IDs and UUIDs in paths become vars (`/orders/ord_8Kq2Tz` → `/orders/${var.orderId}`).

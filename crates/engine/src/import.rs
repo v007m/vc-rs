@@ -90,7 +90,8 @@ impl Engine {
         let source = source(importer.as_ref(), fetcher.as_ref(), request).await?;
         let homes = self.homes(&request.profiles);
         opts.recording.hosts = hosts(&homes);
-        let draft = importer.read(&source, &opts).await.map_err(|error| refused(error.to_string(), READ_HELP))?;
+        let help = importer.read_help().unwrap_or(READ_HELP);
+        let draft = importer.read(&source, &opts).await.map_err(|error| refused(error.to_string(), help))?;
         if draft.snapshot.is_none() {
             let schema = self.secrets_schema()?;
             let file_id = request.file_id.as_deref().filter(|_| draft.groups.len() == 1);
@@ -174,7 +175,7 @@ fn not_the_snapshot(source: &str, file_id: &str) -> Result<(), EngineError> {
 }
 
 const FETCH_HELP: &str = "give a URL, or a path inside the project";
-const READ_HELP: &str = "fix the spec, or import part of it with `--include` or `--only`";
+const READ_HELP: &str = "fix the file, or export it again from the tool that made it";
 
 /// What the importer is asked for; with no `--id`, the file ID is the spec's file name up to
 /// its first dot (`specs/users.v2.yaml` gives `users`).
