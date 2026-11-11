@@ -426,7 +426,7 @@ OpenAPI import and sync (`vc import openapi`, `vc sync users`) are described in 
 
 ### Reusing a payload with changes
 
-`$extend` starts a map from an existing object, usually a response body or a saved value, and the keys beside it change it. Maps merge deeply, so `shipping.city` changes one field and keeps the rest of `shipping`; lists and plain values are replaced whole; `null` sets a field to null. `$remove` lists paths to drop, such as server-generated fields. Both work in any map value: a body, a var, a saved object.
+`$extend` starts a map from an existing object, usually a response body or a saved value, and the keys beside it change it. Maps merge deeply, so `shipping.city` changes one field and keeps the rest of `shipping`; lists and plain values are replaced whole; `null` sets a field to null. `$remove` lists paths to drop, such as server-generated fields. Both work in any map value: a body, a var, a saved object. The base must be a template that renders an object: a written value is V2302, a `$remove` without `$extend` is V2211, and a base that renders anything else fails the action (V5111).
 
 `body` on a test, step or action replaces the api's body for that one call. Use it when a test needs a body the api's vars cannot express, as here:
 

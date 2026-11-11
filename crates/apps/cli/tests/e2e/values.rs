@@ -1,4 +1,5 @@
-//! Computed bodies: `$extend` merges changes into an earlier response, `$remove` drops fields,
+//! Computed bodies: `$extend` merges changes into an earlier response (and fails on a base
+//! that is no object), `$remove` drops fields,
 //! and `$cel` computes a value, all as the server receives them. A dataset outside the project
 //! is read from a `datasets.allowRoots` folder, and from nowhere else. A templated status is read
 //! as a written one, from a number, text, a class or a list.
@@ -27,6 +28,24 @@ async fn an_extended_body_keeps_the_original_with_the_changes_and_cel_computes_v
     let output = project.run(&server.base_url(), &[]).assert().get_output().clone();
     assert_eq!(output.status.code(), Some(0), "{}", crate::said(&output));
     assert_eq!(server.stats().await.unwrap().count("POST /echo"), 2);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn an_extend_whose_base_renders_no_object_fails_the_call_and_sends_nothing() {
+    let server = MockServer::start().await.unwrap();
+    let test = concat!(
+        "tests:\n  - id: extendsNumber\n    vars:\n      n: 5\n    call: scripted#echo\n",
+        "    body:\n      $extend: ${var.n}\n      a: 1\n",
+    );
+    let project = Project::new(&[CONFIG, SCRIPTED, ("services/scripted/values.test.yaml", test)]);
+    let output = project.run(&server.base_url(), &[]).output().unwrap();
+    let said = crate::said(&output);
+    assert_eq!(output.status.code(), Some(1), "{said}");
+    assert!(
+        said.contains("V5111") && said.contains("`$extend` needs an object to start from, but its base is a number"),
+        "{said}"
+    );
+    assert_eq!(server.stats().await.unwrap().count("POST /echo"), 0);
 }
 
 #[tokio::test(flavor = "multi_thread")]

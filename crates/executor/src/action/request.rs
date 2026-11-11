@@ -196,7 +196,7 @@ fn body(render: &Render<'_>, spec: &BodySpec, sending: &Sending<'_>) -> Result<O
         BodySpec::Base64(template) => (decode(&render.text(template).map_err(failed)?)?, ContentType::Implied(OCTETS)),
         BodySpec::Extend { base, changes, remove } => {
             let base = render.template(base).map_err(failed)?;
-            let value = vc_template::extend(base, render.value(changes).map_err(failed)?, remove);
+            let value = vc_template::extend(base, render.value(changes).map_err(failed)?, remove).map_err(failed)?;
             structured(render, value, sending)?
         }
         BodySpec::File(path) => file(render, path, sending.action)?,
