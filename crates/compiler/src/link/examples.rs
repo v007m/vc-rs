@@ -9,13 +9,14 @@
 use std::collections::HashSet;
 
 use vc_diagnostics::{Code, Diagnostic};
-use vc_model::{Namespace, Reference, Segment};
+use vc_model::{Namespace, Reference, Segment, TemplateValue};
 use vc_parser::{Node, Value};
 use vc_template::{row_readable, row_root_label, row_var_unread};
 
 use super::layer::{Origin, Scope};
 use super::project::Source;
 use super::uses::{Checker, piece_refs};
+use crate::parts::Piece;
 
 /// What a var only a save sets needs.
 const SAVED: &str = "a save, which runs after it is read";
@@ -45,9 +46,9 @@ impl Checker<'_, '_> {
     /// value before the run.
     pub fn examples(&mut self, source: &Source<'_>, test: &Node, scope: &Scope<'_>) {
         let Some(rows) = test.get("examples").filter(|rows| !matches!(rows.value, Value::Seq(_))) else { return };
-        if let Some(path) = rows.get("$file") {
+        if rows.get("$file").is_some() {
             self.file_keys(rows);
-            if !refs(source, path).is_empty() {
+            if file_templated(source, rows) {
                 let diagnostic = Diagnostic::new(Code::V2105, rows.span, FILE_TEMPLATED).help(FILE_HELP);
                 self.diagnostics.push(diagnostic);
             }
@@ -121,6 +122,13 @@ fn refs<'a>(source: &Source<'a>, node: &Node) -> Vec<&'a Reference> {
     let mut found = Vec::new();
     source.pieces(node.span, &[]).for_each(|piece| piece_refs(piece, &mut found));
     found
+}
+
+/// Whether the `$file` path of the row source `rows` holds a template. The map compiles as one
+/// value, so its path is read from that value.
+fn file_templated(source: &Source<'_>, rows: &Node) -> bool {
+    let Some(Piece::Value(TemplateValue::Map(entries))) = source.piece(rows) else { return false };
+    entries.get("$file").is_some_and(|path| !path.references().is_empty())
 }
 
 /// The var a `${var.…}` reference names.

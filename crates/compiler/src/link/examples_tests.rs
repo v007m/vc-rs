@@ -145,13 +145,15 @@ fn a_file_of_rows_holds_only_its_path() {
 
 #[test]
 fn a_secret_a_followed_var_reads_with_a_default_is_not_needed() {
-    let config = config_vars("  a: '${secret.ROWS | default(\"[]\")}'\n");
+    let config = config_vars("  a: \"${secret.ROWS | default('[]')}\"\n");
+    let found = diagnosed(&config, &reads_a("{}"));
+    assert!(found.iter().all(|(_, found)| found.code != Code::V2305), "the template parses: {found:?}");
     assert_eq!(unavailable_with(&config, &reads_a("{}")), [], "the render gives the default before the run");
 }
 
 #[test]
 fn a_response_a_followed_var_reads_with_a_default_is_still_needed() {
-    let tests = "beforeAll:\n  - id: seeded\n    call: users#make\ntests:\n  - id: listsSeeded\n    call: users#get\n    vars: {ids: '${seeded.body | default(\"[]\")}'}\n    examples: ${var.ids}\n";
+    let tests = "beforeAll:\n  - id: seeded\n    call: users#make\ntests:\n  - id: listsSeeded\n    call: users#get\n    vars: {ids: \"${seeded.body | default('[]')}\"}\n    examples: ${var.ids}\n";
     let found = unavailable(tests);
     let at_examples = found.iter().find(|(line, _)| *line == 8).map(|(_, found)| found.help.join("\n"));
     let help = at_examples.unwrap_or_else(|| panic!("a V2105 at `examples` expected: {found:?}"));
