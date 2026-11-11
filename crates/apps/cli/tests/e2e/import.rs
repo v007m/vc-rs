@@ -4,11 +4,13 @@
 //! Postman or Bruno collection calling it (a Bruno one as its export or its folder), import into
 //! its api file and their flows run green; a folder without `bruno.json` is refused; a recording
 //! whose every host is third-party names them, and `--include-host` previews their new files;
-//! import and sync refuse a snapshot path that is the spec, a link or another file's name in
-//! another case.
+//! no secret in a recording is said or written; import and sync refuse a snapshot path that is
+//! the spec, a link or another file's name in another case, and sync replaces a snapshot hard
+//! linked to the spec rather than writing into it.
 
 use vc_mock_server::MockServer;
 
+use crate::redaction::files;
 use crate::{CONFIG, Project, USERS, said};
 
 #[tokio::test(flavor = "multi_thread")]
@@ -242,6 +244,37 @@ fn an_id_for_a_recording_of_two_origins_is_refused_naming_them() {
     assert!(!project.path().join("services").exists());
 }
 
+/// What [`TWO_ORIGINS`] holds that no output or written file may, as the engine's own test lists
+/// them: a bearer token, a session cookie, an api key, a nonce, a card token, a password and a
+/// token a response gave back.
+const SHOP_SECRETS: [&str; 7] = [
+    "eyJhbGciOiJIUzI1NiJ9",
+    "s3ss10nC00k1e",
+    "pk_9Rt2Lm8Qx4Vz7Nb3Kc6Wd1Hy",
+    "Xk9pQ2mZ7vR4tL8wB3nY6cH1",
+    "tok_visa",
+    "hunter2",
+    "Zq8Wv3Lp5Rt7Ny2Kb4Hd6Fj9",
+];
+
+#[test]
+fn a_recording_of_two_origins_imports_and_no_secret_in_it_is_said_or_written() {
+    let project = Project::new(&[CONFIG]);
+    project.write("shop.har", TWO_ORIGINS);
+    let hosts = ["--include-host", "api.shop.test", "--include-host", "pay.shop.test"];
+    let output = project.vc(&[&["import", "har", "shop.har"][..], &hosts].concat()).output().unwrap();
+    assert_eq!(output.status.code(), Some(0), "{}", said(&output));
+    let mut written = Vec::new();
+    files(project.path(), &mut written);
+    written.retain(|(path, _)| !path.ends_with("shop.har"));
+    assert!(written.iter().any(|(path, _)| path.ends_with(".api.yaml")), "{written:?}");
+    let leaked: Vec<_> = SHOP_SECRETS
+        .iter()
+        .filter(|secret| said(&output).contains(*secret) || written.iter().any(|(_, text)| text.contains(*secret)))
+        .collect();
+    assert!(leaked.is_empty(), "{leaked:?} in {} or {written:?}", said(&output));
+}
+
 /// A spec with one operation, kept in the project.
 const SPEC: (&str, &str) = (
     "specs/users.yaml",
@@ -323,4 +356,17 @@ fn sync_refuses_a_spec_kept_at_its_snapshot_path_in_another_case() {
     let leads = "openapi/users.yaml, where `vc import` keeps the snapshot, leads to openapi/Users.yaml";
     assert!(said(&output).contains(leads), "{}", said(&output));
     assert_eq!(std::fs::read_to_string(at("openapi/Users.yaml")).unwrap(), SERVED.1);
+}
+
+#[cfg(unix)]
+#[test]
+fn sync_replaces_a_snapshot_hard_linked_to_the_spec_and_leaves_the_spec_as_it_was() {
+    let project = imported_without_its_snapshot();
+    let at = |path: &str| project.path().join(path);
+    std::fs::hard_link(at(SERVED.0), at("openapi/users.yaml")).unwrap();
+    let output = project.vc(&["sync", "users"]).output().unwrap();
+    assert_eq!(output.status.code(), Some(0), "{}", said(&output));
+    assert_eq!(std::fs::read_to_string(at(SERVED.0)).unwrap(), SERVED.1);
+    let snapshot = std::fs::read_to_string(at("openapi/users.yaml")).unwrap();
+    assert!(snapshot.starts_with("# Snapshot of specs/users.yaml"), "{snapshot}");
 }
