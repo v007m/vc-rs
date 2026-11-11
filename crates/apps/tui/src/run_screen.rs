@@ -13,14 +13,14 @@ use crate::screen::{Ask, Flight, Screen, Update, clamp_step, cursor_move};
 /// The Run tab's keys.
 const KEYS: [(&str, &str); 6] =
     [("↑↓", "move"), ("a", "run all"), ("r", "rerun test"), ("R", "rerun failed"), ("f", "failures"), ("x", "stop")];
-/// The Run tab's keys once `x` asked the run to stop.
+/// The Run tab's keys once `x` asked the run to stop, the second `x` first so a narrow footer keeps it.
 const KEYS_STOPPING: [(&str, &str); 6] = [
+    ("x", "again: skip cleanups"),
     ("↑↓", "move"),
     ("a", "run all"),
     ("r", "rerun test"),
     ("R", "rerun failed"),
     ("f", "failures"),
-    ("x", "again: skip cleanups"),
 ];
 
 /// The Run tab.

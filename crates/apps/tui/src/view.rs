@@ -81,7 +81,7 @@ pub fn draw(tui: &Tui, frame: &mut Frame<'_>) {
     if tui.confirming() {
         frame.render_widget(Paragraph::new(Span::styled(CONFIRM[flown(tui.in_flight())], theme::WARN)), footer);
     } else {
-        frame.render_widget(Paragraph::new(keys(own.iter().chain(global))), footer);
+        frame.render_widget(Paragraph::new(footer_keys(own, global, footer.width)), footer);
     }
     if tui.help() {
         draw_help(own, frame, body);
@@ -112,6 +112,19 @@ fn tab_bar(tui: &Tui) -> Line<'static> {
         [Span::styled(format!(" {} {} ", position + 1, screen.title()), style), Span::raw(" ")]
     });
     Line::from(spans.collect::<Vec<_>>())
+}
+
+/// As many of the tab's `own` keys as fit `width` beside the `global` ones, the last dropped first,
+/// then the `global` ones, so `? help` always shows; the help lists every key.
+fn footer_keys(
+    own: &[(&'static str, &'static str)],
+    global: &[(&'static str, &'static str)],
+    width: u16,
+) -> Line<'static> {
+    let room = usize::from(width).saturating_sub(keys(global.iter()).width());
+    let fits = |count: &usize| own.get(..*count).is_some_and(|kept| keys(kept.iter()).width() <= room);
+    let shown = (0..=own.len()).rev().find(fits).unwrap_or(0);
+    keys(own.iter().take(shown).chain(global))
 }
 
 /// `key label` pairs, each key marked.

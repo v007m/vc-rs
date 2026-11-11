@@ -26,8 +26,8 @@ const KEYS: [(&str, &str); 7] = [
     ("pgup/pgdn", "scroll"),
     ("t", "skip/unskip"),
     ("e", "edit"),
-    ("c", "recent"),
     ("r", "reload"),
+    ("c", "recent"),
 ];
 
 /// How many days back `c` looks for changed files.

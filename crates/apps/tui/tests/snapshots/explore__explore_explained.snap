@@ -1,5 +1,6 @@
 ---
 source: crates/apps/tui/tests/explore.rs
+assertion_line: 89
 expression: "screen(&tui, SIZE)"
 ---
 ◆ vibranium shop  profile staging                1 Run   2 Explore   3 History   4 Load   5 Import
@@ -25,4 +26,4 @@ expression: "screen(&tui, SIZE)"
 │                                           ││                                                     │
 │                                           ││                                                     │
 └───────────────────────────────────────────┘└─────────────────────────────────────────────────────┘
-  ↑↓  move  enter  explain  pgup/pgdn  scroll  t  skip/unskip  e  edit  c  recent  r  reload  ?  hel
+  ↑↓  move  enter  explain  pgup/pgdn  scroll  t  skip/unskip  e  edit  r  reload  ?  help  q  quit
