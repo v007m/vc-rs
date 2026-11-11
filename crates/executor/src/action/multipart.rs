@@ -6,6 +6,7 @@ use http::HeaderValue;
 use serde_json::{Map, Value};
 use vc_model::Failure;
 
+use crate::Unread;
 use crate::action::encode::{Encoded, Encoding, items};
 use crate::action::media;
 use crate::action::request::{JSON, rendering};
@@ -77,12 +78,9 @@ fn bchar(byte: u8) -> bool {
     byte.is_ascii_alphanumeric() || b"'()+_,-./:=? ".contains(&byte)
 }
 
-/// Whether `bytes` hold `delimiter`: a linear search for text, a scan for other bytes.
+/// Whether `bytes` hold `delimiter`.
 fn holds(bytes: &[u8], delimiter: &[u8]) -> bool {
-    match (std::str::from_utf8(bytes), std::str::from_utf8(delimiter)) {
-        (Ok(text), Ok(delimiter)) => text.contains(delimiter),
-        _ => bytes.windows(delimiter.len()).any(|window| window == delimiter),
-    }
+    bytes.windows(delimiter.len()).any(|window| window == delimiter)
 }
 
 /// A boundary drawn from the run's random source, and the written header carrying it.
@@ -107,15 +105,18 @@ fn framed(name: &str, (file_name, kind, bytes): Part) -> (String, Bytes) {
 
 /// What one value of field `name` (item `at` of its list) sends: a `$file` map is the bytes the
 /// engine read for it, with its name and type; another map or a list is JSON, and anything else
-/// its text, with no type.
+/// its text, with no type. A `$file` written with a templated path is V5111 whatever it renders to.
 fn part(value: &Value, (name, at): (&str, Option<usize>), encoding: &Encoding<'_>) -> Result<Part, Failure> {
+    let pointer = vc_model::part_pointer(name, at);
     let Some(path) = vc_model::file_path(value) else {
+        if matches!(encoding.files.get(encoding.action, &pointer), Some(Err(Unread::Templated))) {
+            return Err(media::templated(&pointer));
+        }
         return Ok(match value {
             Value::Object(_) | Value::Array(_) => (None, Some(JSON), Bytes::from(value.to_string())),
             scalar => (None, None, Bytes::from(vc_template::to_text(scalar))),
         });
     };
-    let pointer = vc_model::part_pointer(name, at);
     let read = media::file(encoding.files, (encoding.action, &pointer), path)?;
     let (bytes, kind) = read.ok_or_else(|| {
         rendering(&format!(

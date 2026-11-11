@@ -40,13 +40,16 @@ pub fn file(files: &BodyFiles, (action, pointer): (ActionId, &str), path: &str) 
         Some(Ok(bytes)) => return Ok(Some((bytes.clone(), media_type(path)))),
         Some(Err(Unread::Refused(why))) => format!("the `$file` `{path}` is refused: {why}"),
         Some(Err(Unread::Failed(why))) => format!("the `$file` `{path}` cannot be read: {why}"),
-        Some(Err(Unread::Templated)) => {
-            format!(
-                "the `$file` at `{pointer}` cannot hold `${{…}}` references in its path; write it as plain text (D272)"
-            )
-        }
+        Some(Err(Unread::Templated)) => return Err(templated(pointer)),
     };
     Err(rendering(&why))
+}
+
+/// V5111 for the `$file` at `pointer` whose written path holds `${…}`, whatever it renders to.
+pub fn templated(pointer: &str) -> Failure {
+    rendering(&format!(
+        "the `$file` at `{pointer}` cannot hold `${{…}}` references in its path; write it as plain text (D272)"
+    ))
 }
 
 /// V5111 for a written `$file` body the engine did not read before the run: an internal error,

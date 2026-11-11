@@ -70,7 +70,7 @@ fn bytes(read: &Read, path: FilePath) -> Result<Bytes, Unread> {
     let path = path.map_err(|why| match why {
         Unreadable::Templated => Unread::Templated,
         Unreadable::Refused(why) => Unread::Refused(why),
-        _ => Unread::Refused("it is not a project path".to_owned()),
+        _ => Unread::Refused("an internal error: the compile gave an unknown reason".to_owned()),
     })?;
     match read.get(&path) {
         Some(Ok(bytes)) => Ok(bytes.clone()),

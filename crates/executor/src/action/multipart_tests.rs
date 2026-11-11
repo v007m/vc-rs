@@ -15,11 +15,13 @@ type Sent = (String, Option<String>);
 const FORM_DATA: &str = "multipart/form-data";
 
 /// `value` sent with `content_type` by an action whose body writes the `$file` parts the
-/// engine read at `/file`, `/gone`, `/out` and `/templated`, or the failure.
+/// engine read at `/file`, `/bin`, `/empty`, `/gone`, `/out` and `/templated`, or the failure.
 fn sending(value: &Value, content_type: &str) -> Result<Sent, Failure> {
     let at = |pointer: &str| (ActionId::new(0), pointer.to_owned());
     let files = BodyFiles::new([
         (at("/file"), Ok(Bytes::from_static(&[0x89, b'P', b'N', b'G']))),
+        (at("/bin"), Ok(Bytes::from_static(&[0xff, b'-', b'-', b'g', 0xfe]))),
+        (at("/empty"), Ok(Bytes::new())),
         (at("/gone"), Err(Unread::Failed("no such file".to_owned()))),
         (at("/out"), Err(Unread::Refused("it leads out of the project".to_owned()))),
         (at("/templated"), Err(Unread::Templated)),
@@ -91,6 +93,10 @@ fn a_file_part_not_read_fails_with_v5111_saying_why() {
     assert!(templated.contains("at `/templated` cannot hold `${…}` references in its path"), "{templated}");
     let referenced = failure(&json!({"late": {"$file": "a.bin"}}), FORM_DATA);
     assert!(referenced.contains("part `late` arrives in a `${…}` value"), "{referenced}");
+    for rendered in [json!({"$file": 1}), json!(5), json!({"other": "map"})] {
+        let templated = failure(&json!({"templated": rendered}), FORM_DATA);
+        assert!(templated.contains("at `/templated` cannot hold"), "a templated path fails whatever it renders to");
+    }
     let item = failure(&json!({"file": ["x", {"$file": "a.png"}]}), FORM_DATA);
     assert!(item.contains("arrives in a"), "an item's pointer is `/name/index`, not the field's: {item}");
 }
@@ -116,4 +122,15 @@ fn a_named_boundary_inside_a_part_fails_and_a_drawn_one_is_not_scanned() {
     assert!(header.contains("appears inside"), "a part's headers are scanned too: {header}");
     let drawn = json!({"note": "--vc-0123456789abcdeffedcba98"});
     assert!(sent(&drawn, FORM_DATA).is_ok(), "a drawn boundary is random, so it is not looked for");
+}
+
+#[test]
+fn a_named_boundary_inside_a_binary_file_fails_and_an_empty_file_is_framed() {
+    let inside = failure(&json!({"bin": {"$file": "blob.bin"}}), "multipart/form-data; boundary=g");
+    assert!(inside.contains("appears inside the part `bin`"), "bytes that are not UTF-8 are scanned: {inside}");
+    let (body, header) = sent(&json!({"empty": {"$file": "e.bin"}}), "multipart/form-data; boundary=b").unwrap();
+    assert_eq!(header, None);
+    let expected = "--b\r\nContent-Disposition: form-data; name=\"empty\"; filename=\"e.bin\"\r\n\
+                    Content-Type: application/octet-stream\r\n\r\n\r\n--b--\r\n";
+    assert_eq!(body, expected);
 }
