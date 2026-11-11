@@ -17,7 +17,7 @@ use vc_interfaces::{INITIALIZE_DEADLINE, PluginError, PluginHost, PluginManifest
 
 use crate::confine::{self, Confiner, Entry, Policy};
 use crate::owned;
-use crate::session::{Call, Session};
+use crate::session::{Call, ENDING, SHUTDOWN, Session};
 use crate::stderr_log;
 
 /// The protocol version the host speaks, sent in `initialize`.
@@ -41,7 +41,8 @@ pub const DATA_ENV: &str = "VIB_PLUGIN_DATA";
 /// answers the plugin's `secrets/get` only for the secrets both the manifest declares and the lock
 /// grants (−32001 otherwise). The process gets no environment beyond [`PASSED_ENV`] and, when the
 /// host has one, [`DATA_ENV`] naming its data folder, made as it starts. One process serves every
-/// call; once it stops, every later call fails, and dropping the host shuts it down. A confined
+/// call; once it stops, every later call fails. [`PluginHost::shutdown`] ends it and waits until
+/// it has exited, and dropping the host ends it without waiting. A confined
 /// host ([`StdioPluginHost::confined`]) runs it held to its manifest's permissions where the OS
 /// can (D254). Where it cannot, the plugin runs unconfined and the host tells why, except on
 /// macOS, where it is not started (V5119) unless [`StdioPluginHost::allow_unconfined`] (D260).
@@ -257,6 +258,11 @@ impl PluginHost for StdioPluginHost {
 
     async fn call(&self, method: &str, params: Value, deadline: Duration) -> Result<Value, PluginError> {
         self.ask((method, params), deadline).await
+    }
+
+    async fn shutdown(&self) {
+        let Some(Ok(calls)) = self.calls.get() else { return };
+        drop(ask(calls, (SHUTDOWN, Value::Null), ENDING).await);
     }
 }
 

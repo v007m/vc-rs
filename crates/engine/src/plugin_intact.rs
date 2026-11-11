@@ -60,4 +60,8 @@ impl PluginHost for Intact {
         }
         self.host.call(method, params, deadline).await
     }
+
+    async fn shutdown(&self) {
+        self.host.shutdown().await;
+    }
 }

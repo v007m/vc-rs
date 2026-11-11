@@ -249,7 +249,7 @@ For a `path:` plugin, `vibranium.lock` holds a hash of its installed files. Afte
 
 - Log to stderr, never stdout. stdout carries only protocol messages.
 - Keep state in `$VIB_PLUGIN_DATA`, not in the plugin folder.
-- Finish your work inside your last call. Do not count on getting `shutdown`.
+- Finish your work inside your last call. A run sends `shutdown` and then closes stdin, giving each step 1 s before it kills the plugin; under `vc call` the plugin can be killed before either.
 - Test a plugin with a single test first, such as `vc run sample.basics#listsUsers`, so the event stream stays short.
 
 ## Try it

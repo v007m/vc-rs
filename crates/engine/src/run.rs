@@ -108,7 +108,9 @@ impl Engine {
         notices.extend(unrecorded);
         notices.extend(swept);
         let closing = Closing { seed, run: Some(run_id).filter(|id| *id > 0), notices, alerting, watching, heard };
-        close(fanout.reporters, closing, (ran, run)).await
+        let closed = close(fanout.reporters, closing, (ran, run)).await;
+        plugins.shutdown().await;
+        closed
     }
 
     /// The reporters `request` chooses, the reporter plugins among `plugins`, recording into the

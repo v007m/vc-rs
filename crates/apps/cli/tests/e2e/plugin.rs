@@ -142,3 +142,28 @@ async fn an_auth_plugin_signs_every_request_with_what_it_answered_once() {
     assert_eq!(run.status.code(), Some(0), "{}", said(&run));
     assert_eq!(server.stats().await.unwrap().count("GET /echo"), 2);
 }
+
+/// A reporter plugin that writes down each message it reads, then the end of its stdin.
+const HEARD_PY: &str = include_str!("../fixtures/plugin/heard.py");
+
+/// Once the run's reports are written, `vc` sends each plugin it started `shutdown`, then closes
+/// its stdin, and waits for it to exit before it exits itself: the plugin hears both.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_plugin_hears_shutdown_then_its_stdin_close_before_vc_exits() {
+    if !has_python() {
+        return;
+    }
+    let server = MockServer::start().await.unwrap();
+    let manifest = "id: heard\nversion: 1.0.0\nkind: reporter\nentry: {command: python3, args: [heard.py]}\n";
+    let plugin = [("plugin/vibranium-plugin.yaml", manifest), ("plugin/heard.py", HEARD_PY)];
+    let project = Project::new(&[CONFIG, USERS, LISTS, plugin[0], plugin[1], RPC]);
+    let added = project.vc(&["plugin", "add", "path:plugin", "--yes"]).output().unwrap();
+    assert_eq!(added.status.code(), Some(0), "{}", said(&added));
+    let config = fs::read_to_string(project.path().join(CONFIG.0)).unwrap();
+    project.write(CONFIG.0, &format!("{config}reports: {{formats: [heard]}}\n"));
+    let run = project.run(&server.base_url(), &[]).output().unwrap();
+    assert_eq!(run.status.code(), Some(0), "{}", said(&run));
+    let heard = fs::read_to_string(project.path().join(".vibranium/plugin-data/heard/heard.log")).unwrap();
+    let last: Vec<&str> = heard.lines().rev().take(3).collect();
+    assert_eq!(last, ["EOF", "shutdown", "reporter/finish"], "{heard}");
+}

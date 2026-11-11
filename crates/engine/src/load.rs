@@ -77,7 +77,9 @@ impl Engine {
             }
             Err(error) => return Err(executor_error(&error)),
         };
-        self.load_close(session, outcome, live).await
+        let closed = self.load_close(session, outcome, live).await;
+        plugins.shutdown().await;
+        closed
     }
 
     /// Compiles the project, finds `request`'s scenario and plans its mix tests.

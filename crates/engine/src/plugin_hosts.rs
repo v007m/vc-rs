@@ -94,6 +94,17 @@ impl Hosts {
     pub fn heard(&self) -> broadcast::Receiver<String> {
         self.told.subscribe()
     }
+
+    /// Ends every plugin the run started, once the run is over, and waits until each has
+    /// exited or been killed ([`PluginHost::shutdown`]), so none is cut off when `vc` exits.
+    pub async fn shutdown(&self) {
+        let mut ending = tokio::task::JoinSet::new();
+        for host in self.ready.values() {
+            let host = Arc::clone(host);
+            drop(ending.spawn(async move { host.shutdown().await }));
+        }
+        while ending.join_next().await.is_some() {}
+    }
 }
 
 impl Engine {

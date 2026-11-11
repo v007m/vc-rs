@@ -17,6 +17,14 @@ use crate::rpc::{self, Incoming, METHOD_NOT_FOUND};
 /// How long a plugin has to answer `shutdown`, and then to exit, before it is killed.
 const GRACE: Duration = Duration::from_secs(1);
 
+/// The call that ends the session: `shutdown` sent to the plugin, then its stdin closed. It is
+/// answered once the plugin has exited or been killed.
+pub const SHUTDOWN: &str = "shutdown";
+
+/// How long ending a plugin takes at most: [`GRACE`] to write `shutdown`, to have it answered
+/// and to exit, and a little more for the kill.
+pub const ENDING: Duration = Duration::from_millis(3_500);
+
 /// How many of the plugin's messages may wait unread before the session gives up on it.
 const ROOM: usize = 1024;
 
@@ -57,8 +65,8 @@ impl Session {
         Self { plugin, stdin, secrets, pending: HashMap::new(), last: 0 }
     }
 
-    /// Serves `calls` until the host drops them, then shuts the plugin down; or until the
-    /// plugin stops, breaks the protocol, cannot be written to in time or leaves more than
+    /// Serves `calls` until the host sends [`SHUTDOWN`] or drops them, then shuts the plugin
+    /// down, answering [`SHUTDOWN`] once it has; or until the plugin stops, breaks the protocol, cannot be written to in time or leaves more than
     /// [`ROOM`] messages unread, which fails every call it has not answered and ends the session
     /// (killing the plugin), so every later call fails at once.
     pub async fn run(mut self, mut calls: mpsc::UnboundedReceiver<Call>, mut child: Child) {
@@ -70,6 +78,11 @@ impl Session {
                 message = incoming.recv() => Next::Message(message),
             };
             let step = match next {
+                Next::Call(Some(call)) if call.method == SHUTDOWN => {
+                    self.shutdown(&mut incoming, child).await;
+                    drop(call.reply.send(Ok(Value::Null)));
+                    return;
+                }
                 Next::Call(Some(call)) => self.send(call).await,
                 Next::Call(None) => return self.shutdown(&mut incoming, child).await,
                 Next::Message(Some(Ok(message))) => self.receive(message).await,
