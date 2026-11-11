@@ -90,3 +90,20 @@ fn writes_an_allowed_failure_as_a_skipped_case_with_its_reason_and_failure() {
     assert!(xml.contains(r#"<skipped message="allowed to fail (upstream sandbox): expected 400, got 201">"#), "{xml}");
     assert!(!xml.contains("<failure "), "{xml}");
 }
+
+#[test]
+fn gives_each_suite_the_seed_and_files_name_and_each_case_its_tests_name() {
+    let mut snapshot = testing::snapshot();
+    snapshot.run.seed = Some(42);
+    let xml = rendered(&snapshot);
+    let suite = "time=\"0.750\">\n    <properties>\n      <property name=\"seed\" value=\"42\"/>\n      \
+                 <property name=\"name\" value=\"Crud\"/>\n    </properties>\n    <testcase ";
+    assert!(xml.contains(suite), "{xml}");
+    let case = "<testcase name=\"users.crud#listsUsers [repeat 2]\" classname=\"users.crud\" time=\"0.150\" \
+                file=\"services/users/crud.test.yaml\" line=\"22\">\n      <properties>\n        \
+                <property name=\"name\" value=\"Lists every user\"/>\n      </properties>\n    </testcase>";
+    assert!(xml.contains(case), "{xml}");
+    let unnamed = "<testcase name=\"users.crud#getsUser\" classname=\"users.crud\" time=\"0.150\" \
+                   file=\"services/users/crud.test.yaml\" line=\"7\"/>";
+    assert!(xml.contains(unnamed), "a test with no `name` has no properties: {xml}");
+}

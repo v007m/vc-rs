@@ -200,10 +200,10 @@ A failing run, line by line:
 {"action":"call people#getPerson","check":{"actual":200,"code":null,"diff":null,"error":null,"expected":[200],"key":"status","location":{"column":15,"line":8,"path":"services/people/diff.test.yaml"},"origin":"test people.diff#getsGraceExactly","passed":true},"event":"checkEvaluated","owner":{"instance":0,"kind":"instance"}}
 {"action":"call people#getPerson","check":{"actual":{"id":"2","name":"Grace Hopper"},"code":"V5101","diff":"--- expected\n+++ actual\n@@ -1,4 +1,4 @@\n {\n   \"id\": \"2\",\n-  \"name\": \"Grace Brewster Hopper\"\n+  \"name\": \"Grace Hopper\"\n }\n\\ No newline at end of file\n","error":null,"expected":{"id":"2","name":"Grace Brewster Hopper"},"key":"body.equals","location":{"column":11,"line":11,"path":"services/people/diff.test.yaml"},"origin":"test people.diff#getsGraceExactly","passed":false},"event":"checkEvaluated","owner":{"instance":0,"kind":"instance"}}
 {"action":"call people#getPerson","event":"actionFinished","failure":{"action":"call people#getPerson","code":"V5101","message":"equals: expected {\"id\":\"2\",\"name\":\"Grace Brewster Hopper\"}, got {\"id\":\"2\",\"name\":\"Grace Hopper\"}\n--- expected\n+++ actual\n@@ -1,4 +1,4 @@\n {\n   \"id\": \"2\",\n-  \"name\": \"Grace Brewster Hopper\"\n+  \"name\": \"Grace Hopper\"\n }\n\\ No newline at end of file\n"},"owner":{"instance":0,"kind":"instance"},"status":"failed"}
-{"attempts":1,"durationMs":3,"event":"testFinished","failure":{"action":"call people#getPerson","code":"V5101","message":"equals: expected {\"id\":\"2\",\"name\":\"Grace Brewster Hopper\"}, got {\"id\":\"2\",\"name\":\"Grace Hopper\"}\n--- expected\n+++ actual\n@@ -1,4 +1,4 @@\n {\n   \"id\": \"2\",\n-  \"name\": \"Grace Brewster Hopper\"\n+  \"name\": \"Grace Hopper\"\n }\n\\ No newline at end of file\n"},"instance":0,"label":"people.diff#getsGraceExactly","skipReason":null,"status":"failed","test":"people.diff#getsGraceExactly"}
+{"attempts":1,"durationMs":3,"event":"testFinished","failure":{"action":"call people#getPerson","code":"V5101","message":"equals: expected {\"id\":\"2\",\"name\":\"Grace Brewster Hopper\"}, got {\"id\":\"2\",\"name\":\"Grace Hopper\"}\n--- expected\n+++ actual\n@@ -1,4 +1,4 @@\n {\n   \"id\": \"2\",\n-  \"name\": \"Grace Brewster Hopper\"\n+  \"name\": \"Grace Hopper\"\n }\n\\ No newline at end of file\n"},"instance":0,"label":"people.diff#getsGraceExactly","name":"Gets Grace exactly","skipReason":null,"status":"failed","test":"people.diff#getsGraceExactly"}
 {"event":"fileFinished","file":"people.diff","totals":{"allowedFailures":0,"blocked":0,"failed":1,"flaky":0,"passed":0,"skipped":0}}
 {"event":"runFinished","status":"failed","totals":{"allowedFailures":0,"blocked":0,"failed":1,"flaky":0,"passed":0,"skipped":0}}
-{"artifacts":[{"path":"/home/you/people/.vibranium/reports/23/ctrf.json","reporter":"ctrf"},{"path":"/home/you/people/.vibranium/reports/23/junit.xml","reporter":"junit"},{"path":"/home/you/people/.vibranium/reports/23/index.html","reporter":"html"}],"durationMs":5,"event":"summary","profiles":["default"],"startedMs":1794332266888,"status":"failed","totals":{"allowedFailures":0,"blocked":0,"failed":1,"flaky":0,"passed":0,"skipped":0}}
+{"artifacts":[{"path":"/home/you/people/.vibranium/reports/23/ctrf.json","reporter":"ctrf"},{"path":"/home/you/people/.vibranium/reports/23/junit.xml","reporter":"junit"},{"path":"/home/you/people/.vibranium/reports/23/index.html","reporter":"html"}],"durationMs":5,"event":"summary","profileNames":{},"profiles":["default"],"startedMs":1794332266888,"status":"failed","totals":{"allowedFailures":0,"blocked":0,"failed":1,"flaky":0,"passed":0,"skipped":0}}
 ```
 
 A passing test with a cleanup adds a `cleanupFinished` line after the test's actions:
@@ -225,10 +225,10 @@ A passing test with a cleanup adds a `cleanupFinished` line after the test's act
 | `actionFinished` | An action ended | `status`, `failure` |
 | `cleanupFinished` | A cleanup ran | `cleanup`: `action`, `status`, `failure`, `owner` |
 | `cleanupsAbandoned` | Cleanups that will not run | `owner`, `cleanups` |
-| `testFinished` | A test instance ended | `test`, `label`, `status`, `attempts`, `durationMs`, `failure`, `skipReason` |
+| `testFinished` | A test instance ended; a skipped test's comes inside its file, between `fileStarted` and `fileFinished`, and counts in that file's totals | `test`, `label`, `name` (the test's `name`, or `null`), `status`, `attempts`, `durationMs`, `failure`, `skipReason` |
 | `fileFinished` | A file's work ended | `file`, `totals` |
 | `runFinished` | All work ended | `status`, `totals` |
-| `summary` | Last line | `status`, `totals`, `durationMs`, `profiles`, `artifacts` (the report files written) |
+| `summary` | Last line | `status`, `totals`, `durationMs`, `profiles`, `profileNames` (the `name` of each profile that has one, by ID), `artifacts` (the report files written) |
 
 - `owner` says whose action it is: `{"kind": "instance", "instance": 0}` for a test instance, or a lifecycle owner.
 - `check.origin` says where the expectation came from: `test <id>` or `api <id>`. `check.location` points at it in the YAML.
@@ -246,7 +246,7 @@ seed 1613416862053363750: pass `--seed 1613416862053363750` to run with the same
 The exit code is the same as with the console reporter: 0 all passed, 1 a test failed or was blocked, 2 nothing ran.
 
 <Aside type="caution" title="Seeds are 64-bit">
-Seeds are unsigned 64-bit numbers, and JSON prints them as bare numbers, such as `"seed": 17704694661611002025`. That is above 2<sup>53</sup>, so JavaScript's `JSON.parse` rounds it, and `--seed` with the rounded value replays different data. In JavaScript or TypeScript, parse with a big-integer-aware parser, or take the seed from the stderr line or the console summary.
+A seed the run picks itself is below 2<sup>53</sup>, so `JSON.parse` reads it exactly. `--seed` takes any unsigned 64-bit number, and JSON prints it as a bare number: one you pass above 2<sup>53</sup>, such as `--seed 17704694661611002025`, is rounded by JavaScript's `JSON.parse`, and `--seed` with the rounded value replays different data. In JavaScript or TypeScript, parse such a seed with a big-integer-aware parser, or take it from the stderr line.
 </Aside>
 
 ## Exit codes

@@ -47,13 +47,8 @@ async fn a_negative_test_the_mock_fails_is_skipped_and_the_rest_pass() {
     );
     let run = project.vc(&["run", "--concurrency", "1"]).output().unwrap();
     assert_eq!(run.status.code(), Some(1), "{}", said(&run));
-    for row in 1..=4 {
-        assert!(
-            said(&run).contains(&format!("✕ users.openapi#rejectsInvalidCreateUser [row {row}]")),
-            "{}",
-            said(&run)
-        );
-    }
+    let failed = said(&run).matches("✕ users.openapi#rejectsInvalidCreateUser › ").count();
+    assert_eq!(failed, 4, "each row is labelled by its name: {}", said(&run));
     for passed in ["createsUser", "getsUser", "deletesUser", "listsUsers"] {
         assert!(said(&run).contains(&format!("✓ users.openapi#{passed}")), "{}", said(&run));
     }
@@ -63,7 +58,9 @@ async fn a_negative_test_the_mock_fails_is_skipped_and_the_rest_pass() {
     assert_eq!(skip.status.code(), Some(0), "{}", said(&skip));
     let rerun = project.vc(&["run"]).output().unwrap();
     assert_eq!(rerun.status.code(), Some(0), "{}", said(&rerun));
-    assert!(said(&rerun).contains(&format!("- users.openapi#rejectsInvalidCreateUser skipped: {reason}")));
+    let skipped =
+        format!("- users.openapi#rejectsInvalidCreateUser — Create user: rejects an invalid body skipped: {reason}");
+    assert!(said(&rerun).contains(&skipped), "{}", said(&rerun));
     assert!(said(&rerun).contains("4 passed · 1 skipped"), "{}", said(&rerun));
 }
 
@@ -109,7 +106,7 @@ async fn an_auth_test_passes_on_the_server_s_401_and_a_test_nothing_can_set_up_i
     let run = project.vc(&["run", "me.openapi#rejectsGetMeWithoutAuth", "me.openapi#getsOrder"]).output().unwrap();
     assert_eq!(run.status.code(), Some(0), "{}", said(&run));
     assert!(said(&run).contains("✓ me.openapi#rejectsGetMeWithoutAuth"), "{}", said(&run));
-    assert!(said(&run).contains(&format!("- me.openapi#getsOrder skipped: {reason}")), "{}", said(&run));
+    assert!(said(&run).contains(&format!("- me.openapi#getsOrder — Get order skipped: {reason}")), "{}", said(&run));
 }
 
 /// A spec of a user's orders, the user under a generic `{id}`, served by the mock.

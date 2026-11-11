@@ -4,7 +4,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use serde_json::{Value, json};
 use vc_model::{
-    Api, Examples, FileKind, Program, Skip, SkippedTest, SourceFileId, SourcePath, SourceSpan, Sym, Test, TestId,
+    Api, Examples, FileId, FileKind, Program, Skip, SkippedTest, SourceFileId, SourcePath, SourceSpan, Sym, Test,
+    TestId,
 };
 use vc_planner::{PlanError, PlanOptions};
 
@@ -184,9 +185,26 @@ impl Engine {
     fn files(&self, program: &Program, request: &ListRequest) -> Result<Vec<Listed>, EngineError> {
         let selection = self.selection(&request.select)?;
         let ids = vc_planner::select_files(program, &selection).map_err(|error| selection_error(&error))?;
-        let file = |id: &SourceFileId| Some(listed(program, *id, program.files.get(*id)?.path.file_id()?));
+        let file = |id: &SourceFileId| {
+            let path = &program.files.get(*id)?.path;
+            let file_id = path.file_id()?;
+            let name = FileKind::from_path(path).and_then(|kind| file_name(program, kind, &file_id));
+            Some(Listed { name, ..listed(program, *id, file_id) })
+        };
         Ok(ids.iter().filter_map(file).collect())
     }
+}
+
+/// The `name` the `kind` file `id` declares, if it has one.
+fn file_name(program: &Program, kind: FileKind, id: &str) -> Option<String> {
+    let named = |file: FileId, name: Option<&String>| (program.str(file.sym()) == Some(id)).then(|| name.cloned());
+    let found = match kind {
+        FileKind::Test => program.test_files.values().find_map(|file| named(file.id, file.name.as_ref())),
+        FileKind::Api => program.api_groups.values().find_map(|group| named(group.id, group.name.as_ref())),
+        FileKind::Load => program.loads.values().find_map(|load| named(load.id, load.name.as_ref())),
+        FileKind::Config => None,
+    };
+    found.flatten()
 }
 
 /// One row for each test whose rows come from a file or a template: a list says which tests run,

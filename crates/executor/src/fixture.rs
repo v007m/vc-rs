@@ -272,7 +272,7 @@ impl Fixture {
             })
             .collect();
         let before_all = before_all.iter().map(|&action| PlannedAction { action, needs: Needs::default() }).collect();
-        let file = PlannedFile { id: self.file, before_all, instances, after_all: Vec::new() };
+        let file = PlannedFile { id: self.file, before_all, instances, after_all: Vec::new(), skipped: Vec::new() };
         Plan { files: vec![file], ..Plan::default() }
     }
 }

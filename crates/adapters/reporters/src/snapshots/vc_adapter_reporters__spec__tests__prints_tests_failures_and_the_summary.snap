@@ -22,11 +22,11 @@ expression: printed
 ⊘ users.crud#rejectsBadEmail [row 2] blocked
   error[V5106]: needs seed, which failed
      = at: seed
-~ users.crud#listsUsers [repeat 1] flaky (2 attempts)           300ms
-✓ users.crud#listsUsers [repeat 2]                              150ms
+~ users.crud#listsUsers [repeat 1] — Lists every user flaky (2 attempts)  300ms
+✓ users.crud#listsUsers [repeat 2] — Lists every user           150ms
 - users.crud#parksLegacy skipped: rewrite pending
 ! cleanup seed (file users.crud) failed: 410 gone
 
-2 passed · 1 failed · 1 blocked · 1 skipped · 1 flaky        2.5s · profile dev
+2 passed · 1 failed · 1 blocked · 1 skipped · 1 flaky        2.5s · profile dev "Local dev"
 reports  out/{ctrf.json,junit.xml}
 next     vc run --failed

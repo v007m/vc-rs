@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use vc_diagnostics::Code;
 use vc_executor::{CancelTree, EventBus, ExecutorError, IterationSetup, ProgramIterations, RunOptions};
-use vc_interfaces::{Random, RunEnd, RunStart, RunSummary};
+use vc_interfaces::{Random, RunEnd, RunStart, RunSummary, Secrets};
 use vc_loadtest::{Ending, LoadError, LoadOutcome};
 use vc_model::{ActionId, ActionKind, LoadScenario, Program, RunStatus, Totals};
 
@@ -13,8 +13,11 @@ use crate::load_live::{self, Live};
 use crate::load_report::{self, LoadBreach, LoadEnding};
 use crate::notify::{self, Alerting};
 use crate::plan::{Extra, Prepared};
+use crate::plugin_hosts::Hosts;
 use crate::run::executor_error;
-use crate::{Engine, EngineError, LoadReport, LoadRequest, LoadWatch, PlanRequest, SelectRequest, alerts, history};
+use crate::{
+    Engine, EngineError, Interrupts, LoadReport, LoadRequest, LoadWatch, PlanRequest, SelectRequest, alerts, history,
+};
 
 /// The kind a test run is stored and alerted as.
 pub const RUN_KIND: &str = "run";
@@ -58,17 +61,28 @@ impl Engine {
         let run_id = live.run_id().unwrap_or(0);
         session.alerting = self.alerting(&session.prepared, &secrets, (run_id, LOAD_KIND))?;
         let plugins = self.plugin_hosts(&session.prepared.program, &secrets);
+        plugins.around(Box::pin(self.load_with((session, live), (secrets, &plugins), &mut watch.interrupts))).await
+    }
+
+    /// [`Engine::load_run`]'s work with the run's `plugins`, which it leaves running.
+    async fn load_with(
+        &self,
+        (mut session, live): (Session, Live),
+        (secrets, plugins): (Secrets, &Hosts),
+        interrupts: &mut Interrupts,
+    ) -> Result<LoadReport, EngineError> {
+        let run_id = live.run_id().unwrap_or(0);
         let reached = crate::body_files::reached(&session.prepared.program, &session.prepared.plan);
         let inputs = self.inputs(&session.prepared, (Arc::clone(&session.random), run_id, reached)).await;
         let inputs = inputs.with_secrets(secrets).with_started_at(session.started_ms);
-        let cx = Arc::new(self.action_cx(&session.prepared, (inputs, &plugins))?);
+        let cx = Arc::new(self.action_cx(&session.prepared, (inputs, plugins))?);
         let full_checks = session.scenario.full_checks;
         let setup = IterationSetup { bus: EventBus::spawn(), cancel: session.root.clone(), full_checks };
         let prepared = ProgramIterations::prepare(cx, Arc::clone(&session.prepared.plan), setup);
-        let (outcome, live) = match load_live::forwarding(prepared, &mut watch.interrupts, &session.root).await {
+        let (outcome, live) = match load_live::forwarding(prepared, interrupts, &session.root).await {
             Ok(iterations) => {
                 let measured = load_live::measure(&session.scenario, (Arc::new(iterations), live), &session.random);
-                let (outcome, live) = load_live::forwarding(measured, &mut watch.interrupts, &session.root).await;
+                let (outcome, live) = load_live::forwarding(measured, interrupts, &session.root).await;
                 (outcome.map(Some), live)
             }
             Err(ExecutorError::SharedFailed { action, message }) => {
@@ -89,7 +103,8 @@ impl Engine {
         let plan = PlanRequest { select, profiles: request.profiles.clone(), sets: request.sets.clone(), repeat: None };
         let prepared = self.prepare(&plan, Extra::default())?;
         let (seed, random) = (prepared.draw.seed, Arc::clone(&prepared.draw.random));
-        let report = LoadReport { scenario: request.scenario.clone(), seed, ..LoadReport::default() };
+        let (name, id) = (scenario.name.clone(), request.scenario.clone());
+        let report = LoadReport { scenario: id, name, seed, ..LoadReport::default() };
         let (root, started_ms) = (CancelTree::new(RunOptions::default().grace), self.clock.now_ms());
         Ok(Session { prepared, scenario, seed, random, root, started_ms, report, alerting: None })
     }

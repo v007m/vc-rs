@@ -1,17 +1,20 @@
 //! The run history (`.vibranium/history.db`, D170): recording a run as it goes, and reading
-//! the stored runs back for `vc history`, `vc report` and `vc run --failed`.
+//! the stored runs back for `vc history`, `vc report` and `vc run --failed`. Pruning a run
+//! drops its report folder too (`.vibranium/reports/<run>/`), when `vc` marked it as a run's.
 //!
 //! Everything recorded comes from the event stream after the redactor, so nothing raw reaches
 //! the store. A history that cannot be opened or written never changes a run's result: the run
 //! goes on and says so in a notice.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+use vc_adapter_reporters::prune_run_folders;
 use vc_adapter_store::{SqliteHistory, SqliteHistoryReader};
 use vc_interfaces::{HistoryError, HistoryReader, HistoryWriter, Row, RunEnd, RunId, RunRef, RunRow, RunStart};
 use vc_model::Keep;
 
+use crate::reporting::REPORTS_DIR;
 use crate::{Engine, EngineError, SelectRequest};
 
 /// Where the history lives, under the project root.
@@ -21,12 +24,21 @@ const HISTORY: &str = ".vibranium/history.db";
 pub struct Recording {
     writer: Arc<dyn HistoryWriter>,
     run: RunId,
+    reader: Arc<dyn HistoryReader>,
+    /// The folder of the runs' report folders, whose pruned runs' folders go too.
+    folders: Option<PathBuf>,
 }
 
 impl Recording {
     /// The run's number.
     pub const fn id(&self) -> RunId {
         self.run
+    }
+
+    /// The same recording, dropping the report folders under `folders` of the runs it prunes.
+    #[must_use]
+    pub fn pruning(self, folders: Option<PathBuf>) -> Self {
+        Self { folders, ..self }
     }
 
     /// Queues `rows` for the writer.
@@ -41,16 +53,18 @@ impl Recording {
         self.writer.record(self.run, rows)
     }
 
-    /// Closes the run with `end`, then drops the oldest runs beyond `keep`, on a blocking thread.
+    /// Closes the run with `end`, then drops the oldest runs beyond `keep`, and their report
+    /// folders, on a blocking thread.
     ///
     /// # Errors
     ///
-    /// [`HistoryError`] when the store cannot be written.
+    /// [`HistoryError`] when the store cannot be written or a report folder removed.
     pub async fn close(self, end: RunEnd, keep: Keep) -> Result<(), HistoryError> {
-        let Self { writer, run } = self;
+        let Self { writer, run, reader, folders } = self;
         let closed = tokio::task::spawn_blocking(move || {
             writer.finish(run, end)?;
-            writer.prune(keep).map(drop)
+            writer.prune(keep)?;
+            prune_folders(reader.as_ref(), keep, (folders.as_deref(), Some(run)))
         });
         closed.await.map_err(|error| HistoryError::Failed { reason: error.to_string() })?
     }
@@ -65,11 +79,11 @@ impl Engine {
     pub(crate) fn recording(&self, start: &RunStart) -> Result<Recording, HistoryError> {
         let writer = self.history_writer()?;
         let run = writer.begin(start)?;
-        Ok(Recording { writer, run })
+        Ok(Recording { writer, run, reader: self.history_reader(), folders: None })
     }
 
     /// Drops the oldest runs beyond the newest `keep`, else the config's `history.keep`, and
-    /// says how many went.
+    /// their report folders under `reports.dir`, and says how many runs went.
     ///
     /// # Errors
     ///
@@ -81,7 +95,20 @@ impl Engine {
             None => self.program()?.0.config.history.keep,
         };
         let writer = self.history_writer().map_err(|error| history_error(&error))?;
-        writer.prune(keep).map_err(|error| history_error(&error))
+        let pruned = writer.prune(keep).map_err(|error| history_error(&error))?;
+        let folders = self.report_folders();
+        let reader = self.history_reader();
+        prune_folders(reader.as_ref(), keep, (Some(&folders), None)).map_err(|error| history_error(&error))?;
+        Ok(pruned)
+    }
+
+    /// Where each run's report folder goes: the layers' `reports.dir`, else the config's, else
+    /// `.vibranium/reports`, under the root; the default when the project or a layer has errors.
+    fn report_folders(&self) -> PathBuf {
+        let layered = self.layered(&[], &[]).ok();
+        let set = layered.as_ref().and_then(|layered| layered.settings.reports_dir.clone());
+        let configured = || layered.as_ref().and_then(|layered| layered.program.config.reports_dir.clone());
+        self.root().join(set.or_else(configured).unwrap_or_else(|| REPORTS_DIR.to_owned()))
     }
 
     /// The stored run `which` names: `last` or a run number.
@@ -122,6 +149,25 @@ impl Engine {
     pub(crate) fn history_path(&self) -> PathBuf {
         self.root().join(HISTORY)
     }
+}
+
+/// Removes the marked report folders under `folders` of the runs older than the oldest that
+/// `keep` leaves stored, never the folder of `current`, the run that just wrote it: with
+/// `keep: 0` every one older than `current`. With `keep: all`, or no run stored and none
+/// current, nothing is pruned.
+fn prune_folders(
+    reader: &dyn HistoryReader,
+    keep: Keep,
+    (folders, current): (Option<&Path>, Option<RunId>),
+) -> Result<(), HistoryError> {
+    let (Some(folders), Keep::Runs(runs)) = (folders, keep) else {
+        return Ok(());
+    };
+    let stored = reader.runs(usize::try_from(runs).unwrap_or(usize::MAX))?;
+    let oldest = stored.last().map(|row| row.id).or_else(|| current.filter(|_| runs == 0));
+    let Some(oldest) = oldest else { return Ok(()) };
+    let below = current.map_or(oldest, |current| oldest.min(current));
+    prune_run_folders(folders, below).map(drop).map_err(|error| HistoryError::Failed { reason: error.to_string() })
 }
 
 /// The selectors of `select` as one line, for the history: IDs and paths, then `-t` and `--grep`.

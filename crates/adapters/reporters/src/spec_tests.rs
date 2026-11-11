@@ -121,7 +121,10 @@ fn lists_reports_by_folder_when_they_share_one() {
     assert_eq!(reports(&artifacts(&["out/ctrf.json", "elsewhere/junit.xml"])), "out/ctrf.json, elsewhere/junit.xml");
     assert_eq!(reports(&artifacts(&["out/ctrf.json"])), "out/ctrf.json");
     assert_eq!(reports(&artifacts(&["/", "out/a"])), "/, out/a");
-    assert_eq!(profiles(&[]), None);
+    let (program, plan) = testing::project();
+    let names = Names::new(program, &plan);
+    assert_eq!(profiles(&names, &[]), None);
+    assert_eq!(profiles(&names, &["dev".into(), "eu".into()]).as_deref(), Some("profiles dev \"Local dev\", eu"));
 }
 
 #[tokio::test]
@@ -136,4 +139,50 @@ async fn reports_a_console_that_refuses_output() {
 
 fn first_file(context: &crate::ReporterContext) -> vc_model::FileId {
     context.plan().files[0].id
+}
+
+/// One attempt of instance 0's call, whose status check gets `actual`.
+fn attempt(context: &crate::ReporterContext, actual: u16) -> Vec<Event> {
+    let (action, owner) = (ActionId::new(0), OwnerKey::Instance(vc_model::InstanceId::new(0)));
+    let mut check = testing::sample_check(context.plan().files[0].instances[0].test);
+    (check.passed, check.actual, check.code) = (false, Some(actual.into()), Some("V5101".into()));
+    let failed = vc_model::Failure::new(format!("expected 200, got {actual}")).with_code("V5101").at(action);
+    let outcome = vc_model::ActionOutcome::Failed(failed);
+    let evaluated = Event::CheckEvaluated { action, owner, check: Box::new(check) };
+    vec![Event::ActionStarted { action, owner }, evaluated, Event::ActionFinished { action, owner, outcome }]
+}
+
+#[tokio::test]
+async fn a_retried_failure_shows_each_different_failure_once_under_its_attempts() {
+    let (mut reporter, captured, _) = spec(Color::Plain);
+    let context = testing::context(Capture::new().0);
+    let mut events: Vec<Event> = [503, 503, 500].into_iter().flat_map(|actual| attempt(&context, actual)).collect();
+    let test = context.plan().files[0].instances[0].test;
+    let failure = vc_model::Failure::new("expected 200, got 500").with_code("V5101");
+    let (instance, status) = (Some(vc_model::InstanceId::new(0)), vc_model::TestStatus::Failed);
+    let (attempts, failure, duration) = (3, Some(failure), Duration::ZERO);
+    let result = vc_model::TestResult { test, instance, status, attempts, failure, skip_reason: None, duration };
+    events.push(Event::TestFinished { result });
+    for event in &events {
+        reporter.on_event(event).await.unwrap();
+    }
+    let printed = captured.take().0;
+    assert!(printed.starts_with("✕ users.crud#getsUser (3 attempts)"), "{printed}");
+    assert!(printed.contains("  attempts 1 and 2 of 3:\n") && printed.contains("  attempt 3 of 3:\n"), "{printed}");
+    assert_eq!(printed.matches("got 503").count(), 1, "the same failure once: {printed}");
+    assert_eq!(printed.matches("got 500").count(), 1, "{printed}");
+    assert!(
+        printed.contains("expect.status") && !printed.contains("= at:"),
+        "the failed check, not the step: {printed}"
+    );
+}
+
+#[tokio::test]
+async fn follows_a_named_test_and_profile_with_their_names() {
+    let (mut reporter, captured, events) = spec(Color::Plain);
+    testing::run(&mut reporter, &events, &testing::summary()).await;
+    let printed = captured.take().0;
+    assert!(printed.contains("✓ users.crud#listsUsers [repeat 2] — Lists every user"), "{printed}");
+    assert!(printed.contains("✓ users.crud#getsUser "), "an unnamed test shows its ID alone: {printed}");
+    assert!(printed.contains(" · profile dev \"Local dev\""), "{printed}");
 }

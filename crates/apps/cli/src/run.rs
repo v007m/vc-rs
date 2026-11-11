@@ -138,12 +138,12 @@ fn warning(notice: &str) -> String {
     coded.map_or_else(|| format!("warning: {notice}"), |(code, rest)| format!("warning[{code}]: {rest}"))
 }
 
-/// Prints the run's notices, and the seed of a failed run.
+/// Prints the run's notices, and the seed of a failed run that generated data from it.
 pub fn notes(report: &RunReport) {
     for notice in &report.notices {
         eprintln!("{}", warning(notice));
     }
-    if report.exit == 1 {
+    if report.exit == 1 && report.generated {
         eprintln!("seed {}: pass `--seed {}` to run with the same generated data", report.seed, report.seed);
     }
 }

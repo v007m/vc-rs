@@ -189,6 +189,8 @@ pub fn vc_engine::Permission::fmt(&self, &mut core::fmt::Formatter<'_>) -> core:
 impl core::marker::StructuralPartialEq for vc_engine::Permission
 #[non_exhaustive] pub enum vc_engine::PluginState
 pub vc_engine::PluginState::AsksForMore(alloc::vec::Vec<alloc::string::String>)
+pub vc_engine::PluginState::Changed
+pub vc_engine::PluginState::NoEntry(alloc::string::String)
 pub vc_engine::PluginState::NotApproved
 pub vc_engine::PluginState::NotInConfig
 pub vc_engine::PluginState::NotInstalled
@@ -784,6 +786,7 @@ pub vc_engine::LoadReport::errors: u64
 pub vc_engine::LoadReport::exit: u8
 pub vc_engine::LoadReport::iterations: u64
 pub vc_engine::LoadReport::max_ms: f64
+pub vc_engine::LoadReport::name: core::option::Option<alloc::string::String>
 pub vc_engine::LoadReport::notices: alloc::vec::Vec<alloc::string::String>
 pub vc_engine::LoadReport::p50_ms: f64
 pub vc_engine::LoadReport::p90_ms: f64
@@ -926,6 +929,7 @@ pub vc_engine::PluginOffer::integrity: alloc::string::String
 pub vc_engine::PluginOffer::manifest: vc_interfaces::plugin::PluginManifest
 pub vc_engine::PluginOffer::resolved: alloc::string::String
 pub vc_engine::PluginOffer::source: alloc::string::String
+pub vc_engine::PluginOffer::warnings: alloc::vec::Vec<alloc::string::String>
 impl core::clone::Clone for vc_engine::PluginOffer
 pub fn vc_engine::PluginOffer::clone(&self) -> Self
 impl core::cmp::Eq for vc_engine::PluginOffer
@@ -990,6 +994,7 @@ pub fn vc_engine::ReportRequest::fmt(&self, &mut core::fmt::Formatter<'_>) -> co
 impl core::marker::StructuralPartialEq for vc_engine::ReportRequest
 #[non_exhaustive] pub struct vc_engine::RunReport
 pub vc_engine::RunReport::exit: u8
+pub vc_engine::RunReport::generated: bool
 pub vc_engine::RunReport::notices: alloc::vec::Vec<alloc::string::String>
 pub vc_engine::RunReport::run: core::option::Option<u64>
 pub vc_engine::RunReport::seed: u64

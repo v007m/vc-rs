@@ -23,6 +23,13 @@ impl Visit for Reached {
 #[must_use]
 pub fn bodies(program: &Program, plan: &Plan) -> BTreeSet<ActionId> {
     let mut walker = Walker::new(program, Reached::default());
+    walk(&mut walker, program, plan);
+    walker.into_visitor().0
+}
+
+/// Walks what `plan` runs: `beforeRun`, each file's `beforeAll`, the tests of its instances and
+/// its `afterAll`, then `afterRun`.
+pub fn walk<V: Visit>(walker: &mut Walker<'_, V>, program: &Program, plan: &Plan) {
     walker.actions(&shared(&plan.before_run));
     for file in &plan.files {
         walker.actions(&shared(&file.before_all));
@@ -31,7 +38,6 @@ pub fn bodies(program: &Program, plan: &Plan) -> BTreeSet<ActionId> {
         walker.actions(&file.after_all);
     }
     walker.actions(&plan.after_run);
-    walker.into_visitor().0
 }
 
 /// Every action `actions` reach, themselves included: for an ad hoc call or a cleanup.

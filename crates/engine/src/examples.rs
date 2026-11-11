@@ -5,16 +5,17 @@
 //! same rows whatever else the run selects. Rows from a `$file` are the compile's to give, never
 //! rendered here. A test whose examples gave no rows is skipped with a notice.
 
+use std::collections::BTreeMap;
 use std::iter;
 use std::sync::Arc;
 
 use serde_json::Value;
 use vc_diagnostics::{Code, Diagnostic};
-use vc_executor::{ExampleRows, RunInputs, RunValues, UnreadVar};
+use vc_executor::{ExampleRows, Redactor, RunInputs, RunValues, UnreadVar};
 use vc_interfaces::Random;
-use vc_model::{Examples, Plan, Program, Test, TestId};
+use vc_model::{Examples, Plan, Program, TemplateValue, Test, TestId};
 use vc_planner::{NO_ROWS, PlanOptions, Selection};
-use vc_template::{ROW_HELP, RenderError};
+use vc_template::{PipeRegistry, ROW_HELP, RenderError};
 
 use crate::EngineError;
 use crate::plan::plan_error;
@@ -58,7 +59,49 @@ pub fn planned(
             drop(draw.rows.insert(test.id, rows));
         }
     }
-    vc_planner::plan(program, selection, &options).map_err(|error| plan_error(error, program))
+    let mut plan = vc_planner::plan(program, selection, &options).map_err(|error| plan_error(error, program))?;
+    plan.row_names = row_names(program, &plan, &draw.rows);
+    Ok(plan)
+}
+
+/// The `name` of each planned example row that gives one as plain text, in a row written inline
+/// or in a row an `examples:` template gave: the instance's label.
+fn row_names(program: &Program, plan: &Plan, rendered: &ExampleRows) -> BTreeMap<(TestId, u32), String> {
+    let instances = plan.files.iter().flat_map(|file| &file.instances);
+    let rows = instances.filter_map(|instance| Some((instance.test, instance.example_row?)));
+    rows.filter_map(|slot| Some((slot, row_name(program, rendered, slot)?))).collect()
+}
+
+/// Row `row`'s `name` of `test`, when it is non-empty text; a `name` with a reference in an
+/// inline row is rendered only as the instance runs, so it does not label it.
+fn row_name(program: &Program, rendered: &ExampleRows, (test, row): (TestId, u32)) -> Option<String> {
+    let at = usize::try_from(row).ok()?;
+    let name = match &program.tests.get(&test)?.examples {
+        Some(Examples::Rows(rows)) => {
+            let Some(TemplateValue::Map(row)) = rows.get(at) else { return None };
+            let Some(TemplateValue::String(name)) = row.get("name") else { return None };
+            name.as_literal()?
+        }
+        Some(Examples::Template(_)) => rendered.get(&test)?.get(at)?.get("name")?.as_str()?,
+        Some(Examples::File(_)) | None => return None,
+    };
+    (!name.is_empty()).then(|| name.to_owned())
+}
+
+/// Masks each example-row label in `plan` with `redactor`, as the run's events are masked: a row
+/// `name` a template drew from an env var or a dataset holding a secret's value reads `••••` in
+/// every report, the history and the run's JSON.
+pub async fn mask_labels(plan: &mut Plan, redactor: &Redactor) {
+    for name in plan.row_names.values_mut() {
+        *name = redactor.masked_text(name).await;
+    }
+}
+
+/// Whether running `plan` generates data from the run's seed: a `${fake.…}`, or a built-in pipe
+/// that draws from it, in anything the run reads. Only then does `--seed` repeat something.
+pub fn generates(program: &Program, plan: &Plan) -> bool {
+    let pipes = PipeRegistry::builtin();
+    vc_planner::generates(program, plan, |name| pipes.get(name).is_some_and(|pipe| pipe.draws))
 }
 
 /// A notice for each planned test skipped because its examples gave no rows, so a run that

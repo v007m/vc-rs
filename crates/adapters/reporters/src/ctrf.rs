@@ -43,13 +43,16 @@ fn document(snapshot: &RunSnapshot) -> Value {
     })
 }
 
-/// The run's own record: what CTRF's summary cannot say.
+/// The run's own record: what CTRF's summary cannot say, with the seed that repeats its data
+/// (`--seed`, D131) and the `name` of each profile that gives one.
 fn extra(snapshot: &RunSnapshot) -> Value {
     let run = &snapshot.run;
     json!({
         "status": encode::run_status(run.status),
         "totals": encode::totals(run.totals),
+        "seed": run.seed,
         "profiles": run.profiles,
+        "profileNames": snapshot.profile_names,
         "lifecycle": snapshot.lifecycle,
         "cleanups": snapshot.cleanups,
         "abandoned": snapshot.abandoned,
@@ -82,7 +85,9 @@ fn test(view: &TestView, started_ms: u64) -> Value {
 fn test_extra(view: &TestView) -> Value {
     json!({
         "id": view.id,
+        "name": view.name,
         "file": view.file,
+        "fileName": view.file_name,
         "instance": view.instance,
         "attempts": view.attempts,
         "failure": view.failure,

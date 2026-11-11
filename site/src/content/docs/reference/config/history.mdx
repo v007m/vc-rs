@@ -4,7 +4,7 @@ description: "How many past runs vc keeps in .vibranium/history.db, and which re
 sidebar: { order: 61 }
 ---
 
-import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
 import Playground from '~/components/Playground.svelte';
 
 Every run is saved in `.vibranium/history.db`. `history` sets how many runs to keep and which bodies to store with them.
@@ -22,7 +22,7 @@ history:
 | --- | --- | --- | --- | --- |
 | `history.bodies` | `none`, `failures` or `all` | `failures` | no | Which exchanges keep their request and response bodies. |
 | `history.maxBodySize` | size | `64kb` | no | A longer body is cut. Units: `b`, `kb`, `mb`, `gb`. |
-| `history.keep` | integer or `all` | `50` | no | Runs kept after each run. |
+| `history.keep` | integer or `all` | `50` | no | Runs kept after each run. A dropped run's report folder goes with it, and only a folder `vc` made for a run, which holds an empty `.vc-run` file: a folder of your own under `reports.dir` stays, even one named by a number. With `0`, a run still keeps the folder it just wrote. |
 
 ## Examples
 
@@ -124,11 +124,9 @@ profiles:
 
 - Bodies are masked by [secrets](/vc-rs/reference/config/secrets/) and [`redact`](/vc-rs/reference/config/redact/) before they are stored, and cut only after masking.
 - `bodies` also decides whether bodies appear in [reports](/vc-rs/reference/config/reports/).
-- Old runs are dropped after each run, once there are more than `keep`.
+- Old runs are dropped after each run, once there are more than `keep`. Each dropped run's report folder, `.vibranium/reports/<run>/`, goes with it. Other files and folders under `.vibranium/reports/` stay.
 - `--set` can't change `history`.
 - Add `.vibranium/` to `.gitignore`. `vc init` does this for you.
-
-<Aside type="caution">`keep` removes runs from `history.db`, but the folders under `.vibranium/reports/` stay. Clear old report folders yourself.</Aside>
 
 ## Common errors
 

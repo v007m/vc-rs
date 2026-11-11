@@ -54,6 +54,21 @@ async fn prints_a_warning_with_its_action() {
     assert_eq!(line["action"], line["warning"]["action"]);
 }
 
+#[tokio::test]
+async fn gives_a_named_test_and_profile_their_names() {
+    let (capture, captured) = Capture::new();
+    let context = testing::context(capture);
+    let mut reporter = JsonReporter::new(&context);
+    let events = testing::script(&context.program(), context.plan());
+    testing::run(&mut reporter, &events, &testing::summary()).await;
+    let lines: Vec<Value> = captured.take().0.lines().map(|line| serde_json::from_str(line).unwrap()).collect();
+    let finished: Vec<&Value> = lines.iter().filter(|line| line["event"] == "testFinished").collect();
+    let named: Vec<&Value> = finished.iter().map(|line| &line["name"]).filter(|name| !name.is_null()).collect();
+    assert_eq!(named, [&json!("Lists every user"), &json!("Lists every user")], "both repeats: {finished:?}");
+    assert_eq!(lines.last().unwrap()["profileNames"], json!({"dev": "Local dev"}));
+    assert_eq!(reporter.summary(&testing::summary()), lines[lines.len() - 1], "a plugin's summary reads the same");
+}
+
 #[test]
 fn merges_objects_and_keeps_anything_else() {
     assert_eq!(with(json!({"a": 1}), json!({"b": 2, "a": 3})), json!({"a": 3, "b": 2}));

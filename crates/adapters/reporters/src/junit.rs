@@ -1,5 +1,8 @@
 //! `JUnit` XML for CI dashboards: one `<testsuites>` named for the project, one `<testsuite>` per
-//! test file, one `<testcase>` per instance.
+//! test file, one `<testcase>` per instance. Each suite's `<properties>` hold the run's `seed`
+//! (D131) and the file's `name`; a case's hold its test's `name`.
+
+use std::fmt::Write as _;
 
 use vc_interfaces::{Artifact, ReportError};
 use vc_model::{TestStatus, Totals};
@@ -22,8 +25,8 @@ impl Format for JunitFormat {
 }
 
 fn document(snapshot: &RunSnapshot) -> String {
-    let suites: String = suites(snapshot).iter().map(|(file, tests)| suite(file, tests)).collect();
     let run = &snapshot.run;
+    let suites: String = suites(snapshot).iter().map(|(file, tests)| suite(file, tests, run.seed)).collect();
     let head = xml::open("testsuites", &counts(snapshot.project(), run.totals, run.duration_ms));
     format!("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n{head}\n{suites}</testsuites>\n")
 }
@@ -41,15 +44,28 @@ fn suites(snapshot: &RunSnapshot) -> Vec<(&str, Vec<&TestView>)> {
     suites
 }
 
-fn suite(file: &str, tests: &[&TestView]) -> String {
+fn suite(file: &str, tests: &[&TestView], seed: Option<u64>) -> String {
     let mut totals = Totals::default();
     let mut time = 0_u64;
     for view in tests {
         totals.add(view.status);
         time = time.saturating_add(view.duration_ms());
     }
-    let cases: String = tests.iter().map(|view| case(file, view)).collect();
-    format!("  {}\n{cases}  </testsuite>\n", xml::open("testsuite", &counts(file, totals, time)))
+    let name = tests.iter().find_map(|view| view.file_name.clone());
+    let shown = [seed.map(|seed| ("seed", seed.to_string())), name.map(|name| ("name", name))];
+    let mut body = properties(&shown, "    ");
+    body.extend(tests.iter().map(|view| case(file, view)));
+    format!("  {}\n{body}  </testsuite>\n", xml::open("testsuite", &counts(file, totals, time)))
+}
+
+/// A `<properties>` block of the pairs given, at `indent`; empty when none is.
+fn properties(pairs: &[Option<(&str, String)>], indent: &str) -> String {
+    let lines = pairs.iter().flatten().fold(String::new(), |mut lines, (name, value)| {
+        let property = xml::element("property", &[("name", (*name).to_owned()), ("value", value.clone())], None);
+        let _ = writeln!(lines, "{indent}  {property}");
+        lines
+    });
+    if lines.is_empty() { lines } else { format!("{indent}<properties>\n{lines}{indent}</properties>\n") }
 }
 
 fn case(file: &str, view: &TestView) -> String {
@@ -58,7 +74,8 @@ fn case(file: &str, view: &TestView) -> String {
     if let Some(at) = &view.location {
         attrs.extend([("file", at.path.clone()), ("line", at.line.to_string())]);
     }
-    let body = outcome(view);
+    let mut body = properties(&[view.name.clone().map(|name| ("name", name))], "      ");
+    body.push_str(&outcome(view));
     if body.is_empty() {
         return format!("    {}\n", xml::element("testcase", &attrs, None));
     }

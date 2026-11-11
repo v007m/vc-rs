@@ -149,3 +149,26 @@ async fn only_an_undeclared_function_save_is_v5108_when_read() {
     assert!(said.contains("add `provides: [orderId]`"), "{said}");
     assert!(!said.contains("madeId` was saved"), "the reused test's save is declared: {said}");
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_hook_that_calls_console_log_fails_its_call_because_hooks_have_no_console_yet() {
+    let server = MockServer::start().await.unwrap();
+    let api = concat!(
+        "baseUrl: ${var.baseUrl}\n",
+        "apis:\n  - id: logged\n    method: GET\n    path: /echo\n",
+        "    afterResponse:\n      - function: ../../hooks/log.ts#logStatus\n",
+    );
+    let log = "export function logStatus({ response }: { response: { status: number } }) {\n  console.log(response.status);\n}\n";
+    let test = "tests:\n  - id: logsTheStatus\n    call: logged#logged\n";
+    let files = [
+        CONFIG,
+        ("services/logged/logged.api.yaml", api),
+        ("hooks/log.ts", log),
+        ("services/logged/flow.test.yaml", test),
+    ];
+    let output = Project::new(&files).run(&server.base_url(), &[]).assert().get_output().clone();
+    let said = crate::said(&output);
+    assert_eq!(output.status.code(), Some(1), "{said}");
+    assert!(said.contains("V5115"), "{said}");
+    assert!(said.contains("console is not defined"), "{said}");
+}

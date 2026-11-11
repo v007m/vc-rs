@@ -1480,6 +1480,7 @@ impl vc_model::Names
 pub fn vc_model::Names::action(&self, vc_model::ActionId) -> alloc::string::String
 pub fn vc_model::Names::api_of(&self, vc_model::ActionId) -> core::option::Option<alloc::string::String>
 pub fn vc_model::Names::file(&self, vc_model::FileId) -> &str
+pub fn vc_model::Names::file_name_of(&self, vc_model::TestId) -> core::option::Option<&str>
 pub fn vc_model::Names::file_of(&self, vc_model::TestId) -> alloc::string::String
 pub fn vc_model::Names::instance(&self, &vc_model::TestResult) -> alloc::string::String
 pub fn vc_model::Names::label(&self, vc_model::TestId, core::option::Option<vc_model::InstanceId>) -> alloc::string::String
@@ -1487,12 +1488,15 @@ pub fn vc_model::Names::location(&self, vc_model::SourceSpan) -> core::option::O
 pub fn vc_model::Names::new(alloc::rcs::arc::Arc<vc_model::Program>, &vc_model::Plan) -> Self
 pub fn vc_model::Names::owner(&self, vc_model::OwnerKey) -> alloc::string::String
 pub fn vc_model::Names::planned(&self) -> &[vc_model::Planned]
+pub fn vc_model::Names::profile_name(&self, &str) -> core::option::Option<&str>
 pub fn vc_model::Names::program(&self) -> &vc_model::Program
 pub fn vc_model::Names::slot(&self, &vc_model::TestResult) -> (core::option::Option<u32>, u32)
 pub fn vc_model::Names::tags(&self, vc_model::TestId) -> alloc::vec::Vec<alloc::string::String>
 pub fn vc_model::Names::test(&self, vc_model::TestId) -> &str
 pub fn vc_model::Names::test_location(&self, vc_model::TestId) -> core::option::Option<vc_model::Location>
+pub fn vc_model::Names::test_name(&self, vc_model::TestId) -> core::option::Option<&str>
 pub fn vc_model::Names::text(&self, vc_model::Sym) -> &str
+pub fn vc_model::Names::titled(&self, &vc_model::TestResult) -> alloc::string::String
 impl core::clone::Clone for vc_model::Names
 pub fn vc_model::Names::clone(&self) -> Self
 impl core::fmt::Debug for vc_model::Names
@@ -1551,6 +1555,7 @@ pub vc_model::Plan::after_run: alloc::vec::Vec<vc_model::ActionId>
 pub vc_model::Plan::allowed_failures: alloc::collections::btree::map::BTreeMap<vc_model::TestId, vc_model::AllowFailure>
 pub vc_model::Plan::before_run: alloc::vec::Vec<vc_model::PlannedAction>
 pub vc_model::Plan::files: alloc::vec::Vec<vc_model::PlannedFile>
+pub vc_model::Plan::row_names: alloc::collections::btree::map::BTreeMap<(vc_model::TestId, u32), alloc::string::String>
 pub vc_model::Plan::skipped: alloc::vec::Vec<vc_model::SkippedTest>
 impl vc_model::Plan
 pub fn vc_model::Plan::instance_count(&self) -> usize
@@ -1594,6 +1599,7 @@ pub vc_model::PlannedFile::after_all: alloc::vec::Vec<vc_model::ActionId>
 pub vc_model::PlannedFile::before_all: alloc::vec::Vec<vc_model::PlannedAction>
 pub vc_model::PlannedFile::id: vc_model::FileId
 pub vc_model::PlannedFile::instances: alloc::vec::Vec<vc_model::Instance>
+pub vc_model::PlannedFile::skipped: alloc::vec::Vec<vc_model::SkippedTest>
 impl core::clone::Clone for vc_model::PlannedFile
 pub fn vc_model::PlannedFile::clone(&self) -> Self
 impl core::cmp::Eq for vc_model::PlannedFile

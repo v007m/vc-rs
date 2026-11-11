@@ -142,8 +142,10 @@ fn a_bad_source_or_manifest_is_refused_with_why() {
         "the vibranium-plugin.yaml of `path:plugin`: its kind `pager` is none of reporter, auth, importer, executor"
     );
     assert!(fs::read_dir(dir.path().join(".vibranium/plugins/.staged")).unwrap().next().is_none());
-    let (reason, _) = refusal(&engine.plugin_fetch("path:nowhere").unwrap_err());
+    let (reason, help) = refusal(&engine.plugin_fetch("path:nowhere").unwrap_err());
     assert!(reason.starts_with("cannot fetch `path:nowhere`: "), "{reason}");
+    let folder = "check the folder: a `path:` source is a folder, from the project root, holding vibranium-plugin.yaml";
+    assert_eq!(help.as_deref(), Some(folder));
 }
 
 #[test]
@@ -164,6 +166,29 @@ fn the_list_says_why_a_run_cannot_use_a_plugin() {
     fs::write(dir.path().join("vibranium.lock"), "lockVersion: 9\n").unwrap();
     let (reason, _) = refusal(&engine.plugin_list().unwrap_err());
     assert_eq!(reason, "vibranium.lock: it is lock version 9; this vc reads version 1");
+}
+
+#[test]
+fn the_list_says_a_plugin_changed_since_the_lock_or_without_its_entry_program_is_not_usable() {
+    let (dir, engine) = project();
+    added(&engine, "path:plugin");
+    fs::write(dir.path().join(".vibranium/plugins/report/report.py"), "print('changed')\n").unwrap();
+    let state = engine.plugin_list().unwrap().remove(0).state;
+    assert_eq!(state, PluginState::Changed);
+    assert_eq!(
+        state.to_string(),
+        "V5118: its installed files changed since vibranium.lock approved them; `vc plugin add` it again"
+    );
+    let missing = MANIFEST.replace("command: python3", "command: vibranium-no-such-program");
+    fs::write(dir.path().join("plugin/vibranium-plugin.yaml"), missing).unwrap();
+    let offer = engine.plugin_fetch("path:plugin").unwrap();
+    let warning = "its entry program `vibranium-no-such-program` cannot be found: install it, or fix \
+                   `entry.command` in its vibranium-plugin.yaml";
+    assert_eq!(offer.warnings, [warning]);
+    engine.write(&engine.plugin_approve(&offer).unwrap()).unwrap();
+    let state = engine.plugin_list().unwrap().remove(0).state;
+    assert_eq!(state, PluginState::NoEntry("vibranium-no-such-program".to_owned()));
+    assert_eq!(state.to_string(), warning);
 }
 
 #[test]
@@ -210,7 +235,8 @@ fn a_run_gets_a_host_for_each_usable_plugin_and_why_not_for_the_others() {
     assert_eq!(id("report", PluginKind::Auth), Err("plugin `report` is a `reporter` plugin, not `auth`".to_owned()));
     let other = "plugin `other`: not approved: `vc plugin add` it";
     assert_eq!(id("other", PluginKind::Reporter), Err(other.to_owned()));
-    assert_eq!(hosts.notices(), [other]);
+    assert_eq!(hosts.notices(&[]), [other]);
+    assert_eq!(hosts.notices(&["other".to_owned()]), Vec::<String>::new(), "the reports name a reporter once");
     assert_eq!(id("nope", PluginKind::Reporter), Err("there is no plugin `nope` in the config".to_owned()));
     let more = PluginState::AsksForMore(vec!["secret apiKey".to_owned()]);
     assert_eq!(more.to_string(), "asks for more: secret apiKey; `vc plugin add` it again");
@@ -222,9 +248,9 @@ fn a_plugin_config_takes_literal_values_only() {
     added(&engine, "path:plugin");
     let (path, config) = (dir.path().join("vibranium.config.yaml"), read(dir.path(), "vibranium.config.yaml"));
     fs::write(&path, format!("{config}    config: {{theme: dark}}\n")).unwrap();
-    assert_eq!(hosts(&engine).notices(), Vec::<String>::new());
+    assert_eq!(hosts(&engine).notices(&[]), Vec::<String>::new());
     fs::write(&path, format!("{config}    config: {{theme: '${{env.HOME}}'}}\n")).unwrap();
-    let notices = hosts(&engine).notices();
+    let notices = hosts(&engine).notices(&[]);
     let [notice] = notices.as_slice() else { panic!("one notice, not {notices:?}") };
     assert!(notice.starts_with("plugin `report`: its `config`: "), "{notice}");
     assert!(notice.contains("takes literal values; the plugin reads a secret with `secrets/get`"), "{notice}");
@@ -245,7 +271,7 @@ async fn a_plugin_s_files_are_checked_on_its_first_call_and_it_keeps_its_own_in_
     assert!(data.is_dir(), "its data folder is made on first use");
     fs::write(installed.join("state.txt"), "kept").unwrap();
     let hosts = hosts(&engine);
-    assert_eq!(hosts.notices(), Vec::<String>::new(), "a changed plugin is only refused when used");
+    assert_eq!(hosts.notices(&[]), Vec::<String>::new(), "a changed plugin is only refused when used");
     let PluginError::Start { reason, .. } = call(hosts).await else { panic!("a changed plugin does not start") };
     assert!(reason.starts_with("V5118: its installed files changed since vibranium.lock approved them"), "{reason}");
     assert!(reason.contains("$VIB_PLUGIN_DATA"), "{reason}");
@@ -269,7 +295,7 @@ async fn a_plugin_whose_log_folder_is_a_link_has_its_stderr_dropped_and_the_run_
     fs::create_dir_all(dir.path().join(".vibranium/plugin-logs")).unwrap();
     std::os::unix::fs::symlink(elsewhere.path(), dir.path().join(".vibranium/plugin-logs/report")).unwrap();
     let hosts = hosts(&engine);
-    assert_eq!(hosts.notices(), Vec::<String>::new(), "it is told only once the plugin starts");
+    assert_eq!(hosts.notices(&[]), Vec::<String>::new(), "it is told only once the plugin starts");
     let heard = started(&hosts).await;
     let [notice] = heard.as_slice() else { panic!("one notice, not {heard:?}") };
     assert!(notice.starts_with("plugin `report`: its stderr is dropped: `"), "{notice}");

@@ -108,7 +108,7 @@ A dataset's ID is its path below `datasets/` in camelCase, without the suffix: `
 
 | Path | What it is |
 | --- | --- |
-| `.vibranium/reports/<run>/` | The reports of each run: `ctrf.json`, `junit.xml` and `index.html` with its `data/` folder |
+| `.vibranium/reports/<run>/` | The reports of each run: `ctrf.json`, `junit.xml` and `index.html` with its `data/` folder, and the empty `.vc-run` file that marks the folder as a run's |
 | `.vibranium/history.db` | The run history that `vc history`, `vc run --failed`, the TUI and the web UI read |
 | `.vibranium/cache/compile.bin` | The compile cache, so a run only re-parses changed files |
 

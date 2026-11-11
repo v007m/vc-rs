@@ -5,9 +5,10 @@ use std::collections::HashMap;
 
 use indexmap::IndexMap;
 use vc_model::{
-    Action, ActionId, ActionKind, Api, ApiGroup, ApiId, BodySpec, ContentHash, Expect, FileId, Matcher, Method,
-    Namespace, Owner, Part, Path, Pos, Program, Reference, SaveSpec, Segment, SourceFile, SourceFiles, SourcePath,
-    SourceSpan, StatusPattern, StringTable, Sym, Tag, Template, Test, TestBody, TestFile, TestId, VarDefs,
+    Action, ActionId, ActionKind, Api, ApiGroup, ApiId, BodySpec, ContentHash, Expect, FileId, Instance, InstanceId,
+    Matcher, Method, Namespace, Needs, Owner, Part, Path, Plan, PlannedFile, Pos, Program, Reference, SaveSpec,
+    Segment, SourceFile, SourceFiles, SourcePath, SourceSpan, StatusPattern, StringTable, Sym, Tag, Template, Test,
+    TestBody, TestFile, TestId, VarDefs,
 };
 
 /// Every name the fixture can use.
@@ -134,6 +135,20 @@ impl Fixture {
 
     pub fn file_mut(&mut self) -> &mut TestFile {
         &mut self.program.test_files[&self.file]
+    }
+
+    /// A plan running one instance of `test`.
+    pub fn plan_of(&self, test: TestId) -> Plan {
+        let instance =
+            Instance { id: InstanceId::new(0), test, example_row: None, repeat_index: 0, needs: Needs::default() };
+        let file = PlannedFile {
+            id: self.file,
+            before_all: vec![],
+            instances: vec![instance],
+            after_all: vec![],
+            skipped: vec![],
+        };
+        Plan { files: vec![file], ..Plan::default() }
     }
 }
 

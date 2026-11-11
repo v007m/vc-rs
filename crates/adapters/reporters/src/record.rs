@@ -70,8 +70,10 @@ impl Recorder {
             action: names.action(*action),
             owner: encode::owner(names, *owner),
         });
+        let profile_names = run.profiles.iter().filter_map(|id| Some((id.clone(), names.profile_name(id)?.to_owned())));
         let gathered = Gathered {
             project: self.project,
+            profile_names: profile_names.collect(),
             files: collector.files.iter().map(|file| names.file(*file).to_owned()).collect(),
             lifecycle: collector.lifecycle.iter().map(|step| encode::step(names, step)).collect(),
             cleanups: collector.cleanups.iter().map(|cleanup| encode::cleanup(names, cleanup)).collect(),
@@ -116,7 +118,9 @@ fn test_view(names: &Names, record: &TestRecord, exchanges: Vec<ExchangeView>) -
     TestView {
         id: names.test(result.test).to_owned(),
         label: names.instance(result),
+        name: names.test_name(result.test).map(str::to_owned),
         file: names.file_of(result.test),
+        file_name: names.file_name_of(result.test).map(str::to_owned),
         status: result.status,
         instance: result.instance.map(InstanceId::index),
         example_row,
