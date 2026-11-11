@@ -19,6 +19,7 @@
 
 mod authoring_rpcs;
 mod builder;
+mod client_rpcs;
 mod code;
 mod codec;
 mod csp;

@@ -110,7 +110,7 @@ impl Engine {
 }
 
 /// `text` with `edits` made, one after another.
-fn edited(path: &SourcePath, text: &str, edits: &[PointerEdit]) -> Result<String, EngineError> {
+pub(crate) fn edited(path: &SourcePath, text: &str, edits: &[PointerEdit]) -> Result<String, EngineError> {
     let file = SourceFileId::new(0);
     let mut document = Document::parse(file, Syntax::of(path), text)
         .map_err(|_| refused(format!("{path} does not parse"), "fix it in the editor first; `vc check` shows where"))?;

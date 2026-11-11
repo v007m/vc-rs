@@ -83,11 +83,17 @@ Calls a single api, the way `vc call` does, with the project's auth and the acti
 <Steps>
 
 1. Pick an api from the list on the left. Filter the list by typing.
-2. On the **Vars** tab, fill in any vars. Empty vars keep the api's defaults. **Add var** sends extra ones, like `--var`.
-3. On the **Options** tab, check **Keep what the call creates** to skip the api's cleanup, like `--keep`.
-4. Click **Send**, or press Ctrl+Enter (Cmd+Enter on a Mac).
+2. On the **Request** tab, change the method, path, query parameters, headers or body if you want to. Untick a row to leave it out.
+3. On the **Vars** tab, fill in any vars. Empty vars keep the api's defaults. **Add var** sends extra ones, like `--var`.
+4. On the **Checks** tab, add any checks for this request.
+5. On the **Options** tab, check **Keep what the call creates** to skip the api's cleanup, like `--keep`.
+6. Click **Send**, or press Ctrl+Enter (Cmd+Enter on a Mac).
 
 </Steps>
+
+Your edits are sent with the call, but the api file isn't changed. To keep them, click **Save changes to api**. It shows what will change in the file, then writes it and keeps the file's comments. Added checks are never saved; they stay in the tab.
+
+A value that reads a secret shows as `••••`. You can't edit it here, so change it in the api file. If the file changes on disk while you edit it, the Client won't send or save over it; click **Reload from disk**.
 
 The response shows a pass or fail dot for the api's `expect`, and these tabs: **Body**, **Headers**, **Timing** (a waterfall of the call's dns, connect, tls, firstByte and download phases; a reused connection shows only the last two), **Checks** (each check the api ran, with what it expected and what came back), **Saved** (each value the api's `save` took, with the template it came from) and **Output** (the text `vc call` would print, which also explains a call that got no response). Secret values are masked on every tab.
 

@@ -87,8 +87,9 @@ impl Engine {
     /// The layered settings and active profiles of `request`, with nothing planned.
     pub(crate) fn adhoc(&self, request: &CallRequest) -> Result<Prepared, EngineError> {
         let flags: Vec<ConfigEntry> = profile_flag(&request.profiles).into_iter().collect();
+        let draft = request.draft.iter().map(|draft| self.draft_change(draft)).collect::<Result<Vec<_>, _>>()?;
         let Layered { mut program, notices, settings, environment, dot_env, .. } =
-            self.layered(&request.sets, &flags)?;
+            self.layered_with(&request.sets, &flags, &draft)?;
         if let Some(timeout) = settings.timeout {
             Arc::make_mut(&mut program).config.defaults.timeout = Some(timeout);
         }
@@ -193,7 +194,7 @@ fn called(api: &Api, keep: bool) -> Action {
     }
 }
 
-fn unknown(program: &Program, id: &str) -> EngineError {
+pub(crate) fn unknown(program: &Program, id: &str) -> EngineError {
     let names = program.apis.keys().filter_map(|api| program.str(api.sym()));
     EngineError::Selection { reason: format!("no api `{id}`"), help: did_you_mean(&vc_planner::closest(id, names)) }
 }

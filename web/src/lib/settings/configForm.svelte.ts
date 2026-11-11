@@ -1,5 +1,5 @@
 import { Code, ConnectError, type Client } from '@connectrpc/connect';
-import { EditOp, type EngineService } from '#lib/gen/vibranium/engine/v1/engine_pb.ts';
+import type { EditFileResponse, EngineService } from '#lib/gen/vibranium/engine/v1/engine_pb.ts';
 import {
   CONFIG_PATH,
   draftOf,
@@ -8,6 +8,7 @@ import {
   varProblem,
   type ConfigDraft,
   type PointerEdit,
+  wireEdits,
 } from './configEdits.ts';
 
 /** The config as the form opens it, and the digest its edits go over. */
@@ -28,8 +29,6 @@ export interface ConfigPort {
   edit(edits: readonly PointerEdit[], digest: string, write: boolean): Promise<Edited>;
 }
 
-const OPS = { set: EditOp.SET, remove: EditOp.REMOVE, insert: EditOp.INSERT } as const;
-
 type ConfigClient = Pick<
   Client<typeof EngineService>,
   'getProject' | 'explainConfig' | 'readFile' | 'editFile'
@@ -48,22 +47,22 @@ export function configPort(client: ConfigClient): ConfigPort {
       return { draft, digest: file.digest };
     },
     async edit(edits, digest, write) {
-      const wire = edits.map(({ pointer, op, value }) => ({
-        pointer,
-        op: OPS[op],
-        valueJson: value === undefined ? '' : JSON.stringify(value),
-      }));
-      const response = await client.editFile({ path: CONFIG_PATH, digest, edits: wire, write });
-      const { diff, written } = response;
-      const edited = {
-        diff,
-        digest: response.digest,
-        written,
-        problems: response.diagnostics.length,
-      };
-      return response.checkError ? { ...edited, checkError: response.checkError } : edited;
+      const response = await client.editFile({
+        path: CONFIG_PATH,
+        digest,
+        edits: wireEdits(edits),
+        write,
+      });
+      return editedOf(response);
     },
   };
+}
+
+/** What `EditFile` answered, as a form shows it. */
+export function editedOf(response: EditFileResponse): Edited {
+  const { diff, digest, written } = response;
+  const edited = { diff, digest, written, problems: response.diagnostics.length };
+  return response.checkError ? { ...edited, checkError: response.checkError } : edited;
 }
 
 export type FormState = 'loading' | 'idle' | 'reviewing' | 'saving' | 'conflict';

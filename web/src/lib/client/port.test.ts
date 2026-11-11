@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DefinitionKind } from '#lib/gen/vibranium/engine/v1/engine_pb.ts';
+import { DefinitionKind, EditOp } from '#lib/gen/vibranium/engine/v1/engine_pb.ts';
 import { fakeEngine } from '#lib/testing/engine.ts';
 import { enginePort } from './port.ts';
 
@@ -72,6 +72,64 @@ describe('enginePort', () => {
       { api: 'users#listUsers', vars: ['a=1'], keep: true },
       { id: 'users.crud#listsOne', responseJson: '{"status":200}', fields: ['body.id'] },
       { kind: 'har', flow: 'n#replays', write: false },
+    ]);
+  });
+
+  it('explains an api and sends a call with its draft, then saves the draft as EditFile', async () => {
+    const seen: unknown[] = [];
+    const port = enginePort(
+      fakeEngine({
+        explainApi: ({ api, vars }) => {
+          seen.push({ api, vars });
+          return {
+            path: 'services/users/users.api.yaml',
+            pointer: '/apis/1',
+            digest: 'd1',
+            apiJson: '{"id":"get","path":"/users/${var.userId}"}',
+            vars: [{ key: 'userId', layers: [{ value: '1', source: 'api' }] }],
+            headers: [{ name: 'X-Key', value: '••••', from: 'users.api.yaml' }],
+            auth: { id: 'shopOauth', type: 'oauth2', tokenUrl: '${var.authUrl}', secrets: ['ID'] },
+            curl: 'curl http://x/users/1',
+          };
+        },
+        call: ({ draft }) => {
+          seen.push(draft?.edits.map(({ pointer, op, valueJson }) => ({ pointer, op, valueJson })));
+          return { exit: 0, text: '200 OK' };
+        },
+        editFile: ({ path, digest, write }) => {
+          seen.push({ path, digest, write });
+          return { diff: '-a\n+b\n', digest: 'd2', written: true, diagnostics: [] };
+        },
+      }),
+    );
+    const explained = await port.explainApi('users#get', ['userId=2']);
+    expect(explained).toEqual({
+      path: 'services/users/users.api.yaml',
+      pointer: '/apis/1',
+      digest: 'd1',
+      api: { id: 'get', path: '/users/${var.userId}' },
+      vars: [{ key: 'userId', layers: [{ value: '1', source: 'api' }] }],
+      headers: [{ name: 'X-Key', value: '••••', from: 'users.api.yaml' }],
+      auth: { id: 'shopOauth', type: 'oauth2', tokenUrl: '${var.authUrl}', secrets: ['ID'] },
+      curl: 'curl http://x/users/1',
+      notices: [],
+    });
+    const draft = {
+      path: explained.path,
+      digest: 'd1',
+      edits: [{ pointer: '/apis/1/method', op: 'set', value: 'POST' } as const],
+    };
+    await port.call({ api: 'users#get', vars: [], keep: false, draft });
+    expect(await port.editApi(draft, true)).toEqual({
+      diff: '-a\n+b\n',
+      digest: 'd2',
+      written: true,
+      problems: 0,
+    });
+    expect(seen).toEqual([
+      { api: 'users#get', vars: ['userId=2'] },
+      [{ pointer: '/apis/1/method', op: EditOp.SET, valueJson: '"POST"' }],
+      { path: 'services/users/users.api.yaml', digest: 'd1', write: true },
     ]);
   });
 });

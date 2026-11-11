@@ -58,6 +58,18 @@ function setup() {
         saved: [{ name: 'userId', from: '${response.body.id}', value: '"u_1"' }],
       });
     },
+    explainApi: (api) =>
+      Promise.resolve({
+        path: 'u.api.yaml',
+        pointer: '/apis/0',
+        digest: 'd1',
+        api: { id: api.split('#')[1], method: 'POST', path: '/users' },
+        vars: [],
+        headers: [],
+        curl: '',
+        notices: [],
+      }),
+    editApi: () => Promise.reject(new Error('unused')),
     saveCallAsTest: (input) => {
       sent.saves.push(input);
       return Promise.resolve({
@@ -92,6 +104,7 @@ describe('ClientScreen', () => {
   it('calls an api with a var and shows the status, body and headers', async () => {
     const { user, sent } = await rendered();
     await user.click(screen.getByRole('treeitem', { name: 'Create a user' }));
+    await user.click(screen.getByRole('tab', { name: 'Vars' }));
     await user.type(screen.getByRole('textbox', { name: 'email' }), 'grace@example.com');
     await user.click(screen.getByRole('button', { name: 'Send' }));
     expect(sent.calls).toEqual([

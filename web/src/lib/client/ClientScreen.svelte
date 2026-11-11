@@ -58,7 +58,7 @@
         label="Apis"
         {groups}
         current={client.current?.id}
-        onopen={(id) => client.open(id)}
+        onopen={(id) => void client.open(id)}
       />
       {#if groups.length === 0}
         <p class="empty">{client.apis.length ? `No api matches “${filter}”.` : 'No apis yet.'}</p>
@@ -71,7 +71,7 @@
       <p class="error" role="alert">{client.error}</p>
     {/if}
     {#if mode === 'request'}
-      <RequestPanel {client} />
+      <RequestPanel {client} onsaved={(what) => (said = what)} />
       <ResponsePanel {client} onsave={() => (dialog = 'save')} />
     {:else}
       <section aria-labelledby="flows-title">

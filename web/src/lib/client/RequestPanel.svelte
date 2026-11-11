@@ -1,15 +1,24 @@
 <script lang="ts">
   import Tabs from '#lib/ui/Tabs.svelte';
+  import ChecksEditor from './ChecksEditor.svelte';
+  import CurlDialog from './CurlDialog.svelte';
+  import RequestForm from './RequestForm.svelte';
+  import SaveApiDialog from './SaveApiDialog.svelte';
   import type { ClientSession } from './session.svelte.ts';
 
-  let { client }: { client: ClientSession } = $props();
+  let { client, onsaved }: { client: ClientSession; onsaved: (what: string) => void } = $props();
 
-  let tab = $state('vars');
+  let tab = $state('request');
+  let dialog: 'save' | 'curl' | undefined = $state();
   const tabs = [
+    { id: 'request', label: 'Request' },
     { id: 'vars', label: 'Vars' },
+    { id: 'checks', label: 'Checks' },
     { id: 'options', label: 'Options' },
   ];
   const declared = $derived(new Set(client.current?.vars ?? []));
+  const request = $derived(client.request);
+  const layered = $derived(request?.explained?.vars ?? []);
 </script>
 
 <section class="request" aria-labelledby="request-title">
@@ -19,6 +28,15 @@
         <h2 class="h2" id="request-title">{client.current.name}</h2>
         <p class="mono id">{client.current.id}</p>
       </div>
+      {#if request?.explained?.curl}
+        <button type="button" class="btn" onclick={() => (dialog = 'curl')}>Copy as cURL</button>
+      {/if}
+      <button
+        type="button"
+        class="btn"
+        disabled={!request?.dirty || request.problem !== undefined}
+        onclick={() => (dialog = 'save')}>Save changes to api</button
+      >
       <button
         type="button"
         class="btn primary"
@@ -27,9 +45,30 @@
         onclick={() => client.send()}>{client.sending ? 'Sending…' : 'Send'}</button
       >
     </div>
+    {#if request?.error}
+      <p class="error" role="alert">{request.error}</p>
+    {/if}
+    {#if request?.state === 'conflict'}
+      <div class="banner" role="alert">
+        <span class="grow"
+          >Not sent or saved: <code>{request.explained?.path}</code> changed on disk since it was read.</span
+        >
+        <button type="button" class="btn sm" onclick={() => void request.load()}
+          >Reload from disk</button
+        >
+      </div>
+    {/if}
     <Tabs label="Request" {tabs} bind:selected={tab}>
       {#snippet panel(id)}
-        {#if id === 'vars'}
+        {#if id === 'request'}
+          {#if request?.explained}
+            <RequestForm {request} />
+          {:else}
+            <p class="hint">{request?.state === 'loading' ? 'Reading the api…' : ''}</p>
+          {/if}
+        {:else if id === 'checks'}
+          {#if request?.explained}<ChecksEditor {request} />{/if}
+        {:else if id === 'vars'}
           <p class="hint">
             Empty vars keep the api's defaults. Vars are sent like <code>--var</code>.
           </p>
@@ -56,6 +95,26 @@
             {/each}
           </ul>
           <button type="button" class="btn sm" onclick={() => client.addVar()}>Add var</button>
+          {#if layered.length > 0}
+            <table class="layers" aria-label="Vars from the project">
+              <thead>
+                <tr>
+                  <th scope="col">Var</th>
+                  <th scope="col">Resolves to</th>
+                  <th scope="col">Set by</th>
+                </tr>
+              </thead>
+              <tbody>
+                {#each layered as v (v.key)}
+                  <tr>
+                    <th scope="row" class="mono">{v.key}</th>
+                    <td class="mono">{v.layers[0]?.value ?? ''}</td>
+                    <td>{v.layers[0]?.source ?? ''}</td>
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
+          {/if}
         {:else}
           <label class="check">
             <input type="checkbox" bind:checked={client.keep} />
@@ -69,6 +128,20 @@
     <p class="empty">Pick an api to call it with the project's auth and active profile.</p>
   {/if}
 </section>
+
+{#if dialog === 'save' && request && client.current}
+  <SaveApiDialog
+    {request}
+    api={client.current.id}
+    onclose={() => (dialog = undefined)}
+    onsaved={(what) => {
+      dialog = undefined;
+      onsaved(what);
+    }}
+  />
+{:else if dialog === 'curl' && request?.explained}
+  <CurlDialog curl={request.explained.curl} onclose={() => (dialog = undefined)} />
+{/if}
 
 <svelte:window
   onkeydown={(event) => {
@@ -107,6 +180,30 @@
   .name {
     width: 160px;
     flex: none;
+  }
+  .layers {
+    width: 100%;
+    margin-top: 12px;
+    border-collapse: collapse;
+    color: var(--ink2);
+  }
+  .layers th {
+    font-weight: 500;
+    text-align: left;
+  }
+  .banner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    padding: 8px 12px;
+    border: 1px solid var(--fail);
+    border-radius: 6px;
+  }
+  .error {
+    margin: 0 0 8px;
+    color: var(--fail);
   }
   .check {
     display: flex;

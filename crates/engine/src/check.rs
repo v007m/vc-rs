@@ -90,7 +90,7 @@ impl Engine {
     }
 
     /// `text` in the editor at `path`, as a change to compile in place of the file.
-    fn unsaved(&self, path: &str, text: &str) -> Result<FileChange, EngineError> {
+    pub(crate) fn unsaved(&self, path: &str, text: &str) -> Result<FileChange, EngineError> {
         let path = self.editor_path(path)?.to_string();
         Ok(FileChange { path, before: None, after: text.to_owned(), moved_from: None })
     }

@@ -641,7 +641,7 @@ pub struct ListAgentActionsResponse {
     #[prost(message, repeated, tag="1")]
     pub actions: ::prost::alloc::vec::Vec<AgentAction>,
 }
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CallRequest {
     /// The api's full ID.
     #[prost(string, tag="1")]
@@ -656,6 +656,93 @@ pub struct CallRequest {
     pub profiles: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
     #[prost(string, repeated, tag="5")]
     pub sets: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Edits to the api's file that are not saved: the call sends the api as edited, and the
+    /// file is left as it is.
+    #[prost(message, optional, tag="6")]
+    pub draft: ::core::option::Option<ApiDraft>,
+}
+/// Pointer edits to an api file, made over it as it was opened; nothing is written.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ApiDraft {
+    /// Relative to the project root; only a file the editor opens.
+    #[prost(string, tag="1")]
+    pub path: ::prost::alloc::string::String,
+    /// The digest `ExplainApi` or `ReadFile` gave; a call over a changed file is aborted.
+    #[prost(string, tag="2")]
+    pub digest: ::prost::alloc::string::String,
+    /// As `EditFile` takes them.
+    #[prost(message, repeated, tag="3")]
+    pub edits: ::prost::alloc::vec::Vec<PointerEdit>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ExplainApiRequest {
+    /// The api's full ID.
+    #[prost(string, tag="1")]
+    pub api: ::prost::alloc::string::String,
+    /// `name=value` vars at call level, as `vc call` takes them.
+    #[prost(string, repeated, tag="2")]
+    pub vars: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, repeated, tag="3")]
+    pub profiles: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, repeated, tag="4")]
+    pub sets: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ExplainApiResponse {
+    /// The api's file, relative to the project root.
+    #[prost(string, tag="1")]
+    pub path: ::prost::alloc::string::String,
+    /// Where the api sits in its file, `/apis/2`; its edits' pointers start with it.
+    #[prost(string, tag="2")]
+    pub pointer: ::prost::alloc::string::String,
+    /// The file's digest, for a draft or an `EditFile` over it.
+    #[prost(string, tag="3")]
+    pub digest: ::prost::alloc::string::String,
+    /// The api as its file writes it, as JSON text: templates as written, secrets masked.
+    #[prost(string, tag="4")]
+    pub api_json: ::prost::alloc::string::String,
+    /// Every var the api uses, each with the layers that set it, highest first: call, saved,
+    /// api, file, profile, config. Values are masked.
+    #[prost(message, repeated, tag="5")]
+    pub vars: ::prost::alloc::vec::Vec<ConfigValue>,
+    /// The headers added at send time, masked, with where each comes from.
+    #[prost(message, repeated, tag="6")]
+    pub headers: ::prost::alloc::vec::Vec<InheritedHeader>,
+    /// The auth the api is sent with, when it has one.
+    #[prost(message, optional, tag="7")]
+    pub auth: ::core::option::Option<ApiAuth>,
+    /// The request as a curl command, the bearer token replaced by `$TOKEN`.
+    #[prost(string, tag="8")]
+    pub curl: ::prost::alloc::string::String,
+    #[prost(string, repeated, tag="9")]
+    pub notices: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+/// A header an api is sent with that it does not write itself.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct InheritedHeader {
+    #[prost(string, tag="1")]
+    pub name: ::prost::alloc::string::String,
+    /// Masked.
+    #[prost(string, tag="2")]
+    pub value: ::prost::alloc::string::String,
+    /// `vibranium.config.yaml`, `users.api.yaml`, `auth shopOauth`.
+    #[prost(string, tag="3")]
+    pub from: ::prost::alloc::string::String,
+}
+/// An auth, named and described, never its token or secret values.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ApiAuth {
+    #[prost(string, tag="1")]
+    pub id: ::prost::alloc::string::String,
+    /// `oauth2`, `bearer`, `basic`, `apiKey` or a plugin's type.
+    #[prost(string, tag="2")]
+    pub r#type: ::prost::alloc::string::String,
+    /// Where its token comes from, when it fetches one; templates as written.
+    #[prost(string, tag="3")]
+    pub token_url: ::prost::alloc::string::String,
+    /// The secrets it reads, by name.
+    #[prost(string, repeated, tag="4")]
+    pub secrets: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CallResponse {

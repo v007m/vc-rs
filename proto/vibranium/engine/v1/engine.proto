@@ -35,6 +35,8 @@ service EngineService {
   // Sends one api's request, as `vc call` does. The person at the browser is no agent, so the
   // profiles' agent policy and the agent log do not apply (D241).
   rpc Call(CallRequest) returns (CallResponse);
+  // An api as the API client opens it: as its file writes it, and how it would be sent (D245).
+  rpc ExplainApi(ExplainApiRequest) returns (ExplainApiResponse);
   // Writes a call as a test, as `vc call --save-as` does.
   rpc SaveCallAsTest(SaveCallAsTestRequest) returns (SaveCallAsTestResponse);
   // Imports a spec or recording, as `vc import` does: a preview, or the files written.
@@ -363,6 +365,69 @@ message CallRequest {
   bool keep = 3;
   repeated string profiles = 4;
   repeated string sets = 5;
+  // Edits to the api's file that are not saved: the call sends the api as edited, and the
+  // file is left as it is.
+  optional ApiDraft draft = 6;
+}
+
+// Pointer edits to an api file, made over it as it was opened; nothing is written.
+message ApiDraft {
+  // Relative to the project root; only a file the editor opens.
+  string path = 1;
+  // The digest `ExplainApi` or `ReadFile` gave; a call over a changed file is aborted.
+  string digest = 2;
+  // As `EditFile` takes them.
+  repeated PointerEdit edits = 3;
+}
+
+message ExplainApiRequest {
+  // The api's full ID.
+  string api = 1;
+  // `name=value` vars at call level, as `vc call` takes them.
+  repeated string vars = 2;
+  repeated string profiles = 3;
+  repeated string sets = 4;
+}
+
+message ExplainApiResponse {
+  // The api's file, relative to the project root.
+  string path = 1;
+  // Where the api sits in its file, `/apis/2`; its edits' pointers start with it.
+  string pointer = 2;
+  // The file's digest, for a draft or an `EditFile` over it.
+  string digest = 3;
+  // The api as its file writes it, as JSON text: templates as written, secrets masked.
+  string api_json = 4;
+  // Every var the api uses, each with the layers that set it, highest first: call, saved,
+  // api, file, profile, config. Values are masked.
+  repeated ConfigValue vars = 5;
+  // The headers added at send time, masked, with where each comes from.
+  repeated InheritedHeader headers = 6;
+  // The auth the api is sent with, when it has one.
+  optional ApiAuth auth = 7;
+  // The request as a curl command, the bearer token replaced by `$TOKEN`.
+  string curl = 8;
+  repeated string notices = 9;
+}
+
+// A header an api is sent with that it does not write itself.
+message InheritedHeader {
+  string name = 1;
+  // Masked.
+  string value = 2;
+  // `vibranium.config.yaml`, `users.api.yaml`, `auth shopOauth`.
+  string from = 3;
+}
+
+// An auth, named and described, never its token or secret values.
+message ApiAuth {
+  string id = 1;
+  // `oauth2`, `bearer`, `basic`, `apiKey` or a plugin's type.
+  string type = 2;
+  // Where its token comes from, when it fetches one; templates as written.
+  string token_url = 3;
+  // The secrets it reads, by name.
+  repeated string secrets = 4;
 }
 
 message CallResponse {

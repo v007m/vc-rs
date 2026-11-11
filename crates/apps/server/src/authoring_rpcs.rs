@@ -14,7 +14,7 @@ use vc_contracts::results::v1 as results;
 use vc_engine::{CallAsTest, CallReport, CallRequest, Changes, Exchange, FileChange, ImportRequest, Keep, cut_body};
 
 use crate::engine_api::{EngineApi, Rpcs};
-use crate::{Code, ConnectError, wire_results};
+use crate::{Code, ConnectError, client_rpcs, wire_results};
 
 /// The name a pasted spec goes by: its relative references resolve from the project root.
 const PASTED: &str = "pasted";
@@ -24,9 +24,11 @@ pub fn register(rpcs: Rpcs) -> Rpcs {
     rpcs.unary("Call", call).unary("SaveCallAsTest", save_call_as_test).unary("Import", import)
 }
 
-async fn call(api: Arc<EngineApi>, request: wire::CallRequest) -> Result<wire::CallResponse, ConnectError> {
+pub(crate) async fn call(api: Arc<EngineApi>, request: wire::CallRequest) -> Result<wire::CallResponse, ConnectError> {
     let (profiles, sets) = api.layers(request.profiles, request.sets);
-    let call = CallRequest { api: request.api, vars: request.vars, keep: request.keep, profiles, sets, agent: None };
+    let draft = request.draft.as_ref().map(client_rpcs::draft).transpose()?;
+    let call =
+        CallRequest { api: request.api, vars: request.vars, keep: request.keep, profiles, sets, agent: None, draft };
     let report = api.blocking(move |engine| Handle::current().block_on(engine.call(&call))).await?;
     let exchange = report.exchange.as_ref().map(|exchange| bodied(&report, exchange));
     let checks = report.checks.iter().map(|check| wire_results::check(&report.names, check)).collect();

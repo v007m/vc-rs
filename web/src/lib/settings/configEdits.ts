@@ -1,3 +1,4 @@
+import { EditOp } from '#lib/gen/vibranium/engine/v1/engine_pb.ts';
 import { MASKED, type ConfigValue } from './port.ts';
 import { rawVars } from './rawVars.ts';
 
@@ -17,8 +18,19 @@ export type FieldKey = (typeof FIELDS)[number]['key'];
 export type PointerEdit = Readonly<{
   pointer: string;
   op: 'set' | 'remove' | 'insert';
-  value?: string | number | boolean | Readonly<Record<string, unknown>>;
+  value?: unknown;
 }>;
+
+const OPS = { set: EditOp.SET, remove: EditOp.REMOVE, insert: EditOp.INSERT } as const;
+
+/** `edits` as `EditFile` and a call's draft take them, each value as JSON text. */
+export function wireEdits(edits: readonly PointerEdit[]) {
+  return edits.map(({ pointer, op, value }) => ({
+    pointer,
+    op: OPS[op],
+    valueJson: value === undefined ? '' : JSON.stringify(value),
+  }));
+}
 
 /** A profile as the form edits it; `at` is its place in the file, none for a new one. */
 export type DraftProfile = { id: string; isDefault: boolean; at?: number };
@@ -45,7 +57,7 @@ export type ProjectNamed = Readonly<{
 }>;
 
 /** A JSON pointer token (RFC 6901): `~` and `/` escaped. */
-function token(name: string): string {
+export function token(name: string): string {
   return name.replaceAll('~', '~0').replaceAll('/', '~1');
 }
 
