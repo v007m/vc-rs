@@ -22,7 +22,7 @@ typo fails `vc check`, not the first request that runs the hook.
 
 ## Wrong
 
-```yaml title="services/orders/orders.api.yaml"
+```yaml wrong title="services/orders/orders.api.yaml"
 beforeRequest:
   - function: ../../hooks/sign.ts#sign
 apis:

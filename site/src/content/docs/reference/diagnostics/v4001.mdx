@@ -23,13 +23,13 @@ renames the test from its `name` and updates every reference.
 
 ## Wrong
 
-```yaml title="services/users/users.api.yaml"
+```yaml wrong title="services/users/users.api.yaml"
 apis:
   - id: getUser
     path: /users/1
 ```
 
-```yaml title="services/users/crud.test.yaml"
+```yaml wrong title="services/users/crud.test.yaml"
 tests:
   - id: getUser
     call: users#getUser
@@ -53,7 +53,7 @@ tests:
 
 This is real output from `vc`, run against the files below.
 
-```yaml title="services/users/crud.test.yaml"
+```yaml wrong title="services/users/crud.test.yaml"
 id: users.crud
 name: Users CRUD
 tests:

@@ -25,7 +25,7 @@ its default.
 
 ## Wrong
 
-```yaml title="services/users/users.api.yaml"
+```yaml wrong title="services/users/users.api.yaml"
 apis:
   - id: getUser
     path: /users/${var.userId}
@@ -33,7 +33,7 @@ apis:
       userId: 0
 ```
 
-```yaml title="services/users/crud.test.yaml"
+```yaml wrong title="services/users/crud.test.yaml"
 tests:
   - id: getsSeededUser
     before:

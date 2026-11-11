@@ -23,13 +23,13 @@ read. Here `/users` answers a plain list, so there is no `response.body.users` t
 
 ## Wrong
 
-```yaml title="services/users/users.api.yaml"
+```yaml wrong title="services/users/users.api.yaml"
 apis:
   - id: listUsers
     path: /users
 ```
 
-```yaml title="services/users/crud.test.yaml"
+```yaml wrong title="services/users/crud.test.yaml"
 tests:
   - id: listsUsers
     call: users#listUsers
@@ -59,7 +59,7 @@ tests:
 
 This is real output from `vc`, run against the files below.
 
-```yaml title="services/users/crud.test.yaml"
+```yaml wrong title="services/users/crud.test.yaml"
 id: users.crud
 name: Users CRUD
 tests:

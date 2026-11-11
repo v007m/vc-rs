@@ -22,13 +22,13 @@ or `1m`, sizes as `4kb` or `1mb`. A bare number is never milliseconds.
 
 ## Wrong
 
-```yaml title="services/users/users.api.yaml"
+```yaml wrong title="services/users/users.api.yaml"
 apis:
   - id: getUser
     path: /users/1
 ```
 
-```yaml title="services/users/crud.test.yaml"
+```yaml wrong title="services/users/crud.test.yaml"
 tests:
   - id: getsUser
     call: users#getUser
@@ -54,7 +54,7 @@ tests:
 
 This is real output from `vc`, run against the files below.
 
-```yaml title="services/users/users.api.yaml"
+```yaml wrong title="services/users/users.api.yaml"
 id: users
 name: Users
 baseUrl: http://localhost:7421

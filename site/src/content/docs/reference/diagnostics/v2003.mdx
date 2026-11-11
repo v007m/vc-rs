@@ -22,13 +22,13 @@ their full ID, `fileId#id`; the diagnostic suggests the closest ID of the right 
 
 ## Wrong
 
-```yaml title="services/users/users.api.yaml"
+```yaml wrong title="services/users/users.api.yaml"
 apis:
   - id: getUser
     path: /users/1
 ```
 
-```yaml title="services/users/crud.test.yaml"
+```yaml wrong title="services/users/crud.test.yaml"
 tests:
   - id: getsUser
     call: users#getUsr
@@ -52,7 +52,7 @@ tests:
 
 This is real output from `vc`, run against the files below.
 
-```yaml title="services/users/users.api.yaml"
+```yaml wrong title="services/users/users.api.yaml"
 id: users
 name: Users
 baseUrl: http://localhost:7421
@@ -62,7 +62,7 @@ apis:
     path: /users
 ```
 
-```yaml title="services/users/crud.test.yaml"
+```yaml wrong title="services/users/crud.test.yaml"
 id: users.crud
 name: Users CRUD
 tests:

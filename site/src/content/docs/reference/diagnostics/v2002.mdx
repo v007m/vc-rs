@@ -22,7 +22,7 @@ An `auth`, profile, dataset or generator is referred to by an ID that is not def
 
 ## Wrong
 
-```yaml title="vibranium.config.yaml"
+```yaml wrong title="vibranium.config.yaml"
 syntaxVersion: 2
 project: shop
 profiles:
@@ -34,7 +34,7 @@ auth:
     token: ${secret.ADMIN_TOKEN}
 ```
 
-```yaml title="services/users/users.api.yaml"
+```yaml wrong title="services/users/users.api.yaml"
 auth: admn
 apis:
   - id: getUser

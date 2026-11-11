@@ -24,7 +24,7 @@ with a body the service rejects, so no test in the file can run.
 
 ## Wrong
 
-```yaml title="services/users/users.api.yaml"
+```yaml wrong title="services/users/users.api.yaml"
 apis:
   - id: createUser
     method: POST
@@ -37,7 +37,7 @@ apis:
     path: /users
 ```
 
-```yaml title="services/users/crud.test.yaml"
+```yaml wrong title="services/users/crud.test.yaml"
 beforeAll:
   - call: users#createUser
     vars:

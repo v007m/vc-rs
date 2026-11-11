@@ -23,6 +23,8 @@ const TODAY: &str = "2026-11-03";
 
 /// One fenced block: its info string, its first line and its lines after the first.
 pub struct Block {
+    /// The line of its opening fence, from 1.
+    pub line: usize,
     pub info: String,
     pub first: String,
     pub body: String,
@@ -32,20 +34,21 @@ pub struct Block {
 /// the first) and the nearest `###` heading.
 pub fn blocks(markdown: &str) -> Vec<(String, String, Block)> {
     let (mut section, mut heading, mut found) = (String::new(), String::new(), Vec::new());
-    let mut lines = markdown.lines();
-    while let Some(line) = lines.next() {
+    let mut lines = markdown.lines().enumerate();
+    while let Some((at, line)) = lines.next() {
         if let Some(title) = line.strip_prefix("## ") {
             (section, heading) = (title.trim().to_owned(), String::new());
         } else if let Some(title) = line.strip_prefix("### ") {
             title.trim().clone_into(&mut heading);
         } else if let Some(info) = line.trim_start().strip_prefix("```").filter(|info| !info.is_empty()) {
             let indent = line.len() - line.trim_start().len();
-            let inner: Vec<&str> = lines.by_ref().take_while(|line| line.trim_start() != "```").collect();
+            let inner: Vec<&str> =
+                lines.by_ref().map(|(_, line)| line).take_while(|line| line.trim_start() != "```").collect();
             let inner: Vec<&str> =
                 inner.iter().map(|line| line.get(indent..).unwrap_or_else(|| line.trim_start())).collect();
             let first = inner.first().copied().unwrap_or_default().to_owned();
             let body = inner.iter().skip(1).fold(String::new(), |body, line| body + line + "\n");
-            found.push((section.clone(), heading.clone(), Block { info: info.trim().to_owned(), first, body }));
+            found.push((section.clone(), heading.clone(), Block { line: at + 1, info: info.trim().to_owned(), first, body }));
         }
     }
     found
