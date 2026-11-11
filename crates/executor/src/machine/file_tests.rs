@@ -2,7 +2,7 @@ use vc_model::{Event, Failure, SkippedTest, TestStatus, Totals};
 
 use super::super::sim;
 use super::super::{ActionReport, FailedActions, PendingCleanup};
-use super::{FileCommand, FileInput, FileOrchestrator, FilePhase, Launch};
+use super::{FileCommand, FileEnd, FileInput, FileOrchestrator, FilePhase, Launch};
 
 fn passing(_: vc_model::ActionId) -> ActionReport {
     ActionReport::passed()
@@ -21,7 +21,7 @@ fn finished(log: &[FileCommand]) -> Totals {
     let totals: Vec<_> = log
         .iter()
         .filter_map(|command| match command {
-            FileCommand::Finish(totals) => Some(*totals),
+            FileCommand::Finish(end) => Some(end.totals),
             _ => None,
         })
         .collect();
@@ -226,4 +226,21 @@ fn a_skipped_test_is_reported_after_the_file_starts_and_counted_in_its_totals() 
         if result.status == TestStatus::Skipped && result.skip_reason.as_deref() == Some("flaky upstream")));
     let totals = finished(&trace.log);
     assert_eq!((totals.passed, totals.skipped), (1, 1));
+}
+
+/// Each failed `afterAll` action is counted for the run, apart from the totals, while a failed
+/// `beforeAll` action is not (D279).
+#[test]
+fn failed_after_all_actions_are_counted_apart_from_the_totals() {
+    let file = sim::planned_file(vec![sim::planned(1, &[])], vec![sim::instance(0, &[])], &[3, 4, 5]);
+    let mut respond = |action: vc_model::ActionId| match action.index() {
+        5 => ActionReport::passed(),
+        index => sim::fail(index),
+    };
+    let trace = sim::drive_file(FileOrchestrator::new(file, 1), &mut respond, &mut |_| TestStatus::Passed);
+    let ended = trace.log.iter().find_map(|command| match command {
+        FileCommand::Finish(end) => Some(*end),
+        _ => None,
+    });
+    assert_eq!(ended, Some(FileEnd { totals: Totals { passed: 1, ..Totals::default() }, teardown_failures: 2 }));
 }

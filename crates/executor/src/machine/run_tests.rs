@@ -4,6 +4,7 @@ use vc_model::{Event, OwnerKey, Plan, PlannedFile, RunStatus, SkippedTest, TestS
 
 use super::super::sim;
 use super::super::{ActionReport, PendingCleanup};
+use super::super::FileEnd;
 use super::{RunCommand, RunInput, RunOrchestrator, RunPhase, RunSummary};
 
 fn file() -> PlannedFile {
@@ -126,7 +127,7 @@ fn running() -> RunOrchestrator {
 fn the_first_interrupt_cancels_skips_after_run_and_still_cleans_up() {
     let (run, commands) = running().transition(RunInput::Interrupt);
     assert_eq!(commands, [RunCommand::Cancel]);
-    let (run, commands) = run.transition(RunInput::FileDone(Totals { skipped: 1, ..Totals::default() }));
+    let (run, commands) = run.transition(RunInput::FileDone(Totals { skipped: 1, ..Totals::default() }.into()));
     assert_eq!(commands, [RunCommand::RunCleanup(PendingCleanup::new(sim::act(100)))]);
     let (run, commands) = run.transition(RunInput::CleanupDone);
     assert!(matches!(
@@ -146,7 +147,7 @@ fn the_second_interrupt_skips_the_grace_and_the_third_aborts() {
     let (run, commands) = run.transition(RunInput::Interrupt);
     let abandoned = Event::CleanupsAbandoned { owner: OwnerKey::Run, cleanups: vec![sim::act(100)] };
     assert_eq!(commands, [RunCommand::Abort, RunCommand::Emit(abandoned)], "waits for the file to stop");
-    let (run, commands) = run.transition(RunInput::FileDone(Totals::default()));
+    let (run, commands) = run.transition(RunInput::FileDone(FileEnd::default()));
     assert_eq!(run.phase(), RunPhase::Finished(RunStatus::Cancelled));
     assert!(matches!(&commands[..], [RunCommand::Emit(Event::RunFinished { .. }), RunCommand::Finish(_)]));
     assert_eq!(run.transition(RunInput::Interrupt).1.len(), 0);
@@ -168,7 +169,7 @@ fn a_cut_lifecycle_action_moves_on() {
     let (run, commands) = run.transition(RunInput::ActionCut(Vec::new()));
     assert!(matches!(&commands[..], [RunCommand::StartFiles(_)]));
     assert_eq!(run.phase(), RunPhase::Running);
-    let (run, _) = running().transition(RunInput::FileDone(Totals::default()));
+    let (run, _) = running().transition(RunInput::FileDone(FileEnd::default()));
     let (run, commands) = run.transition(RunInput::ActionCut(Vec::new()));
     assert_eq!(commands, [RunCommand::RunCleanup(PendingCleanup::new(sim::act(100)))]);
     assert_eq!(run.phase(), RunPhase::CleaningUp);
@@ -196,7 +197,7 @@ fn an_abort_outside_the_files_finishes_at_once() {
     let (run, commands) = run.transition(RunInput::Interrupt);
     assert_eq!(run.phase(), RunPhase::Finished(RunStatus::Cancelled));
     assert!(matches!(commands.last(), Some(RunCommand::Finish(_))));
-    let (reporting, _) = running().transition(RunInput::FileDone(Totals::default()));
+    let (reporting, _) = running().transition(RunInput::FileDone(FileEnd::default()));
     let (reporting, _) = reporting.transition(RunInput::ActionDone(ActionReport::passed()));
     let (reporting, _) = reporting.transition(RunInput::CleanupDone);
     assert_eq!(reporting.phase(), RunPhase::Reporting);
@@ -217,10 +218,28 @@ fn inputs_out_of_place_are_ignored() {
         RunInput::ActionDone(ActionReport::passed()),
         RunInput::CleanupDone,
         RunInput::Reported,
-        RunInput::FileDone(Totals::default()),
+        RunInput::FileDone(FileEnd::default()),
     ] {
         let (run, commands) = planned.clone().transition(input);
         assert_eq!(commands.len(), 0);
         assert_eq!(run.phase(), RunPhase::Planned);
     }
+}
+
+/// A failed `afterRun` action, or a file whose `afterAll` failed, fails a run whose tests all
+/// passed, and leaves the totals as they were (D279).
+#[test]
+fn a_failed_teardown_fails_the_run_and_keeps_the_totals() {
+    let mut respond = |action: vc_model::ActionId| match action.index() {
+        2 => sim::fail(2),
+        _ => ActionReport::passed(),
+    };
+    let log = sim::drive_run(RunOrchestrator::new(plan(&[], 1, &[2]), false), &mut respond, &[passed(1)]);
+    assert_eq!(finish(&log), RunSummary { status: RunStatus::Failed, totals: passed(1) });
+    let end = FileEnd { teardown_failures: 1, ..FileEnd::from(passed(1)) };
+    let (run, _) = running().transition(RunInput::FileDone(end));
+    let (run, _) = run.transition(RunInput::ActionDone(ActionReport::passed()));
+    let (_, commands) = run.transition(RunInput::CleanupDone);
+    let finished = Event::RunFinished { status: RunStatus::Failed, totals: passed(1) };
+    assert!(matches!(&commands[..], [RunCommand::Emit(event), RunCommand::Report(_)] if *event == finished));
 }

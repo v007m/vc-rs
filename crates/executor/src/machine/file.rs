@@ -67,7 +67,24 @@ pub enum FileCommand {
     /// Publish this event.
     Emit(Event),
     /// The file is finished.
-    Finish(Totals),
+    Finish(FileEnd),
+}
+
+/// How a file ended: its totals, and how many of its `afterAll` actions failed, which fails the
+/// run but changes no test's verdict (D279).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct FileEnd {
+    /// Every instance and skipped test of the file by status.
+    pub totals: Totals,
+    /// The `afterAll` actions that failed.
+    pub teardown_failures: usize,
+}
+
+impl From<Totals> for FileEnd {
+    fn from(totals: Totals) -> Self {
+        Self { totals, teardown_failures: 0 }
+    }
 }
 
 /// One test file: `beforeAll` first (D122), then its instances under a window, then `afterAll`
@@ -82,6 +99,7 @@ pub struct FileOrchestrator {
     running: usize,
     cleanups: Vec<PendingCleanup>,
     totals: Totals,
+    teardown_failures: usize,
     cancelled: bool,
     aborted: bool,
 }
@@ -100,6 +118,7 @@ impl FileOrchestrator {
             running: 0,
             cleanups: Vec::new(),
             totals: Totals::default(),
+            teardown_failures: 0,
             cancelled: false,
             aborted: false,
         }
@@ -172,6 +191,7 @@ impl FileOrchestrator {
                 if self.cancelled { self.wind_down(out) } else { self.resume_before(out) }
             }
             FilePhase::AfterAll(index) => {
+                self.teardown_failures += usize::from(report.outcome.failure().is_some());
                 self.phase = FilePhase::AfterAll(index + 1);
                 self.resume_after(out);
             }
@@ -268,7 +288,7 @@ impl FileOrchestrator {
     fn finish(&mut self, out: &mut Vec<FileCommand>) {
         self.phase = FilePhase::Done;
         out.push(FileCommand::Emit(Event::FileFinished { file: self.file.id, totals: self.totals }));
-        out.push(FileCommand::Finish(self.totals));
+        out.push(FileCommand::Finish(FileEnd { totals: self.totals, teardown_failures: self.teardown_failures }));
     }
 }
 

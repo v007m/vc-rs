@@ -2,14 +2,14 @@ use std::collections::VecDeque;
 use std::sync::Arc;
 
 use tokio::sync::mpsc::UnboundedReceiver;
-use vc_model::{ActionId, OwnerKey, Plan, Totals};
+use vc_model::{ActionId, OwnerKey, Plan};
 
 use super::crew::{Crew, Job};
 use super::file;
 use super::file::FileJob;
 use super::tasks::Tasks;
 use crate::cancel::CancelTree;
-use crate::{FailedActions, Frame, RunCommand, RunInput, RunOrchestrator, RunSummary, SharedSlots};
+use crate::{FailedActions, FileEnd, Frame, RunCommand, RunInput, RunOrchestrator, RunSummary, SharedSlots};
 
 /// The run's own frame: its inbox (interrupts and test verdicts), its cancellation root and
 /// whether the first failure stops it.
@@ -91,7 +91,7 @@ impl RunShell {
             let crew = self.crew.clone();
             self.tasks.spawn(
                 async move { RunInput::FileDone(file::file(crew, job).await) },
-                RunInput::FileDone(Totals::default()),
+                RunInput::FileDone(FileEnd::default()),
             );
         }
     }

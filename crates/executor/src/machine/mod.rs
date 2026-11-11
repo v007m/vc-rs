@@ -14,7 +14,7 @@ use std::sync::Arc;
 
 use vc_model::{ActionId, ActionOutcome, CheckResult, Event, Exchange, Failure, Needs, OwnerKey, PlannedAction};
 
-pub use file::{FileCommand, FileInput, FileOrchestrator, FilePhase, Launch};
+pub use file::{FileCommand, FileEnd, FileInput, FileOrchestrator, FilePhase, Launch};
 pub use instance::{
     CANCELLED, InstanceCommand, InstanceInput, InstancePhase, InstanceScript, InstanceWorkflow, Verdict,
 };
