@@ -109,6 +109,8 @@ fn a_lone_misspelt_matcher_is_v1004_and_a_status_map_takes_only_matchers() {
     assert!(pieces(&literal).iter().all(|piece| matches!(piece, Piece::Matcher(Matcher::Equals(_)))));
     let status = unit_with("    expect:\n      status: {oneOf: [200, 201]}\n");
     assert_eq!(codes(&status.diagnostics), [Code::V1004]);
+    let no_literal = status.diagnostics.iter().flat_map(|found| &found.help).all(|help| !help.contains("`eq:`"));
+    assert!(no_literal, "a status map is never a literal object: {:?}", status.diagnostics);
 }
 
 #[test]

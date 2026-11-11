@@ -190,6 +190,26 @@ fn a_close_api_is_a_certain_fix_only_when_its_own_id_is_close() {
     assert_eq!(help, ["did you mean one of `users#get`, `users#put`?"]);
 }
 
+/// With a second api file, a reference into a file that exists compares that file's items, not
+/// the other file's.
+#[test]
+fn a_named_file_is_searched_even_beside_another_api_file() {
+    let orders =
+        file("services/orders/orders.api.yaml", "baseUrl: ${var.baseUrl}\napis:\n  - id: place\n    path: /o\n");
+    let calls = tests("  - id: callsIt\n    call: users#gte\n");
+    let files = vec![
+        file("vibranium.config.yaml", CONFIG),
+        file("services/users/users.api.yaml", APIS),
+        orders,
+        file("services/users/crud.test.yaml", &calls),
+    ];
+    let compiled = crate::compile(CompileInput { files, ..CompileInput::default() });
+    let found: Vec<_> = compiled.diagnostics.iter().filter(|found| found.code == Code::V2003).collect();
+    let [unknown] = found.as_slice() else { panic!("one V2003, not {found:?}") };
+    let fixes: Vec<&str> = unknown.fixes.iter().flat_map(|fix| &fix.edits).map(|edit| edit.new_text.as_str()).collect();
+    assert_eq!(fixes, ["users#get"], "{:?}", unknown.help);
+}
+
 #[test]
 fn references_into_a_file_that_could_not_be_read_are_not_reported() {
     let broken = format!("{APIS}    colour: red\n");
