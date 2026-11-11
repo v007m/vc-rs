@@ -15,15 +15,11 @@ const apis = [
 
 const created = JSON.stringify({ status: 201, headers: {}, body: { id: 'u_1', tags: [] } });
 
-const EXPLAINED = {
+const WRITTEN = {
   path: 'services/users/users.api.yaml',
   pointer: '/apis/1',
   digest: 'd1',
-  api: { id: 'createUser', method: 'POST', path: '/users', expect: { status: 201 } },
-  vars: [],
-  headers: [],
-  curl: '',
-  notices: [],
+  node: { id: 'createUser', method: 'POST', path: '/users', expect: { status: 201 } },
 };
 
 function fakePort(overrides: Partial<ClientPort> = {}): ClientPort {
@@ -41,8 +37,9 @@ function fakePort(overrides: Partial<ClientPort> = {}): ClientPort {
       }),
     saveCallAsTest: () => Promise.resolve({ id: '', path: '', titles: [] }),
     importHar: () => Promise.resolve({ files: [], titles: [] }),
-    explainApi: () => Promise.resolve(EXPLAINED),
-    editApi: () => Promise.resolve({ diff: '', digest: 'd2', written: true, problems: 0 }),
+    readDefinition: () => Promise.resolve(WRITTEN),
+    explainApi: () => Promise.resolve({ vars: [], headers: [], curl: '', notices: [] }),
+    editFile: () => Promise.resolve({ diff: '', digest: 'd2', written: true, problems: 0 }),
     ...overrides,
   };
 }
@@ -135,7 +132,7 @@ describe('ClientSession', () => {
           sent.push(input);
           return Promise.resolve({ exit: 0, text: '', notices: [], checks: [], saved: [] });
         },
-        editApi: (draft, write) => {
+        editFile: (draft, write) => {
           saves.push([draft, write]);
           return Promise.resolve({ diff: '+x', digest: 'd2', written: write, problems: 0 });
         },
@@ -152,7 +149,7 @@ describe('ClientSession', () => {
     await session.send();
     const path = { pointer: '/apis/1/path', op: 'set', value: '/people' };
     expect(sent[1]?.draft).toEqual({
-      path: EXPLAINED.path,
+      path: WRITTEN.path,
       digest: 'd1',
       edits: [
         path,

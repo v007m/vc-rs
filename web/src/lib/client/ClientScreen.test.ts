@@ -58,18 +58,15 @@ function setup() {
         saved: [{ name: 'userId', from: '${response.body.id}', value: '"u_1"' }],
       });
     },
-    explainApi: (api) =>
+    readDefinition: (id) =>
       Promise.resolve({
         path: 'u.api.yaml',
         pointer: '/apis/0',
         digest: 'd1',
-        api: { id: api.split('#')[1], method: 'POST', path: '/users' },
-        vars: [],
-        headers: [],
-        curl: '',
-        notices: [],
+        node: { id: id.split('#')[1], method: 'POST', path: '/users' },
       }),
-    editApi: () => Promise.reject(new Error('unused')),
+    explainApi: () => Promise.resolve({ vars: [], headers: [], curl: '', notices: [] }),
+    editFile: () => Promise.reject(new Error('unused')),
     saveCallAsTest: (input) => {
       sent.saves.push(input);
       return Promise.resolve({
@@ -181,7 +178,35 @@ describe('ClientScreen', () => {
       within(screen.getByRole('group', { name: 'Mode' })).getByRole('button', { name: 'Flow' }),
     );
     const flows = screen.getByRole('list', { name: 'Flow tests' });
-    await user.click(within(flows).getByRole('button', { name: 'Run' }));
+    await user.click(
+      within(flows).getByRole('button', { name: 'Run users.recorded#replaysSession' }),
+    );
     expect(runs).toEqual([['users.recorded#replaysSession']]);
+  });
+
+  it('edits a flow test below the list, and runs it only as saved', async () => {
+    const s = setup();
+    s.port.readDefinition = () =>
+      Promise.resolve({
+        path: 'services/users/recorded.test.yaml',
+        pointer: '/tests/0',
+        digest: 'd1',
+        node: { id: 'replaysSession', steps: [{ call: 'users#listUsers' }] },
+      });
+    await s.client.load();
+    render(ClientScreen, { client: s.client, port: s.port, session: s.session });
+    await s.user.click(
+      within(screen.getByRole('group', { name: 'Mode' })).getByRole('button', { name: 'Flow' }),
+    );
+    const flows = screen.getByRole('list', { name: 'Flow tests' });
+    await s.user.click(
+      within(flows).getByRole('button', { name: 'Edit users.recorded#replaysSession' }),
+    );
+    const api = await screen.findByRole('combobox', { name: 'Stage 1 api' });
+    await s.user.selectOptions(api, 'users#createUser');
+    const run = within(flows).getByRole('button', { name: 'Run users.recorded#replaysSession' });
+    expect(run).toHaveProperty('disabled', true);
+    await s.user.click(screen.getByRole('button', { name: 'Discard' }));
+    expect(run).toHaveProperty('disabled', false);
   });
 });

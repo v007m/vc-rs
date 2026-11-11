@@ -1,23 +1,29 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import type { Snippet } from 'svelte';
   import Dialog from '#lib/ui/Dialog.svelte';
-  import type { ApiRequest } from './request.svelte.ts';
+  import type { DefinitionDraft } from './draft.svelte.ts';
 
-  /** Reviews the form's edits as a masked diff of the api file, then writes them. */
+  /**
+   * Reviews a form's edits as a masked diff of its file, then writes them; `children` says
+   * what is written back to `path`.
+   */
   let {
     request,
     api,
     onclose,
     onsaved,
+    children,
   }: {
-    request: ApiRequest;
+    request: DefinitionDraft;
     api: string;
     onclose: () => void;
     onsaved: (what: string) => void;
+    children: Snippet<[path: string]>;
   } = $props();
 
   const busy = $derived(request.state === 'reviewing' || request.state === 'saving');
-  const path = $derived(request.explained?.path ?? '');
+  const path = $derived(request.written?.path ?? '');
 
   onMount(() => void request.review());
 
@@ -35,10 +41,7 @@
 </script>
 
 <Dialog title="Save changes to {api}" {onclose}>
-  <p class="help">
-    Method, path, query, headers and body are written back to <code>{path}</code>, keeping its
-    comments. Call-level vars and added checks stay in this tab.
-  </p>
+  <p class="help">{@render children(path)}</p>
   {#if request.state === 'conflict'}
     <div class="banner" role="alert">
       <span class="grow">Not saved: <code>{path}</code> changed on disk since you opened it.</span>

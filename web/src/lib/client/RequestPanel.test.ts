@@ -3,15 +3,15 @@ import { render, screen, within } from '@testing-library/svelte';
 import { userEvent } from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { MASKED } from '#lib/settings/port.ts';
-import type { ApiDraft, CallInput, ClientPort, ExplainedApi } from './port.ts';
+import type { ApiDraft, CallInput, ClientPort, ExplainedApi, WrittenDefinition } from './port.ts';
 import RequestPanel from './RequestPanel.svelte';
 import { ClientSession } from './session.svelte.ts';
 
-const EXPLAINED: ExplainedApi = {
+const WRITTEN: WrittenDefinition = {
   path: 'services/users/users.api.yaml',
   pointer: '/apis/1',
   digest: 'd1',
-  api: {
+  node: {
     id: 'createUser',
     method: 'POST',
     path: '/users',
@@ -19,6 +19,9 @@ const EXPLAINED: ExplainedApi = {
     body: { email: '${var.email}' },
     expect: { status: 201 },
   },
+};
+
+const EXPLAINED: ExplainedApi = {
   vars: [{ key: 'vars.email', layers: [{ value: 'a@example.com', source: 'profile dev' }] }],
   headers: [{ name: 'X-Trace', value: 't1', from: 'config headers' }],
   curl: '',
@@ -30,15 +33,16 @@ function setup(overrides: Partial<ClientPort> = {}) {
   const port: ClientPort = {
     apis: () =>
       Promise.resolve([
-        { id: 'users#createUser', name: 'Create a user', path: EXPLAINED.path, vars: ['email'] },
+        { id: 'users#createUser', name: 'Create a user', path: WRITTEN.path, vars: ['email'] },
       ]),
     flows: () => Promise.resolve([]),
     call: (input) => {
       sent.calls.push(input);
       return Promise.resolve({ exit: 0, text: '201', notices: [], checks: [], saved: [] });
     },
+    readDefinition: () => Promise.resolve(WRITTEN),
     explainApi: () => Promise.resolve(EXPLAINED),
-    editApi: (draft, write) => {
+    editFile: (draft, write) => {
       sent.edits.push({ draft, write });
       const diff = '-  method: POST\n+  method: PUT\n';
       return Promise.resolve({ diff, digest: 'd2', written: write, problems: 0 });
@@ -74,7 +78,7 @@ describe('RequestPanel', () => {
     expect(within(inherited).getByRole('rowheader', { name: 'X-Trace' })).toBeTruthy();
     await user.click(screen.getByRole('button', { name: 'Send' }));
     expect(sent.calls[0]?.draft).toEqual({
-      path: EXPLAINED.path,
+      path: WRITTEN.path,
       digest: 'd1',
       edits: [
         { pointer: '/apis/1/method', op: 'set', value: 'PUT' },
@@ -124,7 +128,7 @@ describe('RequestPanel', () => {
     await user.selectOptions(screen.getByRole('combobox', { name: 'Method' }), 'PUT');
     await user.click(screen.getByRole('button', { name: 'Save changes to api' }));
     const dialog = screen.getByRole('dialog', { name: 'Save changes to users#createUser' });
-    const diff = await within(dialog).findByLabelText(`Changes to ${EXPLAINED.path}`);
+    const diff = await within(dialog).findByLabelText(`Changes to ${WRITTEN.path}`);
     expect(diff.textContent).toContain('+  method: PUT');
     await user.click(within(dialog).getByRole('button', { name: 'Save' }));
     expect(sent.edits.map((e) => e.write)).toEqual([false, true]);
@@ -137,8 +141,8 @@ describe('RequestPanel', () => {
   it('says the file changed on disk when a save races it, and reloads', async () => {
     let reads = 0;
     const { user } = await rendered({
-      explainApi: () => Promise.resolve({ ...EXPLAINED, digest: `d${++reads}` }),
-      editApi: (_draft, write) =>
+      readDefinition: () => Promise.resolve({ ...WRITTEN, digest: `d${++reads}` }),
+      editFile: (_draft, write) =>
         write
           ? Promise.reject(new ConnectError('changed', Code.Aborted))
           : Promise.resolve({ diff: '+x', digest: 'd2', written: false, problems: 0 }),
@@ -146,7 +150,7 @@ describe('RequestPanel', () => {
     await user.selectOptions(screen.getByRole('combobox', { name: 'Method' }), 'PUT');
     await user.click(screen.getByRole('button', { name: 'Save changes to api' }));
     const dialog = screen.getByRole('dialog');
-    await within(dialog).findByLabelText(`Changes to ${EXPLAINED.path}`);
+    await within(dialog).findByLabelText(`Changes to ${WRITTEN.path}`);
     await user.click(within(dialog).getByRole('button', { name: 'Save' }));
     const banner = within(dialog).getByRole('alert');
     expect(banner.textContent).toContain('changed on disk since you opened it');

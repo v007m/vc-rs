@@ -75,17 +75,22 @@ describe('enginePort', () => {
     ]);
   });
 
-  it('explains an api and sends a call with its draft, then saves the draft as EditFile', async () => {
+  it('reads and explains an api, sends a call with its draft, then saves it as EditFile', async () => {
     const seen: unknown[] = [];
     const port = enginePort(
       fakeEngine({
-        explainApi: ({ api, vars }) => {
-          seen.push({ api, vars });
+        readDefinition: ({ id }) => {
+          seen.push({ id });
           return {
             path: 'services/users/users.api.yaml',
             pointer: '/apis/1',
             digest: 'd1',
-            apiJson: '{"id":"get","path":"/users/${var.userId}"}',
+            json: '{"id":"get","path":"/users/${var.userId}"}',
+          };
+        },
+        explainApi: ({ api, vars }) => {
+          seen.push({ api, vars });
+          return {
             vars: [{ key: 'userId', layers: [{ value: '1', source: 'api' }] }],
             headers: [{ name: 'X-Key', value: '••••', from: 'users.api.yaml' }],
             auth: { id: 'shopOauth', type: 'oauth2', tokenUrl: '${var.authUrl}', secrets: ['ID'] },
@@ -102,12 +107,14 @@ describe('enginePort', () => {
         },
       }),
     );
-    const explained = await port.explainApi('users#get', ['userId=2']);
-    expect(explained).toEqual({
+    const written = await port.readDefinition('users#get');
+    expect(written).toEqual({
       path: 'services/users/users.api.yaml',
       pointer: '/apis/1',
       digest: 'd1',
-      api: { id: 'get', path: '/users/${var.userId}' },
+      node: { id: 'get', path: '/users/${var.userId}' },
+    });
+    expect(await port.explainApi('users#get', ['userId=2'])).toEqual({
       vars: [{ key: 'userId', layers: [{ value: '1', source: 'api' }] }],
       headers: [{ name: 'X-Key', value: '••••', from: 'users.api.yaml' }],
       auth: { id: 'shopOauth', type: 'oauth2', tokenUrl: '${var.authUrl}', secrets: ['ID'] },
@@ -115,18 +122,19 @@ describe('enginePort', () => {
       notices: [],
     });
     const draft = {
-      path: explained.path,
+      path: written.path,
       digest: 'd1',
       edits: [{ pointer: '/apis/1/method', op: 'set', value: 'POST' } as const],
     };
     await port.call({ api: 'users#get', vars: [], keep: false, draft });
-    expect(await port.editApi(draft, true)).toEqual({
+    expect(await port.editFile(draft, true)).toEqual({
       diff: '-a\n+b\n',
       digest: 'd2',
       written: true,
       problems: 0,
     });
     expect(seen).toEqual([
+      { id: 'users#get' },
       { api: 'users#get', vars: ['userId=2'] },
       [{ pointer: '/apis/1/method', op: EditOp.SET, valueJson: '"POST"' }],
       { path: 'services/users/users.api.yaml', digest: 'd1', write: true },

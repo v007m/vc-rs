@@ -120,7 +120,7 @@ pub use alert_samples::AlertSent;
 pub use approvals::{APPROVAL_WAIT, Admission, AgentOutcome};
 pub use builder::{Engine, EngineBuilder};
 pub use cache::CacheReport;
-pub use call_draft::{CallDraft, WrittenApi};
+pub use call_draft::{CallDraft, WrittenNode};
 pub use call_report::{CallReport, SavedValue};
 pub use check::{CheckReport, CheckRequest};
 pub use complete::CompleteKind;

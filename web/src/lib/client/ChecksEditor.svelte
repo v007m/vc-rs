@@ -17,7 +17,7 @@
   let op: CheckOp = $state('equals');
   let value = $state('');
   let problem: string | undefined = $state();
-  const own = $derived(request.explained ? expectLines(request.explained.api) : []);
+  const own = $derived(request.written ? expectLines(request.written.node) : []);
 
   function picked(): void {
     path = kind === 'timing' ? 'total' : '';

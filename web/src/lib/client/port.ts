@@ -16,7 +16,10 @@ export type ApiInfo = Readonly<{ id: string; name: string; path: string; vars: r
 /** A flow test: a test whose `steps` call apis in order (R43). */
 export type FlowInfo = Readonly<{ id: string; name: string; steps: number }>;
 
-/** Pointer edits to an api's file, made over it as it was opened; a call sends them unsaved. */
+/**
+ * Pointer edits to an api's or test's file, made over it as it was opened; a call sends them
+ * unsaved, and `editFile` previews or writes them.
+ */
 export type ApiDraft = Readonly<{ path: string; digest: string; edits: readonly PointerEdit[] }>;
 
 /** One ad hoc call, as `vc call` takes it, with the api as the form edited it. */
@@ -40,15 +43,21 @@ export type ApiAuthInfo = Readonly<{
 }>;
 
 /**
- * An api as its file writes it (`api`, secrets masked), where it sits (`pointer`, `/apis/2`)
- * and the digest its edits go over, with what a call adds to it: each var's layers, the
- * inherited headers, the auth and the call as curl, the token as `$TOKEN`.
+ * An api or test as its file writes it (`node`, secrets masked), where it sits (`pointer`,
+ * `/apis/2` or `/tests/0`) and the digest its edits go over.
  */
-export type ExplainedApi = Readonly<{
+export type WrittenDefinition = Readonly<{
   path: string;
   pointer: string;
   digest: string;
-  api: Readonly<Record<string, unknown>>;
+  node: Readonly<Record<string, unknown>>;
+}>;
+
+/**
+ * What a call adds to an api: each var's layers, the inherited headers, the auth and the call
+ * as curl, the token as `$TOKEN`.
+ */
+export type ExplainedApi = Readonly<{
   vars: readonly ConfigValue[];
   headers: readonly InheritedHeader[];
   auth?: ApiAuthInfo;
@@ -107,20 +116,27 @@ export interface ClientPort {
   apis(): Promise<ApiInfo[]>;
   flows(): Promise<FlowInfo[]>;
   call(input: CallInput): Promise<CallOutput>;
+  readDefinition(id: string): Promise<WrittenDefinition>;
   explainApi(api: string, vars: readonly string[]): Promise<ExplainedApi>;
-  editApi(draft: ApiDraft, write: boolean): Promise<Edited>;
+  editFile(draft: ApiDraft, write: boolean): Promise<Edited>;
   saveCallAsTest(input: SaveCallInput): Promise<SavedTest>;
   importHar(input: HarInput): Promise<ChangesOutput>;
 }
 
 type EngineClient = Pick<
   Client<typeof EngineService>,
-  'listDefinitions' | 'call' | 'explainApi' | 'editFile' | 'saveCallAsTest' | 'import'
+  | 'listDefinitions'
+  | 'call'
+  | 'readDefinition'
+  | 'explainApi'
+  | 'editFile'
+  | 'saveCallAsTest'
+  | 'import'
 >;
 
 function parsed(json: string): Readonly<Record<string, unknown>> {
-  const api: unknown = JSON.parse(json);
-  return typeof api === 'object' && api !== null && !Array.isArray(api) ? { ...api } : {};
+  const node: unknown = JSON.parse(json);
+  return typeof node === 'object' && node !== null && !Array.isArray(node) ? { ...node } : {};
 }
 
 function fileChange(file: GenFileChange): FileChange {
@@ -162,9 +178,13 @@ export function enginePort(client: EngineClient): ClientPort {
         ...(exchange === undefined ? {} : { exchange: exchangeLine(exchange) }),
       };
     },
+    async readDefinition(id) {
+      const { path, pointer, digest, json } = await client.readDefinition({ id });
+      return { path, pointer, digest, node: parsed(json) };
+    },
     async explainApi(api, vars) {
       const out = await client.explainApi({ api, vars: [...vars] });
-      const { path, pointer, digest, curl, notices, auth } = out;
+      const { curl, notices, auth } = out;
       const values = out.vars.map(({ key, layers }) => ({
         key,
         layers: layers.map(({ value, source }) => ({ value, source })),
@@ -176,19 +196,10 @@ export function enginePort(client: EngineClient): ClientPort {
         tokenUrl: auth.tokenUrl,
         secrets: auth.secrets,
       };
-      const explained = {
-        path,
-        pointer,
-        digest,
-        api: parsed(out.apiJson),
-        vars: values,
-        headers,
-        curl,
-        notices,
-      };
+      const explained = { vars: values, headers, curl, notices };
       return info ? { ...explained, auth: info } : explained;
     },
-    async editApi({ path, digest, edits }, write) {
+    async editFile({ path, digest, edits }, write) {
       return editedOf(await client.editFile({ path, digest, edits: wireEdits(edits), write }));
     },
     async saveCallAsTest({ testId, api, vars, responseJson, fields }) {

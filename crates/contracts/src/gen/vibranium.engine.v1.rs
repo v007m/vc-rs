@@ -667,12 +667,33 @@ pub struct ApiDraft {
     /// Relative to the project root; only a file the editor opens.
     #[prost(string, tag="1")]
     pub path: ::prost::alloc::string::String,
-    /// The digest `ExplainApi` or `ReadFile` gave; a call over a changed file is aborted.
+    /// The digest `ReadDefinition` or `ReadFile` gave; a call over a changed file is aborted.
     #[prost(string, tag="2")]
     pub digest: ::prost::alloc::string::String,
     /// As `EditFile` takes them.
     #[prost(message, repeated, tag="3")]
     pub edits: ::prost::alloc::vec::Vec<PointerEdit>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ReadDefinitionRequest {
+    /// An api's or test's full ID: `users#get`, `users.crud#getsCreatedUser`.
+    #[prost(string, tag="1")]
+    pub id: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ReadDefinitionResponse {
+    /// Its file, relative to the project root.
+    #[prost(string, tag="1")]
+    pub path: ::prost::alloc::string::String,
+    /// Where it sits in its file, `/apis/2` or `/tests/0`; its edits' pointers start with it.
+    #[prost(string, tag="2")]
+    pub pointer: ::prost::alloc::string::String,
+    /// The file's digest, for a draft or an `EditFile` over it.
+    #[prost(string, tag="3")]
+    pub digest: ::prost::alloc::string::String,
+    /// As its file writes it, as JSON text: templates as written, secrets masked.
+    #[prost(string, tag="4")]
+    pub json: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ExplainApiRequest {
@@ -689,32 +710,20 @@ pub struct ExplainApiRequest {
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ExplainApiResponse {
-    /// The api's file, relative to the project root.
-    #[prost(string, tag="1")]
-    pub path: ::prost::alloc::string::String,
-    /// Where the api sits in its file, `/apis/2`; its edits' pointers start with it.
-    #[prost(string, tag="2")]
-    pub pointer: ::prost::alloc::string::String,
-    /// The file's digest, for a draft or an `EditFile` over it.
-    #[prost(string, tag="3")]
-    pub digest: ::prost::alloc::string::String,
-    /// The api as its file writes it, as JSON text: templates as written, secrets masked.
-    #[prost(string, tag="4")]
-    pub api_json: ::prost::alloc::string::String,
     /// Every var the api uses, each with the layers that set it, highest first: call, saved,
     /// api, file, profile, config. Values are masked.
-    #[prost(message, repeated, tag="5")]
+    #[prost(message, repeated, tag="1")]
     pub vars: ::prost::alloc::vec::Vec<ConfigValue>,
     /// The headers added at send time, masked, with where each comes from.
-    #[prost(message, repeated, tag="6")]
+    #[prost(message, repeated, tag="2")]
     pub headers: ::prost::alloc::vec::Vec<InheritedHeader>,
     /// The auth the api is sent with, when it has one.
-    #[prost(message, optional, tag="7")]
+    #[prost(message, optional, tag="3")]
     pub auth: ::core::option::Option<ApiAuth>,
     /// The request as a curl command, the bearer token replaced by `$TOKEN`.
-    #[prost(string, tag="8")]
+    #[prost(string, tag="4")]
     pub curl: ::prost::alloc::string::String,
-    #[prost(string, repeated, tag="9")]
+    #[prost(string, repeated, tag="5")]
     pub notices: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 /// A header an api is sent with that it does not write itself.

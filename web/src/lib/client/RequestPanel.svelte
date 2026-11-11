@@ -3,7 +3,7 @@
   import ChecksEditor from './ChecksEditor.svelte';
   import CurlDialog from './CurlDialog.svelte';
   import RequestForm from './RequestForm.svelte';
-  import SaveApiDialog from './SaveApiDialog.svelte';
+  import SaveDraftDialog from './SaveDraftDialog.svelte';
   import type { ClientSession } from './session.svelte.ts';
 
   let { client, onsaved }: { client: ClientSession; onsaved: (what: string) => void } = $props();
@@ -51,7 +51,7 @@
     {#if request?.state === 'conflict'}
       <div class="banner" role="alert">
         <span class="grow"
-          >Not sent or saved: <code>{request.explained?.path}</code> changed on disk since it was read.</span
+          >Not sent or saved: <code>{request.written?.path}</code> changed on disk since it was read.</span
         >
         <button type="button" class="btn sm" onclick={() => void request.load()}
           >Reload from disk</button
@@ -61,13 +61,13 @@
     <Tabs label="Request" {tabs} bind:selected={tab}>
       {#snippet panel(id)}
         {#if id === 'request'}
-          {#if request?.explained}
+          {#if request?.written}
             <RequestForm {request} />
           {:else}
             <p class="hint">{request?.state === 'loading' ? 'Reading the api…' : ''}</p>
           {/if}
         {:else if id === 'checks'}
-          {#if request?.explained}<ChecksEditor {request} />{/if}
+          {#if request?.written}<ChecksEditor {request} />{/if}
         {:else if id === 'vars'}
           <p class="hint">
             Empty vars keep the api's defaults. Vars are sent like <code>--var</code>.
@@ -130,7 +130,7 @@
 </section>
 
 {#if dialog === 'save' && request && client.current}
-  <SaveApiDialog
+  <SaveDraftDialog
     {request}
     api={client.current.id}
     onclose={() => (dialog = undefined)}
@@ -138,7 +138,12 @@
       dialog = undefined;
       onsaved(what);
     }}
-  />
+  >
+    {#snippet children(path: string)}
+      Method, path, query, headers and body are written back to <code>{path}</code>, keeping its
+      comments. Call-level vars and added checks stay in this tab.
+    {/snippet}
+  </SaveDraftDialog>
 {:else if dialog === 'curl' && request?.explained}
   <CurlDialog curl={request.explained.curl} onclose={() => (dialog = undefined)} />
 {/if}

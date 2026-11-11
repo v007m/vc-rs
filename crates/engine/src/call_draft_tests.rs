@@ -28,6 +28,19 @@ apis:
     expect: {status: 200}
 ";
 
+const FLOW: &str = "services/users/flow.test.yaml";
+const STEPS: &str = "\
+tests:
+  - id: listsThenGets
+    steps:
+      - call: users#list
+      # Polls until the user is there.
+      - id: getsUser
+        call: users#get
+        headers: {X-Key: tok-draft-5c1}
+        poll: {until: {status: 200}, every: 1s, timeout: 10s}
+";
+
 fn answer(request: &RenderedRequest) -> HttpResponse {
     let mut response = status(if request.method == "POST" { 201 } else { 200 });
     response.body = r#"{"id": 7}"#.into();
@@ -40,6 +53,7 @@ fn project() -> (tempfile::TempDir, Engine, Recordings) {
     for (path, text) in [
         ("vibranium.config.yaml", CONFIG),
         (API, USERS),
+        (FLOW, STEPS),
         (".env", "SHOP_KEY=tok-draft-5c1\n"),
         (".env.schema", "SHOP_KEY=\n"),
     ] {
@@ -70,7 +84,7 @@ fn sent(recordings: &Recordings) -> Vec<String> {
 #[tokio::test]
 async fn gives_the_api_as_its_file_writes_it_with_its_place_and_the_secret_masked() {
     let (_dir, engine, _) = project();
-    let written = engine.written_api("users#get").await.unwrap();
+    let written = engine.written_definition("users#get").await.unwrap();
     assert_eq!((written.path.as_str(), written.pointer.as_str()), (API, "/apis/1"));
     assert_eq!(written.digest, engine.read_file(API).unwrap().digest);
     let api: Value = serde_json::from_str(&written.json).unwrap();
@@ -86,8 +100,35 @@ async fn gives_the_api_as_its_file_writes_it_with_its_place_and_the_secret_maske
         })
     );
     assert!(!format!("{written:?}").contains("tok-draft-5c1"));
-    let unknown = engine.written_api("users#gte").await.unwrap_err();
+    let unknown = engine.written_definition("users#gte").await.unwrap_err();
     assert!(matches!(unknown, EngineError::Selection { .. }), "{unknown:?}");
+}
+
+#[tokio::test]
+async fn gives_a_flow_test_as_its_file_writes_it_with_its_steps_and_the_secret_masked() {
+    let (_dir, engine, _) = project();
+    let written = engine.written_definition("users.flow#listsThenGets").await.unwrap();
+    assert_eq!((written.path.as_str(), written.pointer.as_str()), (FLOW, "/tests/0"));
+    assert_eq!(written.digest, engine.read_file(FLOW).unwrap().digest);
+    let test: Value = serde_json::from_str(&written.json).unwrap();
+    assert_eq!(test["steps"][0], json!({"call": "users#list"}));
+    assert_eq!(test["steps"][1]["headers"], json!({"X-Key": MASKED}));
+    assert_eq!(test["steps"][1]["poll"], json!({"until": {"status": 200}, "every": "1s", "timeout": "10s"}));
+    assert!(!format!("{written:?}").contains("tok-draft-5c1"));
+}
+
+#[tokio::test]
+async fn an_id_that_names_no_api_or_test_is_refused_with_the_closest_one() {
+    let (_dir, engine, _) = project();
+    for id in ["users", "users.flow", "vibranium.config", "users.flow#listsThenGet"] {
+        let refused = engine.written_definition(id).await.unwrap_err();
+        assert!(
+            matches!(&refused, EngineError::Selection { reason, .. } if reason.contains("no api or test")),
+            "{id}: {refused:?}"
+        );
+    }
+    let near = engine.written_definition("users.flow#listsThenGet").await.unwrap_err();
+    assert!(format!("{near:?}").contains("users.flow#listsThenGets"), "{near:?}");
 }
 
 #[tokio::test]
