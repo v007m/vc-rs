@@ -1,6 +1,8 @@
 //! Running programs (D163, D181): arguments as a list, never through a shell of its own.
 
+use std::ffi::OsString;
 use std::io::ErrorKind;
+use std::path::{Path, PathBuf};
 use std::pin::{Pin, pin};
 use std::process::{ExitStatus, Stdio};
 use std::time::Duration;
@@ -24,7 +26,9 @@ const DRAIN: Duration = Duration::from_millis(200);
 /// the run open. That process lives on while vc runs, a detached task reading and discarding
 /// what it writes; once vc exits, it dies of `SIGPIPE` at its next write. On unix the program leads a process group
 /// of its own, and a timeout, or dropping the run, kills the whole group; elsewhere it kills the
-/// program.
+/// program. The folder of the running `vc` goes on the end of the program's `PATH` when it is not
+/// there yet, so a line calling `vc` finds it though `vc` was started by its path; a `vc` already
+/// on `PATH` is still the one found.
 #[derive(Clone, Copy, Debug, Default)]
 #[non_exhaustive]
 pub struct ProcessRunner;
@@ -53,6 +57,9 @@ impl CommandRunner for ProcessRunner {
 fn command(spec: &CommandSpec) -> Command {
     let mut command = Command::new(&spec.program);
     command.args(&spec.args).envs(spec.env.iter().cloned()).kill_on_drop(true);
+    if let Some(path) = running_folder().and_then(|folder| path_ending_in(&folder, spec)) {
+        command.env("PATH", path);
+    }
     command.stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped());
     if let Some(cwd) = &spec.cwd {
         command.current_dir(cwd);
@@ -60,6 +67,25 @@ fn command(spec: &CommandSpec) -> Command {
     #[cfg(unix)]
     command.process_group(0);
     command
+}
+
+/// The folder of the running executable, links resolved.
+fn running_folder() -> Option<PathBuf> {
+    let exe = std::env::current_exe().and_then(std::fs::canonicalize).ok()?;
+    exe.parent().map(Path::to_path_buf)
+}
+
+/// The `PATH` `spec` sets, else this process's, with `folder` added at its end; `None` when it
+/// holds `folder` already.
+fn path_ending_in(folder: &Path, spec: &CommandSpec) -> Option<OsString> {
+    let set = spec.env.iter().rev().find(|(name, _)| name == "PATH").map(|(_, value)| OsString::from(value));
+    let path = set.or_else(|| std::env::var_os("PATH")).unwrap_or_default();
+    let mut folders: Vec<PathBuf> = std::env::split_paths(&path).collect();
+    if folders.iter().any(|known| known == folder) {
+        return None;
+    }
+    folders.push(folder.to_path_buf());
+    std::env::join_paths(folders).ok()
 }
 
 fn not_run(spec: &CommandSpec, error: &std::io::Error) -> CommandError {
@@ -212,6 +238,21 @@ mod tests {
         assert_eq!(error, CommandError::TimedOut { program: "sleep".into(), after: Duration::from_millis(50) });
         let failing = ProcessRunner::new().run(&CommandSpec::new("false", Vec::<String>::new()).in_dir("/")).await;
         assert_eq!(failing.unwrap().status, Some(1));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn the_running_folder_goes_on_the_end_of_path_once() {
+        let spec = CommandSpec::new("vc", Vec::<String>::new());
+        let mut set = spec.clone();
+        set.env.push(("PATH".into(), "/mine/bin:/usr/bin".into()));
+        let ending = path_ending_in(Path::new("/opt/vc"), &set);
+        assert_eq!(ending, Some(OsString::from("/mine/bin:/usr/bin:/opt/vc")), "after the user's own folders");
+        assert_eq!(path_ending_in(Path::new("/mine/bin"), &set), None, "a folder already on PATH stays where it is");
+        assert!(
+            path_ending_in(Path::new("/opt/vc"), &spec)
+                .is_some_and(|path| path.to_string_lossy().ends_with(":/opt/vc"))
+        );
     }
 
     #[test]

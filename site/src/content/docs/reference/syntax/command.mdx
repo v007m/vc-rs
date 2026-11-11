@@ -112,6 +112,7 @@ tests:
 
 - The command runs through `sh -c` in the project root, whichever folder the test file is in.
 - Its environment is the process environment, plus lines from the project's `.env` that the process does not already set, plus `VIB_VAR_<name>` for each config var. A variable set in the shell wins over the same name in `.env`.
+- The folder of the running `vc` goes on the end of `PATH` when it is not there yet, so `vc demo start` in a line works even when you started vc as `/path/to/vc run`. A `vc` already on your `PATH` is still the one the line finds.
 - Template values are inserted as single-quoted POSIX words. Write `${var.x}` bare, not inside your own quotes.
 - On Windows, a value with `&`, `|`, `<`, `>`, `^`, `%`, `!`, `"`, `(`, `)` or a newline cannot be quoted safely. The action fails with V5111 instead of running.
 - The last 64 KiB of stdout and of stderr are kept for the report. A failure prints the last 20 lines.
