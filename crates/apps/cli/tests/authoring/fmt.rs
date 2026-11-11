@@ -79,3 +79,30 @@ fn refuses_a_file_that_does_not_parse_and_leaves_it_alone() {
     assert!(!output.status.success());
     assert_eq!(project.read(USERS.0), broken);
 }
+
+/// The files `vc init` writes.
+const INIT: [&str; 3] = ["vibranium.config.yaml", "services/sample/sample.api.yaml", "services/sample/basics.test.yaml"];
+
+#[test]
+fn a_fresh_init_keeps_every_comment_as_written() {
+    let project = Project::empty();
+    project.vc(&["init"]).assert().code(0);
+    let before: Vec<String> = INIT.iter().map(|path| project.read(path)).collect();
+    project.vc(&["fmt"]).assert().code(0);
+    for (path, before) in INIT.iter().zip(&before) {
+        let after = project.read(path);
+        let lines: Vec<&str> = after.lines().map(str::trim_end).collect();
+        for line in before.lines().map(str::trim_end) {
+            if line.trim_start().starts_with('#') {
+                assert!(lines.contains(&line), "{path}: the comment line `{line}` moved or went:\n{after}");
+            } else if let Some(at) = line.find(" #") {
+                let comment = line[at..].trim();
+                assert!(after.contains(comment), "{path}: the comment `{comment}` went:\n{after}");
+            }
+        }
+    }
+    checks_clean(&project);
+    let formatted: Vec<String> = INIT.iter().map(|path| project.read(path)).collect();
+    project.vc(&["fmt"]).assert().code(0);
+    assert_eq!(INIT.map(|path| project.read(path)).to_vec(), formatted, "formatting twice changes nothing");
+}

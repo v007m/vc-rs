@@ -61,8 +61,29 @@ $ vc fmt --strip-comments services/billing
 
 The `# billing#getInvoice · GET … · keys: …` lines above each item, and the file's `# billing · api file · keys: …` header line, are removed. The `yaml-language-server` schema line stays.
 
-<Aside type="caution">
-`vc fmt` keeps comments on their own line, but currently drops a comment at the end of a line, such as `- {path: /notes}   # all notes`. Move such comments to their own line before you format.
+### Comments stay
+
+Every comment is kept. A comment line moves with the item below it, and a commented-out line at the end of a block keeps its depth. A comment at the end of a line stays on it. A comment after a `[..]` or `{..}` moves to its key, and one after an entry inside the braces moves to that entry:
+
+```yaml title="before"
+expect:
+  status: [204, 404]               # already gone is fine
+vars: {pageSize: 20,  # the default
+  sort: name}
+```
+
+```yaml title="after"
+expect:
+  status:               # already gone is fine
+    - 204
+    - 404
+vars:
+  pageSize: 20  # the default
+  sort: name
+```
+
+<Aside>
+A comment on its own line just before a `]` or `}` has no item to go with, so `vc fmt` refuses the file and leaves it alone. Move that comment above an item first.
 </Aside>
 
 ## Exit codes
