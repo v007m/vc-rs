@@ -20,15 +20,22 @@ pub type Type = Option<ValueType>;
 pub struct Layer {
     all: HashMap<String, Type>,
     by_profile: HashMap<String, HashMap<String, Type>>,
-    /// What each name its `vars` define reads, over every profile; a name it sets with no
-    /// entry here is saved, so it has no value before the run.
+    /// What each name its base `vars` define reads. A profile's own `vars` are left out: which
+    /// profiles are active is known only at run time, so the engine checks those before it
+    /// renders the rows. A name in `all` with no entry here is saved, so it has no value before
+    /// the run.
     reads: HashMap<String, Vec<Reference>>,
 }
 
 /// Where a var's value comes from before the run starts.
 pub enum Origin<'s> {
-    /// A `vars` definition, reading these references.
-    Defined(&'s [Reference]),
+    /// A base `vars` definition at the level `at` (0 is the innermost), reading `reads`.
+    Defined {
+        /// What the definition reads.
+        reads: &'s [Reference],
+        /// The level that defines it, counted from the innermost.
+        at: usize,
+    },
     /// Only a save sets it.
     Saved,
     /// No level sets it.
@@ -41,42 +48,41 @@ impl Layer {
         Self { all: names.into_iter().map(|name| (name, None)).collect(), ..Self::default() }
     }
 
-    /// The `vars` of `node`, and the `vars` of each entry in its `profiles` list.
+    /// The `vars` of `node`, and the `vars` of each entry in its `profiles` list; what each base
+    /// definition reads.
     pub fn vars(source: &Source<'_>, node: &Node) -> Self {
         let mut layer = Self { all: defs(source, node.get("vars")), ..Self::default() };
         layer.read(source, node.get("vars"));
         for profile in project::list(node, "profiles") {
             let Some(id) = project::text(profile, "id") else { continue };
             layer.by_profile.entry(id.to_owned()).or_default().extend(defs(source, profile.get("vars")));
-            layer.read(source, profile.get("vars"));
         }
         layer
     }
 
-    /// Records what each definition in a `vars` map reads.
+    /// Records what each definition in a base `vars` map reads.
     fn read(&mut self, source: &Source<'_>, vars: Option<&Node>) {
         for entry in vars.map(Node::entries).unwrap_or_default() {
             let mut found = Vec::new();
             source.pieces(entry.value.span, &[]).for_each(|piece| piece_refs(piece, &mut found));
-            self.reads.entry(entry.key.clone()).or_default().extend(found.into_iter().cloned());
+            self.reads.insert(entry.key.clone(), found.into_iter().cloned().collect());
         }
     }
 
-    /// Adds every name `other` sets.
+    /// Adds every name `other` sets; a definition in `other` stands in for one of the same name
+    /// here, as the closer level.
     pub fn absorb(&mut self, other: &Self) {
         self.all.extend(other.all.iter().map(|(name, ty)| (name.clone(), *ty)));
         for (profile, names) in &other.by_profile {
             let mine = self.by_profile.entry(profile.clone()).or_default();
             mine.extend(names.iter().map(|(name, ty)| (name.clone(), *ty)));
         }
-        for (name, reads) in &other.reads {
-            self.reads.entry(name.clone()).or_default().extend(reads.iter().cloned());
-        }
+        self.reads.extend(other.reads.iter().map(|(name, reads)| (name.clone(), reads.clone())));
     }
 
-    /// Whether it sets `name` for some profile.
-    fn sets_any(&self, name: &str) -> bool {
-        self.all.contains_key(name) || self.by_profile.values().any(|names| names.contains_key(name))
+    /// Whether a save sets `name` here: it is set for every profile with no definition.
+    fn saves(&self, name: &str) -> bool {
+        self.all.contains_key(name) && !self.reads.contains_key(name)
     }
 
     fn sets(&self, name: &str, profile: &str) -> bool {
@@ -154,13 +160,16 @@ impl<'a> Scope<'a> {
         names
     }
 
-    /// Where `name`'s value comes from before the run: the innermost level whose `vars` define
-    /// it, since a save has no value yet; else whether a save sets it.
-    pub fn origin(&self, name: &str) -> Origin<'_> {
-        if let Some(reads) = self.layers.iter().rev().find_map(|layer| layer.reads.get(name)) {
-            return Origin::Defined(reads);
+    /// Where `name`'s value comes from before the run, looked up from the level `from` out (0 is
+    /// the innermost): the first level whose base `vars` define it; else `Saved` when a save
+    /// sets it. Saves have no value yet, so their levels are passed over, which leaves the order
+    /// the engine renders rows in (`Scope::of_test`): the test's vars, its file's, the config's.
+    pub fn origin(&self, name: &str, from: usize) -> Origin<'_> {
+        let mut levels = self.layers.iter().rev().enumerate().skip(from);
+        if let Some((at, reads)) = levels.find_map(|(at, layer)| Some((at, layer.reads.get(name)?.as_slice()))) {
+            return Origin::Defined { reads, at };
         }
-        if self.layers.iter().any(|layer| layer.sets_any(name)) { Origin::Saved } else { Origin::Unset }
+        if self.layers.iter().any(|layer| layer.saves(name)) { Origin::Saved } else { Origin::Unset }
     }
 
     /// The type of `name` when every definition of it is a literal of that one type.

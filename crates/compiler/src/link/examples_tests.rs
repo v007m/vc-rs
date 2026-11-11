@@ -14,8 +14,13 @@ fn file(path: &str, text: &str) -> SourceFile {
 
 /// The V2105s of a project with the test file `tests`, with each one's line.
 fn unavailable(tests: &str) -> Vec<(u32, Diagnostic)> {
+    unavailable_with(CONFIG, tests)
+}
+
+/// The V2105s of a project with the config `config` and the test file `tests`.
+fn unavailable_with(config: &str, tests: &str) -> Vec<(u32, Diagnostic)> {
     let files = vec![
-        file("vibranium.config.yaml", CONFIG),
+        file("vibranium.config.yaml", config),
         file("services/users/users.api.yaml", APIS),
         file("services/users/crud.test.yaml", tests),
     ];
@@ -64,4 +69,56 @@ fn vars_set_before_the_run_and_inline_rows_are_not_flagged() {
         "  - id: listsInline\n    call: users#get\n    examples: [{auth: '${var.token}'}]\n",
     );
     assert_eq!(unavailable(tests), []);
+}
+
+/// A config whose base `vars` are `vars`.
+fn config_vars(vars: &str) -> String {
+    format!("syntaxVersion: 2\nproject: shop\nvars:\n  baseUrl: http://x\n{vars}")
+}
+
+/// One test with its own `vars` whose `examples` reads `var.a`, on line 5.
+fn reads_a(vars: &str) -> String {
+    format!("tests:\n  - id: listsA\n    call: users#get\n    vars: {vars}\n    examples: ${{var.a}}\n")
+}
+
+/// The help of the one V2105, which is at `examples` on line 5.
+fn help_on_5(found: &[(u32, Diagnostic)]) -> String {
+    let [(line, diagnostic)] = found else { panic!("one V2105 expected: {found:?}") };
+    assert_eq!(*line, 5, "{diagnostic:?}");
+    diagnostic.help.join("\n")
+}
+
+#[test]
+fn a_var_read_by_a_config_var_is_looked_up_from_the_test_out() {
+    let config = config_vars("  a: ${var.b}\n  b: lit\n");
+    let help = help_on_5(&unavailable_with(&config, &reads_a("{b: '${secret.S}'}")));
+    assert!(help.starts_with("`var.b` needs `secret`;"), "the test's `b`, as the engine reads it: {help}");
+    let shadowed = config_vars("  a: ${var.b}\n  b: ${secret.S}\n");
+    assert_eq!(unavailable_with(&shadowed, &reads_a("{b: lit}")), []);
+}
+
+#[test]
+fn a_var_that_reads_its_own_name_reads_the_next_level_out() {
+    let config = config_vars("  a: ${secret.S}\n");
+    let help = help_on_5(&unavailable_with(&config, &reads_a("{a: 'x${var.a}'}")));
+    assert!(help.starts_with("`var.a` needs `secret`;"), "the config's `a`: {help}");
+    let literal = config_vars("  a: lit\n");
+    assert_eq!(unavailable_with(&literal, &reads_a("{a: 'x${var.a}'}")), []);
+}
+
+#[test]
+fn a_profile_definition_is_left_to_the_engine() {
+    let config = config_vars("  rows: [{n: 1}]\nprofiles:\n  - id: staging\n    vars:\n      rows: ${secret.S}\n");
+    let tests = "tests:\n  - id: listsRows\n    call: users#get\n    examples: ${var.rows}\n";
+    assert_eq!(unavailable_with(&config, tests), []);
+}
+
+#[test]
+fn a_file_of_rows_has_a_path_written_as_it_is() {
+    let tests = "tests:\n  - id: listsRegion\n    call: users#get\n    examples: {$file: 'rows/${env.REGION}.yaml'}\n";
+    let found = unavailable(tests);
+    let [(line, diagnostic)] = found.as_slice() else { panic!("one V2105 expected: {found:?}") };
+    assert_eq!(*line, 4);
+    assert_eq!(diagnostic.message, "the `$file` path of `examples` holds a template");
+    assert!(diagnostic.help.join("\n").contains("`examples: ${var.rows}`"), "{diagnostic:?}");
 }
