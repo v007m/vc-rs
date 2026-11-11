@@ -355,12 +355,18 @@ pub struct Definition {
     /// An api's declared var names, in order.
     #[prost(string, repeated, tag="9")]
     pub vars: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
-    /// Why a skipped test does not run: its `skip.reason`, or that its examples gave no rows.
+    /// Why a skipped test does not run: its `skip.reason`, or that its examples gave no rows. Kept
+    /// after the skip expires.
     #[prost(string, optional, tag="10")]
     pub skip_reason: ::core::option::Option<::prost::alloc::string::String>,
-    /// The `skip.until` date of a skipped test (`YYYY-MM-DD`), as written; absent without one.
+    /// The `skip.until` date of a skipped test (`YYYY-MM-DD`), as written; absent without one. Kept
+    /// after the skip expires.
     #[prost(string, optional, tag="11")]
     pub skip_until: ::core::option::Option<::prost::alloc::string::String>,
+    /// The written `skip`'s `until` has passed: the test runs again (`skipped` is false) and
+    /// `vc check` warns (V3104) until the line is removed.
+    #[prost(bool, tag="12")]
+    pub skip_expired: bool,
 }
 /// An api a test calls.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]

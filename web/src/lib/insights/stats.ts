@@ -73,6 +73,6 @@ export function expiring(skips: readonly SkipLine[], today: string, days = 14): 
     .toISOString()
     .slice(0, 10);
   return skips
-    .filter((skip) => skip.until <= lastDay)
+    .filter((skip) => skip.ended || skip.until <= lastDay)
     .sort((a, b) => a.until.localeCompare(b.until) || a.id.localeCompare(b.id));
 }

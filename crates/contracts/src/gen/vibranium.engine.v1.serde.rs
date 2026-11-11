@@ -2936,6 +2936,9 @@ impl serde::Serialize for Definition {
         if self.skip_until.is_some() {
             len += 1;
         }
+        if self.skip_expired {
+            len += 1;
+        }
         let mut struct_ser = serializer.serialize_struct("vibranium.engine.v1.Definition", len)?;
         if !self.id.is_empty() {
             struct_ser.serialize_field("id", &self.id)?;
@@ -2970,6 +2973,9 @@ impl serde::Serialize for Definition {
         if let Some(v) = self.skip_until.as_ref() {
             struct_ser.serialize_field("skipUntil", v)?;
         }
+        if self.skip_expired {
+            struct_ser.serialize_field("skipExpired", &self.skip_expired)?;
+        }
         struct_ser.end()
     }
 }
@@ -2993,6 +2999,8 @@ impl<'de> serde::Deserialize<'de> for Definition {
             "skipReason",
             "skip_until",
             "skipUntil",
+            "skip_expired",
+            "skipExpired",
         ];
 
         #[allow(clippy::enum_variant_names)]
@@ -3008,6 +3016,7 @@ impl<'de> serde::Deserialize<'de> for Definition {
             Vars,
             SkipReason,
             SkipUntil,
+            SkipExpired,
         }
         impl<'de> serde::Deserialize<'de> for GeneratedField {
             fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
@@ -3040,6 +3049,7 @@ impl<'de> serde::Deserialize<'de> for Definition {
                             "vars" => Ok(GeneratedField::Vars),
                             "skipReason" | "skip_reason" => Ok(GeneratedField::SkipReason),
                             "skipUntil" | "skip_until" => Ok(GeneratedField::SkipUntil),
+                            "skipExpired" | "skip_expired" => Ok(GeneratedField::SkipExpired),
                             _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
                         }
                     }
@@ -3070,6 +3080,7 @@ impl<'de> serde::Deserialize<'de> for Definition {
                 let mut vars__ = None;
                 let mut skip_reason__ = None;
                 let mut skip_until__ = None;
+                let mut skip_expired__ = None;
                 while let Some(k) = map_.next_key()? {
                     match k {
                         GeneratedField::Id => {
@@ -3140,6 +3151,12 @@ impl<'de> serde::Deserialize<'de> for Definition {
                             }
                             skip_until__ = map_.next_value()?;
                         }
+                        GeneratedField::SkipExpired => {
+                            if skip_expired__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("skipExpired"));
+                            }
+                            skip_expired__ = Some(map_.next_value()?);
+                        }
                     }
                 }
                 Ok(Definition {
@@ -3154,6 +3171,7 @@ impl<'de> serde::Deserialize<'de> for Definition {
                     vars: vars__.unwrap_or_default(),
                     skip_reason: skip_reason__,
                     skip_until: skip_until__,
+                    skip_expired: skip_expired__.unwrap_or_default(),
                 })
             }
         }

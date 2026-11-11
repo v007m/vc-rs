@@ -25,8 +25,11 @@ export type TestTrend = Readonly<{
   meanMs: number;
 }>;
 
-/** A skipped test that has an end date: its full ID, `skip.until` (`YYYY-MM-DD`) and reason. */
-export type SkipLine = Readonly<{ id: string; until: string; reason?: string }>;
+/**
+ * A test whose written `skip` has an end date: its full ID, `skip.until` (`YYYY-MM-DD`), reason,
+ * and whether the date has passed, so the test runs again and only the line is left.
+ */
+export type SkipLine = Readonly<{ id: string; until: string; reason?: string; ended: boolean }>;
 
 /** Which runs Insights reads: under one profile, on one branch; every one when absent. */
 export type Scope = Readonly<{ profile?: string; branch?: string }>;
@@ -38,7 +41,7 @@ export interface InsightsPort {
   trends(window: number, scope: Scope): Promise<TestTrend[]>;
   /** The profiles the config defines. */
   profiles(): Promise<string[]>;
-  /** The skipped tests that have an end date. */
+  /** The skips that have an end date, expired ones included. */
   skips(): Promise<SkipLine[]>;
 }
 
@@ -78,9 +81,11 @@ export function enginePort(
         kind: DefinitionKind.TESTS,
         skipped: true,
       });
-      return definitions.flatMap(({ id, skipReason, skipUntil }) =>
-        skipUntil ? [{ id, until: skipUntil, ...(skipReason ? { reason: skipReason } : {}) }] : [],
-      );
+      return definitions.flatMap(({ id, skipReason, skipUntil, skipExpired }) => {
+        if (!skipUntil) return [];
+        const reason = skipReason ? { reason: skipReason } : {};
+        return [{ id, until: skipUntil, ...reason, ended: skipExpired }];
+      });
     },
     async trends(window, scope) {
       const { trends } = await client.trends({ window, ...scope });

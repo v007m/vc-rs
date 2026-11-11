@@ -20,7 +20,7 @@ export class Insights {
   /** Oldest first, as the charts read left to right. */
   runs: readonly RunSummary[] = $state([]);
   trends: readonly TestTrend[] = $state([]);
-  /** The skipped tests that have an end date. */
+  /** The skips that have an end date, expired ones included. */
   skips: readonly SkipLine[] = $state([]);
   loading = $state(false);
   error: string | undefined = $state();

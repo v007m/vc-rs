@@ -121,10 +121,15 @@ message Definition {
   uint32 steps = 8;
   // An api's declared var names, in order.
   repeated string vars = 9;
-  // Why a skipped test does not run: its `skip.reason`, or that its examples gave no rows.
+  // Why a skipped test does not run: its `skip.reason`, or that its examples gave no rows. Kept
+  // after the skip expires.
   optional string skip_reason = 10;
-  // The `skip.until` date of a skipped test (`YYYY-MM-DD`), as written; absent without one.
+  // The `skip.until` date of a skipped test (`YYYY-MM-DD`), as written; absent without one. Kept
+  // after the skip expires.
   optional string skip_until = 11;
+  // The written `skip`'s `until` has passed: the test runs again (`skipped` is false) and
+  // `vc check` warns (V3104) until the line is removed.
+  bool skip_expired = 12;
 }
 
 // An api a test calls.

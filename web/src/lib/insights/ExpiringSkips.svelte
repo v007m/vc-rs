@@ -33,11 +33,10 @@
   {:else}
     <ol>
       {#each soon as skip (skip.id)}
-        {@const ended = skip.until < today}
         <li>
           <span class="mono">{skip.id}</span>
-          <span class="pill {ended ? 'fail' : 'block'}"
-            >{ended ? `ended ${skip.until}` : `until ${skip.until}`}</span
+          <span class="pill {skip.ended ? 'fail' : 'block'}"
+            >{skip.ended ? `ended ${skip.until}` : `until ${skip.until}`}</span
           >
           {#if skip.reason}<span class="muted">{skip.reason}</span>{/if}
           <button

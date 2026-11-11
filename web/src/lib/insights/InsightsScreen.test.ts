@@ -64,10 +64,10 @@ const TODAY = '2026-11-12';
 
 /** One skip per case: ended, ends in a week, ends in 14 days (still listed), in 15 (not listed). */
 const SKIPS: SkipLine[] = [
-  { id: 'users.crud#deletesOne', until: '2026-11-19', reason: 'waits on #41' },
-  { id: 'users.crud#updatesOne', until: '2026-11-27' },
-  { id: 'users.crud#listsAll', until: '2026-11-26' },
-  { id: 'users.crud#getsOne', until: '2026-11-10', reason: 'flaky upstream' },
+  { id: 'users.crud#deletesOne', until: '2026-11-19', reason: 'waits on #41', ended: false },
+  { id: 'users.crud#updatesOne', until: '2026-11-27', ended: false },
+  { id: 'users.crud#listsAll', until: '2026-11-26', ended: false },
+  { id: 'users.crud#getsOne', until: '2026-11-10', reason: 'flaky upstream', ended: true },
 ];
 
 async function rendered(port?: Partial<InsightsPort>) {
@@ -278,15 +278,15 @@ describe('enginePort', () => {
             definitions: [
               { id: 'users.crud#getsOne', skipped: true, skipUntil: '2026-11-20', skipReason: 'x' },
               { id: 'users.crud#listsAll', skipped: true, skipReason: 'no end date' },
-              { id: 'users.crud#updatesOne', skipped: true, skipUntil: '2026-12-01' },
+              { id: 'users.crud#updatesOne', skipUntil: '2026-11-01', skipExpired: true },
             ],
           };
         },
       }),
     );
     expect(await port.skips()).toEqual([
-      { id: 'users.crud#getsOne', until: '2026-11-20', reason: 'x' },
-      { id: 'users.crud#updatesOne', until: '2026-12-01' },
+      { id: 'users.crud#getsOne', until: '2026-11-20', reason: 'x', ended: false },
+      { id: 'users.crud#updatesOne', until: '2026-11-01', ended: true },
     ]);
     expect(await port.runs(10, { profile: 'staging', branch: 'main' })).toEqual([
       {
