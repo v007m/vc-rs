@@ -8,7 +8,8 @@ use serde_json::{Map, Value};
 use crate::error::MockError;
 use crate::store::Store;
 
-type Item = Map<String, Value>;
+/// An item as the routes take and keep it: a JSON object.
+pub type Item = Map<String, Value>;
 
 #[derive(Clone)]
 struct Crud {

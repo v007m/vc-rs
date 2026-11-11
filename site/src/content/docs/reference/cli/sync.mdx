@@ -108,7 +108,7 @@ Exit code 4 means a spec has moved on since the last sync, or a conflict is stil
 | Code | When |
 | --- | --- |
 | `0` | Synced. A plain `vc sync` also exits 0 when it leaves a conflict; it says `1 conflict left` |
-| `2` | No such api file or api, or the spec cannot be read |
+| `2` | No such api file or api, the spec cannot be read, the spec is kept in `openapi/`, where snapshots go, or the snapshot path `openapi/<fileId>.yaml` is a link, names another file in a different case or is the spec another api file syncs from |
 | `4` | `--check` only: a spec changed since its snapshot, or a conflict is left |
 
 ```console
@@ -126,10 +126,11 @@ error: there is no api `users#nope`
 | `+` | A new operation, added as a new api |
 | `↑` | A spec change taken into the file |
 | `=` | Your value kept |
+| `~` | A spec change listed, not taken: an optional query param added or dropped, or a change outside what sync takes, where only the snapshot moves |
 | `!` | A conflict, with the commands that settle it |
 
 <Aside type="note">
-`vc sync` only looks at the operations the spec has. An api file imported with `--only` or `--include` still gets every new operation in the spec added on the next sync.
+`vc sync` takes the operations the import took. An api file imported with `--include` or `--only` keeps them in `source.include` and `source.only`, and a new operation outside them is not added. Edit or remove those keys to take more.
 </Aside>
 
 ## Related

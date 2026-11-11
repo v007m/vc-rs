@@ -14,6 +14,7 @@ use vc_parser::Node;
 use crate::authoring::{Authoring, Named, Opened, refused};
 use crate::edit::{FileChange, internal};
 use crate::fetch::ProjectFetcher;
+use crate::snapshot_guard::{SnapshotGuard, snapshot_path};
 use crate::sync_plan::{Mine, SyncSide, Versions, plan};
 use crate::sync_snapshot::kept;
 use crate::{Changes, Engine, EngineError, import_write, sync_apply};
@@ -65,11 +66,14 @@ impl Engine {
     /// # Errors
     ///
     /// [`EngineError::Edit`] for an unknown file, one with no `source`, a spec that cannot be
-    /// fetched or read, or a change that cannot be made in the file as written;
+    /// fetched or read, a snapshot that would be written over a spec (the spec is at a snapshot
+    /// path, or the snapshot path is a link or another api file's spec), or a change
+    /// that cannot be made in the file as written;
     /// [`EngineError::Invalid`] when the result would not compile.
     pub async fn sync(&self, request: &SyncRequest) -> Result<SyncReport, EngineError> {
         let project = self.authoring()?;
-        let syncing = Syncing { project: &project, fetcher: self.fetcher()?, request };
+        let guard = SnapshotGuard::new(self.sources.as_ref(), &project);
+        let syncing = Syncing { project: &project, fetcher: self.fetcher()?, guard, request };
         let mut report = SyncReport::default();
         let mut snapshots = Vec::new();
         for file_id in selected(&project, &request.files)? {
@@ -86,7 +90,7 @@ impl Engine {
     }
 }
 
-const READ_HELP: &str = "fix the spec, or narrow it with `source.include`";
+const READ_HELP: &str = "fix the spec, or narrow it with `source.include` or `source.only`";
 
 /// The api files named, or every one with a `source`.
 fn selected(project: &Authoring, files: &[String]) -> Result<Vec<String>, EngineError> {
@@ -111,6 +115,7 @@ fn sourced(found: (SourceFileId, &SourceFile)) -> bool {
 struct Syncing<'p> {
     project: &'p Authoring,
     fetcher: Arc<ProjectFetcher>,
+    guard: SnapshotGuard<'p>,
     request: &'p SyncRequest,
 }
 
@@ -143,18 +148,20 @@ impl<'p> Syncing<'p> {
     async fn file(&self, file_id: &'p str) -> Result<Synced, EngineError> {
         let found = self.project.find(FileKind::Api, file_id).ok_or_else(|| internal("the file went away"))?;
         let opened = Authoring::open(found)?;
-        let (location, include) = source(opened.document.root(), file_id)?;
-        let opts = ImportOptions { file_id: file_id.to_owned(), include, ..ImportOptions::default() };
+        let Source { location, include, only } = source(opened.document.root(), file_id)?;
+        self.guard.check(&location, file_id)?;
+        let opts = ImportOptions { file_id: file_id.to_owned(), include, only, ..ImportOptions::default() };
         let fetcher: Arc<dyn SpecFetcher> = Arc::clone(&self.fetcher) as _;
         let reader =
             Reader { importer: ImporterRegistry::builtin().create("openapi", fetcher).map_err(internal)?, opts };
         let bytes = self.fetcher.fetch(&location).await.map_err(|error| refused(error.to_string(), FETCH_HELP))?;
         let theirs = reader.read(&location, bytes).await?;
-        let snapshot_path = format!("openapi/{file_id}.yaml");
-        let base = match self.fetcher.fetch(&snapshot_path).await {
-            Ok(bytes) => Some(reader.read(&snapshot_path, bytes).await?),
+        let snapshot = snapshot_path(file_id);
+        let base = match self.fetcher.fetch(&snapshot).await {
+            Ok(bytes) => Some(reader.read(&snapshot, bytes).await?),
             Err(_) => None,
         };
+        self.guard.check(&location, file_id)?;
         self.merged(&Read { file_id, opened, location, theirs, base })
     }
 
@@ -184,21 +191,39 @@ impl<'p> Syncing<'p> {
         let mut lines = vec![format!("fetched {} ({} operations)", read.location, read.theirs.apis.len())];
         lines.extend(plan.lines.iter().map(|line| format!("  {line}")));
         let drift = base.is_none_or(|base| base.doc != read.theirs.doc);
+        if drift && plan.lines.is_empty() {
+            lines.push(format!("  ~ {} {OUTSIDE}", read.file_id));
+        }
         let snapshot = (snapshot.before.as_deref() != Some(snapshot.after.as_str())).then_some(snapshot);
         Ok(Synced { api, snapshot, lines, drift, conflicts: plan.conflicted.len() })
     }
 }
 
+/// The line for drift that changes nothing sync takes into the file, so `--check` never fails
+/// without saying why.
+const OUTSIDE: &str = "the spec changed outside what sync takes into the file: only the snapshot is updated";
+
 const FETCH_HELP: &str = "check `source.openapi` in the api file: a URL, or a path inside the project";
 
-/// `source.openapi` and `source.include` of the api file `file_id`.
-fn source(root: &Node, file_id: &str) -> Result<(String, Vec<String>), EngineError> {
+/// What an api file syncs from: `source.openapi`, and the `include` and `only` the import took
+/// (D277).
+struct Source {
+    location: String,
+    include: Vec<String>,
+    only: Vec<String>,
+}
+
+/// The [`Source`] of the api file `file_id`.
+fn source(root: &Node, file_id: &str) -> Result<Source, EngineError> {
     let source = root.get("source");
     let location = source.and_then(|source| source.get("openapi")).and_then(Node::as_str).ok_or_else(|| {
         refused(format!("`{file_id}` has no `source.openapi`"), "add one, or import the spec with `vc import openapi`")
     })?;
-    let include = source.and_then(|source| source.get("include")).map(Node::items).unwrap_or_default();
-    Ok((location.to_owned(), include.iter().filter_map(Node::as_str).map(str::to_owned).collect()))
+    let texts = |key: &str| -> Vec<String> {
+        let items = source.and_then(|source| source.get(key)).map(Node::items).unwrap_or_default();
+        items.iter().filter_map(Node::as_str).map(str::to_owned).collect()
+    };
+    Ok(Source { location: location.to_owned(), include: texts("include"), only: texts("only") })
 }
 
 /// The conflicts settled in `file_id`, by api ID (`users#update` or `update`).

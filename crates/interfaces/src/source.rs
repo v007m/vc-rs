@@ -64,6 +64,13 @@ pub trait SourceProvider: Send + Sync {
     fn ignores(&self, _path: &SourcePath) -> bool {
         false
     }
+
+    /// Where the file at `path` really is: its path in the project with links resolved, in the
+    /// case the file system stores it. `None` when there is no file there, it leads out of the
+    /// project, or the provider cannot tell; a provider without links keeps this default.
+    fn real(&self, _path: &SourcePath) -> Option<SourcePath> {
+        None
+    }
 }
 
 /// Writes the definition files authoring commands change (D107). The engine calls it only with

@@ -1,4 +1,4 @@
-//! CRUD routes for `/users` and `/orders`, and their counters.
+//! CRUD routes for `/users`, `/orders` and a user's orders, and their counters.
 
 mod support;
 
@@ -65,5 +65,32 @@ async fn updating_a_missing_item_is_not_found() -> TestResult {
         let response = mock.request(method, "/users/42").json(&json!({})).send().await?;
         assert_eq!(response.status(), StatusCode::NOT_FOUND);
     }
+    Ok(())
+}
+
+#[tokio::test]
+async fn a_user_s_orders_are_kept_under_that_user_only() -> TestResult {
+    let mock = Mock::start().await?;
+    let ada: Value = mock.request(Method::POST, "/users").json(&json!({ "name": "Ada" })).send().await?.json().await?;
+    let grace: Value =
+        mock.request(Method::POST, "/users").json(&json!({ "name": "Grace" })).send().await?.json().await?;
+    let (ada, grace) = (&ada["id"], &grace["id"]);
+    let placed =
+        mock.request(Method::POST, &format!("/users/{ada}/orders")).json(&json!({ "total": 3 })).send().await?;
+    assert_eq!(placed.status(), StatusCode::CREATED);
+    let order: Value = placed.json().await?;
+    assert_eq!((&order["userId"], &order["total"]), (ada, &json!(3)));
+    let path = format!("/users/{ada}/orders/{}", order["id"]);
+    assert_eq!(mock.get(&path).send().await?.json::<Value>().await?, order);
+    assert_eq!(mock.get(&format!("/users/{ada}/orders")).send().await?.json::<Value>().await?, json!([order]));
+    assert_eq!(mock.get(&format!("/users/{grace}/orders")).send().await?.json::<Value>().await?, json!([]));
+    let elsewhere = format!("/users/{grace}/orders/{}", order["id"]);
+    assert_eq!(mock.get(&elsewhere).send().await?.status(), StatusCode::NOT_FOUND);
+    assert_eq!(mock.request(Method::DELETE, &elsewhere).send().await?.status(), StatusCode::NOT_FOUND);
+    assert_eq!(mock.get("/orders").send().await?.json::<Value>().await?, json!([]), "apart from /orders");
+    let nobody = mock.request(Method::POST, "/users/999/orders").json(&json!({})).send().await?;
+    assert_eq!(nobody.status(), StatusCode::NOT_FOUND);
+    assert_eq!(mock.request(Method::DELETE, &path).send().await?.status(), StatusCode::NO_CONTENT);
+    assert_eq!(mock.get(&path).send().await?.status(), StatusCode::NOT_FOUND);
     Ok(())
 }

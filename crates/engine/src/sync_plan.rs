@@ -99,6 +99,7 @@ pub fn plan(versions: &Versions<'_>) -> Plan {
             (Operation::Deprecate, _, Some(mine)) => deprecate(&mut plan, versions.file_id, mine),
             (Operation::Merge, Some(theirs), Some(mine)) => {
                 Merge { versions, mine, theirs, base: base.map(owned) }.settle(&mut plan, &op);
+                optional_query(&mut plan, versions.file_id, (base, theirs, mine));
             }
             _ => {}
         }
@@ -148,6 +149,24 @@ fn deprecate(plan: &mut Plan, file_id: &str, mine: &Mine) {
     if !mine.deprecated {
         plan.lines.push(format!("- {file_id}#{} removed from the spec: kept, marked deprecated", mine.id));
         plan.steps.push(Step::Deprecate { api: mine.id.clone() });
+    }
+}
+
+/// A line for each optional query param the spec added or dropped since the snapshot. Sync sends
+/// no optional param, so these are listed, not taken: an added one the file does not send, and
+/// a dropped one it still sends.
+fn optional_query(plan: &mut Plan, file_id: &str, (base, theirs, mine): (Option<&DraftApi>, &DraftApi, &Mine)) {
+    let Some(base) = base else { return };
+    let full = format!("{file_id}#{}", mine.id);
+    let sent = |name: &String| mine.owned.query.contains_key(name);
+    let added = theirs.optional_query.iter().filter(|name| !base.optional_query.contains(*name) && !sent(name));
+    for name in added {
+        plan.lines
+            .push(format!("~ {full} optional query {name} added to the spec: not sent, add `query.{name}` to send it"));
+    }
+    let gone = |name: &&String| !theirs.optional_query.contains(*name) && !theirs.query.contains_key(*name);
+    for name in base.optional_query.iter().filter(gone).filter(|name| sent(name)) {
+        plan.lines.push(format!("~ {full} optional query {name} dropped from the spec: the file still sends it"));
     }
 }
 

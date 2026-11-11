@@ -1,6 +1,6 @@
 use serde_json::{Value, json};
 
-use super::{body, generated, resolve, sample};
+use super::{MAX_HOPS, body, generated, resolve, sample, types};
 
 fn doc() -> Value {
     json!({ "components": { "schemas": {
@@ -87,4 +87,20 @@ fn a_body_that_is_not_an_object_is_sent_as_generated() {
     let (sent, vars) = body(&doc(), &json!({ "type": "array", "items": { "type": "string" } }));
     assert_eq!(sent, json!([]));
     assert!(vars.is_empty());
+}
+
+/// A string schema inside `depth` levels of `anyOf`.
+fn nested(depth: usize) -> Value {
+    (0..depth).fold(json!({ "type": "string" }), |inner, _| json!({ "anyOf": [inner] }))
+}
+
+#[test]
+fn alternatives_are_followed_max_hops_deep_and_a_loop_of_them_ends() {
+    let doc = doc();
+    assert_eq!(types(&doc, &nested(MAX_HOPS)), Some(vec!["string"]));
+    assert_eq!(types(&doc, &nested(MAX_HOPS + 1)), None);
+    let turn = json!({ "components": { "schemas": {
+        "Turn": { "anyOf": [{ "$ref": "#/components/schemas/Turn" }] },
+    }}});
+    assert_eq!(types(&turn, &json!({ "$ref": "#/components/schemas/Turn" })), None);
 }

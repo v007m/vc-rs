@@ -27,7 +27,7 @@ impl Importer for HarImporter {
         let kept = filter::kept(entry::entries(&source.bytes).map_err(invalid)?, &filter::Rules::new(&opts.recording));
         let (mut draft, recorded) = draft::draft(kept.entries.iter().map(|entry| &entry.request), &opts.file_id);
         let Some(first) = draft.groups.first() else {
-            return Err(invalid(format!("it records no call to an api: {}", kept.summary)));
+            return Err(invalid(nothing_kept(&kept)));
         };
         if let Some(id) = &opts.flow {
             let steps = recorded.into_iter().zip(&kept.entries);
@@ -36,6 +36,24 @@ impl Importer for HarImporter {
         }
         draft.summary = Some(kept.summary);
         Ok(draft)
+    }
+
+    fn read_help(&self) -> Option<&'static str> {
+        Some(READ_HELP)
+    }
+}
+
+const READ_HELP: &str = "a recording keeps the calls to the sites the profiles' base URLs are on; \
+                         `--include-host <host>` keeps another host and `--keep-static` static files";
+
+/// Why nothing was kept, with an `--include-host` for each third-party host left out.
+fn nothing_kept(kept: &filter::Kept) -> String {
+    let reason = format!("it records no call to an api: {}", kept.summary);
+    let flags: Vec<_> = kept.third_party.iter().map(|host| format!("`--include-host {host}`")).collect();
+    match flags.split_last() {
+        None => reason,
+        Some((last, [])) => format!("{reason}; keep the third-party host with {last}"),
+        Some((last, rest)) => format!("{reason}; keep a third-party host with {} or {last}", rest.join(", ")),
     }
 }
 

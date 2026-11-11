@@ -18,6 +18,7 @@ mod completion;
 mod demo;
 mod examples;
 mod explain;
+mod generated;
 mod history;
 mod hooks;
 mod import;

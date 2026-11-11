@@ -5,12 +5,15 @@ use std::sync::Arc;
 
 use vc_adapter_importers::ImporterRegistry;
 use vc_adapter_system::SystemEnvironment;
-use vc_interfaces::{FetchError, ImportOptions, ImportSource, Importer, RecordingFilter, SpecFetcher};
+use vc_interfaces::{DraftGroup, FetchError, ImportOptions, ImportSource, Importer, RecordingFilter, SpecFetcher};
+use vc_model::SourcePath;
 
 use crate::authoring::refused;
 use crate::fetch::ProjectFetcher;
 use crate::import_homes::Home;
 use crate::import_recorded::{Recording, recorded};
+use crate::import_titles::origin_of;
+use crate::snapshot_guard::SnapshotGuard;
 use crate::{Changes, Engine, EngineError, import_write};
 
 /// What `vc import <kind> <url-or-file>` reads and what it makes of it.
@@ -68,8 +71,9 @@ impl Engine {
     /// `openapi/<fileId>.yaml`, the config's base-URL var and the generated tests, each passed
     /// through the compile guard (D107).
     ///
-    /// The spec is read once; the snapshot is not a definition file, so the guard does not
-    /// compile it. What the importer could not carry over is in the titles, `at: message`.
+    /// The spec is read once. The guard sees the snapshot as a file of no kind, which it only
+    /// parses, so a test's schema `$file` pointing into it resolves. What the importer could not
+    /// carry over is in the titles, `at: message`.
     ///
     /// A recording (a draft with no spec snapshot: HAR, curl) is merged instead: each host goes
     /// to the api file whose base URL renders to it under `request.profiles`, reusing its apis,
@@ -77,28 +81,40 @@ impl Engine {
     ///
     /// # Errors
     ///
-    /// [`EngineError::Edit`] when the spec cannot be fetched or read, the kind is unknown, or a
-    /// file to create exists; [`EngineError::Invalid`] when the result would not compile.
+    /// [`EngineError::Edit`] when the spec cannot be fetched or read, the kind is unknown, a
+    /// file to create exists, writing the snapshot would change a spec (the spec is read from a
+    /// snapshot path, the snapshot path is a link or another api file's spec), or `--id` is
+    /// given for a recording of several origins; [`EngineError::Invalid`] when the result would
+    /// not compile.
     pub async fn import(&self, request: &ImportRequest) -> Result<Changes, EngineError> {
         let project = self.authoring()?;
         let fetcher = if request.text.is_some() { self.pasted_fetcher() } else { self.fetcher()? };
         let importer = ImporterRegistry::builtin().create(&request.kind, fetcher.clone()).map_err(|error| {
             refused(error.to_string(), &format!("the importers are {}", Self::importers().join(", ")))
         })?;
+        let mut opts = options(request);
+        let guard = SnapshotGuard::new(self.sources.as_ref(), &project);
+        if importer.keeps_snapshot() {
+            guard.check(&request.source, &opts.file_id)?;
+        }
         let source = source(importer.as_ref(), fetcher.as_ref(), request).await?;
         let homes = self.homes(&request.profiles);
-        let mut opts = options(request);
         opts.recording.hosts = hosts(&homes);
-        let draft = importer.read(&source, &opts).await.map_err(|error| refused(error.to_string(), READ_HELP))?;
+        let help = importer.read_help().unwrap_or(READ_HELP);
+        let draft = importer.read(&source, &opts).await.map_err(|error| refused(error.to_string(), help))?;
         if draft.snapshot.is_none() {
             let schema = self.secrets_schema()?;
-            let recording = Recording { project: &project, homes: &homes, schema: schema.as_ref() };
+            let file_id = one_origin(request.file_id.as_deref(), &draft.groups)?;
+            let recording = Recording { project: &project, homes: &homes, schema: schema.as_ref(), file_id };
             return self.guarded(&project, recorded(&recording, &draft, &request.source)?);
         }
-        let (changes, snapshots) = import_write::drafted(&project, &draft, request)?;
-        let mut guarded = self.guarded(&project, changes)?;
-        guarded.files.extend(snapshots);
-        Ok(guarded)
+        guard.check(&request.source, &opts.file_id)?;
+        let (mut changes, mut snapshots) = import_write::drafted(&project, &draft, request)?;
+        for snapshot in &mut snapshots {
+            snapshot.before = self.kept_text(&snapshot.path);
+        }
+        changes.files.extend(snapshots);
+        self.guarded(&project, changes)
     }
 
     /// Where to read the spec `source` names, as [`ImportRequest::source`] takes it: a URL as
@@ -122,6 +138,13 @@ impl Engine {
     #[must_use]
     pub fn importers() -> Vec<String> {
         ImporterRegistry::builtin().names().map(str::to_owned).collect()
+    }
+
+    /// The text of the file at `path` as it is now, to diff and write over; none when there is
+    /// no file there.
+    fn kept_text(&self, path: &str) -> Option<String> {
+        let bytes = self.sources.read_bytes(&SourcePath::new(path).ok()?).ok()?;
+        Some(String::from_utf8_lossy(&bytes).into_owned())
     }
 
     /// Fetches specs through the project's sources and the run's transport.
@@ -158,8 +181,29 @@ async fn source(
     Ok(ImportSource { location, bytes })
 }
 
+/// The file `--id` names for a recording, refused when the recording calls several origins:
+/// one api file has one base URL.
+fn one_origin<'id>(file_id: Option<&'id str>, groups: &[DraftGroup]) -> Result<Option<&'id str>, EngineError> {
+    let Some(id) = file_id.filter(|_| groups.len() > 1) else {
+        return Ok(file_id);
+    };
+    let origins: Vec<&str> = groups
+        .iter()
+        .map(|group| Some(origin_of(group)).filter(|url| !url.is_empty()).unwrap_or(&group.file_id))
+        .collect();
+    let reason = format!(
+        "`--id {id}` names one api file, but the recording calls {} origins: {}",
+        origins.len(),
+        origins.join(", ")
+    );
+    Err(refused(
+        reason,
+        "import without `--id`: each origin goes to the api file whose base URL renders to it, or to a new one",
+    ))
+}
+
 const FETCH_HELP: &str = "give a URL, or a path inside the project";
-const READ_HELP: &str = "fix the spec, or import part of it with `--include` or `--only`";
+const READ_HELP: &str = "fix the file, or export it again from the tool that made it";
 
 /// What the importer is asked for; with no `--id`, the file ID is the spec's file name up to
 /// its first dot (`specs/users.v2.yaml` gives `users`).
@@ -199,3 +243,7 @@ fn hosts(homes: &[Home]) -> Vec<String> {
 #[cfg(test)]
 #[path = "import_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "import_guard_tests.rs"]
+mod guard_tests;

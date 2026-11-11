@@ -2,7 +2,10 @@ use std::sync::Arc;
 
 use indexmap::IndexMap;
 use serde_json::{Value, json};
-use vc_interfaces::{DraftApi, DraftGroup, DraftTest, ImportDraft, ImportError, ImportOptions, ImportSource, Importer};
+use vc_interfaces::{
+    DraftApi, DraftBefore, DraftCleanup, DraftExample, DraftGroup, DraftTest, ImportDraft, ImportError, ImportOptions,
+    ImportSource, Importer,
+};
 use vc_model::Method;
 
 use super::OpenApiImporter;
@@ -62,10 +65,14 @@ fn expected_apis() -> Vec<DraftApi> {
     let mut list = api("listPets", Some("List pets"), Method::Get, "/pets");
     list.query = IndexMap::from([("limit".to_owned(), "${var.limit}".to_owned())]);
     list.vars = IndexMap::from([("limit".to_owned(), json!(20))]);
+    list.optional_query = vec!["tag".to_owned()];
     let mut create = api("createPet", Some("Create a pet"), Method::Post, "/pets");
     create.operation_id = Some("create_pet".to_owned());
     create.body = Some(json!({ "name": "${var.name}" }));
     create.vars = IndexMap::from([("name".to_owned(), json!("${fake.person.fullName}"))]);
+    let read_id = || IndexMap::from([("petId".to_owned(), "${response.body.id}".to_owned())]);
+    create.save = read_id();
+    create.cleanup = Some(DraftCleanup { call: "deletePetsPetId".to_owned(), vars: read_id() });
     let mut get = api("getPet", Some("Get a pet"), Method::Get, "/pets/${var.petId}");
     get.vars = IndexMap::from([("petId".to_owned(), json!("${fake.number.int(1, 100)}"))]);
     let mut delete = api("deletePetsPetId", None, Method::Delete, "/pets/${var.petId}");
@@ -74,20 +81,91 @@ fn expected_apis() -> Vec<DraftApi> {
 }
 
 fn expected_tests() -> Vec<DraftTest> {
-    let mut negative = test("rejectsCreatePetWithoutName", "Create a pet without name returns 400", "createPet", 400);
-    negative.vars = IndexMap::from([("name".to_owned(), Value::Null)]);
-    let no_auth = |id: &str, name: &str, call: &str| DraftTest { no_auth: true, ..test(id, name, call, 401) };
+    let pet = || Some("/components/schemas/Pet".to_owned());
+    let pets = Some("/paths/~1pets/get/responses/200/content/application~1json/schema".to_owned());
+    let create_first = |keep| vec![DraftBefore { call: "petstore#createPet".to_owned(), keep }];
+    let no_auth = |id: &str, label: &str, call: &str| DraftTest {
+        no_auth: true,
+        ..test(id, &format!("{label}: needs a signed-in caller"), call, 401)
+    };
+    let row = |name: &str, body| DraftExample { name: name.to_owned(), body };
+    let negative = DraftTest {
+        body: Some(json!("${example.body}")),
+        examples: vec![row("name missing", json!({})), row("name is not a string", json!({ "name": 123 }))],
+        ..test("rejectsInvalidCreatePet", "Create a pet: rejects an invalid body", "createPet", 400)
+    };
     vec![
-        test("healths", "health returns 200", "health", 200),
-        test("listsPets", "List pets returns 200", "listPets", 200),
-        no_auth("rejectsListPetsWithoutAuth", "List pets without auth returns 401", "listPets"),
-        test("createsPet", "Create a pet returns 201", "createPet", 201),
+        test("healths", "Health", "health", 200),
+        DraftTest { schema: pets, ..test("listsPets", "List pets", "listPets", 200) },
+        no_auth("rejectsListPetsWithoutAuth", "List pets", "listPets"),
+        DraftTest { schema: pet(), ..test("createsPet", "Create a pet", "createPet", 201) },
         negative,
-        no_auth("rejectsCreatePetWithoutAuth", "Create a pet without auth returns 401", "createPet"),
-        test("getsPet", "Get a pet returns 200", "getPet", 200),
-        no_auth("rejectsGetPetWithoutAuth", "Get a pet without auth returns 401", "getPet"),
-        test("deletesPetsPetId", "deletePetsPetId returns 204", "deletePetsPetId", 204),
+        no_auth("rejectsCreatePetWithoutAuth", "Create a pet", "createPet"),
+        DraftTest { before: create_first(false), schema: pet(), ..test("getsPet", "Get a pet", "getPet", 200) },
+        no_auth("rejectsGetPetWithoutAuth", "Get a pet", "getPet"),
+        DraftTest {
+            before: create_first(true),
+            ..test("deletesPetsPetId", "Delete pets pet id", "deletePetsPetId", 204)
+        },
     ]
+}
+
+/// A JSON response with `schema`.
+fn json_response(schema: &Value) -> Value {
+    json!({ "description": "ok", "content": { "application/json": { "schema": schema } } })
+}
+
+fn path_param(name: &str) -> Value {
+    json!({ "name": name, "in": "path", "required": true, "schema": { "type": "string" } })
+}
+
+/// Users own orders; nothing creates a cart; signing in is one word.
+fn shop() -> Value {
+    let user = json!({ "type": "object", "required": ["age", "role"], "properties": {
+        "age": { "type": "integer" },
+        "role": { "type": "string", "enum": ["admin", "member"] },
+    } });
+    let create_user = json!({
+        "operationId": "createUser",
+        "requestBody": { "content": { "application/json": { "schema": user } } },
+        "responses": {
+            "201": json_response(&json!({ "properties": { "userId": { "type": "string" } } })),
+            "422": { "description": "invalid" },
+        },
+    });
+    let create_order = json!({ "operationId": "createOrder", "responses": {
+        "201": json_response(&json!({ "properties": { "id": { "type": "integer" } } })),
+    } });
+    let order =
+        json!({ "operationId": "getOrder", "responses": { "200": json_response(&json!({ "type": "object" })) } });
+    json!({
+        "openapi": "3.1.0",
+        "info": { "title": "Shop", "version": "1" },
+        "servers": [{ "url": "https://shop.test" }],
+        "paths": {
+            "/users": { "post": create_user },
+            "/users/{userId}/orders": { "parameters": [path_param("userId")], "post": create_order },
+            "/users/{userId}/orders/{orderId}": {
+                "parameters": [path_param("userId"), path_param("orderId")],
+                "get": order,
+            },
+            "/carts/{cartId}": {
+                "parameters": [path_param("cartId")],
+                "get": { "operationId": "getCart", "responses": { "200": { "description": "the cart" } } },
+            },
+            "/sessions": { "post": { "operationId": "login", "responses": { "204": { "description": "in" } } } },
+        },
+    })
+}
+
+async fn shop_draft() -> Result<DraftGroup, ImportError> {
+    let opts = ImportOptions { file_id: "shop".to_owned(), tests: true, negative: true, ..ImportOptions::default() };
+    let draft = read_json(&shop(), &opts).await?;
+    Ok(draft.groups.first().cloned().unwrap_or_default())
+}
+
+fn drafted(group: &DraftGroup, id: &str) -> DraftTest {
+    group.tests.iter().find(|test| test.id == id).cloned().unwrap_or_default()
 }
 
 #[tokio::test]
@@ -108,6 +186,52 @@ async fn every_version_of_the_petstore_gives_the_same_draft() -> Result<(), Impo
         assert!(draft.notes.is_empty(), "{location}: {:?}", draft.notes);
         assert_eq!(draft.snapshot.as_ref().and_then(|doc| doc.get("openapi")), Some(&json!("3.1.0")), "{location}");
     }
+    Ok(())
+}
+
+#[tokio::test]
+async fn a_test_creates_each_item_its_path_names_first_and_skips_when_nothing_creates_one() -> Result<(), ImportError> {
+    let group = shop_draft().await?;
+    let calls = |id: &str| drafted(&group, id).before.into_iter().map(|action| action.call).collect::<Vec<_>>();
+    assert_eq!(calls("getsOrder"), ["shop#createUser", "shop#createOrder"]);
+    assert_eq!(calls("createsOrder"), ["shop#createUser"]);
+    let cart = drafted(&group, "getsCart");
+    assert_eq!(cart.skip.as_deref(), Some("needs an existing cart: set vars.cartId to one and remove this skip"));
+    assert_eq!(cart.before, []);
+    let saves: Vec<_> = group.apis.iter().map(|api| (api.id.as_str(), api.save.clone(), api.cleanup.clone())).collect();
+    let save = |var: &str, read: &str| IndexMap::from([(var.to_owned(), read.to_owned())]);
+    assert!(saves.contains(&("createUser", save("userId", "${response.body.userId}"), None)), "{saves:?}");
+    assert!(saves.contains(&("createOrder", save("orderId", "${response.body.id}"), None)), "{saves:?}");
+    Ok(())
+}
+
+#[tokio::test]
+async fn a_test_expects_the_first_2xx_and_the_schema_it_documents() -> Result<(), ImportError> {
+    let group = shop_draft().await?;
+    let created = drafted(&group, "createsUser");
+    let at = "/paths/~1users/post/responses/201/content/application~1json/schema";
+    assert_eq!((created.name.as_str(), created.status, created.schema.as_deref()), ("Create user", 201, Some(at)));
+    let order = drafted(&group, "getsOrder").schema;
+    let at = "/paths/~1users~1%7BuserId%7D~1orders~1%7BorderId%7D/get/responses/200/content/application~1json/schema";
+    assert_eq!(order.as_deref(), Some(at));
+    let signed_in = drafted(&group, "logsIn");
+    assert_eq!((signed_in.name.as_str(), signed_in.status, signed_in.schema), ("Login", 204, None));
+    Ok(())
+}
+
+#[tokio::test]
+async fn a_negative_test_has_a_row_per_missing_mistyped_and_unlisted_field() -> Result<(), ImportError> {
+    let rejects = drafted(&shop_draft().await?, "rejectsInvalidCreateUser");
+    let names: Vec<_> = rejects.examples.iter().map(|row| row.name.as_str()).collect();
+    let expected =
+        ["age missing", "age is not an integer", "role missing", "role is not a string", "role outside its enum"];
+    assert_eq!(names, expected);
+    let body = |at: usize| rejects.examples.get(at).map(|row| row.body.clone()).unwrap_or_default();
+    assert_eq!(body(0), json!({ "role": "admin" }));
+    assert_eq!(body(1), json!({ "age": "not a number", "role": "admin" }));
+    assert_eq!(body(4).get("role"), Some(&json!("not-a-listed-value")));
+    assert_eq!((rejects.name.as_str(), rejects.status), ("Create user: rejects an invalid body", 422));
+    assert_eq!(rejects.body, Some(json!("${example.body}")));
     Ok(())
 }
 
@@ -176,3 +300,18 @@ async fn bytes_that_do_not_decode_are_invalid_at_their_location() {
     let result = read("broken.yaml", "{", &opts()).await;
     assert!(matches!(result, Err(ImportError::Invalid { location, .. }) if location == "broken.yaml"));
 }
+
+#[test]
+fn a_spec_that_cannot_be_read_says_how_to_fix_or_narrow_it() {
+    let help = "fix the spec, or import part of it with `--include` or `--only`";
+    assert_eq!(importer().read_help(), Some(help));
+}
+
+#[test]
+fn a_spec_keeps_a_snapshot_for_sync_to_merge_against() {
+    assert!(importer().keeps_snapshot());
+}
+
+mod mistyped;
+mod needs;
+mod pointers;

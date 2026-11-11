@@ -108,6 +108,35 @@ async fn a_changed_spec_updates_adds_and_deprecates_and_moves_the_snapshot() {
 }
 
 #[tokio::test]
+async fn a_file_that_took_only_some_operations_is_not_given_the_spec_s_new_ones() {
+    let only = "  only:\n    - updateUser\n    - listUsers\n    - legacyImport\napis:";
+    let api = api_file("put").replacen("apis:", only, 1);
+    let report = engine(&api, &theirs()).sync(&SyncRequest::default()).await.unwrap();
+    let lines = report.changes.titles.join("\n");
+    assert!(lines.contains("  ↑ users#update method PUT → PATCH"), "{lines}");
+    assert!(!lines.contains("restoreUser"), "{lines}");
+    let api = file(&report, API).unwrap_or_default();
+    assert!(api.contains("method: PATCH") && !api.contains("id: restoreUser"), "{api}");
+}
+
+#[tokio::test]
+async fn a_new_optional_query_param_is_listed_and_any_other_drift_says_so() {
+    let mut optional = base();
+    optional["paths"]["/users"]["get"]["parameters"] =
+        json!([{ "name": "limit", "in": "query", "schema": { "type": "integer" } }]);
+    let report = engine(&api_file("put"), &optional).sync(&SyncRequest::default()).await.unwrap();
+    let lines = report.changes.titles.join("\n");
+    let added = "  ~ users#listUsers optional query limit added to the spec: not sent, add `query.limit` to send it";
+    assert!(report.drift && lines.contains(added), "{lines}");
+    assert!(file(&report, API).is_none() && file(&report, SNAPSHOT).is_some(), "{:?}", report.changes.files);
+    let mut described = base();
+    described["info"]["description"] = json!("Now with a description");
+    let report = engine(&api_file("put"), &described).sync(&SyncRequest::default()).await.unwrap();
+    let outside = "  ~ users the spec changed outside what sync takes into the file: only the snapshot is updated";
+    assert!(report.drift && report.changes.titles.iter().any(|line| line == outside), "{:?}", report.changes.titles);
+}
+
+#[tokio::test]
 async fn a_conflict_leaves_the_api_and_its_snapshot_entry_until_settled() {
     let engine = engine(&api_file("post"), &theirs());
     let report = engine.sync(&SyncRequest { files: vec!["users".to_owned()], ..SyncRequest::default() }).await.unwrap();

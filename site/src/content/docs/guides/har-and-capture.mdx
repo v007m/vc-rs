@@ -36,7 +36,7 @@ Credentials are never written to the files in any of these.
 
    The summary says what it kept:
 
-   - **Filtered.** Static assets (scripts, styles, images, fonts), calls to third-party hosts such as analytics, and `OPTIONS` preflights are dropped. `--keep-static` keeps the assets, and `--include-host <host>` keeps one third-party host.
+   - **Filtered.** Static assets (scripts, styles, images, fonts), calls to third-party hosts such as analytics, and `OPTIONS` preflights are dropped. `--keep-static` keeps the assets, and `--include-host <host>` keeps one third-party host. A host counts as third-party when it is on another domain than all your api files' base URLs, so an api on a new domain needs `--include-host` too. If every call is dropped, the error lists the hosts with the `--include-host` for each.
    - **One api file per host.** A host that matches the `baseUrl` of an api file goes into that file (`existing`). Other hosts get a new file (`new`). A request whose method and path match an api already there is `matched` and left alone. The same request made several times becomes one api.
    - **Secrets.** `authorization` headers and cookies are dropped. Body fields that look secret become `${secret.NAME}` references, and `.env.schema` declares the names.
 

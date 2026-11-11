@@ -5,7 +5,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use vc_interfaces::SourceProvider;
 use vc_testkit::{FakeTransport, FakeVcs, MemoryEnvironment, MemorySources, status};
 
-use super::{ImportRequest, options};
+use super::{ImportRequest, Keep, options};
 use crate::sample::builder;
 use crate::{Changes, Engine, EngineBuilder, EngineError, FileChange};
 
@@ -122,6 +122,31 @@ async fn what_cannot_be_imported_is_refused_with_help() {
     let users =
         ImportRequest { file_id: Some("users".to_owned()), ..request("openapi", "https://specs.test/petstore.json") };
     assert_eq!(help(engine().import(&users).await).as_deref(), Some("`vc sync users` merges the spec into it"));
+}
+
+#[tokio::test]
+async fn a_spec_kept_at_a_snapshot_path_is_refused_so_it_is_never_overwritten() {
+    let files: [(&str, &[u8]); 2] = [
+        ("vibranium.config.yaml", b"syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\n"),
+        ("openapi/coll.yaml", PETSTORE.as_bytes()),
+    ];
+    let sources: Arc<dyn SourceProvider> = Arc::new(MemorySources::new(&files));
+    let engine = builder(FakeVcs::default()).sources(sources).build().unwrap();
+    let kept = ImportRequest { file_id: Some("coll".to_owned()), ..request("openapi", "openapi/coll.yaml") };
+    let Err(EngineError::Edit { reason, help }) = engine.import(&kept).await else {
+        panic!("importing the snapshot path over itself is refused")
+    };
+    assert_eq!(reason, "openapi/coll.yaml is where `vc import` keeps the snapshot `vc sync coll` merges against");
+    let moved = "move the spec out of `openapi/` (to `specs/coll.yaml`, say), then import it from there or point \
+                 `source.openapi` at it";
+    assert_eq!(help.as_deref(), Some(moved));
+    let named = engine.import(&request("openapi", "./openapi/coll.yaml")).await;
+    assert!(matches!(&named, Err(EngineError::Edit { reason, .. }) if reason.contains("snapshot")), "{named:?}");
+    let other = ImportRequest { file_id: Some("shop".to_owned()), ..request("openapi", "openapi/coll.yaml") };
+    let Err(EngineError::Edit { reason: under_another, .. }) = engine.import(&other).await else {
+        panic!("a spec at another file's snapshot path is refused too: a sync of `coll` would overwrite it")
+    };
+    assert_eq!(under_another, reason);
 }
 
 #[tokio::test]
@@ -254,6 +279,64 @@ async fn a_recording_merges_into_the_file_its_host_renders_to_and_declares_its_s
             "POST /v1/carts/${var.cartId}/items: recorded 2 times, merged into one api",
         ]
     );
+}
+
+#[tokio::test]
+async fn an_explicit_id_puts_a_recording_of_one_origin_in_that_file() {
+    let curl = ImportRequest { text: Some(SHOP.to_owned()), ..request("curl", "rec/shop.curl") };
+    let matched = shop_engine().import(&curl).await.unwrap();
+    assert!(after(&matched, "services/shop/shop.api.yaml").contains("id: getCart"), "matched by host: {matched:?}");
+    let pinned = ImportRequest { file_id: Some("demo".to_owned()), ..curl.clone() };
+    let changes = shop_engine().import(&pinned).await.unwrap();
+    let paths: Vec<_> = changes.files.iter().map(|file| file.path.as_str()).collect();
+    assert!(
+        paths.contains(&"services/demo/demo.api.yaml") && !paths.contains(&"services/shop/shop.api.yaml"),
+        "{paths:?}"
+    );
+    let demo = after(&changes, "services/demo/demo.api.yaml");
+    assert!(demo.contains("\nid: demo\n") && demo.contains("baseUrl: ${var.demoUrl}\n"), "{demo}");
+    assert!(after(&changes, "vibranium.config.yaml").contains("demoUrl: https://api.shop.test"), "{changes:?}");
+    assert!(changes.titles.iter().any(|title| title.contains("api.shop.test → demo")), "{:?}", changes.titles);
+    let into_shop = ImportRequest { file_id: Some("shop".to_owned()), ..curl };
+    let merged = shop_engine().import(&into_shop).await.unwrap();
+    assert!(after(&merged, "services/shop/shop.api.yaml").contains("id: getCart"), "{merged:?}");
+}
+
+#[tokio::test]
+async fn an_explicit_id_for_a_recording_of_several_origins_is_refused_naming_them() {
+    let har = ImportRequest {
+        text: Some(SHOP_HAR.to_owned()),
+        file_id: Some("demo".to_owned()),
+        ..request("har", "rec/checkout.har")
+    };
+    let Err(EngineError::Edit { reason, help }) = shop_engine().import(&har).await else {
+        panic!("one api file cannot hold two origins")
+    };
+    assert!(reason.starts_with("`--id demo` names one api file, but the recording calls 2 origins: "), "{reason}");
+    assert!(reason.contains("https://api.shop.test") && reason.contains("https://pay.shop.test"), "{reason}");
+    assert!(help.is_some_and(|help| help.starts_with("import without `--id`")));
+}
+
+#[tokio::test]
+async fn a_recording_to_hosts_no_api_file_is_on_names_them_and_include_host_makes_their_files() {
+    let files: [(&str, &[u8]); 2] = [
+        ("vibranium.config.yaml", b"syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\n"),
+        ("services/sample/sample.api.yaml", b"baseUrl: http://localhost:7421\napis:\n  - id: ping\n    path: /ping\n"),
+    ];
+    let served = FakeTransport::new(|_, _| Ok(status(200)));
+    let sources: Arc<dyn SourceProvider> = Arc::new(MemorySources::new(&files));
+    let engine = builder(FakeVcs::default()).sources(sources).transport(Arc::new(served)).build().unwrap();
+    let har = ImportRequest { text: Some(SHOP_HAR.to_owned()), ..request("har", "rec/checkout.har") };
+    let Err(EngineError::Edit { reason, help }) = engine.import(&har).await else {
+        panic!("every call is third-party")
+    };
+    assert!(reason.ends_with("`--include-host api.shop.test` or `--include-host pay.shop.test`"), "{reason}");
+    assert!(help.is_some_and(|help| help.contains("`--include-host <host>`") && !help.contains("--only")));
+    let hosts = vec!["api.shop.test".to_owned(), "pay.shop.test".to_owned()];
+    let kept = ImportRequest { keep: Keep { hosts, ..Keep::default() }, ..har };
+    let changes = engine.import(&kept).await.unwrap();
+    let paths: Vec<_> = changes.files.iter().map(|file| file.path.as_str()).collect();
+    assert_eq!(paths, ["services/pay/pay.api.yaml", "services/shop/shop.api.yaml", "vibranium.config.yaml"]);
 }
 
 #[tokio::test]
