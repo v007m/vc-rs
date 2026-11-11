@@ -208,8 +208,8 @@ A failure names the JSON pointer and the rule that failed:
 <Aside type="caution">
 Some mistakes are not caught by `vc check` yet and only fail at run time:
 
-- A misspelt matcher that is alone in its map, such as `{ startWith: A }`, is read as a literal map and fails with `expected {"startWith":"A"}, got "Ada"`. Next to a real matcher it is caught as [V1004](/vc-rs/reference/diagnostics/v1004/).
-- A scalar matcher on a `[*]` path, such as `tags[*]: { gt: 1 }`, fails with `expected {"gt":1}, got ["a","b"]`.
+- A misspelt matcher that is alone in its map, such as `{ startWith: A }`, is read as a literal map and fails with `expected {"startWith":"A"}, got "Ada"`. When its name is close to a matcher's, `vc check` warns [V3208](/vc-rs/reference/diagnostics/v3208/); next to a real matcher it is the error [V1004](/vc-rs/reference/diagnostics/v1004/).
+- A scalar matcher on a `[*]` path, such as `tags[*]: { gt: 1 }`, is the error [V2306](/vc-rs/reference/diagnostics/v2306/); wrap it in `every` or `some`.
 - A schema file that is not a valid JSON Schema fails with `is not a valid JSON Schema`.
 - A JSONPath-style `$.id` is read as a field named `$` and reports `got nothing`. Write `id`.
 </Aside>

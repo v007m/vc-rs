@@ -172,7 +172,7 @@ pub fn piece_refs<'p>(piece: &'p Piece, found: &mut Vec<&'p Reference>) {
 
 fn matcher_refs<'p>(matcher: &'p Matcher, found: &mut Vec<&'p Reference>) {
     match matcher {
-        Matcher::Equals(value) => value.collect_references(found),
+        Matcher::Equals(value) | Matcher::StatusOf(value) => value.collect_references(found),
         Matcher::All(calls) => calls.iter().for_each(|call| arg_refs(&call.arg, found)),
         Matcher::Status(_) => {}
     }

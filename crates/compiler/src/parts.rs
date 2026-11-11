@@ -18,7 +18,7 @@ use vc_template::{CelCompiler, PipeRegistry, ROW_HELP, ROW_ROOTS, Roots, Templat
 
 use crate::shape_check;
 use crate::shape_check::{Leaf, LeafTy, Walk};
-use crate::shapes::{Scope, Unit};
+use crate::shapes::Scope;
 use crate::{matchers, value};
 
 /// One compiled value, keyed by its node's span in a [`FileUnit`](crate::stage::FileUnit).
@@ -89,10 +89,21 @@ pub fn compile(root: &Node, walk: &Walk, cx: &mut Cx<'_>) -> IndexMap<SourceSpan
         let at = At { node, scope: leaf.scope };
         let timeout = leaf.ty == LeafTy::Duration && is_timeout(root, &leaf.path);
         if let Some(piece) = if timeout { unit(cx, at, &TIMEOUT) } else { piece(cx, at, leaf) } {
+            if let (Piece::Matcher(matcher), Some(key)) = (&piece, list_key(root, leaf)) {
+                matchers::on_list(cx, matcher, key);
+            }
             pieces.insert(node.span, piece);
         }
     }
     pieces
+}
+
+/// The key a matcher leaf sits under when it holds `[*]`, so the matcher sees a list.
+fn list_key<'n>(root: &'n Node, leaf: &Leaf) -> Option<&'n str> {
+    let LeafTy::Matcher(_) = leaf.ty else { return None };
+    let (last, parent) = leaf.path.split_last()?;
+    let Value::Map(entries) = &shape_check::at(root, parent)?.value else { return None };
+    entries.get(*last).map(|entry| entry.key.as_str()).filter(|key| key.contains("[*]"))
 }
 
 fn piece(cx: &mut Cx<'_>, at: At<'_>, leaf: &Leaf) -> Option<Piece> {
@@ -180,11 +191,16 @@ fn templated(span: SourceSpan, text: &str, kind: &UnitKind) -> Diagnostic {
     Diagnostic::new(Code::V2301, span, message).help(kind.help)
 }
 
-/// A code, a class, a list of them, or a matcher.
+/// A code, a class, a list of them, or a matcher; a template gives one of the first three at
+/// run time, read as a written one is.
 fn status(cx: &mut Cx<'_>, at: At<'_>) -> Option<Matcher> {
     let items: Vec<&Node> = match &at.node.value {
-        Value::Map(_) => return matchers::matcher(cx, at, Unit::Plain),
+        Value::Map(_) => return matchers::status(cx, at),
+        Value::Seq(items) if items.is_empty() => {
+            return matchers::empty_status(cx, at, "a status list needs at least one code or class");
+        }
         Value::Seq(items) => items.iter().collect(),
+        Value::Scalar(scalar) if scalar.text.contains("${") => return value::lower(cx, at).map(Matcher::StatusOf),
         Value::Scalar(_) => vec![at.node],
     };
     let patterns: Vec<_> = items.into_iter().map(|item| status_pattern(cx, item)).collect();

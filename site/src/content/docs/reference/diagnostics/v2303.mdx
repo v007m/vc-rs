@@ -1,8 +1,8 @@
 ---
-title: "V2303 — Invalid status code or class"
+title: "V2303 — Invalid status code or class, or an empty status map or list"
 description: "A status is neither a code from 100 to 599 nor a class such as 2xx."
 sidebar:
-  label: "V2303 Invalid status code or class"
+  label: "V2303 Invalid status code or class, or an empty status map or list"
   order: 2303
 ---
 
@@ -18,7 +18,7 @@ import { Badge } from '@astrojs/starlight/components';
 | Certain fix | none; `vc check --fix` leaves this one to you |
 
 A status is neither a code from 100 to 599 nor a class such as `2xx`. Write the exact code, or the class to accept any
-code in it.
+code in it. A status map or list with nothing in it (`status: {}`, `saveOn: []`) checks nothing, so it is V2303 too.
 
 ## Wrong
 

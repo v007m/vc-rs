@@ -172,10 +172,15 @@ fn bad_durations_have_no_fix() {
 fn sizes_are_binary() {
     let ok = |text| vc_template::parse_size(text, span()).unwrap().bytes();
     assert_eq!((ok("512b"), ok("4kb"), ok("1mb"), ok("2gb")), (512, 4096, 1_048_576, 2_147_483_648));
-    for text in ["4", "4k", "4KB", "kb", "4 kb", "18446744073709551615kb"] {
+    for text in ["4", "4k", "4KB", "kb", "4 kb", "18446744073709551615kb", "99999999999999999999", "+4", ""] {
         let diagnostic = *vc_template::parse_size(text, span()).unwrap_err();
         assert_eq!((diagnostic.code, diagnostic.message.clone()), (Code::V2301, format!("invalid size `{text}`")));
+        assert_eq!(diagnostic.fixes.len(), usize::from(text == "4"), "only a bare number gets a fix: {text}");
     }
+    let diagnostic = *vc_template::parse_size("1024", span()).unwrap_err();
+    let [fix] = &diagnostic.fixes[..] else { panic!("expected one fix") };
+    assert!(fix.certain);
+    assert_eq!((fix.title.as_str(), fix.edits[0].new_text.as_str()), ("Write 1024b", "1024b"));
 }
 
 #[test]

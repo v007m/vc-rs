@@ -300,6 +300,18 @@ pub enum StatusPattern {
 }
 
 impl StatusPattern {
+    /// Reads an expected status as written: a code from 100 to 599 (`201`) or a class from
+    /// `1xx` to `5xx`; `None` for anything else.
+    #[must_use]
+    pub fn parse(text: &str) -> Option<Self> {
+        // One char that parses is a digit; three that parse into 100..=599 are three digits.
+        let class = text.strip_suffix("xx").filter(|d| d.len() == 1).and_then(|d| d.parse::<u8>().ok());
+        let code = Some(text).filter(|t| t.len() == 3).and_then(|t| t.parse::<u16>().ok());
+        let class = class.filter(|c| (1..=5).contains(c));
+        let code = code.filter(|c| (100..=599).contains(c));
+        class.map(Self::Class).or_else(|| code.map(Self::Code))
+    }
+
     /// Whether `status` matches.
     #[must_use]
     pub fn matches(self, status: u16) -> bool {

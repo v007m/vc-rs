@@ -1,9 +1,10 @@
 //! Matchers (see Checks and matchers): a map with a matcher name as a key is a matcher, any
 //! other value is a literal that must be equal. Each matcher's argument is checked here, and a
-//! wrong one is V2306; an unknown key next to a matcher is V1004.
+//! wrong one is V2306; an unknown key next to a matcher is V1004, and a literal object whose one
+//! key is close to a matcher's name is V3208.
 
 use vc_diagnostics::{Code, Diagnostic};
-use vc_model::{Matcher, MatcherArg, MatcherCall, SourceSpan, TemplateValue};
+use vc_model::{Duration, Matcher, MatcherArg, MatcherCall, Size, SourceSpan, TemplateValue};
 use vc_parser::{Entry, Node, ScalarKind, Value};
 
 use crate::parts::{At, Cx};
@@ -14,9 +15,9 @@ use crate::value;
 /// What a matcher takes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Arg {
-    /// Any value: `eq`, `contains`.
+    /// Any value: `contains`.
     Value,
-    /// A value compared in the unit: `gt`, `lt`.
+    /// A value compared in the unit: `eq`, `gt`, `lt`.
     Ordered,
     /// Two values compared in the unit: `between`.
     Range,
@@ -39,36 +40,59 @@ enum Arg {
 const TYPES: &[&str] = &["string", "number", "integer", "boolean", "object", "array", "null"];
 const FORMATS: &[&str] = &["email", "uuid", "uri", "date", "dateTime", "ipv4"];
 
-/// Every matcher and what it takes.
-const MATCHERS: &[(&str, Arg)] = &[
-    ("eq", Arg::Value),
-    ("ne", Arg::Value),
-    ("gt", Arg::Ordered),
-    ("gte", Arg::Ordered),
-    ("lt", Arg::Ordered),
-    ("lte", Arg::Ordered),
-    ("between", Arg::Range),
-    ("in", Arg::List),
-    ("notIn", Arg::List),
-    ("type", Arg::Word(TYPES)),
-    ("exists", Arg::Flag),
-    ("empty", Arg::Flag),
-    ("length", Arg::Length),
-    ("contains", Arg::Value),
-    ("startsWith", Arg::Value),
-    ("endsWith", Arg::Value),
-    ("regex", Arg::Regex),
-    ("format", Arg::Word(FORMATS)),
-    ("every", Arg::Nested),
-    ("some", Arg::Nested),
-    ("none", Arg::Nested),
-    ("not", Arg::Nested),
-    ("allOf", Arg::Several),
-    ("anyOf", Arg::Several),
+/// What a matcher does with the list a `[*]` path yields.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum OnList {
+    /// Checks the list as a whole: `eq`, `contains`, `length`; `every` checks each element.
+    Whole,
+    /// Compares one value, which a list never is: `gt`, `regex`, `in` (V2306).
+    Scalar,
+    /// Hands the list to its inner matchers: `not`, `allOf`, `anyOf`.
+    Inner,
+}
+
+/// One matcher: its name, what it takes and what it does with a list.
+#[derive(Debug)]
+struct Kind {
+    name: &'static str,
+    arg: Arg,
+    list: OnList,
+}
+
+const fn kind(name: &'static str, arg: Arg, list: OnList) -> Kind {
+    Kind { name, arg, list }
+}
+
+/// Every matcher.
+const MATCHERS: &[Kind] = &[
+    kind("eq", Arg::Ordered, OnList::Whole),
+    kind("ne", Arg::Ordered, OnList::Whole),
+    kind("gt", Arg::Ordered, OnList::Scalar),
+    kind("gte", Arg::Ordered, OnList::Scalar),
+    kind("lt", Arg::Ordered, OnList::Scalar),
+    kind("lte", Arg::Ordered, OnList::Scalar),
+    kind("between", Arg::Range, OnList::Scalar),
+    kind("in", Arg::List, OnList::Scalar),
+    kind("notIn", Arg::List, OnList::Scalar),
+    kind("type", Arg::Word(TYPES), OnList::Scalar),
+    kind("exists", Arg::Flag, OnList::Whole),
+    kind("empty", Arg::Flag, OnList::Whole),
+    kind("length", Arg::Length, OnList::Whole),
+    kind("contains", Arg::Value, OnList::Whole),
+    kind("startsWith", Arg::Value, OnList::Scalar),
+    kind("endsWith", Arg::Value, OnList::Scalar),
+    kind("regex", Arg::Regex, OnList::Scalar),
+    kind("format", Arg::Word(FORMATS), OnList::Scalar),
+    kind("every", Arg::Nested, OnList::Whole),
+    kind("some", Arg::Nested, OnList::Whole),
+    kind("none", Arg::Nested, OnList::Whole),
+    kind("not", Arg::Nested, OnList::Inner),
+    kind("allOf", Arg::Several, OnList::Inner),
+    kind("anyOf", Arg::Several, OnList::Inner),
 ];
 
-fn find(name: &str) -> Option<Arg> {
-    MATCHERS.iter().find(|(known, _)| *known == name).map(|(_, arg)| *arg)
+fn find(name: &str) -> Option<&'static Kind> {
+    MATCHERS.iter().find(|kind| kind.name == name)
 }
 
 /// A matcher's argument, where it is written and the unit it compares in.
@@ -79,26 +103,108 @@ struct Spot<'n> {
     name: &'n str,
 }
 
-/// The matcher or literal at `at`, comparing in `unit`.
+/// The matcher or literal at `at`, comparing in `unit`. A map with no matcher's name as a key is
+/// a literal object; one lone key close to a matcher's name is V3208.
 pub fn matcher(cx: &mut Cx<'_>, at: At<'_>, unit: Unit) -> Option<Matcher> {
-    let Value::Map(entries) = &at.node.value else { return value::lower(cx, at).map(Matcher::Equals) };
+    let Value::Map(entries) = &at.node.value else { return literal(cx, at, unit) };
     if !entries.iter().any(|entry| find(&entry.key).is_some()) {
+        if let Some(lint) = near_matcher(entries) {
+            cx.push(lint);
+        }
         return value::lower(cx, at).map(Matcher::Equals);
     }
+    calls(cx, at, (entries, unit))
+}
+
+/// A scalar literal: under a unit (`size: 32b`, `total: 200ms`) it is read in that unit and
+/// compared as `eq`, so it meets the measured number; anywhere else it is compared as written.
+fn literal(cx: &mut Cx<'_>, at: At<'_>, unit: Unit) -> Option<Matcher> {
+    if unit == Unit::Plain || at.node.as_scalar().is_none() {
+        return value::lower(cx, at).map(Matcher::Equals);
+    }
+    let arg = ordered(cx, Spot { at, unit, name: "eq" })?;
+    Some(Matcher::All(vec![MatcherCall { name: "eq".to_owned(), arg, span: at.node.span }]))
+}
+
+/// A status's matcher: a map there is never a literal, so each of its keys must be a matcher,
+/// and it needs at least one (V2303).
+pub fn status(cx: &mut Cx<'_>, at: At<'_>) -> Option<Matcher> {
+    let Value::Map(entries) = &at.node.value else { return matcher(cx, at, Unit::Plain) };
+    if entries.is_empty() {
+        return empty_status(cx, at, "a status map needs at least one matcher");
+    }
+    calls(cx, at, (entries, Unit::Plain))
+}
+
+/// V2303 for a status map or list that checks nothing (`{}`, `[]`).
+pub fn empty_status(cx: &mut Cx<'_>, at: At<'_>, message: &str) -> Option<Matcher> {
+    let diagnostic = Diagnostic::new(Code::V2303, at.node.span, message)
+        .label("checks nothing")
+        .help("write a code (`201`), a class (`2xx`), a list, or a matcher such as `{in: [200, 201]}`");
+    cx.push(diagnostic);
+    None
+}
+
+fn calls(cx: &mut Cx<'_>, at: At<'_>, (entries, unit): (&[Entry], Unit)) -> Option<Matcher> {
     let calls: Vec<_> = entries.iter().map(|entry| call(cx, at, (entry, unit))).collect();
     calls.into_iter().collect::<Option<Vec<_>>>().map(Matcher::All)
+}
+
+/// The shortest lone key read as a likely misspelt matcher: shorter ones (`id`, `note`) are one
+/// edit from a matcher (`in`, `not`) and are far more often plain fields.
+const MISSPELT_FROM: usize = 5;
+
+/// V3208 when `entries` is one key close to a matcher's name, as written (`startWith`, `lenght`,
+/// `Length`): likely a misspelt matcher, though it is still compared as a literal object.
+fn near_matcher(entries: &[Entry]) -> Option<Diagnostic> {
+    let [entry] = entries else { return None };
+    if entry.key.chars().count() < MISSPELT_FROM {
+        return None;
+    }
+    let close = suggest::close_cased(&entry.key, names());
+    if close.is_empty() {
+        return None;
+    }
+    let message = format!("`{}` is compared as a literal object's key, not as a matcher", entry.key);
+    let label = format!("close to the matcher name {}", suggest::quoted(&close));
+    let diagnostic = Diagnostic::new(Code::V3208, entry.key_span, message).label(label);
+    Some(diagnostic.help("fix the name to use the matcher, or write `eq:` to keep it as a literal"))
+}
+
+/// Reports each scalar matcher in `matcher`, written at the `[*]` path `key`, as V2306. `not`,
+/// `allOf` and `anyOf` hand the list on; `every`, `some` and `none` see each element.
+pub fn on_list(cx: &mut Cx<'_>, matcher: &Matcher, key: &str) {
+    let Matcher::All(calls) = matcher else { return };
+    for call in calls {
+        match (find(&call.name).map(|kind| kind.list), &call.arg) {
+            (Some(OnList::Scalar), _) => cx.push(scalar_on_list(call, key)),
+            (Some(OnList::Inner), MatcherArg::Matcher(inner)) => on_list(cx, inner, key),
+            (Some(OnList::Inner), MatcherArg::Matchers(all)) => all.iter().for_each(|inner| on_list(cx, inner, key)),
+            _ => {}
+        }
+    }
+}
+
+fn scalar_on_list(call: &MatcherCall, key: &str) -> Diagnostic {
+    let message = format!("`{}` compares one value, but `{key}` is a list", call.name);
+    let help = format!("to check each element, put it under `every:`, as in `{{every: {{{}: …}}}}`", call.name);
+    Diagnostic::new(Code::V2306, call.span, message).label("not a list matcher").help(help)
+}
+
+fn names() -> impl Iterator<Item = &'static str> {
+    MATCHERS.iter().map(|kind| kind.name)
 }
 
 fn call(cx: &mut Cx<'_>, at: At<'_>, (entry, unit): (&Entry, Unit)) -> Option<MatcherCall> {
     let Some(kind) = find(&entry.key) else {
         let message = format!("unknown matcher `{}`", entry.key);
         let diagnostic = Diagnostic::new(Code::V1004, entry.key_span, message).label("not a matcher");
-        let names: Vec<&str> = MATCHERS.iter().map(|(name, _)| *name).collect();
+        let names: Vec<&str> = names().collect();
         cx.push(suggest::hint(diagnostic, &Misspelling { word: &entry.key, span: entry.key_span, known: &names }));
         return None;
     };
     let spot = Spot { at: at.child(&entry.value), unit, name: &entry.key };
-    let arg = argument(cx, spot, kind)?;
+    let arg = argument(cx, spot, kind.arg)?;
     Some(MatcherCall {
         name: entry.key.clone(),
         arg,
@@ -121,11 +227,14 @@ fn argument(cx: &mut Cx<'_>, spot: Spot<'_>, kind: Arg) -> Option<MatcherArg> {
     }
 }
 
-/// A value compared in the spot's unit; a template is compared as written.
+/// A value compared in the spot's unit; a template is compared as written. A bare `0` is zero
+/// in any unit (`size: {ne: 0}`, `connect: {eq: 0}`); any other bare number needs its unit.
 fn ordered(cx: &mut Cx<'_>, spot: Spot<'_>) -> Option<MatcherArg> {
     let node = spot.at.node;
     let text = node.as_scalar().map(|s| s.text.as_str()).filter(|text| !text.contains("${"));
     match (spot.unit, text) {
+        (Unit::Duration, Some("0")) => Some(MatcherArg::Duration(Duration::new(std::time::Duration::ZERO))),
+        (Unit::Size, Some("0")) => Some(MatcherArg::Size(Size::from_bytes(0))),
         (Unit::Duration, Some(text)) => {
             cx.check(vc_template::parse_duration(text, node.span)).map(MatcherArg::Duration)
         }
@@ -208,16 +317,25 @@ fn invalid(cx: &mut Cx<'_>, spot: Spot<'_>, problem: &str) -> Option<MatcherArg>
 
 #[cfg(test)]
 mod tests {
-    use super::{Arg, MATCHERS, find};
+    use super::{Arg, MATCHERS, OnList, find};
 
     #[test]
     fn knows_every_matcher_of_the_syntax_reference_once() {
         assert_eq!(MATCHERS.len(), 24);
-        let mut names: Vec<_> = MATCHERS.iter().map(|(name, _)| *name).collect();
+        let mut names: Vec<_> = MATCHERS.iter().map(|kind| kind.name).collect();
         names.sort_unstable();
         names.dedup();
         assert_eq!(names.len(), MATCHERS.len());
-        assert_eq!(find("between"), Some(Arg::Range));
-        assert_eq!(find("betwen"), None);
+        assert_eq!(find("between").map(|kind| kind.arg), Some(Arg::Range));
+        assert!(find("betwen").is_none());
+    }
+
+    #[test]
+    fn only_not_all_of_and_any_of_hand_a_list_on() {
+        let inner: Vec<_> = MATCHERS.iter().filter(|kind| kind.list == OnList::Inner).map(|kind| kind.name).collect();
+        assert_eq!(inner, ["not", "allOf", "anyOf"]);
+        for name in ["in", "notIn", "type", "gt", "regex", "format"] {
+            assert_eq!(find(name).map(|kind| kind.list), Some(OnList::Scalar), "{name}");
+        }
     }
 }

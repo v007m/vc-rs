@@ -293,6 +293,7 @@ pub enum vc_model::Matcher
 pub vc_model::Matcher::All(alloc::vec::Vec<vc_model::MatcherCall>)
 pub vc_model::Matcher::Equals(vc_model::TemplateValue)
 pub vc_model::Matcher::Status(alloc::vec::Vec<vc_model::StatusPattern>)
+pub vc_model::Matcher::StatusOf(vc_model::TemplateValue)
 impl core::clone::Clone for vc_model::Matcher
 pub fn vc_model::Matcher::clone(&self) -> Self
 impl core::cmp::Eq for vc_model::Matcher
@@ -566,6 +567,7 @@ pub vc_model::StatusPattern::Class(u8)
 pub vc_model::StatusPattern::Code(u16)
 impl vc_model::StatusPattern
 pub fn vc_model::StatusPattern::matches(self, u16) -> bool
+pub fn vc_model::StatusPattern::parse(&str) -> core::option::Option<Self>
 impl core::clone::Clone for vc_model::StatusPattern
 pub fn vc_model::StatusPattern::clone(&self) -> Self
 impl core::cmp::Eq for vc_model::StatusPattern

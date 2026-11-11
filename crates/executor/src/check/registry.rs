@@ -112,10 +112,8 @@ impl<'j> Judge<'j> {
                 }
                 Ok(true)
             }
-            Matcher::Status(patterns) => {
-                let status = actual.and_then(Value::as_u64).and_then(|status| u16::try_from(status).ok());
-                Ok(status.is_some_and(|status| patterns.iter().any(|pattern| pattern.matches(status))))
-            }
+            Matcher::Status(patterns) => Ok(status_in(patterns, actual)),
+            Matcher::StatusOf(value) => Ok(status_in(&statuses(&self.render(value)?)?, actual)),
         }
     }
 
@@ -181,6 +179,11 @@ impl<'j> Judge<'j> {
                 Value::Object(described)
             }
             Matcher::Status(patterns) => Value::Array(patterns.iter().map(|pattern| status(*pattern)).collect()),
+            Matcher::StatusOf(value) => {
+                let rendered = self.render(value)?;
+                statuses(&rendered)
+                    .map_or(rendered, |patterns| Value::Array(patterns.into_iter().map(status).collect()))
+            }
         })
     }
 
@@ -195,6 +198,32 @@ impl<'j> Judge<'j> {
             other => Err(format!("expected text, got {other}")),
         }
     }
+}
+
+/// Whether `actual` is a status one of `patterns` matches.
+fn status_in(patterns: &[StatusPattern], actual: Option<&Value>) -> bool {
+    let status = actual.and_then(Value::as_u64).and_then(|status| u16::try_from(status).ok());
+    status.is_some_and(|status| patterns.iter().any(|pattern| pattern.matches(status)))
+}
+
+/// A templated status's rendered value, read as a written status is: a code as a number or as
+/// text (`201`, `"201"`), a class (`"2xx"`), or a list of them.
+fn statuses(rendered: &Value) -> Result<Vec<StatusPattern>, String> {
+    let items = match rendered {
+        Value::Array(items) if items.is_empty() => return Err(not_a_status(rendered)),
+        Value::Array(items) => items.as_slice(),
+        one => std::slice::from_ref(one),
+    };
+    let pattern = |item: &Value| match item {
+        Value::Number(number) => StatusPattern::parse(&number.to_string()),
+        Value::String(text) => StatusPattern::parse(text),
+        _ => None,
+    };
+    items.iter().map(|item| pattern(item).ok_or_else(|| not_a_status(rendered))).collect()
+}
+
+fn not_a_status(rendered: &Value) -> String {
+    format!("the status {rendered} is not a code from 100 to 599, a class from 1xx to 5xx or a list of them")
 }
 
 /// A status pattern as written: `201` or `"2xx"`.

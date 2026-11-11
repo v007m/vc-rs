@@ -54,6 +54,7 @@ fn carries_title_and_default_severity() {
     assert_eq!(Code::V3104.default_severity(), Severity::Warning);
     assert_eq!(Code::V5108.default_severity(), Severity::Warning, "D186: the run goes on");
     assert_eq!(Code::V5117.default_severity(), Severity::Warning, "an alert never changes the exit code");
+    assert_eq!(Code::V3208.default_severity(), Severity::Warning, "D276: the literal still compiles");
 }
 
 #[test]

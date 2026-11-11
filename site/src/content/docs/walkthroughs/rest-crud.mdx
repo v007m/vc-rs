@@ -328,8 +328,7 @@ The mock's `/users` collection behaves like a typical REST API:
          content-type: ${example.contentType}
        body: ${example.body}
        expect:
-         status:
-           eq: ${example.status}
+         status: ${example.status}
 
      - id: rejectsUnknownUser
        name: Answers 400 or 404 for IDs that name no user
@@ -342,25 +341,13 @@ The mock's `/users` collection behaves like a typical REST API:
        vars:
          userId: ${example.userId}
        expect:
-         status:
-           eq: ${example.status}
+         status: ${example.status}
    ```
 
    The test's `body` replaces the api's body, and its `headers` override the content type. Each row sends a different kind of bad body. No cleanup runs for these rows: a cleanup is registered only when the create succeeds.
 
-   <Aside type="caution" title="Write status: { eq: … } for a templated status">
-   `status: ${example.status}` is rejected today, even though the row holds a number:
-
-   ```console
-   error[V2303]: invalid status `${example.status}`
-      --> services/users/crud.test.yaml:109:15
-       |
-   109 |       status: ${example.status}
-       |               ^^^^^^^^^^^^^^^^^
-       = help: write a code from 100 to 599 or a class from 1xx to 5xx
-   ```
-
-   Use the `eq` matcher instead, as above: `status: { eq: ${example.status} }`. See [V2303](/vc-rs/reference/diagnostics/v2303/).
+   <Aside type="tip" title="A templated status reads like a written one">
+   `status: ${example.status}` takes each row's value as a status: a code (`404` or the text `"404"`), a class (`4xx`) or a list (`[400, 404]`). A value that is none of these fails the check. See [status](/vc-rs/reference/matchers/status/).
    </Aside>
 
 8. **Run the new rows.** Each row is reported as its own instance, labeled `[row n]`:
@@ -574,8 +561,7 @@ tests:
       content-type: ${example.contentType}
     body: ${example.body}
     expect:
-      status:
-        eq: ${example.status}
+      status: ${example.status}
 
   - id: rejectsUnknownUser
     name: Answers 400 or 404 for IDs that name no user
@@ -588,8 +574,7 @@ tests:
     vars:
       userId: ${example.userId}
     expect:
-      status:
-        eq: ${example.status}
+      status: ${example.status}
 ```
 
 </TabItem>
@@ -622,8 +607,7 @@ tests:
     vars:
       userId: \${example.userId}
     expect:
-      status:
-        eq: \${example.status}
+      status: \${example.status}
 `} />
 
 ## What you learned
