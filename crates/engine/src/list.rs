@@ -9,7 +9,7 @@ use vc_model::{
 use vc_planner::{PlanError, PlanOptions};
 
 use crate::list_detail::{self, ApiCall};
-use crate::{Engine, EngineError, ListKind, ListRequest};
+use crate::{Engine, EngineError, ListKind, ListRequest, SelectRequest};
 
 /// One listed definition.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -129,15 +129,17 @@ impl Engine {
         Ok(ListReport { items, notices })
     }
 
-    /// Every api, then every test (skipped ones included), from one read of the project: what
-    /// an app that browses the project shows, without compiling it once per kind.
+    /// Every api, then every test (skipped ones included), that `select` picks, from one read of
+    /// the project: what an app that browses the project shows, without compiling it once per
+    /// kind. `SelectRequest::default()` picks everything.
     ///
     /// # Errors
     ///
-    /// [`EngineError::Invalid`] when the project has errors.
-    pub fn catalog(&self) -> Result<ListReport, EngineError> {
+    /// [`EngineError::Invalid`] when the project has errors, and [`EngineError::Selection`] when
+    /// `select` cannot be read or matches nothing, or `--changed-since` cannot ask git.
+    pub fn catalog(&self, select: &SelectRequest) -> Result<ListReport, EngineError> {
         let (program, notices) = self.program()?;
-        let request = ListRequest::default();
+        let request = ListRequest { select: select.clone(), ..ListRequest::default() };
         let mut items = self.apis(&program, &request)?;
         items.extend(self.tests(&program, &request)?);
         Ok(ListReport { items, notices })

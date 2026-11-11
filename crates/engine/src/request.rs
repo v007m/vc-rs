@@ -1,6 +1,7 @@
 //! What apps ask the engine to plan, run, list and explain.
 
 use std::path::PathBuf;
+use std::time::Duration;
 
 use vc_model::SourcePath;
 
@@ -24,6 +25,10 @@ pub struct SelectRequest {
     /// `--changed [ref]`: only files changed since the ref (`Some("")` for `HEAD`, the
     /// uncommitted and untracked changes); every file when the config or `.env.schema` changed.
     pub changed: Option<String>,
+    /// `--changed-since <duration>`: only files a commit in that window touched, or that are
+    /// uncommitted or untracked; every file when the config or `.env.schema` is one (D249).
+    /// `changed` wins when both are given.
+    pub changed_since: Option<Duration>,
     /// `vc watch`: only the files [`crate::Engine::watch`] reported saved, and the tests that
     /// call an api in one; every file when the config, `.env` or `.env.schema` was saved.
     pub saved: Option<Vec<SourcePath>>,
