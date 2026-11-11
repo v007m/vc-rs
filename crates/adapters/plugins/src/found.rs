@@ -43,10 +43,11 @@ fn named(command: &Path) -> Vec<PathBuf> {
 #[cfg(test)]
 mod tests {
     use std::fs;
+    use std::path::Path;
 
     use vc_interfaces::{PluginKind, PluginManifest, PluginPermissions};
 
-    use super::entry_found;
+    use super::{entry_found, named};
 
     fn manifest(command: &str) -> PluginManifest {
         PluginManifest {
@@ -70,5 +71,14 @@ mod tests {
         assert!(entry_found(&manifest(on_path), dir.path()), "a program on PATH");
         assert!(!entry_found(&manifest("vibranium-no-such-program"), dir.path()));
         assert!(!entry_found(&manifest("bin/missing.sh"), dir.path()));
+        let beside = format!("./{on_path}");
+        assert!(!entry_found(&manifest(&beside), dir.path()), "a path is never looked for on PATH");
+    }
+
+    #[test]
+    fn only_windows_tries_a_program_named_without_an_ending_with_each_of_its_endings() {
+        let tried = if cfg!(windows) { 5 } else { 1 };
+        assert_eq!(named(Path::new("report")).len(), tried);
+        assert_eq!(named(Path::new("report.sh")), [Path::new("report.sh")]);
     }
 }

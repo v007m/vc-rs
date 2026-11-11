@@ -110,7 +110,17 @@ fn packed(stdout: &[u8]) -> Result<Packed, String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{logged, packed, reported};
+    use std::process::{ExitStatus, Output};
+
+    use super::{last_line, logged, packed, reported};
+
+    #[test]
+    fn a_failed_program_s_reason_is_its_last_line_of_error_output() {
+        let failed = |stderr: &str| Output { status: ExitStatus::default(), stdout: vec![], stderr: stderr.into() };
+        let tar = "tar: Error opening archive\n  tar: Child returned status 1  \n\n";
+        assert_eq!(last_line(&failed(tar)), "tar: Child returned status 1");
+        assert_eq!(last_line(&failed(" \n")), "no output");
+    }
 
     #[test]
     fn reads_npm_s_report_and_refuses_a_tarball_outside_the_folder() {

@@ -66,6 +66,7 @@ async fn gives_a_named_test_and_profile_their_names() {
     let named: Vec<&Value> = finished.iter().map(|line| &line["name"]).filter(|name| !name.is_null()).collect();
     assert_eq!(named, [&json!("Lists every user"), &json!("Lists every user")], "both repeats: {finished:?}");
     assert_eq!(lines.last().unwrap()["profileNames"], json!({"dev": "Local dev"}));
+    assert_eq!(reporter.summary(&testing::summary()), lines[lines.len() - 1], "a plugin's summary reads the same");
 }
 
 #[test]

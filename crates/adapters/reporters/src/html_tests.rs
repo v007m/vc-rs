@@ -77,6 +77,7 @@ fn shows_each_file_profile_and_test_name_beside_its_id() {
     assert_eq!(data["summary"]["files"][0], "users.crud — Crud", "the file's `name` follows its ID");
     assert_eq!(data["summary"]["run"]["profiles"][0], "dev \"Local dev\"");
     assert_eq!(data["index"][0][1], Value::Null, "an unnamed test shows its label");
+    assert_eq!(data["index"][0][2], 0, "the file is its place in the summary's files");
     assert_eq!(data["index"][4][1], "users.crud#listsUsers [repeat 2] — Lists every user");
 }
 

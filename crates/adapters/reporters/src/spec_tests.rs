@@ -159,6 +159,10 @@ async fn a_retried_failure_shows_each_different_failure_once_under_its_attempts(
     assert!(printed.contains("  attempts 1 and 2 of 3:\n") && printed.contains("  attempt 3 of 3:\n"), "{printed}");
     assert_eq!(printed.matches("got 503").count(), 1, "the same failure once: {printed}");
     assert_eq!(printed.matches("got 500").count(), 1, "{printed}");
+    assert!(
+        printed.contains("expect.status") && !printed.contains("= at:"),
+        "the failed check, not the step: {printed}"
+    );
 }
 
 #[tokio::test]

@@ -70,6 +70,7 @@ mod tests {
         assert_eq!(left, ["0", "007", "3", "4", "notes"]);
         assert_eq!(prune_run_folders(root.path(), None), Ok(2), "none kept: every run folder goes");
         assert_eq!(prune_run_folders(&root.path().join("missing"), None), Ok(0));
+        assert!(prune_run_folders(&root.path().join("0"), None).is_err(), "a file is not a folder of runs");
     }
 
     #[test]

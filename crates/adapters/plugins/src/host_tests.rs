@@ -377,6 +377,37 @@ async fn a_log_that_cannot_be_made_drops_the_stderr_and_says_why_as_the_plugin_s
     assert_eq!(std::fs::read_dir(elsewhere.path()).unwrap().count(), 0, "nothing is made through the link");
 }
 
+/// Answers every call; after answering `shutdown`, waits for its input to close, then writes
+/// `stopped.txt` in its data folder and exits.
+const STOPS: &str = r#"
+import os
+while True:
+    request = read()
+    send(json.dumps({"jsonrpc": "2.0", "id": request["id"], "result": None}).encode())
+    if request["method"] == "shutdown": break
+while sys.stdin.buffer.read(1): pass
+time.sleep(0.2)
+open(os.path.join(os.environ["VIB_PLUGIN_DATA"], "stopped.txt"), "w").write("stopped")
+"#;
+
+#[cfg(unix)]
+#[tokio::test]
+async fn shutdown_closes_the_plugin_s_input_and_returns_once_it_has_exited() {
+    if !python() {
+        return eprintln!("skipped: python3 is not installed");
+    }
+    let manifest = vc_interfaces::PluginManifest {
+        command: "python3".into(),
+        args: vec!["-c".into(), format!("{READ}{STOPS}")],
+        ..suite_plugin_manifest()
+    };
+    let root = tempfile::tempdir().unwrap();
+    let host = StdioPluginHost::new(manifest, suite_dir(), granted()).data(root.path(), "data");
+    host.call("suite/echo", json!({}), Duration::from_secs(5)).await.unwrap();
+    host.shutdown().await;
+    assert_eq!(std::fs::read_to_string(root.path().join("data/stopped.txt")).unwrap(), "stopped");
+}
+
 /// Waits up to five seconds for `log` to hold `text`.
 async fn logged(log: &Path, text: &str) {
     for _ in 0..100 {
