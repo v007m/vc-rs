@@ -116,7 +116,7 @@ impl Engine {
             ));
         }
         let id = named.item.unwrap_or_default();
-        let vars = path_vars(&project, api)?;
+        let vars = path_vars(&project, api, named.file)?;
         let yaml = format!("id: {id}\nname: {}\ncall: {api}{vars}", write_text(&sentence(id), false));
         let comment = format!("# {} · calls {api} · keys: {DOCS}#tests", request.id);
         let mut new = NewItem::test(named, yaml, comment);

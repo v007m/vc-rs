@@ -7,6 +7,7 @@ use vc_parser::{Node, write_text};
 
 use crate::authoring::{Authoring, Opened, refused};
 use crate::create::{DOCS, NewItem, checked, sentence};
+use crate::create_vars::vars_set;
 use crate::edit::{FileChange, internal};
 use crate::{Added, Engine, EngineError};
 
@@ -119,13 +120,14 @@ pub fn based(project: &Authoring, file: &str, origin: &str) -> Result<(String, V
 }
 
 /// The root line and config change of a new api file from `--path`: `baseUrl` from the config
-/// var `<last word>Url`, added as `http://localhost` when the config does not set it, with the
-/// note that says to set it.
+/// var `<last word>Url`, added as `http://localhost` when neither the config nor a profile sets
+/// it, with the note that says to set it. Another var that holds `http://localhost` is never
+/// reused: it is another service's placeholder.
 fn local_base(project: &Authoring, file: &str) -> Result<(String, Vec<FileChange>, Option<String>), EngineError> {
     let opened = Authoring::open(config(project)?)?;
     let name = base_name(file);
-    let set = opened.document.root().get("vars").is_some_and(|vars| vars.get(&name).is_some());
-    let (change, name) = if set { (None, name) } else { base_var_in(&opened, file, LOCAL)? };
+    let set = vars_set(opened.document.root()).contains(&name);
+    let change = if set { None } else { Some(add_var(&opened, &name, LOCAL)?) };
     let note = change.as_ref().map(|_| format!("set `vars.{name}` in the config to the service's URL; it is {LOCAL}"));
     Ok((format!("baseUrl: ${{var.{name}}}\n"), change.into_iter().collect(), note))
 }
@@ -150,9 +152,7 @@ pub fn config(project: &Authoring) -> Result<(SourceFileId, &SourceFile), Engine
 
 /// As [`base_var`], in the config `opened`.
 pub fn base_var_in(opened: &Opened<'_>, file: &str, origin: &str) -> Result<(Option<FileChange>, String), EngineError> {
-    let (document, root) = (&opened.document, opened.document.root());
-    let vars = root.get("vars");
-    let entries = vars.map(Node::entries).unwrap_or_default();
+    let entries = opened.document.root().get("vars").map(Node::entries).unwrap_or_default();
     if let Some(same) = entries.iter().find(|entry| entry.value.as_str() == Some(origin)) {
         return Ok((None, same.key.clone()));
     }
@@ -161,13 +161,19 @@ pub fn base_var_in(opened: &Opened<'_>, file: &str, origin: &str) -> Result<(Opt
         let help = format!("set `vars.{name}` to {origin}, or add the api by `--path`");
         return Err(refused(format!("the config var `{name}` holds another URL"), &help));
     }
-    let added = vars.map_or_else(
-        || document.insert_yaml(root, "vars", &format!("{name}: {}", write_text(origin, false))),
-        |vars| document.insert_flow_entry(vars, &name, origin).or_else(|_| document.insert_entry(vars, &name, origin)),
+    Ok((Some(add_var(opened, &name, origin)?), name))
+}
+
+/// The change that adds `name: value` to the `vars` of the config `opened`.
+fn add_var(opened: &Opened<'_>, name: &str, value: &str) -> Result<FileChange, EngineError> {
+    let (document, root) = (&opened.document, opened.document.root());
+    let added = root.get("vars").map_or_else(
+        || document.insert_yaml(root, "vars", &format!("{name}: {}", write_text(value, false))),
+        |vars| document.insert_flow_entry(vars, name, value).or_else(|_| document.insert_entry(vars, name, value)),
     );
     let edit =
         added.map_err(|error| refused(format!("cannot add `{name}` to the config: {error}"), "add it by hand"))?;
-    Ok((Some(opened.change(&[edit])?), name))
+    opened.change(&[edit])
 }
 
 /// The api's YAML: its ID, its name (the ID as a sentence), its method unless GET, its path with vars, and its query.

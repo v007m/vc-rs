@@ -1,11 +1,11 @@
 //! The vars a test from `vc new test` sets for the api it calls (D262): each `${var.…}` in the
-//! api's path that the config does not set, given the api's own value (a sample from the spec,
-//! when the api was imported) or a placeholder, and marked `# replace`, so the new file passes
+//! api's path that nothing else sets, given the api's own value (a sample from the spec, when
+//! the api was imported) or a placeholder, and marked `# replace`, so the new file passes
 //! `vc check`.
 
 use std::collections::BTreeSet;
 
-use vc_model::FileKind;
+use vc_model::{FileKind, SourceFile, SourceFileId};
 use vc_parser::{Document, Node};
 
 use crate::EngineError;
@@ -14,16 +14,19 @@ use crate::authoring::{Authoring, Named, item};
 /// What a path var with no value of its own is set to.
 pub const PLACEHOLDER: &str = "replace-me";
 
-/// The `vars:` lines a test calling `api` (`users#deactivate`) needs, each after a line break, or
-/// nothing when its path holds no var the config leaves unset.
-pub fn path_vars(project: &Authoring, api: &str) -> Result<String, EngineError> {
+/// The `vars:` lines a test in `test_file` calling `api` (`users#deactivate`) needs, each after
+/// a line break, or nothing when its path holds no var left unset.
+pub fn path_vars(project: &Authoring, api: &str, test_file: &str) -> Result<String, EngineError> {
     let named = Named::parse(api);
     let Some(found) = project.find(FileKind::Api, named.file) else { return Ok(String::new()) };
     let opened = Authoring::open(found)?;
-    let Some(node) = item(opened.document.root(), "apis", named.item.unwrap_or_default()) else {
+    let root = opened.document.root();
+    let Some(node) = item(root, "apis", named.item.unwrap_or_default()) else {
         return Ok(String::new());
     };
-    let set = config_vars(project)?;
+    let mut set = vars_set(root);
+    set.extend(file_vars(project.entries().find(|(_, file)| file.kind() == Some(FileKind::Config)))?);
+    set.extend(file_vars(project.find(FileKind::Test, test_file))?);
     let path = node.get("path").and_then(Node::as_str).unwrap_or_default();
     let mut lines = String::new();
     for name in vars_in(path).into_iter().filter(|name| !set.contains(*name)) {
@@ -49,16 +52,17 @@ fn vars_in(path: &str) -> Vec<&str> {
     names
 }
 
-/// The vars the config sets, at its root or in any profile.
-fn config_vars(project: &Authoring) -> Result<BTreeSet<String>, EngineError> {
-    let Some(found) = project.entries().find(|(_, file)| file.kind() == Some(FileKind::Config)) else {
-        return Ok(BTreeSet::new());
-    };
-    let opened = Authoring::open(found)?;
-    let root = opened.document.root();
+/// The vars the file `found` sets, at its root or in any profile; none when there is no file.
+fn file_vars(found: Option<(SourceFileId, &SourceFile)>) -> Result<BTreeSet<String>, EngineError> {
+    let Some(found) = found else { return Ok(BTreeSet::new()) };
+    Ok(vars_set(Authoring::open(found)?.document.root()))
+}
+
+/// The vars a config, api or test file's `root` sets, in its `vars` or any profile's.
+pub fn vars_set(root: &Node) -> BTreeSet<String> {
     let profiles = root.get("profiles").map(Node::items).unwrap_or_default();
     let maps = std::iter::once(root).chain(profiles).filter_map(|holder| holder.get("vars"));
-    Ok(maps.flat_map(Node::entries).map(|entry| entry.key.clone()).collect())
+    maps.flat_map(Node::entries).map(|entry| entry.key.clone()).collect()
 }
 
 /// The YAML of the scalar `value` as written, when it fits on one line.
