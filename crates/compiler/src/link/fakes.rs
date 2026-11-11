@@ -13,6 +13,8 @@ use super::project;
 use super::project::{Project, Source};
 use super::uses;
 use crate::schema;
+use crate::shape_check;
+use crate::shapes;
 use crate::suggest;
 
 /// A named generator that lowers cleanly.
@@ -58,14 +60,15 @@ pub fn lower<'a>(config: &Source<'a>, fakes: &FakeRegistry, diagnostics: &mut Di
         }
         match generator(node, fakes) {
             Ok(call) => named.push(Named { id, call }),
-            Err(diagnostic) => diagnostics.push(*diagnostic),
+            Err(diagnostic) => diagnostics.extend(diagnostic.map(|diagnostic| *diagnostic)),
         }
     }
     named
 }
 
-/// The call one generator makes: it writes exactly one kind key, with settings that fit.
-fn generator(node: &Node, fakes: &FakeRegistry) -> Result<FakeCall, Box<Diagnostic>> {
+/// The call one generator makes: it writes exactly one kind key, with settings that fit. Settings
+/// of the wrong shape have no diagnostic here: the shape check reports them.
+fn generator(node: &Node, fakes: &FakeRegistry) -> Result<FakeCall, Option<Box<Diagnostic>>> {
     let kinds = FakeRegistry::kinds();
     let written: Vec<_> = node.entries().iter().filter(|entry| kinds.contains(&entry.key.as_str())).collect();
     let [entry] = written.as_slice() else {
@@ -74,11 +77,13 @@ fn generator(node: &Node, fakes: &FakeRegistry) -> Result<FakeCall, Box<Diagnost
             _ => (Code::V2302, "a generator has one kind, but this one has several".to_owned()),
         };
         let diagnostic = Diagnostic::new(code, node.span, message);
-        return Err(Box::new(diagnostic.help(format!("write one of {}", suggest::quoted(&kinds)))));
+        return Err(Some(Box::new(diagnostic.help(format!("write one of {}", suggest::quoted(&kinds))))));
     };
+    let shaped = shapes::generator().find(&entry.key).is_some_and(|key| shape_check::fits(key.ty, &entry.value));
     fakes.named(&entry.key, &schema::to_json(&entry.value)).map_err(|error| {
         let id = project::text(node, "id").unwrap_or_default();
-        Box::new(Diagnostic::new(error.code, entry.value.span, format!("generator `{id}` {}", error.message)))
+        let message = format!("generator `{id}` {}", error.message);
+        shaped.then(|| Box::new(Diagnostic::new(error.code, entry.value.span, message)))
     })
 }
 

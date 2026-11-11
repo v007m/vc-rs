@@ -68,9 +68,9 @@ fn offers_to_unquote_a_quoted_number_or_flag() {
 #[test]
 fn checks_maps_lists_and_words() {
     let not_map = walk(FileKind::Api, "apis: [x]\n");
-    assert_eq!(only(&not_map).message, "expected apiEntry, found text");
+    assert_eq!(only(&not_map).message, "expected a map of `id`, `name`, `method`, …, found text");
     let not_list = walk(FileKind::Api, "apis: {}\n");
-    assert_eq!(only(&not_list).message, "expected list of apiEntry, found a map");
+    assert_eq!(only(&not_list).message, "expected a list of maps of `id`, `name`, `method`, …, found a map");
     let word = walk(FileKind::Api, "apis: [{id: a, path: /, method: GTE}]\n");
     let word = only(&word);
     assert_eq!(word.message, "expected one of GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS, found `GTE`");

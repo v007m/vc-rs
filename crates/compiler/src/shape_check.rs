@@ -213,6 +213,24 @@ fn sibling_scope(shape: &Shape, entries: &[Entry], key: &Key) -> Scope {
         .fold(Scope::NONE, |scope, (_, added)| scope.with(*added))
 }
 
+/// Whether `node` fits `ty` all the way down, so the shape check reports nothing in it: a later
+/// stage that finds it does not fit leaves the report to the shape check, not making a second.
+pub fn fits(ty: Ty, node: &Node) -> bool {
+    if !accepts(ty, node) {
+        return false;
+    }
+    match (ty, &node.value) {
+        (Ty::Obj(shape), Value::Map(entries)) => {
+            entries.iter().all(|entry| shape().find(&entry.key).is_some_and(|key| fits(key.ty, &entry.value)))
+        }
+        (Ty::List(item), Value::Seq(items)) => items.iter().all(|child| fits(*item, child)),
+        (Ty::MapOf(item), Value::Map(entries)) => entries.iter().all(|entry| fits(*item, &entry.value)),
+        (Ty::Either(alternatives), _) => alternatives.iter().any(|ty| fits(*ty, node)),
+        (Ty::Enum(words), _) => node.as_str().is_none_or(|text| words.contains(&text)),
+        _ => true,
+    }
+}
+
 /// Whether `node` has the kind `ty` takes; scalars are checked loosely where the next stage
 /// parses them (durations, sizes, statuses).
 fn accepts(ty: Ty, node: &Node) -> bool {
@@ -256,9 +274,25 @@ const fn found(node: &Node) -> &'static str {
     }
 }
 
+/// How a message names what `ty` takes: a map by its first keys, not by its shape's name.
+fn expected(ty: Ty) -> String {
+    match ty {
+        Ty::Obj(shape) => format!("a map of {}", first_keys(shape())),
+        Ty::List(Ty::Obj(shape)) => format!("a list of maps of {}", first_keys(shape())),
+        other => other.describe(),
+    }
+}
+
+/// `` `min`, `max` ``: a shape's first three keys, and `…` when it has more.
+fn first_keys(shape: &Shape) -> String {
+    let names: Vec<String> = shape.all_keys().take(3).map(|key| format!("`{}`", key.name)).collect();
+    let more = if shape.all_keys().nth(3).is_some() { ", …" } else { "" };
+    format!("{}{more}", names.join(", "))
+}
+
 fn mismatch(node: &Node, ty: Ty) -> Diagnostic {
-    let message = format!("expected {}, found {}", ty.describe(), found(node));
-    let diagnostic = Diagnostic::new(Code::V2302, node.span, message).label(format!("expected {}", ty.describe()));
+    let message = format!("expected {}, found {}", expected(ty), found(node));
+    let diagnostic = Diagnostic::new(Code::V2302, node.span, message).label(format!("expected {}", expected(ty)));
     match unquoted(node, ty) {
         Some(text) => {
             let help = format!("write `{text}` without quotes");

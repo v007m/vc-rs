@@ -157,6 +157,7 @@ cases!(
     v2002_unknown_fake,
     v2006_generator_module,
     v2302_fake_args,
+    v2302_generator_settings,
     v2309_from_reg_exp,
     v2310_header_name,
     datasets_clean,

@@ -1151,7 +1151,7 @@ generators:
       words: 500
 ```
 
-Then `${fake.teamName}`, `${fake.quantity}`. Each generator has exactly one kind: `fromRegExp` (a pattern, as `string.fromRegExp`), `oneOf` (a list, as `helpers.arrayElement`), `int` (`min` and `max`, either optional, as `number.int`) or `lorem` (`words`, as `lorem.words`). None is V1005; several, or settings of the wrong shape, are V2302. A named generator takes no arguments (`${fake.quantity(2)}` is V2302) and cannot reuse a Faker module name such as `person` (V2006).
+Then `${fake.teamName}`, `${fake.quantity}`. Each generator has exactly one kind: `fromRegExp` (a pattern, as `string.fromRegExp`), `oneOf` (a list, as `helpers.arrayElement`), `int` (`min` and `max`, either optional, as `number.int`) or `lorem` (`words`, as `lorem.words`). None is V1005; several, or settings of the wrong shape, are V2302, once per problem (an unknown settings key such as `lorem: {wordz: 3}` is V1004). A named generator takes no arguments (`${fake.quantity(2)}` is V2302) and cannot reuse a Faker module name such as `person` (V2006).
 
 ### Datasets
 
