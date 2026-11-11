@@ -1,0 +1,12 @@
+syntaxVersion: 2
+project: shop
+profiles:
+  - id: dev
+    default: true
+redact:
+  fields: [password]
+  rules:
+    - regex: "[unclosed"
+    - regex: 'tok-[0-9]+'
+    - regex: "(a"
+    - cel: item.name == 'ssn'

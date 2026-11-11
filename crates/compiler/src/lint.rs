@@ -13,6 +13,7 @@ mod load_ranges;
 mod lone_keys;
 mod names;
 mod placeholders;
+mod redact_rules;
 mod reuse_keys;
 mod shared_writes;
 mod skip_reasons;
@@ -70,6 +71,7 @@ impl LintRegistry {
             Box::new(lone_keys::LoneKeys),
             Box::new(load_ranges::LoadRanges),
             Box::new(header_names::HeaderNames),
+            Box::new(redact_rules::RedactRules),
         ];
         Self { lints }
     }

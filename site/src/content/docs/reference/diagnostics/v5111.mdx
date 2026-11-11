@@ -22,6 +22,11 @@ A template could not be rendered when the action ran: a path is missing from the
 value of the wrong type. The report shows the path and the value it was walking. Here the service answers
 `{"id": 7, "name": "Ada"}`, with no `data` wrapper.
 
+A request that cannot be built is a V5111 too. An api whose file has no `baseUrl` sends to its bare `path`, which is
+not a full URL: `` `users#list` sends to `/users`, which is not a full URL: no `baseUrl` is set for `users` (profile
+dev) ``. Add `baseUrl: ${var.usersUrl}` to the api file and set `usersUrl` in the config, a profile, or with
+`--set vars.usersUrl=http://localhost:8080`.
+
 ## Wrong
 
 ```yaml title="services/users/users.api.yaml"
