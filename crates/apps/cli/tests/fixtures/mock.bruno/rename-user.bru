@@ -1,0 +1,19 @@
+meta {
+  name: Rename user
+  type: http
+  seq: 3
+}
+
+patch {
+  url: {{baseUrl}}/users/:userId
+  body: json
+  auth: inherit
+}
+
+params:path {
+  userId: {{userId}}
+}
+
+body:json {
+  {"name": "Ann Lee"}
+}

@@ -18,6 +18,18 @@ pub trait SpecFetcher: Send + Sync {
     /// A [`FetchError`] when the document cannot be read or lies outside what may be read.
     async fn fetch(&self, location: &str) -> Result<Vec<u8>, FetchError>;
 
+    /// The files under the folder at the given location, as paths relative to it with `/`
+    /// separators and in path order, for an importer that reads a whole folder (a Bruno
+    /// collection); none when the location is a URL, a file, or not there. Hidden files
+    /// (`.env`) are never listed. A fetcher that reads no folders lists none.
+    ///
+    /// # Errors
+    ///
+    /// A [`FetchError`] when the folder cannot be read or lies outside what may be read.
+    async fn list(&self, _folder: &str) -> Result<Vec<String>, FetchError> {
+        Ok(Vec::new())
+    }
+
     /// The YAML or JSON document in `bytes`, read from `location`, as a JSON value.
     ///
     /// The engine reads YAML with `vc-parser`, so an importer, which may not depend on it,

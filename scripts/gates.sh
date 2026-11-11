@@ -27,6 +27,8 @@ js_licenses() {
 }
 
 # The base copy comes from `git archive`: buf's `.git#ref=` input cannot read a linked worktree.
+# It is taken at the merge base, as mutants.sh does, so a branch behind the base is not blamed for
+# proto changes it has not merged yet.
 proto_contract() {
   local base=${GATES_PROTO_BASE:-origin/master} against status=0
   if [[ ! -f proto/buf.yaml ]]; then
@@ -36,6 +38,10 @@ proto_contract() {
   buf lint proto || return 1
   if ! git rev-parse --verify --quiet "$base^{commit}" >/dev/null; then
     echo "base $base not found; fetch it or set GATES_PROTO_BASE" >&2
+    return 1
+  fi
+  if ! base=$(git merge-base "$base" HEAD); then
+    echo "no merge base with $base; fetch full history or set GATES_PROTO_BASE" >&2
     return 1
   fi
   if ! git cat-file -e "$base:proto/buf.yaml" 2>/dev/null; then

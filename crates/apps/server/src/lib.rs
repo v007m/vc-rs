@@ -2,8 +2,9 @@
 //!
 //! [`ConnectService`] serves one protobuf service's methods at `POST /api/<service>/<method>`:
 //! unary calls as `application/proto` and server streams as `application/connect+proto`
-//! envelopes, ending with an end-stream message. A failed call is a [`ConnectError`], sent as
-//! Connect error JSON. Bodies are binary protobuf only; the JSON codec waits on pbjson.
+//! envelopes, ending with an end-stream message, or the same in protobuf JSON
+//! (`application/json`, `application/connect+json`, D254); the answer is in the request's codec.
+//! A failed call is a [`ConnectError`], sent as Connect error JSON.
 //!
 //! [`ServerBuilder`] puts the services, the mounts (MCP over HTTP) and the web UI's [`Files`]
 //! behind one guard and listens on `127.0.0.1` only. Every request needs one of the process's
@@ -19,6 +20,7 @@
 mod authoring_rpcs;
 mod builder;
 mod code;
+mod codec;
 mod csp;
 #[cfg(feature = "ui")]
 mod embedded;

@@ -473,6 +473,10 @@ pub async fn vc_engine::Engine::config_explain(&self, &str, &vc_engine::ExplainR
 impl vc_engine::Engine
 pub async fn vc_engine::Engine::config_values(&self, &[alloc::string::String], &vc_engine::ExplainRequest) -> core::result::Result<vc_engine::ConfigValues, vc_engine::EngineError>
 impl vc_engine::Engine
+pub fn vc_engine::Engine::edit_file(&self, &vc_engine::SaveFile) -> core::result::Result<vc_engine::Changes, vc_engine::EngineError>
+pub fn vc_engine::Engine::read_file(&self, &str) -> core::result::Result<vc_engine::OpenedFile, vc_engine::EngineError>
+pub fn vc_engine::Engine::save_file(&self, &vc_engine::SaveFile) -> core::result::Result<vc_engine::SavedFile, vc_engine::EngineError>
+impl vc_engine::Engine
 pub fn vc_engine::Engine::explain(&self, &str, &vc_engine::ExplainRequest) -> core::result::Result<vc_engine::ExplainReport, vc_engine::EngineError>
 impl vc_engine::Engine
 pub fn vc_engine::Engine::fix(&self, &vc_engine::CheckRequest) -> core::result::Result<vc_engine::FixReport, vc_engine::EngineError>
@@ -520,9 +524,6 @@ pub fn vc_engine::Engine::root(&self) -> &std::path::Path
 impl vc_engine::Engine
 pub fn vc_engine::Engine::prune_history(&self, core::option::Option<u32>) -> core::result::Result<usize, vc_engine::EngineError>
 impl vc_engine::Engine
-pub fn vc_engine::Engine::read_file(&self, &str) -> core::result::Result<vc_engine::OpenedFile, vc_engine::EngineError>
-pub fn vc_engine::Engine::save_file(&self, &vc_engine::SaveFile) -> core::result::Result<vc_engine::SavedFile, vc_engine::EngineError>
-impl vc_engine::Engine
 pub fn vc_engine::Engine::rename(&self, &str, &str) -> core::result::Result<vc_engine::Changes, vc_engine::EngineError>
 impl vc_engine::Engine
 pub async fn vc_engine::Engine::run(&self, &vc_engine::RunRequest, vc_engine::Interrupts) -> core::result::Result<vc_engine::RunReport, vc_engine::EngineError>
@@ -563,6 +564,7 @@ pub fn vc_engine::EngineBuilder::hooks(self, alloc::rcs::arc::Arc<dyn vc_interfa
 pub fn vc_engine::EngineBuilder::keychain(self, alloc::rcs::arc::Arc<dyn vc_interfaces::keychain::Keychain>) -> Self
 pub const fn vc_engine::EngineBuilder::new(std::path::PathBuf) -> Self
 pub fn vc_engine::EngineBuilder::notifiers(self, alloc::rcs::arc::Arc<dyn vc_interfaces::notifier::NotifierFactory>) -> Self
+pub fn vc_engine::EngineBuilder::plugin_launcher(self, std::path::PathBuf) -> Self
 pub const fn vc_engine::EngineBuilder::plugin_stderr(self, vc_interfaces::plugin::PluginStderr) -> Self
 pub fn vc_engine::EngineBuilder::plugins(self, alloc::rcs::arc::Arc<dyn vc_interfaces::plugin_store::PluginStore>) -> Self
 pub fn vc_engine::EngineBuilder::sources(self, alloc::rcs::arc::Arc<dyn vc_interfaces::source::SourceProvider>) -> Self
@@ -1163,4 +1165,5 @@ pub fn vc_engine::action_call(&vc_model::names::Names, vc_model::ids::ActionId) 
 pub fn vc_engine::auth_fields(&str) -> &'static [&'static str]
 pub fn vc_engine::instance_label(&vc_interfaces::history::TestRow) -> alloc::string::String
 pub fn vc_engine::interrupts() -> (vc_engine::Interrupter, vc_engine::Interrupts)
+pub fn vc_engine::launch_plugin(impl core::iter::traits::iterator::Iterator<Item = std::ffi::os_str::OsString>) -> core::option::Option<alloc::string::String>
 pub fn vc_engine::started(u64) -> alloc::string::String

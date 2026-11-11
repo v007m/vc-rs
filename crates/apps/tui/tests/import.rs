@@ -190,3 +190,22 @@ async fn pgdn_and_pgup_scroll_the_diff_shown() {
     press(&mut tui, &[KeyCode::PageUp]);
     assert_eq!(screen(&tui, SIZE), top, "pgup scrolls it back");
 }
+
+#[tokio::test]
+async fn the_draft_pane_keeps_the_file_shown_in_view_past_the_rows_it_lists() {
+    let mut tui = filled();
+    let Some(Ask::Import(request)) = press(&mut tui, &[KeyCode::Char('d')]) else { panic!("d drafts") };
+    let Update::Drafted(mut draft) = drafted(&request).await.unwrap() else { panic!("a draft") };
+    let Some(first) = draft.files.first().cloned() else { panic!("a file drafted") };
+    let renamed = |at: usize| {
+        let mut file = first.clone();
+        file.path = format!("services/f{at}.api.yaml");
+        file
+    };
+    draft.files = (0..9).map(renamed).collect();
+    tui.update(&Update::Drafted(draft));
+    assert!(!screen(&tui, SIZE).contains("f8.api.yaml"), "nine files, more than the pane lists");
+    press(&mut tui, &[KeyCode::Char('n'); 8]);
+    let shown = screen(&tui, SIZE);
+    assert!(shown.lines().any(|line| line.contains("▸ ") && line.contains("f8.api.yaml")), "{shown}");
+}

@@ -3,12 +3,14 @@
 //! cannot use is named with the reason, and fails only the work that needs it.
 
 use std::collections::BTreeMap;
+use std::ffi::OsString;
 use std::path::Path;
 use std::sync::Arc;
 
 use serde_json::Value;
 use tokio::sync::broadcast;
 use vc_adapter_plugins::StdioPluginHost;
+use vc_adapter_system::SystemEnvironment;
 use vc_interfaces::{PLUGINS_DIR, PluginHost, PluginKind, PluginStderr, Secrets};
 use vc_model::{CelProgram, Program, Reference, TemplateValue};
 use vc_template::{Chance, PipeRegistry, RenderError, Renderer, Resolve};
@@ -30,9 +32,13 @@ const PLUGIN_DATA: &str = ".vibranium/plugin-data";
 /// the project root is made as the plugin starts, and refused when it is a link.
 const PLUGIN_LOGS: &str = ".vibranium/plugin-logs";
 
-/// The most lines the run's plugins can say as they start before the run hears them: one each
+/// The most lines the run's plugins can say as they start before the run hears them: two each
 /// at most.
 const HEARD: usize = 64;
+
+/// The process environment variable that lets plugins run unconfined where they cannot be
+/// confined, when `1` or `true` (D260). It is never read from `.env`, which the project writes.
+pub const ALLOW_UNCONFINED_ENV: &str = "VIB_PLUGINS_ALLOW_UNCONFINED";
 
 /// Why a plugin's `config` cannot read a template value.
 const LITERAL_ONLY: &str = "a plugin's `config` takes literal values; the plugin reads a secret with `secrets/get`";
@@ -83,7 +89,8 @@ impl Hosts {
     }
 
     /// What the plugins say from now on as they start: a line for each whose stderr is dropped
-    /// as its log cannot be made, and why. A plugin never started says nothing.
+    /// as its log cannot be made, and for each that runs unconfined (D260), and why. A plugin
+    /// never started says nothing.
     pub fn heard(&self) -> broadcast::Receiver<String> {
         self.told.subscribe()
     }
@@ -100,6 +107,7 @@ impl Engine {
             return hosts;
         }
         let locked = self.locked().map(|(_, locked)| locked).map_err(|error| error.to_string());
+        let unconfined = self.unconfined_allowed();
         for plugin in &program.config.plugins {
             let id = program.str(plugin.id).unwrap_or_default().to_owned();
             let host = locked
@@ -109,13 +117,24 @@ impl Engine {
                 .and_then(|(host, approved)| Ok((host.config(literal(plugin.config.as_ref())?), approved)));
             match host {
                 Ok((host, approved)) => {
-                    let host = intact(host.secrets(secrets).told(hosts.told.clone()), approved, &self.plugins);
+                    let host = host.secrets(secrets).told(hosts.told.clone()).allow_unconfined(unconfined);
+                    let host = intact(host, approved, &self.plugins);
                     drop(hosts.ready.insert(id, host));
                 }
                 Err(reason) => drop(hosts.unusable.insert(id, reason)),
             }
         }
         hosts
+    }
+
+    /// Whether the user lets plugins run unconfined where they cannot be confined (D260):
+    /// [`ALLOW_UNCONFINED_ENV`] in the process environment, or `plugins.allowUnconfined: true` in
+    /// the user config. Never the project's config, a profile or `.env`, so a cloned project
+    /// cannot switch confinement off; a user config that cannot be read allows nothing.
+    pub(crate) fn unconfined_allowed(&self) -> bool {
+        let process = self.environment.clone().unwrap_or_else(|| Arc::new(SystemEnvironment::capture()));
+        let set = process.var(ALLOW_UNCONFINED_ENV).is_some_and(|value| value == "1" || value == "true");
+        set || self.user_layer(process.as_ref()).is_ok_and(|user| user.allows_unconfined_plugins())
     }
 
     /// The host of the installed plugin `id`, allowed what `lock` grants and keeping its own
@@ -129,11 +148,20 @@ impl Engine {
         };
         let dir = self.root().join(PLUGINS_DIR).join(id);
         let host = StdioPluginHost::new(manifest, dir, lock.permissions.clone())
-            .data(self.root(), Path::new(PLUGIN_DATA).join(id));
-        let logged = self.plugin_stderr == PluginStderr::Log;
+            .data(self.root(), Path::new(PLUGIN_DATA).join(id))
+            .confined(self.root(), Arc::clone(&self.confiner));
+        let logged = self.plugin_processes.stderr == PluginStderr::Log;
         let host = if logged { host.stderr_log(self.root(), Path::new(PLUGIN_LOGS).join(id)) } else { host };
         Ok((host, lock.integrity.clone()))
     }
+}
+
+/// Runs `vc` as the plugin launcher when `args` (this process's, the program first) ask it to.
+///
+/// It confines this process to the plugin's permissions and becomes the plugin, returning only
+/// why it could not; `None` when they do not, and the program goes on as usual (D254).
+pub fn launch_plugin(args: impl Iterator<Item = OsString>) -> Option<String> {
+    vc_adapter_plugins::launch(args)
 }
 
 /// A plugin's `config`, which holds literal values only, so it never carries a secret the lock

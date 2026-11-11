@@ -134,6 +134,10 @@ enum SchemaCommand {
 }
 
 fn main() -> ExitCode {
+    if let Some(failure) = vc_engine::launch_plugin(std::env::args_os()) {
+        eprintln!("error: {failure}");
+        return ExitCode::from(70);
+    }
     let cli = Cli::parse();
     let result = panic::catch_unwind(AssertUnwindSafe(|| run(cli)));
     outcome::finish(result.unwrap_or_else(|_| Err(anyhow::anyhow!("vc stopped unexpectedly"))))

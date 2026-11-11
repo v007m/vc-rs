@@ -61,3 +61,23 @@ fn text_that_is_neither_yaml_nor_json_is_undecodable() {
         );
     }
 }
+
+#[tokio::test]
+async fn a_folder_lists_its_files_but_no_hidden_or_ignored_one() -> Result<(), FetchError> {
+    let files: [(&str, &[u8]); 7] = [
+        ("bruno/shop/bruno.json", b"{}"),
+        ("bruno/shop/Carts/create-cart.bru", b"meta {\n}\n"),
+        ("bruno/shop/.env", b"API_TOKEN=x"),
+        ("bruno/shop/node_modules/a/index.js", b""),
+        ("bruno/shop-two/bruno.json", b"{}"),
+        ("bruno/shop/users.api.yaml", b"apis: []\n"),
+        ("specs/users.yaml", b"openapi: 3.1.0\n"),
+    ];
+    let fetcher = ProjectFetcher { sources: Arc::new(MemorySources::new(&files)), transport: None };
+    let listed = fetcher.list("bruno/shop").await?;
+    assert_eq!(listed, ["Carts/create-cart.bru", "bruno.json", "users.api.yaml"]);
+    for nothing in ["specs/users.yaml", "bruno/gone", "bruno/shop/.env", "https://specs.test/shop"] {
+        assert_eq!(fetcher.list(nothing).await?, Vec::<String>::new(), "{nothing}");
+    }
+    Ok(())
+}

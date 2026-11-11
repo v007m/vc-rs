@@ -80,7 +80,7 @@ Each item has a default the plan assumes. Ask before relying on it past the mile
 The open questions in the LLD are listed in its last section:
 - the Varlock CLI contract (M3);
 - other `cel` 0.15 gaps (M4; `timestamp()` and `duration()` are now our own functions, D153);
-- Windows plugin enforcement (M8);
+- Windows plugin enforcement (M8; Linux and macOS enforce since D254);
 - the `@vibranium` npm scope.
 
 ## How Sarath likes to work

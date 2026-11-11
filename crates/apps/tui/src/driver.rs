@@ -13,6 +13,7 @@ use vc_engine::{
     LoadRequest, LoadWatch, RunFeed, RunRequest, RunWatch, interrupts,
 };
 
+use crate::driver_edit::{drafted_edit, opened, saved};
 use crate::screen::{Ask, Flight, Update};
 
 /// Feed items the run may get ahead of the UI by before it drops some (counted as missed).
@@ -114,6 +115,9 @@ impl Driver {
                 self.read(Update::ImportFailed, move |engine| vec![draft(engine, &base, *request)]);
             }
             Ask::Write(changes) => self.read(Update::ImportFailed, move |engine| vec![written(engine, &changes)]),
+            Ask::Open(path) => self.read(Update::EditFailed, move |engine| vec![opened(engine, path)]),
+            Ask::Edit(request) => self.read(Update::EditFailed, move |engine| vec![drafted_edit(engine, &request)]),
+            Ask::Save(changes) => self.read(Update::EditFailed, move |engine| saved(engine, &changes)),
         }
     }
 
@@ -293,7 +297,7 @@ fn compare(engine: &Engine, before: u64, after: u64) -> Update {
 }
 
 /// The project's apis, then its tests, from one read of it.
-fn explore(engine: &Engine) -> Update {
+pub fn explore(engine: &Engine) -> Update {
     match engine.catalog() {
         Ok(report) => Update::Explored { items: report.items, notices: report.notices },
         Err(error) => Update::ExploreFailed(error.to_string()),
@@ -335,7 +339,7 @@ fn written(engine: &Engine, changes: &Changes) -> Update {
 }
 
 /// `error`'s text, then its help on a line of its own, as the CLI prints them.
-fn told(error: &EngineError) -> String {
+pub fn told(error: &EngineError) -> String {
     error.help().map_or_else(|| error.to_string(), |help| format!("{error}\nhelp: {help}"))
 }
 

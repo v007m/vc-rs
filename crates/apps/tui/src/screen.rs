@@ -7,8 +7,8 @@ use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::Frame;
 use ratatui::layout::Rect;
 use vc_engine::{
-    Changes, Event, ImportRequest, Listed, LoadReport, LoadRequest, RunFeed, RunRequest, RunRow, SkipRequest, TestRow,
-    TestTrend,
+    Changes, Event, ImportRequest, Listed, LoadReport, LoadRequest, RunFeed, RunRequest, RunRow, SaveFile, SkipRequest,
+    TestRow, TestTrend,
 };
 
 /// Work a key asks for that needs the engine; [`crate::run`] carries it out and sends back
@@ -52,6 +52,13 @@ pub enum Ask {
     Import(Box<ImportRequest>),
     /// Write a drafted import: [`Update::Written`].
     Write(Changes),
+    /// Read the project file at this path for the editor: [`Update::Opened`].
+    Open(String),
+    /// Draft an edit of a file through the compile guard, writing nothing: [`Update::Edited`].
+    Edit(SaveFile),
+    /// Write a drafted edit, then read the project again: [`Update::Saved`], then
+    /// [`Update::Explored`].
+    Save(Changes),
 }
 
 /// The work in flight that [`Ask::Stop`] stops and quitting ends: a run or a load run, one at
@@ -146,6 +153,22 @@ pub enum Update {
     Written(Vec<String>),
     /// The import was refused, or could not be written; the error's text and its help.
     ImportFailed(String),
+    /// The file an [`Ask::Open`] named, as the editor opens it.
+    Opened {
+        /// Its path, as asked.
+        path: String,
+        /// Its whole text.
+        text: String,
+        /// Its digest, which the edit's draft gives back to show what it changed.
+        digest: String,
+    },
+    /// The change an edit makes, passed by the compile guard, not written.
+    Edited(Changes),
+    /// The drafted edit was written; the change's titles.
+    Saved(Vec<String>),
+    /// The file could not be opened, the edit was refused, or it could not be written; the
+    /// error's text and its help.
+    EditFailed(String),
 }
 
 /// Where a cursor key moves a list's cursor: down for `↓` or `j`, up for `↑` or `k`.

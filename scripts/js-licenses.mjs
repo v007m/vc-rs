@@ -6,8 +6,14 @@
 // Usage: js-licenses.mjs <deny.toml>
 import { readFileSync } from 'node:fs';
 
+// Drops each line's `# …` comment (a `#` outside a quoted string), so a quoted licence named in a
+// comment is not read as allowed.
+function withoutComments(toml) {
+  return toml.replace(/^((?:[^"#\n]|"[^"\n]*")*)#.*$/gm, '$1');
+}
+
 function allowList(denyToml) {
-  const section = denyToml.split(/^\[licenses\]\s*$/m)[1]?.split(/^\[/m)[0] ?? '';
+  const section = withoutComments(denyToml).split(/^\[licenses\]\s*$/m)[1]?.split(/^\[/m)[0] ?? '';
   const list = section.match(/^allow\s*=\s*\[([^\]]*)\]/m);
   if (!list) throw new Error('deny.toml has no `allow` list under [licenses]');
   return new Set([...list[1].matchAll(/"([^"]+)"/g)].map((m) => m[1]));
