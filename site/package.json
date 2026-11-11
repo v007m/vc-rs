@@ -7,7 +7,9 @@
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
-    "astro": "astro"
+    "astro": "astro",
+    "wasm": "bash scripts/build-wasm.sh",
+    "test:e2e": "playwright test"
   },
   "devDependencies": {
     "@astrojs/markdown-remark": "7.3.6",
@@ -21,6 +23,7 @@
     "@codemirror/state": "6.7.6",
     "@codemirror/view": "6.43.15",
     "@fontsource/jetbrains-mono": "5.3.0",
+    "@playwright/test": "1.65.0",
     "@lezer/common": "1.5.5",
     "@lezer/highlight": "1.2.5",
     "ajv": "8.20.0",

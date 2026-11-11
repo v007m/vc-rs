@@ -9,9 +9,13 @@
     code: string;
     height?: number;
     title?: string;
+    /** The text to start from when it differs from `code`, such as an earlier edit; Reset goes back to `code`. */
+    value?: string;
+    /** Called with the whole text after each edit. */
+    onchange?: (text: string) => void;
   }
 
-  let { kind, code, height = 320, title }: Props = $props();
+  let { kind, code, height = 320, title, value, onchange }: Props = $props();
 
   function dedent(src: string): string {
     const lines = src.replace(/^\s*\n/, '').replace(/\s+$/, '').split('\n');
@@ -21,6 +25,7 @@
   }
 
   const initial = dedent(code ?? '');
+  const start = value ?? initial;
   let host: HTMLDivElement;
   let view: EditorView | undefined;
   let api: typeof import('./playground/editor') | undefined;
@@ -39,7 +44,7 @@
       .then((mod) => {
         if (destroyed) return;
         api = mod;
-        view = mod.createEditor(host, { kind, doc: initial, onProblems: (p) => (problems = p) });
+        view = mod.createEditor(host, { kind, doc: start, onProblems: (p) => (problems = p), onChange: onchange });
         ready = true;
       })
       .catch(() => (failed = true));
@@ -54,7 +59,7 @@
   }
 
   async function copy() {
-    const text = view ? view.state.doc.toString() : initial;
+    const text = view ? view.state.doc.toString() : start;
     try {
       await navigator.clipboard.writeText(text);
       copied = true;
@@ -79,7 +84,7 @@
   </div>
   <div class="pg-editor" style:height="{height}px" bind:this={host}>
     {#if !ready}
-      <pre class="pg-fallback">{initial}</pre>
+      <pre class="pg-fallback">{start}</pre>
     {/if}
   </div>
   <div class="pg-status" role="status" aria-live="polite">

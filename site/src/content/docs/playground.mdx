@@ -1,13 +1,17 @@
 ---
 title: Playground
-description: Edit Vibranium test, api, config and load files in the browser and see schema errors, completions and key docs as you type.
+description: Edit a Vibranium project in the browser, then run it for real. The page runs `vc check` and `vc run` with the real engine against the demo service, with no install and no network.
 tableOfContents: false
 ---
 
 import PlaygroundFull from '~/components/PlaygroundFull.svelte';
 import { Aside } from '@astrojs/starlight/components';
 
-Pick a starter, then change it. The editor checks every keystroke against the same JSON Schemas that `vc schema export` writes, so you get:
+Pick a file, change it, then press **Run**. The page really runs the tests: it compiles all nine files with the same compiler, planner and executor as `vc`, built for WebAssembly, and sends each request to the demo service, which runs in the page too. Nothing goes over the network. The output is what `vc run` prints, failure excerpts and diagnostic codes included. **Check** prints what `vc check` prints.
+
+Your edits are kept when you switch files, so you can break a value in one file and run the whole project. Reset puts one file back.
+
+While you type, the editor also checks each file against the same JSON Schemas that `vc schema export` writes, so you get:
 
 - **Errors** under the editor, with line and column. Click one to jump to it.
 - **Completions** for keys and values. Press <kbd>Ctrl</kbd>+<kbd>Space</kbd>.
@@ -15,7 +19,11 @@ Pick a starter, then change it. The editor checks every keystroke against the sa
 
 <PlaygroundFull client:load />
 
-## Run the examples for real
+<Aside type="note" title="What the page can't run">
+The page has no processes, files or network, so a few things only work with `vc` on your machine. A `command:` action may only be `vc demo start`, `vc demo stop` or `echo`. Hooks (`function:` actions) and secrets are refused with a message, and requests to any host but `localhost:7421` fail with a message. Plugins, alerts, report files and the `cache:` action are left out, with a warning.
+</Aside>
+
+## Run the examples on your machine
 
 All nine files belong to one project, and it passes `vc check` and `vc run` as shown. To try it on your machine:
 
@@ -28,6 +36,6 @@ $ vc run
 
 Copy each example into the path shown above its editor, and replace the generated `vibranium.config.yaml` with the config example.
 
-<Aside type="note" title="What the browser can and can't check">
-The playground checks the shape of one file: keys, types and allowed values. `vc check` does more. It resolves references across files (`users#create`, `${var.userId}`), checks that IDs match file paths, parses durations and runs every convention rule. Always run `vc check` before you commit.
+<Aside type="note" title="The editor's checks and Check">
+The editor checks the shape of one file as you type: keys, types and allowed values. **Check** does what `vc check` does: it resolves references across files (`users#create`, `${var.userId}`), checks that IDs match file paths, parses durations and runs every convention rule.
 </Aside>
