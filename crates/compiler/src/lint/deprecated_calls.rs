@@ -25,13 +25,18 @@ impl Lint for DeprecatedCalls {
 }
 
 impl DeprecatedCalls {
+    /// V3203 at `call`; its help says the operation left the spec only for an api that syncs from
+    /// one (its file has a `source` or it has an `operationId`).
     fn deprecated(&self, cx: &LintCx<'_, '_>, source: &Source<'_>, call: &Node) -> Option<Diagnostic> {
-        let api = cx.api(source, call).filter(|api| link::flag(shapes::api(), api, "deprecated"))?;
+        let item = cx.project.apis.get(&source.resolve(link::text(call, "call")?))?;
+        let api = Some(item.node).filter(|api| link::flag(shapes::api(), api, "deprecated"))?;
         let at = call.entry("call")?.value.span;
         let marked = api.entry("deprecated").map_or(api.span, |entry| entry.key_span);
         let diagnostic = Diagnostic::new(self.code(), at, "this api is deprecated").label("deprecated api");
         let diagnostic = diagnostic.secondary(marked, "marked deprecated here");
-        Some(diagnostic.help("the operation left the spec; call the api that replaces it, or remove the call"))
+        let synced = cx.project.source(*item).root.get("source").is_some() || api.get("operationId").is_some();
+        let why = if synced { "the operation left the spec; " } else { "" };
+        Some(diagnostic.help(format!("{why}call the api that replaces it, or remove the call")))
     }
 }
 

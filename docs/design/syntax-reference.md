@@ -332,7 +332,7 @@ Each item in `apis`:
 | `cleanup` | `call` + `vars` | — | How to undo a successful call; registered automatically (see Cleanup on an api) |
 | `operationId` | text | — | Link to the OpenAPI operation, kept by sync |
 | `beforeRequest`, `afterResponse` | lists of functions | — | Run around this api's requests, after the file's |
-| `deprecated` | boolean | false | Set by sync when the operation leaves the spec; vc check warns where tests still call it |
+| `deprecated` | boolean | false | Set by sync when the operation leaves the spec, or by hand; vc check warns (V3203) where tests still call it, saying the operation left the spec only for an api with an `operationId` or in a file with a `source` |
 
 ### Request body
 
