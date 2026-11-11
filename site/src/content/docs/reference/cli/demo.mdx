@@ -50,7 +50,7 @@ $ vc demo stop
 stopped the demo on port 7421
 ```
 
-Here `vc run` runs the sample, whose `beforeAll` calls `vc demo start` and finds your demo, and whose `afterAll` calls `vc demo stop`, which leaves your demo running. Two projects running the sample at once share one demo the same way: it stops when the last of them is done.
+Here `vc run` runs the sample, whose `beforeAll` calls `vc demo start` and finds your demo, and whose `afterAll` calls `vc demo stop`, which leaves your demo running. Two projects running the sample at once share one demo the same way: it stops when the last of them is done. A run that crashed before its `stop` no longer counts once its process is gone.
 
 ```console
 $ vc demo start --detach

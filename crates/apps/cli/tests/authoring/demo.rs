@@ -132,3 +132,23 @@ fn in_the_foreground_it_says_where_it_listens_and_how_to_stop_it() {
     assert!(line.ends_with("); Ctrl-C stops it\n"), "{line}");
     assert!(ended.is_ok_and(|status| status.success()) && exited.is_ok(), "the printed pid is the demo's");
 }
+
+/// A join whose caller crashed before its `stop` (its pid is gone) no longer keeps the demo up.
+#[cfg(unix)]
+#[test]
+fn a_join_whose_caller_is_gone_does_not_keep_the_demo_running() {
+    let project = Project::empty();
+    let port = "7437";
+    let launched = exit_code(&project, &["demo", "start", "--port", port, "--detach"]);
+    let mut ended = std::process::Command::new("true").spawn().unwrap();
+    let gone = ended.id();
+    ended.wait().unwrap();
+    let users = std::env::temp_dir().join("vibranium-demo-7437.users");
+    std::fs::create_dir_all(&users).unwrap();
+    std::fs::write(users.join(format!("{gone}.0")), "").unwrap();
+    let stopped = printed(&project, &["demo", "stop", "--port", port]);
+    assert_eq!(launched, Some(0));
+    assert_eq!(stopped, "stopped the demo on port 7437\n");
+    assert!(wait_until(7437, false), "the stale join is dropped and the demo ends");
+    assert!(std::fs::read_dir(&users).unwrap().next().is_none(), "the stale join is pruned");
+}

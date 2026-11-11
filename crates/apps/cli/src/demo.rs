@@ -33,6 +33,9 @@ const POLL: Duration = Duration::from_millis(50);
 /// How long [`is_demo`] waits for the program on a port to reply.
 const PROBE: Duration = Duration::from_secs(2);
 
+/// How many joins one caller can hold on a demo at once.
+const JOINS: u32 = 64;
+
 /// `vc demo …`.
 #[derive(Args)]
 pub struct DemoArgs {
@@ -161,7 +164,8 @@ fn pidfile(port: u16) -> PathBuf {
     env::temp_dir().join(format!("vibranium-demo-{port}.pid"))
 }
 
-/// The folder with one file per `start` that joined the demo on `port`: each still uses it.
+/// The folder with one file per `start` that joined the demo on `port`, named `<pid>.<n>` for
+/// the process that called it: each still uses the demo while that process lives.
 fn users(port: u16) -> PathBuf {
     env::temp_dir().join(format!("vibranium-demo-{port}.users"))
 }
@@ -170,17 +174,62 @@ fn users(port: u16) -> PathBuf {
 /// ends the demo as before.
 fn join(port: u16) {
     let folder = users(port);
-    if fs::create_dir_all(&folder).is_ok() && own_folder(&folder) {
-        fs::File::create_new(folder.join(process::id().to_string())).ok();
+    if !fs::create_dir_all(&folder).is_ok_and(|()| own_folder(&folder)) {
+        return;
+    }
+    let caller = caller();
+    for n in 0..JOINS {
+        if fs::File::create_new(folder.join(format!("{caller}.{n}"))).is_ok() {
+            break;
+        }
     }
 }
 
-/// Takes one joined `start` off the demo on `port`; whether there was one, so it keeps running.
+/// Takes one joined `start` whose caller still runs off the demo on `port`, and drops those
+/// whose caller is gone (it crashed before its `stop`); whether one was taken, so the demo
+/// keeps running.
 fn left_to_another(port: u16) -> bool {
     let folder = users(port);
     let Some(entries) = own_folder(&folder).then(|| fs::read_dir(&folder).ok()).flatten() else { return false };
-    let mut joined = entries.flatten().filter(|entry| entry.file_name().to_string_lossy().parse::<u32>().is_ok());
-    joined.any(|entry| fs::remove_file(entry.path()).is_ok())
+    let mut taken = false;
+    for entry in entries.flatten() {
+        let Some(pid) = joined_by(&entry.file_name().to_string_lossy()) else { continue };
+        if !taken || !alive(pid) {
+            let removed = fs::remove_file(entry.path()).is_ok();
+            taken |= removed && alive(pid);
+        }
+    }
+    taken
+}
+
+/// The pid a joined file `<pid>.<n>` names.
+fn joined_by(name: &str) -> Option<u32> {
+    name.split_once('.').and_then(|(pid, _)| pid.parse().ok())
+}
+
+/// The process that called this `start`, which outlives it: the run whose `command:` it is (a
+/// one-command shell line runs it in the shell's place), or the user's shell.
+#[cfg(unix)]
+fn caller() -> u32 {
+    u32::try_from(rustix::process::Pid::as_raw(rustix::process::getppid())).unwrap_or_else(|_| process::id())
+}
+
+#[cfg(not(unix))]
+fn caller() -> u32 {
+    process::id()
+}
+
+/// Whether the process `pid` still runs; one of another user's counts.
+#[cfg(unix)]
+fn alive(pid: u32) -> bool {
+    let Some(pid) = i32::try_from(pid).ok().and_then(rustix::process::Pid::from_raw) else { return false };
+    matches!(rustix::process::test_kill_process(pid), Ok(()) | Err(rustix::io::Errno::PERM))
+}
+
+/// Elsewhere every join counts until its `stop`, or until a new demo starts on the port.
+#[cfg(not(unix))]
+const fn alive(_pid: u32) -> bool {
+    true
 }
 
 /// Whether `path` is a folder this user owns, not a link: the temp folder may be shared, and
