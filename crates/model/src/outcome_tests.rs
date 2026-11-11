@@ -27,13 +27,13 @@ fn totals_count_each_status_in_its_own_field() {
             totals.add(status);
         }
     }
-    assert_eq!(totals, Totals { passed: 1, failed: 2, blocked: 3, flaky: 4, skipped: 5, allowed: 6 });
+    assert_eq!(totals, Totals { passed: 1, failed: 2, blocked: 3, flaky: 4, skipped: 5, allowed_failures: 6 });
     assert_eq!((totals.total(), totals.failures()), (21, 5), "an allowed failure does not fail the run (D248)");
 }
 
 #[test]
 fn merged_totals_add_field_by_field() {
-    let mut totals = Totals { passed: 1, failed: 2, blocked: 3, flaky: 4, skipped: 5, allowed: 6 };
-    totals.merge(Totals { passed: 10, failed: 20, blocked: 30, flaky: 40, skipped: 50, allowed: 60 });
-    assert_eq!(totals, Totals { passed: 11, failed: 22, blocked: 33, flaky: 44, skipped: 55, allowed: 66 });
+    let mut totals = Totals { passed: 1, failed: 2, blocked: 3, flaky: 4, skipped: 5, allowed_failures: 6 };
+    totals.merge(Totals { passed: 10, failed: 20, blocked: 30, flaky: 40, skipped: 50, allowed_failures: 60 });
+    assert_eq!(totals, Totals { passed: 11, failed: 22, blocked: 33, flaky: 44, skipped: 55, allowed_failures: 66 });
 }

@@ -16,6 +16,7 @@ fn plan(before_run: &[(u32, &[u32])], files: usize, after_run: &[u32]) -> Arc<Pl
         files: vec![file(); files],
         after_run: after_run.iter().copied().map(sim::act).collect(),
         skipped: Vec::new(),
+        allowed_failures: std::collections::BTreeMap::new(),
     })
 }
 

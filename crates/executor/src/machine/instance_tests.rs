@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use vc_model::{Failure, Retry, TestStatus};
+use vc_model::{AllowFailure, Failure, Retry, TestStatus};
 
 use super::super::sim;
 use super::super::{ActionReport, PendingCleanup};
@@ -14,6 +14,7 @@ fn script(retry: Option<Retry>) -> Arc<InstanceScript> {
         body: sim::acts(&[10, 11, 12]),
         after: sim::acts(&[20, 21]),
         retry,
+        allow_failure: None,
     })
 }
 
@@ -115,6 +116,31 @@ fn retries_run_cleanups_between_attempts_and_stop_when_exhausted() {
     assert_eq!((waits, verdict.status, verdict.attempts), (2, TestStatus::Failed, 3));
     let wait = log.iter().position(|c| matches!(c, InstanceCommand::Wait(_)));
     assert!(log.iter().position(|c| matches!(c, InstanceCommand::RunCleanup(_))) < wait);
+}
+
+/// Runs `retry` and `fails` under `allowFailure`, with `reason` (D248).
+fn run_allowed(retry: Option<Retry>, fails: &[u32], reason: Option<&str>) -> Vec<InstanceCommand> {
+    let allow = AllowFailure { reason: reason.map(str::to_owned), until: None };
+    let script = Arc::new(InstanceScript { allow_failure: Some(allow), ..(*script(retry)).clone() });
+    sim::drive_instance(InstanceWorkflow::new(script), InstanceInput::Start, &mut failing(fails))
+}
+
+#[test]
+fn a_failure_under_allow_failure_is_allowed_after_its_retries_with_its_reason() {
+    let log = run_allowed(Some(retry(1)), &[11], Some("see 212"));
+    let verdict = sim::verdict(&log);
+    assert_eq!((verdict.status, verdict.attempts), (TestStatus::AllowedFailure, 2), "retried first");
+    assert_eq!(verdict.skip_reason.as_deref(), Some("see 212"));
+    assert_eq!(verdict.failure.and_then(|f| f.action).map(vc_model::ActionId::index), Some(11), "the failure is kept");
+    let plain = sim::verdict(&run_allowed(None, &[11], None));
+    assert_eq!((plain.status, plain.skip_reason), (TestStatus::AllowedFailure, None));
+}
+
+#[test]
+fn allow_failure_leaves_a_pass_and_a_block_as_they_are() {
+    assert_eq!(sim::verdict(&run_allowed(None, &[], Some("x"))).status, TestStatus::Passed);
+    let blocked = sim::verdict(&run_allowed(None, &[1], Some("x")));
+    assert_eq!((blocked.status, blocked.skip_reason), (TestStatus::Blocked, None), "a failed setup still blocks");
 }
 
 #[test]

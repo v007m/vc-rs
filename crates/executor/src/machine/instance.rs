@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use vc_model::{ActionId, ActionOutcome, Failure, Retry, TestStatus};
+use vc_model::{ActionId, ActionOutcome, AllowFailure, Failure, Retry, TestStatus};
 
 use super::{ActionReport, PendingCleanup};
 
@@ -20,6 +20,9 @@ pub struct InstanceScript {
     pub after: Vec<ActionId>,
     /// `retry`: re-run the whole instance after a failure (D126).
     pub retry: Option<Retry>,
+    /// The `allowFailure` that holds in this run: a failure finishes as an allowed failure, with
+    /// its reason (D248).
+    pub allow_failure: Option<AllowFailure>,
 }
 
 /// Where an [`InstanceWorkflow`] is; the index is the action in flight.
@@ -276,8 +279,13 @@ impl InstanceWorkflow {
     }
 
     fn finish(&mut self, status: TestStatus, failure: Option<Failure>, out: &mut Vec<InstanceCommand>) {
+        let allowed = self.script.allow_failure.as_ref().filter(|_| status == TestStatus::Failed);
+        let status = if allowed.is_some() { TestStatus::AllowedFailure } else { status };
         self.phase = InstancePhase::Done(status);
-        let skip_reason = (status == TestStatus::Skipped).then(|| CANCELLED.to_owned());
+        let skip_reason = match allowed {
+            Some(allowed) => allowed.reason.clone(),
+            None => (status == TestStatus::Skipped).then(|| CANCELLED.to_owned()),
+        };
         out.push(InstanceCommand::Finish(Verdict { status, attempts: self.attempt, failure, skip_reason }));
     }
 }

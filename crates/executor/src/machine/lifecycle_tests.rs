@@ -12,6 +12,7 @@ fn plan() -> (Plan, OwnerKey) {
         files: vec![file],
         after_run: sim::acts(&[5]),
         skipped: Vec::new(),
+        allowed_failures: std::collections::BTreeMap::new(),
     };
     (plan, owner)
 }

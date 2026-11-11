@@ -172,8 +172,8 @@ pub struct Totals {
     /// Skipped.
     pub skipped: usize,
     /// Failed under `allowFailure`: they do not fail the run (D248).
-    #[serde(default)]
-    pub allowed: usize,
+    #[serde(default, rename = "allowedFailures")]
+    pub allowed_failures: usize,
 }
 
 impl Totals {
@@ -185,7 +185,7 @@ impl Totals {
             TestStatus::Blocked => self.blocked += 1,
             TestStatus::Flaky => self.flaky += 1,
             TestStatus::Skipped => self.skipped += 1,
-            TestStatus::AllowedFailure => self.allowed += 1,
+            TestStatus::AllowedFailure => self.allowed_failures += 1,
         }
     }
 
@@ -196,13 +196,13 @@ impl Totals {
         self.blocked += other.blocked;
         self.flaky += other.flaky;
         self.skipped += other.skipped;
-        self.allowed += other.allowed;
+        self.allowed_failures += other.allowed_failures;
     }
 
     /// Every instance and skipped test counted.
     #[must_use]
     pub const fn total(&self) -> usize {
-        self.passed + self.failed + self.blocked + self.flaky + self.skipped + self.allowed
+        self.passed + self.failed + self.blocked + self.flaky + self.skipped + self.allowed_failures
     }
 
     /// Failed plus blocked: what makes a run fail.
