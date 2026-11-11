@@ -429,7 +429,7 @@ $ vc load people.browse
     5s  3 users  691 rps  p50 2 ms  p95 10 ms  p99 23 ms  0 errors
     5s  0 users  691 rps  p50 2 ms  p95 10 ms  p99 23 ms  0 errors
 people.browse finished after 5 s · 3465 iterations · 693.0 rps · 0 errors
-latency p50 2.6 ms · p95 10.9 ms · p99 23.8 ms · max 55.5 ms
+latency p50 2.6 ms · p90 7.6 ms · p95 10.9 ms · p99 23.8 ms · max 55.5 ms
 ```
 
 To see a breach, the same scenario with `p95: { lt: 1ms }` exits 3:
@@ -443,14 +443,14 @@ $ vc load people.browse
     5s  3 users  562 rps  p50 2 ms  p95 14 ms  p99 31 ms  0 errors  breaching: p95
     5s  0 users  562 rps  p50 2 ms  p95 14 ms  p99 31 ms  0 errors
 people.browse finished after 5 s · 2825 iterations · 565.0 rps · 0 errors
-latency p50 2.8 ms · p95 15.0 ms · p99 31.9 ms · max 121.2 ms
-breached p95 at 14.967
+latency p50 2.8 ms · p90 10.1 ms · p95 15.0 ms · p99 31.9 ms · max 121.2 ms
+breached p95 at 14.967 ms (lt 1 ms)
 ```
 
 An agent reads the result with `vc load people.browse --json`, which prints one object and no live lines. `exit` and `breaches` say what happened (full shape in [JSON output](/vc-rs/agents/json-and-events/#vc-load---json)):
 
 ```json
-{ "exit": 3, "ending": "finished", "breaches": [ { "actual": 17.663, "metric": "p95", "test": null } ], "errors": 0, "p95Ms": 17.663 }
+{ "exit": 3, "ending": "finished", "breaches": [ { "actual": 17.663, "limit": { "lt": 1.0 }, "metric": "p95", "test": null, "unit": "ms" } ], "errors": 0, "p95Ms": 17.663 }
 ```
 
 ## 6. Run only what changed in a PR

@@ -9,6 +9,10 @@ use crate::{Interval, LoadError, Tally};
 /// How many seconds the rolling thresholds look back.
 pub const WINDOW_SECONDS: u64 = 10;
 
+/// How many seconds the live view's rate looks back: fewer than the window, so the rate
+/// follows the users as a stage ramps them.
+pub const RATE_SECONDS: u64 = 3;
+
 /// Iterations over a span of seconds: every mix test's together and each test's own.
 #[derive(Clone, Debug)]
 pub struct Totals {
@@ -100,5 +104,16 @@ impl Window {
         }
         totals.cover(self.end.min(WINDOW_SECONDS));
         Ok(totals)
+    }
+
+    /// Whole iterations per second over the last [`RATE_SECONDS`], or the seconds since the
+    /// start if fewer, rounded.
+    #[must_use]
+    pub fn rps(&self) -> u64 {
+        let start = self.end.saturating_sub(RATE_SECONDS);
+        let recent = self.rows.iter().filter(|row| row.second >= start);
+        let count = recent.fold(0_u64, |count, row| count.saturating_add(row.tally.count()));
+        let span = self.end.min(RATE_SECONDS).max(1);
+        count.saturating_add(span / 2) / span
     }
 }

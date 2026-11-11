@@ -104,14 +104,15 @@ pub enum Event {
         /// Every instance by status.
         totals: Totals,
     },
-    /// One second of a load run closed: what the live view shows. Its numbers are over the
-    /// rolling window (the last 10 s), the users over the run so far.
+    /// One second of a load run closed: what the live view shows. Its rate is over the last
+    /// 3 s, its other numbers over the rolling window (the last 10 s), the users over the run
+    /// so far.
     LoadTick {
         /// The second of the run that closed, from 1.
         second: u64,
         /// The virtual users running.
         users: u32,
-        /// Iterations per second, rounded.
+        /// Iterations per second over the last 3 s, rounded.
         rps: u64,
         /// The median iteration latency.
         p50: Duration,

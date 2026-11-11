@@ -36,7 +36,7 @@ Each metric takes a [matcher](/vc-rs/reference/matchers/) such as `lt`, `lte`, `
 
 ```console
 sample.smoke finished after 10 s · 198 iterations · 19.8 rps · 0 errors
-latency p50 3.4 ms · p95 7.1 ms · p99 8.9 ms · max 9.8 ms
+latency p50 3.4 ms · p90 5.6 ms · p95 7.1 ms · p99 8.9 ms · max 9.8 ms
 ```
 
 ### A deliberate breach: exit code 3
@@ -72,9 +72,9 @@ $ vc load sample.strict; echo "exit $?"
     5s  2 users  462 rps  p50 2 ms  p95 8 ms  p99 15 ms  0 errors  breaching: p99, sample.basics#getsCreatedUser: p95
     5s  0 users  462 rps  p50 2 ms  p95 8 ms  p99 15 ms  0 errors
 sample.strict finished after 5 s · 2315 iterations · 463.0 rps · 0 errors
-latency p50 2.7 ms · p95 8.2 ms · p99 15.6 ms · max 35.7 ms
-breached p99 at 15.615
-breached sample.basics#getsCreatedUser: p95 at 11.215
+latency p50 2.7 ms · p90 6.0 ms · p95 8.2 ms · p99 15.6 ms · max 35.7 ms
+breached p99 at 15.615 ms (lt 1 ms)
+breached sample.basics#getsCreatedUser: p95 at 11.215 ms (lt 2 ms)
 exit 3
 ```
 
@@ -83,11 +83,11 @@ exit 3
 ### An error-rate breach
 
 ```console
-breached errorRate at 1.000
-errors sample#listUsers 200 × 10
+breached errorRate at 100% (lt 1%)
+errors sample#listUsers 200 V5101 × 10
 ```
 
-The value after `at` is in milliseconds for latency metrics and a share from 0 to 1 for `errorRate`: `1.000` means every iteration failed.
+The value after `at` is in the metric's unit, with the threshold's limit in brackets: milliseconds for latency metrics, a percentage for `errorRate` (`100%` means every iteration failed) and iterations per second for `rps`.
 
 ## Try it
 
@@ -114,8 +114,8 @@ thresholds:
 
 - **Live:** each second, the live line's `breaching:` list shows the thresholds breached on the last 10 seconds.
 - **Final:** the verdict and the exit code use the whole run. Only the final breaches are printed as `breached …`.
-- A mix entry's breach names its test: `breached sample.basics#getsCreatedUser: p95 at 11.215`.
-- In `vc load --json`, breaches are listed as `{"metric": "errorRate", "actual": 1.0, "test": null}`.
+- A mix entry's breach names its test: `breached sample.basics#getsCreatedUser: p95 at 11.215 ms (lt 2 ms)`.
+- In `vc load --json`, breaches are listed as `{"metric": "errorRate", "test": null, "actual": 1.0, "unit": "share", "limit": {"lt": 0.01}}`: `unit` is `ms`, `share` (0 to 1) or `perSecond`, and `limit` is the matcher's arguments in that unit.
 
 ## Common errors
 

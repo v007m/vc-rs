@@ -18,8 +18,9 @@ use vc_template::RenderError;
 use crate::history::Recording;
 use crate::{ErrorKind, Interrupts};
 
-/// The api and status of the call that failed an iteration.
-type Kind = (Option<ApiId>, Option<u16>);
+/// What failed an iteration: the api its failing action calls (else the test), that action's
+/// last status and the failure's code.
+type Kind = (Option<ApiId>, Option<TestId>, Option<u16>, Option<String>);
 
 /// Closed seconds the stage loop may queue before it waits for the history.
 const SECONDS_QUEUE: usize = 16;
@@ -50,9 +51,10 @@ impl Live {
         let mut kinds: Vec<ErrorKind> = self
             .kinds
             .iter()
-            .map(|(&(api, status), &count)| {
+            .map(|((api, test, status, code), &count)| {
                 let api = api.and_then(|api| program.str(api.sym())).map(str::to_owned);
-                ErrorKind { api, status, count }
+                let test = test.and_then(|test| program.str(test.sym())).map(str::to_owned);
+                ErrorKind { api, test, status: *status, code: code.clone(), count }
             })
             .collect();
         kinds.sort_by_key(|kind| std::cmp::Reverse(kind.count));
@@ -100,15 +102,15 @@ impl Live {
     }
 }
 
-/// The live view's line for `second`: its numbers over the rolling window.
+/// The live view's line for `second`: its rate over the last few seconds, the rest over the
+/// rolling window.
 fn tick(program: &Program, second: &Second) -> Event {
     let all = second.window.all();
     let latencies = all.latencies();
-    let span = second.window.seconds().max(1);
     Event::LoadTick {
         second: second.at,
         users: second.users,
-        rps: all.count().saturating_add(span / 2) / span,
+        rps: second.rps,
         p50: millis(latencies.quantile_ms(0.5)),
         p95: millis(latencies.quantile_ms(0.95)),
         p99: millis(latencies.quantile_ms(0.99)),
@@ -138,16 +140,18 @@ impl Iterations for Counted {
     async fn iterate(&self, test: TestId, user: u32) -> IterationReport {
         let report = self.inner.iterate(test, user).await;
         if !report.passed {
-            let _gone = self.errors.send(kind(&report));
+            let _gone = self.errors.send(kind(test, &report));
         }
         report
     }
 }
 
-/// The first call with no response or an error status; else the last call.
-fn kind(report: &IterationReport) -> Kind {
-    let failed = report.calls.iter().find(|call| call.status.is_none_or(|status| status >= 400));
-    failed.or_else(|| report.calls.last()).map_or((None, None), |call| (call.api, call.status))
+/// The kind of `test`'s failed iteration: by the action that failed it, not by the calls
+/// before or after (a `before` call, a cleanup); by the test when that action calls no api.
+fn kind(test: TestId, report: &IterationReport) -> Kind {
+    let Some(failure) = &report.failure else { return (None, Some(test), None, None) };
+    let test = failure.api.is_none().then_some(test);
+    (failure.api, test, failure.status, failure.code.clone())
 }
 
 /// Renders a threshold's literal value; a load run has no call for a reference to read.

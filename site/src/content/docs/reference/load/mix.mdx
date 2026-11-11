@@ -45,7 +45,7 @@ mix:
 $ vc load sample.smoke
 ...
 sample.smoke finished after 10 s · 198 iterations · 19.8 rps · 0 errors
-latency p50 3.4 ms · p95 7.1 ms · p99 8.9 ms · max 9.8 ms
+latency p50 3.4 ms · p90 5.6 ms · p95 7.1 ms · p99 8.9 ms · max 9.8 ms
 ```
 
 ### A threshold on one test
@@ -66,7 +66,7 @@ mix:
 ```console
 $ vc load sample.strict
 ...
-breached sample.basics#getsCreatedUser: p95 at 11.215
+breached sample.basics#getsCreatedUser: p95 at 11.215 ms (lt 2 ms)
 ```
 
 ### A test that doesn't exist

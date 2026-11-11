@@ -14,6 +14,9 @@ use crate::reporting::{self, Chosen};
 use crate::settings::{Named, Settings};
 use crate::{Engine, EngineError, ReportFlags};
 
+/// The kind the history stores a load run as; its totals count iterations, not tests.
+const LOAD: &str = "load";
+
 /// Milliseconds in a day, for the start times.
 const DAY_MS: u64 = 86_400_000;
 /// What `vc report` writes when `--format` names nothing.
@@ -200,10 +203,14 @@ impl StoredRun {
 
 fn run_line(run: &RunRow) -> String {
     let totals = &run.totals;
-    let counts = format!(
-        "{} passed · {} failed · {} blocked · {} skipped",
-        totals.passed, totals.failed, totals.blocked, totals.skipped
-    );
+    let counts = if run.start.kind == LOAD {
+        format!("load · {} iterations · {} errors", totals.passed.saturating_add(totals.failed), totals.failed)
+    } else {
+        format!(
+            "{} passed · {} failed · {} blocked · {} skipped",
+            totals.passed, totals.failed, totals.blocked, totals.skipped
+        )
+    };
     let mut line = format!("{:>5}  {}  {:<9}  {counts}", run.id.get(), started(run.start.started_ms), status(run));
     if !run.start.profiles.is_empty() {
         let _ = write!(line, "  profile {}", run.start.profiles.join(","));

@@ -3,13 +3,13 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use tokio::time::Instant;
-use vc_model::{ActionId, Event, OwnerKey, TestResult, TestStatus};
+use vc_model::{ActionId, ApiId, Event, Failure, OwnerKey, TestResult, TestStatus};
 
 use super::crew::{Crew, Deadline, Job};
 use crate::cancel::{CancelTree, Ran};
 use crate::{
     ActionReport, Frame, InstanceCommand, InstanceInput, InstanceScript, InstanceWorkflow, IterationCall,
-    IterationReport, Launch, RunInput, Verdict, called,
+    IterationFailure, IterationReport, Launch, RunInput, Verdict, called,
 };
 
 /// One instance to run: what the file launched, the shared values it reads and its frame.
@@ -36,7 +36,7 @@ pub async fn iteration(crew: Crew, ticket: Ticket) -> IterationReport {
     let mut shell = InstanceShell::new(crew, ticket);
     let verdict = shell.drive().await;
     let passed = verdict.as_ref().is_some_and(|verdict| verdict.status == TestStatus::Passed);
-    let failure = verdict.and_then(|verdict| verdict.failure).map(|failure| failure.message);
+    let failure = verdict.and_then(|verdict| verdict.failure).map(|failure| shell.blame(failure));
     IterationReport { passed, calls: shell.calls, failure }
 }
 
@@ -51,6 +51,8 @@ struct InstanceShell {
     deadline: Option<Deadline>,
     /// Each request its actions and cleanups sent, in order.
     calls: Vec<IterationCall>,
+    /// The action that sent each of `calls`.
+    senders: Vec<ActionId>,
     /// When the instance got its turn, which its result's duration runs from.
     started: Instant,
 }
@@ -59,8 +61,16 @@ impl InstanceShell {
     fn new(crew: Crew, ticket: Ticket) -> Self {
         let script = crew.scripts.get(&ticket.launch.instance.test).cloned().unwrap_or_default();
         let frame = Frame { instance: Some(Arc::new(ticket.launch.instance.clone())), ..ticket.frame.clone() };
-        let mut shell =
-            Self { crew, ticket, frame, script, deadline: None, calls: Vec::new(), started: Instant::now() };
+        let mut shell = Self {
+            crew,
+            ticket,
+            frame,
+            script,
+            deadline: None,
+            calls: Vec::new(),
+            senders: Vec::new(),
+            started: Instant::now(),
+        };
         shell.start_attempt();
         shell
     }
@@ -165,13 +175,27 @@ impl InstanceShell {
 
     /// Notes each request `action` sent, with the api it called.
     fn record(&mut self, action: ActionId, report: &ActionReport) {
-        let api = self.crew.cx.action(action).and_then(|found| called(&self.crew.cx.program, found)).map(|api| api.id);
+        let api = self.api(action);
         let calls = report.exchanges.iter().map(|exchange| IterationCall {
             api,
             status: Some(exchange.response.status.as_u16()),
             elapsed: exchange.timing.total,
         });
         self.calls.extend(calls);
+        self.senders.resize(self.calls.len(), action);
+    }
+
+    /// The api `action` calls, if it calls one.
+    fn api(&self, action: ActionId) -> Option<ApiId> {
+        self.crew.cx.action(action).and_then(|found| called(&self.crew.cx.program, found)).map(|api| api.id)
+    }
+
+    /// `failure` with the api its action calls and that action's last response status.
+    fn blame(&self, failure: Failure) -> IterationFailure {
+        let Failure { action, code, message } = failure;
+        let sent = action.and_then(|action| self.senders.iter().rposition(|&sender| sender == action));
+        let status = sent.and_then(|at| self.calls.get(at)).and_then(|call| call.status);
+        IterationFailure { api: action.and_then(|action| self.api(action)), status, code, message }
     }
 
     /// Waits out the retry delay, unless the frame is cancelled or aborted first.

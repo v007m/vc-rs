@@ -47,6 +47,8 @@ pub struct Second {
     pub rows: Vec<Interval>,
     /// The rolling window's totals, over the last [`crate::WINDOW_SECONDS`].
     pub window: Totals,
+    /// Whole iterations per second over the last [`crate::RATE_SECONDS`], for the live view.
+    pub rps: u64,
     /// The thresholds failing in the rolling window.
     pub breaching: Vec<Breach>,
 }
@@ -189,7 +191,7 @@ impl<'s> Run<'s> {
         self.window.advance(at, rows.iter().cloned());
         let window = self.window.totals()?;
         let breaching = breaches(self.scenario, &window, judge)?;
-        Ok(Second { at, users: self.controller.users(), rows, window, breaching })
+        Ok(Second { at, users: self.controller.users(), rows, window, rps: self.window.rps(), breaching })
     }
 
     fn total(&mut self, rows: &[Interval]) -> Result<(), LoadError> {
@@ -247,7 +249,8 @@ impl<'s> Run<'s> {
         let rows = self.recorder.close(u64::MAX);
         self.total(&rows)?;
         let window = self.window.totals()?;
-        send(seconds, Some(Second { at: span, users: 0, rows, window, breaching: Vec::new() })).await;
+        let rps = self.window.rps();
+        send(seconds, Some(Second { at: span, users: 0, rows, window, rps, breaching: Vec::new() })).await;
         self.totals.cover(span);
         let breaches = breaches(self.scenario, &self.totals, &judge(matching))?;
         Ok(LoadOutcome { ending: self.ending, totals: self.totals, breaches })

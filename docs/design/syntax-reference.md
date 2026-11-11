@@ -957,9 +957,9 @@ The metrics count one sample per iteration of a mix test, timed from its schedul
 | `errorRate` | Failed iterations ÷ iterations; errorRate takes `1%` or a share such as `0.01` |
 | `rps` | Iterations per second |
 
-Each test's iterations and errors are stored per second, as one row per test per second.
+Each test's iterations and errors are stored per second, as one row per test per second. A failed iteration is counted under the call that failed it, with that call's status and the failure's code (`users#list 200 V5101`), not under a `before` call or cleanup around it. A breach is reported in its metric's unit, with its limit: `breached p99 at 45.471 ms (lt 30 ms)`, `breached errorRate at 2.5% (lt 1%)`.
 
-Lifecycle blocks work as in functional runs: `beforeRun` and the `beforeAll` of every file in the mix run once, before the first stage. `beforeEach` and `before` run in every iteration; their requests count toward the load but are reported apart from the mix. Cleanups registered during an iteration run at its end.
+Lifecycle blocks work as in functional runs: `beforeRun` and the `beforeAll` of every file in the mix run once, before the first stage, and `afterAll` and `afterRun` run once, after the last stage, followed by the cleanups their files and the run registered. If a `beforeRun` or `beforeAll` action fails, the load run does not start (exit 1). `beforeEach` and `before` run in every iteration; their requests count toward the load but are reported apart from the mix. Cleanups registered during an iteration run at its end. An `abortOn` breach still runs `afterAll` and `afterRun`; Ctrl-C skips them, and the cleanups still run unless a third Ctrl-C abandons them.
 
 ```yaml
 # load/checkout/peak.load.yaml

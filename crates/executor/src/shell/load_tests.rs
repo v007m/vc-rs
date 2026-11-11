@@ -1,6 +1,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
+use vc_diagnostics::Code;
 use vc_model::{Check, CheckKind, Matcher, Origin, StatusPattern, TestId};
 
 use super::{IterationSetup, ProgramIterations};
@@ -50,12 +51,31 @@ async fn before_all_runs_once_each_iteration_reports_its_calls_and_finish_cleans
 async fn a_failing_iteration_reports_its_failure_and_status() {
     let mut fixture = Fixture::new();
     let fail = fixture.call("/fail");
+    let api = fixture.api_mut(fail).id;
     let test = fixture.test(vec![fail], None);
     let (iterations, _sent) = prepare(fixture, (&[], &[test]), false).await;
     let report = iterations.unwrap().iterate(test, 1).await;
     assert!(!report.passed);
-    assert!(report.failure.is_some());
+    let failure = report.failure.clone().unwrap_or_default();
+    assert_eq!((failure.api, failure.status, failure.code), (Some(api), Some(500), Some(Code::V5101.to_string())));
     assert_eq!(statuses(&report), [Some(500)]);
+}
+
+#[tokio::test]
+async fn a_failed_check_on_the_second_call_blames_that_call_not_the_cleanup_after_it() {
+    let mut fixture = Fixture::new();
+    let cleanup = fixture.call("/cleanup");
+    let (seed, browse) = (fixture.creating("/seed", cleanup), fixture.call("/browse"));
+    let api = fixture.api_mut(browse).id;
+    let test = fixture.test(vec![seed, browse], None);
+    let matcher = Matcher::Status(vec![StatusPattern::Code(500)]);
+    let check = Check { kind: CheckKind::Status, target: None, matcher, origin: Origin::Test(test), span: span() };
+    fixture.action_mut(browse).expect.checks.push(check);
+    let (iterations, _sent) = prepare(fixture, (&[], &[test]), true).await;
+    let report = iterations.unwrap().iterate(test, 1).await;
+    assert_eq!(statuses(&report), [Some(200), Some(200), Some(200)], "the seed, the browse and its cleanup");
+    let failure = report.failure.clone().unwrap_or_default();
+    assert_eq!((failure.api, failure.status, failure.code), (Some(api), Some(200), Some(Code::V5101.to_string())));
 }
 
 #[tokio::test]
@@ -110,7 +130,12 @@ async fn a_test_outside_the_plan_fails_without_a_request() {
     let (test, unplanned) = (fixture.test(vec![browse], None), fixture.test(vec![other], None));
     let (iterations, sent) = prepare(fixture, (&[], &[test]), false).await;
     let report = iterations.unwrap().iterate(unplanned, 1).await;
-    assert!(!report.passed && report.calls.is_empty() && report.failure.is_some());
+    assert!(!report.passed && report.calls.is_empty());
+    let failure = report.failure.unwrap_or_default();
+    assert_eq!(
+        (failure.api, failure.status, failure.message.as_str()),
+        (None, None, "the test is not in the load plan")
+    );
     assert!(sent.counts().is_empty());
 }
 

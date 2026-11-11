@@ -324,7 +324,7 @@ Commands are grouped by the job they do. `vc help <command>` shows every flag wi
 | --- | --- |
 | `vc run [selector...]` | Runs tests (see Selecting what to run) |
 | `vc watch [selector...]` | Runs the selection, then re-runs the affected tests 200 ms after a definition file, `.env` or `.env.schema` is saved. Takes `vc run`'s flags; Ctrl-C ends it with exit 130 |
-| `vc load <scenarioId>` | Runs a load scenario: `beforeRun` and `beforeAll` once, a live line each second on stderr, then the summary (`--json` for the report as JSON). Exit 0 within thresholds, 1 blocked by a shared action, 2 unknown scenario, 3 a threshold breached, 130 cancelled |
+| `vc load <scenarioId>` | Runs a load scenario: `beforeRun` and `beforeAll` once, the stages with a live line each second on stderr (its rps over the last 3 s), `afterAll` and `afterRun` once, then the summary: latency p50/p90/p95/p99/max, each breach in its unit with its limit (`breached p99 at 45.471 ms (lt 30 ms)`) and each error kind by the api that failed, its status and code (`errors users#list 200 V5101 × 12`); `--json` for the report as JSON, each breach as `{metric, test, actual, unit, limit}` and each error kind as `{api, test, status, code, count}`. Exit 0 within thresholds, 1 blocked by a shared action, 2 unknown scenario, 3 a threshold breached, 130 cancelled |
 | `vc skip <testId\|fileId> --reason <text> [--until <date>]`, `vc unskip <id>` | Writes or removes a `skip` in the YAML (see Skipping) |
 
 **Keep in sync**
@@ -340,7 +340,7 @@ Commands are grouped by the job they do. `vc help <command>` shows every flag wi
 
 | Command | Does |
 | --- | --- |
-| `vc history [--limit N] [--json]` | Lists the stored runs, newest first: number, start (UTC), status, totals, profiles and selectors; `--json` also gives each run's `kind` (`run`, `adhoc`) |
+| `vc history [--limit N] [--json]` | Lists the stored runs, newest first: number, start (UTC), status, totals, profiles and selectors; `--json` also gives each run's `kind` (`run`, `load`, `adhoc`). A load run lists as `load · 40 iterations · 3 errors`, and its totals count iterations: `passed` those that passed, `failed` the errors |
 | `vc history show [run\|last] [--json]` | One stored run and the tests in it that did not pass, with why. `last` (here, in `vc report` and in `--failed`) is the newest run that is not an `adhoc` call; a call is shown by its number |
 | `vc history prune [--keep N]` | Drops the oldest runs beyond `N` (else the config's `history.keep`); a run also prunes when it ends |
 | `vc history [query]`, `vc history compare 481 482` | Failures, flaky tests and trends across runs (later) |
