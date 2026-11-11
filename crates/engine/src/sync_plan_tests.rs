@@ -173,3 +173,24 @@ fn a_dropped_query_parameter_and_a_new_content_type_follow_the_spec() {
         ["↑ users#listUsers content type none → application/xml", "↑ users#listUsers query page ${var.page} → none"]
     );
 }
+
+#[test]
+fn an_optional_query_param_the_spec_adds_or_drops_is_listed_and_not_sent() {
+    let list = |optional: &[&str]| DraftApi {
+        optional_query: optional.iter().map(|name| (*name).to_owned()).collect(),
+        ..draft("listUsers", Method::Get, "/users")
+    };
+    let mut file = list(&[]);
+    file.query.insert("limit".to_owned(), "25".to_owned());
+    let plan = Case::new(list(&["limit", "page"]), list(&["limit2", "page"]), &file).plan();
+    assert!(plan.steps.is_empty(), "{:?}", plan.steps);
+    assert_eq!(
+        plan.lines,
+        [
+            "~ users#listUsers optional query limit2 added to the spec: not sent, add `query.limit2` to send it",
+            "~ users#listUsers optional query limit dropped from the spec: the file still sends it",
+        ]
+    );
+    let unsent = Case::new(list(&["limit"]), list(&[]), &list(&[])).plan();
+    assert!(unsent.lines.is_empty(), "{:?}", unsent.lines);
+}

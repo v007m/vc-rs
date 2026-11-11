@@ -184,10 +184,17 @@ impl<'p> Syncing<'p> {
         let mut lines = vec![format!("fetched {} ({} operations)", read.location, read.theirs.apis.len())];
         lines.extend(plan.lines.iter().map(|line| format!("  {line}")));
         let drift = base.is_none_or(|base| base.doc != read.theirs.doc);
+        if drift && plan.lines.is_empty() {
+            lines.push(format!("  ~ {} {OUTSIDE}", read.file_id));
+        }
         let snapshot = (snapshot.before.as_deref() != Some(snapshot.after.as_str())).then_some(snapshot);
         Ok(Synced { api, snapshot, lines, drift, conflicts: plan.conflicted.len() })
     }
 }
+
+/// The line for drift that changes nothing sync takes into the file, so `--check` never fails
+/// without saying why.
+const OUTSIDE: &str = "the spec changed outside what sync takes into the file: only the snapshot is updated";
 
 const FETCH_HELP: &str = "check `source.openapi` in the api file: a URL, or a path inside the project";
 

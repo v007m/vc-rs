@@ -116,3 +116,17 @@ fn a_body_shows_its_example_and_names_a_content_type_that_is_not_json() -> Resul
     assert_eq!(messages, ["body field id shares a name with a parameter"]);
     Ok(())
 }
+
+#[test]
+fn a_query_param_with_no_value_to_send_is_listed_as_optional() -> Result<(), serde_json::Error> {
+    let params = json!([
+        { "name": "limit", "in": "query", "schema": { "type": "integer" } },
+        { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+    ]);
+    let paths = json!({ "/users": { "get": { "operationId": "listUsers", "parameters": params, "responses": {} } } });
+    let (drafted, _) = group(&spec(&paths, &json!([{ "url": "http://x.test" }])), "spec.yaml")?;
+    let api = drafted.apis.first().cloned().unwrap_or_default();
+    assert_eq!(api.optional_query, ["limit"]);
+    assert_eq!(api.query.keys().map(String::as_str).collect::<Vec<_>>(), ["page"]);
+    Ok(())
+}
