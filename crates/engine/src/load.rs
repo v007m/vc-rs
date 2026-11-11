@@ -127,7 +127,8 @@ impl Engine {
         };
         report.error_kinds = live.error_kinds(&session.prepared.program);
         report.notices.extend(live.problem.take());
-        let end = RunEnd { status, totals: Totals::default(), finished_ms: self.clock.now_ms(), snapshot: Vec::new() };
+        let (totals, finished_ms) = (iterations(&report), self.clock.now_ms());
+        let end = RunEnd { status, totals, finished_ms, snapshot: Vec::new() };
         if let Some(recording) = live.recording.take()
             && let Err(error) = recording.close(end, session.prepared.program.config.history.keep).await
         {
@@ -175,6 +176,13 @@ fn shared_failure(program: &Program, action: ActionId, message: &str) -> String 
     });
     let name = name.unwrap_or_else(|| format!("action {}", action.index()));
     format!("{}: the shared action `{name}` failed: {message}", Code::V5106)
+}
+
+/// A load run's totals for the history: its iterations, as passed and failed.
+fn iterations(report: &LoadReport) -> Totals {
+    let count = |iterations: u64| usize::try_from(iterations).unwrap_or(usize::MAX);
+    let passed = count(report.iterations.saturating_sub(report.errors));
+    Totals { passed, failed: count(report.errors), ..Totals::default() }
 }
 
 /// How an alert names `breached`: its metric, and the test whose threshold it is.

@@ -1,11 +1,12 @@
 use std::sync::Arc;
 use std::time::Duration;
 
+use serde_json::json;
 use tokio::sync::mpsc;
-use vc_interfaces::{HistoryError, HistoryWriter, Row, RunEnd, RunId, RunStart};
+use vc_interfaces::{HistoryError, HistoryWriter, Row, RunEnd, RunId, RunStart, Transport, TransportError};
 use vc_loadtest::Ending;
 use vc_model::{AlertTrigger, Event, Keep, RenderedRequest, RunStatus};
-use vc_testkit::{FakeNotifiers, FakeTransport, FakeVcs, MemoryHistory, MemorySources, status};
+use vc_testkit::{FakeNotifiers, FakeTransport, FakeVcs, Fault, FaultyTransport, MemoryHistory, MemorySources, status};
 
 use super::exit;
 use crate::sample::builder;
@@ -21,11 +22,21 @@ const BLOCKED: (&str, &[u8]) = (
 );
 const USERS: (&str, &[u8]) = (
     "services/users/users.api.yaml",
-    b"baseUrl: ${var.baseUrl}\napis:\n  - id: list\n    path: /users\n  - id: broken\n    path: /broken\n",
+    concat!(
+        "baseUrl: ${var.baseUrl}\napis:\n  - id: list\n    path: /users\n  - id: broken\n    path: /broken\n",
+        "  - id: get\n    path: /users/1\n  - id: down\n    path: /down\n",
+    )
+    .as_bytes(),
 );
 const CRUD: (&str, &[u8]) = (
     "services/users/crud.test.yaml",
-    b"tests:\n  - id: listsUsers\n    call: users#list\n  - id: breaksUsers\n    call: users#broken\n",
+    concat!(
+        "tests:\n  - id: listsUsers\n    call: users#list\n  - id: breaksUsers\n    call: users#broken\n",
+        "  - id: checksSecond\n    before:\n      - call: users#list\n    steps:\n      - call: users#list\n",
+        "      - call: users#get\n        expect: {status: 201}\n    after:\n      - call: users#list\n",
+        "  - id: reachesDown\n    call: users#down\n",
+    )
+    .as_bytes(),
 );
 
 /// A scenario `users.peak` mixing only `test`, through `stage`, failing above half errors.
@@ -69,16 +80,41 @@ impl HistoryWriter for Written {
 }
 
 /// An engine over the users project with `config` and the load file `load`; `/broken` answers
-/// 500, everything else 200.
+/// 500, `/down` refuses the connection, everything else answers 200.
 fn engine(config: (&str, &[u8]), load: &[u8]) -> (Engine, mpsc::UnboundedReceiver<Seen>) {
-    let transport = FakeTransport::new(|request: &RenderedRequest, _| {
-        Ok(status(if request.uri.path() == "/broken" { 500 } else { 200 }))
+    let transport = FakeTransport::new(|request: &RenderedRequest, _| match request.uri.path() {
+        "/down" => Err(TransportError::Connect { host: "x:80".into(), reason: "refused".into() }),
+        "/broken" => Ok(status(500)),
+        _ => Ok(status(200)),
     });
+    engine_over(config, load, Arc::new(transport))
+}
+
+/// An engine over the users project with `CONFIG` and the load file `load`, where every request
+/// answers 500 after [`SLOW`], so an iteration is in flight when the run stops; and the transport
+/// under the delay, to count the requests sent.
+fn slow_engine(load: &[u8]) -> (Engine, mpsc::UnboundedReceiver<Seen>, FakeTransport) {
+    let broken = FakeTransport::new(|_: &RenderedRequest, _| Ok(status(500)));
+    let slow = FaultyTransport::new(Arc::new(broken.clone()), vec![Fault::Delay(SLOW); 1000]);
+    let (engine, seen) = engine_over(CONFIG, load, Arc::new(slow));
+    (engine, seen, broken)
+}
+
+/// How long each request of a [`slow_engine`] takes: with the 1 s think time, a user is in
+/// flight 60 % of the time.
+const SLOW: Duration = Duration::from_millis(1500);
+
+/// An engine over the users project as [`engine`] makes it, sending its requests to `transport`.
+fn engine_over(
+    config: (&str, &[u8]),
+    load: &[u8],
+    transport: Arc<dyn Transport>,
+) -> (Engine, mpsc::UnboundedReceiver<Seen>) {
     let (writer, seen) = mpsc::unbounded_channel();
     let sources = MemorySources::new(&[config, USERS, CRUD, ("load/users/peak.load.yaml", load)]);
     let engine = builder(FakeVcs::default())
         .sources(Arc::new(sources))
-        .transport(Arc::new(transport))
+        .transport(transport)
         .history(Arc::new(Written(writer)), Arc::new(MemoryHistory::new()))
         .build()
         .unwrap();
@@ -127,18 +163,98 @@ async fn a_failing_api_breaches_the_error_rate_and_is_counted_by_kind() {
     assert!(report.errors > 0 && report.errors == report.iterations, "{report:?}");
     let metrics: Vec<_> = report.breaches.iter().map(|breach| (breach.metric.as_str(), breach.test.clone())).collect();
     assert_eq!(metrics, [("errorRate", None)]);
-    let kind = ErrorKind { api: Some("users#broken".to_owned()), status: Some(500), count: report.errors };
+    let kind =
+        ErrorKind { api: Some("users#broken".to_owned()), status: Some(500), code: Some(v5101()), ..failed(&report) };
     assert_eq!(report.error_kinds, [kind]);
     let text = report.text();
     assert!(text.starts_with("users.peak finished after "), "{text}");
+    assert!(text.contains("\nlatency p50 ") && text.contains(" ms · p90 ") && text.contains(" ms · p95 "), "{text}");
     assert!(
-        text.contains("\nbreached errorRate at 1.000\n") && text.contains("\nerrors users#broken 500 × "),
+        text.contains("\nbreached errorRate at 100% (lt 50%)\n") && text.contains("\nerrors users#broken 500 V5101 × "),
         "{text}"
     );
     let json = report.json();
     assert_eq!((json["exit"].as_u64(), json["ending"].as_str()), (Some(3), Some("finished")));
-    assert_eq!(json["errorKinds"][0]["api"].as_str(), Some("users#broken"));
+    let breach = json!({"metric": "errorRate", "test": null, "actual": 1.0, "unit": "share", "limit": {"lt": 0.5}});
+    assert_eq!(json["breaches"], json!([breach]));
+    assert!(json["p90Ms"].is_number(), "{json:#}");
+    let kind = json!({"api": "users#broken", "test": null, "status": 500, "code": "V5101", "count": report.errors});
+    assert_eq!(json["errorKinds"], json!([kind]));
     assert!(matches!(written(seen).last(), Some(Seen::End(RunStatus::Failed))));
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_breach_s_json_actual_is_the_measured_value_not_rounded() {
+    let every_third = FakeTransport::new(|_: &RenderedRequest, call| Ok(status(if call % 3 == 0 { 500 } else { 200 })));
+    let file =
+        String::from_utf8_lossy(&scenario("listsUsers", "{duration: 3s, users: 3}")).replace("lt: 0.5", "lt: 0.01");
+    let (engine, _seen) = engine_over(CONFIG, file.as_bytes(), Arc::new(every_third));
+    let (_interrupter, interrupts) = interrupts();
+    let report = load(&engine, interrupts, None).await;
+    let measured = crate::load_report::rate(report.errors, report.iterations);
+    assert!(report.errors > 0 && report.errors < report.iterations, "{report:?}");
+    assert_eq!(report.json()["breaches"][0]["actual"].as_f64(), Some(measured), "{report:?}");
+    assert!(report.text().contains("\nbreached errorRate at "), "{}", report.text());
+}
+
+/// No error kind yet: `report`'s errors, all of one kind.
+fn failed(report: &LoadReport) -> ErrorKind {
+    ErrorKind { count: report.errors, ..ErrorKind::default() }
+}
+
+fn v5101() -> String {
+    "V5101".to_owned()
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_failed_check_on_a_tests_second_call_is_counted_under_that_call_not_the_ones_around_it() {
+    let mut file = scenario("checksSecond", "{duration: 3s, users: 2}");
+    file.extend_from_slice(b"checks: full\n");
+    let (engine, _) = engine(CONFIG, &file);
+    let (_interrupter, interrupts) = interrupts();
+    let report = load(&engine, interrupts, None).await;
+    assert!(report.errors > 0 && report.errors == report.iterations, "{report:?}");
+    let kind =
+        ErrorKind { api: Some("users#get".to_owned()), status: Some(200), code: Some(v5101()), ..failed(&report) };
+    assert_eq!(report.error_kinds, [kind], "not its `before` call nor its `after` one");
+    assert!(report.text().contains("\nerrors users#get 200 V5101 × "), "{}", report.text());
+}
+
+#[tokio::test(start_paused = true)]
+async fn an_api_that_refuses_the_connection_is_counted_under_it_and_the_transport_code() {
+    let (engine, _) = engine(CONFIG, &scenario("reachesDown", "{duration: 3s, users: 2}"));
+    let (_interrupter, interrupts) = interrupts();
+    let report = load(&engine, interrupts, None).await;
+    assert!(report.errors > 0, "{report:?}");
+    let code = Some("V5105".to_owned());
+    let kind = ErrorKind { api: Some("users#down".to_owned()), status: None, code, ..failed(&report) };
+    assert_eq!(report.error_kinds, [kind]);
+    let text = report.text();
+    assert!(text.contains("\nerrors users#down V5105 × ") && !text.contains("inline request"), "{text}");
+}
+
+#[tokio::test(start_paused = true)]
+async fn the_history_lists_a_load_run_by_its_iterations() {
+    let history = Arc::new(MemoryHistory::new());
+    let peak = scenario("breaksUsers", "{duration: 3s, users: 2}");
+    let sources = MemorySources::new(&[CONFIG, USERS, CRUD, ("load/users/peak.load.yaml", peak.as_slice())]);
+    let engine = builder(FakeVcs::default())
+        .sources(Arc::new(sources))
+        .transport(Arc::new(FakeTransport::new(|_: &RenderedRequest, _| Ok(status(500)))))
+        .history(history.clone(), history)
+        .build()
+        .unwrap();
+    let (_interrupter, interrupts) = interrupts();
+    let report = load(&engine, interrupts, None).await;
+    let listed = engine.history(10).unwrap();
+    let text = listed.text();
+    let line = format!(
+        "failed     load · {} iterations · {} errors  profile dev  users.peak",
+        report.iterations, report.errors
+    );
+    assert!(report.iterations > 0 && text.contains(&line), "{text}");
+    let json = listed.json();
+    assert_eq!((json[0]["kind"].as_str(), json[0]["totals"]["failed"].as_u64()), (Some("load"), Some(report.errors)));
 }
 
 #[tokio::test(start_paused = true)]
@@ -168,13 +284,16 @@ async fn a_breached_threshold_sends_the_threshold_alert_naming_it() {
 
 #[tokio::test(start_paused = true)]
 async fn an_abort_on_breach_stops_the_run_early_and_exits_3() {
-    let mut file = scenario("breaksUsers", "{duration: 1m, users: 2}");
+    let mut file = scenario("breaksUsers", "{duration: 1m, users: 60}");
     file.extend_from_slice(b"abortOn: [errorRate]\n");
-    let (engine, seen) = engine(CONFIG, &file);
+    let (engine, seen, sent) = slow_engine(&file);
     let (_interrupter, interrupts) = interrupts();
     let report = load(&engine, interrupts, None).await;
     assert_eq!((report.exit, report.ending), (3, LoadEnding::Aborted), "{report:?}");
     assert!(report.seconds < 60 && report.errors > 0, "{report:?}");
+    assert!(u64::try_from(sent.calls()).unwrap() > report.iterations, "one was in flight at the abort: {report:?}");
+    let kinds: u64 = report.error_kinds.iter().map(|kind| kind.count).sum();
+    assert_eq!(kinds, report.errors, "an iteration the abort drops is in no kind: {report:?}");
     assert!(report.text().starts_with("users.peak aborted after "), "{}", report.text());
     assert_eq!(report.json()["ending"].as_str(), Some("aborted"));
     assert!(matches!(written(seen).last(), Some(Seen::End(RunStatus::Failed))));
@@ -204,6 +323,21 @@ async fn ctrl_c_stops_the_users_and_exits_130() {
     assert_eq!((report.exit, report.ending), (130, LoadEnding::Cancelled), "{report:?}");
     assert!(report.seconds < 60, "{report:?}");
     assert!(matches!(written(seen).last(), Some(Seen::End(RunStatus::Cancelled))));
+}
+
+#[tokio::test(start_paused = true)]
+async fn ctrl_c_counts_no_kind_for_an_iteration_it_drops() {
+    let (engine, _, sent) = slow_engine(&scenario("breaksUsers", "{duration: 10s, users: 10}"));
+    let (interrupter, interrupts) = interrupts();
+    let press = async {
+        tokio::time::sleep(Duration::from_millis(3200)).await;
+        interrupter.interrupt();
+    };
+    let (report, ()) = tokio::join!(load(&engine, interrupts, None), press);
+    assert_eq!((report.ending, report.errors > 0), (LoadEnding::Cancelled, true), "{report:?}");
+    assert!(u64::try_from(sent.calls()).unwrap() > report.iterations, "one was in flight at the press: {report:?}");
+    let kinds: u64 = report.error_kinds.iter().map(|kind| kind.count).sum();
+    assert_eq!(kinds, report.errors, "{report:?}");
 }
 
 #[tokio::test]

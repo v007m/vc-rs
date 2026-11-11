@@ -145,6 +145,18 @@ async fn test_reuse_runs_the_reused_steps_until_one_fails() {
 }
 
 #[tokio::test]
+async fn test_reuse_marks_the_exchanges_of_the_step_that_failed() {
+    let mut fixture = Fixture::new();
+    let steps = vec![fixture.call("/users"), fixture.call("/fail")];
+    let reused = fixture.test(steps, None);
+    let reuse = fixture.action(ActionKind::Test(reused));
+    let (server, _sent) = Server::new();
+    let report = execute(fixture, standard(server), reuse).await;
+    let statuses: Vec<u16> = report.exchanges.iter().map(|exchange| exchange.response.status.as_u16()).collect();
+    assert_eq!((statuses, report.failing), (vec![200, 500], Some(1..2)));
+}
+
+#[tokio::test]
 async fn an_action_without_an_executor_fails() {
     let mut fixture = Fixture::new();
     let hook = fixture.action(ActionKind::Function(HookRef { file: "hooks.ts".into(), export: "seed".into() }));

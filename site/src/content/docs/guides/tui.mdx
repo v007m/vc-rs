@@ -121,7 +121,7 @@ Lists the last 30 stored runs, newest first, and compares them.
 | `enter` | Compare the selected run with the one before it |
 | `r` | Reload |
 
-- **Runs**: the run number, start time, `branch@commit`, pass rate, counts (`✓ ✕ ⊘ ↻`) and duration. The pass rate counts flaky tests as passed.
+- **Runs**: the run number, start time, `branch@commit`, pass rate, counts (`✓ ✕ ⊘ ↻`) and duration. The pass rate counts flaky tests as passed. A load run shows `load · 40 iterations · 3 errors` in place of the checkout, pass rate and counts, as `vc history` lists it.
 - **Trends**: sparklines for pass rate and duration across the test runs shown.
 - **Flaky and failing**: the tests that flaked or failed most often, worst first, with their mean time.
 - **Compare**: `enter` compares the selected run with the previous run of the same kind. It lists tests that are newly failing, newly blocked, fixed, slower by more than 20%, and still failing. Load runs aren't compared.

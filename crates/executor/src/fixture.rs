@@ -283,8 +283,9 @@ pub fn span() -> SourceSpan {
     SourceSpan::new(SourceFileId::new(0), Pos::new(1, 1, 0), Pos::new(1, 1, 0))
 }
 
-/// A server that answers by path: `/fail` 500, `/flaky` 503 the first time and 200 after,
-/// `/slow` 200 after [`SLOW`], anything else 200. It records every path it was sent.
+/// A server that answers by path: `/fail` 500, `/missing` 404, `/flaky` 503 the first time and 200 after,
+/// `/sinking` 503 the first time and refuses the connection after, `/slow` 200 after [`SLOW`],
+/// anything else 200. It records every path it was sent.
 pub struct Server {
     sent: Sender<String>,
     flaky: AtomicUsize,
@@ -317,9 +318,12 @@ impl Transport for Server {
         if path == "/slow" {
             tokio::time::sleep(SLOW).await;
         }
+        let first = || self.flaky.fetch_add(1, Ordering::SeqCst) == 0;
         let code = match path.as_str() {
             "/fail" => 500,
-            "/flaky" if self.flaky.fetch_add(1, Ordering::SeqCst) == 0 => 503,
+            "/missing" => 404,
+            "/flaky" | "/sinking" if first() => 503,
+            "/sinking" => return Err(TransportError::Connect { host: "api.test:80".into(), reason: "refused".into() }),
             _ => 200,
         };
         Ok(Exchange {

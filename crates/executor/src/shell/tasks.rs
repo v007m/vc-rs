@@ -21,7 +21,7 @@ macro_rules! frame_input {
         impl FrameInput for $input {
             fn acted(ran: Ran<ActionReport>, kept: Vec<PendingCleanup>) -> Self {
                 match ran {
-                    Ran::Done(report) => Self::ActionDone(report),
+                    Ran::Done(report) => Self::ActionDone(report.into()),
                     Ran::Cut | Ran::Aborted => Self::ActionCut(kept),
                 }
             }

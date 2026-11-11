@@ -46,7 +46,7 @@ pub use error::ExecutorError;
 
 pub use check::{Arguments, Judge, MatcherFn, MatcherRegistry, Schemas};
 pub use exit::{EXIT_CANCELLED, EXIT_FAILED, EXIT_NOTHING_RAN, EXIT_PASSED, exit_code};
-pub use iterations::{IterationCall, IterationReport, Iterations};
+pub use iterations::{IterationCall, IterationFailure, IterationReport, Iterations};
 pub use machine::{
     ActionReport, CANCELLED, FailedActions, FileCommand, FileInput, FileOrchestrator, FilePhase, InstanceCommand,
     InstanceInput, InstancePhase, InstanceScript, InstanceWorkflow, Launch, PendingCleanup, RunCommand, RunInput,

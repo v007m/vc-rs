@@ -9,7 +9,7 @@ import Playground from '~/components/Playground.svelte';
 Every iteration of a mix test is one sample; the metrics summarize those samples.
 
 ```console
-latency p50 3.4 ms · p95 7.1 ms · p99 8.9 ms · max 9.8 ms
+latency p50 3.4 ms · p90 5.6 ms · p95 7.1 ms · p99 8.9 ms · max 9.8 ms
 ```
 
 ## Syntax
@@ -17,20 +17,20 @@ latency p50 3.4 ms · p95 7.1 ms · p99 8.9 ms · max 9.8 ms
 | Metric | Measures | Threshold value | Live line | Summary | `--json` field |
 | --- | --- | --- | --- | --- | --- |
 | `p50` | Median iteration time | duration (`lt: 200ms`) | yes | yes | `p50Ms` |
-| `p90` | 90th percentile | duration | no | no | — |
+| `p90` | 90th percentile | duration | no | yes | `p90Ms` |
 | `p95` | 95th percentile | duration | yes | yes | `p95Ms` |
 | `p99` | 99th percentile | duration | yes | yes | `p99Ms` |
 | `max` | Slowest iteration | duration | no | yes | `maxMs` |
 | `errorRate` | Failed iterations ÷ iterations | rate (`lt: 1%` or `lt: 0.01`) | as an `errors` count | as an `errors` count | `errors`, with `iterations` |
 | `rps` | Iterations per second | number (`gte: 100`) | yes | yes | `rps` |
 
-`p90` can be used in [`thresholds`](/vc-rs/reference/load/thresholds/) even though no output prints it.
+The live line leaves `p90` out; the summary and the JSON have it.
 
 ## Examples
 
 ### The live line
 
-One line a second, on stderr. Latency is rounded to whole milliseconds; `breaching:` appears only when a threshold is breached on the last 10 seconds:
+One line a second, on stderr. `rps` is the iterations per second over the last 3 seconds, so one slow second does not make it jump; latency, over the last 10 seconds, is rounded to whole milliseconds; `breaching:` appears only when a threshold is breached on the last 10 seconds:
 
 ```console
     4s  3 users  417 rps  p50 2 ms  p95 8 ms  p99 15 ms  0 errors  breaching: p99, sample.basics#getsCreatedUser: p95
@@ -40,9 +40,9 @@ One line a second, on stderr. Latency is rounded to whole milliseconds; `breachi
 
 ```console
 sample.strict finished after 5 s · 2315 iterations · 463.0 rps · 0 errors
-latency p50 2.7 ms · p95 8.2 ms · p99 15.6 ms · max 35.7 ms
-breached p99 at 15.615
-breached sample.basics#getsCreatedUser: p95 at 11.215
+latency p50 2.7 ms · p90 6.0 ms · p95 8.2 ms · p99 15.6 ms · max 35.7 ms
+breached p99 at 15.615 ms (lt 1 ms)
+breached sample.basics#getsCreatedUser: p95 at 11.215 ms (lt 2 ms)
 ```
 
 ### The JSON report
@@ -59,7 +59,8 @@ $ vc load sample.smoke --json
   "iterations": 207,
   "maxMs": 10.047,
   "notices": [],
-  "p50Ms": 3.2369999999999997,
+  "p50Ms": 3.237,
+  "p90Ms": 4.838,
   "p95Ms": 5.751,
   "p99Ms": 7.427,
   "rps": 20.7,
@@ -92,7 +93,7 @@ thresholds:
 - **A sample is an iteration, not a request.** A test with three steps is one sample, timed over all three. `rps` is iterations per second.
 - **Setup isn't sampled.** Requests from `beforeAll`, `beforeEach` and `before` are not samples. See [Lifecycle in load runs](/vc-rs/reference/load/lifecycle/).
 - **Think time isn't latency.** The pause from [`thinkTime`](/vc-rs/reference/load/thinktime/) is not counted in any latency metric.
-- **Errors.** An iteration fails when a check fails (which checks count depends on [`checks`](/vc-rs/reference/load/checks/)) or a request fails. The summary's `errors` line groups failures by api and status, as `errors sample#listUsers 200 × 10`; the JSON has the same groups in `errorKinds`.
+- **Errors.** An iteration fails when a check fails (which checks count depends on [`checks`](/vc-rs/reference/load/checks/)) or a request fails. An iteration that passes only on a [`retry`](/vc-rs/reference/syntax/retry/) counts as an error too, blamed on the call that failed its last failed attempt. The summary's `errors` line groups failures by the api of the call that failed, the status it got and the failure's code, as `errors sample#listUsers 200 V5101 × 10`; a `before` call or cleanup around it is never blamed. The JSON has the same groups in `errorKinds`, as `{api, test, status, code, count}`.
 - **Scope.** Scenario thresholds use every mix test together; a mix entry's thresholds use that test's samples only.
 
 ## Related

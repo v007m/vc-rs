@@ -1,23 +1,26 @@
 use std::time::Duration;
 
 use serde_json::json;
-use vc_executor::{IterationCall, IterationReport};
-use vc_model::{ApiId, Part, StringTable, Template, TemplateValue};
+use vc_executor::{IterationCall, IterationFailure, IterationReport};
+use vc_model::{ApiId, Part, StringTable, Template, TemplateValue, TestId};
 
 use super::{kind, literal};
 
 #[test]
-fn an_iteration_fails_by_its_first_unanswered_or_error_call_else_its_last() {
+fn an_iteration_fails_by_the_action_that_failed_it_else_by_its_test() {
     let mut strings = StringTable::new();
-    let [first, second, third] = ["a#one", "a#two", "a#three"].map(|name| ApiId::new(strings.intern(name).unwrap()));
+    let [before, failed] = ["a#before", "a#failed"].map(|name| ApiId::new(strings.intern(name).unwrap()));
+    let test = TestId::new(strings.intern("a.f#t").unwrap());
     let call = |api, status| IterationCall { api: Some(api), status, elapsed: Duration::ZERO };
-    let report = |calls| IterationReport { calls, ..IterationReport::default() };
-    let errored = report(vec![call(first, Some(200)), call(second, Some(503)), call(third, None)]);
-    assert_eq!(kind(&errored), (Some(second), Some(503)));
-    assert_eq!(kind(&report(vec![call(first, Some(200)), call(third, None)])), (Some(third), None));
-    assert_eq!(kind(&report(vec![call(first, Some(200)), call(second, Some(399))])), (Some(second), Some(399)));
-    assert_eq!(kind(&report(vec![call(first, Some(400))])), (Some(first), Some(400)));
-    assert_eq!(kind(&report(Vec::new())), (None, None));
+    let calls = vec![call(before, Some(500)), call(failed, Some(200)), call(before, Some(204))];
+    let blamed =
+        |failure| IterationReport { calls: calls.clone(), failure: Some(failure), ..IterationReport::default() };
+    let check =
+        IterationFailure { api: Some(failed), status: Some(200), code: Some("V5101".into()), ..Default::default() };
+    assert_eq!(kind(test, &blamed(check)), (Some(failed), None, Some(200), Some("V5101".to_owned())));
+    let command = IterationFailure { code: Some("V5110".into()), ..Default::default() };
+    assert_eq!(kind(test, &blamed(command)), (None, Some(test), None, Some("V5110".to_owned())));
+    assert_eq!(kind(test, &IterationReport::default()), (None, Some(test), None, None));
 }
 
 #[test]

@@ -429,7 +429,7 @@ $ vc load people.browse
     5s  3 users  691 rps  p50 2 ms  p95 10 ms  p99 23 ms  0 errors
     5s  0 users  691 rps  p50 2 ms  p95 10 ms  p99 23 ms  0 errors
 people.browse finished after 5 s · 3465 iterations · 693.0 rps · 0 errors
-latency p50 2.6 ms · p95 10.9 ms · p99 23.8 ms · max 55.5 ms
+latency p50 2.6 ms · p90 7.6 ms · p95 10.9 ms · p99 23.8 ms · max 55.5 ms
 ```
 
 To see a breach, the same scenario with `p95: { lt: 1ms }` exits 3:
@@ -437,20 +437,20 @@ To see a breach, the same scenario with `p95: { lt: 1ms }` exits 3:
 ```console
 $ vc load people.browse
     1s  0 users  0 rps  p50 0 ms  p95 0 ms  p99 0 ms  0 errors
-    2s  2 users  213 rps  p50 2 ms  p95 15 ms  p99 27 ms  0 errors  breaching: p95
-    3s  3 users  368 rps  p50 2 ms  p95 14 ms  p99 30 ms  0 errors  breaching: p95
-    4s  5 users  500 rps  p50 2 ms  p95 16 ms  p99 36 ms  0 errors  breaching: p95
-    5s  3 users  562 rps  p50 2 ms  p95 14 ms  p99 31 ms  0 errors  breaching: p95
-    5s  0 users  562 rps  p50 2 ms  p95 14 ms  p99 31 ms  0 errors
-people.browse finished after 5 s · 2825 iterations · 565.0 rps · 0 errors
-latency p50 2.8 ms · p95 15.0 ms · p99 31.9 ms · max 121.2 ms
-breached p95 at 14.967
+    2s  2 users  551 rps  p50 1 ms  p95 2 ms  p99 2 ms  0 errors  breaching: p95
+    3s  3 users  877 rps  p50 1 ms  p95 2 ms  p99 2 ms  0 errors  breaching: p95
+    4s  5 users  1752 rps  p50 1 ms  p95 2 ms  p99 2 ms  0 errors  breaching: p95
+    5s  3 users  1952 rps  p50 1 ms  p95 2 ms  p99 2 ms  0 errors  breaching: p95
+    5s  0 users  1952 rps  p50 1 ms  p95 2 ms  p99 2 ms  0 errors
+people.browse finished after 5 s · 6976 iterations · 1395.2 rps · 0 errors
+latency p50 1.9 ms · p90 2.2 ms · p95 2.3 ms · p99 2.6 ms · max 20.4 ms
+breached p95 at 2.335 ms (lt 1 ms)
 ```
 
-An agent reads the result with `vc load people.browse --json`, which prints one object and no live lines. `exit` and `breaches` say what happened (full shape in [JSON output](/vc-rs/agents/json-and-events/#vc-load---json)):
+An agent reads the result with `vc load people.browse --json`, which prints one object and no live lines (this is a second run, so its p95 differs a little). `exit` and `breaches` say what happened (full shape in [JSON output](/vc-rs/agents/json-and-events/#vc-load---json)):
 
 ```json
-{ "exit": 3, "ending": "finished", "breaches": [ { "actual": 17.663, "metric": "p95", "test": null } ], "errors": 0, "p95Ms": 17.663 }
+{ "exit": 3, "ending": "finished", "breaches": [ { "actual": 2.139, "limit": { "lt": 1.0 }, "metric": "p95", "test": null, "unit": "ms" } ], "errors": 0, "p95Ms": 2.139 }
 ```
 
 ## 6. Run only what changed in a PR

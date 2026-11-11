@@ -5,9 +5,9 @@ use std::time::Duration;
 
 use tokio::sync::mpsc::{self, UnboundedReceiver};
 use tokio::time::Instant;
-use vc_executor::{Arguments, CancelTree, Iterations, Judge, MatcherRegistry};
+use vc_executor::{Arguments, CancelTree, IterationReport, Iterations, Judge, MatcherRegistry};
 use vc_interfaces::Random;
-use vc_model::LoadScenario;
+use vc_model::{LoadScenario, TestId};
 
 use crate::user::{Crew, Seat, user};
 use crate::{
@@ -33,7 +33,13 @@ pub struct LoadParts {
     pub cancel: CancelTree,
     /// Receives each second as it closes; a receiver that has gone away is not an error.
     pub seconds: mpsc::Sender<Second>,
+    /// Receives each failed iteration the run counts, with its test, as it is counted: one that
+    /// ends after the run is cancelled is neither. A receiver that has gone away is not an error.
+    pub failed: mpsc::UnboundedSender<Failed>,
 }
+
+/// A failed iteration of a load run, with the mix test it ran.
+pub type Failed = (TestId, IterationReport);
 
 /// One closed second of a load run, for the live view and the store.
 #[derive(Clone, Debug)]
@@ -47,6 +53,8 @@ pub struct Second {
     pub rows: Vec<Interval>,
     /// The rolling window's totals, over the last [`crate::WINDOW_SECONDS`].
     pub window: Totals,
+    /// Whole iterations per second over the last [`crate::RATE_SECONDS`], for the live view.
+    pub rps: u64,
     /// The thresholds failing in the rolling window.
     pub breaching: Vec<Breach>,
 }
@@ -109,6 +117,7 @@ async fn drive(scenario: &LoadScenario, parts: LoadParts, matching: Matching<'_>
         think: (min.get(), max.get()),
         start: Instant::now(),
         samples,
+        failed: parts.failed,
     };
     let mut run = Run::new(scenario, Arc::new(crew), parts.cancel)?;
     let mut ticks = tokio::time::interval(Duration::from_secs(1));
@@ -189,7 +198,7 @@ impl<'s> Run<'s> {
         self.window.advance(at, rows.iter().cloned());
         let window = self.window.totals()?;
         let breaching = breaches(self.scenario, &window, judge)?;
-        Ok(Second { at, users: self.controller.users(), rows, window, breaching })
+        Ok(Second { at, users: self.controller.users(), rows, window, rps: self.window.rps(), breaching })
     }
 
     fn total(&mut self, rows: &[Interval]) -> Result<(), LoadError> {
@@ -247,7 +256,8 @@ impl<'s> Run<'s> {
         let rows = self.recorder.close(u64::MAX);
         self.total(&rows)?;
         let window = self.window.totals()?;
-        send(seconds, Some(Second { at: span, users: 0, rows, window, breaching: Vec::new() })).await;
+        let rps = self.window.rps();
+        send(seconds, Some(Second { at: span, users: 0, rows, window, rps, breaching: Vec::new() })).await;
         self.totals.cover(span);
         let breaches = breaches(self.scenario, &self.totals, &judge(matching))?;
         Ok(LoadOutcome { ending: self.ending, totals: self.totals, breaches })

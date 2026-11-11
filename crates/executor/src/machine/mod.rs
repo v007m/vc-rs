@@ -9,6 +9,7 @@ mod lifecycle;
 mod run;
 
 use std::collections::BTreeMap;
+use std::ops::Range;
 use std::sync::Arc;
 
 use vc_model::{ActionId, ActionOutcome, CheckResult, Event, Exchange, Failure, Needs, OwnerKey, PlannedAction};
@@ -75,6 +76,10 @@ pub struct ActionReport {
     /// `provides`, each a V5108 warning at the action that saved the value (D186), reported as a
     /// `Warned` event.
     pub warnings: Vec<Failure>,
+    /// Which of `exchanges` its failure's part sent, when only part of it failed: a loop's
+    /// failing turn or a reused test's failing step. Empty when that part sent nothing; `None`
+    /// means all of them.
+    pub failing: Option<Range<usize>>,
 }
 
 impl ActionReport {
@@ -90,6 +95,7 @@ impl ActionReport {
             checks: Vec::new(),
             exchanges: Vec::new(),
             warnings: Vec::new(),
+            failing: None,
         }
     }
 
@@ -97,6 +103,13 @@ impl ActionReport {
     #[must_use]
     pub fn failed(failure: Failure) -> Self {
         Self { outcome: ActionOutcome::Failed(failure), ..Self::passed() }
+    }
+
+    /// The positions its failure's part's exchanges take once they follow `before` others.
+    #[must_use]
+    pub fn failing_after(&self, before: usize) -> Range<usize> {
+        let Range { start, end } = self.failing.clone().unwrap_or(0..self.exchanges.len());
+        before + start..before + end
     }
 }
 

@@ -1,12 +1,13 @@
 use std::time::Duration as StdDuration;
 
 use indexmap::IndexMap;
+use serde_json::json;
 use vc_executor::{Judge, MatcherRegistry};
 use vc_model::{Duration, FileId, LoadScenario, Matcher, MatcherArg, MixEntry, StringTable, TemplateValue, TestId};
 
 use super::{Breach, aborts, breaches};
 use crate::test_support::{Literals, call, number, thresholds, under_ms};
-use crate::{Interval, LoadError, Recorder, Sample, Totals, WINDOW_SECONDS, Window};
+use crate::{Interval, LoadError, RATE_SECONDS, Recorder, Sample, Totals, Unit, WINDOW_SECONDS, Window};
 
 struct Fixture {
     fast: TestId,
@@ -87,6 +88,16 @@ fn scenario_thresholds_cover_the_whole_mix_and_entry_thresholds_their_test() {
             (Some(fixture.slow), "rps", 5_000)
         ]
     );
+    let units: Vec<_> = found.iter().map(|breach| (breach.unit, breach.limit.clone())).collect();
+    assert_eq!(
+        units,
+        [
+            (Unit::MS, json!({"lt": 50.0})),
+            (Unit::SHARE, json!({"lt": 0.01})),
+            (Unit::MS, json!({"lt": 300.0})),
+            (Unit::PER_SECOND, json!({"gte": 6.0}))
+        ]
+    );
     assert!(aborts(&fixture.scenario, &found));
     assert!(!aborts(&fixture.scenario, &found[..1]));
 }
@@ -126,4 +137,22 @@ fn the_window_keeps_the_last_ten_seconds() {
     assert!((totals.all().latencies().quantile_ms(0.0) - 6.0).abs() < 0.01, "seconds 5 to 14 remain");
     assert_eq!(totals.test(fixture.fast).map(crate::Tally::count), Some(10));
     assert!(totals.test(fixture.slow).is_none());
+}
+
+#[test]
+fn the_live_rate_follows_the_last_three_seconds() {
+    let fixture = fixture(IndexMap::new(), IndexMap::new());
+    let mut recorder = Recorder::new();
+    let mut window = Window::new();
+    let mut rates = Vec::new();
+    for second in 0..6 {
+        for _ in 0..=second {
+            let latency = StdDuration::from_millis(1);
+            recorder.record(Sample { test: fixture.fast, second, latency, failed: false }).unwrap();
+        }
+        window.advance(second + 1, recorder.close(second + 1));
+        rates.push(window.rps());
+    }
+    assert_eq!(rates, [1, 2, 2, 3, 4, 5], "1, 3 and 6 over 1, 2 and 3 seconds; then 9, 12, 15 over 3");
+    assert_eq!(RATE_SECONDS, 3);
 }

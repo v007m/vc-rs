@@ -12,8 +12,8 @@ use super::script;
 use crate::cancel::{CancelTree, Ran};
 use crate::machine::{LifecycleStep, LoadLifecycle};
 use crate::{
-    ActionCx, CANCELLED, EventBus, ExecutorError, Frame, IterationReport, Iterations, Launch, PendingCleanup,
-    RedactingSink, SharedSlots,
+    ActionCx, CANCELLED, EventBus, ExecutorError, Frame, IterationFailure, IterationReport, Iterations, Launch,
+    PendingCleanup, RedactingSink, SharedSlots,
 };
 
 /// What a load run's iterations share besides the program and the plan.
@@ -189,7 +189,10 @@ impl Iterations for ProgramIterations {
     async fn iterate(&self, test: TestId, _user: u32) -> IterationReport {
         let Some((instance, file)) = self.instances.get(&test) else {
             return IterationReport {
-                failure: Some("the test is not in the load plan".to_owned()),
+                failure: Some(IterationFailure {
+                    message: "the test is not in the load plan".to_owned(),
+                    ..Default::default()
+                }),
                 ..IterationReport::default()
             };
         };

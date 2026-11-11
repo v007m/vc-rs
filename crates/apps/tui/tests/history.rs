@@ -146,6 +146,21 @@ fn a_run_compares_with_the_run_of_tests_before_it_and_load_runs_stay_out_of_the_
 }
 
 #[test]
+fn a_load_run_lists_its_iterations_and_errors_as_vc_history_does_not_a_pass_rate() {
+    let mut tui = tui();
+    press(&mut tui, &[KeyCode::Char('3')]);
+    let runs = vec![run_of("load", 482, totals(37, 3, 0, 0)), run_of("run", 481, totals(37, 3, 0, 0))];
+    tui.update(&Update::History { runs, trends: Vec::new() });
+    let shown = screen(&tui, SIZE);
+    let rows: Vec<&str> = shown.lines().filter(|line| line.starts_with("│▸ #") || line.starts_with("│  #")).collect();
+    let [load, tests] = rows.as_slice() else { panic!("{shown}") };
+    assert!(load.contains("09:30Z load · 40 iterations · 3 errors "), "{shown}");
+    assert!(!load.contains("92.5%") && !load.contains(" 37 "), "a load run passed no tests: {shown}");
+    assert!(load.trim_end_matches([' ', '│']).ends_with("30.0s"), "{shown}");
+    assert!(tests.contains("main@481c9e4") && tests.contains("92.5%") && tests.contains(" 37 "), "{shown}");
+}
+
+#[test]
 fn a_late_failure_of_an_earlier_compare_leaves_the_newer_one_pending() {
     let mut tui = on_history();
     assert_eq!(press(&mut tui, &[KeyCode::Enter]), Some(Ask::Compare { before: 481, after: 482 }));

@@ -29,8 +29,8 @@ pub enum FilePhase {
 pub enum FileInput {
     /// `beforeRun` finished; these run-level shared actions failed.
     Start(FailedActions),
-    /// The lifecycle action in flight finished.
-    ActionDone(ActionReport),
+    /// The lifecycle action in flight finished; boxed, as it is far larger than the rest.
+    ActionDone(Box<ActionReport>),
     /// The lifecycle action in flight was cut off by cancellation, with the cleanups its
     /// finished parts registered.
     ActionCut(Vec<PendingCleanup>),
@@ -125,7 +125,7 @@ impl FileOrchestrator {
         match (self.phase, input) {
             (Done, _) => {}
             (Waiting, FileInput::Start(failed)) => self.start(failed, out),
-            (BeforeAll(_) | AfterAll(_), FileInput::ActionDone(report)) => self.action_done(report, out),
+            (BeforeAll(_) | AfterAll(_), FileInput::ActionDone(report)) => self.action_done(*report, out),
             (BeforeAll(_) | AfterAll(_), FileInput::ActionCut(kept)) => {
                 self.cleanups.extend(kept);
                 self.wind_down(out);

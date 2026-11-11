@@ -5,10 +5,11 @@ use std::time::Duration;
 
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::time::Instant;
-use vc_executor::{CancelTree, Iterations};
+use vc_executor::{CancelTree, IterationReport, Iterations};
 use vc_interfaces::Random;
+use vc_model::TestId;
 
-use crate::{Mix, Sample};
+use crate::{Failed, Mix, Sample};
 
 /// What every user of one run shares.
 pub struct Crew {
@@ -20,6 +21,17 @@ pub struct Crew {
     /// When the run started: second 0 begins here.
     pub start: Instant,
     pub samples: UnboundedSender<Sample>,
+    /// Where each failed iteration goes once it is counted.
+    pub failed: UnboundedSender<Failed>,
+}
+
+impl Crew {
+    /// Passes `report` on if it failed; it must be one the run counted.
+    fn tell_failed(&self, test: TestId, report: IterationReport) {
+        if !report.passed {
+            let _gone = self.failed.send((test, report));
+        }
+    }
 }
 
 /// One user's identity and how it is stopped.
@@ -36,7 +48,8 @@ pub struct Seat {
 /// Runs iterations for `seat` until it is retired, the run is cancelled or the recorder is gone.
 ///
 /// The [`Iterations`] implementation guards its own actions with the run's frame, so a cancelled
-/// iteration still runs its cleanups; one that ends after the cancellation is not recorded.
+/// iteration still runs its cleanups; one that ends after the cancellation is not recorded, and
+/// a failed one is passed on only once it is.
 ///
 /// Each iteration is scheduled for the end of the previous one plus the think time, and its
 /// latency counts from that scheduled start, so a user that wakes late cannot hide a slow server
@@ -60,6 +73,7 @@ pub async fn user(crew: Arc<Crew>, seat: Seat) {
         if crew.samples.send(sample).is_err() {
             return;
         }
+        crew.tell_failed(test, report);
         let pause = think(crew.think, crew.random.next_u64());
         scheduled = end.checked_add(pause).unwrap_or(end);
     }
