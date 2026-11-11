@@ -6,8 +6,7 @@ use std::fmt::Write as _;
 use serde_json::Value;
 use vc_executor::{ActionCx, ActionReport, MASKED, Redactor};
 use vc_model::{
-    ActionId, ActionKind, ActionOutcome, Api, CheckResult, Exchange, Names, Namespace, Part, Program, Reference,
-    Template, TemplateValue,
+    ActionId, ActionKind, ActionOutcome, Api, CheckResult, Exchange, Names, Namespace, Program, TemplateValue,
 };
 
 use crate::shown::Shown;
@@ -116,33 +115,10 @@ fn save_of<'p>(program: &Program, api: &'p Api, name: &str) -> Option<&'p Templa
 /// Whether `value` reads a part of `response`, the masked response, that is masked, or one
 /// the masked response no longer has (a field inside a field masked whole): failing closed.
 fn reads_masked(value: &TemplateValue, response: &Value) -> bool {
-    let mut references = Vec::new();
-    references_in(value, &mut references);
-    references.into_iter().filter(|reference| reference.ns == Namespace::Response).any(|reference| {
+    value.references().into_iter().filter(|reference| reference.ns == Namespace::Response).any(|reference| {
         let found = vc_template::select("response", response, &reference.path.segments);
         found.ok().is_none_or(|found| found.to_string().contains(MASKED))
     })
-}
-
-/// Every reference `value` makes, anywhere inside it.
-fn references_in<'v>(value: &'v TemplateValue, found: &mut Vec<&'v Reference>) {
-    let template_refs = |template: &'v Template| {
-        template.parts.iter().filter_map(|part| match part {
-            Part::Ref(reference) => Some(reference),
-            Part::Literal(_) => None,
-        })
-    };
-    match value {
-        TemplateValue::Null | TemplateValue::Bool(_) | TemplateValue::Number(_) => {}
-        TemplateValue::String(template) => found.extend(template_refs(template)),
-        TemplateValue::Cel(program) => found.extend(&program.refs),
-        TemplateValue::List(items) => items.iter().for_each(|item| references_in(item, found)),
-        TemplateValue::Map(map) => map.values().for_each(|item| references_in(item, found)),
-        TemplateValue::Extend { base, changes, .. } => {
-            found.extend(template_refs(base));
-            references_in(changes, found);
-        }
-    }
 }
 
 /// The status line, the body of `exchange` (masked already), and the failure, masked with the

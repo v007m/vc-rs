@@ -10,7 +10,7 @@ use vc_interfaces::{ConfigEntry, Environment, TestRow, VcsError};
 use vc_model::{Plan, ProfileId, Program, SourcePath};
 use vc_planner::{PlanError, PlanOptions, Selection};
 
-use crate::examples::{self, Draw, Loader};
+use crate::examples::{self, Draw};
 use crate::failed;
 use crate::ports::Layered;
 use crate::project::invalid;
@@ -141,14 +141,12 @@ impl Engine {
         if !rerun.is_empty() {
             selection.ids = failed::selectors(&program, &rerun, request.repeat)?;
         }
-        let draw = Draw::new(seed);
+        let mut draw = Draw::new(seed);
         let inputs = RunInputs::new(Arc::clone(&draw.random), Arc::clone(&environment));
         let inputs = inputs.with_profiles(profiles.clone()).with_vars(run::vars(&settings.vars));
         let today = Some(self.clock.today().to_string());
         let options = PlanOptions { repeat: request.repeat, today, ..PlanOptions::default() };
-        let mut loader = Loader::new(&program, inputs, draw);
-        let plan = examples::planned(&mut loader, &selection, options)?;
-        let draw = loader.into_draw();
+        let plan = examples::planned(&program, &selection, (inputs, &mut draw, options))?;
         let mut notices = notices;
         notices.extend(examples::empty(&program, &plan));
         Ok(Prepared { program, plan: Arc::new(plan), settings, profiles, names, notices, environment, dot_env, draw })

@@ -1,28 +1,30 @@
 //! The rows of each test whose `examples:` is a template, rendered once while the run is planned,
 //! and only for the tests it selects and does not skip: the planner counts them and each instance
-//! binds its row as it is (syntax reference "Examples"). A test whose examples gave no rows is
-//! skipped with a notice.
+//! binds its row as it is (syntax reference "Examples"). Each test's rows draw from a random
+//! source of their own, from the run's seed and the test's full ID, so a seed gives a test the
+//! same rows whatever else the run selects. A test whose examples gave no rows is skipped with a
+//! notice.
 
 use std::iter;
 use std::sync::Arc;
 
+use serde_json::Value;
 use vc_diagnostics::{Code, Diagnostic};
-use vc_executor::{ExampleRows, RunInputs, RunValues};
+use vc_executor::{ExampleRows, RunInputs, RunValues, UnreadVar};
 use vc_interfaces::Random;
-use vc_model::{Examples, Plan, Program, Test, TestId};
-use vc_planner::{NO_ROWS, PlanError, PlanOptions, Selection};
-use vc_template::RenderError;
+use vc_model::{Plan, Program, Test, TestId};
+use vc_planner::{NO_ROWS, PlanOptions, Selection};
+use vc_template::{ROW_HELP, RenderError};
 
 use crate::EngineError;
 use crate::plan::plan_error;
 use crate::ports;
 use crate::project::invalid;
 
-/// What the help of a templated `examples:` that does not render says.
-const HELP: &str = "`examples` is read before the run starts: it reads only `var`, `env` and `dataset`, and must give a \
-                    list of maps, one per example row";
+/// What the help of a templated `examples:` that gives no rows before the run says.
+const LIST_HELP: &str = "it must give a list of maps, one per example row";
 
-/// The run's random source, its seed for `--seed` to repeat it, and the example rows drawn from it.
+/// The run's random source, its seed for `--seed` to repeat it, and the example rows drawn for it.
 pub struct Draw {
     pub seed: u64,
     pub random: Arc<dyn Random>,
@@ -37,15 +39,24 @@ impl Draw {
     }
 }
 
-/// Plans `selection`, rendering a templated test's rows only when the planner first asks for
-/// them, so a test the run does not select, or skips, is never rendered.
-pub fn planned(loader: &mut Loader<'_>, selection: &Selection, mut options: PlanOptions) -> Result<Plan, EngineError> {
-    loop {
-        match vc_planner::plan(loader.program, selection, &options) {
-            Ok(plan) => return Ok(plan),
-            Err(error) => loader.load(error, &mut options)?,
+/// Plans `selection` as a run: renders, with `inputs`, the rows of the selected templated tests
+/// the run does not skip, all in one pass and into `draw`, then plans once with their counts.
+pub fn planned(
+    program: &Program,
+    selection: &Selection,
+    (inputs, draw, mut options): (RunInputs, &mut Draw, PlanOptions),
+) -> Result<Plan, EngineError> {
+    options.skip_empty = true;
+    let wanted = vc_planner::rows_wanted(program, selection, &options).map_err(|error| plan_error(error, program))?;
+    if !wanted.is_empty() {
+        let values = RunValues::new(program, inputs);
+        for test in wanted.iter().filter_map(|id| program.tests.get(id)) {
+            let rows = rendered(program, (&values, draw.seed), test)?;
+            options.example_rows.insert(test.id, u32::try_from(rows.len()).unwrap_or(u32::MAX));
+            drop(draw.rows.insert(test.id, rows));
         }
     }
+    vc_planner::plan(program, selection, &options).map_err(|error| plan_error(error, program))
 }
 
 /// A notice for each planned test skipped because its examples gave no rows, so a run that
@@ -55,68 +66,39 @@ pub fn empty(program: &Program, plan: &Plan) -> Vec<String> {
     empty.map(|skipped| format!("`{}`: {NO_ROWS}, so it is skipped", name(program, skipped.test))).collect()
 }
 
-/// Renders the rows of the templated tests the planner asks for, with the run's profiles, vars,
-/// environment and random source, into the run's draw.
-pub struct Loader<'a> {
-    program: &'a Program,
-    inputs: RunInputs,
-    values: Option<RunValues>,
-    draw: Draw,
-}
-
-impl<'a> Loader<'a> {
-    /// A loader over `program` that renders with `inputs` into `draw`; the values are built when
-    /// the first rows are asked for.
-    pub const fn new(program: &'a Program, inputs: RunInputs, draw: Draw) -> Self {
-        Self { program, inputs, values: None, draw }
+/// `test`'s rows, from its own random source; V2105 when a var they read needs a root with no
+/// value before the run under the run's profiles, and the render's error when they do not render.
+fn rendered(program: &Program, (values, seed): (&RunValues, u64), test: &Test) -> Result<Vec<Value>, EngineError> {
+    if let Some(unread) = vc_executor::unread_var(program, values, test) {
+        return Err(refused(program, unread_diagnostic(&unread)));
     }
-
-    /// The draw, with the rows rendered so far.
-    pub fn into_draw(self) -> Draw {
-        self.draw
-    }
-
-    /// Renders the rows of the test the planner's `error` asks for, and counts them in
-    /// `options`; the refusal when it cannot, or when the planner refused for another reason.
-    fn load(&mut self, error: PlanError, options: &mut PlanOptions) -> Result<(), EngineError> {
-        let program = self.program;
-        let asked = match &error {
-            PlanError::RowsNotLoaded { test } => templated(program, test),
-            _ => None,
-        };
-        let Some(test) = asked.filter(|test| !options.example_rows.contains_key(&test.id)) else {
-            return Err(plan_error(error, program));
-        };
-        let inputs = &self.inputs;
-        let values = self.values.get_or_insert_with(|| RunValues::new(program, inputs.clone()));
-        match vc_executor::example_rows(program, values, test) {
-            Ok(Some(rows)) => {
-                let count = u32::try_from(rows.len()).unwrap_or(u32::MAX);
-                options.example_rows.insert(test.id, count);
-                drop(self.draw.rows.insert(test.id, rows));
-                Ok(())
-            }
-            Ok(None) => Err(plan_error(error, program)),
-            Err(failed) => Err(refused(program, test, &failed)),
-        }
+    let random = ports::random_for(seed, &name(program, test.id));
+    match vc_executor::example_rows(program, (values, random.as_ref()), test) {
+        Ok(Some(rows)) => Ok(rows),
+        Ok(None) => Err(refused(
+            program,
+            unrendered(program, test, &RenderError::invalid("their `$file` was not read before the run")),
+        )),
+        Err(failed) => Err(refused(program, unrendered(program, test, &failed))),
     }
 }
 
-/// The test whose full ID is `id`, when its `examples:` is a template.
-fn templated<'a>(program: &'a Program, id: &str) -> Option<&'a Test> {
-    let named = |test: &&Test| program.str(test.id.sym()) == Some(id);
-    program.tests.values().find(named).filter(|test| matches!(test.examples, Some(Examples::Template(_))))
+/// The check report holding `diagnostic`.
+fn refused(program: &Program, diagnostic: Diagnostic) -> EngineError {
+    invalid(iter::once(diagnostic).collect(), program.files.clone(), Vec::new())
 }
 
-/// The check report for a test whose rows did not render.
-fn refused(program: &Program, test: &Test, error: &RenderError) -> EngineError {
-    invalid(iter::once(diagnostic(program, test, error)).collect(), program.files.clone(), Vec::new())
+/// V2105 at the `${var.…}` in `examples` whose var needs a root with no value before the run.
+fn unread_diagnostic(unread: &UnreadVar) -> Diagnostic {
+    let needs = vc_template::row_root_label(unread.root);
+    let (message, help) = vc_template::row_var_unread(&unread.read, &unread.var, &needs);
+    Diagnostic::new(Code::V2105, unread.span, message).help(help)
 }
 
 /// V5111 (or the code `error` names) at `test`: its examples did not render.
-fn diagnostic(program: &Program, test: &Test, error: &RenderError) -> Diagnostic {
+fn unrendered(program: &Program, test: &Test, error: &RenderError) -> Diagnostic {
     let message = format!("the examples of `{}` did not render: {}", name(program, test.id), error.message);
-    Diagnostic::new(error.code.unwrap_or(Code::V5111), test.span, message).help(HELP)
+    Diagnostic::new(error.code.unwrap_or(Code::V5111), test.span, message).help(format!("{ROW_HELP}; {LIST_HELP}"))
 }
 
 fn name(program: &Program, test: TestId) -> String {

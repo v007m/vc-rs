@@ -1,7 +1,8 @@
 //! `examples: ${…}`: the rows a template gives are read once before the run, from the vars the
 //! profiles and `--set` give and the datasets, and only for the tests the run selects; `--seed`
-//! repeats a shuffle of them, rows that are not a list of maps are V5111, and a test given no rows
-//! is skipped with a warning.
+//! repeats a shuffle of them whatever else the run selects, rows that are not a list of maps are
+//! V5111, a var a profile defines from a root read later is V2105 under that profile, and a test
+//! given no rows is skipped with a warning.
 
 use serde_json::Value;
 use vc_mock_server::MockServer;
@@ -66,6 +67,65 @@ async fn a_seed_repeats_the_shuffled_rows() {
     assert_eq!(run("7"), first, "the same seed draws the same rows in the same order");
     let seeds = ["1", "2", "3", "4", "5", "6"].map(run);
     assert!(seeds.iter().any(|other| *other != first), "another seed draws other rows: {seeds:?}");
+}
+
+/// The label, status and failure of each finished instance of `test` in a `--reporter json` run,
+/// sorted by label: which row each instance had, since only Oslo passes and a failure names the city.
+fn instances(stdout: &[u8], test: &str) -> Vec<(Value, Value, Value)> {
+    let events = events(stdout);
+    let of_test = of_kind(&events, "testFinished").into_iter().filter(|event| event["test"] == test);
+    let mut found: Vec<_> =
+        of_test.map(|event| (event["label"].clone(), event["status"].clone(), event["failure"].clone())).collect();
+    found.sort_by_key(|(label, ..)| label.to_string());
+    found
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_seed_gives_a_test_the_same_rows_whatever_else_the_run_selects() {
+    let server = MockServer::start().await.unwrap();
+    let shuffled = "examples: ${dataset.cities | shuffle | take(3)}\n    call: scripted#echo\n\
+                    \x20   body: {city: '${example.name}'}\n    expect: {body: {match: {body.city: Oslo}}}\n";
+    let tests = format!("tests:\n  - id: visitsEachCity\n    {shuffled}  - id: revisitsEachCity\n    {shuffled}");
+    let project = Project::new(&[CONFIG, CITIES, SCRIPTED, ("services/scripted/cities.test.yaml", &tests)]);
+    let second = "scripted.cities#revisitsEachCity";
+    let run = |args: &[&str]| {
+        let mut all = vec!["--seed", "7", "--reporter", "json"];
+        all.extend(args);
+        project.run(&server.base_url(), &all).output().unwrap()
+    };
+    let together = run(&[]);
+    let rows = instances(&together.stdout, second);
+    assert_eq!(rows.len(), 3, "{}", said(&together));
+    let alone = run(&[second]);
+    assert_eq!(instances(&alone.stdout, second), rows, "selected alone, it draws the same rows: {}", said(&alone));
+    let rerun = run(&["--failed"]);
+    let again = instances(&rerun.stdout, second);
+    assert!(!again.is_empty(), "one of five cities passes, so some rows failed: {}", said(&rerun));
+    assert!(again.iter().all(|row| rows.contains(row)), "a rerun row is the row that failed: {again:?} in {rows:?}");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_profile_whose_rows_read_a_secret_refuses_the_run_only_under_that_profile() {
+    let server = MockServer::start().await.unwrap();
+    let config = (
+        "vibranium.config.yaml",
+        "syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\n  - id: staging\n\
+         \x20   vars: {rows: '${secret.ROWS_TOKEN}'}\nvars: {baseUrl: 'http://x', rows: '${dataset.cities | take(2)}'}\n",
+    );
+    let tests = "tests:\n  - id: visitsEachCity\n    examples: ${var.rows}\n    call: scripted#echo\n\
+                 \x20   body: {city: '${example.name}'}\n";
+    let schema = (".env.schema", "# a token the rows must not read\nROWS_TOKEN=\n");
+    let project = Project::new(&[config, CITIES, SCRIPTED, ("services/scripted/cities.test.yaml", tests), schema]);
+    let check = project.vc(&["check"]).output().unwrap();
+    assert_eq!(check.status.code(), Some(0), "only a profile reads the secret, so it compiles: {}", said(&check));
+    let staging = project.run(&server.base_url(), &["--profile", "staging"]).output().unwrap();
+    assert_ne!(staging.status.code(), Some(0), "{}", said(&staging));
+    assert!(said(&staging).contains("V2105"), "{}", said(&staging));
+    assert!(said(&staging).contains("`var.rows` needs `secret`"), "{}", said(&staging));
+    assert_eq!(server.stats().await.unwrap().count("POST /echo"), 0, "nothing ran");
+    let dev = project.run(&server.base_url(), &["--profile", "dev"]).output().unwrap();
+    assert_eq!(dev.status.code(), Some(0), "the other profile's rows render: {}", said(&dev));
+    assert_eq!(server.stats().await.unwrap().count("POST /echo"), 2);
 }
 
 #[tokio::test(flavor = "multi_thread")]

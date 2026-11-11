@@ -181,6 +181,18 @@ pub fn random(seed: Option<u64>) -> (u64, Arc<dyn Random>) {
     (seed, Arc::new(SeededRandom::new(seed)))
 }
 
+/// The random source of one test's example rows, from the run's `seed` and the test's full
+/// `id`: the rows a seed gives a test do not depend on what else the run renders, or in what order.
+pub fn random_for(seed: u64, id: &str) -> Arc<dyn Random> {
+    Arc::new(SeededRandom::new(seed ^ fnv1a(id)))
+}
+
+/// The 64-bit FNV-1a hash of `text`, the same on every build and platform (unlike `DefaultHasher`).
+fn fnv1a(text: &str) -> u64 {
+    let step = |hash: u64, byte: u8| (hash ^ u64::from(byte)).wrapping_mul(0x0100_0000_01b3);
+    text.bytes().fold(0xcbf2_9ce4_8422_2325, step)
+}
+
 #[cfg(test)]
 #[path = "ports_tests.rs"]
 mod tests;
