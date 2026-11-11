@@ -102,3 +102,39 @@ async fn creators_whose_saves_clash_are_numbered_in_route_order() -> Result<(), 
     assert_eq!(drafted(&group, "getsUser").vars, passed("userId2"));
     Ok(())
 }
+
+/// Users with orders, the user under a generic `{id}` and the order under `{orderId}`.
+fn nested() -> Value {
+    let item = || json_response(&json!({ "properties": { "id": { "type": "integer" } } }));
+    let op = |id: &str, status: &str| json!({ "operationId": id, "responses": { status: item() } });
+    json!({
+        "openapi": "3.1.0",
+        "info": { "title": "Nested", "version": "1" },
+        "paths": {
+            "/users": { "post": op("createUser", "201") },
+            "/users/{id}/orders": { "parameters": [path_param("id")], "post": op("createOrder", "201") },
+            "/users/{id}/orders/{orderId}": {
+                "parameters": [path_param("id"), path_param("orderId")],
+                "get": op("getOrder", "200"),
+            },
+        },
+    })
+}
+
+#[tokio::test]
+async fn a_nested_creator_reads_the_outer_item_through_the_var_the_test_passes() -> Result<(), ImportError> {
+    let opts = ImportOptions { file_id: "nested".to_owned(), tests: true, ..ImportOptions::default() };
+    let draft = read_json(&nested(), &opts).await?;
+    let group = draft.groups.first().cloned().unwrap_or_default();
+    let order = drafted(&group, "getsOrder");
+    let calls: Vec<&str> = order.before.iter().map(|before| before.call.as_str()).collect();
+    assert_eq!(calls, ["nested#createUser", "nested#createOrder"]);
+    assert_eq!(order.vars, IndexMap::from([("id".to_owned(), json!("${var.userId}"))]));
+    assert_eq!(drafted(&group, "createsOrder").vars, order.vars, "createOrder's path reads `${{var.id}}` too");
+    let saved = |id: &str, var: &str| {
+        let save = IndexMap::from([(var.to_owned(), "${response.body.id}".to_owned())]);
+        api(&group, id).map(|api| &api.save) == Some(&save)
+    };
+    assert!(saved("createUser", "userId") && saved("createOrder", "orderId"), "{:?}", group.apis);
+    Ok(())
+}
