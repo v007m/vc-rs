@@ -20,7 +20,14 @@ function fakePort(overrides: Partial<ClientPort> = {}): ClientPort {
     apis: () => Promise.resolve(apis),
     flows: () => Promise.resolve([]),
     call: () =>
-      Promise.resolve({ exit: 0, text: '201 Created', notices: [], responseJson: created }),
+      Promise.resolve({
+        exit: 0,
+        text: '201 Created',
+        notices: [],
+        checks: [],
+        saved: [],
+        responseJson: created,
+      }),
     saveCallAsTest: () => Promise.resolve({ id: '', path: '', titles: [] }),
     importHar: () => Promise.resolve({ files: [], titles: [] }),
     ...overrides,
@@ -49,7 +56,14 @@ describe('ClientSession', () => {
       fakePort({
         call: (input) => {
           sent.push(input);
-          return Promise.resolve({ exit: 0, text: '201', notices: [], responseJson: created });
+          return Promise.resolve({
+            exit: 0,
+            text: '201',
+            notices: [],
+            checks: [],
+            saved: [],
+            responseJson: created,
+          });
         },
       }),
     );

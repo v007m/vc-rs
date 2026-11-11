@@ -89,7 +89,7 @@ Calls a single api, the way `vc call` does, with the project's auth and the acti
 
 </Steps>
 
-The response shows a pass or fail dot for the api's `expect`, and three tabs: **Body**, **Headers** and **Output** (the text `vc call` would print, which also explains a call that got no response).
+The response shows a pass or fail dot for the api's `expect`, and these tabs: **Body**, **Headers**, **Timing** (a waterfall of the call's dns, connect, tls, firstByte and download phases; a reused connection shows only the last two), **Checks** (each check the api ran, with what it expected and what came back), **Saved** (each value the api's `save` took, with the template it came from) and **Output** (the text `vc call` would print, which also explains a call that got no response). Secret values are masked on every tab.
 
 ### Save as test
 

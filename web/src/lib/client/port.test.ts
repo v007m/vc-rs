@@ -43,7 +43,14 @@ describe('enginePort', () => {
       }),
     );
     const out = await port.call({ api: 'users#listUsers', vars: ['a=1'], keep: true });
-    expect(out).toEqual({ exit: 0, text: '200 OK', notices: [], responseJson: '{"status":200}' });
+    expect(out).toEqual({
+      exit: 0,
+      text: '200 OK',
+      notices: [],
+      checks: [],
+      saved: [],
+      responseJson: '{"status":200}',
+    });
     const saved = await port.saveCallAsTest({
       testId: 'users.crud#listsOne',
       api: 'users#listUsers',

@@ -20,6 +20,25 @@ test('calls an api and shows the status and body', async ({ page }) => {
   await expect(response.getByRole('tab', { name: 'Body', selected: true })).toBeVisible();
 });
 
+test('shows how long each phase of a call took, its checks and what it saved', async ({ page }) => {
+  await openApi(page, 'Create a user');
+  await page.getByRole('button', { name: 'Send' }).click();
+  const response = page.getByRole('region', { name: 'Response' });
+  await expect(response.getByText(/^201\b/)).toBeVisible({ timeout: 15_000 });
+
+  await response.getByRole('tab', { name: 'Timing' }).click();
+  const waterfall = response.getByRole('table', { name: 'Timing waterfall' });
+  await expect(waterfall.getByRole('rowheader', { name: 'firstByte' })).toBeVisible();
+  await expect(waterfall.getByRole('row', { name: /^total \d/ })).toBeVisible();
+
+  await response.getByRole('tab', { name: 'Checks' }).click();
+  await expect(response.getByRole('list', { name: 'Checks' })).toContainText(/status\s+held/);
+
+  await response.getByRole('tab', { name: 'Saved' }).click();
+  const saved = response.getByRole('table', { name: 'Saved values' });
+  await expect(saved.getByRole('rowheader', { name: 'userId' })).toBeVisible();
+});
+
 test('saves a call with a var as a test expecting a body field', async ({ page }) => {
   await openApi(page, 'Create a user');
   await page.getByRole('tab', { name: 'Vars' }).click();

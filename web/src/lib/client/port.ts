@@ -4,6 +4,8 @@ import {
   type EngineService,
   type FileChange as GenFileChange,
 } from '#lib/gen/vibranium/engine/v1/engine_pb.ts';
+import { checkLine, exchangeLine } from '#lib/api/results.ts';
+import type { CheckLine, ExchangeLine } from '#lib/results/types.ts';
 
 /** An api the client can call, with the names of the vars it declares. */
 export type ApiInfo = Readonly<{ id: string; name: string; path: string; vars: readonly string[] }>;
@@ -19,12 +21,21 @@ export type CallInput = Readonly<{
   keep: boolean;
 }>;
 
-/** What a call gave back; `responseJson` is the masked `status`/`headers`/`body` value. */
+/** A value the api's `save` took from the response: `from` as written, `value` masked. */
+export type SavedLine = Readonly<{ name: string; from: string; value: string }>;
+
+/**
+ * What a call gave back; `responseJson` is the masked `status`/`headers`/`body` value, and
+ * `exchange` the request as sent and the response with its timing, absent when none came.
+ */
 export type CallOutput = Readonly<{
   exit: number;
   text: string;
   notices: readonly string[];
   responseJson?: string;
+  exchange?: ExchangeLine;
+  checks: readonly CheckLine[];
+  saved: readonly SavedLine[];
 }>;
 
 /**
@@ -94,14 +105,19 @@ export function enginePort(client: EngineClient): ClientPort {
         .map((d) => ({ id: d.id, name: d.name ?? d.id, steps: d.steps }));
     },
     async call({ api, vars, keep }) {
-      const { exit, text, notices, responseJson } = await client.call({
-        api,
-        vars: [...vars],
-        keep,
-      });
-      return responseJson === undefined
-        ? { exit, text, notices }
-        : { exit, text, notices, responseJson };
+      const out = await client.call({ api, vars: [...vars], keep });
+      const { exit, text, notices, responseJson, exchange } = out;
+      const checks = out.checks.map(checkLine);
+      const saved = out.saved.map(({ name, from, value }) => ({ name, from, value }));
+      return {
+        exit,
+        text,
+        notices,
+        checks,
+        saved,
+        ...(responseJson === undefined ? {} : { responseJson }),
+        ...(exchange === undefined ? {} : { exchange: exchangeLine(exchange) }),
+      };
     },
     async saveCallAsTest({ testId, api, vars, responseJson, fields }) {
       const { id, path, titles } = await client.saveCallAsTest({

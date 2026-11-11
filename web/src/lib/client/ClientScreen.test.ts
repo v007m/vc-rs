@@ -36,6 +36,26 @@ function setup() {
         text: '201 Created · 9 ms · api expect passed',
         notices: [],
         responseJson,
+        exchange: {
+          method: 'POST',
+          url: 'http://localhost:7421/users',
+          status: 201,
+          ms: 9,
+          timing: { dnsMs: 1, connectMs: 2, firstByteMs: 5, downloadMs: 1, totalMs: 9 },
+          requestHeaders: [],
+          responseHeaders: [['x-id', 'u_1']],
+          truncated: false,
+        },
+        checks: [
+          {
+            label: 'status',
+            passed: true,
+            expected: '201',
+            actual: '201',
+            location: 'services/users/users.api.yaml:20',
+          },
+        ],
+        saved: [{ name: 'userId', from: '${response.body.id}', value: '"u_1"' }],
       });
     },
     saveCallAsTest: (input) => {
@@ -82,6 +102,26 @@ describe('ClientScreen', () => {
     expect(within(response).getByText(/"u_1"/)).toBeTruthy();
     await user.click(within(response).getByRole('tab', { name: 'Headers' }));
     expect(within(response).getByText('x-id')).toBeTruthy();
+  });
+
+  it('shows the timing waterfall, the checks that ran and the values saved', async () => {
+    const { user } = await rendered();
+    await user.click(screen.getByRole('treeitem', { name: 'Create a user' }));
+    await user.click(screen.getByRole('button', { name: 'Send' }));
+    const response = screen.getByRole('region', { name: 'Response' });
+    await user.click(within(response).getByRole('tab', { name: 'Timing' }));
+    const waterfall = within(response).getByRole('table', { name: 'Timing waterfall' });
+    const phases = within(waterfall)
+      .getAllByRole('rowheader')
+      .map((th) => th.textContent);
+    expect(phases).toEqual(['dns', 'connect', 'firstByte', 'download', 'total']);
+    await user.click(within(response).getByRole('tab', { name: 'Checks' }));
+    const checks = within(response).getByRole('list', { name: 'Checks' });
+    expect(checks.textContent?.replace(/\s+/g, ' ')).toContain('status held');
+    await user.click(within(response).getByRole('tab', { name: 'Saved' }));
+    const saved = within(response).getByRole('table', { name: 'Saved values' });
+    expect(within(saved).getByRole('rowheader', { name: 'userId' })).toBeTruthy();
+    expect(saved.textContent).toContain('${response.body.id}');
   });
 
   it('saves the call as a test expecting a chosen body field', async () => {
