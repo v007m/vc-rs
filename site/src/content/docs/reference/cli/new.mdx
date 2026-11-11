@@ -4,7 +4,7 @@ description: "Adds an api, a test or an auth definition, or creates an empty def
 sidebar: { order: 10 }
 ---
 
-import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
 
 Creates definitions for you, in the right file and following the [naming conventions](/vc-rs/start/project-layout/). Each subcommand derives the file from the ID, appends to it (creating it when needed), and refuses to write anything that would leave the project with an error.
 
@@ -33,20 +33,23 @@ Appends an api to the api file its ID derives from: `users#deactivate` goes to `
 
 ```console
 $ vc new api users#deactivate --method POST --path '/users/{id}/deactivate'
-✓ added users#deactivate to services/users/users.api.yaml:5
+✓ added users#deactivate to services/users/users.api.yaml:6
+  set `vars.usersUrl` in the config to the service's URL; it is http://localhost
 ```
 
 ```yaml title="services/users/users.api.yaml"
 # yaml-language-server: $schema=https://v007m.github.io/vc-rs/schema/api.schema.json
 # users · api file · keys: https://github.com/v007m/vc-rs/blob/master/docs/design/syntax-reference.md#api-files
+baseUrl: ${var.usersUrl}
 apis:
   # users#deactivate · POST /users/{id}/deactivate · keys: https://github.com/v007m/vc-rs/blob/master/docs/design/syntax-reference.md#api-files
   - id: deactivate
+    name: Deactivate
     method: POST
     path: /users/${var.id}/deactivate
 ```
 
-Each path parameter becomes a var: `{id}` is written as `${var.id}`. The comment lines are the [`brief` comments](/vc-rs/reference/cli/fmt/#remove-the-generated-comments).
+Each path parameter becomes a var: `{id}` is written as `${var.id}`, and the api's `name` is its ID as a sentence. A new file gets `baseUrl: ${var.usersUrl}`, named after the file ID's last word. When the config does not set that var, it is added as `http://localhost`, and a note says to set it to the service's URL. Adding to an existing file keeps its `baseUrl`. The comment lines are the [`brief` comments](/vc-rs/reference/cli/fmt/#remove-the-generated-comments).
 
 ### A full URL
 
@@ -99,7 +102,7 @@ Appends a happy-path test that calls an api, to the test file its ID derives fro
 | --- | --- | --- |
 | `<ID>` | | The test's full ID: `users.crud#listsUsers` |
 | `--from` | `<API>` | Required. The api it calls: `users#listUsers` |
-| `--negative` | | Also a test with one example row per invalid body, built from the api's body schema. The api must have one |
+| `--negative` | | Also a test with one example row per invalid body, built from the api's request body schema. Apis cannot declare one yet, so for now it exits 2: drop the flag and add the invalid bodies as [`examples`](/vc-rs/reference/syntax/examples/) rows |
 | `--auth` | | Also a test calling the api with `auth: none` and expecting `401` |
 
 ```console
@@ -122,17 +125,25 @@ tests:
 
 The name is written from the ID. When the api comes from an OpenAPI spec, the test also expects the spec's success status and response schema; [`vc import openapi --tests`](/vc-rs/reference/cli/import/) does this for every operation.
 
-<Aside type="caution">
-`vc new test` refuses an api whose path var has no value anywhere, because the new test would not check:
+### Path vars
+
+When the api's path holds a var that the config does not set, the new test sets it, so the file passes `vc check`. It gets the api's own value when the api has one (an api imported from an OpenAPI spec carries the spec's sample), or else `replace-me`. Either way a `# replace` comment marks the line:
 
 ```console
 $ vc new test billing.invoices#getsInvoice --from billing#getInvoice
-error: nothing was written: the change would add error[V2101] at services/billing/billing.api.yaml:7: ${var.invoiceId} is used but never set
-  = help: set it in this test's vars, in the file's vars, or in the config's vars
+✓ added billing.invoices#getsInvoice to services/billing/invoices.test.yaml:5
 ```
 
-Give the var a default in the api, the file or the config first, or write the test by hand.
-</Aside>
+```yaml title="services/billing/invoices.test.yaml"
+tests:
+  - id: getsInvoice
+    name: Gets invoice
+    call: billing#getInvoice
+    vars:
+      invoiceId: replace-me  # replace with a real invoiceId
+```
+
+Put a real ID there before running it. A var the config already sets, in its `vars` or a profile's, is left out.
 
 ## vc new auth
 
@@ -163,7 +174,7 @@ When it does not ask, `id` and `type` are written, plus a secret reference for e
 
 ## vc new file
 
-Creates an empty file of a kind, holding only its header.
+Creates a file of a kind, holding only its header; a load file also gets a starting `mix`.
 
 | Argument | Description |
 | --- | --- |
@@ -177,7 +188,24 @@ $ vc new file api orders
 ✓ added orders to services/orders/orders.api.yaml:1
 ```
 
-An existing file is never overwritten. `vc new file load` currently always fails, because an empty load file has no `mix`; copy a [load file](/vc-rs/reference/load/) instead.
+A load file needs a `mix`, so `vc new file load` also writes one: the project's first test by ID, run by one user for 30 seconds. The file passes `vc check` and `vc load` runs it:
+
+```console
+$ vc new file load checkout.peak
+✓ added checkout.peak to load/checkout/peak.load.yaml:1
+```
+
+```yaml title="load/checkout/peak.load.yaml"
+mix:
+  # replace with the tests to run, each with its share of the traffic
+  - test: users.crud#createsUser
+    weight: 1
+stages:
+  - duration: 30s
+    users: 1
+```
+
+In a project with no test yet, it exits 2 and says to add one first. See [Load files](/vc-rs/reference/load/) for the other keys. An existing file is never overwritten.
 
 ## Exit codes
 
