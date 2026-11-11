@@ -196,7 +196,7 @@ async fn a_test_creates_each_item_its_path_names_first_and_skips_when_nothing_cr
     assert_eq!(calls("getsOrder"), ["shop#createUser", "shop#createOrder"]);
     assert_eq!(calls("createsOrder"), ["shop#createUser"]);
     let cart = drafted(&group, "getsCart");
-    assert_eq!(cart.skip.as_deref(), Some("needs an existing cart: set vars.cartId to one"));
+    assert_eq!(cart.skip.as_deref(), Some("needs an existing cart: set vars.cartId to one and remove this skip"));
     assert_eq!(cart.before, []);
     let saves: Vec<_> = group.apis.iter().map(|api| (api.id.as_str(), api.save.clone(), api.cleanup.clone())).collect();
     let save = |var: &str, read: &str| IndexMap::from([(var.to_owned(), read.to_owned())]);

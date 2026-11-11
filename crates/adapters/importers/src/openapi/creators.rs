@@ -90,11 +90,12 @@ fn last_param(path: &str) -> Option<(&str, &str)> {
     Some((collection, param))
 }
 
-/// Why a test cannot run when no api creates the item `param` names under `collection`.
+/// Why a test cannot run when no api creates the item `param` names under `collection`, and
+/// what makes it run: a `skip` is static, so setting the var alone does not.
 fn missing(collection: &str, param: &str) -> String {
     let word = collection.rsplit('/').next().filter(|word| !word.is_empty() && !word.contains('{'));
     let resource = word.map_or_else(|| param.to_owned(), |word| singular(word).replace(['-', '_'], " "));
-    format!("needs an existing {resource}: set vars.{} to one", camel(param))
+    format!("needs an existing {resource}: set vars.{} to one and remove this skip", camel(param))
 }
 
 #[cfg(test)]
@@ -110,8 +111,11 @@ mod tests {
 
     #[test]
     fn a_missing_item_is_named_by_its_collection() {
-        assert_eq!(missing("/pets", "petId"), "needs an existing pet: set vars.petId to one");
-        assert_eq!(missing("/line_items", "id"), "needs an existing line item: set vars.id to one");
-        assert_eq!(missing("", "id"), "needs an existing id: set vars.id to one");
+        assert_eq!(missing("/pets", "petId"), "needs an existing pet: set vars.petId to one and remove this skip");
+        assert_eq!(
+            missing("/line_items", "id"),
+            "needs an existing line item: set vars.id to one and remove this skip"
+        );
+        assert_eq!(missing("", "id"), "needs an existing id: set vars.id to one and remove this skip");
     }
 }

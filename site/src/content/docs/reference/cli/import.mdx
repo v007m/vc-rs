@@ -106,7 +106,7 @@ users.openapi#getsUser  Get user
 users.openapi#deletesUser  Delete user
 ```
 
-The tests go to `services/users/openapi.test.yaml`. A happy test expects the operation's first 2xx and checks the body against its schema in the snapshot (`$file: ../../openapi/users.yaml#/components/schemas/User`). When the path names an item, the test creates one first in `before` through the collection's `POST`, which gets a `save` and a `cleanup` in the api file; a test that deletes that same item keeps it (`keep: true`). With no such `POST`, the test is skipped with the var to set. A negative test has an example row per broken field (missing, wrong type, outside its enum), sends `body: ${example.body}` and expects 400, or 422 when the spec lists only that. An auth test sends `auth: none` and expects 401.
+The tests go to `services/users/openapi.test.yaml`. A happy test expects the operation's first 2xx and checks the body against its schema in the snapshot (`$file: ../../openapi/users.yaml#/components/schemas/User`). When the path names an item, the test creates one first in `before` through the collection's `POST`, which gets a `save` and a `cleanup` in the api file; a test that deletes that same item keeps it (`keep: true`). With no such `POST`, the test is skipped, its reason naming the var to set: set it to an existing item's ID and remove the `skip` to run the test. A negative test has an example row per broken field (missing, wrong type, outside its enum), sends `body: ${example.body}` and expects 400, or 422 when the spec lists only that. An auth test sends `auth: none` and expects 401.
 
 ### Import part of a spec
 

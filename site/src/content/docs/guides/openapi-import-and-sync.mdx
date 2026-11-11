@@ -35,7 +35,7 @@ If your service has an OpenAPI 3.0 or 3.1 spec, import it once, then let `vc syn
    users.openapi#deletesUser  Delete user
    ```
 
-   - `--tests` writes one happy-path test per operation. It expects the first 2xx the spec lists and checks the body against the response's schema in the snapshot. A test whose path names an item (`/users/{id}`) creates one first in `before`, through the `POST` on the collection, which the api file now saves and cleans up. When nothing creates the item, the test is skipped with the var to set.
+   - `--tests` writes one happy-path test per operation. It expects the first 2xx the spec lists and checks the body against the response's schema in the snapshot. A test whose path names an item (`/users/{id}`) creates one first in `before`, through the `POST` on the collection, which the api file now saves and cleans up. When nothing creates the item, the test is skipped, its reason naming the var to set: set it to an existing item's ID and remove the `skip` to run the test.
    - `--negative` writes one test per operation with a JSON body. Each example row breaks one field (missing, wrong type, outside its enum), and the test expects 400, or 422 when that is what the spec lists.
    - `--auth` writes a test per secured operation that sends no auth and expects 401.
 
