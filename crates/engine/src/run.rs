@@ -80,11 +80,11 @@ impl Engine {
         let secrets = self.secrets(&prepared.program.config.secrets, &prepared.environment).await?;
         let plugins = self.plugin_hosts(&prepared.program, &secrets);
         let heard = plugins.heard();
-        let (seed, random) = (prepared.draw.seed, Arc::clone(&prepared.draw.random));
-        let (reporters, unrecorded) = self.reporters(request, &prepared, (seed, plugins.clone()))?;
+        let (seed, random, started_ms) = (prepared.draw.seed, Arc::clone(&prepared.draw.random), self.clock.now_ms());
+        let (reporters, unrecorded) = self.reporters(request, &prepared, (seed, plugins.clone(), started_ms))?;
         let run_id = reporters.run_id().map_or(0, RunId::get);
         let alerting = self.alerting(&prepared, &secrets, (run_id, "run"))?;
-        let inputs = inputs(&prepared, random, run_id).with_secrets(secrets).with_started_at(self.clock.now_ms());
+        let inputs = inputs(&prepared, random, run_id).with_secrets(secrets).with_started_at(started_ms);
         let (executor, sweep) = self.executor(&prepared, (inputs, &plugins), request).await?;
         let bus = EventBus::spawn();
         let watching = request.watch.as_ref().map(|watch| watch.follow(&bus, &prepared));
@@ -107,12 +107,13 @@ impl Engine {
 
     /// The reporters `request` chooses, the reporter plugins among `plugins`, recording into the
     /// history, and a notice for each plugin the run cannot use; a history that cannot be opened
-    /// leaves the run unrecorded, with a notice saying so.
+    /// leaves the run unrecorded, with a notice saying so. The history's start is `started_ms`,
+    /// the clock read `${run.startedAt}` gives too.
     fn reporters(
         &self,
         request: &RunRequest,
         prepared: &Prepared,
-        (seed, plugins): (u64, Hosts),
+        (seed, plugins, started_ms): (u64, Hosts, u64),
     ) -> Result<(Reporters, Vec<String>), EngineError> {
         let chosen = reporting::choose(request.console.as_deref(), &prepared.settings, &prepared.program)?;
         let chosen = chosen.under(self.root()).flat(request.files.out.is_some());
@@ -120,7 +121,7 @@ impl Engine {
         let selector = if request.failed { format!("--failed {selector}").trim_end().to_owned() } else { selector };
         let start = RunStart {
             kind: "run".to_owned(),
-            started_ms: self.clock.now_ms(),
+            started_ms,
             profiles: prepared.names.clone(),
             selector,
             seed: Some(seed),
