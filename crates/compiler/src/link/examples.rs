@@ -61,9 +61,11 @@ impl Checker<'_, '_> {
 
     /// What the var `reference` names needs that is not there before the run, looked up from the
     /// level `from` out and followed through the vars its definition reads; `None` for another
-    /// root, a var read with `default`, one no level sets (V2101 says so) or one already followed.
+    /// root, one no level sets (V2101 says so), one only a save sets read with `default`, which
+    /// then gives its default, or one already followed. A defined var read with `default` is
+    /// still followed, since the rows render its definition.
     fn needed(&self, (reference, from): (&Reference, usize), scope: &Scope<'_>, seen: &mut Seen) -> Option<Needed> {
-        if reference.ns != Namespace::Var || self.takes_missing(reference) {
+        if reference.ns != Namespace::Var {
             return None;
         }
         let name = var_name(reference)?;
@@ -72,6 +74,7 @@ impl Checker<'_, '_> {
         }
         match scope.origin(name, from) {
             Origin::Unset => None,
+            Origin::Saved if self.takes_missing(reference) => None,
             Origin::Saved => Some(Needed { var: name.to_owned(), root: SAVED.to_owned() }),
             Origin::Defined { reads, at } => self.defined((name, reads, at), scope, seen),
         }

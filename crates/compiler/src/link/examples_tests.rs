@@ -122,3 +122,12 @@ fn a_file_of_rows_has_a_path_written_as_it_is() {
     assert_eq!(diagnostic.message, "the `$file` path of `examples` holds a template");
     assert!(diagnostic.help.join("\n").contains("`examples: ${var.rows}`"), "{diagnostic:?}");
 }
+
+#[test]
+fn a_default_still_reads_a_defined_var_but_covers_one_only_a_save_sets() {
+    let tests = "tests:\n  - id: listsWithToken\n    call: users#get\n    examples: ${var.token | default('x')}\n";
+    let help = help_at(tests, 4);
+    assert!(help.starts_with("`var.token` needs `secret`;"), "the rows render `token`'s definition: {help}");
+    let saved = "beforeAll:\n  - id: seeded\n    call: users#make\ntests:\n  - id: listsSeeded\n    call: users#get\n    examples: ${var.seeded | default('x')}\n";
+    assert_eq!(unavailable(saved), [], "before the run the save has not run, so the default is given");
+}
