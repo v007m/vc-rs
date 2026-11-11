@@ -31,7 +31,7 @@ fn new_api_appends_with_path_parameters_as_vars() {
 }
 
 /// A new file from `--path` takes its base URL from the config var `<last word>Url`, added as
-/// `http://localhost` with a note to set it, or reused when the config has it; each api is named.
+/// `http://localhost` with a note to set it; each api is named.
 #[test]
 fn new_api_creates_the_file_its_id_derives_from_with_a_base_url_and_a_name() {
     let project = Project::new(&[CONFIG]);
@@ -47,7 +47,12 @@ fn new_api_creates_the_file_its_id_derives_from_with_a_base_url_and_a_name() {
     let config = project.read(CONFIG.0);
     assert!(config.contains("refundsUrl: http://localhost"), "{config}");
     checks_clean(&project);
+}
 
+/// A new file from `--path` reuses the config var `<last word>Url` when the config sets it.
+#[test]
+fn new_api_from_a_path_reuses_the_base_url_var_the_config_sets() {
+    let project = Project::new(&[CONFIG]);
     project.write(CONFIG.0, &CONFIG.1.replace("vars: {", "vars: {ordersUrl: 'http://orders.test', "));
     let output = project.vc(&["new", "api", "orders#listOrders", "--path", "/orders"]).output().unwrap();
     assert_eq!(output.status.code(), Some(0), "{}", said(&output));

@@ -81,7 +81,8 @@ fn refuses_a_file_that_does_not_parse_and_leaves_it_alone() {
 }
 
 /// The files `vc init` writes.
-const INIT: [&str; 3] = ["vibranium.config.yaml", "services/sample/sample.api.yaml", "services/sample/basics.test.yaml"];
+const INIT: [&str; 3] =
+    ["vibranium.config.yaml", "services/sample/sample.api.yaml", "services/sample/basics.test.yaml"];
 
 #[test]
 fn a_fresh_init_keeps_every_comment_as_written() {

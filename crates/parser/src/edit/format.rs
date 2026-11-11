@@ -9,6 +9,7 @@ use std::collections::HashSet;
 use std::ops::Range;
 
 use super::Document;
+use super::format_tree::{multi_line_scalars, same};
 use crate::{Entry, Node, ParserError, ScalarKind, ScalarStyle, Syntax, Value, scalar};
 
 /// What the house style takes from the caller.
@@ -180,7 +181,7 @@ impl<'d> Writer<'d> {
     /// spaces deeper, and anything else on the same line; a `[..]` or `{..}` keeps its comment.
     fn value(&mut self, node: &'d Node, at: At) {
         let flow = self.doc.is_flow(node) && self.line_comment(at.after).is_none();
-        let line_end = if flow { node.span.end.offset } else { at.after };
+        let line_end = if flow { self.flow_end(node) } else { at.after };
         match &node.value {
             Value::Map(entries) if !entries.is_empty() => {
                 self.end_line(line_end);
@@ -192,6 +193,19 @@ impl<'d> Writer<'d> {
             }
             _ => self.inline(node, at),
         }
+    }
+
+    /// Where the last value in the `[..]` or `{..}` `node` ends: its own span can run on over
+    /// the comment after it.
+    fn flow_end(&self, node: &Node) -> usize {
+        let last = match &node.value {
+            Value::Seq(items) => items.last(),
+            Value::Map(entries) => entries.last().map(|entry| &entry.value),
+            Value::Scalar(_) => None,
+        };
+        last.map_or(node.span.end.offset, |child| {
+            if self.doc.is_flow(child) { self.flow_end(child) } else { child.span.end.offset }
+        })
     }
 
     /// A scalar or an empty collection on the line of its key or dash, with its line comment; a
@@ -366,33 +380,5 @@ impl<'d> Writer<'d> {
             start += line.len();
         }
         found
-    }
-}
-
-/// The span of every scalar in `node` written over several lines.
-fn multi_line_scalars(doc: &Document, node: &Node, found: &mut Vec<Range<usize>>) {
-    match &node.value {
-        Value::Scalar(_) if doc.text.get(node.span.byte_range()).is_some_and(|text| text.contains('\n')) => {
-            found.push(node.span.byte_range());
-        }
-        Value::Scalar(_) => {}
-        Value::Seq(items) => items.iter().for_each(|item| multi_line_scalars(doc, item, found)),
-        Value::Map(entries) => entries.iter().for_each(|entry| multi_line_scalars(doc, &entry.value, found)),
-    }
-}
-
-/// Whether two trees hold the same values, whatever their order of keys and spelling.
-fn same(before: &Node, after: &Node) -> bool {
-    match (&before.value, &after.value) {
-        (Value::Scalar(old), Value::Scalar(new)) => old.text == new.text && old.kind == new.kind,
-        (Value::Seq(old), Value::Seq(new)) => {
-            old.len() == new.len() && old.iter().zip(new).all(|(old, new)| same(old, new))
-        }
-        (Value::Map(old), Value::Map(new)) => {
-            let found =
-                |entry: &Entry| new.iter().any(|other| other.key == entry.key && same(&entry.value, &other.value));
-            old.len() == new.len() && old.iter().all(found)
-        }
-        _ => false,
     }
 }

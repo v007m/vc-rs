@@ -106,10 +106,10 @@ pub fn based(project: &Authoring, file: &str, origin: &str) -> Result<(String, V
         let base = opened.document.root().get("baseUrl").and_then(Node::as_str);
         if base != Some(wanted.as_str()) {
             let path = &found.1.path;
-            let (reason, add) = match base {
-                Some(base) => (format!("`{file}` takes its base URL from {base}, not {wanted}"), String::new()),
-                None => (format!("`{file}` has no `baseUrl`"), format!("add `baseUrl: {wanted}` to it, or ")),
-            };
+            let (reason, add) = base.map_or_else(
+                || (format!("`{file}` has no `baseUrl`"), format!("add `baseUrl: {wanted}` to it, or ")),
+                |base| (format!("`{file}` takes its base URL from {base}, not {wanted}"), String::new()),
+            );
             return Err(refused(
                 reason,
                 &format!("{add}use `--path` to add to {path}, or another file ID for {origin}"),
@@ -119,11 +119,14 @@ pub fn based(project: &Authoring, file: &str, origin: &str) -> Result<(String, V
     Ok((format!("baseUrl: {wanted}\n"), change.into_iter().collect()))
 }
 
+/// A new api file's root lines, the config changes they need, and the note to show.
+type Based = (String, Vec<FileChange>, Option<String>);
+
 /// The root line and config change of a new api file from `--path`: `baseUrl` from the config
 /// var `<last word>Url`, added as `http://localhost` when neither the config nor a profile sets
 /// it, with the note that says to set it. Another var that holds `http://localhost` is never
 /// reused: it is another service's placeholder.
-fn local_base(project: &Authoring, file: &str) -> Result<(String, Vec<FileChange>, Option<String>), EngineError> {
+fn local_base(project: &Authoring, file: &str) -> Result<Based, EngineError> {
     let opened = Authoring::open(config(project)?)?;
     let name = base_name(file);
     let set = vars_set(opened.document.root()).contains(&name);

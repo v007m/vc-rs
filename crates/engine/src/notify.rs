@@ -17,7 +17,6 @@ use crate::{Engine, EngineError};
 
 /// How many stored runs are searched for the previous one.
 const LOOKBACK: usize = 50;
-/// The history kind of a `vc run`.
 
 /// What a run's end needs to send its alerts.
 pub struct Alerting {

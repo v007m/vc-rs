@@ -467,11 +467,12 @@ pub fn vc_engine::Engine::list(&self, &vc_engine::ListRequest) -> core::result::
 impl vc_engine::Engine
 pub fn vc_engine::Engine::check(&self, &vc_engine::CheckRequest) -> core::result::Result<vc_engine::CheckReport, vc_engine::EngineError>
 impl vc_engine::Engine
+pub fn vc_engine::Engine::check_layers(&self, &vc_engine::ExplainRequest) -> core::result::Result<(), vc_engine::EngineError>
+pub async fn vc_engine::Engine::config_values(&self, &[alloc::string::String], &vc_engine::ExplainRequest) -> core::result::Result<vc_engine::ConfigValues, vc_engine::EngineError>
+impl vc_engine::Engine
 pub fn vc_engine::Engine::complete(&self, vc_engine::CompleteKind, &str) -> alloc::vec::Vec<alloc::string::String>
 impl vc_engine::Engine
 pub async fn vc_engine::Engine::config_explain(&self, &str, &vc_engine::ExplainRequest) -> core::result::Result<vc_engine::ExplainReport, vc_engine::EngineError>
-impl vc_engine::Engine
-pub async fn vc_engine::Engine::config_values(&self, &[alloc::string::String], &vc_engine::ExplainRequest) -> core::result::Result<vc_engine::ConfigValues, vc_engine::EngineError>
 impl vc_engine::Engine
 pub fn vc_engine::Engine::edit_file(&self, &vc_engine::SaveFile) -> core::result::Result<vc_engine::Changes, vc_engine::EngineError>
 pub fn vc_engine::Engine::read_file(&self, &str) -> core::result::Result<vc_engine::OpenedFile, vc_engine::EngineError>

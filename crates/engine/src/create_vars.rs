@@ -31,10 +31,11 @@ pub fn path_vars(project: &Authoring, api: &str, test_file: &str) -> Result<Stri
     let mut lines = String::new();
     for name in vars_in(path).into_iter().filter(|name| !set.contains(*name)) {
         let own = node.get("vars").and_then(|vars| vars.get(name));
-        lines.push_str(&match own.and_then(|value| written(&opened.document, value)) {
-            Some(sample) => format!("\n  {name}: {sample}  # replace: the api's sample value"),
-            None => format!("\n  {name}: {PLACEHOLDER}  # replace with a real {name}"),
-        });
+        let line = own.and_then(|value| written(&opened.document, value)).map_or_else(
+            || format!("\n  {name}: {PLACEHOLDER}  # replace with a real {name}"),
+            |sample| format!("\n  {name}: {sample}  # replace: the api's sample value"),
+        );
+        lines.push_str(&line);
     }
     Ok(if lines.is_empty() { lines } else { format!("\nvars:{lines}") })
 }
@@ -81,6 +82,6 @@ mod tests {
         assert_eq!(vars_in("/users/${var.userId}/posts/${var.postId}"), ["userId", "postId"]);
         assert_eq!(vars_in("/a/${var.id}/b/${var.id}"), ["id"]);
         assert_eq!(vars_in("/users/${var.id | upper}"), ["id"]);
-        assert!(vars_in("/users/${env.HOME}/${var.}").is_empty());
+        assert_eq!(vars_in("/users/${env.HOME}/${var.}"), Vec::<&str>::new());
     }
 }
