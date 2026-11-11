@@ -111,7 +111,8 @@ async fn keep_zero_keeps_the_folder_the_run_printed_and_an_empty_history_prunes_
     for _ in 0..2 {
         let run = project.run(&server.base_url(), &["users.mixed#listsUsers"]).output().unwrap();
         assert_eq!(run.status.code(), Some(0), "{}", said(&run));
-        assert!(said(&run).contains(".vibranium/reports/1/"), "{}", said(&run));
+        let printed = format!(".vibranium{0}reports{0}1{0}", std::path::MAIN_SEPARATOR);
+        assert!(said(&run).contains(&printed), "{}", said(&run));
         assert!(reports.join("1/ctrf.json").is_file(), "the folder the run printed is still there");
     }
     project.vc(&["history", "prune", "--keep", "0"]).assert().code(0).stdout("pruned 0 runs\n");
