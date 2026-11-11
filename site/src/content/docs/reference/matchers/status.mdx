@@ -174,12 +174,14 @@ Edit the test below. The editor checks it against the real schema as you type.
 
 - A list passes when any entry matches.
 - Classes are written in lowercase: `2xx`, not `2XX`.
-- A template, such as `status: ${example.status}` in a test with `examples`, gives the code when the test runs; the response's code must equal it.
+- A template, such as `status: ${example.status}` in a test with `examples`, is read when the test runs just as a written status is: a code as a number or as text (`201` or `"201"`, so a CSV row works), a class (`"2xx"`) or a list of them. Any other value fails the check. The same holds for a templated `saveOn`.
+- A matcher map needs at least one matcher: `status: {}` is V2303.
 - An api's `status` applies to every call of that api. A test's `status` replaces it; see [merging](/vc-rs/reference/matchers/merging/).
 
 ## Common errors
 
-- [V2303](/vc-rs/reference/diagnostics/v2303/): the status is not a code from 100 to 599 or a class from `1xx` to `5xx`.
+- [V2303](/vc-rs/reference/diagnostics/v2303/): the status is not a code from 100 to 599 or a class from `1xx` to `5xx`, or it is an empty map.
+- [V1004](/vc-rs/reference/diagnostics/v1004/): a key in a status map that is not a matcher, such as `{oneOf: [200, 201]}`.
 - [V5101](/vc-rs/reference/diagnostics/v5101/): the check did not hold for the response. The report shows the expected and the actual value.
 
 ## Related

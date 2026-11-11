@@ -24,7 +24,7 @@ These rules govern every file; `vc check` enforces each one with a diagnostic.
 6. **Sections are plural, references are singular.** `vars:` is read as `${var.x}`, `secrets` as `${secret.X}`, `examples:` as `${example.x}`.
 7. **One template syntax:** `${namespace.path}`, optionally followed by pipes that convert the value (`${var.count | number}`), plus generator calls with literal arguments (`${fake.lorem.words(5)}`). No other code inside templates.
 8. **One check form.** `expect` looks the same on apis, tests, steps, actions, polling and load thresholds. A literal means "equals"; anything else is a matcher such as `lt: 500ms`.
-9. **Units are written out.** Durations `250ms`, `2s`, `1m`; sizes `4kb`, `1mb` (binary: `kb` is 1024 bytes, `mb` 1024², `gb` 1024³; D146); rates `1%`. A bare number is never milliseconds.
+9. **Units are written out.** Durations `250ms`, `2s`, `1m`; sizes `4kb`, `1mb` (binary: `kb` is 1024 bytes, `mb` 1024², `gb` 1024³; D146); rates `1%`. A bare number is never milliseconds or bytes: `vc check` reports V2301 with a certain fix that adds `ms` or `b`. The one exception is a bare `0` in a check or threshold (`size: {ne: 0}`, `connect: {eq: 0}`, `p95: {eq: 0}`), which is zero in any unit.
 10. **One flexible `body`.** Nested YAML or pasted JSON is sent as JSON, a string as text, `$file` as file bytes, `$base64` as raw bytes, `$extend` as an existing object with your changes; the `content-type` header decides the encoding.
 11. **Logic lives in two places only:** CEL one-liners (under `expect.cel`, or as a computed value with `$cel`), and functions in code files referenced with `function:`.
 12. **Placement decides lifetime.** Data made in `beforeRun` lives for the run, in `beforeAll` for one test file, in `beforeEach` or `before` for one test. There is no separate scope setting.
@@ -280,7 +280,7 @@ Saving values from a response: `save` maps names to templates over `response`; a
 
 - **On a test, step or per-test action** (`before`, `beforeEach`): the values are vars for the rest of that test.
 - **In `beforeAll` and `beforeRun`:** everything an action saves is shared under the action's `id`, which those blocks require.
-- **On an api:** `save` runs on every call of it whose status matches the api's `saveOn`, so every caller gets the same names. `saveOn` takes what `expect.status` takes (`201`, `2xx`, `[200, 201]`) and defaults to the api's own `expect.status`, or `2xx` when it has none. A test that expects another status, such as a 400, therefore skips the api's `save`, just as a non-2xx call registers no cleanup (D191). A test's or step's own `save` runs whatever the status, once its checks hold.
+- **On an api:** `save` runs on every call of it whose status matches the api's `saveOn`, so every caller gets the same names. `saveOn` takes what `expect.status` takes (`201`, `2xx`, `[200, 201]`, a matcher or a template) and defaults to the api's own `expect.status`, or `2xx` when it has none. A test that expects another status, such as a 400, therefore skips the api's `save`, just as a non-2xx call registers no cleanup (D191). A test's or step's own `save` runs whatever the status, once its checks hold.
 - **Inside a loop:** every saved name collects a list (see Loops: repeat and forEach).
 
 ```yaml
@@ -868,7 +868,7 @@ beforeEach:
 
 | Key | Value | Example |
 | --- | --- | --- |
-| `status` | code, list of codes, class (`2xx`), or matcher; a template such as `${example.status}` gives the code at run time | `status: [200, 201]` |
+| `status` | code, list of codes, class (`2xx`), or matcher (at least one); a template such as `${example.status}` is read at run time as a written status: a code as a number or text (`201`, `"201"`), a class (`"2xx"`) or a list of them | `status: [200, 201]` |
 | `headers.<name>` | matcher; names are case-insensitive | `content-type: {contains: json}` |
 | `body.schema` | JSON Schema, usually `$file` | `schema: {$file: schemas/user.json}` |
 | `body.match.<path>` | matcher at a path in the body | `items[*].price: {every: {gt: 0}}` |
@@ -929,7 +929,7 @@ Matchers:
 | `not` | inverts a matcher | `{ not: { contains: test } }` |
 | `allOf`, `anyOf` | combines matchers | `{ anyOf: [{ eq: 0 }, { gt: 10 }] }` |
 
-Several matchers in one object must all pass: `{ type: string, length: 32 }`. An object with no matcher key is a literal compared for equality, except one key of five or more characters close to a matcher's name (`{ startWith: A }`, `{ lenght: 3 }`), which is V1004 with the suggestion; put such an object under `eq:` to compare with it. A map at a status (`expect.status`, `saveOn`) takes only matchers, so any other key there is V1004. A path with `[*]` yields a list, so it takes a list matcher (`every`, `some`, `none`, `length`, `contains`); a scalar matcher there (`gt`, `between`, `startsWith`, `endsWith`, `regex`, `format`), even inside `not`, `allOf` or `anyOf`, is V2306 with a help to put it under `every:`.
+Several matchers in one object must all pass: `{ type: string, length: 32 }`. An object with no matcher key is a literal compared for equality. When its one key has five or more characters and is close to a matcher's name, case counted (`{ startWith: A }`, `{ lenght: 3 }`, `{ Length: 3 }`), it is still that literal, but `vc check` warns V3207 with the suggestion; put such an object under `eq:` to say it is meant (D276). A misspelt name next to a real matcher (`{ gt: 1, gtt: 2 }`) is V1004. A map at a status (`expect.status`, `saveOn`) takes only matchers, so any other key there is V1004, and it needs at least one (`status: {}` is V2303). A path with `[*]` yields a list, so it takes a list matcher (`every`, `some`, `none`, `length`, `contains`); a scalar matcher there (`gt`, `between`, `in`, `notIn`, `type`, `startsWith`, `endsWith`, `regex`, `format`), even inside `not`, `allOf` or `anyOf`, is V2306 with a help to put it under `every:`.
 
 Every evaluated check is reported on its own, with its source line, expected value, actual value and a diff for objects.
 

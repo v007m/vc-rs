@@ -188,7 +188,7 @@ fn value_refs<'p>(value: &'p TemplateValue, found: &mut Vec<&'p Reference>) {
 
 fn matcher_refs<'p>(matcher: &'p Matcher, found: &mut Vec<&'p Reference>) {
     match matcher {
-        Matcher::Equals(value) => value_refs(value, found),
+        Matcher::Equals(value) | Matcher::StatusOf(value) => value_refs(value, found),
         Matcher::All(calls) => calls.iter().for_each(|call| arg_refs(&call.arg, found)),
         Matcher::Status(_) => {}
     }

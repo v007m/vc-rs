@@ -106,7 +106,7 @@ plan  1 test in 1 file · profile default
 
 ### A duration needs a unit
 
-`vc check` rejects a bare number and offers a fix.
+`vc check` rejects a bare number and offers a fix. A bare `0` is the one exception: `connect: {eq: 0}` means 0 ms.
 
 ```yaml wrong title="services/sample/timingerrors.test.yaml"
 tests:

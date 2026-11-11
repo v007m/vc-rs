@@ -19,9 +19,7 @@ pub fn parse_duration(text: &str, span: SourceSpan) -> Result<Duration, Box<Diag
     let millis = with_unit(text, DURATION_UNITS).ok_or_else(|| {
         let diagnostic = Diagnostic::new(codes::UNIT, span, format!("invalid duration `{text}`"))
             .help("write a whole number and a unit: `250ms`, `2s`, `1m` or `12h`");
-        let bare = text.bytes().all(|b| b.is_ascii_digit()) && text.parse::<u64>().is_ok();
-        let fix = Fix::certain(format!("Write {text}ms"), vec![TextEdit::replace(span, format!("{text}ms"))]);
-        Box::new(if bare { diagnostic.fix(fix) } else { diagnostic })
+        Box::new(bare(text, "ms", span).into_iter().fold(diagnostic, Diagnostic::fix))
     })?;
     Ok(Duration::new(std::time::Duration::from_millis(millis)))
 }
@@ -30,14 +28,20 @@ pub fn parse_duration(text: &str, span: SourceSpan) -> Result<Duration, Box<Diag
 ///
 /// # Errors
 ///
-/// V2301 when the text is not a whole number followed by `b`, `kb`, `mb` or `gb`.
+/// V2301 when the text is not a whole number followed by `b`, `kb`, `mb` or `gb`. A bare
+/// number gets a certain fix that adds `b`.
 pub fn parse_size(text: &str, span: SourceSpan) -> Result<Size, Box<Diagnostic>> {
     with_unit(text, SIZE_UNITS).map(Size::from_bytes).ok_or_else(|| {
-        Box::new(
-            Diagnostic::new(codes::UNIT, span, format!("invalid size `{text}`"))
-                .help("write a whole number and a unit: `512b`, `4kb`, `1mb` or `2gb`"),
-        )
+        let diagnostic = Diagnostic::new(codes::UNIT, span, format!("invalid size `{text}`"))
+            .help("write a whole number and a unit: `512b`, `4kb`, `1mb` or `2gb`");
+        Box::new(bare(text, "b", span).into_iter().fold(diagnostic, Diagnostic::fix))
     })
+}
+
+/// The certain fix that adds `unit` to a bare whole number.
+fn bare(text: &str, unit: &str, span: SourceSpan) -> Option<Fix> {
+    let bare = text.bytes().all(|b| b.is_ascii_digit()) && text.parse::<u64>().is_ok();
+    bare.then(|| Fix::certain(format!("Write {text}{unit}"), vec![TextEdit::replace(span, format!("{text}{unit}"))]))
 }
 
 /// Parses a rate as a share from 0 to 1: a percentage from `0%` to `100%` (`1%`, `0.5%`) or
@@ -69,12 +73,7 @@ fn decimal(text: &str) -> Option<f64> {
 ///
 /// V2303 for anything else.
 pub fn parse_status(text: &str, span: SourceSpan) -> Result<StatusPattern, Box<Diagnostic>> {
-    // One char that parses is a digit; three that parse into 100..=599 are three digits.
-    let class = text.strip_suffix("xx").filter(|d| d.len() == 1).and_then(|d| d.parse::<u8>().ok());
-    let code = Some(text).filter(|t| t.len() == 3).and_then(|t| t.parse::<u16>().ok());
-    let class = class.filter(|c| (1..=5).contains(c));
-    let code = code.filter(|c| (100..=599).contains(c));
-    class.map(StatusPattern::Class).or_else(|| code.map(StatusPattern::Code)).ok_or_else(|| {
+    StatusPattern::parse(text).ok_or_else(|| {
         Box::new(
             Diagnostic::new(codes::STATUS, span, format!("invalid status `{text}`"))
                 .help("write a code from 100 to 599 or a class from 1xx to 5xx"),

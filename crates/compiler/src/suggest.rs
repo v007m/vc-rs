@@ -5,11 +5,22 @@ use vc_model::SourceSpan;
 
 /// The candidates close to `word`: equal ignoring case, or within a third of its length in edits.
 pub fn close<'a>(word: &str, candidates: impl IntoIterator<Item = &'a str>) -> Vec<&'a str> {
-    let lower = word.to_lowercase();
+    within(word, candidates, str::to_lowercase)
+}
+
+/// The candidates close to `word` as written: a change of case is an edit, so `LENGTH` is not
+/// close to `length` but `Length` is.
+pub fn close_cased<'a>(word: &str, candidates: impl IntoIterator<Item = &'a str>) -> Vec<&'a str> {
+    within(word, candidates, str::to_owned)
+}
+
+/// The candidates within a third of `word`'s length in edits, once both are `folded`, nearest first.
+fn within<'a>(word: &str, candidates: impl IntoIterator<Item = &'a str>, folded: fn(&str) -> String) -> Vec<&'a str> {
+    let word_folded = folded(word);
     let limit = (word.chars().count() / 3).max(1);
     let mut found: Vec<(usize, &str)> = candidates
         .into_iter()
-        .map(|candidate| (strsim::damerau_levenshtein(&lower, &candidate.to_lowercase()), candidate))
+        .map(|candidate| (strsim::damerau_levenshtein(&word_folded, &folded(candidate)), candidate))
         .filter(|(distance, _)| *distance <= limit)
         .collect();
     found.sort_unstable();
@@ -52,7 +63,7 @@ mod tests {
     use vc_diagnostics::{Code, Diagnostic};
     use vc_model::{Pos, SourceFileId, SourceSpan};
 
-    use super::{Misspelling, close, hint};
+    use super::{Misspelling, close, close_cased, hint};
 
     fn span(len: usize) -> SourceSpan {
         SourceSpan::new(SourceFileId::new(0), Pos::START, Pos::new(1, 1 + u32::try_from(len).unwrap(), len))
@@ -64,6 +75,14 @@ mod tests {
         assert_eq!(close("stauts", ["status", "states", "body"]), ["status", "states"]);
         assert_eq!(close("zzz", ["status"]), [] as [&str; 0]);
         assert_eq!(close("ab", ["ac", "xy"]), ["ac"]);
+    }
+
+    #[test]
+    fn a_change_of_case_is_an_edit_when_cased() {
+        assert_eq!(close("LENGTH", ["length"]), ["length"]);
+        assert_eq!(close_cased("LENGTH", ["length"]), [] as [&str; 0]);
+        assert_eq!(close_cased("Length", ["length", "lengths"]), ["length", "lengths"]);
+        assert_eq!(close_cased("startWith", ["startsWith", "endsWith"]), ["startsWith"]);
     }
 
     #[test]

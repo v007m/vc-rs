@@ -1,4 +1,4 @@
-use vc_diagnostics::{Code, Diagnostics};
+use vc_diagnostics::{Code, Diagnostics, Severity};
 use vc_model::{FileKind, Matcher, MatcherArg, ScalarStyle, SourceFileId, StatusPattern, StringTable, TemplateValue};
 
 use super::{Piece, Tools};
@@ -69,11 +69,14 @@ fn unit_with(body: &str) -> FileUnit {
 }
 
 #[test]
-fn a_templated_status_is_compared_at_run_time() {
+fn a_templated_status_is_read_as_a_status_at_run_time() {
     let rows = "    examples:\n      - {status: 415}\n";
     let templated = unit_with(&format!("{rows}    expect:\n      status: ${{example.status}}\n"));
     assert!(templated.diagnostics.is_empty(), "{:?}", templated.diagnostics);
-    assert!(matches!(pieces(&templated)[..], [.., Piece::Matcher(Matcher::Equals(TemplateValue::String(_)))]));
+    assert!(matches!(pieces(&templated)[..], [.., Piece::Matcher(Matcher::StatusOf(TemplateValue::String(_)))]));
+    let save_on = unit(FileKind::Api, "apis:\n  - id: get\n    path: /a\n    saveOn: ${var.okStatus}\n");
+    assert!(save_on.diagnostics.is_empty(), "{:?}", save_on.diagnostics);
+    assert!(pieces(&save_on).iter().any(|piece| matches!(piece, Piece::Matcher(Matcher::StatusOf(_)))));
     let unknown = unit_with(&format!("{rows}    expect:\n      status: ${{item.status}}\n"));
     assert_eq!(codes(&unknown.diagnostics), [Code::V2102]);
 }
@@ -95,22 +98,39 @@ fn checks_matcher_arguments() {
 }
 
 #[test]
-fn a_lone_misspelt_matcher_is_v1004_and_a_status_map_takes_only_matchers() {
+fn a_lone_key_close_to_a_matcher_warns_and_still_compiles_as_a_literal() {
     let misspelt = unit_with("    expect:\n      body:\n        match:\n          name: {startWith: A}\n");
     let [found] = &misspelt.diagnostics.iter().collect::<Vec<_>>()[..] else { panic!("{:?}", misspelt.diagnostics) };
-    assert_eq!(found.code, Code::V1004);
-    assert_eq!(found.message, "unknown matcher `startWith`");
-    assert_eq!(found.help[0], "did you mean `startsWith`?");
-    assert!(found.help[1].contains("`eq:`"), "{:?}", found.help);
+    assert_eq!((found.code, found.severity), (Code::V3207, Severity::Warning));
+    assert_eq!(found.message, "`startWith` is compared as a literal object's key, not as a matcher");
+    assert_eq!(found.primary.text, "close to the matcher name `startsWith`");
+    assert!(found.help[0].contains("write `eq:` to keep it as a literal"), "{:?}", found.help);
+    assert!(matches!(pieces(&misspelt)[..], [Piece::Matcher(Matcher::Equals(_))]));
+    let near = unit_with(
+        "    expect:\n      body:\n        match:\n          a: {Length: 3}\n          b: {exist: true}\n          c: {types: [a]}\n",
+    );
+    assert_eq!(codes(&near.diagnostics), [Code::V3207; 3]);
+    assert!(pieces(&near).iter().all(|piece| matches!(piece, Piece::Matcher(Matcher::Equals(_)))));
     let literal = unit_with(
-        "    expect:\n      body:\n        match:\n          user: {id: 5}\n          meta: {note: hi}\n          tags: {colour: red}\n",
+        "    expect:\n      body:\n        match:\n          user: {id: 5}\n          meta: {note: hi}\n          tags: {colour: red}\n          size: {LENGTH: 3}\n",
     );
     assert!(literal.diagnostics.is_empty(), "{:?}", literal.diagnostics);
     assert!(pieces(&literal).iter().all(|piece| matches!(piece, Piece::Matcher(Matcher::Equals(_)))));
+}
+
+#[test]
+fn a_status_map_takes_only_matchers_and_at_least_one() {
     let status = unit_with("    expect:\n      status: {oneOf: [200, 201]}\n");
     assert_eq!(codes(&status.diagnostics), [Code::V1004]);
     let no_literal = status.diagnostics.iter().flat_map(|found| &found.help).all(|help| !help.contains("`eq:`"));
     assert!(no_literal, "a status map is never a literal object: {:?}", status.diagnostics);
+    let near = unit_with("    expect:\n      status: {Length: 3}\n");
+    assert_eq!(codes(&near.diagnostics), [Code::V1004]);
+    let empty = unit_with("    expect:\n      status: {}\n");
+    let [found] = &empty.diagnostics.iter().collect::<Vec<_>>()[..] else { panic!("{:?}", empty.diagnostics) };
+    assert_eq!((found.code, found.message.as_str()), (Code::V2303, "a status map needs at least one matcher"));
+    let save_on = unit(FileKind::Api, "apis:\n  - id: get\n    path: /a\n    saveOn: {}\n");
+    assert_eq!(codes(&save_on.diagnostics), [Code::V2303]);
 }
 
 #[test]
@@ -124,6 +144,11 @@ fn a_scalar_matcher_on_a_list_path_is_v2306_and_list_matchers_pass() {
         "    expect:\n      body:\n        match:\n          a[*]: {not: {startsWith: x}}\n          b[*].c: {anyOf: [{regex: x}, {length: 2}]}\n",
     );
     assert_eq!(codes(&nested.diagnostics), [Code::V2306, Code::V2306]);
+    let words = unit_with(
+        "    expect:\n      body:\n        match:\n          items[*].status: {notIn: [deleted]}\n          a[*]: {in: [x]}\n          b[*]: {type: string}\n",
+    );
+    assert_eq!(codes(&words.diagnostics), [Code::V2306; 3]);
+    assert!(words.diagnostics.iter().next().unwrap().message.starts_with("`notIn` compares one value"));
     let list = unit_with(
         "    expect:\n      body:\n        match:\n          items[*].price: {every: {gt: 0}, length: {gt: 1}, contains: 3}\n          items[0].price: {gt: 0}\n          tags[*]: [a, b]\n",
     );
@@ -163,6 +188,25 @@ fn a_literal_or_eq_under_a_unit_is_read_in_that_unit() {
     assert!(matches!(calls[0].arg, MatcherArg::Value(_)), "{:?}", calls[0].arg);
     let wrong = unit_with("    expect:\n      size: lots\n");
     assert_eq!(codes(&wrong.diagnostics), [Code::V2301]);
+}
+
+#[test]
+fn a_bare_zero_is_zero_in_any_unit_and_other_bare_numbers_get_a_fix() {
+    let zero = unit_with("    expect:\n      size: {ne: 0}\n      timing: {connect: {eq: 0}, dns: {ne: 0}, tls: 0}\n");
+    assert!(zero.diagnostics.is_empty(), "{:?}", zero.diagnostics);
+    let args: Vec<&MatcherArg> = pieces(&zero)
+        .into_iter()
+        .filter_map(|piece| match piece {
+            Piece::Matcher(Matcher::All(calls)) => Some(&calls[0].arg),
+            _ => None,
+        })
+        .collect();
+    assert!(matches!(args[0], MatcherArg::Size(size) if size.bytes() == 0), "{args:?}");
+    assert!(args[1..].iter().all(|arg| matches!(arg, MatcherArg::Duration(wait) if wait.get().is_zero())), "{args:?}");
+    let bare = unit_with("    expect:\n      size: 1024\n      timing: {total: {lt: 5}}\n");
+    let fixes: Vec<&str> = bare.diagnostics.iter().flat_map(|d| &d.fixes).map(|fix| fix.title.as_str()).collect();
+    assert_eq!(codes(&bare.diagnostics), [Code::V2301, Code::V2301]);
+    assert_eq!(fixes, ["Write 1024b", "Write 5ms"]);
 }
 
 #[test]

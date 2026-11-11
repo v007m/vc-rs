@@ -129,6 +129,9 @@ pub enum Matcher {
     All(Vec<MatcherCall>),
     /// A status code, list of codes or class.
     Status(Vec<StatusPattern>),
+    /// A templated status, read at run time as a written one is: a code (a number or its
+    /// text), a class (`2xx`) or a list of them.
+    StatusOf(TemplateValue),
 }
 
 /// One registered matcher with its argument, such as `gt: 0`.

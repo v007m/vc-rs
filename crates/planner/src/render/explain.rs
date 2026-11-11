@@ -75,6 +75,7 @@ fn path(path: &Path) -> String {
 fn matcher(matcher: &Matcher) -> String {
     match matcher {
         Matcher::Equals(_) => "equals".to_owned(),
+        Matcher::StatusOf(_) => "status".to_owned(),
         Matcher::All(calls) => calls.iter().map(|call| call.name.as_str()).collect::<Vec<_>>().join(", "),
         Matcher::Status(patterns) => patterns.iter().map(|pattern| status(*pattern)).collect::<Vec<_>>().join(", "),
     }

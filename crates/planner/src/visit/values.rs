@@ -43,7 +43,7 @@ impl<V: Visit> Walker<'_, V> {
 
     fn matcher(&mut self, matcher: &Matcher) {
         match matcher {
-            Matcher::Equals(value) => self.value(value),
+            Matcher::Equals(value) | Matcher::StatusOf(value) => self.value(value),
             Matcher::All(calls) => {
                 for call in calls {
                     self.matcher_arg(&call.arg);

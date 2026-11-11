@@ -127,12 +127,13 @@ fn unit(cx: &mut Cx<'_>, at: At<'_>, parse: UnitParser) -> Option<Piece> {
     cx.check(parse(text, at.node.span))
 }
 
-/// A code, a class, a list of them, or a matcher; a template gives a code at run time.
+/// A code, a class, a list of them, or a matcher; a template gives one of the first three at
+/// run time, read as a written one is.
 fn status(cx: &mut Cx<'_>, at: At<'_>) -> Option<Matcher> {
     let items: Vec<&Node> = match &at.node.value {
         Value::Map(_) => return matchers::status(cx, at),
         Value::Seq(items) => items.iter().collect(),
-        Value::Scalar(scalar) if scalar.text.contains("${") => return value::lower(cx, at).map(Matcher::Equals),
+        Value::Scalar(scalar) if scalar.text.contains("${") => return value::lower(cx, at).map(Matcher::StatusOf),
         Value::Scalar(_) => vec![at.node],
     };
     let patterns: Vec<_> = items.into_iter().map(|item| status_pattern(cx, item)).collect();

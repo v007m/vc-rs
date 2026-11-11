@@ -30,7 +30,7 @@ Sizes in matchers are a whole number and a unit, with no space:
 | `mb` | 1024 × 1024 |
 | `gb` | 1024 × 1024 × 1024 |
 
-Units work in `gt`, `gte`, `lt`, `lte` and `between`. A bare number is bytes.
+Units work in `gt`, `gte`, `lt`, `lte` and `between`. A bare number needs its unit: `vc check` reports V2301 with a certain fix that adds `b` (`1024` becomes `1024b`). A bare `0` is zero bytes, so `size: {ne: 0}` works.
 
 ## Examples
 

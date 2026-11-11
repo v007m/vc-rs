@@ -506,11 +506,12 @@ Round 42 (11 November 2026; gaps found by the docs test round and by the request
 | D273 | Form-urlencoded bodies | When the content type's media type (parameters and case ignored) is `application/x-www-form-urlencoded`, a map body is WHATWG form-encoded (space as `+`). Scalars are rendered as text, a list repeats the key, and a nested object is V5111. The header is sent as written | — |
 | D274 | Multipart bodies | When the media type is `multipart/form-data`, a map body becomes parts. The boundary is `vc-` plus 24 hex characters from the run's seeded `Random`, unless the user's header names one; the header is rewritten to carry it. Text parts are UTF-8 with no part content type (RFC 7578). A `$file` part has the basename as filename and the D272 content type. A list repeats the part; a nested object becomes an `application/json` part. Built in the executor with no new dependency | — |
 
-Round 43 (11 November 2026; a gap found by the WP4 triage. An orchestrator default for Sarath to confirm):
+Round 43 (11 November 2026; gaps found by the WP4 triage and review. Orchestrator defaults for Sarath to confirm):
 
 | # | Topic | Decision | Supersedes |
 | --- | --- | --- | --- |
 | D275 | A timing phase that did not happen | `dns`, `connect` and `tls` read 0 ms in timing checks and in `${response.timing.*}` when the phase did not happen: a reused connection (no `dns` or `connect`), an IP literal (no `dns`), plain HTTP (no `tls`). So `connect: {lt: 5ms}` passes on a reused connection and `connect: {gt: 0ms}` fails, as in curl. The exchange, reports and history keep the phase as not measured (`None`, `NULL`) | — |
+| D276 | A literal object that looks like a misspelt matcher | A map in a literal position (`expect.body`, a header, a `[*]` path) with no matcher's name as a key is a literal object, as before. When its one key has five characters or more and is close to a matcher's name, case counted (`startWith`, `lenght`, `Length`, `exist`, `types`), it still compiles as that literal but warns V3207, a new lint code: "fix the name to use the matcher, or write `eq:` to keep it as a literal". It is never an error. A status map (`expect.status`, `saveOn`) is never a literal, so an unknown key there stays V1004. Orchestrator default; Sarath to confirm | — |
 
 ## Open
 

@@ -255,6 +255,20 @@ fn several_matchers_in_one_object_must_all_pass_and_unknown_ones_fail() {
 }
 
 #[test]
+fn a_templated_status_is_read_as_a_written_one() {
+    let of = |value: Value| Matcher::StatusOf(template(value));
+    assert_eq!([201, 202].map(|code| holds(&of(json!("201")), json!(code))), [true, false]);
+    assert_eq!([201, 302].map(|code| holds(&of(json!(201)), json!(code))), [true, false]);
+    assert_eq!([204, 404].map(|code| holds(&of(json!("2xx")), json!(code))), [true, false]);
+    assert_eq!([200, 409, 500].map(|code| holds(&of(json!([200, "4xx"])), json!(code))), [true, true, false]);
+    assert_eq!(judge(|judge| judge.expected(&of(json!(["201", "2xx"])))), Ok(json!([201, "2xx"])));
+    for bad in [json!("ok"), json!(99), json!(true), json!([[200]]), json!(201.5)] {
+        let error = passes(&of(bad.clone()), Some(json!(200))).unwrap_err();
+        assert!(error.contains("not a code from 100 to 599"), "{bad}: {error}");
+    }
+}
+
+#[test]
 fn expected_values_show_units_ranges_and_status_classes() {
     let matcher = all(vec![
         ("lt", MatcherArg::Duration(Duration::new(std::time::Duration::from_millis(500)))),

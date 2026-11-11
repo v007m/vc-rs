@@ -1,6 +1,7 @@
 //! Computed bodies: `$extend` merges changes into an earlier response, `$remove` drops fields,
 //! and `$cel` computes a value, all as the server receives them. A dataset outside the project
-//! is read from a `datasets.allowRoots` folder, and from nowhere else.
+//! is read from a `datasets.allowRoots` folder, and from nowhere else. A templated status is read
+//! as a written one, from a number, text, a class or a list.
 
 use vc_mock_server::MockServer;
 
@@ -80,4 +81,32 @@ async fn a_templated_status_takes_each_rows_code() {
     let said = crate::said(&output);
     assert_eq!(output.status.code(), Some(1), "{said}");
     assert!(said.contains("expect.status") && said.contains("415"), "{said}");
+}
+
+/// A CSV row's status is text (`"201"`), and a row may hold a class or a list: each is read as
+/// a written status would be. A value that is no status fails the check and says so.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_templated_status_reads_text_classes_and_lists_from_rows() {
+    let server = MockServer::start().await.unwrap();
+    let test = |rows: &str| {
+        format!(
+            "tests:\n  - id: answersWithTheRowsStatus\n    examples: {rows}\n    call: coded#answer\n    vars: {{code: '${{example.code}}'}}\n    expect:\n      status: ${{example.status}}\n"
+        )
+    };
+    let config = format!("{}datasets:\n  files:\n    - id: codes\n      file: data/codes.csv\n", CONFIG.1);
+    let csv = "code,status\n201,201\n404,4xx\n";
+    let rows = test("${dataset.codes}");
+    let files = [(CONFIG.0, config.as_str()), CODED, ("data/codes.csv", csv), ("services/coded/rows.test.yaml", &rows)];
+    let project = Project::new(&files);
+    let output = project.run(&server.base_url(), &[]).output().unwrap();
+    assert_eq!(output.status.code(), Some(0), "text and class rows pass: {}", crate::said(&output));
+    project.write("services/coded/rows.test.yaml", &test("[{code: 404, status: [200, 4xx]}]"));
+    let output = project.run(&server.base_url(), &[]).output().unwrap();
+    assert_eq!(output.status.code(), Some(0), "a list row passes: {}", crate::said(&output));
+    project
+        .write("services/coded/rows.test.yaml", &test("[{code: 200, status: [201, 4xx]}, {code: 200, status: nope}]"));
+    let output = project.run(&server.base_url(), &[]).output().unwrap();
+    let said = crate::said(&output);
+    assert_eq!(output.status.code(), Some(1), "{said}");
+    assert!(said.contains("expect.status") && said.contains("is not a code from 100 to 599"), "{said}");
 }

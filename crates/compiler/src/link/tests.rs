@@ -210,6 +210,33 @@ fn a_named_file_is_searched_even_beside_another_api_file() {
     assert_eq!(fixes, ["users#get"], "{:?}", unknown.help);
 }
 
+/// A named file is found across the whole project, not only beside the reference: in
+/// `users.crud`, `users.admin#getsUser` means `users.admin#getsUsers`, not `users.crud#getsUser`.
+/// When the named file has nothing close, the items of every file are compared.
+#[test]
+fn a_named_file_is_searched_first_and_then_every_files_items() {
+    let crud = tests(
+        "  - id: getsUser\n    call: users#get\n  - id: chainsThem\n    steps:\n      - test: users.admin#getsUser\n      - test: users.crud#deletesUser\n",
+    );
+    let admin = tests("  - id: getsUsers\n    call: users#get\n  - id: deletesUser\n    call: users#get\n");
+    let files = vec![
+        file("vibranium.config.yaml", CONFIG),
+        file("services/users/users.api.yaml", APIS),
+        file("services/users/crud.test.yaml", &crud),
+        file("services/users/admin.test.yaml", &admin),
+    ];
+    let compiled = crate::compile(CompileInput { files, ..CompileInput::default() });
+    let mut found: Vec<&Diagnostic> = compiled.diagnostics.iter().filter(|found| found.code == Code::V2003).collect();
+    found.sort_by_key(|found| found.primary.span.start.line);
+    let fixes: Vec<&str> = found
+        .iter()
+        .flat_map(|found| &found.fixes)
+        .flat_map(|fix| &fix.edits)
+        .map(|edit| edit.new_text.as_str())
+        .collect();
+    assert_eq!(fixes, ["users.admin#getsUsers", "users.admin#deletesUser"], "{found:?}");
+}
+
 #[test]
 fn references_into_a_file_that_could_not_be_read_are_not_reported() {
     let broken = format!("{APIS}    colour: red\n");

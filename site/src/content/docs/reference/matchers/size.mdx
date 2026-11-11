@@ -96,7 +96,7 @@ plan  1 test in 1 file · profile default
 
 ### A size needs a unit
 
-A bare number or an uppercase unit is rejected by `vc check`.
+A bare number or an uppercase unit is rejected by `vc check`. For a bare number such as `1024` it offers a certain fix that writes `1024b`. A bare `0` is the one exception: `size: {ne: 0}` means zero bytes.
 
 ```yaml wrong title="services/sample/sizeerrors.test.yaml"
 tests:

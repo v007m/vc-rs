@@ -71,6 +71,7 @@ code_table! {
     V3204 = 3204, Warning, "Unquoted value that YAML cut at `  # ` (a comment)";
     V3205 = 3205, Warning, "A test-level `body` default reaches a GET or HEAD step";
     V3206 = 3206, Warning, "A test-level default that no step uses";
+    V3207 = 3207, Warning, "A literal object whose one key is close to a matcher's name";
     // V4xxx: conventions
     V4001 = 4001, Warning, "Test ID breaks the convention";
     V4002 = 4002, Warning, "Api ID breaks the convention";
