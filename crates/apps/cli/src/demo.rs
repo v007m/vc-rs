@@ -38,7 +38,7 @@ const JOINS: u32 = 64;
 
 /// How long a join counts after its caller is gone: the caller may be a shell that ran `start`
 /// and ended, while the run around it still uses the demo.
-const JOINED: Duration = Duration::from_secs(60 * 60);
+const JOINED: Duration = Duration::from_hours(1);
 
 /// The header the demo names its pid in (`vc-demo`'s `/echo`).
 const PID_HEADER: &str = "x-vc-demo-pid";
@@ -129,12 +129,12 @@ fn joined(port: u16) -> anyhow::Result<Outcome> {
 fn foreground(command: &mut Command, port: u16) -> anyhow::Result<Outcome> {
     let mut child = command.spawn()?;
     match up(&mut child, port, "Ctrl-C stops it")? {
-        Up::Ours => {},
+        Up::Ours => {}
         Up::Taken => return joined(port),
         Up::Failed(reason) => {
             child.kill().ok();
             return Ok(Outcome::Refused(reason));
-        },
+        }
     }
     let code = child.wait()?.code().and_then(|code| u8::try_from(code).ok());
     Ok(code.map_or(Outcome::Exit(1), Outcome::Exit))
@@ -160,7 +160,7 @@ fn up(child: &mut Child, port: u16, stopping: &str) -> anyhow::Result<Up> {
             let ended = format!("{BINARY} stopped before it answered on port {port} ({status})");
             return Ok(if is_demo(port) { Up::Taken } else { Up::Failed(ended) });
         }
-        if demo_pid(port).is_some_and(|pid| pid.is_none_or(|pid| pid == child.id())) {
+        if answers_as(port, child.id()) {
             writeln!(stdout::out(), "demo running on http://localhost:{port} (pid {}); {stopping}", child.id())?;
             return Ok(Up::Ours);
         }
@@ -329,13 +329,12 @@ fn is_demo(port: u16) -> bool {
     echo(port).is_some()
 }
 
-/// The pid the demo on `port` names, inside `None` when it names none (an older `vc-demo`);
-/// `None` when no demo answers.
-fn demo_pid(port: u16) -> Option<Option<u32>> {
-    let reply = echo(port)?;
+/// Whether a demo answers on `port` as the process `pid`, or names no pid (an older `vc-demo`).
+fn answers_as(port: u16, pid: u32) -> bool {
+    let Some(reply) = echo(port) else { return false };
     let headers = reply.lines().take_while(|line| !line.is_empty());
     let named = headers.filter_map(|line| line.split_once(':')).find(|(name, _)| name.eq_ignore_ascii_case(PID_HEADER));
-    Some(named.and_then(|(_, pid)| pid.trim().parse().ok()))
+    named.is_none_or(|(_, named)| named.trim().parse() == Ok(pid))
 }
 
 /// The demo's reply on `port`: its `/echo` returns the path it was asked for, which a program

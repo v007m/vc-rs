@@ -181,9 +181,10 @@ fn gone_join(users: &std::path::Path, age: Duration) -> std::path::PathBuf {
 fn a_join_whose_caller_is_gone_does_not_keep_the_demo_running() {
     let (project, temp) = (Project::empty(), tempfile::tempdir().unwrap());
     let port = "7437";
-    let launched = waited(launched(in_temp(&project, temp.path(), &["demo", "start", "--port", port, "--detach"])).unwrap());
+    let launched =
+        waited(launched(in_temp(&project, temp.path(), &["demo", "start", "--port", port, "--detach"])).unwrap());
     let users = demo_folder(temp.path()).join("7437.users");
-    gone_join(&users, Duration::from_secs(2 * 60 * 60));
+    gone_join(&users, Duration::from_hours(2));
     let stopped = said_by(in_temp(&project, temp.path(), &["demo", "stop", "--port", port]));
     assert_eq!(launched, Some(0));
     assert_eq!(stopped, "stopped the demo on port 7437\n");
@@ -198,7 +199,8 @@ fn a_join_whose_caller_is_gone_does_not_keep_the_demo_running() {
 fn a_recent_join_whose_caller_is_gone_still_keeps_the_demo_running() {
     let (project, temp) = (Project::empty(), tempfile::tempdir().unwrap());
     let port = "7438";
-    let launched = waited(launched(in_temp(&project, temp.path(), &["demo", "start", "--port", port, "--detach"])).unwrap());
+    let launched =
+        waited(launched(in_temp(&project, temp.path(), &["demo", "start", "--port", port, "--detach"])).unwrap());
     gone_join(&demo_folder(temp.path()).join("7438.users"), Duration::ZERO);
     let first = said_by(in_temp(&project, temp.path(), &["demo", "stop", "--port", port]));
     let still_up = wait_until(7438, true);
@@ -215,7 +217,8 @@ fn a_recent_join_whose_caller_is_gone_still_keeps_the_demo_running() {
 fn the_pidfile_is_in_a_folder_only_the_user_can_open() {
     use std::os::unix::fs::PermissionsExt;
     let (project, temp) = (Project::empty(), tempfile::tempdir().unwrap());
-    let launched = waited(launched(in_temp(&project, temp.path(), &["demo", "start", "--port", "7439", "--detach"])).unwrap());
+    let launched =
+        waited(launched(in_temp(&project, temp.path(), &["demo", "start", "--port", "7439", "--detach"])).unwrap());
     let folder = demo_folder(temp.path());
     let mode = std::fs::metadata(&folder).map(|metadata| metadata.permissions().mode() & 0o777);
     let pid = std::fs::read_to_string(folder.join("7439.pid"));
@@ -254,7 +257,10 @@ fn two_starts_at_once_leave_one_demo_that_their_stops_end() {
     let start = || launched(project.process(&["demo", "start", "--port", "7441", "--detach"])).unwrap();
     let (first, second) = (start(), start());
     let started = (waited(first), waited(second));
-    let stops = (printed(&project, &["demo", "stop", "--port", "7441"]), printed(&project, &["demo", "stop", "--port", "7441"]));
+    let stops = (
+        printed(&project, &["demo", "stop", "--port", "7441"]),
+        printed(&project, &["demo", "stop", "--port", "7441"]),
+    );
     assert_eq!(started, (Some(0), Some(0)));
     assert_eq!(stops.0, "left the demo on port 7441 running, as another `vc demo start` uses it\n");
     assert_eq!(stops.1, "stopped the demo on port 7441\n");
