@@ -8,11 +8,13 @@
 # node_modules linked in from this checkout, and GATE-PROTO compares proto/ with HEAD. Arch fixtures name the arch-tests rule ID too,
 # e.g. "# expect: GATE-ARCH ARCH-LAYER". Fixtures add new files where possible so they keep applying.
 # Tests the committed HEAD, so commit gate changes before running it.
+# It builds in a target dir of its own (D290): the scratch worktree's test binaries carry its paths,
+# so sharing this checkout's target would leave them behind for the next `mise run gates`.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 repo=$(pwd)
-export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$repo/target}"
+export CARGO_TARGET_DIR="${GATES_SELFTEST_TARGET_DIR:-$repo/target/gates-selftest}"
 # GATE-PROTO compares proto/ with the commit each fixture applies to.
 export GATES_PROTO_BASE=HEAD
 scratch=$(mktemp -d)
@@ -24,12 +26,7 @@ drop_worktree() {
   git worktree remove --force "$wt" >/dev/null 2>&1 || true
   git worktree prune
 }
-# The scratch worktree shares the target dir, so vc-arch-tests is left built with the scratch
-# CARGO_MANIFEST_DIR; cleaning it makes the next gates run rebuild it against this checkout.
-forget_arch_tests() {
-  cargo clean -p vc-arch-tests >/dev/null 2>&1 || true
-}
-trap 'drop_worktree; rm -rf "$scratch"; forget_arch_tests' EXIT
+trap 'drop_worktree; rm -rf "$scratch"' EXIT
 
 refresh_lockfile() {
   (cd "$wt" && { cargo metadata --format-version 1 --offline >/dev/null 2>&1 ||
