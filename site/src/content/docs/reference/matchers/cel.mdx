@@ -103,7 +103,7 @@ plan  1 test in 1 file · profile default
 
 `vc check` knows every root and offers a fix.
 
-```yaml title="services/sample/celerrors.test.yaml"
+```yaml wrong title="services/sample/celerrors.test.yaml"
 tests:
   - id: bareBody
     name: Bare body
@@ -130,7 +130,7 @@ error[V2105]: `body` is not a root; did you mean `response.body`?
 
 
 
-```yaml title="services/sample/celerrors.test.yaml"
+```yaml wrong title="services/sample/celerrors.test.yaml"
 tests:
   - id: brokenCel
     name: Broken CEL

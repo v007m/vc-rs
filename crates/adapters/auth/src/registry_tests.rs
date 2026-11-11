@@ -57,6 +57,52 @@ async fn every_oauth_grant_meets_the_auth_provider_contract() {
 }
 
 #[tokio::test]
+async fn every_key_a_type_requires_is_one_the_compiler_checks_for() {
+    let keychain = Arc::new(MemoryKeychain::new());
+    keychain.set("vibranium", "api@cli", &Secret::new("kept")).unwrap();
+    let types = types(Some(keychain));
+    let flow = Arc::new(FixedFlow::new(Ok(Credentials::header("authorization", "Bearer f"))));
+    let value = |key: &str| if key.ends_with("Url") { "https://id.test/token" } else { "cli" };
+    for (kind, needs) in vc_model::AUTH_NEEDS.iter().filter(|(kind, _)| *kind != "plugin") {
+        let settings: serde_json::Map<String, Value> =
+            needs.iter().map(|key| ((*key).to_owned(), json!(value(key)))).collect();
+        let request = request(kind, &Value::Object(settings)).with_flow(Arc::clone(&flow) as _);
+        let answer = types.credentials(&request).await;
+        assert!(
+            !matches!(answer, Err(AuthError::Missing { .. })),
+            "{kind} requires a key AUTH_NEEDS leaves out: {answer:?}"
+        );
+    }
+}
+
+/// The keys a type reads late, on purpose: an authorization code reads its `authorizeUrl` and
+/// `tokenUrl` only when the keychain has no refresh token. V1005 enforces them at check time,
+/// which is what matters, so the adapter is left lazy.
+const READ_LATE: [(&str, &str); 2] =
+    [("oauth2AuthorizationCode", "authorizeUrl"), ("oauth2AuthorizationCode", "tokenUrl")];
+
+#[tokio::test]
+async fn leaving_out_any_key_a_type_needs_is_missing_that_key() {
+    let types = types(None);
+    let flow = Arc::new(FixedFlow::new(Ok(Credentials::header("authorization", "Bearer f"))));
+    let value = |key: &str| if key.ends_with("Url") { "https://id.test/token" } else { "cli" };
+    for (kind, needs) in vc_model::AUTH_NEEDS.iter().filter(|(kind, _)| *kind != "plugin") {
+        for left in needs.iter().filter(|key| !READ_LATE.contains(&(*kind, **key))) {
+            let kept = needs.iter().filter(|key| *key != left);
+            let settings: serde_json::Map<String, Value> =
+                kept.map(|key| ((*key).to_owned(), json!(value(key)))).collect();
+            let mut request = request(kind, &Value::Object(settings));
+            if *left != "steps" {
+                request = request.with_flow(Arc::clone(&flow) as _);
+            }
+            let answer = types.credentials(&request).await;
+            let missing = matches!(&answer, Err(AuthError::Missing { key, .. }) if key == left);
+            assert!(missing, "{kind} without `{left}` gives {answer:?}");
+        }
+    }
+}
+
+#[tokio::test]
 async fn the_fixed_types_build_their_headers_and_query() {
     let types = types(None);
     let basic = types.credentials(&request("basic", &json!({"username": "u", "password": "p"}))).await.unwrap();

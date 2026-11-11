@@ -282,9 +282,7 @@ By the end you will know how to:
    - `oauth2ClientCredentials` posts the client ID and secret to `tokenUrl` and sends the token it gets back as a bearer token.
    - `flow` is for any other login. Its `steps` are ordinary requests, and their `save` values become vars. `apply` says what to add to each request that uses the flow. `expiresIn` says when to log in again. `refreshOn` lists the statuses that mean "the token is no longer good": on one of them, vc logs in again and retries the request once.
 
-   <Aside type="note" title="Why lifetime has a default">
-   `vc check` does not yet see that `expiresIn` reads a var the login step saves, and reports `error[V2101]: ${var.lifetime} is used but never set`. A default in the flow's `vars` silences it. The saved value replaces the default when the flow runs. `apply` reading `${var.accessToken}` has no such problem.
-   </Aside>
+   `expiresIn` and `apply` both see what the steps save, so `vc check` needs no default for `lifetime`. The one in the flow's `vars` is kept as documentation: the value the login step saves replaces it when the flow runs.
 
 6. **Call the mock with them.** Here the whole api file uses `mockLogin`, and one api overrides it with `mockOauth`. Each test runs three times with `repeat: 3`.
 

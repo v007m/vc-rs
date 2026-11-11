@@ -74,6 +74,15 @@ impl MockHandle {
         self.store.call(|state| state.stats()).await
     }
 
+    /// Issues a refresh token that `POST /oauth/token` takes once, as a long-lived token kept
+    /// for CI would be.
+    ///
+    /// # Errors
+    /// [`MockError::Stopped`] when the server has stopped.
+    pub async fn refresh_token(&self) -> Result<String, MockError> {
+        self.store.call(|state| state.sessions.refresh_token()).await
+    }
+
     /// Clears all state and counters, like `POST /__reset`.
     ///
     /// # Errors

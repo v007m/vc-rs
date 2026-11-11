@@ -114,6 +114,41 @@ fn vars_in_expected_matchers_are_checked() {
     assert_eq!(found(&text), [(Code::V2101, 6), (Code::V2101, 7)]);
 }
 
+#[test]
+fn an_unset_var_read_through_default_is_not_reported_but_through_another_pipe_is() {
+    let header = |pipe: &str| {
+        tests(&format!("  - id: a\n    call: users#get\n    headers: {{x-note: \"${{var.note | {pipe}}}\"}}\n"))
+    };
+    assert_eq!(found(&header("default('none')")), []);
+    assert_eq!(found(&header("lower")), [(Code::V2101, 4)]);
+}
+
+#[test]
+fn a_flow_expiry_reads_what_its_steps_saved() {
+    let flow = |expiry: &str| {
+        format!(
+            "{CONFIG}auth:\n  - id: login\n    type: flow\n    steps:\n      - id: token\n        method: POST\n        url: http://x/token\n        save: {{ttl: '${{response.body.ttl}}'}}\n    apply: {{headers: {{authorization: 'Bearer ${{var.ttl}}'}}}}\n    expiresIn: '${{var.{expiry}}}s'\n"
+        )
+    };
+    let unset = |config: &str| {
+        let calls = tests("  - id: a\n    call: users#get\n");
+        diagnostics(config, APIS, &calls).iter().filter(|found| found.code == Code::V2101).count()
+    };
+    assert_eq!(unset(&flow("ttl")), 0);
+    assert_eq!(unset(&flow("nope")), 1);
+}
+
+#[test]
+fn an_auth_without_a_key_its_type_needs_is_reported_at_its_type() {
+    let auth = |keys: &str| format!("{CONFIG}auth:\n  - id: partner\n    type: bearer\n{keys}");
+    let missing = |config: &str| {
+        let found = diagnostics(config, APIS, &tests("  - id: a\n    call: users#get\n"));
+        found.iter().map(|found| (found.code, found.primary.span.start.line, found.message.clone())).collect::<Vec<_>>()
+    };
+    assert_eq!(missing(&auth("")), [(Code::V1005, 9, "a `bearer` auth needs `token`".to_owned())]);
+    assert_eq!(missing(&auth("    token: ${var.baseUrl}\n")), []);
+}
+
 /// The new text of the fix for each diagnostic.
 fn fixes(tests: &str) -> Vec<String> {
     let found = diagnostics(CONFIG, APIS, tests);

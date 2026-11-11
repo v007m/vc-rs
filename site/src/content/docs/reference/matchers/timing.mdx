@@ -108,7 +108,7 @@ plan  1 test in 1 file · profile default
 
 `vc check` rejects a bare number and offers a fix.
 
-```yaml title="services/sample/timingerrors.test.yaml"
+```yaml wrong title="services/sample/timingerrors.test.yaml"
 tests:
   - id: noUnit
     name: No unit
@@ -135,7 +135,7 @@ error[V2301]: invalid duration `500`
 
 
 
-```yaml title="services/sample/timingerrors.test.yaml"
+```yaml wrong title="services/sample/timingerrors.test.yaml"
 tests:
   - id: unknownPhase
     name: Unknown phase

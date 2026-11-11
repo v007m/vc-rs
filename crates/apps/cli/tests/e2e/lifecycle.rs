@@ -1,6 +1,7 @@
-//! `beforeAll` runs once per file, cleanups run newest first on a pass, a failure and Ctrl-C, and
-//! an api's `save` runs only on a status its `saveOn` matches (D191); a `test:` reuse runs the
-//! reused test as written (D270).
+//! `beforeAll` runs once per file, cleanups run newest first on a pass, a failure and Ctrl-C, an
+//! api's `save` runs only on a status its `saveOn` matches (D191), `afterEach` follows every test
+//! and `afterAll` the last one, a `standalone: false` test runs only where `test:` reuses it, and
+//! a `test:` reuse runs the reused test as written (D270).
 
 use vc_mock_server::MockServer;
 
@@ -146,5 +147,69 @@ async fn a_reuse_checks_the_reused_tests_own_expect_but_not_the_callers_defaults
         let said = crate::said(&output);
         assert_eq!(output.status.code(), Some(exit), "{said}");
         assert!(exit == 0 || said.contains("418"), "the reused test's own check failed it: {said}");
+    }
+}
+
+/// Three tests echoing, the second expecting `status`, with `afterEach` listing the users and
+/// `afterAll` checking the order `beforeAll` made with `size(response.body) == <orders>`.
+fn after_blocks(orders: u8, status: u16) -> String {
+    format!(
+        "beforeAll:\n  - id: seed\n    call: orders#create\nafterEach:\n  - call: users#list\n\
+         afterAll:\n  - call: orders#list\n    expect: {{cel: {{seeded: 'size(response.body) == {orders}'}}}}\n\
+         tests:\n  - id: echoesOnce\n    call: scripted#echo\n  - id: echoesWithStatus\n    call: scripted#echo\n\
+         \x20   expect: {{status: {status}}}\n  - id: echoesAgain\n    call: scripted#echo\n"
+    )
+}
+
+/// `afterEach` runs after every test, a failed one too; `afterAll` runs once, after the last
+/// test and before the file's cleanups, so it still sees the order `beforeAll` made, and a
+/// failed `expect` in it is reported. The exit code counts tests only (cli-workflow's table), so
+/// a failed `afterAll` exits 0 today; whether it should exit 1 is a question still open for
+/// Sarath, and this pins the current value until he answers.
+#[tokio::test(flavor = "multi_thread")]
+async fn after_each_follows_every_test_and_after_all_runs_once_before_the_file_cleanups() {
+    for (orders, status, exit) in [(1, 200, 0), (0, 200, 0), (1, 500, 1)] {
+        let server = MockServer::start().await.unwrap();
+        let file = after_blocks(orders, status);
+        let files = [CONFIG, USERS, ORDERS, crate::SCRIPTED, ("services/scripted/after.test.yaml", &file)];
+        let output = Project::new(&files).run(&server.base_url(), &[]).output().unwrap();
+        let case = format!("orders {orders}, status {status}");
+        let said = crate::said(&output);
+        assert_eq!(output.status.code(), Some(exit), "{case}: {said}");
+        let reported = said.contains("V5102") && said.contains("cel.seeded");
+        assert_eq!(reported, orders == 0, "{case}: a failed afterAll is reported: {said}");
+        let stats = server.stats().await.unwrap();
+        assert_eq!(stats.count("GET /users"), 3, "{case}: afterEach after each test: {stats:?}");
+        let orders = (stats.count("GET /orders"), stats.count("DELETE /orders/{id}"));
+        assert_eq!(orders, (1, 1), "{case}: afterAll once, then the file's cleanup: {stats:?}");
+    }
+}
+
+/// A flow test that makes a user, `standalone` or not, and a test that reuses it with `test:`.
+fn reused(standalone: bool) -> [(&'static str, String); 2] {
+    let flow = format!(
+        "tests:\n  - id: makesUser\n    standalone: {standalone}\n    steps:\n      - call: users#create\n\
+         \x20       save: {{userId: '${{response.body.id}}'}}\n"
+    );
+    let test = "tests:\n  - id: listsAfterMaking\n    steps:\n      - test: shared.flows#makesUser\n\
+                \x20     - call: users#list\n        expect: {cel: {made: 'size(response.body) == 1'}}\n";
+    [("services/shared/flows.test.yaml", flow), ("services/users/reuse.test.yaml", test.to_owned())]
+}
+
+/// `standalone: false` keeps a test from running on its own: only its reuse makes a user. With
+/// `standalone: true` it also runs, and reports, as a test of its own.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_test_that_is_not_standalone_runs_only_where_it_is_reused() {
+    for (standalone, ran) in [(false, 1_usize), (true, 2)] {
+        let server = MockServer::start().await.unwrap();
+        let [flow, test] = reused(standalone);
+        let files = [CONFIG, USERS, (flow.0, flow.1.as_str()), (test.0, test.1.as_str())];
+        let args = ["--reporter", "json", "--concurrency", "1"];
+        let output = Project::new(&files).run(&server.base_url(), &args).output().unwrap();
+        assert_eq!(output.status.code(), Some(0), "{}", crate::said(&output));
+        let events = events(&output.stdout);
+        assert_eq!(of_kind(&events, "testFinished").len(), ran, "standalone: {standalone}: {events:#?}");
+        let made = server.stats().await.unwrap().count("POST /users");
+        assert_eq!(usize::try_from(made), Ok(ran), "standalone: {standalone}");
     }
 }

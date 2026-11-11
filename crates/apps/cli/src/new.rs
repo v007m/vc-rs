@@ -115,18 +115,11 @@ fn api(engine: &Engine, args: ApiArgs) -> anyhow::Result<Outcome> {
     };
     let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build()?;
     let made = runtime.block_on(engine.new_api_from_curl(&args.id, &curl));
-    let notes: Vec<String> =
-        made.as_ref().map(|added| added.changes.titles.iter().skip(1).cloned().collect()).unwrap_or_default();
-    let outcome = written(engine, made, false);
-    let shown = if matches!(outcome, Outcome::Done) { notes.as_slice() } else { &[] };
-    for note in shown {
-        writeln!(stdout::out(), "  {note}")?;
-    }
-    Ok(outcome)
+    noted(engine, made, false)
 }
 
 /// `vc new auth`: the type and fields from the flags, and on a terminal (without `--json`)
-/// asked for when left out.
+/// asked for when left out; with a line for each note on a secret it left for the author.
 fn auth(engine: &Engine, args: AuthArgs) -> anyhow::Result<Outcome> {
     let asks = !args.json && std::io::stdin().is_terminal();
     let auth_type = match (args.auth_type, asks) {
@@ -141,7 +134,7 @@ fn auth(engine: &Engine, args: AuthArgs) -> anyhow::Result<Outcome> {
     for field in auth_fields(&auth_type).iter().filter(|_| asks) {
         fields.push(((*field).to_owned(), ask(&format!("{field} (Enter to leave it out):"))?));
     }
-    Ok(written(engine, engine.new_auth(&NewAuth { id: args.id, auth_type, fields }), args.json))
+    noted(engine, engine.new_auth(&NewAuth { id: args.id, auth_type, fields }), args.json)
 }
 
 /// Asks `question` on stderr and reads one answer line from stdin, trimmed.
@@ -151,6 +144,19 @@ fn ask(question: &str) -> anyhow::Result<String> {
     let mut answer = String::new();
     std::io::stdin().lock().read_line(&mut answer)?;
     Ok(answer.trim().to_owned())
+}
+
+/// Like [`written`], then a line for each note on the change (its titles after the first): on
+/// stdout, or on stderr when stdout is JSON.
+fn noted(engine: &Engine, made: Result<Added, EngineError>, json: bool) -> anyhow::Result<Outcome> {
+    let notes: Vec<String> =
+        made.as_ref().map(|added| added.changes.titles.iter().skip(1).cloned().collect()).unwrap_or_default();
+    let outcome = written(engine, made, json);
+    let shown = if matches!(outcome, Outcome::Done) { notes.as_slice() } else { &[] };
+    for note in shown {
+        if json { eprintln!("  {note}") } else { writeln!(stdout::out(), "  {note}")? }
+    }
+    Ok(outcome)
 }
 
 /// Writes what was added and says where: `✓ added users#deactivate to <path>:<line>`, or the

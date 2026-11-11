@@ -126,6 +126,29 @@ pub struct Profile {
     pub agents: AgentPolicy,
 }
 
+/// Each built-in auth type with the keys it cannot work without.
+///
+/// See the syntax reference, "Authentication". The compiler's V1005, the credentials `vc new auth`
+/// writes as secrets to declare, and the keys the auth adapters require all come from this one
+/// table.
+pub const AUTH_NEEDS: [(&str, &[&str]); 9] = [
+    ("basic", &["username", "password"]),
+    ("bearer", &["token"]),
+    ("apiKey", &["name", "value"]),
+    ("oauth2ClientCredentials", &["tokenUrl", "clientId"]),
+    ("oauth2Password", &["tokenUrl", "clientId", "username", "password"]),
+    ("oauth2AuthorizationCode", &["authorizeUrl", "tokenUrl", "clientId"]),
+    ("oauth2Refresh", &["tokenUrl", "clientId", "refreshToken"]),
+    ("flow", &["steps"]),
+    ("plugin", &["plugin"]),
+];
+
+/// The keys the auth type `kind` needs; `None` for a type that is not built in.
+#[must_use]
+pub fn auth_needs(kind: &str) -> Option<&'static [&'static str]> {
+    AUTH_NEEDS.iter().find(|(name, _)| *name == kind).map(|(_, needs)| *needs)
+}
+
 /// One entry of `auth`.
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[expect(

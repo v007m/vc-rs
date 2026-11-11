@@ -61,5 +61,5 @@ pub use pipeline::{
 pub use redactor::{MASKED, RedactingSink, Redactor};
 pub use shell::{Executor, IterationSetup, ProgramIterations, RunHandle, RunInterrupter, RunOptions};
 pub use slots::{SharedResult, SharedSlots};
-use values::Render;
+use values::{Around, Render};
 pub use values::{Defined, ExampleRows, Frame, Iteration, RunInputs, RunValues, example_rows};

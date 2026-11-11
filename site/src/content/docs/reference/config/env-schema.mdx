@@ -91,6 +91,7 @@ profiles:
 - `vc check` compares every `${secret.X}` and `${env.X}` with the schema.
 - A declared secret is reachable only as `${secret.X}`.
 - Values come from the [secrets provider](/vc-rs/reference/config/secrets/): the environment and `.env` by default.
+- Every declared secret without a value fails `vc run`, `vc call` and `vc load` with V5114 before any request is sent.
 - Commit `.env.schema`. It holds no values.
 
 ## Common errors

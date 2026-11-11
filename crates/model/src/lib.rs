@@ -44,7 +44,8 @@ pub use alerts::{Alert, AlertChannel, AlertTrigger};
 pub use api::{Api, ApiGroup, ApiSource, BodySpec, PartSpec};
 pub use builder::ProgramBuilder;
 pub use config::{
-    AuthDef, Config, Dataset, Defaults, GeneratorDef, HttpRetry, LoadScenario, LoadStage, MixEntry, PluginRef, Profile,
+    AUTH_NEEDS, AuthDef, Config, Dataset, Defaults, GeneratorDef, HttpRetry, LoadScenario, LoadStage, MixEntry,
+    PluginRef, Profile, auth_needs,
 };
 pub use date::Date;
 pub use defs::{
@@ -63,7 +64,9 @@ pub use names::{Location, Names, Planned, check_label, check_parts};
 pub use outcome::{ActionOutcome, CleanupRecord, Failure, OwnerKey, RunStatus, TestResult, TestStatus, Totals};
 pub use plan::{Instance, InstanceId, Needs, Plan, PlannedAction, PlannedFile, SkippedTest};
 pub use program::Program;
-pub use secrets::{DEFAULT_SECRETS_PROVIDER, DEFAULT_SECRETS_SCHEMA, RedactRule, SecretsConfig, schema_names};
+pub use secrets::{
+    DEFAULT_SECRETS_PROVIDER, DEFAULT_SECRETS_SCHEMA, RedactRule, SecretsConfig, schema_names, secret_name,
+};
 pub use source::{ContentHash, FileKind, SourceFile, SourcePath, hidden_part, resolve_path};
 pub use span::{Pos, SourceSpan};
 pub use strings::{StringTable, Sym};
