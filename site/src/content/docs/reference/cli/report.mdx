@@ -64,13 +64,13 @@ error: --format: no report format `pdf`
   = help: the report formats are ctrf, junit, html
 ```
 
-`vc report` writes the files of test runs only. A load run's report is what `vc load` prints; `--json` gives it as a file:
+`vc report` writes the files of test runs only. A load run keeps no report to write again: `vc history` lists it, and its report is what `vc load` prints as it runs, as JSON with `--json`. Getting one means running the load again:
 
 ```console
 $ vc load checkout.peak
 $ vc report
 error: history: run 83 is a load run, and `vc report` writes the files of test runs only
-  = help: `vc load checkout.peak --json` prints a load run's report; to report a test run, pass its number from `vc history`
+  = help: `vc history` lists it; for a load report, add `--json` to the next `vc load checkout.peak`, which sends the load again; to report a test run, pass its number from `vc history`
 ```
 
 ## Related

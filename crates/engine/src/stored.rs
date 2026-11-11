@@ -10,6 +10,7 @@ use vc_interfaces::{RunRow, TestRow, TestTrend};
 use vc_model::{Date, Program};
 
 use crate::history::history_error;
+use crate::load::LOAD_KIND;
 use crate::reporting::{self, Chosen};
 use crate::settings::{Named, Settings};
 use crate::{Engine, EngineError, ReportFlags};
@@ -98,7 +99,7 @@ impl Engine {
     pub fn report(&self, request: &ReportRequest) -> Result<ReportFiles, EngineError> {
         let which = if request.run.is_empty() { "last" } else { request.run.as_str() };
         let row = self.stored_run(which)?;
-        if row.start.kind == "load" {
+        if row.start.kind == LOAD_KIND {
             return Err(load_run(&row));
         }
         let snapshot = self.snapshot(&row)?;
@@ -128,7 +129,10 @@ const TEST_RUN: &str = "to report a test run, pass its number from `vc history`"
 /// The refusal of a report for a load run, which stores no snapshot to write files from.
 fn load_run(row: &RunRow) -> EngineError {
     let scenario = &row.start.selector;
-    let help = format!("`vc load {scenario} --json` prints a load run's report; {TEST_RUN}");
+    let help = format!(
+        "`vc history` lists it; for a load report, add `--json` to the next `vc load {scenario}`, \
+         which sends the load again; {TEST_RUN}"
+    );
     EngineError::History {
         reason: format!("run {} is a load run, and `vc report` writes the files of test runs only", row.id),
         help: Some(help),

@@ -77,7 +77,9 @@ async fn a_report_of_a_load_run_says_how_to_get_one() {
     assert_eq!(reported.status.code(), Some(2), "{}", said(&reported));
     let stderr = String::from_utf8_lossy(&reported.stderr);
     assert!(stderr.contains("is a load run, and `vc report` writes the files of test runs only"), "{stderr}");
-    assert!(stderr.contains("= help: `vc load scripted.peak --json` prints a load run's report"), "{stderr}");
+    let help = "= help: `vc history` lists it; for a load report, add `--json` to the next `vc load scripted.peak`, \
+                which sends the load again; to report a test run, pass its number from `vc history`\n";
+    assert!(stderr.contains(help), "{stderr}");
     assert!(!stderr.contains("snapshot"), "{stderr}");
     assert!(reported.stdout.is_empty(), "no file is written: {}", said(&reported));
 }
