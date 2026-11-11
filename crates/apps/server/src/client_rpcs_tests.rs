@@ -96,6 +96,23 @@ async fn explains_an_api_with_its_vars_inherited_headers_and_curl_every_secret_m
 }
 
 #[tokio::test(flavor = "multi_thread")]
+async fn explains_an_api_under_the_profiles_and_sets_the_request_gives() {
+    let (dir, api) = project();
+    let config = CONFIG.replace("  - id: bare\n", "  - id: bare\n    vars: {baseUrl: 'http://127.0.0.1:7'}\n");
+    fs::write(dir.path().join("vibranium.config.yaml"), config).unwrap();
+    let request = wire::ExplainApiRequest {
+        profiles: vec!["bare".into()],
+        sets: vec!["vars.baseUrl=http://127.0.0.1:8".into()],
+        ..explain("users#list", &[])
+    };
+    let explained = explain_api(api, request).await.unwrap();
+    let base = explained.vars.iter().find(|var| var.key == "baseUrl").unwrap();
+    let sources: Vec<&str> = base.layers.iter().map(|layer| layer.source.as_str()).collect();
+    assert_eq!(sources, ["--set", "profile bare", "vibranium.config.yaml"]);
+    assert!(explained.curl.starts_with("curl -X GET 'http://127.0.0.1:8/users'"), "{}", explained.curl);
+}
+
+#[tokio::test(flavor = "multi_thread")]
 async fn an_id_of_no_api_explains_nothing_and_never_echoes_a_secret() {
     let (_dir, api) = project();
     for id in ["users#gone", "users.crud#listsUsers", ".env", "../users#list", "/etc/hosts"] {
