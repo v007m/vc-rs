@@ -137,6 +137,7 @@ Edit the test below. The editor checks it against the real schema as you type.
 - `kb`, `mb` and `gb` are powers of 1024.
 - Write a whole number and a lowercase unit: `512b`, `4kb`, `1mb`, `2gb`.
 - Any ordered matcher works: `gt`, `gte`, `lt`, `lte`, `between`.
+- An exact size can be written bare or with `eq` or `ne`: `size: 32b` and `size: {eq: 32b}` both pass for a 32-byte body.
 
 ## Common errors
 

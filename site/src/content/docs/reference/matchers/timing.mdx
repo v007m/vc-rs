@@ -173,6 +173,7 @@ Edit the test below. The editor checks it against the real schema as you type.
 ## How it behaves
 
 - Durations are a whole number and a unit: `250ms`, `2s`, `1m`, `12h`.
+- `eq`, `ne` and a bare duration (`total: 200ms`) are read in the same unit as `lt` and `gt`.
 - The failure message shows durations in milliseconds.
 - Timing checks depend on the network and the machine. Keep bounds generous in functional tests; use load tests for latency targets.
 

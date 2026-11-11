@@ -270,6 +270,15 @@ fn expected_values_show_units_ranges_and_status_classes() {
     assert!(judge(|judge| judge.expected(&gone)).is_err());
 }
 
+#[test]
+fn eq_and_ne_with_a_unit_compare_the_measured_number() {
+    let bytes = |name: &str| all(vec![(name, MatcherArg::Size(Size::from_bytes(32)))]);
+    assert_eq!([32, 33].map(|size| holds(&bytes("eq"), json!(size))), [true, false]);
+    assert_eq!([32, 33].map(|size| holds(&bytes("ne"), json!(size))), [false, true]);
+    let wait = all(vec![("eq", MatcherArg::Duration(Duration::new(std::time::Duration::from_millis(200))))]);
+    assert_eq!([json!(200), json!(200.0), json!(201)].map(|ms| holds(&wait, ms)), [true, true, false]);
+}
+
 fn check(kind: CheckKind, target: &[&str], matcher: Matcher) -> Check {
     let segments = target.iter().map(|key| Segment::Key((*key).to_owned())).collect();
     let target = (!target.is_empty()).then_some(Path { segments });

@@ -133,6 +133,27 @@ fn reads_ranges_and_lengths_in_their_unit() {
 }
 
 #[test]
+fn a_literal_or_eq_under_a_unit_is_read_in_that_unit() {
+    let sized = unit_with("    expect:\n      size: 32b\n      timing: {total: {eq: 2s}, dns: {ne: 1ms}}\n");
+    assert!(sized.diagnostics.is_empty(), "{:?}", sized.diagnostics);
+    let args: Vec<&MatcherArg> = pieces(&sized)
+        .into_iter()
+        .map(|piece| match piece {
+            Piece::Matcher(Matcher::All(calls)) => &calls[0].arg,
+            other => panic!("{other:?}"),
+        })
+        .collect();
+    assert!(matches!(args[..], [MatcherArg::Size(_), MatcherArg::Duration(_), MatcherArg::Duration(_)]), "{args:?}");
+    let plain = unit_with("    expect:\n      body:\n        match:\n          a: 32b\n          b: {eq: 2s}\n");
+    assert!(plain.diagnostics.is_empty(), "{:?}", plain.diagnostics);
+    let Piece::Matcher(Matcher::All(calls)) = pieces(&plain)[1] else { panic!("{:?}", pieces(&plain)) };
+    assert!(matches!(pieces(&plain)[0], Piece::Matcher(Matcher::Equals(_))));
+    assert!(matches!(calls[0].arg, MatcherArg::Value(_)), "{:?}", calls[0].arg);
+    let wrong = unit_with("    expect:\n      size: lots\n");
+    assert_eq!(codes(&wrong.diagnostics), [Code::V2301]);
+}
+
+#[test]
 fn checks_cel_with_the_files_action_ids() {
     let text = "beforeAll:\n  - id: seed\n    command: ./seed\ntests:\n  - id: a\n    call: users#get\n    vars: {n: {$cel: 'seed.count + 1'}}\n    expect:\n      cel: {big: response.body.n > 1}\n";
     let unit = unit(FileKind::Test, text);

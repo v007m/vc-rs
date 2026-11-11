@@ -873,7 +873,7 @@ beforeEach:
 | `body.schema` | JSON Schema, usually `$file` | `schema: {$file: schemas/user.json}` |
 | `body.match.<path>` | matcher at a path in the body | `items[*].price: {every: {gt: 0}}` |
 | `body.equals` | the whole body, compared deeply | `equals: {"ok": true}` |
-| `size` | matcher on body size | `size: {lt: 100kb}` |
+| `size` | matcher on body size; a bare size and `eq`/`ne` are read in bytes, as `lt` is (`size: 32b`) | `size: {lt: 100kb}` |
 | `timing.<phase>` | matcher on `dns`, `connect`, `tls`, `firstByte`, `download`, `total` | `total: {lt: 500ms}` |
 | `cel.<label>` | CEL expression that must be true; variables are the roots available there (see Templates and references); write `response.body`, not `body` (D125, D150) | `has items: size(response.body.items) > 0` |
 | `custom` | list of functions, `- function: path#export` | `- function: ../../hooks/checks.ts#isSorted` |

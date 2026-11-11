@@ -46,7 +46,7 @@ pub enum Ty {
 /// A function returning a shape, so shapes can refer to each other (and to themselves).
 pub type ShapeFn = fn() -> &'static Shape;
 
-/// The unit that `gt`, `lt` and `between` compare in.
+/// The unit that `eq`, `ne`, `gt`, `lt`, `between` and a bare literal compare in.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Unit {
     /// Plain values.

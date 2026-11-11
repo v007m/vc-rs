@@ -14,9 +14,9 @@ use crate::value;
 /// What a matcher takes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Arg {
-    /// Any value: `eq`, `contains`.
+    /// Any value: `contains`.
     Value,
-    /// A value compared in the unit: `gt`, `lt`.
+    /// A value compared in the unit: `eq`, `gt`, `lt`.
     Ordered,
     /// Two values compared in the unit: `between`.
     Range,
@@ -41,8 +41,8 @@ const FORMATS: &[&str] = &["email", "uuid", "uri", "date", "dateTime", "ipv4"];
 
 /// Every matcher and what it takes.
 const MATCHERS: &[(&str, Arg)] = &[
-    ("eq", Arg::Value),
-    ("ne", Arg::Value),
+    ("eq", Arg::Ordered),
+    ("ne", Arg::Ordered),
     ("gt", Arg::Ordered),
     ("gte", Arg::Ordered),
     ("lt", Arg::Ordered),
@@ -81,11 +81,21 @@ struct Spot<'n> {
 
 /// The matcher or literal at `at`, comparing in `unit`.
 pub fn matcher(cx: &mut Cx<'_>, at: At<'_>, unit: Unit) -> Option<Matcher> {
-    let Value::Map(entries) = &at.node.value else { return value::lower(cx, at).map(Matcher::Equals) };
+    let Value::Map(entries) = &at.node.value else { return literal(cx, at, unit) };
     if !entries.iter().any(|entry| find(&entry.key).is_some()) && !misspelt(entries) {
         return value::lower(cx, at).map(Matcher::Equals);
     }
     calls(cx, at, (entries, unit, Literal::Allowed))
+}
+
+/// A scalar literal: under a unit (`size: 32b`, `total: 200ms`) it is read in that unit and
+/// compared as `eq`, so it meets the measured number; anywhere else it is compared as written.
+fn literal(cx: &mut Cx<'_>, at: At<'_>, unit: Unit) -> Option<Matcher> {
+    if unit == Unit::Plain || at.node.as_scalar().is_none() {
+        return value::lower(cx, at).map(Matcher::Equals);
+    }
+    let arg = ordered(cx, Spot { at, unit, name: "eq" })?;
+    Some(Matcher::All(vec![MatcherCall { name: "eq".to_owned(), arg, span: at.node.span }]))
 }
 
 /// A status's matcher: a map there is never a literal, so each of its keys must be a matcher.
