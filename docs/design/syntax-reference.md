@@ -318,7 +318,7 @@ Each item in `apis`:
 | `id` | camelCase, required | — | Reference, e.g. `create` → `users#create` |
 | `name` | text | — | Shown in listings |
 | `method` | `GET` `POST` `PUT` `PATCH` `DELETE` `HEAD` `OPTIONS` | `GET` | HTTP method |
-| `path` | template | required | Appended to `baseUrl`, e.g. `/users/${var.id}`; starts with `/` unless it is a full URL or starts with a template (V4005) |
+| `path` | template | required | Appended to `baseUrl`, e.g. `/users/${var.id}`; starts with `/` unless it is a full URL or starts with a template (V4005); a path parameter is `${var.name}`, never `{name}` (V4006) |
 | `vars` | map | — | Defaults for this api; callers override them |
 | `query` | map of templates | — | Query string |
 | `headers` | map of templates | — | Merged over the file's headers |

@@ -162,3 +162,18 @@ fn a_base_url_and_path_that_do_not_meet_at_one_slash_are_fixed() {
     let path = |edits| (Code::V4005, "`path` does not start with `/`".to_owned(), edits);
     assert_eq!(found, [base, path(Vec::new()), path(vec![renamed("users/1", "/users/1")])]);
 }
+
+#[test]
+fn a_braced_path_placeholder_is_a_warning_with_the_var_suggested() {
+    let api = concat!(
+        "baseUrl: ${var.baseUrl}\n",
+        "apis:\n",
+        "  - id: poll\n    path: /poll/{jobId}/runs/{runId}\n",
+        "  - id: quoted\n    path: '/poll/{jobId}'\n",
+        "  - id: templated\n    path: /poll/${var.baseUrl}/{ x }\n",
+    );
+    let found = found(&[CONFIG, ("services/jobs/jobs.api.yaml", api)]);
+    let placeholder = |edits| (Code::V4006, "`{jobId}` in a `path` is sent as is; it is not a var".to_owned(), edits);
+    let fixed = renamed("/poll/{jobId}/runs/{runId}", "/poll/${var.jobId}/runs/${var.runId}");
+    assert_eq!(found, [placeholder(Vec::new()), placeholder(vec![fixed])]);
+}

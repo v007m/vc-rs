@@ -81,6 +81,7 @@ code_table! {
     V4003 = 4003, Warning, "File name or folder breaks the convention";
     V4004 = 4004, Warning, "Tag, profile or dataset name breaks the convention";
     V4005 = 4005, Warning, "`baseUrl` ends in `/`, or a `path` does not start with one";
+    V4006 = 4006, Warning, "A `path` holds a `{name}` placeholder";
     // V5xxx: run time
     V5101 = 5101, Error, "Expectation failed";
     V5102 = 5102, Error, "CEL check false";

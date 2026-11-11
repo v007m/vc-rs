@@ -148,6 +148,7 @@ apis:
 - A path without a leading `/` runs into the host. With `baseUrl` `http://localhost:7432` and `path: echo`, the URL is `http://localhost:7432echo`. `vc check` warns with [V4005](/vc-rs/reference/diagnostics/v4005/), and `vc check --fix` adds the `/`. See below.
 - A `baseUrl` that ends in `/` plus a path that starts with `/` gives `//`, which most servers answer with 404. `vc check` warns with V4005 here too.
 - A path that is a full URL or starts with a template (`${var.usersUrl}/users`) is not checked.
+- A path parameter is a var: `/poll/${var.jobId}`. The OpenAPI style `/poll/{jobId}` is sent as the literal text `{jobId}`, so `vc check` warns with [V4006](/vc-rs/reference/diagnostics/v4006/) and suggests the var.
 - Templates in the path are rendered, not encoded. Use `| urlEncode` for user-supplied text. Values in [`query`](/vc-rs/reference/syntax/query/) are encoded automatically, so don't use the pipe there.
 - Any var in scope can be used: the api's own `vars`, the file's, the config's, a test's, or a saved value.
 
@@ -176,6 +177,15 @@ $ vc run h.t
 ✕ h.t#c                                                           4ms
   error[V5105]: cannot connect to localhost:80: Connection refused (os error 61)
      = at: call h#noSlash
+```
+
+An OpenAPI-style placeholder is a V4006 warning, with a suggested fix:
+
+```console
+$ vc check
+warning[V4006]: `{jobId}` in a `path` is sent as is; it is not a var
+  = help: write each one as a var: `${var.jobId}`, and set it in the test's `vars`
+  = fix: Write each placeholder as a var
 ```
 
 A path var that no level sets fails `vc check` with [V2101](/vc-rs/reference/diagnostics/v2101/). A path that is not a valid URL fails the call with [V5111](/vc-rs/reference/diagnostics/v5111/). A host that refuses the connection fails with [V5105](/vc-rs/reference/diagnostics/v5105/).

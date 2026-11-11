@@ -12,6 +12,7 @@ mod item_ids;
 mod load_ranges;
 mod lone_keys;
 mod names;
+mod placeholders;
 mod reuse_keys;
 mod shared_writes;
 mod skip_reasons;
@@ -81,6 +82,7 @@ impl LintRegistry {
             Box::new(names::FileNames),
             Box::new(names::Labels),
             Box::new(urls::ApiUrls),
+            Box::new(placeholders::PathPlaceholders),
         ];
         Self { lints }
     }
