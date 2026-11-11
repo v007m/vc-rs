@@ -129,15 +129,17 @@ pub fn overlay(files: &mut Vec<SourceFile>, changes: &[FileChange]) -> Result<()
 }
 
 /// The change to `schema` that declares each of `names` it does not declare yet, as `NAME=`
-/// lines at its end, with those names; none when it declares them all.
+/// lines at its end in the file's own line endings, with those names; none when it declares
+/// them all.
 pub fn declaring<'n>(schema: &SourceFile, names: &[&'n str]) -> Option<(FileChange, Vec<&'n str>)> {
     let declared = schema_names(&schema.text);
     let missing: Vec<&str> = names.iter().copied().filter(|name| !declared.iter().any(|known| known == name)).collect();
     if missing.is_empty() {
         return None;
     }
-    let lead = if schema.text.is_empty() || schema.text.ends_with('\n') { "" } else { "\n" };
-    let lines: String = missing.iter().flat_map(|name| [*name, "=\n"]).collect();
+    let newline = if schema.text.contains("\r\n") { "\r\n" } else { "\n" };
+    let lead = if schema.text.is_empty() || schema.text.ends_with('\n') { "" } else { newline };
+    let lines: String = missing.iter().flat_map(|name| [*name, "=", newline]).collect();
     let after = format!("{}{lead}{lines}", schema.text);
     let path = schema.path.to_string();
     Some((FileChange { path, before: Some(schema.text.clone()), after, moved_from: None }, missing))
@@ -167,7 +169,9 @@ pub fn internal(error: impl std::fmt::Display) -> EngineError {
 
 #[cfg(test)]
 mod tests {
-    use super::{Changes, FileChange};
+    use vc_model::{ContentHash, SourceFile, SourcePath};
+
+    use super::{Changes, FileChange, declaring};
 
     fn change(before: Option<&str>, after: &str) -> FileChange {
         let (path, before, after) = ("services/a/b.test.yaml".to_owned(), before.map(str::to_owned), after.to_owned());
@@ -196,6 +200,20 @@ mod tests {
     fn a_new_file_diffs_from_nothing() {
         let diff = change(None, "a: 1\n").diff();
         assert!(diff.starts_with("--- /dev/null\n") && diff.contains("+a: 1\n"), "{diff}");
+    }
+
+    fn schema(text: &str) -> SourceFile {
+        let path = SourcePath::new(".env.schema").unwrap();
+        SourceFile { path, text: text.to_owned(), hash: ContentHash::new([0; 32]) }
+    }
+
+    #[test]
+    fn declaring_appends_the_names_not_yet_declared_in_the_file_s_line_endings() {
+        let (change, added) = declaring(&schema("A_TOKEN=\nB_KEY="), &["B_KEY", "C_KEY"]).unwrap();
+        assert_eq!((change.after.as_str(), added), ("A_TOKEN=\nB_KEY=\nC_KEY=\n", vec!["C_KEY"]));
+        let (change, _) = declaring(&schema("A_TOKEN=\r\nB_KEY="), &["C_KEY", "D_KEY"]).unwrap();
+        assert_eq!(change.after, "A_TOKEN=\r\nB_KEY=\r\nC_KEY=\r\nD_KEY=\r\n");
+        assert!(declaring(&schema("A_TOKEN=\r\n"), &["A_TOKEN"]).is_none());
     }
 
     #[test]

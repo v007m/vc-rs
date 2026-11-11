@@ -182,7 +182,24 @@ fn new_auth_in_a_new_project_declares_the_secret_it_writes() {
     let declared = project.read(".env.schema");
     assert!(declared.starts_with(&schema), "the schema's bytes are kept:\n{declared}");
     assert!(declared.lines().any(|line| line == "PARTNER_TOKEN_TOKEN="), "{declared}");
+    let note = "set `PARTNER_TOKEN_TOKEN` in `.env` or the environment; runs stop with V5114 until it has a value";
+    assert!(String::from_utf8_lossy(&output.stdout).contains(note), "{}", said(&output));
     checks_clean(&project);
+}
+
+#[test]
+fn new_auth_without_a_schema_says_where_to_declare_the_secret_and_that_it_needs_a_value() {
+    let project = Project::new(&[CONFIG]);
+    let mut vc = project.vc(&["new", "auth", "partnerToken", "--type", "basic"]);
+    let output = vc.write_stdin("").timeout(Duration::from_secs(20)).output().unwrap();
+    assert_eq!(output.status.code(), Some(0), "{}", said(&output));
+    let text = said(&output);
+    assert!(text.contains("add PARTNER_TOKEN_PASSWORD= to .env.schema"), "{text}");
+    assert!(text.contains("set `PARTNER_TOKEN_PASSWORD` in `.env` or the environment"), "{text}");
+    assert!(!project.exists(".env.schema"), "no schema is made: {text}");
+    let mut vc = project.vc(&["new", "auth", "partnerClient", "--type", "oauth2ClientCredentials"]);
+    let output = vc.write_stdin("").timeout(Duration::from_secs(20)).output().unwrap();
+    assert!(!said(&output).contains("secret"), "no secret is left to set:\n{}", said(&output));
 }
 
 #[test]
