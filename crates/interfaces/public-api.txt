@@ -1544,6 +1544,7 @@ pub fn vc_interfaces::HistoryWriter::record(&self, vc_interfaces::RunId, alloc::
 pub trait vc_interfaces::HookRunner: core::marker::Send + core::marker::Sync
 pub fn vc_interfaces::HookRunner::call<'life0, 'async_trait>(&'life0 self, vc_interfaces::HookCall) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::result::Result<vc_interfaces::HookOutput, vc_interfaces::HookError>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait
 pub trait vc_interfaces::Importer: core::marker::Send + core::marker::Sync
+pub fn vc_interfaces::Importer::keeps_snapshot(&self) -> bool
 pub fn vc_interfaces::Importer::read<'life0, 'life1, 'life2, 'async_trait>(&'life0 self, &'life1 vc_interfaces::ImportSource, &'life2 vc_interfaces::ImportOptions) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::result::Result<vc_interfaces::ImportDraft, vc_interfaces::ImportError>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait, 'life1: 'async_trait, 'life2: 'async_trait
 pub fn vc_interfaces::Importer::read_help(&self) -> core::option::Option<&'static str>
 pub fn vc_interfaces::Importer::reads_folders(&self) -> bool
