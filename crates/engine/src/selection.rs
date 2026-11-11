@@ -30,10 +30,7 @@ impl Selection {
     /// involved, such as the test call that reaches an api's unset var (V2101).
     pub fn keep(&self, diagnostics: Diagnostics, files: &SourceFiles) -> Diagnostics {
         let selected = |label: &Label| files.get(label.span.file).is_some_and(|file| self.selects(file));
-        diagnostics
-            .into_iter()
-            .filter(|d| std::iter::once(&d.primary).chain(&d.secondary).any(selected))
-            .collect()
+        diagnostics.into_iter().filter(|d| std::iter::once(&d.primary).chain(&d.secondary).any(selected)).collect()
     }
 
     /// How many files are selected.

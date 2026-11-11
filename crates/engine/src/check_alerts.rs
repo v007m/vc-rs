@@ -8,7 +8,9 @@ use serde_json::Value;
 use vc_adapter_system::SystemEnvironment;
 use vc_diagnostics::{Code, Diagnostic};
 use vc_interfaces::{NotifierFactory, NotifyError};
-use vc_model::{AlertChannel, CelProgram, FileKind, Program, Reference, SourceFile, SourceFileId, SourceFiles, TemplateValue};
+use vc_model::{
+    AlertChannel, CelProgram, FileKind, Program, Reference, SourceFile, SourceFileId, SourceFiles, TemplateValue,
+};
 use vc_parser::{Entry, Node, Syntax};
 use vc_template::{Chance, PipeRegistry, RenderError, Renderer, Resolve};
 
