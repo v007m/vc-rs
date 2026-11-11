@@ -1,11 +1,18 @@
+use std::iter;
 use std::time::{Duration, Instant};
 
 use tempfile::TempDir;
+use tokio::sync::mpsc::unbounded_channel;
 use vc_interfaces::{ApprovalRequest, ApprovalStatus, Approvals, Decision, Verdict};
 use vc_model::Method;
 use vc_testkit::{agent_action_reader_suite, agent_action_writer_suite, approvals_suite};
 
 use super::SqliteApprovals;
+
+/// More file events than a 2s wait nothing ends makes: about 10, for the WAL files its first
+/// look makes and its expiry. One that opened a connection per look made and removed those
+/// files at every look, woke on that, and made 600 to 2000.
+const LIMIT: usize = 100;
 
 /// A queue in a fresh history in a directory `dirs` keeps alive.
 fn fresh(dirs: &mut Vec<TempDir>) -> SqliteApprovals {
@@ -76,4 +83,16 @@ async fn a_decision_from_another_process_ends_the_wait_at_once() {
     assert_eq!(agent.wait(id, Duration::from_secs(30)).await, Ok(ApprovalStatus::Approved));
     assert!(started.elapsed() < Duration::from_secs(10), "{:?}", started.elapsed());
     assert_eq!(decided.join().unwrap(), Ok(ApprovalStatus::Approved));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_wait_nothing_ends_does_not_keep_waking_itself() {
+    let mut dirs = Vec::new();
+    let agent = fresh(&mut dirs);
+    let id = agent.create(&request()).unwrap();
+    let (seen, mut events) = unbounded_channel();
+    let _watching = agent.watch(seen).unwrap();
+    assert_eq!(agent.wait(id, Duration::from_secs(2)).await, Ok(ApprovalStatus::Expired));
+    let count = iter::from_fn(|| events.try_recv().ok()).count();
+    assert!(count < LIMIT, "{count} file events in a 2s wait: its own looks kept waking it");
 }

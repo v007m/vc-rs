@@ -36,7 +36,8 @@ const COLUMNS: &str = "id, created_at, agent, tool, profile, methods, summary, a
 /// Each call opens its own connection, so every process on the project shares one queue: an
 /// agent waiting in `vc mcp` sees a decision made by `vc approve` or the web UI. A wait wakes
 /// on file events in the database's folder, and looks again every second in case one was
-/// missed.
+/// missed. It looks on one connection it keeps: a connection opened per look makes and
+/// removes the WAL files each time, and their file events would wake it again at once.
 #[derive(Clone, Debug)]
 pub struct SqliteApprovals {
     path: PathBuf,
@@ -68,9 +69,12 @@ impl SqliteApprovals {
     }
 
     fn status(&self, id: ApprovalId) -> Result<ApprovalStatus, ApprovalError> {
-        let text: Option<String> = self.read(|connection| {
-            connection.query_row("SELECT status FROM approvals WHERE id = ?1", [id.get()], |row| row.get(0)).optional()
-        })?;
+        let text = self.read(|connection| status_of(connection, id))?;
+        self.known(id, text)
+    }
+
+    /// The status of request `id` from its status `text`, or why there is none.
+    fn known(&self, id: ApprovalId, text: Option<String>) -> Result<ApprovalStatus, ApprovalError> {
         let text = text.ok_or(ApprovalError::Unknown { id })?;
         status(&text).ok_or_else(|| self.failed(&unreadable(0, &text)))
     }
@@ -148,11 +152,14 @@ impl Approvals for SqliteApprovals {
     }
 
     async fn wait(&self, id: ApprovalId, timeout: Duration) -> Result<ApprovalStatus, ApprovalError> {
+        let reader = schema::open_for_reading(&self.path).map_err(|error| self.failed(&error))?;
+        let reader = reader.ok_or(ApprovalError::Unknown { id })?;
         let (wake, mut woken) = unbounded_channel();
         let _watching = self.watch(wake.clone());
         let deadline = Instant::now() + timeout;
         loop {
-            let status = self.status(id)?;
+            let looked = status_of(&reader, id).map_err(|error| self.failed(&error))?;
+            let status = self.known(id, looked)?;
             let now = Instant::now();
             if status != ApprovalStatus::Pending {
                 return Ok(status);
@@ -207,6 +214,11 @@ impl AgentActionReader for SqliteApprovals {
             statement.query_map([limit], logged)?.collect()
         })
     }
+}
+
+/// The status text of request `id`, when there is one.
+fn status_of(connection: &Connection, id: ApprovalId) -> rusqlite::Result<Option<String>> {
+    connection.query_row("SELECT status FROM approvals WHERE id = ?1", [id.get()], |row| row.get(0)).optional()
 }
 
 /// The profile, tool and methods an always-allow of a request covers.
