@@ -1,0 +1,19 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2311_redact_regex/project
+---
+error[V2311]: redact pattern does not compile: error: unclosed character class
+ --> vibranium.config.yaml:9:14
+  |
+9 |     - regex: "[unclosed"
+  |              ^^^^^^^^^^^ not a regex
+  = note: a run masks every text while a rule fails, so reports and history show only `••••`
+  = help: fix the pattern; escape a character it should match as itself with `\`
+
+error[V2311]: redact pattern does not compile: error: unclosed group
+  --> vibranium.config.yaml:11:14
+   |
+11 |     - regex: "(a"
+   |              ^^^^ not a regex
+   = note: a run masks every text while a rule fails, so reports and history show only `••••`
+   = help: fix the pattern; escape a character it should match as itself with `\`

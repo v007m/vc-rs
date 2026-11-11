@@ -39,7 +39,7 @@ fn builtin_pipes_chain_their_types() {
     assert_eq!(chain("trim | number", ValueType::Text).unwrap(), ValueType::Number);
     assert_eq!(chain("take(2) | random", ValueType::List).unwrap(), ValueType::Any);
     assert_eq!(chain("default('x') | upper", ValueType::Any).unwrap(), ValueType::Text);
-    assert_eq!(chain("int | bool | string | json | jsonString", ValueType::Number).unwrap(), ValueType::Text);
+    assert_eq!(chain("int | string | bool | string | json | jsonString", ValueType::Number).unwrap(), ValueType::Text);
     assert_eq!(chain("base64 | fromBase64 | lower | urlEncode", ValueType::Text).unwrap(), ValueType::Text);
     assert_eq!(chain("shuffle", ValueType::List).unwrap(), ValueType::List);
     assert_eq!(PipeRegistry::builtin().check_chain(&[], ValueType::Object).unwrap(), ValueType::Object);

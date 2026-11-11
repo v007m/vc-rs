@@ -1,0 +1,21 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2304_scalar_pipes/project
+---
+error[V2304]: pipe `number` takes text or a number, not a boolean
+ --> services/users/users.api.yaml:9:22
+  |
+9 |       a: ${var.yes | number}
+  |                      ^^^^^^
+
+error[V2304]: pipe `int` takes text or a number, not a boolean
+  --> services/users/users.api.yaml:10:22
+   |
+10 |       b: ${var.yes | int}
+   |                      ^^^
+
+error[V2304]: pipe `bool` takes text or a boolean, not a number
+  --> services/users/users.api.yaml:11:24
+   |
+11 |       c: ${var.count | bool}
+   |                        ^^^^

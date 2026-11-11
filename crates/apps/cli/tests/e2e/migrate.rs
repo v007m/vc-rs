@@ -14,7 +14,10 @@ const TODO: &str = "# TODO(vc migrate): ";
 fn the_help_and_the_refusal_say_where_the_v1_folder_goes() {
     let project = Project::new(&[]);
     let help = said(&project.vc(&["migrate", "v1", "--help"]).output().unwrap());
-    assert!(help.contains("in a folder without a project") && !help.contains("inside the project."), "{help}");
+    assert!(
+        help.contains("which must be a folder without a project") && !help.contains("inside the project."),
+        "{help}"
+    );
     let outside = project.vc(&["migrate", "v1", ".."]).output().unwrap();
     assert_eq!(outside.status.code(), Some(2), "{}", said(&outside));
     let said = said(&outside);

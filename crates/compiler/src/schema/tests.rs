@@ -42,7 +42,9 @@ fn describes_keys_with_types_defaults_and_examples() {
     assert_eq!(version["examples"], json!([2]));
     assert_eq!(version["description"], "File-format version");
     let defaults = &config["$defs"]["defaults"]["properties"];
-    assert_eq!(defaults["timeout"], json!({ "type": "string", "description": "Per request", "default": "30s" }));
+    let timeout =
+        json!({ "type": "string", "description": "Per request", "default": "30s", "pattern": "^[0-9]+(ms|s|m|h)$" });
+    assert_eq!(defaults["timeout"], timeout, "a duration names its form");
     assert_eq!(defaults["concurrency"]["default"], 16);
     assert!(config["properties"]["project"].get("default").is_none(), "a described default stays out");
 }

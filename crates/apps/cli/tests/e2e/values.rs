@@ -55,7 +55,7 @@ async fn a_for_each_over_an_empty_list_saves_each_name_as_an_empty_list() {
     let test = concat!(
         "tests:\n  - id: sendsWhatNoTurnSaved\n    vars:\n      none: []\n    steps:\n",
         "      - call: scripted#echo\n        forEach: ${var.none}\n        save:\n          got: ${response.status}\n",
-        "      - call: scripted#echo\n        body: {got: ${var.got}}\n",
+        "      - call: scripted#echo\n        body:\n          got: ${var.got}\n",
         "        expect:\n          cel:\n            empty: response.body.body.got == []\n",
     );
     let project = Project::new(&[CONFIG, SCRIPTED, ("services/scripted/values.test.yaml", test)]);

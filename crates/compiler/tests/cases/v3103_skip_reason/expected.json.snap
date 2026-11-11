@@ -4,7 +4,7 @@ input_file: crates/compiler/tests/cases/v3103_skip_reason/project
 ---
 {
   "summary": {
-    "errors": 2,
+    "errors": 3,
     "warnings": 0,
     "infos": 0
   },
@@ -26,7 +26,7 @@ input_file: crates/compiler/tests/cases/v3103_skip_reason/project
       "secondary": [],
       "notes": [],
       "help": [
-        "say why, for the report: `skip: flaky upstream, see #123`"
+        "say why, for the report: `skip: flaky upstream, see issue 123`"
       ],
       "fixes": []
     },
@@ -47,7 +47,28 @@ input_file: crates/compiler/tests/cases/v3103_skip_reason/project
       "secondary": [],
       "notes": [],
       "help": [
-        "say why, for the report: `skip: flaky upstream, see #123`"
+        "say why, for the report: `skip: flaky upstream, see issue 123`"
+      ],
+      "fixes": []
+    },
+    {
+      "code": "V3103",
+      "severity": "error",
+      "message": "`skip` needs a reason",
+      "primary": {
+        "span": {
+          "path": "services/users/crud.test.yaml",
+          "line": 11,
+          "column": 11,
+          "endLine": 11,
+          "endColumn": 15
+        },
+        "text": "`true` is not a reason"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "`skip` takes the reason itself, not `true`: `skip: flaky upstream, see issue 123`; to run the test, delete `skip`"
       ],
       "fixes": []
     }

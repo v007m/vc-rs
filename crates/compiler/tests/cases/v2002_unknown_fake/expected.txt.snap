@@ -8,6 +8,8 @@ error[V2002]: `fake.person.fulName` is not a generator
 3 |   owner: ${fake.person.fulName}
   |          ^^^^^^^^^^^^^^^^^^^^^^ no generator has this name
   = note: the generators are `commerce.price`, `date.future`, `date.past`, `date.recent`, `helpers.arrayElement`, `internet.email`, `internet.userName`, `location.city`, `location.country`, `location.countryCode`, `location.streetAddress`, `location.zipCode`, `lorem.paragraphs`, `lorem.sentence`, `lorem.word`, `lorem.words`, `number.float`, `number.int`, `person.firstName`, `person.fullName`, `person.jobTitle`, `phone.number`, `string.alphanumeric`, `string.fromRegExp`, `string.uuid`
+  = help: did you mean `person.fullName`?
+  = fix: Replace with person.fullName (certain)
 
 error[V2002]: `fake.internet.emial` is not a generator
  --> services/users/users.api.yaml:4:10
@@ -17,3 +19,20 @@ error[V2002]: `fake.internet.emial` is not a generator
   = note: the generators are `commerce.price`, `date.future`, `date.past`, `date.recent`, `helpers.arrayElement`, `internet.email`, `internet.userName`, `location.city`, `location.country`, `location.countryCode`, `location.streetAddress`, `location.zipCode`, `lorem.paragraphs`, `lorem.sentence`, `lorem.word`, `lorem.words`, `number.float`, `number.int`, `person.firstName`, `person.fullName`, `person.jobTitle`, `phone.number`, `string.alphanumeric`, `string.fromRegExp`, `string.uuid`
   = help: did you mean `internet.email`?
   = fix: Replace with internet.email (certain)
+
+error[V2002]: `fake.person.fullname` is not a generator
+ --> services/users/users.api.yaml:5:9
+  |
+5 |   name: ${fake.person.fullname}
+  |         ^^^^^^^^^^^^^^^^^^^^^^^ no generator has this name
+  = note: the generators are `commerce.price`, `date.future`, `date.past`, `date.recent`, `helpers.arrayElement`, `internet.email`, `internet.userName`, `location.city`, `location.country`, `location.countryCode`, `location.streetAddress`, `location.zipCode`, `lorem.paragraphs`, `lorem.sentence`, `lorem.word`, `lorem.words`, `number.float`, `number.int`, `person.firstName`, `person.fullName`, `person.jobTitle`, `phone.number`, `string.alphanumeric`, `string.fromRegExp`, `string.uuid`
+  = help: did you mean `person.fullName`?
+  = fix: Replace with person.fullName (certain)
+
+error[V2002]: `fake.lorem.wordz` is not a generator
+ --> services/users/users.api.yaml:6:10
+  |
+6 |   words: ${fake.lorem.wordz}
+  |          ^^^^^^^^^^^^^^^^^^^ no generator has this name
+  = note: the generators are `commerce.price`, `date.future`, `date.past`, `date.recent`, `helpers.arrayElement`, `internet.email`, `internet.userName`, `location.city`, `location.country`, `location.countryCode`, `location.streetAddress`, `location.zipCode`, `lorem.paragraphs`, `lorem.sentence`, `lorem.word`, `lorem.words`, `number.float`, `number.int`, `person.firstName`, `person.fullName`, `person.jobTitle`, `phone.number`, `string.alphanumeric`, `string.fromRegExp`, `string.uuid`
+  = help: did you mean one of `lorem.word`, `lorem.words`?

@@ -130,7 +130,7 @@ fn vars_in_expected_matchers_are_checked() {
 #[test]
 fn an_unset_var_read_through_default_is_not_reported_but_through_another_pipe_is() {
     let header = |pipe: &str| {
-        tests(&format!("  - id: a\n    call: users#get\n    headers: {{x-note: \"${{var.note | {pipe}}}\"}}\n"))
+        tests(&format!("  - id: getsNote\n    call: users#get\n    headers: {{x-note: \"${{var.note | {pipe}}}\"}}\n"))
     };
     assert_eq!(found(&header("default('none')")), []);
     assert_eq!(found(&header("lower")), [(Code::V2101, 4)]);
@@ -155,7 +155,7 @@ fn a_flow_expiry_reads_what_its_steps_saved() {
 fn an_auth_without_a_key_its_type_needs_is_reported_at_its_type() {
     let auth = |keys: &str| format!("{CONFIG}auth:\n  - id: partner\n    type: bearer\n{keys}");
     let missing = |config: &str| {
-        let found = diagnostics(config, APIS, &tests("  - id: a\n    call: users#get\n"));
+        let found = diagnostics(config, APIS, &tests("  - id: getsUser\n    call: users#get\n"));
         found.iter().map(|found| (found.code, found.primary.span.start.line, found.message.clone())).collect::<Vec<_>>()
     };
     assert_eq!(missing(&auth("")), [(Code::V1005, 9, "a `bearer` auth needs `token`".to_owned())]);

@@ -1,0 +1,34 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v1003_older_version/project
+---
+{
+  "summary": {
+    "errors": 1,
+    "warnings": 0,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "code": "V1003",
+      "severity": "error",
+      "message": "`syntaxVersion: 1` is not a file format; the first is 2",
+      "primary": {
+        "span": {
+          "path": "vibranium.config.yaml",
+          "line": 1,
+          "column": 16,
+          "endLine": 1,
+          "endColumn": 17
+        },
+        "text": "older than 2"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "write `syntaxVersion: 2`; to convert a Vibranium v1 project, run `vc migrate v1 <folder>`"
+      ],
+      "fixes": []
+    }
+  ]
+}

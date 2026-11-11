@@ -64,7 +64,7 @@ fn a_vc_already_on_path_is_still_the_one_a_command_finds() {
     let project = Project::new(&[CONFIG, (path, &test)]);
     let tools = tempfile::tempdir().unwrap();
     let other = tools.path().join("vc");
-    fs::write(&other, "#!/bin/sh\necho the user's own vc\n").unwrap();
+    fs::write(&other, "#!/bin/sh\necho \"the user's own vc\"\n").unwrap();
     fs::set_permissions(&other, fs::Permissions::from_mode(0o755)).unwrap();
     let path = format!("{}:/usr/bin:/bin", tools.path().display());
     project.vc(&["run"]).env("PATH", path).assert().code(0);
