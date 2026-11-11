@@ -3,6 +3,7 @@
 
 mod bodies;
 mod frame;
+mod lookup;
 mod reads;
 mod render;
 mod run;
@@ -10,7 +11,7 @@ mod scope;
 
 pub use bodies::{BodyFiles, Unread};
 pub use frame::{Frame, Iteration};
-pub use render::Render;
+pub use render::{Around, Render};
 pub use run::{Defined, RunInputs, RunValues};
 
 #[cfg(test)]

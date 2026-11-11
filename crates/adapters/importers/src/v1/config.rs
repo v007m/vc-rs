@@ -3,6 +3,7 @@
 //! are `${secret.…}` names, never the values v1 kept in the file.
 
 use serde_json::{Map, Value, json};
+use vc_model::secret_name;
 
 use super::source::Source;
 use super::template::Templates;
@@ -136,7 +137,7 @@ fn auth(config: &Value, templates: &mut Templates) -> (Vec<Value>, Vec<String>) 
             fields.extend(account.get(from).map(|value| ((*key).to_owned(), value.clone())));
         }
         for (key, suffix) in kind.secrets {
-            let secret = format!("{}_{suffix}", upper_snake(name));
+            let secret = format!("{}_{suffix}", secret_name(name));
             fields.insert((*key).to_owned(), json!(format!("${{secret.{secret}}}")));
             secrets.push(secret);
         }
@@ -145,25 +146,13 @@ fn auth(config: &Value, templates: &mut Templates) -> (Vec<Value>, Vec<String>) 
     (auth, secrets)
 }
 
-/// `shop_admin` and `shopAdmin` as `SHOP_ADMIN`.
-fn upper_snake(name: &str) -> String {
-    let mut out = String::new();
-    for c in name.chars() {
-        if c.is_ascii_uppercase() && !out.is_empty() && !out.ends_with('_') {
-            out.push('_');
-        }
-        out.push(if c.is_ascii_alphanumeric() { c.to_ascii_uppercase() } else { '_' });
-    }
-    out
-}
-
 #[cfg(test)]
 mod tests {
     use std::collections::BTreeMap;
 
     use serde_json::json;
 
-    use super::{Accounts, config, upper_snake};
+    use super::{Accounts, auth, config};
     use crate::v1::source::Source;
     use crate::v1::template::Templates;
 
@@ -206,6 +195,24 @@ mod tests {
     }
 
     #[test]
+    fn an_account_s_secrets_are_named_in_upper_snake_case_one_word_per_acronym() {
+        let names = [
+            ("shopAdmin", "SHOP_ADMIN"),
+            ("shop_admin", "SHOP_ADMIN"),
+            ("shop__admin", "SHOP_ADMIN"),
+            ("_legacy", "LEGACY"),
+            ("QA", "QA"),
+            ("APIKey", "API_KEY"),
+        ];
+        for (name, expected) in names {
+            let config = json!({"accounts": {name: {"method": "basic"}}});
+            let mut templates = Templates::new(None);
+            let (_, secrets) = auth(&config, &mut templates);
+            assert_eq!(secrets, [format!("{expected}_USERNAME"), format!("{expected}_PASSWORD")], "{name}");
+        }
+    }
+
+    #[test]
     fn the_default_account_url_and_env_vars_become_vars_and_generators() {
         let source = source();
         let mut templates = Templates::new(source.config.get("env_vars").and_then(|env| env.as_object()));
@@ -226,7 +233,5 @@ mod tests {
         assert_eq!(accounts.auth("partner").as_deref(), Some("partner"));
         assert_eq!(accounts.auth("public"), None);
         assert_eq!(accounts.variables("partner"), json!({"tenant": "acme"}).as_object());
-        assert_eq!(upper_snake("shopAdmin"), "SHOP_ADMIN");
-        assert_eq!(upper_snake("shop_admin"), "SHOP_ADMIN");
     }
 }

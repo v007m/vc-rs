@@ -3,6 +3,7 @@
 //! turns the units into the program, and the lint stage checks the lifecycle rules over both.
 
 mod assets;
+mod auth_keys;
 mod body_schema;
 mod build;
 mod columns;
@@ -85,6 +86,7 @@ pub fn link(entries: &[CacheEntry], files: &SourceFiles, world: &World<'_>) -> L
     diagnostics.extend(columns::check(&project, &data));
     diagnostics.extend(data::unknown(&project, &data));
     diagnostics.extend(fakes::check(&project));
+    diagnostics.extend(auth_keys::check(&project));
     diagnostics.extend(shared::profiles(&project));
     diagnostics.extend(world.secrets.map(|declared| secrets::check(&project, declared)).unwrap_or_default());
     if !clean {

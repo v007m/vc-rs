@@ -1162,7 +1162,7 @@ impl core::marker::StructuralPartialEq for vc_engine::WriteRequest
 pub const vc_engine::APPROVAL_WAIT: core::time::Duration
 pub const vc_engine::INIT_FOLDERS: [&str; 5]
 pub fn vc_engine::action_call(&vc_model::names::Names, vc_model::ids::ActionId) -> core::option::Option<vc_engine::ApiCall>
-pub fn vc_engine::auth_fields(&str) -> &'static [&'static str]
+pub fn vc_engine::auth_fields(&str) -> alloc::vec::Vec<&'static str>
 pub fn vc_engine::instance_label(&vc_interfaces::history::TestRow) -> alloc::string::String
 pub fn vc_engine::interrupts() -> (vc_engine::Interrupter, vc_engine::Interrupts)
 pub fn vc_engine::launch_plugin(impl core::iter::traits::iterator::Iterator<Item = std::ffi::os_str::OsString>) -> core::option::Option<alloc::string::String>

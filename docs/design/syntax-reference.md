@@ -88,7 +88,7 @@ A pipe after the path converts or tidies the value: `${response.body.count | num
 | `base64`, `fromBase64` | text or bytes | encoded or decoded | `${var.csv \| base64}` |
 | `lower`, `upper`, `trim` | a string | the changed text | `${var.email \| lower}` |
 | `urlEncode` | a string | percent-encoded text | `${var.query \| urlEncode}` |
-| `default('x')` | a missing or null value | the fallback, any literal | `${var.note \| default('none')}` |
+| `default('x')` | a missing or null value; as the first pipe, a var no level sets is not V2101 | the fallback, any literal | `${var.note \| default('none')}` |
 | `random` | a list | one element, chosen at random (follows `--seed`) | `${dataset.capitals \| random}` |
 | `shuffle` | a list | the list in random order | `${dataset.capitals \| shuffle}` |
 | `take(n)` | a list | its first `n` elements | `${dataset.capitals \| take(10)}` |
@@ -1011,7 +1011,9 @@ The `oauth2*` types post to `tokenUrl` with the client in HTTP Basic when `clien
 | `flow` | `steps`, `apply`, `expiresIn`, `refreshBefore`, `refreshOn`, `cache` | Any sequence of requests that ends in credentials (below) |
 | `plugin` | `plugin`, `config` | Custom schemes through an auth plugin: `plugin` is the ID of an `auth` plugin in `plugins:`, and `config` is passed to its `auth/credentials` call. `config` is rendered like other auth settings, so a `${secret.x}` in it is sent to the plugin whatever the lock grants (writing it there is the grant), and stays masked in output. A plugin that is not ready or answers with no values fails the call with V5114 |
 
-Every definition can also have `vars` (its defaults). Use one by ID on an api file, an api, a test, a step or an action: `auth: shopOauth`, `auth: none`, or with values:
+`vc check` reports a definition that leaves out a key its type needs as V1005 at its `type` (`a \`bearer\` auth needs \`token\``): `username` and `password` for `basic`, `token` for `bearer`, `name` and `value` for `apiKey`, `tokenUrl` and `clientId` for every `oauth2*` type (plus `username` and `password` for `oauth2Password`, `authorizeUrl` for `oauth2AuthorizationCode` and `refreshToken` for `oauth2Refresh`), `steps` for `flow` and `plugin` for `plugin`.
+
+Every definition can also have `vars` (its defaults), which can read each other and the use site's vars. A use site's var reads its sibling use-site vars first, then the caller's vars, then the definition's as the last fallback, so `token: ${var.token}-v2` builds on the default. A use-site var that reads its own name follows the same order: it finds the caller's `token` when the caller has one, and the definition's otherwise. Use one by ID on an api file, an api, a test, a step or an action: `auth: shopOauth`, `auth: none`, or with values:
 
 ```yaml
 auth:
@@ -1088,7 +1090,7 @@ The same definition serves every profile: under `--profile prod` it logs in to `
 
 ## Secrets
 
-`secrets` defaults to `provider: env` with `schema: .env.schema` (D163). Each secret is declared in `.env.schema` as a `NAME=` line (comments and `# @…` annotations are allowed), and `env` resolves the declared names from the process environment, with the project's `.env` filling the ones it does not set. `provider: varlock` is opt-in: it runs `varlock load` and takes the names from Varlock's providers (1Password, Vault, AWS, GCP, Azure, Bitwarden, Infisical, environment variables). A missing secret fails the run with V5114. The web UI's Settings screen edits the names in the root `.env.schema` (D247); `.env` and every other `.env.*` file stay out of reach of the editor and of agents.
+`secrets` defaults to `provider: env` with `schema: .env.schema` (D163). Each secret is declared in `.env.schema` as a `NAME=` line (comments and `# @…` annotations are allowed), and `env` resolves the declared names from the process environment, with the project's `.env` filling the ones it does not set. `provider: varlock` is opt-in: it runs `varlock load` and takes the names from Varlock's providers (1Password, Vault, AWS, GCP, Azure, Bitwarden, Infisical, environment variables). Every declared secret without a value (unset, or blank) stops `vc run`, `vc call` and `vc load` with one V5114 that names it, before any request is sent; a `${secret.X}` that still has no value when it renders is V5114 too, and its message never shows another secret. The web UI's Settings screen edits the names in the root `.env.schema` (D247); `.env` and every other `.env.*` file stay out of reach of the editor and of agents.
 
 `vc check` checks names against `.env.schema`: a `${secret.X}` it does not declare is V2106 (with the closest declared name as the fix), and a `${env.X}` that reads a declared secret is V2107, because it would bypass the redactor (the certain fix is `${secret.X}`).
 

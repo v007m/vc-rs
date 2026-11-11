@@ -7,13 +7,13 @@
 use indexmap::IndexMap;
 use serde_json::json;
 use vc_interfaces::{DraftApi, DraftFlow, DraftGroup, DraftStep, ImportDraft};
-use vc_model::{DEFAULT_SECRETS_SCHEMA, FileKind, SourceFile, schema_names};
+use vc_model::{DEFAULT_SECRETS_SCHEMA, FileKind, SourceFile};
 
 use crate::EngineError;
 use crate::authoring::{Authoring, Opened, refused};
 use crate::create::{DOCS, ListItem, block, commented_item, derived_path, header, sentence};
 use crate::create_api::{base_var_in, config};
-use crate::edit::{Changes, FileChange, internal};
+use crate::edit::{Changes, FileChange, declaring, internal};
 use crate::import_homes::{Home, path_vars, shape};
 use crate::import_titles::{Placed, Written, titles};
 use crate::import_write::{api_fields, api_file, new_file};
@@ -139,17 +139,9 @@ impl Writing {
         let Some(schema) = schema else {
             return (!names.is_empty()).then(|| format!("add {} to {DEFAULT_SECRETS_SCHEMA}", names.join("=, ") + "="));
         };
-        let declared = schema_names(&schema.text);
-        names.retain(|name| !declared.iter().any(|known| known == name));
-        if names.is_empty() {
-            return None;
-        }
-        let lead = if schema.text.is_empty() || schema.text.ends_with('\n') { "" } else { "\n" };
-        let lines: String = names.iter().flat_map(|name| [*name, "=\n"]).collect();
-        let after = format!("{}{lead}{lines}", schema.text);
-        let path = schema.path.to_string();
-        self.staged.keep(FileChange { path, before: Some(schema.text.clone()), after, moved_from: None });
-        Some(format!("{DEFAULT_SECRETS_SCHEMA}  declares {}", names.join(", ")))
+        let (change, added) = declaring(schema, &names)?;
+        self.staged.keep(change);
+        Some(format!("{DEFAULT_SECRETS_SCHEMA}  declares {}", added.join(", ")))
     }
 
     /// `flow` as a test in its file, calling the apis its steps went to; the title names it.

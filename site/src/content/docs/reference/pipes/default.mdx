@@ -76,7 +76,7 @@ Inside a `forEach`, read an optional field of each item: `${item.mayor | default
 
 - Only a missing value or `null` is replaced. Empty text, `0`, `false` and an empty list are kept.
 - It must come right after the path to catch a missing field. Later pipes see the fallback.
-- `default` does not cover a var that no level sets: `${var.neverSet | default('x')}` is still V2101 at check time. It covers fields inside a value, env values and run-time data.
+- As the first pipe, `default` also covers a var that no level sets: `${var.neverSet | default('x')}` is not V2101, and renders `x`. Behind another pipe (`${var.neverSet | lower | default('x')}`), an unset var is still V2101.
 
 ## Common errors
 

@@ -5,14 +5,14 @@ use std::cell::OnceCell;
 use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 
-use serde_json::{Map, Value, json};
-use vc_diagnostics::Code;
+use serde_json::{Value, json};
 use vc_interfaces::Random;
-use vc_model::{CelProgram, Examples, Failure, Namespace, Program, Reference, Segment, Template, TemplateValue};
-use vc_template::{Activation, CelCompiler, Chance, FakeCx, RenderError, Renderer, Resolve};
+use vc_model::{Examples, Failure, Namespace, Program, Template, TemplateValue};
+use vc_template::{Chance, RenderError, Renderer};
 
+use super::lookup::Lookup;
 use super::reads::Reads;
-use super::run::RunValues;
+use super::run::{Defined, RunValues};
 use super::scope::{Found, Scope};
 use crate::{ActionRequest, Frame, Redactor, Saved, Schemas};
 
@@ -25,12 +25,12 @@ type Drawn = BTreeMap<String, OnceCell<Value>>;
 /// One action's renderer: its scope, the roots bound so far (`run`, `dataset`, `iteration`,
 /// `example`, step ids, then `request` and `response`) and the fake-data memo.
 pub struct Render<'a> {
-    values: &'a RunValues,
-    program: &'a Program,
+    pub(super) values: &'a RunValues,
+    pub(super) program: &'a Program,
     redactor: &'a Redactor,
     schemas: &'a Schemas,
     scope: Scope,
-    roots: HashMap<Namespace, Arc<Value>>,
+    pub(super) roots: HashMap<Namespace, Arc<Value>>,
     memo: Saved,
     drawn: Drawn,
     reads: Reads,
@@ -72,12 +72,41 @@ impl<'a> Render<'a> {
         Ok(render)
     }
 
-    /// The same render with `given` found before every other level: an auth definition's
-    /// vars while its settings render.
-    #[must_use]
-    pub fn with_given(mut self, given: Arc<Saved>) -> Self {
-        self.scope.give(given);
-        self
+    /// Runs `inner` with the levels of `around` put around the scope: an auth definition's vars
+    /// or its use site's. Each fake var `around` brings is drawn once, apart from a same-named
+    /// one of the call's, and those draws are returned with `inner`'s answer; afterwards the
+    /// levels, memo and draws are as before.
+    pub fn scoped<T>(&mut self, around: Around, inner: impl FnOnce(&Self) -> T) -> (T, Saved) {
+        let fakes = self.brought_fakes(&around);
+        let aside = self.set_aside(&fakes);
+        self.scope.define(around.vars);
+        self.scope.give(around.given);
+        self.scope.fall_back(around.fallback);
+        let out = inner(self);
+        self.scope.drop_front(2);
+        self.scope.drop_back(1);
+        (out, self.restore(&fakes, aside))
+    }
+
+    /// The fake vars `around` brings: each of its `vars`, and each of its `fallback` that no
+    /// level before it defines.
+    fn brought_fakes(&self, around: &Around) -> Vec<String> {
+        let fakes = |vars: &Defined| -> Vec<String> {
+            vars.iter().filter(|(_, def)| is_fake(def)).map(|(name, _)| name.clone()).collect()
+        };
+        let hidden = |name: &String| {
+            around.vars.contains_key(name)
+                || around.given.contains_key(name)
+                || self.scope.find(self.program, name, 0).is_some()
+        };
+        let mut names = fakes(&around.vars);
+        names.extend(fakes(&around.fallback).into_iter().filter(|name| !hidden(name)));
+        names
+    }
+
+    /// The value of `var.<name>` from the closest level.
+    pub fn var_value(&self, name: &str) -> Result<Value, RenderError> {
+        self.var(name, None)
     }
 
     /// Binds `ns` to `value` for the renders that follow.
@@ -184,6 +213,24 @@ impl<'a> Render<'a> {
         Ok(slot.get_or_init(|| value).clone())
     }
 
+    /// Takes out the memo and draws of `names`, giving each a fresh slot.
+    fn set_aside(&mut self, names: &[String]) -> Aside {
+        let memo = names.iter().filter_map(|name| Some((name.clone(), self.memo.remove(name)?))).collect();
+        let drawn =
+            names.iter().filter_map(|name| Some((name.clone(), self.drawn.insert(name.clone(), OnceCell::new())?)));
+        Aside { memo, drawn: drawn.collect() }
+    }
+
+    /// Drops the slots of `names`, puts back what [`Self::set_aside`] took out, and returns
+    /// what the dropped slots drew.
+    fn restore(&mut self, names: &[String], aside: Aside) -> Saved {
+        let drawn = names.iter().filter_map(|name| Some((name.clone(), self.drawn.remove(name)?.into_inner()?)));
+        let drawn = drawn.collect();
+        self.drawn.extend(aside.drawn);
+        self.memo.extend(aside.memo);
+        drawn
+    }
+
     /// Binds `iteration` and the instance's `example` row.
     fn bind_instance(&mut self, frame: &Frame) -> Result<(), RenderError> {
         let Some(instance) = &frame.instance else { return Ok(()) };
@@ -213,7 +260,7 @@ impl<'a> Render<'a> {
 
     /// The value of `var.<name>`, looking from the closest level unless `within` is the
     /// definition of the same name, which continues past its own level.
-    fn var(&self, name: &str, within: Option<&Within<'_>>) -> Result<Value, RenderError> {
+    pub(super) fn var(&self, name: &str, within: Option<&Within<'_>>) -> Result<Value, RenderError> {
         let (from, depth) = within.map_or((0, 0), |within| (within.after(name), within.depth));
         if depth > MAX_DEPTH {
             let message =
@@ -237,7 +284,12 @@ impl<'a> Render<'a> {
         Renderer::new(self.values.pipes(), &Lookup { render: self, within: Some(within) }).value(def)
     }
 
-    fn label(&self, ns: Namespace) -> String {
+    /// The run's random source, for the pipes.
+    pub(super) fn chance(&self) -> &dyn Chance {
+        &self.chance
+    }
+
+    pub(super) fn label(&self, ns: Namespace) -> String {
         match ns {
             Namespace::Step(id) => self.program.str(id).unwrap_or("step").to_owned(),
             other => vc_template::root_name(other).unwrap_or("root").to_owned(),
@@ -251,18 +303,26 @@ fn is_fake(def: &TemplateValue) -> bool {
     template.single_ref().is_some_and(|reference| reference.ns == Namespace::Fake)
 }
 
-/// V5112 when an `example` or `item` row is a map without the column `reference` reads (D173).
-fn row_column(error: RenderError, (ns, row): (Namespace, &Value), reference: &Reference) -> RenderError {
-    let Some(Segment::Key(column)) = reference.path.segments.first() else { return error };
-    let rows = matches!(ns, Namespace::Example | Namespace::Item);
-    match row {
-        Value::Object(row) if rows && !row.contains_key(column.as_str()) => error.coded(Code::V5112),
-        _ => error,
-    }
+/// The levels [`Render::scoped`] puts around the scope: `vars` defined and `given` over them in
+/// front of every other level, and `fallback` defined behind them all.
+#[derive(Default)]
+pub struct Around {
+    /// Definitions found first, which may read each other.
+    pub vars: Arc<Defined>,
+    /// Values found before even `vars`.
+    pub given: Arc<Saved>,
+    /// Definitions found only when no other level has the name.
+    pub fallback: Arc<Defined>,
+}
+
+/// The memo and draws a scoped level hides.
+struct Aside {
+    memo: Saved,
+    drawn: Drawn,
 }
 
 /// The var definition being rendered.
-struct Within<'n> {
+pub(super) struct Within<'n> {
     name: &'n str,
     level: usize,
     depth: usize,
@@ -281,112 +341,5 @@ struct RandomChance<'a>(&'a dyn Random);
 impl Chance for RandomChance<'_> {
     fn next_u64(&self) -> u64 {
         self.0.next_u64()
-    }
-}
-
-/// Answers the renderer's lookups for one template.
-struct Lookup<'r> {
-    render: &'r Render<'r>,
-    within: Option<&'r Within<'r>>,
-}
-
-impl Resolve for Lookup<'_> {
-    fn resolve(&self, reference: &Reference) -> Result<Value, RenderError> {
-        match reference.ns {
-            Namespace::Var => {
-                let (name, rest) = named("var", reference)?;
-                vc_template::select(&format!("var.{name}"), &self.render.var(name, self.within)?, rest)
-            }
-            Namespace::Env => {
-                let (name, rest) = named("env", reference)?;
-                vc_template::select(&format!("env.{name}"), &self.env(name)?, rest)
-            }
-            Namespace::Fake => self.fake(reference),
-            ns => {
-                let label = self.render.label(ns);
-                let value = self.render.roots.get(&ns);
-                let value = value.ok_or_else(|| RenderError::invalid(format!("`{label}` has no value here")))?;
-                let selected = vc_template::select(&label, value, &reference.path.segments);
-                selected.map_err(|error| row_column(error, (ns, value), reference))
-            }
-        }
-    }
-
-    fn evaluate(&self, program: &CelProgram) -> Result<Value, RenderError> {
-        let expr = CelCompiler::new().prepare(program).map_err(|error| RenderError::invalid(error.to_string()))?;
-        let roots =
-            self.render.roots.iter().fold(Activation::new(), |roots, (ns, value)| roots.with(*ns, Arc::clone(value)));
-        let activation = roots.with(Namespace::Var, self.vars(program)?).with(Namespace::Env, self.envs(program));
-        expr.eval(&activation).map_err(|error| RenderError::invalid(error.to_string()))
-    }
-
-    fn chance(&self) -> &dyn Chance {
-        &self.render.chance
-    }
-}
-
-impl Lookup<'_> {
-    fn env(&self, name: &str) -> Result<Value, RenderError> {
-        if self.render.program.config.secrets.declares(name) {
-            let message = format!("`env.{name}` is a declared secret; use `${{secret.{name}}}` so it is masked");
-            return Err(RenderError::invalid(message));
-        }
-        let value = self.render.values.inputs().environment.var(name);
-        value.map(Value::String).ok_or_else(|| RenderError::missing(format!("`env.{name}` is not set")))
-    }
-
-    fn fake(&self, reference: &Reference) -> Result<Value, RenderError> {
-        let keys = reference.path.segments.iter().filter_map(|segment| match segment {
-            Segment::Key(key) => Some(key.as_str()),
-            Segment::Index(_) | Segment::All => None,
-        });
-        let name = keys.collect::<Vec<_>>().join(".");
-        let inputs = self.render.values.inputs();
-        let cx = FakeCx::new(self.chance(), inputs.started_ms);
-        let program = self.render.program;
-        let named = program.generators.values().find(|def| program.str(def.id) == Some(name.as_str()));
-        let (name, args) = named.map_or((name.as_str(), reference.args.as_slice()), |def| (&def.fake, &def.args));
-        inputs.fakes.generate(name, args, &cx).map_err(RenderError::invalid)
-    }
-
-    /// The `var` root of a `$cel` value: each var it reads that is set.
-    fn vars(&self, program: &CelProgram) -> Result<Value, RenderError> {
-        let mut vars = Map::new();
-        for name in read_names(program, Namespace::Var) {
-            match self.render.var(name, self.within) {
-                Ok(value) => drop(vars.insert(name.to_owned(), value)),
-                Err(error) if error.missing => {}
-                Err(error) => return Err(error),
-            }
-        }
-        Ok(Value::Object(vars))
-    }
-
-    /// The `env` root of a `$cel` value: each variable it reads that is set.
-    fn envs(&self, program: &CelProgram) -> Value {
-        let found =
-            read_names(program, Namespace::Env).filter_map(|name| Some((name.to_owned(), self.env(name).ok()?)));
-        Value::Object(found.collect())
-    }
-}
-
-/// The names a `$cel` value reads under `ns`.
-fn read_names(program: &CelProgram, ns: Namespace) -> impl Iterator<Item = &str> {
-    program.refs.iter().filter(move |reference| reference.ns == ns).filter_map(|reference| {
-        match reference.path.segments.first() {
-            Some(Segment::Key(name)) => Some(name.as_str()),
-            _ => None,
-        }
-    })
-}
-
-/// A name and the path after it.
-type Named<'r> = (&'r str, &'r [Segment]);
-
-/// The name after `root` and the path after it.
-fn named<'r>(root: &str, reference: &'r Reference) -> Result<Named<'r>, RenderError> {
-    match reference.path.segments.split_first() {
-        Some((Segment::Key(name), rest)) => Ok((name.as_str(), rest)),
-        _ => Err(RenderError::invalid(format!("`{root}` needs a name after it, such as `{root}.name`"))),
     }
 }

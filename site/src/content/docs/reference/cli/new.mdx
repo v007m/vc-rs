@@ -147,6 +147,8 @@ Adds an auth definition to the config's `auth` list. On a terminal it asks for t
 ```console
 $ vc new auth partnerToken --type bearer --json
 {"added":"partnerToken","line":52,"path":"vibranium.config.yaml"}
+  Declare PARTNER_TOKEN_TOKEN in .env.schema
+  set `PARTNER_TOKEN_TOKEN` in `.env` or the environment; runs stop with V5114 until it has a value
 ```
 
 ```yaml title="vibranium.config.yaml"
@@ -154,9 +156,10 @@ auth:
   # partnerToken · bearer · keys: https://github.com/v007m/vc-rs/blob/master/docs/design/syntax-reference.md#authentication
   - id: partnerToken
     type: bearer
+    token: ${secret.PARTNER_TOKEN_TOKEN}
 ```
 
-When it does not ask, only `id` and `type` are written. Add the type's fields yourself, such as `token: ${secret.PARTNER_TOKEN}` for `bearer`; see [Auth](/vc-rs/reference/auth/).
+When it does not ask, `id` and `type` are written, plus a secret reference for each credential the type needs: `token: ${secret.PARTNER_TOKEN_TOKEN}` for `bearer`, `password` for `basic` and `oauth2Password`, `value` for `apiKey` and `refreshToken` for `oauth2Refresh`. When the project has a `.env.schema`, the name is declared there as a `NAME=` line; without one, a note says to add it. A note per name then says to set it in `.env` or the environment: until it has a value, runs stop with V5114. The notes go to stderr with `--json`, so stdout stays one JSON object. Add the other fields yourself; `vc check` reports a needed key that is still missing (V1005), such as a `flow`'s `steps` or an `oauth2ClientCredentials`'s `tokenUrl`. See [Auth](/vc-rs/reference/auth/).
 
 ## vc new file
 

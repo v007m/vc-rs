@@ -12,6 +12,7 @@ use vc_adapter_http::{HttpOptions, HttpTransport, ProxyConfig};
 use vc_adapter_notifiers::NotifierRegistry;
 use vc_adapter_secrets::SecretProviders;
 use vc_adapter_system::{DotEnv, SeededRandom, SetFlags, SystemBrowser, SystemEnvironment, UserConfig, VibVars};
+use vc_diagnostics::Code;
 use vc_interfaces::{
     AuthProvider, ConfigEntry, Environment, HookRunner, NotifierFactory, PluginKind, Random, SecretError, SecretQuery,
     Secrets, Transport,
@@ -108,14 +109,31 @@ impl Engine {
         self.notifiers.as_ref().map_or_else(NotifierRegistry::standard_channels, |notifiers| notifiers.channels())
     }
 
+    /// The secrets `.env.schema` declares, every one with a value: a run, call or load that
+    /// would send one without stops here, before any request (V5114).
+    ///
+    /// # Errors
+    ///
+    /// [`EngineError::Setting`] when the provider fails or a declared name has no value.
+    pub(crate) async fn secrets(
+        &self,
+        config: &SecretsConfig,
+        environment: &Arc<dyn Environment>,
+    ) -> Result<Secrets, EngineError> {
+        let loaded = self.loaded_secrets(config, environment).await?;
+        let blank = |name: &&String| loaded.get(name).is_none_or(|secret| secret.expose().trim().is_empty());
+        let unset: Vec<&str> = config.declared.iter().filter(blank).map(String::as_str).collect();
+        if unset.is_empty() { Ok(loaded) } else { Err(unset_error(&unset)) }
+    }
+
     /// The secrets `.env.schema` declares, from the provider `secrets.provider` names (D163):
     /// `env` reads them from the run's `environment`, `varlock` runs through the command runner.
-    /// Nothing is loaded when nothing is declared.
+    /// Nothing is loaded when nothing is declared, and a name without a value is left out.
     ///
     /// # Errors
     ///
     /// [`EngineError::Setting`] when the provider is unknown or cannot load them.
-    pub(crate) async fn secrets(
+    pub(crate) async fn loaded_secrets(
         &self,
         config: &SecretsConfig,
         environment: &Arc<dyn Environment>,
@@ -127,6 +145,17 @@ impl Engine {
         let providers = SecretProviders::standard(Arc::clone(environment), commands, self.root().to_path_buf());
         let provider = providers.get(&config.provider).map_err(|error| secret_error(&error))?;
         provider.load(&SecretQuery::new(config.declared.iter().cloned())).await.map_err(|error| secret_error(&error))
+    }
+}
+
+/// The declared secrets in `unset` have no value: named, never with any other secret.
+fn unset_error(unset: &[&str]) -> EngineError {
+    let names = unset.iter().map(|name| format!("`{name}`")).collect::<Vec<_>>().join(", ");
+    let (noun, verb) = if unset.len() == 1 { ("secret", "has") } else { ("secrets", "have") };
+    EngineError::Setting {
+        origin: "secrets".to_owned(),
+        reason: format!("{}: the declared {noun} {names} {verb} no value", Code::V5114),
+        help: Some("set it in the environment or the project's `.env` (or in the `secrets.provider`), or remove it from `.env.schema`".to_owned()),
     }
 }
 
@@ -151,3 +180,7 @@ pub fn random(seed: Option<u64>) -> (u64, Arc<dyn Random>) {
     let seed = seed.unwrap_or_else(|| RandomState::new().build_hasher().finish());
     (seed, Arc::new(SeededRandom::new(seed)))
 }
+
+#[cfg(test)]
+#[path = "ports_tests.rs"]
+mod tests;

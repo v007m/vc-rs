@@ -15,7 +15,7 @@ use vc_interfaces::{AuthError, AuthProvider, AuthRequest, Credentials};
 use vc_model::{Action, ActionId, Api, AuthDef, AuthRef, Failure, Program, VarDefs};
 
 use super::request;
-use crate::{ActionCx, ActionRequest, PipelineParts, Render, Saved};
+use crate::{ActionCx, ActionRequest, Around, PipelineParts, Render, Saved};
 
 use flow::FlowRunner;
 use stage::{AuthStage, RefreshOn};
@@ -51,13 +51,13 @@ pub struct Prepared {
 /// A V5111 [`Failure`] when the definition's vars or settings do not render.
 pub fn prepare(
     request: &ActionRequest,
-    render: &Render<'_>,
+    render: &mut Render<'_>,
     call: (&Api, &Action),
 ) -> Result<Option<Prepared>, Failure> {
     let program = render.program();
     let Some((def, vars)) = chosen(program, call) else { return Ok(None) };
     let given = Arc::new(given(render, def, vars)?);
-    let settings = settings(request, def, &given)?;
+    let settings = settings(render, def, &given)?;
     let name = program.str(def.id.sym()).unwrap_or_default();
     let key = request.cx.tokens.key(name, &Value::Object(Saved::clone(&given)), &Value::Object(settings.clone()));
     let mut auth = AuthRequest::new(name, def.kind.clone(), settings);
@@ -95,28 +95,44 @@ fn chosen<'p>(program: &'p Program, (api, action): (&'p Api, &'p Action)) -> Opt
     Some((program.auth.get(id)?, vars))
 }
 
-/// The definition's vars, with the use site's over them, rendered where the call renders.
-fn given(render: &Render<'_>, def: &AuthDef, vars: &VarDefs) -> Result<Saved, Failure> {
+/// The use site's vars, rendered where the call renders with each other found first and the
+/// definition's vars found last, and the definition's other vars, which find the use site's
+/// and each other first.
+fn given(render: &mut Render<'_>, def: &AuthDef, vars: &VarDefs) -> Result<Saved, Failure> {
     let (values, program) = (render.values(), render.program());
-    let mut defined = values.layer(program, &def.vars);
-    defined.extend(values.layer(program, vars));
-    let mut defined: Vec<_> = defined.into_iter().collect();
-    defined.sort_unstable_by(|(left, _), (right, _)| left.cmp(right));
-    let mut given = Saved::new();
-    for (name, value) in defined {
-        given.insert(name, render.value(&value).map_err(request::failed)?);
-    }
+    let (site, defaults) = (Arc::new(values.layer(program, vars)), Arc::new(values.layer(program, &def.vars)));
+    let named = sorted(site.keys());
+    let at_site = Around { vars: Arc::clone(&site), fallback: Arc::clone(&defaults), ..Around::default() };
+    let (passed, mut drawn) = render.scoped(at_site, |render| read(render, &named));
+    let passed = passed?;
+    drawn.extend(Saved::clone(&passed));
+    let own = sorted(defaults.keys().filter(|name| !site.contains_key(*name)));
+    let at_definition = Around { vars: Arc::clone(&defaults), given: Arc::new(drawn), ..Around::default() };
+    let (given, _) = render.scoped(at_definition, |render| read(render, &own));
+    let mut given = given?;
+    given.extend(passed);
     Ok(given)
 }
 
+fn sorted<'d>(names: impl Iterator<Item = &'d String>) -> Vec<&'d String> {
+    let mut names: Vec<_> = names.collect();
+    names.sort_unstable();
+    names
+}
+
+/// The value of each `var.<name>` of `names`.
+fn read(render: &Render<'_>, names: &[&String]) -> Result<Saved, Failure> {
+    names.iter().map(|name| Ok(((*name).clone(), render.var_value(name).map_err(request::failed)?))).collect()
+}
+
 /// The definition's settings, rendered with its vars found first.
-fn settings(request: &ActionRequest, def: &AuthDef, given: &Arc<Saved>) -> Result<Map<String, Value>, Failure> {
-    let render = Render::new(request).map_err(request::failed)?.with_given(Arc::clone(given));
-    let mut settings = Map::new();
-    for (key, value) in def.settings.iter().filter(|(key, _)| key.as_str() != APPLY) {
-        settings.insert(key.clone(), render.value(value).map_err(request::failed)?);
-    }
-    Ok(settings)
+fn settings(render: &mut Render<'_>, def: &AuthDef, given: &Arc<Saved>) -> Result<Map<String, Value>, Failure> {
+    let kept = def.settings.iter().filter(|(key, _)| key.as_str() != APPLY);
+    let around = Around { given: Arc::clone(given), ..Around::default() };
+    let (settings, _) = render.scoped(around, |render| {
+        kept.map(|(key, value)| Ok((key.clone(), render.value(value).map_err(request::failed)?))).collect()
+    });
+    settings
 }
 
 #[cfg(test)]
