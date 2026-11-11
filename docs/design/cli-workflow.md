@@ -31,7 +31,7 @@ shop/
   schemas/  datasets/  hooks/  openapi/  load/   empty, ready to use
 ```
 
-The sample calls a small demo service built into Vibranium (`vc demo`: a users endpoint and an echo endpoint on `localhost:7421`), which the sample file starts and stops itself. The sample works offline and never depends on a third-party site. Delete `services/sample/` when you have your own apis, or skip it with `vc init --no-sample`.
+The sample calls a small demo service built into Vibranium (`vc demo`: a users endpoint and an echo endpoint on `localhost:7421`), which the sample file starts and stops itself. The sample works offline and never depends on a third-party site. Delete `services/sample/` when you have your own apis, or skip it with `vc init --no-sample`, whose config then has no `sampleUrl` var. Every file `vc init` writes is already in the house style, so `vc fmt` on a fresh project changes nothing.
 
 ### The documentation header
 
@@ -95,7 +95,10 @@ secrets:
 
 reports:
   dir: .vibranium/reports
-  formats: [ctrf, junit, html]
+  formats:
+    - ctrf
+    - junit
+    - html
 
 history:
   bodies: failures         # store request/response bodies for failures only
@@ -159,7 +162,9 @@ apis:
     method: DELETE
     path: /users/${var.userId}
     expect:
-      status: [204, 404]               # already gone is fine for a cleanup
+      status:                          # already gone is fine for a cleanup
+        - 204
+        - 404
 ```
 
 ### `services/sample/basics.test.yaml`
@@ -173,7 +178,8 @@ apis:
 # ─────────────────────────────────────────────────────────────
 id: sample.basics
 name: Sample tests
-tags: [sample]
+tags:
+  - sample
 
 beforeAll:                 # once, before this file's tests
   - command: vc demo start --port 7421 --detach

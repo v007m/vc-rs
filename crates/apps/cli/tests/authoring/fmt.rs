@@ -72,6 +72,23 @@ fn strip_comments_removes_the_generated_ones_and_keeps_yours() {
 }
 
 #[test]
+fn writes_a_quoted_key_plain_when_yaml_does_not_need_the_quotes() {
+    let posts = concat!(
+        "baseUrl: ${var.baseUrl}\n",
+        "apis:\n",
+        "  - id: pin\n",
+        "    method: POST\n",
+        "    path: /posts\n",
+        "    body: {text: \"hi\", \"pinned\": true, \"[0]\": 1}\n",
+    );
+    let project = Project::new(&[CONFIG, ("services/posts/posts.api.yaml", posts)]);
+    project.vc(&["fmt"]).assert().code(0);
+    let body = "    body:\n      text: hi\n      pinned: true\n      \"[0]\": 1\n";
+    assert!(project.read("services/posts/posts.api.yaml").ends_with(body), "plain keys, `[0]` still quoted");
+    checks_clean(&project);
+}
+
+#[test]
 fn refuses_a_file_that_does_not_parse_and_leaves_it_alone() {
     let broken = "apis:\n  - id: list\n   path: /users\n";
     let project = Project::new(&[CONFIG, (USERS.0, broken)]);
@@ -83,6 +100,17 @@ fn refuses_a_file_that_does_not_parse_and_leaves_it_alone() {
 /// The files `vc init` writes.
 const INIT: [&str; 3] =
     ["vibranium.config.yaml", "services/sample/sample.api.yaml", "services/sample/basics.test.yaml"];
+
+#[test]
+fn a_fresh_init_is_already_in_the_house_style() {
+    let project = Project::empty();
+    project.vc(&["init"]).assert().code(0);
+    let before = INIT.map(|path| project.read(path));
+    project.vc(&["fmt"]).assert().code(0);
+    for (path, before) in INIT.iter().zip(&before) {
+        assert_eq!(&project.read(path), before, "{path} changed");
+    }
+}
 
 #[test]
 fn a_fresh_init_keeps_every_comment_as_written() {
