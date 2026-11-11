@@ -21,15 +21,15 @@ Every `vc run` produces three kinds of output:
 ```console
 $ vc run sample.extra
 plan  3 tests in 1 file · profile default
-✓ sample.extra#echoesBody — Echoes the body back  0ms
-✕ sample.extra#findsAda — Finds Ada first  0ms
+✓ sample.extra#echoesBody — Echoes the body back                  0ms
+✕ sample.extra#findsAda — Finds Ada first                         0ms
   error[V5101]: expect.body.match.[0].name
     --> services/sample/extra.test.yaml:35:23
      |
   35 |           "[0].name": Grace Hopper
      |                       ^^^^^^^^^^^^ expected "Grace Hopper", got "Ada Lovelace"
-✓ sample.extra#rejectsBadEmail › empty — Rejects a bad email  4ms
-✓ sample.extra#rejectsBadEmail › no at sign — Rejects a bad email  5ms
+✓ sample.extra#rejectsBadEmail › empty — Rejects a bad email      4ms
+✓ sample.extra#rejectsBadEmail › no at sign — Rejects a bad email    5ms
 3 passed · 1 failed                                          12ms · profile default
 reports  /home/ada/shop/.vibranium/reports/35/{ctrf.json,junit.xml,index.html}
 next     vc run --failed

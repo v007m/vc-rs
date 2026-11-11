@@ -90,14 +90,14 @@ The header counts tests. The list shows instances. Instances run in parallel, so
 $ vc run sample.rows
 plan  4 tests in 1 file · profile default
 
-✓ sample.rows#rejectsBadEmail [row 2] — Rejects a user without a usable email  4ms
-✓ sample.rows#rejectsBadEmail [row 1] — Rejects a user without a usable email  4ms
-✓ sample.rows#createsFromDataset › Bob — Creates a user from each dataset row  4ms
-✓ sample.rows#createsFromFile [row 1] — Creates a user from each row of a file  4ms
-✓ sample.rows#createsFromFile [row 2] — Creates a user from each row of a file  4ms
-✓ sample.rows#createsFromDataset › Ann — Creates a user from each dataset row  4ms
-✓ sample.rows#createsUsers › Ann — Creates a user from each row  4ms
-✓ sample.rows#createsUsers › Bob — Creates a user from each row  4ms
+✓ sample.rows#rejectsBadEmail [row 2] — Rejects a user without a usable email    4ms
+✓ sample.rows#rejectsBadEmail [row 1] — Rejects a user without a usable email    4ms
+✓ sample.rows#createsUsers › Ann — Creates a user from each row    4ms
+✓ sample.rows#createsFromFile › Bob — Creates a user from each row of a file    4ms
+✓ sample.rows#createsFromDataset › Bob — Creates a user from each dataset row    4ms
+✓ sample.rows#createsFromDataset › Ann — Creates a user from each dataset row    4ms
+✓ sample.rows#createsUsers › Bob — Creates a user from each row    4ms
+✓ sample.rows#createsFromFile › Ann — Creates a user from each row of a file    4ms
 
 8 passed                                                     7ms · profile default
 ```
@@ -152,7 +152,7 @@ Add `:n` to a test ID to run only that row:
 $ vc run 'sample.rows#createsUsers:2'
 plan  1 test in 1 file · profile default
 
-✓ sample.rows#createsUsers › Bob — Creates a user from each row  3ms
+✓ sample.rows#createsUsers › Bob — Creates a user from each row    3ms
 
 1 passed                                                     4ms · profile default
 ```
@@ -187,7 +187,7 @@ A test with both `examples` and [`repeat`](/vc-rs/reference/syntax/repeat/) runs
 - Instances of one test run in parallel, like any other tests, up to `defaults.concurrency`.
 - `vc check` knows the columns of inline rows. A misspelled `${example.*}` is an error before the run.
 - A `$file` path is relative to the test file, not the project root.
-- A row's `name` key is a column like any other, and it also labels the row's instance in reports: `sample.rows#createsUsers › Ann`. A row without a `name`, whose `name` is not plain text, or read from a `$file` is labeled by its number: `[row 1]`, `[row 2]` and so on. An inline row's `name` labels it only when written as plain text; a `${…}` in it is not rendered for the label. A `name` that holds a secret's value, such as a dataset row named with a token, is masked: `› ••••`. `vc plan` lists every row by its number.
+- A row's `name` key is a column like any other, and it also labels the row's instance in reports: `sample.rows#createsUsers › Ann`. A row read from a `$file` is labeled the same way. A row without a `name`, or whose `name` is not plain text, is labeled by its number: `[row 1]`, `[row 2]` and so on. An inline row's `name` labels it only when written as plain text; a `${…}` in it is not rendered for the label. A `name` that holds a secret's value, such as a dataset row named with a token, is masked: `› ••••`. `vc plan` lists every row by its number.
 
 <Aside type="note">
 `examples` written as one template, such as `${var.rows}` or `${dataset.people | shuffle | take(3)}`, is read once before the run starts, under the run's profiles and `--set`. It reads only `var`, `env` and `dataset` (anything else is [V2105](/vc-rs/reference/diagnostics/v2105/)), and `--seed` repeats a `shuffle`. Rows that are not a list of maps stop the run with [V5111](/vc-rs/reference/diagnostics/v5111/). Inline rows are rendered per instance and may read any root, `secret` included; reports name an instance by its row's `name` when it gives one as plain text, otherwise by its row number, never by its other values.

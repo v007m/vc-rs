@@ -70,7 +70,7 @@ The command in `passesOnSecondTry` fails on its first run and passes on its seco
 $ vc run sample.retry
 plan  3 tests in 1 file · profile default
 
-✕ sample.retry#neverPasses — Fails on every attempt (3 attempts)  12ms
+✕ sample.retry#neverPasses — Fails on every attempt (3 attempts)   12ms
   attempts 1, 2 and 3 of 3:
   error[V5101]: expect.status
     --> services/sample/sample.api.yaml:43:5
@@ -82,7 +82,7 @@ plan  3 tests in 1 file · profile default
   45 |     path: /users/${var.userId}
      |     ^^^^^^^^^^^^^^^^^^^^^^^^^^ expected ["2xx"], got 404
      = note: expected by api sample#getUser
-⊘ sample.retry#blockedNotRetried — Is blocked by its before, so is not retried blocked  12ms
+⊘ sample.retry#blockedNotRetried — Is blocked by its before, so is not retried blocked   12ms
   error[V5110]: the command exited with 1
      = at: command
 ~ sample.retry#passesOnSecondTry — Passes on the second attempt flaky (2 attempts)  268ms
