@@ -1,8 +1,9 @@
 //! Every auth type a run can use without a browser, composed by the engine (D106): fixed
 //! credentials (`bearer` from a secret, `basic`, `apiKey` in a header and the query), a token
 //! endpoint shared by every test (`oauth2ClientCredentials`), a short-lived token that is still
-//! fetched once (D193), a `refreshOn` 401 that fetches the token again once, and a `flow` of
-//! requests. `oauth2AuthorizationCode` needs a browser, so the engine's unit tests sign in
+//! fetched once (D193), a client-credentials `audience`, an `oauth2Refresh` `refreshToken`, a
+//! `refreshOn` 401 that fetches the token again once, and a `flow` of requests with its headers
+//! and cookies. `oauth2AuthorizationCode` needs a browser, so the engine's unit tests sign in
 //! through a fake one instead.
 
 use vc_mock_server::MockServer;
@@ -126,4 +127,55 @@ async fn a_flow_logs_in_once_and_applies_what_it_saved() {
     assert_eq!(run.status.code(), Some(0), "{}", said(&run));
     let stats = server.stats().await.unwrap();
     assert_eq!((stats.logins, stats.count("POST /auth/token"), stats.count("GET /auth/me")), (1, 1, 3));
+}
+
+/// The `audience` goes in the token request's form: the mock's `?audience=shop-api` endpoint
+/// issues a token for it and refuses any other, which fails the test with V5114 before its call.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_client_credentials_audience_is_sent_with_the_token_request() {
+    let server = MockServer::start().await.unwrap();
+    let client = CLIENT.replace("/oauth/token", "/oauth/token?audience=shop-api");
+    for (audience, exit) in [("shop-api", 0), ("billing-api", 1)] {
+        let auth = format!("{client}    audience: {audience}\n");
+        let run = project(&auth, ME, &calling_me(2)).run(&server.base_url(), &[]).output().unwrap();
+        assert_eq!(run.status.code(), Some(exit), "{audience}: {}", said(&run));
+        assert_eq!(said(&run).contains("V5114"), exit == 1, "{audience}: {}", said(&run));
+    }
+    let stats = server.stats().await.unwrap();
+    assert_eq!((stats.logins, stats.count("GET /auth/me")), (1, 2), "the wrong audience got no token");
+}
+
+/// `oauth2Refresh` trading the long-lived `refreshToken` from a secret.
+const REFRESH: &str = "  - id: svc\n    type: oauth2Refresh\n    tokenUrl: ${var.baseUrl}/oauth/token\n\
+                       \x20   clientId: vc-client\n    clientSecret: vc-secret\n    refreshToken: ${secret.API_TOKEN}\n";
+
+/// The run trades the refresh token once for every test. The mock rotates a refresh token out
+/// when it is used, so a second run with the same one is refused.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_refresh_token_from_a_secret_is_traded_once_for_every_test() {
+    let server = MockServer::start().await.unwrap();
+    let refresh = server.refresh_token().await.unwrap();
+    let project = project(REFRESH, ME, &calling_me(3));
+    let run = project.run(&server.base_url(), &[]).env("API_TOKEN", &refresh).output().unwrap();
+    assert_eq!(run.status.code(), Some(0), "{}", said(&run));
+    let stats = server.stats().await.unwrap();
+    assert_eq!((stats.logins, stats.count("GET /auth/me")), (1, 3), "{stats:?}");
+    let again = project.run(&server.base_url(), &[]).env("API_TOKEN", &refresh).output().unwrap();
+    assert_eq!(again.status.code(), Some(1), "{}", said(&again));
+    assert!(said(&again).contains("V5114"), "{}", said(&again));
+}
+
+/// A `flow` whose `apply.cookies` adds its saved token, and a fixed one, after the request's own
+/// cookie, in one `Cookie` header.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_flow_applies_its_cookies_after_the_requests_own() {
+    let server = MockServer::start().await.unwrap();
+    let auth = "  - id: svc\n    type: flow\n    steps:\n      - id: token\n        method: POST\n\
+                \x20       url: ${var.baseUrl}/auth/token\n        save: {accessToken: '${response.body.access_token}'}\n\
+                \x20   apply:\n      cookies: {session: '${var.accessToken}', tenant: eu}\n";
+    let api = "  - id: Cookies\n    path: /echo\n    auth: svc\n    headers: {cookie: theme=dark}\n\
+               \x20   expect: {body: {match: {headers.cookie: 'theme=dark; session=mock-token-1; tenant=eu'}}}\n";
+    let run = project(auth, api, &calling(&["Cookies"])).run(&server.base_url(), &[]).output().unwrap();
+    assert_eq!(run.status.code(), Some(0), "{}", said(&run));
+    assert_eq!(server.stats().await.unwrap().count("POST /auth/token"), 1);
 }

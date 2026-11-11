@@ -24,7 +24,7 @@ names are not checked.
 
 ## Wrong
 
-```yaml title="services/orders/orders.api.yaml"
+```yaml wrong title="services/orders/orders.api.yaml"
 beforeRequest:
   - function: ../../hooks/sign.ts#sing
 apis:
@@ -32,7 +32,7 @@ apis:
     path: /orders
 ```
 
-```ts title="hooks/sign.ts"
+```ts wrong title="hooks/sign.ts"
 export function sign() {}
 ```
 
