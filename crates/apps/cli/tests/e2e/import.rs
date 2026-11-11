@@ -220,3 +220,40 @@ fn a_recording_to_a_host_no_api_file_is_on_names_it_and_include_host_previews_it
     assert!(!project.path().join("services/recorded").exists());
     assert!(!said(&preview).contains(TOKEN), "{}", said(&preview));
 }
+
+/// A spec with one operation, kept in the project.
+const SPEC: (&str, &str) = (
+    "specs/users.yaml",
+    "openapi: 3.1.0\ninfo: {title: Users, version: '1'}\npaths:\n  /users:\n    get:\n      operationId: listUsers\n\
+     \x20     responses: {'200': {description: ok}}\n",
+);
+
+#[cfg(unix)]
+#[test]
+fn a_snapshot_path_that_links_to_the_spec_is_refused_and_the_spec_is_left_as_it_was() {
+    let project = Project::new(&[CONFIG, SPEC]);
+    std::fs::create_dir_all(project.path().join("openapi")).unwrap();
+    std::os::unix::fs::symlink(project.path().join(SPEC.0), project.path().join("openapi/users.yaml")).unwrap();
+    for source in [SPEC.0, "openapi/users.yaml"] {
+        let output = project.vc(&["import", "openapi", source, "--id", "users"]).output().unwrap();
+        assert_eq!(output.status.code(), Some(2), "{source}: {}", said(&output));
+        assert!(
+            said(&output)
+                .contains("openapi/users.yaml, where `vc import` keeps the snapshot, leads to specs/users.yaml")
+        );
+    }
+    assert_eq!(std::fs::read_to_string(project.path().join(SPEC.0)).unwrap(), SPEC.1);
+}
+
+#[cfg(target_os = "macos")]
+#[test]
+fn a_snapshot_path_that_differs_only_in_case_from_a_file_is_refused() {
+    let snapshot = ("openapi/users.yaml", "# kept by an earlier import\n");
+    let project = Project::new(&[CONFIG, SPEC, snapshot]);
+    let output = project.vc(&["import", "openapi", SPEC.0, "--id", "Users"]).output().unwrap();
+    assert_eq!(output.status.code(), Some(2), "{}", said(&output));
+    assert!(
+        said(&output).contains("openapi/Users.yaml, where `vc import` keeps the snapshot, leads to openapi/users.yaml")
+    );
+    assert_eq!(std::fs::read_to_string(project.path().join(snapshot.0)).unwrap(), snapshot.1);
+}

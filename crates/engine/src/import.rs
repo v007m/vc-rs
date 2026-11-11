@@ -6,6 +6,7 @@ use std::sync::Arc;
 use vc_adapter_importers::ImporterRegistry;
 use vc_adapter_system::SystemEnvironment;
 use vc_interfaces::{FetchError, ImportOptions, ImportSource, Importer, RecordingFilter, SpecFetcher};
+use vc_model::SourcePath;
 
 use crate::authoring::refused;
 use crate::fetch::ProjectFetcher;
@@ -87,7 +88,7 @@ impl Engine {
             refused(error.to_string(), &format!("the importers are {}", Self::importers().join(", ")))
         })?;
         let mut opts = options(request);
-        not_the_snapshot(&request.source, &opts.file_id)?;
+        self.not_the_snapshot(&request.source, &opts.file_id)?;
         let source = source(importer.as_ref(), fetcher.as_ref(), request).await?;
         let homes = self.homes(&request.profiles);
         opts.recording.hosts = hosts(&homes);
@@ -161,17 +162,28 @@ async fn source(
     Ok(ImportSource { location, bytes })
 }
 
-/// Refuses a spec read from the snapshot path `openapi/<fileId>.yaml` the import would write
-/// over it, which would lose the spec and leave `vc sync` no drift to see.
-fn not_the_snapshot(source: &str, file_id: &str) -> Result<(), EngineError> {
-    let slashed = source.replace('\\', "/");
-    let path = slashed.trim_start_matches("./");
-    if path != format!("openapi/{file_id}.yaml") {
-        return Ok(());
+impl Engine {
+    /// Refuses an import that would write its snapshot `openapi/<fileId>.yaml` over the spec it
+    /// reads: one read from that path, or from the file a link there leads to. A snapshot path
+    /// that leads elsewhere (a link, or a file in another case on a file system that ignores
+    /// case) is refused too, as writing it would change that other file.
+    fn not_the_snapshot(&self, source: &str, file_id: &str) -> Result<(), EngineError> {
+        let snapshot = format!("openapi/{file_id}.yaml");
+        let slashed = source.replace('\\', "/");
+        let path = slashed.trim_start_matches("./");
+        let real = |path: &str| SourcePath::new(path).ok().and_then(|path| self.sources.real(&path));
+        let at = real(&snapshot);
+        if let Some(elsewhere) = at.as_ref().filter(|at| at.as_str() != snapshot) {
+            let reason = format!("{snapshot}, where `vc import` keeps the snapshot, leads to {elsewhere}");
+            return Err(refused(reason, &format!("make `{snapshot}` a plain file, or import with another `--id`")));
+        }
+        if path != snapshot && (at.is_none() || at != real(path)) {
+            return Ok(());
+        }
+        let reason = format!("{path} is where `vc import` keeps the snapshot `vc sync {file_id}` merges against");
+        let help = format!("move the spec out of `openapi/` (to `specs/{file_id}.yaml`, say) and import it from there");
+        Err(refused(reason, &help))
     }
-    let reason = format!("{path} is where `vc import` keeps the snapshot `vc sync {file_id}` merges against");
-    let help = format!("move the spec out of `openapi/` (to `specs/{file_id}.yaml`, say) and import it from there");
-    Err(refused(reason, &help))
 }
 
 const FETCH_HELP: &str = "give a URL, or a path inside the project";

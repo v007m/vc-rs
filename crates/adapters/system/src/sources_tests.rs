@@ -358,4 +358,25 @@ mod unix {
         assert_eq!(sources.root(), fs::canonicalize(dir.path().join("real")).unwrap());
         assert_eq!(paths(&discover(&dir.path().join("alias"))), ["users.api.yaml"]);
     }
+
+    #[test]
+    fn a_file_s_real_path_follows_its_link_and_is_none_when_nothing_is_there() {
+        let dir = project(&[("specs/users.yaml", b"openapi: 3.1.0\n")]);
+        fs::create_dir_all(dir.path().join("openapi")).unwrap();
+        symlink(dir.path().join("specs/users.yaml"), dir.path().join("openapi/users.yaml")).unwrap();
+        let sources = FsSources::new(dir.path()).unwrap();
+        let real = |path: &str| sources.real(&SourcePath::new(path).unwrap()).map(|real| real.to_string());
+        assert_eq!(real("openapi/users.yaml").as_deref(), Some("specs/users.yaml"));
+        assert_eq!(real("specs/users.yaml").as_deref(), Some("specs/users.yaml"));
+        assert_eq!(real("openapi/orders.yaml"), None);
+    }
+}
+
+#[cfg(target_os = "macos")]
+#[test]
+fn a_file_s_real_path_is_in_the_case_the_disk_stores() {
+    let dir = project(&[("openapi/users.yaml", b"openapi: 3.1.0\n")]);
+    let sources = FsSources::new(dir.path()).unwrap();
+    let real = sources.real(&SourcePath::new("openapi/Users.yaml").unwrap()).map(|real| real.to_string());
+    assert_eq!(real.as_deref(), Some("openapi/users.yaml"));
 }

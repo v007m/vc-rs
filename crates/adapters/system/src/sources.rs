@@ -191,6 +191,11 @@ impl SourceProvider for FsSources {
         let Some(nearest) = target.ancestors().find(|at| at.symlink_metadata().is_ok()) else { return false };
         self.under_link(&target) || !self.reached(nearest) || (nearest != target && name_ignored(&target))
     }
+
+    fn real(&self, path: &SourcePath) -> Option<SourcePath> {
+        let real = crate::project_path(&self.root, &self.root.join(path.as_str()))?;
+        SourcePath::new(&real).ok()
+    }
 }
 
 impl SourceWriter for FsSources {
