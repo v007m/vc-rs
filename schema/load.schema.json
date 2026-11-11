@@ -20,6 +20,7 @@
           "examples": [
             3
           ],
+          "minimum": 1,
           "type": "integer"
         }
       },
@@ -38,6 +39,7 @@
           "examples": [
             "2m"
           ],
+          "pattern": "^[0-9]+(ms|s|m|h)$",
           "type": "string"
         },
         "users": {
@@ -45,6 +47,7 @@
           "examples": [
             50
           ],
+          "minimum": 0,
           "type": "integer"
         }
       },
@@ -60,10 +63,12 @@
       "properties": {
         "max": {
           "description": "Longest pause",
+          "pattern": "^[0-9]+(ms|s|m|h)$",
           "type": "string"
         },
         "min": {
           "description": "Shortest pause",
+          "pattern": "^[0-9]+(ms|s|m|h)$",
           "type": "string"
         }
       },
@@ -171,6 +176,7 @@
     "thinkTime": {
       "anyOf": [
         {
+          "pattern": "^[0-9]+(ms|s|m|h)$",
           "type": "string"
         },
         {
