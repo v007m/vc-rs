@@ -23,12 +23,12 @@ fix the name; a close match is offered as a certain fix.
 
 ## Wrong
 
-```dotenv title=".env.schema"
+```dotenv wrong V2106 title=".env.schema"
 # @defaultSensitive=true
 API_TOKEN=
 ```
 
-```yaml wrong title="services/users/users.api.yaml"
+```yaml wrong V2106 title="services/users/users.api.yaml"
 apis:
   - id: getUser
     path: /users/1
@@ -55,14 +55,14 @@ apis:
 
 This is real output from `vc`, run against the files below.
 
-```dotenv title=".env.schema"
+```dotenv wrong V2106 title=".env.schema"
 # The secret names this project uses, one NAME= line each, never their values.
 # Use one as ${secret.NAME}; the value comes from the environment or .env.
 # Reference: https://github.com/v007m/vc-rs/blob/master/docs/design/syntax-reference.md#secrets
 API_TOKEN=
 ```
 
-```yaml wrong title="services/users/users.api.yaml"
+```yaml wrong V2106 title="services/users/users.api.yaml"
 id: users
 name: Users
 baseUrl: http://localhost:7421

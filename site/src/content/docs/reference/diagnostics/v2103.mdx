@@ -22,13 +22,13 @@ A `${example.x}` names a column that no row of the test's `examples` has. Only i
 
 ## Wrong
 
-```yaml wrong title="services/users/users.api.yaml"
+```yaml wrong V2103 title="services/users/users.api.yaml"
 apis:
   - id: getUser
     path: /users/${var.userId}
 ```
 
-```yaml wrong title="services/users/crud.test.yaml"
+```yaml wrong V2103 title="services/users/crud.test.yaml"
 tests:
   - id: getsUser
     examples:

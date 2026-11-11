@@ -56,7 +56,7 @@ pub fn folder(path: &str) -> Vec<&str> {
 fn file_refs<'n>(node: &'n Node, found: &mut Vec<&'n Node>) {
     match &node.value {
         Value::Map(entries) => match entries.as_slice() {
-            [only] if only.key == "$file" => found.push(&only.value),
+            [only] if only.key == vc_model::FILE_KEY => found.push(&only.value),
             _ => entries.iter().for_each(|entry| file_refs(&entry.value, found)),
         },
         Value::Seq(items) => items.iter().for_each(|item| file_refs(item, found)),

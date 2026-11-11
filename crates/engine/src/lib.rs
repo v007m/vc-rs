@@ -35,6 +35,7 @@ mod alert_samples;
 mod alerts;
 mod approvals;
 mod authoring;
+mod body_files;
 mod builder;
 mod cache;
 mod call;

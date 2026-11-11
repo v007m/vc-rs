@@ -15,12 +15,12 @@ use serde_json::{Value, json};
 use tokio::sync::mpsc::{self, UnboundedReceiver};
 use vc_adapter_store::{CacheSecret, SqliteCache};
 use vc_diagnostics::Code;
-use vc_executor::{ActionCx, ActionRequest, RunCache, RunInputs};
+use vc_executor::{ActionCx, ActionRequest, RunCache};
 use vc_interfaces::{CacheEntry, CacheListing, CacheStore, CacheStoreError, CachedCleanup, Environment, Secret};
 use vc_model::Plan;
 
 use crate::plan::Prepared;
-use crate::ports::{self, Layered};
+use crate::ports::Layered;
 use crate::stored::started;
 use crate::{Engine, EngineError, Interrupts};
 
@@ -111,7 +111,7 @@ impl Engine {
     /// expired at the run's start have run, with the notices of a cache that is off or failed.
     /// A program with no `cache:` action leaves the cache, and the keychain, alone.
     pub(crate) async fn cached(&self, cx: ActionCx, prepared: &Prepared) -> Sweep {
-        if !prepared.program.actions.iter().any(|action| action.cache.is_some()) {
+        if !crate::body_files::caches(&prepared.program) {
             return Sweep::off(cx, Vec::new());
         }
         let store = match self.cache_store(prepared.environment.as_ref()) {
@@ -154,11 +154,8 @@ impl Engine {
         let store = self.cache_store(layered.environment.as_ref())?;
         let prepared = unplanned(layered);
         let secrets = self.secrets(&prepared.program.config.secrets, &prepared.environment).await?;
-        let plugins = self.plugin_hosts(&prepared.program, &secrets);
-        let inputs = RunInputs::new(ports::random(None).1, Arc::clone(&prepared.environment))
-            .with_secrets(secrets)
-            .with_started_at(self.clock.now_ms());
-        let cx = Arc::new(self.action_cx(&prepared, (inputs, &plugins))?);
+        let cleanups = crate::body_files::cleanups(&prepared.program);
+        let cx = self.adhoc_cx(&prepared, (&cleanups, 0, secrets)).await?;
         let cleared = store.clear(label).map_err(|error| store_error(&error))?;
         let count = cleared.len();
         Ok((count, Cleaner::new(&cx).clean(cleared).await))

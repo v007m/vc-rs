@@ -22,13 +22,13 @@ action or step ID only after that action has run, in the same test or block. Mov
 
 ## Wrong
 
-```yaml wrong title="services/users/users.api.yaml"
+```yaml wrong V2105 title="services/users/users.api.yaml"
 apis:
   - id: getUser
     path: /users/1
 ```
 
-```yaml wrong title="services/users/crud.test.yaml"
+```yaml wrong V2105 title="services/users/crud.test.yaml"
 tests:
   - id: readsTwice
     steps:

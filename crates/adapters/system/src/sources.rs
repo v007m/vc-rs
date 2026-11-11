@@ -69,11 +69,17 @@ impl FsSources {
 
     /// Reads the file through its resolved path, so a link cannot lead out of the root.
     fn load(&self, path: SourcePath, on_disk: &Path) -> Result<vc_model::SourceFile, SourceError> {
-        let target = std::fs::canonicalize(on_disk).map_err(|error| read_error(&path, &error))?;
-        if !self.leads_in(&path, &target) {
+        let target = self.canonical(&path, on_disk)?;
+        read_file(path, &target)
+    }
+
+    /// Where `on_disk` resolves to, links followed, while that stays in the root.
+    fn canonical(&self, path: &SourcePath, on_disk: &Path) -> Result<PathBuf, SourceError> {
+        let target = std::fs::canonicalize(on_disk).map_err(|error| read_error(path, &error))?;
+        if !self.leads_in(path, &target) {
             return Err(SourceError::OutsideRoot { path: path.to_string() });
         }
-        read_file(path, &target)
+        Ok(target)
     }
 
     /// Reads the data file at `path`, outside the root, through its resolved path, only while
@@ -121,14 +127,21 @@ impl FsSources {
 /// back again while the file is read goes unseen; std has no safe, portable way to ask an open
 /// file for its path, and the crate forbids `unsafe`.
 fn read_file(path: SourcePath, target: &Path) -> Result<vc_model::SourceFile, SourceError> {
+    let bytes = read_checked(&path, target)?;
+    vc_interfaces::source_file(path, bytes)
+}
+
+/// The bytes of the file at `target`, where `path` resolved to, refused when it is a folder or
+/// no longer resolves to `target` after the read (see [`read_file`]).
+fn read_checked(path: &SourcePath, target: &Path) -> Result<Vec<u8>, SourceError> {
     if target.is_dir() {
         return Err(SourceError::Read { path: path.to_string(), reason: "it is a folder, not a file".to_owned() });
     }
-    let bytes = std::fs::read(target).map_err(|error| read_error(&path, &error))?;
+    let bytes = std::fs::read(target).map_err(|error| read_error(path, &error))?;
     if std::fs::canonicalize(target).ok().as_deref() != Some(target) {
         return Err(SourceError::OutsideRoot { path: path.to_string() });
     }
-    vc_interfaces::source_file(path, bytes)
+    Ok(bytes)
 }
 
 /// Why `path` could not be read: missing, or what the system said.
@@ -161,6 +174,11 @@ impl SourceProvider for FsSources {
 
     fn read_outside(&self, wanted: &[(SourcePath, SourcePath)]) -> Result<Discovery, SourceError> {
         self.gathered(wanted, |(path, allowed)| self.load_outside(path, allowed))
+    }
+
+    fn read_bytes(&self, path: &SourcePath) -> Result<Vec<u8>, SourceError> {
+        let target = self.canonical(path, &self.root.join(path.as_str()))?;
+        read_checked(path, &target)
     }
 
     /// Walks only the folders on the way to `path`, with the same ignore rules as

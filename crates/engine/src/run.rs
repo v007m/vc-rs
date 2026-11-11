@@ -1,6 +1,6 @@
 //! `vc run`: plan, execute, fan the events out to the reporters, and send the alerts.
 
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -10,8 +10,8 @@ use vc_executor::{
     ActionCx, ActionExecutors, ActionKindTag, CommandExecutor, Defined, EventBus, Executor, ExecutorError, HostLimits,
     MaskRules, PipelineParts, RuleHooks, RunHandle, RunInputs, RunOptions,
 };
-use vc_interfaces::{ConfigEntry, HookRunner, Random, RunId, RunStart, RunSummary, Transport};
-use vc_model::{Feed, Part, RunStatus, Template, TemplateValue, Totals};
+use vc_interfaces::{ConfigEntry, HookRunner, Random, RunId, RunStart, RunSummary, Secrets, Transport};
+use vc_model::{ActionId, Feed, Part, RunStatus, Template, TemplateValue, Totals};
 
 use crate::agent_gate::run_call;
 use crate::cache::Sweep;
@@ -30,6 +30,9 @@ pub const CONCURRENCY: u32 = 16;
 pub const PER_HOST: u32 = 8;
 /// The exit code of an error inside Vibranium (D127).
 const EXIT_INTERNAL: u8 = 70;
+
+/// A run's random source, its history number and the actions whose `$file` bodies it reads.
+type Seeds = (Arc<dyn Random>, u64, BTreeSet<ActionId>);
 
 /// How a run ended.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -83,7 +86,9 @@ impl Engine {
         let (reporters, unrecorded) = self.reporters(request, &prepared, (seed, plugins.clone()))?;
         let run_id = reporters.run_id().map_or(0, RunId::get);
         let alerting = self.alerting(&prepared, &secrets, (run_id, "run"))?;
-        let inputs = inputs(&prepared, random, run_id).with_secrets(secrets).with_started_at(self.clock.now_ms());
+        let reached = crate::body_files::reached(&prepared.program, &prepared.plan);
+        let inputs = self.inputs(&prepared, (random, run_id, reached)).await;
+        let inputs = inputs.with_secrets(secrets).with_started_at(self.clock.now_ms());
         let (executor, sweep) = self.executor(&prepared, (inputs, &plugins), request).await?;
         let bus = EventBus::spawn();
         let watching = request.watch.as_ref().map(|watch| watch.follow(&bus, &prepared));
@@ -191,14 +196,34 @@ impl Engine {
     }
 }
 
-/// What the run's templates read besides the definitions: the random values, the environment,
-/// the active profiles, the `--set vars.*` values and the history's run number. The caller adds
-/// the run's start.
-pub fn inputs(prepared: &Prepared, random: Arc<dyn Random>, run_id: u64) -> RunInputs {
-    RunInputs::new(random, Arc::clone(&prepared.environment))
-        .with_profiles(prepared.profiles.clone())
-        .with_vars(vars(&prepared.settings.vars))
-        .with_run_id(run_id)
+impl Engine {
+    /// What the run's templates read besides the definitions: the random values, the
+    /// environment, the active profiles, the `--set vars.*` values and the history's run number;
+    /// and the bytes of the `$file` bodies the `reached` actions send (D272). The caller adds the
+    /// run's start.
+    pub(crate) async fn inputs(&self, prepared: &Prepared, (random, run_id, reached): Seeds) -> RunInputs {
+        let bodies = self.body_files(&prepared.program, reached).await;
+        RunInputs::new(random, Arc::clone(&prepared.environment))
+            .with_profiles(prepared.profiles.clone())
+            .with_vars(vars(&prepared.settings.vars))
+            .with_run_id(run_id)
+            .with_bodies(bodies)
+    }
+
+    /// The action context of a run with no plan: `vc call`'s, or the cleanups `vc cache clear`
+    /// runs. It holds `secrets`, an unseeded random source and the `$file` bodies `actions`
+    /// reach (D272), and starts now.
+    pub(crate) async fn adhoc_cx(
+        &self,
+        prepared: &Prepared,
+        (actions, run_id, secrets): (&[ActionId], u64, Secrets),
+    ) -> Result<Arc<ActionCx>, EngineError> {
+        let plugins = self.plugin_hosts(&prepared.program, &secrets);
+        let reached = vc_planner::bodies_from(&prepared.program, actions);
+        let inputs = self.inputs(prepared, (ports::random(None).1, run_id, reached)).await;
+        let inputs = inputs.with_secrets(secrets).with_started_at(self.clock.now_ms());
+        Ok(Arc::new(self.action_cx(prepared, (inputs, &plugins))?))
+    }
 }
 
 /// The run flags that are settings, as the layer between `VIB_*` and `--set` (D129).

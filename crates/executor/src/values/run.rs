@@ -12,6 +12,8 @@ use vc_interfaces::{Environment, Random, Secrets};
 use vc_model::{ActionId, ApiId, FileId, ProfileId, Program, TemplateValue, TestId, VarDefs, VarName};
 use vc_template::{FakeRegistry, PipeRegistry};
 
+use crate::values::BodyFiles;
+
 /// The var definitions of one level, by name, with the active profiles applied.
 pub type Defined = HashMap<String, TemplateValue>;
 
@@ -40,6 +42,8 @@ pub struct RunInputs {
     pub secrets: Secrets,
     /// `${run.id}`: the run's number in the history; 0 when the history is not kept.
     pub run_id: u64,
+    /// The bytes of the `$file` request bodies, read before the run (D272).
+    pub bodies: BodyFiles,
 }
 
 impl RunInputs {
@@ -47,7 +51,8 @@ impl RunInputs {
     #[must_use]
     pub fn new(random: Arc<dyn Random>, environment: Arc<dyn Environment>) -> Self {
         let (profiles, vars, fakes) = (Vec::new(), Defined::new(), FakeRegistry::builtin());
-        Self { profiles, vars, random, environment, fakes, started_ms: 0, secrets: Secrets::new(), run_id: 0 }
+        let (secrets, bodies) = (Secrets::new(), BodyFiles::default());
+        Self { profiles, vars, random, environment, fakes, started_ms: 0, secrets, run_id: 0, bodies }
     }
 
     /// The same inputs with the run starting at `started_ms`, for the generated dates.
@@ -78,6 +83,12 @@ impl RunInputs {
     #[must_use]
     pub fn with_secrets(self, secrets: Secrets) -> Self {
         Self { secrets, ..self }
+    }
+
+    /// The same inputs with the bytes of the `$file` bodies.
+    #[must_use]
+    pub fn with_bodies(self, bodies: BodyFiles) -> Self {
+        Self { bodies, ..self }
     }
 }
 
