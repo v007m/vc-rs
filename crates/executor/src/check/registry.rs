@@ -212,6 +212,7 @@ fn status_in(patterns: &[StatusPattern], actual: Option<&Value>) -> bool {
 /// text (`201`, `"201"`), a class (`"2xx"`), or a list of them.
 fn statuses(rendered: &Value) -> Result<Vec<StatusPattern>, String> {
     let items = match rendered {
+        Value::Array(items) if items.is_empty() => return Err(not_a_status(rendered)),
         Value::Array(items) => items.as_slice(),
         one => std::slice::from_ref(one),
     };

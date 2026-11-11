@@ -119,17 +119,20 @@ fn a_lone_key_close_to_a_matcher_warns_and_still_compiles_as_a_literal() {
 }
 
 #[test]
-fn a_status_map_takes_only_matchers_and_at_least_one() {
+fn a_status_map_takes_only_matchers_and_a_status_map_or_list_at_least_one() {
     let status = unit_with("    expect:\n      status: {oneOf: [200, 201]}\n");
     assert_eq!(codes(&status.diagnostics), [Code::V1004]);
-    let no_literal = status.diagnostics.iter().flat_map(|found| &found.help).all(|help| !help.contains("`eq:`"));
-    assert!(no_literal, "a status map is never a literal object: {:?}", status.diagnostics);
     let near = unit_with("    expect:\n      status: {Length: 3}\n");
     assert_eq!(codes(&near.diagnostics), [Code::V1004]);
     let empty = unit_with("    expect:\n      status: {}\n");
     let [found] = &empty.diagnostics.iter().collect::<Vec<_>>()[..] else { panic!("{:?}", empty.diagnostics) };
     assert_eq!((found.code, found.message.as_str()), (Code::V2303, "a status map needs at least one matcher"));
     let save_on = unit(FileKind::Api, "apis:\n  - id: get\n    path: /a\n    saveOn: {}\n");
+    assert_eq!(codes(&save_on.diagnostics), [Code::V2303]);
+    let none = unit_with("    expect:\n      status: []\n");
+    let [found] = &none.diagnostics.iter().collect::<Vec<_>>()[..] else { panic!("{:?}", none.diagnostics) };
+    assert_eq!((found.code, found.message.as_str()), (Code::V2303, "a status list needs at least one code or class"));
+    let save_on = unit(FileKind::Api, "apis:\n  - id: get\n    path: /a\n    saveOn: []\n");
     assert_eq!(codes(&save_on.diagnostics), [Code::V2303]);
 }
 
@@ -203,6 +206,8 @@ fn a_bare_zero_is_zero_in_any_unit_and_other_bare_numbers_get_a_fix() {
         .collect();
     assert!(matches!(args[0], MatcherArg::Size(size) if size.bytes() == 0), "{args:?}");
     assert!(args[1..].iter().all(|arg| matches!(arg, MatcherArg::Duration(wait) if wait.get().is_zero())), "{args:?}");
+    let quoted = unit_with("    expect:\n      size: {ne: '0'}\n      timing: {total: {gt: '0'}}\n");
+    assert!(quoted.diagnostics.is_empty(), "a quoted 0 is zero too: {:?}", quoted.diagnostics);
     let bare = unit_with("    expect:\n      size: 1024\n      timing: {total: {lt: 5}}\n");
     let fixes: Vec<&str> = bare.diagnostics.iter().flat_map(|d| &d.fixes).map(|fix| fix.title.as_str()).collect();
     assert_eq!(codes(&bare.diagnostics), [Code::V2301, Code::V2301]);

@@ -132,6 +132,9 @@ fn unit(cx: &mut Cx<'_>, at: At<'_>, parse: UnitParser) -> Option<Piece> {
 fn status(cx: &mut Cx<'_>, at: At<'_>) -> Option<Matcher> {
     let items: Vec<&Node> = match &at.node.value {
         Value::Map(_) => return matchers::status(cx, at),
+        Value::Seq(items) if items.is_empty() => {
+            return matchers::empty_status(cx, at, "a status list needs at least one code or class");
+        }
         Value::Seq(items) => items.iter().collect(),
         Value::Scalar(scalar) if scalar.text.contains("${") => return value::lower(cx, at).map(Matcher::StatusOf),
         Value::Scalar(_) => vec![at.node],

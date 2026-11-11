@@ -172,7 +172,8 @@ fn hinted(apis: &str, call: &str) -> (Vec<String>, Vec<String>) {
 }
 
 /// Within the file a reference names, only the item IDs are compared, so the shared file ID
-/// does not make `echo` look like a typo of `nah`.
+/// does not make `echo` look like a typo of `nah`. A whole-ID match into another file than the
+/// one named is only offered.
 #[test]
 fn a_close_api_is_a_certain_fix_only_when_its_own_id_is_close() {
     let people = concat!(
@@ -188,6 +189,12 @@ fn a_close_api_is_a_certain_fix_only_when_its_own_id_is_close() {
     let (help, fixes) = hinted(APIS, "users#gut");
     assert_eq!(fixes, [] as [String; 0]);
     assert_eq!(help, ["did you mean one of `users#get`, `users#put`?"]);
+    let (help, fixes) = hinted(APIS, "usersxyz#make");
+    assert_eq!(
+        (help, fixes),
+        (vec!["did you mean `users#make`?".to_owned()], Vec::new()),
+        "a named file is not swapped"
+    );
 }
 
 /// With a second api file, a reference into a file that exists compares that file's items, not
@@ -210,31 +217,43 @@ fn a_named_file_is_searched_even_beside_another_api_file() {
     assert_eq!(fixes, ["users#get"], "{:?}", unknown.help);
 }
 
-/// A named file is found across the whole project, not only beside the reference: in
-/// `users.crud`, `users.admin#getsUser` means `users.admin#getsUsers`, not `users.crud#getsUser`.
-/// When the named file has nothing close, the items of every file are compared.
-#[test]
-fn a_named_file_is_searched_first_and_then_every_files_items() {
-    let crud = tests(
-        "  - id: getsUser\n    call: users#get\n  - id: chainsThem\n    steps:\n      - test: users.admin#getsUser\n      - test: users.crud#deletesUser\n",
-    );
-    let admin = tests("  - id: getsUsers\n    call: users#get\n  - id: deletesUser\n    call: users#get\n");
-    let files = vec![
-        file("vibranium.config.yaml", CONFIG),
-        file("services/users/users.api.yaml", APIS),
-        file("services/users/crud.test.yaml", &crud),
-        file("services/users/admin.test.yaml", &admin),
-    ];
+/// Each V2003's help and fixes' new text, in line order, for a project of the users api and
+/// `tests` (the file, then its text).
+fn unknown_refs(tests: &[(&str, &str)]) -> Vec<(Vec<String>, Vec<String>)> {
+    let mut files = vec![file("vibranium.config.yaml", CONFIG), file("services/users/users.api.yaml", APIS)];
+    files.extend(tests.iter().map(|(path, text)| file(path, text)));
     let compiled = crate::compile(CompileInput { files, ..CompileInput::default() });
     let mut found: Vec<&Diagnostic> = compiled.diagnostics.iter().filter(|found| found.code == Code::V2003).collect();
     found.sort_by_key(|found| found.primary.span.start.line);
-    let fixes: Vec<&str> = found
-        .iter()
-        .flat_map(|found| &found.fixes)
-        .flat_map(|fix| &fix.edits)
-        .map(|edit| edit.new_text.as_str())
-        .collect();
-    assert_eq!(fixes, ["users.admin#getsUsers", "users.admin#deletesUser"], "{found:?}");
+    let fixes = |found: &Diagnostic| found.fixes.iter().flat_map(|fix| &fix.edits).map(|edit| edit.new_text.clone());
+    found.iter().map(|found| (found.help.clone(), fixes(found).collect())).collect()
+}
+
+/// A named file is found across the whole project, not only beside the reference: in
+/// `users.crud`, `users.admin#getsUser` means `users.admin#getsUsers`, not `users.crud#getsUser`.
+/// When the named file has nothing close, the items of every file are compared, same-file ones
+/// first; those are only offered, never a certain fix, since they change which item is called.
+#[test]
+fn a_named_file_is_searched_first_and_then_every_files_items() {
+    let crud = tests(concat!(
+        "  - id: getsUser\n    call: users#get\n  - id: removesUser\n    call: users#get\n",
+        "  - id: chainsThem\n    steps:\n      - test: users.admin#getsUser\n",
+        "      - test: users.crud#deletesUser\n      - test: users.admin#removesUsr\n",
+    ));
+    let admin = tests("  - id: getsUsers\n    call: users#get\n  - id: deletesUser\n    call: users#get\n");
+    let audit = tests("  - id: removesUser\n    call: users#get\n");
+    let found = unknown_refs(&[
+        ("services/users/crud.test.yaml", &crud),
+        ("services/users/admin.test.yaml", &admin),
+        ("services/users/audit.test.yaml", &audit),
+    ]);
+    let none: Vec<String> = Vec::new();
+    let expected = [
+        (vec!["did you mean `users.admin#getsUsers`?".to_owned()], vec!["users.admin#getsUsers".to_owned()]),
+        (vec!["did you mean `users.admin#deletesUser`?".to_owned()], none.clone()),
+        (vec!["did you mean one of `users.crud#removesUser`, `users.audit#removesUser`?".to_owned()], none),
+    ];
+    assert_eq!(found, expected);
 }
 
 #[test]

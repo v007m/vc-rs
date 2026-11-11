@@ -131,13 +131,18 @@ fn literal(cx: &mut Cx<'_>, at: At<'_>, unit: Unit) -> Option<Matcher> {
 pub fn status(cx: &mut Cx<'_>, at: At<'_>) -> Option<Matcher> {
     let Value::Map(entries) = &at.node.value else { return matcher(cx, at, Unit::Plain) };
     if entries.is_empty() {
-        let diagnostic = Diagnostic::new(Code::V2303, at.node.span, "a status map needs at least one matcher")
-            .label("checks nothing")
-            .help("write a code (`201`), a class (`2xx`), a list, or a matcher such as `{in: [200, 201]}`");
-        cx.push(diagnostic);
-        return None;
+        return empty_status(cx, at, "a status map needs at least one matcher");
     }
     calls(cx, at, (entries, Unit::Plain))
+}
+
+/// V2303 for a status map or list that checks nothing (`{}`, `[]`).
+pub fn empty_status(cx: &mut Cx<'_>, at: At<'_>, message: &str) -> Option<Matcher> {
+    let diagnostic = Diagnostic::new(Code::V2303, at.node.span, message)
+        .label("checks nothing")
+        .help("write a code (`201`), a class (`2xx`), a list, or a matcher such as `{in: [200, 201]}`");
+    cx.push(diagnostic);
+    None
 }
 
 fn calls(cx: &mut Cx<'_>, at: At<'_>, (entries, unit): (&[Entry], Unit)) -> Option<Matcher> {

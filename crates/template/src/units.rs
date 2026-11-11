@@ -19,7 +19,10 @@ pub fn parse_duration(text: &str, span: SourceSpan) -> Result<Duration, Box<Diag
     let millis = with_unit(text, DURATION_UNITS).ok_or_else(|| {
         let diagnostic = Diagnostic::new(codes::UNIT, span, format!("invalid duration `{text}`"))
             .help("write a whole number and a unit: `250ms`, `2s`, `1m` or `12h`");
-        Box::new(bare(text, "ms", span).into_iter().fold(diagnostic, Diagnostic::fix))
+        Box::new(match bare(text, "ms", span) {
+            Some(fix) => diagnostic.fix(fix),
+            None => diagnostic,
+        })
     })?;
     Ok(Duration::new(std::time::Duration::from_millis(millis)))
 }
@@ -34,7 +37,10 @@ pub fn parse_size(text: &str, span: SourceSpan) -> Result<Size, Box<Diagnostic>>
     with_unit(text, SIZE_UNITS).map(Size::from_bytes).ok_or_else(|| {
         let diagnostic = Diagnostic::new(codes::UNIT, span, format!("invalid size `{text}`"))
             .help("write a whole number and a unit: `512b`, `4kb`, `1mb` or `2gb`");
-        Box::new(bare(text, "b", span).into_iter().fold(diagnostic, Diagnostic::fix))
+        Box::new(match bare(text, "b", span) {
+            Some(fix) => diagnostic.fix(fix),
+            None => diagnostic,
+        })
     })
 }
 

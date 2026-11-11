@@ -54,7 +54,7 @@ code_table! {
     V2210 = 2210, Error, "Shared action saves values but has no `id`";
     V2301 = 2301, Error, "Invalid duration or size";
     V2302 = 2302, Error, "Wrong value type";
-    V2303 = 2303, Error, "Invalid status code or class";
+    V2303 = 2303, Error, "Invalid status code or class, or an empty status map or list";
     V2304 = 2304, Error, "Pipe or path cannot apply to that value's type";
     V2305 = 2305, Error, "Template or CEL does not parse";
     V2306 = 2306, Error, "Matcher argument invalid";
