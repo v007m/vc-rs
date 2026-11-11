@@ -1,7 +1,7 @@
 //! `vc new auth`: an auth definition appended to the config's `auth` list. A credential is
 //! written only as a template (`${secret.PARTNER_TOKEN}`), never as itself.
 
-use vc_compiler::{camel_id, is_camel_id};
+use vc_compiler::{camel_id, is_camel_id, secret_name};
 use vc_model::FileKind;
 use vc_parser::write_text;
 
@@ -25,6 +25,9 @@ const FIELDS: [(&str, &[&str]); 9] = [
 
 /// The fields that hold a credential, so are written only as templates.
 const SECRET: [&str; 5] = ["password", "token", "value", "clientSecret", "refreshToken"];
+
+/// The credentials a type cannot work without; one left out is written as a secret to declare.
+const NEEDED: [&str; 4] = ["password", "token", "value", "refreshToken"];
 
 /// What `vc new auth` asks for.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -100,7 +103,16 @@ fn auth_yaml(request: &NewAuth) -> Result<String, EngineError> {
         }
         lines.push(format!("{field}: {}", write_text(value.trim(), false)));
     }
+    lines.extend(placeholders(request, takes));
     Ok(lines.join("\n"))
+}
+
+/// A `${secret.…}` line for each credential the type needs that was not given, named after
+/// the auth and the field (`partnerToken`'s `token` is `PARTNER_TOKEN_TOKEN`).
+fn placeholders(request: &NewAuth, takes: &[&str]) -> Vec<String> {
+    let given = |field: &str| request.fields.iter().any(|(name, value)| name == field && !value.trim().is_empty());
+    let missing = takes.iter().filter(|field| NEEDED.contains(field) && !given(field));
+    missing.map(|field| format!("{field}: ${{secret.{}}}", secret_name(&format!("{} {field}", request.id)))).collect()
 }
 
 #[cfg(test)]
@@ -125,7 +137,11 @@ mod tests {
         assert_eq!(yaml.as_deref(), Some("id: partnerToken\ntype: bearer\ntoken: ${secret.PARTNER_TOKEN}"));
         assert_eq!(
             auth_yaml(&request("bearer", &[("token", " ")])).ok().as_deref(),
-            Some("id: partnerToken\ntype: bearer")
+            Some("id: partnerToken\ntype: bearer\ntoken: ${secret.PARTNER_TOKEN_TOKEN}")
+        );
+        assert_eq!(
+            auth_yaml(&request("basic", &[("username", "${var.user}")])).ok().as_deref(),
+            Some("id: partnerToken\ntype: basic\nusername: ${var.user}\npassword: ${secret.PARTNER_TOKEN_PASSWORD}")
         );
     }
 
