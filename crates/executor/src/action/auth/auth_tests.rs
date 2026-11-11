@@ -170,6 +170,22 @@ async fn use_site_vars_win_and_each_set_of_vars_has_its_own_credentials() {
 }
 
 #[tokio::test]
+async fn an_auth_var_reads_the_other_vars_of_its_definition_and_use_site() {
+    let mut fixture = Fixture::new();
+    let id = define(&mut fixture, "bearer");
+    let vars = fixture.vars(&[("token", "${var.user}-key"), ("user", "ada")]);
+    fixture.program.auth.get_mut(&id).unwrap().vars.values = vars;
+    let call = fixture.call("/users");
+    fixture.api_mut(call).auth = uses(id, fixture.vars(&[("user", "${var.region}-bob"), ("region", "ops")]));
+    let issuer = Arc::new(Issuer::default());
+    let (cx, recordings) = context(fixture, issuer as Arc<dyn AuthProvider>, vec![vc_testkit::status(200)]);
+    let report = run(&cx, call).await;
+    assert!(report.outcome.failure().is_none(), "{:?}", report.outcome.failure());
+    let sent = recordings.take();
+    assert_eq!(header(&sent[0], &AUTHORIZATION), Some("Bearer ops-bob-key-1".to_owned()));
+}
+
+#[tokio::test]
 async fn a_refresh_on_status_fetches_again_and_retries_once() {
     let mut fixture = Fixture::new();
     let id = define(&mut fixture, "bearer");

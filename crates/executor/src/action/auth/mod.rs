@@ -56,7 +56,7 @@ pub fn prepare(
 ) -> Result<Option<Prepared>, Failure> {
     let program = render.program();
     let Some((def, vars)) = chosen(program, call) else { return Ok(None) };
-    let given = Arc::new(given(render, def, vars)?);
+    let given = Arc::new(given(request, def, vars)?);
     let settings = settings(request, def, &given)?;
     let name = program.str(def.id.sym()).unwrap_or_default();
     let key = request.cx.tokens.key(name, &Value::Object(Saved::clone(&given)), &Value::Object(settings.clone()));
@@ -95,15 +95,17 @@ fn chosen<'p>(program: &'p Program, (api, action): (&'p Api, &'p Action)) -> Opt
     Some((program.auth.get(id)?, vars))
 }
 
-/// The definition's vars, with the use site's over them, rendered where the call renders.
-fn given(render: &Render<'_>, def: &AuthDef, vars: &VarDefs) -> Result<Saved, Failure> {
-    let (values, program) = (render.values(), render.program());
+/// The definition's vars, with the use site's over them, rendered where the call renders; each
+/// may read the others.
+fn given(request: &ActionRequest, def: &AuthDef, vars: &VarDefs) -> Result<Saved, Failure> {
+    let (values, program) = (&request.cx.values, &*request.cx.program);
     let mut defined = values.layer(program, &def.vars);
     defined.extend(values.layer(program, vars));
-    let mut defined: Vec<_> = defined.into_iter().collect();
-    defined.sort_unstable_by(|(left, _), (right, _)| left.cmp(right));
+    let mut names: Vec<_> = defined.iter().map(|(name, value)| (name.clone(), value.clone())).collect();
+    names.sort_unstable_by(|(left, _), (right, _)| left.cmp(right));
+    let render = Render::new(request).map_err(request::failed)?.with_vars(Arc::new(defined));
     let mut given = Saved::new();
-    for (name, value) in defined {
+    for (name, value) in names {
         given.insert(name, render.value(&value).map_err(request::failed)?);
     }
     Ok(given)

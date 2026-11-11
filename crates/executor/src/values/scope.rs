@@ -123,6 +123,11 @@ impl Scope {
         self.push(group.and_then(|group| values.api_file(group)).map(Level::ApiFile));
     }
 
+    /// Puts `vars` in front of every other level, as definitions that may read each other.
+    pub fn define(&mut self, vars: Arc<Defined>) {
+        self.levels.insert(0, Level::Call(vars));
+    }
+
     /// Puts `given` in front of every other level.
     pub fn give(&mut self, given: Arc<Saved>) {
         self.levels.insert(0, Level::Given(given));

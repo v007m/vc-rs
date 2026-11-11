@@ -12,7 +12,7 @@ use vc_model::{CelProgram, Examples, Failure, Namespace, Program, Reference, Seg
 use vc_template::{Activation, CelCompiler, Chance, FakeCx, RenderError, Renderer, Resolve};
 
 use super::reads::Reads;
-use super::run::RunValues;
+use super::run::{Defined, RunValues};
 use super::scope::{Found, Scope};
 use crate::{ActionRequest, Frame, Redactor, Saved, Schemas};
 
@@ -77,6 +77,14 @@ impl<'a> Render<'a> {
     #[must_use]
     pub fn with_given(mut self, given: Arc<Saved>) -> Self {
         self.scope.give(given);
+        self
+    }
+
+    /// The same render with `vars` defined before every other level: an auth definition's
+    /// vars with its use site's, which may read each other.
+    #[must_use]
+    pub fn with_vars(mut self, vars: Arc<Defined>) -> Self {
+        self.scope.define(vars);
         self
     }
 
