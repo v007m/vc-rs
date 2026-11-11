@@ -53,7 +53,7 @@ fn complete_is_hidden_from_help() {
 #[test]
 fn a_reader_that_has_gone_ends_the_output_quietly() {
     let project = Project::new(&[CONFIG, USERS, CRUD]);
-    for args in [&["completion", "bash"][..], &["list"], &["__complete", "run", ""]] {
+    for args in [&["completion", "bash"][..], &["list", "tests"], &["__complete", "run", ""]] {
         let (reader, writer) = std::io::pipe().unwrap();
         drop(reader);
         let mut vc = std::process::Command::new(cargo_bin!("vc"));

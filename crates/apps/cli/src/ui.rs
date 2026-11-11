@@ -4,14 +4,12 @@
 //! `vc ui: mcp <url> token <token>`, for MCP clients. A build without the `web-ui` feature
 //! refuses with exit 2 (G12).
 
-use std::io::Write;
 use std::path::Path;
 
 use clap::Args;
 
 use crate::Outcome;
 use crate::explain::LayerArgs;
-use crate::stdout;
 
 /// `vc ui`.
 #[derive(Args)]
@@ -51,6 +49,7 @@ pub fn run(args: &UiArgs, project: Option<&Path>) -> anyhow::Result<Outcome> {
 
 #[cfg(feature = "web-ui")]
 mod serve {
+    use std::io::Write;
     use std::process::{Command, Stdio};
     use std::sync::Arc;
 
@@ -58,7 +57,7 @@ mod serve {
     use vc_server::{EmbeddedUi, EngineApi, LaunchUrl, ServerBuilder, ServerError};
 
     use super::UiArgs;
-    use crate::Outcome;
+    use crate::{Outcome, stdout};
 
     /// The program that opens a URL in the default browser, and its leading arguments.
     #[cfg(target_os = "macos")]
