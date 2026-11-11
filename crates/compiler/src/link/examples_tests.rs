@@ -19,6 +19,12 @@ fn unavailable(tests: &str) -> Vec<(u32, Diagnostic)> {
 
 /// The V2105s of a project with the config `config` and the test file `tests`.
 fn unavailable_with(config: &str, tests: &str) -> Vec<(u32, Diagnostic)> {
+    diagnosed(config, tests).into_iter().filter(|(_, found)| found.code == Code::V2105).collect()
+}
+
+/// The diagnostics, lifecycle ones left out, of a project with the config `config` and the test
+/// file `tests`, with each one's line.
+fn diagnosed(config: &str, tests: &str) -> Vec<(u32, Diagnostic)> {
     let files = vec![
         file("vibranium.config.yaml", config),
         file("services/users/users.api.yaml", APIS),
@@ -26,10 +32,7 @@ fn unavailable_with(config: &str, tests: &str) -> Vec<(u32, Diagnostic)> {
     ];
     let compiled = crate::compile(CompileInput { files, ..CompileInput::default() });
     let found = compiled.diagnostics.iter().filter(|found| found.code.category() != Category::Lifecycle);
-    found
-        .filter(|found| found.code == Code::V2105)
-        .map(|found| (found.primary.span.start.line, found.clone()))
-        .collect()
+    found.map(|found| (found.primary.span.start.line, found.clone())).collect()
 }
 
 /// The help of the one V2105 in `tests`, which is on `line`.
@@ -132,9 +135,27 @@ fn a_file_of_rows_with_other_keys_still_has_a_path_written_as_it_is() {
 }
 
 #[test]
-fn a_root_a_followed_var_reads_with_a_default_is_not_needed() {
+fn a_file_of_rows_holds_only_its_path() {
+    let tests = "tests:\n  - id: listsPages\n    call: users#get\n    examples: {$file: pages.csv, format: csv}\n";
+    let found = diagnosed(CONFIG, tests);
+    let unknown: Vec<_> = found.iter().filter(|(_, found)| found.code == Code::V1004).collect();
+    let [(line, diagnostic)] = unknown.as_slice() else { panic!("one V1004 expected: {found:?}") };
+    assert_eq!((*line, diagnostic.message.as_str()), (4, "unknown key `format` in a `$file` of `examples`"));
+}
+
+#[test]
+fn a_secret_a_followed_var_reads_with_a_default_is_not_needed() {
     let config = config_vars("  a: '${secret.ROWS | default(\"[]\")}'\n");
     assert_eq!(unavailable_with(&config, &reads_a("{}")), [], "the render gives the default before the run");
+}
+
+#[test]
+fn a_response_a_followed_var_reads_with_a_default_is_still_needed() {
+    let tests = "beforeAll:\n  - id: seeded\n    call: users#make\ntests:\n  - id: listsSeeded\n    call: users#get\n    vars: {ids: '${seeded.body | default(\"[]\")}'}\n    examples: ${var.ids}\n";
+    let found = unavailable(tests);
+    let at_examples = found.iter().find(|(line, _)| *line == 8).map(|(_, found)| found.help.join("\n"));
+    let help = at_examples.unwrap_or_else(|| panic!("a V2105 at `examples` expected: {found:?}"));
+    assert!(help.starts_with("`var.ids` needs an action's response;"), "no response is there to default: {help}");
 }
 
 #[test]

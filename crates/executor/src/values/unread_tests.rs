@@ -54,9 +54,14 @@ fn a_var_reading_its_own_name_reads_the_level_past_its_own() {
 }
 
 #[test]
-fn a_root_read_with_a_default_needs_nothing() {
+fn a_secret_read_with_a_default_needs_nothing_but_a_response_still_does() {
     let (fixture, test) = reading_region(&[("region", "${secret.S | default('eu')}")], &[]);
     assert_eq!(needs(&fixture, test, vec![]), None, "the render gives the default before the run");
+    let (fixture, test) = reading_region(&[("region", "${seeded.body | default('[]')}")], &[]);
+    let found = needs(&fixture, test, vec![]);
+    assert!(matches!(found, Some((_, _, Namespace::Step(_)))), "a response has no value to default: {found:?}");
+    let (fixture, test) = reading_region(&[("region", "${run.id | default('x')}")], &[]);
+    assert_eq!(needs(&fixture, test, vec![]), Some(("region".into(), "region".into(), Namespace::Run)));
 }
 
 #[test]

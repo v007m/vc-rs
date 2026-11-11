@@ -5,7 +5,7 @@
 use std::collections::BTreeSet;
 
 use vc_model::{Examples, Namespace, Program, Reference, Segment, SourceSpan, Test};
-use vc_template::{PipeRegistry, ROW_ROOTS};
+use vc_template::{PipeRegistry, row_readable};
 
 use super::run::RunValues;
 use super::scope::{Found, Scope};
@@ -49,7 +49,7 @@ struct Walk<'p> {
 
 impl Walk<'_> {
     /// The var and root the definition of `name` found from level `from` on needs: a root it
-    /// reads itself, unless a `default` pipe stands in for it, else what a var it reads needs,
+    /// reads itself, unless it is a secret read with `default`, else what a var it reads needs,
     /// as the compiler words it. A definition reading its own name continues past its level, as
     /// rendering does; a name not set, a saved value or a definition already followed needs
     /// nothing more.
@@ -59,19 +59,11 @@ impl Walk<'_> {
             return None;
         }
         let reads = def.references();
-        let unread = |read: &&&Reference| !ROW_ROOTS.contains(&read.ns) && !self.takes_missing(read);
-        if let Some(outside) = reads.iter().find(unread) {
+        if let Some(outside) = reads.iter().find(|read| !row_readable(read, self.pipes)) {
             return Some((name.to_owned(), outside.ns));
         }
         let mut vars = reads.iter().copied().filter_map(var_name);
         vars.find_map(|next| self.needs((next, if next == name { level.saturating_add(1) } else { 0 }), seen))
-    }
-
-    /// Whether `reference`'s first pipe gives a value for a missing one (`default`), as the
-    /// render does.
-    fn takes_missing(&self, reference: &Reference) -> bool {
-        let first = reference.pipes.first().and_then(|call| self.pipes.get(&call.name));
-        first.is_some_and(|pipe| pipe.takes_missing)
     }
 }
 

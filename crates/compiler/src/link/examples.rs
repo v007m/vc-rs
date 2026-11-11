@@ -11,7 +11,7 @@ use std::collections::HashSet;
 use vc_diagnostics::{Code, Diagnostic};
 use vc_model::{Namespace, Reference, Segment};
 use vc_parser::{Node, Value};
-use vc_template::{ROW_ROOTS, row_root_label, row_var_unread};
+use vc_template::{row_readable, row_root_label, row_var_unread};
 
 use super::layer::{Origin, Scope};
 use super::project::Source;
@@ -26,6 +26,9 @@ const FILE_TEMPLATED: &str = "the `$file` path of `examples` holds a template";
 /// Its help.
 const FILE_HELP: &str = "`examples` is read before the run starts, from a path written as it is; to choose \
                          the rows by profile, read them from a var or a dataset: `examples: ${var.rows}`";
+
+/// The help of V1004 at a key a `$file` of `examples` holds besides its path.
+const FILE_ONLY: &str = "a `$file` of rows holds only its path: `examples: {$file: rows.csv}`";
 
 /// A var the rows read, and what it needs that is not there before the run.
 struct Needed {
@@ -43,6 +46,7 @@ impl Checker<'_, '_> {
     pub fn examples(&mut self, source: &Source<'_>, test: &Node, scope: &Scope<'_>) {
         let Some(rows) = test.get("examples").filter(|rows| !matches!(rows.value, Value::Seq(_))) else { return };
         if let Some(path) = rows.get("$file") {
+            self.file_keys(rows);
             if !refs(source, path).is_empty() {
                 let diagnostic = Diagnostic::new(Code::V2105, rows.span, FILE_TEMPLATED).help(FILE_HELP);
                 self.diagnostics.push(diagnostic);
@@ -82,16 +86,16 @@ impl Checker<'_, '_> {
     }
 
     /// What the definition of the var `name` at the level `at`, reading `reads`, needs that is
-    /// not there before the run: a root it reads itself, unless a `default` pipe stands in for
-    /// it, else what a var it reads needs. A read of `name` itself starts at the next level out,
-    /// any other name at the innermost, as the engine looks them up.
+    /// not there before the run: a root it reads itself, unless it is a secret read with
+    /// `default` (`row_readable`), else what a var it reads needs. A read of `name` itself starts
+    /// at the next level out, any other name at the innermost, as the engine looks them up.
     fn defined(
         &self,
         (name, reads, at): (&str, &[Reference], usize),
         scope: &Scope<'_>,
         seen: &mut Seen,
     ) -> Option<Needed> {
-        let outside = reads.iter().find(|read| !ROW_ROOTS.contains(&read.ns) && !self.takes_missing(read));
+        let outside = reads.iter().find(|read| !row_readable(read, self.pipes()));
         if let Some(read) = outside {
             return Some(Needed { var: name.to_owned(), root: row_root_label(read.ns) });
         }
@@ -99,6 +103,16 @@ impl Checker<'_, '_> {
             let from = if var_name(read) == Some(name) { at + 1 } else { 0 };
             self.needed((read, from), scope, seen)
         })
+    }
+
+    /// V1004 at each key a `$file` row source holds besides its path: such a map is no row
+    /// source at all, so the test would get none.
+    fn file_keys(&mut self, rows: &Node) {
+        for entry in rows.entries().iter().filter(|entry| entry.key != "$file") {
+            let message = format!("unknown key `{}` in a `$file` of `examples`", entry.key);
+            let diagnostic = Diagnostic::new(Code::V1004, entry.key_span, message).label("not a known key");
+            self.diagnostics.push(diagnostic.help(FILE_ONLY));
+        }
     }
 }
 

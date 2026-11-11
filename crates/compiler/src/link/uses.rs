@@ -86,6 +86,11 @@ impl<'p, 'a> Checker<'p, 'a> {
         (problem.code == Code::V2304).then_some(*problem)
     }
 
+    /// The pipes templates may call.
+    pub const fn pipes(&self) -> &PipeRegistry {
+        &self.pipes
+    }
+
     /// Whether the reference's first pipe also runs on a missing value (`default`), so an
     /// unset var is not an error.
     pub fn takes_missing(&self, reference: &Reference) -> bool {
