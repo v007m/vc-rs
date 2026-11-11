@@ -44,20 +44,23 @@ fn never_lets_data_close_its_script() {
     assert!(body.1.contains("\\u003c/script>"), "{}", body.1);
 }
 
-#[test]
-fn bundles_everything_into_one_page() {
-    let (artifacts, saved) = rendered(HtmlLayout::Single, &snapshot("{\"x\":1}"));
-    assert_eq!(artifacts, [Artifact::new("html", PathBuf::from("out/report.html"))]);
-    assert_eq!(saved.len(), 1);
-    let page = &saved[0].1;
+/// The data a single-file page packs into its `vib-data` script.
+fn packed_data(page: &str) -> Value {
     let start = page.find("id=\"vib-data\">").unwrap() + "id=\"vib-data\">".len();
     let packed = &page[start..start + page[start..].find('<').unwrap()];
     let bytes = base64::engine::general_purpose::STANDARD.decode(packed).unwrap();
     let mut json = String::new();
     GzDecoder::new(bytes.as_slice()).read_to_string(&mut json).unwrap();
-    let data: Value = serde_json::from_str(&json).unwrap();
+    serde_json::from_str(&json).unwrap()
+}
+
+#[test]
+fn bundles_everything_into_one_page() {
+    let (artifacts, saved) = rendered(HtmlLayout::Single, &snapshot("{\"x\":1}"));
+    assert_eq!(artifacts, [Artifact::new("html", PathBuf::from("out/report.html"))]);
+    assert_eq!(saved.len(), 1);
+    let data = packed_data(&saved[0].1);
     assert_eq!(data["summary"]["run"]["id"], 7);
-    assert_eq!(data["summary"]["files"][0], "users.crud");
     assert_eq!(data["index"].as_array().unwrap().len(), 6);
     assert_eq!(data["index"][2][3], "blocked");
     let test = &data["tests/0"]["1"];
@@ -65,6 +68,17 @@ fn bundles_everything_into_one_page() {
     assert_eq!(data[format!("bodies/{hash}")], "{\"x\":1}");
     assert_eq!(test["checks"][1]["label"], "body.match.errors[0].field");
     assert_eq!(data["summary"]["lifecycle"][1]["label"], "cleanup seed");
+}
+
+#[test]
+fn shows_each_file_profile_and_test_name_beside_its_id() {
+    let (_, saved) = rendered(HtmlLayout::Single, &snapshot("{\"x\":1}"));
+    let data = packed_data(&saved[0].1);
+    assert_eq!(data["summary"]["files"][0], "users.crud — Crud", "the file's `name` follows its ID");
+    assert_eq!(data["summary"]["run"]["profiles"][0], "dev \"Local dev\"");
+    assert_eq!(data["index"][0][1], Value::Null, "an unnamed test shows its label");
+    assert_eq!(data["index"][0][2], 0, "the file is its place in the summary's files");
+    assert_eq!(data["index"][4][1], "users.crud#listsUsers [repeat 2] — Lists every user");
 }
 
 /// What a 10,000-test page loads before any test is opened (D169): the summary and the index.

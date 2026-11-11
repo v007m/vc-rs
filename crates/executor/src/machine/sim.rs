@@ -54,7 +54,13 @@ pub fn instance(index: u32, needs: &[u32]) -> Instance {
 }
 
 pub fn planned_file(before_all: Vec<PlannedAction>, instances: Vec<Instance>, after_all: &[u32]) -> Arc<PlannedFile> {
-    Arc::new(PlannedFile { id: file_and_test().0, before_all, instances, after_all: acts(after_all) })
+    Arc::new(PlannedFile {
+        id: file_and_test().0,
+        before_all,
+        instances,
+        after_all: acts(after_all),
+        skipped: Vec::new(),
+    })
 }
 
 /// Runs an instance from `first` to the end; returns every command in order.

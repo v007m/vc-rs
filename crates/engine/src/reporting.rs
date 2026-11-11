@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 use vc_adapter_reporters::{
     Color, Format, FormatRegistry, FsDestination, HtmlLayout, PluginReporter, Recorder, ReporterContext,
-    ReporterRegistry, RunFacts, RunSnapshot,
+    ReporterRegistry, RunFacts, RunSnapshot, mark_run_folder,
 };
 use vc_diagnostics::Code;
 use vc_interfaces::{Artifact, PluginKind, ReportError, Reporter, RunEnd, RunId, RunSummary};
@@ -113,7 +113,20 @@ impl Chosen {
     ///
     /// [`EngineError::Internal`] when a checked name is not registered.
     pub(crate) fn render(&self, snapshot: &RunSnapshot, run: RunId) -> Result<Rendered, EngineError> {
-        Ok(render(&self.formats()?, snapshot, &self.dir_for(Some(run))))
+        let formats = self.formats()?;
+        let (dir, unmarked) = self.run_folder(Some(run));
+        let (artifacts, mut problems) = render(&formats, snapshot, &dir);
+        problems.extend(unmarked);
+        Ok((artifacts, problems))
+    }
+
+    /// [`Chosen::dir_for`] `run`, made and marked as a run's folder ([`mark_run_folder`]) when
+    /// the run's files go in a folder of their own, so pruning never takes any other: the
+    /// folder, and why it could not be marked.
+    fn run_folder(&self, run: Option<RunId>) -> (PathBuf, Option<String>) {
+        let dir = self.dir_for(run);
+        let unmarked = (self.per_run && run.is_some()).then(|| mark_run_folder(&dir)).and_then(Result::err);
+        (dir, unmarked.map(|error| error.to_string()))
     }
 }
 
@@ -266,7 +279,8 @@ impl Reporters {
         let Self { mut console, recorder, formats, chosen, history, keep, seed, mut problems, watch, plugins } = self;
         let id = history.as_ref().map_or(0, |history| history.id().get());
         let snapshot = recorder.finish(RunFacts { seed: Some(seed), ..RunFacts::of(id, &run) });
-        let dir = chosen.dir_for(history.as_ref().map(Recording::id));
+        let (dir, unmarked) = chosen.run_folder(history.as_ref().map(Recording::id));
+        problems.extend(unmarked);
         let (mut artifacts, failed) = render(&formats, &snapshot, &dir);
         problems.extend(failed);
         let (written, failed) = finish(plugins, &run).await;

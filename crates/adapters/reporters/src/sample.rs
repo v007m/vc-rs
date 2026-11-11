@@ -46,6 +46,8 @@ fn test(index: usize) -> TestView {
     let start = 1_793_750_400_000 + u64::try_from(index).unwrap_or(0);
     TestView {
         label: format!("Checks thing {index}"),
+        name: None,
+        file_name: None,
         status: if failed { TestStatus::Failed } else { TestStatus::Passed },
         instance: u32::try_from(index).ok(),
         example_row: None,

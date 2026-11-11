@@ -5,6 +5,9 @@ expression: xml
 <?xml version="1.0" encoding="UTF-8"?>
 <testsuites name="vibranium" tests="6" failures="1" errors="1" skipped="1" time="2.500">
   <testsuite name="users.crud" tests="6" failures="1" errors="1" skipped="1" time="0.750">
+    <properties>
+      <property name="name" value="Crud"/>
+    </properties>
     <testcase name="users.crud#getsUser" classname="users.crud" time="0.150" file="services/users/crud.test.yaml" line="7"/>
     <testcase name="users.crud#rejectsBadEmail [row 1]" classname="users.crud" time="0.150" file="services/users/crud.test.yaml" line="11">
       <failure message="expected 400, got 201" type="V5101">  error[V5101]: expect.status
@@ -28,10 +31,17 @@ expression: xml
 </error>
     </testcase>
     <testcase name="users.crud#listsUsers [repeat 1]" classname="users.crud" time="0.300" file="services/users/crud.test.yaml" line="22">
+      <properties>
+        <property name="name" value="Lists every user"/>
+      </properties>
       <system-out>flaky: passed after 2 attempts; the failed attempt: expected 200, got 503</system-out>
     </testcase>
-    <testcase name="users.crud#listsUsers [repeat 2]" classname="users.crud" time="0.150" file="services/users/crud.test.yaml" line="22"/>
-    <testcase name="users.crud#parksLegacy" classname="users.crud" time="0.000" file="services/users/crud.test.yaml" line="25">
+    <testcase name="users.crud#listsUsers [repeat 2]" classname="users.crud" time="0.150" file="services/users/crud.test.yaml" line="22">
+      <properties>
+        <property name="name" value="Lists every user"/>
+      </properties>
+    </testcase>
+    <testcase name="users.crud#parksLegacy" classname="users.crud" time="0.000" file="services/users/crud.test.yaml" line="26">
       <skipped message="rewrite pending"/>
     </testcase>
   </testsuite>

@@ -83,9 +83,11 @@ impl Hosts {
         self.unusable.iter().map(|(id, reason)| (id.as_str(), reason.as_str()))
     }
 
-    /// One line for each plugin the run cannot use, and why.
-    pub fn notices(&self) -> Vec<String> {
-        self.unusable.iter().map(|(id, reason)| format!("plugin `{id}`: {reason}")).collect()
+    /// One line for each plugin the run cannot use, and why, but for the reporter plugins in
+    /// `reported`: the run's reports name each of those once, with its report not written.
+    pub fn notices(&self, reported: &[String]) -> Vec<String> {
+        let unusable = self.unusable.iter().filter(|(id, _)| !reported.contains(*id));
+        unusable.map(|(id, reason)| format!("plugin `{id}`: {reason}")).collect()
     }
 
     /// What the plugins say from now on as they start: a line for each whose stderr is dropped
@@ -93,6 +95,25 @@ impl Hosts {
     /// never started says nothing.
     pub fn heard(&self) -> broadcast::Receiver<String> {
         self.told.subscribe()
+    }
+
+    /// Ends every plugin the run started, once the run is over, and waits until each has
+    /// exited or been killed ([`PluginHost::shutdown`]), so none is cut off when `vc` exits.
+    pub async fn shutdown(&self) {
+        let mut ending = tokio::task::JoinSet::new();
+        for host in self.ready.values() {
+            let host = Arc::clone(host);
+            drop(ending.spawn(async move { host.shutdown().await }));
+        }
+        while ending.join_next().await.is_some() {}
+    }
+
+    /// Does `work`, then ends every plugin it started ([`Hosts::shutdown`]) whether it finished
+    /// or stopped at an error, and gives back what it returned.
+    pub async fn around<T>(&self, work: impl Future<Output = T>) -> T {
+        let done = work.await;
+        self.shutdown().await;
+        done
     }
 }
 
@@ -193,5 +214,51 @@ impl Resolve for Literal {
 
     fn chance(&self) -> &dyn Chance {
         &Steady
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::time::Duration;
+
+    use async_trait::async_trait;
+    use serde_json::Value;
+    use vc_interfaces::{PluginError, PluginHost, PluginManifest};
+    use vc_testkit::suite_plugin_manifest;
+
+    use super::Hosts;
+
+    /// A plugin that counts the times it is ended.
+    struct Ends {
+        manifest: PluginManifest,
+        ended: AtomicUsize,
+    }
+
+    #[async_trait]
+    impl PluginHost for Ends {
+        fn manifest(&self) -> &PluginManifest {
+            &self.manifest
+        }
+
+        async fn call(&self, _method: &str, _params: Value, _deadline: Duration) -> Result<Value, PluginError> {
+            Ok(Value::Null)
+        }
+
+        async fn shutdown(&self) {
+            self.ended.fetch_add(1, Ordering::SeqCst);
+        }
+    }
+
+    #[tokio::test]
+    async fn work_that_stops_at_an_error_still_ends_every_plugin() {
+        let plugin = Arc::new(Ends { manifest: suite_plugin_manifest(), ended: AtomicUsize::new(0) });
+        let mut hosts = Hosts::default();
+        drop(hosts.ready.insert("suitePlugin".to_owned(), Arc::clone(&plugin) as Arc<dyn PluginHost>));
+        let failed: Result<(), &str> = hosts.around(async { Err("the transport cannot be built") }).await;
+        assert_eq!((failed, plugin.ended.load(Ordering::SeqCst)), (Err("the transport cannot be built"), 1));
+        assert_eq!(hosts.around(async { 7 }).await, 7);
+        assert_eq!(plugin.ended.load(Ordering::SeqCst), 2, "a run that finishes ends its plugins too");
     }
 }

@@ -1,29 +1,74 @@
 //! The detailed block under a failed test: one compiler-style diagnostic per failed check, with
-//! the source line underlined, or the failure's message when no check failed.
+//! the source line underlined, or the failure's message when no check failed. A test that ran
+//! more than once shows each different failure once, under the attempts that hit it.
 
 use std::fmt::Write as _;
 
 use vc_diagnostics::{Code, Diagnostic, Diagnostics, Render as _, TextRenderer};
 use vc_model::{CheckResult, Failure, Names, Origin};
 
-use crate::collect::TestRecord;
+use crate::collect::{StepRecord, TestRecord};
 use crate::{Color, encode, text};
 
 /// The indent of a block under its test line.
 const INDENT: &str = "  ";
 
-/// Every failed check of `record`, else its failure; empty when it has neither.
+/// Every failed check of `record`, else its failure; empty when it has neither. A retried test
+/// shows each different failure once, headed `attempts 1, 2 and 3 of 3:`.
 pub fn block(names: &Names, record: &TestRecord, color: Color) -> String {
-    let mut out = String::new();
-    for check in record.failed_checks() {
-        out.push_str(&self::check(names, check, color));
+    let total = record.result.attempts;
+    let tries: Vec<&[StepRecord]> = record.steps.split_inclusive(|step| step.outcome.failure().is_some()).collect();
+    if total <= 1 || tries.len() != usize::try_from(total).unwrap_or(0) {
+        return indent(&single(names, record, color));
     }
+    let mut shown: Vec<(Vec<usize>, String)> = Vec::new();
+    for (at, steps) in tries.into_iter().enumerate() {
+        let text = attempt(names, steps, color);
+        match shown.iter_mut().find(|(_, seen)| *seen == text) {
+            Some((attempts, _)) => attempts.push(at + 1),
+            None => shown.push((vec![at + 1], text)),
+        }
+    }
+    let shown = shown.into_iter().filter(|(_, text)| !text.is_empty());
+    let out = shown.fold(String::new(), |mut out, (attempts, text)| {
+        let _ = writeln!(out, "{}", heading(&attempts, total));
+        out.push_str(&text);
+        out
+    });
+    if out.is_empty() { indent(&single(names, record, color)) } else { indent(&out) }
+}
+
+/// The failed checks of the whole record, else its failure.
+fn single(names: &Names, record: &TestRecord, color: Color) -> String {
+    let mut out: String = record.failed_checks().map(|failed| check(names, failed, color)).collect();
     if out.is_empty()
         && let Some(failed) = &record.result.failure
     {
         out.push_str(&failure(names, failed, color));
     }
-    indent(&out)
+    out
+}
+
+/// The failed checks of one attempt's steps, else the failure of the step that ended it.
+fn attempt(names: &Names, steps: &[StepRecord], color: Color) -> String {
+    let checks = steps.iter().flat_map(|step| &step.checks).filter(|found| !found.passed);
+    let out: String = checks.map(|failed| check(names, failed, color)).collect();
+    if !out.is_empty() {
+        return out;
+    }
+    steps.iter().find_map(|step| step.outcome.failure()).map(|failed| failure(names, failed, color)).unwrap_or_default()
+}
+
+/// `attempt 2 of 3:`, or `attempts 1, 2 and 3 of 3:`.
+fn heading(attempts: &[usize], total: u32) -> String {
+    match attempts {
+        [one] => format!("attempt {one} of {total}:"),
+        [rest @ .., last] => {
+            let rest: Vec<String> = rest.iter().map(ToString::to_string).collect();
+            format!("attempts {} and {last} of {total}:", rest.join(", "))
+        }
+        [] => String::new(),
+    }
 }
 
 /// One failed check, as a diagnostic at its `expect` line when the program has the file.

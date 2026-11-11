@@ -41,8 +41,8 @@ stages:
 
 ## How it behaves
 
-- `vc load` is always called with the scenario's [ID](/vc-rs/reference/load/id/), never its name, and the terminal summary starts with the ID (`sample.smoke finished after 10 s …`).
-- In the current build the name is not printed: neither the terminal summary nor `vc load --json` includes it.
+- `vc load` is always called with the scenario's [ID](/vc-rs/reference/load/id/), never its name. The terminal summary starts with the ID, then the name when the scenario has one (`sample.smoke — Sample smoke load · finished after 10 s …`).
+- `vc load --json` gives the name as `name`, or `null` when the scenario has none.
 
 ## Related
 
