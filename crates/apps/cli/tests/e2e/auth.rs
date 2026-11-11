@@ -200,7 +200,7 @@ async fn only_the_secrets_a_selection_reads_must_be_set_and_an_optional_one_neve
     let open = run(&["svc.keys#callsOpen"]);
     assert_eq!(open.status.code(), Some(0), "ADMIN_KEY is read only by callsAdmin: {}", said(&open));
     let all = run(&[]);
-    assert_eq!(all.status.code(), Some(1), "{}", said(&all));
+    assert_eq!(all.status.code(), Some(2), "refused before any test: {}", said(&all));
     assert!(said(&all).contains("V5114: the declared secret `ADMIN_KEY` has no value"), "{}", said(&all));
     assert!(!said(&all).contains("BETA_KEY"), "an optional secret is not required: {}", said(&all));
     assert_eq!(server.stats().await.unwrap().count("GET /echo"), 1, "the refused run sent nothing");

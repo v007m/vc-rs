@@ -103,9 +103,9 @@ async fn a_declared_secret_nothing_selected_reads_may_be_unset() {
     let shown = refusal(&error);
     assert!(shown.starts_with("secrets: V5114: the declared secret `OTHER_KEY` has no value"), "{shown}");
     assert!(!shown.contains("API_TOKEN") && !shown.contains(TOKEN), "{shown}");
-    let call = |api: &str| engine.call(&CallRequest { api: api.into(), ..CallRequest::default() });
-    assert!(call("users#get").await.is_ok(), "a call is checked against the secrets its api reads");
-    assert_eq!(call("users#list").await.unwrap_err(), error);
+    let call = |api: &str| CallRequest { api: api.into(), ..CallRequest::default() };
+    assert!(engine.call(&call("users#get")).await.is_ok(), "a call is checked against the secrets its api reads");
+    assert_eq!(engine.call(&call("users#list")).await.unwrap_err(), error);
     assert_eq!(sent.load(Ordering::SeqCst), 2, "the refused run and call sent nothing");
 }
 
