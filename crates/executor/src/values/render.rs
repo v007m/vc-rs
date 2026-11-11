@@ -72,18 +72,36 @@ impl<'a> Render<'a> {
         Ok(render)
     }
 
-    /// Runs `inner` with `vars` defined, and `given` over them, before every other level: an
-    /// auth definition's vars or its use site's. Each fake var of `vars` is drawn once and
-    /// apart from a same-named one behind it; afterwards the levels, memo and draws are as before.
-    pub fn scoped<T>(&mut self, (vars, given): (Arc<Defined>, Arc<Saved>), inner: impl FnOnce(&Self) -> T) -> T {
-        let fakes: Vec<String> = vars.iter().filter(|(_, def)| is_fake(def)).map(|(name, _)| name.clone()).collect();
+    /// Runs `inner` with the levels of `around` put around the scope: an auth definition's vars
+    /// or its use site's. Each fake var `around` brings is drawn once, apart from a same-named
+    /// one of the call's, and those draws are returned with `inner`'s answer; afterwards the
+    /// levels, memo and draws are as before.
+    pub fn scoped<T>(&mut self, around: Around, inner: impl FnOnce(&Self) -> T) -> (T, Saved) {
+        let fakes = self.brought_fakes(&around);
         let aside = self.set_aside(&fakes);
-        self.scope.define(vars);
-        self.scope.give(given);
+        self.scope.define(around.vars);
+        self.scope.give(around.given);
+        self.scope.fall_back(around.fallback);
         let out = inner(self);
         self.scope.drop_front(2);
-        self.restore(&fakes, aside);
-        out
+        self.scope.drop_back(1);
+        (out, self.restore(&fakes, aside))
+    }
+
+    /// The fake vars `around` brings: each of its `vars`, and each of its `fallback` that no
+    /// level before it defines.
+    fn brought_fakes(&self, around: &Around) -> Vec<String> {
+        let fakes = |vars: &Defined| -> Vec<String> {
+            vars.iter().filter(|(_, def)| is_fake(def)).map(|(name, _)| name.clone()).collect()
+        };
+        let hidden = |name: &String| {
+            around.vars.contains_key(name)
+                || around.given.contains_key(name)
+                || self.scope.find(self.program, name, 0).is_some()
+        };
+        let mut names = fakes(&around.vars);
+        names.extend(fakes(&around.fallback).into_iter().filter(|name| !hidden(name)));
+        names
     }
 
     /// The value of `var.<name>` from the closest level.
@@ -195,7 +213,6 @@ impl<'a> Render<'a> {
         Ok(slot.get_or_init(|| value).clone())
     }
 
-    /// Binds `iteration` and the instance's `example` row.
     /// Takes out the memo and draws of `names`, giving each a fresh slot.
     fn set_aside(&mut self, names: &[String]) -> Aside {
         let memo = names.iter().filter_map(|name| Some((name.clone(), self.memo.remove(name)?))).collect();
@@ -204,15 +221,17 @@ impl<'a> Render<'a> {
         Aside { memo, drawn: drawn.collect() }
     }
 
-    /// Drops the slots of `names` and puts back what [`Self::set_aside`] took out.
-    fn restore(&mut self, names: &[String], aside: Aside) {
-        for name in names {
-            self.drawn.remove(name);
-        }
+    /// Drops the slots of `names`, puts back what [`Self::set_aside`] took out, and returns
+    /// what the dropped slots drew.
+    fn restore(&mut self, names: &[String], aside: Aside) -> Saved {
+        let drawn = names.iter().filter_map(|name| Some((name.clone(), self.drawn.remove(name)?.into_inner()?)));
+        let drawn = drawn.collect();
         self.drawn.extend(aside.drawn);
         self.memo.extend(aside.memo);
+        drawn
     }
 
+    /// Binds `iteration` and the instance's `example` row.
     fn bind_instance(&mut self, frame: &Frame) -> Result<(), RenderError> {
         let Some(instance) = &frame.instance else { return Ok(()) };
         let Some(test) = self.program.tests.get(&instance.test) else { return Ok(()) };
@@ -282,6 +301,18 @@ impl<'a> Render<'a> {
 fn is_fake(def: &TemplateValue) -> bool {
     let TemplateValue::String(template) = def else { return false };
     template.single_ref().is_some_and(|reference| reference.ns == Namespace::Fake)
+}
+
+/// The levels [`Render::scoped`] puts around the scope: `vars` defined and `given` over them in
+/// front of every other level, and `fallback` defined behind them all.
+#[derive(Default)]
+pub struct Around {
+    /// Definitions found first, which may read each other.
+    pub vars: Arc<Defined>,
+    /// Values found before even `vars`.
+    pub given: Arc<Saved>,
+    /// Definitions found only when no other level has the name.
+    pub fallback: Arc<Defined>,
 }
 
 /// The memo and draws a scoped level hides.

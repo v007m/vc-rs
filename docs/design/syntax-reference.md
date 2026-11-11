@@ -1013,7 +1013,7 @@ The `oauth2*` types post to `tokenUrl` with the client in HTTP Basic when `clien
 
 `vc check` reports a definition that leaves out a key its type needs as V1005 at its `type` (`a \`bearer\` auth needs \`token\``): `username` and `password` for `basic`, `token` for `bearer`, `name` and `value` for `apiKey`, `tokenUrl` and `clientId` for every `oauth2*` type (plus `username` and `password` for `oauth2Password`, `authorizeUrl` for `oauth2AuthorizationCode` and `refreshToken` for `oauth2Refresh`), `steps` for `flow` and `plugin` for `plugin`.
 
-Every definition can also have `vars` (its defaults), which can read each other and the use site's vars. Use one by ID on an api file, an api, a test, a step or an action: `auth: shopOauth`, `auth: none`, or with values:
+Every definition can also have `vars` (its defaults), which can read each other and the use site's vars. A use site's var reads its sibling use-site vars first, then the caller's vars, then the definition's as the last fallback, so `token: ${var.token}-v2` builds on the default. Use one by ID on an api file, an api, a test, a step or an action: `auth: shopOauth`, `auth: none`, or with values:
 
 ```yaml
 auth:
@@ -1090,7 +1090,7 @@ The same definition serves every profile: under `--profile prod` it logs in to `
 
 ## Secrets
 
-`secrets` defaults to `provider: env` with `schema: .env.schema` (D163). Each secret is declared in `.env.schema` as a `NAME=` line (comments and `# @…` annotations are allowed), and `env` resolves the declared names from the process environment, with the project's `.env` filling the ones it does not set. `provider: varlock` is opt-in: it runs `varlock load` and takes the names from Varlock's providers (1Password, Vault, AWS, GCP, Azure, Bitwarden, Infisical, environment variables). A `NAME=value` line declares a default, used when neither the environment nor `.env` sets the name. Every declared secret without a value or a default (unset, or blank) stops `vc run`, `vc call` and `vc load` with one V5114 that names it, before any request is sent; a `${secret.X}` that still has no value when it renders is V5114 too, and its message never shows another secret. The web UI's Settings screen edits the names in the root `.env.schema` (D247); `.env` and every other `.env.*` file stay out of reach of the editor and of agents.
+`secrets` defaults to `provider: env` with `schema: .env.schema` (D163). Each secret is declared in `.env.schema` as a `NAME=` line (comments and `# @…` annotations are allowed), and `env` resolves the declared names from the process environment, with the project's `.env` filling the ones it does not set. `provider: varlock` is opt-in: it runs `varlock load` and takes the names from Varlock's providers (1Password, Vault, AWS, GCP, Azure, Bitwarden, Infisical, environment variables). Every declared secret without a value (unset, or blank) stops `vc run`, `vc call` and `vc load` with one V5114 that names it, before any request is sent; a `${secret.X}` that still has no value when it renders is V5114 too, and its message never shows another secret. The web UI's Settings screen edits the names in the root `.env.schema` (D247); `.env` and every other `.env.*` file stay out of reach of the editor and of agents.
 
 `vc check` checks names against `.env.schema`: a `${secret.X}` it does not declare is V2106 (with the closest declared name as the fix), and a `${env.X}` that reads a declared secret is V2107, because it would bypass the redactor (the certain fix is `${secret.X}`).
 

@@ -11,7 +11,7 @@ use vc_model::{
 };
 use vc_template::RenderError;
 
-use super::{Frame, Iteration, Render};
+use super::{Around, Frame, Iteration, Render};
 use crate::fixture;
 use crate::fixture::Fixture;
 use crate::{ActionCx, ActionExecutors, ActionReport, ActionRequest, Saved, SharedSlots};
@@ -394,13 +394,17 @@ fn a_scoped_level_reads_first_and_is_gone_afterwards() {
     let action = fixture.call("/users");
     fixture.action_mut(action).vars.values = fixture.vars(&[("name", "outer")]);
     let inner = Arc::new(std::iter::once(("name".to_owned(), fixture.value("inner"))).collect());
+    let last = [("name", "last"), ("region", "eu")];
+    let fallback = Arc::new(last.iter().map(|(name, text)| ((*name).to_owned(), fixture.value(text))).collect());
     let cx = fixture.cx(ActionExecutors::new());
     let request = ActionRequest { action, owner: OwnerKey::Run, cx: Arc::clone(&cx), frame: Frame::default() };
     let mut render = Render::new(&request).unwrap();
-    let read = render.scoped((inner, saved(&[("token", json!("t"))])), |render| {
-        (render.var_value("name"), render.var_value("token"))
-    });
-    assert_eq!(read, (Ok(json!("inner")), Ok(json!("t"))));
+    let around = Around { vars: inner, given: saved(&[("token", json!("t"))]), fallback };
+    let (read, drawn) = render
+        .scoped(around, |render| (render.var_value("name"), render.var_value("token"), render.var_value("region")));
+    assert_eq!(read, (Ok(json!("inner")), Ok(json!("t")), Ok(json!("eu"))), "the fallback is found only last");
+    assert!(drawn.is_empty(), "no fake var was drawn");
     assert_eq!(render.var_value("name"), Ok(json!("outer")));
     assert!(render.var_value("token").is_err(), "the given level is dropped too");
+    assert!(render.var_value("region").is_err(), "and so is the fallback");
 }

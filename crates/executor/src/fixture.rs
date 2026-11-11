@@ -49,6 +49,7 @@ pub const WORDS: &[&str] = &[
     "who",
     "nonce",
     "k",
+    "tenant",
 ];
 
 /// How long `/slow` takes to answer.

@@ -15,7 +15,7 @@ use vc_interfaces::{AuthError, AuthProvider, AuthRequest, Credentials};
 use vc_model::{Action, ActionId, Api, AuthDef, AuthRef, Failure, Program, VarDefs};
 
 use super::request;
-use crate::{ActionCx, ActionRequest, PipelineParts, Render, Saved};
+use crate::{ActionCx, ActionRequest, Around, PipelineParts, Render, Saved};
 
 use flow::FlowRunner;
 use stage::{AuthStage, RefreshOn};
@@ -95,16 +95,22 @@ fn chosen<'p>(program: &'p Program, (api, action): (&'p Api, &'p Action)) -> Opt
     Some((program.auth.get(id)?, vars))
 }
 
-/// The use site's vars, rendered where the call renders with each other found first, and the
-/// definition's other vars, which also find the use site's and each other first.
+/// The use site's vars, rendered where the call renders with each other found first and the
+/// definition's vars found last, and the definition's other vars, which find the use site's
+/// and each other first.
 fn given(render: &mut Render<'_>, def: &AuthDef, vars: &VarDefs) -> Result<Saved, Failure> {
     let (values, program) = (render.values(), render.program());
     let (site, defaults) = (Arc::new(values.layer(program, vars)), Arc::new(values.layer(program, &def.vars)));
     let named = sorted(site.keys());
-    let passed = Arc::new(render.scoped((Arc::clone(&site), Arc::default()), |render| read(render, &named))?);
+    let at_site = Around { vars: Arc::clone(&site), fallback: Arc::clone(&defaults), ..Around::default() };
+    let (passed, mut drawn) = render.scoped(at_site, |render| read(render, &named));
+    let passed = passed?;
+    drawn.extend(Saved::clone(&passed));
     let own = sorted(defaults.keys().filter(|name| !site.contains_key(*name)));
-    let mut given = render.scoped((Arc::clone(&defaults), Arc::clone(&passed)), |render| read(render, &own))?;
-    given.extend(Saved::clone(&passed));
+    let at_definition = Around { vars: Arc::clone(&defaults), given: Arc::new(drawn), ..Around::default() };
+    let (given, _) = render.scoped(at_definition, |render| read(render, &own));
+    let mut given = given?;
+    given.extend(passed);
     Ok(given)
 }
 
@@ -122,9 +128,11 @@ fn read(render: &Render<'_>, names: &[&String]) -> Result<Saved, Failure> {
 /// The definition's settings, rendered with its vars found first.
 fn settings(render: &mut Render<'_>, def: &AuthDef, given: &Arc<Saved>) -> Result<Map<String, Value>, Failure> {
     let kept = def.settings.iter().filter(|(key, _)| key.as_str() != APPLY);
-    render.scoped((Arc::default(), Arc::clone(given)), |render| {
+    let around = Around { given: Arc::clone(given), ..Around::default() };
+    let (settings, _) = render.scoped(around, |render| {
         kept.map(|(key, value)| Ok((key.clone(), render.value(value).map_err(request::failed)?))).collect()
-    })
+    });
+    settings
 }
 
 #[cfg(test)]

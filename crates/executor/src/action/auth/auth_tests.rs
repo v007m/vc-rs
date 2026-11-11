@@ -185,6 +185,38 @@ async fn an_auth_var_reads_the_other_vars_of_its_definition_and_use_site() {
     assert_eq!(header(&sent[0], &AUTHORIZATION), Some("Bearer ops-bob-key-1".to_owned()));
 }
 
+/// What a bearer `svc` sends when its vars are `definition` and its use site's are `site`.
+async fn sent_with(definition: &[(&str, &str)], site: &[(&str, &str)]) -> Option<String> {
+    let mut fixture = Fixture::new();
+    let id = define(&mut fixture, "bearer");
+    let vars = fixture.vars(definition);
+    fixture.program.auth.get_mut(&id).unwrap().vars.values = vars;
+    let call = fixture.call("/users");
+    fixture.api_mut(call).auth = uses(id, fixture.vars(site));
+    let issuer = Arc::new(Issuer::default());
+    let (cx, recordings) = context(fixture, issuer as Arc<dyn AuthProvider>, vec![vc_testkit::status(200)]);
+    let report = run(&cx, call).await;
+    assert!(report.outcome.failure().is_none(), "{:?}", report.outcome.failure());
+    header(&recordings.take()[0], &AUTHORIZATION)
+}
+
+#[tokio::test]
+async fn a_use_site_var_falls_back_to_the_definition_s_vars_and_reads_its_own_default() {
+    let tenant = [("token", "${var.user}"), ("tenant", "acme")];
+    assert_eq!(sent_with(&tenant, &[("user", "${var.tenant}-bob")]).await.as_deref(), Some("Bearer acme-bob-1"));
+    let token = [("token", "t")];
+    assert_eq!(sent_with(&token, &[("token", "${var.token}-v2")]).await.as_deref(), Some("Bearer t-v2-1"));
+}
+
+#[tokio::test]
+async fn a_fake_definition_var_the_use_site_reads_is_drawn_once() {
+    let salted = [("token", "${var.salt}|${var.k}"), ("salt", "${fake.string.uuid}")];
+    let bearer = sent_with(&salted, &[("k", "${var.salt}")]).await.unwrap();
+    let token = bearer.strip_prefix("Bearer ").and_then(|token| token.strip_suffix("-1")).unwrap();
+    let [salt, k] = token.split('|').collect::<Vec<_>>()[..] else { panic!("{token}") };
+    assert_eq!(salt, k, "the use site and the definition read one draw");
+}
+
 /// The call draws `nonce` and sends it as `x-nonce`; `who` is `alice` where the call renders.
 /// The definition's `salt` is a fake, its `who` is `bob`; the use site passes `n` and `k`.
 #[tokio::test]

@@ -133,6 +133,17 @@ impl Scope {
         self.levels.insert(0, Level::Given(given));
     }
 
+    /// Puts `vars` behind every other level, as definitions found only when no other level has
+    /// the name.
+    pub fn fall_back(&mut self, vars: Arc<Defined>) {
+        self.levels.push(Level::Call(vars));
+    }
+
+    /// Removes the `count` furthest levels.
+    pub fn drop_back(&mut self, count: usize) {
+        self.levels.truncate(self.levels.len().saturating_sub(count));
+    }
+
     /// Removes the `count` closest levels.
     pub fn drop_front(&mut self, count: usize) {
         self.levels.drain(..count.min(self.levels.len()));
