@@ -140,8 +140,15 @@ fn close<'a>(name: &str, names: &[&'a str]) -> Vec<&'a str> {
 mod tests {
     use super::close;
 
-    const NAMES: [&str; 5] =
-        ["internet.email", "person.firstName", "person.fullName", "person.jobTitle", "phone.number"];
+    const NAMES: [&str; 7] = [
+        "internet.email",
+        "lorem.word",
+        "lorem.words",
+        "person.firstName",
+        "person.fullName",
+        "person.jobTitle",
+        "phone.number",
+    ];
 
     #[test]
     fn a_generator_is_close_by_its_last_word_in_its_namespace_or_else_by_its_whole_name() {
@@ -150,5 +157,6 @@ mod tests {
         assert_eq!(close("internet.emial", &NAMES), ["internet.email"]);
         assert_eq!(close("persn.fullName", &NAMES), ["person.fullName"]);
         assert_eq!(close("person.zzz", &NAMES), [] as [&str; 0]);
+        assert_eq!(close("lorem.wordz", &NAMES), ["lorem.word", "lorem.words"]);
     }
 }

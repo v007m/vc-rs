@@ -3,4 +3,5 @@ vars:
   owner: ${fake.person.fulName}
   email: ${fake.internet.emial}
   name: ${fake.person.fullname}
+  words: ${fake.lorem.wordz}
 apis: []
