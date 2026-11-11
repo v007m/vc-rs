@@ -1,0 +1,117 @@
+---
+/** The landing page footer: the brand, a few doc links, GitHub and the licence. */
+import { Icon } from '@astrojs/starlight/components';
+import logo from '~/assets/logo.svg?raw';
+
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+const repo = 'https://github.com/v007m/vc-rs';
+const links = [
+  { text: 'Quickstart', href: `${base}/start/quickstart/` },
+  { text: 'Walkthroughs', href: `${base}/walkthroughs/rest-crud/` },
+  { text: 'Keyword index', href: `${base}/reference/` },
+  { text: 'For AI agents', href: `${base}/agents/` },
+  { text: 'llms.txt', href: `${base}/llms.txt` },
+];
+---
+
+<footer class="lp-footer not-content">
+  <div class="lp-footer-brand">
+    <span class="lp-footer-logo" aria-hidden="true" set:html={logo} />
+    <span>
+      <strong>Vibranium</strong>
+      <span class="lp-footer-sub">API tests as plain YAML in git</span>
+    </span>
+  </div>
+  <nav aria-label="Footer">
+    <ul>
+      {
+        links.map((l) => (
+          <li>
+            <a href={l.href}>{l.text}</a>
+          </li>
+        ))
+      }
+    </ul>
+  </nav>
+  <div class="lp-footer-meta">
+    <a class="lp-footer-gh" href={repo}><Icon name="github" size="1.1rem" />v007m/vc-rs</a>
+    <span>
+      Released under the <a href={`${repo}/blob/master/LICENSE`}>Apache-2.0 licence</a>.
+    </span>
+  </div>
+</footer>
+
+<style>
+  .lp-footer {
+    display: grid;
+    gap: 1.5rem;
+    margin-top: clamp(3rem, 2rem + 3vw, 5rem);
+    padding-top: 2rem;
+    border-top: 1px solid var(--lp-border-soft);
+    font-size: var(--sl-text-sm);
+    color: var(--sl-color-gray-3);
+  }
+  @media (min-width: 56rem) {
+    .lp-footer {
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+    }
+  }
+  .lp-footer-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  .lp-footer-brand strong {
+    display: block;
+    color: var(--sl-color-white);
+  }
+  .lp-footer-sub {
+    font-size: var(--sl-text-xs);
+  }
+  .lp-footer-logo :global(svg) {
+    display: block;
+    width: 2rem;
+    height: 2rem;
+  }
+  ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.5rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  @media (min-width: 56rem) {
+    ul {
+      justify-content: center;
+    }
+  }
+  a {
+    color: var(--sl-color-gray-2);
+    text-decoration: none;
+  }
+  a:hover {
+    color: var(--sl-color-text-accent);
+  }
+  .lp-footer-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+  @media (min-width: 56rem) {
+    .lp-footer-meta {
+      align-items: flex-end;
+    }
+  }
+  .lp-footer-meta span a {
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+  }
+  .lp-footer-gh {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-weight: 600;
+  }
+</style>
