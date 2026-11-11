@@ -134,7 +134,7 @@ pub use edit::{Changes, FileChange};
 pub use edit_pointers::{EditOp, EditedFile, PointerEdit, PointerEdits};
 pub use editor_files::{OpenedFile, SaveFile, SavedFile};
 pub use error::EngineError;
-pub use explain::ExplainReport;
+pub use explain::{ApiExplained, AuthShown, ExplainReport, SentHeader};
 pub use fix::FixReport;
 pub use import::{ImportRequest, Keep};
 pub use init::INIT_FOLDERS;

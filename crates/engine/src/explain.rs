@@ -2,6 +2,8 @@
 //! URL, each var with the level that set it, the headers and auth, the merged expect with the
 //! values it checks, the cleanup it registers and, for a test, the lifecycle around it.
 
+#[path = "explain_api.rs"]
+mod api;
 #[path = "explain_call.rs"]
 mod call;
 #[path = "explain_steps.rs"]
@@ -12,6 +14,7 @@ use std::fmt::Write as _;
 use vc_interfaces::ConfigEntry;
 use vc_model::{Action, ActionId, ActionKind, Api, ProfileId, Program, Sym, VarDefs};
 
+pub use self::api::{ApiExplained, AuthShown, SentHeader};
 use self::call::Called;
 
 use crate::plan::{self, profile_flag};
@@ -96,7 +99,13 @@ impl Explainer<'_> {
             for (name, value) in &profile.vars {
                 shown::set(
                     &mut vars,
-                    Var { name: self.text(name.sym()), value: value.clone(), origin: origin.clone(), saved: false },
+                    Var {
+                        name: self.text(name.sym()),
+                        value: value.clone(),
+                        origin: origin.clone(),
+                        saved: false,
+                        replaced: Vec::new(),
+                    },
                 );
             }
         }
@@ -107,6 +116,7 @@ impl Explainer<'_> {
                 value: shown::literal(&entry.value),
                 origin: entry.origin.clone(),
                 saved: false,
+                replaced: Vec::new(),
             };
             shown::set(&mut vars, var);
         }
@@ -127,8 +137,13 @@ impl Explainer<'_> {
         let profiles = profiles.map(|(id, values)| (format!("{origin}, profile {}", self.text(id.sym())), values));
         for (origin, values) in std::iter::once((origin.to_owned(), &defs.values)).chain(profiles) {
             for (name, value) in values {
-                let var =
-                    Var { name: self.text(name.sym()), value: value.clone(), origin: origin.clone(), saved: false };
+                let var = Var {
+                    name: self.text(name.sym()),
+                    value: value.clone(),
+                    origin: origin.clone(),
+                    saved: false,
+                    replaced: Vec::new(),
+                };
                 shown::set(vars, var);
             }
         }

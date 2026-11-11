@@ -6,6 +6,7 @@ use std::fmt::Write as _;
 use indexmap::IndexMap;
 use vc_model::{Action, Api, AuthRef, CheckKind, Template, TemplateValue};
 
+use super::api::SentHeader;
 use super::{CONFIG, Explainer};
 use crate::shown::{Shown, Var};
 
@@ -19,7 +20,7 @@ pub struct Called<'a> {
 type HeaderLevel<'h> = (String, &'h IndexMap<String, Template>);
 
 /// The origin of the action's own `vars`, `headers` and `auth`.
-const CALL: &str = "call";
+pub const CALL: &str = "call";
 
 impl Explainer<'_> {
     /// The method and URL, the vars, the headers, the auth, the checks and the cleanup.
@@ -41,10 +42,23 @@ impl Explainer<'_> {
         out
     }
 
+    /// The headers sent, as [`Explainer::sent_headers`] gives them.
+    fn headers(&self, called: &Called<'_>, shown: &Shown<'_>) -> String {
+        let sent = self.sent_headers(called, shown);
+        if sent.is_empty() {
+            return String::new();
+        }
+        let mut out = String::from("  headers\n");
+        for header in sent {
+            let _ = writeln!(out, "    {}  {}  ({})", header.name, header.value, header.from);
+        }
+        out
+    }
+
     /// The headers sent, merged from the config's `defaults.headers`, the api file's, the api's
     /// and the call's; a later one takes the place of an earlier one of the same name, in any
-    /// case.
-    fn headers(&self, called: &Called<'_>, shown: &Shown<'_>) -> String {
+    /// case. Values are shown, not masked.
+    pub(super) fn sent_headers(&self, called: &Called<'_>, shown: &Shown<'_>) -> Vec<SentHeader> {
         let levels = self.header_levels(called);
         let mut merged: Vec<(&str, &Template, &str)> = Vec::new();
         for (origin, headers) in &levels {
@@ -56,18 +70,16 @@ impl Explainer<'_> {
                 }
             }
         }
-        if merged.is_empty() {
-            return String::new();
-        }
-        let mut out = String::from("  headers\n");
-        for (name, template, origin) in merged {
-            let _ = writeln!(out, "    {name}  {}  ({origin})", shown.template(template));
-        }
-        out
+        let sent = merged.into_iter().map(|(name, template, from)| SentHeader {
+            name: name.to_owned(),
+            value: shown.template(template),
+            from: from.to_owned(),
+        });
+        sent.collect()
     }
 
     /// Each level that sets headers on the call, furthest first, with its origin.
-    fn header_levels<'h>(&'h self, called: &Called<'h>) -> Vec<HeaderLevel<'h>> {
+    pub(super) fn header_levels<'h>(&'h self, called: &Called<'h>) -> Vec<HeaderLevel<'h>> {
         let api = called.api;
         let mut levels = vec![(CONFIG.to_owned(), &self.program.config.defaults.headers)];
         if let Some(group) = self.program.api_groups.get(&api.group) {
@@ -78,9 +90,19 @@ impl Explainer<'_> {
         levels
     }
 
-    /// `auth  admin  (api users#create)`: the first of the call's, the api's and the api file's
-    /// `auth` that does not inherit, or `none`; nothing when no level sets one.
+    /// `auth  admin  (api users#create)`: as [`Explainer::auth_used`] finds it, or `none`;
+    /// nothing when no level sets one.
     fn auth(&self, called: &Called<'_>) -> String {
+        match self.auth_used(called) {
+            Some((AuthRef::Use { id, .. }, origin)) => format!("  auth  {}  ({origin})\n", self.text(id.sym())),
+            Some((_, origin)) => format!("  auth  none  ({origin})\n"),
+            None => String::new(),
+        }
+    }
+
+    /// The first of the call's, the api's and the api file's `auth` that does not inherit, with
+    /// the level that set it.
+    pub(super) fn auth_used<'c>(&'c self, called: &Called<'c>) -> Option<(&'c AuthRef, String)> {
         let api = called.api;
         let group = self.program.api_groups.get(&api.group);
         let levels = [
@@ -88,11 +110,7 @@ impl Explainer<'_> {
             Some((&api.auth, format!("api {}", self.text(api.id.sym())))),
             group.map(|group| (&group.auth, format!("file {}", self.text(group.id.sym())))),
         ];
-        match levels.into_iter().flatten().find(|(auth, _)| !matches!(auth, AuthRef::Inherit)) {
-            Some((AuthRef::Use { id, .. }, origin)) => format!("  auth  {}  ({origin})\n", self.text(id.sym())),
-            Some((_, origin)) => format!("  auth  none  ({origin})\n"),
-            None => String::new(),
-        }
+        levels.into_iter().flatten().find(|(auth, _)| !matches!(auth, AuthRef::Inherit))
     }
 
     /// The merged checks with the values they expect, after the `status: 2xx` a run judges a

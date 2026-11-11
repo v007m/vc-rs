@@ -97,14 +97,13 @@ impl Engine {
     /// secrets cannot be loaded.
     pub(crate) async fn masked_text(&self, text: &str) -> String {
         let Ok(mut layered) = self.layered(&[], &[]) else { return MASKED.to_owned() };
-        let masker = self.masker(&mut layered).await;
-        if masker.blind { MASKED.to_owned() } else { masker.redactor.masked_text(text).await }
+        self.masker(&mut layered).await.text(text).await
     }
 
     /// The redactor a run would mask with, told the declared secrets' values and names (and its
     /// `function:` rules given them); when they cannot be loaded, one that masks every value
     /// but the built-in ones.
-    async fn masker(&self, layered: &mut Layered) -> Masker {
+    pub(crate) async fn masker(&self, layered: &mut Layered) -> Masker {
         let program = &layered.program;
         let loaded = self.loaded_secrets(&program.config.secrets, &layered.environment).await;
         let secrets = loaded.as_ref().map_or_else(|_| Secrets::new(), Clone::clone);
@@ -164,7 +163,7 @@ fn template_reads_secret(template: &Template) -> bool {
 }
 
 /// How the values are masked.
-struct Masker {
+pub struct Masker {
     redactor: Redactor,
     /// The secrets could not be loaded: mask every value but the built-in ones.
     blind: bool,
@@ -172,7 +171,7 @@ struct Masker {
 
 impl Masker {
     /// `key` and its `layers`, lowest first, as the value in force first, each masked.
-    async fn value(&self, key: String, layers: Vec<Layer>) -> ConfigValue {
+    pub async fn value(&self, key: String, layers: Vec<Layer>) -> ConfigValue {
         let field = key.strip_prefix(VARS).unwrap_or(&key).to_owned();
         let mut shown = Vec::with_capacity(layers.len());
         for (value, source) in layers.into_iter().rev() {
@@ -182,8 +181,13 @@ impl Masker {
         ConfigValue { key, layers: shown }
     }
 
+    /// `text` masked; all of it when the secrets could not be loaded.
+    pub async fn text(&self, text: &str) -> String {
+        if self.blind { MASKED.to_owned() } else { self.redactor.masked_text(text).await }
+    }
+
     /// `value` as the field `field` set by `source`, masked.
-    async fn masked(&self, field: &str, value: String, source: &str) -> String {
+    pub async fn masked(&self, field: &str, value: String, source: &str) -> String {
         if self.blind && source != BUILT_IN {
             return MASKED.to_owned();
         }

@@ -73,11 +73,39 @@ async fn an_id_of_no_api_or_test_reads_nothing_and_never_names_a_path_outside_th
     }
 }
 
-#[tokio::test]
-async fn explains_nothing_until_the_engine_explains_a_call() {
+fn explain(id: &str, vars: &[&str]) -> wire::ExplainApiRequest {
+    let vars = vars.iter().map(|var| (*var).to_owned()).collect();
+    wire::ExplainApiRequest { api: id.into(), vars, ..wire::ExplainApiRequest::default() }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn explains_an_api_with_its_vars_inherited_headers_and_curl_every_secret_masked() {
+    let (dir, api) = project();
+    let keyed = USERS.replace("apis:\n", "headers:\n  X-Note: ${var.note}\napis:\n");
+    fs::write(dir.path().join(API), keyed).unwrap();
+    let explained = explain_api(api, explain("users#create", &["note=tok-fixture-5c2e81"])).await.unwrap();
+    let keys: Vec<&str> = explained.vars.iter().map(|var| var.key.as_str()).collect();
+    assert_eq!(keys, ["baseUrl", "note"]);
+    let note: Vec<&str> = explained.vars[1].layers.iter().map(|layer| layer.source.as_str()).collect();
+    assert_eq!(note, ["call", "vibranium.config.yaml"]);
+    let header = &explained.headers[0];
+    assert_eq!((header.name.as_str(), header.value.as_str(), header.from.as_str()), ("X-Note", "••••", "file users"));
+    assert_eq!(explained.auth, None);
+    assert_eq!(explained.curl, "curl -X POST 'http://127.0.0.1:9/users' \\\n  -H 'X-Note: ••••'");
+    assert!(!leaks(&explained) && !format!("{explained:?}").contains(SECRET));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn an_id_of_no_api_explains_nothing_and_never_echoes_a_secret() {
     let (_dir, api) = project();
-    let request = wire::ExplainApiRequest { api: "users#create".into(), ..wire::ExplainApiRequest::default() };
-    assert_eq!(explain_api(api, request).await.unwrap(), wire::ExplainApiResponse::default());
+    for id in ["users#gone", "users.crud#listsUsers", ".env", "../users#list", "/etc/hosts"] {
+        let refused = explain_api(api.clone(), explain(id, &[])).await.unwrap_err();
+        assert_eq!(refused.code, Code::InvalidArgument, "{id}: {refused:?}");
+        assert!(!format!("{refused:?}").contains(SECRET), "{id}: {refused:?}");
+    }
+    let bad = explain_api(api, explain("users#list", &["tok-fixture-5c2e81"])).await.unwrap_err();
+    assert_eq!(bad.code, Code::InvalidArgument, "{bad:?}");
+    assert!(!format!("{bad:?}").contains(SECRET), "{bad:?}");
 }
 
 #[tokio::test(flavor = "multi_thread")]

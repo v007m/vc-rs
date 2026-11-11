@@ -143,13 +143,15 @@ fn agent_call(request: &CallRequest) -> Option<AgentCall> {
     })
 }
 
-fn given(vars: &[String]) -> Result<Saved, EngineError> {
+/// The `name=value` vars of `vars`, as a call's own; a bad one is named by its place, since it
+/// may be a value that is not to be echoed.
+pub fn given(vars: &[String]) -> Result<Saved, EngineError> {
     let mut given = Saved::new();
-    for var in vars {
+    for (at, var) in vars.iter().enumerate() {
         let Some((name, value)) = var.split_once('=').filter(|(name, _)| !name.is_empty()) else {
             return Err(EngineError::Setting {
                 origin: "--var".to_owned(),
-                reason: format!("`{var}` is not `name=value`"),
+                reason: format!("var {} is not `name=value`", at + 1),
                 help: Some("write it as `--var userId=7`".to_owned()),
             });
         };

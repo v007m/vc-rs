@@ -3,16 +3,16 @@
 //! a `Call` sends in place of the file. They read only a file the editor opens, mask what a
 //! run masks, and write nothing; saving a draft is an `EditFile`.
 
-use std::future::{Ready, ready};
 use std::sync::Arc;
 
 use tokio::runtime::Handle;
 use vc_contracts::engine::v1 as wire;
-use vc_engine::CallDraft;
+use vc_engine::{CallDraft, CallRequest};
 
 use crate::ConnectError;
 use crate::edit_rpcs::pointer_edit;
 use crate::engine_api::{EngineApi, Rpcs};
+use crate::project_rpcs::config_value;
 
 /// Adds `ReadDefinition` and `ExplainApi`.
 pub fn register(rpcs: Rpcs) -> Rpcs {
@@ -34,13 +34,33 @@ async fn read_definition(
     })
 }
 
-/// The layered vars, inherited headers, auth and curl command come with the engine's call
-/// explainer; until then they are empty.
-fn explain_api(
-    _api: Arc<EngineApi>,
-    _request: wire::ExplainApiRequest,
-) -> Ready<Result<wire::ExplainApiResponse, ConnectError>> {
-    ready(Ok(wire::ExplainApiResponse::default()))
+/// The api as `Call` would send it: the vars it uses with their layers, the headers it inherits,
+/// its auth and a curl command, every value masked and the token `$TOKEN`.
+async fn explain_api(
+    api: Arc<EngineApi>,
+    request: wire::ExplainApiRequest,
+) -> Result<wire::ExplainApiResponse, ConnectError> {
+    let (profiles, sets) = api.layers(request.profiles, request.sets);
+    let call = CallRequest { api: request.api, vars: request.vars, profiles, sets, ..CallRequest::default() };
+    let explained = api.blocking(move |engine| Handle::current().block_on(engine.explain_api(&call))).await?;
+    let headers = explained.headers.into_iter().map(|header| wire::InheritedHeader {
+        name: header.name,
+        value: header.value,
+        from: header.from,
+    });
+    let auth = explained.auth.map(|auth| wire::ApiAuth {
+        id: auth.id,
+        r#type: auth.kind,
+        token_url: auth.token_url.unwrap_or_default(),
+        secrets: auth.secrets,
+    });
+    Ok(wire::ExplainApiResponse {
+        vars: explained.vars.into_iter().map(config_value).collect(),
+        headers: headers.collect(),
+        auth,
+        curl: explained.curl,
+        notices: explained.notices,
+    })
 }
 
 /// A call's draft as the engine takes it; an edit with no op is refused by its place.
