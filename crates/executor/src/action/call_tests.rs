@@ -183,7 +183,7 @@ async fn saves_run_the_apis_then_the_actions_against_the_response_and_request() 
     let (report, _) = send(fixture, call, Frame::default(), vec![json_response(201, &json!({ "id": 7 }))]).await;
     assert_eq!(report.outcome.failure(), None);
     assert_eq!(report.saved, saved(json!({ "userId": "7-mine", "email": "e@x", "name": 201 })));
-    let timing = json!({ "total": 0.0, "firstByte": 0.0, "download": 0.0 });
+    let timing = json!({ "total": 0.0, "firstByte": 0.0, "download": 0.0, "dns": 0.0, "connect": 0.0, "tls": 0.0 });
     let headers = json!({ "content-type": "application/json" });
     let response = json!({ "status": 201, "headers": headers, "body": { "id": 7 }, "timing": timing });
     assert_eq!(report.response.as_deref(), Some(&response));

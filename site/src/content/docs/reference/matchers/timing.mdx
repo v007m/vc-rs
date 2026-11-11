@@ -18,9 +18,9 @@ expect:
 
 | Field | Type | Default | Required | Notes |
 | --- | --- | --- | --- | --- |
-| `timing.dns` | matcher with durations | — | no | DNS lookup. |
-| `timing.connect` | matcher with durations | — | no | TCP connect. |
-| `timing.tls` | matcher with durations | — | no | TLS handshake. |
+| `timing.dns` | matcher with durations | — | no | DNS lookup. 0 ms for an IP literal or a reused connection. |
+| `timing.connect` | matcher with durations | — | no | TCP connect. 0 ms on a reused connection. |
+| `timing.tls` | matcher with durations | — | no | TLS handshake. 0 ms over plain HTTP or on a reused connection. |
 | `timing.firstByte` | matcher with durations | — | no | Time to the first response byte. |
 | `timing.download` | matcher with durations | — | no | Reading the body. |
 | `timing.total` | matcher with durations | — | no | The whole request. |
@@ -175,6 +175,7 @@ Edit the test below. The editor checks it against the real schema as you type.
 - Durations are a whole number and a unit: `250ms`, `2s`, `1m`, `12h`.
 - `eq`, `ne` and a bare duration (`total: 200ms`) are read in the same unit as `lt` and `gt`.
 - The failure message shows durations in milliseconds.
+- A phase that did not happen reads 0 ms. A call to the same host reuses the open connection, so its `dns` and `connect` are 0 ms; `dns` is 0 ms for an IP address and `tls` for plain `http://`. Check `connect` with `lt`, not `gt`.
 - Timing checks depend on the network and the machine. Keep bounds generous in functional tests; use load tests for latency targets.
 
 ## Common errors
