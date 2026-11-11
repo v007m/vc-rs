@@ -1,0 +1,108 @@
+---
+/**
+ * A shop project's folders, each file tagged with the concept it holds and the ID it gets. The
+ * `users` service folder is marked as the counterpart of a Postman collection.
+ */
+import Diagram from './Diagram.astro';
+
+interface Row {
+  path: string;
+  depth: number;
+  kind?: 'config' | 'api' | 'test' | 'load' | 'data' | 'hook';
+  concept?: string;
+  id?: string;
+  note?: string;
+  service?: boolean;
+}
+
+const rows: Row[] = [
+  { path: 'shop/', depth: 0 },
+  { path: 'vibranium.config.yaml', depth: 1, kind: 'config', concept: 'Config', note: 'vars, profiles, auth, secrets' },
+  { path: 'services/', depth: 1, note: 'one folder per service' },
+  { path: 'users/', depth: 2, service: true, note: '≈ a Postman collection' },
+  { path: 'users.api.yaml', depth: 3, kind: 'api', concept: 'Apis', id: 'users#createUser', service: true },
+  { path: 'accounts.test.yaml', depth: 3, kind: 'test', concept: 'Tests', id: 'users.accounts#createsUser', service: true },
+  { path: 'data.test.yaml', depth: 3, kind: 'test', concept: 'Tests', id: 'users.data', service: true },
+  { path: 'orders/', depth: 2 },
+  { path: 'orders.api.yaml', depth: 3, kind: 'api', concept: 'Apis', id: 'orders#placeOrder' },
+  { path: 'checkout.test.yaml', depth: 3, kind: 'test', concept: 'Tests', id: 'orders.checkout' },
+  { path: 'payments/', depth: 2 },
+  { path: 'payments.api.yaml', depth: 3, kind: 'api', concept: 'Apis', id: 'payments' },
+  { path: 'refunds.test.yaml', depth: 3, kind: 'test', concept: 'Tests', id: 'payments.refunds' },
+  { path: 'load/users/browse.load.yaml', depth: 1, kind: 'load', concept: 'Load scenario', id: 'users.browse' },
+  { path: 'datasets/signups.csv', depth: 1, kind: 'data', concept: 'Dataset', id: '${dataset.signups}' },
+  { path: 'hooks/seed.ts', depth: 1, kind: 'hook', concept: 'Hooks', note: 'code for setup and custom checks' },
+  { path: '.vibranium/', depth: 1, note: 'reports and history; not committed' },
+];
+---
+
+<Diagram caption="A shop project. Each file kind holds one concept, and its path gives it an ID.">
+  <ul class="pm" role="list">
+    {
+      rows.map((r, i) => (
+        <li class:list={['pm-row', 'd-step', { 'is-service': r.service }]} style={`--d-i: ${i}; --depth: ${r.depth}`}>
+          <span class:list={['pm-path', 'd-mono', { 'is-dir': r.path.endsWith('/') }]}>{r.path}</span>
+          <span class="pm-what">
+            {r.concept && <span class:list={['d-chip', `is-${r.kind}`]}>{r.concept}</span>}
+            {r.id && <code class="pm-id d-mono">{r.id}</code>}
+            {r.note && <span class="pm-note">{r.note}</span>}
+          </span>
+        </li>
+      ))
+    }
+  </ul>
+</Diagram>
+
+<style>
+  .pm {
+    display: grid;
+    gap: 0.15rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .pm-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem 1rem;
+    padding: 0.3rem 0.6rem 0.3rem calc(0.6rem + var(--depth) * 1.1rem);
+    border-radius: 0.4rem;
+  }
+  .pm-row.is-service {
+    background: var(--d-accent-soft);
+  }
+  .pm-path {
+    /* The deeper the row, the narrower its path column, so every row's tags line up. */
+    flex: 0 0 calc(16rem - var(--depth) * 1.1rem);
+    max-width: 100%;
+    color: var(--d-fg);
+    overflow-wrap: anywhere;
+  }
+  .pm-path.is-dir {
+    color: var(--d-text);
+    font-weight: 600;
+  }
+  .pm-what {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem 0.6rem;
+    min-width: 0;
+  }
+  .pm-id {
+    padding: 0;
+    background: none;
+    color: var(--d-muted);
+    font-size: 0.75rem;
+  }
+  .pm-note {
+    font-size: var(--sl-text-xs);
+    color: var(--d-muted);
+  }
+  @container (max-width: 30rem) {
+    .pm-path {
+      flex-basis: 100%;
+    }
+  }
+</style>

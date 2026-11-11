@@ -1,0 +1,154 @@
+---
+/**
+ * The order lifecycle blocks run in: the run's blocks around the file's, the file's around each
+ * test instance's, and two instances side by side because instances run in parallel. The blocks that
+ * run even after a failure are marked.
+ */
+import Diagram from './Diagram.astro';
+
+interface Block {
+  key: string;
+  what: string;
+  always?: boolean;
+  main?: boolean;
+}
+
+const instance: Block[] = [
+  { key: 'beforeEach', what: 'file, every test' },
+  { key: 'before', what: 'this test only' },
+  { key: 'call / steps', what: 'the test itself', main: true },
+  { key: 'after', what: 'this test only', always: true },
+  { key: 'afterEach', what: 'file, every test', always: true },
+  { key: 'cleanup', what: 'undoes its creates', always: true },
+];
+const tests = ['readsOwner', 'readsNewCustomer'];
+---
+
+<Diagram caption="Where a block sits decides how long its data lives: a run, a file, or one test. Two tests run side by side.">
+  <div class="lt">
+    <div class="lt-bar is-run d-step" style="--d-i: 0">
+      <code>beforeRun</code><span>config · once per run</span>
+    </div>
+    <div class="lt-file">
+      <span class="d-label lt-scope">file <code>users.setup</code></span>
+      <div class="lt-bar d-step" style="--d-i: 1">
+        <code>beforeAll</code><span>once, before the first test</span>
+      </div>
+      <div class="lt-tests">
+        {
+          tests.map((t) => (
+            <div class="lt-test">
+              <span class="d-label lt-scope">test <code>{t}</code></span>
+              <ol class="lt-steps" role="list">
+                {instance.map((b, i) => (
+                  <li class:list={['lt-step', 'd-step', { 'is-main': b.main }]} style={`--d-i: ${i + 2}`}>
+                    <code>{b.key}</code>
+                    <span>{b.what}</span>
+                    {b.always && <span class="lt-always" title="runs even after a failure">↺</span>}
+                  </li>
+                ))}
+              </ol>
+            </div>
+          ))
+        }
+      </div>
+      <div class="lt-bar d-step" style="--d-i: 8">
+        <code>afterAll</code><span>once, after the last test</span>
+      </div>
+    </div>
+    <div class="lt-bar is-run d-step" style="--d-i: 9">
+      <code>afterRun</code><span>config · once per run</span>
+    </div>
+    <p class="lt-key"><span class="lt-always">↺</span> runs even after a failure. A failed <code>before</code> or <code>beforeEach</code> marks the test <strong>blocked</strong>.</p>
+  </div>
+</Diagram>
+
+<style>
+  .lt {
+    display: grid;
+    gap: 0.6rem;
+  }
+  .lt code {
+    padding: 0;
+    background: none;
+    font-family: var(--__sl-font-mono);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--d-fg);
+  }
+  .lt-bar,
+  .lt-step {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.15rem 0.6rem;
+    padding: 0.45rem 0.75rem;
+    border-radius: 0.5rem;
+    border: 1px solid var(--d-line);
+    background: var(--d-card);
+    font-size: var(--sl-text-xs);
+    color: var(--d-muted);
+  }
+  .lt-bar.is-run {
+    border-style: dashed;
+    background: transparent;
+  }
+  .lt-file {
+    display: grid;
+    gap: 0.6rem;
+    padding: 0.75rem;
+    border-radius: 0.75rem;
+    border: 1px solid color-mix(in srgb, var(--d-accent) 40%, transparent);
+    background: color-mix(in srgb, var(--d-accent) 6%, transparent);
+  }
+  .lt-scope {
+    display: block;
+  }
+  .lt-tests {
+    display: grid;
+    gap: 0.75rem;
+  }
+  .lt-test {
+    display: grid;
+    gap: 0.4rem;
+    padding: 0.6rem;
+    border-radius: 0.625rem;
+    border: 1px solid color-mix(in srgb, var(--d-test) 40%, transparent);
+    background: color-mix(in srgb, var(--d-test) 6%, transparent);
+  }
+  .lt-steps {
+    display: grid;
+    gap: 0.3rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .lt-step {
+    margin: 0;
+  }
+  .lt-step.is-main {
+    border-color: var(--d-accent);
+    background: var(--d-accent-soft);
+  }
+  .lt-always {
+    margin-inline-start: auto;
+    color: var(--d-test);
+    font-weight: 700;
+  }
+  .lt-key {
+    margin: 0.25rem 0 0;
+    font-size: var(--sl-text-xs);
+    color: var(--d-muted);
+  }
+  .lt-key .lt-always {
+    margin: 0;
+  }
+  .lt-key code {
+    font-size: 0.75rem;
+  }
+  @container (min-width: 34rem) {
+    .lt-tests {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+</style>
