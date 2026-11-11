@@ -66,13 +66,17 @@ async fn on_a_socket(files: &BTreeMap<String, String>) -> (i32, String, String) 
     (run.status.code().unwrap(), out, said(&run))
 }
 
-/// `text` as the two runs can be compared: each duration (`12ms`, `1.4s`) is `<t>`, the tests
-/// (each with its failure excerpt) are sorted, since they finish in any order, and the line
-/// naming the report files is left out, since the page writes none and says so on stderr.
+/// `text` as the two runs can be compared: each duration (`12ms`, `1.4s`) is `<t>`, with the
+/// padding that right-aligns it collapsed to one space, since a longer duration takes more of
+/// it; the tests (each with its failure excerpt) are sorted, since they finish in any order; and
+/// the line naming the report files is left out, since the page writes none and says so on stderr.
 fn masked(text: &str) -> String {
     let (mut lines, mut tests) = (Vec::new(), Vec::<String>::new());
     for line in text.lines().filter(|line| !line.starts_with("reports  ")) {
-        let line: String = line.split(' ').map(timeless).collect::<Vec<_>>().join(" ");
+        let mut line: String = line.split(' ').map(timeless).collect::<Vec<_>>().join(" ");
+        while line.contains("  <t>") {
+            line = line.replace("  <t>", " <t>");
+        }
         match tests.last_mut() {
             Some(open) if line.starts_with("  ") => writeln!(open, "{line}").unwrap(),
             _ if !line.is_empty() && !line.starts_with(|c: char| c.is_ascii()) => tests.push(format!("{line}\n")),
