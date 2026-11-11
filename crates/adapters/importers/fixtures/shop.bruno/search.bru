@@ -1,0 +1,17 @@
+meta {
+  name: Search
+  type: http
+  seq: 4
+}
+
+get {
+  url: https://api.shop.test/v1/products?q=red&access_token={{apiToken}}
+  body: none
+  auth: none
+}
+
+params:query {
+  q: red
+  ~limit: 10
+  access_token: {{apiToken}}
+}

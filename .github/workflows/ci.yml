@@ -48,6 +48,8 @@ jobs:
           # The LLD's mutation floor applies to the diff on every PR; the full run is nightly.
           GATES_MUTANTS: ${{ github.event_name == 'pull_request' && '1' || '0' }}
           GATES_BASE: ${{ steps.mutants-base.outputs.base }}
+          # GATE-PROTO compares proto/ with the PR's base branch, at its merge base.
+          GATES_PROTO_BASE: origin/${{ github.base_ref || 'master' }}
       # G12: the gates build vc without `web-ui`, so `vc ui` and `/mcp` are linted and tested
       # here. vc-demo is listed so its binary exists for vc-cli's demo tests.
       - name: web-ui
@@ -63,8 +65,8 @@ jobs:
         run: |
           rustup toolchain install nightly --profile minimal
           mise run public-api:check
-      # D101: proto/ passes buf lint, and the checked-in code of vc-contracts and the web UI is
-      # what proto/ generates.
+      # D101: the checked-in code of vc-contracts and the web UI is what proto/ generates
+      # (GATE-PROTO above runs buf lint).
       - name: proto
         run: |
           mise run proto

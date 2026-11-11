@@ -28,6 +28,13 @@ pub trait Importer: Send + Sync {
     fn source_help(&self) -> Option<&'static str> {
         None
     }
+
+    /// Whether this kind reads a folder (a Bruno collection) as well as a file. The engine then
+    /// hands it a folder as an [`ImportSource`] with no bytes, and the importer reads the
+    /// folder's files through its [`crate::SpecFetcher`].
+    fn reads_folders(&self) -> bool {
+        false
+    }
 }
 
 /// The file being imported: where it came from and its bytes, already fetched or read.

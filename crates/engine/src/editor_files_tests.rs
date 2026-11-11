@@ -76,6 +76,32 @@ fn a_save_whose_check_fails_still_returns_the_digest_it_wrote() {
 }
 
 #[test]
+fn an_edit_is_drafted_through_the_guard_and_nothing_is_written() {
+    let (dir, engine) = project();
+    let opened = engine.read_file(API).unwrap();
+    let text = USERS.replace("/users", "/people");
+    let changes = engine.edit_file(&save(API, &text, Some(&opened.digest))).unwrap();
+    let [change] = changes.files.as_slice() else { panic!("one file: {changes:?}") };
+    assert_eq!((change.path.as_str(), change.before.as_deref(), change.after.as_str()), (API, Some(USERS), &*text));
+    assert_eq!(changes.titles, [format!("Edit {API}")]);
+    assert_eq!(fs::read_to_string(dir.path().join(API)).unwrap(), USERS, "nothing written");
+    let created = engine.edit_file(&save("services/users/more.api.yaml", USERS, None)).unwrap();
+    assert_eq!(created.titles, ["Create services/users/more.api.yaml".to_owned()]);
+    assert!(engine.edit_file(&save(API, USERS, Some(&opened.digest))).unwrap().is_empty(), "no change");
+}
+
+#[test]
+fn an_edit_that_adds_an_error_or_is_stale_is_refused() {
+    let (dir, engine) = project();
+    let refused = engine.edit_file(&save(NEW, BROKEN, None)).unwrap_err();
+    assert!(matches!(&refused, EngineError::Edit { reason, .. } if reason.contains("would add error")), "{refused:?}");
+    assert!(!dir.path().join(NEW).exists());
+    let stale = engine.edit_file(&save(API, "apis: []\n", Some("0000"))).unwrap_err();
+    assert!(matches!(stale, EngineError::Stale { .. }), "{stale:?}");
+    assert_eq!(fs::read_to_string(dir.path().join(API)).unwrap(), USERS);
+}
+
+#[test]
 fn a_save_keeps_text_with_errors_and_returns_them() {
     let (dir, engine) = project();
     let saved = engine.save_file(&save(NEW, BROKEN, None)).unwrap();

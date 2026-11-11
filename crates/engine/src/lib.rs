@@ -129,6 +129,7 @@ pub use list::{ListReport, Listed};
 pub use list_detail::{ApiCall, action_call};
 pub use load_report::{ErrorKind, LoadBreach, LoadEnding, LoadReport, LoadRequest, LoadWatch};
 pub use plan::PlanReport;
+pub use plugin_hosts::launch_plugin;
 pub use plugins::{PluginListing, PluginOffer, PluginState};
 pub use policy::{AgentCall, Permission};
 pub use project_info::ProjectInfo;

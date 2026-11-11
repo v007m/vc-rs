@@ -26,7 +26,7 @@ impl ImporterRegistry {
     #[must_use]
     pub fn builtin() -> Self {
         let mut registry = Self::new();
-        registry.register("bruno", Arc::new(|_| Box::new(BrunoImporter)));
+        registry.register("bruno", Arc::new(|fetcher| Box::new(BrunoImporter::new(fetcher))));
         registry.register("curl", Arc::new(|_| Box::new(CurlImporter)));
         registry.register("har", Arc::new(|_| Box::new(HarImporter)));
         registry.register("http", Arc::new(|_| Box::new(HttpImporter)));

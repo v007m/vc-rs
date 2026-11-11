@@ -1,0 +1,19 @@
+headers {
+  X-Client: vc
+}
+
+auth {
+  mode: bearer
+}
+
+auth:bearer {
+  token: {{apiToken}}
+}
+
+vars:pre-request {
+  currency: EUR
+}
+
+script:pre-request {
+  bru.setVar('started', Date.now());
+}
