@@ -340,7 +340,7 @@ Commands are grouped by the job they do. `vc help <command>` shows every flag wi
 | `vc sync [fileId...] [--dry-run] [--check] [--take spec\|mine <apiId>]… [--resolved <apiId>]…` | Merges OpenAPI changes into api files (see OpenAPI import and sync) |
 | `vc sync <fileId> --take spec\|mine <apiId>`, `--resolved <apiId>` | Settles a sync conflict |
 | `vc migrate` | Upgrades files to a newer `syntaxVersion` |
-| `vc migrate v1 <path>` | Converts the Vibranium v1 project in a folder inside the project into v2 files in the project root (D194, D200): the config, an api file per collection, a test file per scenario and the secret names in `.env.schema`, passed by the compile guard. It prints each file, each `TODO(vc migrate) <path> <item>: <v1 text>` it left as a comment above the item, and each note. Exit 2, writing nothing, when the project has a config already or the folder holds no `config.json` |
+| `vc migrate v1 <path>` | Converts the Vibranium v1 project in a folder inside the project into v2 files in the project root (D194, D200): the config, an api file per collection, a test file per scenario and the secret names in `.env.schema`, passed by the compile guard. It prints each file, each `TODO(vc migrate) <path> <item>: <v1 text>` it left as a comment above the item, and each note. Exit 2, writing nothing, when the project has a config already, the folder holds no `config.json`, or it is not inside the folder the v2 project is written to |
 
 **Results and housekeeping**
 

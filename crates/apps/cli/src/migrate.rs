@@ -14,7 +14,8 @@ use crate::stdout;
 pub enum MigrateCommand {
     /// Converts the Vibranium v1 project at a path into v2 definition files.
     V1 {
-        /// The v1 project folder, inside the project.
+        /// The v1 project folder, inside the folder the v2 project is written to (the working
+        /// folder, or `--project`), which must be a folder without a project.
         path: PathBuf,
     },
 }
@@ -28,7 +29,9 @@ pub fn run(command: &MigrateCommand, project: Option<&Path>) -> anyhow::Result<O
     let cwd = std::env::current_dir()?;
     let root = project.map_or_else(|| cwd.clone(), |dir| cwd.join(dir));
     let Some(folder) = relative(&root, &cwd.join(path)) else {
-        return Ok(Outcome::Refused(format!("{} is not inside the project {}", path.display(), root.display())));
+        let reason = format!("{} is not inside {}, where the v2 project is written", path.display(), root.display());
+        let help = "move the v1 folder into it, or pass `--project <dir>` for a folder that holds it";
+        return Ok(Outcome::Helped(reason, Some(help.to_owned())));
     };
     let engine = match EngineBuilder::new(root.clone()).build() {
         Ok(engine) => engine,

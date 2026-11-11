@@ -11,6 +11,18 @@ const FIXTURE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../adapters/impor
 const TODO: &str = "# TODO(vc migrate): ";
 
 #[test]
+fn the_help_and_the_refusal_say_where_the_v1_folder_goes() {
+    let project = Project::new(&[]);
+    let help = said(&project.vc(&["migrate", "v1", "--help"]).output().unwrap());
+    assert!(help.contains("in a folder without a project") && !help.contains("inside the project."), "{help}");
+    let outside = project.vc(&["migrate", "v1", ".."]).output().unwrap();
+    assert_eq!(outside.status.code(), Some(2), "{}", said(&outside));
+    let said = said(&outside);
+    assert!(said.contains("where the v2 project is written") && !said.contains("the project /"), "{said}");
+    assert!(said.contains("help: move the v1 folder into it"), "{said}");
+}
+
+#[test]
 fn a_migrated_v1_project_checks_clean_and_reports_every_todo() {
     let project = Project::new(&[]);
     copy(Path::new(FIXTURE), &project.path().join("shop-v1"));
