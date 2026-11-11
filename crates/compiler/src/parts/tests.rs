@@ -111,6 +111,10 @@ fn a_lone_key_close_to_a_matcher_warns_and_still_compiles_as_a_literal() {
     );
     assert_eq!(codes(&near.diagnostics), [Code::V3208; 3]);
     assert!(pieces(&near).iter().all(|piece| matches!(piece, Piece::Matcher(Matcher::Equals(_)))));
+}
+
+#[test]
+fn a_lone_key_far_from_every_matcher_is_a_literal_without_a_warning() {
     let literal = unit_with(
         "    expect:\n      body:\n        match:\n          user: {id: 5}\n          meta: {note: hi}\n          tags: {colour: red}\n          size: {LENGTH: 3}\n",
     );

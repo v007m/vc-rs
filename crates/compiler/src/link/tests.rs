@@ -213,22 +213,26 @@ fn a_named_file_is_searched_even_beside_another_api_file() {
     let compiled = crate::compile(CompileInput { files, ..CompileInput::default() });
     let found: Vec<_> = compiled.diagnostics.iter().filter(|found| found.code == Code::V2003).collect();
     let [unknown] = found.as_slice() else { panic!("one V2003, not {found:?}") };
-    let fixes: Vec<&str> = unknown.fixes.iter().flat_map(|fix| &fix.edits).map(|edit| edit.new_text.as_str()).collect();
-    assert_eq!(fixes, ["users#get"], "{:?}", unknown.help);
+    let replacements: Vec<&str> =
+        unknown.fixes.iter().flat_map(|fix| &fix.edits).map(|edit| edit.new_text.as_str()).collect();
+    assert_eq!(replacements, ["users#get"], "{:?}", unknown.help);
 }
+
+/// A V2003's help, and its fixes' new text.
+type HelpAndFixes = (Vec<String>, Vec<String>);
 
 /// Each V2003's help and fixes' new text, in line order, for a project of the users api and
 /// `tests` (the file, then its text).
-fn unknown_refs(tests: &[(&str, &str)]) -> Vec<(Vec<String>, Vec<String>)> {
+fn unknown_refs(tests: &[(&str, &str)]) -> Vec<HelpAndFixes> {
     let mut files = vec![file("vibranium.config.yaml", CONFIG), file("services/users/users.api.yaml", APIS)];
     files.extend(tests.iter().map(|(path, text)| file(path, text)));
     let compiled = crate::compile(CompileInput { files, ..CompileInput::default() });
     let mut found: Vec<&Diagnostic> = compiled.diagnostics.iter().filter(|found| found.code == Code::V2003).collect();
     found.sort_by_key(|found| found.primary.span.start.line);
-    let fixes = |found: &Diagnostic| -> Vec<String> {
+    let replacements = |found: &Diagnostic| -> Vec<String> {
         found.fixes.iter().flat_map(|fix| &fix.edits).map(|edit| edit.new_text.clone()).collect()
     };
-    found.iter().map(|found| (found.help.clone(), fixes(found))).collect()
+    found.iter().map(|found| (found.help.clone(), replacements(found))).collect()
 }
 
 /// A named file is found across the whole project, not only beside the reference: in

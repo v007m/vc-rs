@@ -181,10 +181,8 @@ impl<'j> Judge<'j> {
             Matcher::Status(patterns) => Value::Array(patterns.iter().map(|pattern| status(*pattern)).collect()),
             Matcher::StatusOf(value) => {
                 let rendered = self.render(value)?;
-                match statuses(&rendered) {
-                    Ok(patterns) => Value::Array(patterns.into_iter().map(status).collect()),
-                    Err(_) => rendered,
-                }
+                statuses(&rendered)
+                    .map_or(rendered, |patterns| Value::Array(patterns.into_iter().map(status).collect()))
             }
         })
     }
