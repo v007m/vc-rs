@@ -48,7 +48,8 @@ impl<'a> Render<'a> {
     pub fn new(request: &'a ActionRequest) -> Result<Self, RenderError> {
         let cx = &*request.cx;
         let (values, program, redactor) = (&cx.values, &cx.program, &cx.redactor);
-        let mut render = Self::over(Shared { values, program, redactor, schemas: cx.schemas() }, Scope::of(request));
+        let shared = Shared { values, program, redactor, schemas: cx.schemas() };
+        let mut render = Self::over(shared, Scope::of(request), values.inputs().random.as_ref());
         render.memo.clone_from(&request.frame.fakes);
         render.reads = Reads::of(&request.frame);
         let (id, started) = (render.values.inputs().run_id, vc_template::rfc3339(render.values.inputs().started_ms));
