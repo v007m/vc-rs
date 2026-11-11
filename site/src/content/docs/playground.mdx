@@ -20,7 +20,7 @@ While you type, the editor also checks each file against the same JSON Schemas t
 <PlaygroundFull client:load />
 
 <Aside type="note" title="What the page can't run">
-The page has no processes, files or network, so a few things only work with `vc` on your machine. A `command:` action may only be `vc demo start`, `vc demo stop` or `echo`. Hooks (`function:` actions) and secrets are refused with a message, and requests to any host but `localhost:7421` fail with a message. Plugins, alerts, report files and the `cache:` action are left out, with a warning.
+The page has no processes, files or network, so a few things only work with `vc` on your machine. A `command:` action may only be `vc demo start`, `vc demo stop` or a plain `echo`, with no `&&`, pipes, quotes or other shell syntax. Hooks (`function:` actions and request hooks) and secrets are refused with a message, and requests to any host but `http://localhost:7421` fail with a message. Plugins, alerts, report files and the `cache:` action are left out, with a warning.
 </Aside>
 
 ## Run the examples on your machine
