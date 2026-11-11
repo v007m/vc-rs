@@ -63,7 +63,8 @@ impl Engine {
     ///
     /// [`EngineError::Sources`] naming the first file that could not be written; the files
     /// before it are written. A moved file is written at its new path before the old one is
-    /// removed. A spec snapshot is written as [`written`] writes it.
+    /// removed. A spec snapshot `openapi/<fileId>.yaml` replaces the file there only while it is
+    /// still the one read, or still not there.
     pub fn write(&self, changes: &Changes) -> Result<(), EngineError> {
         let writer = self.writer.as_ref().ok_or_else(|| internal("this engine has no folder to write into"))?;
         for change in &changes.files {
