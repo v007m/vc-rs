@@ -93,7 +93,7 @@ fn the_status_follows_the_totals() {
 fn skipped_tests_are_reported_and_counted() {
     let (_, test) = sim::file_and_test();
     let plan =
-        Arc::new(Plan { skipped: vec![SkippedTest { test, reason: "flaky upstream".into() }], ..Plan::default() });
+        Arc::new(Plan { skipped: vec![SkippedTest { test, reason: "flaky upstream".into(), until: None }], ..Plan::default() });
     let log = sim::drive_run(RunOrchestrator::new(plan, false), &mut |_| ActionReport::passed(), &[]);
     assert!(log.iter().any(|c| matches!(c, RunCommand::Emit(Event::TestFinished { result })
         if result.status == TestStatus::Skipped && result.skip_reason.as_deref() == Some("flaky upstream"))));

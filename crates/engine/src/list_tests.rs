@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use serde_json::json;
 use vc_model::FileKind;
 use vc_testkit::{FakeVcs, MemorySources};
 
@@ -68,8 +69,9 @@ fn the_text_and_json_carry_every_field() {
     let report = engine(FakeVcs::default()).list(&ListRequest::default()).unwrap();
     let text = report.text();
     assert!(text.contains("users.crud#listsUsers  Lists users  [smoke, fast]\n"), "{text}");
-    assert!(text.ends_with("users.crud#skipsUsers  [smoke]  (skipped)\n"), "{text}");
+    assert!(text.ends_with("users.crud#skipsUsers  [smoke]  (skipped: flaky)\n"), "{text}");
     assert_eq!(report.json()[2]["skipped"], true);
+    assert_eq!((&report.json()[2]["skipReason"], &report.json()[1]["skipReason"]), (&json!("flaky"), &json!(null)));
     assert_eq!(report.json()[1]["path"], "services/users/crud.test.yaml");
 }
 
@@ -108,8 +110,36 @@ fn a_test_given_no_rows_is_listed_as_skipped_not_dropped() {
     let tests = listing.list(&ListRequest::default()).unwrap();
     let listed: Vec<_> = tests.items.iter().map(|item| (item.id.as_str(), item.skipped)).collect();
     assert_eq!(listed, [("users.rows#listsNoPages", true)]);
+    assert_eq!(tests.text(), "users.rows#listsNoPages  (skipped: examples gave no rows)\n");
     let catalog = listing.catalog().unwrap();
     assert!(catalog.items.iter().any(|item| item.id == "users.rows#listsNoPages" && item.skipped));
+}
+
+#[test]
+fn a_skipped_test_shows_its_reason_and_until_and_an_expired_skip_runs() {
+    let config = "syntaxVersion: 2\nvars: {baseUrl: 'http://x'}\nprofiles:\n  - id: dev\n    default: true\n";
+    let api = "baseUrl: ${var.baseUrl}\napis:\n  - id: get\n    path: /users\n";
+    let parked =
+        "skip: {reason: auth broken in staging, until: 2026-12-01}\ntests:\n  - id: listsUsers\n    call: users#get\n";
+    let own = concat!(
+        "tests:\n  - id: getsUser\n    call: users#get\n    skip: {reason: 'flaky upstream, see #7', until: 2026-11-30}\n",
+        "  - id: searchesUsers\n    call: users#get\n    skip: {reason: no search yet, until: 2026-11-01}\n",
+    );
+    let files: [(&str, &[u8]); 4] = [
+        ("vibranium.config.yaml", config.as_bytes()),
+        ("services/users/users.api.yaml", api.as_bytes()),
+        ("services/users/parked.test.yaml", parked.as_bytes()),
+        ("services/users/own.test.yaml", own.as_bytes()),
+    ];
+    let listing = builder(FakeVcs::default()).sources(Arc::new(MemorySources::new(&files))).build().unwrap();
+    let skipped = listing.list(&ListRequest { skipped: true, ..ListRequest::default() }).unwrap();
+    let text = skipped.text();
+    assert!(text.contains("users.parked#listsUsers  (skipped: auth broken in staging, until 2026-12-01)\n"), "{text}");
+    assert!(text.contains("users.own#getsUser  (skipped: flaky upstream, see #7, until 2026-11-30)\n"), "{text}");
+    assert!(!text.contains("searchesUsers"), "a skip past its until runs: {text}");
+    let json = skipped.json();
+    let gets = json.as_array().unwrap().iter().find(|item| item["id"] == "users.own#getsUser").unwrap();
+    assert_eq!((&gets["skipReason"], &gets["skipUntil"]), (&json!("flaky upstream, see #7"), &json!("2026-11-30")));
 }
 
 #[test]

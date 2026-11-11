@@ -3,7 +3,9 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use serde_json::{Value, json};
-use vc_model::{Api, Examples, FileKind, Program, SourceFileId, SourcePath, SourceSpan, Sym, Test, TestId};
+use vc_model::{
+    Api, Examples, FileKind, Program, SkippedTest, SourceFileId, SourcePath, SourceSpan, Sym, Test, TestId,
+};
 use vc_planner::{PlanError, PlanOptions};
 
 use crate::list_detail::{self, ApiCall};
@@ -23,6 +25,10 @@ pub struct Listed {
     pub tags: Vec<String>,
     /// Whether the test, or its file, is marked `skip`.
     pub skipped: bool,
+    /// Why a skipped test does not run: its `skip.reason`, or that its examples gave no rows.
+    pub skip_reason: Option<String>,
+    /// The `skip.until` date of a skipped test, as written.
+    pub skip_until: Option<String>,
     /// Where a test or api is written; `None` for a file.
     pub span: Option<SourceSpan>,
     /// The apis a test calls, in order.
@@ -61,7 +67,12 @@ impl ListReport {
     /// The items as a JSON array.
     #[must_use]
     pub fn json(&self) -> Value {
-        let item = |listed: &Listed| json!({ "id": listed.id, "name": listed.name, "path": listed.path, "tags": listed.tags, "skipped": listed.skipped });
+        let item = |listed: &Listed| {
+            json!({
+                "id": listed.id, "name": listed.name, "path": listed.path, "tags": listed.tags,
+                "skipped": listed.skipped, "skipReason": listed.skip_reason, "skipUntil": listed.skip_until,
+            })
+        };
         Value::Array(self.items.iter().map(item).collect())
     }
 }
@@ -78,9 +89,18 @@ fn line(item: &Listed) -> String {
         line.push(']');
     }
     if item.skipped {
-        line.push_str("  (skipped)");
+        line.push_str(&skipped(item));
     }
     line
+}
+
+/// `  (skipped: flaky upstream, until 2026-12-01)`, or `  (skipped)` without a reason.
+fn skipped(item: &Listed) -> String {
+    let until = item.skip_until.as_ref().map(|until| format!(", until {until}")).unwrap_or_default();
+    match &item.skip_reason {
+        Some(reason) => format!("  (skipped: {reason}{until})"),
+        None => "  (skipped)".to_owned(),
+    }
 }
 
 impl Engine {
@@ -121,10 +141,11 @@ impl Engine {
         let (today, example_rows) = (Some(self.clock.today().to_string()), unread_rows(program));
         let options = PlanOptions { today, example_rows, ..PlanOptions::default() };
         let plan = vc_planner::plan(program, &selection, &options).map_err(|error| selection_error(&error))?;
-        let skipped: BTreeSet<TestId> = plan.skipped.iter().map(|skipped| skipped.test).collect();
+        let skipped: BTreeMap<TestId, &SkippedTest> =
+            plan.skipped.iter().map(|skipped| (skipped.test, skipped)).collect();
         let runs: BTreeSet<TestId> = plan.files.iter().flat_map(|file| &file.instances).map(|i| i.test).collect();
-        let picked = program.tests.values().filter(|test| runs.contains(&test.id) || skipped.contains(&test.id));
-        let listed = picked.map(|test| listed_test(program, test, skipped.contains(&test.id)));
+        let picked = program.tests.values().filter(|test| runs.contains(&test.id) || skipped.contains_key(&test.id));
+        let listed = picked.map(|test| listed_test(program, test, skipped.get(&test.id).copied()));
         Ok(listed.filter(|test| !request.skipped || test.skipped).collect())
     }
 
@@ -165,7 +186,7 @@ fn selection_error(error: &PlanError) -> EngineError {
     EngineError::Selection { reason: error.to_string(), help: error.help() }
 }
 
-fn listed_test(program: &Program, test: &Test, skipped: bool) -> Listed {
+fn listed_test(program: &Program, test: &Test, skipped: Option<&SkippedTest>) -> Listed {
     let file = program.test_files.get(&test.file);
     let file_tags = file.into_iter().flat_map(|file| &file.tags);
     let mut tags: Vec<String> = Vec::new();
@@ -179,7 +200,9 @@ fn listed_test(program: &Program, test: &Test, skipped: bool) -> Listed {
         name: test.name.clone(),
         path: program.files.get(test.span.file).map(|f| f.path.as_str().to_owned()).unwrap_or_default(),
         tags,
-        skipped,
+        skipped: skipped.is_some(),
+        skip_reason: skipped.map(|skipped| skipped.reason.clone()),
+        skip_until: skipped.and_then(|skipped| skipped.until.clone()),
         span: Some(test.span),
         calls: list_detail::calls(program, test),
         steps: list_detail::steps(test),
@@ -196,6 +219,8 @@ fn listed(program: &Program, file: SourceFileId, id: String) -> Listed {
         path,
         tags: Vec::new(),
         skipped: false,
+        skip_reason: None,
+        skip_until: None,
         span: None,
         calls: Vec::new(),
         steps: 0,

@@ -62,11 +62,11 @@ skipped
   users.crud#listsUsers: auth broken in staging
   users.crud#listUsersRejectsAnonymous: auth broken in staging
 $ vc list tests --skipped
-users.crud#listsUsers  Lists users  (skipped)
-users.crud#listUsersRejectsAnonymous  List users needs a signed-in caller  (skipped)
+users.crud#listsUsers  Lists users  (skipped: auth broken in staging, until 2026-12-01)
+users.crud#listUsersRejectsAnonymous  List users needs a signed-in caller  (skipped: auth broken in staging, until 2026-12-01)
 ```
 
-`vc plan` shows the reasons; `vc list tests --skipped` shows only which tests. A file skip applies to every test in it. To run skipped tests anyway, pass [`vc run --include-skipped`](/vc-rs/reference/cli/run/).
+Both show the reason; `vc list tests --skipped` adds the `until` date. A file skip applies to every test in it. To run skipped tests anyway, pass [`vc run --include-skipped`](/vc-rs/reference/cli/run/).
 
 ## Exit codes
 

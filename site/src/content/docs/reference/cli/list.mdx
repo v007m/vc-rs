@@ -16,7 +16,7 @@ $ vc list [OPTIONS] <KIND> [SELECTORS]...
 
 | Kind | Lists |
 | --- | --- |
-| `tests` | The selected tests, skipped ones included and marked `(skipped)` |
+| `tests` | The selected tests, skipped ones included and marked `(skipped: <reason>)` |
 | `apis` | Every api |
 | `files` | Every definition file: api, test and load files |
 
@@ -27,7 +27,7 @@ $ vc list [OPTIONS] <KIND> [SELECTORS]...
 | `-t`, `--tag` | `<TAGS>` | | Only tests with this tag expression. `!` excludes, `,` means or. Repeat to require every one |
 | `-g`, `--grep` | `<TEXT>` | | Only tests whose full ID or name contains this text, ignoring case |
 | `--changed` | `[<REF>]` | | Only files changed since this git ref, or the uncommitted and untracked changes when no ref is given |
-| `--include-skipped` | | | Also lists the skipped tests, without the `(skipped)` marker |
+| `--include-skipped` | | | Also lists the skipped tests, without the `(skipped: …)` marker |
 | `--skipped` | | | Lists only the skipped tests |
 | `--json` | | | Prints the list as JSON on stdout |
 | `--project` | `<DIR>` | | See [global flags](/vc-rs/reference/cli/#global-flags) |
@@ -44,7 +44,7 @@ sample.basics#getsCreatedUser  Returns the user that was just created  [sample]
 sample.basics#rejectsMissingEmail  Rejects a user without an email  [sample]
 sample.extra#echoesBody  Echoes the body back  [extra, smoke]
 sample.extra#rejectsBadEmail  Rejects a bad email  [extra]
-sample.extra#findsAda  Finds Ada first  [extra, slow]  (skipped)
+sample.extra#findsAda  Finds Ada first  [extra, slow]  (skipped: demo data changed)
 ```
 
 Each line is the full ID, the name and the tags.
@@ -55,19 +55,19 @@ Each line is the full ID, the name and the tags.
 $ vc list tests -t '!sample' -t extra
 sample.extra#echoesBody  Echoes the body back  [extra, smoke]
 sample.extra#rejectsBadEmail  Rejects a bad email  [extra]
-sample.extra#findsAda  Finds Ada first  [extra, slow]  (skipped)
+sample.extra#findsAda  Finds Ada first  [extra, slow]  (skipped: demo data changed)
 $ vc list tests -g ada -t slow
-sample.extra#findsAda  Finds Ada first  [extra, slow]  (skipped)
+sample.extra#findsAda  Finds Ada first  [extra, slow]  (skipped: demo data changed)
 ```
 
 ### Only the skipped tests
 
 ```console
 $ vc list tests --skipped
-sample.extra#findsAda  Finds Ada first  [extra, slow]  (skipped)
+sample.extra#findsAda  Finds Ada first  [extra, slow]  (skipped: demo data changed)
 ```
 
-The reason is not shown here. [`vc plan`](/vc-rs/reference/cli/plan/) prints each skipped test with its reason.
+Each skipped test shows its reason, then its `until` date when it has one: `(skipped: flaky upstream, until 2026-11-30)`. A test whose examples gave no rows shows `(skipped: examples gave no rows)`.
 
 ### Apis and files
 
@@ -95,6 +95,8 @@ $ vc list apis --json
     "id": "sample#listUsers",
     "name": "List users",
     "path": "services/sample/sample.api.yaml",
+    "skipReason": null,
+    "skipUntil": null,
     "skipped": false,
     "tags": []
   },
@@ -124,6 +126,8 @@ An array with one object per item, the same shape for every kind:
 | `name` | The `name`, or `null` when there is none |
 | `path` | The file, relative to the project root |
 | `skipped` | `true` when the test is skipped |
+| `skipReason` | Why a skipped test does not run, else `null` |
+| `skipUntil` | A skipped test's `until` date, as written, else `null` |
 | `tags` | The test's tags, file tags included |
 
 ## Related
