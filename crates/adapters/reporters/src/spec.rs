@@ -63,7 +63,7 @@ impl SpecReporter {
         }
     }
 
-    /// The test's line, and its failure block when it failed or was blocked.
+    /// The test's line, and its failure block when it failed (allowed or not) or was blocked.
     fn test(&self, record: &TestRecord) -> String {
         let result = &record.result;
         let (glyph, tone) = mark(result.status);
@@ -72,7 +72,7 @@ impl SpecReporter {
         let subject = text::sanitize(&subject);
         let mut out = format!("{} {subject:<NAME_WIDTH$} {time:>6}", self.paint(glyph, tone)).trim_end().to_owned();
         out.push('\n');
-        if matches!(result.status, TestStatus::Failed | TestStatus::Blocked) {
+        if matches!(result.status, TestStatus::Failed | TestStatus::Blocked | TestStatus::AllowedFailure) {
             out.push_str(&failure::block(&self.names, record, self.color));
         }
         out
@@ -155,6 +155,7 @@ const fn mark(status: TestStatus) -> (&'static str, Tone) {
         TestStatus::Blocked => ("⊘", Tone::Warn),
         TestStatus::Flaky => ("~", Tone::Warn),
         TestStatus::Skipped => ("-", Tone::Quiet),
+        TestStatus::AllowedFailure => ("⚠", Tone::Warn),
     }
 }
 
@@ -170,13 +171,23 @@ fn suffix(record: &TestRecord) -> String {
         TestStatus::Skipped => {
             result.skip_reason.as_ref().map_or_else(|| " skipped".to_owned(), |r| format!(" skipped: {r}"))
         }
+        TestStatus::AllowedFailure => result
+            .skip_reason
+            .as_ref()
+            .map_or_else(|| " allowed to fail".to_owned(), |r| format!(" allowed to fail: {r}")),
     }
 }
 
-/// `9 passed · 1 failed · 1 blocked · 1 skipped · 1 flaky`, leaving out zeros after `passed`.
+/// `9 passed · 1 failed · 1 blocked · 1 skipped · 1 flaky · 1 allowed to fail`, leaving out
+/// zeros after `passed`.
 fn counts(totals: Totals) -> String {
-    let others =
-        [("failed", totals.failed), ("blocked", totals.blocked), ("skipped", totals.skipped), ("flaky", totals.flaky)];
+    let others = [
+        ("failed", totals.failed),
+        ("blocked", totals.blocked),
+        ("skipped", totals.skipped),
+        ("flaky", totals.flaky),
+        ("allowed to fail", totals.allowed_failures),
+    ];
     let shown = others.into_iter().filter(|(_, n)| *n > 0).map(|(name, n)| format!("{n} {name}"));
     std::iter::once(format!("{} passed", totals.passed)).chain(shown).collect::<Vec<_>>().join(" · ")
 }

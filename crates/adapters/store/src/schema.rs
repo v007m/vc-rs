@@ -66,6 +66,7 @@ CREATE TABLE approval_rules (
   PRIMARY KEY (profile, tool, method)
 );
 ",
+    "ALTER TABLE runs ADD COLUMN allowed_failures INTEGER;",
 ];
 
 /// Why a file could not be opened: before its migrations, or while applying them.
@@ -108,16 +109,40 @@ pub fn open_for_writing(path: &Path) -> Result<Connection, HistoryError> {
     })
 }
 
-/// Opens the history at `path` read-only, or `None` when there is none yet.
+/// Opens the history at `path` read-only, or `None` when there is none yet. A file an older `vc`
+/// wrote gets its missing migrations first, so its runs read with today's columns.
 pub fn open_for_reading(path: &Path) -> Result<Option<Connection>, HistoryError> {
     if !path.exists() {
         return Ok(None);
     }
     let location = Location::of(path);
+    let connection = read_only(path, &location)?;
+    if applied(&connection).map_err(|error| location.error(&error))? < MIGRATIONS.len() {
+        drop(connection);
+        drop(open_for_writing(path)?);
+        return read_only(path, &location).map(Some);
+    }
+    Ok(Some(connection))
+}
+
+fn read_only(path: &Path, location: &Location) -> Result<Connection, HistoryError> {
     let flags = OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX;
     let connection = Connection::open_with_flags(path, flags).map_err(|error| location.open(&error))?;
     connection.busy_timeout(BUSY_TIMEOUT).map_err(|error| location.open(&error))?;
-    Ok(Some(connection))
+    Ok(connection)
+}
+
+/// How many migration steps the file has had; none when it has no migration table yet.
+fn applied(connection: &Connection) -> rusqlite::Result<usize> {
+    let exists: bool = connection.query_row(
+        "SELECT EXISTS (SELECT 1 FROM sqlite_master WHERE name = 'schema_migrations')",
+        [],
+        |row| row.get(0),
+    )?;
+    if !exists {
+        return Ok(0);
+    }
+    connection.query_row("SELECT COUNT(*) FROM schema_migrations", [], |row| row.get(0))
 }
 
 fn configure(connection: &Connection) -> rusqlite::Result<()> {
@@ -172,6 +197,20 @@ mod tests {
             })
             .unwrap();
         assert_eq!(tables, 2);
+    }
+
+    #[test]
+    fn a_reader_brings_an_older_file_up_to_date() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("history.db");
+        drop(super::open_migrated(&path, &MIGRATIONS[..2]).ok().unwrap());
+        let connection = open_for_reading(&path).unwrap().unwrap();
+        let column: u64 = connection
+            .query_row("SELECT COUNT(*) FROM pragma_table_info('runs') WHERE name = 'allowed_failures'", [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert_eq!(column, 1);
     }
 
     #[test]

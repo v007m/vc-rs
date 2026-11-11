@@ -74,7 +74,7 @@ fn a_runs_figures_read_as_its_row_shows_them() {
         totals: Totals::default(),
     };
     assert_eq!((percent(&run.totals), took(&run), checkout(&run)), ("–".to_owned(), None, "–".to_owned()));
-    run.totals = Totals { passed: 960, flaky: 1, failed: 30, blocked: 9, skipped: 5 };
+    run.totals = Totals { passed: 960, flaky: 1, failed: 30, blocked: 9, skipped: 5, allowed_failures: 0 };
     run.start.started_ms = 1_000;
     run.finished_ms = Some(49_250);
     run.start.git_branch = Some("main".to_owned());

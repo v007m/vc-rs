@@ -76,8 +76,17 @@ fn outcome(view: &TestView) -> String {
             xml::element("skipped", &[("message", view.skip_reason.clone().unwrap_or_default())], None)
         }
         TestStatus::Flaky => xml::element("system-out", &[], Some(&flaky(view, &message))),
+        TestStatus::AllowedFailure => {
+            xml::element("skipped", &[("message", allowed(view, &message))], Some(&view.detail))
+        }
     };
     format!("      {element}\n")
+}
+
+/// `allowed to fail (reason): message`, a skipped case with its failure (D248).
+fn allowed(view: &TestView, message: &str) -> String {
+    let reason = view.skip_reason.as_ref().map(|reason| format!(" ({reason})")).unwrap_or_default();
+    format!("allowed to fail{reason}: {message}")
 }
 
 fn flaky(view: &TestView, message: &str) -> String {
@@ -95,7 +104,7 @@ fn counts(name: &str, totals: Totals, millis: u64) -> Vec<(&'static str, String)
         ("tests", totals.total().to_string()),
         ("failures", totals.failed.to_string()),
         ("errors", totals.blocked.to_string()),
-        ("skipped", totals.skipped.to_string()),
+        ("skipped", (totals.skipped + totals.allowed_failures).to_string()),
         ("time", xml::seconds(millis)),
     ]
 }
