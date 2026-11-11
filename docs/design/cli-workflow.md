@@ -470,7 +470,7 @@ What the generator fills in for you:
         schema:
           $file: ../../openapi/users.yaml#/components/schemas/User
 
-  - id: deactivateRejectsInvalidBody
+  - id: rejectsInvalidDeactivateBody
     name: Deactivate rejects an invalid body
     vars:
       id: replace-me  # replace with a real id
@@ -494,7 +494,7 @@ What the generator fills in for you:
       status: 401
 ```
 
-A `name` in an example row labels that instance in reports, so a failure reads "deactivateRejectsInvalidBody › notify is not a boolean".
+A `name` in an example row labels that instance in reports, so a failure reads "rejectsInvalidDeactivateBody › notify is not a boolean".
 
 `vc import openapi` writes these tests for every operation into `services/<fileId>/openapi.test.yaml` (file ID `<fileId>.openapi`), the same three cases with these differences:
 

@@ -16,13 +16,23 @@ const COMPOUND_VERBS: [(&str, &str); 10] = [
     ("signup", "signsUp"),
 ];
 
+/// Verbs whose third person is not formed by adding `s` or `es`.
+const IRREGULAR_VERBS: [(&str, &str); 2] = [("be", "is"), ("have", "has")];
+
 /// `id` with its first word as a third-person verb (`getUser` gives `getsUser`,
 /// `searchUsers` gives `searchesUsers`, `copyUser` gives `copiesUser`, `loginUser` gives
-/// `logsInUser`).
+/// `logsInUser`). A leading `should` is dropped (`shouldRejectCard` gives `rejectsCard`); a
+/// lone `should` is left as it is.
 #[must_use]
 pub fn third_person(id: &str) -> String {
     let (verb, rest) = first_word(id);
-    if let Some((_, conjugated)) = COMPOUND_VERBS.iter().find(|(word, _)| *word == verb) {
+    if verb == "should" {
+        let mut letters = rest.chars();
+        let next = letters.next().filter(char::is_ascii_uppercase);
+        return next.map_or_else(|| id.to_owned(), |next| third_person(&format!("{}{}", next.to_ascii_lowercase(), letters.as_str())));
+    }
+    let known = COMPOUND_VERBS.iter().chain(&IRREGULAR_VERBS).find(|(word, _)| *word == verb);
+    if let Some((_, conjugated)) = known {
         return (*conjugated).to_owned() + rest;
     }
     let verb = if ["s", "sh", "ch", "x", "z"].iter().any(|end| verb.ends_with(end)) {
@@ -45,9 +55,10 @@ pub fn is_third_person(id: &str) -> bool {
     verb.len() > 1 && verb.ends_with('s') && !verb.ends_with("ss") && !verb.ends_with("us")
 }
 
-/// The first word of the camelCase `id`, up to its first capital, and the rest.
+/// The first word of the camelCase `id`, up to its first capital or digit (`waits2` reads
+/// `waits`), and the rest.
 fn first_word(id: &str) -> (&str, &str) {
-    let split = id.find(|c: char| c.is_ascii_uppercase()).unwrap_or(id.len());
+    let split = id.find(|c: char| c.is_ascii_uppercase() || c.is_ascii_digit()).unwrap_or(id.len());
     id.split_at_checked(split).unwrap_or((id, ""))
 }
 
@@ -82,5 +93,25 @@ mod tests {
         let read = ["getsUser", "isHealthy", "has", "rejectsDeclinedCard", "getUser", "userTest", "processOrder", "s"];
         let third: Vec<bool> = read.iter().map(|id| is_third_person(id)).collect();
         assert_eq!(third, [true, true, true, true, false, false, false, false]);
+    }
+
+    #[test]
+    fn the_verb_ends_at_a_digit() {
+        let read = ["waits1", "returns404", "waits2Seconds", "wait2"];
+        let third: Vec<bool> = read.iter().map(|id| is_third_person(id)).collect();
+        assert_eq!(third, [true, true, true, false]);
+        assert_eq!(third_person("wait2Seconds"), "waits2Seconds");
+        assert_eq!(third_person("return404"), "returns404");
+    }
+
+    #[test]
+    fn a_leading_should_is_dropped() {
+        let read: Vec<_> =
+            ["shouldRejectCard", "shouldBeEmpty", "shouldHaveStatus200", "shouldLogin", "should"]
+                .iter()
+                .map(|id| third_person(id))
+                .collect();
+        assert_eq!(read, ["rejectsCard", "isEmpty", "hasStatus200", "logsIn", "should"]);
+        assert!(!is_third_person("shouldRejectCard"), "a `should` ID is still flagged");
     }
 }
