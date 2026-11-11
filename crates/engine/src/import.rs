@@ -77,17 +77,18 @@ impl Engine {
     ///
     /// # Errors
     ///
-    /// [`EngineError::Edit`] when the spec cannot be fetched or read, the kind is unknown, or a
-    /// file to create exists; [`EngineError::Invalid`] when the result would not compile.
+    /// [`EngineError::Edit`] when the spec cannot be fetched or read, the kind is unknown, a
+    /// file to create exists, or the spec is read from the snapshot path it would write; [`EngineError::Invalid`] when the result would not compile.
     pub async fn import(&self, request: &ImportRequest) -> Result<Changes, EngineError> {
         let project = self.authoring()?;
         let fetcher = if request.text.is_some() { self.pasted_fetcher() } else { self.fetcher()? };
         let importer = ImporterRegistry::builtin().create(&request.kind, fetcher.clone()).map_err(|error| {
             refused(error.to_string(), &format!("the importers are {}", Self::importers().join(", ")))
         })?;
+        let mut opts = options(request);
+        not_the_snapshot(&request.source, &opts.file_id)?;
         let source = source(importer.as_ref(), fetcher.as_ref(), request).await?;
         let homes = self.homes(&request.profiles);
-        let mut opts = options(request);
         opts.recording.hosts = hosts(&homes);
         let draft = importer.read(&source, &opts).await.map_err(|error| refused(error.to_string(), READ_HELP))?;
         if draft.snapshot.is_none() {
@@ -156,6 +157,19 @@ async fn source(
     }
     let bytes = fetcher.fetch(&location).await.map_err(unread)?;
     Ok(ImportSource { location, bytes })
+}
+
+/// Refuses a spec read from the snapshot path `openapi/<fileId>.yaml` the import would write
+/// over it, which would lose the spec and leave `vc sync` no drift to see.
+fn not_the_snapshot(source: &str, file_id: &str) -> Result<(), EngineError> {
+    let slashed = source.replace('\\', "/");
+    let path = slashed.trim_start_matches("./");
+    if path != format!("openapi/{file_id}.yaml") {
+        return Ok(());
+    }
+    let reason = format!("{path} is where `vc import` keeps the snapshot `vc sync {file_id}` merges against");
+    let help = format!("move the spec out of `openapi/` (to `specs/{file_id}.yaml`, say) and import it from there");
+    Err(refused(reason, &help))
 }
 
 const FETCH_HELP: &str = "give a URL, or a path inside the project";

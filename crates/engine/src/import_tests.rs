@@ -125,6 +125,31 @@ async fn what_cannot_be_imported_is_refused_with_help() {
 }
 
 #[tokio::test]
+async fn a_spec_kept_at_its_snapshot_path_is_refused_so_it_is_never_overwritten() {
+    let files: [(&str, &[u8]); 2] = [
+        ("vibranium.config.yaml", b"syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\n"),
+        ("openapi/coll.yaml", PETSTORE.as_bytes()),
+    ];
+    let sources: Arc<dyn SourceProvider> = Arc::new(MemorySources::new(&files));
+    let engine = builder(FakeVcs::default()).sources(sources).build().unwrap();
+    let kept = ImportRequest { file_id: Some("coll".to_owned()), ..request("openapi", "openapi/coll.yaml") };
+    let Err(EngineError::Edit { reason, help }) = engine.import(&kept).await else {
+        panic!("importing the snapshot path over itself is refused")
+    };
+    assert_eq!(reason, "openapi/coll.yaml is where `vc import` keeps the snapshot `vc sync coll` merges against");
+    let moved = "move the spec out of `openapi/` (to `specs/coll.yaml`, say) and import it from there";
+    assert_eq!(help.as_deref(), Some(moved));
+    let named = engine.import(&request("openapi", "./openapi/coll.yaml")).await;
+    assert!(matches!(&named, Err(EngineError::Edit { reason, .. }) if reason.contains("snapshot")), "{named:?}");
+    let other = ImportRequest { file_id: Some("shop".to_owned()), ..request("openapi", "openapi/coll.yaml") };
+    let changes = engine.import(&other).await.unwrap();
+    assert!(
+        changes.files.iter().any(|file| file.path == "openapi/shop.yaml"),
+        "a different ID writes its own snapshot"
+    );
+}
+
+#[tokio::test]
 async fn a_bruno_collection_folder_in_the_project_is_listed_and_read_file_by_file() {
     let ping = b"meta {\n  name: Ping\n  seq: 1\n}\n\nget {\n  url: https://api.shop.test/v1/ping\n  body: none\n}\n";
     let files: [(&str, &[u8]); 4] = [

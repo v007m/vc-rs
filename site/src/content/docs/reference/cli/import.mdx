@@ -187,7 +187,7 @@ A request whose host and path match an existing api is reported as `matched` and
 | Code | When |
 | --- | --- |
 | `0` | Imported, or the dry run printed |
-| `2` | The source cannot be read, the kind is unknown, or the api file exists already |
+| `2` | The source cannot be read, the kind is unknown, the api file exists already, or the spec is at its own snapshot path |
 
 ```console
 $ vc import openapi specs/users.yaml
@@ -201,7 +201,7 @@ error: unknown import kind "pdf"; known: …
 ```
 
 <Aside type="tip">
-Commit the `openapi/` snapshot with the api file. `vc sync` needs it to tell your edits apart from changes in the spec.
+Commit the `openapi/` snapshot with the api file. `vc sync` needs it to tell your edits apart from changes in the spec. Keep your own copy of the spec somewhere else, such as `specs/`: importing `openapi/users.yaml` as `users` is refused, because the snapshot would replace it.
 </Aside>
 
 ## Related
