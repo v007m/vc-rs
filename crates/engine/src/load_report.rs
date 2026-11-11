@@ -192,7 +192,10 @@ impl LoadReport {
             json!({"metric": breach.metric, "test": breach.test, "actual": breach.actual, "unit": breach.unit,
                    "limit": breach.limit})
         };
-        let kind = |kind: &ErrorKind| json!({"api": kind.api, "test": kind.test, "status": kind.status, "code": kind.code, "count": kind.count});
+        let kind = |kind: &ErrorKind| {
+            json!({"api": kind.api, "test": kind.test, "status": kind.status, "code": kind.code,
+                   "count": kind.count})
+        };
         let ms = |value: f64| Unit::MS.round(value);
         json!({
             "scenario": self.scenario,
