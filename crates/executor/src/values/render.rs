@@ -64,12 +64,12 @@ impl<'a> Render<'a> {
         Ok(render)
     }
 
-    /// A renderer over `scope` that reads `dataset` and no other root: nothing saved, drawn or
-    /// bound yet. The example rows render in one before the run starts.
-    pub(super) fn over(shared: Shared<'a>, scope: Scope) -> Self {
+    /// A renderer over `scope` that reads `dataset` and no other root, and draws from `random`:
+    /// nothing saved, drawn or bound yet. The example rows render in one before the run starts.
+    pub(super) fn over(shared: Shared<'a>, scope: Scope, random: &'a dyn Random) -> Self {
         let Shared { values, program, redactor, schemas } = shared;
         let roots = HashMap::from([(Namespace::Dataset, values.datasets())]);
-        let chance = RandomChance(values.inputs().random.as_ref());
+        let chance = RandomChance(random);
         let (memo, drawn, reads) = (Saved::new(), Drawn::new(), Reads::default());
         Self { values, program, redactor, schemas, scope, roots, memo, drawn, reads, chance }
     }

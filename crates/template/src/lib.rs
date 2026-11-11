@@ -15,7 +15,8 @@
 //! # Ok::<(), vc_template::TemplateError>(())
 //! ```
 //!
-//! [`PipeRegistry`] checks pipes, [`Roots`] checks where a root may be used (D125), and
+//! [`PipeRegistry`] checks pipes, [`Roots`] checks where a root may be used (D125), [`ROW_ROOTS`]
+//! are what a row source read before the run may read, and
 //! [`parse_duration`], [`parse_size`], [`parse_rate`] and [`parse_status`] read units and statuses.
 //!
 //! [`CelCompiler::check`] checks a CEL expression into a [`vc_model::CelProgram`] at compile
@@ -45,6 +46,7 @@ mod pipes;
 mod regex_gen;
 mod render;
 mod roots;
+mod rows;
 mod select;
 mod span_map;
 mod time;
@@ -60,6 +62,7 @@ pub use pipe_fns::{Chance, PipeArgs, PipeFn};
 pub use pipes::{ArgType, PipeDef, PipeRegistry, PipeSignature, ValueType};
 pub use render::{Renderer, Resolve, to_text};
 pub use roots::Roots;
+pub use rows::{ROW_HELP, ROW_ROOTS, row_root_label, row_var_unread};
 pub use select::{path_text, preview, select};
 pub use time::rfc3339;
 pub use units::{parse_duration, parse_rate, parse_size, parse_status};

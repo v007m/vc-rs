@@ -2,6 +2,7 @@
 //! gives render once before the run, reading only `var`, `env` and `dataset` (V2105).
 
 use serde_json::Value;
+use vc_interfaces::Random;
 use vc_model::{Examples, Program, Test};
 use vc_template::RenderError;
 
@@ -10,17 +11,22 @@ use super::run::RunValues;
 use super::scope::Scope;
 use crate::{Redactor, Schemas};
 
-/// The rows `test`'s `examples:` template gives, or `None` when its rows are written in the test
-/// or come from a file.
+/// The rows `test`'s `examples:` template gives, with `shuffle` and `random` drawing from
+/// `random` (the test's own source, so its rows do not depend on what else the run renders), or
+/// `None` when its rows are written in the test or come from a file.
 ///
 /// # Errors
 ///
 /// When the template does not render, or gives anything but a list of maps.
-pub fn example_rows(program: &Program, values: &RunValues, test: &Test) -> Result<Option<Vec<Value>>, RenderError> {
+pub fn example_rows(
+    program: &Program,
+    (values, random): (&RunValues, &dyn Random),
+    test: &Test,
+) -> Result<Option<Vec<Value>>, RenderError> {
     let Some(Examples::Template(template)) = &test.examples else { return Ok(None) };
     let (redactor, schemas) = (Redactor::new(&[]), Schemas::default());
     let shared = Shared { values, program, redactor: &redactor, schemas: &schemas };
-    match Render::over(shared, Scope::of_test(values, test)).template(template)? {
+    match Render::over(shared, Scope::of_test(values, test), random).template(template)? {
         Value::Array(rows) if rows.iter().all(Value::is_object) => Ok(Some(rows)),
         _ => Err(RenderError::invalid("`examples` must give a list of maps, one per example row")),
     }

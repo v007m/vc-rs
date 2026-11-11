@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use serde_json::json;
 use vc_model::{Dataset, DatasetId, Examples, Instance, InstanceId, Needs, OwnerKey, TemplateValue};
+use vc_testkit::ScriptedRandom;
 
 use super::example_rows;
 use crate::fixture;
@@ -26,7 +27,7 @@ fn a_template_gives_its_rows_from_vars_and_datasets_before_the_run() {
     let template = fixture.template("${var.region}");
     fixture.test_mut(test).examples = Some(Examples::Template(template));
     let values = RunValues::new(&fixture.program, fixture::inputs(&[]));
-    let rows = example_rows(&fixture.program, &values, &fixture.program.tests[&test]);
+    let rows = example_rows(&fixture.program, (&values, &ScriptedRandom::seeded(7)), &fixture.program.tests[&test]);
     assert_eq!(rows, Ok(Some(vec![json!({ "name": "Oslo" }), json!({ "name": "Lima" })])));
 }
 
@@ -37,7 +38,10 @@ fn inline_rows_and_no_rows_give_nothing_before_the_run() {
     fixture.test_mut(inline).examples = Some(Examples::Rows(vec![fixture.value("${fake.uuid}")]));
     let values = RunValues::new(&fixture.program, fixture::inputs(&[]));
     for test in [bare, inline] {
-        assert_eq!(example_rows(&fixture.program, &values, &fixture.program.tests[&test]), Ok(None));
+        assert_eq!(
+            example_rows(&fixture.program, (&values, &ScriptedRandom::seeded(7)), &fixture.program.tests[&test]),
+            Ok(None)
+        );
     }
 }
 
@@ -48,7 +52,9 @@ fn a_template_that_gives_anything_but_a_list_of_maps_is_an_error() {
     for text in ["${dataset.cities[0]}", "${dataset.cities[0].name}"] {
         fixture.test_mut(test).examples = Some(Examples::Template(fixture.template(text)));
         let values = RunValues::new(&fixture.program, fixture::inputs(&[]));
-        let error = example_rows(&fixture.program, &values, &fixture.program.tests[&test]).unwrap_err();
+        let error =
+            example_rows(&fixture.program, (&values, &ScriptedRandom::seeded(7)), &fixture.program.tests[&test])
+                .unwrap_err();
         assert!(error.message.contains("must give a list of maps"), "{text}: {}", error.message);
     }
 }

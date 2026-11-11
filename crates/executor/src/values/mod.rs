@@ -8,11 +8,13 @@ mod render;
 mod rows;
 mod run;
 mod scope;
+mod unread;
 
 pub use frame::{Frame, Iteration};
 pub use render::{Around, Render};
 pub use rows::example_rows;
 pub use run::{Defined, ExampleRows, RunInputs, RunValues};
+pub use unread::{UnreadVar, unread_var};
 
 #[cfg(test)]
 #[path = "values_tests.rs"]
