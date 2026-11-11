@@ -52,9 +52,9 @@ $ vc load sample.abort; echo "exit $?"
     6s  1 users  2 rps  p50 3 ms  p95 5 ms  p99 5 ms  10 errors  breaching: errorRate
     6s  0 users  2 rps  p50 3 ms  p95 5 ms  p99 5 ms  10 errors
 sample.abort aborted after 6 s · 10 iterations · 1.7 rps · 10 errors
-latency p50 3.3 ms · p95 5.1 ms · p99 5.1 ms · max 5.1 ms
-breached errorRate at 1.000
-errors sample#listUsers 200 × 10
+latency p50 3.3 ms · p90 4.4 ms · p95 5.1 ms · p99 5.1 ms · max 5.1 ms
+breached errorRate at 100% (lt 1%)
+errors sample#listUsers 200 V5101 × 10
 exit 3
 ```
 

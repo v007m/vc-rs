@@ -39,7 +39,7 @@ import Playground from '~/components/Playground.svelte';
    $ git init
    ```
 
-2. **Import the spec.** `--id users` names the api file. `--tests` writes one happy-path test per operation. `--negative` adds tests that send a body the schema rejects. `--auth` adds a test per secured operation that expects `401` without credentials.
+2. **Import the spec.** `--id users` names the api file. `--tests` writes one happy-path test per operation, which creates the user a `GET` or `DELETE` needs first and checks the response against the snapshot's schema. `--negative` adds a test with a row per body field the schema rejects. `--auth` adds a test per secured operation that expects `401` without credentials.
 
    ```console
    $ vc import openapi http://localhost:18080/openapi/users.yaml --id users --tests --negative --auth
@@ -58,6 +58,8 @@ import Playground from '~/components/Playground.svelte';
    Each api keeps its `operationId`. That is how `vc sync` matches an api to its operation later.
 
    ```yaml title="services/users/users.api.yaml (as imported)"
+   # yaml-language-server: $schema=https://v007m.github.io/vc-rs/schema/api.schema.json
+   # users · api file · keys: https://github.com/v007m/vc-rs/blob/master/docs/design/syntax-reference.md#api-files
    id: users
    name: Users
    baseUrl: ${var.usersUrl}
@@ -79,6 +81,12 @@ import Playground from '~/components/Playground.svelte';
        body:
          email: ${var.email}
          name: ${var.name}
+       save:
+         userId: ${response.body.id}
+       cleanup:
+         call: deleteUser
+         vars:
+           id: ${response.body.id}
        operationId: createUser
      - id: getUser
        name: Get user
@@ -95,7 +103,7 @@ import Playground from '~/components/Playground.svelte';
        operationId: deleteUser
    ```
 
-   The body and vars come from the spec's examples. The users spec has no security schemes, so `--auth` added nothing here. On a secured spec, such as the public Petstore (`vc import openapi https://petstore3.swagger.io/api/v3/openapi.json --id petstore --tests --auth`), it writes tests such as `rejectsFindPetsByStatusWithoutAuth`, which call the api with `auth: none` and expect `401`.
+   The body and vars come from the spec's examples. `createUser` is the collection's `POST`, so it saves the new user's ID as `userId` and deletes the user again when the test ends. The users spec has no security schemes, so `--auth` added nothing here. On a secured spec, such as the public Petstore (`vc import openapi https://petstore3.swagger.io/api/v3/openapi.json --id petstore --tests --auth`), it writes tests such as `rejectsFindPetsByStatusWithoutAuth`, which call the api with `auth: none` and expect `401`.
 
 3. **Run the generated tests.** Some of them fail, and that is expected.
 
@@ -103,60 +111,48 @@ import Playground from '~/components/Playground.svelte';
    $ vc run
    plan  5 tests in 1 file · profile default
 
-   ✕ users.openapi#rejectsCreateUserWithoutEmail                     6ms
+   ✓ users.openapi#listsUsers                                        2ms
+   ✓ users.openapi#createsUser                                       3ms
+   ✕ users.openapi#rejectsInvalidCreateUser [row 4]                  3ms
      error[V5101]: expect.status
-       --> services/users/openapi.test.yaml:22:15
+       --> services/users/openapi.test.yaml:42:15
         |
-     22 |       status: 400
+     42 |       status: 400
         |               ^^^ expected [400], got 201
-   ✕ users.openapi#deletesUser                                       7ms
+   ✕ users.openapi#rejectsInvalidCreateUser [row 1]                  3ms
      error[V5101]: expect.status
-       --> services/users/openapi.test.yaml:32:15
+       --> services/users/openapi.test.yaml:42:15
         |
-     32 |       status: 204
-        |               ^^^ expected [204], got 404
-   ✓ users.openapi#listsUsers                                        7ms
-   ✓ users.openapi#createsUser                                       7ms
-   ✕ users.openapi#getsUser                                          7ms
+     42 |       status: 400
+        |               ^^^ expected [400], got 201
+   ✕ users.openapi#rejectsInvalidCreateUser [row 2]                  3ms
      error[V5101]: expect.status
-       --> services/users/openapi.test.yaml:27:15
+       --> services/users/openapi.test.yaml:42:15
         |
-     27 |       status: 200
-        |               ^^^ expected [200], got 404
+     42 |       status: 400
+        |               ^^^ expected [400], got 201
+   ✕ users.openapi#rejectsInvalidCreateUser [row 3]                  3ms
+     error[V5101]: expect.status
+       --> services/users/openapi.test.yaml:42:15
+        |
+     42 |       status: 400
+        |               ^^^ expected [400], got 201
+   ✓ users.openapi#deletesUser                                       3ms
+   ✓ users.openapi#getsUser                                          4ms
 
-   2 passed · 3 failed                                          9ms · profile default
+   4 passed · 4 failed                                          6ms · profile default
    reports  /home/you/users-api/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
    next     vc run --failed
-   seed 9565021513075289666: pass `--seed 9565021513075289666` to run with the same generated data
+   seed 626245841719629220: pass `--seed 626245841719629220` to run with the same generated data
    ```
 
-   `getsUser` and `deletesUser` ask for a random user ID between 1 and 100, and no such user exists yet. `rejectsCreateUserWithoutEmail` expects a `400`, but the mock stores any JSON you send it.
+   `rejectsInvalidCreateUser` sends four bodies the schema rejects, one per row, and expects a `400` for each. The mock stores any JSON you send it, so every row gets a `201`. Tests run in parallel, so `listsUsers` can fail as well in this run: it may list the users those rows made, which break the schema, before each row's cleanup deletes its user.
 
-4. **Give the tests a user to work on.** In the api file, make `createUser` save the new ID and delete the user again when the test ends. Let `deleteUser` accept a `404`, so the cleanup does not fail when a test already deleted that user.
-
-   ```yaml title="services/users/users.api.yaml"
-     - id: createUser
-       # ...
-       expect:
-         status: 201
-       save:
-         userId: ${response.body.id}
-       cleanup:
-         call: deleteUser
-         vars:
-           id: ${response.body.id}
-     # ...
-     - id: deleteUser
-       # ...
-       expect:
-         status: [204, 404]
-   ```
-
-   In the test file, have `getsUser` and `deletesUser` create a user first and use its ID:
+4. **See how the tests get a user to work on.** `getsUser` and `deletesUser` need a user that exists, so each creates one in `before` and passes its saved ID to the path's `id`:
 
    ```yaml title="services/users/openapi.test.yaml"
      - id: getsUser
-       name: Get user returns 200
+       name: Get user
        before:
          - call: users#createUser
        call: users#getUser
@@ -166,16 +162,16 @@ import Playground from '~/components/Playground.svelte';
          status: 200
    ```
 
-   Do the same for `deletesUser`.
+   `deletesUser` deletes that user itself, so its `before` call has `keep: true` and the cleanup does not try to delete the user a second time.
 
 5. **Skip the test the mock cannot pass.** `vc skip` writes a `skip:` reason into the file, so the test still shows up in every report.
 
    ```console
-   $ vc skip users.openapi#rejectsCreateUserWithoutEmail --reason "the mock accepts any body; re-enable against the real service"
-   ✓ skipped users.openapi#rejectsCreateUserWithoutEmail: the mock accepts any body; re-enable against the real service
+   $ vc skip users.openapi#rejectsInvalidCreateUser --reason "the mock accepts any body; re-enable against the real service"
+   ✓ skipped users.openapi#rejectsInvalidCreateUser: the mock accepts any body; re-enable against the real service
    ```
 
-6. **Check the response against the spec's schema.** `expect.body.schema` takes a `$file`. A JSON pointer after `#` picks one schema inside the file, so you can point straight into the snapshot:
+6. **Check the response against the spec's schema.** `expect.body.schema` takes a `$file`. A JSON pointer after `#` picks one schema inside the file, and the import points each test straight into the snapshot:
 
    ```yaml title="services/users/openapi.test.yaml"
        expect:
@@ -183,8 +179,6 @@ import Playground from '~/components/Playground.svelte';
          body:
            schema:
              $file: ../../openapi/users.yaml#/components/schemas/User
-           match:
-             email: ada@example.com
    ```
 
    The path is relative to the test file. When `vc sync` updates the snapshot, this check follows the new schema without any edit from you.
@@ -193,14 +187,14 @@ import Playground from '~/components/Playground.svelte';
    $ vc run
    plan  4 tests in 1 file · 1 skipped · profile default
 
-   - users.openapi#rejectsCreateUserWithoutEmail skipped: the mock accepts any body; re-enable against the real service
-   ✓ users.openapi#listsUsers                                       50ms
-   ✓ users.openapi#getsUser                                         65ms
-   ✓ users.openapi#createsUser                                      65ms
-   ✓ users.openapi#deletesUser                                      65ms
+   - users.openapi#rejectsInvalidCreateUser skipped: the mock accepts any body; re-enable against the real service
+   ✓ users.openapi#listsUsers                                        2ms
+   ✓ users.openapi#deletesUser                                       3ms
+   ✓ users.openapi#createsUser                                       3ms
+   ✓ users.openapi#getsUser                                          4ms
 
-   4 passed · 1 skipped                                         72ms · profile default
-   reports  /home/you/users-api/.vibranium/reports/3/{ctrf.json,junit.xml,index.html}
+   4 passed · 1 skipped                                         4ms · profile default
+   reports  /home/you/users-api/.vibranium/reports/2/{ctrf.json,junit.xml,index.html}
    ```
 
    Commit everything, the snapshot included: `git add -A && git commit -m "import users api"`.
@@ -246,9 +240,9 @@ import Playground from '~/components/Playground.svelte';
       - id: createUser
         name: Create user
         method: POST
-   @@ -45,3 +49,18 @@
-        expect:
-          status: [204, 404]
+   @@ -41,3 +45,18 @@
+        vars:
+          id: ${fake.number.int(1, 100)}
         operationId: deleteUser
    +    deprecated: true
    +  - id: updateUser
@@ -270,7 +264,7 @@ import Playground from '~/components/Playground.svelte';
    ...
    ```
 
-   Your `expect`, `save` and `cleanup` edits are not touched. Sync owns only the parts the spec decides: the method, the path, the query and the content type. It adds apis for new operations. It never deletes an api.
+   The `save` and `cleanup` on `createUser`, and any `expect` you add, are not touched. Sync owns only the parts the spec decides: the method, the path, the query and the content type. It adds apis for new operations. It never deletes an api.
 
 10. **Sync.**
 
@@ -288,23 +282,23 @@ import Playground from '~/components/Playground.svelte';
     ```console
     $ vc check
     warning[V3203]: this api is deprecated
-      --> services/users/openapi.test.yaml:42:11
+      --> services/users/openapi.test.yaml:61:11
        |
-    42 |     call: users#deleteUser
+    61 |     call: users#deleteUser
        |           ^^^^^^^^^^^^^^^^ deprecated api
-      ::: services/users/users.api.yaml:52:5
+      ::: services/users/users.api.yaml:48:5
        |
-    52 |     deprecated: true
+    48 |     deprecated: true
        |     ---------- marked deprecated here
        = help: the operation left the spec; call the api that replaces it, or remove the call
 
     warning[V3203]: this api is deprecated
-      --> services/users/users.api.yaml:33:13
+      --> services/users/users.api.yaml:31:13
        |
-    33 |       call: deleteUser
+    31 |       call: deleteUser
        |             ^^^^^^^^^^ deprecated api
     ...
-    52 |     deprecated: true
+    48 |     deprecated: true
        |     ---------- marked deprecated here
        = help: the operation left the spec; call the api that replaces it, or remove the call
 
@@ -348,14 +342,17 @@ import Playground from '~/components/Playground.svelte';
     $ vc run users.contract
     plan  1 test in 1 file · profile default
 
-    ✕ users.contract#returnsAUserWithARole                            6ms
+    ✕ users.contract#returnsAUserWithARole                            3ms
       error[V5101]: expect.body.schema
         --> services/users/contract.test.yaml:12:11
          |
       12 |           $file: ../../schemas/users/user.json
          |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ /: "role" is a required property
 
-    0 passed · 1 failed                                          11ms · profile default
+    0 passed · 1 failed                                          4ms · profile default
+    reports  /home/you/users-api/.vibranium/reports/3/{ctrf.json,junit.xml,index.html}
+    next     vc run --failed
+    seed 2172316705389628147: pass `--seed 2172316705389628147` to run with the same generated data
     ```
 
     The mock returns what you sent, and `createUser` does not send a role. Sync never touches a request body, so add it yourself:
@@ -377,14 +374,15 @@ import Playground from '~/components/Playground.svelte';
     $ vc run
     plan  5 tests in 2 files · 1 skipped · profile default
 
-    - users.openapi#rejectsCreateUserWithoutEmail skipped: the mock accepts any body; re-enable against the real service
-    ✓ users.openapi#listsUsers                                        7ms
-    ✓ users.openapi#createsUser                                       8ms
-    ✓ users.openapi#deletesUser                                       8ms
-    ✓ users.contract#returnsAUserWithARole                            8ms
-    ✓ users.openapi#getsUser                                          8ms
+    - users.openapi#rejectsInvalidCreateUser skipped: the mock accepts any body; re-enable against the real service
+    ✓ users.openapi#listsUsers                                        3ms
+    ✓ users.openapi#createsUser                                       3ms
+    ✓ users.openapi#deletesUser                                       4ms
+    ✓ users.contract#returnsAUserWithARole                            4ms
+    ✓ users.openapi#getsUser                                          4ms
 
-    5 passed · 1 skipped                                         9ms · profile default
+    5 passed · 1 skipped                                         5ms · profile default
+    reports  /home/you/users-api/.vibranium/reports/4/{ctrf.json,junit.xml,index.html}
     $ vc sync --check
     fetched http://localhost:18080/openapi/users.yaml (4 operations)
     $ echo $?
@@ -500,8 +498,6 @@ apis:
       email: ${var.email}
       name: ${var.name}
       role: ${var.role}
-    expect:
-      status: 201
     save:
       userId: ${response.body.id}
     cleanup:
@@ -521,8 +517,6 @@ apis:
     path: /users/${var.id}
     vars:
       id: ${fake.number.int(1, 100)}
-    expect:
-      status: [204, 404]
     operationId: deleteUser
     deprecated: true
   - id: updateUser
@@ -548,25 +542,45 @@ id: users.openapi
 
 tests:
   - id: listsUsers
-    name: List users returns 200
+    name: List users
     call: users#listUsers
     expect:
       status: 200
+      body:
+        schema:
+          $file: ../../openapi/users.yaml#/paths/~1users/get/responses/200/content/application~1json/schema
   - id: createsUser
-    name: Create user returns 201
+    name: Create user
     call: users#createUser
     expect:
       status: 201
-  - id: rejectsCreateUserWithoutEmail
-    name: Create user without email returns 400
+      body:
+        schema:
+          $file: ../../openapi/users.yaml#/components/schemas/User
+  - id: rejectsInvalidCreateUser
+    name: "Create user: rejects an invalid body"
     call: users#createUser
-    vars:
-      email: null
+    examples:
+      - name: email missing
+        body:
+          name: Ada
+      - name: email is not a string
+        body:
+          email: 123
+          name: Ada
+      - name: name missing
+        body:
+          email: ada@example.com
+      - name: name is not a string
+        body:
+          email: ada@example.com
+          name: 123
+    body: ${example.body}
     expect:
       status: 400
     skip: the mock accepts any body; re-enable against the real service
   - id: getsUser
-    name: Get user returns 200
+    name: Get user
     before:
       - call: users#createUser
     call: users#getUser
@@ -577,12 +591,11 @@ tests:
       body:
         schema:
           $file: ../../openapi/users.yaml#/components/schemas/User
-        match:
-          email: ada@example.com
   - id: deletesUser
-    name: Delete user returns 204
+    name: Delete user
     before:
       - call: users#createUser
+        keep: true
     call: users#deleteUser
     vars:
       id: ${var.userId}
@@ -593,7 +606,7 @@ tests:
 `services/users/contract.test.yaml` and `schemas/users/user.json` are shown in step 11.
 
 <Aside type="tip" title="What the generator leaves to you">
-The generated tests are a starting point. They do not create the resource a `GET` or `DELETE` needs. `--negative` writes one missing-field test per operation that has a required body field. Review them as you would any generated code.
+The generated tests are a starting point. They create the resource a `GET` or `DELETE` needs through the collection's `POST`, which saves its ID as `<resource>Id` (`userId`), or skip the test when the spec has none, saying which var to set. `--negative` writes one test per operation with a JSON body, a row per field it breaks. Review them as you would any generated code.
 </Aside>
 
 ## What you learned

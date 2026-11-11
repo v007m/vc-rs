@@ -1,7 +1,8 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use vc_model::{Check, CheckKind, Matcher, Origin, StatusPattern, TestId};
+use vc_diagnostics::Code;
+use vc_model::{ActionKind, Check, CheckKind, Loop, Matcher, Origin, Retry, StatusPattern, TemplateValue, TestId};
 
 use super::{IterationSetup, ProgramIterations};
 use crate::cancel::CancelTree;
@@ -50,12 +51,31 @@ async fn before_all_runs_once_each_iteration_reports_its_calls_and_finish_cleans
 async fn a_failing_iteration_reports_its_failure_and_status() {
     let mut fixture = Fixture::new();
     let fail = fixture.call("/fail");
+    let api = fixture.api_mut(fail).id;
     let test = fixture.test(vec![fail], None);
     let (iterations, _sent) = prepare(fixture, (&[], &[test]), false).await;
     let report = iterations.unwrap().iterate(test, 1).await;
     assert!(!report.passed);
-    assert!(report.failure.is_some());
+    let failure = report.failure.clone().unwrap_or_default();
+    assert_eq!((failure.api, failure.status, failure.code), (Some(api), Some(500), Some(Code::V5101.to_string())));
     assert_eq!(statuses(&report), [Some(500)]);
+}
+
+#[tokio::test]
+async fn a_failed_check_on_the_second_call_blames_that_call_not_the_cleanup_after_it() {
+    let mut fixture = Fixture::new();
+    let cleanup = fixture.call("/cleanup");
+    let (seed, browse) = (fixture.creating("/seed", cleanup), fixture.call("/browse"));
+    let api = fixture.api_mut(browse).id;
+    let test = fixture.test(vec![seed, browse], None);
+    let matcher = Matcher::Status(vec![StatusPattern::Code(500)]);
+    let check = Check { kind: CheckKind::Status, target: None, matcher, origin: Origin::Test(test), span: span() };
+    fixture.action_mut(browse).expect.checks.push(check);
+    let (iterations, _sent) = prepare(fixture, (&[], &[test]), true).await;
+    let report = iterations.unwrap().iterate(test, 1).await;
+    assert_eq!(statuses(&report), [Some(200), Some(200), Some(200)], "the seed, the browse and its cleanup");
+    let failure = report.failure.unwrap_or_default();
+    assert_eq!((failure.api, failure.status, failure.code), (Some(api), Some(200), Some(Code::V5101.to_string())));
 }
 
 #[tokio::test]
@@ -110,7 +130,12 @@ async fn a_test_outside_the_plan_fails_without_a_request() {
     let (test, unplanned) = (fixture.test(vec![browse], None), fixture.test(vec![other], None));
     let (iterations, sent) = prepare(fixture, (&[], &[test]), false).await;
     let report = iterations.unwrap().iterate(unplanned, 1).await;
-    assert!(!report.passed && report.calls.is_empty() && report.failure.is_some());
+    assert!(!report.passed && report.calls.is_empty());
+    let failure = report.failure.unwrap_or_default();
+    assert_eq!(
+        (failure.api, failure.status, failure.message.as_str()),
+        (None, None, "the test is not in the load plan")
+    );
     assert!(sent.counts().is_empty());
 }
 
@@ -141,4 +166,92 @@ async fn an_iteration_reads_what_its_file_before_all_saved() {
     assert!(report.passed, "{report:?}");
     let counts = sent.counts();
     assert_eq!((counts.get("/seed"), counts.get("/users/t")), (Some(&1), Some(&1)), "{counts:?}");
+}
+
+#[tokio::test]
+async fn a_retried_iteration_blames_its_last_attempt_not_an_earlier_one_s_call() {
+    let mut fixture = Fixture::new();
+    let get = fixture.call("/sinking");
+    let api = fixture.api_mut(get).id;
+    let retry = Retry { attempts: 1, delay: vc_model::Duration::new(Duration::from_millis(10)) };
+    let test = fixture.test(vec![get], Some(retry));
+    let (iterations, sent) = prepare(fixture, (&[], &[test]), false).await;
+    let report = iterations.unwrap().iterate(test, 1).await;
+    assert_eq!((statuses(&report), sent.counts()["/sinking"]), (vec![Some(503)], 2), "the refused call got nothing");
+    let failure = report.failure.unwrap_or_default();
+    assert_eq!((failure.api, failure.status, failure.code), (Some(api), None, Some(Code::V5105.to_string())));
+}
+
+#[tokio::test]
+async fn a_failed_for_each_turn_is_blamed_with_its_own_status() {
+    let mut fixture = Fixture::new();
+    let get = fixture.call("/items");
+    let api = fixture.api_mut(get).id;
+    fixture.api_mut(get).path = fixture.template("/${item}");
+    let items = ["missing", "a", "b"].map(|item| fixture.value(item));
+    fixture.action_mut(get).repeat = Some(Loop::ForEach { items: TemplateValue::List(items.to_vec()), parallel: 3 });
+    let test = fixture.test(vec![get], None);
+    let (iterations, _sent) = prepare(fixture, (&[], &[test]), false).await;
+    let report = iterations.unwrap().iterate(test, 1).await;
+    assert_eq!(statuses(&report), [Some(404), Some(200), Some(200)]);
+    let failure = report.failure.unwrap_or_default();
+    assert_eq!((failure.api, failure.status, failure.code), (Some(api), Some(404), Some(Code::V5101.to_string())));
+}
+
+#[tokio::test]
+async fn a_failed_step_of_a_reused_test_is_blamed_with_its_status() {
+    let mut fixture = Fixture::new();
+    let (browse, create) = (fixture.call("/users"), fixture.call("/fail"));
+    let api = fixture.api_mut(create).id;
+    let reused = fixture.test(vec![browse, create], None);
+    let reuse = fixture.action(ActionKind::Test(reused));
+    let test = fixture.test(vec![reuse], None);
+    let (iterations, _sent) = prepare(fixture, (&[], &[test]), false).await;
+    let report = iterations.unwrap().iterate(test, 1).await;
+    assert_eq!(statuses(&report), [Some(200), Some(500)]);
+    let failure = report.failure.unwrap_or_default();
+    assert_eq!((failure.api, failure.status, failure.code), (Some(api), Some(500), Some(Code::V5101.to_string())));
+}
+
+#[tokio::test]
+async fn a_failed_after_action_does_not_take_the_blame_from_the_body_s_failure() {
+    let mut fixture = Fixture::new();
+    let (fail, missing) = (fixture.call("/fail"), fixture.call("/missing"));
+    let api = fixture.api_mut(fail).id;
+    let test = fixture.test(vec![fail], None);
+    fixture.test_mut(test).after = vec![missing];
+    let (iterations, _sent) = prepare(fixture, (&[], &[test]), false).await;
+    let report = iterations.unwrap().iterate(test, 1).await;
+    assert_eq!(statuses(&report), [Some(500), Some(404)], "the body's call and the after's");
+    let failure = report.failure.unwrap_or_default();
+    assert_eq!((failure.api, failure.status, failure.code), (Some(api), Some(500), Some(Code::V5101.to_string())));
+}
+
+#[tokio::test]
+async fn a_flaky_iteration_is_an_error_blamed_on_its_failed_attempt_s_status() {
+    let mut fixture = Fixture::new();
+    let get = fixture.call("/flaky");
+    let api = fixture.api_mut(get).id;
+    let retry = Retry { attempts: 1, delay: vc_model::Duration::new(Duration::from_millis(10)) };
+    let test = fixture.test(vec![get], Some(retry));
+    let (iterations, _sent) = prepare(fixture, (&[], &[test]), false).await;
+    let report = iterations.unwrap().iterate(test, 1).await;
+    assert_eq!((report.passed, statuses(&report)), (false, vec![Some(503), Some(200)]), "flaky is not passed");
+    let failure = report.failure.unwrap_or_default();
+    assert_eq!((failure.api, failure.status, failure.code), (Some(api), Some(503), Some(Code::V5101.to_string())));
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_retry_past_the_test_timeout_is_blamed_on_its_own_timeout_not_the_earlier_status() {
+    let mut fixture = Fixture::new();
+    let (flaky, slow) = (fixture.call("/flaky"), fixture.call("/slow"));
+    let api = fixture.api_mut(slow).id;
+    let retry = Retry { attempts: 1, delay: vc_model::Duration::new(Duration::from_millis(10)) };
+    let test = fixture.test(vec![flaky, slow], Some(retry));
+    fixture.test_mut(test).timeout = Some(vc_model::Duration::new(Duration::from_secs(2)));
+    let (iterations, sent) = prepare(fixture, (&[], &[test]), false).await;
+    let report = iterations.unwrap().iterate(test, 1).await;
+    assert_eq!((statuses(&report), sent.counts()["/slow"]), (vec![Some(503), Some(200)], 1), "the slow call got none");
+    let failure = report.failure.unwrap_or_default();
+    assert_eq!((failure.api, failure.status, failure.code), (Some(api), None, Some(Code::V5104.to_string())));
 }

@@ -34,6 +34,23 @@ pub fn singular(word: &str) -> String {
     word.get(..word.len() - cut).unwrap_or(word).to_owned()
 }
 
+/// `id` as a sentence: its words split at capitals, lowercased, the first capitalised
+/// (`deleteUserById` gives `Delete user by id`).
+pub fn sentence(id: &str) -> String {
+    let mut out = String::with_capacity(id.len() + 4);
+    for (at, c) in id.chars().enumerate() {
+        if at == 0 {
+            out.extend(c.to_uppercase());
+        } else if c.is_uppercase() {
+            out.push(' ');
+            out.extend(c.to_lowercase());
+        } else {
+            out.push(c);
+        }
+    }
+    out
+}
+
 /// `word` with its first letter in capitals.
 pub fn capitalised(word: &str) -> String {
     let mut chars = word.chars();
@@ -75,7 +92,7 @@ fn lowered(word: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{camel, from_route, singular};
+    use super::{camel, from_route, sentence, singular};
 
     #[test]
     fn ids_are_camel_case_whatever_the_spec_wrote() {
@@ -92,6 +109,13 @@ mod tests {
         assert_eq!(from_route("POST", "/users/{id}/deactivate"), "postUsersIdDeactivate");
         assert_eq!(from_route("GET", "/"), "get");
         assert_eq!(from_route("GET", "/userGroups"), "getUserGroups");
+    }
+
+    #[test]
+    fn an_id_reads_as_a_sentence() {
+        assert_eq!(sentence("deletePetsPetId"), "Delete pets pet id");
+        assert_eq!(sentence("health"), "Health");
+        assert_eq!(sentence(""), "");
     }
 
     #[test]

@@ -130,7 +130,7 @@ fn an_empty_file_finishes_after_its_lifecycle() {
 fn running() -> FileOrchestrator {
     let file = sim::planned_file(vec![sim::planned(1, &[])], (0..4).map(|i| sim::instance(i, &[])).collect(), &[2]);
     let (file, _) = FileOrchestrator::new(file, 2).transition(FileInput::Start(FailedActions::new()));
-    let (file, commands) = file.transition(FileInput::ActionDone(sim::passing_with(&[100])));
+    let (file, commands) = file.transition(FileInput::ActionDone(Box::new(sim::passing_with(&[100]))));
     assert_eq!(launches(&commands).len(), 2);
     file
 }
@@ -166,7 +166,7 @@ fn cancel_during_before_all_stops_after_the_action_in_flight() {
     let file = sim::planned_file(vec![sim::planned(1, &[]), sim::planned(2, &[])], vec![sim::instance(0, &[])], &[]);
     let (file, _) = FileOrchestrator::new(file, 2).transition(FileInput::Start(FailedActions::new()));
     let (cancelled, _) = file.clone().transition(FileInput::Cancelled);
-    let (done, commands) = cancelled.transition(FileInput::ActionDone(sim::passing_with(&[100])));
+    let (done, commands) = cancelled.transition(FileInput::ActionDone(Box::new(sim::passing_with(&[100]))));
     assert!(!commands.contains(&FileCommand::RunAction(sim::act(2))));
     assert!(commands.contains(&FileCommand::RunCleanup(PendingCleanup::new(sim::act(100)))));
     let (_, commands) = done.transition(FileInput::CleanupDone);
@@ -203,7 +203,7 @@ fn inputs_out_of_place_are_ignored() {
     let file = sim::planned_file(vec![], vec![sim::instance(0, &[])], &[]);
     let waiting = FileOrchestrator::new(file, 1);
     for input in [
-        FileInput::ActionDone(ActionReport::passed()),
+        FileInput::ActionDone(Box::new(ActionReport::passed())),
         FileInput::CleanupDone,
         FileInput::InstanceDone(TestStatus::Passed),
     ] {

@@ -1,10 +1,11 @@
 //! `vc load` against the mock: a `p90` threshold on the scenario and on one mix entry decides the
-//! exit code, 3 when breached, and the JSON report names the breached metric and test.
+//! exit code, 3 when breached, and the JSON report names the breached metric and test, with its
+//! unit and limit. An error is counted under the call that failed, and `vc history` lists the run.
 
-use serde_json::Value;
+use serde_json::{Value, json};
 use vc_mock_server::MockServer;
 
-use crate::{CONFIG, Project, SCRIPTED, said};
+use crate::{CONFIG, Project, SCRIPTED, USERS, said};
 
 /// `scripted.sleep#sleeps` sleeps 80 ms a call.
 const SLEEPS: (&str, &str) =
@@ -62,6 +63,50 @@ async fn a_p90_over_a_mix_entrys_threshold_names_its_test() {
     assert_eq!(breached.len(), 1, "{report:#}");
     assert_eq!(breached[0].0, "p90", "{report:#}");
     assert!(breached[0].1.as_str().is_some_and(|test| test.contains("sleeps")), "{report:#}");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_breach_shows_its_value_and_limit_in_the_metrics_unit() {
+    let (_, report) = load(&scenario("p90: {lt: 20ms}", "p90: {lt: 10s}")).await;
+    let breach = &report["breaches"][0];
+    assert_eq!((&breach["unit"], &breach["limit"]), (&json!("ms"), &json!({"lt": 20.0})), "{report:#}");
+    assert!(breach["actual"].as_f64().is_some_and(|ms| ms >= 80.0), "{report:#}");
+    assert!(report["p90Ms"].as_f64().is_some_and(|ms| ms >= 80.0), "{report:#}");
+}
+
+/// `users.browse#addsThenLists` creates a user (cleaned up after) and then lists the users,
+/// expecting a 500 the mock never sends.
+const BROWSE: (&str, &str) = (
+    "services/users/browse.test.yaml",
+    "tests:\n  - id: addsThenLists\n    steps:\n      - call: users#create\n      - call: users#list\n\
+     \x20       expect: {status: 500}\n",
+);
+
+/// A two-second scenario of [`BROWSE`] that evaluates every test's `expect`.
+const BROWSING: (&str, &str) = (
+    "load/users/peak.load.yaml",
+    "name: Browsing\nmix:\n  - {test: users.browse#addsThenLists, weight: 1}\nstages:\n  - {duration: 2s, users: 1}\n\
+     checks: full\nthresholds: {errorRate: {lt: 0.5}}\n",
+);
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_failed_check_on_the_second_call_is_counted_under_that_api_and_the_run_is_in_the_history() {
+    let server = MockServer::start().await.unwrap();
+    let project = Project::new(&[CONFIG, USERS, BROWSE, BROWSING]);
+    let base = format!("vars.baseUrl={}", server.base_url());
+    let output = project.vc(&["load", "users.peak", "--set", &base]).output().unwrap();
+    assert_eq!(output.status.code(), Some(3), "{}", said(&output));
+    let text = String::from_utf8_lossy(&output.stdout);
+    assert!(text.contains("\nbreached errorRate at 100% (lt 50%)\n"), "{text}");
+    assert!(text.contains("\nerrors users#list 200 V5101 × ") && !text.contains("users#create"), "{text}");
+    assert!(server.stats().await.unwrap().count("DELETE /users/{id}") > 0, "each created user is removed");
+
+    let listed = project.vc(&["history"]).output().unwrap();
+    let text = String::from_utf8_lossy(&listed.stdout);
+    assert!(text.contains("load · ") && text.contains(" iterations · ") && text.contains("users.peak"), "{text}");
+    let runs: Value = serde_json::from_slice(&project.vc(&["history", "--json"]).output().unwrap().stdout).unwrap();
+    assert_eq!(runs[0]["kind"], "load", "{runs:#}");
+    assert!(runs[0]["totals"]["failed"].as_u64().is_some_and(|failed| failed > 0), "{runs:#}");
 }
 
 #[tokio::test(flavor = "multi_thread")]

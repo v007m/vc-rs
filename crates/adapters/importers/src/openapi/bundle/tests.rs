@@ -34,8 +34,27 @@ async fn external_references_are_inlined_with_their_own_references() -> Result<(
 }
 
 #[tokio::test]
+async fn a_reference_into_another_document_is_percent_decoded_before_it_is_looked_up() -> Result<(), ImportError> {
+    let items =
+        json!({ "paths": { "/items/{id}": { "get": { "responses": { "200": { "description": "an item" } } } } } });
+    let fetcher = MapFetcher::with(&[("specs/items.json", items)]);
+    let root = json!({ "item": { "$ref": "items.json#/paths/~1items~1%7Bid%7D/get/responses/200" } });
+    assert_eq!(bundled(&fetcher, root).await?, json!({ "item": { "description": "an item" } }));
+    Ok(())
+}
+
+#[tokio::test]
 async fn a_cycle_is_an_error_naming_the_chain() {
     let node = json!({ "Node": { "properties": { "next": { "$ref": "#/Node" } } } });
+    let fetcher = MapFetcher::with(&[("specs/node.json", node)]);
+    let result = bundled(&fetcher, json!({ "n": { "$ref": "node.json#/Node" } })).await;
+    let chain = vec!["specs/node.json#/Node".to_owned(), "specs/node.json#/Node".to_owned()];
+    assert_eq!(result, Err(ImportError::Cycle { chain }));
+}
+
+#[tokio::test]
+async fn a_cycle_through_a_pointer_spelled_two_ways_is_one_target() {
+    let node = json!({ "Node": { "properties": { "next": { "$ref": "#/%4Eode" } } } });
     let fetcher = MapFetcher::with(&[("specs/node.json", node)]);
     let result = bundled(&fetcher, json!({ "n": { "$ref": "node.json#/Node" } })).await;
     let chain = vec!["specs/node.json#/Node".to_owned(), "specs/node.json#/Node".to_owned()];

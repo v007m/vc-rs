@@ -1,11 +1,30 @@
 //! The third-person verbs test IDs start with (cli-workflow "Naming conventions"): the
 //! importers name tests with them and the V4001 lint holds test IDs to them.
 
+/// Verbs written as one word whose first part is the verb (`login` is `log in`), as each reads
+/// in the third person.
+const COMPOUND_VERBS: [(&str, &str); 10] = [
+    ("backup", "backsUp"),
+    ("checkout", "checksOut"),
+    ("login", "logsIn"),
+    ("logoff", "logsOff"),
+    ("logon", "logsOn"),
+    ("logout", "logsOut"),
+    ("setup", "setsUp"),
+    ("signin", "signsIn"),
+    ("signout", "signsOut"),
+    ("signup", "signsUp"),
+];
+
 /// `id` with its first word as a third-person verb (`getUser` gives `getsUser`,
-/// `searchUsers` gives `searchesUsers`, `copyUser` gives `copiesUser`).
+/// `searchUsers` gives `searchesUsers`, `copyUser` gives `copiesUser`, `loginUser` gives
+/// `logsInUser`).
 #[must_use]
 pub fn third_person(id: &str) -> String {
     let (verb, rest) = first_word(id);
+    if let Some((_, conjugated)) = COMPOUND_VERBS.iter().find(|(word, _)| *word == verb) {
+        return (*conjugated).to_owned() + rest;
+    }
     let verb = if ["s", "sh", "ch", "x", "z"].iter().any(|end| verb.ends_with(end)) {
         format!("{verb}es")
     } else if let Some(stem) = verb.strip_suffix('y').filter(|stem| !stem.ends_with(['a', 'e', 'i', 'o', 'u'])) {
@@ -42,6 +61,19 @@ mod tests {
         assert_eq!(third_person("copyUser"), "copiesUser");
         assert_eq!(third_person("deployApp"), "deploysApp");
         assert_eq!(third_person("list"), "lists");
+    }
+
+    #[test]
+    fn verbs_written_as_one_word_keep_their_particle() {
+        let read: Vec<_> =
+            ["loginUser", "logout", "signupMember", "signinUser", "setupAccount", "checkoutCart", "logUser"]
+                .iter()
+                .map(|id| third_person(id))
+                .collect();
+        assert_eq!(
+            read,
+            ["logsInUser", "logsOut", "signsUpMember", "signsInUser", "setsUpAccount", "checksOutCart", "logsUser"]
+        );
     }
 
     #[test]

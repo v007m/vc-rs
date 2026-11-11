@@ -858,14 +858,17 @@ pub fn vc_interfaces::Discovery::fmt(&self, &mut core::fmt::Formatter<'_>) -> co
 impl core::marker::StructuralPartialEq for vc_interfaces::Discovery
 pub struct vc_interfaces::DraftApi
 pub vc_interfaces::DraftApi::body: core::option::Option<serde_json::value::Value>
+pub vc_interfaces::DraftApi::cleanup: core::option::Option<vc_interfaces::DraftCleanup>
 pub vc_interfaces::DraftApi::content_type: core::option::Option<alloc::string::String>
 pub vc_interfaces::DraftApi::id: alloc::string::String
 pub vc_interfaces::DraftApi::matches: core::option::Option<alloc::string::String>
 pub vc_interfaces::DraftApi::method: vc_model::defs::Method
 pub vc_interfaces::DraftApi::name: core::option::Option<alloc::string::String>
 pub vc_interfaces::DraftApi::operation_id: core::option::Option<alloc::string::String>
+pub vc_interfaces::DraftApi::optional_query: alloc::vec::Vec<alloc::string::String>
 pub vc_interfaces::DraftApi::path: alloc::string::String
 pub vc_interfaces::DraftApi::query: indexmap::map::IndexMap<alloc::string::String, alloc::string::String>
+pub vc_interfaces::DraftApi::save: indexmap::map::IndexMap<alloc::string::String, alloc::string::String>
 pub vc_interfaces::DraftApi::vars: indexmap::map::IndexMap<alloc::string::String, serde_json::value::Value>
 impl core::clone::Clone for vc_interfaces::DraftApi
 pub fn vc_interfaces::DraftApi::clone(&self) -> Self
@@ -877,6 +880,45 @@ pub fn vc_interfaces::DraftApi::default() -> Self
 impl core::fmt::Debug for vc_interfaces::DraftApi
 pub fn vc_interfaces::DraftApi::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_interfaces::DraftApi
+pub struct vc_interfaces::DraftBefore
+pub vc_interfaces::DraftBefore::call: alloc::string::String
+pub vc_interfaces::DraftBefore::keep: bool
+impl core::clone::Clone for vc_interfaces::DraftBefore
+pub fn vc_interfaces::DraftBefore::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::DraftBefore
+impl core::cmp::PartialEq for vc_interfaces::DraftBefore
+pub fn vc_interfaces::DraftBefore::eq(&self, &Self) -> bool
+impl core::default::Default for vc_interfaces::DraftBefore
+pub fn vc_interfaces::DraftBefore::default() -> Self
+impl core::fmt::Debug for vc_interfaces::DraftBefore
+pub fn vc_interfaces::DraftBefore::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::DraftBefore
+pub struct vc_interfaces::DraftCleanup
+pub vc_interfaces::DraftCleanup::call: alloc::string::String
+pub vc_interfaces::DraftCleanup::vars: indexmap::map::IndexMap<alloc::string::String, alloc::string::String>
+impl core::clone::Clone for vc_interfaces::DraftCleanup
+pub fn vc_interfaces::DraftCleanup::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::DraftCleanup
+impl core::cmp::PartialEq for vc_interfaces::DraftCleanup
+pub fn vc_interfaces::DraftCleanup::eq(&self, &Self) -> bool
+impl core::default::Default for vc_interfaces::DraftCleanup
+pub fn vc_interfaces::DraftCleanup::default() -> Self
+impl core::fmt::Debug for vc_interfaces::DraftCleanup
+pub fn vc_interfaces::DraftCleanup::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::DraftCleanup
+pub struct vc_interfaces::DraftExample
+pub vc_interfaces::DraftExample::body: serde_json::value::Value
+pub vc_interfaces::DraftExample::name: alloc::string::String
+impl core::clone::Clone for vc_interfaces::DraftExample
+pub fn vc_interfaces::DraftExample::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::DraftExample
+impl core::cmp::PartialEq for vc_interfaces::DraftExample
+pub fn vc_interfaces::DraftExample::eq(&self, &Self) -> bool
+impl core::default::Default for vc_interfaces::DraftExample
+pub fn vc_interfaces::DraftExample::default() -> Self
+impl core::fmt::Debug for vc_interfaces::DraftExample
+pub fn vc_interfaces::DraftExample::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::DraftExample
 pub struct vc_interfaces::DraftFlow
 pub vc_interfaces::DraftFlow::file_id: alloc::string::String
 pub vc_interfaces::DraftFlow::steps: alloc::vec::Vec<vc_interfaces::DraftStep>
@@ -923,10 +965,15 @@ impl core::fmt::Debug for vc_interfaces::DraftStep
 pub fn vc_interfaces::DraftStep::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_interfaces::DraftStep
 pub struct vc_interfaces::DraftTest
+pub vc_interfaces::DraftTest::before: alloc::vec::Vec<vc_interfaces::DraftBefore>
+pub vc_interfaces::DraftTest::body: core::option::Option<serde_json::value::Value>
 pub vc_interfaces::DraftTest::call: alloc::string::String
+pub vc_interfaces::DraftTest::examples: alloc::vec::Vec<vc_interfaces::DraftExample>
 pub vc_interfaces::DraftTest::id: alloc::string::String
 pub vc_interfaces::DraftTest::name: alloc::string::String
 pub vc_interfaces::DraftTest::no_auth: bool
+pub vc_interfaces::DraftTest::schema: core::option::Option<alloc::string::String>
+pub vc_interfaces::DraftTest::skip: core::option::Option<alloc::string::String>
 pub vc_interfaces::DraftTest::status: u16
 pub vc_interfaces::DraftTest::vars: indexmap::map::IndexMap<alloc::string::String, serde_json::value::Value>
 impl core::clone::Clone for vc_interfaces::DraftTest
@@ -1497,7 +1544,9 @@ pub fn vc_interfaces::HistoryWriter::record(&self, vc_interfaces::RunId, alloc::
 pub trait vc_interfaces::HookRunner: core::marker::Send + core::marker::Sync
 pub fn vc_interfaces::HookRunner::call<'life0, 'async_trait>(&'life0 self, vc_interfaces::HookCall) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::result::Result<vc_interfaces::HookOutput, vc_interfaces::HookError>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait
 pub trait vc_interfaces::Importer: core::marker::Send + core::marker::Sync
+pub fn vc_interfaces::Importer::keeps_snapshot(&self) -> bool
 pub fn vc_interfaces::Importer::read<'life0, 'life1, 'life2, 'async_trait>(&'life0 self, &'life1 vc_interfaces::ImportSource, &'life2 vc_interfaces::ImportOptions) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::result::Result<vc_interfaces::ImportDraft, vc_interfaces::ImportError>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait, 'life1: 'async_trait, 'life2: 'async_trait
+pub fn vc_interfaces::Importer::read_help(&self) -> core::option::Option<&'static str>
 pub fn vc_interfaces::Importer::reads_folders(&self) -> bool
 pub fn vc_interfaces::Importer::source_help(&self) -> core::option::Option<&'static str>
 pub trait vc_interfaces::Keychain: core::marker::Send + core::marker::Sync
@@ -1533,6 +1582,7 @@ pub fn vc_interfaces::SourceProvider::ignores(&self, &vc_model::source::SourcePa
 pub fn vc_interfaces::SourceProvider::read(&self, &[vc_model::source::SourcePath]) -> core::result::Result<vc_interfaces::Discovery, vc_interfaces::SourceError>
 pub fn vc_interfaces::SourceProvider::read_bytes(&self, &vc_model::source::SourcePath) -> core::result::Result<alloc::vec::Vec<u8>, vc_interfaces::SourceError>
 pub fn vc_interfaces::SourceProvider::read_outside(&self, &[(vc_model::source::SourcePath, vc_model::source::SourcePath)]) -> core::result::Result<vc_interfaces::Discovery, vc_interfaces::SourceError>
+pub fn vc_interfaces::SourceProvider::real(&self, &vc_model::source::SourcePath) -> core::option::Option<vc_model::source::SourcePath>
 pub trait vc_interfaces::SourceWriter: core::marker::Send + core::marker::Sync
 pub fn vc_interfaces::SourceWriter::remove(&self, &vc_model::source::SourcePath) -> core::result::Result<(), vc_interfaces::SourceError>
 pub fn vc_interfaces::SourceWriter::write(&self, &vc_model::source::SourcePath, &str) -> core::result::Result<(), vc_interfaces::SourceError>

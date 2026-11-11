@@ -220,10 +220,14 @@ impl StoredRun {
 
 fn run_line(run: &RunRow) -> String {
     let totals = &run.totals;
-    let counts = format!(
-        "{} passed · {} failed · {} blocked · {} skipped",
-        totals.passed, totals.failed, totals.blocked, totals.skipped
-    );
+    let counts = if run.start.kind == LOAD_KIND {
+        format!("load · {} iterations · {} errors", totals.passed.saturating_add(totals.failed), totals.failed)
+    } else {
+        format!(
+            "{} passed · {} failed · {} blocked · {} skipped",
+            totals.passed, totals.failed, totals.blocked, totals.skipped
+        )
+    };
     let mut line = format!("{:>5}  {}  {:<9}  {counts}", run.id.get(), started(run.start.started_ms), status(run));
     if !run.start.profiles.is_empty() {
         let _ = write!(line, "  profile {}", run.start.profiles.join(","));

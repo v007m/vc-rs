@@ -300,9 +300,9 @@ Commands are grouped by the job they do. `vc help <command>` shows every flag wi
 | Command | Does |
 | --- | --- |
 | `vc init [--no-sample] [--from-openapi <url-or-file>]` | Creates `vibranium.config.yaml` with a `default` profile, the sample api and test files (not with `--no-sample`), `.env.schema` when there is none, the conventional folders, a `.gitignore` entry for `.vibranium/`, and the editor schema hint; with `--from-openapi`, then runs `vc import openapi` on it (when the import is refused, the project stays written and the import can be run again). A definition file it would write that exists already (a project is here) is named and nothing is written: exit 2 |
-| `vc import openapi <url-or-file> [--id <fileId>] [--tests] [--negative] [--auth] [--include <tag-or-path>]… [--only <operationId>]…` | Creates an api file from a spec (one api per operation), saves the spec snapshot `openapi/<fileId>.yaml`, adds a base-URL var to the config, and optionally generates tests in `<fileId>.openapi` (`services/<fileId>/openapi.test.yaml`). Without `--id` the file ID is the spec's file name up to its first dot. What the spec holds that has no api form is listed after the change. An api file that exists is refused (use `vc sync`), and so is a result that would not compile: exit 2, nothing written |
-| `vc import curl <file> [--id <fileId>]` | Creates an api file from a file of curl commands, as browser dev tools and API docs copy them: one api per distinct method and path, all calling one origin, which becomes a base-URL var. IDs in a path become vars; JSON body fields become api vars with the command's values as defaults; form and `-F` data become body maps. A credential (`authorization` and other secret-named headers, cookies, `-u`, a URL's user, secret-named query and body fields) is never written: the notes after the change name each one left out, without its value |
-| `vc import har <file> [--flow <fileId#testId>] [--include-host <host>]… [--keep-static] [--profile <ids>] [--dry-run]` | Turns a browser recording into apis in the api files whose base URLs its hosts render to (new files for unknown hosts), credentials dropped and secrets made `${secret.…}` references, plus with `--flow` a test replaying it (see Importing from a HAR file). `--dry-run` prints the plan and the diffs without writing. A result that would not compile is refused: exit 2, nothing written |
+| `vc import openapi <url-or-file> [--id <fileId>] [--tests] [--negative] [--auth] [--include <tag-or-path>]… [--only <operationId>]…` | Creates an api file from a spec (one api per operation), saves the spec snapshot `openapi/<fileId>.yaml`, adds a base-URL var to the config, and optionally generates tests in `<fileId>.openapi` (`services/<fileId>/openapi.test.yaml`). Without `--id` the file ID is the spec's file name up to its first dot. `--include` and `--only` are kept in the file's `source`, so `vc sync` takes the same operations (D277). What the spec holds that has no api form is listed after the change. An api file that exists is refused (use `vc sync`), and so is a spec read from a snapshot path `openapi/<id>.yaml` (keep specs elsewhere, such as `specs/`), a snapshot path another api file's `source.openapi` names, a snapshot path that leads to another file (a link, or a file named in another case on a file system that ignores case), and a result that would not compile: exit 2, nothing written |
+| `vc import curl <file> [--id <fileId>]` | Creates an api file from a file of curl commands, as browser dev tools and API docs copy them: one api per distinct method and path, all calling one origin, which becomes a base-URL var. Without `--id` the commands go to the api file whose base URL renders to that origin, if one does; with it, to the file `--id` names, created when it does not exist; `--id` for commands calling several origins is refused, naming them (exit 2), as one api file has one base URL. IDs in a path become vars; JSON body fields become api vars with the command's values as defaults; form and `-F` data become body maps. A credential (`authorization` and other secret-named headers, cookies, `-u`, a URL's user, secret-named query and body fields) is never written: the notes after the change name each one left out, without its value |
+| `vc import har <file> [--flow <fileId#testId>] [--include-host <host>]… [--keep-static] [--profile <ids>] [--dry-run]` | Turns a browser recording into apis in the api files whose base URLs its hosts render to (new files for unknown hosts), credentials dropped and secrets made `${secret.…}` references, plus with `--flow` a test replaying it (see Importing from a HAR file). `--id` puts a recording of one origin in the file it names; for a recording of several origins it is refused, naming them (exit 2). `--dry-run` prints the plan and the diffs without writing. A result that would not compile is refused: exit 2, nothing written |
 | `vc import http <file> [--id <fileId>]` | Creates an api file from a `.http` file (VS Code REST Client, JetBrains HTTP Client) by the curl rules: one api per request, named by its `###` title or `# @name`. File variables are written as their values, except one named like a credential, which stays a var; `{{$guid}}` and `{{$randomInt a b}}` become fake data; a variable the file does not define, or another request's response, becomes an empty var with a note. Response handlers and bodies read from files are not imported |
 | `vc import postman <file> [--flow <fileId#testId>] [--profile <ids>] [--dry-run]` | Turns a Postman collection (v2.1 export) into apis in the api files whose base URLs its URLs render to (new files for unknown hosts), one api per request named after it. `{{variables}}` become `${var.…}` with the collection's values as defaults, Postman's dynamic variables (`{{$guid}}`) the matching `${fake.…}`, and a base URL without a value `http://localhost`, noted. Auth and credential headers are never written; secret-named or random values become `${secret.…}` references; other headers and scripts are noted, not imported. With `--flow`, a test calling the requests in collection order, saving what their test scripts set from the response (`pm.environment.set("cartId", pm.response.json().id)`). `--dry-run` as for `har` |
 | `vc import bruno <path> [--flow <fileId#testId>] [--profile <ids>] [--dry-run]` | Turns a Bruno collection, its folder (the one with its `bruno.json`, D254) or the collection exported from Bruno as one JSON file (D209), into apis by the `postman` rules; both draft the same. The vars default to the collection's vars and its first environment's values (other environments are noted); an environment variable marked secret and `{{process.env.NAME}}` become `${secret.…}` references. Auth inherits from folder and collection; scripts, tests, assertions and request vars are noted, not imported. With `--flow`, each step saves the post-response vars that read the response body (`cartId: res.body.id`). The folder's `bruno.json` `ignore` paths are not read; a folder without `bruno.json` exits 2 |
@@ -330,7 +330,7 @@ Commands are grouped by the job they do. `vc help <command>` shows every flag wi
 | --- | --- |
 | `vc run [selector...]` | Runs tests (see Selecting what to run) |
 | `vc watch [selector...]` | Runs the selection, then re-runs the affected tests 200 ms after a definition file, `.env` or `.env.schema` is saved. Takes `vc run`'s flags; a flag value the first run refuses (`--profile nope`) ends it with exit 2, since no save can fix it; Ctrl-C ends it with exit 130 |
-| `vc load <scenarioId>` | Runs a load scenario: `beforeRun` and `beforeAll` once, a live line each second on stderr, then the summary (`--json` for the report as JSON). Exit 0 within thresholds, 1 blocked by a shared action, 2 unknown scenario, 3 a threshold breached, 130 cancelled |
+| `vc load <scenarioId>` | Runs a load scenario: `beforeRun` and `beforeAll` once, the stages with a live line each second on stderr (its rps over the last 3 s), `afterAll` and `afterRun` once, then the summary: latency p50/p90/p95/p99/max, each breach in its unit with its limit (`breached p99 at 45.471 ms (lt 30 ms)`) and each error kind by the api that failed, its status and code (`errors users#list 200 V5101 × 12`); `--json` for the report as JSON, each breach as `{metric, test, actual, unit, limit}` and each error kind as `{api, test, status, code, count}`. Exit 0 within thresholds, 1 blocked by a shared action, 2 unknown scenario, 3 a threshold breached, 130 cancelled |
 | `vc skip <testId\|fileId> --reason <text> [--until <date>]`, `vc unskip <id>` | Writes or removes a `skip` in the YAML (see Skipping). An `--until` before today (UTC) is refused with V3104, as the skip would have expired already |
 
 **Keep in sync**
@@ -346,7 +346,7 @@ Commands are grouped by the job they do. `vc help <command>` shows every flag wi
 
 | Command | Does |
 | --- | --- |
-| `vc history [--limit N] [--json]` | Lists the stored runs, newest first: number, start (UTC), status, totals, profiles and selectors; `--json` also gives each run's `kind` (`run`, `adhoc`) |
+| `vc history [--limit N] [--json]` | Lists the stored runs, newest first: number, start (UTC), status, totals, profiles and selectors; `--json` also gives each run's `kind` (`run`, `load`, `adhoc`). A load run lists as `load · 40 iterations · 3 errors`, and its totals count iterations: `passed` those that passed, `failed` the errors |
 | `vc history show [run\|last] [--json]` | One stored run and the tests in it that did not pass, with why. `last` (here, in `vc report` and in `--failed`) is the newest run that is not an `adhoc` call; a call is shown by its number |
 | `vc history prune [--keep N]` | Drops the oldest runs beyond `N` (else the config's `history.keep`); a run also prunes when it ends |
 | `vc history [query]`, `vc history compare 481 482` | Failures, flaky tests and trends across runs (later) |
@@ -496,6 +496,91 @@ What the generator fills in for you:
 
 A `name` in an example row labels that instance in reports, so a failure reads "deactivateRejectsInvalidBody › notify is not a boolean".
 
+`vc import openapi` writes these tests for every operation into `services/<fileId>/openapi.test.yaml` (file ID `<fileId>.openapi`), the same three cases with these differences:
+
+- **Names and IDs.** A test is named after the operation's summary without its full stop, else the api's ID as a sentence (`deletePetsPetId` → "Delete pets pet id"). IDs are the api ID as a third-person verb (`createUser` → `createsUser`, `login` → `logsIn`), `rejectsInvalid<Api>` and `rejects<Api>WithoutAuth`; the negative and auth names add ": rejects an invalid body" and ": needs a signed-in caller".
+- **Status and schema.** The happy test expects the operation's first documented 2xx (`201` for a create that lists only `201`) and, when that response has a JSON schema, `body.schema` pointing into the snapshot: at `#/components/schemas/<Name>` for a `$ref`, else at the schema inside the operation, with what a URI fragment cannot hold percent-encoded (`/items/{id}` is `~1items~1%7Bid%7D`). A percent-encoded `$ref` in the spec is followed decoded. The negative test expects `400`, or `422` when the spec lists that and not `400`.
+- **What a call needs.** For each `{param}` in the path, the `POST` on the collection above it (`POST /users` for `/users/{id}`) is the creator when its success response has a property named like the parameter, or `id`. The creator gets `save: {<resource>Id: ${response.body.<property>}}`, named after the collection's last word in the singular (`/users` saves `userId`, `/line_items` `lineItemId`; a second creator in the file whose name clashes saves `userId2`, then `userId3`, in route order), and a `cleanup` calling the `DELETE` on the item's path when the spec has one, its `vars` keyed by that `DELETE`'s own parameter. Each test calls the creators in `before`, outermost first, and passes each parameter whose name differs from the save its creator's value on the call: `vars: {id: ${var.userId}}` for `/users/{id}`; a `/users/{userId}` needs no `vars`. When the test's call is the `DELETE` of the item its last `before` creates, that `before` has `keep: true`, as the call itself removes the item; a `DELETE` of something else (`DELETE /users/{id}/orders`) keeps nothing, so the user is still cleaned up. When nothing creates an item, the test is written with `skip: {reason: "needs an existing <item>: set vars.<param> to one and remove this skip"}` instead.
+- **Invalid bodies.** The rows start from the api's drafted JSON body, its vars filled in, and break one field it sends at a time: missing when required, a value of the wrong type, a value outside its enum. The wrong value is one no type the field allows accepts, counting each type in a `type` list and each `anyOf` or `oneOf` alternative (an integer passes as a number), and the row is named after them (`flag is not a boolean or integer`); a field the row cannot break that way, such as `type: [string, number]`, gets no such row.
+
+From the mock users spec with `--tests --negative`, the api file's `createUser` gains
+
+```yaml
+    save:
+      userId: ${response.body.id}
+    cleanup:
+      call: deleteUser
+      vars:
+        id: ${response.body.id}
+```
+
+and the test file reads:
+
+```yaml
+id: users.openapi
+
+tests:
+  - id: listsUsers
+    name: List users
+    call: users#listUsers
+    expect:
+      status: 200
+      body:
+        schema:
+          $file: ../../openapi/users.yaml#/paths/~1users/get/responses/200/content/application~1json/schema
+  - id: createsUser
+    name: Create user
+    call: users#createUser
+    expect:
+      status: 201
+      body:
+        schema:
+          $file: ../../openapi/users.yaml#/components/schemas/User
+  - id: rejectsInvalidCreateUser
+    name: "Create user: rejects an invalid body"
+    call: users#createUser
+    examples:
+      - name: email missing
+        body:
+          name: Ada
+      - name: email is not a string
+        body:
+          email: 123
+          name: Ada
+      - name: name missing
+        body:
+          email: ada@example.com
+      - name: name is not a string
+        body:
+          email: ada@example.com
+          name: 123
+    body: ${example.body}
+    expect:
+      status: 400
+  - id: getsUser
+    name: Get user
+    before:
+      - call: users#createUser
+    call: users#getUser
+    vars:
+      id: ${var.userId}
+    expect:
+      status: 200
+      body:
+        schema:
+          $file: ../../openapi/users.yaml#/components/schemas/User
+  - id: deletesUser
+    name: Delete user
+    before:
+      - call: users#createUser
+        keep: true
+    call: users#deleteUser
+    vars:
+      id: ${var.userId}
+    expect:
+      status: 204
+```
+
 ### Capturing a real call
 
 `vc call` sends one request with the project's auth and active profile and prints the response. Adding `--save-as-test` writes it as a test, expecting what came back: the status, and the body fields you name with `--expect-field body.<path>` at the values they had (no schema is inferred, D176); the web and terminal UIs offer the same with checkboxes.
@@ -518,8 +603,8 @@ $ vc import har ~/Downloads/checkout-session.har --flow orders.checkout#recorded
 
 What the import does, in order:
 
-1. **Filters noise.** It drops static assets, third-party hosts (analytics, CDNs) and `OPTIONS` preflights; `--include-host` and `--keep-static` override this.
-2. **Maps hosts to api files.** Each host goes to the api file whose `baseUrl` renders to it under the active profile (`--profile`), the longest base path winning; an unknown host creates a new api file named by the conventions (`api.shop.test` → `shop`), with a base-URL var such as `shopUrl` added to the config. A new host whose file ID already has an api file pointing elsewhere is refused: pass the `--profile` whose vars point that file there, or rename the file first.
+1. **Filters noise.** It drops static assets, third-party hosts (analytics, CDNs) and `OPTIONS` preflights; `--include-host` and `--keep-static` override this. A host is third-party when its site (its last two labels) is not the site of any api file's base URL (D206), so an api on a new domain is dropped too until `--include-host` names it. When nothing is left, the error names each host it dropped as third-party with the `--include-host` that keeps it.
+2. **Maps hosts to api files.** Each host goes to the api file whose `baseUrl` renders to it under the active profile (`--profile`), the longest base path winning; an unknown host it kept creates a new api file named by the conventions (`api.shop.test` → `shop`), with a base-URL var such as `shopUrl` added to the config. A new host whose file ID already has an api file pointing elsewhere is refused: pass the `--profile` whose vars point that file there, or rename the file first.
 3. **Turns requests into apis.**
    - IDs come from the method and path (`POST /carts/{id}/items` → `addItem`).
    - IDs and UUIDs in paths become vars (`/orders/ord_8Kq2Tz` → `/orders/${var.orderId}`).
@@ -574,7 +659,7 @@ source:
 
 ### Do you need to keep a copy of the spec?
 
-You don't keep one yourself, but Vibranium does: every import and sync writes `openapi/<fileId>.yaml`, a snapshot of the spec as it was at that moment. It is converted to OpenAPI 3.1 YAML with references bundled, so it diffs cleanly in pull requests. Commit it. It is the merge base that lets `vc sync` tell a change in the spec from a change you made, and it lets everyone on the team, and CI, sync the same way. Only `vc import` and `vc sync` write it; generated tests are to point their schemas into it (not drafted yet). Runs never need the spec or the network to reach it.
+You don't keep one yourself, but Vibranium does: every import and sync writes `openapi/<fileId>.yaml`, a snapshot of the spec as it was at that moment. It is converted to OpenAPI 3.1 YAML with references bundled, so it diffs cleanly in pull requests. Commit it. It is the merge base that lets `vc sync` tell a change in the spec from a change you made, and it lets everyone on the team, and CI, sync the same way. Only `vc import` and `vc sync` write it; the tests `vc import openapi --tests` writes point their schemas into it. Both refuse (exit 2, nothing written) when the spec is kept in `openapi/` (keep it in `specs/`, say), when `openapi/<fileId>.yaml` is the spec another api file syncs from, or when it leads to another file: a link, or a file named in another case on a file system that ignores case. A snapshot is replaced, never written into, so a hard link there leaves the spec as it was. Runs never need the spec or the network to reach it.
 
 ### What sync does
 
@@ -589,11 +674,12 @@ You don't keep one yourself, but Vibranium does: every import and sync writes `o
 | new operation | — | New api added (its tests are not drafted yet) |
 | operation removed | — | The api is kept and marked `deprecated: true`; `vc check` warns where tests still call it |
 
-- **What sync owns:** `method`, `path`, each `query` entry and the `content-type` header. A value it takes from the spec that reads a var the api lacks (`${var.cursor}`) brings that var with the spec's default. It never touches IDs, names, `body`, `expect`, `save`, `cleanup`, hooks or the defaults you set, and does not yet write tests for new operations. A change it cannot make in the file as written (taking an entry out of a `{..}` map) is refused, naming the api, for you to make by hand.
+- **What sync owns:** `method`, `path`, each `query` entry and the `content-type` header. A value it takes from the spec that reads a var the api lacks (`${var.cursor}`) brings that var with the spec's default. A query param that is optional with no default is not sent, so an api never gains one: an optional param the spec adds, or drops while the file still sends it, is listed with `~` (`~ users#listUsers optional query limit added to the spec: not sent, add \`query.limit\` to send it`). It never touches IDs, names, `body`, `expect`, `save`, `cleanup`, hooks or the defaults you set, and does not yet write tests for new operations. A change it cannot make in the file as written (taking an entry out of a `{..}` map) is refused, naming the api, for you to make by hand.
 - **Which files:** `vc sync` with no file IDs syncs every api file with a `source` key; a file named that has none is refused.
+- **Which operations:** the ones the import took. `vc import --include` and `--only` are kept in the file as `source.include` and `source.only`, and sync takes only the operations they match, so a new operation outside them is not added (D277).
 - **Conflicts:** an api whose field both sides changed differently, or a new operation whose ID the file already uses, is left as it is and listed with how to settle it. `--take spec <apiId>` takes the spec's values; `--take mine <apiId>` keeps yours; after editing by hand, `--resolved <apiId>` keeps the file as it is. Until then its snapshot entry stays as it was, together with the old snapshot's components it may refer to, so the next sync shows the same conflict. A conflict does not change the exit code of `vc sync`; under `--check` it exits 4, like drift.
 - **Matching:** apis are matched to operations by `operationId`, so you can rename an api ID freely. New IDs come from the operationId in camelCase; without one, from the method and path (`POST /users/{id}/deactivate` → `postUsersIdDeactivate`).
-- **Previewing and CI:** `vc sync --dry-run` prints the changes and their diffs without writing anything. `vc sync --check` prints them, writes nothing and exits with code 4 when any spec has changed since its snapshot (D127), so a CI job can flag drift before tests start failing.
+- **Previewing and CI:** `vc sync --dry-run` prints the changes and their diffs without writing anything. `vc sync --check` prints them, writes nothing and exits with code 4 when any spec has changed since its snapshot (D127), so a CI job can flag drift before tests start failing. Drift is never silent: a spec that changed only where sync takes nothing into the file (a description, a schema, an operation outside `source.include`) prints `~ users the spec changed outside what sync takes into the file: only the snapshot is updated`.
 
 ```
 $ vc sync users

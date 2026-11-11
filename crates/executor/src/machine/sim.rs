@@ -151,7 +151,7 @@ pub fn drive_file(
 
 fn file_answer(command: &FileCommand, respond: Respond, running: &mut VecDeque<Launch>) -> Option<FileInput> {
     match command {
-        FileCommand::RunAction(action) => Some(FileInput::ActionDone(respond(*action))),
+        FileCommand::RunAction(action) => Some(FileInput::ActionDone(Box::new(respond(*action)))),
         FileCommand::RunCleanup(_) => Some(FileInput::CleanupDone),
         FileCommand::Launch(launch) => {
             running.push_back(launch.clone());

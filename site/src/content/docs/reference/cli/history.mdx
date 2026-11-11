@@ -44,11 +44,11 @@ $ vc history prune [OPTIONS]
 ```console
 $ vc history --limit 3
    80  2026-11-10 18:01Z  failed     3 passed · 1 failed · 0 blocked · 0 skipped  profile default  sample.extra
-   79  2026-11-10 18:00Z  cancelled  0 passed · 0 failed · 0 blocked · 0 skipped  profile default  sample.strict
-   78  2026-11-10 18:00Z  failed     0 passed · 0 failed · 0 blocked · 0 skipped  profile default  sample.strict
+   79  2026-11-10 18:00Z  cancelled  load · 212 iterations · 0 errors  profile default  sample.strict
+   78  2026-11-10 18:00Z  failed     load · 473 iterations · 0 errors  profile default  sample.strict
 ```
 
-The columns are the run number, when it started (UTC), the status, the totals, the profiles and the selector. The status is `passed`, `failed` or `cancelled`. Load runs (here `sample.strict`) show zero totals.
+The columns are the run number, when it started (UTC), the status, the totals, the profiles and the selector. The status is `passed`, `failed` or `cancelled`. A load run (here `sample.strict`) shows its iterations and errors instead of tests; a breached threshold makes it `failed`.
 
 ### Show one run
 
@@ -122,7 +122,7 @@ error: history: no run 999 is stored
 | `id` | The run number |
 | `kind` | `run` or `load` |
 | `status` | `passed`, `failed` or `cancelled` |
-| `totals` | `{passed, failed, blocked, skipped, flaky}` |
+| `totals` | `{passed, failed, blocked, skipped, flaky}`. For a load run they count iterations: `passed` those that passed, `failed` the errors |
 | `profiles`, `selector`, `seed` | What the run used |
 | `startedMs`, `finishedMs` | Unix time in milliseconds |
 | `vcVersion` | The `vc` version that ran it |

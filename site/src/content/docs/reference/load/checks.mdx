@@ -41,7 +41,7 @@ $ vc load sample.checks
     2s  1 users  5 rps  p50 3 ms  p95 7 ms  p99 7 ms  0 errors
     2s  0 users  5 rps  p50 3 ms  p95 7 ms  p99 7 ms  0 errors
 sample.checks finished after 2 s · 10 iterations · 5.0 rps · 0 errors
-latency p50 3.7 ms · p95 7.3 ms · p99 7.3 ms · max 7.3 ms
+latency p50 3.7 ms · p90 5.9 ms · p95 7.3 ms · p99 7.3 ms · max 7.3 ms
 ```
 
 ### `checks: full`
@@ -54,12 +54,12 @@ $ vc load sample.full
     2s  1 users  5 rps  p50 3 ms  p95 5 ms  p99 5 ms  10 errors  breaching: errorRate
     2s  0 users  5 rps  p50 3 ms  p95 5 ms  p99 5 ms  10 errors
 sample.full finished after 2 s · 10 iterations · 5.0 rps · 10 errors
-latency p50 3.7 ms · p95 5.2 ms · p99 5.2 ms · max 5.2 ms
-breached errorRate at 1.000
-errors sample#listUsers 200 × 10
+latency p50 3.7 ms · p90 4.6 ms · p95 5.2 ms · p99 5.2 ms · max 5.2 ms
+breached errorRate at 100% (lt 1%)
+errors sample#listUsers 200 V5101 × 10
 ```
 
-The `errors` line groups failures by api and status: `sample#listUsers` answered `200`, ten times.
+The `errors` line groups failures by api, status and code: `sample#listUsers` answered `200` and its check failed (`V5101`), ten times.
 
 ### A wrong value
 

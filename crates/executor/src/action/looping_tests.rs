@@ -12,7 +12,7 @@ use vc_model::{
 };
 use vc_testkit::FakeTransport;
 
-use crate::fixture::Fixture;
+use crate::fixture::{Fixture, Server};
 use crate::{ActionExecutors, ActionReport, ActionRequest, Frame, HostLimits, PendingCleanup, PipelineParts};
 
 /// Answers each request with its path as `{"path": …}`, after `/<n>` milliseconds × 10 for a path
@@ -119,6 +119,20 @@ async fn a_failed_turn_starts_no_more_and_keeps_the_cleanups_of_the_turns_that_r
     assert_eq!((failure.code, failure.action), (Some(Code::V5101.to_string()), Some(create)));
     assert_eq!(report.cleanups, vec![PendingCleanup::new(delete); 2]);
     assert_eq!((transport.calls(), report.saved.len()), (3, 0));
+}
+
+#[tokio::test]
+async fn a_failed_turn_marks_its_own_exchanges_not_the_last_turn_s() {
+    let mut fixture = Fixture::new();
+    let call = fixture.call("/items");
+    fixture.api_mut(call).path = fixture.template("/${item}");
+    let items = ["missing", "a", "b"].map(|item| fixture.value(item));
+    fixture.action_mut(call).repeat = Some(Loop::ForEach { items: TemplateValue::List(items.to_vec()), parallel: 3 });
+    let (server, _sent) = Server::new();
+    let report = run(fixture, call, server).await;
+    let statuses: Vec<u16> = report.exchanges.iter().map(|exchange| exchange.response.status.as_u16()).collect();
+    assert_eq!((statuses, report.failing), (vec![404, 200, 200], Some(0..1)));
+    assert!(report.outcome.failure().is_some_and(|failure| failure.message.starts_with("iteration 1: ")));
 }
 
 #[tokio::test]

@@ -2,9 +2,12 @@
 
 mod bundle;
 mod cases;
+mod creators;
 mod draft;
 #[cfg(test)]
 mod fixture;
+mod negative;
+mod responses;
 mod swagger;
 mod upgrade;
 mod values;
@@ -51,8 +54,16 @@ impl Importer for OpenApiImporter {
         let (routes, mut notes) = reader.routes();
         let (mut group, more) = reader.group(&source.location, &routes);
         notes.extend(more);
-        group.tests = reader.tests(&opts.file_id, &routes, &group.apis);
+        group.tests = reader.tests(&opts.file_id, &routes, &mut group.apis);
         Ok(ImportDraft { groups: vec![group], notes, snapshot: Some(doc), ..ImportDraft::default() })
+    }
+
+    fn read_help(&self) -> Option<&'static str> {
+        Some("fix the spec, or import part of it with `--include` or `--only`")
+    }
+
+    fn keeps_snapshot(&self) -> bool {
+        true
     }
 }
 

@@ -2,10 +2,15 @@
 //! served spec, and they compile and run; `vc init --from-openapi` imports into a new project;
 //! `vc sync` merges the next version of the spec; a HAR recorded against the mock server, and a
 //! Postman or Bruno collection calling it (a Bruno one as its export or its folder), import into
-//! its api file and their flows run green; a folder without `bruno.json` is refused.
+//! its api file and their flows run green; a folder without `bruno.json` is refused; a recording
+//! whose every host is third-party names them, and `--include-host` previews their new files;
+//! no secret in a recording is said or written; import and sync refuse a snapshot path that is
+//! the spec, a link or another file's name in another case, and sync replaces a snapshot hard
+//! linked to the spec rather than writing into it.
 
 use vc_mock_server::MockServer;
 
+use crate::redaction::files;
 use crate::{CONFIG, Project, USERS, said};
 
 #[tokio::test(flavor = "multi_thread")]
@@ -198,4 +203,170 @@ fn a_folder_without_bruno_json_is_refused() {
     assert_eq!(output.status.code(), Some(2), "{}", said(&output));
     let line = "it is not a Bruno collection: the folder has no bruno.json";
     assert!(said(&output).contains(line), "{line} not in {}", said(&output));
+}
+
+#[test]
+fn a_recording_to_a_host_no_api_file_is_on_names_it_and_include_host_previews_its_new_file() {
+    let project = Project::new(&[CONFIG, USERS]);
+    project.write("recorded.har", RECORDED);
+    let refused = project.vc(&["import", "har", "recorded.har"]).output().unwrap();
+    assert_eq!(refused.status.code(), Some(2), "{}", said(&refused));
+    for line in ["`--include-host www.google-analytics.com` or `--include-host 127.0.0.1`", "`--include-host <host>`"] {
+        assert!(said(&refused).contains(line), "{line} not in {}", said(&refused));
+    }
+    assert!(!said(&refused).contains("--only"), "{}", said(&refused));
+    let kept = ["import", "har", "recorded.har", "--include-host", "127.0.0.1", "--dry-run"];
+    let preview = project.vc(&kept).output().unwrap();
+    assert_eq!(preview.status.code(), Some(0), "{}", said(&preview));
+    for line in ["  127.0.0.1:7421 → recorded (new)  6 new", "+++ b/services/recorded/recorded.api.yaml"] {
+        assert!(said(&preview).contains(line), "{line} not in {}", said(&preview));
+    }
+    assert!(!project.path().join("services/recorded").exists());
+    assert!(!said(&preview).contains(TOKEN), "{}", said(&preview));
+}
+
+/// A shop session recorded against two origins, `https://api.shop.test` and `https://pay.shop.test`.
+const TWO_ORIGINS: &str = include_str!("../../../../adapters/importers/fixtures/shop.har");
+
+#[test]
+fn an_id_for_a_recording_of_two_origins_is_refused_naming_them() {
+    let project = Project::new(&[CONFIG]);
+    project.write("shop.har", TWO_ORIGINS);
+    let hosts = ["--include-host", "api.shop.test", "--include-host", "pay.shop.test"];
+    let output = project.vc(&[&["import", "har", "shop.har", "--id", "shop"][..], &hosts].concat()).output().unwrap();
+    assert_eq!(output.status.code(), Some(2), "{}", said(&output));
+    let origins = "https://api.shop.test, https://pay.shop.test";
+    let reason = format!("`--id shop` names one api file, but the recording calls 2 origins: {origins}");
+    for line in [reason.as_str(), "import without `--id`: each origin goes to the api file"] {
+        assert!(said(&output).contains(line), "{line} not in {}", said(&output));
+    }
+    assert!(!said(&output).contains("pk_9Rt2Lm8Qx4Vz7Nb3Kc6Wd1Hy"), "{}", said(&output));
+    assert!(!project.path().join("services").exists());
+}
+
+/// What [`TWO_ORIGINS`] holds that no output or written file may, as the engine's own test lists
+/// them: a bearer token, a session cookie, an api key, a nonce, a card token, a password and a
+/// token a response gave back.
+const SHOP_SECRETS: [&str; 7] = [
+    "eyJhbGciOiJIUzI1NiJ9",
+    "s3ss10nC00k1e",
+    "pk_9Rt2Lm8Qx4Vz7Nb3Kc6Wd1Hy",
+    "Xk9pQ2mZ7vR4tL8wB3nY6cH1",
+    "tok_visa",
+    "hunter2",
+    "Zq8Wv3Lp5Rt7Ny2Kb4Hd6Fj9",
+];
+
+#[test]
+fn a_recording_of_two_origins_imports_and_no_secret_in_it_is_said_or_written() {
+    let project = Project::new(&[CONFIG]);
+    project.write("shop.har", TWO_ORIGINS);
+    let hosts = ["--include-host", "api.shop.test", "--include-host", "pay.shop.test"];
+    let output = project.vc(&[&["import", "har", "shop.har"][..], &hosts].concat()).output().unwrap();
+    assert_eq!(output.status.code(), Some(0), "{}", said(&output));
+    let mut written = Vec::new();
+    files(project.path(), &mut written);
+    written.retain(|(path, _)| !path.ends_with("shop.har"));
+    assert!(written.iter().any(|(path, _)| path.ends_with(".api.yaml")), "{written:?}");
+    let leaked: Vec<_> = SHOP_SECRETS
+        .iter()
+        .filter(|secret| said(&output).contains(*secret) || written.iter().any(|(_, text)| text.contains(*secret)))
+        .collect();
+    assert!(leaked.is_empty(), "{leaked:?} in {} or {written:?}", said(&output));
+}
+
+/// A spec with one operation, kept in the project.
+const SPEC: (&str, &str) = (
+    "specs/users.yaml",
+    "openapi: 3.1.0\ninfo: {title: Users, version: '1'}\npaths:\n  /users:\n    get:\n      operationId: listUsers\n\
+     \x20     responses: {'200': {description: ok}}\n",
+);
+
+#[cfg(unix)]
+#[test]
+fn a_snapshot_path_that_links_to_the_spec_is_refused_and_the_spec_is_left_as_it_was() {
+    let project = Project::new(&[CONFIG, SPEC]);
+    std::fs::create_dir_all(project.path().join("openapi")).unwrap();
+    std::os::unix::fs::symlink(project.path().join(SPEC.0), project.path().join("openapi/users.yaml")).unwrap();
+    for source in [SPEC.0, "openapi/users.yaml"] {
+        let output = project.vc(&["import", "openapi", source, "--id", "users"]).output().unwrap();
+        assert_eq!(output.status.code(), Some(2), "{source}: {}", said(&output));
+        assert!(
+            said(&output)
+                .contains("openapi/users.yaml, where `vc import` keeps the snapshot, leads to specs/users.yaml")
+        );
+    }
+    assert_eq!(std::fs::read_to_string(project.path().join(SPEC.0)).unwrap(), SPEC.1);
+}
+
+#[cfg(target_os = "macos")]
+#[test]
+fn a_snapshot_path_that_differs_only_in_case_from_a_file_is_refused() {
+    let snapshot = ("openapi/users.yaml", "# kept by an earlier import\n");
+    let project = Project::new(&[CONFIG, SPEC, snapshot]);
+    let output = project.vc(&["import", "openapi", SPEC.0, "--id", "Users"]).output().unwrap();
+    assert_eq!(output.status.code(), Some(2), "{}", said(&output));
+    assert!(
+        said(&output).contains("openapi/Users.yaml, where `vc import` keeps the snapshot, leads to openapi/users.yaml")
+    );
+    assert_eq!(std::fs::read_to_string(project.path().join(snapshot.0)).unwrap(), snapshot.1);
+}
+
+/// The spec of [`SPEC`] with a server, so it imports into a file that compiles.
+const SERVED: (&str, &str) = (
+    "specs/users.yaml",
+    "openapi: 3.1.0\ninfo: {title: Users, version: '1'}\nservers: [{url: 'http://127.0.0.1:9'}]\npaths:\n  /users:\n\
+     \x20   get:\n      operationId: listUsers\n      responses: {'200': {description: ok}}\n",
+);
+
+/// A project with [`SERVED`] imported as `users`, its snapshot moved to `specs/old-snapshot.yaml`.
+fn imported_without_its_snapshot() -> Project {
+    let project = Project::new(&[CONFIG, SERVED]);
+    let output = project.vc(&["import", "openapi", SERVED.0, "--id", "users"]).output().unwrap();
+    assert_eq!(output.status.code(), Some(0), "{}", said(&output));
+    let at = |path: &str| project.path().join(path);
+    std::fs::rename(at("openapi/users.yaml"), at("specs/old-snapshot.yaml")).unwrap();
+    project
+}
+
+#[cfg(unix)]
+#[test]
+fn sync_refuses_a_snapshot_path_that_links_to_the_spec_and_leaves_the_spec_as_it_was() {
+    let project = imported_without_its_snapshot();
+    std::os::unix::fs::symlink(project.path().join(SERVED.0), project.path().join("openapi/users.yaml")).unwrap();
+    let output = project.vc(&["sync", "users"]).output().unwrap();
+    assert_eq!(output.status.code(), Some(2), "{}", said(&output));
+    let leads = "openapi/users.yaml, where `vc import` keeps the snapshot, leads to specs/users.yaml";
+    assert!(said(&output).contains(leads), "{}", said(&output));
+    assert_eq!(std::fs::read_to_string(project.path().join(SERVED.0)).unwrap(), SERVED.1);
+}
+
+#[cfg(target_os = "macos")]
+#[test]
+fn sync_refuses_a_spec_kept_at_its_snapshot_path_in_another_case() {
+    let project = imported_without_its_snapshot();
+    let at = |path: &str| project.path().join(path);
+    std::fs::rename(at(SERVED.0), at("openapi/Users.yaml")).unwrap();
+    let api = std::fs::read_to_string(at("services/users/users.api.yaml")).unwrap();
+    assert!(api.contains("openapi: specs/users.yaml"), "{api}");
+    let moved = api.replace("openapi: specs/users.yaml", "openapi: openapi/Users.yaml");
+    std::fs::write(at("services/users/users.api.yaml"), moved).unwrap();
+    let output = project.vc(&["sync", "users"]).output().unwrap();
+    assert_eq!(output.status.code(), Some(2), "{}", said(&output));
+    let leads = "openapi/users.yaml, where `vc import` keeps the snapshot, leads to openapi/Users.yaml";
+    assert!(said(&output).contains(leads), "{}", said(&output));
+    assert_eq!(std::fs::read_to_string(at("openapi/Users.yaml")).unwrap(), SERVED.1);
+}
+
+#[cfg(unix)]
+#[test]
+fn sync_replaces_a_snapshot_hard_linked_to_the_spec_and_leaves_the_spec_as_it_was() {
+    let project = imported_without_its_snapshot();
+    let at = |path: &str| project.path().join(path);
+    std::fs::hard_link(at(SERVED.0), at("openapi/users.yaml")).unwrap();
+    let output = project.vc(&["sync", "users"]).output().unwrap();
+    assert_eq!(output.status.code(), Some(0), "{}", said(&output));
+    assert_eq!(std::fs::read_to_string(at(SERVED.0)).unwrap(), SERVED.1);
+    let snapshot = std::fs::read_to_string(at("openapi/users.yaml")).unwrap();
+    assert!(snapshot.starts_with("# Snapshot of specs/users.yaml"), "{snapshot}");
 }

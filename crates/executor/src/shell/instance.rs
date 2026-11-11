@@ -1,15 +1,16 @@
 use std::collections::VecDeque;
+use std::ops::Range;
 use std::sync::Arc;
 use std::time::Duration;
 
 use tokio::time::Instant;
-use vc_model::{ActionId, Event, OwnerKey, TestResult, TestStatus};
+use vc_model::{ActionId, ApiId, Event, Failure, OwnerKey, TestResult, TestStatus};
 
 use super::crew::{Crew, Deadline, Job};
 use crate::cancel::{CancelTree, Ran};
 use crate::{
     ActionReport, Frame, InstanceCommand, InstanceInput, InstanceScript, InstanceWorkflow, IterationCall,
-    IterationReport, Launch, RunInput, Verdict, called,
+    IterationFailure, IterationReport, Launch, RunInput, Verdict, called,
 };
 
 /// One instance to run: what the file launched, the shared values it reads and its frame.
@@ -36,7 +37,7 @@ pub async fn iteration(crew: Crew, ticket: Ticket) -> IterationReport {
     let mut shell = InstanceShell::new(crew, ticket);
     let verdict = shell.drive().await;
     let passed = verdict.as_ref().is_some_and(|verdict| verdict.status == TestStatus::Passed);
-    let failure = verdict.and_then(|verdict| verdict.failure).map(|failure| failure.message);
+    let failure = verdict.and_then(|verdict| verdict.failure).map(|failure| shell.blame(failure));
     IterationReport { passed, calls: shell.calls, failure }
 }
 
@@ -51,6 +52,10 @@ struct InstanceShell {
     deadline: Option<Deadline>,
     /// Each request its actions and cleanups sent, in order.
     calls: Vec<IterationCall>,
+    /// Which of `calls` the current attempt's first failure sent, once an action failed.
+    failing: Option<Range<usize>>,
+    /// Which of `calls` the previous attempt's first failure sent, once the instance retries.
+    earlier_failing: Option<Range<usize>>,
     /// When the instance got its turn, which its result's duration runs from.
     started: Instant,
 }
@@ -59,8 +64,17 @@ impl InstanceShell {
     fn new(crew: Crew, ticket: Ticket) -> Self {
         let script = crew.scripts.get(&ticket.launch.instance.test).cloned().unwrap_or_default();
         let frame = Frame { instance: Some(Arc::new(ticket.launch.instance.clone())), ..ticket.frame.clone() };
-        let mut shell =
-            Self { crew, ticket, frame, script, deadline: None, calls: Vec::new(), started: Instant::now() };
+        let mut shell = Self {
+            crew,
+            ticket,
+            frame,
+            script,
+            deadline: None,
+            calls: Vec::new(),
+            failing: None,
+            earlier_failing: None,
+            started: Instant::now(),
+        };
         shell.start_attempt();
         shell
     }
@@ -81,8 +95,10 @@ impl InstanceShell {
         None
     }
 
-    /// Starts the attempt's clock: each attempt gets the test's whole `timeout`.
+    /// Starts the attempt's clock: each attempt gets the test's whole `timeout`. Only a failed
+    /// attempt is retried, so the calls its failure sent move to `earlier_failing`.
     fn start_attempt(&mut self) {
+        self.earlier_failing = self.failing.take();
         let test = self.crew.cx.program.tests.get(&self.ticket.launch.instance.test);
         self.deadline = test.and_then(|test| test.timeout).map(|timeout| Deadline::attempt(timeout.get()));
     }
@@ -141,6 +157,7 @@ impl InstanceShell {
         let cancelled = self.ticket.cancel.is_cancelled().then_some(InstanceInput::Cancelled);
         let result = match ran {
             Ran::Done(report) => {
+                self.note_failing(&report);
                 self.record(action, &report);
                 self.frame.absorb(&self.crew.cx.program, action, &report);
                 InstanceInput::ActionDone(report)
@@ -165,13 +182,36 @@ impl InstanceShell {
 
     /// Notes each request `action` sent, with the api it called.
     fn record(&mut self, action: ActionId, report: &ActionReport) {
-        let api = self.crew.cx.action(action).and_then(|found| called(&self.crew.cx.program, found)).map(|api| api.id);
+        let api = self.api(action);
         let calls = report.exchanges.iter().map(|exchange| IterationCall {
             api,
             status: Some(exchange.response.status.as_u16()),
             elapsed: exchange.timing.total,
         });
         self.calls.extend(calls);
+    }
+
+    /// Keeps which calls a failed `report` sent, if it is the attempt's first to fail.
+    fn note_failing(&mut self, report: &ActionReport) {
+        if self.failing.is_none() && report.outcome.failure().is_some() {
+            self.failing = Some(report.failing_after(self.calls.len()));
+        }
+    }
+
+    /// The api `action` calls, if it calls one.
+    fn api(&self, action: ActionId) -> Option<ApiId> {
+        self.crew.cx.action(action).and_then(|found| called(&self.crew.cx.program, found)).map(|api| api.id)
+    }
+
+    /// `failure` with the api its action calls and the status of the last call it sent. As in
+    /// the workflow, the verdict's failure is the last attempt's first, or the attempt before's
+    /// when the last passed or was cut short, so its calls are `failing` or `earlier_failing`.
+    /// A step of a `test:` reuse has its calls recorded under the reusing action.
+    fn blame(&self, failure: Failure) -> IterationFailure {
+        let Failure { action, code, message } = failure;
+        let span = self.failing.clone().or_else(|| self.earlier_failing.clone());
+        let status = span.and_then(|span| self.calls.get(span)?.last()).and_then(|call| call.status);
+        IterationFailure { api: action.and_then(|action| self.api(action)), status, code, message }
     }
 
     /// Waits out the retry delay, unless the frame is cancelled or aborted first.

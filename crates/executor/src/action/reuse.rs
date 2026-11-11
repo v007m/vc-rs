@@ -39,6 +39,7 @@ impl ActionExecutor for TestExecutor {
             let step = ActionRequest { action, frame: frame.clone(), ..request.clone() };
             let step = within(deadline, request.cx.executors.execute(step), request.action).await;
             frame.absorb(&request.cx.program, action, &step);
+            let part = step.failing_after(report.exchanges.len());
             kept.hand(step.cleanups);
             report.saved.extend(step.saved);
             report.fakes.extend(step.fakes);
@@ -48,6 +49,7 @@ impl ActionExecutor for TestExecutor {
             report.response = step.response.or(report.response);
             if let ActionOutcome::Failed(failure) = step.outcome {
                 report.outcome = ActionOutcome::Failed(failure);
+                report.failing = Some(part);
                 report.cleanups = kept.take(Vec::new());
                 return report;
             }

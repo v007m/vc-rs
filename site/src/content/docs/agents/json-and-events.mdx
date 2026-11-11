@@ -160,22 +160,23 @@ The run, as above, plus one entry per test (two of the six shown):
 ```json
 {
   "blocked": null,
-  "breaches": [{ "actual": 17.663, "metric": "p95", "test": null }],
+  "breaches": [{ "actual": 2.677, "limit": { "lt": 1.0 }, "metric": "p95", "test": null, "unit": "ms" }],
   "ending": "finished",
   "errorKinds": [],
   "errors": 0,
   "exit": 3,
-  "iterations": 2594,
-  "maxMs": 126.911,
+  "iterations": 6799,
+  "maxMs": 5.115,
   "notices": [],
-  "p50Ms": 2.705,
-  "p95Ms": 17.663,
-  "p99Ms": 47.934999999999995,
-  "rps": 518.8,
-  "runId": 14,
+  "p50Ms": 1.814,
+  "p90Ms": 2.455,
+  "p95Ms": 2.677,
+  "p99Ms": 3.241,
+  "rps": 1359.8,
+  "runId": 16,
   "scenario": "people.browse",
   "seconds": 5,
-  "seed": 492964392745479980
+  "seed": 3580823125853588706
 }
 ```
 

@@ -5,7 +5,7 @@ use serde_json::Value;
 use vc_executor::Judge;
 use vc_model::{LoadScenario, Matcher, TestId};
 
-use crate::{LoadError, Tally, Totals};
+use crate::{LoadError, Tally, Totals, Unit};
 
 /// One threshold that did not hold.
 #[derive(Clone, Debug, PartialEq)]
@@ -15,23 +15,27 @@ pub struct Breach {
     pub test: Option<TestId>,
     /// The metric, as written (`p95`).
     pub metric: String,
-    /// What the metric measured: milliseconds for latencies, a share for `errorRate`, per
-    /// second for `rps`.
+    /// What the metric measured, in `unit`.
     pub actual: f64,
+    /// The metric's unit: milliseconds for latencies, a share for `errorRate`, per second
+    /// for `rps`.
+    pub unit: Unit,
+    /// The threshold as its matcher renders it, in `unit`: `{"lt": 30.0}` for `lt: 30ms`.
+    pub limit: Value,
 }
 
 /// Reads one metric from iterations over a span of seconds.
 type MetricFn = fn(&Tally, u64) -> f64;
 
-/// The metrics a threshold names, by name (syntax reference "Load files").
-const METRICS: &[(&str, MetricFn)] = &[
-    ("p50", |tally, _| tally.latencies().quantile_ms(0.50)),
-    ("p90", |tally, _| tally.latencies().quantile_ms(0.90)),
-    ("p95", |tally, _| tally.latencies().quantile_ms(0.95)),
-    ("p99", |tally, _| tally.latencies().quantile_ms(0.99)),
-    ("max", |tally, _| tally.latencies().max_ms()),
-    ("errorRate", |tally, _| ratio(tally.errors(), tally.count())),
-    ("rps", |tally, seconds| ratio(tally.count(), seconds)),
+/// The metrics a threshold names, by name, with their units (syntax reference "Load files").
+const METRICS: &[(&str, Unit, MetricFn)] = &[
+    ("p50", Unit::MS, |tally, _| tally.latencies().quantile_ms(0.50)),
+    ("p90", Unit::MS, |tally, _| tally.latencies().quantile_ms(0.90)),
+    ("p95", Unit::MS, |tally, _| tally.latencies().quantile_ms(0.95)),
+    ("p99", Unit::MS, |tally, _| tally.latencies().quantile_ms(0.99)),
+    ("max", Unit::MS, |tally, _| tally.latencies().max_ms()),
+    ("errorRate", Unit::SHARE, |tally, _| ratio(tally.errors(), tally.count())),
+    ("rps", Unit::PER_SECOND, |tally, seconds| ratio(tally.count(), seconds)),
 ];
 
 /// The thresholds of `scenario` that `totals` breach: the scenario's on every mix test
@@ -48,8 +52,8 @@ pub fn breaches(scenario: &LoadScenario, totals: &Totals, judge: &Judge<'_>) -> 
     let mut found = Vec::new();
     let mut check = |test: Option<TestId>, thresholds: &IndexMap<String, Matcher>, tally: &Tally| {
         for (metric, matcher) in thresholds {
-            if let Some(actual) = breach(judge, (metric, matcher), (tally, totals.seconds()))? {
-                found.push(Breach { test, metric: metric.clone(), actual });
+            if let Some(breach) = breach(judge, (metric, matcher), (tally, totals.seconds()))? {
+                found.push(Breach { test, ..breach });
             }
         }
         Ok::<(), LoadError>(())
@@ -68,18 +72,22 @@ pub fn aborts(scenario: &LoadScenario, breaches: &[Breach]) -> bool {
     breaches.iter().any(|breach| scenario.abort_on.contains(&breach.metric))
 }
 
-/// What `metric` measured over `span` (iterations, seconds), if `matcher` rejects it.
+/// The scenario-wide breach of `metric` over `span` (iterations, seconds), if `matcher`
+/// rejects what it measured.
 fn breach(
     judge: &Judge<'_>,
     (metric, matcher): (&str, &Matcher),
     span: (&Tally, u64),
-) -> Result<Option<f64>, LoadError> {
+) -> Result<Option<Breach>, LoadError> {
     let refuse = |message: String| LoadError::Threshold { metric: metric.to_owned(), message };
-    let (_, read) =
-        METRICS.iter().find(|(name, _)| *name == metric).ok_or_else(|| refuse("not a load metric".to_owned()))?;
+    let (_, unit, read) =
+        METRICS.iter().find(|(name, ..)| *name == metric).ok_or_else(|| refuse("not a load metric".to_owned()))?;
     let actual = read(span.0, span.1);
-    let holds = judge.matches(matcher, Some(&Value::from(actual))).map_err(refuse)?;
-    Ok((!holds).then_some(actual))
+    if judge.matches(matcher, Some(&Value::from(actual))).map_err(refuse)? {
+        return Ok(None);
+    }
+    let limit = judge.expected(matcher).map_err(refuse)?;
+    Ok(Some(Breach { test: None, metric: metric.to_owned(), actual, unit: *unit, limit }))
 }
 
 #[expect(clippy::cast_precision_loss, reason = "a rate needs no more than f64's 52 bits of precision")]

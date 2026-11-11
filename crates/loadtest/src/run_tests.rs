@@ -53,22 +53,27 @@ fn scenario(stages: Vec<LoadStage>, limits: IndexMap<String, Matcher>, abort_on:
     }
 }
 
-/// Runs `scenario` with `iterations` under `cancel`: its outcome and every second it sent.
-async fn run(
-    scenario: &LoadScenario,
-    iterations: Takes,
-    cancel: CancelTree,
-) -> (Result<LoadOutcome, LoadError>, Vec<Second>) {
+/// What a run did: its outcome, every second it sent and how many failed iterations it passed on.
+type Ran = (Result<LoadOutcome, LoadError>, Vec<Second>, u64);
+
+/// Runs `scenario` with `iterations` under `cancel`.
+async fn run(scenario: &LoadScenario, iterations: Takes, cancel: CancelTree) -> Ran {
     let (seconds, mut sent) = mpsc::channel(64);
+    let (failed, mut failures) = mpsc::unbounded_channel();
     let random = Arc::new(ScriptedRandom::seeded(7));
-    let parts = LoadParts { iterations: Arc::new(iterations), random, cancel, seconds };
+    let parts = LoadParts { iterations: Arc::new(iterations), random, cancel, seconds, failed };
     let registry = MatcherRegistry::standard();
     let outcome = run_load(scenario, parts, (&registry, &Literals)).await;
     let mut all = Vec::new();
     while let Some(second) = sent.recv().await {
         all.push(second);
     }
-    (outcome, all)
+    let mut told = 0;
+    while let Some((_test, report)) = failures.recv().await {
+        assert!(!report.passed, "only failed iterations are passed on");
+        told += 1;
+    }
+    (outcome, all, told)
 }
 
 fn root() -> CancelTree {
@@ -90,8 +95,9 @@ fn seconds(sent: &[Second]) -> Vec<Sent> {
 #[tokio::test(start_paused = true)]
 async fn users_follow_the_stages_and_every_iteration_lands_in_the_second_it_ended() {
     let scenario = scenario(vec![stage(2, 2), stage(2, 2)], IndexMap::new(), &[]);
-    let (outcome, sent) = run(&scenario, takes(350, true), root()).await;
+    let (outcome, sent, told) = run(&scenario, takes(350, true), root()).await;
     let outcome = outcome.unwrap();
+    assert_eq!(told, 0);
     assert_eq!(
         seconds(&sent),
         [(1, 0, vec![]), (2, 1, vec![(1, 2)]), (3, 2, vec![(2, 5)]), (4, 2, vec![(3, 6)]), (4, 0, vec![(4, 2)])]
@@ -107,12 +113,13 @@ async fn a_rolling_breach_of_an_abort_on_metric_cancels_the_run() {
     let limits = thresholds(&[("errorRate", number("lt", 0.01))]);
     let scenario = scenario(vec![stage(1, 2), stage(10, 2)], limits, &["errorRate"]);
     let cancel = root();
-    let (outcome, sent) = run(&scenario, takes(350, false), cancel.clone()).await;
+    let (outcome, sent, told) = run(&scenario, takes(350, false), cancel.clone()).await;
     let outcome = outcome.unwrap();
     let breaching: Vec<Vec<&str>> =
         sent.iter().map(|second| second.breaching.iter().map(|breach| breach.metric.as_str()).collect()).collect();
     assert_eq!(breaching, [vec![], vec!["errorRate"], vec![]]);
     assert_eq!((outcome.ending, outcome.totals.seconds()), (Ending::Aborted, 2));
+    assert_eq!(told, outcome.totals.all().errors(), "an iteration dropped by the abort is not passed on");
     assert_eq!(outcome.breaches.iter().map(|breach| breach.metric.as_str()).collect::<Vec<_>>(), ["errorRate"]);
     assert!(cancel.is_cancelled());
 }
@@ -126,10 +133,25 @@ async fn a_cancelled_run_stops_and_drops_the_iterations_that_end_after_it() {
         tokio::time::sleep(StdDuration::from_millis(1500)).await;
         canceller.cancel();
     });
-    let (outcome, _) = run(&scenario, takes(350, true), cancel).await;
+    let (outcome, _, _) = run(&scenario, takes(350, true), cancel).await;
     let outcome = outcome.unwrap();
     assert_eq!(outcome.ending, Ending::Cancelled);
     assert_eq!((outcome.totals.all().count(), outcome.totals.seconds()), (1, 1));
+}
+
+#[tokio::test(start_paused = true)]
+async fn only_the_failed_iterations_the_run_kept_are_passed_on() {
+    let scenario = scenario(vec![stage(1, 1), stage(10, 1)], IndexMap::new(), &[]);
+    let cancel = root();
+    let canceller = cancel.clone();
+    tokio::spawn(async move {
+        tokio::time::sleep(StdDuration::from_millis(1500)).await;
+        canceller.cancel();
+    });
+    let (outcome, _, told) = run(&scenario, takes(350, false), cancel).await;
+    let outcome = outcome.unwrap();
+    assert_eq!(outcome.ending, Ending::Cancelled);
+    assert_eq!((told, outcome.totals.all().errors()), (1, 1));
 }
 
 #[tokio::test(start_paused = true)]
@@ -137,7 +159,7 @@ async fn think_time_is_not_latency() {
     let mut scenario = scenario(vec![stage(1, 1), stage(2, 1)], IndexMap::new(), &[]);
     let pause = Duration::new(StdDuration::from_millis(100));
     scenario.think_time = (pause, pause);
-    let (outcome, _) = run(&scenario, takes(200, true), root()).await;
+    let (outcome, _, _) = run(&scenario, takes(200, true), root()).await;
     let totals = outcome.unwrap().totals;
     assert_eq!(totals.all().count(), 7);
     assert!((totals.all().latencies().max_ms() - 200.0).abs() < 1.0);
@@ -148,7 +170,7 @@ async fn a_mix_that_cannot_pick_cancels_the_run_and_says_why() {
     let mut scenario = scenario(vec![stage(1, 1)], IndexMap::new(), &[]);
     scenario.mix[0].weight = 0;
     let cancel = root();
-    let (outcome, sent) = run(&scenario, takes(1, true), cancel.clone()).await;
+    let (outcome, sent, _) = run(&scenario, takes(1, true), cancel.clone()).await;
     assert_eq!(outcome.err(), Some(LoadError::EmptyMix));
     assert!(sent.is_empty());
     assert!(cancel.is_cancelled());

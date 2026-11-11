@@ -25,7 +25,8 @@ shape! {
     source = Shape::new("source", "The OpenAPI spec an api file syncs from", &[
         types::key("openapi", Ty::Text).required().doc("A URL or a file, JSON or YAML").example("specs/users.yaml"),
         types::key("headers", TEMPLATES).doc("Headers for a protected URL"),
-        types::key("include", TEXTS).doc("Take only operations with these tags"),
+        types::key("include", TEXTS).doc("Take only operations with these tags or path prefixes"),
+        types::key("only", TEXTS).doc("Take only these operations, by operation ID"),
     ])
 }
 

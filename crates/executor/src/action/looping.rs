@@ -130,12 +130,14 @@ impl Running {
 }
 
 /// One report from the turns', in turn order: every cleanup and check, the last response, the
-/// first failure, and, when every turn passed, each saved name as a list with one entry per turn.
+/// first failure with the exchanges of its turn, and, when every turn passed, each saved name as
+/// a list with one entry per turn.
 fn gather(slots: Vec<Option<ActionReport>>) -> ActionReport {
     let mut gathered = ActionReport::passed();
     let mut lists = Saved::new();
     for (at, report) in slots.into_iter().enumerate() {
         let Some(report) = report else { continue };
+        let turn = report.failing_after(gathered.exchanges.len());
         gathered.cleanups.extend(report.cleanups);
         gathered.checks.extend(report.checks);
         gathered.exchanges.extend(report.exchanges);
@@ -149,6 +151,7 @@ fn gather(slots: Vec<Option<ActionReport>>) -> ActionReport {
         if let (ActionOutcome::Failed(failure), ActionOutcome::Passed) = (report.outcome, &gathered.outcome) {
             let message = format!("iteration {}: {}", at + 1, failure.message);
             gathered.outcome = ActionOutcome::Failed(Failure { message, ..failure });
+            gathered.failing = Some(turn);
         }
     }
     if gathered.outcome == ActionOutcome::Passed {

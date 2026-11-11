@@ -102,6 +102,7 @@ mod selection;
 mod settings;
 mod shown;
 mod skip;
+mod snapshot_guard;
 mod staged;
 mod stored;
 mod sync;

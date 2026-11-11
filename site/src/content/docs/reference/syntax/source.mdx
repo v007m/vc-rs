@@ -25,7 +25,8 @@ source:
 | Field | Type | Default | Required | Notes |
 | --- | --- | --- | --- | --- |
 | `source.openapi` | path or URL | — | yes | The spec. A path is relative to the project root |
-| `source.include` | list of tags | every operation | no | Only operations with these tags are imported and synced |
+| `source.include` | list of tags or path prefixes | every operation | no | Only operations with one of these tags or under one of these paths are imported and synced |
+| `source.only` | list of operation IDs | every operation | no | Only these operations are imported and synced. `vc import --only` writes it |
 | `source.headers` | map of strings | — | no | Headers sent when fetching a protected spec URL, such as an auth token |
 
 Each api that came from the spec also carries an [`operationId`](/vc-rs/reference/syntax/operation-id/). That is how `vc sync` matches an api to its operation.
@@ -102,13 +103,23 @@ $ echo $?
 
 ### Narrowing what is synced
 
-`include` takes tags. Here only `pets`-tagged operations are tracked; the spec's `admin` operation is ignored by both import and sync.
+`include` takes tags or path prefixes. Here only `pets`-tagged operations are tracked; the spec's `admin` operation is ignored by both import and sync.
 
 ```yaml title="services/pets/pets.api.yaml (excerpt)"
 source:
   openapi: specs/pets.yaml
   include:
     - pets
+```
+
+`only` takes operation IDs. `vc import openapi specs/pets.yaml --only listPets --only getPet` writes it, and `vc sync` then leaves out an operation the spec adds later. With both keys, an operation must match both.
+
+```yaml title="services/pets/pets.api.yaml (excerpt)"
+source:
+  openapi: specs/pets.yaml
+  only:
+    - listPets
+    - getPet
 ```
 
 ## Try it
