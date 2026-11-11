@@ -47,7 +47,19 @@ pub struct Call {
 /// What the session does next.
 enum Next {
     Call(Option<Call>),
+    /// A [`SHUTDOWN`] call from the host.
+    Shutdown(Call),
     Message(Option<Received>),
+}
+
+impl Next {
+    /// `call`, or [`Next::Shutdown`] when it asks the session to shut down.
+    fn call(call: Option<Call>) -> Self {
+        match call {
+            Some(call) if call.method == SHUTDOWN => Self::Shutdown(call),
+            call => Self::Call(call),
+        }
+    }
 }
 
 /// The task's state: the plugin's stdin, its granted secrets and the calls it has not answered.
@@ -66,19 +78,19 @@ impl Session {
     }
 
     /// Serves `calls` until the host sends [`SHUTDOWN`] or drops them, then shuts the plugin
-    /// down, answering [`SHUTDOWN`] once it has; or until the plugin stops, breaks the protocol, cannot be written to in time or leaves more than
-    /// [`ROOM`] messages unread, which fails every call it has not answered and ends the session
+    /// down, answering [`SHUTDOWN`] once it has; or until the plugin stops, breaks the protocol,
+    /// cannot be written to in time or leaves more than [`ROOM`] messages unread, which fails every call it has not answered and ends the session
     /// (killing the plugin), so every later call fails at once.
     pub async fn run(mut self, mut calls: mpsc::UnboundedReceiver<Call>, mut child: Child) {
         let Some(stdout) = child.stdout.take() else { return };
         let mut incoming = messages(stdout, ROOM);
         loop {
             let next = tokio::select! {
-                call = calls.recv() => Next::Call(call),
+                call = calls.recv() => Next::call(call),
                 message = incoming.recv() => Next::Message(message),
             };
             let step = match next {
-                Next::Call(Some(call)) if call.method == SHUTDOWN => {
+                Next::Shutdown(call) => {
                     self.shutdown(&mut incoming, child).await;
                     drop(call.reply.send(Ok(Value::Null)));
                     return;

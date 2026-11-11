@@ -83,7 +83,12 @@ fn offered(offer: &PluginOffer) -> String {
     let manifest = &offer.manifest;
     let args = manifest.args.iter().map(String::as_str);
     let runs: Vec<&str> = std::iter::once(manifest.command.as_str()).chain(args).collect();
-    let warnings: String = offer.warnings.iter().map(|warning| format!("  warning: {warning}\n")).collect();
+    let warnings = offer.warnings.iter().fold(String::new(), |mut out, warning| {
+        out.push_str("  warning: ");
+        out.push_str(warning);
+        out.push('\n');
+        out
+    });
     format!(
         "{} {} · {} plugin from {} ({})\n  runs: {}\n  asks to reach: {}\n{warnings}",
         manifest.id,

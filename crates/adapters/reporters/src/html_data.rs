@@ -48,10 +48,9 @@ fn files(snapshot: &RunSnapshot) -> Vec<String> {
 /// with it: `dev "Local dev"`, `users.crud — Users CRUD`.
 fn summary(snapshot: &RunSnapshot, files: &[String]) -> Value {
     let run = &snapshot.run;
-    let profiles = run.profiles.iter().map(|id| match snapshot.profile_names.get(id) {
-        Some(name) => format!("{id} \"{name}\""),
-        None => id.clone(),
-    });
+    let titled =
+        |id: &String| snapshot.profile_names.get(id).map_or_else(|| id.clone(), |name| format!("{id} \"{name}\""));
+    let profiles = run.profiles.iter().map(titled);
     let files: Vec<String> = files.iter().map(|file| file_title(snapshot, file)).collect();
     json!({
         "run": {

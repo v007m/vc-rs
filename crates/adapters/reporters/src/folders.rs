@@ -8,9 +8,11 @@ use std::path::Path;
 
 use vc_interfaces::{ReportError, RunId};
 
-/// Removes each folder under `dir` named by the number of a run older than `oldest`, the oldest
-/// run the history keeps, or every such folder when it keeps none, and says how many went.
-/// Anything else under `dir`, a link among them, stays; a `dir` that does not exist has none.
+/// Removes the run folders under `dir` the history no longer keeps, and says how many went.
+///
+/// A run folder is named by its run's number. Each one older than `oldest`, the oldest run the
+/// history keeps, goes, or every one when it keeps none. Anything else under `dir`, a link among
+/// them, stays; a `dir` that does not exist has none.
 ///
 /// # Errors
 ///

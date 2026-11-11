@@ -8,9 +8,10 @@ use vc_interfaces::PluginManifest;
 /// The endings Windows tries on a program named without one.
 const WINDOWS_ENDINGS: [&str; 4] = ["exe", "cmd", "bat", "com"];
 
-/// Whether the program `manifest`'s `entry.command` names can be found for a plugin installed in
-/// `dir`, as [`crate::StdioPluginHost`] starts it: a file in `dir`, a path to a file, or a
-/// program on this process's `PATH`. It does not check the file can be run.
+/// Whether the program `manifest`'s `entry.command` names can be found for a plugin in `dir`.
+///
+/// It is looked for as [`crate::StdioPluginHost`] starts it: a file in `dir`, a path to a file,
+/// or a program on this process's `PATH`. It does not check the file can be run.
 #[must_use]
 pub fn entry_found(manifest: &PluginManifest, dir: &Path) -> bool {
     let command = Path::new(&manifest.command);

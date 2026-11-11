@@ -2,6 +2,8 @@
 //! test file, one `<testcase>` per instance. Each suite's `<properties>` hold the run's `seed`
 //! (D131) and the file's `name`; a case's hold its test's `name`.
 
+use std::fmt::Write as _;
+
 use vc_interfaces::{Artifact, ReportError};
 use vc_model::{TestStatus, Totals};
 
@@ -58,14 +60,11 @@ fn suite(file: &str, tests: &[&TestView], seed: Option<u64>) -> String {
 
 /// A `<properties>` block of the pairs given, at `indent`; empty when none is.
 fn properties(pairs: &[Option<(&str, String)>], indent: &str) -> String {
-    let lines: String = pairs
-        .iter()
-        .flatten()
-        .map(|(name, value)| {
-            let property = xml::element("property", &[("name", (*name).to_owned()), ("value", value.clone())], None);
-            format!("{indent}  {property}\n")
-        })
-        .collect();
+    let lines = pairs.iter().flatten().fold(String::new(), |mut lines, (name, value)| {
+        let property = xml::element("property", &[("name", (*name).to_owned()), ("value", value.clone())], None);
+        let _ = writeln!(lines, "{indent}  {property}");
+        lines
+    });
     if lines.is_empty() { lines } else { format!("{indent}<properties>\n{lines}{indent}</properties>\n") }
 }
 

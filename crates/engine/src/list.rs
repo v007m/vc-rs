@@ -161,14 +161,14 @@ impl Engine {
 
 /// The `name` the `kind` file `id` declares, if it has one.
 fn file_name(program: &Program, kind: FileKind, id: &str) -> Option<String> {
-    let named = |file: FileId, name: Option<&str>| (program.str(file.sym()) == Some(id)).then_some(name);
+    let named = |file: FileId, name: Option<&String>| (program.str(file.sym()) == Some(id)).then(|| name.cloned());
     let found = match kind {
-        FileKind::Test => program.test_files.values().find_map(|file| named(file.id, file.name.as_deref())),
-        FileKind::Api => program.api_groups.values().find_map(|group| named(group.id, group.name.as_deref())),
-        FileKind::Load => program.loads.values().find_map(|load| named(load.id, load.name.as_deref())),
-        _ => None,
+        FileKind::Test => program.test_files.values().find_map(|file| named(file.id, file.name.as_ref())),
+        FileKind::Api => program.api_groups.values().find_map(|group| named(group.id, group.name.as_ref())),
+        FileKind::Load => program.loads.values().find_map(|load| named(load.id, load.name.as_ref())),
+        FileKind::Config => None,
     };
-    found.flatten().map(str::to_owned)
+    found.flatten()
 }
 
 /// One row for each test whose rows come from a file or a template: a list says which tests run,

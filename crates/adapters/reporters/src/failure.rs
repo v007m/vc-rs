@@ -30,7 +30,11 @@ pub fn block(names: &Names, record: &TestRecord, color: Color) -> String {
         }
     }
     let shown = shown.into_iter().filter(|(_, text)| !text.is_empty());
-    let out: String = shown.map(|(attempts, text)| format!("{}\n{text}", heading(&attempts, total))).collect();
+    let out = shown.fold(String::new(), |mut out, (attempts, text)| {
+        let _ = writeln!(out, "{}", heading(&attempts, total));
+        out.push_str(&text);
+        out
+    });
     if out.is_empty() { indent(&single(names, record, color)) } else { indent(&out) }
 }
 

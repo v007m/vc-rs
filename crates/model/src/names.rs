@@ -57,7 +57,7 @@ pub struct Names {
     /// The tests the plan runs more than once, by `repeat` or `--repeat`.
     repeated: HashSet<TestId>,
     /// The `name` of each example row that gives one.
-    row_names: BTreeMap<(TestId, u32), String>,
+    row_labels: BTreeMap<(TestId, u32), String>,
 }
 
 impl Names {
@@ -72,7 +72,7 @@ impl Names {
             .collect();
         let instances = planned.iter().map(|p| (p.instance, (p.example_row, p.repeat_index))).collect();
         let repeated = planned.iter().filter(|p| p.repeat_index > 0).map(|p| p.test).collect();
-        Self { program, instances, planned, repeated, row_names: plan.row_names.clone() }
+        Self { program, instances, planned, repeated, row_labels: plan.row_names.clone() }
     }
 
     /// The plan's instances, in plan order.
@@ -161,7 +161,7 @@ impl Names {
         let mut label = self.test(test).to_owned();
         let slot = instance.and_then(|id| self.instances.get(&id));
         let Some(&(row, repeat)) = slot else { return label };
-        let named = row.and_then(|row| self.row_names.get(&(test, row)));
+        let named = row.and_then(|row| self.row_labels.get(&(test, row)));
         if let Some(name) = named {
             let _ = write!(label, " › {name}");
         }

@@ -28,6 +28,12 @@ impl JsonReporter {
         self.destination.print(&format!("{value}\n"))
     }
 
+    /// The `summary` line for `run`, with this reporter's names.
+    #[must_use]
+    pub fn summary(&self, run: &RunSummary) -> Value {
+        summary(&self.names, run)
+    }
+
     /// `event` as its line, after the collector has seen it (a `testFinished` line reads the
     /// test it collected).
     pub fn event(&mut self, event: &Event) -> Value {
@@ -128,8 +134,8 @@ pub fn summary(names: &Names, run: &RunSummary) -> Value {
 
 /// The `name` of each of `profiles` that gives one, by its ID.
 pub fn profile_names(names: &Names, profiles: &[String]) -> Map<String, Value> {
-    let named = profiles.iter().filter_map(|id| names.profile_name(id).map(|name| (id.clone(), name.into())));
-    named.collect()
+    let pair = |id: &String| names.profile_name(id).map(|name| (id.clone(), name.into()));
+    profiles.iter().filter_map(pair).collect()
 }
 
 /// `base` with the keys of `more` added.
