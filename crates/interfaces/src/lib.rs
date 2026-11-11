@@ -65,6 +65,7 @@ mod config;
 mod environment;
 mod fetch;
 mod filter;
+mod held_sources;
 mod history;
 mod hooks;
 mod import;
@@ -76,6 +77,7 @@ mod random;
 mod reporter;
 mod secrets;
 mod source;
+mod source_problems;
 mod transport;
 mod trend;
 mod vcs;
@@ -90,12 +92,13 @@ pub use approvals::{
 pub use auth::{ActionRunner, AuthError, AuthProvider, AuthRequest, Credentials};
 pub use browser::{Browser, BrowserError};
 pub use cache::{CompileCacheError, CompileCacheStore};
-pub use clock::Clock;
+pub use clock::{Clock, unix_millis, utc_date};
 pub use command::{CommandError, CommandOutput, CommandRunner, CommandSpec};
 pub use config::{ConfigEntry, ConfigSource, ConfigSourceError};
 pub use environment::Environment;
 pub use fetch::{FetchError, SpecFetcher, resolve_reference};
 pub use filter::SourceFilter;
+pub use held_sources::{MemorySources, secret_schema};
 pub use history::{
     CheckRow, ExchangeRow, HistoryError, HistoryReader, HistoryWriter, IntervalRow, Row, RunEnd, RunId, RunRef, RunRow,
     RunStart, TestRow, TimingRow,
@@ -116,6 +119,7 @@ pub use random::Random;
 pub use reporter::{Artifact, ReportError, Reporter, RunSummary};
 pub use secrets::{Secret, SecretError, SecretProvider, SecretQuery, Secrets};
 pub use source::{Discovery, SourceError, SourceProvider, SourceWriter, content_hash, source_file};
+pub use source_problems::add_problems;
 pub use transport::{SendContext, Transport, TransportError};
 pub use trend::TestTrend;
 pub use vcs::{Vcs, VcsError, checked_ref};

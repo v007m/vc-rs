@@ -103,6 +103,18 @@ fn a_test_whose_examples_give_no_rows_is_skipped_not_dropped() {
 }
 
 #[test]
+fn only_a_test_skipped_for_no_rows_gets_a_notice() {
+    let program = with_examples();
+    let none = common::planned(&program, &common::ids(&["users.rows#listsNoPages"]));
+    let notices = vc_planner::no_rows_notices(&program, &none);
+    assert_eq!(notices, ["`users.rows#listsNoPages`: examples gave no rows, so it is skipped"]);
+    let project = common::project();
+    let skipped = vc_planner::plan(&project, &Selection::default(), &PlanOptions::default()).unwrap();
+    assert_eq!(skipped.skipped.len(), 3);
+    assert_eq!(vc_planner::no_rows_notices(&project, &skipped), Vec::<String>::new());
+}
+
+#[test]
 fn an_instance_picked_by_number_from_no_rows_does_not_exist() {
     let program = with_examples();
     let selector = "users.rows#listsNoPages:1";

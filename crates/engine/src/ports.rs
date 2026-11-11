@@ -11,7 +11,7 @@ use vc_adapter_hooks::QuickJsHooks;
 use vc_adapter_http::{HttpOptions, HttpTransport, ProxyConfig};
 use vc_adapter_notifiers::NotifierRegistry;
 use vc_adapter_secrets::SecretProviders;
-use vc_adapter_system::{DotEnv, SeededRandom, SetFlags, SystemBrowser, SystemEnvironment, UserConfig, VibVars};
+use vc_adapter_system::{DotEnv, SetFlags, SystemBrowser, SystemEnvironment, UserConfig, VibVars};
 use vc_diagnostics::Code;
 use vc_interfaces::{
     AuthProvider, ConfigEntry, Environment, HookRunner, NotifierFactory, PluginKind, Random, SecretError, SecretQuery,
@@ -178,19 +178,13 @@ impl Engine {
 /// The seed of the run's random source, `seed` or a fresh one, and the source.
 pub fn random(seed: Option<u64>) -> (u64, Arc<dyn Random>) {
     let seed = seed.unwrap_or_else(|| RandomState::new().build_hasher().finish());
-    (seed, Arc::new(SeededRandom::new(seed)))
+    (seed, Arc::new(vc_executor::SeededRandom::new(seed)))
 }
 
 /// The random source of one test's example rows, from the run's `seed` and the test's full
 /// `id`: the rows a seed gives a test do not depend on what else the run renders, or in what order.
 pub fn random_for(seed: u64, id: &str) -> Arc<dyn Random> {
-    Arc::new(SeededRandom::new(seed ^ fnv1a(id)))
-}
-
-/// The 64-bit FNV-1a hash of `text`, the same on every build and platform (unlike `DefaultHasher`).
-fn fnv1a(text: &str) -> u64 {
-    let step = |hash: u64, byte: u8| (hash ^ u64::from(byte)).wrapping_mul(0x0100_0000_01b3);
-    text.bytes().fold(0xcbf2_9ce4_8422_2325, step)
+    Arc::new(vc_executor::SeededRandom::new(vc_executor::row_seed(seed, id)))
 }
 
 #[cfg(test)]

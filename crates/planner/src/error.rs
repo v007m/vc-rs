@@ -52,6 +52,20 @@ pub enum PlanError {
         /// The test's full ID.
         test: String,
     },
+    /// A profile was named that the project does not define.
+    #[error("no profile `{name}`")]
+    UnknownProfile {
+        /// The name as given.
+        name: String,
+        /// The project's profiles, comma-separated.
+        known: String,
+    },
+    /// The project has profiles, none is `default: true`, and none was named.
+    #[error("no profile is active")]
+    NoProfile {
+        /// The project's profiles, comma-separated.
+        known: String,
+    },
 }
 
 impl PlanError {
@@ -66,6 +80,8 @@ impl PlanError {
             Self::BadTagExpr { .. } => {
                 Some("`,` means or, `&` means and, `!` excludes: `smoke,checkout & !slow`".into())
             }
+            Self::UnknownProfile { known, .. } => Some(format!("the profiles are {known}")),
+            Self::NoProfile { known } => Some(format!("pass `--profile <id>`; the profiles are {known}")),
             Self::Diagnostics(_) | Self::BadGlob { .. } | Self::RowsNotLoaded { .. } => None,
         }
     }

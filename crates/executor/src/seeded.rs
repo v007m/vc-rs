@@ -1,4 +1,5 @@
-//! The seeded random source (D133).
+//! The seeded random source (D133): pure, so the native build and the playground draw the
+//! same values for a seed.
 
 use std::sync::atomic::{AtomicU64, Ordering};
 
