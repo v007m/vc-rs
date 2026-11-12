@@ -136,6 +136,10 @@ impl RunInterrupter {
 mod tests;
 
 #[cfg(test)]
+#[path = "cleanup_tests.rs"]
+mod cleanup_tests;
+
+#[cfg(test)]
 #[path = "flow_tests.rs"]
 mod flow_tests;
 

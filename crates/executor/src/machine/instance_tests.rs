@@ -253,6 +253,14 @@ fn abort_abandons_cleanups_newest_first_and_finishes_at_once() {
 }
 
 #[test]
+fn an_action_aborted_in_flight_abandons_what_it_kept_with_the_rest() {
+    let (workflow, _) = in_body().transition(InstanceInput::ActionDone(sim::passing_with(&[101])));
+    let (_, commands) = workflow.transition(InstanceInput::ActionAborted(vec![PendingCleanup::new(sim::act(102))]));
+    assert_eq!(commands[0], InstanceCommand::Abandon(sim::acts(&[102, 101, 100])));
+    assert!(matches!(&commands[1..], [InstanceCommand::Finish(v)] if v.status == TestStatus::Skipped));
+}
+
+#[test]
 fn abort_during_cleanups_keeps_the_verdict() {
     let (workflow, _) = in_body().transition(InstanceInput::ActionDone(sim::fail(11)));
     let (workflow, _) = workflow.transition(InstanceInput::ActionDone(ActionReport::passed()));

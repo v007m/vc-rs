@@ -240,6 +240,7 @@ fn instance_input() -> impl Strategy<Value = InstanceInput> {
         Just(InstanceInput::RetryDue),
         Just(InstanceInput::Cancelled),
         Just(InstanceInput::Abort),
+        Just(InstanceInput::ActionAborted(vec![PendingCleanup::new(sim::act(102))])),
     ]
 }
 

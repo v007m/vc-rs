@@ -163,7 +163,7 @@ impl InstanceShell {
                 InstanceInput::ActionDone(report)
             }
             Ran::Cut => InstanceInput::ActionCut(kept),
-            Ran::Aborted => return vec![InstanceInput::Abort],
+            Ran::Aborted => return vec![InstanceInput::ActionAborted(kept)],
         };
         cancelled.into_iter().chain([result]).collect()
     }
