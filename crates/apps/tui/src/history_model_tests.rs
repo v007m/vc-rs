@@ -54,7 +54,7 @@ fn instances_are_matched_by_row_and_repeat_and_skipped_ones_are_never_slower() {
 #[test]
 fn a_label_numbers_rows_and_repeats_from_one_and_drops_control_characters() {
     let repeated = TestRow { example_row: Some(2), repeat_index: 1, ..test("a#b\u{1b}c", TestStatus::Passed, 0.0) };
-    assert_eq!(label(&repeated), "a#b·c [row 3] (repeat 2)");
+    assert_eq!(label(&repeated), "a#b\u{fffd}c [row 3, repeat 2]", "replaced as `vc history show` does");
 }
 
 #[test]

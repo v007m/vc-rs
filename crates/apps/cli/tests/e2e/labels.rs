@@ -1,6 +1,8 @@
-//! How a run labels what it reports: an example row's `name`, every repeat of a repeated test the
-//! same however it repeats, a skipped test reported inside its file and counted in its totals, and
-//! the `name` of a test, file and profile in the console, the json events, CTRF and `JUnit`.
+//! How a run labels what it reports: an example row's `name`, in the history and `vc plan` too
+//! (which names only rows written inline), with any character that would drive a terminal
+//! replaced; every repeat of a repeated test the same however it repeats or is picked; a skipped
+//! test reported inside its file and counted in its totals; and the `name` of a test, file and
+//! profile in the console, the json events, CTRF and `JUnit`.
 
 use serde_json::Value;
 use vc_mock_server::MockServer;
@@ -23,6 +25,15 @@ async fn an_example_row_with_a_name_is_labeled_by_it() {
     labels.sort_by_key(ToString::to_string);
     let expected = ["users.pages#listsEachPage [row 2]", "users.pages#listsEachPage › first page"];
     assert_eq!(labels, expected, "{}", said(&run));
+    let shown = project.vc(&["history", "show", "1", "--json"]).output().unwrap();
+    let stored: Value = serde_json::from_slice(&shown.stdout).unwrap();
+    let mut ids: Vec<Value> = stored["tests"].as_array().unwrap().iter().map(|test| test["id"].clone()).collect();
+    ids.sort_by_key(ToString::to_string);
+    assert_eq!(ids, expected, "the history keeps the label the run printed: {}", said(&shown));
+    let planned = project.vc(&["plan"]).output().unwrap();
+    let tree = String::from_utf8_lossy(&planned.stdout);
+    assert!(tree.contains("  users.pages#listsEachPage › first page\n"), "{tree}");
+    assert!(tree.contains("  users.pages#listsEachPage [row 2]\n"), "{tree}");
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -47,6 +58,82 @@ async fn a_repeated_test_shows_its_repeat_the_same_way_by_flag_or_key() {
         "{}",
         said(&by_flag)
     );
+}
+
+/// Example rows from a dataset, a `$file` and the test file, each with a `name`.
+const DATA_ROWS: [(&str, &str); 3] = [
+    ("datasets/cities.csv", "name,page\nOslo,1\nBergen,2\n"),
+    ("services/users/rows.yaml", "- {name: Ann, page: 1}\n"),
+    (
+        "services/users/data.test.yaml",
+        "tests:\n  - id: listsEachCity\n    call: users#list\n    examples: ${dataset.cities}\n\
+         \x20 - id: listsFileRows\n    call: users#list\n    examples: {$file: rows.yaml}\n\
+         \x20 - id: listsInline\n    call: users#list\n    examples: [{name: Bob, page: 3}]\n",
+    ),
+];
+
+#[tokio::test(flavor = "multi_thread")]
+async fn the_plan_names_only_rows_written_inline_and_the_run_names_every_row() {
+    let server = MockServer::start().await.unwrap();
+    let [cities, rows, tests] = DATA_ROWS;
+    let project = Project::new(&[CONFIG, USERS, cities, rows, tests]);
+    let planned = project.vc(&["plan"]).output().unwrap();
+    let tree = String::from_utf8_lossy(&planned.stdout);
+    for shown in ["listsEachCity [row 1]", "listsEachCity [row 2]", "listsFileRows [row 1]", "listsInline › Bob"] {
+        assert!(tree.contains(&format!("  users.data#{shown}\n")), "{shown}: {}", said(&planned));
+    }
+    assert!(!tree.contains("Oslo") && !tree.contains("Ann"), "{tree}");
+    let run = project.run(&server.base_url(), &["--reporter", "json"]).output().unwrap();
+    let mut labels = labels(&run.stdout);
+    labels.sort_by_key(ToString::to_string);
+    let expected = ["› Bergen", "› Oslo", "› Ann", "› Bob"];
+    let ids = ["listsEachCity", "listsEachCity", "listsFileRows", "listsInline"];
+    let expected: Vec<String> = ids.iter().zip(expected).map(|(id, name)| format!("users.data#{id} {name}")).collect();
+    assert_eq!(labels, expected, "{}", said(&run));
+}
+
+/// A failing test whose one row's `name` would retitle the window, clear it and reverse a line.
+const HOSTILE: (&str, &str) = (
+    "services/users/hostile.test.yaml",
+    "tests:\n  - id: failsOnce\n    call: users#list\n    expect: {status: 500}\n\
+     \x20   examples:\n      - {name: \"\\e]0;pwned\\a\\e[2J \\u202eevil\", page: 1}\n",
+);
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_row_name_cannot_drive_the_terminal_in_the_plan_the_run_or_the_history() {
+    let server = MockServer::start().await.unwrap();
+    let project = Project::new(&[CONFIG, USERS, HOSTILE]);
+    let label = "users.hostile#failsOnce › \u{fffd}]0;pwned\u{fffd}\u{fffd}[2J \u{fffd}evil";
+    let clean = |printed: &[u8]| {
+        let printed = String::from_utf8_lossy(printed);
+        assert!(!printed.contains(['\u{1b}', '\u{7}', '\u{202e}']), "{printed:?}");
+        assert!(printed.contains(label), "{printed:?}");
+    };
+    let run = project.run(&server.base_url(), &["--reporter", "json"]).output().unwrap();
+    assert_eq!(labels(&run.stdout), [label], "{}", said(&run));
+    for args in [&["plan"][..], &["plan", "--dot"], &["history", "show", "1"]] {
+        clean(&project.vc(args).output().unwrap().stdout);
+    }
+    let planned: Value = serde_json::from_slice(&project.vc(&["plan", "--json"]).output().unwrap().stdout).unwrap();
+    assert_eq!(planned["files"][0]["instances"][0]["label"], label);
+    let stored: Value =
+        serde_json::from_slice(&project.vc(&["history", "show", "1", "--json"]).output().unwrap().stdout).unwrap();
+    assert_eq!(stored["tests"][0]["id"], label);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn an_instance_picked_by_its_number_keeps_the_label_of_the_full_run() {
+    let server = MockServer::start().await.unwrap();
+    let test = "tests:\n  - id: listsTwice\n    call: users#list\n    repeat: 2\n\
+                \x20   examples: [{page: 1}, {page: 2}]\n";
+    let project = Project::new(&[CONFIG, USERS, ("services/users/twice.test.yaml", test)]);
+    let full = project.run(&server.base_url(), &["--reporter", "json"]).output().unwrap();
+    let third = "users.twice#listsTwice [row 2, repeat 1]";
+    assert!(labels(&full.stdout).contains(&Value::from(third)), "{}", said(&full));
+    let picked = project.run(&server.base_url(), &["--reporter", "json", "users.twice#listsTwice:3"]).output().unwrap();
+    assert_eq!(labels(&picked.stdout), [third], "{}", said(&picked));
+    let planned = project.vc(&["plan", "users.twice#listsTwice:3"]).output().unwrap();
+    assert!(String::from_utf8_lossy(&planned.stdout).contains(&format!("  {third}\n")), "{}", said(&planned));
 }
 
 #[tokio::test(flavor = "multi_thread")]

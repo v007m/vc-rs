@@ -14,6 +14,7 @@ pub fn test(names: &Names, record: &TestRecord, view: &TestView) -> TestRow {
         test_id: view.id.clone(),
         example_row: view.example_row,
         repeat_index: view.repeat_index,
+        label: Some(view.label.clone()),
         status: Some(view.status),
         duration_ms: record.duration().as_secs_f64() * 1_000.0,
         attempts: view.attempts,

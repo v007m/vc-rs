@@ -10,7 +10,7 @@ mod tree;
 use std::collections::HashSet;
 use std::fmt::Write as _;
 
-use vc_model::{ActionId, ActionKind, Instance, Plan, PlannedFile, Program, Sym};
+use vc_model::{ActionId, ActionKind, Instance, InstanceLabels, Plan, PlannedFile, Program, Sym};
 
 pub use self::dot::dot;
 pub use self::explain::{check_lines, explain, shown_check_lines};
@@ -97,21 +97,7 @@ pub fn action_label(program: &Program, id: ActionId) -> String {
     }
 }
 
-/// `users.crud#rejectsBadEmail [row 2, repeat 3]`, numbered from 1; the repeat is shown only
-/// when the test repeats.
-fn instance_label(program: &Program, instance: &Instance, repeats: bool) -> String {
-    let mut marks = Vec::new();
-    if let Some(row) = instance.example_row {
-        marks.push(format!("row {}", u64::from(row) + 1));
-    }
-    if repeats {
-        marks.push(format!("repeat {}", u64::from(instance.repeat_index) + 1));
-    }
-    let test = name(program, instance.test.sym());
-    if marks.is_empty() { test.to_owned() } else { format!("{test} [{}]", marks.join(", ")) }
-}
-
-/// Whether any instance of `instance`'s test in `instances` is a second or later repeat.
-fn repeats(instances: &[Instance], instance: &Instance) -> bool {
-    instances.iter().any(|other| other.test == instance.test && other.repeat_index > 0)
+/// `users.crud#rejectsBadEmail › missing @ [repeat 3]`, as the run's reporters label it (D316).
+fn instance_label(program: &Program, labels: &InstanceLabels, instance: &Instance) -> String {
+    format!("{}{}", name(program, instance.test.sym()), labels.suffix(instance.test, Some(instance.id)))
 }

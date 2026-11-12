@@ -12,6 +12,8 @@ fn a_label_marks_the_example_row_and_repeat_from_one() {
     assert_eq!(test(&row(None, 0)).label, "users.crud#rejectsBadEmail");
     assert_eq!(test(&row(Some(1), 0)).label, "users.crud#rejectsBadEmail [row 2]");
     assert_eq!(test(&row(Some(0), 2)).label, "users.crud#rejectsBadEmail [row 1, repeat 3]");
+    let named = TestRow { label: Some("users.crud#rejectsBadEmail › missing @".into()), ..row(Some(0), 0) };
+    assert_eq!(test(&named).label, "users.crud#rejectsBadEmail › missing @");
 }
 
 #[test]

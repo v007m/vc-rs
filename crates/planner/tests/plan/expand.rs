@@ -42,6 +42,8 @@ fn repeat_runs_each_test_that_many_times_and_the_flag_overrides_it() {
     let once = common::planned(&program, &common::ids(&["users.crud"]));
     assert_eq!(common::slots(&program, &once, "users.crud#listsUsers"), [(None, 0), (None, 1)]);
     assert_eq!(common::slots(&program, &once, "users.crud#readsWarm"), [(None, 0)]);
+    let repeated = |plan: &vc_model::Plan, test| plan.repeated.contains(&common::test_id(&program, test));
+    assert!(repeated(&once, "users.crud#listsUsers") && !repeated(&once, "users.crud#readsWarm"));
     let thrice =
         vc_planner::plan(&program, &common::ids(&["users.crud"]), &options(|options| options.repeat = Some(3)))
             .unwrap();
@@ -73,6 +75,8 @@ fn example_rows_multiply_repeats_with_rows_outermost() {
     );
     let third = common::planned(&program, &common::ids(&["users.rows#listsPages:3"]));
     assert_eq!(common::slots(&program, &third, "users.rows#listsPages"), [(Some(1), 0)]);
+    assert!(third.repeated.contains(&common::test_id(&program, "users.rows#listsPages")), "`:3` is still a repeat");
+    assert!(vc_planner::tree(&program, &third).contains("users.rows#listsPages [row 2, repeat 1]"));
 }
 
 #[test]

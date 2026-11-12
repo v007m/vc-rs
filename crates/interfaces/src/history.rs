@@ -5,9 +5,9 @@
 
 use std::fmt;
 
-use vc_model::{Keep, RunStatus, TestStatus, Totals};
+use vc_model::{Keep, RunStatus, Totals};
 
-use crate::{ApiTrend, RunFilter, TestTrend};
+use crate::{ApiTrend, ExchangeRow, RunFilter, TestRow, TestTrend};
 
 /// Stores runs as they happen.
 ///
@@ -239,114 +239,6 @@ pub struct IntervalRow {
     pub errors: u64,
     /// Their latencies, as an encoded HDR histogram.
     pub histogram: Vec<u8>,
-}
-
-/// A test instance's result.
-#[derive(Clone, Debug, Default, PartialEq)]
-#[expect(
-    clippy::exhaustive_structs,
-    reason = "history row built and read across crates; every user is in this repo (D160)"
-)]
-pub struct TestRow {
-    /// Its full ID: `users.crud#getsUser`.
-    pub test_id: String,
-    /// Its `examples` row, from 0.
-    pub example_row: Option<u32>,
-    /// Its repeat, from 0.
-    pub repeat_index: u32,
-    /// How it ended.
-    pub status: Option<TestStatus>,
-    /// Its wall time, in milliseconds.
-    pub duration_ms: f64,
-    /// How often it ran.
-    pub attempts: u32,
-    /// The lifecycle action whose failure blocked it.
-    pub blocked_by: Option<String>,
-    /// Why it was skipped.
-    pub skip_reason: Option<String>,
-    /// Its failure's message.
-    pub message: Option<String>,
-    /// Its checks, in order.
-    pub checks: Vec<CheckRow>,
-    /// Its exchanges, in order.
-    pub exchanges: Vec<ExchangeRow>,
-}
-
-/// One check of a test.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-#[expect(
-    clippy::exhaustive_structs,
-    reason = "history row built and read across crates; every user is in this repo (D160)"
-)]
-pub struct CheckRow {
-    /// Its label: `status`, `body.match.total`.
-    pub kind: String,
-    /// The path it checked, if any.
-    pub path: Option<String>,
-    /// The expected value, as JSON.
-    pub expected: String,
-    /// The actual value, as JSON, if there was one.
-    pub actual: Option<String>,
-    /// Whether it held.
-    pub passed: bool,
-    /// Who wrote it: `api users#get`, `test`, `action`.
-    pub origin: String,
-    /// The file it is written in.
-    pub file: String,
-    /// The line it is written on.
-    pub line: u32,
-}
-
-/// A request and its response, redacted, bodies cut.
-#[derive(Clone, Debug, Default, PartialEq)]
-#[expect(
-    clippy::exhaustive_structs,
-    reason = "history row built and read across crates; every user is in this repo (D160)"
-)]
-pub struct ExchangeRow {
-    /// The action that sent it.
-    pub action: String,
-    /// The api it called, if it called one.
-    pub api_id: Option<String>,
-    /// The request method.
-    pub method: String,
-    /// The request URL.
-    pub url: String,
-    /// The response status.
-    pub status: Option<u16>,
-    /// Its timings.
-    pub timing: TimingRow,
-    /// The request headers, in order.
-    pub request_headers: Vec<(String, String)>,
-    /// The response headers, in order.
-    pub response_headers: Vec<(String, String)>,
-    /// The request body, when `history.bodies` keeps it.
-    pub request_body: Option<Vec<u8>>,
-    /// The response body, when `history.bodies` keeps it.
-    pub response_body: Option<Vec<u8>>,
-    /// Whether a body was cut at `history.maxBodySize`.
-    pub body_truncated: bool,
-}
-
-/// An exchange's timings, in milliseconds.
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
-#[expect(
-    clippy::exhaustive_structs,
-    reason = "history row built and read across crates; every user is in this repo (D160)"
-)]
-pub struct TimingRow {
-    /// The DNS lookup, when there was one.
-    pub dns_ms: Option<f64>,
-    /// The TCP connect, when there was one.
-    pub connect_ms: Option<f64>,
-    /// The TLS handshake, when there was one.
-    pub tls_ms: Option<f64>,
-    /// Until the first response byte.
-    pub first_byte_ms: f64,
-    /// Reading the body.
-    pub download_ms: f64,
-    /// All of it.
-    pub total_ms: f64,
 }
 
 /// Why the history could not be used. A history failure never changes test results.
