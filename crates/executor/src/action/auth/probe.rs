@@ -4,8 +4,9 @@
 use std::sync::Arc;
 use std::time::Duration;
 
+use http::Uri;
 use vc_interfaces::{Credentials, Secret, TransportError};
-use vc_model::Failure;
+use vc_model::{Action, Api, Failure};
 
 use super::stage::AuthStage;
 use super::{Lease, Prepared, prepare};
@@ -49,13 +50,43 @@ pub async fn probe_auth(request: &ActionRequest) -> Result<Option<ProbedAuth>, F
     }
 }
 
+/// The origin `request`'s call sends to, `scheme://host:port` in lower case with the scheme's
+/// port when the URL leaves it out; nothing is sent and no auth is applied.
+///
+/// # Errors
+///
+/// A failure when the call's URL cannot render or names no host.
+pub fn probe_origin(request: &ActionRequest) -> Result<String, Failure> {
+    let (action, api) = call_of(request)?;
+    let render = Render::new(request).map_err(request::failed)?;
+    origin(&request::uri(&render, api, action)?).ok_or_else(|| Failure::new("the call's URL names no host"))
+}
+
 /// The auth of `request`'s call, rendered.
 fn prepared(request: &ActionRequest) -> Result<Option<Prepared>, Failure> {
+    let (action, api) = call_of(request)?;
+    let mut render = Render::new(request).map_err(request::failed)?;
+    prepare(request, &mut render, (api, action))
+}
+
+/// The action of `request` and the api it calls.
+fn call_of(request: &ActionRequest) -> Result<(&Action, &Api), Failure> {
     let cx = &request.cx;
     let action = cx.action(request.action).ok_or_else(|| Failure::new("the action is not in the program"))?;
     let api = called(&cx.program, action).ok_or_else(|| Failure::new("the action calls no api in the program"))?;
-    let mut render = Render::new(request).map_err(request::failed)?;
-    prepare(request, &mut render, (api, action))
+    Ok((action, api))
+}
+
+/// `uri`'s scheme, host and port, the port given or the scheme's own.
+fn origin(uri: &Uri) -> Option<String> {
+    let scheme = uri.scheme_str()?.to_ascii_lowercase();
+    let host = uri.host()?.to_ascii_lowercase();
+    let port = uri.port_u16().or_else(|| match scheme.as_str() {
+        "https" => Some(443),
+        "http" => Some(80),
+        _ => None,
+    });
+    Some(port.map_or_else(|| format!("{scheme}://{host}"), |port| format!("{scheme}://{host}:{port}")))
 }
 
 fn named(credentials: &Credentials) -> ProbedAuth {

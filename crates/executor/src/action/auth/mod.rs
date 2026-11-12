@@ -19,7 +19,7 @@ use super::request;
 use crate::{ActionCx, ActionRequest, Around, PipelineParts, Render, Saved};
 
 use flow::FlowRunner;
-pub use probe::{ProbedAuth, probe_auth};
+pub use probe::{ProbedAuth, probe_auth, probe_origin};
 use stage::{AuthStage, RefreshOn};
 pub use token_cache::{AuthKey, Lease, TokenCache};
 
