@@ -111,39 +111,39 @@ import Playground from '~/components/Playground.svelte';
    $ vc run
    plan  5 tests in 1 file · profile default
 
-   ✓ users.openapi#listsUsers                                        2ms
-   ✓ users.openapi#createsUser                                       3ms
-   ✕ users.openapi#rejectsInvalidCreateUser [row 4]                  3ms
+   ✓ users.openapi#listsUsers — List users                          13ms
+   ✓ users.openapi#createsUser — Create user                        17ms
+   ✕ users.openapi#rejectsInvalidCreateUser › name missing — Create user: rejects an invalid body   17ms
      error[V5101]: expect.status
        --> services/users/openapi.test.yaml:42:15
         |
      42 |       status: 400
         |               ^^^ expected [400], got 201
-   ✕ users.openapi#rejectsInvalidCreateUser [row 1]                  3ms
+   ✕ users.openapi#rejectsInvalidCreateUser › name is not a string — Create user: rejects an invalid body   17ms
      error[V5101]: expect.status
        --> services/users/openapi.test.yaml:42:15
         |
      42 |       status: 400
         |               ^^^ expected [400], got 201
-   ✕ users.openapi#rejectsInvalidCreateUser [row 2]                  3ms
+   ✓ users.openapi#deletesUser — Delete user                        20ms
+   ✓ users.openapi#getsUser — Get user                              20ms
+   ✕ users.openapi#rejectsInvalidCreateUser › email is not a string — Create user: rejects an invalid body   20ms
      error[V5101]: expect.status
        --> services/users/openapi.test.yaml:42:15
         |
      42 |       status: 400
         |               ^^^ expected [400], got 201
-   ✕ users.openapi#rejectsInvalidCreateUser [row 3]                  3ms
+   ✕ users.openapi#rejectsInvalidCreateUser › email missing — Create user: rejects an invalid body   20ms
      error[V5101]: expect.status
        --> services/users/openapi.test.yaml:42:15
         |
      42 |       status: 400
         |               ^^^ expected [400], got 201
-   ✓ users.openapi#deletesUser                                       3ms
-   ✓ users.openapi#getsUser                                          4ms
 
-   4 passed · 4 failed                                          6ms · profile default
+   4 passed · 4 failed                                          21ms · profile default
    reports  /home/you/users-api/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
    next     vc run --failed
-   seed 626245841719629220: pass `--seed 626245841719629220` to run with the same generated data
+   seed 7708181685141620: pass `--seed 7708181685141620` to run with the same generated data
    ```
 
    `rejectsInvalidCreateUser` sends four bodies the schema rejects, one per row, and expects a `400` for each. The mock stores any JSON you send it, so every row gets a `201`. Tests run in parallel, so `listsUsers` can fail as well in this run: it may list the users those rows made, which break the schema, before each row's cleanup deletes its user.
@@ -187,13 +187,13 @@ import Playground from '~/components/Playground.svelte';
    $ vc run
    plan  4 tests in 1 file · 1 skipped · profile default
 
-   - users.openapi#rejectsInvalidCreateUser skipped: the mock accepts any body; re-enable against the real service
-   ✓ users.openapi#listsUsers                                        2ms
-   ✓ users.openapi#deletesUser                                       3ms
-   ✓ users.openapi#createsUser                                       3ms
-   ✓ users.openapi#getsUser                                          4ms
+   - users.openapi#rejectsInvalidCreateUser — Create user: rejects an invalid body skipped: the mock accepts any body; re-enable against the real service
+   ✓ users.openapi#listsUsers — List users                          19ms
+   ✓ users.openapi#deletesUser — Delete user                        20ms
+   ✓ users.openapi#getsUser — Get user                              19ms
+   ✓ users.openapi#createsUser — Create user                        20ms
 
-   4 passed · 1 skipped                                         4ms · profile default
+   4 passed · 1 skipped                                         46ms · profile default
    reports  /home/you/users-api/.vibranium/reports/2/{ctrf.json,junit.xml,index.html}
    ```
 
@@ -342,17 +342,17 @@ import Playground from '~/components/Playground.svelte';
     $ vc run users.contract
     plan  1 test in 1 file · profile default
 
-    ✕ users.contract#returnsAUserWithARole                            3ms
+    ✕ users.contract#returnsAUserWithARole — A created user reads back with a role    3ms
       error[V5101]: expect.body.schema
         --> services/users/contract.test.yaml:12:11
          |
       12 |           $file: ../../schemas/users/user.json
          |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ /: "role" is a required property
 
-    0 passed · 1 failed                                          4ms · profile default
+    0 passed · 1 failed                                          3ms · profile default
     reports  /home/you/users-api/.vibranium/reports/3/{ctrf.json,junit.xml,index.html}
     next     vc run --failed
-    seed 2172316705389628147: pass `--seed 2172316705389628147` to run with the same generated data
+    seed 499890876642558: pass `--seed 499890876642558` to run with the same generated data
     ```
 
     The mock returns what you sent, and `createUser` does not send a role. Sync never touches a request body, so add it yourself:
@@ -374,14 +374,14 @@ import Playground from '~/components/Playground.svelte';
     $ vc run
     plan  5 tests in 2 files · 1 skipped · profile default
 
-    - users.openapi#rejectsInvalidCreateUser skipped: the mock accepts any body; re-enable against the real service
-    ✓ users.openapi#listsUsers                                        3ms
-    ✓ users.openapi#createsUser                                       3ms
-    ✓ users.openapi#deletesUser                                       4ms
-    ✓ users.contract#returnsAUserWithARole                            4ms
-    ✓ users.openapi#getsUser                                          4ms
+    - users.openapi#rejectsInvalidCreateUser — Create user: rejects an invalid body skipped: the mock accepts any body; re-enable against the real service
+    ✓ users.openapi#listsUsers — List users                           2ms
+    ✓ users.openapi#createsUser — Create user                         2ms
+    ✓ users.openapi#deletesUser — Delete user                         2ms
+    ✓ users.openapi#getsUser — Get user                               2ms
+    ✓ users.contract#returnsAUserWithARole — A created user reads back with a role    2ms
 
-    5 passed · 1 skipped                                         5ms · profile default
+    5 passed · 1 skipped                                         2ms · profile default
     reports  /home/you/users-api/.vibranium/reports/4/{ctrf.json,junit.xml,index.html}
     $ vc sync --check
     fetched http://localhost:18080/openapi/users.yaml (4 operations)
@@ -412,7 +412,18 @@ tests:
 
 Sync makes a three-way merge between the old snapshot, the new spec and your file. When the spec and your file both changed the same field in different ways, that api is a conflict. Sync leaves the api as it is and tells you how to settle it.
 
-Say you had set a page size on `listUsers` by hand (`query: { limit: 50 }`) before the spec added its own `limit`:
+Say you had set a page size on `listUsers` by hand before the spec added its own `limit`:
+
+```yaml title="services/users/users.api.yaml"
+  - id: listUsers
+    name: List users
+    path: /users
+    operationId: listUsers
+    query:
+      limit: 50
+```
+
+Then `vc sync` reports a conflict:
 
 ```console
 $ vc sync
@@ -455,7 +466,20 @@ There are three ways to settle it:
   ✓ synced · snapshot openapi/users.yaml updated
   ```
 
-- **Edit the api by hand, then mark it resolved.** For example, change it to `limit: ${var.pageSize}` with `vars: { pageSize: 50 }`, then run:
+- **Edit the api by hand, then mark it resolved.** For example, move the page size into a var:
+
+  ```yaml title="services/users/users.api.yaml"
+    - id: listUsers
+      name: List users
+      path: /users
+      operationId: listUsers
+      query:
+        limit: ${var.pageSize}
+      vars:
+        pageSize: 50
+  ```
+
+  Then run:
 
   ```console
   $ vc sync users --resolved users#listUsers

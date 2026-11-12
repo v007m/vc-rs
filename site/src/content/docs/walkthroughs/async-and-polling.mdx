@@ -108,9 +108,9 @@ Real APIs are not always instant or reliable. A report takes a few seconds to bu
    $ vc run jobs.polling
    plan  1 test in 1 file · profile default
 
-   ✓ jobs.polling#waitsForJobToFinish                              412ms
+   ✓ jobs.polling#waitsForJobToFinish — Waits until the job is done  415ms
 
-   1 passed                                                     419ms · profile default
+   1 passed                                                     418ms · profile default
    reports  /home/you/async-demo/.vibranium/reports/1/ctrf.json
    $ curl -s localhost:18080/__stats
    {"requests":{"GET /poll/{id}":3},"logins":0,"maxInFlight":{"GET /poll/{id}":1},"maxInFlightTotal":1}
@@ -153,15 +153,14 @@ Real APIs are not always instant or reliable. A report takes a few seconds to bu
    $ vc run jobs.polling
    plan  2 tests in 1 file · profile default
 
-   ✓ jobs.polling#waitsForJobToFinish                              408ms
-   ✕ jobs.polling#givesUpOnStuckJob                                760ms
+   ✓ jobs.polling#waitsForJobToFinish — Waits until the job is done  408ms
+   ✕ jobs.polling#givesUpOnStuckJob — Gives up when the job never finishes  757ms
      error[V5104]: `poll.until` did not hold within 1s: match.status: expected "done", got "pending"
         = at: call jobs#jobStatus
 
-   1 passed · 1 failed                                          761ms · profile default
+   1 passed · 1 failed                                          758ms · profile default
    reports  /home/you/async-demo/.vibranium/reports/2/ctrf.json
    next     vc run --failed
-   seed 605022505046727078: pass `--seed 605022505046727078` to run with the same generated data
    ```
 
    The failure shows the last value it saw. vc called at 0, 250, 500 and 750 ms, and stopped there because the next call would land past the 1 s limit.
@@ -189,15 +188,25 @@ Real APIs are not always instant or reliable. A report takes a few seconds to bu
    $ vc run jobs.retry
    plan  1 test in 1 file · profile default
 
-   ~ jobs.retry#passesOnSecondTry flaky (2 attempts)               106ms
+   ~ jobs.retry#passesOnSecondTry — Passes when the second try succeeds flaky (2 attempts)  105ms
 
-   0 passed · 1 flaky                                           108ms · profile default
+   0 passed · 1 flaky                                           105ms · profile default
    reports  /home/you/async-demo/.vibranium/reports/3/ctrf.json
    $ echo $?
    0
    ```
 
-   A flaky test still counts as a pass for the exit code, so CI stays green, but the report keeps a record of it. With `failTimes: 2` the line reads `flaky (3 attempts)`. When every try fails, the test fails and you get the error from each try.
+   A flaky test still counts as a pass for the exit code, so CI stays green, but the report keeps a record of it. With `failTimes: 2` the line reads `flaky (3 attempts)`. When every try fails, the test fails. Tries that fail with the same error are shown once, under the tries they cover. With `failTimes: 5`:
+
+   ```console
+   ✕ jobs.retry#passesOnSecondTry — Passes when the second try succeeds (3 attempts)  207ms
+     attempts 1, 2 and 3 of 3:
+     error[V5101]: expect.status
+       --> services/jobs/retry.test.yaml:13:15
+        |
+     13 |       status: 200
+        |               ^^^ expected [200], got 503
+   ```
 
    To give every test the same retry, set `defaults.retry` in the config. A test's own `retry` wins.
 
@@ -217,34 +226,46 @@ Real APIs are not always instant or reliable. A report takes a few seconds to bu
    Run it once (it fails), then ten more times:
 
    ```console
+   $ vc run jobs.retry#readsWarmCache
+   plan  1 test in 1 file · profile default
+
+   ✕ jobs.retry#readsWarmCache — Reads from a warm cache             1ms
+     error[V5101]: expect.status
+       --> services/jobs/retry.test.yaml:21:15
+        |
+     21 |       status: 200
+        |               ^^^ expected [200], got 503
+
+   0 passed · 1 failed                                          2ms · profile default
+   reports  /home/you/async-demo/.vibranium/reports/4/ctrf.json
+   next     vc run --failed
    $ vc run jobs.retry#readsWarmCache --repeat 10
    plan  1 test in 1 file · profile default
 
-   ✕ jobs.retry#readsWarmCache [repeat 3]                            7ms
+   ✕ jobs.retry#readsWarmCache [repeat 1] — Reads from a warm cache    1ms
      error[V5101]: expect.status
        --> services/jobs/retry.test.yaml:21:15
         |
      21 |       status: 200
         |               ^^^ expected [200], got 503
-   ✕ jobs.retry#readsWarmCache [repeat 5]                            8ms
+   ✕ jobs.retry#readsWarmCache [repeat 6] — Reads from a warm cache    1ms
      error[V5101]: expect.status
        --> services/jobs/retry.test.yaml:21:15
         |
      21 |       status: 200
         |               ^^^ expected [200], got 503
-   ✓ jobs.retry#readsWarmCache [repeat 10]                           9ms
-   ✓ jobs.retry#readsWarmCache [repeat 2]                            9ms
-   ✓ jobs.retry#readsWarmCache [repeat 6]                           10ms
-   ✓ jobs.retry#readsWarmCache [repeat 8]                           10ms
-   ✓ jobs.retry#readsWarmCache [repeat 7]                           10ms
-   ✓ jobs.retry#readsWarmCache                                      10ms
-   ✓ jobs.retry#readsWarmCache [repeat 9]                           10ms
-   ✓ jobs.retry#readsWarmCache [repeat 4]                           11ms
+   ✓ jobs.retry#readsWarmCache [repeat 2] — Reads from a warm cache    1ms
+   ✓ jobs.retry#readsWarmCache [repeat 3] — Reads from a warm cache    1ms
+   ✓ jobs.retry#readsWarmCache [repeat 8] — Reads from a warm cache    1ms
+   ✓ jobs.retry#readsWarmCache [repeat 10] — Reads from a warm cache    2ms
+   ✓ jobs.retry#readsWarmCache [repeat 9] — Reads from a warm cache    2ms
+   ✓ jobs.retry#readsWarmCache [repeat 5] — Reads from a warm cache    2ms
+   ✓ jobs.retry#readsWarmCache [repeat 7] — Reads from a warm cache    2ms
+   ✓ jobs.retry#readsWarmCache [repeat 4] — Reads from a warm cache    2ms
 
-   8 passed · 2 failed                                          13ms · profile default
+   8 passed · 2 failed                                          2ms · profile default
    reports  /home/you/async-demo/.vibranium/reports/5/ctrf.json
    next     vc run --failed
-   seed 12003489792329356816: pass `--seed 12003489792329356816` to run with the same generated data
    ```
 
    Two of ten failed: the test is flaky. The runs go in parallel, so they finish in any order. Add `--concurrency 1` to run them one after another.
@@ -284,9 +305,9 @@ Real APIs are not always instant or reliable. A report takes a few seconds to bu
    $ vc run jobs.transport
    plan  1 test in 1 file · profile default
 
-   ✓ jobs.transport#survivesTwoUnavailableAnswers                  275ms
+   ✓ jobs.transport#survivesTwoUnavailableAnswers — Survives two 503 answers in a row  239ms
 
-   1 passed                                                     276ms · profile default
+   1 passed                                                     240ms · profile default
    reports  /home/you/async-demo/.vibranium/reports/6/ctrf.json
    $ curl -s localhost:18080/__stats
    {"requests":{"GET /flaky":3},"logins":0,"maxInFlight":{"GET /flaky":1},"maxInFlightTotal":1}
@@ -300,9 +321,9 @@ Real APIs are not always instant or reliable. A report takes a few seconds to bu
    $ vc run jobs.retry#passesOnSecondTry
    plan  1 test in 1 file · profile default
 
-   ✓ jobs.retry#passesOnSecondTry                                   83ms
+   ✓ jobs.retry#passesOnSecondTry — Passes when the second try succeeds   74ms
 
-   1 passed                                                     85ms · profile default
+   1 passed                                                     75ms · profile default
    reports  /home/you/async-demo/.vibranium/reports/7/ctrf.json
    ```
 
@@ -325,10 +346,10 @@ Real APIs are not always instant or reliable. A report takes a few seconds to bu
    $ vc run jobs.retry#passesOnSecondTry jobs.transport
    plan  2 tests in 2 files · profile default
 
-   ~ jobs.retry#passesOnSecondTry flaky (2 attempts)               105ms
-   ✓ jobs.transport#survivesTwoUnavailableAnswers                  186ms
+   ~ jobs.retry#passesOnSecondTry — Passes when the second try succeeds flaky (2 attempts)  105ms
+   ✓ jobs.transport#survivesTwoUnavailableAnswers — Survives two 503 answers in a row  242ms
 
-   1 passed · 1 flaky                                           187ms · profile default
+   1 passed · 1 flaky                                           249ms · profile default
    reports  /home/you/async-demo/.vibranium/reports/8/ctrf.json
    ```
 
@@ -367,17 +388,16 @@ Real APIs are not always instant or reliable. A report takes a few seconds to bu
    $ vc run jobs.timeouts
    plan  2 tests in 1 file · profile default
 
-   ✕ jobs.timeouts#finishesReportInTime                             1.0s
+   ✕ jobs.timeouts#finishesReportInTime — Builds the report within a second   1.0s
      error[V5104]: the test ran past its `timeout`
         = at: call jobs#slow
-   ✕ jobs.timeouts#answersHealthCheckQuickly                        1.2s
+   ✕ jobs.timeouts#answersHealthCheckQuickly — Answers a quick check within 300ms   1.2s
      error[V5104]: no response within 300ms
         = at: call jobs#slow
 
    0 passed · 2 failed                                          1.2s · profile default
    reports  /home/you/async-demo/.vibranium/reports/9/ctrf.json
    next     vc run --failed
-   seed 2594348556432023605: pass `--seed 2594348556432023605` to run with the same generated data
    $ curl -s localhost:18080/__stats
    {"requests":{"GET /slow":5},"logins":0,"maxInFlight":{"GET /slow":2},"maxInFlightTotal":2}
    ```

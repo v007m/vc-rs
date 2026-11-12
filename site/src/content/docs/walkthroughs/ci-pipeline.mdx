@@ -51,14 +51,25 @@ There is no prebuilt release, installer or GitHub setup action for `vc` yet. The
 
    Commit it: `git add -A && git commit -m "init"`.
 
-3. **Know what fails a check.** `vc check` parses and links every file and sends no requests. Errors exit with `2`, and so does `vc run`, which refuses to start. Here `listsUsers` got a `body: type: array` that isn't a valid key:
+3. **Know what fails a check.** `vc check` parses and links every file and sends no requests. Errors exit with `2`, and so does `vc run`, which refuses to start. Here `listsUsers` got a `type: array` under `expect.body`, which isn't a valid key there:
+
+   ```yaml title="services/sample/basics.test.yaml (excerpt)"
+     - id: listsUsers
+       name: Lists users
+       call: sample#listUsers
+       expect:
+         status: 200
+         body:
+           type: array
+   ```
+
 
    ```console
    $ vc run --profile ci
    error[V1004]: unknown key `type` in bodyExpect
-     --> services/sample/basics.test.yaml:24:9
+     --> services/sample/basics.test.yaml:25:9
       |
-   24 |         type: array
+   25 |         type: array
       |         ^^^^ not a known key
       = help: expected one of `schema`, `match`, `equals`
 
@@ -98,12 +109,12 @@ There is no prebuilt release, installer or GitHub setup action for `vc` yet. The
    $ vc run --profile ci --report junit,ctrf,html --out reports
    plan  4 tests in 1 file · lifecycle: beforeAll command · profile ci
 
-   ✓ sample.basics#listsUsers                                        0ms
-   ✓ sample.basics#rejectsMissingEmail                               0ms
-   ✓ sample.basics#createsUser                                       1ms
-   ✓ sample.basics#getsCreatedUser                                   1ms
+   ✓ sample.basics#rejectsMissingEmail — Rejects a user without an email    0ms
+   ✓ sample.basics#listsUsers — Lists users                          0ms
+   ✓ sample.basics#createsUser — Creates a user with the given email    1ms
+   ✓ sample.basics#getsCreatedUser — Returns the user that was just created    1ms
 
-   4 passed                                                     130ms · profile ci
+   4 passed                                                     359ms · profile ci
    reports  /home/you/shop/reports/{junit.xml,ctrf.json,index.html}
    ```
 
@@ -115,23 +126,23 @@ There is no prebuilt release, installer or GitHub setup action for `vc` yet. The
    $ vc run --profile ci --set vars.sampleUrl=http://127.0.0.1:18099
    plan  4 tests in 1 file · lifecycle: beforeAll command · profile ci
 
-   ✕ sample.basics#listsUsers                                        0ms
+   ⊘ sample.basics#getsCreatedUser — Returns the user that was just created blocked    0ms
+     error[V5105]: cannot connect to 127.0.0.1:18099: Connection refused (os error 61)
+        = at: call sample#createUser
+   ✕ sample.basics#rejectsMissingEmail — Rejects a user without an email    0ms
+     error[V5105]: cannot connect to 127.0.0.1:18099: Connection refused (os error 61)
+        = at: call sample#createUser
+   ✕ sample.basics#listsUsers — Lists users                          0ms
      error[V5105]: cannot connect to 127.0.0.1:18099: Connection refused (os error 61)
         = at: call sample#listUsers
-   ✕ sample.basics#rejectsMissingEmail                               0ms
-     error[V5105]: cannot connect to 127.0.0.1:18099: Connection refused (os error 61)
-        = at: call sample#createUser
-   ✕ sample.basics#createsUser                                       0ms
-     error[V5105]: cannot connect to 127.0.0.1:18099: Connection refused (os error 61)
-        = at: call sample#createUser
-   ⊘ sample.basics#getsCreatedUser blocked                           0ms
+   ✕ sample.basics#createsUser — Creates a user with the given email    0ms
      error[V5105]: cannot connect to 127.0.0.1:18099: Connection refused (os error 61)
         = at: call sample#createUser
 
-   0 passed · 3 failed · 1 blocked                              138ms · profile ci
-   reports  /home/you/shop/.vibranium/reports/4/{ctrf.json,junit.xml,index.html}
+   0 passed · 3 failed · 1 blocked                              76ms · profile ci
+   reports  /home/you/shop/.vibranium/reports/2/{ctrf.json,junit.xml,index.html}
    next     vc run --failed
-   seed 8957181361631589634: pass `--seed 8957181361631589634` to run with the same generated data
+   seed 5335986152586246: pass `--seed 5335986152586246` to run with the same generated data
    $ echo $?
    1
    ```
@@ -143,10 +154,10 @@ There is no prebuilt release, installer or GitHub setup action for `vc` yet. The
    ```console
    $ vc run --profile ci --reporter json --report ctrf --out reports > run.ndjson
    $ jq -c 'select(.event=="testFinished") | {test, status, durationMs}' run.ndjson
-   {"test":"sample.basics#rejectsMissingEmail","status":"passed","durationMs":5}
-   {"test":"sample.basics#listsUsers","status":"passed","durationMs":6}
-   {"test":"sample.basics#createsUser","status":"passed","durationMs":6}
-   {"test":"sample.basics#getsCreatedUser","status":"passed","durationMs":6}
+   {"test":"sample.basics#rejectsMissingEmail","status":"passed","durationMs":0}
+   {"test":"sample.basics#listsUsers","status":"passed","durationMs":0}
+   {"test":"sample.basics#createsUser","status":"passed","durationMs":0}
+   {"test":"sample.basics#getsCreatedUser","status":"passed","durationMs":0}
    ```
 
    The stream starts with `runStarted` and ends with `runFinished` and `summary`:
@@ -154,7 +165,7 @@ There is no prebuilt release, installer or GitHub setup action for `vc` yet. The
    ```json
    {"event":"runStarted","files":1,"instances":4}
    {"event":"runFinished","status":"passed","totals":{"allowedFailures":0,"blocked":0,"failed":0,"flaky":0,"passed":4,"skipped":0}}
-   {"artifacts":[{"path":"/home/you/shop/reports/ctrf.json","reporter":"ctrf"}],"durationMs":124,"event":"summary","profileNames":{},"profiles":["ci"],"startedMs":1794332325603,"status":"passed","totals":{"allowedFailures":0,"blocked":0,"failed":0,"flaky":0,"passed":4,"skipped":0}}
+   {"artifacts":[{"path":"/home/you/shop/reports/ctrf.json","reporter":"ctrf"}],"durationMs":74,"event":"summary","profileNames":{},"profiles":["ci"],"startedMs":1794459652079,"status":"passed","teardownFailures":[],"totals":{"allowedFailures":0,"blocked":0,"failed":0,"flaky":0,"passed":4,"skipped":0}}
    ```
 
    A failed test carries its diagnostic code and message:
@@ -184,8 +195,8 @@ There is no prebuilt release, installer or GitHub setup action for `vc` yet. The
    plan  0 tests in 0 files · profile ci
 
 
-   0 passed                                                     3ms · profile ci
-   reports  /home/you/shop/.vibranium/reports/3/{ctrf.json,junit.xml,index.html}
+   0 passed                                                     0ms · profile ci
+   reports  /home/you/shop/.vibranium/reports/6/{ctrf.json,junit.xml,index.html}
    $ echo $?
    2
    ```
