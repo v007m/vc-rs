@@ -1,14 +1,14 @@
 use std::collections::VecDeque;
 use std::sync::Arc;
 
-use vc_model::{ActionId, OwnerKey, PlannedFile, TestStatus, Totals};
+use vc_model::{ActionId, OwnerKey, PlannedFile, TestStatus};
 
 use super::crew::{Crew, Job};
 use super::instance;
 use super::instance::Ticket;
 use super::tasks::Tasks;
 use crate::cancel::CancelTree;
-use crate::{FailedActions, FileCommand, FileInput, FileOrchestrator, Frame, Launch, SharedSlots};
+use crate::{FailedActions, FileCommand, FileEnd, FileInput, FileOrchestrator, Frame, Launch, SharedSlots};
 
 /// One file to run: its plan, the `beforeRun` results and failures, and its frame.
 pub struct FileJob {
@@ -20,7 +20,7 @@ pub struct FileJob {
 
 /// Runs one file: this task owns its [`FileOrchestrator`] and carries out its commands, with a
 /// worker per shared action, cleanup and instance.
-pub async fn file(crew: Crew, job: FileJob) -> Totals {
+pub async fn file(crew: Crew, job: FileJob) -> FileEnd {
     let slots = SharedSlots::new(job.file.before_all.iter().map(|planned| planned.action));
     let frame = Frame { run: job.run, file: Arc::new(slots), ..Frame::default() };
     let owner = OwnerKey::File(job.file.id);
@@ -32,11 +32,11 @@ pub async fn file(crew: Crew, job: FileJob) -> Totals {
         while let Some(input) = inputs.pop_front() {
             let commands;
             (machine, commands) = machine.transition(input);
-            if let Some(totals) = shell.carry_out_all(commands).await {
-                return totals;
+            if let Some(end) = shell.carry_out_all(commands).await {
+                return end;
             }
         }
-        let Some(input) = shell.next_input().await else { return Totals::default() };
+        let Some(input) = shell.next_input().await else { return FileEnd::default() };
         inputs.push_back(input);
     }
 }
@@ -57,16 +57,16 @@ impl FileShell {
     }
 
     /// Carries out `commands` in order, up to the one that finishes the file.
-    async fn carry_out_all(&mut self, commands: Vec<FileCommand>) -> Option<Totals> {
+    async fn carry_out_all(&mut self, commands: Vec<FileCommand>) -> Option<FileEnd> {
         for command in commands {
-            if let Some(totals) = self.carry_out(command).await {
-                return Some(totals);
+            if let Some(end) = self.carry_out(command).await {
+                return Some(end);
             }
         }
         None
     }
 
-    async fn carry_out(&mut self, command: FileCommand) -> Option<Totals> {
+    async fn carry_out(&mut self, command: FileCommand) -> Option<FileEnd> {
         match command {
             FileCommand::RunAction(action) => self.tasks.act(&self.crew, self.job(action), &self.cancel),
             FileCommand::RunCleanup(cleanup) => {
@@ -74,7 +74,7 @@ impl FileShell {
             }
             FileCommand::Launch(launch) => self.launch(launch),
             FileCommand::Emit(event) => self.crew.bus.publish(event).await,
-            FileCommand::Finish(totals) => return Some(totals),
+            FileCommand::Finish(end) => return Some(end),
         }
         None
     }

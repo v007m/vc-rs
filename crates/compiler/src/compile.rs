@@ -73,7 +73,7 @@ pub fn compile(input: CompileInput) -> Compiled {
         strings: &strings,
         today: input.today,
         assets: input.assets.as_ref(),
-        secrets: declared.as_deref(),
+        secrets: declared.as_ref(),
     };
     let linked = link::link(&entries, &files, &world);
     diagnostics.extend(linked.diagnostics);

@@ -6,13 +6,16 @@ use vc_interfaces::{Artifact, ReportError, Reporter, RunSummary};
 use vc_model::{ActionId, Event, InstanceId, Names, OwnerKey};
 
 use crate::collect::Collector;
+use crate::teardown::Teardown;
 use crate::{Destination, ReporterContext, encode, text};
 
 /// The `json` console format: one JSON object per event and line, for tools (NDJSON). Tests
-/// carry their label, duration and failure; the last line is the run's summary.
+/// carry their label, duration and failure; the last line is the run's summary, with the
+/// teardown blocks that failed (D304).
 #[derive(Debug)]
 pub struct JsonReporter {
     names: Names,
+    teardown: Teardown,
     destination: Arc<dyn Destination>,
     collector: Collector,
 }
@@ -21,7 +24,8 @@ impl JsonReporter {
     /// A reporter printing to the context's destination.
     pub fn new(context: &ReporterContext) -> Self {
         let names = Names::new(context.program(), context.plan());
-        Self { names, destination: context.destination(), collector: Collector::new(context.clock()) }
+        let teardown = Teardown::new(context.plan(), &names);
+        Self { names, teardown, destination: context.destination(), collector: Collector::new(context.clock()) }
     }
 
     fn line(&self, value: &Value) -> Result<(), ReportError> {
@@ -31,7 +35,8 @@ impl JsonReporter {
     /// The `summary` line for `run`, with this reporter's names.
     #[must_use]
     pub fn summary(&self, run: &RunSummary) -> Value {
-        summary(&self.names, run)
+        let failures = self.teardown.failures(&self.collector.lifecycle);
+        with(summary(&self.names, run), json!({"teardownFailures": failures}))
     }
 
     /// `event` as its line, after the collector has seen it (a `testFinished` line reads the
@@ -111,7 +116,7 @@ impl Reporter for JsonReporter {
     }
 
     async fn finish(&mut self, run: &RunSummary) -> Result<Vec<Artifact>, ReportError> {
-        self.line(&summary(&self.names, run))?;
+        self.line(&self.summary(run))?;
         Ok(Vec::new())
     }
 }

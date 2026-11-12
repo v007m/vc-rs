@@ -18,6 +18,7 @@ mod needs;
 mod options;
 mod profiles;
 mod render;
+mod secrets;
 mod select;
 #[cfg(test)]
 mod testing;
@@ -31,4 +32,5 @@ pub use expand::{NO_ROWS, no_rows_notices};
 pub use options::{PlanOptions, Selection};
 pub use profiles::{ActiveProfiles, active_profiles};
 pub use render::{action_label, check_lines, dot, explain, json, plan_line, shown_check_lines, tree};
+pub use secrets::{alert_secrets, secrets, secrets_from};
 pub use select::{closest, select_apis, select_files};

@@ -4,7 +4,8 @@
 use indexmap::IndexMap;
 use serde_json::Number;
 use vc_model::{
-    ActionId, AuthDef, AuthId, Config, InlineRequest, Owner, Part, RedactRule, SecretsConfig, Template, TemplateValue,
+    ActionId, AuthDef, AuthId, Config, InlineRequest, Owner, Part, RedactRule, SchemaNames, SecretsConfig, Template,
+    TemplateValue,
 };
 use vc_parser::{Node, ScalarKind, Value};
 
@@ -67,13 +68,14 @@ pub fn inline(source: &Source<'_>, node: &Node) -> Option<InlineRequest> {
 }
 
 /// `secrets`, with the names the schema declares.
-fn secrets(root: &Node, declared: &[String]) -> SecretsConfig {
+fn secrets(root: &Node, names: &SchemaNames) -> SecretsConfig {
     let defaults = SecretsConfig::default();
     let secrets = root.get("secrets");
     SecretsConfig {
         provider: secrets.and_then(|node| read::owned(node, "provider")).unwrap_or(defaults.provider),
         schema: secrets.and_then(|node| read::owned(node, "schema")).unwrap_or(defaults.schema),
-        declared: declared.to_vec(),
+        declared: names.declared.clone(),
+        optional: names.optional.clone(),
     }
 }
 
@@ -97,8 +99,8 @@ fn redact_rule(source: &Source<'_>, rule: &Node) -> Option<RedactRule> {
 }
 
 /// Keeps the config's other settings and adds `secrets` and `redact.rules`.
-pub fn with_secrets(config: Config, source: &Source<'_>, declared: &[String]) -> Config {
-    Config { secrets: secrets(source.root, declared), redact_rules: redact_rules(source, source.root), ..config }
+pub fn with_secrets(config: Config, source: &Source<'_>, names: &SchemaNames) -> Config {
+    Config { secrets: secrets(source.root, names), redact_rules: redact_rules(source, source.root), ..config }
 }
 
 /// A duration that may be a template (`${var.expiresIn}s`), as the text to render and parse.

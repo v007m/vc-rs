@@ -28,6 +28,10 @@ expression: "serde_json::to_string_pretty(&body).unwrap()"
       ],
       "project": "shop",
       "report": "reports/ctrf.json",
+      "teardownFailed": [
+        "afterAll in users.crud",
+        "afterRun"
+      ],
       "test": false,
       "trigger": "failure"
     },

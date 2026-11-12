@@ -28,7 +28,7 @@ use std::sync::Arc;
 use indexmap::IndexMap;
 use vc_model::{
     ActionId, ApiId, AuthId, AuthRef, Expect, FileKind, HookModules, HttpRetry, ModelError, Origin, Owner, ProfileId,
-    Program, ProgramBuilder, SourceFiles, Sym, TemplateValue, VarDefs, VarName,
+    Program, ProgramBuilder, SchemaNames, SourceFiles, Sym, TemplateValue, VarDefs, VarName,
 };
 use vc_parser::Node;
 
@@ -47,7 +47,7 @@ type Built<T> = Result<T, ModelError>;
 pub fn program(
     (project, data): (&Project<'_>, &Data<'_>),
     (files, hooks): (SourceFiles, HookModules),
-    secrets: &[String],
+    secrets: &SchemaNames,
 ) -> Option<Arc<Program>> {
     let mut builder = ProgramBuilder::new(project.strings.clone(), files);
     builder.hooks(hooks);
@@ -66,8 +66,8 @@ struct Build<'p, 'a> {
     api_expects: HashMap<ApiId, Expect>,
     /// The config's `http.retry`, which an api's keys replace (D143).
     http_retry: HttpRetry,
-    /// The secret names `.env.schema` declares (D165).
-    secrets: &'p [String],
+    /// The secret names `.env.schema` declares (D165), the optional ones apart (D280).
+    secrets: &'p SchemaNames,
     /// What reused tests save, worked out once each (D282).
     saves: Saves<'p, 'a>,
 }

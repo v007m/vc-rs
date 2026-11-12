@@ -81,7 +81,7 @@ impl Engine {
         let read = self.sources.read(&[path]).map_err(sources_error)?;
         let before = read.files.into_iter().next().map(|file| file.text);
         let text = before.clone().unwrap_or_else(|| ENV_SCHEMA.to_owned());
-        let known = schema_names(&text);
+        let known = schema_names(&text).declared;
         let missing: Vec<&String> = names.iter().filter(|name| !known.contains(name)).collect();
         if missing.is_empty() && before.is_some() {
             return Ok(());

@@ -13,8 +13,8 @@
 //! ([`Engine::read_file`], [`Engine::save_file`]), describes the project and its effective
 //! settings, masked, whether its secrets resolve and what an auth's credentials are called
 //! ([`Engine::project_info`], [`Engine::config_values`], [`Engine::check_secrets`],
-//! [`Engine::test_auth`]), and imports specs and
-//! keeps api files in step with them ([`Engine::import`], [`Engine::sync`]).
+//! [`Engine::test_auth`]), lists what tests and documents each api ([`Engine::coverage`]), and
+//! imports specs and keeps api files in step with them ([`Engine::import`], [`Engine::sync`]).
 //! Agent calls pass the profiles' agent policy and, when it asks, the approval queue
 //! ([`Engine::policy_check`], [`Engine::admit`],
 //! [`Engine::approvals_list`], [`Engine::approvals_decide`]); an agent's `vc call`, run and
@@ -51,6 +51,7 @@ mod check_secrets;
 mod complete;
 mod config_explain;
 mod config_values;
+mod coverage;
 mod create;
 mod create_api;
 mod create_auth;
@@ -131,6 +132,7 @@ pub use check::{CheckReport, CheckRequest};
 pub use check_secrets::{SecretCheck, SecretsChecked};
 pub use complete::CompleteKind;
 pub use config_values::{ConfigLayer, ConfigValue, ConfigValues};
+pub use coverage::{Coverage, CoveredApi};
 pub use create::{Added, NewTest};
 pub use create_api::NewApi;
 pub use create_auth::{NewAuth, auth_fields};

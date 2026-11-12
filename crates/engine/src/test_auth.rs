@@ -66,8 +66,9 @@ impl Engine {
             CallRequest { profiles: request.profiles.clone(), sets: request.sets.clone(), ..CallRequest::default() };
         let mut prepared = self.adhoc(&layers)?;
         let probe = probe_call(&mut prepared.program, request, prepared.names.join(", "))?;
-        let secrets = self.secrets(SecretSource::of(&prepared)).await?;
         let actions: Vec<ActionId> = probe.target.into_iter().chain(probe.senders.iter().copied()).collect();
+        let read = vc_planner::secrets_from(&prepared.program, &actions, &prepared.profiles);
+        let secrets = self.secrets(SecretSource::of(&prepared), &read).await?;
         let cx = self.adhoc_cx(&prepared, (&actions, 0, secrets)).await?;
         let through = sender(&cx, &probe, &request.auth).await?;
         let probed = probe_auth(&ActionRequest::run(&cx, through)).await;

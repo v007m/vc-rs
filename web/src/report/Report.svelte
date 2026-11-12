@@ -4,12 +4,13 @@
   import RunProgress from '#lib/results/RunProgress.svelte';
   import { ms, statusClass, statuses } from '#lib/results/status.ts';
   import TestList from '#lib/results/TestList.svelte';
-  import { counts } from './data.ts';
+  import { counts, teardownLine } from './data.ts';
   import type { Report } from './report.svelte.ts';
 
   let { report }: { report: Report } = $props();
   const uid = $props.id();
   const totals = $derived(counts(report.summary?.totals ?? {}));
+  const teardown = $derived(teardownLine(report.summary?.teardownFailures ?? []));
   const meta = $derived.by(() => {
     const run = report.summary?.run;
     if (!run) return '';
@@ -39,6 +40,7 @@
   <section class="card" aria-label="Totals">
     <RunProgress counts={totals} planned={0} />
   </section>
+  {#if teardown}<p class="card failed" role="alert">{teardown}</p>{/if}
   {#if report.summary.lifecycle.length}
     <section class="card lifecycle" aria-labelledby="{uid}-life">
       <h2 class="h2" id="{uid}-life">Lifecycle and cleanups</h2>

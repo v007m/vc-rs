@@ -49,7 +49,7 @@ In `results.summary`, `passed` counts flaky tests as passed.
 **A failed run.**
 
 ```json
-{"reportFormat":"CTRF","results":{"extra":{"breaches":[],"failures":[{"message":"status: expected [418], got 200","test":"sample.flip#listsUsersWithStatus"}],"moreFailures":0,"profiles":["default"],"project":"try-syntax-b","report":".vibranium/reports/15/ctrf.json","trigger":"failure"},"summary":{"failed":1,"other":0,"passed":0,"pending":0,"skipped":0,"start":1794332027009,"stop":1794332027017,"tests":1},"tool":{"name":"vibranium"}},"specVersion":"0.2.0"}
+{"reportFormat":"CTRF","results":{"extra":{"breaches":[],"failures":[{"message":"status: expected [418], got 200","test":"sample.flip#listsUsersWithStatus"}],"moreFailures":0,"profiles":["default"],"project":"try-syntax-b","report":".vibranium/reports/15/ctrf.json","teardownFailed":[],"trigger":"failure"},"summary":{"failed":1,"other":0,"passed":0,"pending":0,"skipped":0,"start":1794332027009,"stop":1794332027017,"tests":1},"tool":{"name":"vibranium"}},"specVersion":"0.2.0"}
 ```
 
 **The URL from the environment.** `${env.X}` and `${secret.X}` are rendered when the run ends.

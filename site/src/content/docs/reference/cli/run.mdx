@@ -140,7 +140,7 @@ $ vc run sample.extra#echoesBody --reporter json --report ctrf --out build/vc
 | Code | When |
 | --- | --- |
 | `0` | Every instance passed, was skipped, was flaky (failed, then passed on a retry) or was allowed to fail |
-| `1` | An instance failed or was blocked |
+| `1` | An instance failed or was blocked, or an `afterAll` or `afterRun` action failed |
 | `2` | Nothing ran: the project has errors, the selection is empty, or a flag is wrong (an unknown profile, a bad `--set` key, a bad `--changed` ref) |
 | `130` | Cancelled with Ctrl-C |
 

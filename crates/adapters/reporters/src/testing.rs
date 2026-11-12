@@ -77,7 +77,11 @@ const CRUD_PATH: &str = "services/users/crud.test.yaml";
 
 /// The sample project and its plan, with every test.
 pub fn project() -> (Arc<Program>, Arc<Plan>) {
-    let files = [("vibranium.config.yaml", CONFIG), ("services/users/users.api.yaml", USERS), (CRUD_PATH, CRUD)];
+    project_of(&[("vibranium.config.yaml", CONFIG), ("services/users/users.api.yaml", USERS), (CRUD_PATH, CRUD)])
+}
+
+/// The project of `files` (path and text) and its plan, with every test.
+pub fn project_of(files: &[(&str, &str)]) -> (Arc<Program>, Arc<Plan>) {
     let files = files.iter().map(|(path, text)| source(path, text)).collect();
     let compiled = vc_compiler::compile(CompileInput { files, ..CompileInput::default() });
     let Some(program) = compiled.program else { panic!("{:?}", compiled.diagnostics) };

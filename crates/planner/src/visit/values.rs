@@ -1,6 +1,6 @@
 //! The walker's leaves: values, templates, bodies and expectations, down to each reference.
 
-use vc_model::{BodySpec, Examples, Expect, Matcher, MatcherArg, Part, PartSpec, Template, TemplateValue};
+use vc_model::{BodySpec, CheckKind, Examples, Expect, Matcher, MatcherArg, Part, PartSpec, Template, TemplateValue};
 
 use super::{Visit, Walker};
 
@@ -37,6 +37,9 @@ impl<V: Visit> Walker<'_, V> {
 
     pub(super) fn expect(&mut self, expect: &Expect) {
         for check in &expect.checks {
+            if check.kind == CheckKind::Custom {
+                self.visitor.code();
+            }
             self.matcher(&check.matcher);
         }
     }

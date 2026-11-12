@@ -186,3 +186,65 @@ async fn follows_a_named_test_and_profile_with_their_names() {
     assert!(printed.contains("✓ users.crud#getsUser "), "an unnamed test shows its ID alone: {printed}");
     assert!(printed.contains(" · profile dev \"Local dev\""), "{printed}");
 }
+
+const TEARDOWN_CONFIG: &str = "syntaxVersion: 2
+profiles:
+  - id: dev
+    default: true
+vars: {baseUrl: 'http://x'}
+afterRun:
+  - id: flush
+    call: users#purge
+  - id: bye
+    call: users#purge
+";
+const TEARDOWN_USERS: &str = "baseUrl: ${var.baseUrl}
+apis:
+  - id: get
+    path: /users/1
+  - id: purge
+    method: DELETE
+    path: /users
+";
+const TEARDOWN_CRUD: &str = "beforeAll:
+  - id: warm
+    call: users#get
+afterAll:
+  - id: sweep
+    call: users#purge
+  - id: tidy
+    call: users#purge
+tests:
+  - id: getsUser
+    call: users#get
+";
+
+/// A failed `afterAll` or `afterRun` action names its block in the summary, each block once,
+/// while a failed `beforeAll` and a teardown action that passed are not named (D279).
+#[tokio::test]
+async fn names_each_failed_teardown_block_once_in_the_summary() {
+    let (program, plan) = testing::project_of(&[
+        ("vibranium.config.yaml", TEARDOWN_CONFIG),
+        ("services/users/users.api.yaml", TEARDOWN_USERS),
+        ("services/users/crud.test.yaml", TEARDOWN_CRUD),
+    ]);
+    let (capture, captured) = Capture::new();
+    let mut reporter = SpecReporter::new(&ReporterContext::new(program, Arc::clone(&plan), capture));
+    let file = &plan.files[0];
+    let failed = vc_model::ActionOutcome::Failed(vc_model::Failure::new("expected 204, got 500").with_code("V5101"));
+    let finished = |action, owner, outcome| Event::ActionFinished { action, owner, outcome };
+    let events = [
+        finished(file.before_all[0].action, OwnerKey::File(file.id), failed.clone()),
+        finished(file.after_all[0], OwnerKey::File(file.id), failed.clone()),
+        finished(file.after_all[1], OwnerKey::File(file.id), vc_model::ActionOutcome::Passed),
+        finished(plan.after_run[0], OwnerKey::Run, failed.clone()),
+        finished(plan.after_run[1], OwnerKey::Run, failed),
+    ];
+    let totals = Totals { passed: 1, ..Totals::default() };
+    let summary = RunSummary::new(RunStatus::Failed, totals).timed(0, Duration::from_millis(12));
+    testing::run(&mut reporter, &events, &summary).await;
+    let printed = captured.take().0;
+    let tail = printed.rsplit_once("\n\n").map_or(printed.as_str(), |(_, tail)| tail);
+    assert_eq!(tail, format!("{:<60} 12ms\nteardown failed: afterAll in users.crud, afterRun\n", "1 passed"));
+    assert!(printed.contains("✕ sweep (file users.crud) failed"), "the action is shown as it fails: {printed}");
+}

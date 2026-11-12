@@ -105,6 +105,7 @@ pub async fn send(alerting: Option<Alerting>, run: RunSummary, ending: Ending) -
         tests: ending.tests,
         breaches: ending.breaches,
         ran: ending.ran,
+        teardown: ending.teardown,
         report: report.map(|path| path.to_string_lossy().replace('\\', "/")),
     };
     let mut problems = Vec::new();

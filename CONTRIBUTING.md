@@ -15,7 +15,7 @@ Read `CLAUDE.md` and `docs/design/HANDOVER.md` first. The design docs in `docs/d
 | `mise run gates` | Every quality gate, stopping at the first failure (`scripts/gates.sh`). `GATES_MUTANTS=1` adds mutation testing on your diff |
 | `mise run test` | Tests and doctests only |
 | `mise run commit-check` | Checks the commits on your branch against `origin/master` |
-| `mise run gates:selftest` | Checks that each gate still rejects its bad patch in `tests/gate-fixtures/` |
+| `mise run gates:selftest` | Checks that each gate still rejects its bad patch in `tests/gate-fixtures/`. It builds in `target/gates-selftest/` (or `GATES_SELFTEST_TARGET_DIR`), apart from your own builds |
 
 Each gate prints its ID (`GATE-FMT`, `GATE-CLIPPY`, `GATE-ARCH`, `GATE-DENY`, `GATE-JSLICENSE`, `GATE-PROTO`, `GATE-MACHETE`, `GATE-DUP`, `GATE-TEST`, `GATE-MUTANTS`, `GATE-COMMIT`, `GATE-REFACTOR`) and `FAILED <id>` when it fails. The rules behind them are in the LLD's "Design rules and quality gates". Gate files are owned by the maintainer (`.github/CODEOWNERS`); if a gate looks wrong, ask instead of changing it.
 

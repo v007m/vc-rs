@@ -20,7 +20,8 @@ SHOP_CLIENT_SECRET=
 | Line | Example | Notes |
 | --- | --- | --- |
 | `NAME=` | `API_TOKEN=` | Declares one secret. Leave the value empty. |
-| `# comment` | `# @required` | Comments and `# @...` annotations are allowed. |
+| `# @optional` | `# @optional` above `NAME=`, or `NAME= # @optional` | The secret may be unset (Varlock's convention). The comment must be exactly `# @optional`: on its own line in the comment block just above the name (a blank line ends the block), or after the value. `# @optional=true`, `# @optional @sensitive` and prose that mentions it mark nothing. A run that reads it still needs a value at that point. |
+| `# comment` | `# @sensitive` | Comments and other `# @...` annotations are allowed. |
 
 The file's path is set by [`secrets.schema`](/vc-rs/reference/config/secrets/). The default is `.env.schema` at the project root.
 
@@ -51,6 +52,17 @@ error[V2106]: `${secret.OTHER}` is not declared in `.env.schema`
    |                ^^^^^^^^^^^^^^^ OTHER is not in .env.schema
    = help: add the line `OTHER=` to `.env.schema` at the project root, or fix the name
 ```
+
+A secret only some runs need, marked optional:
+
+```ini title=".env.schema"
+API_TOKEN=
+# Only the partner tests read it.
+# @optional
+PARTNER_KEY=
+```
+
+`vc run` with `PARTNER_KEY` unset, or blank, runs every test. Only a test that reads `${secret.PARTNER_KEY}` fails, with V5114, and it sends nothing.
 
 Reading a declared secret through `env` would skip the masking, so it is refused:
 
@@ -91,14 +103,16 @@ profiles:
 - `vc check` compares every `${secret.X}` and `${env.X}` with the schema.
 - A declared secret is reachable only as `${secret.X}`.
 - Values come from the [secrets provider](/vc-rs/reference/config/secrets/): the environment and `.env` by default.
-- Every declared secret without a value fails `vc run`, `vc call` and `vc load` with V5114 before any request is sent.
+- Before any request, `vc run`, `vc call` and `vc load` check the declared secrets that what they run reads: the selected tests, their apis, auth and lifecycle blocks, and the run-wide vars and the vars of the active profiles. One without a value (unset, or blank) stops them with V5114. A secret nothing selected reads may be unset.
+- When the selection runs code (a `function:` action, a `beforeRequest` or `afterResponse` hook, a `function` check or a `redact` `function` rule), or the project loads a plugin, every declared secret counts as read, because code can call `secret()` with any name.
+- An `# @optional` secret is never checked before the run, and `vc check` never asks for its value. A blank value is the same as unset: a test that reads one fails with V5114 when it renders, before it sends; the other tests still run.
 - Commit `.env.schema`. It holds no values.
 
 ## Common errors
 
 - [V2106](/vc-rs/reference/diagnostics/v2106/): `${secret.X}` names a secret the schema does not declare.
 - [V2107](/vc-rs/reference/diagnostics/v2107/): `${env.X}` reads a declared secret.
-- [V5111](/vc-rs/reference/diagnostics/v5111/): a declared secret has no value at run time.
+- [V5114](/vc-rs/reference/diagnostics/v5114/): a declared secret the run reads has no value.
 
 ## Related
 

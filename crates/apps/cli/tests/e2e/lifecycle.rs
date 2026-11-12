@@ -1,6 +1,7 @@
 //! `beforeAll` runs once per file, cleanups run newest first on a pass, a failure and Ctrl-C, an
 //! api's `save` runs only on a status its `saveOn` matches (D191), `afterEach` follows every test
-//! and `afterAll` the last one, a `standalone: false` test runs only where `test:` reuses it (and
+//! and `afterAll` the last one, a failed `afterAll` or `afterRun` fails the run without changing
+//! a test's verdict (D279), a `standalone: false` test runs only where `test:` reuses it (and
 //! selecting it alone says so), and a `test:` reuse runs the reused test as written (D270).
 
 use vc_mock_server::MockServer;
@@ -163,12 +164,10 @@ fn after_blocks(orders: u8, status: u16) -> String {
 
 /// `afterEach` runs after every test, a failed one too; `afterAll` runs once, after the last
 /// test and before the file's cleanups, so it still sees the order `beforeAll` made, and a
-/// failed `expect` in it is reported. The exit code counts tests only (cli-workflow's table), so
-/// a failed `afterAll` exits 0 today; whether it should exit 1 is a question still open for
-/// Sarath, and this pins the current value until he answers.
+/// failed `expect` in it is reported, named in the summary and exits 1 (D279).
 #[tokio::test(flavor = "multi_thread")]
 async fn after_each_follows_every_test_and_after_all_runs_once_before_the_file_cleanups() {
-    for (orders, status, exit) in [(1, 200, 0), (0, 200, 0), (1, 500, 1)] {
+    for (orders, status, exit) in [(1, 200, 0), (0, 200, 1), (1, 500, 1)] {
         let server = MockServer::start().await.unwrap();
         let file = after_blocks(orders, status);
         let files = [CONFIG, USERS, ORDERS, crate::SCRIPTED, ("services/scripted/after.test.yaml", &file)];
@@ -178,6 +177,8 @@ async fn after_each_follows_every_test_and_after_all_runs_once_before_the_file_c
         assert_eq!(output.status.code(), Some(exit), "{case}: {said}");
         let reported = said.contains("V5102") && said.contains("cel.seeded");
         assert_eq!(reported, orders == 0, "{case}: a failed afterAll is reported: {said}");
+        let named = said.contains("teardown failed: afterAll in scripted.after");
+        assert_eq!(named, orders == 0, "{case}: the summary names the failed block: {said}");
         let stats = server.stats().await.unwrap();
         assert_eq!(stats.count("GET /users"), 3, "{case}: afterEach after each test: {stats:?}");
         let orders = (stats.count("GET /orders"), stats.count("DELETE /orders/{id}"));
@@ -226,4 +227,31 @@ async fn selecting_a_test_that_is_not_standalone_says_it_runs_only_when_reused()
     assert!(said.contains("`shared.flows#makesUser` picks only tests with `standalone: false`"), "{said}");
     assert!(said.contains("run a test that has a `test: shared.flows#makesUser` action"), "{said}");
     assert_eq!(server.stats().await.unwrap().count("POST /users"), 0);
+}
+
+/// A config whose `afterRun` expects `count` users when the run ends.
+fn after_run(count: u8) -> String {
+    format!(
+        "syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\nvars: {{baseUrl: 'http://x'}}\n\
+         afterRun:\n  - id: tally\n    call: users#list\n    expect: {{cel: {{tallied: 'size(response.body) == {count}'}}}}\n"
+    )
+}
+
+/// A failed `afterRun` check makes the run exit 1 and the summary names the block, while the
+/// test it followed still passes (D279); one that holds exits 0.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_failed_after_run_fails_the_run_and_leaves_the_tests_verdicts() {
+    let test = "tests:\n  - id: listsUsers\n    call: users#list\n    expect: {status: 200}\n";
+    for (count, exit) in [(0, 0), (3, 1)] {
+        let server = MockServer::start().await.unwrap();
+        let config = after_run(count);
+        let files = [("vibranium.config.yaml", config.as_str()), USERS, ("services/users/list.test.yaml", test)];
+        let output = Project::new(&files).run(&server.base_url(), &[]).output().unwrap();
+        let said = crate::said(&output);
+        assert_eq!(output.status.code(), Some(exit), "afterRun expecting {count}: {said}");
+        assert!(said.contains("1 passed"), "the test keeps its verdict: {said}");
+        let named = said.contains("teardown failed: afterRun");
+        assert_eq!(named, exit == 1, "afterRun expecting {count}: the summary names the block: {said}");
+        assert_eq!(server.stats().await.unwrap().count("GET /users"), 2, "the test, then afterRun");
+    }
 }

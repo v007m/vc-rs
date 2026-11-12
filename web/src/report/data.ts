@@ -15,6 +15,8 @@ export type Summary = Readonly<{
   }>;
   totals: Partial<Counts>;
   lifecycle: readonly Readonly<{ label: string; status: string; message: string | null }>[];
+  /** The teardown blocks that failed (D304): `afterAll` with its file, or `afterRun`. */
+  teardownFailures: readonly Readonly<{ block: string; file: string | null; message: string }>[];
   files: readonly string[];
   /** Tests per `tests/<shard>` file. */
   shardSize: number;
@@ -124,4 +126,10 @@ export function counts(totals: Partial<Counts>): Counts {
     flaky: totals.flaky ?? 0,
     skipped: totals.skipped ?? 0,
   };
+}
+
+/** `teardown failed: afterAll in users.crud, afterRun`, as the console says it; empty when none failed. */
+export function teardownLine(failures: Summary['teardownFailures']): string {
+  const blocks = failures.map((failed) => (failed.file ? `${failed.block} in ${failed.file}` : failed.block));
+  return blocks.length ? `teardown failed: ${blocks.join(', ')}` : '';
 }

@@ -35,6 +35,7 @@ mod registry;
 mod rows;
 mod sample;
 mod spec;
+mod teardown;
 #[cfg(test)]
 mod testing;
 mod text;

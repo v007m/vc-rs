@@ -1,5 +1,6 @@
 //! The canonical result (D43): a CTRF document, with what CTRF has no field for (lifecycle,
-//! blocked-by, checks with their source lines) under its `extra` objects.
+//! failed teardown blocks, blocked-by, checks with their source lines) under its `extra`
+//! objects. A failed teardown block changes no count (D304).
 
 use serde_json::{Value, json};
 use vc_interfaces::{Artifact, ReportError};
@@ -56,6 +57,7 @@ fn extra(snapshot: &RunSnapshot) -> Value {
         "lifecycle": snapshot.lifecycle,
         "cleanups": snapshot.cleanups,
         "abandoned": snapshot.abandoned,
+        "teardownFailures": snapshot.teardown_failures,
     })
 }
 

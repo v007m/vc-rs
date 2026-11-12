@@ -2,7 +2,7 @@ use vc_model::{Event, Failure, SkippedTest, TestStatus, Totals};
 
 use super::super::sim;
 use super::super::{ActionReport, FailedActions, PendingCleanup};
-use super::{FileCommand, FileInput, FileOrchestrator, FilePhase, Launch};
+use super::{FileCommand, FileEnd, FileInput, FileOrchestrator, FilePhase, Launch};
 
 fn passing(_: vc_model::ActionId) -> ActionReport {
     ActionReport::passed()
@@ -21,7 +21,7 @@ fn finished(log: &[FileCommand]) -> Totals {
     let totals: Vec<_> = log
         .iter()
         .filter_map(|command| match command {
-            FileCommand::Finish(totals) => Some(*totals),
+            FileCommand::Finish(end) => Some(end.totals),
             _ => None,
         })
         .collect();
@@ -226,4 +226,40 @@ fn a_skipped_test_is_reported_after_the_file_starts_and_counted_in_its_totals() 
         if result.status == TestStatus::Skipped && result.skip_reason.as_deref() == Some("flaky upstream")));
     let totals = finished(&trace.log);
     assert_eq!((totals.passed, totals.skipped), (1, 1));
+}
+
+/// Each failed `afterAll` action is counted for the run, apart from the totals, while a failed
+/// `beforeAll` action is not (D279).
+#[test]
+fn failed_after_all_actions_are_counted_apart_from_the_totals() {
+    let file = sim::planned_file(vec![sim::planned(1, &[])], vec![sim::instance(0, &[])], &[3, 4, 5]);
+    let mut respond = |action: vc_model::ActionId| match action.index() {
+        5 => ActionReport::passed(),
+        index => sim::fail(index),
+    };
+    let trace = sim::drive_file(FileOrchestrator::new(file, 1), &mut respond, &mut |_| TestStatus::Passed);
+    let ended = trace.log.iter().find_map(|command| match command {
+        FileCommand::Finish(end) => Some(*end),
+        _ => None,
+    });
+    assert_eq!(ended, Some(FileEnd { totals: Totals { passed: 1, ..Totals::default() }, teardown_failures: 2 }));
+}
+
+/// An `afterAll` action cut with no report while the file is not cancelled (its worker
+/// panicked or was aborted) is a failed teardown; cut by a cancel, it is not.
+#[test]
+fn a_cut_after_all_action_fails_unless_the_file_was_cancelled() {
+    let file = sim::planned_file(vec![], vec![sim::instance(0, &[])], &[3]);
+    let (file, _) = FileOrchestrator::new(file, 1).transition(FileInput::Start(FailedActions::new()));
+    let (file, commands) = file.transition(FileInput::InstanceDone(TestStatus::Passed));
+    assert_eq!(commands, [FileCommand::RunAction(sim::act(3))]);
+    let (_, commands) = file.clone().transition(FileInput::ActionCut(Vec::new()));
+    let owner = vc_model::OwnerKey::File(sim::file_and_test().0);
+    let outcome = vc_model::ActionOutcome::Failed(Failure::new(super::super::TEARDOWN_CUT).at(sim::act(3)));
+    let cut = Event::ActionFinished { action: sim::act(3), owner, outcome };
+    assert_eq!(commands.first(), Some(&FileCommand::Emit(cut)));
+    assert!(commands.iter().any(|c| matches!(c, FileCommand::Finish(end) if end.teardown_failures == 1)));
+    let (file, _) = file.transition(FileInput::Cancelled);
+    let (_, commands) = file.transition(FileInput::ActionCut(Vec::new()));
+    assert!(commands.iter().any(|c| matches!(c, FileCommand::Finish(end) if end.teardown_failures == 0)));
 }

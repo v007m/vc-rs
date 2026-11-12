@@ -8,6 +8,7 @@ import { Insights } from './insights.svelte.ts';
 import InsightsScreen from './InsightsScreen.svelte';
 import {
   enginePort,
+  type Coverage,
   type InsightsPort,
   type RunSummary,
   type Scope,
@@ -70,6 +71,56 @@ const SKIPS: SkipLine[] = [
   { id: 'users.crud#getsOne', until: '2026-11-10', reason: 'flaky upstream', ended: true },
 ];
 
+/** `users#delete` is never called; `listUsers` is only in the snapshot; one snapshot is missing. */
+const COVERAGE: Coverage = {
+  apis: [
+    {
+      apiId: 'users#create',
+      method: 'POST',
+      path: '/users',
+      file: 'services/users/users.api.yaml',
+      tests: 3,
+      skipped: 1,
+      documented: ['2xx', '409'],
+      specOnly: false,
+    },
+    {
+      apiId: 'users#get',
+      method: 'GET',
+      path: '/users/${var.userId}',
+      file: 'services/users/users.api.yaml',
+      tests: 1,
+      skipped: 0,
+      documented: ['200'],
+      specOnly: false,
+    },
+    {
+      apiId: 'users#remove',
+      method: 'DELETE',
+      path: '/users/1',
+      file: 'services/users/users.api.yaml',
+      tests: 0,
+      skipped: 0,
+      documented: [],
+      specOnly: false,
+    },
+    {
+      apiId: 'listUsers',
+      method: 'GET',
+      path: '/users',
+      file: 'openapi/users.yaml',
+      tests: 0,
+      skipped: 0,
+      documented: ['200'],
+      specOnly: true,
+    },
+  ],
+  notes: ['`openapi/orders.yaml` is missing; `vc sync orders` writes it'],
+};
+
+/** An element's text as it reads, spaces squeezed. */
+const text = (element: Element) => element.textContent.replace(/\s+/g, ' ').trim();
+
 async function rendered(port?: Partial<InsightsPort>) {
   const asked: number[] = [];
   const skipReads: number[] = [];
@@ -93,10 +144,25 @@ async function rendered(port?: Partial<InsightsPort>) {
         ]),
       apiTrends: () =>
         Promise.resolve([
-          { apiId: 'users#create', method: 'POST', calls: 1, p50Ms: 410, p95Ms: 1240 },
-          { apiId: 'users#delete', method: 'DELETE', calls: 3 },
-          { apiId: 'users#get', method: 'GET', calls: 5400, p50Ms: 20, p95Ms: 62 },
+          {
+            apiId: 'users#create',
+            method: 'POST',
+            calls: 1,
+            p50Ms: 410,
+            p95Ms: 1240,
+            statuses: [201, 503],
+          },
+          { apiId: 'users#delete', method: 'DELETE', calls: 3, statuses: [] },
+          {
+            apiId: 'users#get',
+            method: 'GET',
+            calls: 5400,
+            p50Ms: 20,
+            p95Ms: 62,
+            statuses: [200],
+          },
         ]),
+      coverage: () => Promise.resolve(COVERAGE),
       ...port,
     },
     TODAY,
@@ -242,6 +308,33 @@ describe('InsightsScreen', () => {
     expect(within(panel).getByText('1 call')).toBeTruthy();
   });
 
+  it('lists the coverage, the apis with no call in the range first, with their statuses', async () => {
+    await rendered();
+    const panel = screen.getByRole('region', { name: 'API coverage' });
+    const rows = within(panel)
+      .getAllByRole('row')
+      .slice(1)
+      .map((row) => [...row.children].map(text).join(' | '));
+    expect(rows).toEqual([
+      'DELETE users#remove | /users/1 services/users/users.api.yaml | 0 untested | ',
+      'GET listUsers | /users only in openapi/users.yaml | no api untested | 200: documented, never seen;',
+      'POST users#create | /users services/users/users.api.yaml | 3 (1 skipped) | 2xx: documented and seen;409: documented, never seen;503: seen, not documented;',
+      'GET users#get | /users/${var.userId} services/users/users.api.yaml | 1 | 200: documented and seen;',
+    ]);
+    expect(within(panel).getByText('orders.yaml', { exact: false }).tagName).toBe('CODE');
+    expect(
+      screen.getByText('API coverage', { selector: 'dt' }).nextElementSibling?.textContent,
+    ).toBe('50%');
+  });
+
+  it('narrows the coverage to its gaps', async () => {
+    const { user } = await rendered();
+    const panel = screen.getByRole('region', { name: 'API coverage' });
+    await user.click(within(panel).getByRole('checkbox', { name: /Only gaps/ }));
+    const heads = within(panel).getAllByRole('rowheader').map(text);
+    expect(heads).toEqual(['DELETE users#remove', 'GET listUsers', 'POST users#create']);
+  });
+
   it('says so when there is no history yet', async () => {
     await rendered({
       runs: () => Promise.resolve([]),
@@ -295,6 +388,20 @@ describe('enginePort', () => {
             ],
           };
         },
+        apiCoverage: () => ({
+          apis: [
+            {
+              apiId: 'users#get',
+              method: 'GET',
+              path: '/users/1',
+              file: 'services/users/users.api.yaml',
+              tests: 2,
+              skipped: 1,
+              documented: ['2xx'],
+            },
+          ],
+          notes: ['a note'],
+        }),
         listDefinitions: ({ kind, skipped }) => {
           asked.push({ kind, skipped });
           return {
@@ -325,9 +432,24 @@ describe('enginePort', () => {
       { id: 3, startedMs: 100, passed: 0, failed: 0, blocked: 0, flaky: 0 },
     ]);
     await port.trends(30, {});
+    expect(await port.coverage()).toEqual({
+      apis: [
+        {
+          apiId: 'users#get',
+          method: 'GET',
+          path: '/users/1',
+          file: 'services/users/users.api.yaml',
+          tests: 2,
+          skipped: 1,
+          documented: ['2xx'],
+          specOnly: false,
+        },
+      ],
+      notes: ['a note'],
+    });
     expect(await port.apiTrends(100, { branch: 'main' })).toEqual([
-      { apiId: 'users#get', method: 'GET', calls: 3, p50Ms: 20, p95Ms: 40 },
-      { apiId: 'users#seed', method: 'POST', calls: 1 },
+      { apiId: 'users#get', method: 'GET', calls: 3, p50Ms: 20, p95Ms: 40, statuses: [200] },
+      { apiId: 'users#seed', method: 'POST', calls: 1, statuses: [] },
     ]);
     expect(asked).toEqual([
       { kind: DefinitionKind.TESTS, skipped: true },

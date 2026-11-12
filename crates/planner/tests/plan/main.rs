@@ -9,4 +9,5 @@ mod listing;
 mod profiles;
 mod properties;
 mod render;
+mod secrets;
 mod select;

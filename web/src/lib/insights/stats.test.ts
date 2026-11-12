@@ -67,6 +67,7 @@ describe('stats', () => {
       apiId,
       method: 'GET',
       calls: 1,
+      statuses: [],
       ...(p95Ms === undefined ? {} : { p50Ms: 1, p95Ms }),
     });
     const trends = [api('b', 50), api('none'), api('a', 50), api('c', 900), api('d', 10)];
