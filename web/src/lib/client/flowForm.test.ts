@@ -70,7 +70,7 @@ describe('flowEdits', () => {
     expect(flowEdits(AT, stagesOf(TEST), stagesOf(TEST))).toEqual([]);
   });
 
-  it('removes steps last first, edits kept ones at their new place and adds new ones at the end', () => {
+  it('removes steps last first, adds new ones at the end and edits kept ones at their new place', () => {
     const stages = stagesOf(TEST);
     stages.splice(0, 1);
     const polled = stages[0];
@@ -82,14 +82,58 @@ describe('flowEdits', () => {
     stages.push(added);
     expect(flowEdits(AT, stagesOf(TEST), stages)).toEqual([
       { pointer: '/tests/0/steps/0', op: 'remove' },
-      { pointer: '/tests/0/steps/0/poll', op: 'remove' },
-      { pointer: '/tests/0/steps/0/repeat', op: 'set', value: 4 },
       {
         pointer: '/tests/0/steps/-',
         op: 'insert',
         value: { call: 'users#delete', forEach: ['u1', 'u2'] },
       },
+      { pointer: '/tests/0/steps/0/poll', op: 'remove' },
+      { pointer: '/tests/0/steps/0/repeat', op: 'set', value: 4 },
     ]);
+  });
+
+  it('moves each step to its new place in turn, and edits it there', () => {
+    const stages = stagesOf(TEST);
+    const [made, polled, seeded, matched] = stages;
+    if (!made || !polled || !seeded || !matched) throw new Error('no stage');
+    made.target = 'users#invite';
+    expect(flowEdits(AT, stagesOf(TEST), [matched, made, seeded, polled])).toEqual([
+      { pointer: '/tests/0/steps/3', op: 'move', value: 0 },
+      { pointer: '/tests/0/steps/3', op: 'move', value: 2 },
+      { pointer: '/tests/0/steps/1/call', op: 'set', value: 'users#invite' },
+    ]);
+  });
+
+  it('moves a new step up from the end after a removal, and leaves the others in place', () => {
+    const stages = stagesOf(TEST);
+    const [made, polled, , matched] = stages;
+    if (!made || !polled || !matched) throw new Error('no stage');
+    const added = newStage('users#delete');
+    expect(flowEdits(AT, stagesOf(TEST), [made, added, polled, matched])).toEqual([
+      { pointer: '/tests/0/steps/2', op: 'remove' },
+      { pointer: '/tests/0/steps/-', op: 'insert', value: { call: 'users#delete' } },
+      { pointer: '/tests/0/steps/3', op: 'move', value: 1 },
+    ]);
+  });
+
+  it('reaches any order, each move counted from where the moves before it left the steps', () => {
+    const written = stagesOf(TEST);
+    const orders = [
+      [1, 0, 2, 3],
+      [3, 2, 1, 0],
+      [2, 3, 0, 1],
+      [0, 1, 3, 2],
+    ];
+    for (const order of orders) {
+      const stages = order.map((at) => written[at]).filter((stage) => stage !== undefined);
+      const places = [0, 1, 2, 3];
+      for (const edit of flowEdits(AT, written, stages)) {
+        const from = Number(edit.pointer.split('/').pop());
+        const [at] = places.splice(from, 1);
+        if (at !== undefined) places.splice(Number(edit.value), 0, at);
+      }
+      expect(places).toEqual(order);
+    }
   });
 
   it('drops every loop key a step writes when its loop changes, and changes the api', () => {

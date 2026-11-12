@@ -4831,6 +4831,7 @@ impl serde::Serialize for EditOp {
             Self::Set => "EDIT_OP_SET",
             Self::Remove => "EDIT_OP_REMOVE",
             Self::Insert => "EDIT_OP_INSERT",
+            Self::Move => "EDIT_OP_MOVE",
         };
         serializer.serialize_str(variant)
     }
@@ -4846,6 +4847,7 @@ impl<'de> serde::Deserialize<'de> for EditOp {
             "EDIT_OP_SET",
             "EDIT_OP_REMOVE",
             "EDIT_OP_INSERT",
+            "EDIT_OP_MOVE",
         ];
 
         struct GeneratedVisitor;
@@ -4890,6 +4892,7 @@ impl<'de> serde::Deserialize<'de> for EditOp {
                     "EDIT_OP_SET" => Ok(EditOp::Set),
                     "EDIT_OP_REMOVE" => Ok(EditOp::Remove),
                     "EDIT_OP_INSERT" => Ok(EditOp::Insert),
+                    "EDIT_OP_MOVE" => Ok(EditOp::Move),
                     _ => Err(serde::de::Error::unknown_variant(value, FIELDS)),
                 }
             }

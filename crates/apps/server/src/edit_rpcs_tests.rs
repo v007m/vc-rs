@@ -56,6 +56,16 @@ async fn an_edit_of_a_file_changed_since_it_was_read_is_aborted() {
 }
 
 #[tokio::test]
+async fn a_move_reorders_list_items_with_their_comments() {
+    let (dir, api) = project();
+    let digest = digest_of(&api, API);
+    let up = wire::PointerEdit { pointer: "/apis/1".into(), op: wire::EditOp::Move.into(), value_json: "0".into() };
+    edit_file(api, request(API, digest, vec![up], true)).await.unwrap();
+    let text = fs::read_to_string(dir.path().join(API)).unwrap();
+    assert!(text.find("id: create").unwrap() < text.find("id: list").unwrap(), "{text}");
+}
+
+#[tokio::test]
 async fn an_edit_that_adds_an_error_or_does_not_fit_is_refused_without_its_value() {
     let (dir, api) = project();
     let digest = digest_of(&api, API);

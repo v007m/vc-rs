@@ -17,11 +17,16 @@ export type FieldKey = (typeof FIELDS)[number]['key'];
 /** One edit as `EditFile` takes it: where, what, and the value it writes. */
 export type PointerEdit = Readonly<{
   pointer: string;
-  op: 'set' | 'remove' | 'insert';
+  op: 'set' | 'remove' | 'insert' | 'move';
   value?: unknown;
 }>;
 
-const OPS = { set: EditOp.SET, remove: EditOp.REMOVE, insert: EditOp.INSERT } as const;
+const OPS = {
+  set: EditOp.SET,
+  remove: EditOp.REMOVE,
+  insert: EditOp.INSERT,
+  move: EditOp.MOVE,
+} as const;
 
 /** `edits` as `EditFile` and a call's draft take them, each value as JSON text. */
 export function wireEdits(edits: readonly PointerEdit[]) {

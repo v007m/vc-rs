@@ -51,7 +51,7 @@ impl Document {
     }
 
     /// The lines of the list item `item`, with the comment lines directly above it.
-    fn item_range(&self, item: &Node) -> Option<Range<usize>> {
+    pub(super) fn item_range(&self, item: &Node) -> Option<Range<usize>> {
         let dash = self.dash(item)?;
         let line = self.line_start(dash);
         let end = if item.span.start.offset == item.span.end.offset { dash } else { item.span.end.offset };

@@ -1,4 +1,4 @@
-//! The web UI's form edits (M9b): values set, removed or inserted in one config, api, test or
+//! The web UI's form edits (M9b): values set, removed, inserted or moved in one config, api, test or
 //! load file by JSON pointer (RFC 6901), keeping its comments and layout (`parser::edit`). The
 //! path rule and the digest check are `ReadFile`'s; the result passes the compile guard (D107)
 //! before anything is written, and is written only when asked, so a form can preview the diff.
@@ -26,10 +26,13 @@ pub enum EditOp {
     Remove,
     /// Adds a new key to a map, or a new last item to a list (`-`).
     Insert,
+    /// Moves the list item there, with the comment lines above it, to the place its value
+    /// names (a number); the items between move over by one.
+    Move,
 }
 
 /// One edit: where, what, and its value as JSON text (a string, number, `true`/`false`, a list
-/// or a map; unused by a remove).
+/// or a map; the new place for a move; unused by a remove).
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[expect(
     clippy::exhaustive_structs,
@@ -128,6 +131,7 @@ fn applied(document: &Document, edit: &PointerEdit) -> Result<Document, String> 
         EditOp::Remove => document.remove(found(document.root(), &tokens)?),
         EditOp::Set => set(document, &tokens, &json(&edit.value)?)?,
         EditOp::Insert => insert(document, &tokens, &json(&edit.value)?)?,
+        EditOp::Move => moved(document, &tokens, &json(&edit.value)?)?,
     };
     made.and_then(|made| document.apply(&[made])).map_err(|error| told(&error))
 }
@@ -187,6 +191,15 @@ fn insert(document: &Document, tokens: &[String], value: &Json) -> Made {
         Value::Seq(_) => Err("adds list items only at the end, `-`".to_owned()),
         _ => add(document, parent, (last, value)),
     }
+}
+
+/// Moves the list item `tokens` lead to to the place `value`, a number.
+fn moved(document: &Document, tokens: &[String], value: &Json) -> Made {
+    let (item, above) = tokens.split_last().ok_or("needs a list item to move")?;
+    let list = found(document.root(), above)?;
+    let from = item.parse::<usize>().map_err(|_| "moves list items only, such as /stages/2".to_owned())?;
+    let to = value.as_u64().and_then(|to| usize::try_from(to).ok()).ok_or("needs the item's new place as a number")?;
+    Ok(document.move_item(list, from, to))
 }
 
 /// `key: value` as the last entry of the map `map`, block or flow.

@@ -8,6 +8,7 @@ const seedDir = fileURLToPath(new URL('fixtures/seed', import.meta.url));
 const launchLine = /vc ui: (http:\/\/\S+\?token=[A-Za-z0-9_-]{43})/;
 const agentLine = /vc ui: mcp (http:\/\/\S+\/mcp) token (\S+)/;
 const startTimeoutMs = 30_000;
+const killTimeoutMs = 5_000;
 
 /** What `vc ui` prints: the one-time launch link, and where and with what token an agent connects. */
 export type Printed = Readonly<{ launchUrl: string; mcpUrl: string; agentToken: string }>;
@@ -36,10 +37,35 @@ function readPrinted(child: ChildProcess): Promise<Printed> {
   });
 }
 
+/** Resolves when `child` has exited, at once if it already has. */
+function exited(child: ChildProcess): Promise<void> {
+  if (child.exitCode !== null || child.signalCode !== null) return Promise.resolve();
+  return new Promise((resolve) => child.once('exit', () => resolve()));
+}
+
+/**
+ * Ends `child` and waits for it to exit, so its port is free for the next `vc ui`: SIGTERM first,
+ * then SIGKILL if it has not exited after `killTimeoutMs`.
+ */
+async function end(child: ChildProcess): Promise<void> {
+  const done = exited(child);
+  child.kill();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const late = new Promise<boolean>((resolve) => {
+    timer = setTimeout(() => resolve(true), killTimeoutMs);
+  });
+  const timedOut = await Promise.race([done.then(() => false), late]);
+  clearTimeout(timer);
+  if (timedOut) {
+    child.kill('SIGKILL');
+    await done;
+  }
+}
+
 /**
  * Starts `vc ui --no-open` on `port` over a temporary copy of the seed project, which `prepare`
  * may change first, and waits for its launch line. VC_BIN points at a vc other than the one on
- * PATH, such as target/debug/vc. `stop` ends vc ui and deletes the copy.
+ * PATH, such as target/debug/vc. `stop` ends vc ui, waits for it to exit, then deletes the copy.
  */
 export async function startVcUi(
   port: string,
@@ -57,7 +83,7 @@ export async function startVcUi(
     },
   );
   const stop = async (): Promise<void> => {
-    child.kill();
+    await end(child);
     await rm(projectDir, { recursive: true, force: true });
   };
   try {

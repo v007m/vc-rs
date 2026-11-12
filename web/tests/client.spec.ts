@@ -88,3 +88,33 @@ test('reaches every part of the request from the keyboard', async ({ page }) => 
   await expect(tabs.getByRole('tab', { selected: true })).toHaveAccessibleName('Vars');
   await expect(page.getByRole('button', { name: 'Send' })).toBeEnabled();
 });
+
+test('moves a recorded flow stage up and saves the steps in their new order', async ({ page }) => {
+  await page.goto('/client');
+  await page.getByRole('button', { name: 'Import HAR' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Import a HAR file' });
+  await dialog.getByLabel('HAR file').setInputFiles(har);
+  await dialog.getByRole('textbox', { name: 'Flow test' }).fill('users.reordered#replaysSession');
+  await dialog.getByRole('button', { name: 'Preview' }).click();
+  await dialog.getByRole('button', { name: 'Write files' }).click();
+  await expect(dialog).toBeHidden();
+
+  await page.getByRole('group', { name: 'Mode' }).getByRole('button', { name: 'Flow' }).click();
+  await page.getByRole('button', { name: 'Edit users.reordered#replaysSession' }).click();
+  const stages = page.getByRole('table', { name: 'Stages' });
+  const first = await stages.getByRole('combobox', { name: 'Stage 1 api' }).inputValue();
+  const second = await stages.getByRole('combobox', { name: 'Stage 2 api' }).inputValue();
+  await stages.getByRole('button', { name: 'Move up stage 2' }).click();
+  await expect(page.getByText('Stage 2 moved up to place 1.')).toBeAttached();
+  await expect(stages.getByRole('button', { name: 'Move down stage 1' })).toBeFocused();
+
+  await page.getByRole('button', { name: 'Save changes to flow' }).click();
+  const save = page.getByRole('dialog', { name: 'Save changes to users.reordered#replaysSession' });
+  await expect(save.getByLabel('Changes to services/users/reordered.test.yaml')).toBeVisible();
+  await save.getByRole('button', { name: 'Save' }).click();
+  await expect(save).toBeHidden();
+
+  await page.goto('/editor?file=services/users/reordered.test.yaml');
+  const file = page.getByRole('textbox', { name: 'services/users/reordered.test.yaml' });
+  await expect(file).toHaveValue(new RegExp(`call: ${second}[\\s\\S]*call: ${first}`));
+});

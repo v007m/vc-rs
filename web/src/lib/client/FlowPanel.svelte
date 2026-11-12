@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick } from 'svelte';
   import type { FlowEditor } from './flow.svelte.ts';
   import type { ApiInfo } from './port.ts';
   import SaveDraftDialog from './SaveDraftDialog.svelte';
@@ -17,6 +18,20 @@
   let adding = $state('');
   let saving = $state(false);
   const busy = $derived(flow.state !== 'idle' && flow.state !== 'conflict');
+
+  let rows: HTMLTableSectionElement | undefined = $state();
+  let moved = $state('');
+
+  /** Moves stage `at`, says where it went and keeps focus on it, on the other button at an end. */
+  async function move(at: number, by: -1 | 1): Promise<void> {
+    flow.moveStage(at, by);
+    const to = at + by;
+    moved = `Stage ${at + 1} moved ${by < 0 ? 'up' : 'down'} to place ${to + 1}.`;
+    await tick();
+    const buttons = rows?.rows[to]?.querySelectorAll<HTMLButtonElement>('button[data-move]');
+    const open = [...(buttons ?? [])].filter((button) => !button.disabled);
+    (open.find((button) => button.dataset.move === String(by)) ?? open[0])?.focus();
+  }
 
   function add(): void {
     if (!adding) return;
@@ -61,7 +76,7 @@
         <th><span class="sr">Actions</span></th>
       </tr>
     </thead>
-    <tbody>
+    <tbody bind:this={rows}>
       {#each flow.stages as stage, i (i)}
         <tr>
           <td>{i + 1}</td>
@@ -83,7 +98,23 @@
           <td class="mono">{stage.uses.join(', ')}</td>
           <td class="mono">{stage.saves.join(', ')}</td>
           <td><StageLoop {stage} n={i + 1} /></td>
-          <td>
+          <td class="actions">
+            <button
+              type="button"
+              class="btn sm"
+              data-move="-1"
+              aria-label="Move up stage {i + 1}"
+              disabled={i === 0}
+              onclick={() => void move(i, -1)}>Move up</button
+            >
+            <button
+              type="button"
+              class="btn sm"
+              data-move="1"
+              aria-label="Move down stage {i + 1}"
+              disabled={i === flow.stages.length - 1}
+              onclick={() => void move(i, 1)}>Move down</button
+            >
             <button
               type="button"
               class="btn sm"
@@ -97,6 +128,7 @@
       {/each}
     </tbody>
   </table>
+  <p class="sr" role="status">{moved}</p>
   <div class="add">
     <label class="sr" for="flow-add">Api to add</label>
     <select id="flow-add" class="input mono" bind:value={adding}>
@@ -166,6 +198,9 @@
   td {
     padding: 4px 6px 4px 0;
     vertical-align: top;
+  }
+  .actions {
+    white-space: nowrap;
   }
   .hint {
     display: block;

@@ -39,8 +39,9 @@ pub fn pointer_edit((at, edit): (usize, &wire::PointerEdit)) -> Result<PointerEd
         wire::EditOp::Set => EditOp::Set,
         wire::EditOp::Remove => EditOp::Remove,
         wire::EditOp::Insert => EditOp::Insert,
+        wire::EditOp::Move => EditOp::Move,
         wire::EditOp::Unspecified => {
-            let reason = format!("edit {} needs an op: set, remove or insert", at + 1);
+            let reason = format!("edit {} needs an op: set, remove, insert or move", at + 1);
             return Err(ConnectError::new(Code::InvalidArgument, reason));
         }
     };
