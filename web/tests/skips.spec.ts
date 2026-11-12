@@ -6,8 +6,11 @@ import { startVcUi, type VcUi } from './vcui';
 
 requiresVcUi();
 
-/** Its own `vc ui`, so the expired skip stays out of the seed project the other specs share. */
-const port = '7421';
+/**
+ * Its own `vc ui` on a port the OS picks, so the expired skip stays out of the seed project the
+ * other specs share.
+ */
+const port = '0';
 const crud = 'services/users/crud.test.yaml';
 
 /** Gives `listsUsers` a skip whose day has passed: it runs again and only the line is left. */
@@ -34,7 +37,7 @@ test('lists a skip that has ended and removes it after a preview', async ({ brow
   if (!vcUi) throw new Error('vc ui did not start');
   const page = await (await browser.newContext()).newPage();
   await page.goto(vcUi.printed.launchUrl);
-  await page.goto(`http://127.0.0.1:${port}/insights`);
+  await page.goto(`${vcUi.origin}/insights`);
   const panel = page.getByRole('region', { name: 'Skips expiring soon' });
   const row = panel.getByRole('listitem').filter({ hasText: 'users.crud#listsUsers' });
   await expect(row).toContainText('ended 2000-01-01');
