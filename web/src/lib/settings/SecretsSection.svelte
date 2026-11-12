@@ -1,8 +1,15 @@
 <script lang="ts">
+  import type { SecretCheck } from './secretCheck.svelte.ts';
   import type { SecretSchema } from './secrets.svelte.ts';
 
-  /** The secret names `.env.schema` declares, edited in place and saved together (D247). */
-  let { schema }: { schema: SecretSchema } = $props();
+  /** The secret names `.env.schema` declares, edited in place and saved together (D247), and
+   *  under each profile whether they resolve, never their values. */
+  let {
+    schema,
+    check,
+    profiles = [],
+  }: { schema: SecretSchema; check?: SecretCheck; profiles?: readonly string[] } = $props();
+  let columns = $derived(check ? profiles : []);
 
   let name = $state('');
   let problem: string | undefined = $state();
@@ -38,9 +45,9 @@
     <caption class="sr">Declared secrets</caption>
     <thead>
       <tr>
-        <th scope="col">Name</th><th scope="col">Annotations</th><th scope="col">Note</th><th
-          scope="col"><span class="sr">Actions</span></th
-        >
+        <th scope="col">Name</th><th scope="col">Annotations</th><th scope="col">Note</th>
+        {#each columns as profile (profile)}<th scope="col" class="mono">{profile}</th>{/each}
+        <th scope="col"><span class="sr">Actions</span></th>
       </tr>
     </thead>
     <tbody>
@@ -49,6 +56,13 @@
           <th scope="row" class="mono">{entry.name}</th>
           <td class="mono">{entry.annotations.join(' ')}</td>
           <td>{entry.notes.join(' ')}</td>
+          {#each columns as profile (profile)}
+            {@const state = check?.state(entry.name, profile) ?? 'not checked'}
+            <td
+              class="state {state.replace(' ', '-')}"
+              aria-label="{entry.name} on {profile}: {state}">{state}</td
+            >
+          {/each}
           <td class="act">
             <button
               type="button"
@@ -61,13 +75,27 @@
         </tr>
       {:else}
         <tr>
-          <td colspan="4" class="empty"
+          <td colspan={4 + columns.length} class="empty"
             >{schema.state === 'loading' ? 'Loading…' : 'No secrets are declared yet.'}</td
           >
         </tr>
       {/each}
     </tbody>
   </table>
+  {#if check && profiles.length > 0}
+    <div class="check">
+      <button
+        type="button"
+        class="btn sm"
+        disabled={check.checking}
+        onclick={() => void check.check(profiles)}
+        >{check.checking ? 'Checking…' : 'Check secrets'}</button
+      >
+      <p class="note">Values are never shown, only whether they resolve.</p>
+      {#if check.error}<p class="error" role="alert">{check.error}</p>{/if}
+      {#each check.failures as failure (failure)}<p class="error">{failure}</p>{/each}
+    </div>
+  {/if}
   <form class="add" onsubmit={add}>
     <label for="secret-name">New secret name</label>
     <input
@@ -118,6 +146,7 @@
   }
   .intro,
   .empty,
+  .note,
   .status {
     margin: 0;
     color: var(--ink2);
@@ -145,6 +174,7 @@
     white-space: nowrap;
   }
   .add,
+  .check,
   .actions,
   .banner {
     display: flex;
@@ -152,8 +182,18 @@
     gap: 8px;
     align-items: center;
   }
-  .add .error {
+  .add .error,
+  .check .error {
     flex-basis: 100%;
+  }
+  .state.resolved {
+    color: var(--pass);
+  }
+  .state.not-set {
+    color: var(--fail);
+  }
+  .state.not-checked {
+    color: var(--ink2);
   }
   .banner {
     padding: 8px 12px;

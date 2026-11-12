@@ -514,3 +514,81 @@ async fn the_start_up_check_reaches_a_flow_s_steps() {
     let error = calls_only.check(&fixture.program, vec![call]).unwrap_err();
     assert!(matches!(error, crate::ExecutorError::NoExecutor { action, .. } if action == login));
 }
+
+fn probing(cx: &Arc<ActionCx>, action: vc_model::ActionId) -> ActionRequest {
+    ActionRequest { action, owner: OwnerKey::Run, cx: Arc::clone(cx), frame: Frame::default() }
+}
+
+#[tokio::test]
+async fn a_probe_names_what_the_auth_puts_on_a_request_and_fetches_through_the_run_s_cache() {
+    let mut fixture = Fixture::new();
+    let id = define(&mut fixture, "apiKey");
+    let call = fixture.call("/users");
+    fixture.api_mut(call).auth = uses(id, fixture.vars(&[("token", "probe-token")]));
+    let issuer = Arc::new(Issuer::default());
+    let (cx, recordings) =
+        context(fixture, Arc::clone(&issuer) as Arc<dyn AuthProvider>, vec![vc_testkit::status(200)]);
+    let probed = super::probe_auth(&probing(&cx, call)).await.unwrap().unwrap();
+    assert!(!format!("{probed:?}").contains("probe-token"), "{probed:?}");
+    assert_eq!(
+        (probed.headers.len(), probed.query, probed.cookies, probed.expires_in),
+        (0, vec!["api_key".to_owned()], vec!["sid".to_owned()], None)
+    );
+    let masked = cx.redactor.masked_text("got probe-token 1").await;
+    assert!(!masked.contains("probe-token"), "what a probe fetched is masked from then on: {masked}");
+    assert!(super::probe_auth(&probing(&cx, call)).await.unwrap().is_some());
+    assert_eq!((issuer.fetched(), recordings.take().len()), (1, 0), "one fetch, and nothing is sent");
+}
+
+#[tokio::test]
+async fn a_probe_of_credentials_that_cannot_be_obtained_is_a_v5114_failure_without_the_vars() {
+    let mut fixture = Fixture::new();
+    let id = define(&mut fixture, "broken");
+    let call = fixture.call("/users");
+    fixture.api_mut(call).auth = uses(id, fixture.vars(&[("token", "hunter22")]));
+    let (cx, _) = context(fixture, Arc::new(Issuer::default()), Vec::new());
+    let failure = super::probe_auth(&probing(&cx, call)).await.unwrap_err();
+    assert_eq!(failure.code, Some(Code::V5114.to_string()));
+    assert!(failure.message.contains("svc") && !failure.message.contains("hunter22"), "{}", failure.message);
+}
+
+#[tokio::test]
+async fn a_probe_of_a_call_without_auth_is_none() {
+    let mut fixture = Fixture::new();
+    let call = fixture.call("/users");
+    let (cx, _) = context(fixture, Arc::new(Issuer::default()), Vec::new());
+    assert_eq!(super::probe_auth(&probing(&cx, call)).await.unwrap(), None);
+}
+
+#[test]
+fn chosen_auth_names_the_auth_a_call_uses() {
+    let mut fixture = Fixture::new();
+    let id = define(&mut fixture, "bearer");
+    let call = fixture.call("/users");
+    fixture.api_mut(call).auth = uses(id, IndexMap::new());
+    let program = &fixture.program;
+    let action = &program.actions[usize::try_from(vc_model::ActionId::index(call)).unwrap()];
+    let ActionKind::Call(api) = action.kind else { unreachable!("a call") };
+    assert_eq!(super::chosen_auth(program, (&program.apis[&api], action)), Some(id));
+}
+
+/// The origin a call to `/users` on `base` sends to, or why it has none.
+fn origin_on(base: Option<&str>) -> Result<String, String> {
+    let mut fixture = Fixture::new();
+    let base = base.map(|base| fixture.template(base));
+    fixture.group_mut().base_url = base;
+    let call = fixture.call("/users");
+    let (cx, recordings) = context(fixture, Arc::new(Issuer::default()), Vec::new());
+    let origin = super::probe_origin(&probing(&cx, call)).map_err(|failure| failure.message);
+    assert!(recordings.take().is_empty(), "nothing is sent");
+    origin
+}
+
+#[tokio::test]
+async fn a_probe_names_the_origin_in_lower_case_with_the_scheme_s_port() {
+    assert_eq!(origin_on(Some("https://API.Test")), Ok("https://api.test:443".to_owned()));
+    assert_eq!(origin_on(Some("HTTP://api.test")), Ok("http://api.test:80".to_owned()));
+    assert_eq!(origin_on(Some("http://api.test:8080/v1")), Ok("http://api.test:8080".to_owned()));
+    assert_eq!(origin_on(Some("ws://api.test")), Ok("ws://api.test".to_owned()), "no port is assumed");
+    assert!(origin_on(None).is_err(), "a call with no base URL names no origin");
+}

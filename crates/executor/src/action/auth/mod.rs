@@ -3,6 +3,7 @@
 //! request and fetch them again when a response says they went stale.
 
 mod flow;
+mod probe;
 mod stage;
 mod token_cache;
 
@@ -12,12 +13,13 @@ use std::time::Duration;
 use async_trait::async_trait;
 use serde_json::{Map, Value};
 use vc_interfaces::{AuthError, AuthProvider, AuthRequest, Credentials};
-use vc_model::{Action, ActionId, Api, AuthDef, AuthRef, Failure, Program, VarDefs};
+use vc_model::{Action, ActionId, Api, AuthDef, AuthId, AuthRef, Failure, Program, VarDefs};
 
 use super::request;
 use crate::{ActionCx, ActionRequest, Around, PipelineParts, Render, Saved};
 
 use flow::FlowRunner;
+pub use probe::{ProbedAuth, probe_auth, probe_origin};
 use stage::{AuthStage, RefreshOn};
 pub use token_cache::{AuthKey, Lease, TokenCache};
 
@@ -84,6 +86,12 @@ pub fn added(parts: PipelineParts, cx: &ActionCx, prepared: Option<Prepared>) ->
 #[must_use]
 pub fn steps(program: &Program, call: (&Api, &Action)) -> Vec<ActionId> {
     chosen(program, call).map(|(def, _)| def.steps.clone()).unwrap_or_default()
+}
+
+/// The auth a call uses: its action's own, else its api's, else its group's; `None` without one.
+#[must_use]
+pub fn chosen_auth(program: &Program, call: (&Api, &Action)) -> Option<AuthId> {
+    chosen(program, call).map(|(def, _)| def.id)
 }
 
 /// The definition the call uses and the vars its use site passes: the first of the action's,

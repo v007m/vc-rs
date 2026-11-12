@@ -7,8 +7,12 @@ export const METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTION
 /** The timing phases a check can read. */
 export const PHASES = ['total', 'dns', 'connect', 'tls', 'firstByte', 'download'] as const;
 
-/** A query parameter or header; one that is off is left out of the call and the file. */
-export type Row = { name: string; value: string; on: boolean };
+/**
+ * A query parameter or header; one that is off is left out of the call and the file. `key` is
+ * the name the file has it under, none for a row added in the form: it tells a masked row that
+ * was renamed from one that was removed, since every masked value reads the same.
+ */
+export type Row = { name: string; value: string; on: boolean; key?: string };
 
 export type BodyMode = 'none' | 'json' | 'text';
 
@@ -42,7 +46,12 @@ const text = (value: unknown): string =>
 
 function rows(map: unknown): Row[] {
   if (!isMap(map)) return [];
-  return Object.entries(map).map(([name, value]) => ({ name, value: text(value), on: true }));
+  return Object.entries(map).map(([name, value]) => ({
+    name,
+    value: text(value),
+    on: true,
+    key: name,
+  }));
 }
 
 function bodyOf(body: unknown): Pick<ApiForm, 'bodyMode' | 'body'> {
@@ -81,9 +90,14 @@ function live(list: readonly Row[]): Map<string, string> {
   return new Map(on.map((row) => [row.name.trim(), row.value]));
 }
 
-/** The rows of `after` that hold the mask under a name `before` does not have: renamed. */
-function renamed(before: Map<string, string>, after: Map<string, string>): [string, string][] {
-  return [...after].filter(([name, value]) => !before.has(name) && !writable(value));
+/** The rows of `form` that hold the mask and are on under a name other than their file's. */
+function renamed(form: readonly Row[]): Row[] {
+  return form.filter((row) => {
+    const name = row.name.trim();
+    return (
+      row.on && name !== '' && row.key !== undefined && row.key !== name && !writable(row.value)
+    );
+  });
 }
 
 /**
@@ -93,10 +107,8 @@ function renamed(before: Map<string, string>, after: Map<string, string>): [stri
 function mapEdits(at: string, base: readonly Row[], form: readonly Row[]): PointerEdit[] {
   const [before, after] = [live(base), live(form)];
   if (after.size === 0) return before.size === 0 ? [] : [{ pointer: at, op: 'remove' }];
-  const moved = new Set(renamed(before, after).map(([, value]) => value));
-  const removed = [...before]
-    .filter(([name, value]) => !after.has(name) && !moved.has(value))
-    .map(([name]) => name);
+  const moved = new Set(renamed(form).map((row) => row.key));
+  const removed = [...before.keys()].filter((name) => !after.has(name) && !moved.has(name));
   const changed = [...after].filter(
     ([name, value]) => before.get(name) !== value && writable(value),
   );
@@ -149,7 +161,7 @@ const kept = (what: string): string =>
 /** Why each changed row of a map that holds the mask is not saved. */
 function rowNotices(noun: string, base: readonly Row[], form: readonly Row[]): string[] {
   const [before, after] = [live(base), live(form)];
-  const moved = new Set(renamed(before, after).map(([name]) => name));
+  const moved = new Set(renamed(form).map((row) => row.name.trim()));
   return [...after]
     .filter(([name, value]) => before.get(name) !== value && !writable(value))
     .map(([name]) =>

@@ -179,4 +179,13 @@ describe('enginePort', () => {
     expect(load?.durationMs).toBeUndefined();
     await expect(port.run(9)).rejects.toThrow('Run #9 is not in the history.');
   });
+
+  it('shows an allowed failure as a test that ran and did not pass', async () => {
+    const tests = [{ id: 'users.crud#a', status: TestStatus.ALLOWED_FAILURE }];
+    const port = enginePort(fakeEngine({ getRun: () => ({ run: RUNS[0], tests }) }));
+    const {
+      tests: [allowed],
+    } = await port.run(7);
+    expect(allowed?.row.status).toBe('failed');
+  });
 });

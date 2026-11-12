@@ -56,6 +56,11 @@ service EngineService {
   rpc Trends(TrendsRequest) returns (TrendsResponse);
   // Each setting's value and the layers it replaced, as `vc config explain` shows them, masked.
   rpc ExplainConfig(ExplainConfigRequest) returns (ExplainConfigResponse);
+  // Whether each secret `.env.schema` declares resolves under a profile; never a value.
+  rpc CheckSecrets(CheckSecretsRequest) returns (CheckSecretsResponse);
+  // The credentials an auth gives for an api, obtained through the token cache without sending
+  // the call: their names and lifetime, never a value.
+  rpc TestAuth(TestAuthRequest) returns (TestAuthResponse);
   // Where an MCP client connects and the agent token it sends, for the Connect panel. Only the
   // browser's session cookie reaches it, never the agent token (D239).
   rpc Connection(ConnectionRequest) returns (ConnectionResponse);
@@ -86,6 +91,8 @@ message GetProjectResponse {
   // The profile a run uses when none is chosen.
   optional string default_profile = 3;
   string vc_version = 4;
+  // The auth IDs the config defines, in its order.
+  repeated string auths = 5;
 }
 
 // What to list.
@@ -659,6 +666,54 @@ message ConfigValue {
 message ExplainConfigResponse {
   repeated ConfigValue values = 1;
   repeated string notices = 2;
+}
+
+message CheckSecretsRequest {
+  // As `--profile`; the default profiles when empty.
+  repeated string profiles = 1;
+  // As `--set key=value`.
+  repeated string sets = 2;
+}
+
+// One declared secret: its name and whether it resolves, never its value.
+message SecretCheck {
+  string name = 1;
+  // The provider gave it a value that is not blank, as a run needs (V5114).
+  bool resolved = 2;
+}
+
+message CheckSecretsResponse {
+  // `env` or `varlock`.
+  string provider = 1;
+  // In the order `.env.schema` writes them.
+  repeated SecretCheck secrets = 2;
+  // Why the provider could not load them, holding no value; then none resolves.
+  optional string error = 3;
+  repeated string notices = 4;
+}
+
+message TestAuthRequest {
+  // The auth's ID, `svc`.
+  string auth = 1;
+  // The api to obtain them for, `users#me`; the first api, by ID, that uses the auth when unset.
+  optional string api = 2;
+  // As `--profile`; the default profiles when empty.
+  repeated string profiles = 3;
+  // As `--set key=value`.
+  repeated string sets = 4;
+}
+
+message TestAuthResponse {
+  // The api the credentials were obtained for.
+  string api = 1;
+  repeated string headers = 2;
+  repeated string query = 3;
+  repeated string cookies = 4;
+  // How long they hold, in milliseconds; unset when they never expire.
+  optional uint64 expires_in_ms = 5;
+  // Why they could not be obtained (V5114), masked; then there are no names.
+  optional string error = 6;
+  repeated string notices = 7;
 }
 
 message ConnectionRequest {}

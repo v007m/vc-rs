@@ -69,7 +69,7 @@ fn with_body(
 
 /// The api file's `baseUrl` as written, the api's `path` with each value encoded (D278), and
 /// the query.
-fn uri(render: &Render<'_>, api: &Api, action: &Action) -> Result<Uri, Failure> {
+pub fn uri(render: &Render<'_>, api: &Api, action: &Action) -> Result<Uri, Failure> {
     let base = render.program().api_groups.get(&api.group).and_then(|group| group.base_url.as_ref());
     let mut url = base.map(|base| render.text(base)).transpose().map_err(failed)?.unwrap_or_default();
     url.push_str(&path::rendered(render, &api.path)?);

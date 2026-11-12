@@ -66,6 +66,8 @@ const statuses: Readonly<Record<TestStatus, Status>> = {
   [TestStatus.BLOCKED]: 'blocked',
   [TestStatus.FLAKY]: 'flaky',
   [TestStatus.SKIPPED]: 'skipped',
+  // It ran and did not pass (D294); the allowed-failure badge comes with D248's web side.
+  [TestStatus.ALLOWED_FAILURE]: 'failed',
 };
 
 function runLine(run: Run): RunLine {

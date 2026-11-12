@@ -4,6 +4,7 @@ import { userEvent } from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { fakeEngine } from '#lib/testing/engine.ts';
 import SecretsSection from './SecretsSection.svelte';
+import { SecretCheck, secretCheckPort } from './secretCheck.svelte.ts';
 import { schemaPort, SecretSchema } from './secrets.svelte.ts';
 
 type Write = { path: string; text: string; expectedDigest?: string };
@@ -86,5 +87,54 @@ describe('SecretsSection', () => {
     await user.click(screen.getByRole('button', { name: 'Reload from disk' }));
     expect(names()).toEqual(['A']);
     expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('checks each profile and shows whether every name resolves, never a value', async () => {
+    const asked: string[][] = [];
+    const engine = fakeEngine({
+      readFile: () => ({ text: 'SHOP_TOKEN=\nHOOK_URL=\n', digest: 'd1' }),
+      checkSecrets: ({ profiles }) => {
+        asked.push(profiles);
+        const staging = profiles[0] === 'staging';
+        return {
+          provider: 'varlock',
+          secrets: [
+            { name: 'SHOP_TOKEN', resolved: true },
+            { name: 'HOOK_URL', resolved: !staging },
+          ],
+          ...(staging ? { error: 'the varlock secrets provider is unavailable: not on PATH' } : {}),
+        };
+      },
+    });
+    const schema = new SecretSchema(schemaPort(engine));
+    const check = new SecretCheck(secretCheckPort(engine));
+    await schema.load();
+    render(SecretsSection, { schema, check, profiles: ['dev', 'staging'] });
+    const user = userEvent.setup();
+    expect(screen.getByLabelText('SHOP_TOKEN on dev: not checked')).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Check secrets' }));
+    expect(asked).toEqual([['dev'], ['staging']]);
+    expect(screen.getByLabelText('SHOP_TOKEN on staging: resolved')).toBeTruthy();
+    expect(screen.getByLabelText('HOOK_URL on dev: resolved')).toBeTruthy();
+    expect(screen.getByLabelText('HOOK_URL on staging: not set')).toBeTruthy();
+    expect(screen.getByText(/staging: the varlock secrets provider is unavailable/)).toBeTruthy();
+    await user.type(screen.getByRole('textbox', { name: 'New secret name' }), 'PAY_KEY{Enter}');
+    expect(screen.getByLabelText('PAY_KEY on dev: not checked')).toBeTruthy();
+  });
+
+  it('shows why the check failed', async () => {
+    const engine = fakeEngine({
+      readFile: () => ({ text: 'A=\n', digest: 'd1' }),
+      checkSecrets: () => {
+        throw new ConnectError('unknown profile `prod`', Code.InvalidArgument);
+      },
+    });
+    const schema = new SecretSchema(schemaPort(engine));
+    await schema.load();
+    const check = new SecretCheck(secretCheckPort(engine));
+    render(SecretsSection, { schema, check, profiles: ['prod'] });
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Check secrets' }));
+    expect(screen.getByRole('alert').textContent).toContain('unknown profile `prod`');
+    expect(screen.getByLabelText('A on prod: not checked')).toBeTruthy();
   });
 });

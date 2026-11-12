@@ -31,12 +31,12 @@ describe('formOf', () => {
       method: 'GET',
       path: '/users/${var.userId}',
       query: [
-        { name: 'limit', value: '10', on: true },
-        { name: 'q', value: '${var.q}', on: true },
+        { name: 'limit', value: '10', on: true, key: 'limit' },
+        { name: 'q', value: '${var.q}', on: true, key: 'q' },
       ],
       headers: [
-        { name: 'X-Key', value: MASKED, on: true },
-        { name: 'Accept', value: 'application/json', on: true },
+        { name: 'X-Key', value: MASKED, on: true, key: 'X-Key' },
+        { name: 'Accept', value: 'application/json', on: true, key: 'Accept' },
       ],
       bodyMode: 'json',
       body: '{\n  "name": "${var.name}"\n}',
@@ -84,16 +84,28 @@ describe('editsBetween', () => {
 
   it('keeps a masked row under its old name when it is renamed, and says why', () => {
     const form = base();
-    form.headers[0] = { name: 'X-Api-Key', value: MASKED, on: true };
+    form.headers[0] = { name: 'X-Api-Key', value: MASKED, on: true, key: 'X-Key' };
     expect(editsBetween(AT, base(), form)).toEqual([]);
     expect(maskedNotices(base(), form)).toEqual([
       'Header X-Api-Key holds a secret, so it is not saved under a new name; rename it in the api file.',
     ]);
-    form.headers[0] = { name: 'X-Api-Key', value: MASKED, on: false };
+    form.headers[0] = { name: 'X-Api-Key', value: MASKED, on: false, key: 'X-Key' };
     expect(editsBetween(AT, base(), form)).toEqual([
       { pointer: '/apis/1/headers/X-Key', op: 'remove' },
     ]);
     expect(maskedNotices(base(), form)).toEqual([]);
+  });
+
+  it('removes a deleted masked row even when another masked row was renamed', () => {
+    const api = formOf({ path: '/x', headers: { Authorization: MASKED, 'X-Api-Key': MASKED } });
+    const form = formOf({ path: '/x', headers: { Authorization: MASKED, 'X-Api-Key': MASKED } });
+    form.headers = [{ name: 'Auth', value: MASKED, on: true, key: 'Authorization' }];
+    expect(editsBetween(AT, api, form)).toEqual([
+      { pointer: '/apis/1/headers/X-Api-Key', op: 'remove' },
+    ]);
+    expect(maskedNotices(api, form)).toEqual([
+      'Header Auth holds a secret, so it is not saved under a new name; rename it in the api file.',
+    ]);
   });
 
   it('says which edits to a masked value it does not save', () => {
