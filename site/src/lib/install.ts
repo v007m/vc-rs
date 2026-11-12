@@ -8,13 +8,14 @@ export const BREW_INSTALL = 'brew install --HEAD v007m/tap/vibranium';
 
 /** What the Homebrew command does, in one sentence. */
 export const BREW_NOTE =
-  'Builds from source with Homebrew’s Rust, so it takes a few minutes, and installs `vc`, `vibranium` (a link to `vc`) and `vc-demo`.';
+  'Builds from source with Homebrew’s Rust and Node, so it takes a few minutes, and installs `vc` with its web UI, `vibranium` (a link to `vc`) and `vc-demo`.';
 
 /** The fallback: Cargo straight from Git (Rust 1.99 or later). */
 export const CARGO_INSTALL = 'cargo install --git https://github.com/v007m/vc-rs vc-cli vc-demo --locked';
 
 /** What the Cargo command does, in one sentence. */
-export const CARGO_NOTE = 'Builds `vc`, `vibranium` and `vc-demo` into `~/.cargo/bin` with your own Rust 1.99 or later.';
+export const CARGO_NOTE =
+  'Builds `vc`, `vibranium` and `vc-demo` into `~/.cargo/bin` with your own Rust 1.99 or later. This `vc` has no web UI (`vc ui`): build it from a clone for that.';
 
 export type InstallMethod = 'brew' | 'cargo';
 

@@ -20,6 +20,17 @@ Build `vc` and the demo service from source (release downloads are planned):
 cargo install --git https://github.com/v007m/vc-rs vc-cli vc-demo --locked
 ```
 
+That `vc` is built without the web UI (`vc ui`). For the UI, build from a clone with Node and pnpm:
+
+```console
+git clone https://github.com/v007m/vc-rs && cd vc-rs
+pnpm install --frozen-lockfile --filter web && pnpm --filter web run build
+cargo install --path crates/apps/cli --features web-ui --locked
+cargo install --path crates/apps/demo --locked
+```
+
+`brew install --HEAD v007m/tap/vibranium` builds both, with the UI ([install guide](https://v007m.github.io/vc-rs/start/install/)).
+
 ## A test in ten lines
 
 ```yaml

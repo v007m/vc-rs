@@ -566,6 +566,13 @@ Round 47 (12 November 2026; orchestrator, under Sarath's delegation):
 | D306 | Varlock and the run's profile | Varlock gets the run's profile as `VC_PROFILE` in its process environment: the last profile given, unset when there is none; vc never passes `--env`. A schema selects its environment with `@currentEnv=$VC_PROFILE`. `VC_PROFILE` in `.env.schema` declares Varlock's environment flag, not a secret: vc leaves it out of the declared secrets, never loads, masks or requires it, and `${secret.VC_PROFILE}` is V2106 | — (fills a gap in D163) |
 | D307 | Invalid `body.schema` at check time | A literal `body.schema` (written inline, or a file the compile was given, with or without a `#/pointer`) that is not a valid JSON Schema is V2312 at check time, compiled by the one function a run uses (`vc_template::compile_schema`), with the JSON pointer of the keyword that breaks. The run-time V5101 stays for schemas known only at run time, such as a templated path | — (follows D201) |
 
+Round 48 (12 November 2026; orchestrator, under Sarath's delegation):
+
+| # | Topic | Decision | Supersedes |
+| --- | --- | --- | --- |
+| D310 | Installs ship the web UI | The Homebrew formula builds the web UI from source (`node` and `pnpm` as build dependencies, `pnpm install --frozen-lockfile --filter web`, `pnpm --filter web run build`) and installs `vc` with `--features web-ui`; `vc-demo` is built as before. `cargo install --git … vc-cli` gives a `vc` without `vc ui` (it says `this vc was built without UI`), which the install page and the README say plainly, next to the clone steps that build the UI. A release workflow with prebuilt binaries is post-MVP, to save Actions minutes | — |
+| D311 | The CSP allows the route announcer's inline style by its hash | The one inline style attribute, SvelteKit's route announcer, is allowed by `style-src 'self' 'unsafe-hashes' 'sha256-…'`, its SHA-256 written into the build's CSP meta and copied into the header like the script hashes, so the UI loads with no CSP errors. `'unsafe-inline'` is never allowed; the app's own styles use Svelte `style:` directives | — (fills a gap in D223) |
+
 ## Open
 
 All decisions needed for the PRD and technical design are settled. The language is decided by the spike (D6, D36, D37, D41).

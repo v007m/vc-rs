@@ -1,6 +1,6 @@
 ---
 title: Install
-description: Install vc and the vc-demo service with Homebrew, or build them with Cargo, then add shell completion and check the version.
+description: Install vc, with its web UI, and the vc-demo service with Homebrew, or build them with Cargo, then add shell completion and check the version.
 sidebar: { order: 1 }
 ---
 
@@ -28,7 +28,7 @@ Without Homebrew, build with Cargo. You need Rust 1.99 or later. If you use [rus
   <TabItem label="Straight from Git">
     <InstallCommand method="cargo" />
 
-    This uses your default toolchain, so make sure `rustc --version` is 1.99 or later.
+    This uses your default toolchain, so make sure `rustc --version` is 1.99 or later. It builds `vc` without the web UI: `vc ui` says `this vc was built without UI`. For the UI, install from a clone.
   </TabItem>
   <TabItem label="From a clone">
     <Steps>
@@ -39,12 +39,21 @@ Without Homebrew, build with Cargo. You need Rust 1.99 or later. If you use [rus
        cd vc-rs
        ```
 
-    2. Install `vc` and `vc-demo` into `~/.cargo/bin`.
+    2. Build the web UI. This needs Node and pnpm.
 
        ```console
-       cargo install --path crates/apps/cli --locked
+       pnpm install --frozen-lockfile --filter web
+       pnpm --filter web run build
+       ```
+
+    3. Install `vc`, with the UI built in, and `vc-demo` into `~/.cargo/bin`.
+
+       ```console
+       cargo install --path crates/apps/cli --features web-ui --locked
        cargo install --path crates/apps/demo --locked
        ```
+
+       Leave out `--features web-ui`, and step 2, for a `vc` without [`vc ui`](/vc-rs/reference/cli/ui/).
     </Steps>
   </TabItem>
 </Tabs>
