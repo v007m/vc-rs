@@ -60,6 +60,8 @@ async fn hooks_sign_the_request_save_values_and_judge_the_response() {
     assert_eq!(server.stats().await.unwrap().count("POST /echo"), 1);
 }
 
+/// The spin has the default 200 ms; the hog is a `function:` step whose own `timeout` (D192) is
+/// long enough that only its memory budget can stop it, however loaded the machine is.
 #[tokio::test(flavor = "multi_thread")]
 async fn a_hook_past_its_time_or_memory_budget_is_stopped_with_its_line() {
     let server = MockServer::start().await.unwrap();
@@ -68,8 +70,7 @@ async fn a_hook_past_its_time_or_memory_budget_is_stopped_with_its_line() {
     let test = concat!(
         "tests:\n  - id: spins\n    call: signed#echo\n",
         "    expect:\n      custom:\n        - function: ../../hooks/spin.ts#spin\n",
-        "  - id: hogs\n    call: signed#echo\n",
-        "    expect:\n      custom:\n        - function: ../../hooks/hog.ts#hog\n",
+        "  - id: hogs\n    steps:\n      - function: ../../hooks/hog.ts#hog\n        timeout: 10s\n",
     );
     let files = [
         CONFIG,
