@@ -118,3 +118,7 @@ impl FileBlocks {
         if heading.is_empty() || !self.printed { heading.to_owned() } else { format!("\n{heading}") }
     }
 }
+
+#[cfg(test)]
+#[path = "blocks_tests.rs"]
+mod tests;
