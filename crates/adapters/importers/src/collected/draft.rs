@@ -6,7 +6,7 @@
 use indexmap::IndexMap;
 use serde_json::json;
 use vc_interfaces::{DraftApi, DraftGroup, ImportDraft, ImportNote};
-use vc_model::Method;
+use vc_model::{Method, credential};
 
 use super::payload::body;
 use super::request::{Call, Credential};
@@ -17,7 +17,6 @@ use crate::naming::{camel, free};
 use crate::origin::{group, without_user};
 use crate::path_vars::templated;
 use crate::secret::{DROPPED, Found, Secrets};
-use crate::secrets::credential;
 use crate::url::{pairs, path_and_query};
 
 /// The api a request became: its full ID and its vars.

@@ -12,7 +12,7 @@ use vc_model::RenderedRequest;
 use vc_testkit::{FakeCommands, FakeTransport, FakeVcs, MemoryCompileCache, MemoryEnvironment, MemorySources, status};
 
 use super::{SpecHeaders, origin};
-use crate::{Engine, EngineBuilder, SyncRequest};
+use crate::{Engine, EngineBuilder, ImportRequest, SyncRequest};
 
 const TOKEN: &str = "Kd4R-8wNq-Yb6T-2hVz-Jc5M";
 const WIDE: &str = "Žetón-ключ-秘密-7731";
@@ -206,4 +206,68 @@ fn headers_go_to_their_origin_in_any_case_but_not_to_another_port_or_scheme() {
     assert_eq!(origin(&uri("http://specs.test:80/a")).as_deref(), Some("http://specs.test"));
     assert_eq!(origin(&uri("/relative")), None);
     assert_eq!(at.masked("sent Bearer t0k3n"), "sent Bearer t0k3n", "only the secrets read are masked");
+}
+
+/// `vc import openapi https://specs.test/users.json --id people` with `headers`.
+fn imported(headers: &[(&str, &str)]) -> ImportRequest {
+    ImportRequest {
+        kind: "openapi".to_owned(),
+        source: "https://specs.test/users.json".to_owned(),
+        file_id: Some("people".to_owned()),
+        profiles: vec!["staging".to_owned()],
+        headers: headers.iter().map(|&(name, value)| (name.to_owned(), value.to_owned())).collect(),
+        ..ImportRequest::default()
+    }
+}
+
+#[tokio::test]
+async fn an_import_sends_its_header_s_to_the_spec_s_origin_only_and_writes_the_templates() {
+    let (engine, mut sent) = synced(&api(SIGNED), None);
+    let given =
+        [("Authorization", "Bearer ${secret.SPEC_TOKEN}"), ("Accept", "application/json"), ("x-team", "${var.team}")];
+    let changes = engine.import(&imported(&given)).await.unwrap();
+    let sent: Vec<_> = std::iter::from_fn(|| sent.try_recv().ok()).collect();
+    let (spec, others): (Vec<_>, Vec<_>) = sent.iter().partition(|(url, _)| url.starts_with("https://specs.test/"));
+    let bearer = format!("Bearer {TOKEN}");
+    assert_eq!(spec.len(), 1, "{sent:?}");
+    assert_eq!(header(&spec[0].1, "authorization"), Some(bearer.as_str()));
+    assert_eq!(header(&spec[0].1, "accept"), Some("application/json"), "a literal that is no credential");
+    assert_eq!(header(&spec[0].1, "x-team"), Some("blue"), "the staging profile's var");
+    assert!(!others.is_empty() && others.iter().all(|(_, headers)| headers.is_empty()), "{others:?}");
+    let people = changes.files.iter().find(|file| file.path == "services/people/people.api.yaml").unwrap();
+    let source = "source:\n  openapi: https://specs.test/users.json\n  headers:\n    Authorization: Bearer \
+                  ${secret.SPEC_TOKEN}\n    Accept: application/json\n    x-team: ${var.team}\n";
+    assert!(people.after.contains(source), "{}", people.after);
+    let written: String = changes.files.iter().map(|file| file.after.as_str()).collect();
+    assert!(!written.contains(TOKEN) && !changes.titles.join("\n").contains(TOKEN), "{written}");
+}
+
+#[tokio::test]
+async fn an_import_refuses_a_credential_given_as_a_literal_with_v4009_and_never_echoes_it() {
+    for name in ["Authorization", "x-api-key", "Cookie", "X-Session-Token"] {
+        let (engine, mut sent) = synced(&api(SIGNED), None);
+        let refused = engine.import(&imported(&[(name, &format!("Bearer {TOKEN}"))])).await.unwrap_err();
+        let (error, help) = (refused.to_string(), refused.help().unwrap_or_default());
+        assert!(error.contains("V4009") && error.contains(&format!("`--header {name}`")), "{name}: {error}");
+        assert!(help.contains("${secret.NAME}") && !format!("{error}{help}").contains(TOKEN), "{name}: {help}");
+        assert!(sent.try_recv().is_err(), "{name}: nothing is fetched");
+    }
+}
+
+#[tokio::test]
+async fn an_import_refuses_a_header_it_cannot_send_or_render_before_any_fetch() {
+    let pasted = ImportRequest { text: Some(spec()), ..imported(&[("accept", "application/json")]) };
+    let cases = [
+        (pasted, "is sent only with a spec fetched from a URL"),
+        (imported(&[("accept", "a"), ("Accept", "b")]), "`--header Accept` is given twice"),
+        (imported(&[("x-team", "${var.team")]), "`--header x-team` is not a valid template"),
+        (imported(&[("authorization", "Bearer ${secret.UNSET_TOKEN}")]), "`secret.UNSET_TOKEN` is not loaded"),
+        (imported(&[("x-team", "${var.nobody}")]), "`--header x-team` does not render: `var.nobody` is not set"),
+    ];
+    for (request, reason) in cases {
+        let (engine, mut sent) = synced(&api(SIGNED), None);
+        let error = engine.import(&request).await.unwrap_err().to_string();
+        assert!(error.contains(reason), "{reason}: {error}");
+        assert!(sent.try_recv().is_err(), "{reason}: nothing is fetched");
+    }
 }

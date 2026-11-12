@@ -17,6 +17,7 @@ mod api;
 mod body_file;
 mod builder;
 mod config;
+mod credential;
 mod date;
 mod defs;
 mod error;
@@ -53,6 +54,7 @@ pub use config::{
     AUTH_NEEDS, AuthDef, Config, Dataset, Defaults, GeneratorDef, HttpRetry, LoadScenario, LoadStage, MixEntry,
     PluginRef, Profile, auth_needs,
 };
+pub use credential::credential;
 pub use date::Date;
 pub use defs::{
     AllowFailure, AuthRef, CacheSpec, Examples, HookRef, Lifecycle, Loop, Method, Owner, Poll, RequestHooks, Retry,
