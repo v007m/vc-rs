@@ -1056,6 +1056,45 @@ pub struct ApiTrendsResponse {
     #[prost(message, repeated, tag="1")]
     pub trends: ::prost::alloc::vec::Vec<ApiTrend>,
 }
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ApiCoverageRequest {
+}
+/// One api, or one operation only a spec snapshot has.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct CoveredApi {
+    /// `users#get`; for an operation only a snapshot has, its `operationId`.
+    #[prost(string, tag="1")]
+    pub api_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub method: ::prost::alloc::string::String,
+    /// As written: `/users/${var.userId}`; the spec's for an operation.
+    #[prost(string, tag="3")]
+    pub path: ::prost::alloc::string::String,
+    /// The api file, or the snapshot for an operation only that has.
+    #[prost(string, tag="4")]
+    pub file: ::prost::alloc::string::String,
+    /// The tests that call it, skipped ones included (D301).
+    #[prost(uint32, tag="5")]
+    pub tests: u32,
+    /// How many of them are skipped today.
+    #[prost(uint32, tag="6")]
+    pub skipped: u32,
+    /// The statuses its `expect`s and its snapshot name, each once, a class before its codes:
+    /// `2xx`, `200`.
+    #[prost(string, repeated, tag="7")]
+    pub documented: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(bool, tag="8")]
+    pub spec_only: bool,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ApiCoverageResponse {
+    /// The apis in project order, then the operations only a snapshot has.
+    #[prost(message, repeated, tag="1")]
+    pub apis: ::prost::alloc::vec::Vec<CoveredApi>,
+    /// A line for each snapshot that is missing or cannot be read; its operations are left out.
+    #[prost(string, repeated, tag="2")]
+    pub notes: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ExplainConfigRequest {
     /// `defaults.timeout`, `vars.baseUrl`; every setting and every var a layer sets when empty.

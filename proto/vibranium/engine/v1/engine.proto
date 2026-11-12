@@ -56,6 +56,9 @@ service EngineService {
   rpc Trends(TrendsRequest) returns (TrendsResponse);
   // Each api's calls and response times over the same runs, for Insights' slowest apis.
   rpc ApiTrends(ApiTrendsRequest) returns (ApiTrendsResponse);
+  // Each api with the tests that call it and the statuses it documents, then the operations of
+  // its spec snapshot no api links to, for Insights' coverage.
+  rpc ApiCoverage(ApiCoverageRequest) returns (ApiCoverageResponse);
   // Each setting's value and the layers it replaced, as `vc config explain` shows them, masked.
   rpc ExplainConfig(ExplainConfigRequest) returns (ExplainConfigResponse);
   // Whether each secret `.env.schema` declares resolves under a profile; never a value.
@@ -668,6 +671,34 @@ message ApiTrend {
 message ApiTrendsResponse {
   // In api ID order.
   repeated ApiTrend trends = 1;
+}
+
+message ApiCoverageRequest {}
+
+// One api, or one operation only a spec snapshot has.
+message CoveredApi {
+  // `users#get`; for an operation only a snapshot has, its `operationId`.
+  string api_id = 1;
+  string method = 2;
+  // As written: `/users/${var.userId}`; the spec's for an operation.
+  string path = 3;
+  // The api file, or the snapshot for an operation only that has.
+  string file = 4;
+  // The tests that call it, skipped ones included (D301).
+  uint32 tests = 5;
+  // How many of them are skipped today.
+  uint32 skipped = 6;
+  // The statuses its `expect`s and its snapshot name, each once, a class before its codes:
+  // `2xx`, `200`.
+  repeated string documented = 7;
+  bool spec_only = 8;
+}
+
+message ApiCoverageResponse {
+  // The apis in project order, then the operations only a snapshot has.
+  repeated CoveredApi apis = 1;
+  // A line for each snapshot that is missing or cannot be read; its operations are left out.
+  repeated string notes = 2;
 }
 
 message ExplainConfigRequest {

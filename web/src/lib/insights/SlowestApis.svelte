@@ -1,4 +1,5 @@
 <script lang="ts">
+  import MethodTag from './MethodTag.svelte';
   import type { ApiTrend } from './port.ts';
   import { latency, slowest } from './stats.ts';
 
@@ -26,7 +27,7 @@
       {#each rows as t (t.apiId)}
         <li>
           <span class="id mono">
-            <span class="method m-{t.method.toLowerCase()}">{t.method}</span>
+            <MethodTag method={t.method} />
             <span class="name" title={t.apiId}>{t.apiId}</span>
           </span>
           <span class="bar" role="img" aria-label="{t.apiId}: {times(t)}">
@@ -96,34 +97,6 @@
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  .method {
-    display: inline-flex;
-    justify-content: center;
-    align-items: center;
-    min-width: 44px;
-    height: 18px;
-    border-radius: 5px;
-    font-size: 10.5px;
-    font-weight: 600;
-    background: var(--accentSoft);
-    color: var(--accentInk);
-  }
-  .m-get {
-    background: var(--passSoft);
-    color: var(--pass);
-  }
-  .m-post {
-    background: var(--flakySoft);
-    color: var(--flaky);
-  }
-  .m-put {
-    background: var(--blockSoft);
-    color: var(--block);
-  }
-  .m-delete {
-    background: var(--failSoft);
-    color: var(--fail);
-  }
   .bar {
     position: relative;
     height: 10px;
@@ -138,7 +111,7 @@
     border-radius: 5px;
   }
   .p95 {
-    background: #cfc8f6;
+    background: var(--accentMid);
   }
   .p50 {
     background: var(--accent);
