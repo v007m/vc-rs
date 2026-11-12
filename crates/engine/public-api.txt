@@ -952,6 +952,7 @@ impl core::marker::StructuralPartialEq for vc_engine::LoadReport
 pub struct vc_engine::LoadRequest
 pub vc_engine::LoadRequest::profiles: alloc::vec::Vec<alloc::string::String>
 pub vc_engine::LoadRequest::scenario: alloc::string::String
+pub vc_engine::LoadRequest::seed: core::option::Option<u64>
 pub vc_engine::LoadRequest::sets: alloc::vec::Vec<alloc::string::String>
 impl core::clone::Clone for vc_engine::LoadRequest
 pub fn vc_engine::LoadRequest::clone(&self) -> Self

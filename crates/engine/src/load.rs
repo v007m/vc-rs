@@ -103,7 +103,7 @@ impl Engine {
         let ids = scenario.mix.iter().filter_map(|entry| program.str(entry.test.sym()).map(str::to_owned)).collect();
         let select = SelectRequest { ids, ..SelectRequest::default() };
         let plan = PlanRequest { select, profiles: request.profiles.clone(), sets: request.sets.clone(), repeat: None };
-        let prepared = self.prepare(&plan, Extra::default())?;
+        let prepared = self.prepare(&plan, Extra { seed: request.seed, ..Extra::default() })?;
         let (seed, random) = (prepared.draw.seed, Arc::clone(&prepared.draw.random));
         let (name, id) = (scenario.name.clone(), request.scenario.clone());
         let report = LoadReport { scenario: id, name, seed, ..LoadReport::default() };

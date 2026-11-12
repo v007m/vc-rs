@@ -79,7 +79,11 @@ fn a_project_without_load_files_says_how_to_add_one() {
 fn enter_runs_the_chosen_scenario_once_and_x_stops_it() {
     let mut tui = on_load(&engine().unwrap()).unwrap();
     assert_eq!(press(&mut tui, &[KeyCode::Char('x')]), None, "nothing is running");
-    let wanted = LoadRequest { scenario: "users.peak".to_owned(), profiles: vec!["staging".to_owned()], sets: vec![] };
+    let wanted = LoadRequest {
+        scenario: "users.peak".to_owned(),
+        profiles: vec!["staging".to_owned()],
+        ..LoadRequest::default()
+    };
     assert_eq!(press(&mut tui, &[KeyCode::Enter]), Some(Ask::Load(wanted)));
     assert_eq!(status(&tui), "starting users.peak…");
     assert_eq!(press(&mut tui, &[KeyCode::Enter]), None, "one load run at a time");

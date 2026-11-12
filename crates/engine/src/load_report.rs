@@ -21,6 +21,9 @@ pub struct LoadRequest {
     pub profiles: Vec<String>,
     /// `--set key=value`, in order.
     pub sets: Vec<String>,
+    /// The seed the users pick their mix tests and draw generated data with; a fresh one, which
+    /// the report gives, when `None`.
+    pub seed: Option<u64>,
 }
 
 /// What a load run hears and tells while it runs.

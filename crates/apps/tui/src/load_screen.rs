@@ -146,7 +146,7 @@ impl LoadScreen {
         let scenario = self.scenarios.get(self.cursor)?.id.clone();
         self.before = Some(std::mem::replace(&mut self.phase, LoadPhase::Starting(scenario.clone())));
         (self.stopping, self.refused) = (false, None);
-        Some(Ask::Load(LoadRequest { scenario, profiles: self.profiles.clone(), sets: Vec::new() }))
+        Some(Ask::Load(LoadRequest { scenario, profiles: self.profiles.clone(), ..LoadRequest::default() }))
     }
 
     fn step(&mut self, down: bool) {

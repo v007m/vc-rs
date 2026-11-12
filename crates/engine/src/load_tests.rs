@@ -242,6 +242,10 @@ async fn an_api_that_refuses_the_connection_is_counted_under_it_and_the_transpor
 
 /// A mix of a passing and a failing test, each request taking 300 ms, reports each test's own
 /// numbers, and the failing test's error kinds under it.
+/// A seed whose 6 iterations pick both tests of a 1:1 mix; a fresh one picks one test alone
+/// about one run in 30 (seed 7287421731789518 picks `breaksUsers` 6 times).
+const BOTH_PICKED: u64 = 1;
+
 #[tokio::test(start_paused = true)]
 async fn each_mix_test_has_its_own_numbers_and_error_kinds() {
     let mix = "mix:\n  - {test: users.crud#listsUsers, weight: 1}\n  - {test: users.crud#breaksUsers, weight: 1}\n";
@@ -253,7 +257,8 @@ async fn each_mix_test_has_its_own_numbers_and_error_kinds() {
     let delayed = FaultyTransport::new(Arc::new(answers), vec![Fault::Delay(Duration::from_millis(300)); 1000]);
     let (engine, _) = engine_over(CONFIG, file.as_bytes(), Arc::new(delayed));
     let (_interrupter, interrupts) = interrupts();
-    let report = load(&engine, interrupts, None).await;
+    let request = LoadRequest { scenario: "users.peak".to_owned(), seed: Some(BOTH_PICKED), ..LoadRequest::default() };
+    let report = engine.load(&request, LoadWatch { interrupts, ticks: None }).await.unwrap();
     let tests: Vec<_> = report.tests.iter().map(|test| (test.test.as_str(), test.errors == test.iterations)).collect();
     assert_eq!(tests, [("users.crud#listsUsers", false), ("users.crud#breaksUsers", true)], "{report:?}");
     assert_eq!(report.tests.iter().map(|test| test.iterations).sum::<u64>(), report.iterations);
