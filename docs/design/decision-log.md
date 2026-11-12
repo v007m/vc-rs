@@ -612,6 +612,12 @@ Round 55 (12 November 2026; vc-worker1, under the standing delegation):
 | --- | --- | --- | --- |
 | D323 | Cache errors are run warnings | A cache store that fails never fails the action or the run; it is a warning the run prints at its end, sent by `RunCache` (`CacheEvent::Notice`) and kept even when the end-of-run sweep is abandoned. A read that fails runs the action again (`cache: could not read the entry: <error>; \`<label>\` ran again`); a write that fails, or a cleanup that is no api's `cleanup` and so cannot be stored, keeps the result's cleanups in the run (`cache: <error>; \`<label>\` was not cached`). The label is the api or test ID the run prints, and no warning carries an entry's values. An entry that does not open (another key, or changed on disk) stays a silent miss on read; `take_expired` at run start and `vc cache clear` still remove such rows, and count them in one warning: `cache: N entries sealed under another key were removed; their cleanups did not run`. A cleanup that fails stays a warning, as before | — (fills a gap in D72, D166) |
 
+Round 56 (12 November 2026; vc-worker1, under the standing delegation):
+
+| # | Topic | Decision | Supersedes |
+| --- | --- | --- | --- |
+| D324 | `after` actions carry no shell deadline | An `after` or `afterEach` action is outside the test's `timeout` and carries no deadline of the shell's: each kind enforces its own `timeout` as D192 defines it, so on a `call:` it is per attempt and the call's `http.retry` and `poll` run in full; without one, each kind keeps its default bound (a request's `defaults.timeout`, a command's, the hook budget). An after `command` or `function` with an action `retry` gets its `timeout` per attempt, as a call does | The LLD's whole-action limit for an `after` action with its own `timeout`, which cut a call's `http.retry` at the first attempt's timeout |
+
 ## Open
 
 All decisions needed for the PRD and technical design are settled. The language is decided by the spike (D6, D36, D37, D41).

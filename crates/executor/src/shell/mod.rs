@@ -140,6 +140,10 @@ mod tests;
 mod cleanup_tests;
 
 #[cfg(test)]
+#[path = "after_tests.rs"]
+mod after_tests;
+
+#[cfg(test)]
 #[path = "flow_tests.rs"]
 mod flow_tests;
 
