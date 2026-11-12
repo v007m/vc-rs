@@ -159,9 +159,12 @@ fn backing_off(max: &str) -> Project {
     Project::new(&[("vibranium.config.yaml", &config), SCRIPTED, ("services/scripted/backoff.test.yaml", test)])
 }
 
+/// When a request arrived, and when its answer was about to be sent.
+type Stamp = (Instant, Instant);
+
 /// When each request reached a server on a free port that answers its first two requests 503 and
 /// the rest 200: the instant it arrived, and the instant just before its answer was sent.
-fn stamping_server() -> (String, mpsc::Receiver<(Instant, Instant)>) {
+fn stamping_server() -> (String, mpsc::Receiver<Stamp>) {
     let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
     let url = format!("http://{}", listener.local_addr().unwrap());
     let (stamps, stamped) = mpsc::channel();
@@ -176,7 +179,7 @@ fn stamping_server() -> (String, mpsc::Receiver<(Instant, Instant)>) {
 }
 
 /// Answers each request on `connection` until the client closes it, stamping it on `stamps`.
-fn answer(mut connection: TcpStream, stamps: &mpsc::Sender<(Instant, Instant)>, served: &AtomicUsize) {
+fn answer(mut connection: TcpStream, stamps: &mpsc::Sender<Stamp>, served: &AtomicUsize) {
     let (mut head, mut chunk) = (Vec::new(), [0; 1024]);
     while let Ok(read @ 1..) = connection.read(&mut chunk) {
         head.extend_from_slice(chunk.get(..read).unwrap_or_default());
