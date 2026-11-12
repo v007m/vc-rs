@@ -102,6 +102,22 @@ a:hover {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.navitem .live {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+  color: var(--ink2);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.navitem .live::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+}
 .iconbtn {
   display: inline-flex;
   align-items: center;
@@ -167,6 +183,21 @@ a:hover {
 }
 .app.side-collapsed .side .navitem .label {
   display: none;
+}
+.app.side-collapsed .side .navitem {
+  position: relative;
+}
+.app.side-collapsed .side .navitem .live {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+}
+.app.side-collapsed .side .navitem .live .text {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
 }
 .app.side-collapsed .side .side-head {
   justify-content: center;
