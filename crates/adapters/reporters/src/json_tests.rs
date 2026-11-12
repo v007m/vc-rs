@@ -43,7 +43,7 @@ async fn finished_durations(late_by: usize) -> Vec<Value> {
         match &event {
             Event::ActionStarted { .. } => started = Some(event.clone()),
             Event::TestFinished { .. } => {
-                events.extend(started.take().into_iter().flat_map(|again| iter::repeat_n(again, late_by)))
+                events.extend(started.take().into_iter().flat_map(|again| iter::repeat_n(again, late_by)));
             }
             _ => {}
         }
