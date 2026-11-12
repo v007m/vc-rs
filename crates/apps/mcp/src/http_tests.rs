@@ -83,3 +83,26 @@ async fn a_body_over_the_limit_or_broken_off_is_refused_without_its_content() {
     assert_eq!(broken.status(), StatusCode::BAD_REQUEST);
     assert_eq!(text(broken).await, "Bad Request: the request body could not be read");
 }
+
+#[tokio::test]
+async fn a_request_in_a_session_goes_to_rmcp_unread_after_an_unnamed_initialize_opened_it() {
+    let (_dir, mut service) = service();
+    let unnamed = json!({"protocolVersion": "2025-11-25", "capabilities": {}});
+    let opened = service.call(post(initialize(&unnamed))).await.unwrap();
+    let session = opened.headers().get("mcp-session-id").cloned().unwrap();
+    assert!(text(opened).await.contains("serverInfo"), "the unnamed client's initialize was answered");
+    let in_session = |body: &'static str| {
+        let mut request = post(Full::new(Bytes::from_static(body.as_bytes())));
+        request.headers_mut().insert("mcp-session-id", session.clone());
+        request
+    };
+    let initialized = service.call(in_session(r#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#));
+    assert!(initialized.await.unwrap().status().is_success());
+    let listed = service.call(in_session(r#"{"jsonrpc":"2.0","id":2,"method":"tools/list"}"#)).await.unwrap();
+    assert_eq!(listed.status(), StatusCode::OK);
+    assert!(text(listed).await.contains("\"tools\""), "the session serves its tools");
+    let mut broken = post(Broken);
+    broken.headers_mut().insert("mcp-session-id", session);
+    let answered = text(service.call(broken).await.unwrap()).await;
+    assert_ne!(answered, "Bad Request: the request body could not be read", "rmcp read the body, not the wrapper");
+}

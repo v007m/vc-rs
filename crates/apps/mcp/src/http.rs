@@ -20,6 +20,9 @@ use rmcp::transport::streamable_http_server::{StreamableHttpServerConfig, Stream
 use crate::VcServer;
 use crate::handshake::filled;
 
+/// The header rmcp names a session by; an `initialize` comes before there is one.
+const SESSION: &str = "mcp-session-id";
+
 type Rmcp = StreamableHttpService<VcServer, LocalSessionManager>;
 
 /// What the service answers with.
@@ -64,14 +67,15 @@ where
 }
 
 impl HttpService {
-    /// rmcp's answer to `request`, a `POST`'s body read first, up to rmcp's own limit, so an
-    /// unnamed client's `initialize` can be filled in.
+    /// rmcp's answer to `request`. Only a `POST` outside a session can be an `initialize`, so
+    /// only its body is read first, up to rmcp's own limit, for an unnamed client's to be
+    /// filled in; every other request goes to rmcp as it came.
     async fn serve<B>(&self, request: Request<B>) -> HttpResponse
     where
         B: Body<Data = Bytes> + Send + 'static,
         B::Error: Into<Box<dyn std::error::Error + Send + Sync>> + std::fmt::Display,
     {
-        if request.method() != Method::POST {
+        if request.method() != Method::POST || request.headers().contains_key(SESSION) {
             return self.rmcp.handle(request).await;
         }
         let (mut parts, body) = request.into_parts();
