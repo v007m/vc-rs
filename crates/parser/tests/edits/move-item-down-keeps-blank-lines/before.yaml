@@ -1,0 +1,8 @@
+stages:
+  - a  # first
+
+  - b
+
+  # third
+  - c
+after: 1

@@ -1,0 +1,12 @@
+flow:
+  stages:
+    # seeds the users
+    - id: seed
+      steps: [createsUser]
+
+    - id: load  # the main one
+      run: |
+        many
+    # warms the cache
+    - id: warm
+      steps: [getsUser]

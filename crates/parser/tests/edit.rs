@@ -193,6 +193,39 @@ fn apply_rejects_bad_ranges_and_results_that_do_not_parse() {
     assert!(matches!(Document::parse(FILE, Syntax::Yaml, "a: [\n"), Err(ParserError::Unparsable(_))));
 }
 
+/// Moves item `from` of the root's `list` to `to` and returns the new text.
+fn moved(text: &str, from: usize, to: usize) -> Result<String, ParserError> {
+    let before = doc(text)?;
+    let list = before.root().get("list").ok_or_else(|| ParserError::Unparsable("no list".into()))?;
+    let edit = before.move_item(list, from, to)?;
+    Ok(before.apply(&[edit])?.text().to_owned())
+}
+
+#[test]
+fn moving_an_item_shifts_the_ones_between_and_keeps_line_endings() {
+    let text = "list:\n  - a\n  - b\n  - c\n  - d\n";
+    assert_eq!(moved(text, 0, 2).unwrap(), "list:\n  - b\n  - c\n  - a\n  - d\n");
+    assert_eq!(moved(text, 3, 1).unwrap(), "list:\n  - a\n  - d\n  - b\n  - c\n");
+    assert_eq!(moved(text, 2, 3).unwrap(), "list:\n  - a\n  - b\n  - d\n  - c\n");
+    assert_eq!(moved(text, 1, 1).unwrap(), text);
+    assert_eq!(moved("list:\r\n  - a\r\n  - b", 0, 1).unwrap(), "list:\r\n  - b\r\n  - a");
+    let nested = "list:\n  - id: a\n    with:\n      - x\n  - id: b\n";
+    assert_eq!(moved(nested, 1, 0).unwrap(), "list:\n  - id: b\n  - id: a\n    with:\n      - x\n");
+}
+
+#[test]
+fn moving_an_item_refuses_flow_lists_missing_places_and_other_documents() {
+    let wrong = |result: Result<String, ParserError>| matches!(result, Err(ParserError::WrongNode { .. }));
+    assert!(wrong(moved("list: [a, b]\n", 0, 1)));
+    assert!(wrong(moved("list:\n  - a\n  - b\n", 0, 2)));
+    assert!(wrong(moved("list:\n  - a\n  - b\n", 5, 0)));
+    assert!(wrong(moved("list:\n  a: 1\n", 0, 0)));
+    let before = doc("list:\n  - a\n  - b\n").unwrap();
+    let other = doc("list:\n  - b\n  - a\n").unwrap();
+    let list = before.root().get("list").unwrap();
+    assert!(matches!(other.move_item(list, 0, 1), Err(ParserError::BadRange { .. })));
+}
+
 fn json_doc(text: &str) -> Result<Document, ParserError> {
     Document::parse(FILE, Syntax::Json, text)
 }

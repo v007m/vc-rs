@@ -9,6 +9,8 @@
 //!   (block YAML, 2-space indent, templates unquoted); a flow list of scalars stays flow.
 //! - `op: remove`, `at`: remove a map entry or list item with its lines, and the comment lines
 //!   directly above a list item.
+//! - `op: moveItem`, `at`, `from`, `to`: move a list item, with the comment lines above it, to
+//!   another place in its list; the lines between items keep their places.
 //! - `op: renameRef`, `fileId`, `from`, `to`: rename every `call`, `test` and `cleanup.call`
 //!   reference to the full ID `from` in the file `fileId`, keeping short references short.
 //!
@@ -60,6 +62,12 @@ fn field<'c>(case: &'c Case, key: &str) -> Result<&'c str, String> {
     case.op.root().get(key).and_then(Node::as_str).ok_or_else(|| format!("op.yaml has no `{key}`"))
 }
 
+/// The number at `key` in the case's `op.yaml`.
+fn index(case: &Case, key: &str) -> Result<usize, String> {
+    let text = case.op.root().get(key).and_then(Node::as_scalar).map(|scalar| scalar.text.as_str());
+    text.and_then(|text| text.parse().ok()).ok_or_else(|| format!("op.yaml has no number `{key}`"))
+}
+
 /// The node at the dotted path `at`.
 fn node<'d>(doc: &'d Document, at: &str) -> Result<&'d Node, String> {
     let step = |node: &'d Node, step: &str| {
@@ -94,6 +102,7 @@ fn edits(case: &Case, before: &Document) -> Result<Vec<TextEdit>, String> {
         "insert" => before.insert_entry(target, field(case, "key")?, field(case, "value")?),
         "insertItem" => before.insert_item(target, field(case, "value")?),
         "remove" => before.remove(target),
+        "moveItem" => before.move_item(target, index(case, "from")?, index(case, "to")?),
         other => return Err(format!("no op `{other}`")),
     };
     made.map(|edit| vec![edit]).map_err(|e| e.to_string())
@@ -123,7 +132,9 @@ fn failures(check: impl Fn(&Case) -> Result<(), String>) -> Vec<String> {
 #[test]
 fn there_is_a_case_for_every_operation() {
     let ops: Vec<String> = cases().iter().filter_map(|case| field(case, "op").ok().map(str::to_owned)).collect();
-    for op in ["set", "insert", "insertItem", "remove", "renameRef", "renameVar", "renameDataset", "renameAuth"] {
+    for op in
+        ["set", "insert", "insertItem", "remove", "moveItem", "renameRef", "renameVar", "renameDataset", "renameAuth"]
+    {
         assert!(ops.iter().any(|seen| seen == op), "no case for `{op}`");
     }
 }
