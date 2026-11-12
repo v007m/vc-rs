@@ -43,8 +43,10 @@ mix:
 ```console
 $ vc load sample.smoke
 ...
-sample.smoke — Sample smoke load · finished after 10 s · 198 iterations · 19.8 rps · 0 errors
-latency p50 3.4 ms · p90 5.6 ms · p95 7.1 ms · p99 8.9 ms · max 9.8 ms
+sample.smoke — Sample smoke load · finished after 10 s · 195 iterations · 19.5 rps · 0 errors
+latency p50 3.7 ms · p90 8.4 ms · p95 9.9 ms · p99 22.9 ms · max 50.9 ms
+test sample.basics#listsUsers · 144 iterations · 14.4 rps · 0 errors · p50 3.6 ms · p90 7.7 ms · p95 9.9 ms · p99 19.8 ms · max 50.9 ms
+test sample.basics#getsCreatedUser · 51 iterations · 5.1 rps · 0 errors · p50 4.2 ms · p90 8.6 ms · p95 9.2 ms · p99 22.9 ms · max 22.9 ms
 ```
 
 ### A threshold on one test

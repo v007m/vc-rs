@@ -16,11 +16,17 @@ mix:
     weight: 3
   - test: sample.basics#getsCreatedUser
     weight: 1
+    thresholds:
+      p95:
+        lt: 300ms
 stages:
   - duration: 5s
     users: 5
   - duration: 5s
     users: 0
+thinkTime:
+  min: 50ms
+  max: 200ms
 thresholds:
   p99:
     lt: 500ms
@@ -41,18 +47,20 @@ thresholds:
 
 ## Example
 
-Running the file above against the demo server:
+Running the file above against the demo server. After the whole run's latency, each test of the mix gets a line of its own:
 
 ```console
 $ vc load sample.smoke
     1s  0 users  0 rps  p50 0 ms  p95 0 ms  p99 0 ms  0 errors
-    2s  1 users  4 rps  p50 3 ms  p95 5 ms  p99 5 ms  0 errors
-    ...
-    6s  5 users  20 rps  p50 3 ms  p95 6 ms  p99 8 ms  0 errors
-    ...
-   10s  0 users  20 rps  p50 3 ms  p95 7 ms  p99 8 ms  0 errors
-sample.smoke — Sample smoke load · finished after 10 s · 198 iterations · 19.8 rps · 0 errors
-latency p50 3.4 ms · p90 5.6 ms · p95 7.1 ms · p99 8.9 ms · max 9.8 ms
+    2s  1 users  4 rps  p50 6 ms  p95 50 ms  p99 50 ms  0 errors
+...
+    6s  5 users  32 rps  p50 3 ms  p95 9 ms  p99 22 ms  0 errors
+...
+   10s  0 users  15 rps  p50 3 ms  p95 9 ms  p99 22 ms  0 errors
+sample.smoke — Sample smoke load · finished after 10 s · 195 iterations · 19.5 rps · 0 errors
+latency p50 3.7 ms · p90 8.4 ms · p95 9.9 ms · p99 22.9 ms · max 50.9 ms
+test sample.basics#listsUsers · 144 iterations · 14.4 rps · 0 errors · p50 3.6 ms · p90 7.7 ms · p95 9.9 ms · p99 19.8 ms · max 50.9 ms
+test sample.basics#getsCreatedUser · 51 iterations · 5.1 rps · 0 errors · p50 4.2 ms · p90 8.6 ms · p95 9.2 ms · p99 22.9 ms · max 22.9 ms
 ```
 
 ## Try it

@@ -46,18 +46,20 @@ Options:
 ```console
 $ vc load sample.smoke; echo "exit $?"
     1s  0 users  0 rps  p50 0 ms  p95 0 ms  p99 0 ms  0 errors
-    2s  1 users  4 rps  p50 3 ms  p95 5 ms  p99 5 ms  0 errors
-    3s  2 users  7 rps  p50 3 ms  p95 7 ms  p99 8 ms  0 errors
-    4s  3 users  12 rps  p50 3 ms  p95 5 ms  p99 8 ms  0 errors
-    5s  4 users  16 rps  p50 3 ms  p95 6 ms  p99 8 ms  0 errors
-    6s  5 users  20 rps  p50 3 ms  p95 6 ms  p99 8 ms  0 errors
-    7s  4 users  21 rps  p50 3 ms  p95 6 ms  p99 8 ms  0 errors
-    8s  3 users  22 rps  p50 3 ms  p95 6 ms  p99 8 ms  0 errors
-    9s  2 users  21 rps  p50 3 ms  p95 6 ms  p99 8 ms  0 errors
-   10s  1 users  20 rps  p50 3 ms  p95 7 ms  p99 8 ms  0 errors
-   10s  0 users  20 rps  p50 3 ms  p95 7 ms  p99 8 ms  0 errors
-sample.smoke — Sample smoke load · finished after 10 s · 198 iterations · 19.8 rps · 0 errors
-latency p50 3.4 ms · p90 5.6 ms · p95 7.1 ms · p99 8.9 ms · max 9.8 ms
+    2s  1 users  4 rps  p50 6 ms  p95 50 ms  p99 50 ms  0 errors
+    3s  2 users  8 rps  p50 4 ms  p95 9 ms  p99 50 ms  0 errors
+    4s  3 users  15 rps  p50 4 ms  p95 8 ms  p99 50 ms  0 errors
+    5s  4 users  24 rps  p50 3 ms  p95 8 ms  p99 50 ms  0 errors
+    6s  5 users  32 rps  p50 3 ms  p95 9 ms  p99 22 ms  0 errors
+    7s  4 users  35 rps  p50 3 ms  p95 11 ms  p99 22 ms  0 errors
+    8s  3 users  31 rps  p50 3 ms  p95 11 ms  p99 22 ms  0 errors
+    9s  2 users  23 rps  p50 3 ms  p95 9 ms  p99 22 ms  0 errors
+   10s  1 users  15 rps  p50 3 ms  p95 9 ms  p99 22 ms  0 errors
+   10s  0 users  15 rps  p50 3 ms  p95 9 ms  p99 22 ms  0 errors
+sample.smoke — Sample smoke load · finished after 10 s · 195 iterations · 19.5 rps · 0 errors
+latency p50 3.7 ms · p90 8.4 ms · p95 9.9 ms · p99 22.9 ms · max 50.9 ms
+test sample.basics#listsUsers · 144 iterations · 14.4 rps · 0 errors · p50 3.6 ms · p90 7.7 ms · p95 9.9 ms · p99 19.8 ms · max 50.9 ms
+test sample.basics#getsCreatedUser · 51 iterations · 5.1 rps · 0 errors · p50 4.2 ms · p90 8.6 ms · p95 9.2 ms · p99 22.9 ms · max 22.9 ms
 exit 0
 ```
 
@@ -68,10 +70,12 @@ Each live line is: seconds since the start, users, `rps` over the last 3 seconds
 ```console
 $ vc load sample.strict; echo "exit $?"
 ...
-sample.strict — Too strict on purpose · finished after 5 s · 2315 iterations · 463.0 rps · 0 errors
-latency p50 2.7 ms · p90 6.0 ms · p95 8.2 ms · p99 15.6 ms · max 35.7 ms
-breached p99 at 15.615 ms (lt 1 ms)
-breached sample.basics#getsCreatedUser: p95 at 11.215 ms (lt 2 ms)
+sample.strict — Too strict on purpose · finished after 5 s · 4925 iterations · 985.0 rps · 0 errors
+latency p50 1.5 ms · p90 2.2 ms · p95 2.7 ms · p99 4.0 ms · max 14.0 ms
+breached p99 at 4.043 ms (lt 1 ms)
+breached sample.basics#getsCreatedUser: p95 at 3.369 ms (lt 2 ms)
+test sample.basics#listsUsers · 3701 iterations · 740.2 rps · 0 errors · p50 1.5 ms · p90 2.0 ms · p95 2.3 ms · p99 3.6 ms · max 11.6 ms
+test sample.basics#getsCreatedUser · 1224 iterations · 244.8 rps · 0 errors · p50 1.7 ms · p90 2.8 ms · p95 3.4 ms · p99 4.6 ms · max 14.0 ms
 exit 3
 ```
 
@@ -101,23 +105,37 @@ $ vc load sample.full --json
       "code": "V5101",
       "count": 10,
       "status": 200,
-      "test": null
+      "test": "sample.wrong#expectsWrongStatus"
     }
   ],
   "errors": 10,
   "exit": 3,
   "iterations": 10,
-  "maxMs": 3.905,
+  "maxMs": 5.675,
+  "name": null,
   "notices": [],
-  "p50Ms": 3.033,
-  "p90Ms": 3.905,
-  "p95Ms": 3.905,
-  "p99Ms": 3.905,
+  "p50Ms": 3.911,
+  "p90Ms": 4.655,
+  "p95Ms": 5.675,
+  "p99Ms": 5.675,
   "rps": 5.0,
-  "runId": 63,
+  "runId": 14,
   "scenario": "sample.full",
   "seconds": 2,
-  "seed": 6746944185716544764
+  "seed": 3838483068346315,
+  "tests": [
+    {
+      "errors": 10,
+      "iterations": 10,
+      "maxMs": 5.675,
+      "p50Ms": 3.911,
+      "p90Ms": 4.655,
+      "p95Ms": 5.675,
+      "p99Ms": 5.675,
+      "rps": 5.0,
+      "test": "sample.wrong#expectsWrongStatus"
+    }
+  ]
 }
 ```
 

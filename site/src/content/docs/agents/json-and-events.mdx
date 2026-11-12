@@ -160,27 +160,32 @@ The run, as above, plus one entry per test (two of the six shown):
 ```json
 {
   "blocked": null,
-  "breaches": [{ "actual": 2.677, "limit": { "lt": 1.0 }, "metric": "p95", "test": null, "unit": "ms" }],
+  "breaches": [{ "actual": 1.879, "limit": { "lt": 1.0 }, "metric": "p95", "test": null, "unit": "ms" }],
   "ending": "finished",
   "errorKinds": [],
   "errors": 0,
   "exit": 3,
-  "iterations": 6799,
-  "maxMs": 5.115,
+  "iterations": 8673,
+  "maxMs": 23.871,
+  "name": "People browse mix",
   "notices": [],
-  "p50Ms": 1.814,
-  "p90Ms": 2.455,
-  "p95Ms": 2.677,
-  "p99Ms": 3.241,
-  "rps": 1359.8,
-  "runId": 16,
+  "p50Ms": 1.445,
+  "p90Ms": 1.641,
+  "p95Ms": 1.879,
+  "p99Ms": 3.713,
+  "rps": 1734.6,
+  "runId": 7,
   "scenario": "people.browse",
   "seconds": 5,
-  "seed": 3580823125853588706
+  "seed": 8229372646103840,
+  "tests": [
+    { "errors": 0, "iterations": 6479, "maxMs": 20.047, "p50Ms": 1.419, "p90Ms": 1.584, "p95Ms": 1.813, "p99Ms": 3.313, "rps": 1295.8, "test": "people.openapi#listsPeople" },
+    { "errors": 0, "iterations": 2194, "maxMs": 23.871, "p50Ms": 1.53, "p90Ms": 1.716, "p95Ms": 2.097, "p99Ms": 5.091, "rps": 438.8, "test": "people.openapi#getsPerson" }
+  ]
 }
 ```
 
-`exit` is the command's exit code: 0 when every threshold held, 3 when one was breached. Each breach gives the metric, the measured value and, for a per-test threshold, the test. The limit itself is not repeated: read it from the scenario file. The live per-second lines are left out with `--json`.
+`exit` is the command's exit code: 0 when every threshold held, 3 when one was breached. Each breach gives the metric, the measured value and, for a per-test threshold, the test. `limit` holds the matcher's arguments, in the metric's `unit`. `tests` has each mix test's own numbers, and `errorKinds` each kind of failure as `{api, test, status, code, count}`. The live per-second lines are left out with `--json`.
 
 ## `vc run --reporter json`
 

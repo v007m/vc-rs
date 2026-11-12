@@ -54,10 +54,11 @@ thinkTime: 200ms
 ```console
 $ vc load sample.lifecycle
     1s  0 users  0 rps  p50 0 ms  p95 0 ms  p99 0 ms  0 errors
-    2s  1 users  3 rps  p50 11 ms  p95 21 ms  p99 21 ms  0 errors
-    2s  0 users  3 rps  p50 11 ms  p95 21 ms  p99 21 ms  0 errors
+    2s  1 users  3 rps  p50 3 ms  p95 4 ms  p99 4 ms  0 errors
+    2s  0 users  3 rps  p50 3 ms  p95 4 ms  p99 4 ms  0 errors
 sample.lifecycle finished after 2 s · 5 iterations · 2.5 rps · 0 errors
-latency p50 12.0 ms · p90 17.5 ms · p95 21.1 ms · p99 21.1 ms · max 21.1 ms
+latency p50 3.6 ms · p90 4.1 ms · p95 4.1 ms · p99 4.1 ms · max 4.1 ms
+test sample.life#readsOwner · 5 iterations · 2.5 rps · 0 errors · p50 3.6 ms · p90 4.1 ms · p95 4.1 ms · p99 4.1 ms · max 4.1 ms
 ```
 
 The demo hands out user IDs in order. A user created just before this run got ID `1479` and one created just after got `1481`: the five iterations made only one user, so `beforeAll` ran once. The five `beforeEach` calls to `sample#listUsers` don't appear in `iterations` or `rps`.
