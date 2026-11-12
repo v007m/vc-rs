@@ -212,14 +212,22 @@ fn trim(kept: &mut Vec<u8>, cap: usize) -> bool {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(unix)]
     use std::ffi::OsString;
+    #[cfg(unix)]
     use std::path::Path;
     use std::time::Duration;
 
-    use vc_interfaces::{CommandError, CommandOutput, CommandRunner, CommandSpec};
+    #[cfg(unix)]
+    use rustix::process::{Pid, test_kill_process_group};
+    #[cfg(unix)]
+    use vc_interfaces::CommandOutput;
+    use vc_interfaces::{CommandError, CommandRunner, CommandSpec};
     use vc_testkit::command_runner_suite;
 
-    use super::{ProcessRunner, path_ending_in, trim};
+    #[cfg(unix)]
+    use super::path_ending_in;
+    use super::{ProcessRunner, trim};
 
     #[tokio::test]
     async fn the_process_runner_meets_the_command_runner_contract() {
@@ -348,17 +356,35 @@ mod tests {
         ProcessRunner::new().run(&shell(&format!("kill {}", child.trim()), dir.path())).await.unwrap();
     }
 
+    /// Yields until `done`, which the OS makes true; fails with `what` after 30 s, so a broken
+    /// test ends.
     #[cfg(unix)]
-    #[tokio::test]
+    async fn until(what: &str, done: impl Fn() -> bool) {
+        let deadline = std::time::Instant::now() + Duration::from_secs(30);
+        while !done() {
+            assert!(std::time::Instant::now() < deadline, "{what}");
+            tokio::task::yield_now().await;
+        }
+    }
+
+    /// The clock is paused and reaches the timeout only once the shell has written its group's
+    /// id, after starting the background sleep; then the group must go, once the OS has reaped
+    /// the processes the kill left as zombies.
+    #[cfg(unix)]
+    #[tokio::test(start_paused = true)]
     async fn a_timeout_kills_the_whole_process_group() {
         let dir = tempfile::tempdir().unwrap();
-        let line = "sleep 30 & echo $! > child; wait";
-        let slow = shell(line, dir.path()).with_timeout(Duration::from_millis(300));
-        assert!(matches!(ProcessRunner::new().run(&slow).await, Err(CommandError::TimedOut { .. })));
-        let child = std::fs::read_to_string(dir.path().join("child")).unwrap();
-        tokio::time::sleep(Duration::from_millis(200)).await;
-        let probe = shell(&format!("kill -0 {}", child.trim()), dir.path());
-        let alive = ProcessRunner::new().run(&probe).await.unwrap();
-        assert_ne!(alive.status, Some(0), "the background sleep outlived the timeout");
+        let group = dir.path().join("group");
+        let line = "sleep 30 & echo $$ > group.part; mv group.part group; wait";
+        let slow = shell(line, dir.path()).with_timeout(Duration::from_secs(60));
+        let started = async {
+            until("the shell never started the sleep", || group.exists()).await;
+            tokio::time::advance(Duration::from_secs(60)).await;
+        };
+        let runner = ProcessRunner::new();
+        let (run, ()) = tokio::join!(runner.run(&slow), started);
+        assert!(matches!(run, Err(CommandError::TimedOut { .. })), "{run:?}");
+        let leader = std::fs::read_to_string(&group).unwrap().trim().parse().ok().and_then(Pid::from_raw).unwrap();
+        until("the background sleep outlived the timeout", || test_kill_process_group(leader).is_err()).await;
     }
 }
