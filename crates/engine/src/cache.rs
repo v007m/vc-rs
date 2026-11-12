@@ -169,7 +169,8 @@ impl Engine {
             return Ok(Arc::clone(store));
         }
         let secret = self.cache_secret(environment)?;
-        let store = SqliteCache::open(&self.root().join(CACHE), &secret).map_err(|error| store_error(&error))?;
+        let store = SqliteCache::open(&crate::paths::under(self.root(), CACHE), &secret)
+            .map_err(|error| store_error(&error))?;
         Ok(Arc::new(store))
     }
 

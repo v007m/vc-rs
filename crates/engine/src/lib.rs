@@ -83,6 +83,7 @@ mod load_live;
 mod load_report;
 mod migrate;
 mod notify;
+mod paths;
 mod plan;
 mod plugin_hosts;
 mod plugin_intact;

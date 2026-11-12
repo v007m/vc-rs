@@ -9,12 +9,7 @@ use std::process::{Child, Stdio};
 use std::time::{Duration, Instant};
 
 use crate::Project;
-
-/// A port nothing listens on now, picked by the OS, so a test never meets another test's demo
-/// (tests run side by side, also in other checkouts) or the sample's on 7421.
-fn free_port() -> u16 {
-    TcpListener::bind(("127.0.0.1", 0)).unwrap().local_addr().unwrap().port()
-}
+use crate::port::free_port;
 
 /// The status line of `GET <path>` on the demo on `port`, or `None` when nothing answers.
 fn get(port: u16, path: &str) -> Option<String> {

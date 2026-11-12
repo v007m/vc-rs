@@ -312,6 +312,7 @@ fn a_recording_of_two_origins_imports_and_no_secret_in_it_is_said_or_written() {
 }
 
 /// A spec with one operation, kept in the project.
+#[cfg(unix)]
 const SPEC: (&str, &str) = (
     "specs/users.yaml",
     "openapi: 3.1.0\ninfo: {title: Users, version: '1'}\npaths:\n  /users:\n    get:\n      operationId: listUsers\n\
@@ -349,6 +350,7 @@ fn a_snapshot_path_that_differs_only_in_case_from_a_file_is_refused() {
 }
 
 /// The spec of [`SPEC`] with a server, so it imports into a file that compiles.
+#[cfg(unix)]
 const SERVED: (&str, &str) = (
     "specs/users.yaml",
     "openapi: 3.1.0\ninfo: {title: Users, version: '1'}\nservers: [{url: 'http://127.0.0.1:9'}]\npaths:\n  /users:\n\
@@ -356,6 +358,7 @@ const SERVED: (&str, &str) = (
 );
 
 /// A project with [`SERVED`] imported as `users`, its snapshot moved to `specs/old-snapshot.yaml`.
+#[cfg(unix)]
 fn imported_without_its_snapshot() -> Project {
     let project = Project::new(&[CONFIG, SERVED]);
     let output = project.vc(&["import", "openapi", SERVED.0, "--id", "users"]).output().unwrap();

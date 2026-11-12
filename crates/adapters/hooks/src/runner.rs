@@ -14,6 +14,11 @@ use crate::worker::{Answer, Outcome, Worker};
 /// How long past its time budget a call may go unanswered before its thread is abandoned.
 const GRACE: Duration = Duration::from_secs(1);
 
+/// How long the hook thread may take to take a call up: start `QuickJS` and get scheduled. A
+/// fresh runtime starts in milliseconds, so this is for a thread that will never start the call;
+/// it is generous so a loaded machine is not mistaken for one.
+const START: Duration = Duration::from_secs(10);
+
 /// How many calls may wait for the hook thread.
 const QUEUE: usize = 256;
 
@@ -28,6 +33,8 @@ struct Job {
 struct Settings {
     /// How long past its budget a call may run before the watchdog restarts the hook thread.
     grace: Duration,
+    /// How long the hook thread may take to take a call up before it is restarted.
+    start: Duration,
     /// Whether the interrupt handler enforces the time budget; off only to test the watchdog.
     interrupts: bool,
 }
@@ -49,7 +56,7 @@ impl QuickJsHooks {
     /// A runner with its supervisor and hook threads started.
     #[must_use]
     pub fn new() -> Self {
-        Self::with(Settings { grace: GRACE, interrupts: true })
+        Self::with(Settings { grace: GRACE, start: START, interrupts: true })
     }
 
     fn with(settings: Settings) -> Self {
@@ -79,11 +86,11 @@ impl HookRunner for QuickJsHooks {
 /// The supervisor thread: hands each job to the hook thread and starts a new one when it is
 /// stuck or gone.
 fn supervise(mut inbox: mpsc::Receiver<Job>, settings: Settings) {
-    let mut worker = Worker::spawn(settings.interrupts);
+    let mut worker = Worker::spawn(settings.interrupts, settings.start);
     while let Some(job) = inbox.blocking_recv() {
         let (answer, lost) = attempt(&worker, job.call, settings.grace);
         if lost {
-            worker = Worker::spawn(settings.interrupts);
+            worker = Worker::spawn(settings.interrupts, settings.start);
         }
         // The caller may have gone; then nobody needs the answer.
         let _ = job.reply.send(answer);
@@ -136,7 +143,8 @@ mod tests {
             HookCall::new(modules.clone(), hook, Value::Null)
                 .with_budget(Budget::new(Duration::from_millis(50), 64 << 20))
         };
-        let runner = QuickJsHooks::with(Settings { grace: Duration::from_millis(100), interrupts: false });
+        let settings = Settings { grace: Duration::from_millis(100), start: super::START, interrupts: false };
+        let runner = QuickJsHooks::with(settings);
         let started = Instant::now();
         let stalled = runner.call(call("stall")).await;
         assert_eq!(stalled, Err(HookError::Overran { limit: Limit::Time, line: None }));

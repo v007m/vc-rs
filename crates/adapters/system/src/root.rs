@@ -3,12 +3,22 @@ use std::path::{Path, PathBuf};
 /// The file that marks a project's root folder.
 pub const CONFIG_FILE: &str = "vibranium.config.yaml";
 
-/// The nearest folder at or above `start` that holds [`CONFIG_FILE`], with links resolved;
-/// `None` when there is none or `start` does not exist.
+/// The nearest folder at or above `start` that holds [`CONFIG_FILE`], with links resolved.
+///
+/// `None` when there is none or `start` does not exist. Every path a run prints starts with it,
+/// so it is written as the user writes it: `C:\x` on Windows, not `\\?\C:\x`.
 #[must_use]
 pub fn find_project_root(start: &Path) -> Option<PathBuf> {
-    let start = std::fs::canonicalize(start).ok()?;
+    let start = plain(std::fs::canonicalize(start).ok()?);
     start.ancestors().find(|dir| dir.join(CONFIG_FILE).is_file()).map(Path::to_path_buf)
+}
+
+/// A resolved drive path without the `\\?\` Windows writes before it (`\\?\C:\x` is `C:\x`);
+/// any other path as it is. Pure, so every OS tests it.
+fn plain(path: PathBuf) -> PathBuf {
+    let drive = path.to_str().and_then(|text| text.strip_prefix(r"\\?\"));
+    let drive = drive.filter(|rest| rest.as_bytes().get(1) == Some(&b':')).map(PathBuf::from);
+    drive.unwrap_or(path)
 }
 
 /// `path` relative to `root`, links resolved in both, with `/` between its parts; `None` when it
@@ -25,8 +35,9 @@ pub fn project_path(root: &Path, path: &Path) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use std::fs;
+    use std::path::PathBuf;
 
-    use super::{CONFIG_FILE, find_project_root, project_path};
+    use super::{CONFIG_FILE, find_project_root, plain, project_path};
 
     #[test]
     fn finds_the_nearest_folder_with_a_config() {
@@ -35,8 +46,17 @@ mod tests {
         fs::create_dir_all(root.join("services/users")).unwrap();
         fs::write(root.join(CONFIG_FILE), "syntaxVersion: 2\n").unwrap();
         let found = find_project_root(&root.join("services/users")).unwrap();
-        assert_eq!(found, fs::canonicalize(&root).unwrap());
+        assert_eq!(found, plain(fs::canonicalize(&root).unwrap()));
         assert_eq!(find_project_root(&root).unwrap(), found);
+        assert!(!found.to_string_lossy().starts_with(r"\\?\"), "{}", found.display());
+    }
+
+    #[test]
+    fn only_a_drive_path_loses_its_verbatim_prefix() {
+        assert_eq!(plain(PathBuf::from(r"\\?\C:\x")), PathBuf::from(r"C:\x"));
+        for kept in [r"\\?\UNC\host\share", r"\\?\Volume{1}\x", "/tmp/x", r"C:\x", ""] {
+            assert_eq!(plain(PathBuf::from(kept)), PathBuf::from(kept), "{kept}");
+        }
     }
 
     #[test]

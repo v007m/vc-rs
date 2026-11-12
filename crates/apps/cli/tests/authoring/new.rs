@@ -1,10 +1,13 @@
 //! `vc new api|test|auth|file` append to the file the ID derives from (D139), keep every byte
 //! they do not add, and refuse an ID that breaks the conventions with a suggested one (D87).
 
+#[cfg(unix)]
 use std::io::Write as _;
+#[cfg(unix)]
 use std::process::Stdio;
 use std::time::Duration;
 
+#[cfg(unix)]
 use assert_cmd::cargo::cargo_bin;
 use vc_mock_server::MockServer;
 

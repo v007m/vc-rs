@@ -217,6 +217,7 @@ mod tests {
         connection.query_row("SELECT label FROM test_results", [], |row| row.get(0)).unwrap()
     }
 
+    #[cfg(unix)]
     fn allowed_failures(connection: &rusqlite::Connection) -> Option<i64> {
         connection.query_row("SELECT allowed_failures FROM runs", [], |row| row.get(0)).unwrap()
     }

@@ -97,3 +97,33 @@ fn the_spec_names_map_to_the_policys_outcomes_and_methods() {
     assert_eq!(policy.methods, vec![http::Method::GET, http::Method::PATCH]);
     assert_eq!((policy.base, policy.max), (Duration::from_millis(10), Duration::from_millis(80)));
 }
+
+/// How long a `GET` call takes on the paused clock when its transport answers 503 twice and then
+/// 200, under the config's `http.retry` with `base` and `max` in milliseconds and no jitter; and
+/// how many attempts it sent.
+async fn backing_off(base: u64, max: u64) -> (Duration, usize) {
+    let mut fixture = Fixture::new();
+    let call = fixture.call("/users");
+    let millis = |ms| vc_model::Duration::new(Duration::from_millis(ms));
+    let on_status = vec![StatusPattern::Code(503)];
+    let spec = HttpRetry { attempts: 2, on_status, base: millis(base), max: millis(max), ..retrying(2) };
+    fixture.program.config.http_retry = spec;
+    let answers = [503, 503, 200].map(|code| Ok(vc_testkit::status(code)));
+    let fake = FakeTransport::scripted(answers.into());
+    let executors = ActionExecutors::standard(PipelineParts::new(Arc::new(fake.clone()), HostLimits::spawn(8)));
+    let cx = fixture.cx(executors);
+    let request = ActionRequest { action: call, owner: OwnerKey::Run, cx: Arc::clone(&cx), frame: Frame::default() };
+    let started = tokio::time::Instant::now();
+    let report = cx.executors.execute(request).await;
+    assert!(report.outcome.failure().is_none(), "{:?}", report.outcome);
+    (started.elapsed(), fake.calls())
+}
+
+/// The exact waits, which `vc run` on a loaded machine can only bound from below (the e2e
+/// `http_retry_backs_off_exponentially_up_to_its_max`).
+#[tokio::test(start_paused = true)]
+async fn the_configs_backoff_doubles_each_wait_up_to_its_max() {
+    assert_eq!(backing_off(400, 5_000).await, (Duration::from_millis(1_200), 3), "400 ms, then 800 ms");
+    assert_eq!(backing_off(400, 100).await, (Duration::from_millis(200), 3), "max caps both waits at 100 ms");
+    assert_eq!(backing_off(100, 150).await, (Duration::from_millis(250), 3), "100 ms, then 200 ms cut to 150 ms");
+}

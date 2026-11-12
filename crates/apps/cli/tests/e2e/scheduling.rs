@@ -199,7 +199,10 @@ fn answer(mut connection: TcpStream, stamps: &mpsc::Sender<Stamp>, served: &Atom
 /// The transport resends one request with an exponential `backoff`: 400 ms then 800 ms uncapped,
 /// 100 ms twice with `max: 100ms`. It is one attempt of the test, not a test retry. Each wait is
 /// timed at the server, from just before it answers to when the next request arrives, so neither a
-/// loaded machine nor a reporter that reads its events late can make a wait look shorter.
+/// loaded machine nor a reporter that reads its events late can make a wait look shorter. A loaded
+/// machine can make one look longer, so only the least waits are checked here: the exact waits,
+/// and that `max` caps them, are checked on a paused clock in the executor's
+/// `the_configs_backoff_doubles_each_wait_up_to_its_max`.
 #[test]
 fn http_retry_backs_off_exponentially_up_to_its_max() {
     let waits = |max: &str| {
@@ -215,6 +218,5 @@ fn http_retry_backs_off_exponentially_up_to_its_max() {
     };
     let (uncapped, capped) = (waits("5s"), waits("100ms"));
     assert!(uncapped[0] >= 400 && uncapped[1] >= 800, "base, then twice base: {uncapped:?}");
-    assert!(uncapped[0] < 800, "the first wait is not doubled: {uncapped:?}");
-    assert!(capped.iter().all(|wait| (100..400).contains(wait)), "max caps both waits at 100 ms: {capped:?}");
+    assert!(capped.iter().all(|wait| *wait >= 100), "max caps both waits at 100 ms, not 0: {capped:?}");
 }

@@ -33,10 +33,17 @@ impl Watch {
 
     /// Waits up to 30 s for a summary line (`N passed …`) and returns it.
     fn next_summary(&self) -> Option<String> {
+        self.summary_where(|_| true)
+    }
+
+    /// Waits up to 30 s for a summary line (`N passed …`) that `wanted` accepts, passing over the
+    /// others: the OS may report the files the test wrote just before the watch began (macOS's
+    /// file events do), and the run that starts is not the one the test waits for.
+    fn summary_where(&self, wanted: impl Fn(&str) -> bool) -> Option<String> {
         let deadline = Instant::now() + Duration::from_secs(30);
         while let Some(left) = deadline.checked_duration_since(Instant::now()) {
             let line = self.lines.recv_timeout(left).ok()?;
-            if line.contains(" passed") {
+            if line.contains(" passed") && wanted(&line) {
                 return Some(line);
             }
         }
@@ -83,8 +90,8 @@ async fn runs_once_then_again_when_a_test_file_is_saved() {
     assert_eq!(shape(&first), shape(&run_summary(&project)), "watch prints the summary `vc run` prints");
     let more = format!("{}  - id: listsAgain\n    call: users#list\n", CRUD.1);
     project.write(CRUD.0, &more);
-    let second = watch.next_summary().unwrap_or_else(|| panic!("no run after the save"));
-    assert!(second.starts_with("3 passed"), "{second}");
+    let second = watch.summary_where(|line| line.starts_with("3 passed"));
+    assert!(second.is_some(), "no run of the saved test file");
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -94,8 +101,11 @@ async fn saving_an_api_file_re_runs_the_tests_that_call_it() {
     project.serve_from(&server.base_url());
     let watch = Watch::start(&project, &["watch", "users.crud"]);
     assert!(watch.next_summary().is_some(), "no first run");
-    project.write(USERS.0, &format!("{}# saved again\n", USERS.1));
-    assert!(watch.next_summary().is_some(), "no run after the api file was saved");
+    let listed = "  - id: list\n    path: /users\n";
+    assert!(USERS.1.contains(listed));
+    project.write(USERS.0, &USERS.1.replacen(listed, &format!("{listed}    expect: {{status: 418}}\n"), 1));
+    let second = watch.summary_where(|line| line.contains("1 failed"));
+    assert!(second.is_some(), "no run after the api file was saved to expect a status `list` never answers");
 }
 
 #[test]
