@@ -89,6 +89,7 @@ impl core::marker::Copy for vc_engine::CompleteKind
 impl core::marker::StructuralPartialEq for vc_engine::CompleteKind
 #[non_exhaustive] pub enum vc_engine::EditOp
 pub vc_engine::EditOp::Insert
+pub vc_engine::EditOp::Move
 pub vc_engine::EditOp::Remove
 pub vc_engine::EditOp::Set
 impl core::clone::Clone for vc_engine::EditOp

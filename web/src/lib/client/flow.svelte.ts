@@ -32,4 +32,12 @@ export class FlowEditor extends DefinitionDraft {
   removeStage(at: number): void {
     this.stages.splice(at, 1);
   }
+
+  /** Moves the stage at `at` one place up (`-1`) or down (`1`); none past either end. */
+  moveStage(at: number, by: -1 | 1): void {
+    const to = at + by;
+    if (to < 0 || to >= this.stages.length) return;
+    const [stage] = this.stages.splice(at, 1);
+    if (stage) this.stages.splice(to, 0, stage);
+  }
 }

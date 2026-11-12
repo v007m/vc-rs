@@ -2,11 +2,14 @@ use std::sync::Arc;
 
 use serde_json::json;
 use tokio::sync::mpsc;
-use vc_executor::RunInputs;
+use vc_executor::{CacheEvent, RunInputs};
 use vc_interfaces::{
-    CacheEntry, CacheKey, CacheListing, CacheStore as _, CachedCleanup, CachedValues, Keychain, KeychainError, Secret,
+    CacheEntry, CacheKey, CacheListing, CacheStore, CachedCleanup, CachedValues, Keychain, KeychainError, Secret,
+    SourceProvider,
 };
-use vc_testkit::{FakeVcs, MemoryCacheStore, MemoryEnvironment, MemoryKeychain};
+use vc_testkit::{
+    CacheFault, FakeVcs, FaultyCacheStore, MemoryCacheStore, MemoryEnvironment, MemoryKeychain, MemorySources,
+};
 
 use super::{ACCOUNT, Buried, SERVICE, Sweep};
 use crate::plugin_hosts::Hosts;
@@ -36,8 +39,28 @@ fn keyed(keychain: Arc<dyn Keychain>) -> Engine {
 }
 
 fn stored(store: &Arc<MemoryCacheStore>) -> Engine {
-    let store: Arc<dyn vc_interfaces::CacheStore> = Arc::clone(store) as _;
+    let store: Arc<dyn CacheStore> = Arc::clone(store) as _;
     sample::builder(FakeVcs::default()).keychain(Arc::new(LockedKeychain)).cache(store).build().unwrap()
+}
+
+/// A project whose `beforeRun` is cached, so a run opens `store`.
+fn caching(store: Arc<dyn CacheStore>) -> Engine {
+    let config = "syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\nvars: {baseUrl: 'http://x'}\n\
+                  beforeRun:\n  - id: admin\n    call: users#list\n    cache: {for: 1h}\n";
+    let api = "baseUrl: ${var.baseUrl}\napis:\n  - id: list\n    path: /users\n";
+    let files = [("vibranium.config.yaml", config.as_bytes()), ("services/users/users.api.yaml", api.as_bytes())];
+    let sources: Arc<dyn SourceProvider> = Arc::new(MemorySources::new(&files));
+    sample::builder(FakeVcs::default())
+        .sources(sources)
+        .keychain(Arc::new(LockedKeychain))
+        .cache(store)
+        .build()
+        .unwrap()
+}
+
+/// `store` with one entry, and `unopened` rows that do not open.
+fn unopened(store: &Arc<MemoryCacheStore>, unopened: usize) -> Arc<dyn CacheStore> {
+    Arc::new(FaultyCacheStore::new(Arc::clone(store) as _, vec![CacheFault::Unopened(unopened)]))
 }
 
 fn entry(byte: u8, label: &str, profiles: &str, expires_ms: u64) -> CacheEntry {
@@ -124,22 +147,29 @@ fn tombstone(store: &Arc<MemoryCacheStore>) -> CacheEntry {
     buried
 }
 
-/// The sweep of a run of `engine` on `store` that replaced the entry `buried` is the tombstone of.
-fn sweep(engine: &Engine, store: &Arc<MemoryCacheStore>, buried: CacheEntry) -> Sweep {
+/// The run's context under `engine`, with nothing planned, and what it was prepared from.
+fn adhoc(engine: &Engine) -> (vc_executor::ActionCx, crate::plan::Prepared) {
     let prepared = super::unplanned(engine.layered(&[], &[]).unwrap());
     let inputs = RunInputs::new(ports::random(None).1, Arc::clone(&prepared.environment));
-    let cx = Arc::new(engine.action_cx(&prepared, (inputs, &Hosts::default())).unwrap());
-    let (replaced, tombstones) = mpsc::unbounded_channel();
-    replaced.send(buried).unwrap();
-    let store: Arc<dyn vc_interfaces::CacheStore> = Arc::clone(store) as _;
-    Sweep { cx, notices: vec!["started".to_owned()], buried: Some(Buried { store, tombstones }) }
+    (engine.action_cx(&prepared, (inputs, &Hosts::default())).unwrap(), prepared)
+}
+
+/// The sweep of a run of `engine` on `store` whose cache sent `events`.
+fn sweep(engine: &Engine, store: &Arc<MemoryCacheStore>, events: Vec<CacheEvent>) -> Sweep {
+    let (sender, received) = mpsc::unbounded_channel();
+    for event in events {
+        sender.send(event).unwrap();
+    }
+    let store: Arc<dyn CacheStore> = Arc::clone(store) as _;
+    let cx = Arc::new(adhoc(engine).0);
+    Sweep { cx, notices: vec!["started".to_owned()], buried: Some(Buried { store, events: received }) }
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn the_end_of_a_run_cleans_up_each_tombstone_then_removes_it() {
     let store = Arc::new(MemoryCacheStore::new());
     let engine = stored(&store);
-    let swept = sweep(&engine, &store, tombstone(&store));
+    let swept = sweep(&engine, &store, vec![CacheEvent::Replaced(tombstone(&store))]);
     let (_interrupter, mut interrupts) = interrupts();
     let notices = swept.finish(&mut interrupts).await;
     assert_eq!(notices.len(), 2, "{notices:?}");
@@ -153,11 +183,50 @@ async fn a_third_interrupt_leaves_the_tombstones_for_the_next_run() {
     let store = Arc::new(MemoryCacheStore::new());
     let engine = stored(&store);
     let buried = tombstone(&store);
-    let swept = sweep(&engine, &store, buried.clone());
+    let swept = sweep(&engine, &store, vec![CacheEvent::Replaced(buried.clone())]);
     let (interrupter, mut interrupts) = interrupts();
     (0..3).for_each(|_| interrupter.interrupt());
     let notices = swept.finish(&mut interrupts).await;
     assert_eq!(notices.len(), 2, "{notices:?}");
     assert!(notices[1].contains("interrupted") && notices[1].contains("next run"), "{notices:?}");
     assert_eq!(store.list().unwrap(), vec![buried.listing], "the tombstone stays, for the next run to clean");
+}
+
+/// A notice the run's cache sent: a result it could not store.
+const UNSTORED: &str = "cache: the cache failed: disk I/O error; `users#create` was not cached";
+
+#[tokio::test(flavor = "multi_thread")]
+async fn the_cache_notices_of_the_run_follow_the_start_ones_with_or_without_a_sweep() {
+    let store = Arc::new(MemoryCacheStore::new());
+    let engine = stored(&store);
+    let (_interrupter, mut calm) = interrupts();
+    let alone = sweep(&engine, &store, vec![CacheEvent::Notice(UNSTORED.to_owned())]).finish(&mut calm).await;
+    assert_eq!(alone, ["started", UNSTORED], "a notice needs no tombstone");
+    let (interrupter, mut interrupts) = interrupts();
+    (0..3).for_each(|_| interrupter.interrupt());
+    let events = vec![CacheEvent::Notice(UNSTORED.to_owned()), CacheEvent::Replaced(tombstone(&store))];
+    let notices = sweep(&engine, &store, events).finish(&mut interrupts).await;
+    assert_eq!(notices.len(), 3, "{notices:?}");
+    assert_eq!(notices[1], UNSTORED, "an abandoned sweep keeps the run's notices");
+    assert!(notices[2].contains("interrupted"), "{notices:?}");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn the_run_start_counts_the_expired_entries_that_no_longer_open() {
+    let engine = caching(unopened(&Arc::new(MemoryCacheStore::new()), 1));
+    let (cx, prepared) = adhoc(&engine);
+    let started = engine.cached(cx, &prepared).await;
+    let notice = "cache: 1 entry sealed under another key was removed; its cleanups did not run";
+    assert_eq!(started.notices, [notice]);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn clearing_counts_the_entries_that_no_longer_open_and_removes_them() {
+    let store = Arc::new(MemoryCacheStore::new());
+    store.put(entry(1, "users#list", "", 1)).unwrap();
+    let engine = caching(unopened(&store, 2));
+    let (count, notices) = engine.cache_clear(None).await.unwrap();
+    let notice = "cache: 2 entries sealed under another key were removed; their cleanups did not run";
+    assert_eq!((count, notices), (3, vec![notice.to_owned()]));
+    assert_eq!(store.list().unwrap(), Vec::new());
 }

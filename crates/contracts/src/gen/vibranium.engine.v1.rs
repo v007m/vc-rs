@@ -541,7 +541,8 @@ pub struct PointerEdit {
     pub pointer: ::prost::alloc::string::String,
     #[prost(enumeration="EditOp", tag="2")]
     pub op: i32,
-    /// The value as JSON text: `"5s"`, `8`, `true`, a list or a map; empty for a remove.
+    /// The value as JSON text: `"5s"`, `8`, `true`, a list or a map; the new place for a move;
+    /// empty for a remove.
     #[prost(string, tag="3")]
     pub value_json: ::prost::alloc::string::String,
 }
@@ -1288,6 +1289,9 @@ pub enum EditOp {
     Remove = 2,
     /// Adds a key to a map, or a last item to a list (`/profiles/-`).
     Insert = 3,
+    /// Moves the list item there, with the comment lines above it, to the place `value_json`
+    /// names (`0` for the top); the items between move over by one.
+    Move = 4,
 }
 impl EditOp {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -1300,6 +1304,7 @@ impl EditOp {
             Self::Set => "EDIT_OP_SET",
             Self::Remove => "EDIT_OP_REMOVE",
             Self::Insert => "EDIT_OP_INSERT",
+            Self::Move => "EDIT_OP_MOVE",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -1309,6 +1314,7 @@ impl EditOp {
             "EDIT_OP_SET" => Some(Self::Set),
             "EDIT_OP_REMOVE" => Some(Self::Remove),
             "EDIT_OP_INSERT" => Some(Self::Insert),
+            "EDIT_OP_MOVE" => Some(Self::Move),
             _ => None,
         }
     }

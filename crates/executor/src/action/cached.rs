@@ -3,19 +3,22 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use serde_json::Value;
 use tokio::sync::mpsc::UnboundedSender;
-use vc_interfaces::{CacheEntry, CacheKey, CacheListing, CacheStore, CachedCleanup, Clock};
+use vc_interfaces::{CacheEntry, CacheKey, CacheListing, CacheStore, CacheStoreError, CachedCleanup, Clock};
 use vc_model::{Action, ActionId, ActionKind, ActionOutcome, CacheSpec, Exchange, Program};
 
 use super::{ActionExecutor, ActionRequest};
 use crate::{ActionReport, CleanupCollector, PendingCleanup, Render, Saved};
 
-/// A run's cross-run cache: the store, the clock its entries are made and expire by, and where
-/// the tombstones of the entries fresh results replace go to wait for the run's end.
+/// A run's cross-run cache.
+///
+/// It holds the store, the clock its entries are made and expire by, and where what the run's
+/// end must deal with goes: the tombstones of the entries fresh results replace, and the
+/// store's problems, as notices.
 #[derive(Clone)]
 pub struct RunCache {
     store: Arc<dyn CacheStore>,
     clock: Arc<dyn Clock>,
-    replaced: UnboundedSender<CacheEntry>,
+    events: UnboundedSender<CacheEvent>,
 }
 
 impl std::fmt::Debug for RunCache {
@@ -25,13 +28,29 @@ impl std::fmt::Debug for RunCache {
 }
 
 impl RunCache {
-    /// The cache of a run keeping results in `store` by `clock`, sending the tombstones of the
-    /// entries it replaces to `replaced`, whose owner runs their cleanups once every test is
-    /// done, as their expiry would have.
+    /// The cache of a run keeping results in `store` by `clock`, sending its [`CacheEvent`]s to
+    /// `events`, whose owner runs the tombstones' cleanups once every test is done, as their
+    /// expiry would have, and reports the notices as warnings.
     #[must_use]
-    pub fn new(store: Arc<dyn CacheStore>, clock: Arc<dyn Clock>, replaced: UnboundedSender<CacheEntry>) -> Self {
-        Self { store, clock, replaced }
+    pub fn new(store: Arc<dyn CacheStore>, clock: Arc<dyn Clock>, events: UnboundedSender<CacheEvent>) -> Self {
+        Self { store, clock, events }
     }
+
+    /// Sends `event` to the run's owner; one gone (the run is over) has no use for it.
+    fn send(&self, event: CacheEvent) {
+        drop(self.events.send(event));
+    }
+}
+
+/// What a run's cache hands the run's owner while the run goes on.
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum CacheEvent {
+    /// The tombstone of an entry a fresh result replaced, for the run's end.
+    Replaced(CacheEntry),
+    /// A store that failed, or a result that could not be stored: a warning, never a failure.
+    /// It names the api or test and the store's error, never an entry's values.
+    Notice(String),
 }
 
 /// Runs `call:` and `test:` actions with `cache:` through the cross-run cache.
@@ -44,7 +63,7 @@ impl RunCache {
 /// for the end of the run as a tombstone in the store, since another instance may still use
 /// what it made.
 /// Without a store, or for an action without `cache:`, it only runs the wrapped executor; a
-/// store that fails never fails the action.
+/// store that fails never fails the action, and the run's end reports it as a notice.
 #[derive(Clone)]
 pub struct CachedExecutor {
     inner: Arc<dyn ActionExecutor>,
@@ -77,7 +96,7 @@ impl CachedExecutor {
     /// values, and under the action's `id` (`${var.admin.userId}`).
     async fn hit(request: &ActionRequest, cacheable: &Cacheable) -> (Option<Saved>, Vec<Exchange>) {
         let stored = cacheable.cache.store.get(&cacheable.entry.key, cacheable.entry.listing.created_ms);
-        let Some(entry) = stored.ok().flatten() else { return (None, Vec::new()) };
+        let Some(entry) = stored.unwrap_or_else(|error| cacheable.unread(&error)) else { return (None, Vec::new()) };
         let Some(check) = cacheable.spec.check else { return (Some(entry.saved), Vec::new()) };
         let mut frame = request.frame.clone();
         let saved = Arc::make_mut(&mut frame.saved);
@@ -93,7 +112,8 @@ impl CachedExecutor {
     /// leave the report, so they wait for the entry to expire instead of the frame to close.
     /// Its parts hand their cleanups to a collector of its own, so every one can be stored. The
     /// tombstone of the entry it replaces (its check failed, or it expired since the run began)
-    /// goes to the run's owner, for the run's end.
+    /// goes to the run's owner, for the run's end. A result with a cleanup that is no api's, or
+    /// one the store cannot write, is not stored, keeps its cleanups and sends a notice.
     async fn miss(&self, request: ActionRequest, cacheable: Cacheable) -> ActionReport {
         let program = Arc::clone(&request.cx.program);
         let mut report = CleanupCollector::around(request, |request| self.inner.execute(request)).await;
@@ -101,15 +121,53 @@ impl CachedExecutor {
             return report;
         }
         let cleanups = report.cleanups.iter().map(|cleanup| stored_cleanup(&program, cleanup));
-        let Some(cleanups) = cleanups.collect::<Option<Vec<_>>>() else { return report };
-        let entry = CacheEntry { saved: report.saved.clone(), cleanups, ..cacheable.entry };
-        if let Ok(replaced) = cacheable.cache.store.put(entry) {
-            report.cleanups.clear();
-            if let Some(entry) = replaced {
-                drop(cacheable.cache.replaced.send(entry));
+        let stored = match cleanups.collect::<Result<Vec<_>, _>>() {
+            Ok(cleanups) => {
+                cacheable.store(CacheEntry { saved: report.saved.clone(), cleanups, ..cacheable.entry.clone() })
             }
+            Err(cleanup) => cacheable.unstorable(&cleanup),
+        };
+        if stored {
+            report.cleanups.clear();
         }
         report
+    }
+}
+
+impl Cacheable {
+    /// A notice for the run's end: `cache: <text>`.
+    fn notice(&self, text: &str) {
+        self.cache.send(CacheEvent::Notice(format!("cache: {text}")));
+    }
+
+    /// No entry, after the store failed to read one: the action runs again.
+    fn unread(&self, error: &CacheStoreError) -> Option<CacheEntry> {
+        self.notice(&format!("could not read the entry: {error}; `{}` ran again", self.entry.listing.label));
+        None
+    }
+
+    /// Not stored, for the cleanup `cleanup` names, which is no api's.
+    fn unstorable(&self, cleanup: &str) -> bool {
+        let label = &self.entry.listing.label;
+        let why = "is no api's `cleanup`, so it cannot be stored";
+        self.notice(&format!("the cleanup `{cleanup}` {why}; `{label}` was not cached"));
+        false
+    }
+
+    /// Puts `entry` and hands over the tombstone of the entry it replaced; whether it is stored.
+    fn store(&self, entry: CacheEntry) -> bool {
+        match self.cache.store.put(entry) {
+            Ok(replaced) => {
+                if let Some(buried) = replaced {
+                    self.cache.send(CacheEvent::Replaced(buried));
+                }
+                true
+            }
+            Err(error) => {
+                self.notice(&format!("{error}; `{}` was not cached", self.entry.listing.label));
+                false
+            }
+        }
     }
 }
 
@@ -175,11 +233,18 @@ fn key(label: &str, vars: &Saved, profiles: &str) -> CacheKey {
 }
 
 /// `cleanup` as stored: by the api whose `cleanup` it is, since action IDs change between
-/// compiles; `None` for one that is no api's cleanup, and then the action is not stored.
-fn stored_cleanup(program: &Program, cleanup: &PendingCleanup) -> Option<CachedCleanup> {
-    let api = program.apis.values().find(|api| api.cleanup == Some(cleanup.action))?;
-    let name = program.str(api.id.sym())?.to_owned();
-    Some(CachedCleanup { api: name, vars: Saved::clone(&cleanup.vars) })
+/// compiles. One that is no api's cleanup is an error naming what it runs, and then the action
+/// is not stored.
+fn stored_cleanup(program: &Program, cleanup: &PendingCleanup) -> Result<CachedCleanup, String> {
+    let api = program.apis.values().find(|api| api.cleanup == Some(cleanup.action));
+    let Some(name) = api.and_then(|api| program.str(api.id.sym())) else { return Err(cleanup_name(program, cleanup)) };
+    Ok(CachedCleanup { api: name.to_owned(), vars: Saved::clone(&cleanup.vars) })
+}
+
+/// What `cleanup` runs, for a notice: the api or test it calls, else its action's place.
+fn cleanup_name(program: &Program, cleanup: &PendingCleanup) -> String {
+    let action = usize::try_from(cleanup.action.index()).ok().and_then(|index| program.actions.get(index));
+    action.and_then(|action| label(program, action)).unwrap_or_else(|| format!("action {}", cleanup.action.index()))
 }
 
 #[cfg(test)]

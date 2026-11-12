@@ -56,7 +56,7 @@ pub fn run(args: &CacheArgs, project: Option<&Path>) -> anyhow::Result<Outcome> 
 }
 
 /// Clears on a Tokio runtime, since the cleanups make requests; prints a warning for each
-/// cleanup that failed.
+/// cleanup that failed, and one counting the entries that no longer open.
 fn clear(engine: &Engine, id: Option<&str>) -> anyhow::Result<Result<String, vc_engine::EngineError>> {
     let runtime = tokio::runtime::Builder::new_multi_thread().enable_all().build()?;
     let (count, notices) = match runtime.block_on(engine.cache_clear(id)) {

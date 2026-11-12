@@ -68,7 +68,7 @@ $ vc cache clear
 cleared 0 entries
 ```
 
-Clearing runs each entry's cleanup, so what the cached action created is removed too. An ID with no entries clears nothing and still exits 0.
+Clearing runs each entry's cleanup, so what the cached action created is removed too. An ID with no entries clears nothing and still exits 0. An entry sealed under another `VIB_CACHE_KEY` cannot open, so it is removed and counted without its cleanups, with one warning: `warning: cache: 1 entry sealed under another key was removed; its cleanups did not run`. A cleanup that fails is a warning too; neither changes the exit code.
 
 ## Exit codes
 

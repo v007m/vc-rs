@@ -130,6 +130,14 @@ tests:
 - **What is stored.** Only a result that passed, and only when each cleanup it registered is its api's own `cleanup`.
 - **Cleanup.** A cached action's cleanup does not run at the end of the run. It runs when the entry expires (at the start of the next run that finds it expired), when a fresh result replaces it, or on `vc cache clear`. A failing cleanup is a warning.
 - **Encryption.** Each entry is encrypted with ChaCha20-Poly1305. The key is `VIB_CACHE_KEY` (64 hex digits) when set, else a key generated and kept in the OS keychain. An entry sealed under another key, or changed on disk, reads as a miss.
+- **Entries that no longer open.** They can never be read, so the run's start (once they expire) and `vc cache clear` remove them, and say so. Their cleanups cannot run, so remove what they made yourself:
+
+  ```console
+  $ VIB_CACHE_KEY=<another key> vc cache clear
+  warning: cache: 1 entry sealed under another key was removed; its cleanups did not run
+  cleared 1 entry
+  ```
+- **A failing cache.** The cache never fails a run. When the store cannot be read or written, the action runs as if uncached and the run ends with a warning naming it, such as `` warning: cache: the cache failed: disk I/O error; `lab#createItem` was not cached `` or `` warning: cache: could not read the entry: …; `lab#createItem` ran again ``. A result that was not cached keeps its cleanup, which runs at the end of the run.
 
 <Aside type="caution">
 `cache` on a per-test action (`beforeEach`, `before`, steps) makes every test instance share one cached object. `vc check` warns:
