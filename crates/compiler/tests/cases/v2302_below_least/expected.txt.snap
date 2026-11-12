@@ -43,3 +43,10 @@ error[V2302]: `perHost` takes a whole number of at least 1, found -1
 10 |   perHost: -1
    |            ^^ below 1
    = help: write 1 or more
+
+error[V2302]: `threads` takes a whole number of at least 1, found 0
+  --> vibranium.config.yaml:12:12
+   |
+12 |   threads: 0
+   |            ^ below 1
+   = help: write 1 or more: `threads: 4`

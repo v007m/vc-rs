@@ -37,7 +37,7 @@ A project is one `vibranium.config.yaml` at the root plus api, test and load fil
 
 | File | Holds | Top-level keys | Item IDs |
 | --- | --- | --- | --- |
-| `vibranium.config.yaml` | Project settings, vars, profiles (at least one), auth, secrets, generators, datasets, reports, history, alerts, plugins, run-level lifecycle blocks | `syntaxVersion`, `project`, `paths`, `defaults`, `vars`, `profiles`, `auth`, `secrets`, `generators`, `datasets`, `reports`, `history`, `alerts`, `plugins`, `redact`, `beforeRun`, `afterRun` | auth: `partnerLogin` |
+| `vibranium.config.yaml` | Project settings, vars, profiles (at least one), auth, secrets, generators, datasets, reports, history, alerts, plugins, run-level lifecycle blocks | `syntaxVersion`, `project`, `paths`, `defaults`, `vars`, `profiles`, `auth`, `secrets`, `generators`, `datasets`, `reports`, `history`, `hooks`, `alerts`, `plugins`, `redact`, `beforeRun`, `afterRun` | auth: `partnerLogin` |
 | `*.api.yaml` | How to call endpoints, and how to undo them | `id`, `name`, `baseUrl`, `auth`, `headers`, `vars`, `profiles`, `source`, `beforeRequest`, `afterResponse`, `apis` | `users#create` |
 | `*.test.yaml` | Tests and the lifecycle blocks around them | `id`, `name`, `tags`, `vars`, `profiles`, `beforeAll`, `afterAll`, `beforeEach`, `afterEach`, `tests` | `users.crud#getsCreatedUser` |
 | `*.load.yaml` | A load scenario built from tests | `id`, `name`, `mix`, `stages`, `thinkTime`, `checks`, `thresholds`, `abortOn` | `checkout.peak` |
@@ -140,6 +140,7 @@ Settings are layered, lowest to highest: built-in defaults < user config (`~/.co
 | `datasets` | `allowRoots`, `files` | every file in `datasets/` | Your own data lists: `files` lists data kept outside `datasets/` (each `id`, `file`), and `allowRoots` the folders outside the project those files may be in (see Datasets) |
 | `reports` | `dir`, `formats` | CTRF only | Output formats and folder; html.layout is folder (default: an index plus data files loaded on demand) or single (one self-contained file). A format may also be the ID of a reporter plugin in `plugins:`; any other unknown name is V2302 |
 | `history` | `bodies` (`none`, `failures`, `all`), `maxBodySize`, `keep` (a number of runs or `all`) | bodies of failures only, `64kb`, `50` (D170) | Run history and retention: bodies are cut at `maxBodySize` before they are stored, and the oldest runs past `keep` are deleted when a run ends, each with its report folder `<reports.dir>/<run>/`, which `vc` marks with an empty `.vc-run` file; anything else under `reports.dir` stays, a folder named by a number among it, and the run that just ended keeps its own folder even with `keep: 0` |
+| `hooks` | `threads`, an integer from 1 to 64 | `1` (D325) | How many QuickJS runtimes run TypeScript and JavaScript hooks, each on its own thread: a call goes to a free runtime and never waits behind a busy one while another is free. Each runtime keeps its own module state, so a hook must not rely on module-level state across calls. The cap holds because each runtime costs memory and an OS thread |
 | `alerts` | list | none | Notifications |
 | `plugins` | list | none | Third-party plugins |
 | `redact` | `headers`, `fields`, `rules` | auth headers and secrets | Extra values to mask; `rules` are your own `regex`, `cel` or `function` masks (see Secrets) |
@@ -211,6 +212,9 @@ history:
   bodies: failures
   maxBodySize: 4kb
   keep: 50
+
+hooks:
+  threads: 2                     # QuickJS runtimes; the default is 1
 
 alerts:
   - on: [failure, recovery, flaky, threshold]
@@ -1273,6 +1277,8 @@ Packages, `node:` modules and `import()` are V2008: hooks run inside the engine,
 | any lifecycle block or steps | a `function:` action | vars and run info (`afterRun` also gets the results); it may return an object whose fields are saved |
 
 Custom checks go under `expect.custom`, receive the response and resolved values, and return `true` or a failure message.
+
+Don't rely on module-level state across calls: each of the `hooks.threads` runtimes keeps its own (D325), and two calls of one hook may run in different ones. A hook that needs a value later returns it instead.
 
 Every hook can call the global `secret(name)`, which returns a secret the run loaded (a name `.env.schema` declares); a name the run did not load throws. A value it returns is masked wherever it shows, like `${secret.X}`.
 

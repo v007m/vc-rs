@@ -1,0 +1,34 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2302_above_most/project
+---
+{
+  "summary": {
+    "errors": 1,
+    "warnings": 0,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "code": "V2302",
+      "severity": "error",
+      "message": "`threads` takes a whole number of at most 64, found 65",
+      "primary": {
+        "span": {
+          "path": "vibranium.config.yaml",
+          "line": 6,
+          "column": 12,
+          "endLine": 6,
+          "endColumn": 14
+        },
+        "text": "above 64"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "write 64 or less"
+      ],
+      "fixes": []
+    }
+  ]
+}

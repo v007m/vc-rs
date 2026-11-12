@@ -36,6 +36,7 @@ shape! {
         types::key("datasets", Ty::Obj(datasets)).default("every file in `datasets/`").doc("Your own data lists"),
         types::key("reports", Ty::Obj(reports)).default("CTRF only").doc("Output formats and folder"),
         types::key("history", Ty::Obj(history)).doc("Run history and retention"),
+        types::key("hooks", Ty::Obj(hooks)).doc("How TypeScript and JavaScript hooks run"),
         types::key("alerts", Ty::List(&Ty::Obj(alert))).doc("Notifications"),
         types::key("plugins", Ty::List(&Ty::Obj(plugin))).doc("Third-party plugins"),
         types::key("redact", Ty::Obj(redact)).default("auth headers and secrets").doc("Extra values to mask"),
@@ -196,6 +197,13 @@ shape! {
         types::key("bodies", Ty::Enum(&["none", "failures", "all"])).default("failures").doc("Which exchanges keep their bodies"),
         types::key("maxBodySize", Ty::Size).default("64kb").doc("A longer body is cut to this size").example("1mb"),
         types::key("keep", Ty::Either(&[Ty::Int, Ty::Enum(&["all"])])).default("50").doc("Runs kept after each run, or `all`"),
+    ])
+}
+
+shape! {
+    hooks = Shape::new("hooks", "How TypeScript and JavaScript hooks run", &[
+        types::key("threads", Ty::Int).default("1").min(1).max(64)
+            .doc("Hook runtimes, each on its own thread, so that many hooks run at once (D325)").example("4"),
     ])
 }
 

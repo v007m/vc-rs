@@ -1,10 +1,11 @@
 //! Hooks (D172): a `beforeRequest` hook signs the request, a `function:` step saves a value, a
 //! custom check judges the response, and a hook past its time or memory budget is stopped and
-//! reported with its TypeScript line.
+//! reported with its TypeScript line. With `hooks.threads: 2` (D325), a hook never waits behind
+//! another that is still running.
 
 use vc_mock_server::MockServer;
 
-use crate::{CONFIG, Project};
+use crate::{CONFIG, Project, SCRIPTED, events, of_kind};
 
 /// `signed#echo`, signed by `hooks/sign.ts#sign`.
 const SIGNED: (&str, &str) = (
@@ -172,4 +173,34 @@ async fn a_hook_that_calls_console_log_fails_its_call_because_hooks_have_no_cons
     assert_eq!(output.status.code(), Some(1), "{said}");
     assert!(said.contains("V5115"), "{said}");
     assert!(said.contains("console is not defined"), "{said}");
+}
+
+/// Two runtimes, and two tests run at once: `spins` holds one runtime for 3 s from the start,
+/// while `answers` waits 500 ms on a call before its own hook. That hook runs on the other runtime,
+/// so `answers` ends first; on one runtime it would wait for the spin and end after it.
+#[tokio::test(flavor = "multi_thread")]
+async fn with_two_hook_threads_a_hook_never_waits_for_a_busy_one() {
+    let server = MockServer::start().await.unwrap();
+    let config = "syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\nvars: {baseUrl: 'http://x'}\nhooks:\n  threads: 2\n";
+    let hooks = concat!(
+        "export function spin() {\n  const end = Date.now() + 3000;\n  while (Date.now() < end) {}\n  return {};\n}\n",
+        "export function ok() {\n  return {};\n}\n",
+    );
+    let test = concat!(
+        "tests:\n  - id: spins\n    steps:\n      - function: ../../hooks/busy.ts#spin\n        timeout: 10s\n",
+        "  - id: answers\n    steps:\n      - call: scripted#slow\n        vars: {ms: 500}\n",
+        "      - function: ../../hooks/busy.ts#ok\n        timeout: 10s\n",
+    );
+    let files = [
+        ("vibranium.config.yaml", config),
+        SCRIPTED,
+        ("hooks/busy.ts", hooks),
+        ("services/scripted/busy.test.yaml", test),
+    ];
+    let output =
+        Project::new(&files).run(&server.base_url(), &["--concurrency", "2", "--reporter", "json"]).output().unwrap();
+    assert_eq!(output.status.code(), Some(0), "{}", crate::said(&output));
+    let events = events(&output.stdout);
+    let finished: Vec<_> = of_kind(&events, "testFinished").iter().map(|event| event["test"].clone()).collect();
+    assert_eq!(finished, ["scripted.busy#answers", "scripted.busy#spins"], "{events:#?}");
 }

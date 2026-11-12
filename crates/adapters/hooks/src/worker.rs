@@ -1,7 +1,7 @@
 //! The hook thread, which owns the `QuickJS` engine, and the handle the supervisor drives it by.
 
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
-use std::thread;
+use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
 use vc_interfaces::{HookCall, HookError, HookOutput};
@@ -34,6 +34,8 @@ pub struct Worker {
     tasks: Sender<Task>,
     /// How long the thread may take to take a call up before it counts as stuck.
     start: Duration,
+    /// The hook thread, to wait for when it is retired.
+    thread: Option<JoinHandle<()>>,
 }
 
 impl Worker {
@@ -45,11 +47,21 @@ impl Worker {
     /// [`HookError::Unavailable`] when the thread cannot start.
     pub fn spawn(interrupts: bool, start: Duration) -> Result<Self, HookError> {
         let (tasks, inbox) = mpsc::channel();
-        thread::Builder::new()
+        let thread = thread::Builder::new()
             .name("vc-hooks".to_owned())
             .spawn(move || serve(&inbox, interrupts))
             .map_err(|error| HookError::Unavailable { reason: format!("the hook thread could not start: {error}") })?;
-        Ok(Self { tasks, start })
+        Ok(Self { tasks, start, thread: Some(thread) })
+    }
+
+    /// Ends the hook thread and waits for it; only for a worker with no call in flight, which a
+    /// stuck one may still have.
+    pub fn retire(self) {
+        drop(self.tasks);
+        if let Some(thread) = self.thread {
+            // A hook thread that panicked has ended all the same.
+            let _ = thread.join();
+        }
     }
 
     /// Runs `call`, waiting at most `patience` for its answer once the hook thread has taken it
@@ -114,7 +126,7 @@ mod tests {
     /// A worker whose calls go to `inbox`, which the test serves, or holds and never serves.
     fn worker(start: Duration) -> (Worker, Receiver<Task>) {
         let (tasks, inbox) = mpsc::channel();
-        (Worker { tasks, start }, inbox)
+        (Worker { tasks, start, thread: None }, inbox)
     }
 
     fn call() -> HookCall {
