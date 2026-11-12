@@ -9,7 +9,9 @@ test('the starter project passes', async ({ page }) => {
   await page.goto('/vc-rs/playground/');
   await page.getByRole('button', { name: 'Run', exact: true }).click();
   await expect(page.getByText(/^exit \d+$/)).toHaveText('exit 0', { timeout: 60_000 });
-  await expect(output(page)).toContainText('plan  10 tests in 5 files');
+  await expect(output(page)).toContainText('plan  10 tests (14 instances) in 5 files');
+  // Each file's tests print under its name, once (D321).
+  await expect(output(page)).toContainText('Sign-up rules');
   await expect(output(page)).toContainText('14 passed');
 });
 
