@@ -1,6 +1,5 @@
 use std::any::Any;
 use std::panic::{self, AssertUnwindSafe};
-use std::pin::pin;
 use std::sync::Arc;
 use std::task::Poll;
 use std::time::Duration;
@@ -91,8 +90,7 @@ impl Crew {
         let (action, owner, slots, deadline) = (job.action, job.owner, job.slots(), job.deadline);
         self.bus.publish(Event::ActionStarted { action, owner }).await;
         let work = |request| cancel.guard(self.execute(request, deadline));
-        let gathered = Box::pin(CleanupCollector::gather(job.request(&self.cx), work)).await;
-        let (ran, kept) = merged(gathered).await;
+        let (ran, kept) = merged(CleanupCollector::gather(job.request(&self.cx), work).await).await;
         let outcome = match &ran {
             Ran::Done(report) => {
                 self.publish_report((action, owner), report).await;
@@ -154,15 +152,14 @@ async fn merged((ran, kept): (Ran<ActionReport>, CleanupCollector)) -> (Ran<Acti
 }
 
 /// `work`'s report, or, when it panics, a failure of `action`: unwinding drops what it ran, so
-/// the cleanups its finished parts registered are handed over, and the worker carries on.
-async fn unwound(action: ActionId, work: impl Future<Output = ActionReport>) -> ActionReport {
-    let mut work = pin!(work);
-    let polled = std::future::poll_fn(|cx| match panic::catch_unwind(AssertUnwindSafe(|| work.as_mut().poll(cx))) {
-        Ok(Poll::Pending) => Poll::Pending,
-        Ok(Poll::Ready(report)) => Poll::Ready(Ok(report)),
-        Err(payload) => Poll::Ready(Err(payload)),
-    });
-    polled.await.unwrap_or_else(|payload| ActionReport::failed(Failure::new(panicked(&*payload)).at(action)))
+/// the cleanups its finished parts registered are handed over, and the worker carries on. Boxed
+/// once, so a caller's future holds no copy of it.
+fn unwound(action: ActionId, work: impl Future<Output = ActionReport>) -> impl Future<Output = ActionReport> {
+    let mut work = Box::pin(work);
+    std::future::poll_fn(move |cx| match panic::catch_unwind(AssertUnwindSafe(|| work.as_mut().poll(cx))) {
+        Ok(polled) => polled,
+        Err(payload) => Poll::Ready(ActionReport::failed(Failure::new(panicked(&*payload)).at(action))),
+    })
 }
 
 /// What a panic with `payload` says.
