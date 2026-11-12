@@ -25,6 +25,16 @@ export type TestTrend = Readonly<{
   meanMs: number;
 }>;
 
+/** One api over the window: every call, and p50 and p95 over those that got a response. */
+export type ApiTrend = Readonly<{
+  apiId: string;
+  method: string;
+  calls: number;
+  /** Absent when no call got a response. */
+  p50Ms?: number;
+  p95Ms?: number;
+}>;
+
 /**
  * A test whose written `skip` has an end date: its full ID, `skip.until` (`YYYY-MM-DD`), reason,
  * and whether the date has passed, so the test runs again and only the line is left.
@@ -39,6 +49,8 @@ export interface InsightsPort {
   /** The newest `limit` runs of kind `run` in `scope`, newest first. */
   runs(limit: number, scope: Scope): Promise<RunSummary[]>;
   trends(window: number, scope: Scope): Promise<TestTrend[]>;
+  /** Each api over the same runs, shared and lifecycle calls included, in api ID order. */
+  apiTrends(window: number, scope: Scope): Promise<ApiTrend[]>;
   /** The skips that have an end date, expired ones included. */
   skips(): Promise<SkipLine[]>;
 }
@@ -59,11 +71,24 @@ function summary(run: Run): RunSummary {
   return { ...base, ...branch, ...finished };
 }
 
-/** The port over the engine client's ListRuns, Trends and ListDefinitions. */
+/** The port over the engine client's ListRuns, Trends, ApiTrends and ListDefinitions. */
 export function enginePort(
-  client: Pick<Client<typeof EngineService>, 'listRuns' | 'trends' | 'listDefinitions'>,
+  client: Pick<
+    Client<typeof EngineService>,
+    'listRuns' | 'trends' | 'apiTrends' | 'listDefinitions'
+  >,
 ): InsightsPort {
   return {
+    async apiTrends(window, scope) {
+      const { trends } = await client.apiTrends({ window, ...scope });
+      return trends.map(({ apiId, method, calls, p50Ms, p95Ms }) => ({
+        apiId,
+        method,
+        calls,
+        ...(p50Ms === undefined ? {} : { p50Ms }),
+        ...(p95Ms === undefined ? {} : { p95Ms }),
+      }));
+    },
     async runs(limit, scope) {
       const { runs } = await client.listRuns({ limit, kind: 'run', ...scope });
       return runs.map(summary);
