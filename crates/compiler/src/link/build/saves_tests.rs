@@ -36,18 +36,18 @@ fn names(program: &Program, action: &Action) -> Vec<String> {
     action.implied.iter().map(|name| program.str(name.sym()).unwrap().to_owned()).collect()
 }
 
-/// D248: the file's `allowFailure` keeps its reason and date; `true` allows with no reason, and
-/// `false` or no key allows none on the test itself.
+/// D248: the file's `allowFailure` keeps its reason and date; `true` allows with no reason,
+/// `false` is kept as off so it wins over the file's, and no key leaves the file's to apply.
 #[test]
 fn reads_allow_failure_on_the_file_and_on_each_test() {
     let program = program(ALLOWED);
     let file = program.test_files.values().next().unwrap();
     let reason = Some("sandbox is down".to_owned());
-    let expected = AllowFailure { reason, until: Some("2099-03-31".to_owned()) };
+    let expected = AllowFailure { reason, until: Some("2099-03-31".to_owned()), off: false };
     assert_eq!(file.allow_failure.as_ref(), Some(&expected));
     let own = |id: &str| test(&program, id).allow_failure.clone();
     assert_eq!(own("orders.flow#makesOrder"), Some(AllowFailure::default()));
-    assert_eq!(own("orders.flow#makesAnother"), None);
+    assert_eq!(own("orders.flow#makesAnother"), Some(AllowFailure { off: true, ..AllowFailure::default() }));
     assert_eq!(own("orders.flow#makesAThird"), None);
 }
 

@@ -40,6 +40,17 @@ const LAPSED: (&str, &str) = (
     ),
 );
 
+/// A file that allows failure, holding a failing test whose `false` turns it off.
+const OFF: (&str, &str) = (
+    "services/users/off.test.yaml",
+    concat!(
+        "allowFailure: true\n",
+        "tests:\n",
+        "  - id: mayFail\n    call: users#list\n    expect: {status: 500}\n",
+        "  - id: mustPass\n    call: users#list\n    expect: {status: 500}\n    allowFailure: false\n",
+    ),
+);
+
 /// Each finished test's id and status.
 fn statuses(stdout: &[u8]) -> Vec<(String, String)> {
     let events = events(stdout);
@@ -114,4 +125,14 @@ async fn a_lapsed_allow_failure_fails_the_run_and_warns_v4008() {
     assert_eq!(check.status.code(), Some(0), "a warning, not an error: {warned}");
     assert!(warned.contains("warning[V4008]: this allowFailure expired after 2020-01-01"), "{warned}");
     assert!(warned.contains("fix: Remove the allowFailure (certain)"), "{warned}");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_test_s_false_turns_off_its_file_s_allow_failure_and_fails_the_run() {
+    let server = MockServer::start().await.unwrap();
+    let project = Project::new(&[CONFIG, USERS, OFF]);
+    let output = project.run(&server.base_url(), &["--json"]).output().unwrap();
+    assert_eq!(output.status.code(), Some(1), "{}", said(&output));
+    let expected = [("users.off#mayFail", "\"allowedFailure\""), ("users.off#mustPass", "\"failed\"")];
+    assert_eq!(statuses(&output.stdout), expected.map(|(id, status)| (id.to_owned(), status.to_owned())));
 }

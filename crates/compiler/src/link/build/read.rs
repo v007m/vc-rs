@@ -131,13 +131,15 @@ pub fn skip(node: &Node) -> Option<Skip> {
     Some(Skip { reason: owned(skip, "reason")?, until: owned(skip, "until") })
 }
 
-/// `allowFailure`: `true`, or a reason with an end date (D248); `false` allows none.
+/// `allowFailure`: `true`, or a reason with an end date (D248); `false` is kept as off, so a
+/// test's `false` wins over its file's.
 pub fn allow_failure(node: &Node) -> Option<AllowFailure> {
     let allow = node.get("allowFailure")?;
     if let Some(flag) = allow.as_scalar() {
-        return flag.text.eq_ignore_ascii_case("true").then(AllowFailure::default);
+        let off = !flag.text.eq_ignore_ascii_case("true");
+        return Some(AllowFailure { off, ..AllowFailure::default() });
     }
-    Some(AllowFailure { reason: owned(allow, "reason"), until: owned(allow, "until") })
+    Some(AllowFailure { reason: owned(allow, "reason"), until: owned(allow, "until"), off: false })
 }
 
 /// `retry`: further attempts and the pause between them.

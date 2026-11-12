@@ -106,6 +106,8 @@ pub struct AllowFailure {
     /// The last day a failure is allowed, as written (`2026-12-01`); after it a failure fails the
     /// run again and a lint warns (V4008).
     pub until: Option<String>,
+    /// `allowFailure: false`: allows no failure, and on a test keeps its file's from applying.
+    pub off: bool,
 }
 
 /// `retry` on a test (re-run the whole instance), in `defaults` (every test that writes none) or on

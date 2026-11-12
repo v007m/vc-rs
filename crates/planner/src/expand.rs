@@ -73,13 +73,14 @@ impl<'p> Expander<'p> {
     }
 
     /// The `allowFailure` that holds for `test`: its own, else its file's, unless `until` has
-    /// passed or the run is `--strict` (D248).
+    /// passed, the one that applies is `false`, or the run is `--strict` (D248).
     fn allowed<'t>(&self, file: &'t TestFile, test: &'t Test) -> Option<&'t AllowFailure> {
         if self.options.strict {
             return None;
         }
         let active = |allow: &&AllowFailure| !self.expired(allow.until.as_deref());
-        test.allow_failure.as_ref().filter(active).or_else(|| file.allow_failure.as_ref().filter(active))
+        let own = test.allow_failure.as_ref().filter(active);
+        own.or_else(|| file.allow_failure.as_ref().filter(active)).filter(|allow| !allow.off)
     }
 
     /// Why `test` does not run: its file's `skip` or its own, else examples that gave no rows;

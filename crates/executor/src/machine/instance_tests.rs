@@ -120,7 +120,7 @@ fn retries_run_cleanups_between_attempts_and_stop_when_exhausted() {
 
 /// Runs `retry` and `fails` under `allowFailure`, with `reason` (D248).
 fn run_allowed(retry: Option<Retry>, fails: &[u32], reason: Option<&str>) -> Vec<InstanceCommand> {
-    let allow = AllowFailure { reason: reason.map(str::to_owned), until: None };
+    let allow = AllowFailure { reason: reason.map(str::to_owned), ..AllowFailure::default() };
     let script = Arc::new(InstanceScript { allow_failure: Some(allow), ..(*script(retry)).clone() });
     sim::drive_instance(InstanceWorkflow::new(script), InstanceInput::Start, &mut failing(fails))
 }

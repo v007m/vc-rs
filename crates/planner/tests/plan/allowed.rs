@@ -99,8 +99,26 @@ fn strict_allows_no_failure() {
 fn the_compiled_setting_keeps_its_reason_and_date() {
     let program = program();
     let file = program.test_files.values().find(|file| file.allow_failure.is_some()).unwrap();
-    let expected = AllowFailure { reason: Some("upstream sandbox".into()), until: Some("2026-12-01".into()) };
+    let expected =
+        AllowFailure { reason: Some("upstream sandbox".into()), until: Some("2026-12-01".into()), off: false };
     assert_eq!(file.allow_failure.as_ref(), Some(&expected));
     let every = vc_planner::plan(&program, &Selection::default(), &common::today()).unwrap();
     assert_eq!(every.allowed_failures.len(), 4, "no other file of the sample allows a failure");
+}
+
+/// A file that allows failure, holding a test that turns it off.
+const OFF: &str = "allowFailure: true
+tests:
+  - id: listsCovered
+    call: users#list
+  - id: listsStrictly
+    call: users#list
+    allowFailure: false
+";
+
+#[test]
+fn a_test_s_false_turns_off_its_file_s_allow_failure() {
+    let program = common::project_with(&[("services/users/off.test.yaml", OFF)]);
+    let plan = vc_planner::plan(&program, &common::ids(&["users.off"]), &common::today()).unwrap();
+    assert_eq!(allowed(&program, &plan), [("listsCovered".to_owned(), None)]);
 }

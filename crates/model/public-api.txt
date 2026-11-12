@@ -753,6 +753,7 @@ impl core::fmt::Debug for vc_model::AlertChannel
 pub fn vc_model::AlertChannel::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_model::AlertChannel
 pub struct vc_model::AllowFailure
+pub vc_model::AllowFailure::off: bool
 pub vc_model::AllowFailure::reason: core::option::Option<alloc::string::String>
 pub vc_model::AllowFailure::until: core::option::Option<alloc::string::String>
 impl core::clone::Clone for vc_model::AllowFailure

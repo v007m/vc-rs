@@ -18,11 +18,11 @@ import Playground from '~/components/Playground.svelte';
 
 | Field | Type | Default | Required | Notes |
 | --- | --- | --- | --- | --- |
-| `allowFailure` | `true` | the file's | no | Short form, with no reason. `false` turns it off. |
+| `allowFailure` | `true` | the file's | no | Short form, with no reason. `false` turns it off; on a test it also turns off the file's. |
 | `allowFailure.reason` | string | — | yes | The reason, in the map form. It shows next to the ⚠ in every report. |
 | `allowFailure.until` | date `YYYY-MM-DD` | — | no | The last day it applies, in UTC. After that, a failure fails the run again and `vc check` warns (V4008). |
 
-You can write `allowFailure` on a test or at the top of a test file. A test's own `allowFailure` wins over the file's. Once the test's own setting expires, the file's applies again.
+You can write `allowFailure` on a test or at the top of a test file. A test's own `allowFailure` wins over the file's, so `allowFailure: false` on a test makes it fail the run as usual. Once the test's own setting expires, the file's applies again.
 
 `vc run --strict` ignores every `allowFailure`, so each allowed failure counts as a plain failure.
 
