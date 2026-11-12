@@ -558,6 +558,7 @@ Round 47 (12 November 2026; orchestrator, under Sarath's delegation):
 | D298 | Calls with no response in api trends | An api's `calls` in `ApiTrends` count every call, including those that got no response (a timeout, a refused connection). Its p50 and p95 count only the calls that got a response, so a failed connection never reads as a fast call | — (fills a gap in the History api trends) |
 | D299 | Exchanges outside a test in api trends | `ApiTrends` sums up every exchange a run stored, including those of shared and lifecycle actions outside any test, since each one is a call the api answered | — (fills a gap in the History api trends) |
 | D305 | Test durations | A test's duration is measured by the executor, around the instance, and carried on its result and event; reporters and the store use it and never time by when they read an event | — |
+| D306 | Varlock and the run's profile | Varlock gets the run's profile as `VC_PROFILE` in its process environment: the last profile given, unset when there is none; vc never passes `--env`. A schema selects its environment with `@currentEnv=$VC_PROFILE`. `VC_PROFILE` in `.env.schema` declares Varlock's environment flag, not a secret: vc leaves it out of the declared secrets, never loads, masks or requires it, and `${secret.VC_PROFILE}` is V2106 | — (fills a gap in D163) |
 
 ## Open
 

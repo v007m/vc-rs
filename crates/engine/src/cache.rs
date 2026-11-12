@@ -21,7 +21,7 @@ use vc_model::Plan;
 
 use crate::examples::Draw;
 use crate::plan::Prepared;
-use crate::ports::Layered;
+use crate::ports::{Layered, SecretSource};
 use crate::stored::started;
 use crate::{Engine, EngineError, Interrupts};
 
@@ -154,7 +154,7 @@ impl Engine {
         let layered = self.layered(&[], &[])?;
         let store = self.cache_store(layered.environment.as_ref())?;
         let prepared = unplanned(layered);
-        let secrets = self.secrets(&prepared.program.config.secrets, &prepared.environment).await?;
+        let secrets = self.secrets(SecretSource::of(&prepared)).await?;
         let cleanups = crate::body_files::cleanups(&prepared.program);
         let cx = self.adhoc_cx(&prepared, (&cleanups, 0, secrets)).await?;
         let cleared = store.clear(label).map_err(|error| store_error(&error))?;
