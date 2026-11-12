@@ -38,12 +38,12 @@ pub trait CacheStore: Send + Sync {
     fn remove(&self, key: &CacheKey) -> Result<(), CacheStoreError>;
 
     /// Removes and returns every entry expired at `now_ms`, oldest first, so their cleanups
-    /// can run.
+    /// can run; one that can no longer be read is removed too, and only counted.
     ///
     /// # Errors
     ///
     /// [`CacheStoreError`] when the store cannot be read or written.
-    fn take_expired(&self, now_ms: u64) -> Result<Vec<CacheEntry>, CacheStoreError>;
+    fn take_expired(&self, now_ms: u64) -> Result<TakenEntries, CacheStoreError>;
 
     /// Every entry's listing, oldest first; values are left out.
     ///
@@ -53,12 +53,24 @@ pub trait CacheStore: Send + Sync {
     fn list(&self) -> Result<Vec<CacheListing>, CacheStoreError>;
 
     /// Removes and returns the entries whose label is `label`, or every entry for `None`, so
-    /// their cleanups can run.
+    /// their cleanups can run; one that can no longer be read is removed too, and only counted.
     ///
     /// # Errors
     ///
     /// [`CacheStoreError`] when the store cannot be read or written.
-    fn clear(&self, label: Option<&str>) -> Result<Vec<CacheEntry>, CacheStoreError>;
+    fn clear(&self, label: Option<&str>) -> Result<TakenEntries, CacheStoreError>;
+}
+
+/// The entries a take removed: those that opened, oldest first, and how many did not (sealed
+/// under another key, or changed on disk), whose cleanups can never run.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "cache take built and read across crates; every user is in this repo (D160)"
+)]
+pub struct TakenEntries {
+    pub entries: Vec<CacheEntry>,
+    pub unopened: usize,
 }
 
 /// An entry's key: blake3 of the api or test ID, the canonical resolved vars and the profiles.

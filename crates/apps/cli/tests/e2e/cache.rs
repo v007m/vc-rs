@@ -1,5 +1,6 @@
 //! The cross-run cache: a `cache:` action is called once across runs, its cleanup waits for
-//! `vc cache clear`, the file holds no value in the clear, and `--no-cache` leaves it alone.
+//! `vc cache clear`, the file holds no value in the clear, `--no-cache` leaves it alone, and an
+//! entry sealed under another key is removed with a warning.
 
 use std::fs;
 
@@ -52,6 +53,29 @@ async fn a_cached_before_run_is_made_once_and_cleaned_up_on_clear() {
 
     keyed(&project, &["cache", "clear"]).assert().code(0).stdout("cleared 1 entry\n");
     assert_eq!(server.stats().await.unwrap().count("DELETE /users/{id}"), 1, "clearing runs the cleanup");
+    keyed(&project, &["cache", "list"]).assert().code(0).stdout("the cache is empty\n");
+}
+
+/// A cache written under one `VIB_CACHE_KEY` and cleared under another: the entry cannot open,
+/// so it is removed and counted, and its cleanup does not run.
+#[tokio::test(flavor = "multi_thread")]
+async fn clearing_under_another_key_removes_the_entry_and_warns_that_its_cleanup_did_not_run() {
+    let server = MockServer::start().await.unwrap();
+    let config = config(&server.base_url());
+    let project = Project::new(&[("vibranium.config.yaml", &config), USERS, LISTS]);
+    keyed(&project, &["run"]).assert().code(0);
+    let other = KEY.replace("00", "ff");
+    let cleared = project.vc(&["cache", "clear"]).env("VIB_CACHE_KEY", &other).output().unwrap();
+    assert_eq!(
+        (cleared.status.code(), &cleared.stdout[..]),
+        (Some(0), &b"cleared 1 entry\n"[..]),
+        "{}",
+        said(&cleared)
+    );
+    let warning = "warning: cache: 1 entry sealed under another key was removed; its cleanups did not run";
+    let stderr = String::from_utf8_lossy(&cleared.stderr);
+    assert!(stderr.contains(warning), "{stderr}");
+    assert_eq!(server.stats().await.unwrap().count("DELETE /users/{id}"), 0, "{stderr}");
     keyed(&project, &["cache", "list"]).assert().code(0).stdout("the cache is empty\n");
 }
 

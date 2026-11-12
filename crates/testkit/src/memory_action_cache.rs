@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 use std::sync::mpsc::{self, Sender};
 
-use vc_interfaces::{CacheEntry, CacheKey, CacheListing, CacheStore, CacheStoreError};
+use vc_interfaces::{CacheEntry, CacheKey, CacheListing, CacheStore, CacheStoreError, TakenEntries};
 
 /// The entries, by key.
 type Entries = BTreeMap<CacheKey, CacheEntry>;
@@ -71,7 +71,7 @@ impl CacheStore for MemoryCacheStore {
         self.ask(move |entries| drop(entries.remove(&key)))
     }
 
-    fn take_expired(&self, now_ms: u64) -> Result<Vec<CacheEntry>, CacheStoreError> {
+    fn take_expired(&self, now_ms: u64) -> Result<TakenEntries, CacheStoreError> {
         self.ask(move |entries| take(entries, |entry| entry.listing.expires_ms <= now_ms))
     }
 
@@ -81,7 +81,7 @@ impl CacheStore for MemoryCacheStore {
         })
     }
 
-    fn clear(&self, label: Option<&str>) -> Result<Vec<CacheEntry>, CacheStoreError> {
+    fn clear(&self, label: Option<&str>) -> Result<TakenEntries, CacheStoreError> {
         let label = label.map(str::to_owned);
         self.ask(move |entries| take(entries, |entry| label.as_ref().is_none_or(|label| *label == entry.listing.label)))
     }
@@ -100,12 +100,13 @@ fn vacant(entries: &Entries, near: CacheKey) -> CacheKey {
     (1..=u64::MAX).map(flipped).find(|key| !entries.contains_key(key)).unwrap_or(near)
 }
 
-/// Removes the entries `matches` picks and gives them back, oldest first.
-fn take(entries: &mut Entries, matches: impl Fn(&CacheEntry) -> bool) -> Vec<CacheEntry> {
+/// Removes the entries `matches` picks and gives them back, oldest first; every entry here
+/// opens, so none is counted as unopened.
+fn take(entries: &mut Entries, matches: impl Fn(&CacheEntry) -> bool) -> TakenEntries {
     let (taken, kept): (Vec<CacheEntry>, Vec<CacheEntry>) =
         std::mem::take(entries).into_values().partition(|entry| matches(entry));
     *entries = kept.into_iter().map(|entry| (entry.key, entry)).collect();
-    oldest_first(taken)
+    TakenEntries { entries: oldest_first(taken), unopened: 0 }
 }
 
 fn oldest_first(mut entries: Vec<CacheEntry>) -> Vec<CacheEntry> {

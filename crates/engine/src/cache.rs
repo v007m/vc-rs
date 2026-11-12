@@ -5,7 +5,9 @@
 //! The key is `VIB_CACHE_KEY` when it is set, else the one the OS keychain holds, made and
 //! stored there on first use. With neither, the cache is off for the run: `cache:` actions run
 //! every time and the run says so in a V5113 notice. An entry sealed under another key, or
-//! changed on disk, reads as a miss. A cache that cannot be opened or read never fails a run.
+//! changed on disk, reads as a miss; when the run's start or a clear removes such entries, one
+//! notice counts them. A cache that cannot be opened, read or written never fails a run: the
+//! run ends with a notice saying what was not cached or read.
 
 use std::fmt::Write as _;
 use std::sync::Arc;
@@ -15,8 +17,10 @@ use serde_json::{Value, json};
 use tokio::sync::mpsc::{self, UnboundedReceiver};
 use vc_adapter_store::{CacheSecret, SqliteCache};
 use vc_diagnostics::Code;
-use vc_executor::{ActionCx, ActionRequest, RunCache};
-use vc_interfaces::{CacheEntry, CacheListing, CacheStore, CacheStoreError, CachedCleanup, Environment, Secret};
+use vc_executor::{ActionCx, ActionRequest, CacheEvent, RunCache};
+use vc_interfaces::{
+    CacheEntry, CacheListing, CacheStore, CacheStoreError, CachedCleanup, Environment, Secret, TakenEntries,
+};
 use vc_model::Plan;
 
 use crate::examples::Draw;
@@ -41,18 +45,20 @@ const SERVICE: &str = "vibranium";
 const ACCOUNT: &str = "cache-key";
 
 /// A run's context and what its cache leaves for the run's end: the notices of its start, and
-/// the tombstones of the entries fresh results replace during the run, whose cleanups wait
-/// until every test is done, since another instance may still use what they made.
+/// its cache's events: the tombstones of the entries fresh results replace during the run,
+/// whose cleanups wait until every test is done, since another instance may still use what
+/// they made, and the notices of a store that failed.
 pub struct Sweep {
     cx: Arc<ActionCx>,
     notices: Vec<String>,
     buried: Option<Buried>,
 }
 
-/// The run's store, and the tombstones its cache sends as it replaces entries.
+/// The run's store, and the events its cache sends: tombstones as it replaces entries, and
+/// notices.
 struct Buried {
     store: Arc<dyn CacheStore>,
-    tombstones: UnboundedReceiver<CacheEntry>,
+    events: UnboundedReceiver<CacheEvent>,
 }
 
 /// Why the cleanups of replaced entries did not run.
@@ -72,12 +78,13 @@ impl Sweep {
 
     /// Runs the cleanups of the entries replaced during the run as their expiry would have,
     /// removing each tombstone once its cleanups have run; the notices of the run's start, then
-    /// one per cleanup that failed. The third of the run's `interrupts` abandons what is left,
-    /// and the next run cleans those tombstones up as expired entries.
+    /// the cache's during the run, then one per cleanup that failed. The third of the run's
+    /// `interrupts` abandons what is left, and the next run cleans those tombstones up as
+    /// expired entries.
     pub async fn finish(self, interrupts: &mut Interrupts) -> Vec<String> {
         let Self { cx, mut notices, buried } = self;
         let Some(mut buried) = buried else { return notices };
-        let tombstones: Vec<CacheEntry> = std::iter::from_fn(|| buried.tombstones.try_recv().ok()).collect();
+        let tombstones = buried.drain(&mut notices);
         if tombstones.is_empty() {
             return notices;
         }
@@ -91,6 +98,19 @@ impl Sweep {
 }
 
 impl Buried {
+    /// The tombstones the cache sent, in order; its notices go to `notices`.
+    fn drain(&mut self, notices: &mut Vec<String>) -> Vec<CacheEntry> {
+        let mut tombstones = Vec::new();
+        while let Ok(event) = self.events.try_recv() {
+            match event {
+                CacheEvent::Replaced(tombstone) => tombstones.push(tombstone),
+                CacheEvent::Notice(notice) => notices.push(notice),
+                _ => {}
+            }
+        }
+        tombstones
+    }
+
     /// Runs the cleanups of each tombstone, then removes it; a notice per cleanup that failed
     /// and per tombstone the store could not remove, which the next run cleans up again.
     async fn sweep(&self, cx: &Arc<ActionCx>, tombstones: Vec<CacheEntry>) -> Vec<String> {
@@ -119,13 +139,13 @@ impl Engine {
             Ok(store) => store,
             Err(error) => return Sweep::off(cx, vec![off(&error)]),
         };
-        let (replaced, tombstones) = mpsc::unbounded_channel();
-        let cx = Arc::new(cx.with_cache(RunCache::new(Arc::clone(&store), Arc::clone(&self.clock), replaced)));
+        let (sender, events) = mpsc::unbounded_channel();
+        let cx = Arc::new(cx.with_cache(RunCache::new(Arc::clone(&store), Arc::clone(&self.clock), sender)));
         let notices = match store.take_expired(cx.values.inputs().started_ms) {
-            Ok(expired) => Cleaner::new(&cx).clean(expired).await,
+            Ok(expired) => Cleaner::new(&cx).taken(expired).await,
             Err(error) => vec![off(&store_error(&error))],
         };
-        Sweep { cx, notices, buried: Some(Buried { store, tombstones }) }
+        Sweep { cx, notices, buried: Some(Buried { store, events }) }
     }
 
     /// Every cache entry, oldest first: what `vc cache list` shows.
@@ -142,8 +162,9 @@ impl Engine {
     }
 
     /// Removes the entries of `label` (`users#create`), or every entry, running their cleanups
-    /// under the profiles each was made with; gives back how many went and a notice per
-    /// cleanup that failed. Call it from within a Tokio runtime.
+    /// under the profiles each was made with; gives back how many went, a notice counting those
+    /// that no longer open (their cleanups cannot run) and one per cleanup that failed. Call it
+    /// from within a Tokio runtime.
     ///
     /// # Errors
     ///
@@ -159,8 +180,8 @@ impl Engine {
             self.secrets(SecretSource::of(&prepared), &crate::ports::cleanup_reads(&prepared.program)).await?;
         let cx = self.adhoc_cx(&prepared, (&cleanups, 0, secrets)).await?;
         let cleared = store.clear(label).map_err(|error| store_error(&error))?;
-        let count = cleared.len();
-        Ok((count, Cleaner::new(&cx).clean(cleared).await))
+        let count = cleared.entries.len() + cleared.unopened;
+        Ok((count, Cleaner::new(&cx).taken(cleared).await))
     }
 
     /// The builder's store, else `.vibranium/cache.db` under the key.
@@ -231,6 +252,14 @@ impl<'c> Cleaner<'c> {
         Self { cx }
     }
 
+    /// What a take removed: a notice counting the entries that no longer open, then
+    /// [`Cleaner::clean`] of the rest.
+    async fn taken(&self, taken: TakenEntries) -> Vec<String> {
+        let mut notices: Vec<String> = unopened(taken.unopened).into_iter().collect();
+        notices.extend(self.clean(taken.entries).await);
+        notices
+    }
+
     /// Runs the cleanups of `entries`, oldest entry first and each entry's newest cleanup first;
     /// a notice for each one that failed or whose api no longer has a cleanup.
     async fn clean(&self, entries: Vec<CacheEntry>) -> Vec<String> {
@@ -264,6 +293,15 @@ async fn run_cleanup(cx: &Arc<ActionCx>, cleanup: &CachedCleanup) -> Result<(), 
         .ok_or_else(|| format!("`{}` no longer has a `cleanup`, so what it made is left in place", cleanup.api))?;
     let report = cx.executors.execute(request).await;
     report.outcome.failure().map_or(Ok(()), |failure| Err(failure.message.clone()))
+}
+
+/// The notice for `count` entries removed without opening; none for none.
+fn unopened(count: usize) -> Option<String> {
+    match count {
+        0 => None,
+        1 => Some("cache: 1 entry sealed under another key was removed; its cleanups did not run".to_owned()),
+        _ => Some(format!("cache: {count} entries sealed under another key were removed; their cleanups did not run")),
+    }
 }
 
 /// The settings and environment of `layered` with nothing planned, for actions run outside a

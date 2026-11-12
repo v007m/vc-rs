@@ -1,20 +1,21 @@
 use std::sync::Arc;
 use std::time::Duration as StdDuration;
 
+use async_trait::async_trait;
 use bytes::Bytes;
 use http::header::CONTENT_TYPE;
 use http::{HeaderMap, HeaderValue, StatusCode};
 use serde_json::{Value, json};
 use tokio::sync::mpsc;
 use vc_interfaces::{CacheEntry, CacheStore, CachedCleanup, Clock};
-use vc_model::{ActionId, CacheSpec, Date, Duration, HttpResponse, OwnerKey, Program};
-use vc_testkit::{FakeTransport, MemoryCacheStore, Recorded, RecordingTransport};
+use vc_model::{Action, ActionId, CacheSpec, Date, Duration, HttpResponse, OwnerKey, Program};
+use vc_testkit::{CacheFault, FakeTransport, FaultyCacheStore, MemoryCacheStore, Recorded, RecordingTransport};
 
-use super::{CachedExecutor, RunCache, key};
+use super::{CacheEvent, CachedExecutor, RunCache, key};
 use crate::fixture::{self, Fixture};
 use crate::{
-    ActionCx, ActionExecutor, ActionExecutors, ActionReport, ActionRequest, Frame, HostLimits, PipelineParts, Saved,
-    TestExecutor,
+    ActionCx, ActionExecutor, ActionExecutors, ActionKindTag, ActionReport, ActionRequest, Frame, HostLimits,
+    PendingCleanup, PipelineParts, Saved, TestExecutor,
 };
 
 fn json_response(code: u16, body: &Value) -> HttpResponse {
@@ -80,24 +81,69 @@ async fn run(
 
 /// [`run`], also giving the tombstones of the entries fresh results replaced, left for the run's end.
 async fn replacing(
-    (program, action): &(Arc<Program>, ActionId),
+    target: &(Arc<Program>, ActionId),
     (store, at): (Option<&MemoryCacheStore>, u64),
     answers: Vec<HttpResponse>,
 ) -> (ActionReport, Vec<Recorded>, Vec<CacheEntry>) {
+    let store = store.map(|store| Arc::new(store.clone()) as Arc<dyn CacheStore>);
+    let (report, sent, events) = sending(target, (store, at), answers).await;
+    let mut tombstones = Vec::new();
+    for event in events {
+        match event {
+            CacheEvent::Replaced(entry) => tombstones.push(entry),
+            CacheEvent::Notice(notice) => panic!("a store that works sends no notice: {notice}"),
+        }
+    }
+    (report, sent, tombstones)
+}
+
+/// The run's cache store, if any, and the time its clock stands at.
+type Cache = (Option<Arc<dyn CacheStore>>, u64);
+
+/// [`run`] with any store, giving every event the cache sent.
+async fn sending(
+    target: &(Arc<Program>, ActionId),
+    cache: Cache,
+    answers: Vec<HttpResponse>,
+) -> (ActionReport, Vec<Recorded>, Vec<CacheEvent>) {
     let fake = FakeTransport::scripted(answers.into_iter().map(Ok).collect());
     let (transport, recordings) = RecordingTransport::new(Arc::new(fake));
     let executors = ActionExecutors::standard(PipelineParts::new(Arc::new(transport), HostLimits::spawn(8)));
+    let (report, events) = through(target, executors, cache).await;
+    (report, recordings.take(), events)
+}
+
+/// Runs `action` with `executors`, `store` as its cache and the clock at `at`; the report and
+/// the events the cache sent.
+async fn through(
+    (program, action): &(Arc<Program>, ActionId),
+    executors: ActionExecutors,
+    (store, at): Cache,
+) -> (ActionReport, Vec<CacheEvent>) {
     let inputs = fixture::inputs(&[]).with_started_at(0);
     let cx = ActionCx::new(Arc::clone(program), Arc::new(executors), inputs);
-    let (replaced, mut waiting) = mpsc::unbounded_channel();
+    let (events, mut sent) = mpsc::unbounded_channel();
     let cx = match store {
-        Some(store) => cx.with_cache(RunCache::new(Arc::new(store.clone()), Arc::new(StoppedClock(at)), replaced)),
+        Some(store) => cx.with_cache(RunCache::new(store, Arc::new(StoppedClock(at)), events)),
         None => cx,
     };
     let cx = Arc::new(cx);
     let request = ActionRequest { action: *action, owner: OwnerKey::Run, cx: Arc::clone(&cx), frame: Frame::default() };
     let report = cx.executors.execute(request).await;
-    (report, recordings.take(), std::iter::from_fn(|| waiting.try_recv().ok()).collect())
+    (report, std::iter::from_fn(|| sent.try_recv().ok()).collect())
+}
+
+/// `store`, failing as `faults` say.
+fn faulty(store: &MemoryCacheStore, faults: Vec<CacheFault>) -> Arc<dyn CacheStore> {
+    Arc::new(FaultyCacheStore::new(Arc::new(store.clone()), faults))
+}
+
+/// The notices among `events`.
+fn notices(events: Vec<CacheEvent>) -> Vec<String> {
+    events
+        .into_iter()
+        .filter_map(|event| if let CacheEvent::Notice(text) = event { Some(text) } else { None })
+        .collect()
 }
 
 /// The path of each exchange `report` gives, in order.
@@ -114,7 +160,7 @@ async fn a_passed_action_is_stored_with_its_cleanups_and_reused_until_it_expires
     assert_eq!(first.cleanups, vec![], "the cleanup waits for the entry to expire");
     let (second, sent) = run(&target, (Some(&store), 1_999), created(8)).await;
     assert_eq!((second.outcome.failure(), second.saved, sent.len()), (None, saved(json!({ "userId": 7 })), 0));
-    let expired = store.take_expired(2_000).unwrap();
+    let expired = store.take_expired(2_000).unwrap().entries;
     let cleanup = CachedCleanup { api: "users#n1".into(), vars: saved(json!({ "userId": 7 })) };
     let listing = expired.first().map(|entry| entry.listing.clone()).unwrap_or_default();
     assert_eq!((listing.label.as_str(), listing.profiles.as_str()), ("users#n1", ""));
@@ -158,9 +204,9 @@ async fn the_check_reads_the_cached_saves_and_a_failed_check_reruns_the_action_a
     );
     let cleanup = CachedCleanup { api: "users#n1".into(), vars: saved(json!({ "userId": 7 })) };
     assert_eq!(replaced.iter().map(|entry| entry.cleanups.clone()).collect::<Vec<_>>(), vec![vec![cleanup]]);
-    let buried = store.take_expired(1_002).unwrap();
+    let buried = store.take_expired(1_002).unwrap().entries;
     assert_eq!(buried, replaced, "until its cleanups run, the old entry stays in the store, expired");
-    let kept: Saved = store.take_expired(u64::MAX).unwrap().into_iter().flat_map(|entry| entry.saved).collect();
+    let kept: Saved = store.take_expired(u64::MAX).unwrap().entries.into_iter().flat_map(|entry| entry.saved).collect();
     assert_eq!(kept, saved(json!({ "userId": 8 })), "the fresh entry is the one kept");
 }
 
@@ -171,6 +217,57 @@ async fn without_a_store_the_action_runs_every_time_and_keeps_its_cleanups() {
         let (report, sent) = run(&target, (None, 1_000), created(id)).await;
         assert_eq!((report.saved, report.cleanups.len(), sent.len()), (saved(json!({ "userId": id })), 1, 1));
     }
+}
+
+#[tokio::test]
+async fn a_store_that_cannot_be_written_keeps_the_cleanups_and_says_so() {
+    let store = MemoryCacheStore::new();
+    let target = creating("eu", None);
+    let (report, sent, events) =
+        sending(&target, (Some(faulty(&store, vec![CacheFault::Writes])), 1_000), created(7)).await;
+    assert_eq!((report.outcome.failure(), report.cleanups.len(), sent.len()), (None, 1, 1), "the frame cleans up");
+    let notice = "cache: the cache failed: disk I/O error; `users#n1` was not cached";
+    assert_eq!(notices(events), [notice]);
+    assert_eq!(store.list().map(|listings| listings.len()), Ok(0));
+}
+
+#[tokio::test]
+async fn a_store_that_cannot_be_read_runs_the_action_again_and_says_so() {
+    let store = MemoryCacheStore::new();
+    let target = creating("eu", None);
+    run(&target, (Some(&store), 1_000), created(7)).await;
+    let (report, sent, events) =
+        sending(&target, (Some(faulty(&store, vec![CacheFault::Reads])), 1_001), created(8)).await;
+    assert_eq!((report.saved, sent.len()), (saved(json!({ "userId": 8 })), 1), "the action ran again");
+    let notice = "cache: could not read the entry: the cache failed: disk I/O error; `users#n1` ran again";
+    assert_eq!(notices(events), [notice]);
+}
+
+/// Passes, handing over a cleanup of its action, which is no api's `cleanup`.
+struct CleansUpItself(ActionId);
+
+#[async_trait]
+impl ActionExecutor for CleansUpItself {
+    async fn execute(&self, _: ActionRequest) -> ActionReport {
+        ActionReport { cleanups: vec![PendingCleanup::new(self.0)], ..ActionReport::passed() }
+    }
+
+    fn follows(&self, _: &Program, _: &Action) -> Vec<ActionId> {
+        Vec::new()
+    }
+}
+
+#[tokio::test]
+async fn a_cleanup_that_is_no_apis_is_kept_and_the_result_not_stored() {
+    let store = MemoryCacheStore::new();
+    let target = creating("eu", None);
+    let cached = CachedExecutor::new(Arc::new(CleansUpItself(target.1)));
+    let executors = ActionExecutors::new().with(ActionKindTag::Call, Arc::new(cached));
+    let (report, events) = through(&target, executors, (Some(Arc::new(store.clone())), 1_000)).await;
+    assert_eq!(report.cleanups, [PendingCleanup::new(target.1)], "the frame runs it");
+    let why = "is no api's `cleanup`, so it cannot be stored";
+    assert_eq!(notices(events), [format!("cache: the cleanup `users#n1` {why}; `users#n1` was not cached")]);
+    assert_eq!(store.list().map(|listings| listings.len()), Ok(0));
 }
 
 #[test]

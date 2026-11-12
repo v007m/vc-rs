@@ -1,5 +1,5 @@
 use serde_json::json;
-use vc_interfaces::{CacheEntry, CacheKey, CacheListing, CacheStore, CachedCleanup, CachedValues};
+use vc_interfaces::{CacheEntry, CacheKey, CacheListing, CacheStore, CachedCleanup, CachedValues, TakenEntries};
 
 /// Builds an empty store.
 pub type MakeCacheStore<'a> = dyn FnMut() -> Box<dyn CacheStore> + 'a;
@@ -92,7 +92,8 @@ fn removes_a_tombstone_or_takes_it_as_expired(make: &mut MakeCacheStore<'_>) {
     put(store.as_ref(), entry(1, "users#create", 300));
     assert_eq!(store.remove(&buried.key), Ok(()));
     assert_eq!(store.remove(&buried.key), Ok(()), "removing nothing is no error");
-    let expired = store.take_expired(1000).map(|taken| taken.iter().map(|e| e.listing.created_ms).collect::<Vec<_>>());
+    let expired =
+        store.take_expired(1000).map(|taken| taken.entries.iter().map(|e| e.listing.created_ms).collect::<Vec<_>>());
     assert_eq!(expired, Ok(vec![200]), "a tombstone left in place is taken as expired");
     let live = store.get(&CacheKey::new([1; 32]), 500);
     assert_eq!(live, Ok(Some(entry(1, "users#create", 300))), "the live entry stays");
@@ -104,12 +105,12 @@ fn hides_and_takes_expired_entries(make: &mut MakeCacheStore<'_>) {
     put(store.as_ref(), entry(2, "orders#create", 500));
     assert_eq!(store.get(&CacheKey::new([1; 32]), 1000), Ok(None), "an entry is gone once it expires");
     let expired = store.take_expired(1000);
-    assert_eq!(expired.as_ref().map(|taken| labels(taken)), Ok(vec!["users#create"]));
+    assert_eq!(expired.as_ref().map(|taken| labels(&taken.entries)), Ok(vec!["users#create"]));
     assert_eq!(
-        expired.map(|mut taken| taken.pop().map(|entry| entry.cleanups)),
+        expired.map(|mut taken| taken.entries.pop().map(|entry| entry.cleanups)),
         Ok(Some(entry(1, "users#create", 0).cleanups))
     );
-    assert_eq!(store.take_expired(1000), Ok(Vec::new()), "taking removes them");
+    assert_eq!(store.take_expired(1000), Ok(TakenEntries::default()), "taking removes them");
     assert_eq!(store.list().map(|listed| listed.len()), Ok(1), "live entries stay");
 }
 
@@ -122,9 +123,9 @@ fn lists_and_clears_by_label(make: &mut MakeCacheStore<'_>) {
     assert_eq!(listed, Ok(vec![100, 200, 300]), "listed oldest first");
     let cleared = store.clear(Some("users#create"));
     assert_eq!(
-        cleared.map(|taken| taken.iter().map(|entry| entry.listing.created_ms).collect::<Vec<_>>()),
+        cleared.map(|taken| taken.entries.iter().map(|entry| entry.listing.created_ms).collect::<Vec<_>>()),
         Ok(vec![200, 300])
     );
-    assert_eq!(store.clear(None).as_ref().map(|taken| labels(taken)), Ok(vec!["orders#create"]));
+    assert_eq!(store.clear(None).as_ref().map(|taken| labels(&taken.entries)), Ok(vec!["orders#create"]));
     assert_eq!(store.list(), Ok(Vec::new()), "clearing everything empties the store");
 }
