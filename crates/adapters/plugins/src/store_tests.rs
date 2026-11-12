@@ -1,5 +1,7 @@
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
+#[cfg(unix)]
+use std::path::PathBuf;
 
 use vc_interfaces::{Fetched, PluginStore, PluginStoreError};
 use vc_testkit::plugin_store_suite;
