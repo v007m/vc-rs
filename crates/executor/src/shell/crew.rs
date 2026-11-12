@@ -55,11 +55,6 @@ impl Deadline {
     pub fn attempt(timeout: Duration) -> Self {
         Self { at: Instant::now() + timeout, past: "the test ran past its `timeout`" }
     }
-
-    /// An `after` or `afterEach` action's own, its `timeout` from now (D192).
-    pub fn after(timeout: Duration) -> Self {
-        Self { at: Instant::now() + timeout, past: "the `after` or `afterEach` action ran past its own `timeout`" }
-    }
 }
 
 impl Job {

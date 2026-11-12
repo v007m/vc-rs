@@ -184,7 +184,7 @@ tests:
 - Per-request limits, most specific first: the `call` step or action, the api, `defaults.timeout`.
 - A request limit applies to each attempt. With [`http.retry`](/vc-rs/reference/syntax/http-retry/), every retry gets the full limit again.
 - A test's `timeout` covers the whole test. When it runs out, the call in flight fails with V5104, "the test ran past its `timeout`".
-- `after` and `afterEach` actions are outside a test's `timeout`.
+- `after` and `afterEach` actions are outside a test's `timeout`. Their own `timeout` means what it means on any action: on a call it limits each attempt, so the call's `http.retry` and `poll` still run in full.
 - Durations are a whole number and a unit: `ms`, `s`, `m` or `h`. Decimals and words are rejected.
 
 - A `timeout` is written out; a template such as `timeout: ${var.t}` is V2301. To change the default per run, use `--set defaults.timeout=10s` or `VIB_DEFAULTS_TIMEOUT`.

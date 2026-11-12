@@ -8063,6 +8063,9 @@ impl serde::Serialize for LoadTick {
         if self.p50_ms != 0. {
             len += 1;
         }
+        if self.p90_ms != 0. {
+            len += 1;
+        }
         if self.p95_ms != 0. {
             len += 1;
         }
@@ -8091,6 +8094,9 @@ impl serde::Serialize for LoadTick {
         }
         if self.p50_ms != 0. {
             struct_ser.serialize_field("p50Ms", &self.p50_ms)?;
+        }
+        if self.p90_ms != 0. {
+            struct_ser.serialize_field("p90Ms", &self.p90_ms)?;
         }
         if self.p95_ms != 0. {
             struct_ser.serialize_field("p95Ms", &self.p95_ms)?;
@@ -8121,6 +8127,8 @@ impl<'de> serde::Deserialize<'de> for LoadTick {
             "rps",
             "p50_ms",
             "p50Ms",
+            "p90_ms",
+            "p90Ms",
             "p95_ms",
             "p95Ms",
             "p99_ms",
@@ -8135,6 +8143,7 @@ impl<'de> serde::Deserialize<'de> for LoadTick {
             Users,
             Rps,
             P50Ms,
+            P90Ms,
             P95Ms,
             P99Ms,
             Errors,
@@ -8164,6 +8173,7 @@ impl<'de> serde::Deserialize<'de> for LoadTick {
                             "users" => Ok(GeneratedField::Users),
                             "rps" => Ok(GeneratedField::Rps),
                             "p50Ms" | "p50_ms" => Ok(GeneratedField::P50Ms),
+                            "p90Ms" | "p90_ms" => Ok(GeneratedField::P90Ms),
                             "p95Ms" | "p95_ms" => Ok(GeneratedField::P95Ms),
                             "p99Ms" | "p99_ms" => Ok(GeneratedField::P99Ms),
                             "errors" => Ok(GeneratedField::Errors),
@@ -8191,6 +8201,7 @@ impl<'de> serde::Deserialize<'de> for LoadTick {
                 let mut users__ = None;
                 let mut rps__ = None;
                 let mut p50_ms__ = None;
+                let mut p90_ms__ = None;
                 let mut p95_ms__ = None;
                 let mut p99_ms__ = None;
                 let mut errors__ = None;
@@ -8226,6 +8237,14 @@ impl<'de> serde::Deserialize<'de> for LoadTick {
                                 return Err(serde::de::Error::duplicate_field("p50Ms"));
                             }
                             p50_ms__ = 
+                                Some(map_.next_value::<::pbjson::private::NumberDeserialize<_>>()?.0)
+                            ;
+                        }
+                        GeneratedField::P90Ms => {
+                            if p90_ms__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("p90Ms"));
+                            }
+                            p90_ms__ = 
                                 Some(map_.next_value::<::pbjson::private::NumberDeserialize<_>>()?.0)
                             ;
                         }
@@ -8266,6 +8285,7 @@ impl<'de> serde::Deserialize<'de> for LoadTick {
                     users: users__.unwrap_or_default(),
                     rps: rps__.unwrap_or_default(),
                     p50_ms: p50_ms__.unwrap_or_default(),
+                    p90_ms: p90_ms__.unwrap_or_default(),
                     p95_ms: p95_ms__.unwrap_or_default(),
                     p99_ms: p99_ms__.unwrap_or_default(),
                     errors: errors__.unwrap_or_default(),

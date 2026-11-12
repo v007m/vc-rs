@@ -2,8 +2,9 @@
 //! api's `save` runs only on a status its `saveOn` matches (D191), `afterEach` follows every test
 //! and `afterAll` the last one, a failed `afterAll` or `afterRun` fails the run without changing
 //! a test's verdict (D279), a `standalone: false` test runs only where `test:` reuses it (and
-//! selecting it alone says so), a `test:` reuse runs the reused test as written (D270), and a
-//! third Ctrl-C lists the cleanup it stopped first among those it abandons.
+//! selecting it alone says so), a `test:` reuse runs the reused test as written (D270), an
+//! `afterEach` call's `http.retry` outlasts its own per-attempt `timeout` (D324), and a third
+//! Ctrl-C lists the cleanup it stopped first among those it abandons.
 
 use vc_mock_server::MockServer;
 
@@ -170,6 +171,21 @@ async fn a_before_all_call_retries_until_it_passes() {
         assert_eq!(output.status.code(), Some(exit), "{}", crate::said(&output));
         assert_eq!(server.stats().await.unwrap().count("GET /flaky"), sent, "{retry}");
     }
+}
+
+/// D324: an `afterEach` call's own `timeout` is per attempt, so its `http.retry` waits out a
+/// backoff longer than that `timeout` and the second attempt passes.
+#[tokio::test(flavor = "multi_thread")]
+async fn an_after_each_call_s_http_retry_outlasts_its_own_timeout() {
+    let api = "baseUrl: ${var.baseUrl}\napis:\n  - id: flaky\n    path: /flaky\n    query: {key: after, failTimes: '1'}\n\
+               \x20   http:\n      retry: {attempts: 1, on: [503], backoff: {base: 1s, jitter: false}}\n\
+               \x20 - id: quick\n    path: /slow\n    query: {ms: '0'}\n";
+    let test = "afterEach:\n  - call: retried#flaky\n    timeout: 300ms\ntests:\n  - id: callsQuick\n    call: retried#quick\n";
+    let server = MockServer::start().await.unwrap();
+    let files = [CONFIG, ("services/retried/retried.api.yaml", api), ("services/retried/after.test.yaml", test)];
+    let output = Project::new(&files).run(&server.base_url(), &[]).output().unwrap();
+    assert_eq!(output.status.code(), Some(0), "{}", crate::said(&output));
+    assert_eq!(server.stats().await.unwrap().count("GET /flaky"), 2);
 }
 
 /// D270: a `test:` reuse runs the reused test as written, so its own `expect: {status: 418}`
