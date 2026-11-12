@@ -8,15 +8,13 @@ use serde_json::Value;
 use vc_adapter_system::SystemEnvironment;
 use vc_diagnostics::{Code, Diagnostic};
 use vc_interfaces::{NotifierFactory, NotifyError};
-use vc_model::{
-    AlertChannel, CelProgram, FileKind, Program, Reference, SourceFile, SourceFileId, SourceFiles, TemplateValue,
-};
+use vc_model::{AlertChannel, FileKind, Program, SourceFile, SourceFileId, SourceFiles, TemplateValue};
 use vc_parser::{Entry, Node, Syntax};
-use vc_template::{Chance, PipeRegistry, RenderError, Renderer, Resolve};
+use vc_template::{PipeRegistry, Renderer};
 
 use crate::Engine;
 use crate::explain::did_you_mean;
-use crate::notify::Steady;
+use crate::restricted::Restricted;
 
 /// A warning at each `alerts[].notify[]` key of the config that is none of `known`.
 pub fn unknown_channels(files: &SourceFiles, known: &[String]) -> Vec<Diagnostic> {
@@ -49,30 +47,14 @@ fn channel_entries(files: &SourceFiles) -> Vec<Entry> {
 
 /// `settings` as JSON when no part of them is a template.
 fn plain(settings: &TemplateValue) -> Option<Value> {
-    Renderer::new(&PipeRegistry::builtin(), &Untemplated).value(settings).ok()
+    let untemplated = Restricted { reads: Vec::new(), only: "filled in when the run ends" };
+    Renderer::new(&PipeRegistry::builtin(), &untemplated).value(settings).ok()
 }
 
 fn refused(entry: &Entry, error: &NotifyError) -> Diagnostic {
     let message = format!("{error}; a run cannot send to it");
     let help = "see `vc explain V5117` for each channel's settings";
     Diagnostic::new(Code::V5117, entry.key_span, message).label("settings refused").help(help)
-}
-
-/// Resolves no reference, so a templated setting is left to the run.
-struct Untemplated;
-
-impl Resolve for Untemplated {
-    fn resolve(&self, _reference: &Reference) -> Result<Value, RenderError> {
-        Err(RenderError::invalid("filled in when the run ends"))
-    }
-
-    fn evaluate(&self, _program: &CelProgram) -> Result<Value, RenderError> {
-        Err(RenderError::invalid("filled in when the run ends"))
-    }
-
-    fn chance(&self) -> &dyn Chance {
-        &Steady
-    }
 }
 
 impl Engine {
