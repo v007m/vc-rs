@@ -2,12 +2,14 @@
 //! formats render once the run ends.
 
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use vc_interfaces::Row;
 use vc_model::{ActionId, ActionOutcome, Event, InstanceId, Names, OwnerKey, TestResult, TestStatus};
 
 use crate::collect::{Collector, TestRecord};
 use crate::exchange::{self, Keeping};
+use crate::teardown::Teardown;
 use crate::view::{AbandonedView, ExchangeView, Gathered, RunFacts, TestView};
 use crate::{Color, ReporterContext, RunSnapshot, encode, failure, rows, text};
 
@@ -20,6 +22,7 @@ use crate::{Color, ReporterContext, RunSnapshot, encode, failure, rows, text};
 pub struct Recorder {
     project: Option<String>,
     names: Names,
+    teardown: Teardown,
     collector: Collector,
     keeping: Keeping,
     pending: HashMap<(OwnerKey, ActionId), Vec<ExchangeView>>,
@@ -34,9 +37,11 @@ impl Recorder {
         let program = context.program();
         let history = program.config.history;
         let max_body = history.max_body();
+        let names = Names::new(Arc::clone(&program), context.plan());
         Self {
             project: program.config.project.clone(),
-            names: Names::new(program, context.plan()),
+            teardown: Teardown::new(context.plan(), &names),
+            names,
             collector: Collector::new(context.clock()),
             keeping: Keeping { bodies: history.bodies, max_body },
             pending: HashMap::new(),
@@ -78,6 +83,7 @@ impl Recorder {
             lifecycle: collector.lifecycle.iter().map(|step| encode::step(names, step)).collect(),
             cleanups: collector.cleanups.iter().map(|cleanup| encode::cleanup(names, cleanup)).collect(),
             abandoned: abandoned.collect(),
+            teardown_failures: self.teardown.failures(&collector.lifecycle),
             tests: self.tests,
         };
         RunSnapshot::new(run, gathered)

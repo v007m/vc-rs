@@ -43,6 +43,8 @@ pub struct Finished {
     /// Whether anything ran: a test, or a load iteration. A run where nothing did never
     /// recovers.
     pub ran: bool,
+    /// The teardown blocks that failed: `afterAll in users.crud`, `afterRun` (D304).
+    pub teardown: Vec<String>,
     /// Where the run's main report was written.
     pub report: Option<String>,
 }
@@ -57,6 +59,8 @@ pub struct Ending {
     pub breaches: Vec<String>,
     /// Whether a test or a load iteration ran.
     pub ran: bool,
+    /// The teardown blocks that failed, as the console names them (D304).
+    pub teardown: Vec<String>,
     /// The first report file written.
     pub report: Option<PathBuf>,
 }
@@ -87,7 +91,7 @@ impl Watch {
     /// What it saw, with the run's main report.
     pub fn ending(self, report: Option<PathBuf>) -> Ending {
         let ran = self.ended.iter().any(|test| test.status != TestStatus::Skipped);
-        Ending { tests: self.ended, breaches: Vec::new(), ran, report }
+        Ending { tests: self.ended, breaches: Vec::new(), ran, teardown: Vec::new(), report }
     }
 
     /// The test result `row` holds: `None` for any other row, or a test that has not ended. A
@@ -131,7 +135,7 @@ fn fire<'r>(rule: &'r Alert, run: &Finished, previous: Option<RunStatus>) -> Opt
     let failures = tests.iter().filter(|test| listed(test.status));
     let failures = failures.map(|test| NoticeFailure::new(test.test.clone(), test.message.clone())).collect();
     let notice = Notice::new(trigger, run.project.clone(), run.summary.clone()).failures(failures);
-    let notice = notice.breaches(run.breaches.clone());
+    let notice = notice.breaches(run.breaches.clone()).teardown(run.teardown.clone());
     let notice = match &run.report {
         Some(report) => notice.report(report.clone()),
         None => notice,

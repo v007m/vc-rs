@@ -56,6 +56,9 @@ pub struct Notice {
     pub failures: Vec<NoticeFailure>,
     /// The load thresholds breached, as `metric` or `metric of <testId>`.
     pub breaches: Vec<String>,
+    /// The teardown blocks that failed, as the console names them: `afterAll in users.crud`,
+    /// `afterRun` (D304).
+    pub teardown: Vec<String>,
     /// Where the run's report is: a file path or a URL.
     pub report: Option<String>,
     /// A sample `vc alerts test` sends, not a run's: titled `[test]`, and a `PagerDuty`
@@ -67,7 +70,16 @@ impl Notice {
     /// A notice of `trigger` about `project`'s run, with no failures, breaches or report.
     #[must_use]
     pub const fn new(trigger: AlertTrigger, project: String, summary: RunSummary) -> Self {
-        Self { trigger, project, summary, failures: Vec::new(), breaches: Vec::new(), report: None, test: false }
+        Self {
+            trigger,
+            project,
+            summary,
+            failures: Vec::new(),
+            breaches: Vec::new(),
+            teardown: Vec::new(),
+            report: None,
+            test: false,
+        }
     }
 
     /// The same notice, as a sample `vc alerts test` sends.
@@ -86,6 +98,12 @@ impl Notice {
     #[must_use]
     pub fn breaches(self, breaches: Vec<String>) -> Self {
         Self { breaches, ..self }
+    }
+
+    /// The same notice naming the failed `teardown` blocks.
+    #[must_use]
+    pub fn teardown(self, teardown: Vec<String>) -> Self {
+        Self { teardown, ..self }
     }
 
     /// The same notice pointing at `report`.

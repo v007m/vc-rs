@@ -74,6 +74,22 @@ pub struct AbandonedView {
     pub owner: OwnerView,
 }
 
+/// A teardown block that failed (D304): `afterAll` with its file, or `afterRun` with none, and
+/// the masked message of its first failed action.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TeardownView {
+    pub block: String,
+    pub file: Option<String>,
+    pub message: String,
+}
+
+impl TeardownView {
+    /// The block as the console names it: `afterAll in users.crud`, `afterRun`.
+    pub fn label(&self) -> String {
+        self.file.as_ref().map_or_else(|| self.block.clone(), |file| format!("{} in {file}", self.block))
+    }
+}
+
 /// Per-phase timings in milliseconds.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -203,6 +219,9 @@ pub struct RunSnapshot {
     pub(crate) lifecycle: Vec<StepView>,
     pub(crate) cleanups: Vec<CleanupView>,
     pub(crate) abandoned: Vec<AbandonedView>,
+    /// The teardown blocks that failed; a snapshot from before they were kept has none.
+    #[serde(default)]
+    pub(crate) teardown_failures: Vec<TeardownView>,
 }
 
 /// The parts of a snapshot the recorder gathers, before the run facts are known.
@@ -215,12 +234,22 @@ pub struct Gathered {
     pub lifecycle: Vec<StepView>,
     pub cleanups: Vec<CleanupView>,
     pub abandoned: Vec<AbandonedView>,
+    pub teardown_failures: Vec<TeardownView>,
 }
 
 impl RunSnapshot {
     pub(crate) fn new(run: RunFacts, gathered: Gathered) -> Self {
-        let Gathered { project, profile_names, files, tests, lifecycle, cleanups, abandoned } = gathered;
-        Self { version: VERSION, run, project, profile_names, files, tests, lifecycle, cleanups, abandoned }
+        let Gathered { project, profile_names, files, tests, lifecycle, cleanups, abandoned, teardown_failures } =
+            gathered;
+        let version = VERSION;
+        Self { version, run, project, profile_names, files, tests, lifecycle, cleanups, abandoned, teardown_failures }
+    }
+
+    /// The teardown blocks that failed, as the console names them: `afterAll in users.crud`,
+    /// `afterRun` (D279, D304).
+    #[must_use]
+    pub fn teardown_failed(&self) -> Vec<String> {
+        self.teardown_failures.iter().map(TeardownView::label).collect()
     }
 
     /// The project's display name: the config's `project`, else `vibranium`.

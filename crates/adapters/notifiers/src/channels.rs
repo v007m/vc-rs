@@ -57,7 +57,7 @@ impl Payload for Slack {
         let line = |failure: NoticeFailure| format!("• {}: {}", failure.test, failure.message);
         let lines = text::listed(notice).into_iter().map(line).chain(text::more(notice)).collect::<Vec<_>>();
         blocks.extend((!lines.is_empty()).then(|| section(&lines.join("\n"))));
-        blocks.extend(text::breaches(notice).map(|breaches| section(&breaches)));
+        blocks.extend(text::breaches(notice).into_iter().chain(text::teardown(notice)).map(|line| section(&line)));
         let context = |report: String| json!({"type": "context", "elements": [{"type": "mrkdwn", "text": report}]});
         blocks.extend(text::report(notice).map(context));
         let mut message = json!({"text": headline, "blocks": blocks});
@@ -83,7 +83,12 @@ impl Payload for Teams {
         let facts = facts.collect::<Vec<_>>();
         body.extend((!facts.is_empty()).then(|| json!({"type": "FactSet", "facts": facts})));
         body.extend(
-            text::more(notice).into_iter().chain(text::breaches(notice)).chain(text::report(notice)).map(block),
+            text::more(notice)
+                .into_iter()
+                .chain(text::breaches(notice))
+                .chain(text::teardown(notice))
+                .chain(text::report(notice))
+                .map(block),
         );
         let card = json!({"$schema": "http://adaptivecards.io/schemas/adaptive-card.json", "type": "AdaptiveCard",
             "version": "1.4", "body": body});
@@ -138,6 +143,7 @@ fn details(notice: &Notice) -> Value {
         "failures": failures.collect::<Vec<_>>(),
         "moreFailures": notice.failures.len().saturating_sub(text::listed(notice).len()),
         "breaches": notice.breaches,
+        "teardownFailed": notice.teardown,
         "report": notice.report,
         "test": notice.test,
     })
