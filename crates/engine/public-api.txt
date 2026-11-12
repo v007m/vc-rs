@@ -1352,6 +1352,7 @@ impl core::marker::StructuralPartialEq for vc_engine::SyncReport
 pub struct vc_engine::SyncRequest
 pub vc_engine::SyncRequest::files: alloc::vec::Vec<alloc::string::String>
 pub vc_engine::SyncRequest::mode: vc_engine::SyncMode
+pub vc_engine::SyncRequest::profiles: alloc::vec::Vec<alloc::string::String>
 pub vc_engine::SyncRequest::settle: alloc::vec::Vec<(alloc::string::String, vc_engine::SyncSide)>
 impl core::clone::Clone for vc_engine::SyncRequest
 pub fn vc_engine::SyncRequest::clone(&self) -> Self

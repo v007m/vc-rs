@@ -109,6 +109,7 @@ mod settings;
 mod shown;
 mod skip;
 mod snapshot_guard;
+mod spec_headers;
 mod staged;
 mod stored;
 mod sync;

@@ -23,6 +23,7 @@ use vc_model::{ProfileId, Program, SecretsConfig};
 
 use crate::plan::Prepared;
 use crate::plugin_hosts::Hosts;
+use crate::project::Valid;
 use crate::settings::{self, Settings};
 use crate::user::UnderProject;
 use crate::{Engine, EngineError, FileChange};
@@ -60,7 +61,16 @@ impl Engine {
         flags: &[ConfigEntry],
         changes: &[FileChange],
     ) -> Result<Layered, EngineError> {
-        let (program, notices) = self.program_with(changes)?;
+        self.layered_over(self.program_with(changes)?, (sets, flags))
+    }
+
+    /// The settings and environment of [`Engine::layered`] around `valid`, a program compiled
+    /// already.
+    pub(crate) fn layered_over(
+        &self,
+        (program, notices): Valid,
+        (sets, flags): (&[String], &[ConfigEntry]),
+    ) -> Result<Layered, EngineError> {
         let dot_env = DotEnv::read(self.root()).map_err(|error| settings::source_error(&error))?;
         let process = self.environment.clone().unwrap_or_else(|| Arc::new(SystemEnvironment::capture()));
         let user = self.user_layer(process.as_ref())?;
