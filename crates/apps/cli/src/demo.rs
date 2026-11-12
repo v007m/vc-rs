@@ -2,7 +2,8 @@
 //! launches the `vc-demo` binary found next to `vc`, else on `PATH`; with `--detach` it runs in
 //! the background, `vc` writes its pidfile and returns once it answers, and `stop` reads the
 //! pidfile and ends it. A `start` that finds the demo running joins it instead, and the `stop`
-//! after it leaves the demo to whoever else uses it.
+//! after it leaves the demo to whoever else uses it. `start`s on one port take turns, so two at
+//! once leave one demo.
 
 use std::io::{Read, Write};
 use std::net::{Ipv4Addr, SocketAddr, TcpStream};
@@ -15,7 +16,7 @@ use clap::{Args, Subcommand};
 
 use crate::Outcome;
 use crate::stdout;
-use folder::{folder_name, join, left_to_another, pidfile, users};
+use folder::{folder_name, join, left_to_another, pidfile, turn, users};
 
 mod folder;
 
@@ -78,6 +79,7 @@ fn start(port: u16, detach: bool) -> anyhow::Result<Outcome> {
     let Some(binary) = binary() else {
         return Ok(missing());
     };
+    let turn = turn(port);
     if is_demo(port) {
         return joined(port);
     }
@@ -93,7 +95,7 @@ fn start(port: u16, detach: bool) -> anyhow::Result<Outcome> {
     }
     let mut command = Command::new(binary);
     command.arg("--port").arg(port.to_string());
-    if detach { background(&mut command, port) } else { foreground(&mut command, port) }
+    if detach { background(&mut command, port) } else { foreground(&mut command, port, turn) }
 }
 
 /// Launches the demo in the background and writes the pidfile `stop` reads, once the demo it
@@ -121,10 +123,13 @@ fn joined(port: u16) -> anyhow::Result<Outcome> {
     Ok(Outcome::Done)
 }
 
-/// Runs the demo until it ends, saying where once it answers; exit 1 when it ends with an error.
-fn foreground(command: &mut Command, port: u16) -> anyhow::Result<Outcome> {
+/// Runs the demo until it ends, saying where once it answers, and gives up this `start`'s `turn`
+/// then; exit 1 when it ends with an error.
+fn foreground(command: &mut Command, port: u16, turn: Option<fs::File>) -> anyhow::Result<Outcome> {
     let mut child = command.spawn()?;
-    match up(&mut child, port, "Ctrl-C stops it")? {
+    let up = up(&mut child, port, "Ctrl-C stops it");
+    drop(turn);
+    match up? {
         Up::Ours => {}
         Up::Taken => return joined(port),
         Up::Failed(reason) => {

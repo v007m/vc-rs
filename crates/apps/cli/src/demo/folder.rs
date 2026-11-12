@@ -2,8 +2,8 @@
 //! reads, and one file per `start` that joined a demo another one launched.
 
 use std::path::{Path, PathBuf};
-use std::time::Duration;
-use std::{env, fs, process};
+use std::time::{Duration, Instant};
+use std::{env, fs, process, thread};
 
 /// How many joins one caller can hold on a demo at once.
 const JOINS: u32 = 64;
@@ -16,6 +16,30 @@ const JOINED: Duration = Duration::from_hours(1);
 /// folder; `None` when that folder is not this user's own.
 pub fn pidfile(port: u16) -> Option<PathBuf> {
     folder().map(|folder| folder.join(format!("{port}.pid")))
+}
+
+/// How long a `start` waits for its turn while another `start` on the port launches its demo:
+/// that one gives it up within its wait for the demo to answer.
+const TURN: Duration = Duration::from_secs(15);
+
+const POLL: Duration = Duration::from_millis(50);
+
+/// Waits for this `start`'s turn on `port`, so two `start`s at once take turns: the second finds
+/// the first's demo answering and joins it, instead of seeing the port taken before the demo
+/// answers. The turn is an OS lock on `<port>.lock`, held until the file is dropped and freed when
+/// `vc` exits, so a crash leaves none behind; `None` (no turn, as before) when there is nowhere
+/// private for it, or another `start` holds it past [`TURN`].
+pub fn turn(port: u16) -> Option<fs::File> {
+    let path = folder()?.join(format!("{port}.lock"));
+    let file = fs::OpenOptions::new().create(true).truncate(false).write(true).open(path).ok()?;
+    let deadline = Instant::now() + TURN;
+    loop {
+        match file.try_lock() {
+            Ok(()) => return Some(file),
+            Err(fs::TryLockError::WouldBlock) if Instant::now() < deadline => thread::sleep(POLL),
+            Err(_) => return None,
+        }
+    }
 }
 
 /// The folder with one file per `start` that joined the demo on `port`, named `<pid>.<n>` for

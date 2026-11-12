@@ -48,6 +48,13 @@ fn launched(mut vc: std::process::Command) -> Option<Child> {
     vc.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null()).spawn().ok()
 }
 
+/// `vc` started with its stdout and stderr going to the file `log`, which a detached demo that
+/// inherits it never holds open the way it would a pipe (see [`exit_code`]).
+fn logged(mut vc: std::process::Command, log: &std::path::Path) -> Child {
+    let file = std::fs::File::create(log).unwrap();
+    vc.stdin(Stdio::null()).stdout(file.try_clone().unwrap()).stderr(file).spawn().unwrap()
+}
+
 /// The exit code of `child`, or `None` when it runs past 20 s (then it is killed).
 fn waited(mut child: Child) -> Option<i32> {
     let deadline = Instant::now() + Duration::from_secs(20);
@@ -253,15 +260,21 @@ fn refuses_a_demo_folder_that_is_a_link() {
 /// none is left running.
 #[test]
 fn two_starts_at_once_leave_one_demo_that_their_stops_end() {
-    let project = Project::empty();
-    let start = || launched(project.process(&["demo", "start", "--port", "7441", "--detach"])).unwrap();
-    let (first, second) = (start(), start());
+    let (project, logs) = (Project::empty(), tempfile::tempdir().unwrap());
+    let start =
+        |log: &str| logged(project.process(&["demo", "start", "--port", "7441", "--detach"]), &logs.path().join(log));
+    let (first, second) = (start("first"), start("second"));
     let started = (waited(first), waited(second));
+    let said = |log: &str| std::fs::read_to_string(logs.path().join(log)).unwrap_or_default();
+    let (first, second) = (said("first"), said("second"));
     let stops = (
         printed(&project, &["demo", "stop", "--port", "7441"]),
         printed(&project, &["demo", "stop", "--port", "7441"]),
     );
-    assert_eq!(started, (Some(0), Some(0)));
+    let output = format!("the first start said:\n{first}\nthe second start said:\n{second}");
+    assert_eq!(started, (Some(0), Some(0)), "{output}");
+    let joins = [&first, &second].iter().filter(|said| said.contains("a demo already answers on port 7441")).count();
+    assert_eq!(joins, 1, "one start launches the demo and the other joins it:\n{output}");
     assert_eq!(stops.0, "left the demo on port 7441 running, as another `vc demo start` uses it\n");
     assert_eq!(stops.1, "stopped the demo on port 7441\n");
     assert!(wait_until(7441, false), "no demo is left running");
