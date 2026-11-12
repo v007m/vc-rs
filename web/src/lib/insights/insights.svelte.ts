@@ -1,5 +1,13 @@
 import { ConnectError } from '@connectrpc/connect';
-import type { ApiTrend, InsightsPort, RunSummary, Scope, SkipLine, TestTrend } from './port.ts';
+import type {
+  ApiTrend,
+  Coverage,
+  InsightsPort,
+  RunSummary,
+  Scope,
+  SkipLine,
+  TestTrend,
+} from './port.ts';
 import { localDay } from './stats.ts';
 
 /** The time ranges Insights offers, in runs. */
@@ -15,6 +23,8 @@ export class Insights {
   apiTrends: readonly ApiTrend[] = $state([]);
   /** The skips that have an end date, expired ones included. */
   skips: readonly SkipLine[] = $state([]);
+  /** What tests and documents each api, whatever the window. */
+  coverage: Coverage = $state({ apis: [], notes: [] });
   loading = $state(false);
   error: string | undefined = $state();
   /** The local day the skips' dates are read against, `YYYY-MM-DD`. */
@@ -26,9 +36,17 @@ export class Insights {
     this.today = today;
   }
 
-  /** Reads the runs and the skips. */
+  /** Reads the runs, the skips and the coverage. */
   async open(): Promise<void> {
-    await Promise.all([this.load(), this.loadSkips()]);
+    await Promise.all([this.load(), this.loadSkips(), this.loadCoverage()]);
+  }
+
+  async loadCoverage(): Promise<void> {
+    try {
+      this.coverage = await this.#port.coverage();
+    } catch (error) {
+      this.error = ConnectError.from(error).rawMessage;
+    }
   }
 
   /** Reads the skips again, after one is written or removed. */

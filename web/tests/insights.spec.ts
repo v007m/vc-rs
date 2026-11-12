@@ -45,3 +45,12 @@ test('narrows the window with the time range', async ({ page }) => {
     'true',
   );
 });
+
+test('lists every api with its tests and statuses', async ({ page }) => {
+  await runOnce(page);
+  await page.goto('/insights');
+  const coverage = page.getByRole('region', { name: 'API coverage' });
+  await expect(coverage.getByRole('rowheader', { name: /\w+#\w+/ }).first()).toBeVisible();
+  // A status chip's screen-reader text; the legend has no colon.
+  await expect(coverage.getByText(/: documented and seen;/).first()).toBeAttached();
+});
