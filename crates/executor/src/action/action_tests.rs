@@ -3,7 +3,7 @@ use std::sync::Arc;
 use vc_diagnostics::Code;
 use vc_interfaces::{Transport, TransportError};
 use vc_model::{
-    ActionId, ActionKind, ActionOutcome, Check, CheckKind, Event, Failure, HookRef, Matcher, Origin, OwnerKey,
+    ActionId, ActionKind, ActionOutcome, Check, CheckKind, Event, Failure, HookRef, Loop, Matcher, Origin, OwnerKey,
     RedactRule, StatusPattern, Template,
 };
 use vc_testkit::FakeTransport;
@@ -42,6 +42,23 @@ async fn a_reuse_s_own_timeout_limits_all_its_steps_together() {
     let report = execute(fixture, standard(server), reuse).await;
     assert_eq!((code(&report), start.elapsed()), (Some("V5104"), std::time::Duration::from_secs(2)));
     assert_eq!((failure(&report).and_then(|failure| failure.action), sent.counts().len()), (Some(reuse), 2));
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_reuse_past_its_timeout_keeps_the_cleanups_of_a_looped_step_s_turns_in_flight() {
+    let mut fixture = Fixture::new();
+    let delete = fixture.call("/users/delete");
+    let turn_steps = vec![fixture.creating("/users", delete), fixture.call("/slow")];
+    let turn = fixture.test(turn_steps, None);
+    let looped = fixture.action(ActionKind::Test(turn));
+    fixture.action_mut(looped).repeat = Some(Loop::Repeat { times: 2, parallel: 2 });
+    let reused = fixture.test(vec![looped], None);
+    let reuse = fixture.action(ActionKind::Test(reused));
+    fixture.action_mut(reuse).timeout = Some(vc_model::Duration::new(std::time::Duration::from_secs(2)));
+    let (server, _) = Server::new();
+    let report = execute(fixture, standard(server), reuse).await;
+    let kept: Vec<ActionId> = report.cleanups.iter().map(|cleanup| cleanup.action).collect();
+    assert_eq!((code(&report), kept), (Some("V5104"), vec![delete, delete]));
 }
 
 #[tokio::test]

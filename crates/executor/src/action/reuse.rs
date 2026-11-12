@@ -15,7 +15,9 @@ use crate::{ActionReport, CleanupCollector, Defined};
 /// its own `before` and `after` are not run. The reusing action's own `timeout` limits the whole reuse (D192): the step
 /// running when it passes is dropped and fails with V5104. Each step's cleanups are handed to
 /// the reuse's [`CleanupCollector`] as it finishes, as are those of a dropped step's finished
-/// parts, so none is lost, and neither are the reuse's own when a caller's deadline drops it.
+/// parts, so none is lost, and neither are the reuse's own when a caller's deadline drops it. It
+/// takes them with [`CleanupCollector::settle`] once its frame is gone, so the turns of a looped
+/// step that its `timeout` dropped hand theirs over too.
 #[derive(Clone, Copy, Debug, Default)]
 #[non_exhaustive]
 pub struct TestExecutor;
@@ -30,7 +32,7 @@ impl ActionExecutor for TestExecutor {
         let steps = body_actions(&test.body);
         let declared = request.cx.action(request.action);
         let deadline = declared.and_then(|action| action.timeout).map(|limit| Instant::now() + limit.get());
-        let mut kept = CleanupCollector::under(request.frame.sink.clone());
+        let kept = CleanupCollector::under(request.frame.sink.clone());
         let mut frame = kept.frame(&request.frame);
         frame.callers.extend(callers(&request));
         frame.test_file = Some(test.file);
@@ -50,13 +52,16 @@ impl ActionExecutor for TestExecutor {
             if let ActionOutcome::Failed(failure) = step.outcome {
                 report.outcome = ActionOutcome::Failed(failure);
                 report.failing = Some(part);
-                report.cleanups = kept.take(Vec::new());
-                return report;
+                break;
             }
         }
-        report.cleanups = kept.take(Vec::new());
-        let unsaved = declared.and_then(|action| provides::unsaved(program, action, &report.saved));
-        report.outcome = unsaved.map_or(report.outcome, |failure| ActionOutcome::Failed(failure.at(request.action)));
+        drop(frame);
+        report.cleanups = kept.settle(Vec::new()).await;
+        if report.outcome == ActionOutcome::Passed {
+            let unsaved = declared.and_then(|action| provides::unsaved(program, action, &report.saved));
+            report.outcome =
+                unsaved.map_or(report.outcome, |failure| ActionOutcome::Failed(failure.at(request.action)));
+        }
         report
     }
 
