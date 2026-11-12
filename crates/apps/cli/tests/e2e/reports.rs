@@ -133,4 +133,7 @@ async fn a_retried_test_keeps_its_file_in_one_block() {
     }
     let block = printed.split("Retried\n").nth(1).and_then(|rest| rest.split("\n\n").next()).unwrap_or_default();
     assert!(block.contains("passesSecondTime flaky (2 attempts)") && block.contains("retried#listsUsers"), "{printed}");
+    for quick in ["listsOnce", "listsTwice", "listsThrice"] {
+        assert!(!block.contains(quick), "Quick's {quick} leaked into the Retried block:\n{printed}");
+    }
 }
