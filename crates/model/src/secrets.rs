@@ -61,8 +61,10 @@ pub enum RedactRule {
 }
 
 /// The names a `.env.schema` declares: each `NAME=` line, with or without a value or an
-/// `export ` before it; `#` lines (Varlock's decorators), blank lines and [`PROFILE_VARIABLE`]
-/// (Varlock's environment flag, D306) declare nothing.
+/// `export ` before it.
+///
+/// `#` lines (Varlock's decorators), blank lines and [`PROFILE_VARIABLE`] (Varlock's environment
+/// flag, D306) declare nothing.
 #[must_use]
 pub fn schema_names(text: &str) -> Vec<String> {
     let lines = text.lines().map(str::trim).filter(|line| !line.is_empty() && !line.starts_with('#'));
