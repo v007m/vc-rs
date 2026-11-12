@@ -1110,6 +1110,8 @@ The same definition serves every profile: under `--profile prod` it logs in to `
 
 `vc check` checks names against `.env.schema`: a `${secret.X}` it does not declare is V2106 (with the closest declared name as the fix), and a `${env.X}` that reads a declared secret is V2107, because it would bypass the redactor (the certain fix is `${secret.X}`).
 
+Varlock is told the run's profile as `VC_PROFILE` in its environment: the last profile given, unset when there is none (vc never passes `--env`, D306). A schema selects its Varlock environment with `# @currentEnv=$VC_PROFILE` and declares the flag as an item, such as `VC_PROFILE=dev` for runs without a profile. That line is Varlock's environment flag, not a secret: vc leaves it out of the declared secrets, never loads, masks or requires it, and `${secret.VC_PROFILE}` is V2106.
+
 Every `${secret.*}` value of four characters or more is redacted everywhere it appears, including inside response bodies, and shows as `••••`. So are the values of `Authorization`, `Cookie`, `Set-Cookie` and `redact.headers`, and the JSON fields named in `redact.fields`, at any depth. `redact.rules` add masks of your own, applied after those:
 
 ```yaml
