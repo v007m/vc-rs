@@ -165,7 +165,7 @@ impl Writing {
             let after = format!("{}tests:\n  {comment}\n{}", header(FileKind::Test, file), block("  ", &yaml));
             self.staged.keep(FileChange { path, before: None, after, moved_from: None });
         }
-        Ok(format!("flow {file}#{test} ({} steps)", flow.steps.len()))
+        Ok(flow_title(&format!("{file}#{test}"), flow.steps.len()))
     }
 
     /// `step` as an item of `steps`, calling where its api went, its vars by their names there.
@@ -220,9 +220,21 @@ fn under<'p>(path: &'p str, prefix: &str) -> Option<&'p str> {
     }
 }
 
+/// The import's line for the flow test `id` it writes: `flow shop#placesOrder (4 steps)`.
+fn flow_title(id: &str, steps: usize) -> String {
+    let noun = if steps == 1 { "step" } else { "steps" };
+    format!("flow {id} ({steps} {noun})")
+}
+
 #[cfg(test)]
 mod tests {
-    use super::under;
+    use super::{flow_title, under};
+
+    #[test]
+    fn a_flow_of_one_step_says_step() {
+        assert_eq!(flow_title("shop#getsCart", 1), "flow shop#getsCart (1 step)");
+        assert_eq!(flow_title("shop#placesOrder", 4), "flow shop#placesOrder (4 steps)");
+    }
 
     #[test]
     fn a_path_is_under_a_base_path_only_at_a_segment_boundary() {

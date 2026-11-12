@@ -1,12 +1,12 @@
 ---
 title: "vc import"
-description: "Creates api files, and optionally tests, from an OpenAPI spec, a HAR recording, curl commands, a .http file or a Postman collection."
+description: "Creates api files, and optionally tests, from an OpenAPI spec, a HAR recording, curl commands, a .http file, or a Postman or Bruno collection."
 sidebar: { order: 19 }
 ---
 
 import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
 
-Creates api definitions from something you already have: an OpenAPI spec, a browser recording (HAR), a file of curl commands, a `.http` file, or a Postman collection. It can also write tests for what it imports.
+Creates api definitions from something you already have: an OpenAPI spec, a browser recording (HAR), a file of curl commands, a `.http` file, or a Postman or Bruno collection. It can also write tests for what it imports.
 
 ```console
 $ vc import [OPTIONS] <KIND> <SOURCE>
@@ -19,6 +19,7 @@ $ vc import [OPTIONS] <KIND> <SOURCE>
 | `curl` | A file with one curl command per line |
 | `http` | A `.http` file (the VS Code REST Client and JetBrains format) |
 | `postman` | A Postman collection, v2.1 |
+| `bruno` | A Bruno collection: its folder (the one with `bruno.json`), or the collection exported as one JSON file. Read by the `postman` rules |
 
 ## Options
 
@@ -31,7 +32,7 @@ $ vc import [OPTIONS] <KIND> <SOURCE>
 | `--include` | `<TAG_OR_PATH>` | openapi | Only the operations with this tag or path prefix. Repeat for more |
 | `--only` | `<OPERATION_ID>` | openapi | Only the operation with this operation ID. Repeat for more. Kept in `source.only`, so `vc sync` takes the same operations |
 | `--profile` | `<IDS>` | all | The active profiles. Their vars fill `source.headers`, and a recording's hosts are matched against their base URLs |
-| `--flow` | `<TEST_ID>` | har | Also writes a test that replays the recording, as `fileId#testId` or a bare test ID |
+| `--flow` | `<TEST_ID>` | har, postman, bruno | Also writes a test that replays the recording, as `fileId#testId` or a bare test ID |
 | `--include-host` | `<HOST>` | har | Keeps a recording's calls to this third-party host. Repeat for more |
 | `--keep-static` | | har | Keeps a recording's static assets (scripts, styles, images, fonts) |
 | `--dry-run` | | all | Prints the plan and the diff of every file without writing |
@@ -186,7 +187,7 @@ A request whose host and path match an existing api is reported as `matched` and
 | Code | When |
 | --- | --- |
 | `0` | Imported, or the dry run printed |
-| `2` | The source cannot be read, the kind is unknown, the api file exists already, the spec is kept in `openapi/`, where snapshots go, the snapshot path `openapi/<fileId>.yaml` is a link, names another file in a different case or is the spec another api file syncs from, or `--id` is given for a recording of several origins |
+| `2` | The source cannot be read, the kind is unknown, the api file exists already, the spec is kept in `openapi/`, where snapshots go, the snapshot path `openapi/<fileId>.yaml` is a link, names another file in a different case or is the spec another api file syncs from, `--id` is given for a recording of several origins, or `--include` and `--only` keep no operation (the error names the filter) |
 
 ```console
 $ vc import openapi specs/users.yaml
@@ -197,6 +198,9 @@ error: nope.yaml: not a file or folder in the project at /home/ada/shop
   = help: give a URL, or a path inside the project
 $ vc import pdf specs/users.yaml
 error: unknown import kind "pdf"; known: …
+$ vc import openapi specs/users.yaml --id admin --only nope
+error: no operation in specs/users.yaml matches the filter `--only nope`
+  = help: --include takes a tag or a path prefix, --only an operation ID, as the spec writes them
 ```
 
 <Aside type="tip">

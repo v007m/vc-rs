@@ -127,3 +127,41 @@ fn a_blocked_notice_lists_only_the_blocked_tests_and_a_failure_notice_the_failed
     assert_eq!(fired[1].notice.trigger, Failure);
     assert_eq!(listed(1), ["users.crud#getsUser", "users.crud#listsUsers"]);
 }
+
+/// `run`, with `blocks` as the teardown blocks that failed.
+fn torn(status: RunStatus, tests: &[(&str, &str, TestStatus)], blocks: &[&str]) -> Finished {
+    let finished = run(status, tests, &[]);
+    Finished { teardown: blocks.iter().map(|block| (*block).to_owned()).collect(), ..finished }
+}
+
+#[test]
+fn a_run_whose_only_failure_is_a_teardown_fires_failure_and_never_recovers() {
+    use AlertTrigger::{Blocked, Failure, Flaky, Recovery};
+    let failed = Some(RunStatus::Failed);
+    let blocks: &[&str] = &["afterAll in users.crud", "afterRun"];
+    let table: &[Case] = &[
+        ("a teardown failure", &[Failure], torn(RunStatus::Failed, PASSED, blocks), None, Some(Failure)),
+        ("an afterRun alone", &[Failure], torn(RunStatus::Failed, PASSED, &["afterRun"]), None, Some(Failure)),
+        ("with every trigger listed", ALL, torn(RunStatus::Failed, PASSED, blocks), failed, Some(Failure)),
+        ("failure outranks flaky", &[Flaky, Failure], torn(RunStatus::Failed, FLAKY, blocks), None, Some(Failure)),
+        ("not blocked", &[Blocked], torn(RunStatus::Failed, PASSED, blocks), None, None),
+        ("not a recovery", &[Recovery], torn(RunStatus::Failed, PASSED, blocks), failed, None),
+        ("a clean teardown recovers", &[Recovery], torn(RunStatus::Passed, PASSED, &[]), failed, Some(Recovery)),
+    ];
+    for (name, on, run, previous, want) in table {
+        assert_eq!(fired(&[rule(on, &[], &[])], run, *previous), [*want], "{name}");
+    }
+}
+
+#[test]
+fn a_teardown_failure_fires_every_failure_rule_whatever_its_tags_and_names_the_blocks() {
+    let finished = torn(RunStatus::Failed, PASSED, &["afterAll in users.crud", "afterRun"]);
+    let rules = [rule(&[AlertTrigger::Failure], &[], &["smoke"]), rule(&[AlertTrigger::Failure], &[], &["nightly"])];
+    let fired = decide(&rules, &finished, None);
+    assert_eq!(fired.len(), 2, "{fired:?}");
+    for fired in &fired {
+        assert_eq!(fired.notice.trigger, AlertTrigger::Failure);
+        assert_eq!(fired.notice.teardown, ["afterAll in users.crud", "afterRun"]);
+        assert!(fired.notice.failures.is_empty(), "no test failed: {:?}", fired.notice.failures);
+    }
+}

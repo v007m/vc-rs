@@ -384,3 +384,20 @@ async fn a_recording_stops_on_a_secrets_schema_it_cannot_read() {
     assert_eq!(codes, ["V1012"]);
     assert_eq!(report.files.len(), 1, "the one file is the schema the diagnostic points into");
 }
+
+#[tokio::test]
+async fn a_filter_that_keeps_no_operation_is_refused_naming_it() {
+    let filtered = ImportRequest {
+        include: vec!["nope".to_owned()],
+        only: vec!["missingOp".to_owned()],
+        ..request("openapi", "https://specs.test/petstore.json")
+    };
+    let Err(EngineError::Edit { reason, help }) = engine().import(&filtered).await else {
+        panic!("a filter that keeps nothing writes nothing")
+    };
+    assert_eq!(
+        reason,
+        "no operation in https://specs.test/petstore.json matches the filter `--include nope --only missingOp`"
+    );
+    assert!(help.is_some_and(|help| help.contains("operation ID")));
+}

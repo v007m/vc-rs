@@ -1,6 +1,7 @@
 import adapter from '@sveltejs/adapter-static';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig, type Logger, type Plugin } from 'vite';
+import { announcerStyle, styleHash } from './src/lib/dev/csp.ts';
 import { fromDevPage } from './src/lib/dev/origin.ts';
 
 const vcUi = 'http://127.0.0.1:7420';
@@ -75,8 +76,16 @@ export default defineConfig({
       // A single-page app: `vc ui` embeds `build/` and serves index.html for every unknown path.
       adapter: adapter({ fallback: 'index.html', strict: true }),
       // `vc ui` sends `default-src 'self'`; the one inline bootstrap script is allowed by its
-      // hash, which the build writes into index.html's CSP meta tag.
-      csp: { mode: 'hash', directives: { 'default-src': ['self'], 'script-src': ['self'] } },
+      // hash, which the build writes into index.html's CSP meta tag. So is the one inline style,
+      // SvelteKit's route announcer, by its hash only (D311).
+      csp: {
+        mode: 'hash',
+        directives: {
+          'default-src': ['self'],
+          'script-src': ['self'],
+          'style-src': ['self', 'unsafe-hashes', styleHash(announcerStyle)],
+        },
+      },
     }),
     vcSession(),
   ],

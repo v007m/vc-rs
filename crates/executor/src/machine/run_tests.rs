@@ -252,8 +252,9 @@ fn in_after_run() -> RunOrchestrator {
     run
 }
 
-/// An `afterRun` action whose worker panicked or was aborted is cut with no report: the run,
-/// not cancelled, counts it as a failed teardown and reports it as the action's failure.
+/// An `afterRun` action whose worker was aborted, or panicked outside the executor, is cut with
+/// no report (a panic inside an action is a failed report): the run, not cancelled, counts it as
+/// a failed teardown and reports it as the action's failure.
 #[test]
 fn a_cut_after_run_action_of_a_run_not_cancelled_fails_the_run() {
     let (run, commands) = in_after_run().transition(RunInput::ActionCut(Vec::new()));
