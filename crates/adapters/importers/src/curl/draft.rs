@@ -4,13 +4,12 @@
 use indexmap::IndexMap;
 use serde_json::json;
 use vc_interfaces::{DraftApi, DraftGroup, ImportDraft, ImportNote, ImportOptions};
-use vc_model::Method;
+use vc_model::{Method, credential};
 
 use super::body::body;
 use super::options::Request;
 use crate::naming::{camel, from_route};
 use crate::path_vars::templated;
-use crate::secrets::credential;
 use crate::url::{pairs, path_and_query, split_origin};
 
 /// What to tell the user in place of a credential.

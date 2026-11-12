@@ -3,32 +3,40 @@
 //! `${env.…}` and `${secret.…}`, and sent only to the origin of its `source.openapi`, so a
 //! `$ref` to another host never carries them. They render from the config and the synced api
 //! files alone; secrets are loaded only when a header reads one, and the secrets read are
-//! masked in any error a fetch gives. The file keeps the templates as written.
+//! masked in any error a fetch gives. The file keeps the templates as written. `vc import
+//! openapi <url> --header` renders its headers the same way, from the config's vars, and
+//! refuses a credential given as a literal value (D314, V4009).
 
 use std::collections::{BTreeSet, HashMap};
 use std::sync::Arc;
 
 use http::{HeaderMap, HeaderName, HeaderValue, Uri};
+use indexmap::IndexMap;
 use serde_json::Value;
+use vc_diagnostics::Code;
 use vc_executor::Redactor;
 use vc_interfaces::{ConfigEntry, Environment, Secret, Secrets};
-use vc_model::{ApiGroup, ApiSource, FileKind, Namespace, Program, Reference, Segment, Template};
+use vc_model::{
+    ApiGroup, ApiSource, FileKind, Namespace, Pos, Program, Reference, ScalarSource, ScalarStyle, Segment,
+    SourceFileId, SourceSpan, StringTable, Template, credential,
+};
 use vc_template::{PipeRegistry, RenderError, Renderer};
 
 use crate::authoring::{Authoring, refused};
 use crate::explain::Explainer;
 use crate::plan::{self, profile_flag};
 use crate::ports::{Layered, SecretSource};
-use crate::project::{Valid, invalid};
+use crate::project::{Compiled, Valid, invalid};
 use crate::restricted::{Restricted, env_value, secret_value};
 use crate::shown::Var;
-use crate::{Engine, EngineError};
+use crate::{Engine, EngineError, ImportRequest};
 
 /// How many `${var.x}` deep a header's vars are followed.
 const DEPTH: usize = 8;
 
 const ONLY: &str = "`source.headers` read only `${var.…}`, `${env.…}` and `${secret.…}`";
 const HELP: &str = "set what it reads under the active profiles (`--profile`), or in `.env` for a `${secret.…}`";
+const TEMPLATE_HELP: &str = "write `${secret.NAME}`, `${var.name}` or `${env.NAME}`; write `$${` for a literal `${`";
 
 /// The ports a URL's port is left out of an origin for.
 const DEFAULT_PORTS: [(&str, u16); 2] = [("https", 443), ("http", 80)];
@@ -88,12 +96,48 @@ impl Engine {
         if profiles.is_empty() && sourced(&valid.0, file_ids).next().is_none() {
             return Ok(HashMap::new());
         }
+        Ok(self.rendered((valid, profiles), &Wanted::Files(file_ids)).await?.into_iter().collect())
+    }
+
+    /// The `--header`s of `vc import openapi <url>`, rendered under its profiles from the
+    /// config's vars, the environment and the secrets they read, for the spec's origin (D314).
+    ///
+    /// # Errors
+    ///
+    /// [`EngineError::Edit`] for a header given with a spec not fetched from a URL, given twice
+    /// or not a template, a credential given as a literal value (V4009) and a header that does
+    /// not render; [`EngineError::Invalid`] when the config has errors.
+    pub(crate) async fn given_headers(&self, request: &ImportRequest) -> Result<SpecHeaders, EngineError> {
+        if request.headers.is_empty() {
+            return Ok(SpecHeaders::default());
+        }
+        let at = request.text.is_none().then(|| request.source.parse::<Uri>().ok()).flatten();
+        let origin = at.as_ref().and_then(origin).ok_or_else(|| {
+            refused("`--header` is sent only with a spec fetched from a URL".to_owned(), "give the spec's URL")
+        })?;
+        let headers = given(&request.headers)?;
+        let Compiled { program, diagnostics, files, notices } = self.compiled_apis(&[])?;
+        let Some(program) = program.filter(|_| !diagnostics.has_errors()) else {
+            return Err(invalid(diagnostics, files, notices));
+        };
+        let wanted = Wanted::Given { origin, headers: &headers };
+        let rendered = self.rendered(((program, notices), &request.profiles), &wanted).await?;
+        Ok(rendered.into_iter().next().map(|(_, headers)| headers).unwrap_or_default())
+    }
+
+    /// The headers `wanted` names, rendered from `valid` under `profiles` (the default ones when
+    /// empty), with only the secrets they read loaded, by file ID.
+    async fn rendered(
+        &self,
+        (valid, profiles): (Valid, &[String]),
+        wanted: &Wanted<'_>,
+    ) -> Result<Vec<(String, SpecHeaders)>, EngineError> {
         let flags: Vec<ConfigEntry> = profile_flag(profiles).into_iter().collect();
         let layered = self.layered_over(valid, (&[], &flags))?;
         let program = layered.program.as_ref();
         let (active, names) = plan::profiles(program, layered.settings.profiles.as_ref())?;
         let explainer = Explainer { program, active: &active, names: &names, entries: &layered.entries };
-        let scoped = scoped(&explainer, file_ids);
+        let scoped = scoped(&explainer, wanted);
         let read = secrets_read(&scoped);
         let secrets = if read.is_empty() {
             Secrets::new()
@@ -143,24 +187,64 @@ fn sourced<'p>(
     })
 }
 
-/// One api file's headers, the origin they go to and the vars in force for it.
+/// The headers to render: the synced api files' `source.headers`, or `vc import`'s `--header`s.
+enum Wanted<'w> {
+    Files(&'w [String]),
+    Given { origin: String, headers: &'w IndexMap<String, Template> },
+}
+
+/// One set of headers, what a refusal calls them, the origin they go to and the vars in force.
 struct Scoped<'p> {
+    /// The api file's ID; empty for `--header`s.
     file_id: &'p str,
+    /// What a refusal names a header as, up to its name: `` `users`'s `source.headers. ``.
+    called: String,
     origin: String,
-    source: &'p ApiSource,
+    headers: &'p IndexMap<String, Template>,
     vars: Vec<Var>,
 }
 
-/// The api files in `file_ids` with headers, each with its vars: the config's and active
-/// profiles' once, then the file's own over them.
-fn scoped<'p>(explainer: &Explainer<'p>, file_ids: &'p [String]) -> Vec<Scoped<'p>> {
+/// The headers `wanted` names, each set with its vars: the config's and active profiles', then
+/// an api file's own over them.
+fn scoped<'p>(explainer: &Explainer<'p>, wanted: &Wanted<'p>) -> Vec<Scoped<'p>> {
     let config = explainer.config_vars();
+    let file_ids = match wanted {
+        Wanted::Files(file_ids) => *file_ids,
+        Wanted::Given { origin, headers } => {
+            let called = "`--header ".to_owned();
+            return vec![Scoped { file_id: "", called, origin: origin.clone(), headers, vars: config }];
+        }
+    };
     let files = sourced(explainer.program, file_ids).map(|(file_id, origin, source, group)| {
         let mut vars = config.clone();
         explainer.level(&mut vars, &group.vars, file_id);
-        Scoped { file_id, origin, source, vars }
+        let called = format!("`{file_id}`'s `source.headers.");
+        Scoped { file_id, called, origin, headers: &source.headers, vars }
     });
     files.collect()
+}
+
+/// The `--header` values as templates. A credential given as a literal value is refused
+/// (V4009), naming the header only: `vc import` would write it into the api file.
+fn given(headers: &[(String, String)]) -> Result<IndexMap<String, Template>, EngineError> {
+    let mut strings = StringTable::new();
+    let at = Pos::new(1, 1, 0);
+    let source = ScalarSource { span: SourceSpan::new(SourceFileId::new(0), at, at), style: ScalarStyle::Plain };
+    let mut given = IndexMap::new();
+    for (name, text) in headers {
+        let template = vc_template::parse(text, source, &mut strings)
+            .map_err(|_| refused(format!("`--header {name}` is not a valid template"), TEMPLATE_HELP))?;
+        if credential(name) && template.as_literal().is_some_and(|text| !text.trim().is_empty()) {
+            let reason = format!("{}: `--header {name}` is a credential given as a literal value", Code::V4009);
+            let help = format!("pass `--header '{name}: Bearer ${{secret.NAME}}'`, with `NAME=` in `.env.schema`");
+            return Err(refused(reason, &help));
+        }
+        if given.keys().any(|named: &String| named.eq_ignore_ascii_case(name)) {
+            return Err(refused(format!("`--header {name}` is given twice"), "give each header once"));
+        }
+        given.insert(name.clone(), template);
+    }
+    Ok(given)
 }
 
 /// The var `name` in force in `vars`; a var a run saves is known only then.
@@ -172,7 +256,7 @@ fn var<'v>(vars: &'v [Var], name: &str) -> Option<&'v Var> {
 fn secrets_read(scoped: &[Scoped<'_>]) -> BTreeSet<String> {
     let mut read = BTreeSet::new();
     for scope in scoped {
-        let mut pending: Vec<&Reference> = scope.source.headers.values().flat_map(Template::references).collect();
+        let mut pending: Vec<&Reference> = scope.headers.values().flat_map(Template::references).collect();
         let mut seen = BTreeSet::new();
         while let Some(reference) = pending.pop() {
             let Some(Segment::Key(name)) = reference.path.segments.first() else { continue };
@@ -216,9 +300,8 @@ impl Rendering<'_> {
             chain: Vec::new(),
         };
         let mut headers = HeaderMap::new();
-        for (name, template) in &scope.source.headers {
-            let unsent =
-                |reason: String| refused(format!("`{}`'s `source.headers.{name}` {reason}", scope.file_id), HELP);
+        for (name, template) in scope.headers {
+            let unsent = |reason: String| refused(format!("{}{name}` {reason}", scope.called), HELP);
             let text = Renderer::new(&self.pipes, &lookup.restricted()).text(template).map_err(|error| {
                 unsent(format!("does not render: {}", masked(self.redactor.as_deref(), &error.to_string())))
             })?;

@@ -142,6 +142,8 @@ fetched https://specs.example.com/users.yaml (4 operations)
 
 The headers are rendered under the active profiles (`--profile`, else the `default: true` ones), with the config's, the profiles' and the file's own vars. They are sent to `https://specs.example.com` only: a `$ref` to another host gets none, and no redirect is followed. The file keeps `${secret.SPEC_TOKEN}` as written, and an error from the fetch shows `••••` in place of a header's value.
 
+`vc import openapi <url> --header 'authorization: Bearer ${secret.SPEC_TOKEN}'` fetches the spec with the header the same way and writes it here.
+
 ## Try it
 
 <Playground client:visible kind="api" code={`
@@ -163,6 +165,7 @@ apis:
 - `vc sync` renders `source.headers` from the config, `.env.schema` and the api files it syncs only, so an error in a test file does not stop it. It loads secrets only when a header reads one, directly or through a var.
 - The headers go to the spec URL's origin only. `HTTPS://Specs.Example.com:443` and `https://specs.example.com` are the same origin; a user name in the URL is not part of it.
 - When the fetch fails, each secret a header read shows as `••••` in the error.
+- A credential header (`authorization`, a cookie, an api key, a token) written as a literal value is a [V4009](/vc-rs/reference/diagnostics/v4009/) warning, since the token would be committed with the file. `vc import --header` refuses one outright.
 - Sync matches apis by `operationId`. An api without one is left alone.
 - Sync updates what the spec owns (method, path, parameters) and keeps what you added (`expect`, `save`, `cleanup`, vars you set, a renamed `id`).
 - An operation that leaves the spec is never deleted. Its api is marked `deprecated: true`.

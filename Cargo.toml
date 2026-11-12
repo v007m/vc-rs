@@ -47,7 +47,7 @@ vc-model = { path = "crates/model" }
 vc-diagnostics = { path = "crates/diagnostics" }
 vc-parser = { path = "crates/parser" }
 vc-template = { path = "crates/template" }
-vc-compiler = { path = "crates/compiler" }
+vc-compiler = { path = "crates/compiler", default-features = false }
 vc-planner = { path = "crates/planner" }
 vc-interfaces = { path = "crates/interfaces" }
 vc-contracts = { path = "crates/contracts" }

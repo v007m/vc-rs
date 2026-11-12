@@ -8,11 +8,11 @@ use async_trait::async_trait;
 use indexmap::IndexSet;
 use serde_json::{Value, json};
 use vc_interfaces::{DraftApi, ImportDraft, ImportError, ImportNote, ImportOptions, ImportSource, Importer};
+use vc_model::credential;
 
 use self::parse::Written;
 use self::templates::Templates;
 use crate::curl::{Request, draft};
-use crate::secrets::credential;
 
 /// What a request is called in a note when it gives no api: `request 2`.
 const WORD: &str = "request";

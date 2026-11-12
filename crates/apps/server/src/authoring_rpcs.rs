@@ -108,6 +108,7 @@ async fn import(api: Arc<EngineApi>, request: wire::ImportRequest) -> Result<wir
         include: request.include,
         only: request.only,
         profiles,
+        headers: Vec::new(),
         flow: request.flow,
         keep: Keep { hosts: keep.hosts, assets: keep.assets },
     };

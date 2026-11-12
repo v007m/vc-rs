@@ -197,3 +197,26 @@ fn text_shows_a_single_line_between_labels_instead_of_eliding_it() {
     assert!(text.contains("\n5 |     profiles: [stagng]\n"), "{text}");
     assert!(!text.contains("..."), "{text}");
 }
+
+#[test]
+fn a_masked_span_never_prints_and_the_underlines_after_it_move_to_match() {
+    let mut files = SourceFiles::new();
+    let path = SourcePath::new("services/users/users.api.yaml").unwrap();
+    let source = "source:\n  headers:\n    Authorization: Bearer s3cr3t-t0ken # rotate\n";
+    files.push(SourceFile { path, text: source.to_owned(), hash: ContentHash::new([0; 32]) }).unwrap();
+    let id = SourceFileId::new(0);
+    let key = span(&files, id, "Authorization", "Authorization").unwrap();
+    let value = span(&files, id, "Bearer", "t0ken").unwrap();
+    let diagnostic = Diagnostic::new(Code::V4009, key, "a literal credential")
+        .label("kept in git")
+        .secondary(span(&files, id, "rotate", "rotate").unwrap(), "rotate it")
+        .masked(value);
+    let diagnostics = one(diagnostic);
+    let text = TextRenderer::default().render(&diagnostics, &files).unwrap();
+    let expected = "3 |     Authorization: ••• # rotate\n  |     ^^^^^^^^^^^^^ kept in git\n  |                          ------ rotate it\n";
+    assert!(text.contains(expected), "{text}");
+    let json = JsonRenderer.render(&diagnostics, &files).unwrap();
+    for shown in [&text, &json] {
+        assert!(!["Bearer", "s3cr3t", "t0ken"].iter().any(|part| shown.contains(part)), "{shown}");
+    }
+}

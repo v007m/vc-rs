@@ -5,9 +5,9 @@
 
 use indexmap::IndexMap;
 use serde_json::{Map, Value, json};
+use vc_model::credential;
 
 use crate::naming::camel;
-use crate::secrets::credential;
 use crate::url::pairs;
 
 /// An api's body, its content type and the vars its fields became.

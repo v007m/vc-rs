@@ -65,18 +65,52 @@ fn run_summary(project: &Project) -> String {
     text.lines().find(|line| line.contains(" passed")).unwrap_or_else(|| panic!("no summary:\n{text}")).to_owned()
 }
 
-/// `line` with every number written as `#`, so two runs' timings compare equal.
+/// The units a duration the reports print ends in: `840ms`, `6.4s`, `2m 5s`, `12µs`.
+const UNITS: [&str; 4] = ["ms", "s", "µs", "m"];
+
+/// `line` with every number written as `#` and every duration, unit and all, as `#t`, so two
+/// runs' timings compare equal however long each took: `4ms`, `1.0s` and `2m 5s` alike.
 fn shape(line: &str) -> String {
     let mut shaped = String::new();
-    for c in line.chars() {
-        let digit = c.is_ascii_digit() || (c == '.' && shaped.ends_with('#'));
-        if !digit {
+    let mut rest = line;
+    while let Some(c) = rest.chars().next() {
+        if c.is_ascii_digit() {
+            rest = shape_number(&mut shaped, rest);
+        } else {
             shaped.push(c);
-        } else if !shaped.ends_with('#') {
-            shaped.push('#');
+            rest = &rest[c.len_utf8()..];
         }
     }
     shaped
+}
+
+/// Writes the number `rest` starts with to `shaped`, as `#t` with its unit when it is a duration
+/// (the second part of `2m 5s` joining the first), and returns the text after it.
+fn shape_number<'a>(shaped: &mut String, rest: &'a str) -> &'a str {
+    let number = rest.find(|c: char| !(c.is_ascii_digit() || c == '.')).unwrap_or(rest.len());
+    let after = &rest[number..];
+    let unit = after.find(|c: char| !c.is_alphabetic()).unwrap_or(after.len());
+    if !UNITS.contains(&&after[..unit]) {
+        shaped.push('#');
+        return after;
+    }
+    if shaped.ends_with("#t ") {
+        shaped.pop();
+    } else {
+        shaped.push_str("#t");
+    }
+    &after[unit..]
+}
+
+#[test]
+fn shape_writes_a_duration_as_one_token_whatever_its_unit() {
+    let line = |took: &str| shape(&format!("2 passed · 1 skipped  {took}"));
+    assert_eq!(line("4ms"), "# passed · # skipped  #t");
+    for took in ["1.04s", "1.0s", "12µs", "2m 5s", "1m 0s"] {
+        assert_eq!(line(took), line("4ms"), "{took}");
+    }
+    assert_eq!(shape("run 12 of 340 (3 tests, 1.5s)"), "run # of # (# tests, #t)");
+    assert_eq!(shape("10 tests in 2 files"), "# tests in # files");
 }
 
 #[tokio::test(flavor = "multi_thread")]

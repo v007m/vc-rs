@@ -1,0 +1,70 @@
+---
+title: "V4009 — A sensitive header in source.headers has a literal value"
+description: "A header in an api file's source.headers that carries a credential (authorization, a cookie, an api key, a token, …) is written as the value itself, so the token is committed to git with the file."
+sidebar:
+  label: "V4009 A sensitive header in source.headers has a literal value"
+  order: 4009
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="warning" variant="caution" /> <Badge text="Conventions" variant="note" />
+
+| | |
+| --- | --- |
+| Code | `V4009` |
+| Category | V4xxx: Conventions |
+| Severity | warning |
+| Certain fix | none; `vc check --fix` leaves this one to you |
+
+A header in an api file's `source.headers` that carries a credential (`authorization`, a cookie, an api key, a
+token, …) is written as the value itself, so the token is committed to git with the file. Write it as
+`${secret.NAME}` instead: `vc sync` reads the value from `.env` (or the secrets provider) when it fetches the
+spec, and the file keeps only the name. `vc import openapi --header` refuses the same header up front.
+
+## Wrong
+
+```yaml title="services/users/users.api.yaml"
+baseUrl: https://api.example.com
+source:
+  openapi: https://specs.example.com/users.yaml
+  headers:
+    authorization: Bearer eyJhbGciOiJIUzI1NiJ9
+apis:
+  - id: listUsers
+    path: /users
+```
+
+## Right
+
+```dotenv title=".env.schema"
+# the token the spec server takes
+SPEC_TOKEN=
+```
+
+```yaml title="services/users/users.api.yaml"
+baseUrl: https://api.example.com
+source:
+  openapi: https://specs.example.com/users.yaml
+  headers:
+    authorization: Bearer ${secret.SPEC_TOKEN}
+apis:
+  - id: listUsers
+    path: /users
+```
+
+
+## Explain it in your terminal
+
+The same page is built into the binary, so this works anywhere, even outside a project:
+
+```console
+$ vc explain V4009
+```
+
+## Related
+
+- [All diagnostic codes](/vc-rs/reference/diagnostics/)
+- [`vc explain`](/vc-rs/reference/cli/explain/)
+- [`vc check`](/vc-rs/reference/cli/check/)
+- [Errors and fixes](/vc-rs/guides/errors-and-fixes/)

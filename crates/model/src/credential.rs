@@ -1,4 +1,6 @@
-//! The names a credential goes by, so an importer never writes one into a file.
+//! The names a credential goes by: an importer never writes one's value into a file, and a
+//! `source.headers` entry so named takes a template, not a literal (D314). Every header the
+//! redactor always masks is one.
 
 /// The words in a header, query or body field name that mark its value as a credential.
 const MARKS: [&str; 12] = [
@@ -37,5 +39,11 @@ mod tests {
         assert!(named.iter().all(|name| credential(name)), "{named:?}");
         let plain = ["accept", "content-type", "author", "sortKey", "q", "x-request-id"];
         assert!(plain.iter().all(|name| !credential(name)), "{plain:?}");
+    }
+
+    #[test]
+    fn every_header_the_redactor_always_masks_is_a_credential() {
+        let masked = ["authorization", "Proxy-Authorization", "cookie", "Set-Cookie"];
+        assert!(masked.iter().all(|name| credential(name)), "{masked:?}");
     }
 }

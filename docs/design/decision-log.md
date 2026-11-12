@@ -594,6 +594,18 @@ Round 51 (12 November 2026; orchestrator, under Sarath's delegation):
 | D317 | Load errors and numbers per test | A load run counts each error kind under its test as well as the api of the call that failed, its status and code; a failure with no api is a kind of its test alone. The summary gives each mix test a line of its own (`test <id> · iterations · rps · errors · p50 … max`), its error kinds indented under it, and `vc load --json` adds `tests` (each `{test, iterations, rps, errors, p50Ms, p90Ms, p95Ms, p99Ms, maxMs}`) and sets `test` on every `errorKinds` entry. The history is unchanged | — |
 | D321 | Spec output is a block per file | The spec reporter heads each file's tests with its `name:`, a block per file: one file prints live, another file's tests wait in its block until the live file finishes, then every finished block prints and the first unfinished one goes live. A serial run so prints as it goes, a parallel run shows each heading once, and a cancelled or bailed run prints every waiting block before the summary. Warnings, lifecycle failures and the summary are never buffered; the machine reporters (json, CTRF, JUnit) print no heading | — |
 
+Round 52 (12 November 2026; orchestrator, under Sarath's delegation):
+
+| # | Topic | Decision | Supersedes |
+| --- | --- | --- | --- |
+| D314 | `vc import openapi --header`, and V4009 | `vc import openapi <url> --header 'NAME: VALUE'` (repeatable) sends each header with the fetch of the spec, rendered and sent as `vc sync` sends `source.headers` (D313): under `--profile`, from the config's and profiles' vars, `${env.…}` and `${secret.…}`, to the spec URL's origin only. The headers are written to the new api file's `source.headers` as given, so `vc sync` sends them again. A header whose name is a credential's (`vc_model::credential`, the importers' list, which holds the redactor's `authorization`, `proxy-authorization`, `cookie` and `set-cookie`) must be a template: a literal value is refused before any fetch (exit 2, nothing written), citing V4009 and naming the header, never its value; so is a header given twice, one that does not render, a malformed `--header` and one given with a spec not fetched from a URL. V4009 (warning) is `vc check`'s for the same literal in a hand-written `source.headers`; it underlines the key and masks the value (`•••`), so neither `vc check` nor its `--json` prints the token. A `${env.X}` that names a declared secret is refused after the fetch, by the import's compile guard (V2107), not before | — (fills a gap in D313) |
+
+Round 53 (12 November 2026; lane C, under the standing delegation):
+
+| # | Topic | Decision | Supersedes |
+| --- | --- | --- | --- |
+| D319 | The web UI follows the system's dark mode | `tokens.css` redefines every token under `@media (prefers-color-scheme: dark)`, the same names with dark values, and sets `color-scheme`; components use tokens, not light-only colours (the primary button's text is `--panel`, its hover `--inkHover`). There is no in-app switch. The mockups' fonts stay parked | D245 (the dark-theme part) |
+
 ## Open
 
 All decisions needed for the PRD and technical design are settled. The language is decided by the spike (D6, D36, D37, D41).

@@ -27,7 +27,7 @@ vc-adapter-reporters.workspace = true
 vc-adapter-secrets.workspace = true
 vc-adapter-store.workspace = true
 vc-adapter-system = { workspace = true, features = ["host"] }
-vc-compiler.workspace = true
+vc-compiler = { workspace = true, features = ["hooks"] }
 vc-diagnostics.workspace = true
 vc-executor.workspace = true
 vc-interfaces.workspace = true

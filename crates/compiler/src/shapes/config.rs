@@ -122,6 +122,7 @@ shape! {
         types::key("body", Ty::Value).doc("Request body"),
         types::key("expect", Ty::Obj(common::expect)).scope(Scope::CALL).doc("Checks on the response"),
         types::key("save", VARS).scope(Scope::CALL).doc("Values for later steps and `apply`"),
+        types::key("timeout", Ty::Duration).default("defaults.timeout").doc("Per request attempt").example("5s"),
     ])
 }
 
