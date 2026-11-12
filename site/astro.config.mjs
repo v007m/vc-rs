@@ -84,5 +84,18 @@ export default defineConfig({
     resolve: {
       alias: { '~': fileURLToPath(new URL('./src', import.meta.url)) },
     },
+    // The playground's editor loads in chunks under 500 kB: CodeMirror, the schema checks, the rest.
+    build: {
+      rolldownOptions: {
+        output: {
+          codeSplitting: {
+            groups: [
+              { name: 'codemirror', test: /node_modules[\\/](@codemirror|@lezer|style-mod|w3c-keyname|crelt)[\\/]/ },
+              { name: 'schema', test: /node_modules[\\/](ajv|fast-uri|fast-deep-equal|json-schema-traverse|yaml)[\\/]/ },
+            ],
+          },
+        },
+      },
+    },
   },
 });
