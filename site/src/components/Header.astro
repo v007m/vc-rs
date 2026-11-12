@@ -1,0 +1,243 @@
+---
+/**
+ * Replaces Starlight's `Header` with two rows. The first holds the title, the search box centred
+ * on the page, and the icons. The second holds tabs for the docs areas, or, on the landing page,
+ * links to its sections that follow the scroll. Heights live in `custom.css`
+ * (`--vc-bar-height`, `--vc-tabs-height`).
+ */
+import config from 'virtual:starlight/user-config';
+import LanguageSelect from 'virtual:starlight/components/LanguageSelect';
+import Search from 'virtual:starlight/components/Search';
+import SiteTitle from 'virtual:starlight/components/SiteTitle';
+import SocialIcons from 'virtual:starlight/components/SocialIcons';
+import ThemeSelect from 'virtual:starlight/components/ThemeSelect';
+import { DOCS_AREAS, DOCS_HOME, LANDING_SECTIONS, areaFor } from '~/lib/nav';
+
+const shouldRenderSearch =
+  config.pagefind || config.components.Search !== '@astrojs/starlight/components/Search.astro';
+
+const isLanding = Boolean(Astro.locals.starlightRoute.entry.data.hero);
+const current = areaFor(Astro.url.pathname);
+---
+
+<div class="vc-header">
+  <div class="vc-bar">
+    <div class="title-wrapper sl-flex"><SiteTitle /></div>
+    <div class="vc-search sl-flex print:hidden">{shouldRenderSearch && <Search />}</div>
+    <div class="sl-hidden md:sl-flex print:hidden right-group">
+      <div class="sl-flex social-icons"><SocialIcons /></div>
+      <ThemeSelect />
+      <LanguageSelect />
+    </div>
+  </div>
+  {
+    isLanding ? (
+      <nav class="vc-tabs print:hidden" aria-label="Sections of this page" data-spy>
+        <ul>
+          {LANDING_SECTIONS.map(({ label, href }) => (
+            <li>
+              <a href={href}>{label}</a>
+            </li>
+          ))}
+          <li class="vc-tabs-end">
+            <a href={DOCS_HOME.href} class="vc-tabs-docs">
+              {DOCS_HOME.label} <span aria-hidden="true">→</span>
+            </a>
+          </li>
+        </ul>
+      </nav>
+    ) : (
+      <nav class="vc-tabs print:hidden" aria-label="Docs areas">
+        <ul>
+          {DOCS_AREAS.map((a) => (
+            <li>
+              <a href={a.href} aria-current={a === current ? 'true' : undefined}>
+                {a.label}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </nav>
+    )
+  }
+</div>
+
+<script>
+  /** Keeps the current tab in view when the row scrolls sideways on a phone. */
+  function reveal(nav: HTMLElement, link: HTMLElement): void {
+    const left = link.offsetLeft - (nav.clientWidth - link.offsetWidth) / 2;
+    nav.scrollTo({ left: Math.max(0, left) });
+  }
+
+  for (const nav of document.querySelectorAll<HTMLElement>('.vc-tabs')) {
+    const active = nav.querySelector<HTMLElement>('a[aria-current]');
+    if (active) reveal(nav, active);
+  }
+
+  /** On the landing page, marks the link of the section being read. */
+  const spy = document.querySelector<HTMLElement>('.vc-tabs[data-spy]');
+  if (spy) {
+    const links = new Map<string, HTMLAnchorElement>();
+    for (const link of spy.querySelectorAll<HTMLAnchorElement>('a[href^="#"]')) {
+      links.set(link.hash.slice(1), link);
+    }
+    const sections = [...links.keys()]
+      .map((id) => document.getElementById(id)?.closest('section'))
+      .filter((s): s is HTMLElement => Boolean(s));
+    const visible = new Set<HTMLElement>();
+    const mark = (): void => {
+      const first = sections.find((s) => visible.has(s));
+      const id = first?.getAttribute('aria-labelledby') ?? '';
+      for (const [key, link] of links) {
+        if (key === id) {
+          link.setAttribute('aria-current', 'true');
+          reveal(spy, link);
+        } else {
+          link.removeAttribute('aria-current');
+        }
+      }
+    };
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (e.isIntersecting) visible.add(e.target as HTMLElement);
+          else visible.delete(e.target as HTMLElement);
+        }
+        mark();
+      },
+      { rootMargin: '-30% 0px -55% 0px' },
+    );
+    for (const s of sections) observer.observe(s);
+  }
+</script>
+
+<style>
+  .vc-header {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+  .vc-bar {
+    display: flex;
+    gap: var(--sl-nav-gap);
+    justify-content: space-between;
+    align-items: center;
+    height: var(--vc-bar-height);
+    flex: none;
+  }
+  .title-wrapper {
+    overflow: clip;
+    padding: 0.25rem;
+    margin: -0.25rem;
+    min-width: 0;
+  }
+  .right-group,
+  .social-icons {
+    gap: 1rem;
+    align-items: center;
+  }
+  .social-icons::after {
+    content: '';
+    height: 2rem;
+    border-inline-end: 1px solid var(--sl-color-gray-5);
+  }
+  @media (min-width: 50rem) {
+    .vc-bar {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 28rem) minmax(0, 1fr);
+    }
+    .vc-search {
+      justify-content: center;
+    }
+    .vc-search :global(button[data-open-modal]) {
+      max-width: none;
+    }
+    .right-group {
+      justify-self: end;
+    }
+  }
+
+  .vc-tabs {
+    height: var(--vc-tabs-height);
+    flex: none;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    /* The bar's end padding makes room for the phone menu button; the tabs run under it. */
+    margin-inline: calc(-1 * var(--sl-nav-pad-x)) calc(-1 * var(--vc-header-pad-end, var(--sl-nav-pad-x)));
+    padding-inline: var(--sl-nav-pad-x);
+    border-top: 1px solid var(--sl-color-hairline);
+    mask-image: linear-gradient(90deg, transparent, #000 var(--sl-nav-pad-x), #000 calc(100% - 2rem), transparent);
+  }
+  .vc-tabs::-webkit-scrollbar {
+    display: none;
+  }
+  .vc-tabs ul {
+    display: flex;
+    align-items: stretch;
+    gap: 0.25rem;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    width: max-content;
+    min-width: 100%;
+  }
+  .vc-tabs li {
+    display: flex;
+  }
+  .vc-tabs-end {
+    margin-inline-start: auto;
+    padding-inline-end: 1.5rem;
+  }
+  .vc-tabs a {
+    position: relative;
+    display: flex;
+    align-items: center;
+    padding-inline: 0.7rem;
+    white-space: nowrap;
+    font-size: var(--sl-text-sm);
+    font-weight: 500;
+    color: var(--sl-color-gray-2);
+    text-decoration: none;
+    transition: color 0.15s;
+  }
+  .vc-tabs a:hover {
+    color: var(--sl-color-white);
+  }
+  .vc-tabs a::after {
+    content: '';
+    position: absolute;
+    inset: auto 0.7rem 0;
+    height: 2px;
+    border-radius: 2px;
+    background: var(--sl-color-accent);
+    transform: scaleX(0);
+    transition: transform 0.2s ease-out;
+  }
+  .vc-tabs a[aria-current] {
+    color: var(--sl-color-white);
+    font-weight: 600;
+  }
+  .vc-tabs a[aria-current]::after {
+    transform: scaleX(1);
+  }
+  .vc-tabs .vc-tabs-docs {
+    color: var(--sl-color-text-accent);
+    font-weight: 600;
+  }
+  @media (min-width: 50rem) {
+    .vc-tabs {
+      margin-inline: calc(-1 * var(--sl-nav-pad-x));
+      mask-image: none;
+    }
+    .vc-tabs-end {
+      padding-inline-end: 0;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .vc-tabs a::after {
+      transition: none;
+    }
+  }
+</style>

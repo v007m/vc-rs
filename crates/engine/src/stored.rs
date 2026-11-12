@@ -258,7 +258,7 @@ fn run_json(run: &RunRow) -> Value {
         "finishedMs": run.finished_ms,
         "status": status(run),
         "totals": { "passed": totals.passed, "failed": totals.failed, "blocked": totals.blocked,
-                    "flaky": totals.flaky, "skipped": totals.skipped },
+                    "flaky": totals.flaky, "skipped": totals.skipped, "allowedFailures": totals.allowed_failures },
         "profiles": run.start.profiles,
         "selector": run.start.selector,
         "seed": run.start.seed,

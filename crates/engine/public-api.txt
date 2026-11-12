@@ -561,7 +561,7 @@ pub fn vc_engine::Engine::cache_list(&self) -> core::result::Result<vc_engine::C
 impl vc_engine::Engine
 pub async fn vc_engine::Engine::call(&self, &vc_engine::CallRequest) -> core::result::Result<vc_engine::CallReport, vc_engine::EngineError>
 impl vc_engine::Engine
-pub fn vc_engine::Engine::catalog(&self) -> core::result::Result<vc_engine::ListReport, vc_engine::EngineError>
+pub fn vc_engine::Engine::catalog(&self, &vc_engine::SelectRequest) -> core::result::Result<vc_engine::ListReport, vc_engine::EngineError>
 pub fn vc_engine::Engine::list(&self, &vc_engine::ListRequest) -> core::result::Result<vc_engine::ListReport, vc_engine::EngineError>
 impl vc_engine::Engine
 pub fn vc_engine::Engine::check(&self, &vc_engine::CheckRequest) -> core::result::Result<vc_engine::CheckReport, vc_engine::EngineError>
@@ -1146,6 +1146,7 @@ pub vc_engine::RunRequest::files: vc_engine::ReportFlags
 pub vc_engine::RunRequest::no_cache: bool
 pub vc_engine::RunRequest::plan: vc_engine::PlanRequest
 pub vc_engine::RunRequest::seed: core::option::Option<u64>
+pub vc_engine::RunRequest::strict: bool
 pub vc_engine::RunRequest::watch: core::option::Option<vc_engine::RunWatch>
 impl core::clone::Clone for vc_engine::RunRequest
 pub fn vc_engine::RunRequest::clone(&self) -> Self
@@ -1244,6 +1245,7 @@ pub fn vc_engine::SecretsChecked::fmt(&self, &mut core::fmt::Formatter<'_>) -> c
 impl core::marker::StructuralPartialEq for vc_engine::SecretsChecked
 pub struct vc_engine::SelectRequest
 pub vc_engine::SelectRequest::changed: core::option::Option<alloc::string::String>
+pub vc_engine::SelectRequest::changed_since: core::option::Option<core::time::Duration>
 pub vc_engine::SelectRequest::grep: core::option::Option<alloc::string::String>
 pub vc_engine::SelectRequest::ids: alloc::vec::Vec<alloc::string::String>
 pub vc_engine::SelectRequest::include_skipped: bool

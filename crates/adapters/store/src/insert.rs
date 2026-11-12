@@ -47,8 +47,8 @@ pub fn rows(transaction: &Transaction<'_>, run: RunId, rows: &[Row]) -> rusqlite
 pub fn finish(transaction: &Transaction<'_>, run: RunId, end: &RunEnd) -> rusqlite::Result<()> {
     let totals = &end.totals;
     transaction.execute(
-        "UPDATE runs SET finished_at = ?2, status = ?3, passed = ?4, failed = ?5, blocked = ?6, skipped = ?7, flaky = ?8
-         WHERE id = ?1",
+        "UPDATE runs SET finished_at = ?2, status = ?3, passed = ?4, failed = ?5, blocked = ?6, skipped = ?7, flaky = ?8,
+         allowed_failures = ?9 WHERE id = ?1",
         (
             run.get(),
             end.finished_ms,
@@ -58,6 +58,7 @@ pub fn finish(transaction: &Transaction<'_>, run: RunId, end: &RunEnd) -> rusqli
             totals.blocked,
             totals.skipped,
             totals.flaky,
+            totals.allowed_failures,
         ),
     )?;
     transaction.execute(

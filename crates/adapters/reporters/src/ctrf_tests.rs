@@ -8,8 +8,13 @@ use crate::testing::{self, Broken, Capture};
 
 /// The document the scripted run writes.
 fn written() -> Value {
+    rendered(&testing::snapshot())
+}
+
+/// The document `snapshot` renders to.
+fn rendered(snapshot: &RunSnapshot) -> Value {
     let (capture, captured) = Capture::new();
-    let artifacts = CtrfFormat.render(&testing::snapshot(), capture.as_ref()).unwrap();
+    let artifacts = CtrfFormat.render(snapshot, capture.as_ref()).unwrap();
     assert_eq!(artifacts, [Artifact::new("ctrf", PathBuf::from("out/ctrf.json"))]);
     let (printed, saved) = captured.take();
     assert!(printed.is_empty(), "the file reporter prints nothing");
@@ -94,6 +99,20 @@ fn names_the_project_as_the_app_and_vibranium_as_the_tool() {
     let document: Value = serde_json::from_str(&captured.take().1[0].1).unwrap();
     assert_eq!(document["results"]["environment"]["appName"], "shop");
     assert_eq!(document["results"]["tool"]["name"], "vibranium");
+}
+
+/// D248: an allowed failure is CTRF's `other`, with Vibranium's status, its reason and its failure.
+#[test]
+fn counts_an_allowed_failure_as_other_with_its_reason() {
+    let document = rendered(&testing::allowed_snapshot());
+    let summary = &document["results"]["summary"];
+    assert_eq!((summary["failed"].as_u64(), summary["other"].as_u64()), (Some(1), Some(1)), "{summary}");
+    assert_eq!(document["results"]["extra"]["totals"]["allowedFailures"], 1, "{document}");
+    let allowed = &document["results"]["tests"][1];
+    assert_eq!(allowed["status"], "other");
+    assert_eq!(allowed["rawStatus"], "allowedFailure");
+    assert_eq!(allowed["message"], "expected 400, got 201");
+    assert_eq!(allowed["extra"]["skipReason"], "upstream sandbox");
 }
 
 #[test]

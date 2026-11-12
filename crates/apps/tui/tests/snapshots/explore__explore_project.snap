@@ -1,5 +1,6 @@
 ---
 source: crates/apps/tui/tests/explore.rs
+assertion_line: 74
 expression: "screen(&tui, SIZE)"
 ---
 ◆ vibranium shop  profile staging                1 Run   2 Explore   3 History   4 Load   5 Import

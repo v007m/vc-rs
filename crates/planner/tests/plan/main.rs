@@ -2,6 +2,7 @@
 
 #![cfg(test)]
 
+mod allowed;
 mod common;
 mod expand;
 mod listing;

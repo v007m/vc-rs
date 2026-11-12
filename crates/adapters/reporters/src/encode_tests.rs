@@ -78,8 +78,8 @@ fn encodes_failures_outcomes_steps_and_cleanups() {
 
 #[test]
 fn encodes_totals_and_run_statuses() {
-    let totals_in = Totals { passed: 1, failed: 2, blocked: 3, flaky: 4, skipped: 5 };
-    let expected = json!({"passed": 1, "failed": 2, "blocked": 3, "flaky": 4, "skipped": 5});
+    let totals_in = Totals { passed: 1, failed: 2, blocked: 3, flaky: 4, skipped: 5, allowed_failures: 6 };
+    let expected = json!({"passed": 1, "failed": 2, "blocked": 3, "flaky": 4, "skipped": 5, "allowedFailures": 6});
     assert_eq!(totals(totals_in), expected);
     assert_eq!(run_status(RunStatus::Passed), "passed");
     assert_eq!(run_status(RunStatus::Failed), "failed");

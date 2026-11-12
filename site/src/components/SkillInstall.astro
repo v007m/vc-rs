@@ -1,0 +1,19 @@
+---
+/**
+ * The two ways to give an agent the Vibranium skill: point it at the published `SKILL.md`, or
+ * curl both files into the user skill folder. The URLs and the command come from `~/lib/skill`.
+ */
+import { Code, TabItem, Tabs } from '@astrojs/starlight/components';
+import { SKILL_DIR, SKILL_INSTALL, SKILL_PROMPT } from '~/lib/skill';
+---
+
+<Tabs syncKey="skill-install">
+  <TabItem label="Install for Claude Code">
+    <Code code={SKILL_INSTALL} lang="sh" wrap />
+    <p>Writes <code>SKILL.md</code> and <code>reference/syntax.md</code> into <code>{SKILL_DIR}/</code>. Start a new Claude Code session and it loads the skill when a task touches Vibranium files.</p>
+  </TabItem>
+  <TabItem label="Point any agent at it">
+    <Code code={SKILL_PROMPT} lang="text" wrap />
+    <p>Paste this into the chat of an agent that can fetch URLs (Codex, Cursor, Copilot and others), or into <code>AGENTS.md</code>.</p>
+  </TabItem>
+</Tabs>

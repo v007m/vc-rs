@@ -10,8 +10,11 @@ use std::time::{Duration, Instant};
 
 use crate::Project;
 
-/// A port of its own, so this test never meets the sample's demo on 7421.
-const PORT: u16 = 7431;
+/// A port nothing listens on now, picked by the OS, so a test never meets another test's demo
+/// (tests run side by side, also in other checkouts) or the sample's on 7421.
+fn free_port() -> u16 {
+    TcpListener::bind(("127.0.0.1", 0)).unwrap().local_addr().unwrap().port()
+}
 
 /// The status line of `GET <path>` on the demo on `port`, or `None` when nothing answers.
 fn get(port: u16, path: &str) -> Option<String> {
@@ -63,28 +66,28 @@ fn waited(mut child: Child) -> Option<i32> {
 
 #[test]
 fn starts_in_the_background_answers_and_stops() {
-    let project = Project::empty();
-    let port = PORT.to_string();
-    let started = exit_code(&project, &["demo", "start", "--port", &port, "--detach"]);
-    let up = wait_until(PORT, true);
-    let users = get(PORT, "/users");
-    let echo = get(PORT, "/echo");
-    let stopped = exit_code(&project, &["demo", "stop", "--port", &port]);
+    let (project, port) = (Project::empty(), free_port());
+    let at = port.to_string();
+    let started = exit_code(&project, &["demo", "start", "--port", &at, "--detach"]);
+    let up = wait_until(port, true);
+    let users = get(port, "/users");
+    let echo = get(port, "/echo");
+    let stopped = exit_code(&project, &["demo", "stop", "--port", &at]);
     assert_eq!((started, stopped), (Some(0), Some(0)), "`vc demo start --detach` and `stop` exit 0");
-    assert!(up, "the demo answers on {PORT}");
+    assert!(up, "the demo answers on {port}");
     assert!(users.is_some_and(|line| line.contains(" 200 ")), "GET /users is 200");
     assert!(echo.is_some(), "it has an echo endpoint");
-    assert!(wait_until(PORT, false), "`vc demo stop` ends it");
+    assert!(wait_until(port, false), "`vc demo stop` ends it");
 }
 
 /// The sample's `afterAll` stops the demo even when `beforeAll` failed to start it, so stopping
 /// nothing is not an error.
 #[test]
 fn stopping_a_demo_that_is_not_running_succeeds_and_says_so() {
-    let project = Project::empty();
-    let output = project.vc(&["demo", "stop", "--port", "7432"]).timeout(Duration::from_secs(20)).output().unwrap();
+    let (project, port) = (Project::empty(), free_port().to_string());
+    let output = project.vc(&["demo", "stop", "--port", &port]).timeout(Duration::from_secs(20)).output().unwrap();
     assert_eq!(output.status.code(), Some(0));
-    assert!(crate::said(&output).contains("7432"), "names the port");
+    assert!(crate::said(&output).contains(&port), "names the port");
 }
 
 /// What `vc demo <args>` prints, run with pipes: only for a `vc` that launches no demo.
@@ -101,37 +104,37 @@ fn said_by(vc: std::process::Command) -> String {
 
 #[test]
 fn a_start_that_found_the_demo_running_leaves_it_to_the_one_that_launched_it() {
-    let project = Project::empty();
-    let port = "7434";
-    let launched = exit_code(&project, &["demo", "start", "--port", port, "--detach"]);
-    let joined = printed(&project, &["demo", "start", "--port", port, "--detach"]);
-    let first = printed(&project, &["demo", "stop", "--port", port]);
-    let still_up = wait_until(7434, true);
-    let second = printed(&project, &["demo", "stop", "--port", port]);
+    let (project, port) = (Project::empty(), free_port());
+    let at = &port.to_string();
+    let launched = exit_code(&project, &["demo", "start", "--port", at, "--detach"]);
+    let joined = printed(&project, &["demo", "start", "--port", at, "--detach"]);
+    let first = printed(&project, &["demo", "stop", "--port", at]);
+    let still_up = wait_until(port, true);
+    let second = printed(&project, &["demo", "stop", "--port", at]);
     assert_eq!(launched, Some(0));
-    assert_eq!(joined, "a demo already answers on port 7434\n");
-    assert_eq!(first, "left the demo on port 7434 running, as another `vc demo start` uses it\n");
+    assert_eq!(joined, format!("a demo already answers on port {port}\n"));
+    assert_eq!(first, format!("left the demo on port {port} running, as another `vc demo start` uses it\n"));
     assert!(still_up, "the first stop leaves it running");
-    assert_eq!(second, "stopped the demo on port 7434\n");
-    assert!(wait_until(7434, false), "the second stop ends it");
+    assert_eq!(second, format!("stopped the demo on port {port}\n"));
+    assert!(wait_until(port, false), "the second stop ends it");
 }
 
 #[test]
 fn refuses_a_port_another_program_holds() {
-    let project = Project::empty();
-    let _held = TcpListener::bind(("127.0.0.1", 7435)).unwrap();
-    let output = project.vc(&["demo", "start", "--port", "7435", "--detach"]).timeout(Duration::from_secs(20)).output();
-    let output = output.unwrap();
+    let (project, held) = (Project::empty(), TcpListener::bind(("127.0.0.1", 0)).unwrap());
+    let port = held.local_addr().unwrap().port();
+    let mut start = project.vc(&["demo", "start", "--port", &port.to_string(), "--detach"]);
+    let output = start.timeout(Duration::from_secs(20)).output().unwrap();
     let text = crate::said(&output);
     assert_eq!(output.status.code(), Some(2), "{text}");
-    assert!(text.contains("error: port 7435 is taken by a program that is not the demo"), "{text}");
+    assert!(text.contains(&format!("error: port {port} is taken by a program that is not the demo")), "{text}");
     assert!(text.contains("help: pick another `--port`, and change `sampleUrl`"), "{text}");
 }
 
 #[test]
 fn in_the_foreground_it_says_where_it_listens_and_how_to_stop_it() {
-    let project = Project::empty();
-    let mut vc = project.process(&["demo", "start", "--port", "7436"]);
+    let (project, port) = (Project::empty(), free_port());
+    let mut vc = project.process(&["demo", "start", "--port", &port.to_string()]);
     let mut child = vc.stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::null()).spawn().unwrap();
     let mut line = String::new();
     BufReader::new(child.stdout.take().unwrap()).read_line(&mut line).unwrap();
@@ -142,7 +145,7 @@ fn in_the_foreground_it_says_where_it_listens_and_how_to_stop_it() {
         std::process::Command::new("kill").arg(&pid).status()
     };
     let exited = child.wait();
-    assert!(line.starts_with("demo running on http://localhost:7436 (pid "), "{line}");
+    assert!(line.starts_with(&format!("demo running on http://localhost:{port} (pid ")), "{line}");
     assert!(line.ends_with("); Ctrl-C stops it\n"), "{line}");
     assert!(ended.is_ok_and(|status| status.success()) && exited.is_ok(), "the printed pid is the demo's");
 }
@@ -179,16 +182,16 @@ fn gone_join(users: &std::path::Path, age: Duration) -> std::path::PathBuf {
 #[cfg(unix)]
 #[test]
 fn a_join_whose_caller_is_gone_does_not_keep_the_demo_running() {
-    let (project, temp) = (Project::empty(), tempfile::tempdir().unwrap());
-    let port = "7437";
+    let (project, temp, port) = (Project::empty(), tempfile::tempdir().unwrap(), free_port());
+    let at = &port.to_string();
     let launched =
-        waited(launched(in_temp(&project, temp.path(), &["demo", "start", "--port", port, "--detach"])).unwrap());
-    let users = demo_folder(temp.path()).join("7437.users");
+        waited(launched(in_temp(&project, temp.path(), &["demo", "start", "--port", at, "--detach"])).unwrap());
+    let users = demo_folder(temp.path()).join(format!("{port}.users"));
     gone_join(&users, Duration::from_hours(2));
-    let stopped = said_by(in_temp(&project, temp.path(), &["demo", "stop", "--port", port]));
+    let stopped = said_by(in_temp(&project, temp.path(), &["demo", "stop", "--port", at]));
     assert_eq!(launched, Some(0));
-    assert_eq!(stopped, "stopped the demo on port 7437\n");
-    assert!(wait_until(7437, false), "the stale join is dropped and the demo ends");
+    assert_eq!(stopped, format!("stopped the demo on port {port}\n"));
+    assert!(wait_until(port, false), "the stale join is dropped and the demo ends");
     assert!(std::fs::read_dir(&users).unwrap().next().is_none(), "the stale join is pruned");
 }
 
@@ -197,36 +200,37 @@ fn a_join_whose_caller_is_gone_does_not_keep_the_demo_running() {
 #[cfg(unix)]
 #[test]
 fn a_recent_join_whose_caller_is_gone_still_keeps_the_demo_running() {
-    let (project, temp) = (Project::empty(), tempfile::tempdir().unwrap());
-    let port = "7438";
+    let (project, temp, port) = (Project::empty(), tempfile::tempdir().unwrap(), free_port());
+    let at = &port.to_string();
     let launched =
-        waited(launched(in_temp(&project, temp.path(), &["demo", "start", "--port", port, "--detach"])).unwrap());
-    gone_join(&demo_folder(temp.path()).join("7438.users"), Duration::ZERO);
-    let first = said_by(in_temp(&project, temp.path(), &["demo", "stop", "--port", port]));
-    let still_up = wait_until(7438, true);
-    let second = said_by(in_temp(&project, temp.path(), &["demo", "stop", "--port", port]));
+        waited(launched(in_temp(&project, temp.path(), &["demo", "start", "--port", at, "--detach"])).unwrap());
+    gone_join(&demo_folder(temp.path()).join(format!("{port}.users")), Duration::ZERO);
+    let first = said_by(in_temp(&project, temp.path(), &["demo", "stop", "--port", at]));
+    let still_up = wait_until(port, true);
+    let second = said_by(in_temp(&project, temp.path(), &["demo", "stop", "--port", at]));
     assert_eq!(launched, Some(0));
-    assert_eq!(first, "left the demo on port 7438 running, as another `vc demo start` uses it\n");
+    assert_eq!(first, format!("left the demo on port {port} running, as another `vc demo start` uses it\n"));
     assert!(still_up, "the recent join keeps it running");
-    assert_eq!(second, "stopped the demo on port 7438\n");
-    assert!(wait_until(7438, false), "the second stop ends it");
+    assert_eq!(second, format!("stopped the demo on port {port}\n"));
+    assert!(wait_until(port, false), "the second stop ends it");
 }
 
 #[cfg(unix)]
 #[test]
 fn the_pidfile_is_in_a_folder_only_the_user_can_open() {
     use std::os::unix::fs::PermissionsExt;
-    let (project, temp) = (Project::empty(), tempfile::tempdir().unwrap());
+    let (project, temp, port) = (Project::empty(), tempfile::tempdir().unwrap(), free_port());
+    let at = &port.to_string();
     let launched =
-        waited(launched(in_temp(&project, temp.path(), &["demo", "start", "--port", "7439", "--detach"])).unwrap());
+        waited(launched(in_temp(&project, temp.path(), &["demo", "start", "--port", at, "--detach"])).unwrap());
     let folder = demo_folder(temp.path());
     let mode = std::fs::metadata(&folder).map(|metadata| metadata.permissions().mode() & 0o777);
-    let pid = std::fs::read_to_string(folder.join("7439.pid"));
-    let stopped = said_by(in_temp(&project, temp.path(), &["demo", "stop", "--port", "7439"]));
+    let pid = std::fs::read_to_string(folder.join(format!("{port}.pid")));
+    let stopped = said_by(in_temp(&project, temp.path(), &["demo", "stop", "--port", at]));
     assert_eq!(launched, Some(0));
     assert_eq!(mode.ok(), Some(0o700));
     assert!(pid.is_ok_and(|pid| pid.trim().parse::<u32>().is_ok()), "the pidfile holds the demo's pid");
-    assert_eq!(stopped, "stopped the demo on port 7439\n");
+    assert_eq!(stopped, format!("stopped the demo on port {port}\n"));
 }
 
 /// Another user could plant a link where the demo folder goes; `vc` neither writes nor reads
@@ -234,35 +238,34 @@ fn the_pidfile_is_in_a_folder_only_the_user_can_open() {
 #[cfg(unix)]
 #[test]
 fn refuses_a_demo_folder_that_is_a_link() {
-    let (project, temp) = (Project::empty(), tempfile::tempdir().unwrap());
-    let elsewhere = temp.path().join("elsewhere");
+    let (project, temp, port) = (Project::empty(), tempfile::tempdir().unwrap(), free_port());
+    let (elsewhere, at) = (temp.path().join("elsewhere"), &port.to_string());
     std::fs::create_dir(&elsewhere).unwrap();
-    std::fs::write(elsewhere.join("7440.pid"), "1").unwrap();
+    std::fs::write(elsewhere.join(format!("{port}.pid")), "1").unwrap();
     std::os::unix::fs::symlink(&elsewhere, demo_folder(temp.path())).unwrap();
-    let start = in_temp(&project, temp.path(), &["demo", "start", "--port", "7440", "--detach"]);
+    let start = in_temp(&project, temp.path(), &["demo", "start", "--port", at, "--detach"]);
     let output = assert_cmd::Command::from_std(start).timeout(Duration::from_secs(20)).output().unwrap();
-    let stopped = said_by(in_temp(&project, temp.path(), &["demo", "stop", "--port", "7440"]));
+    let stopped = said_by(in_temp(&project, temp.path(), &["demo", "stop", "--port", at]));
     let text = crate::said(&output);
     assert_eq!(output.status.code(), Some(2), "{text}");
     assert!(text.contains("vibranium-demo-") && text.contains(" is not a private folder of this user"), "{text}");
-    assert!(get(7440, "/users").is_none(), "no demo started");
-    assert_eq!(stopped, "no demo running on port 7440\n", "the planted pidfile is not read");
+    assert!(get(port, "/users").is_none(), "no demo started");
+    assert_eq!(stopped, format!("no demo running on port {port}\n"), "the planted pidfile is not read");
 }
 
 /// Two `start`s at once leave one demo, whose pidfile names it: the two `stop`s end it, and
 /// none is left running.
 #[test]
 fn two_starts_at_once_leave_one_demo_that_their_stops_end() {
-    let project = Project::empty();
-    let start = || launched(project.process(&["demo", "start", "--port", "7441", "--detach"])).unwrap();
+    let (project, port) = (Project::empty(), free_port());
+    let at = &port.to_string();
+    let start = || launched(project.process(&["demo", "start", "--port", at, "--detach"])).unwrap();
     let (first, second) = (start(), start());
     let started = (waited(first), waited(second));
-    let stops = (
-        printed(&project, &["demo", "stop", "--port", "7441"]),
-        printed(&project, &["demo", "stop", "--port", "7441"]),
-    );
+    let stops =
+        (printed(&project, &["demo", "stop", "--port", at]), printed(&project, &["demo", "stop", "--port", at]));
     assert_eq!(started, (Some(0), Some(0)));
-    assert_eq!(stops.0, "left the demo on port 7441 running, as another `vc demo start` uses it\n");
-    assert_eq!(stops.1, "stopped the demo on port 7441\n");
-    assert!(wait_until(7441, false), "no demo is left running");
+    assert_eq!(stops.0, format!("left the demo on port {port} running, as another `vc demo start` uses it\n"));
+    assert_eq!(stops.1, format!("stopped the demo on port {port}\n"));
+    assert!(wait_until(port, false), "no demo is left running");
 }

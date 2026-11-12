@@ -44,7 +44,7 @@ reports:
 **The summary sent to `reporter/finish`.**
 
 ```json
-{"event": "summary", "status": "passed", "profiles": ["default"], "startedMs": 1794332389609, "durationMs": 26, "totals": {"blocked": 0, "failed": 0, "flaky": 0, "passed": 1, "skipped": 0}, "artifacts": []}
+{"event": "summary", "status": "passed", "profiles": ["default"], "startedMs": 1794332389609, "durationMs": 26, "totals": {"allowedFailures": 0, "blocked": 0, "failed": 0, "flaky": 0, "passed": 1, "skipped": 0}, "artifacts": []}
 ```
 
 **A file in a subfolder.** The sample reporter returns `plugin/report.txt`; the run lists it with the other reports:

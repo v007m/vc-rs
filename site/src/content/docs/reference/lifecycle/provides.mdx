@@ -44,12 +44,12 @@ error[V2101]: ${var.profiles} is used but never set
 
 The check reports that no level sets `profiles` for the active profile. Add the names to `provides` and the check passes.
 
-Declare what a reused test saves:
+A reused test needs `provides` only for a name `vc check` can't see it save, one that a `function:` step inside it returns. What its calls save is already known. If `makesAnItem` also ran a function that returned `sessionId`:
 
 ```yaml
 before:
   - test: lab.reuse#makesAnItem
-    provides: [itemId]
+    provides: [sessionId]
 ```
 
 Using a name that an action saved without declaring it is a warning. The run goes on:

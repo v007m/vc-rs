@@ -2,11 +2,15 @@
 //! settings a plan is made with.
 
 use std::path::Path;
+use std::time::Duration;
 
 use clap::Args;
 use vc_engine::{PlanRequest, SelectRequest};
 
 use crate::project::Located;
+
+/// The units `--changed-since` takes, and their length in seconds.
+const WINDOW_UNITS: &[(char, u64)] = &[('h', 3_600), ('d', 86_400), ('w', 604_800)];
 
 /// The selectors (cli-workflow "Selecting what to run").
 #[derive(Args)]
@@ -25,6 +29,10 @@ pub struct SelectArgs {
     /// none is given.
     #[arg(long, value_name = "REF", num_args = 0..=1, default_missing_value = "")]
     changed: Option<String>,
+    /// Only files a commit in this window touched (`12h`, `7d`, `2w`), or that are uncommitted
+    /// or untracked (D249).
+    #[arg(long, value_name = "DURATION", value_parser = window, conflicts_with = "changed")]
+    changed_since: Option<Duration>,
     /// Also plans the tests marked `skip`.
     #[arg(long)]
     include_skipped: bool,
@@ -41,6 +49,7 @@ impl SelectArgs {
             tags: self.tags.clone(),
             grep: self.grep.clone(),
             changed: self.changed.clone(),
+            changed_since: self.changed_since,
             include_skipped: self.include_skipped,
             ..SelectRequest::default()
         };
@@ -55,6 +64,23 @@ impl SelectArgs {
     }
 }
 
+/// The longest `--changed-since` window, 10 years: git takes no date much further back.
+const MAX_WINDOW: u64 = 3_650 * 86_400;
+
+/// `--changed-since`'s window: a whole number above zero and `h`, `d` or `w`, at most 10 years.
+fn window(text: &str) -> Result<Duration, String> {
+    let wrong = || format!("`{text}` is not a duration such as `12h`, `7d` or `2w`");
+    let unit = text.chars().last().ok_or_else(wrong)?;
+    let (_, seconds) = WINDOW_UNITS.iter().find(|(name, _)| *name == unit).ok_or_else(wrong)?;
+    let digits = text.strip_suffix(unit).filter(|digits| digits.bytes().all(|b| b.is_ascii_digit()));
+    let count: u64 = digits.ok_or_else(wrong)?.parse().map_err(|_| wrong())?;
+    let total = count.checked_mul(*seconds).filter(|total| *total > 0).ok_or_else(wrong)?;
+    if total > MAX_WINDOW {
+        return Err(format!("`{text}` is longer than 10 years (`3650d` or `521w`)"));
+    }
+    Ok(Duration::from_secs(total))
+}
+
 /// The selectors, and the profiles and settings a plan is made with.
 #[derive(Args)]
 pub struct PlanArgs {
@@ -64,7 +90,8 @@ pub struct PlanArgs {
     #[arg(long = "profile", value_name = "IDS")]
     profiles: Vec<String>,
     /// Sets one config value for this run (`defaults.timeout=5s`, `vars.userId=7`), over
-    /// every other layer (D129).
+    /// every other config layer (D129); a file's, test's or step's own `vars` still win over a
+    /// config var.
     #[arg(long = "set", value_name = "KEY=VALUE")]
     sets: Vec<String>,
     /// Runs every selected test this many times, instead of its own `repeat`.
@@ -85,5 +112,32 @@ impl PlanArgs {
             profiles: self.profiles.clone(),
             sets: self.sets.clone(),
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+
+    use super::window;
+
+    #[test]
+    fn a_window_is_a_whole_number_of_hours_days_or_weeks() {
+        assert_eq!(window("12h"), Ok(Duration::from_hours(12)));
+        assert_eq!(window("7d"), Ok(Duration::from_hours(7 * 24)));
+        assert_eq!(window("2w"), Ok(Duration::from_hours(14 * 24)));
+        for bad in ["", "d", "7", "0d", "-1d", "+1d", "1.5d", "7dd", "7 d", "3m", "99999999999999999w"] {
+            assert!(window(bad).is_err(), "{bad:?}");
+        }
+    }
+
+    #[test]
+    fn a_window_is_at_most_ten_years() {
+        assert_eq!(window("3650d"), Ok(Duration::from_hours(3_650 * 24)));
+        assert_eq!(window("87600h"), Ok(Duration::from_hours(87_600)));
+        assert_eq!(window("521w"), Ok(Duration::from_hours(521 * 7 * 24)));
+        for long in ["3651d", "87601h", "522w", "1000000w"] {
+            assert_eq!(window(long), Err(format!("`{long}` is longer than 10 years (`3650d` or `521w`)")));
+        }
     }
 }

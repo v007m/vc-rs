@@ -31,7 +31,7 @@ fn run(id: u64, totals: Totals, took: u64) -> RunRow {
 }
 
 const fn totals(passed: usize, failed: usize, blocked: usize, flaky: usize) -> Totals {
-    Totals { passed, failed, blocked, flaky, skipped: 0 }
+    Totals { passed, failed, blocked, flaky, skipped: 0, allowed_failures: 0 }
 }
 
 fn test(id: &str, status: TestStatus, duration_ms: f64) -> TestRow {

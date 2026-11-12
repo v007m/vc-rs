@@ -1,6 +1,6 @@
 //! `vc init`: a new project that checks clean and runs green offline (D89, D175): the config
 //! with a `default` profile, the sample api and test files against the built-in demo service,
-//! `.env.schema`, and `.vibranium/` in `.gitignore`. It never overwrites a definition file.
+//! `.env.schema`, and `.vibranium/` and `.env` in `.gitignore` (D263, D286). It never overwrites a definition file.
 
 use vc_compiler::schema_line;
 use vc_model::{DEFAULT_SECRETS_SCHEMA, FileKind, SourcePath};
@@ -22,7 +22,8 @@ const SAMPLE_PARTS: [(&str, &str, &str); 2] = [
     ("{profileVar}", "sampleUrl: https://sample.staging.example", "baseUrl: https://api.staging.example"),
 ];
 const GITIGNORE: &str = ".gitignore";
-const IGNORED: &str = ".vibranium/";
+/// The lines `vc init` puts in `.gitignore`: its generated data, and the secrets (D286).
+const IGNORED: [&str; 2] = [".vibranium/", ".env"];
 
 /// The definition files `vc init` writes: path, kind and text after the schema line.
 const DEFINITIONS: [(&str, FileKind, &str); 3] = [
@@ -37,7 +38,7 @@ pub const INIT_FOLDERS: [&str; 5] = ["schemas", "datasets", "hooks", "openapi", 
 impl Engine {
     /// The files of a new project in the engine's root: the config, and with `sample` the
     /// sample api and test files, passed by the compile guard; then `.env.schema` when there is
-    /// none, and `.gitignore` with `.vibranium/` added when it lacks it.
+    /// none, and `.gitignore` with `.vibranium/` and `.env` added when it lacks them.
     ///
     /// # Errors
     ///
@@ -64,7 +65,7 @@ impl Engine {
         Ok(changes)
     }
 
-    /// Adds `.env.schema` when there is none and `.vibranium/` to `.gitignore` when it lacks it.
+    /// Adds `.env.schema` when there is none, and to `.gitignore` the lines of [`IGNORED`] it lacks.
     fn scaffold(&self, changes: &mut Changes) -> Result<(), EngineError> {
         let path = |text: &str| SourcePath::new(text).map_err(internal);
         let read = self.sources.read(&[path(DEFAULT_SECRETS_SCHEMA)?, path(GITIGNORE)?]).map_err(sources_error)?;
@@ -74,11 +75,12 @@ impl Engine {
             changes.files.push(created(DEFAULT_SECRETS_SCHEMA, ENV_SCHEMA));
         }
         let ignore = text(GITIGNORE);
-        if !ignore.as_deref().is_some_and(|text| text.lines().any(|line| line.trim() == IGNORED)) {
-            changes.titles.push(format!("Ignore {IGNORED} in {GITIGNORE}"));
+        let missing = lacking(ignore.as_deref().unwrap_or_default());
+        if !missing.is_empty() {
+            changes.titles.push(format!("Ignore {} in {GITIGNORE}", missing.join(" and ")));
             changes.files.push(FileChange {
                 path: GITIGNORE.to_owned(),
-                after: ignored(ignore.as_deref().unwrap_or_default()),
+                after: ignored(ignore.as_deref().unwrap_or_default(), &missing),
                 before: ignore,
                 moved_from: None,
             });
@@ -111,23 +113,37 @@ fn sampled(text: &str, sample: bool) -> String {
     })
 }
 
-/// `.gitignore`'s text `text` with `.vibranium/` on a line of its own at the end.
-fn ignored(text: &str) -> String {
+/// The lines of [`IGNORED`] that `.gitignore`'s text `text` lacks; a leading `/` counts as the line.
+fn lacking(text: &str) -> Vec<&'static str> {
+    let has = |wanted: &str| text.lines().any(|line| line.trim().trim_start_matches('/') == wanted);
+    IGNORED.into_iter().filter(|wanted| !has(wanted)).collect()
+}
+
+/// `.gitignore`'s text `text` with each of `lines` on a line of its own at the end.
+fn ignored(text: &str, lines: &[&str]) -> String {
     let newline = if text.is_empty() || text.ends_with('\n') { "" } else { "\n" };
-    format!("{text}{newline}{IGNORED}\n")
+    format!("{text}{newline}{}\n", lines.join("\n"))
 }
 
 #[cfg(test)]
 mod tests {
     use vc_model::FileKind;
 
-    use super::{CONFIG, definition, ignored, sampled};
+    use super::{CONFIG, definition, ignored, lacking, sampled};
 
     #[test]
-    fn the_ignore_line_goes_on_a_line_of_its_own() {
-        assert_eq!(ignored(""), ".vibranium/\n");
-        assert_eq!(ignored("target"), "target\n.vibranium/\n");
-        assert_eq!(ignored("target\n"), "target\n.vibranium/\n");
+    fn each_ignore_line_goes_on_a_line_of_its_own() {
+        assert_eq!(ignored("", &[".vibranium/", ".env"]), ".vibranium/\n.env\n");
+        assert_eq!(ignored("target", &[".env"]), "target\n.env\n");
+        assert_eq!(ignored("target\n", &[".vibranium/"]), "target\n.vibranium/\n");
+    }
+
+    #[test]
+    fn only_the_missing_ignore_lines_are_added() {
+        assert_eq!(lacking(""), [".vibranium/", ".env"]);
+        assert_eq!(lacking("target\n.vibranium/\n"), [".env"]);
+        assert_eq!(lacking("/.env\n  .vibranium/  \n"), Vec::<&str>::new());
+        assert_eq!(lacking(".env.local\n.envrc\n"), [".vibranium/", ".env"]);
     }
 
     #[test]

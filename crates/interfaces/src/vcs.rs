@@ -1,8 +1,11 @@
-//! The version control the engine asks which files changed, for `vc run --changed` (D130).
+//! The version control the engine asks which files changed, for `vc run --changed` (D130) and
+//! `--changed-since` (D249).
+
+use std::time::Duration;
 
 use vc_model::SourcePath;
 
-/// Lists the project's files that changed since a base ref (D130, D133).
+/// Lists the project's files that changed since a base ref (D130, D133), or lately (D249).
 ///
 /// The engine maps the paths to file IDs ([`SourcePath::file_id`]) for the planner's
 /// `Selection::changed`.
@@ -17,6 +20,16 @@ pub trait Vcs: Send + Sync {
     /// [`VcsError::Unavailable`] when there is no tool to ask, and [`VcsError::Failed`] when it
     /// fails, as outside a repository or on a ref that does not exist.
     fn changed(&self, base: &str) -> Result<Vec<SourcePath>, VcsError>;
+
+    /// The files a commit made in the last `window` touched, and those [`Vcs::changed`] lists
+    /// for `HEAD` (the uncommitted and untracked ones), relative to the project root, sorted and
+    /// without repeats (D249). A commit counts by its commit date.
+    ///
+    /// # Errors
+    ///
+    /// [`VcsError::Unavailable`] when there is no tool to ask, and [`VcsError::Failed`] when it
+    /// fails, as outside a repository or in one with no commits.
+    fn changed_within(&self, window: Duration) -> Result<Vec<SourcePath>, VcsError>;
 }
 
 /// `base` when it is a plain ref such as `origin/main`, `HEAD~1` or `main@{1}`.

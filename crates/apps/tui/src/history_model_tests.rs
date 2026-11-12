@@ -1,6 +1,6 @@
 use vc_engine::{RunId, RunRow, RunStart, TestRow, TestStatus, TestTrend, Totals};
 
-use super::{Comparison, Slower, checkout, label, mean, percent, seconds, took, troubled};
+use super::{Comparison, Slower, checkout, label, mean, pass_rate, percent, seconds, took, troubled};
 
 fn test(id: &str, status: TestStatus, duration_ms: f64) -> TestRow {
     TestRow { test_id: id.to_owned(), status: Some(status), duration_ms, attempts: 1, ..TestRow::default() }
@@ -74,7 +74,7 @@ fn a_runs_figures_read_as_its_row_shows_them() {
         totals: Totals::default(),
     };
     assert_eq!((percent(&run.totals), took(&run), checkout(&run)), ("–".to_owned(), None, "–".to_owned()));
-    run.totals = Totals { passed: 960, flaky: 1, failed: 30, blocked: 9, skipped: 5 };
+    run.totals = Totals { passed: 960, flaky: 1, failed: 30, blocked: 9, skipped: 5, allowed_failures: 0 };
     run.start.started_ms = 1_000;
     run.finished_ms = Some(49_250);
     run.start.git_branch = Some("main".to_owned());
@@ -85,4 +85,12 @@ fn a_runs_figures_read_as_its_row_shows_them() {
     run.start.git_branch = None;
     assert_eq!(checkout(&run), "@a1c9e4f");
     assert_eq!((seconds(350), mean(349.6), mean(1_840.0)), ("350ms".to_owned(), "350ms".to_owned(), "1.8s".to_owned()));
+}
+
+#[test]
+fn an_allowed_failure_ran_but_did_not_pass() {
+    let only = Totals { allowed_failures: 2, ..Totals::default() };
+    assert_eq!((pass_rate(&only), percent(&only)), (Some(0), "0.0%".to_owned()));
+    let mixed = Totals { passed: 3, allowed_failures: 1, ..Totals::default() };
+    assert_eq!((pass_rate(&mixed), percent(&mixed)), (Some(750), "75.0%".to_owned()));
 }

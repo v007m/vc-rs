@@ -49,6 +49,7 @@ impl<'a> Build<'_, 'a> {
         let (request, expect, poll) = self.sent(source, (node, &kind), (origin, defaults))?;
         let vars = if place.test.is_some() { VarDefs::default() } else { self.vars(source, node)? };
         let id = project::text(node, "id").filter(|_| place.test.is_none()).map(|id| self.sym(id)).transpose()?;
+        let implied = self.implied(source, (node, &kind))?;
         Ok(Some(Action {
             id,
             kind,
@@ -65,6 +66,7 @@ impl<'a> Build<'_, 'a> {
             timeout: read::duration(source, node, "timeout").filter(|_| place.test.is_none()),
             keep: read::flag(shapes::action(), node, "keep"),
             provides: self.provides(node)?,
+            implied,
             cache,
             repeat: self.looping(source, node).filter(|_| place.test.is_none()),
             span: node.span,
@@ -159,6 +161,17 @@ impl<'a> Build<'_, 'a> {
     fn provides(&mut self, node: &Node) -> Built<Vec<VarName>> {
         let names = project::list(node, "provides").iter().filter_map(Node::as_str);
         names.map(|name| Ok(VarName::new(self.sym(name)?))).collect()
+    }
+
+    /// What a `test:` action is seen to save: everything the reused test saves (D282).
+    fn implied(&mut self, source: &Source<'a>, (node, kind): (&Node, &ActionKind)) -> Built<Vec<VarName>> {
+        if !matches!(kind, ActionKind::Test(_)) {
+            return Ok(Vec::new());
+        }
+        let mut names = self.saves.action(source, node);
+        names.sort_unstable();
+        names.dedup();
+        names.iter().map(|name| Ok(VarName::new(self.sym(name)?))).collect()
     }
 }
 
