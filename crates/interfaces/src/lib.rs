@@ -67,6 +67,7 @@ mod fetch;
 mod filter;
 mod held_sources;
 mod history;
+mod history_rows;
 mod hooks;
 mod import;
 mod keychain;
@@ -101,9 +102,9 @@ pub use fetch::{FetchError, SpecFetcher, resolve_reference};
 pub use filter::SourceFilter;
 pub use held_sources::{MemorySources, secret_schema};
 pub use history::{
-    CheckRow, ExchangeRow, HistoryError, HistoryReader, HistoryWriter, IntervalRow, Row, RunEnd, RunId, RunRef, RunRow,
-    RunStart, TestRow, TimingRow,
+    HistoryError, HistoryReader, HistoryWriter, IntervalRow, Row, RunEnd, RunId, RunRef, RunRow, RunStart,
 };
+pub use history_rows::{CheckRow, ExchangeRow, TestRow, TimingRow};
 pub use hooks::{Budget, HookCall, HookError, HookOutput, HookRunner, Limit};
 pub use import::{
     DraftApi, DraftBefore, DraftCleanup, DraftExample, DraftFlow, DraftGroup, DraftStep, DraftTest, ImportDraft,

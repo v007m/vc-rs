@@ -6,7 +6,7 @@ use vc_model::{ContentHash, Names, Program, SourceFile, SourcePath};
 use vc_planner::{PlanOptions, Selection};
 use vc_testkit::{MemoryEnvironment, ScriptedRandom};
 
-use super::{Draw, planned};
+use super::{Draw, offline_labels, planned};
 use crate::EngineError;
 
 const CONFIG: &str = "syntaxVersion: 2\nvars: {baseUrl: 'http://x'}\nprofiles:\n  - id: dev\n    default: true\n";
@@ -91,4 +91,38 @@ fn every_instance_of_a_repeated_test_shows_its_repeat_however_it_repeats() {
     assert_eq!(labels(tests, Some(2))[..2], flag, "`--repeat 2` labels the first run too");
     let key = ["users.rows#getsUsers", "users.rows#getsAgain [repeat 1]", "users.rows#getsAgain [repeat 2]"];
     assert_eq!(labels(tests, None), key, "a test run once shows no repeat");
+}
+
+/// The labels `vc plan` gives `tests`' instances under `redact`, offline.
+async fn offline(redact: &str, tests: &str) -> Vec<String> {
+    let config =
+        format!("{CONFIG}vars:\n  baseUrl: 'http://x'\n  pages: [{{name: first page}}]\nredact:\n  rules: {redact}\n");
+    let config = config.replacen("vars: {baseUrl: 'http://x'}\n", "", 1);
+    let files = vec![
+        file("vibranium.config.yaml", &config),
+        file("services/users/users.api.yaml", APIS),
+        file("services/users/rows.test.yaml", tests),
+    ];
+    let compiled = vc_compiler::compile(CompileInput { files, ..CompileInput::default() });
+    let Some(program) = compiled.program else { panic!("{:?}", compiled.diagnostics) };
+    let inputs = RunInputs::new(Arc::new(ScriptedRandom::seeded(7)), Arc::new(MemoryEnvironment::default()));
+    let mut plan =
+        planned(&program, &Selection::default(), (inputs, &mut Draw::new(Some(7)), PlanOptions::default())).unwrap();
+    offline_labels(&program, &mut plan).await;
+    let names = Names::new(program, &plan);
+    names.planned().iter().map(|planned| names.label(planned.test, Some(planned.instance))).collect()
+}
+
+const NAMED: &str = "tests:\n  - id: rejectsBadEmail\n    call: users#get\n    examples:\n      - {name: card 4111-1111, email: a}\n  - id: listsPages\n    call: users#get\n    examples: ${var.pages}\n";
+
+#[tokio::test]
+async fn the_plan_masks_a_written_name_by_the_rules_and_numbers_a_drawn_one() {
+    let shown = offline("[{regex: '\\d{4}-\\d{4}'}]", NAMED).await;
+    assert_eq!(shown, ["users.rows#rejectsBadEmail › card ••••", "users.rows#listsPages [row 1]"]);
+}
+
+#[tokio::test]
+async fn a_function_rule_the_plan_cannot_run_masks_the_whole_name() {
+    let shown = offline("[{function: 'hooks/redact.ts#mask'}]", NAMED).await;
+    assert_eq!(shown[0], "users.rows#rejectsBadEmail › ••••", "{shown:?}");
 }

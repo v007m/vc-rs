@@ -5,7 +5,7 @@
 
 use std::fmt::Write as _;
 
-use vc_model::{ActionId, Instance, Needs, Plan, PlannedFile, Program};
+use vc_model::{ActionId, Instance, InstanceLabels, Needs, Plan, PlannedFile, Program};
 
 /// Nodes that run together, after every node of the stage before.
 type Stage = Vec<String>;
@@ -13,13 +13,15 @@ type Stage = Vec<String>;
 /// The graph being written.
 struct Graph<'p> {
     program: &'p Program,
+    labels: InstanceLabels,
     out: String,
 }
 
 /// The plan as a Graphviz `digraph`.
 #[must_use]
 pub fn dot(program: &Program, plan: &Plan) -> String {
-    let mut graph = Graph { program, out: String::from("digraph plan {\n  rankdir=LR;\n") };
+    let mut graph =
+        Graph { program, labels: InstanceLabels::new(plan), out: String::from("digraph plan {\n  rankdir=LR;\n") };
     let before = graph.actions("beforeRun", plan.before_run.iter().map(|planned| planned.action), "  ");
     for planned in &plan.before_run {
         graph.needs(&node_id(planned.action), &planned.needs);
@@ -48,7 +50,7 @@ impl Graph<'_> {
         });
         let mut stages = self.actions("beforeAll", file.before_all.iter().map(|planned| planned.action), "    ");
         stages.extend(self.actions("beforeEach", before_each.iter().copied(), "    "));
-        stages.push(file.instances.iter().map(|instance| self.instance(file, instance)).collect());
+        stages.push(file.instances.iter().map(|instance| self.instance(instance)).collect());
         stages.extend(self.actions("afterEach", after_each.iter().copied(), "    "));
         stages.extend(self.actions("afterAll", file.after_all.iter().copied(), "    "));
         self.out.push_str("  }\n");
@@ -63,9 +65,9 @@ impl Graph<'_> {
     }
 
     /// An instance's node, written; its ID.
-    fn instance(&mut self, file: &PlannedFile, instance: &Instance) -> String {
+    fn instance(&mut self, instance: &Instance) -> String {
         let id = format!("i{}", instance.id.index());
-        let label = super::instance_label(self.program, instance, super::repeats(&file.instances, instance));
+        let label = super::instance_label(self.program, &self.labels, instance);
         let _ = writeln!(self.out, "    {id} [label={}];", quote(&label));
         id
     }

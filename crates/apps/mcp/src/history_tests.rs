@@ -9,6 +9,7 @@ fn a_stored_row_belongs_to_its_test_its_example_rows_and_repeats() {
     let test = "users.crud#rejects";
     assert!(is(&json!({"id": "users.crud#rejects"}), test));
     assert!(is(&json!({"id": "users.crud#rejects [row 2]"}), test));
+    assert!(is(&json!({"id": "users.crud#rejects › missing @ [repeat 2]"}), test));
     assert!(!is(&json!({"id": "users.crud#rejectsAll"}), test));
     assert!(!is(&json!({"id": "users.crud#reject"}), test));
     assert!(!is(&json!({"name": "users.crud#rejects"}), test));

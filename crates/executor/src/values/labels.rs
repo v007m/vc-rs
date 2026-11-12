@@ -22,7 +22,7 @@ pub fn row_names(program: &Program, plan: &Plan, rendered: &ExampleRows) -> BTre
 fn row_name(program: &Program, rendered: &ExampleRows, (test, row): (TestId, u32)) -> Option<String> {
     let at = usize::try_from(row).ok()?;
     let name = match &program.tests.get(&test)?.examples {
-        Some(Examples::Rows(rows)) => {
+        Some(Examples::Rows(rows) | Examples::Data(rows)) => {
             let Some(TemplateValue::Map(row)) = rows.get(at) else { return None };
             let Some(TemplateValue::String(name)) = row.get("name") else { return None };
             name.as_literal()?

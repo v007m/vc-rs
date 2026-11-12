@@ -7,7 +7,7 @@ use super::{Visit, Walker};
 impl<V: Visit> Walker<'_, V> {
     pub(super) fn examples(&mut self, examples: &Examples) {
         match examples {
-            Examples::Rows(rows) => self.values(rows),
+            Examples::Rows(rows) | Examples::Data(rows) => self.values(rows),
             Examples::File(template) | Examples::Template(template) => self.template(template),
         }
     }

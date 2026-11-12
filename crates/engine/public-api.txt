@@ -642,7 +642,7 @@ impl vc_engine::Engine
 pub fn vc_engine::Engine::new_file(&self, vc_model::source::FileKind, &str) -> core::result::Result<vc_engine::Added, vc_engine::EngineError>
 pub fn vc_engine::Engine::new_test(&self, &vc_engine::NewTest) -> core::result::Result<vc_engine::Added, vc_engine::EngineError>
 impl vc_engine::Engine
-pub fn vc_engine::Engine::plan(&self, &vc_engine::PlanRequest) -> core::result::Result<vc_engine::PlanReport, vc_engine::EngineError>
+pub async fn vc_engine::Engine::plan(&self, &vc_engine::PlanRequest) -> core::result::Result<vc_engine::PlanReport, vc_engine::EngineError>
 impl vc_engine::Engine
 pub fn vc_engine::Engine::plugin_approve(&self, &vc_engine::PluginOffer) -> core::result::Result<vc_engine::Changes, vc_engine::EngineError>
 pub fn vc_engine::Engine::plugin_decline(&self, &vc_engine::PluginOffer)
@@ -1326,7 +1326,7 @@ pub struct vc_engine::StoredRun
 impl vc_engine::StoredRun
 pub fn vc_engine::StoredRun::json(&self) -> serde_json::value::Value
 pub const fn vc_engine::StoredRun::run(&self) -> &vc_interfaces::history::RunRow
-pub fn vc_engine::StoredRun::tests(&self) -> &[vc_interfaces::history::TestRow]
+pub fn vc_engine::StoredRun::tests(&self) -> &[vc_interfaces::history_rows::TestRow]
 pub fn vc_engine::StoredRun::text(&self) -> alloc::string::String
 impl core::clone::Clone for vc_engine::StoredRun
 pub fn vc_engine::StoredRun::clone(&self) -> Self
@@ -1410,7 +1410,7 @@ pub const vc_engine::APPROVAL_WAIT: core::time::Duration
 pub const vc_engine::INIT_FOLDERS: [&str; 5]
 pub fn vc_engine::action_call(&vc_model::names::Names, vc_model::ids::ActionId) -> core::option::Option<vc_engine::ApiCall>
 pub fn vc_engine::auth_fields(&str) -> alloc::vec::Vec<&'static str>
-pub fn vc_engine::instance_label(&vc_interfaces::history::TestRow) -> alloc::string::String
+pub fn vc_engine::instance_label(&vc_interfaces::history_rows::TestRow) -> alloc::string::String
 pub fn vc_engine::interrupts() -> (vc_engine::Interrupter, vc_engine::Interrupts)
 pub fn vc_engine::launch_plugin(impl core::iter::traits::iterator::Iterator<Item = std::ffi::os_str::OsString>) -> core::option::Option<alloc::string::String>
 pub fn vc_engine::started(u64) -> alloc::string::String

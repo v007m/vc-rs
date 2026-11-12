@@ -80,7 +80,7 @@ impl HistoryReader for SqliteHistoryReader {
             let mut checks = checks(connection, run)?;
             let mut statement = connection.prepare(
                 "SELECT id, test_id, example_row, repeat_index, status, duration_ms, attempts, blocked_by, skip_reason,
-                        message
+                        message, label
                  FROM test_results WHERE run_id = ?1 ORDER BY id",
             )?;
             let tests = statement.query_map([run.get()], |row| Ok((row.get::<_, i64>(0)?, test_row(row)?)))?;
@@ -188,6 +188,7 @@ fn test_row(row: &SqlRow<'_>) -> rusqlite::Result<TestRow> {
         blocked_by: row.get(7)?,
         skip_reason: row.get(8)?,
         message: row.get(9)?,
+        label: row.get(10)?,
         checks: Vec::new(),
         exchanges: Vec::new(),
     })

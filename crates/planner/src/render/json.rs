@@ -2,15 +2,16 @@
 
 use serde::Serialize;
 use serde_json::Value;
-use vc_model::{ActionId, InstanceId, Needs, Plan, PlannedAction, PlannedFile, Program};
+use vc_model::{ActionId, InstanceId, InstanceLabels, Needs, Plan, PlannedAction, PlannedFile, Program};
 
-/// The plan as JSON.
+/// The plan as JSON, each instance with the label the tree and the run give it.
 #[must_use]
 pub fn json(program: &Program, plan: &Plan) -> Value {
+    let labels = InstanceLabels::new(plan);
     let view = PlanView {
         instance_count: plan.instance_count(),
         before_run: planned(program, &plan.before_run),
-        files: plan.files.iter().map(|file| file_view(program, file)).collect(),
+        files: plan.files.iter().map(|file| file_view(program, &labels, file)).collect(),
         after_run: after(program, &plan.after_run),
         skipped: plan
             .skipped
@@ -53,6 +54,7 @@ struct ActionView {
 struct InstanceView<'p> {
     id: InstanceId,
     test: &'p str,
+    label: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     example_row: Option<u32>,
     repeat_index: u32,
@@ -65,10 +67,11 @@ struct SkippedView<'p> {
     reason: &'p str,
 }
 
-fn file_view<'p>(program: &'p Program, file: &'p PlannedFile) -> FileView<'p> {
+fn file_view<'p>(program: &'p Program, labels: &InstanceLabels, file: &'p PlannedFile) -> FileView<'p> {
     let instances = file.instances.iter().map(|instance| InstanceView {
         id: instance.id,
         test: super::name(program, instance.test.sym()),
+        label: super::instance_label(program, labels, instance),
         example_row: instance.example_row,
         repeat_index: instance.repeat_index,
         needs: ids(&instance.needs),

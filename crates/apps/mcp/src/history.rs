@@ -74,7 +74,7 @@ fn run_property() -> Value {
 }
 
 /// Whether a stored test row is an instance of `test`: the test itself, an example row or a
-/// repeat (`users.crud#rejectsBadEmail [row 2]`).
+/// repeat (`users.crud#rejectsBadEmail [row 2]`, `users.crud#rejectsBadEmail › missing @`).
 fn is(row: &Value, test: &str) -> bool {
     row["id"].as_str().is_some_and(|id| id == test || id.strip_prefix(test).is_some_and(|rest| rest.starts_with(' ')))
 }

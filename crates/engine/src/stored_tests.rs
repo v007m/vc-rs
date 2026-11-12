@@ -5,7 +5,7 @@ use vc_interfaces::{HistoryWriter as _, Row, RunEnd, RunFilter, RunStart, TestRo
 use vc_model::{RunStatus, TestStatus, Totals};
 use vc_testkit::{FakeVcs, MemoryHistory};
 
-use super::{ReportRequest, instance_label, report_choice, started, test_json};
+use super::{ReportRequest, StoredRun, instance_label, report_choice, started, test_json};
 use crate::{Engine, ReportFlags, TestTrend, sample};
 
 /// 2026-11-05 10:22 UTC.
@@ -119,11 +119,40 @@ fn trends_sum_up_each_test_over_the_newest_runs() {
 }
 
 #[test]
-fn an_instance_label_numbers_its_row_and_repeat_from_one() {
+fn an_instance_label_is_the_stored_one() {
+    let labelled = TestRow {
+        test_id: "users.crud#listsUsers".into(),
+        example_row: Some(0),
+        label: Some("users.crud#listsUsers › Oslo".into()),
+        ..TestRow::default()
+    };
+    assert_eq!(instance_label(&labelled), "users.crud#listsUsers › Oslo");
+}
+
+#[test]
+fn a_stored_label_or_message_cannot_drive_the_terminal() {
+    let hostile = TestRow {
+        test_id: "users.crud#listsUsers".into(),
+        label: Some("users.crud#listsUsers › \u{1b}]0;pwned\u{7}\u{202e}x".into()),
+        status: Some(TestStatus::Failed),
+        message: Some("got \u{1b}[2J".into()),
+        ..TestRow::default()
+    };
+    assert_eq!(instance_label(&hostile), "users.crud#listsUsers › \u{fffd}]0;pwned\u{fffd}\u{fffd}x");
+    let shown = StoredRun { run: engine().stored("1").unwrap().run, tests: vec![hostile] };
+    let text = shown.text();
+    assert!(!text.contains('\u{1b}') && !text.contains('\u{202e}'), "{text:?}");
+    assert!(text.contains("           got \u{fffd}[2J\n"), "{text:?}");
+}
+
+#[test]
+fn an_older_row_without_a_label_numbers_its_row_and_repeat_from_one() {
     let plain = TestRow { test_id: "users.crud#listsUsers".into(), ..TestRow::default() };
     assert_eq!(instance_label(&plain), "users.crud#listsUsers");
+    let row = TestRow { example_row: Some(1), ..plain.clone() };
+    assert_eq!(instance_label(&row), "users.crud#listsUsers [row 2]");
     let repeated = TestRow { example_row: Some(0), repeat_index: 2, ..plain };
-    assert_eq!(instance_label(&repeated), "users.crud#listsUsers [row 1] (repeat 3)");
+    assert_eq!(instance_label(&repeated), "users.crud#listsUsers [row 1, repeat 3]");
 }
 
 #[test]

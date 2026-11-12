@@ -395,7 +395,9 @@ export type Test = Message<"vibranium.results.v1.Test"> & {
   id: string;
 
   /**
-   * The ID with the example row and repeat it ran as: `users.crud#rejectsBadEmail [row 2]`.
+   * The ID with the example row and repeat it ran as, on one line:
+   * `<id> › <row name> [row n, repeat m]`, such as `users.crud#rejectsBadEmail › missing @ [repeat 2]`
+   * or `users.crud#rejectsBadEmail [row 2]`.
    *
    * @generated from field: string label = 2;
    */

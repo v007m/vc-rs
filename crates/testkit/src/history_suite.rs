@@ -40,7 +40,7 @@ fn start(profiles: &[&str]) -> RunStart {
     }
 }
 
-/// A failed test with one check and one exchange.
+/// A failed test with one check and one exchange, labelled as an example row's repeat is.
 fn failed(test_id: &str) -> TestRow {
     let check = CheckRow {
         kind: "status".into(),
@@ -67,6 +67,7 @@ fn failed(test_id: &str) -> TestRow {
         message: Some("expected status 200, got 500".into()),
         checks: vec![check],
         exchanges: vec![exchange],
+        label: Some(format!("{test_id} › Oslo [repeat 2]")),
         ..TestRow::default()
     }
 }
@@ -104,7 +105,7 @@ fn stores_what_it_is_given(make: &mut MakeHistory<'_>) {
     assert_eq!(reader.snapshot(run), Ok(Some(b"snapshot".to_vec())));
     let tests = reader.tests(run).unwrap_or_default();
     let expected = TestRow { exchanges: Vec::new(), ..failed("users.crud#getsUser") };
-    assert_eq!(tests, vec![expected], "the test and its checks are kept as given");
+    assert_eq!(tests, vec![expected], "the test, its label and its checks are kept as given");
 }
 
 fn prunes_the_oldest_runs(make: &mut MakeHistory<'_>) {

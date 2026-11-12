@@ -29,9 +29,11 @@ mod history;
 mod hooks;
 mod ids;
 mod json_text;
+mod labels;
 mod names;
 mod outcome;
 mod plan;
+mod printable;
 mod program;
 mod secrets;
 mod source;
@@ -65,9 +67,11 @@ pub use form::{form_pairs, form_text};
 pub use history::{Bodies, DEFAULT_KEEP, DEFAULT_MAX_BODY, HistoryConfig, Keep, cut_body};
 pub use hooks::{HookModule, HookModules, import_paths};
 pub use ids::{ActionId, ApiId, AuthId, DatasetId, FileId, ProfileId, SourceFileId, TestId, VarName};
+pub use labels::{InstanceLabels, instance_marks};
 pub use names::{Location, Names, Planned, check_label, check_parts};
 pub use outcome::{ActionOutcome, CleanupRecord, Failure, OwnerKey, RunStatus, TestResult, TestStatus, Totals};
 pub use plan::{Instance, InstanceId, Needs, Plan, PlannedAction, PlannedFile, SkippedTest};
+pub use printable::{one_line, printable};
 pub use program::Program;
 pub use secrets::{
     DEFAULT_SECRETS_PROVIDER, DEFAULT_SECRETS_SCHEMA, PROFILE_VARIABLE, RedactRule, SchemaNames, SecretsConfig,
