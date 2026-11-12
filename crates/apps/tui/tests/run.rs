@@ -7,7 +7,7 @@ use crossterm::event::KeyCode;
 use insta::assert_snapshot;
 use support::{carry, engine, feed_of, press, run_of, screen, tui};
 use vc_engine::{Event, OwnerKey, RunFeed, SelectRequest, Sequenced, TestStatus};
-use vc_tui::{Ask, Flight, Update};
+use vc_tui::{Ask, Flight, Tui, Update};
 
 const SIZE: (u16, u16) = (100, 24);
 
@@ -169,19 +169,24 @@ async fn a_finished_runs_notices_are_shown_on_the_status_line() {
 
 #[tokio::test]
 async fn tests_skipped_at_run_time_count_as_finished() {
-    every_test_ending_as_counts_as_finished(TestStatus::Skipped).await;
+    let mut tui = tui();
+    let ask = press(&mut tui, &[KeyCode::Char('a')]);
+    let feed = feed_of(&engine().unwrap(), ask).await.unwrap();
+    every_test_ending_as_counts_as_finished(tui, feed, TestStatus::Skipped);
 }
 
 #[tokio::test]
 async fn allowed_failures_count_as_finished() {
-    every_test_ending_as_counts_as_finished(TestStatus::AllowedFailure).await;
-}
-
-/// A run whose every test ends as `status` shows each one as finished while it is running.
-async fn every_test_ending_as_counts_as_finished(status: TestStatus) {
     let mut tui = tui();
     let ask = press(&mut tui, &[KeyCode::Char('a')]);
-    for mut item in feed_of(&engine().unwrap(), ask).await.unwrap() {
+    let feed = feed_of(&engine().unwrap(), ask).await.unwrap();
+    every_test_ending_as_counts_as_finished(tui, feed, TestStatus::AllowedFailure);
+}
+
+/// `tui`, shown `feed` with every test ending as `status`, counts each one as finished while the
+/// run is still going.
+fn every_test_ending_as_counts_as_finished(mut tui: Tui, feed: Vec<RunFeed>, status: TestStatus) {
+    for mut item in feed {
         if let RunFeed::Event(Sequenced { event: Event::TestFinished { result, .. }, .. }) = &mut item
             && result.instance.is_some()
         {
