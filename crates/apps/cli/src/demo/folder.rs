@@ -187,26 +187,37 @@ fn own(path: &Path) -> Option<fs::Metadata> {
 #[cfg(test)]
 mod tests {
     use std::fs;
+    use std::net::TcpListener;
 
     use super::{folder, opened_here, turn};
 
+    /// A port the OS just handed out, so no demo answers on it and no other test run names its
+    /// files in this user's real folder.
+    fn free_port() -> u16 {
+        TcpListener::bind(("127.0.0.1", 0)).unwrap().local_addr().unwrap().port()
+    }
+
     #[test]
     fn a_turn_is_held_until_it_is_dropped() {
-        let held = turn(1).unwrap();
-        let other = fs::File::open(folder().unwrap().join("1.lock")).unwrap();
+        let port = free_port();
+        let held = turn(port).unwrap();
+        let lock = folder().unwrap().join(format!("{port}.lock"));
+        let other = fs::File::open(&lock).unwrap();
         assert!(matches!(other.try_lock(), Err(fs::TryLockError::WouldBlock)), "another start waits");
         drop(held);
         assert!(other.try_lock().is_ok(), "the next start gets its turn");
+        fs::remove_file(&lock).ok();
     }
 
     #[cfg(unix)]
     #[test]
     fn a_lock_file_that_is_a_link_gives_no_turn() {
         let elsewhere = tempfile::tempdir().unwrap();
-        let link = folder().unwrap().join("2.lock");
+        let port = free_port();
+        let link = folder().unwrap().join(format!("{port}.lock"));
         fs::remove_file(&link).ok();
         std::os::unix::fs::symlink(elsewhere.path().join("planted"), &link).unwrap();
-        let given = turn(2);
+        let given = turn(port);
         fs::remove_file(&link).unwrap();
         assert!(given.is_none(), "a link is never locked through");
     }

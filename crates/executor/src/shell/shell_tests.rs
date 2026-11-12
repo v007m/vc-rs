@@ -158,6 +158,7 @@ async fn a_test_that_passes_on_retry_is_flaky() {
     let result = outcome.results()[0];
     assert_eq!((result.status, result.attempts, outcome.sent("/flaky")), (TestStatus::Flaky, 2, 2));
     assert_eq!(outcome.elapsed, SECOND, "the retry waited its delay");
+    assert_eq!(result.duration, SECOND, "its event carries the instance's time on the clock, wait included (D305)");
 }
 
 #[tokio::test(start_paused = true)]
@@ -261,6 +262,7 @@ async fn a_test_past_its_timeout_fails_and_each_attempt_gets_the_whole_timeout()
     let code = result.failure.as_ref().and_then(|failure| failure.code.clone());
     assert_eq!((result.attempts, code), (2, Some(Code::V5104.to_string())));
     assert_eq!((outcome.sent("/slow"), outcome.elapsed), (2, 5 * SECOND), "2 s, the 1 s delay, then 2 s");
+    assert_eq!(result.duration, 5 * SECOND, "both attempts and the delay, on the executor's clock (D305)");
 }
 
 #[tokio::test(start_paused = true)]

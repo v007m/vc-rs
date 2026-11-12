@@ -26,16 +26,15 @@ pub struct TestRecord {
     pub result: TestResult,
     /// The actions the instance ran (retries and loops included), in order.
     pub steps: Vec<StepRecord>,
-    /// When its first action started, from the start of the run.
+    /// When its first action started, from the start of the run, as the reporter received it;
+    /// it places the test on the run's timeline and never times it (D305).
     pub start: Option<Duration>,
-    /// When it finished, from the start of the run.
-    pub stop: Duration,
 }
 
 impl TestRecord {
-    /// How long the instance ran; zero when it never started.
+    /// How long the instance ran, as the executor measured it (D305); zero when it never started.
     pub fn duration(&self) -> Duration {
-        self.start.map_or(Duration::ZERO, |start| self.stop.saturating_sub(start))
+        self.start.map_or(Duration::ZERO, |_| self.result.duration)
     }
 
     /// The checks that did not hold, in order.
@@ -65,7 +64,7 @@ pub struct Collector {
 }
 
 impl Collector {
-    /// An empty collector timing instances with `stopwatch`.
+    /// An empty collector placing instances on the run's timeline with `stopwatch`.
     pub fn new(stopwatch: Arc<dyn Stopwatch>) -> Self {
         Self {
             stopwatch,
@@ -112,10 +111,9 @@ impl Collector {
     }
 
     fn finish_test(&mut self, result: &TestResult) {
-        let stop = self.stopwatch.elapsed();
         let open = result.instance.and_then(|instance| self.open.remove(&instance));
         let (start, steps) = open.map_or((None, Vec::new()), |(start, steps)| (Some(start), steps));
-        self.tests.push(TestRecord { result: result.clone(), steps, start, stop });
+        self.tests.push(TestRecord { result: result.clone(), steps, start });
     }
 }
 
