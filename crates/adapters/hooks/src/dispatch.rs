@@ -115,3 +115,25 @@ fn attempt(worker: &Result<Worker, HookError>, call: HookCall, grace: Duration) 
         Outcome::Gone => (Err(HookError::Unavailable { reason: "the hook thread stopped".to_owned() }), true),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::collections::BTreeMap;
+
+    use serde_json::Value;
+    use vc_model::{HookModules, HookRef};
+
+    use super::*;
+
+    /// With no supervisor left to say it is idle, a job is answered at once, not dropped.
+    #[test]
+    fn a_job_with_no_supervisor_left_is_answered_unavailable() {
+        let (reply, answer) = oneshot::channel();
+        let hook = HookRef { file: "hooks/a.ts".into(), export: "a".into() };
+        let call = HookCall::new(HookModules::new(BTreeMap::new()), hook, Value::Null);
+        let (_, idle) = mpsc::channel::<usize>();
+        hand(&[], &idle, Job { call, reply });
+        let reason = "the hook thread is not running".to_owned();
+        assert_eq!(answer.blocking_recv().ok(), Some(Err(HookError::Unavailable { reason })));
+    }
+}
