@@ -110,7 +110,7 @@ impl Engine {
         let layered = self.layered(&[], &[]).ok();
         let set = layered.as_ref().and_then(|layered| layered.settings.reports_dir.clone());
         let configured = || layered.as_ref().and_then(|layered| layered.program.config.reports_dir.clone());
-        self.root().join(set.or_else(configured).unwrap_or_else(|| REPORTS_DIR.to_owned()))
+        crate::paths::under(self.root(), set.or_else(configured).unwrap_or_else(|| REPORTS_DIR.to_owned()))
     }
 
     /// The stored run `which` names: `last` or a run number.
@@ -149,7 +149,7 @@ impl Engine {
     }
 
     pub(crate) fn history_path(&self) -> PathBuf {
-        self.root().join(HISTORY)
+        crate::paths::under(self.root(), HISTORY)
     }
 }
 
