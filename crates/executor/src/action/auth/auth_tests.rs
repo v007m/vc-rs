@@ -559,3 +559,36 @@ async fn a_probe_of_a_call_without_auth_is_none() {
     let (cx, _) = context(fixture, Arc::new(Issuer::default()), Vec::new());
     assert_eq!(super::probe_auth(&probing(&cx, call)).await.unwrap(), None);
 }
+
+#[test]
+fn chosen_auth_names_the_auth_a_call_uses() {
+    let mut fixture = Fixture::new();
+    let id = define(&mut fixture, "bearer");
+    let call = fixture.call("/users");
+    fixture.api_mut(call).auth = uses(id, IndexMap::new());
+    let program = &fixture.program;
+    let action = &program.actions[usize::try_from(vc_model::ActionId::index(call)).unwrap()];
+    let ActionKind::Call(api) = action.kind else { unreachable!("a call") };
+    assert_eq!(super::chosen_auth(program, (&program.apis[&api], action)), Some(id));
+}
+
+/// The origin a call to `/users` on `base` sends to, or why it has none.
+fn origin_on(base: Option<&str>) -> Result<String, String> {
+    let mut fixture = Fixture::new();
+    let base = base.map(|base| fixture.template(base));
+    fixture.group_mut().base_url = base;
+    let call = fixture.call("/users");
+    let (cx, recordings) = context(fixture, Arc::new(Issuer::default()), Vec::new());
+    let origin = super::probe_origin(&probing(&cx, call)).map_err(|failure| failure.message);
+    assert!(recordings.take().is_empty(), "nothing is sent");
+    origin
+}
+
+#[tokio::test]
+async fn a_probe_names_the_origin_in_lower_case_with_the_scheme_s_port() {
+    assert_eq!(origin_on(Some("https://API.Test")), Ok("https://api.test:443".to_owned()));
+    assert_eq!(origin_on(Some("HTTP://api.test")), Ok("http://api.test:80".to_owned()));
+    assert_eq!(origin_on(Some("http://api.test:8080/v1")), Ok("http://api.test:8080".to_owned()));
+    assert_eq!(origin_on(Some("ws://api.test")), Ok("ws://api.test".to_owned()), "no port is assumed");
+    assert!(origin_on(None).is_err(), "a call with no base URL names no origin");
+}
