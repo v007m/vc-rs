@@ -19,19 +19,19 @@ use crate::{
 
 const SECOND: Duration = Duration::from_secs(1);
 
-struct Outcome {
-    summary: RunSummary,
-    events: Vec<Event>,
+pub(super) struct Outcome {
+    pub(super) summary: RunSummary,
+    pub(super) events: Vec<Event>,
     sent: BTreeMap<String, usize>,
-    elapsed: Duration,
+    pub(super) elapsed: Duration,
 }
 
 impl Outcome {
-    fn sent(&self, path: &str) -> usize {
+    pub(super) fn sent(&self, path: &str) -> usize {
         self.sent.get(path).copied().unwrap_or(0)
     }
 
-    fn results(&self) -> Vec<&TestResult> {
+    pub(super) fn results(&self) -> Vec<&TestResult> {
         self.events
             .iter()
             .filter_map(|event| match event {
@@ -41,7 +41,7 @@ impl Outcome {
             .collect()
     }
 
-    fn cleaned(&self) -> Vec<ActionId> {
+    pub(super) fn cleaned(&self) -> Vec<ActionId> {
         self.events
             .iter()
             .filter_map(|event| match event {
@@ -59,7 +59,7 @@ fn executor(fixture: Fixture, options: RunOptions) -> (Executor, crate::fixture:
 }
 
 /// Runs `plan`, interrupting at each of `interrupts` (from the start), and collects every event.
-async fn run(fixture: Fixture, plan: Plan, options: RunOptions, interrupts: &[Duration]) -> Outcome {
+pub(super) async fn run(fixture: Fixture, plan: Plan, options: RunOptions, interrupts: &[Duration]) -> Outcome {
     let (executor, sent) = executor(fixture, options);
     let bus = EventBus::spawn();
     let mut feed = bus.subscribe(100_000);
@@ -84,7 +84,7 @@ async fn run(fixture: Fixture, plan: Plan, options: RunOptions, interrupts: &[Du
     Outcome { summary, events, sent: sent.counts(), elapsed }
 }
 
-fn totals([passed, failed, blocked, flaky, skipped]: [usize; 5]) -> Totals {
+pub(super) fn totals([passed, failed, blocked, flaky, skipped]: [usize; 5]) -> Totals {
     Totals { passed, failed, blocked, flaky, skipped, allowed_failures: 0 }
 }
 
