@@ -3,7 +3,7 @@
 //! `reports.formats` names (G6), fed the same events.
 
 use std::collections::BTreeSet;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use std::sync::Arc;
 
 use vc_adapter_reporters::{
@@ -337,8 +337,13 @@ fn plugins(chosen: &Chosen, setup: &Setup, run: Option<RunId>) -> (Vec<PluginRep
 
 /// `path` relative to the project `root`, rebuilt from its parts as [`crate::paths::under`]
 /// does; none outside it, so a watcher is never told where the project is, nor a path beyond it.
+/// The check is lexical: a `..` part (from a `reports.dir` such as `../out`) leaves the root.
 fn inside(root: &Path, path: &Path) -> Option<PathBuf> {
-    path.strip_prefix(root).ok().map(|relative| relative.components().collect())
+    let relative = path.strip_prefix(root).ok()?;
+    let mut parts = relative.components();
+    parts
+        .all(|part| matches!(part, Component::Normal(_)))
+        .then(|| relative.components().collect())
 }
 
 /// Ends each reporter plugin with `run`: the files they wrote, and why any did not.

@@ -220,3 +220,12 @@ async fn the_report_names_no_html_file_when_the_run_wrote_none() {
     let (_dir, report) = streamed_report("{formats: [ctrf, junit]}").await;
     assert_eq!((report.html_report, report.run.is_some()), (None, true), "the other files are not named");
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn the_report_names_no_html_file_written_up_and_out_of_the_project() {
+    let out = tempfile::tempdir().unwrap();
+    let sibling = out.path().file_name().unwrap().to_string_lossy();
+    let (_dir, report) = streamed_report(&format!("{{formats: [html], dir: '../{sibling}'}}")).await;
+    assert_eq!(report.html_report, None, "`../` leaves the project, so the path is never sent");
+    assert!(std::fs::read_dir(out.path()).unwrap().next().is_some(), "the report is still written there");
+}
