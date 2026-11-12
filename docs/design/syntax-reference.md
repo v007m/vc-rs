@@ -1311,7 +1311,7 @@ alerts:
           routingKey: ${secret.PD_ROUTING_KEY}
 ```
 
-An alert's `on` lists what fires it: `failure` (a test failed or was blocked; the default), `blocked` (a test was blocked because a setup it needs, such as a `beforeRun` action, failed), `recovery` (a run passed after a failed one), `flaky` (a test passed only on a retry) and `threshold` (a load threshold was breached). A rule sends one notice per run, for the first of `failure`, `blocked`, `threshold`, `flaky`, `recovery` that it lists and that happened (D256). A `blocked` notice lists only the blocked tests; every other notice lists the failed and the blocked ones.
+An alert's `on` lists what fires it: `failure` (a test failed or was blocked, or an `afterAll` or `afterRun` block failed, whatever the rule's `tags`; the default), `blocked` (a test was blocked because a setup it needs, such as a `beforeRun` action, failed), `recovery` (a run passed after a failed one; a failed teardown block is not a pass), `flaky` (a test passed only on a retry) and `threshold` (a load threshold was breached). A rule sends one notice per run, for the first of `failure`, `blocked`, `threshold`, `flaky`, `recovery` that it lists and that happened (D256). A `blocked` notice lists only the blocked tests; every other notice lists the failed and the blocked ones.
 
 `vc plugin add` shows the permissions a plugin asks for (network hosts, secrets, files); the approved list is recorded in `vibranium.lock`. A source is `npm:<package>[@<range>]` or `path:<folder>` (relative to the project root); the plugin is installed to `.vibranium/plugins/<id>/`.
 

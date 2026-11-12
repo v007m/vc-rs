@@ -171,7 +171,7 @@ struct Seen<'s> {
 impl Seen<'_> {
     fn fires(&self, trigger: AlertTrigger) -> bool {
         match trigger {
-            AlertTrigger::Failure => self.any(failed),
+            AlertTrigger::Failure => self.any(failed) || self.torn(),
             AlertTrigger::Blocked => self.any(blocked),
             AlertTrigger::Threshold => !self.run.breaches.is_empty(),
             AlertTrigger::Flaky => self.any(|status| status == TestStatus::Flaky),
@@ -183,13 +183,20 @@ impl Seen<'_> {
         self.tests.iter().any(|test| status(test.status))
     }
 
-    /// The previous run failed, and this one ran and finished with nothing failed and nothing
-    /// breached.
+    /// Whether a teardown block failed. Like a breach, it is the run's, whatever the rule's
+    /// tags (D308).
+    fn torn(&self) -> bool {
+        !self.run.teardown.is_empty()
+    }
+
+    /// The previous run failed, and this one ran and finished with nothing failed, no teardown
+    /// failed and nothing breached.
     fn recovered(&self) -> bool {
         self.previous == Some(RunStatus::Failed)
             && self.run.ran
             && self.run.summary.status != RunStatus::Cancelled
             && self.run.breaches.is_empty()
+            && !self.torn()
             && !self.any(failed)
     }
 }

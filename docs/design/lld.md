@@ -1051,16 +1051,16 @@ The HTML reporter writes the folder layout from the Technical Design: `index.htm
 The config's `alerts` lower to `Config.alerts`, a list of `Alert { on, profiles, tags, notify }` (vc-model). `on` holds `AlertTrigger`s and defaults to `[failure]`; empty `profiles` or `tags` match every run or test. `notify` holds `AlertChannel { kind, settings }`, one per key of each entry, in written order. The settings stay a `TemplateValue` until the run ends, so `${secret.X}` is rendered only then. `plugins` lower to `Config.plugins`, a list of `PluginRef { id, source, config }`.
 
 When a run ends, `engine/src/alerts.rs` decides which rules fire. It is pure: `decide(rules, &Finished, previous)` returns one `Fired { rule, notice }` per rule that fires.
-- `Finished` holds the project, the `RunSummary`, each test's `Ended { test, tags, status, message }`, the load breaches, whether anything ran (a test that was not skipped, or a load iteration) and the report path.
+- `Finished` holds the project, the `RunSummary`, each test's `Ended { test, tags, status, message }`, the load breaches, whether anything ran (a test that was not skipped, or a load iteration), the teardown blocks that failed and the report path.
 - `previous` is the status of the previous run.
 - A rule whose `profiles` share none of the run's is skipped. Otherwise the rule sees only the tests its `tags` pick.
 - It fires for the first trigger in `on` that happened, tried in this order:
-  - `failure`: a test it sees failed or was blocked;
+  - `failure`: a test it sees failed or was blocked, or a teardown block (`afterAll`, `afterRun`) failed, whatever the tags (D308);
   - `blocked`: a test it sees was blocked; a rule listing only `blocked` pages when a setup it needs is broken (D256);
   - `threshold`: a load threshold was breached, whatever the tags;
   - `flaky`: a test it sees passed on a retry;
-  - `recovery`: the previous run failed, this one ran something and was not cancelled, nothing breached, and none of its tests failed. A run where nothing ran never recovers.
-- The `Notice` lists the failures that rule sees (blocked tests included, each `blocked by <id>`), the breaches and the report.
+  - `recovery`: the previous run failed, this one ran something and was not cancelled, nothing breached, no teardown block failed, and none of its tests failed. A run where nothing ran never recovers.
+- The `Notice` lists the failures that rule sees (blocked tests included, each `blocked by <id>`), the breaches, the teardown blocks that failed and the report.
 
 `vc-adapter-notifiers` sends a notice. `NotifierRegistry` maps each channel kind to a `Payload`: the URL from the channel's settings, and the JSON it posts there through the run's `Transport`.
 - `webhook {url}` posts the run's CTRF summary, with the notice under `results.extra`.
