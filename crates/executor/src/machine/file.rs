@@ -197,7 +197,8 @@ impl FileOrchestrator {
     }
 
     /// A cut lifecycle action winds the file down. A cut `afterAll` action of a file not
-    /// cancelled failed: its worker panicked or was aborted.
+    /// cancelled failed: its worker was aborted, or panicked outside the executor (a panic
+    /// inside an action is a failed report).
     fn action_cut(&mut self, kept: Vec<PendingCleanup>, out: &mut Vec<FileCommand>) {
         self.cleanups.extend(kept);
         if let FilePhase::AfterAll(index) = self.phase

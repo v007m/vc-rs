@@ -399,8 +399,9 @@ async fn an_interrupter_cancels_the_run_after_finish_took_the_handle() {
     assert_eq!(sent.counts().get("/never"), None);
 }
 
-/// A teardown action whose worker panics reports nothing: the run counts it as a failed
-/// teardown and fails, its totals as they were (D279), for `afterRun` and `afterAll` alike.
+/// A teardown action that panics reports a failure, since `Crew` catches the panic: the run
+/// counts it as a failed teardown and fails, its totals as they were (D279), for `afterRun` and
+/// `afterAll` alike.
 #[tokio::test(start_paused = true)]
 async fn a_teardown_whose_worker_panics_fails_the_run() {
     for after_all in [false, true] {

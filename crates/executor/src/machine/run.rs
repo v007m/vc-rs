@@ -192,7 +192,8 @@ impl RunOrchestrator {
     }
 
     /// A cut `beforeRun` action starts the files; a cut `afterRun` one, the cleanups. A cut
-    /// `afterRun` action of a run not cancelled failed: its worker panicked or was aborted.
+    /// `afterRun` action of a run not cancelled failed: its worker was aborted, or panicked
+    /// outside the executor (a panic inside an action is a failed report).
     fn action_cut(&mut self, kept: Vec<PendingCleanup>, out: &mut Vec<RunCommand>) {
         self.cleanups.extend(kept);
         if matches!(self.phase, RunPhase::BeforeRun(_)) {
