@@ -171,7 +171,8 @@ fn a_cut_lifecycle_action_moves_on() {
     assert_eq!(run.phase(), RunPhase::Running);
     let (run, _) = running().transition(RunInput::FileDone(FileEnd::default()));
     let (run, commands) = run.transition(RunInput::ActionCut(Vec::new()));
-    assert_eq!(commands, [RunCommand::RunCleanup(PendingCleanup::new(sim::act(100)))]);
+    let cleanup = RunCommand::RunCleanup(PendingCleanup::new(sim::act(100)));
+    assert!(matches!(&commands[..], [RunCommand::Emit(Event::ActionFinished { .. }), next] if *next == cleanup));
     assert_eq!(run.phase(), RunPhase::CleaningUp);
 }
 

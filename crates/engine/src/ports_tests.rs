@@ -33,7 +33,7 @@ const BOTH: (&str, &[u8]) = (
     "services/users/crud.test.yaml",
     b"tests:\n  - id: getsUser\n    call: users#get\n  - id: listsUsers\n    call: users#list\n",
 );
-const OPTIONAL: (&str, &[u8]) = (".env.schema", b"API_TOKEN=\n# @optional  the list key, unset in CI\nOTHER_KEY=\n");
+const OPTIONAL: (&str, &[u8]) = (".env.schema", b"API_TOKEN=\n# The list key, unset in CI.\n# @optional\nOTHER_KEY=\n");
 /// A loaded secret's value: test data, in no real provider's key format.
 const OTHER: &str = "other-fixture-5e21";
 const TOKEN: &str = "tok-fixture-71";
