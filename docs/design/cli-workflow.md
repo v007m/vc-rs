@@ -347,7 +347,7 @@ Commands are grouped by the job they do. `vc help <command>` shows every flag wi
 | Command | Does |
 | --- | --- |
 | `vc history [--limit N] [--json]` | Lists the stored runs, newest first: number, start (UTC), status, totals, profiles and selectors; `--json` also gives each run's `kind` (`run`, `load`, `adhoc`). A load run lists as `load · 40 iterations · 3 errors`, and its totals count iterations: `passed` those that passed, `failed` the errors |
-| `vc history show [run\|last] [--json]` | One stored run and the tests in it that did not pass, with why. `last` (here, in `vc report` and in `--failed`) is the newest run that is not an `adhoc` call; a call is shown by its number |
+| `vc history show [run\|last] [--json]` | One stored run and the tests in it that did not pass, with why; a load run also shows the thresholds it breached and its error kinds, as its report printed them (`--json`: `findings`, D322). `last` (here, in `vc report` and in `--failed`) is the newest run that is not an `adhoc` call; a call is shown by its number |
 | `vc history prune [--keep N]` | Drops the oldest runs beyond `N` (else the config's `history.keep`); a run also prunes when it ends |
 | `vc history [query]`, `vc history compare 481 482` | Failures, flaky tests and trends across runs (later) |
 | `vc report [run\|last] [--format html,junit,ctrf] [--out DIR] [--single-file]` | Writes a stored run's report files again from its snapshot (D167), `html` when `--format` names none, into `.vibranium/reports/<run>/` unless `--out` says; prints each file. A load run exits 2 (it stores no snapshot), pointing at `vc history` and at `--json` on the next `vc load <scenario>`, which sends the load again. `--open` comes later |

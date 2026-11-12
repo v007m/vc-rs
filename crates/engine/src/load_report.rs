@@ -82,6 +82,14 @@ pub struct LoadBreach {
     pub shown: String,
 }
 
+impl LoadBreach {
+    /// `breached users.crud#getsUser: p95 at 45.5 ms (lt 30 ms)`, as the summary prints it.
+    pub(crate) fn line(&self) -> String {
+        let owner = self.test.as_ref().map_or_else(String::new, |test| format!("{test}: "));
+        format!("breached {owner}{} at {}", self.metric, self.shown)
+    }
+}
+
 /// Failed iterations of one kind: the test, the action that failed them by the api it calls,
 /// that action's last status and the failure's code.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -110,9 +118,14 @@ impl ErrorKind {
         if what.is_empty() { "failed".to_owned() } else { what.join(" ") }
     }
 
-    /// `errors users#get 200 V5101 × 12`, indented under its test's line.
+    /// `errors users#get 200 V5101 × 12`, as its test lists it.
+    pub(crate) fn summary(&self) -> String {
+        format!("errors {} × {}", self.label(), self.count)
+    }
+
+    /// Its [`ErrorKind::summary`], indented under its test's line.
     fn line(&self) -> String {
-        format!("  errors {} × {}", self.label(), self.count)
+        format!("  {}", self.summary())
     }
 }
 
@@ -237,10 +250,7 @@ impl LoadReport {
                 self.max_ms
             ),
         ];
-        lines.extend(self.breaches.iter().map(|breach| {
-            let owner = breach.test.as_ref().map_or_else(String::new, |test| format!("{test}: "));
-            format!("breached {owner}{} at {}", breach.metric, breach.shown)
-        }));
+        lines.extend(self.breaches.iter().map(LoadBreach::line));
         lines.extend(self.test_lines());
         lines.extend(self.blocked.iter().map(|blocked| format!("blocked: {blocked}")));
         lines.iter().flat_map(|line| [line.as_str(), "\n"]).collect()

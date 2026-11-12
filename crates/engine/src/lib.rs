@@ -79,6 +79,7 @@ mod interrupt;
 mod list;
 mod list_detail;
 mod load;
+mod load_findings;
 mod load_live;
 mod load_report;
 mod migrate;

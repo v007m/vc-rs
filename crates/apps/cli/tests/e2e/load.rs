@@ -1,6 +1,7 @@
 //! `vc load` against the mock: a `p90` threshold on the scenario and on one mix entry decides the
 //! exit code, 3 when breached, and the JSON report names the breached metric and test, with its
-//! unit and limit. An error is counted under the call that failed, and `vc history` lists the run.
+//! unit and limit. An error is counted under the call that failed, and `vc history` lists the run and shows what
+//! it found.
 
 use serde_json::{Value, json};
 use vc_mock_server::MockServer;
@@ -122,6 +123,24 @@ async fn a_failed_check_on_the_second_call_is_counted_under_that_api_and_the_run
     let runs: Value = serde_json::from_slice(&project.vc(&["history", "--json"]).output().unwrap().stdout).unwrap();
     assert_eq!(runs[0]["kind"], "load", "{runs:#}");
     assert!(runs[0]["totals"]["failed"].as_u64().is_some_and(|failed| failed > 0), "{runs:#}");
+
+    let shown = project.vc(&["history", "show", "1"]).output().unwrap();
+    let text = String::from_utf8_lossy(&shown.stdout);
+    let found = "\n  breached errorRate at 100% (lt 50%)\n  test users.browse#addsThenLists\n    errors users#list 200 V5101 × ";
+    assert!(text.contains(found), "the history shows what the run found: {}", said(&shown));
+    let shown = project.vc(&["history", "show", "1", "--json"]).output().unwrap();
+    let stored: Value = serde_json::from_slice(&shown.stdout).unwrap_or_else(|_| panic!("{}", said(&shown)));
+    let findings = stored["findings"].as_array().cloned().unwrap_or_default();
+    let found: Vec<_> =
+        findings.iter().map(|found| (found["kind"].clone(), found["metric"].clone(), found["api"].clone())).collect();
+    assert_eq!(
+        found,
+        [(json!("breach"), json!("errorRate"), Value::Null), (json!("error"), Value::Null, json!("users#list"))]
+    );
+    assert_eq!(
+        findings[1]["shown"].as_str().map(|shown| shown.starts_with("errors users#list 200 V5101 × ")),
+        Some(true)
+    );
 }
 
 #[tokio::test(flavor = "multi_thread")]

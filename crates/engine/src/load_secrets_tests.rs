@@ -1,5 +1,5 @@
 //! A load run masks the example-row labels its plan holds, as `vc run` does, and a secret's
-//! value given to one reaches neither its report nor its history.
+//! value given to one reaches neither its report nor its history, its findings included.
 
 use std::sync::Arc;
 
@@ -28,6 +28,7 @@ const TESTS: &str = concat!(
 const LOAD: &str = concat!(
     "mix:\n  - {test: echo.send#sendsFromEnv, weight: 1}\n  - {test: echo.send#sendsFromVar, weight: 1}\n",
     "  - {test: echo.send#sendsFromDataset, weight: 1}\nstages:\n  - {duration: 3s, users: 3}\nthinkTime: 1s\n",
+    "thresholds: {errorRate: {lt: 0.5}}\n",
 );
 
 /// Each thing the engine wrote to the history, as text.
@@ -107,6 +108,9 @@ async fn a_secret_given_to_a_load_run_reaches_neither_its_report_nor_its_history
     let history: String = std::iter::from_fn(|| written.try_recv().ok()).collect::<Vec<_>>().join("\n");
     let (json, text) = (report.json().to_string(), report.text());
     assert!(history.contains("IntervalRow { test_id: \"echo.send#sendsFrom"), "the seconds were recorded: {history}");
+    assert!(history.contains("FindingRow { kind: Breach, test_id: None, api_id: None, metric: Some(\"errorRate\")"));
+    let found = "FindingRow { kind: Error, test_id: Some(\"echo.send#sendsFromEnv\"), api_id: Some(\"echo#send\")";
+    assert!(history.contains(found), "each error kind is kept under its test and api IDs: {history}");
     for (shown, seen) in [("json", &json), ("text", &text), ("history", &history)] {
         assert!(!seen.contains(TOKEN), "the {shown} holds the secret: {seen}");
     }

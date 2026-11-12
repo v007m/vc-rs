@@ -125,6 +125,17 @@ $ vc history show 80
            match[0].name: expected "Grace Hopper", got "Ada Lovelace"
 ```
 
+For a load run, `vc history show` lists the thresholds it breached and its errors under each test, as `vc load` printed them. `--json` lists the same lines as `findings`:
+
+```console
+$ vc history show 81
+   81  2026-11-12 13:05Z  failed     load · 40 iterations · 30 errors  profile local  smoke
+  breached errorRate at 75% (lt 1%)
+  breached users.crud#getsCreatedUser: p95 at 8.767 ms (lt 1 ms)
+  test users.crud#listsUsers
+    errors users#list 200 V5101 × 30
+```
+
 History powers:
 
 - `vc run --failed`, which reruns what failed or was blocked in the last run, under its profiles.

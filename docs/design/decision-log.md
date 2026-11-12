@@ -606,6 +606,12 @@ Round 53 (12 November 2026; lane C, under the standing delegation):
 | --- | --- | --- | --- |
 | D319 | The web UI follows the system's dark mode | `tokens.css` redefines every token under `@media (prefers-color-scheme: dark)`, the same names with dark values, and sets `color-scheme`; components use tokens, not light-only colours (the primary button's text is `--panel`, its hover `--inkHover`). There is no in-app switch. The mockups' fonts stay parked | D245 (the dark-theme part) |
 
+Round 54 (12 November 2026; vc-worker2, under the standing delegation):
+
+| # | Topic | Decision | Supersedes |
+| --- | --- | --- | --- |
+| D322 | A load run's findings are kept in the history | A load run stores each breached threshold and each error kind it printed as a `load_findings` row (migration 5): its kind, test, api, metric, status, code, count and value, and `shown`, the line exactly as the report printed it, already masked. No raw value, label or URL is stored beside it. `vc history show` prints them under the run line as the report did (breaches, then each test with its error kinds under it), and its `--json` adds a `findings` array for a load run only. Pruning a run removes them with it. A breached threshold's alert carries the run's real totals (iterations less errors passed, errors failed), not empty ones | — (fills a gap in D198, D317) |
+
 Round 55 (12 November 2026; vc-worker1, under the standing delegation):
 
 | # | Topic | Decision | Supersedes |
