@@ -229,7 +229,7 @@ A passing test with a cleanup adds a `cleanupFinished` line after the test's act
 | `warned` | An action reported a warning that does not fail it | `warning` |
 | `actionFinished` | An action ended | `status`, `failure` |
 | `cleanupFinished` | A cleanup ran | `cleanup`: `action`, `status`, `failure`, `owner` |
-| `cleanupsAbandoned` | Cleanups that will not run | `owner`, `cleanups` |
+| `cleanupsAbandoned` | Cleanups an abort left unfinished: the one it stopped first, then the rest newest first | `owner`, `cleanups` |
 | `testFinished` | A test instance ended; a skipped test's comes inside its file, between `fileStarted` and `fileFinished`, and counts in that file's totals | `test`, `label`, `name` (the test's `name`, or `null`), `status`, `attempts`, `durationMs`, `failure`, `skipReason` |
 | `fileFinished` | A file's work ended | `file`, `totals` |
 | `runFinished` | All work ended | `status`, `totals` |

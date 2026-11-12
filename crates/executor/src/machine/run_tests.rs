@@ -153,6 +153,32 @@ fn the_second_interrupt_skips_the_grace_and_the_third_aborts() {
     assert_eq!(run.transition(RunInput::Interrupt).1.len(), 0);
 }
 
+/// A run whose `beforeRun` registered cleanups 100 then 101, with 101 in flight after two
+/// interrupts.
+fn cleaning_up() -> RunOrchestrator {
+    let (run, _) = RunOrchestrator::new(plan(&[(1, &[])], 1, &[]), false).transition(RunInput::Start);
+    let (run, _) = run.transition(RunInput::ActionDone(sim::passing_with(&[100, 101])));
+    let (run, commands) = run.transition(RunInput::FileDone(FileEnd::default()));
+    assert_eq!(commands, [RunCommand::RunCleanup(PendingCleanup::new(sim::act(101)))]);
+    let (run, _) = run.transition(RunInput::Interrupt);
+    run.transition(RunInput::Interrupt).0
+}
+
+#[test]
+fn an_abort_mid_cleanup_lists_the_stopped_cleanup_first_and_a_finished_one_not_at_all() {
+    let (waiting, commands) = cleaning_up().transition(RunInput::Interrupt);
+    assert_eq!(commands, [RunCommand::Abort], "waits for the cleanup in flight to report");
+    for (reply, listed) in [(RunInput::CleanupAborted, vec![101, 100]), (RunInput::CleanupDone, vec![100])] {
+        let (done, commands) = waiting.clone().transition(reply);
+        let abandoned = Event::CleanupsAbandoned { owner: OwnerKey::Run, cleanups: sim::acts(&listed) };
+        assert_eq!(commands[0], RunCommand::Emit(abandoned));
+        assert_eq!(done.phase(), RunPhase::Finished(RunStatus::Cancelled));
+    }
+    let (_, commands) = cleaning_up().transition(RunInput::CleanupAborted);
+    let abandoned = Event::CleanupsAbandoned { owner: OwnerKey::Run, cleanups: sim::acts(&[101, 100]) };
+    assert_eq!(commands[..2], [RunCommand::Abort, RunCommand::Emit(abandoned)], "the cleanup may report first");
+}
+
 #[test]
 fn an_interrupt_during_before_run_starts_the_files_so_they_report_skips() {
     let (run, _) = RunOrchestrator::new(plan(&[(1, &[]), (2, &[])], 1, &[]), false).transition(RunInput::Start);

@@ -4,7 +4,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use tokio::sync::Semaphore;
 use tokio::sync::mpsc;
-use vc_model::{ActionId, FileId, Instance, OwnerKey, Plan, PlannedAction, TestId};
+use vc_model::{ActionId, Event, FileId, Instance, OwnerKey, Plan, PlannedAction, TestId};
 
 use super::crew::{Crew, Job};
 use super::instance::{self, Ticket};
@@ -164,12 +164,15 @@ impl ProgramIterations {
         }
     }
 
-    /// `owner`'s cleanups, newest first, until an abort.
+    /// `owner`'s cleanups, newest first, until an abort: then the one it stopped and those left
+    /// are abandoned, in that order.
     async fn clean(&self, owner: OwnerKey) {
-        for cleanup in self.cleanups.get(&owner).into_iter().flatten().rev() {
+        let cleanups = self.cleanups.get(&owner).map_or(&[][..], Vec::as_slice);
+        for (index, cleanup) in cleanups.iter().enumerate().rev() {
             let job = self.job(owner, cleanup.action).cleaning(&cleanup.vars);
             if self.crew.clean(job, &self.cancel).await == Ran::Aborted {
-                return;
+                let cleanups = cleanups[..=index].iter().rev().map(|cleanup| cleanup.action).collect();
+                return self.crew.bus.publish(Event::CleanupsAbandoned { owner, cleanups }).await;
             }
         }
     }

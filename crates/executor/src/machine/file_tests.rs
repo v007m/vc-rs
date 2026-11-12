@@ -190,6 +190,39 @@ fn abort_abandons_cleanups_and_finishes_when_instances_stop() {
     assert_eq!(finished(&commands).skipped, 4);
 }
 
+/// A file whose `beforeAll` registered cleanups 100 then 101, with 101 in flight.
+fn cleaning_up() -> FileOrchestrator {
+    let file = sim::planned_file(vec![sim::planned(1, &[])], vec![sim::instance(0, &[])], &[]);
+    let (file, _) = FileOrchestrator::new(file, 1).transition(FileInput::Start(FailedActions::new()));
+    let (file, _) = file.transition(FileInput::ActionDone(Box::new(sim::passing_with(&[100, 101]))));
+    let (file, commands) = file.transition(FileInput::InstanceDone(TestStatus::Passed));
+    assert_eq!(commands, [FileCommand::RunCleanup(PendingCleanup::new(sim::act(101)))]);
+    file
+}
+
+/// The cleanups each `CleanupsAbandoned` in `commands` lists.
+fn abandoned(commands: &[FileCommand]) -> Vec<Vec<u32>> {
+    let listed = |command: &FileCommand| match command {
+        FileCommand::Emit(Event::CleanupsAbandoned { cleanups, .. }) => {
+            Some(cleanups.iter().map(|a| a.index()).collect())
+        }
+        _ => None,
+    };
+    commands.iter().filter_map(listed).collect()
+}
+
+#[test]
+fn an_abort_mid_cleanup_lists_the_stopped_cleanup_first_and_a_finished_one_not_at_all() {
+    let (waiting, commands) = cleaning_up().transition(FileInput::Abort);
+    assert_eq!(commands, [], "waits for the cleanup in flight to report");
+    let (done, commands) = waiting.clone().transition(FileInput::CleanupAborted);
+    assert_eq!((abandoned(&commands), done.phase()), (vec![vec![101, 100]], FilePhase::Done));
+    let (done, commands) = waiting.transition(FileInput::CleanupDone);
+    assert_eq!((abandoned(&commands), done.phase()), (vec![vec![100]], FilePhase::Done));
+    let (_, commands) = cleaning_up().transition(FileInput::CleanupAborted);
+    assert_eq!(abandoned(&commands), [vec![101, 100]], "the cleanup may report the abort first");
+}
+
 #[test]
 fn abort_with_nothing_running_finishes_at_once() {
     let file = sim::planned_file(vec![], vec![sim::instance(0, &[])], &[]);

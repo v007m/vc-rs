@@ -85,7 +85,8 @@ pub enum Event {
         /// What ran and how it ended.
         cleanup: CleanupRecord,
     },
-    /// The run was aborted (a third Ctrl-C) before these cleanups ran, newest first.
+    /// The run was aborted (a third Ctrl-C) before these cleanups finished: the one it stopped in
+    /// flight first, then those left, newest first.
     CleanupsAbandoned {
         /// The frame that registered them.
         owner: OwnerKey,
