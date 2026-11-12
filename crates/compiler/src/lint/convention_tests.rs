@@ -197,3 +197,26 @@ fn a_path_value_ending_in_url_encode_is_a_warning_with_the_pipe_removed() {
     let removed = |text: &str| (Code::V4007, message.clone(), vec![renamed(text, "")]);
     assert_eq!(found, [removed(" | urlEncode"), removed(" |urlEncode")]);
 }
+
+#[test]
+fn a_credential_header_in_source_headers_written_as_a_literal_is_a_warning_that_never_shows_it() {
+    let api = concat!(
+        "baseUrl: ${var.baseUrl}\n",
+        "source:\n  openapi: https://specs.test/users.yaml\n  headers:\n",
+        "    authorization: Bearer t0k3n-s3cr3t\n",
+        "    x-api-key: 12345\n",
+        "    cookie: 'sid=$${kept}'\n",
+        "    proxy-authorization: Bearer ${env.SPEC_TOKEN}\n",
+        "    x-auth-token: ${var.baseUrl}\n",
+        "    set-cookie: ''\n",
+        "    accept: application/yaml\n",
+        "    x-team: core\n",
+        "apis:\n  - id: get\n    path: /users/1\n",
+    );
+    let found = found(&[CONFIG, ("services/users/users.api.yaml", api)]);
+    let literal = |name: &str| {
+        (Code::V4009, format!("`source.headers.{name}` is a credential written as a literal value"), Vec::new())
+    };
+    assert_eq!(found, [literal("authorization"), literal("cookie"), literal("x-api-key")]);
+    assert!(found.iter().all(|(_, message, _)| !message.contains("t0k3n") && !message.contains("12345")));
+}

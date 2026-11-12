@@ -27,7 +27,6 @@ mod path_vars;
 mod postman;
 mod registry;
 mod secret;
-mod secrets;
 #[cfg(test)]
 mod shop_sample;
 mod url;

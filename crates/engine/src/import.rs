@@ -46,9 +46,13 @@ pub struct ImportRequest {
     pub include: Vec<String>,
     /// `--only`: only these operation IDs.
     pub only: Vec<String>,
-    /// `--profile`, in order; the profile whose vars render `source.headers`, and, for a
+    /// `--profile`, in order: the profiles whose vars render the `--header`s, and, for a
     /// recording, the base URLs its hosts are matched against.
     pub profiles: Vec<String>,
+    /// `--header`, as `(name, value)` in order: sent with the fetch of a spec from a URL, to its
+    /// origin only, and written to the api file's `source.headers` for `vc sync` (D314). A
+    /// credential's value must be a template, such as `Bearer ${secret.SPEC_TOKEN}` (V4009).
+    pub headers: Vec<(String, String)>,
     /// `--flow <[fileId#]testId>`: a test replaying the recording.
     pub flow: Option<String>,
     /// What a recording keeps that its filter would drop.
@@ -91,7 +95,9 @@ impl Engine {
     /// not compile.
     pub async fn import(&self, request: &ImportRequest) -> Result<Changes, EngineError> {
         let project = self.authoring()?;
-        let fetcher = if request.text.is_some() { self.pasted_fetcher() } else { self.fetcher()? };
+        let given = self.given_headers(request).await?;
+        let fetcher =
+            if request.text.is_some() { self.pasted_fetcher() } else { Arc::new(self.fetcher()?.sending(given)) };
         let importer = ImporterRegistry::builtin().create(&request.kind, fetcher.clone()).map_err(|error| {
             refused(error.to_string(), &format!("the importers are {}", Self::importers().join(", ")))
         })?;

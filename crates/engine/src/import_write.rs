@@ -93,6 +93,10 @@ pub fn api_file(group: &DraftGroup, base: &str, synced: Option<&ImportRequest>) 
     if let Some(request) = synced {
         out.push_str("source:\n");
         entry(&mut out, 2, (&request.kind, &json!(request.source)));
+        if !request.headers.is_empty() {
+            out.push_str("  headers:\n");
+            request.headers.iter().for_each(|(name, value)| entry(&mut out, 4, (name, &json!(value))));
+        }
         for (key, values) in [("include", &request.include), ("only", &request.only)] {
             if !values.is_empty() {
                 entry(&mut out, 2, (key, &json!(values)));

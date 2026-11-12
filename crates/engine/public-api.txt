@@ -803,6 +803,7 @@ pub struct vc_engine::ImportRequest
 pub vc_engine::ImportRequest::auth: bool
 pub vc_engine::ImportRequest::file_id: core::option::Option<alloc::string::String>
 pub vc_engine::ImportRequest::flow: core::option::Option<alloc::string::String>
+pub vc_engine::ImportRequest::headers: alloc::vec::Vec<(alloc::string::String, alloc::string::String)>
 pub vc_engine::ImportRequest::include: alloc::vec::Vec<alloc::string::String>
 pub vc_engine::ImportRequest::keep: vc_engine::Keep
 pub vc_engine::ImportRequest::kind: alloc::string::String

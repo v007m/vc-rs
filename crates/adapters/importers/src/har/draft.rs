@@ -7,7 +7,7 @@
 use indexmap::IndexMap;
 use serde_json::Value;
 use vc_interfaces::{DraftApi, DraftGroup, ImportDraft, ImportNote};
-use vc_model::Method;
+use vc_model::{Method, credential};
 
 use super::entry::Request;
 use super::flow::Recorded;
@@ -17,7 +17,6 @@ use crate::naming::free;
 use crate::origin::{group, without_user};
 use crate::path_vars::templated;
 use crate::secret::{DROPPED, Found, Secrets};
-use crate::secrets::credential;
 use crate::url::{pairs, path_and_query, split_origin};
 
 /// The draft for `requests`, and what each one called, in order (none for a request that is

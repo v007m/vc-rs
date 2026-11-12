@@ -7,11 +7,11 @@
 
 use indexmap::IndexMap;
 use serde_json::{Value, json};
+use vc_model::credential;
 
 use crate::body::Scrub;
 use crate::naming::camel;
 use crate::secret::Secrets;
-use crate::secrets::credential;
 use crate::url::split_origin;
 
 /// What a variable read from the environment starts with.

@@ -3,9 +3,9 @@
 //! `${var.userId}`. A variable named like a credential is never written; a var takes its place.
 
 use indexmap::IndexMap;
+use vc_model::credential;
 
 use crate::naming::camel;
-use crate::secrets::credential;
 
 /// What a template starts and ends with.
 const OPEN: &str = "{{";

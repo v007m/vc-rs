@@ -1,6 +1,8 @@
 //! `vc sync` fetches a spec behind a bearer token with the api file's `source.headers`, rendered
 //! under `--profile`; the file keeps `${secret.…}` as written, and neither the token nor a
-//! refusal that names the header shows it (D313).
+//! refusal that names the header shows it (D313). `vc import openapi <url> --header` fetches
+//! the same way and writes the headers there; a credential given as a literal is refused
+//! (D314, V4009).
 
 use vc_mock_server::{MockHandle, MockServer};
 
@@ -82,6 +84,47 @@ async fn sync_refuses_an_api_file_whose_own_headers_do_not_compile_before_any_fe
     let synced = project.vc(&["sync", "users", "--profile", "dev"]).env("SPEC_TOKEN", TOKEN).output().unwrap();
     assert_eq!(synced.status.code(), Some(2), "{}", said(&synced));
     assert!(said(&synced).contains("NOT_DECLARED") && !said(&synced).contains(TOKEN), "{}", said(&synced));
+    let stats = server.stats().await.unwrap();
+    assert_eq!(stats.count("GET /openapi/private/users.yaml"), 0, "{stats:?}");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn import_fetches_a_private_spec_with_a_secret_header_and_writes_the_template_for_sync() {
+    let server = MockServer::start().await.unwrap();
+    let project = Project::new(&[CONFIG, SCHEMA]);
+    let private = format!("{}/openapi/private/users.yaml", server.base_url());
+    let signed = ["--header", "Authorization: Bearer ${secret.SPEC_TOKEN}", "--header", "Accept: application/yaml"];
+    let args = [&["import", "openapi", private.as_str(), "--id", "users"][..], &signed[..]].concat();
+    let imported = project.vc(&args).env("SPEC_TOKEN", TOKEN).output().unwrap();
+    assert_eq!(imported.status.code(), Some(0), "{}", said(&imported));
+    let api = std::fs::read_to_string(project.path().join("services/users/users.api.yaml")).unwrap();
+    let source = format!(
+        "  openapi: {private}\n  headers:\n    Authorization: Bearer ${{secret.SPEC_TOKEN}}\n    Accept: application/yaml\n"
+    );
+    assert!(api.contains(&source), "{api}");
+    let synced = project.vc(&["sync", "users"]).env("SPEC_TOKEN", TOKEN).output().unwrap();
+    assert_eq!(synced.status.code(), Some(0), "{}", said(&synced));
+    let stats = server.stats().await.unwrap();
+    assert_eq!(stats.count("GET /openapi/private/users.yaml"), 2, "{stats:?}");
+    assert!(!written(&project).contains(TOKEN) && !said(&imported).contains(TOKEN));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn import_refuses_a_literal_bearer_token_with_v4009_and_writes_nothing() {
+    let server = MockServer::start().await.unwrap();
+    let project = Project::new(&[CONFIG, SCHEMA]);
+    let private = format!("{}/openapi/private/users.yaml", server.base_url());
+    let bearer = format!("authorization: Bearer {TOKEN}");
+    let refused = project.vc(&["import", "openapi", &private, "--header", &bearer]).output().unwrap();
+    assert_eq!(refused.status.code(), Some(2), "{}", said(&refused));
+    assert!(said(&refused).contains("V4009") && said(&refused).contains("${secret.NAME}"), "{}", said(&refused));
+    let malformed = project.vc(&["import", "openapi", &private, "--header", TOKEN]).output().unwrap();
+    assert_eq!(malformed.status.code(), Some(2), "{}", said(&malformed));
+    assert!(said(&malformed).contains("is not `NAME: VALUE`"), "{}", said(&malformed));
+    for output in [&refused, &malformed] {
+        assert!(!said(output).contains(TOKEN), "{}", said(output));
+    }
+    assert!(!project.path().join("services/users").exists() && !written(&project).contains(TOKEN));
     let stats = server.stats().await.unwrap();
     assert_eq!(stats.count("GET /openapi/private/users.yaml"), 0, "{stats:?}");
 }
