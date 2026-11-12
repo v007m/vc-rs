@@ -133,7 +133,7 @@ fn test_view(names: &Names, record: &TestRecord, exchanges: Vec<ExchangeView>) -
         repeat_index,
         attempts: result.attempts,
         start_ms: record.start.map(text::millis),
-        stop_ms: text::millis(record.stop),
+        stop_ms: record.start.map_or(0, |start| text::millis(start.saturating_add(record.duration()))),
         location: names.test_location(result.test),
         tags: names.tags(result.test),
         failure: result.failure.as_ref().map(|failed| encode::failure(names, failed)),

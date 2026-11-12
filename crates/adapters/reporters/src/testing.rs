@@ -338,7 +338,8 @@ fn finished(test: TestId, instance: Option<u32>, status: TestStatus, failure: Op
     };
     let skip_reason = (status == TestStatus::Skipped).then(|| "rewrite pending".to_owned());
     let instance = instance.map(InstanceId::new);
-    let result = TestResult { test, instance, status, attempts, failure, skip_reason, duration: Duration::ZERO };
+    let duration = Duration::from_millis(150 * u64::from(attempts));
+    let result = TestResult { test, instance, status, attempts, failure, skip_reason, duration };
     Event::TestFinished { result }
 }
 
