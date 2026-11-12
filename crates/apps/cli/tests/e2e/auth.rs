@@ -3,8 +3,9 @@
 //! endpoint shared by every test (`oauth2ClientCredentials`), a short-lived token that is still
 //! fetched once (D193), a client-credentials `audience`, an `oauth2Refresh` `refreshToken`, a
 //! `refreshOn` 401 that fetches the token again once, and a `flow` of requests with its headers
-//! and cookies. `oauth2AuthorizationCode` needs a browser, so the engine's unit tests sign in
-//! through a fake one instead. Last, which declared secrets a run needs set (D280).
+//! and cookies, whose step gives up after its own `timeout`. `oauth2AuthorizationCode` needs a
+//! browser, so the engine's unit tests sign in through a fake one instead. Last, which declared
+//! secrets a run needs set (D280).
 
 use vc_mock_server::MockServer;
 
@@ -127,6 +128,22 @@ async fn a_flow_logs_in_once_and_applies_what_it_saved() {
     assert_eq!(run.status.code(), Some(0), "{}", said(&run));
     let stats = server.stats().await.unwrap();
     assert_eq!((stats.logins, stats.count("POST /auth/token"), stats.count("GET /auth/me")), (1, 1, 3));
+}
+
+/// A flow step's own `timeout` limits its request, ahead of `defaults.timeout`: a login that
+/// hangs fails the test with V5114 and the step's V5104 once the step's limit passes.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_flow_step_gives_up_after_its_own_timeout() {
+    let server = MockServer::start().await.unwrap();
+    let auth = "  - id: svc\n    type: flow\n    steps:\n      - id: token\n\
+                \x20       url: ${var.baseUrl}/slow?ms=20000\n        timeout: 300ms\n\
+                \x20   apply:\n      headers: {authorization: 'Bearer x'}\n";
+    let started = std::time::Instant::now();
+    let run = project(auth, ME, &calling_me(1)).run(&server.base_url(), &[]).output().unwrap();
+    assert!(started.elapsed() < std::time::Duration::from_secs(15), "the 30s default did not apply");
+    assert_eq!(run.status.code(), Some(1), "{}", said(&run));
+    assert!(said(&run).contains("V5114") && said(&run).contains("V5104"), "{}", said(&run));
+    assert_eq!(server.stats().await.unwrap().count("GET /auth/me"), 0);
 }
 
 /// The `audience` goes in the token request's form: the mock's `?audience=shop-api` endpoint
