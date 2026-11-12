@@ -172,12 +172,12 @@ fn adhoc_action(program: &mut Arc<Program>, id: &str, keep: bool) -> Result<Acti
 }
 
 /// The api whose full ID is `id`.
-pub(crate) fn named_api<'p>(program: &'p Program, id: &str) -> Result<&'p Api, EngineError> {
+pub fn named_api<'p>(program: &'p Program, id: &str) -> Result<&'p Api, EngineError> {
     program.apis.values().find(|api| program.str(api.id.sym()) == Some(id)).ok_or_else(|| unknown(program, id))
 }
 
 /// Adds `action` to the program, and returns its ID.
-pub(crate) fn pushed(program: &mut Arc<Program>, action: Action) -> Result<ActionId, EngineError> {
+pub fn pushed(program: &mut Arc<Program>, action: Action) -> Result<ActionId, EngineError> {
     let program = Arc::make_mut(program);
     let index = u32::try_from(program.actions.len())
         .map_err(|_| EngineError::Internal { reason: "the program has too many actions".to_owned() })?;
@@ -186,7 +186,7 @@ pub(crate) fn pushed(program: &mut Arc<Program>, action: Action) -> Result<Actio
 }
 
 /// A run-level action that calls `api` with the api's own expect; `keep` skips its cleanup.
-pub(crate) fn called(api: &Api, keep: bool) -> Action {
+pub fn called(api: &Api, keep: bool) -> Action {
     Action {
         id: None,
         kind: ActionKind::Call(api.id),

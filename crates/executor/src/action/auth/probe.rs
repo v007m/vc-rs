@@ -81,11 +81,12 @@ fn call_of(request: &ActionRequest) -> Result<(&Action, &Api), Failure> {
 fn origin(uri: &Uri) -> Option<String> {
     let scheme = uri.scheme_str()?.to_ascii_lowercase();
     let host = uri.host()?.to_ascii_lowercase();
-    let port = uri.port_u16().or_else(|| match scheme.as_str() {
+    let default = match scheme.as_str() {
         "https" => Some(443),
         "http" => Some(80),
         _ => None,
-    });
+    };
+    let port = uri.port_u16().or(default);
     Some(port.map_or_else(|| format!("{scheme}://{host}"), |port| format!("{scheme}://{host}:{port}")))
 }
 
