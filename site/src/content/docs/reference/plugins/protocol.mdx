@@ -85,9 +85,9 @@ Every plugin failure is [V5118](/vc-rs/reference/diagnostics/v5118/), naming the
 {"id": 6, "jsonrpc": "2.0", "method": "reporter/onEvent", "params": {"event": {"action": "call sample#listUsers", "check": {"actual": 200, "expected": [200], "key": "status", "passed": true, "...": "..."}, "event": "checkEvaluated", "owner": {"instance": 0, "kind": "instance"}}}}
 {"id": 7, "jsonrpc": "2.0", "method": "reporter/onEvent", "params": {"event": {"action": "call sample#listUsers", "event": "actionFinished", "failure": null, "owner": {"instance": 0, "kind": "instance"}, "status": "passed"}}}
 {"id": 8, "jsonrpc": "2.0", "method": "reporter/onEvent", "params": {"event": {"attempts": 1, "durationMs": 0, "event": "testFinished", "failure": null, "instance": 0, "label": "sample.basics#listsUsers", "skipReason": null, "status": "passed", "test": "sample.basics#listsUsers"}}}
-{"id": 9, "jsonrpc": "2.0", "method": "reporter/onEvent", "params": {"event": {"event": "fileFinished", "file": "sample.basics", "totals": {"blocked": 0, "failed": 0, "flaky": 0, "passed": 1, "skipped": 0}}}}
-{"id": 10, "jsonrpc": "2.0", "method": "reporter/onEvent", "params": {"event": {"event": "runFinished", "status": "passed", "totals": {"blocked": 0, "failed": 0, "flaky": 0, "passed": 1, "skipped": 0}}}}
-{"id": 11, "jsonrpc": "2.0", "method": "reporter/finish", "params": {"summary": {"artifacts": [], "durationMs": 26, "event": "summary", "profiles": ["default"], "startedMs": 1794332389609, "status": "passed", "totals": {"blocked": 0, "failed": 0, "flaky": 0, "passed": 1, "skipped": 0}}}}
+{"id": 9, "jsonrpc": "2.0", "method": "reporter/onEvent", "params": {"event": {"event": "fileFinished", "file": "sample.basics", "totals": {"allowedFailures": 0, "blocked": 0, "failed": 0, "flaky": 0, "passed": 1, "skipped": 0}}}}
+{"id": 10, "jsonrpc": "2.0", "method": "reporter/onEvent", "params": {"event": {"event": "runFinished", "status": "passed", "totals": {"allowedFailures": 0, "blocked": 0, "failed": 0, "flaky": 0, "passed": 1, "skipped": 0}}}}
+{"id": 11, "jsonrpc": "2.0", "method": "reporter/finish", "params": {"summary": {"artifacts": [], "durationMs": 26, "event": "summary", "profiles": ["default"], "startedMs": 1794332389609, "status": "passed", "totals": {"allowedFailures": 0, "blocked": 0, "failed": 0, "flaky": 0, "passed": 1, "skipped": 0}}}}
 ```
 
 (The `check` object in message 6 is shortened. It also carries `code`, `diff`, `error`, `location` and `origin`.)

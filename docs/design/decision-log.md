@@ -525,6 +525,34 @@ Round 45 (11 November 2026; orchestrator; Sarath away):
 | --- | --- | --- | --- |
 | D278 | How a `path` is encoded | A `path`'s literal text is sent as written. Each `${…}` value is percent-encoded as one segment (RFC 3986 `pchar`: `/`, `?`, `#`, `%` and a space are encoded), and a lone `.` or `..` is sent as `%2E` or `%2E%2E`, so a value cannot change the path's shape. A value before the path's first `/` is sent as written only when it renders to an absolute `http://` or `https://` URL (`${var.usersUrl}/users`); any other leading value is one segment like the rest, so `${var.id}/orders` with `id: ../admin` sends `..%2Fadmin/orders`. A value after a literal `?` is encoded as a query value. A value whose last pipe is `urlEncode` is sent as the pipe left it, not encoded twice, and `vc check` warns with V4007, whose certain fix removes the pipe. The `baseUrl` and a flow auth's inline URL are sent as written. `vc explain` shows a path's values before they are encoded | D268 (clarified) |
 
+Round 46 (12 November 2026; Sarath approved the orchestrator's recommended answers to the parked questions):
+
+| # | Topic | Decision | Supersedes |
+| --- | --- | --- | --- |
+| D279 | A failing teardown fails the run | A failed check or action in `afterAll` or `afterRun` makes the run exit 1, and the summary adds a "teardown failed" line naming the block. The tests' own verdicts don't change | D127 (adds a case to exit 1) |
+| D280 | Only the secrets a selection reads are required | The V5114 secrets check before a run covers only the secrets that the selected tests, their apis, auth and lifecycle blocks read. `# @optional` in `.env.schema` marks a secret that may be unset (Varlock's convention), and `vc check` doesn't require it. The schema still never holds values (D247) | S1 (narrows it) |
+| D281 | No example rows means skipped | A test whose `examples` give no rows is planned as skipped, with the warning "examples gave no rows". A run whose only tests were skipped this way exits 0 | — |
+| D282 | `test:` saves count as declared | The compiler records the saves of a `test:` action that it resolves as implicit `provides`, so V5108 fires only for `function:` saves and for `test:` saves it can't see | D128, D186 (amends) |
+| D283 | A flaky load iteration is an error | A load iteration that passes only on a retry counts as an error, blamed on the call whose last attempt failed | — |
+| D284 | HAR import keeps dropping third-party hosts | `vc import har` keeps D206: an entry whose host matches no profile base URL is dropped, the message names each dropped host, and `--include-host <host>` keeps one | — (confirms D206) |
+| D285 | `vc-demo` stays a second binary | Installers ship `vc` and `vc-demo` side by side. A missing `vc-demo` exits 2 with an install hint | — (confirms D188) |
+| D286 | `vc init` ignores `.env` | The `.gitignore` that `vc init` writes lists `.env` as well as `.vibranium/` | — |
+| D287 | CLI help wording | Help and docs say that `vc run` takes `--reporter json` (not `--json`), and that `--set` overrides every config layer (D129), not every input | — |
+| D288 | Seeds stay JSON numbers | A seed above 2^53 may lose precision in JSON output. It stays a number. This is an accepted limitation, and the console prints it exactly | — |
+| D289 | Hooks have no console | `console.log` in a hook stays V5115. A run log is left for later (D267) | — |
+| D290 | The gate self-test has its own target dir | `scripts/gates-selftest.sh` builds in its own `CARGO_TARGET_DIR`, so path-baked test binaries can't break the next `mise run gates` | — |
+| D291 | Generated test IDs | An awkward API name such as `legaciesSearch` is left as `vc_model::third_person` produces it. There is no verb dictionary | — (confirms D208) |
+| D292 | No email alerts | The `email` notifier is dropped from the MVP, and `deny.toml` is unchanged | D252 |
+| D293 | The playground runs tests in the browser (Sarath: in the MVP) | The docs playground gets a Run button. It compiles the example project in the browser with the real compiler, so it shows all `vc check` diagnostics across files, and it plans and runs the tests with the real executor against the demo service, also in the browser. It prints what `vc run` prints. The engine is compiled to WebAssembly. A browser adapter supplies the transport (it calls the demo service in process), the clock, randomness and the sources. Sarath approved the needed arch-tests change (a new crate and its layer edges). Nothing leaves the browser | — |
+
+D276 (literal matcher keys), D277 (`source.only`) and D278 (path encoding) are confirmed as written.
+
+Round 47 (12 November 2026; orchestrator, under Sarath's delegation):
+
+| # | Topic | Decision | Supersedes |
+| --- | --- | --- | --- |
+| D294 | Allowed failures in the pass rate | History's pass rate counts an allowed failure as a test that ran and did not pass. A run made up only of allowed failures shows 0% | — (fills a gap in D248) |
+
 ## Open
 
 All decisions needed for the PRD and technical design are settled. The language is decided by the spike (D6, D36, D37, D41).

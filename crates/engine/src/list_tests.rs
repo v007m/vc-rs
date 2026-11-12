@@ -111,7 +111,7 @@ fn a_test_given_no_rows_is_listed_as_skipped_not_dropped() {
     let listed: Vec<_> = tests.items.iter().map(|item| (item.id.as_str(), item.skipped)).collect();
     assert_eq!(listed, [("users.rows#listsNoPages", true)]);
     assert_eq!(tests.text(), "users.rows#listsNoPages  (skipped: examples gave no rows)\n");
-    let catalog = listing.catalog().unwrap();
+    let catalog = listing.catalog(&SelectRequest::default()).unwrap();
     assert!(catalog.items.iter().any(|item| item.id == "users.rows#listsNoPages" && item.skipped));
 }
 
@@ -152,7 +152,7 @@ fn a_skipped_test_shows_its_reason_and_until_and_an_expired_skip_is_marked_ended
 
 #[test]
 fn the_catalog_is_the_apis_then_the_tests() {
-    let catalog = engine(FakeVcs::default()).catalog().unwrap();
+    let catalog = engine(FakeVcs::default()).catalog(&SelectRequest::default()).unwrap();
     let ids: Vec<&str> = catalog.items.iter().map(|item| item.id.as_str()).collect();
     assert_eq!(ids, ["users#list", "orders.flow#listsOrders", "users.crud#listsUsers", "users.crud#skipsUsers"]);
     assert!(catalog.items[3].skipped);
@@ -160,11 +160,25 @@ fn the_catalog_is_the_apis_then_the_tests() {
 
 #[test]
 fn each_item_knows_the_kind_of_its_file() {
-    let catalog = engine(FakeVcs::default()).catalog().unwrap();
+    let catalog = engine(FakeVcs::default()).catalog(&SelectRequest::default()).unwrap();
     let kinds: Vec<_> = catalog.items.iter().map(super::Listed::kind).collect();
     assert_eq!(kinds, [Some(FileKind::Api), Some(FileKind::Test), Some(FileKind::Test), Some(FileKind::Test)]);
     let files = engine(FakeVcs::default()).list(&ListRequest { kind: ListKind::Files, ..ListRequest::default() });
     assert!(files.unwrap().items.iter().all(|file| file.kind().is_some()));
+}
+
+#[test]
+fn the_catalog_keeps_what_the_selection_picks_and_an_empty_one_is_no_error() {
+    let window = Some(std::time::Duration::from_hours(7 * 24));
+    let select = SelectRequest { changed_since: window, ..SelectRequest::default() };
+    let ids = |vcs: FakeVcs| {
+        let catalog = engine(vcs).catalog(&select).unwrap();
+        catalog.items.iter().map(|item| item.id.clone()).collect::<Vec<_>>()
+    };
+    assert_eq!(ids(FakeVcs::default().with_recent(&["services/orders/flow.test.yaml"])), ["orders.flow#listsOrders"]);
+    let api = ids(FakeVcs::default().with_recent(&["services/users/users.api.yaml"]));
+    assert_eq!(api.first().map(String::as_str), Some("users#list"), "the api, then the tests that call it: {api:?}");
+    assert_eq!(ids(FakeVcs::default()), Vec::<String>::new());
 }
 
 #[test]

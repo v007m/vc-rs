@@ -1840,6 +1840,7 @@ impl serde::Serialize for TestStatus {
             Self::Blocked => "TEST_STATUS_BLOCKED",
             Self::Flaky => "TEST_STATUS_FLAKY",
             Self::Skipped => "TEST_STATUS_SKIPPED",
+            Self::AllowedFailure => "TEST_STATUS_ALLOWED_FAILURE",
         };
         serializer.serialize_str(variant)
     }
@@ -1857,6 +1858,7 @@ impl<'de> serde::Deserialize<'de> for TestStatus {
             "TEST_STATUS_BLOCKED",
             "TEST_STATUS_FLAKY",
             "TEST_STATUS_SKIPPED",
+            "TEST_STATUS_ALLOWED_FAILURE",
         ];
 
         struct GeneratedVisitor;
@@ -1903,6 +1905,7 @@ impl<'de> serde::Deserialize<'de> for TestStatus {
                     "TEST_STATUS_BLOCKED" => Ok(TestStatus::Blocked),
                     "TEST_STATUS_FLAKY" => Ok(TestStatus::Flaky),
                     "TEST_STATUS_SKIPPED" => Ok(TestStatus::Skipped),
+                    "TEST_STATUS_ALLOWED_FAILURE" => Ok(TestStatus::AllowedFailure),
                     _ => Err(serde::de::Error::unknown_variant(value, FIELDS)),
                 }
             }
@@ -2127,6 +2130,9 @@ impl serde::Serialize for Totals {
         if self.skipped != 0 {
             len += 1;
         }
+        if self.allowed_failures != 0 {
+            len += 1;
+        }
         let mut struct_ser = serializer.serialize_struct("vibranium.results.v1.Totals", len)?;
         if self.passed != 0 {
             struct_ser.serialize_field("passed", &self.passed)?;
@@ -2143,6 +2149,9 @@ impl serde::Serialize for Totals {
         if self.skipped != 0 {
             struct_ser.serialize_field("skipped", &self.skipped)?;
         }
+        if self.allowed_failures != 0 {
+            struct_ser.serialize_field("allowedFailures", &self.allowed_failures)?;
+        }
         struct_ser.end()
     }
 }
@@ -2158,6 +2167,8 @@ impl<'de> serde::Deserialize<'de> for Totals {
             "blocked",
             "flaky",
             "skipped",
+            "allowed_failures",
+            "allowedFailures",
         ];
 
         #[allow(clippy::enum_variant_names)]
@@ -2167,6 +2178,7 @@ impl<'de> serde::Deserialize<'de> for Totals {
             Blocked,
             Flaky,
             Skipped,
+            AllowedFailures,
         }
         impl<'de> serde::Deserialize<'de> for GeneratedField {
             fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
@@ -2193,6 +2205,7 @@ impl<'de> serde::Deserialize<'de> for Totals {
                             "blocked" => Ok(GeneratedField::Blocked),
                             "flaky" => Ok(GeneratedField::Flaky),
                             "skipped" => Ok(GeneratedField::Skipped),
+                            "allowedFailures" | "allowed_failures" => Ok(GeneratedField::AllowedFailures),
                             _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
                         }
                     }
@@ -2217,6 +2230,7 @@ impl<'de> serde::Deserialize<'de> for Totals {
                 let mut blocked__ = None;
                 let mut flaky__ = None;
                 let mut skipped__ = None;
+                let mut allowed_failures__ = None;
                 while let Some(k) = map_.next_key()? {
                     match k {
                         GeneratedField::Passed => {
@@ -2259,6 +2273,14 @@ impl<'de> serde::Deserialize<'de> for Totals {
                                 Some(map_.next_value::<::pbjson::private::NumberDeserialize<_>>()?.0)
                             ;
                         }
+                        GeneratedField::AllowedFailures => {
+                            if allowed_failures__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("allowedFailures"));
+                            }
+                            allowed_failures__ = 
+                                Some(map_.next_value::<::pbjson::private::NumberDeserialize<_>>()?.0)
+                            ;
+                        }
                     }
                 }
                 Ok(Totals {
@@ -2267,6 +2289,7 @@ impl<'de> serde::Deserialize<'de> for Totals {
                     blocked: blocked__.unwrap_or_default(),
                     flaky: flaky__.unwrap_or_default(),
                     skipped: skipped__.unwrap_or_default(),
+                    allowed_failures: allowed_failures__.unwrap_or_default(),
                 })
             }
         }

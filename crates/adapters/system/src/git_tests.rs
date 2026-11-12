@@ -1,17 +1,27 @@
 use std::path::Path;
 use std::process::Command;
+use std::time::Duration;
 
 use tempfile::TempDir;
 use vc_interfaces::{Vcs, VcsError};
 use vc_model::SourcePath;
 use vc_testkit::{VcsHistory, vcs_suite};
 
-use super::GitVcs;
+use super::{GitVcs, older_git};
 
 fn git(root: &Path, args: &[&str]) {
+    git_dated(root, args, None);
+}
+
+/// `git args`, committing at `date` when one is given.
+fn git_dated(root: &Path, args: &[&str], date: Option<&str>) {
     let identity = ["-c", "user.name=vc", "-c", "user.email=vc@example.test", "-c", "commit.gpgsign=false"];
-    let status = Command::new("git").arg("-C").arg(root).args(identity).args(args).status().unwrap();
-    assert!(status.success(), "git {args:?}");
+    let mut command = Command::new("git");
+    command.arg("-C").arg(root).args(identity).args(args);
+    if let Some(date) = date {
+        command.env("GIT_COMMITTER_DATE", date).env("GIT_AUTHOR_DATE", date);
+    }
+    assert!(command.status().unwrap().success(), "git {args:?}");
 }
 
 fn write(root: &Path, files: &[(&str, &str)]) {
@@ -26,6 +36,9 @@ fn write(root: &Path, files: &[(&str, &str)]) {
 fn repository(repo: &Path, folder: &str, history: &VcsHistory) {
     let project = repo.join(folder);
     git(repo, &["init", "-q", "-b", "main"]);
+    write(&project, history.old);
+    git(repo, &["add", "-A"]);
+    git_dated(repo, &["commit", "-q", "-m", "old"], Some(VcsHistory::OLD_DATE));
     write(&project, history.base);
     git(repo, &["add", "-A"]);
     git(repo, &["commit", "-q", "-m", "base"]);
@@ -68,6 +81,48 @@ fn a_staged_change_and_a_deleted_file_count_as_changed() {
 }
 
 #[test]
+fn recent_paths_are_relative_to_a_project_inside_the_repository() {
+    let repo = TempDir::new().unwrap();
+    let history = VcsHistory::STANDARD;
+    repository(repo.path(), "api", &history);
+    write(repo.path(), &[("web/app.ts", "x\n")]);
+    git(repo.path(), &["add", "-A"]);
+    git(repo.path(), &["commit", "-q", "-m", "web"]);
+    let recent = GitVcs::new(repo.path().join("api")).changed_within(Duration::from_hours(24)).unwrap();
+    assert_eq!(recent, history.recent());
+}
+
+#[test]
+fn a_file_committed_before_the_window_and_left_alone_is_not_recent() {
+    let repo = TempDir::new().unwrap();
+    repository(repo.path(), ".", &VcsHistory::STANDARD);
+    let recent = GitVcs::new(repo.path()).changed_within(Duration::from_secs(60)).unwrap();
+    assert!(!recent.contains(&SourcePath::new("services/legacy/legacy.api.yaml").unwrap()));
+    let years = GitVcs::new(repo.path()).changed_within(Duration::from_hours(4000 * 24)).unwrap();
+    assert!(years.contains(&SourcePath::new("services/legacy/legacy.api.yaml").unwrap()));
+}
+
+/// A merge commit lists what it brought in against its first parent, so a branch whose own
+/// commits are old still counts once it is merged in the window.
+#[test]
+fn a_file_merged_in_the_window_is_recent_though_its_commit_is_older() {
+    let repo = TempDir::new().unwrap();
+    let old = Some("2020-01-01T00:00:00Z");
+    write(repo.path(), &[("services/users/users.api.yaml", "apis: []\n")]);
+    git(repo.path(), &["init", "-q"]);
+    git(repo.path(), &["add", "-A"]);
+    git_dated(repo.path(), &["commit", "-q", "-m", "start"], old);
+    git(repo.path(), &["checkout", "-q", "-b", "feature"]);
+    write(repo.path(), &[("services/users/crud.test.yaml", "tests: []\n")]);
+    git(repo.path(), &["add", "-A"]);
+    git_dated(repo.path(), &["commit", "-q", "-m", "crud"], Some("2020-06-01T00:00:00Z"));
+    git(repo.path(), &["checkout", "-q", "-"]);
+    git(repo.path(), &["merge", "-q", "--no-ff", "--no-edit", "feature"]);
+    let recent = GitVcs::new(repo.path()).changed_within(Duration::from_hours(1)).unwrap();
+    assert_eq!(recent, [SourcePath::new("services/users/crud.test.yaml").unwrap()]);
+}
+
+#[test]
 fn outside_a_repository_it_fails_with_gits_message() {
     let folder = TempDir::new().unwrap();
     let Err(VcsError::Failed { base, reason }) = GitVcs::new(folder.path()).changed("HEAD") else {
@@ -75,4 +130,17 @@ fn outside_a_repository_it_fails_with_gits_message() {
     };
     assert_eq!(base, "HEAD");
     assert_ne!(reason.trim(), "", "git explains the failure");
+    let recent = GitVcs::new(folder.path()).changed_within(Duration::from_secs(60));
+    assert!(matches!(recent, Err(VcsError::Failed { .. })), "{recent:?}");
+}
+
+#[test]
+fn a_git_older_than_2_37_is_named_as_the_reason_and_other_failures_keep_gits_message() {
+    let base = "604800 seconds ago".to_owned();
+    let refused = "fatal: unrecognized argument: --since-as-filter=604800 seconds ago".to_owned();
+    let named = format!("this needs git 2.37 or later, which has `--since-as-filter` ({refused})");
+    let expected = VcsError::Failed { base: base.clone(), reason: named };
+    assert_eq!(older_git(VcsError::Failed { base: base.clone(), reason: refused }), expected);
+    let other = VcsError::Failed { base, reason: "fatal: not a git repository".to_owned() };
+    assert_eq!(older_git(other.clone()), other);
 }

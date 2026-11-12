@@ -103,6 +103,7 @@ Browses every api and test in the project, and shows how a run sees each one.
 | `enter` | Explain the selected item |
 | `pgup` / `pgdn` | Scroll the explanation |
 | `t` | Skip or unskip the selected test |
+| `c` | Show only what changed in the last 7 days, or everything again |
 | `r` | Reload the project |
 
 - **Project**: items grouped by file, apis first. Skipped tests are marked `– skipped`.
@@ -110,6 +111,8 @@ Browses every api and test in the project, and shows how a run sees each one.
 - **Explain**: press `enter` to see what `vc explain` prints for the item under your active profiles: its URL, vars and checks.
 
 Press `t` on a test to skip it. You're asked for a reason (`skip users.crud#getsCreatedUser because: …`), which is written to the test file and shows up in reports. A skip with no reason is refused. Press `t` on a skipped test to unskip it. Apis can't be skipped; `t` on one only shows a hint.
+
+Press `c` to list only the apis and tests in files changed in the last 7 days, committed or not, as `vc list --changed-since 7d` picks them. The summary line then says `changed in the last 7 days`. Reloading keeps the filter; press `c` again to see everything.
 
 ## History
 

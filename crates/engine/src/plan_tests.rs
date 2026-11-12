@@ -106,3 +106,27 @@ fn a_changed_env_is_not_shared() {
     let vcs = FakeVcs::new("main", &[".env", "services/orders/flow.test.yaml"]);
     assert_eq!(engine(vcs).plan(&changed("main")).unwrap().instance_count(), 1);
 }
+
+fn changed_since(days: u64) -> PlanRequest {
+    let window = Some(std::time::Duration::from_hours(days * 24));
+    PlanRequest {
+        select: SelectRequest { changed_since: window, ..SelectRequest::default() },
+        ..PlanRequest::default()
+    }
+}
+
+#[test]
+fn changed_since_keeps_the_files_changed_lately_and_a_shared_one_selects_every_test() {
+    let vcs = FakeVcs::default().with_recent(&["services/orders/flow.test.yaml"]);
+    assert_eq!(engine(vcs).plan(&changed_since(7)).unwrap().instance_count(), 1);
+    let vcs = FakeVcs::default().with_recent(&["vibranium.config.yaml"]);
+    assert_eq!(engine(vcs).plan(&changed_since(7)).unwrap().instance_count(), 3);
+}
+
+#[test]
+fn changed_wins_over_changed_since() {
+    let vcs = FakeVcs::new("main", &[]).with_recent(&["services/orders/flow.test.yaml"]);
+    let mut request = changed_since(7);
+    request.select.changed = Some("main".to_owned());
+    assert_eq!(engine(vcs).plan(&request).unwrap().instance_count(), 0);
+}

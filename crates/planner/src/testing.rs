@@ -51,7 +51,10 @@ impl Fixture {
         );
         program.apis.insert(api, list(group, api));
         let (tags, vars, lifecycle, tests) = Default::default();
-        program.test_files.insert(file, TestFile { id: file, name: None, tags, vars, skip: None, lifecycle, tests });
+        program.test_files.insert(
+            file,
+            TestFile { id: file, name: None, tags, vars, skip: None, allow_failure: None, lifecycle, tests },
+        );
         Self { program, file, api, names }
     }
 
@@ -81,6 +84,7 @@ impl Fixture {
             timeout: None,
             keep: false,
             provides: vec![],
+            implied: vec![],
         });
         action
     }
@@ -112,6 +116,7 @@ impl Fixture {
             retry: None,
             timeout: None,
             skip: None,
+            allow_failure: None,
             standalone: true,
             span: span(),
         };

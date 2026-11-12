@@ -49,6 +49,18 @@ async fn colours_marks_only_when_asked() {
     assert!(!printed.contains("\u{1b}[2J"), "the response's escape is still replaced");
 }
 
+/// D248: ⚠ with the reason, the failure block as for a failure, and its own count in the summary.
+#[tokio::test]
+async fn marks_an_allowed_failure_and_counts_it_apart() {
+    let (mut reporter, captured, events) = spec(Color::Plain);
+    testing::run(&mut reporter, &testing::allowing(events), &testing::allowed_summary()).await;
+    let printed = captured.take().0;
+    assert!(printed.contains("⚠ users.crud#rejectsBadEmail [row 1] allowed to fail: upstream sandbox"), "{printed}");
+    assert!(printed.contains("expected 400, got 201"), "the failure is still shown: {printed}");
+    assert!(!printed.contains('✕'), "{printed}");
+    assert!(printed.contains("2 passed · 1 blocked · 1 skipped · 1 flaky · 1 allowed to fail"), "{printed}");
+}
+
 #[tokio::test]
 async fn heads_the_run_with_the_plan_line_when_given_one() {
     let (capture, captured) = Capture::new();

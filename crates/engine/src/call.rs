@@ -193,6 +193,7 @@ fn called(api: &Api, keep: bool) -> Action {
         timeout: None,
         keep,
         provides: Vec::new(),
+        implied: Vec::new(),
         cache: None,
         repeat: None,
         span: api.span,

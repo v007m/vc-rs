@@ -1,7 +1,7 @@
 use std::path::Path;
 use std::time::Duration;
 
-use rusqlite::{Connection, OpenFlags};
+use rusqlite::{Connection, OpenFlags, TransactionBehavior};
 use vc_interfaces::HistoryError;
 
 use crate::codec::{Location, now_ms};
@@ -66,6 +66,7 @@ CREATE TABLE approval_rules (
   PRIMARY KEY (profile, tool, method)
 );
 ",
+    "ALTER TABLE runs ADD COLUMN allowed_failures INTEGER;",
 ];
 
 /// Why a file could not be opened: before its migrations, or while applying them.
@@ -108,16 +109,58 @@ pub fn open_for_writing(path: &Path) -> Result<Connection, HistoryError> {
     })
 }
 
-/// Opens the history at `path` read-only, or `None` when there is none yet.
+/// Opens the history at `path` read-only, or `None` when there is none yet. A file an older `vc`
+/// wrote gets its missing migrations first, so its runs read with today's columns; one that
+/// cannot be written (a read-only disk, or a lock held too long) is read as it is, a count it
+/// has no column for reading as none.
 pub fn open_for_reading(path: &Path) -> Result<Option<Connection>, HistoryError> {
     if !path.exists() {
         return Ok(None);
     }
     let location = Location::of(path);
+    let connection = read_only(path, &location)?;
+    if applied(&connection).map_err(|error| location.error(&error))? < MIGRATIONS.len() {
+        drop(connection);
+        drop(open_for_writing(path));
+        let connection = read_only(path, &location)?;
+        older_columns(&connection).map_err(|error| location.error(&error))?;
+        return Ok(Some(connection));
+    }
+    Ok(Some(connection))
+}
+
+/// Shadows `runs` with a temporary view that adds the `allowed_failures` column (D248) as
+/// `NULL` when the file has none, so the reader's columns hold for a file not brought up to date.
+fn older_columns(connection: &Connection) -> rusqlite::Result<()> {
+    let has: bool = connection.query_row(
+        "SELECT EXISTS (SELECT 1 FROM pragma_table_info('runs') WHERE name = 'allowed_failures')",
+        [],
+        |row| row.get(0),
+    )?;
+    if has {
+        return Ok(());
+    }
+    connection.execute_batch("CREATE TEMP VIEW runs AS SELECT *, NULL AS allowed_failures FROM main.runs")
+}
+
+fn read_only(path: &Path, location: &Location) -> Result<Connection, HistoryError> {
     let flags = OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX;
     let connection = Connection::open_with_flags(path, flags).map_err(|error| location.open(&error))?;
     connection.busy_timeout(BUSY_TIMEOUT).map_err(|error| location.open(&error))?;
-    Ok(Some(connection))
+    Ok(connection)
+}
+
+/// How many migration steps the file has had; none when it has no migration table yet.
+fn applied(connection: &Connection) -> rusqlite::Result<usize> {
+    let exists: bool = connection.query_row(
+        "SELECT EXISTS (SELECT 1 FROM sqlite_master WHERE name = 'schema_migrations')",
+        [],
+        |row| row.get(0),
+    )?;
+    if !exists {
+        return Ok(0);
+    }
+    connection.query_row("SELECT COUNT(*) FROM schema_migrations", [], |row| row.get(0))
 }
 
 fn configure(connection: &Connection) -> rusqlite::Result<()> {
@@ -127,25 +170,45 @@ fn configure(connection: &Connection) -> rusqlite::Result<()> {
     connection.pragma_update(None, "foreign_keys", "ON")
 }
 
-/// Applies every step of `migrations` the file has not had yet, each in its own transaction.
+/// Applies every step of `migrations` the file has not had yet. The version is read and the
+/// steps applied under one write lock, so two processes opening an older file at once never
+/// both apply a step.
 fn migrate(connection: &mut Connection, migrations: &[&str]) -> rusqlite::Result<()> {
-    connection.execute_batch(
+    let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+    transaction.execute_batch(
         "CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at INTEGER NOT NULL)",
     )?;
     let applied: u64 =
-        connection.query_row("SELECT COALESCE(MAX(version), 0) FROM schema_migrations", [], |row| row.get(0))?;
+        transaction.query_row("SELECT COALESCE(MAX(version), 0) FROM schema_migrations", [], |row| row.get(0))?;
     for (version, step) in (1_u64..).zip(migrations).skip(usize::try_from(applied).unwrap_or(usize::MAX)) {
-        let transaction = connection.transaction()?;
         transaction.execute_batch(step)?;
         transaction.execute("INSERT INTO schema_migrations VALUES (?1, ?2)", (version, now_ms()))?;
-        transaction.commit()?;
     }
-    Ok(())
+    transaction.commit()
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{MIGRATIONS, open_for_reading, open_for_writing};
+    use std::path::Path;
+    use std::sync::{Arc, Barrier};
+
+    use super::{MIGRATIONS, applied, open_for_reading, open_for_writing};
+
+    /// A history file an older `vc` wrote, before the `allowed_failures` column, with one run.
+    fn older_file(path: &Path) {
+        let connection = super::open_migrated(path, &MIGRATIONS[..2]).ok().unwrap();
+        connection
+            .execute(
+                "INSERT INTO runs (started_at, profiles, selector, vc_version, config_hash, kind, passed)
+                 VALUES (1, '[]', '', '2.0.0', 'x', 'functional', 3)",
+                [],
+            )
+            .unwrap();
+    }
+
+    fn allowed_failures(connection: &rusqlite::Connection) -> Option<i64> {
+        connection.query_row("SELECT allowed_failures FROM runs", [], |row| row.get(0)).unwrap()
+    }
 
     #[test]
     fn a_new_file_gets_every_migration_once() {
@@ -172,6 +235,71 @@ mod tests {
             })
             .unwrap();
         assert_eq!(tables, 2);
+    }
+
+    #[test]
+    fn a_reader_brings_an_older_file_up_to_date() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("history.db");
+        drop(super::open_migrated(&path, &MIGRATIONS[..2]).ok().unwrap());
+        let connection = open_for_reading(&path).unwrap().unwrap();
+        let column: u64 = connection
+            .query_row("SELECT COUNT(*) FROM pragma_table_info('runs') WHERE name = 'allowed_failures'", [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert_eq!(column, 1);
+    }
+
+    #[test]
+    fn applied_counts_the_steps_a_file_has_had() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("history.db");
+        let empty = rusqlite::Connection::open(&path).unwrap();
+        assert_eq!(applied(&empty).unwrap(), 0);
+        drop(empty);
+        older_file(&path);
+        assert_eq!(applied(&open_for_reading(&path).unwrap().unwrap()).unwrap(), MIGRATIONS.len());
+    }
+
+    #[test]
+    fn writers_and_readers_opening_an_older_file_at_once_apply_each_step_once() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = Arc::new(dir.path().join("history.db"));
+        older_file(&path);
+        let start = Arc::new(Barrier::new(8));
+        let opens: Vec<_> = (0..8)
+            .map(|index| {
+                let (path, start) = (Arc::clone(&path), Arc::clone(&start));
+                std::thread::spawn(move || {
+                    start.wait();
+                    if index % 2 == 0 { open_for_writing(&path).map(drop) } else { open_for_reading(&path).map(drop) }
+                })
+            })
+            .collect();
+        for open in opens {
+            assert!(open.join().unwrap().is_ok());
+        }
+        let connection = open_for_reading(&path).unwrap().unwrap();
+        assert_eq!(applied(&connection).unwrap(), MIGRATIONS.len());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_reader_that_cannot_write_reads_an_older_file_as_it_is() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("history.db");
+        older_file(&path);
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o444)).unwrap();
+        if std::fs::OpenOptions::new().write(true).open(&path).is_ok() {
+            return;
+        }
+        let connection = open_for_reading(&path).unwrap().unwrap();
+        assert_eq!(applied(&connection).unwrap(), 2);
+        assert_eq!(allowed_failures(&connection), None);
+        let passed: i64 = connection.query_row("SELECT passed FROM runs", [], |row| row.get(0)).unwrap();
+        assert_eq!(passed, 3);
     }
 
     #[test]
