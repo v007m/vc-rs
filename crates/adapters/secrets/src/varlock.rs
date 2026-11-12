@@ -11,15 +11,13 @@ use tokio::sync::OnceCell;
 use vc_interfaces::{
     CommandError, CommandOutput, CommandRunner, CommandSpec, Secret, SecretError, SecretProvider, SecretQuery, Secrets,
 };
+use vc_model::PROFILE_VARIABLE;
 
 /// The provider's name, in `secrets.provider` and in messages.
 const VARLOCK: &str = "varlock";
 
 /// The arguments Varlock is run with: resolve every item of `.env.schema` and print JSON.
 const ARGS: [&str; 3] = ["load", "--format", "json"];
-
-/// The variable Varlock is given the run's profile in, for `@currentEnv=$VC_PROFILE` (D306).
-const PROFILE: &str = "VC_PROFILE";
 
 /// Resolves the declared names through Varlock.
 ///
@@ -51,7 +49,7 @@ impl VarlockSecrets {
 
     async fn all(&self) -> Result<Secrets, SecretError> {
         let mut spec = CommandSpec::new(VARLOCK, ARGS).in_dir(&self.root);
-        spec.env.extend(self.profile.iter().map(|profile| (PROFILE.to_owned(), profile.clone())));
+        spec.env.extend(self.profile.iter().map(|profile| (PROFILE_VARIABLE.to_owned(), profile.clone())));
         let output = self.runner.run(&spec).await.map_err(unavailable)?;
         parse(&output)
     }
