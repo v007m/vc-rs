@@ -35,8 +35,8 @@ impl Color {
     }
 }
 
-/// Time since the run started. Events carry no timestamps, so reporters time tests by when
-/// their events arrive.
+/// Time since the run started, as events arrive. It only places a test on the run's timeline:
+/// a test's duration is the one the executor measured and put on its result (D305).
 pub trait Stopwatch: Send + Sync + Debug {
     /// Time since the start.
     fn elapsed(&self) -> Duration;
