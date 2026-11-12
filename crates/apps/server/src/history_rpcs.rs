@@ -4,7 +4,7 @@
 use std::sync::Arc;
 
 use vc_contracts::engine::v1 as wire;
-use vc_engine::{Approval, ApprovalId, ApprovalStatus, LoggedAction, RunRow, TestTrend, Verdict};
+use vc_engine::{Approval, ApprovalId, ApprovalStatus, LoggedAction, RunFilter, TestTrend, Verdict};
 
 use crate::engine_api::{EngineApi, Rpcs};
 use crate::wire_history::{run, test};
@@ -36,11 +36,10 @@ async fn list_runs(
     api: Arc<EngineApi>,
     request: wire::ListRunsRequest,
 ) -> Result<wire::ListRunsResponse, ConnectError> {
-    let (most, kind) = (limit(request.limit), request.kind);
-    let read = if kind.is_some() { limit(0) } else { most };
-    let report = api.blocking(move |engine| engine.history(read)).await?;
-    let of_kind = |row: &&RunRow| kind.as_ref().is_none_or(|kind| &row.start.kind == kind);
-    Ok(wire::ListRunsResponse { runs: report.runs().iter().filter(of_kind).take(most).map(run).collect() })
+    let (most, filter) =
+        (limit(request.limit), RunFilter { kind: request.kind, profile: request.profile, branch: request.branch });
+    let report = api.blocking(move |engine| engine.history(most, &filter)).await?;
+    Ok(wire::ListRunsResponse { runs: report.runs().iter().map(run).collect() })
 }
 
 async fn get_run(api: Arc<EngineApi>, request: wire::GetRunRequest) -> Result<wire::GetRunResponse, ConnectError> {
@@ -51,7 +50,8 @@ async fn get_run(api: Arc<EngineApi>, request: wire::GetRunRequest) -> Result<wi
 
 async fn trends(api: Arc<EngineApi>, request: wire::TrendsRequest) -> Result<wire::TrendsResponse, ConnectError> {
     let window = if request.window == 0 { TREND_WINDOW } else { limit(request.window) };
-    let found = api.blocking(move |engine| engine.trends(window)).await?;
+    let filter = RunFilter { profile: request.profile, branch: request.branch, ..RunFilter::default() };
+    let found = api.blocking(move |engine| engine.trends(window, &filter)).await?;
     Ok(wire::TrendsResponse { trends: found.into_iter().map(trend).collect() })
 }
 

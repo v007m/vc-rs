@@ -36,6 +36,7 @@ pub use vc_engine::PluginManifest
 pub use vc_engine::PluginPermissions
 pub use vc_engine::PluginStderr
 pub use vc_engine::Render
+pub use vc_engine::RunFilter
 pub use vc_engine::RunId
 pub use vc_engine::RunRow
 pub use vc_engine::RunStart
@@ -581,10 +582,10 @@ pub fn vc_engine::Engine::fix(&self, &vc_engine::CheckRequest) -> core::result::
 impl vc_engine::Engine
 pub fn vc_engine::Engine::fmt(&self, &[alloc::string::String], bool) -> core::result::Result<vc_engine::Changes, vc_engine::EngineError>
 impl vc_engine::Engine
-pub fn vc_engine::Engine::history(&self, usize) -> core::result::Result<vc_engine::HistoryReport, vc_engine::EngineError>
+pub fn vc_engine::Engine::history(&self, usize, &vc_interfaces::run_filter::RunFilter) -> core::result::Result<vc_engine::HistoryReport, vc_engine::EngineError>
 pub fn vc_engine::Engine::report(&self, &vc_engine::ReportRequest) -> core::result::Result<vc_engine::ReportFiles, vc_engine::EngineError>
 pub fn vc_engine::Engine::stored(&self, &str) -> core::result::Result<vc_engine::StoredRun, vc_engine::EngineError>
-pub fn vc_engine::Engine::trends(&self, usize) -> core::result::Result<alloc::vec::Vec<vc_interfaces::trend::TestTrend>, vc_engine::EngineError>
+pub fn vc_engine::Engine::trends(&self, usize, &vc_interfaces::run_filter::RunFilter) -> core::result::Result<alloc::vec::Vec<vc_interfaces::trend::TestTrend>, vc_engine::EngineError>
 impl vc_engine::Engine
 pub async fn vc_engine::Engine::import(&self, &vc_engine::ImportRequest) -> core::result::Result<vc_engine::Changes, vc_engine::EngineError>
 pub fn vc_engine::Engine::importers() -> alloc::vec::Vec<alloc::string::String>

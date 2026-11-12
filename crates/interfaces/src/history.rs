@@ -7,7 +7,7 @@ use std::fmt;
 
 use vc_model::{Keep, RunStatus, TestStatus, Totals};
 
-use crate::TestTrend;
+use crate::{RunFilter, TestTrend};
 
 /// Stores runs as they happen.
 ///
@@ -48,12 +48,12 @@ pub trait HistoryWriter: Send + Sync {
 /// Answers questions about stored runs, from its own read-only view, so it can run beside the
 /// writer. Every implementation runs `history_reader_suite` (D112).
 pub trait HistoryReader: Send + Sync {
-    /// The newest `limit` runs, newest first.
+    /// The newest `limit` runs that `filter` matches, newest first.
     ///
     /// # Errors
     ///
     /// [`HistoryError`] when the store cannot be read.
-    fn runs(&self, limit: usize) -> Result<Vec<RunRow>, HistoryError>;
+    fn runs(&self, limit: usize, filter: &RunFilter) -> Result<Vec<RunRow>, HistoryError>;
 
     /// The run `which` names, if it is stored.
     ///
@@ -77,13 +77,13 @@ pub trait HistoryReader: Send + Sync {
     /// [`HistoryError`] when the store cannot be read.
     fn snapshot(&self, run: RunId) -> Result<Option<Vec<u8>>, HistoryError>;
 
-    /// How each test did over the newest `window` runs of kind `run` (G15), one trend per test
-    /// in test ID order.
+    /// How each test did over the newest `window` runs that `filter` matches (G15), of kind
+    /// `run` when it names no kind, one trend per test in test ID order.
     ///
     /// # Errors
     ///
     /// [`HistoryError`] when the store cannot be read.
-    fn trends(&self, window: usize) -> Result<Vec<TestTrend>, HistoryError>;
+    fn trends(&self, window: usize, filter: &RunFilter) -> Result<Vec<TestTrend>, HistoryError>;
 }
 
 /// A stored run's number: 483, shown as `483` and used in `.vibranium/reports/483/`.

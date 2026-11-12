@@ -169,7 +169,8 @@ pub use vc_diagnostics::{
 };
 pub use vc_interfaces::{
     AgentAction, Approval, ApprovalId, ApprovalRequest, ApprovalStatus, CheckRow, Decided, ExchangeRow, LoggedAction,
-    PluginKind, PluginManifest, PluginPermissions, PluginStderr, RunId, RunRow, RunStart, TestRow, TestTrend, Verdict,
+    PluginKind, PluginManifest, PluginPermissions, PluginStderr, RunFilter, RunId, RunRow, RunStart, TestRow,
+    TestTrend, Verdict,
 };
 pub use vc_model::{
     ActionId, Bodies, CheckKind, CheckResult, CleanupRecord, Event, Exchange, Failure, FileKind, InstanceId, Location,

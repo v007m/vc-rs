@@ -74,6 +74,7 @@ mod plugin;
 mod plugin_store;
 mod random;
 mod reporter;
+mod run_filter;
 mod secrets;
 mod source;
 mod transport;
@@ -114,6 +115,7 @@ pub use plugin::{
 pub use plugin_store::{Fetched, LOCK_FILE, MANIFEST_FILE, PLUGINS_DIR, PluginStore, PluginStoreError};
 pub use random::Random;
 pub use reporter::{Artifact, ReportError, Reporter, RunSummary};
+pub use run_filter::RunFilter;
 pub use secrets::{Secret, SecretError, SecretProvider, SecretQuery, Secrets};
 pub use source::{Discovery, SourceError, SourceProvider, SourceWriter, content_hash, source_file};
 pub use transport::{SendContext, Transport, TransportError};

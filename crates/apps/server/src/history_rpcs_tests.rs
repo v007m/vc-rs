@@ -1,6 +1,6 @@
 use vc_contracts::engine::v1 as wire;
 use vc_contracts::results::v1::{RunStatus, TestStatus};
-use vc_engine::{RunRequest, interrupts};
+use vc_engine::{PlanRequest, RunRequest, interrupts};
 
 use super::{decide_approval, get_run, list_approvals, list_runs, trends};
 use crate::Code;
@@ -47,6 +47,33 @@ async fn runs_list_by_kind_with_the_limit_counted_among_them() {
     let listed = list_runs(api.clone(), of("run", 1)).await.unwrap();
     assert_eq!(listed.runs.iter().map(|run| run.id).collect::<Vec<_>>(), [newest.id]);
     assert_eq!(list_runs(api, of("load", 0)).await.unwrap().runs, []);
+}
+
+#[tokio::test]
+async fn runs_and_trends_count_only_the_runs_under_the_profile_and_branch_asked_for() {
+    let (_dir, api) = project();
+    for profile in ["dev", "bare", "bare"] {
+        let plan = PlanRequest { profiles: vec![profile.to_owned()], ..PlanRequest::default() };
+        api.engine().run(&RunRequest { plan, ..RunRequest::default() }, interrupts().1).await.unwrap();
+    }
+    let under = |profile: &str, branch: Option<&str>| wire::ListRunsRequest {
+        limit: 1,
+        profile: Some(profile.to_owned()),
+        branch: branch.map(str::to_owned),
+        ..wire::ListRunsRequest::default()
+    };
+    let [dev] = list_runs(api.clone(), under("dev", None)).await.unwrap().runs.try_into().unwrap();
+    assert_eq!(dev.profiles, ["dev"], "the limit is counted among the dev runs, though two are newer");
+    assert_eq!(list_runs(api.clone(), under("dev", Some("main"))).await.unwrap().runs, [], "no run knows its branch");
+    let window = |profile: &str, branch: Option<&str>| wire::TrendsRequest {
+        window: 1,
+        profile: Some(profile.to_owned()),
+        branch: branch.map(str::to_owned),
+    };
+    let results = |found: wire::TrendsResponse| found.trends.iter().map(|trend| trend.results).collect::<Vec<_>>();
+    assert_eq!(results(trends(api.clone(), window("bare", None)).await.unwrap()), [1]);
+    assert_eq!(results(trends(api.clone(), window("staging", None)).await.unwrap()), Vec::<u32>::new());
+    assert_eq!(results(trends(api, window("bare", Some("main"))).await.unwrap()), Vec::<u32>::new());
 }
 
 #[tokio::test]

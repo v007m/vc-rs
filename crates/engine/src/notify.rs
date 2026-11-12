@@ -6,7 +6,9 @@ use std::sync::Arc;
 
 use serde_json::Value;
 use vc_diagnostics::Code;
-use vc_interfaces::{Environment, HistoryReader, Notice, NotifierFactory, RunId, RunRow, RunSummary, Secrets};
+use vc_interfaces::{
+    Environment, HistoryReader, Notice, NotifierFactory, RunFilter, RunId, RunRow, RunSummary, Secrets,
+};
 use vc_model::{AlertChannel, CelProgram, Namespace, Program, Reference, RunStatus, Segment, Totals};
 use vc_template::{Chance, PipeRegistry, RenderError, Renderer, Resolve};
 
@@ -81,7 +83,7 @@ fn folder(root: &Path) -> String {
 /// How the last finished run of `kind` under the same profiles before run `run` ended. A `vc
 /// run` in which no test ran (exit 2) is passed over: it says nothing about the tests.
 fn previous(history: &dyn HistoryReader, (run, kind): (u64, &str), profiles: &[String]) -> Option<RunStatus> {
-    let runs = history.runs(LOOKBACK).ok()?;
+    let runs = history.runs(LOOKBACK, &RunFilter::default()).ok()?;
     let earlier = |row: &&RunRow| row.id != RunId::new(run) && row.start.kind == kind && row.start.profiles == profiles;
     runs.iter().filter(earlier).filter(|row| kind != RUN_KIND || ran(&row.totals)).find_map(|row| row.status)
 }

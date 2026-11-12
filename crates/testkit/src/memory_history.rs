@@ -2,7 +2,8 @@ use std::collections::BTreeMap;
 use std::sync::mpsc::{self, Sender};
 
 use vc_interfaces::{
-    HistoryError, HistoryReader, HistoryWriter, Row, RunEnd, RunId, RunRef, RunRow, RunStart, TestRow, TestTrend,
+    HistoryError, HistoryReader, HistoryWriter, Row, RunEnd, RunFilter, RunId, RunRef, RunRow, RunStart, TestRow,
+    TestTrend,
 };
 use vc_model::{Keep, TestStatus, Totals};
 
@@ -22,11 +23,11 @@ enum Request {
     Record(RunId, Vec<Row>, Sender<()>),
     Finish(RunId, RunEnd, Sender<()>),
     Prune(Keep, Sender<usize>),
-    Runs(usize, Sender<Vec<RunRow>>),
+    Runs(usize, RunFilter, Sender<Vec<RunRow>>),
     Run(RunRef, Sender<Option<RunRow>>),
     Tests(RunId, Sender<Vec<TestRow>>),
     Snapshot(RunId, Sender<Option<Vec<u8>>>),
-    Trends(usize, Sender<Vec<TestTrend>>),
+    Trends(usize, RunFilter, Sender<Vec<TestTrend>>),
 }
 
 /// One stored run.
@@ -57,15 +58,16 @@ impl State {
                 reply.send(()).ok();
             }
             Request::Prune(keep, reply) => drop(reply.send(self.prune(keep))),
-            Request::Runs(limit, reply) => {
-                drop(reply.send(self.runs.iter().rev().take(limit).map(|run| run.row.clone()).collect()));
+            Request::Runs(limit, filter, reply) => {
+                let matching = self.runs.iter().rev().filter(|run| filter.matches(&run.row.start));
+                drop(reply.send(matching.take(limit).map(|run| run.row.clone()).collect()));
             }
             Request::Run(which, reply) => drop(reply.send(self.find(which).map(|run| run.row.clone()))),
             Request::Tests(run, reply) => drop(reply.send(self.tests(run))),
             Request::Snapshot(run, reply) => {
                 drop(reply.send(self.find(RunRef::Id(run)).and_then(|run| run.snapshot.clone())));
             }
-            Request::Trends(window, reply) => drop(reply.send(self.trends(window))),
+            Request::Trends(window, filter, reply) => drop(reply.send(self.trends(window, filter))),
         }
     }
 
@@ -113,10 +115,12 @@ impl State {
         tests.into_iter().map(|test| TestRow { exchanges: Vec::new(), ..test }).collect()
     }
 
-    /// Each test's trend over the newest `window` runs of kind `run`, its mean summed first.
-    fn trends(&self, window: usize) -> Vec<TestTrend> {
+    /// Each test's trend over the newest `window` runs `filter` matches, of kind `run` when it
+    /// names none, its mean summed first.
+    fn trends(&self, window: usize, filter: RunFilter) -> Vec<TestTrend> {
         let mut trends: BTreeMap<&str, TestTrend> = BTreeMap::new();
-        let runs = self.runs.iter().rev().filter(|stored| stored.row.start.kind == "run").take(window);
+        let filter = RunFilter { kind: Some(filter.kind.unwrap_or_else(|| "run".to_owned())), ..filter };
+        let runs = self.runs.iter().rev().filter(|stored| filter.matches(&stored.row.start)).take(window);
         let ran = runs.flat_map(|stored| &stored.tests).filter(|test| test.status != Some(TestStatus::Skipped));
         for test in ran {
             let trend = trends
@@ -181,8 +185,8 @@ impl HistoryWriter for MemoryHistory {
 }
 
 impl HistoryReader for MemoryHistory {
-    fn runs(&self, limit: usize) -> Result<Vec<RunRow>, HistoryError> {
-        self.ask(|reply| Request::Runs(limit, reply))
+    fn runs(&self, limit: usize, filter: &RunFilter) -> Result<Vec<RunRow>, HistoryError> {
+        self.ask(|reply| Request::Runs(limit, filter.clone(), reply))
     }
 
     fn run(&self, which: RunRef) -> Result<Option<RunRow>, HistoryError> {
@@ -197,8 +201,8 @@ impl HistoryReader for MemoryHistory {
         self.ask(|reply| Request::Snapshot(run, reply))
     }
 
-    fn trends(&self, window: usize) -> Result<Vec<TestTrend>, HistoryError> {
-        self.ask(|reply| Request::Trends(window, reply))
+    fn trends(&self, window: usize, filter: &RunFilter) -> Result<Vec<TestTrend>, HistoryError> {
+        self.ask(|reply| Request::Trends(window, filter.clone(), reply))
     }
 }
 

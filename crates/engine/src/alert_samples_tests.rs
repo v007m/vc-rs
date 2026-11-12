@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use serde_json::json;
-use vc_interfaces::HistoryReader;
+use vc_interfaces::{HistoryReader, RunFilter};
 use vc_model::AlertTrigger;
 use vc_testkit::{FakeNotifiers, FakeTransport, FakeVcs, MemoryEnvironment, MemoryHistory, MemorySources, status};
 
@@ -60,7 +60,7 @@ async fn the_sample_goes_through_every_channel_of_each_rule_the_profiles_match_i
     assert_eq!(notice.failures[0].test, "project#sampleTest");
     assert_eq!(notice.failures[0].message, "this is a test alert");
     assert_eq!(notice.summary.profiles, ["prod"]);
-    assert!(history.runs(10).unwrap().is_empty(), "nothing is recorded");
+    assert!(history.runs(10, &RunFilter::default()).unwrap().is_empty(), "nothing is recorded");
 }
 
 #[tokio::test]

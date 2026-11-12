@@ -10,7 +10,7 @@ use tokio::sync::watch;
 use tokio::task::{JoinError, JoinHandle};
 use vc_engine::{
     Changes, Engine, EngineError, ExplainRequest, FileKind, ImportRequest, Interrupter, ListKind, ListRequest,
-    LoadRequest, LoadWatch, RunFeed, RunRequest, RunWatch, interrupts,
+    LoadRequest, LoadWatch, RunFeed, RunFilter, RunRequest, RunWatch, interrupts,
 };
 
 use crate::driver_edit::{drafted_edit, opened, saved};
@@ -280,7 +280,9 @@ async fn drafted(engine: &Engine, base: &Path, mut request: ImportRequest) -> Re
 
 /// The newest stored runs and the tests' trends over them.
 fn history(engine: &Engine) -> Update {
-    let read = engine.history(RUNS).and_then(|report| Ok((report, engine.trends(RUNS)?)));
+    let read = engine
+        .history(RUNS, &RunFilter::default())
+        .and_then(|report| Ok((report, engine.trends(RUNS, &RunFilter::default())?)));
     match read {
         Ok((report, trends)) => Update::History { runs: report.runs().to_vec(), trends },
         Err(error) => Update::HistoryFailed(error.to_string()),
