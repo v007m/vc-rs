@@ -138,7 +138,9 @@ mod tests {
         assert!(rows.root.is_some_and(|root| root.items().len() == 1) && rows.diagnostics.is_empty());
     }
 
+    /// The exports and V1013 come from oxc, the `hooks` feature.
     #[test]
+    #[cfg(feature = "hooks")]
     fn strips_a_hook_file_instead_of_parsing_it() {
         let hook = run("hooks/sign.ts", "export const sign = (x: number): number => x;\n");
         assert!(hook.root.is_none() && hook.kind.is_none() && hook.diagnostics.is_empty());

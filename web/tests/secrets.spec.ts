@@ -6,8 +6,11 @@ import { startVcUi, type VcUi } from './vcui';
 
 requiresVcUi();
 
-/** Its own `vc ui`, so the declared secrets stay out of the seed project the other specs share. */
-const port = '7422';
+/**
+ * Its own `vc ui` on a port the OS picks, so the declared secrets stay out of the seed project the
+ * other specs share.
+ */
+const port = '0';
 /** Test data, in no real provider's key format. */
 const token = 'tok-e2e-3a9c51';
 
@@ -38,7 +41,7 @@ test('says whether each declared secret resolves under each profile, never its v
     if (response.url().includes('/CheckSecrets')) bodies.push((await response.body()).toString());
   });
   await page.goto(vcUi.printed.launchUrl);
-  await page.goto(`http://127.0.0.1:${port}/settings`);
+  await page.goto(`${vcUi.origin}/settings`);
   await expect(page.getByLabel('E2E_SHOP_TOKEN on dev: resolved')).toBeVisible();
   await expect(page.getByLabel('E2E_MISSING on dev: not set')).toBeVisible();
   await page.getByRole('button', { name: 'Check secrets' }).click();

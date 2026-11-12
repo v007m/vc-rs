@@ -13,8 +13,16 @@ const killTimeoutMs = 5_000;
 /** What `vc ui` prints: the one-time launch link, and where and with what token an agent connects. */
 export type Printed = Readonly<{ launchUrl: string; mcpUrl: string; agentToken: string }>;
 
-/** A running `vc ui` over its own copy of the seed project, and how to stop it. */
-export type VcUi = Readonly<{ printed: Printed; projectDir: string; stop: () => Promise<void> }>;
+/**
+ * A running `vc ui` over its own copy of the seed project, and how to stop it. `origin` is where
+ * it listens, read from the launch link, so a `vc ui` on port 0 is reached on the port it was given.
+ */
+export type VcUi = Readonly<{
+  printed: Printed;
+  origin: string;
+  projectDir: string;
+  stop: () => Promise<void>;
+}>;
 
 /** Waits for the two lines `vc ui` prints, `vc ui: <url>?token=…` and `vc ui: mcp <url> token …`. */
 function readPrinted(child: ChildProcess): Promise<Printed> {
@@ -64,8 +72,10 @@ async function end(child: ChildProcess): Promise<void> {
 
 /**
  * Starts `vc ui --no-open` on `port` over a temporary copy of the seed project, which `prepare`
- * may change first, and waits for its launch line. VC_BIN points at a vc other than the one on
- * PATH, such as target/debug/vc. `stop` ends vc ui, waits for it to exit, then deletes the copy.
+ * may change first, and waits for its launch line. Port '0' lets the OS pick a free port, so specs
+ * never clash with each other or with a `vc ui` already running. VC_BIN points at a vc other than
+ * the one on PATH, such as target/debug/vc. `stop` ends vc ui, waits for it to exit, then deletes
+ * the copy.
  */
 export async function startVcUi(
   port: string,
@@ -87,7 +97,8 @@ export async function startVcUi(
     await rm(projectDir, { recursive: true, force: true });
   };
   try {
-    return { printed: await readPrinted(child), projectDir, stop };
+    const printed = await readPrinted(child);
+    return { printed, origin: new URL(printed.launchUrl).origin, projectDir, stop };
   } catch (error) {
     await stop();
     throw error;

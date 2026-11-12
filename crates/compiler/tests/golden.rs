@@ -82,9 +82,10 @@ fn compile(read: Vec<SourceFile>) -> Compiled {
 }
 
 macro_rules! cases {
-    ($($case:ident),* $(,)?) => {
+    ($($(#[$attribute:meta])* $case:ident),* $(,)?) => {
         $(
             #[test]
+            $(#[$attribute])*
             fn $case() -> Outcome {
                 golden(stringify!($case))
             }
@@ -171,6 +172,9 @@ cases!(
     v2002_unknown_dataset,
     v2103_dataset_column,
     hooks_clean,
+    // A hook's exports and imports are read by oxc, the `hooks` feature.
+    #[cfg(feature = "hooks")]
     v2005_hook_export,
+    #[cfg(feature = "hooks")]
     v2008_hook_import,
 );

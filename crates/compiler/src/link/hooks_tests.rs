@@ -1,7 +1,7 @@
 use std::collections::BTreeSet;
 
 use vc_diagnostics::{Code, Diagnostic};
-use vc_model::{ContentHash, HookRef, RedactRule, SourceFile, SourcePath};
+use vc_model::{ContentHash, SourceFile, SourcePath};
 
 use crate::{CompileInput, Compiled};
 
@@ -47,6 +47,7 @@ fn tests(function: &str) -> String {
 }
 
 #[test]
+#[cfg(feature = "hooks")]
 fn wants_each_hook_file_reached_until_all_are_given_then_keeps_their_modules() {
     let text = tests("../../hooks/sign.ts#check");
     let listed = ["hooks/sign.ts", "hooks/util.ts"];
@@ -64,6 +65,7 @@ fn wants_each_hook_file_reached_until_all_are_given_then_keeps_their_modules() {
 }
 
 #[test]
+#[cfg(feature = "hooks")]
 fn a_missing_export_is_v2005_with_the_close_one_as_a_fix() {
     let compiled =
         compile(&tests("../../hooks/sign.ts#chek"), &[("hooks/sign.ts", SIGN), ("hooks/util.ts", UTIL)], &[]);
@@ -74,6 +76,20 @@ fn a_missing_export_is_v2005_with_the_close_one_as_a_fix() {
     assert_eq!((edit.new_text.as_str(), edit.range.len()), ("check", 4), "only the export is replaced");
     let none = compile(&tests("../../hooks/sign.ts"), &[("hooks/sign.ts", SIGN), ("hooks/util.ts", UTIL)], &[]);
     assert!(only(&none, Code::V2005).help[0].contains("`check`, `sign`"));
+}
+
+/// Without oxc (the playground's build, which refuses hooks) a hook file is kept as written: no
+/// export is checked and no import is followed.
+#[test]
+#[cfg(not(feature = "hooks"))]
+fn without_oxc_a_hook_file_is_kept_with_neither_its_exports_nor_its_imports_checked() {
+    let listed = ["hooks/sign.ts", "hooks/util.ts"];
+    let compiled = compile(&tests("../../hooks/sign.ts#chek"), &[("hooks/sign.ts", SIGN)], &listed);
+    assert!(compiled.hooks_wanted.is_empty() && hook_codes(&compiled).is_empty(), "{:?}", compiled.diagnostics);
+    let program = compiled.program.unwrap();
+    let paths: Vec<&str> = program.hooks.iter().map(|(path, _)| path).collect();
+    assert_eq!(paths, ["hooks/sign.ts"], "`./util` is not followed");
+    assert_eq!(program.hooks.get("hooks/sign.ts").unwrap().js, SIGN);
 }
 
 #[test]
@@ -97,6 +113,7 @@ fn a_hook_path_to_no_file_is_v2004_and_to_a_data_file_is_v2008() {
 }
 
 #[test]
+#[cfg(feature = "hooks")]
 fn a_hook_imports_only_relative_files_and_the_standard_module() {
     let sign = concat!(
         "import type { Hook } from \"@vibranium/sdk\";\n",
@@ -116,6 +133,7 @@ fn a_hook_imports_only_relative_files_and_the_standard_module() {
 }
 
 #[test]
+#[cfg(feature = "hooks")]
 fn every_kind_of_reference_is_linked_and_a_broken_file_only_reports_v1013() {
     let text = "beforeAll:\n  - function: ../../hooks/bad.ts#seed\ntests:\n  - id: getsUser\n    call: users#get\n    cache:\n      check:\n        function: ../../hooks/nope.ts#a\n    poll:\n      until:\n        custom:\n          - function: ../../hooks/none.ts#b\n";
     let compiled = compile(text, &[("hooks/bad.ts", "export function (")], &[]);
@@ -125,7 +143,10 @@ fn every_kind_of_reference_is_linked_and_a_broken_file_only_reports_v1013() {
 }
 
 #[test]
+#[cfg(feature = "hooks")]
 fn a_redact_rule_function_is_linked_from_the_project_root() {
+    use vc_model::{HookRef, RedactRule};
+
     let config =
         format!("{CONFIG}redact:\n  rules:\n    - function: hooks/mask.ts#cards\n    - function: hooks/mask.ts#nope\n");
     let mut files = vec![file("vibranium.config.yaml", &config), file("services/users/users.api.yaml", "apis: []\n")];
