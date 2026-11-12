@@ -28,7 +28,7 @@ export type Loop = {
 /**
  * One step of a flow test as the form shows it. `at` is its place in the file, none for a new
  * one; `keys` are the loop keys its file writes; a `locked` loop is one the form cannot show
- * (a `poll` that checks more than a status, a masked `forEach`) and is never written.
+ * (a `poll` that checks more than a status, a loop that holds a mask) and is never written.
  */
 export type Stage = {
   kind: StepKind;
@@ -71,12 +71,11 @@ function once(): Loop {
   return { kind: 'once', times: '2', over: '', until: '200', every: '1s', timeout: '30s' };
 }
 
-/** The loop `step` writes, and whether the form can show it. */
-function loopOf(step: Node): { loop: Loop; locked: boolean } {
+/** The loop `step` writes, and whether the form can show it apart from a mask. */
+function shown(step: Node): { loop: Loop; locked: boolean } {
   const loop = once();
   if (step.forEach !== undefined) {
-    const over = text(step.forEach);
-    return { loop: { ...loop, kind: 'forEach', over }, locked: over.includes(MASKED) };
+    return { loop: { ...loop, kind: 'forEach', over: text(step.forEach) }, locked: false };
   }
   if (step.repeat !== undefined)
     return { loop: { ...loop, kind: 'repeat', times: text(step.repeat) }, locked: false };
@@ -86,6 +85,16 @@ function loopOf(step: Node): { loop: Loop; locked: boolean } {
   const status = Object.keys(until).length === 1 ? until.status : undefined;
   const fields = { until: text(status), every: text(poll.every), timeout: text(poll.timeout) };
   return { loop: { ...loop, kind: 'poll', ...fields }, locked: typeof status !== 'number' };
+}
+
+/**
+ * The loop `step` writes, and whether the form can show it: a loop that holds a mask anywhere
+ * (a secret's `forEach`, a `poll` every in blind mode) is shown as written and never checked.
+ */
+function loopOf(step: Node): { loop: Loop; locked: boolean } {
+  const { loop, locked } = shown(step);
+  const written = [step.forEach, step.repeat, step.poll].filter((value) => value !== undefined);
+  return { loop, locked: locked || JSON.stringify(written).includes(MASKED) };
 }
 
 function stageOf(value: unknown, at: number): Stage {

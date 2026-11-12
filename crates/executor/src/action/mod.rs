@@ -34,7 +34,9 @@ use crate::{
     ActionReport, ExecutorError, Frame, MaskRules, PipelineParts, Redactor, RunInputs, RunValues, Saved, Schemas,
 };
 
-pub use auth::{AuthKey, Lease, NoAuth, TokenCache, steps as auth_steps};
+pub use auth::{
+    AuthKey, Lease, NoAuth, ProbedAuth, TokenCache, chosen_auth, probe_auth, probe_origin, steps as auth_steps,
+};
 pub use cached::{CachedExecutor, RunCache};
 pub use call::{CallExecutor, called};
 pub use command::{CommandExecutor, CommandShell};
@@ -129,6 +131,12 @@ pub struct ActionRequest {
 }
 
 impl ActionRequest {
+    /// A run-level request for `action` alone, outside any test, with an empty frame.
+    #[must_use]
+    pub fn run(cx: &Arc<ActionCx>, action: ActionId) -> Self {
+        Self { action, owner: OwnerKey::Run, cx: Arc::clone(cx), frame: Frame::default() }
+    }
+
     /// A run-level request for the cleanup `action` with its given `vars`, outside any test:
     /// how a cleanup stored by the cross-run cache runs when its entry goes.
     #[must_use]

@@ -42,3 +42,15 @@ test('reviews a config change as a diff before anything is written', async ({ pa
   await form.getByRole('button', { name: 'Discard changes' }).click();
   await expect(mockUrl).toHaveValue('http://127.0.0.1:18080');
 });
+
+test('tests an auth by obtaining its credentials, showing only their names', async ({ page }) => {
+  await page.goto('/settings');
+  const row = page.getByRole('table', { name: 'Auths' }).getByRole('row', { name: /mockOauth/ });
+  await expect(row).toContainText('Not tested');
+  await row.getByRole('button', { name: 'Test mockOauth' }).click();
+  await expect(row).toContainText('users#me');
+  await expect(row).toContainText('authorization');
+  await expect(row).toContainText(/59 min|1 h/);
+  await expect(row).toContainText('Under dev.');
+  await expect(page.locator('body')).not.toContainText('vc-secret');
+});

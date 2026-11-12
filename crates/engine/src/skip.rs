@@ -135,10 +135,12 @@ fn long_form(reason: &str, until: &str, indent: &str) -> String {
 #[cfg(test)]
 mod tests {
     use std::fs;
+    use std::path::PathBuf;
     use std::sync::Arc;
 
     use vc_adapter_system::FsSources;
-    use vc_model::Date;
+    use vc_interfaces::{SourceError, SourceWriter};
+    use vc_model::{ContentHash, Date, SourcePath};
     use vc_testkit::FakeVcs;
 
     use super::{SkipRequest, checked, long_form};
@@ -187,6 +189,40 @@ mod tests {
         let changes = engine.skip(&flaky()).unwrap();
         engine.write_previewed(&changes, &engine.preview_digest(&changes).unwrap()).unwrap();
         assert!(on_disk().contains("skip: flaky"), "{}", on_disk());
+    }
+
+    /// A writer another save races: it saves `# saved elsewhere` over the file once the engine
+    /// has compared the preview's digest, just before the write that must find it unchanged.
+    struct Raced(FsSources, PathBuf);
+
+    const ELSEWHERE: &str = "# saved elsewhere\n";
+
+    impl SourceWriter for Raced {
+        fn remove(&self, path: &SourcePath) -> Result<(), SourceError> {
+            self.0.remove(path)
+        }
+
+        fn write_unchanged(&self, path: &SourcePath, text: &str, was: Option<ContentHash>) -> Result<(), SourceError> {
+            fs::write(self.1.join(path.as_str()), ELSEWHERE).unwrap();
+            self.0.write_unchanged(path, text, was)
+        }
+
+        fn write(&self, path: &SourcePath, text: &str) -> Result<(), SourceError> {
+            fs::write(self.1.join(path.as_str()), ELSEWHERE).unwrap();
+            self.0.write(path, text)
+        }
+    }
+
+    #[test]
+    fn a_save_made_after_the_digest_was_compared_is_kept_and_the_previewed_write_is_stale() {
+        let (dir, _) = project();
+        let raced = Arc::new(Raced(FsSources::new(dir.path()).unwrap(), dir.path().to_path_buf()));
+        let folder = Arc::new(FsSources::new(dir.path()).unwrap());
+        let engine = builder(FakeVcs::default()).sources(folder).writer(raced).build().unwrap();
+        let changes = engine.skip(&flaky()).unwrap();
+        let written = engine.write_previewed(&changes, &engine.preview_digest(&changes).unwrap());
+        assert!(matches!(&written, Err(EngineError::Stale { reason }) if reason.contains(TESTS)), "{written:?}");
+        assert_eq!(fs::read_to_string(dir.path().join(TESTS)).unwrap(), ELSEWHERE);
     }
 
     #[test]

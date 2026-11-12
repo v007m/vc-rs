@@ -354,6 +354,24 @@ pub fn vc_engine::AuthShown::eq(&self, &Self) -> bool
 impl core::fmt::Debug for vc_engine::AuthShown
 pub fn vc_engine::AuthShown::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_engine::AuthShown
+#[non_exhaustive] pub struct vc_engine::AuthTested
+pub vc_engine::AuthTested::api: alloc::string::String
+pub vc_engine::AuthTested::cookies: alloc::vec::Vec<alloc::string::String>
+pub vc_engine::AuthTested::error: core::option::Option<alloc::string::String>
+pub vc_engine::AuthTested::expires_in: core::option::Option<core::time::Duration>
+pub vc_engine::AuthTested::headers: alloc::vec::Vec<alloc::string::String>
+pub vc_engine::AuthTested::notices: alloc::vec::Vec<alloc::string::String>
+pub vc_engine::AuthTested::query: alloc::vec::Vec<alloc::string::String>
+impl core::clone::Clone for vc_engine::AuthTested
+pub fn vc_engine::AuthTested::clone(&self) -> Self
+impl core::cmp::Eq for vc_engine::AuthTested
+impl core::cmp::PartialEq for vc_engine::AuthTested
+pub fn vc_engine::AuthTested::eq(&self, &Self) -> bool
+impl core::default::Default for vc_engine::AuthTested
+pub fn vc_engine::AuthTested::default() -> Self
+impl core::fmt::Debug for vc_engine::AuthTested
+pub fn vc_engine::AuthTested::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_engine::AuthTested
 pub struct vc_engine::CacheReport
 impl vc_engine::CacheReport
 pub fn vc_engine::CacheReport::json(&self) -> serde_json::value::Value
@@ -543,6 +561,8 @@ impl vc_engine::Engine
 pub fn vc_engine::Engine::check_layers(&self, &vc_engine::ExplainRequest) -> core::result::Result<(), vc_engine::EngineError>
 pub async fn vc_engine::Engine::config_values(&self, &[alloc::string::String], &vc_engine::ExplainRequest) -> core::result::Result<vc_engine::ConfigValues, vc_engine::EngineError>
 impl vc_engine::Engine
+pub async fn vc_engine::Engine::check_secrets(&self, &vc_engine::ExplainRequest) -> core::result::Result<vc_engine::SecretsChecked, vc_engine::EngineError>
+impl vc_engine::Engine
 pub fn vc_engine::Engine::complete(&self, vc_engine::CompleteKind, &str) -> alloc::vec::Vec<alloc::string::String>
 impl vc_engine::Engine
 pub async fn vc_engine::Engine::config_explain(&self, &str, &vc_engine::ExplainRequest) -> core::result::Result<vc_engine::ExplainReport, vc_engine::EngineError>
@@ -621,6 +641,8 @@ impl vc_engine::Engine
 pub async fn vc_engine::Engine::sync(&self, &vc_engine::SyncRequest) -> core::result::Result<vc_engine::SyncReport, vc_engine::EngineError>
 impl vc_engine::Engine
 pub async fn vc_engine::Engine::test_alerts(&self, &vc_engine::ExplainRequest) -> core::result::Result<alloc::vec::Vec<vc_engine::AlertSent>, vc_engine::EngineError>
+impl vc_engine::Engine
+pub async fn vc_engine::Engine::test_auth(&self, &vc_engine::TestAuthRequest) -> core::result::Result<vc_engine::AuthTested, vc_engine::EngineError>
 impl vc_engine::Engine
 pub fn vc_engine::Engine::watch(&self) -> core::result::Result<std::sync::mpsc::Receiver<alloc::vec::Vec<vc_model::source::SourcePath>>, vc_engine::EngineError>
 impl vc_engine::Engine
@@ -1042,6 +1064,7 @@ impl core::fmt::Debug for vc_engine::PointerEdits
 pub fn vc_engine::PointerEdits::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_engine::PointerEdits
 #[non_exhaustive] pub struct vc_engine::ProjectInfo
+pub vc_engine::ProjectInfo::auths: alloc::vec::Vec<alloc::string::String>
 pub vc_engine::ProjectInfo::defaults: alloc::vec::Vec<alloc::string::String>
 pub vc_engine::ProjectInfo::name: alloc::string::String
 pub vc_engine::ProjectInfo::profiles: alloc::vec::Vec<alloc::string::String>
@@ -1191,6 +1214,32 @@ pub fn vc_engine::SchemaFile::eq(&self, &Self) -> bool
 impl core::fmt::Debug for vc_engine::SchemaFile
 pub fn vc_engine::SchemaFile::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_engine::SchemaFile
+#[non_exhaustive] pub struct vc_engine::SecretCheck
+pub vc_engine::SecretCheck::name: alloc::string::String
+pub vc_engine::SecretCheck::resolved: bool
+impl core::clone::Clone for vc_engine::SecretCheck
+pub fn vc_engine::SecretCheck::clone(&self) -> Self
+impl core::cmp::Eq for vc_engine::SecretCheck
+impl core::cmp::PartialEq for vc_engine::SecretCheck
+pub fn vc_engine::SecretCheck::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_engine::SecretCheck
+pub fn vc_engine::SecretCheck::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_engine::SecretCheck
+#[non_exhaustive] pub struct vc_engine::SecretsChecked
+pub vc_engine::SecretsChecked::error: core::option::Option<alloc::string::String>
+pub vc_engine::SecretsChecked::notices: alloc::vec::Vec<alloc::string::String>
+pub vc_engine::SecretsChecked::provider: alloc::string::String
+pub vc_engine::SecretsChecked::secrets: alloc::vec::Vec<vc_engine::SecretCheck>
+impl core::clone::Clone for vc_engine::SecretsChecked
+pub fn vc_engine::SecretsChecked::clone(&self) -> Self
+impl core::cmp::Eq for vc_engine::SecretsChecked
+impl core::cmp::PartialEq for vc_engine::SecretsChecked
+pub fn vc_engine::SecretsChecked::eq(&self, &Self) -> bool
+impl core::default::Default for vc_engine::SecretsChecked
+pub fn vc_engine::SecretsChecked::default() -> Self
+impl core::fmt::Debug for vc_engine::SecretsChecked
+pub fn vc_engine::SecretsChecked::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_engine::SecretsChecked
 pub struct vc_engine::SelectRequest
 pub vc_engine::SelectRequest::changed: core::option::Option<alloc::string::String>
 pub vc_engine::SelectRequest::changed_since: core::option::Option<core::time::Duration>
@@ -1277,6 +1326,21 @@ pub fn vc_engine::SyncRequest::default() -> Self
 impl core::fmt::Debug for vc_engine::SyncRequest
 pub fn vc_engine::SyncRequest::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_engine::SyncRequest
+pub struct vc_engine::TestAuthRequest
+pub vc_engine::TestAuthRequest::api: core::option::Option<alloc::string::String>
+pub vc_engine::TestAuthRequest::auth: alloc::string::String
+pub vc_engine::TestAuthRequest::profiles: alloc::vec::Vec<alloc::string::String>
+pub vc_engine::TestAuthRequest::sets: alloc::vec::Vec<alloc::string::String>
+impl core::clone::Clone for vc_engine::TestAuthRequest
+pub fn vc_engine::TestAuthRequest::clone(&self) -> Self
+impl core::cmp::Eq for vc_engine::TestAuthRequest
+impl core::cmp::PartialEq for vc_engine::TestAuthRequest
+pub fn vc_engine::TestAuthRequest::eq(&self, &Self) -> bool
+impl core::default::Default for vc_engine::TestAuthRequest
+pub fn vc_engine::TestAuthRequest::default() -> Self
+impl core::fmt::Debug for vc_engine::TestAuthRequest
+pub fn vc_engine::TestAuthRequest::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_engine::TestAuthRequest
 pub struct vc_engine::WriteRequest
 pub vc_engine::WriteRequest::agent: alloc::string::String
 pub vc_engine::WriteRequest::path: alloc::string::String

@@ -14,3 +14,11 @@ profiles:
       run: true
       call: [GET, POST, PUT, DELETE]
       writeDefinitions: true
+
+# The mock server's token endpoint; the Settings screen tests it without sending a call.
+auth:
+  - id: mockOauth
+    type: oauth2ClientCredentials
+    tokenUrl: ${var.mockUrl}/oauth/token
+    clientId: vc-client
+    clientSecret: vc-secret
