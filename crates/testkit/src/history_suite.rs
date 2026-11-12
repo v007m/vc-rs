@@ -1,6 +1,6 @@
 use vc_interfaces::{
-    ApiTrend, CheckRow, ExchangeRow, HistoryReader, HistoryWriter, Row, RunEnd, RunFilter, RunId, RunRef, RunStart,
-    TestRow, TestTrend, TimingRow,
+    ApiTrend, CheckRow, ExchangeRow, FindingKind, FindingRow, HistoryReader, HistoryWriter, Row, RunEnd, RunFilter,
+    RunId, RunRef, RunStart, TestRow, TestTrend, TimingRow,
 };
 use vc_model::{Keep, RunStatus, TestStatus, Totals};
 
@@ -12,6 +12,7 @@ pub fn history_writer_suite(make: &mut MakeHistory<'_>) {
     numbers_runs_upwards(make);
     stores_what_it_is_given(make);
     prunes_the_oldest_runs(make);
+    keeps_a_load_runs_findings(make);
 }
 
 /// The contract every [`HistoryReader`] meets (D112). `make` builds an empty history.
@@ -120,6 +121,41 @@ fn prunes_the_oldest_runs(make: &mut MakeHistory<'_>) {
     assert_eq!(reader.snapshot(runs[0]), Ok(None));
 }
 
+/// A breached threshold of one test and a kind of error, as a load run prints them.
+fn findings() -> Vec<FindingRow> {
+    let breach = FindingRow {
+        test_id: Some("users.crud#getsUser".into()),
+        metric: Some("p95".into()),
+        actual: Some(4.043),
+        shown: "breached users.crud#getsUser: p95 at 4.043 ms (lt 1 ms)".into(),
+        ..FindingRow::default()
+    };
+    let error = FindingRow {
+        kind: FindingKind::Error,
+        test_id: Some("users.crud#getsUser".into()),
+        api_id: Some("users#get".into()),
+        status: Some(503),
+        code: Some("V5101".into()),
+        count: Some(12),
+        shown: "errors users#get 503 V5101 × 12".into(),
+        ..FindingRow::default()
+    };
+    vec![breach, error]
+}
+
+fn keeps_a_load_runs_findings(make: &mut MakeHistory<'_>) {
+    let (writer, reader) = make();
+    let run = writer.begin(&start(&["dev"])).unwrap_or(RunId::new(0));
+    let rows = findings().into_iter().map(Row::Finding).collect();
+    assert_eq!(writer.record(run, rows), Ok(()));
+    assert_eq!(writer.finish(run, end(b"load")), Ok(()));
+    assert_eq!(reader.findings(run), Ok(findings()), "the findings are kept as given, in order");
+    let later = one_run(writer.as_ref(), &["dev"]);
+    assert_eq!(reader.findings(later), Ok(Vec::new()), "another run has none of them");
+    assert_eq!(writer.prune(Keep::Runs(1)), Ok(1));
+    assert_eq!(reader.findings(run), Ok(Vec::new()), "a pruned run's findings go with it");
+}
+
 fn knows_nothing_at_first(make: &mut MakeHistory<'_>) {
     let (_writer, reader) = make();
     assert_eq!(reader.runs(10, &RunFilter::default()), Ok(Vec::new()));
@@ -127,6 +163,7 @@ fn knows_nothing_at_first(make: &mut MakeHistory<'_>) {
     assert_eq!(reader.run(RunRef::Id(RunId::new(1))), Ok(None));
     assert_eq!(reader.tests(RunId::new(1)), Ok(Vec::new()));
     assert_eq!(reader.snapshot(RunId::new(1)), Ok(None));
+    assert_eq!(reader.findings(RunId::new(1)), Ok(Vec::new()));
 }
 
 fn lists_the_newest_runs_first(make: &mut MakeHistory<'_>) {

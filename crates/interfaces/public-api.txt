@@ -168,6 +168,22 @@ pub fn vc_interfaces::FetchError::fmt(&self, &mut core::fmt::Formatter<'_>) -> c
 impl core::fmt::Display for vc_interfaces::FetchError
 pub fn vc_interfaces::FetchError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_interfaces::FetchError
+pub enum vc_interfaces::FindingKind
+pub vc_interfaces::FindingKind::Breach
+pub vc_interfaces::FindingKind::Error
+impl vc_interfaces::FindingKind
+pub const fn vc_interfaces::FindingKind::as_str(self) -> &'static str
+impl core::clone::Clone for vc_interfaces::FindingKind
+pub fn vc_interfaces::FindingKind::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::FindingKind
+impl core::cmp::PartialEq for vc_interfaces::FindingKind
+pub fn vc_interfaces::FindingKind::eq(&self, &Self) -> bool
+impl core::default::Default for vc_interfaces::FindingKind
+pub fn vc_interfaces::FindingKind::default() -> Self
+impl core::fmt::Debug for vc_interfaces::FindingKind
+pub fn vc_interfaces::FindingKind::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for vc_interfaces::FindingKind
+impl core::marker::StructuralPartialEq for vc_interfaces::FindingKind
 #[non_exhaustive] pub enum vc_interfaces::HistoryError
 pub vc_interfaces::HistoryError::Busy
 pub vc_interfaces::HistoryError::Busy::location: alloc::string::String
@@ -396,6 +412,7 @@ pub fn vc_interfaces::ReportError::fmt(&self, &mut core::fmt::Formatter<'_>) -> 
 impl core::marker::StructuralPartialEq for vc_interfaces::ReportError
 pub enum vc_interfaces::Row
 pub vc_interfaces::Row::Exchange(vc_interfaces::ExchangeRow)
+pub vc_interfaces::Row::Finding(vc_interfaces::FindingRow)
 pub vc_interfaces::Row::Interval(vc_interfaces::IntervalRow)
 pub vc_interfaces::Row::Test(vc_interfaces::TestRow)
 impl core::clone::Clone for vc_interfaces::Row
@@ -1036,6 +1053,25 @@ pub fn vc_interfaces::Fetched::eq(&self, &Self) -> bool
 impl core::fmt::Debug for vc_interfaces::Fetched
 pub fn vc_interfaces::Fetched::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_interfaces::Fetched
+pub struct vc_interfaces::FindingRow
+pub vc_interfaces::FindingRow::actual: core::option::Option<f64>
+pub vc_interfaces::FindingRow::api_id: core::option::Option<alloc::string::String>
+pub vc_interfaces::FindingRow::code: core::option::Option<alloc::string::String>
+pub vc_interfaces::FindingRow::count: core::option::Option<u64>
+pub vc_interfaces::FindingRow::kind: vc_interfaces::FindingKind
+pub vc_interfaces::FindingRow::metric: core::option::Option<alloc::string::String>
+pub vc_interfaces::FindingRow::shown: alloc::string::String
+pub vc_interfaces::FindingRow::status: core::option::Option<u16>
+pub vc_interfaces::FindingRow::test_id: core::option::Option<alloc::string::String>
+impl core::clone::Clone for vc_interfaces::FindingRow
+pub fn vc_interfaces::FindingRow::clone(&self) -> Self
+impl core::cmp::PartialEq for vc_interfaces::FindingRow
+pub fn vc_interfaces::FindingRow::eq(&self, &Self) -> bool
+impl core::default::Default for vc_interfaces::FindingRow
+pub fn vc_interfaces::FindingRow::default() -> Self
+impl core::fmt::Debug for vc_interfaces::FindingRow
+pub fn vc_interfaces::FindingRow::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::FindingRow
 #[non_exhaustive] pub struct vc_interfaces::HookCall
 pub vc_interfaces::HookCall::budget: vc_interfaces::Budget
 pub vc_interfaces::HookCall::hook: vc_model::defs::HookRef
@@ -1601,6 +1637,7 @@ pub trait vc_interfaces::FileWatcher: core::marker::Send + core::marker::Sync
 pub fn vc_interfaces::FileWatcher::watch(&self, &vc_interfaces::SourceFilter) -> core::result::Result<std::sync::mpsc::Receiver<alloc::vec::Vec<vc_model::source::SourcePath>>, vc_interfaces::WatchError>
 pub trait vc_interfaces::HistoryReader: core::marker::Send + core::marker::Sync
 pub fn vc_interfaces::HistoryReader::api_trends(&self, usize, &vc_interfaces::RunFilter) -> core::result::Result<alloc::vec::Vec<vc_interfaces::ApiTrend>, vc_interfaces::HistoryError>
+pub fn vc_interfaces::HistoryReader::findings(&self, vc_interfaces::RunId) -> core::result::Result<alloc::vec::Vec<vc_interfaces::FindingRow>, vc_interfaces::HistoryError>
 pub fn vc_interfaces::HistoryReader::run(&self, vc_interfaces::RunRef) -> core::result::Result<core::option::Option<vc_interfaces::RunRow>, vc_interfaces::HistoryError>
 pub fn vc_interfaces::HistoryReader::runs(&self, usize, &vc_interfaces::RunFilter) -> core::result::Result<alloc::vec::Vec<vc_interfaces::RunRow>, vc_interfaces::HistoryError>
 pub fn vc_interfaces::HistoryReader::snapshot(&self, vc_interfaces::RunId) -> core::result::Result<core::option::Option<alloc::vec::Vec<u8>>, vc_interfaces::HistoryError>

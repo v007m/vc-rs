@@ -7,7 +7,7 @@ use std::fmt;
 
 use vc_model::{Keep, RunStatus, Totals};
 
-use crate::{ApiTrend, ExchangeRow, RunFilter, TestRow, TestTrend};
+use crate::{ApiTrend, ExchangeRow, FindingRow, RunFilter, TestRow, TestTrend};
 
 /// Stores runs as they happen.
 ///
@@ -93,6 +93,14 @@ pub trait HistoryReader: Send + Sync {
     ///
     /// [`HistoryError`] when the store cannot be read.
     fn api_trends(&self, window: usize, filter: &RunFilter) -> Result<Vec<ApiTrend>, HistoryError>;
+
+    /// What load run `run` found (D322): its breaches, then its errors, in the order it
+    /// printed them; empty for any other run.
+    ///
+    /// # Errors
+    ///
+    /// [`HistoryError`] when the store cannot be read.
+    fn findings(&self, run: RunId) -> Result<Vec<FindingRow>, HistoryError>;
 }
 
 /// A stored run's number: 483, shown as `483` and used in `.vibranium/reports/483/`.
@@ -220,6 +228,8 @@ pub enum Row {
     Exchange(ExchangeRow),
     /// One second of one test of a load run.
     Interval(IntervalRow),
+    /// A threshold a load run breached or a kind of error it hit.
+    Finding(FindingRow),
 }
 
 /// One second of one test of a load run: its iterations and their latencies.

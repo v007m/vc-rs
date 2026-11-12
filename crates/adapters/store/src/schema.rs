@@ -10,7 +10,7 @@ use crate::codec::{Location, now_ms};
 const BUSY_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// The schema, one numbered step per entry; a step never changes once released.
-const MIGRATIONS: &[&str] = &[
+pub(crate) const MIGRATIONS: &[&str] = &[
     r"
 CREATE TABLE runs (
   id INTEGER PRIMARY KEY, started_at INTEGER NOT NULL, finished_at INTEGER,
@@ -68,7 +68,20 @@ CREATE TABLE approval_rules (
 ",
     "ALTER TABLE runs ADD COLUMN allowed_failures INTEGER;",
     "ALTER TABLE test_results ADD COLUMN label TEXT;",
+    r"
+CREATE TABLE load_findings (
+  id INTEGER PRIMARY KEY, run_id INTEGER NOT NULL REFERENCES runs(id) ON DELETE CASCADE,
+  kind TEXT NOT NULL CHECK (kind IN ('breach', 'error')), test_id TEXT, api_id TEXT, metric TEXT,
+  status INTEGER, code TEXT, count INTEGER, actual REAL, shown TEXT NOT NULL
+);
+CREATE INDEX load_findings_by_run ON load_findings(run_id);
+",
 ];
+
+/// What a file without `load_findings` (D322) reads in its place: the same columns, no rows.
+const NO_FINDINGS: &str = "CREATE TEMP VIEW load_findings AS SELECT NULL AS id, NULL AS run_id, NULL AS kind,
+  NULL AS test_id, NULL AS api_id, NULL AS metric, NULL AS status, NULL AS code, NULL AS count, NULL AS actual,
+  NULL AS shown WHERE 0";
 
 /// Why a file could not be opened: before its migrations, or while applying them.
 pub enum OpenError {
@@ -131,9 +144,18 @@ pub fn open_for_reading(path: &Path) -> Result<Option<Connection>, HistoryError>
 }
 
 /// Shadows each table that lacks a column a later step added (`runs.allowed_failures`, D248;
-/// `test_results.label`, D316) with a temporary view that adds it as `NULL`, so the reader's
-/// columns hold for a file not brought up to date.
+/// `test_results.label`, D316) with a temporary view that adds it as `NULL`, and a missing
+/// `load_findings` table with an empty view, so the reader's queries hold for a file not
+/// brought up to date.
 fn older_columns(connection: &Connection) -> rusqlite::Result<()> {
+    let has_findings: bool = connection.query_row(
+        "SELECT EXISTS (SELECT 1 FROM sqlite_master WHERE name = 'load_findings')",
+        [],
+        |row| row.get(0),
+    )?;
+    if !has_findings {
+        connection.execute_batch(NO_FINDINGS)?;
+    }
     for (table, column) in [("runs", "allowed_failures"), ("test_results", "label")] {
         let has: bool = connection.query_row(
             "SELECT EXISTS (SELECT 1 FROM pragma_table_info(?1) WHERE name = ?2)",
@@ -261,6 +283,10 @@ mod tests {
             })
             .unwrap();
         assert_eq!(column, 1);
+        let findings: u64 = connection
+            .query_row("SELECT COUNT(*) FROM sqlite_master WHERE name = 'load_findings'", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(findings, 1);
     }
 
     #[test]
@@ -322,6 +348,8 @@ mod tests {
         assert_eq!(applied(&connection).unwrap(), 2);
         assert_eq!(allowed_failures(&connection), None);
         assert_eq!(label(&connection), None);
+        let findings: i64 = connection.query_row("SELECT COUNT(*) FROM load_findings", [], |row| row.get(0)).unwrap();
+        assert_eq!(findings, 0);
         let passed: i64 = connection.query_row("SELECT passed FROM runs", [], |row| row.get(0)).unwrap();
         assert_eq!(passed, 3);
     }

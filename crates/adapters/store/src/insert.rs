@@ -1,5 +1,5 @@
 use rusqlite::{Connection, Transaction};
-use vc_interfaces::{CheckRow, ExchangeRow, IntervalRow, Row, RunEnd, RunId, RunStart, TestRow};
+use vc_interfaces::{CheckRow, ExchangeRow, FindingRow, IntervalRow, Row, RunEnd, RunId, RunStart, TestRow};
 use vc_model::Keep;
 
 use crate::codec::{compress, json, run_status_text, test_status_text};
@@ -38,6 +38,7 @@ pub fn rows(transaction: &Transaction<'_>, run: RunId, rows: &[Row]) -> rusqlite
             Row::Test(test) => self::test(transaction, run, test)?,
             Row::Exchange(exchange) => self::exchange(transaction, Owner { run, test: None }, exchange)?,
             Row::Interval(interval) => self::interval(transaction, run, interval)?,
+            Row::Finding(finding) => self::finding(transaction, run, finding)?,
         }
     }
     Ok(())
@@ -112,6 +113,27 @@ fn interval(transaction: &Transaction<'_>, run: RunId, interval: &IntervalRow) -
             interval.count.cast_signed(),
             interval.errors.cast_signed(),
             &interval.histogram,
+        ))
+        .map(drop)
+}
+
+fn finding(transaction: &Transaction<'_>, run: RunId, finding: &FindingRow) -> rusqlite::Result<()> {
+    transaction
+        .prepare_cached(
+            "INSERT INTO load_findings (run_id, kind, test_id, api_id, metric, status, code, count, actual, shown)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+        )?
+        .execute((
+            run.get(),
+            finding.kind.as_str(),
+            &finding.test_id,
+            &finding.api_id,
+            &finding.metric,
+            finding.status,
+            &finding.code,
+            finding.count.map(u64::cast_signed),
+            finding.actual,
+            &finding.shown,
         ))
         .map(drop)
 }

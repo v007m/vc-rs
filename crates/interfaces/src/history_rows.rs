@@ -113,3 +113,55 @@ pub struct TimingRow {
     /// All of it.
     pub total_ms: f64,
 }
+
+/// What a load run found: a threshold it breached or a kind of error it hit (D322).
+#[derive(Clone, Debug, Default, PartialEq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "history row built and read across crates; every user is in this repo (D160)"
+)]
+pub struct FindingRow {
+    /// A breach or an error.
+    pub kind: FindingKind,
+    /// The test it belongs to, when it belongs to one.
+    pub test_id: Option<String>,
+    /// The api an error came from, when it came from one.
+    pub api_id: Option<String>,
+    /// A breached threshold's metric: `p95`, `errorRate`.
+    pub metric: Option<String>,
+    /// An error's response status, when it had a response.
+    pub status: Option<u16>,
+    /// An error's diagnostic code, when it had one.
+    pub code: Option<String>,
+    /// How many times an error happened.
+    pub count: Option<u64>,
+    /// A breached metric's value, in its unit.
+    pub actual: Option<f64>,
+    /// The line the run printed for it, masked; never a raw value.
+    pub shown: String,
+}
+
+/// Whether a [`FindingRow`] is a breached threshold or a kind of error.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_enums,
+    reason = "history row built and read across crates; every user is in this repo (D160)"
+)]
+pub enum FindingKind {
+    /// A threshold the run breached.
+    #[default]
+    Breach,
+    /// A kind of error, counted.
+    Error,
+}
+
+impl FindingKind {
+    /// How the store writes it: `breach` or `error`.
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Breach => "breach",
+            Self::Error => "error",
+        }
+    }
+}
