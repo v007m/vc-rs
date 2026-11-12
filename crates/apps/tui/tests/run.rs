@@ -169,33 +169,23 @@ async fn a_finished_runs_notices_are_shown_on_the_status_line() {
 
 #[tokio::test]
 async fn tests_skipped_at_run_time_count_as_finished() {
-    let mut tui = tui();
-    let ask = press(&mut tui, &[KeyCode::Char('a')]);
-    for mut item in feed_of(&engine().unwrap(), ask).await.unwrap() {
-        if let RunFeed::Event(Sequenced { event: Event::TestFinished { result, .. }, .. }) = &mut item
-            && result.instance.is_some()
-        {
-            result.status = TestStatus::Skipped;
-        }
-        if !matches!(item, RunFeed::Done(_)) {
-            tui.update(&Update::Run(item));
-        }
-    }
-    let status = screen(&tui, SIZE).lines().nth(1).unwrap_or_default().to_owned();
-    let counts = status.split_whitespace().nth(1).unwrap_or_default();
-    let (finished, planned) = counts.split_once('/').unwrap_or_default();
-    assert!(status.starts_with("running ") && planned != "0" && finished == planned, "{status}");
+    every_test_ending_as_counts_as_finished(TestStatus::Skipped).await;
 }
 
 #[tokio::test]
 async fn allowed_failures_count_as_finished() {
+    every_test_ending_as_counts_as_finished(TestStatus::AllowedFailure).await;
+}
+
+/// A run whose every test ends as `status` shows each one as finished while it is running.
+async fn every_test_ending_as_counts_as_finished(status: TestStatus) {
     let mut tui = tui();
     let ask = press(&mut tui, &[KeyCode::Char('a')]);
     for mut item in feed_of(&engine().unwrap(), ask).await.unwrap() {
         if let RunFeed::Event(Sequenced { event: Event::TestFinished { result, .. }, .. }) = &mut item
             && result.instance.is_some()
         {
-            result.status = TestStatus::AllowedFailure;
+            result.status = status;
         }
         if !matches!(item, RunFeed::Done(_)) {
             tui.update(&Update::Run(item));
