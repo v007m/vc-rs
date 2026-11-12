@@ -155,8 +155,9 @@ impl Engine {
     }
 
     /// Fetches through the project's sources only: a pasted spec's `$ref`s never reach the
-    /// network, so the web UI cannot be made to fetch from the server's side.
-    fn pasted_fetcher(&self) -> Arc<ProjectFetcher> {
+    /// network, so the web UI cannot be made to fetch from the server's side. Coverage decodes
+    /// the spec snapshots with it.
+    pub(crate) fn pasted_fetcher(&self) -> Arc<ProjectFetcher> {
         Arc::new(ProjectFetcher { sources: Arc::clone(&self.sources), transport: None })
     }
 }

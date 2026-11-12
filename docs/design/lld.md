@@ -1219,6 +1219,7 @@ Every interface is a thin adapter over the `engine` facade, so a capability adde
 | `Import(source)` / `Sync(files, mode)` | Import drafts and sync, with previews | CLI, TUI, web |
 | `TestAuth(auth, profile)` / `CheckSecrets(profile)` | Obtain an auth's credentials through the token cache, without a call, and name them; secret status without values | Settings |
 | `History(query)` / `Report(run, format)` | Query stored runs; write a report | all |
+| `Coverage()` | `Engine::coverage` (`coverage.rs`, RPC `ApiCoverage`): each api with the tests that call it (a static count, skipped and `only`-filtered ones included) and its documented statuses, those its own `expect`, its callers' `expect`s and its `openapi/<fileId>.yaml` snapshot's `responses` name, then each snapshot operation no api links to by `operationId`. The snapshot is read from the project's sources and decoded by a fetcher with no transport, never the network; a missing snapshot of an api file with a `source`, or one that cannot be read, is a note and adds no rows (D300, D301) | Insights |
 | `Approvals.List/Decide` | Pending agent requests and decisions | web UI, `vc approvals` |
 
 ### CLI (`apps/cli`)
