@@ -88,10 +88,14 @@ pub fn strip(id: SourceFileId, source: &SourceFile) -> (Option<Script>, Diagnost
     (Some(Script { module, exports, stars, imports }), Diagnostics::new())
 }
 
-/// `source` as written, numbered `id`, for a build without oxc: its exports are not known and
-/// nothing it imports is followed, but a reference to it still finds it.
+/// A build without oxc keeps a hook file as written.
 #[cfg(not(feature = "hooks"))]
-pub fn strip(_id: SourceFileId, source: &SourceFile) -> (Option<Script>, Diagnostics) {
+pub use kept as strip;
+
+/// `source` as written, for a build without oxc: its exports are not known and nothing it
+/// imports is followed, but a reference to it still finds it. Tests build it with oxc too.
+#[cfg(any(test, not(feature = "hooks")))]
+pub fn kept(_id: SourceFileId, source: &SourceFile) -> (Option<Script>, Diagnostics) {
     let lines = (1..=source.text.lines().count()).map(|line| u32::try_from(line).unwrap_or(u32::MAX)).collect();
     let module = HookModule { js: source.text.clone(), lines };
     (Some(Script { module, exports: Vec::new(), stars: true, imports: Vec::new() }), Diagnostics::new())
@@ -256,8 +260,7 @@ fn position(text: &str, offset: usize) -> Pos {
 mod tests;
 
 #[cfg(test)]
-#[cfg(not(feature = "hooks"))]
-mod tests {
+mod kept_tests {
     use vc_model::{ContentHash, SourceFile, SourceFileId, SourcePath};
 
     /// Without oxc a hook file is kept line for line, and a reference to any export finds it.
@@ -266,7 +269,7 @@ mod tests {
         let text = "export function ping(): number {\n  return 1;\n}\n".to_owned();
         let path = SourcePath::new("hooks/ping.ts").unwrap();
         let file = SourceFile { path, text: text.clone(), hash: ContentHash::new([0; 32]) };
-        let (script, diagnostics) = super::strip(SourceFileId::new(1), &file);
+        let (script, diagnostics) = super::kept(SourceFileId::new(1), &file);
         let script = script.unwrap();
         assert!(diagnostics.is_empty() && script.stars && script.exports.is_empty() && script.imports.is_empty());
         assert_eq!((script.module.js, script.module.lines), (text, vec![1, 2, 3]));
