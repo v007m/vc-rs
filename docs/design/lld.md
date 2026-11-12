@@ -939,7 +939,7 @@ The hook thread owns one QuickJS runtime with a context per hook module, created
 
 Measured in the spike: 4.2 MB added to the binary, 3.2 ms to the first call, about 20 µs for a `beforeRequest` call and 36 µs for a custom check. JSON conversion is most of that cost, so inputs are kept small (bodies are passed lazily through a `body()` accessor). One thread serves all hooks; under load, `hooks.threads` can start more (each with its own runtime) and requests are spread across them.
 
-Known limit from the spike: a single long built-in call, such as a pathological regular expression, can run past the time budget before the interrupt is checked. The budget is enforced again from outside by a watchdog that, if a call overruns by more than 1 second, timed from when the hook thread takes the call up (so starting a fresh runtime or waiting to be scheduled is not held against it), marks the hook thread unusable, fails the call, and starts a fresh thread.
+Known limit from the spike: a single long built-in call, such as a pathological regular expression, can run past the time budget before the interrupt is checked. The budget is enforced again from outside by a watchdog that, if a call overruns by more than 1 second, timed from when the hook thread takes the call up (so starting a fresh runtime or waiting to be scheduled is not held against it), marks the hook thread unusable, fails the call, and starts a fresh thread. A thread that has not taken a call up within 10 seconds is treated the same way, so a runtime that never starts fails the call (V5116) instead of hanging the run.
 
 ## Results, history store, cache store and reports
 
