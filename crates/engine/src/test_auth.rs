@@ -121,13 +121,16 @@ fn probe_call(program: &mut Arc<Program>, request: &TestAuthRequest, profiles: S
     Ok(Probe { api: id.clone(), target, senders: pushed_all(program, users)?, profiles })
 }
 
+/// The origin a call sends to, or why its URL does not render.
+type Origin = Result<String, Failure>;
+
 /// The call to obtain the credentials through: the first sender, or, for a named api that does
 /// not use the auth, the first sender on the api's origin, so the auth renders in the scope of a
 /// call a run makes and a test never takes credentials to a host a run would not send them to.
 async fn sender(cx: &Arc<ActionCx>, probe: &Probe, auth: &str) -> Result<ActionId, EngineError> {
     let first = probe.senders.first().copied().ok_or_else(|| unused(auth))?;
     let Some(target) = probe.target else { return Ok(first) };
-    let origins: Vec<(ActionId, Result<String, Failure>)> =
+    let origins: Vec<(ActionId, Origin)> =
         probe.senders.iter().map(|&sender| (sender, probe_origin(&ActionRequest::run(cx, sender)))).collect();
     let wanted = probe_origin(&ActionRequest::run(cx, target));
     if let Ok(origin) = &wanted
@@ -135,7 +138,7 @@ async fn sender(cx: &Arc<ActionCx>, probe: &Probe, auth: &str) -> Result<ActionI
     {
         return Ok(*found);
     }
-    let rendered: Vec<Result<String, Failure>> = origins.into_iter().map(|(_, origin)| origin).collect();
+    let rendered: Vec<Origin> = origins.into_iter().map(|(_, origin)| origin).collect();
     let (reason, help) = refusal((probe, auth), &wanted, &rendered);
     Err(EngineError::Selection {
         reason: cx.redactor.masked_text(&reason).await,
@@ -145,11 +148,7 @@ async fn sender(cx: &Arc<ActionCx>, probe: &Probe, auth: &str) -> Result<ActionI
 
 /// Why the named api is not given `auth`, and what to do: name an api on a sender's origin, or,
 /// when no sender's URL renders, the profile and the reason.
-fn refusal(
-    (probe, auth): (&Probe, &str),
-    wanted: &Result<String, Failure>,
-    rendered: &[Result<String, Failure>],
-) -> (String, String) {
+fn refusal((probe, auth): (&Probe, &str), wanted: &Origin, rendered: &[Origin]) -> (String, String) {
     let reason = match wanted {
         Ok(origin) => format!(
             "`{}` sends to `{origin}`, where no api that uses `{auth}` sends; it is not given `{auth}`",
