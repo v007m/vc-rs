@@ -886,7 +886,7 @@ beforeEach:
 | --- | --- | --- |
 | `status` | code, list of codes, class (`2xx`), or matcher (at least one); a template such as `${example.status}` is read at run time as a written status: a code as a number or text (`201`, `"201"`), a class (`"2xx"`) or a list of them | `status: [200, 201]` |
 | `headers.<name>` | matcher; names are case-insensitive | `content-type: {contains: json}` |
-| `body.schema` | JSON Schema, usually `$file` | `schema: {$file: schemas/user.json}` |
+| `body.schema` | JSON Schema, usually `$file`; `vc check` compiles a schema written inline or in a named file as a run does, and one that is not a valid JSON Schema is V2312 (D307) | `schema: {$file: schemas/user.json}` |
 | `body.match.<path>` | matcher at a path in the body | `items[*].price: {every: {gt: 0}}` |
 | `body.equals` | the whole body, compared deeply | `equals: {"ok": true}` |
 | `size` | matcher on body size; a bare size and `eq`/`ne` are read in bytes, as `lt` is (`size: 32b`) | `size: {lt: 100kb}` |

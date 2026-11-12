@@ -1,0 +1,31 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2312_body_schema/project
+---
+error[V2312]: `body.schema` is not a valid JSON Schema: "integr" is not valid under any of the schemas listed in the 'anyOf' keyword
+ --> services/users/crud.test.yaml:9:25
+  |
+9 |             age: {type: integr}
+  |                         ^^^^^^ not a valid JSON Schema
+  = help: fix `/properties/age/type` in the schema written here
+
+error[V2312]: `body.schema` is not a valid JSON Schema: -1 is less than the minimum of 0
+  --> services/users/crud.test.yaml:17:31
+   |
+17 |           schema: {minLength: -1}
+   |                               ^^ not a valid JSON Schema
+   = help: fix `/minLength` in the schema written here
+
+error[V2312]: `body.schema` is not a valid JSON Schema: 5 is not of types "string", "array"
+  --> services/users/crud.test.yaml:32:17
+   |
+32 |         schema: {$file: ../../schemas/user.json#/definitions/broken}
+   |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ not a valid JSON Schema
+   = help: fix `/definitions/broken/type` in `schemas/user.json#/definitions/broken`
+
+error[V2312]: `body.schema` is not a valid JSON Schema: `$ref` `https://schemas.example/user.json` is outside the file, and vc never fetches one
+  --> services/users/crud.test.yaml:37:17
+   |
+37 |         schema: ../../schemas/remote.json
+   |                 ^^^^^^^^^^^^^^^^^^^^^^^^^ not a valid JSON Schema
+   = help: fix `schemas/remote.json` as a whole: a `$ref` must point into the same file, and a `$schema` must name draft-04 to 2020-12

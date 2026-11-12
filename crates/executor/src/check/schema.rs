@@ -1,22 +1,18 @@
 //! `body.schema` (D201): the JSON Schema each check names, compiled once per run from the
-//! program's schemas, and a body judged against it. The draft is the schema's `$schema` (draft-04
-//! to 2020-12), 2020-12 when it has none. Remote and file `$ref`s are never fetched.
+//! program's schemas by `vc_template::compile_schema` (the same compile `vc check` gives V2312
+//! with, D307), and a body judged against it.
 
 use std::collections::HashMap;
 use std::fmt;
 
-use indexmap::IndexMap;
-use jsonschema::{Registry, ValidationError, Validator};
-use serde_json::{Value, json};
+use serde_json::Value;
 use vc_model::{Check, CheckKind, Matcher, Part, Program, TemplateValue};
-
-/// The URI a schema file is known by while a `#/pointer` into it compiles.
-const DOCUMENT: &str = "urn:vc:schema";
+use vc_template::{SchemaValidator, compile_schema};
 
 /// Every schema the program's checks name, compiled; an entry that did not compile holds why.
 #[derive(Default)]
 pub struct Schemas {
-    by_key: HashMap<String, Result<Validator, String>>,
+    by_key: HashMap<String, Result<SchemaValidator, String>>,
 }
 
 impl fmt::Debug for Schemas {
@@ -38,7 +34,7 @@ impl Schemas {
         let mut by_key = HashMap::new();
         for key in checks.filter_map(key) {
             if !by_key.contains_key(key) {
-                by_key.insert(key.to_owned(), compiled(&program.schemas, key));
+                by_key.insert(key.to_owned(), compile_schema(&program.schemas, key).map_err(|error| error.to_string()));
             }
         }
         Self { by_key }
@@ -51,9 +47,9 @@ impl Schemas {
     ///
     /// A message when no schema was loaded for `key` or it is not a valid JSON Schema.
     pub fn check(&self, key: &str, body: &Value) -> Result<Vec<String>, String> {
-        let validator = self.by_key.get(key).ok_or_else(|| unloaded(key))?;
-        let validator = validator.as_ref().map_err(Clone::clone)?;
-        Ok(validator.iter_errors(body).map(|error| broken(&error)).collect())
+        let unloaded = || vc_template::SchemaError::Unloaded { key: key.to_owned() }.to_string();
+        let validator = self.by_key.get(key).ok_or_else(unloaded)?;
+        Ok(validator.as_ref().map_err(Clone::clone)?.breaks(body))
     }
 }
 
@@ -64,35 +60,6 @@ pub fn key(check: &Check) -> Option<&str> {
         (CheckKind::Schema, [Part::Literal(key)]) => Some(key),
         _ => None,
     }
-}
-
-/// The schema `key` names: a whole document or inline schema, or a `#/pointer` into a document.
-fn compiled(schemas: &IndexMap<String, Value>, key: &str) -> Result<Validator, String> {
-    let invalid = |error: String| format!("the schema `{key}` is not a valid JSON Schema: {error}");
-    if let Some(schema) = schemas.get(key) {
-        return jsonschema::validator_for(schema).map_err(|error| invalid(error.to_string()));
-    }
-    let (path, pointer) = key.split_once('#').ok_or_else(|| unloaded(key))?;
-    let document = schemas.get(path).ok_or_else(|| unloaded(key))?;
-    fragment(document, pointer).map_err(invalid)
-}
-
-/// The schema at `pointer` in `document`, with the document's own `$ref`s and draft kept.
-fn fragment(document: &Value, pointer: &str) -> Result<Validator, String> {
-    let registry = Registry::new().add(DOCUMENT, document).and_then(jsonschema::RegistryBuilder::prepare);
-    let registry = registry.map_err(|error| error.to_string())?;
-    let root = json!({ "$ref": format!("{DOCUMENT}#{pointer}") });
-    jsonschema::options().with_registry(&registry).build(&root).map_err(|error| error.to_string())
-}
-
-fn unloaded(key: &str) -> String {
-    format!("no schema is loaded for `{key}`")
-}
-
-/// One way the body breaks its schema, where it does; the body's own values are left out.
-fn broken(error: &ValidationError<'_>) -> String {
-    let path = error.instance_path().as_str();
-    format!("{}: {}", if path.is_empty() { "/" } else { path }, error.masked())
 }
 
 #[cfg(test)]

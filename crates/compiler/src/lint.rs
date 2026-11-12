@@ -2,6 +2,7 @@
 //! rule is a [`Lint`] in a file of its own, listed once in [`LintRegistry::builtin`].
 
 mod body_on_read;
+mod body_schemas;
 #[cfg(test)]
 mod convention_tests;
 mod default_profiles;
@@ -73,6 +74,7 @@ impl LintRegistry {
             Box::new(load_ranges::LoadRanges),
             Box::new(header_names::HeaderNames),
             Box::new(redact_rules::RedactRules),
+            Box::new(body_schemas::BodySchemas),
         ];
         Self { lints }
     }

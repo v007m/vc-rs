@@ -559,6 +559,7 @@ Round 47 (12 November 2026; orchestrator, under Sarath's delegation):
 | D299 | Exchanges outside a test in api trends | `ApiTrends` sums up every exchange a run stored, including those of shared and lifecycle actions outside any test, since each one is a call the api answered | — (fills a gap in the History api trends) |
 | D305 | Test durations | A test's duration is measured by the executor, around the instance, and carried on its result and event; reporters and the store use it and never time by when they read an event | — |
 | D306 | Varlock and the run's profile | Varlock gets the run's profile as `VC_PROFILE` in its process environment: the last profile given, unset when there is none; vc never passes `--env`. A schema selects its environment with `@currentEnv=$VC_PROFILE`. `VC_PROFILE` in `.env.schema` declares Varlock's environment flag, not a secret: vc leaves it out of the declared secrets, never loads, masks or requires it, and `${secret.VC_PROFILE}` is V2106 | — (fills a gap in D163) |
+| D307 | Invalid `body.schema` at check time | A literal `body.schema` (written inline, or a file the compile was given, with or without a `#/pointer`) that is not a valid JSON Schema is V2312 at check time, compiled by the one function a run uses (`vc_template::compile_schema`), with the JSON pointer of the keyword that breaks. The run-time V5101 stays for schemas known only at run time, such as a templated path | — (follows D201) |
 
 ## Open
 
