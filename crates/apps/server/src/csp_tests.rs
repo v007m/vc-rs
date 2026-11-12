@@ -2,6 +2,9 @@ use super::{FALLBACK, NO_HASHES, NOT_UTF8, header as sent, policy};
 
 const HASH: &str = "'sha256-CbculNcflElcZFscHVVSn37ckaTi9ym23lQrblhKGW4='";
 
+/// The hash of SvelteKit's route announcer style, which the web build lists in `style-src`.
+const ANNOUNCER: &str = "'sha256-S8qMpvofolR8Mpjy4kQvEm7m1q8clzU4dfDH0AmvZjo='";
+
 /// `index.html` as `pnpm -C web build` writes it.
 const BUILT: &str = include_str!("../tests/fixtures/index.html");
 
@@ -32,8 +35,25 @@ fn takes_the_script_hashes_of_the_built_page() {
 fn reads_the_page_the_web_build_writes() {
     let header = of(BUILT).unwrap();
     let hashes: Vec<&str> = header.split_ascii_whitespace().filter(|word| word.starts_with("'sha256-")).collect();
-    assert_eq!(hashes.len(), 1, "{header}");
-    assert!(BUILT.contains(hashes[0].trim_end_matches(';')), "{header}");
+    assert_eq!(hashes.len(), 2, "{header}");
+    for hash in hashes {
+        assert!(BUILT.contains(hash.trim_end_matches(';')), "{header}");
+    }
+    assert!(header.contains(&format!("style-src 'self' 'unsafe-hashes' {ANNOUNCER};")), "{header}");
+}
+
+#[test]
+fn allows_inline_styles_by_their_hashes_only() {
+    let html = page(&format!(
+        "script-src 'self' {HASH}; style-src 'self' 'unsafe-inline' https://evil.example data: {ANNOUNCER} 'nonce-abc'"
+    ));
+    let built = of(&html).unwrap();
+    assert!(built.contains(&format!("; style-src 'self' 'unsafe-hashes' {ANNOUNCER}; ")), "{built}");
+    for refused in ["unsafe-inline", "evil.example", "data:", "nonce"] {
+        assert!(!built.contains(refused), "{refused} reached {built}");
+    }
+    let without = page(&format!("script-src 'self' {HASH}; style-src 'self' 'unsafe-inline'"));
+    assert_eq!(of(&without), Ok(header(HASH)));
 }
 
 #[test]
