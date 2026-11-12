@@ -80,11 +80,6 @@ pub struct SchemaNames {
 }
 
 impl SchemaNames {
-    /// The declared names not marked `# @optional`.
-    pub fn required(&self) -> impl Iterator<Item = &str> {
-        self.declared.iter().map(String::as_str).filter(|name| !self.optional.iter().any(|optional| optional == name))
-    }
-
     /// Adds `name` unless it is declared already: the first line that declares a name decides
     /// whether it is optional.
     fn add(&mut self, name: &str, optional: bool) {
@@ -101,9 +96,10 @@ impl SchemaNames {
 /// The names a `.env.schema` declares.
 ///
 /// Each `NAME=` line declares one, with or without a value or an `export ` before it. `#` lines
-/// are Varlock's decorators: a name is optional when `@optional` is in the comment lines just
-/// above it (no blank line between) or in a `#` comment after its `=`, as Varlock reads it
-/// (D280). Blank lines declare nothing.
+/// are Varlock's decorators. A name is optional (D280, D303) when a comment line that is only
+/// `# @optional` is in the comment block just above it (a blank or any other line ends the
+/// block), or when the comment after its value is only `# @optional`; a `#` inside a quoted
+/// value is part of the value. Blank lines declare nothing.
 #[must_use]
 pub fn schema_names(text: &str) -> SchemaNames {
     let mut names = SchemaNames::default();
@@ -114,12 +110,22 @@ pub fn schema_names(text: &str) -> SchemaNames {
             continue;
         }
         if let Some((name, value)) = item(line) {
-            let after = value.split_once('#').is_some_and(|(_, comment)| optional(comment));
-            names.add(name, marked || after);
+            names.add(name, marked || trailing(value).is_some_and(optional));
         }
         marked = false;
     }
     names
+}
+
+/// The comment after a value, past a quoted value's closing quote: `x # c` and `"a#b" # c`
+/// give ` c`; an unclosed quote has none.
+fn trailing(value: &str) -> Option<&str> {
+    let value = value.trim_start();
+    let rest = match value.chars().next() {
+        Some(quote @ ('"' | '\'' | '`')) => value.get(1..)?.split_once(quote)?.1,
+        _ => value,
+    };
+    rest.split_once('#').map(|(_, comment)| comment)
 }
 
 /// The name and value of a `NAME=value` line, `export ` or not; none for any other line.
@@ -129,9 +135,9 @@ fn item(line: &str) -> Option<(&str, &str)> {
     is_name(name).then_some((name, value))
 }
 
-/// Whether a comment holds the `@optional` decorator (or `@optional=true`).
+/// Whether a comment's whole text is the `@optional` decorator (D303).
 fn optional(comment: &str) -> bool {
-    comment.split_whitespace().any(|word| word == "@optional" || word == "@optional=true")
+    comment.trim() == "@optional"
 }
 
 /// `text` as a secret name, upper case with `_` between words.
@@ -176,7 +182,7 @@ fn is_name(name: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{SchemaNames, SecretsConfig, schema_names, secret_name};
+    use super::{SecretsConfig, schema_names, secret_name};
 
     #[test]
     fn the_default_provider_is_env_and_declares_nothing() {
@@ -196,28 +202,56 @@ mod tests {
     }
 
     #[test]
-    fn a_name_is_optional_when_optional_is_in_the_comments_just_above_or_after_it() {
+    fn a_name_is_optional_when_a_comment_line_just_above_it_is_only_optional() {
         let text = concat!(
             "# @defaultSensitive=true\n",
             "# ---\n\n",
             "# The partner sandbox, which only some tests call.\n",
-            "# @optional @sensitive\n",
+            "#   @optional  \n",
+            "# @sensitive\n",
             "PARTNER_KEY=\n",
             "API_TOKEN=\n",
             "# @optional\n\n",
             "DB_URL=\n",
-            "WEBHOOK_URL= # @optional\n",
-            "# @optional=true\n",
-            "export TRACE_KEY=\n",
-            "# @optional=false\n",
+            "# @optional\n",
+            "OTHER=1\n",
             "AUDIT_KEY=\n",
-            "API_TOKEN= # @optional\n",
+            "# @optional\n",
+            "export TRACE_KEY=\n",
         );
         let names = schema_names(text);
-        assert_eq!(names.declared, ["PARTNER_KEY", "API_TOKEN", "DB_URL", "WEBHOOK_URL", "TRACE_KEY", "AUDIT_KEY"]);
-        assert_eq!(names.optional, ["PARTNER_KEY", "WEBHOOK_URL", "TRACE_KEY"], "a blank line ends a comment's reach");
-        assert_eq!(names.required().collect::<Vec<_>>(), ["API_TOKEN", "DB_URL", "AUDIT_KEY"]);
-        assert_eq!(SchemaNames::default().required().count(), 0);
+        assert_eq!(names.declared, ["PARTNER_KEY", "API_TOKEN", "DB_URL", "OTHER", "AUDIT_KEY", "TRACE_KEY"]);
+        assert_eq!(names.optional, ["PARTNER_KEY", "OTHER", "TRACE_KEY"], "a blank or other line ends the block");
+    }
+
+    #[test]
+    fn a_comment_that_only_mentions_optional_marks_nothing() {
+        let text = concat!(
+            "# not @optional in prod\n",
+            "PROSE_KEY=\n",
+            "# @optional @sensitive\n",
+            "TWO_KEY=\n",
+            "# @optional=true\n",
+            "FLAG_KEY=\n",
+            "TAIL_KEY= # see @optional docs\n",
+        );
+        assert!(schema_names(text).optional.is_empty(), "{:?}", schema_names(text));
+    }
+
+    #[test]
+    fn a_trailing_comment_that_is_only_optional_marks_its_name_and_quotes_hold_hashes() {
+        let text = concat!(
+            "WEBHOOK_URL= # @optional\n",
+            "BARE_KEY=abc #@optional\n",
+            "QUOTED_KEY=\"abc#x @optional\"\n",
+            "SINGLE_KEY='a # @optional'\n",
+            "AFTER_QUOTE=\"a#b\" # @optional\n",
+            "UNCLOSED=\"abc # @optional\n",
+            "GLUED=abc#x @optional\n",
+        );
+        let names = schema_names(text);
+        assert_eq!(names.optional, ["WEBHOOK_URL", "BARE_KEY", "AFTER_QUOTE"]);
+        assert_eq!(names.declared.len(), 7);
     }
 
     #[test]
