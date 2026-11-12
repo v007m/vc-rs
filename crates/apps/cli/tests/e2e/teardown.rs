@@ -1,5 +1,5 @@
 //! A secret a failing `afterAll` or `afterRun` quotes shows masked in the json summary, the
-//! CTRF, JUnit and HTML reports and the history, and an `on: failure` alert fires for the run
+//! CTRF, `JUnit` and HTML reports and the history, and an `on: failure` alert fires for the run
 //! whose tests all passed, naming the blocks, with no part of the secret in any channel's
 //! payload (D304, D308).
 
