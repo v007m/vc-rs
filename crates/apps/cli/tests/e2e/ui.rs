@@ -11,6 +11,8 @@ fn a_build_without_the_web_ui_refuses_with_exit_2() {
     let output = project.vc(&["ui", "--no-open"]).output().unwrap();
     assert_eq!(output.status.code(), Some(2), "{}", crate::said(&output));
     assert!(String::from_utf8_lossy(&output.stderr).contains("built without UI"), "{}", crate::said(&output));
+    let install = "help: install vc with the UI from a clone: https://v007m.github.io/vc-rs/start/install/";
+    assert!(String::from_utf8_lossy(&output.stderr).contains(install), "{}", crate::said(&output));
 }
 
 #[cfg(all(feature = "web-ui", unix))]

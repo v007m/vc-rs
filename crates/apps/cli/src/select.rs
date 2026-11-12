@@ -30,7 +30,7 @@ pub struct SelectArgs {
     #[arg(long, value_name = "REF", num_args = 0..=1, default_missing_value = "")]
     changed: Option<String>,
     /// Only files a commit in this window touched (`12h`, `7d`, `2w`), or that are uncommitted
-    /// or untracked (D249).
+    /// or untracked.
     #[arg(long, value_name = "DURATION", value_parser = window, conflicts_with = "changed")]
     changed_since: Option<Duration>,
     /// Also plans the tests marked `skip`.
@@ -90,7 +90,7 @@ pub struct PlanArgs {
     #[arg(long = "profile", value_name = "IDS")]
     profiles: Vec<String>,
     /// Sets one config value for this run (`defaults.timeout=5s`, `vars.userId=7`), over
-    /// every other config layer (D129); a file's, test's or step's own `vars` still win over a
+    /// every other config layer; a file's, test's or step's own `vars` still win over a
     /// config var.
     #[arg(long = "set", value_name = "KEY=VALUE")]
     sets: Vec<String>,

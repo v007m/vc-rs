@@ -29,7 +29,7 @@ pub struct UiArgs {
 #[cfg(not(feature = "web-ui"))]
 #[expect(clippy::unnecessary_wraps, reason = "the same signature as the web-ui build's `run`")]
 pub fn run(_args: &UiArgs, _project: Option<&Path>) -> anyhow::Result<Outcome> {
-    let help = "build vc with `pnpm -C web build`, then `cargo build -p vc-cli --features web-ui`";
+    let help = "install vc with the UI from a clone: https://v007m.github.io/vc-rs/start/install/";
     Ok(Outcome::Helped("this vc was built without UI".to_owned(), Some(help.to_owned())))
 }
 
