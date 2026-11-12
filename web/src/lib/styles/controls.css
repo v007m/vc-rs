@@ -47,10 +47,10 @@
 .btn.primary {
   background: var(--ink);
   border-color: var(--ink);
-  color: #fff;
+  color: var(--panel);
 }
 .btn.primary:hover {
-  background: #2d2945;
+  background: var(--inkHover);
 }
 .btn.sm {
   height: 28px;

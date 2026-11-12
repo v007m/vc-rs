@@ -1,21 +1,25 @@
 //! System adapter: discovery and files, clock, environment, commands, git and config sources.
 //!
-//! So far it finds the project ([`find_project_root`]), reads its definition files
-//! ([`FsSources`], a `SourceProvider`) and keeps the compile cache at
-//! `.vibranium/cache/compile.bin` ([`FsCompileCache`], a `CompileCacheStore`) (D132, D133). It
-//! gives a snapshot of the process environment ([`SystemEnvironment`], an `Environment`) and today's date in UTC
-//! ([`SystemClock`], a `Clock`). The config layers around the project's files are
-//! [`UserConfig`] below them and [`DotEnv`], [`VibVars`] and [`SetFlags`] above them, each a
-//! `ConfigSource` (D129, D182). [`ProcessRunner`] runs a program with its arguments as a list,
-//! never through a shell of its own (a `CommandRunner`), keeping the tail of each output stream
-//! and ending the whole process group on a timeout (D181); [`SystemBrowser`] opens a sign-in
-//! URL with `open` or `xdg-open` through it (a `Browser`). [`NotifyWatcher`] reports the
-//! project files saved, in batches 200 ms apart, for `vc watch` (a `FileWatcher`, D180, D190).
-//! Nothing here reads or writes outside the project root but the user config: links that lead
-//! out of it are reported, not followed.
-//!
 //! Without the default `host` feature only [`SystemClock`] is built: the docs playground
 //! (`vc-browser`, D293) uses it in WebAssembly, where the rest has no host to run on.
+#![cfg_attr(
+    feature = "host",
+    doc = r"
+With `host` it finds the project ([`find_project_root`]), reads its definition files
+([`FsSources`], a `SourceProvider`) and keeps the compile cache at
+`.vibranium/cache/compile.bin` ([`FsCompileCache`], a `CompileCacheStore`) (D132, D133). It
+gives a snapshot of the process environment ([`SystemEnvironment`], an `Environment`) and today's date in UTC
+([`SystemClock`], a `Clock`). The config layers around the project's files are
+[`UserConfig`] below them and [`DotEnv`], [`VibVars`] and [`SetFlags`] above them, each a
+`ConfigSource` (D129, D182). [`ProcessRunner`] runs a program with its arguments as a list,
+never through a shell of its own (a `CommandRunner`), keeping the tail of each output stream
+and ending the whole process group on a timeout (D181); [`SystemBrowser`] opens a sign-in
+URL with `open` or `xdg-open` through it (a `Browser`). [`NotifyWatcher`] reports the
+project files saved, in batches 200 ms apart, for `vc watch` (a `FileWatcher`, D180, D190).
+Nothing here reads or writes outside the project root but the user config: links that lead
+out of it are reported, not followed.
+"
+)]
 
 /// Builds each item only with the `host` feature.
 macro_rules! host {

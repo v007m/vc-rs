@@ -1,12 +1,14 @@
 /* Design tokens, from design/mockups/canvas/vib-web2.css. The mockups define only a light theme;
-   a dark theme is parked for Sarath and would be one more block below that redefines these names. */
+   the dark one below redefines the same names, for a system set to dark. */
 :root {
+  color-scheme: light;
   --bg1: #e4defa;
   --bg2: #efe4f3;
   --bg3: #f9e5d8;
   --ink: #1b1830;
   --ink2: #4f4b66;
   --ink3: #67637d;
+  --inkHover: #2d2945;
   --line: #ece9f2;
   --line2: #dedae8;
   --hover: rgba(255, 255, 255, 0.55);
@@ -32,4 +34,39 @@
   --shadow: 0 1px 2px rgba(27, 24, 48, 0.06), 0 12px 32px rgba(27, 24, 48, 0.11);
   --font: 'Geist', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --mono: 'Geist Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --bg1: #18152b;
+    --bg2: #1c1626;
+    --bg3: #221a1d;
+    --ink: #ece9f8;
+    --ink2: #b9b4cf;
+    --ink3: #9d98b4;
+    --inkHover: #cfcae3;
+    --line: #2d2942;
+    --line2: #3b3654;
+    --hover: rgba(255, 255, 255, 0.06);
+    --on: rgba(255, 255, 255, 0.11);
+    --panel: #1f1c31;
+    --panel2: #25223a;
+    --panel3: #2b2843;
+    --accent: #8b7bff;
+    --accentInk: #b9afff;
+    --accentSoft: #2b2654;
+    --accentMid: #4b409c;
+    --pass: #5cc995;
+    --passSoft: #173326;
+    --fail: #ff8a80;
+    --failSoft: #3d1d1f;
+    --block: #e5a74b;
+    --blockSoft: #382a12;
+    --skip: #b9b4cf;
+    --skipSoft: #2b2840;
+    --flaky: #82abff;
+    --flakySoft: #1a2742;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 12px 32px rgba(0, 0, 0, 0.45);
+  }
 }

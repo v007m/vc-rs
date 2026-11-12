@@ -230,22 +230,25 @@ fn configured<'n>(node: &'n Node, roots: &[SourcePath]) -> Configured<'n> {
     let (Some(id), Some(file)) = (project::text(node, "id"), node.get("file")) else { return Ok(None) };
     let Some(written) = file.as_str() else { return Ok(None) };
     let Ok(path) = SourcePath::data(written) else {
-        return Err(unreadable(file, format!("the dataset file `{written}` is not a relative path to a file")));
+        return Err(Box::new(unreadable(
+            file,
+            format!("the dataset file `{written}` is not a relative path to a file"),
+        )));
     };
     let under =
         |root: &&SourcePath| path.as_str().strip_prefix(root.as_str()).is_some_and(|rest| rest.starts_with('/'));
     let root = roots.iter().find(under).cloned().filter(|_| path.is_outside());
     if path.is_outside() && root.is_none() {
-        return Err(unreadable(file, format!("the dataset file `{written}` is outside the project")));
+        return Err(Box::new(unreadable(file, format!("the dataset file `{written}` is outside the project"))));
     }
     Ok(Some((id, Set { path: path.to_string(), root })))
 }
 
 /// V1012 at a `datasets.files` path.
-fn unreadable(file: &Node, message: String) -> Box<Diagnostic> {
+fn unreadable(file: &Node, message: String) -> Diagnostic {
     let diagnostic = Diagnostic::new(Code::V1012, file.span, message).label("not under the project or an allowed root");
     let help = "paths are relative to the project root; add a folder outside it to `datasets.allowRoots`";
-    Box::new(diagnostic.help(help))
+    diagnostic.help(help)
 }
 
 #[cfg(test)]

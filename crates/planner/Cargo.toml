@@ -21,7 +21,7 @@ vc-model.workspace = true
 indexmap.workspace = true
 insta.workspace = true
 proptest.workspace = true
-vc-compiler.workspace = true
+vc-compiler = { workspace = true, features = ["hooks"] }
 
 [lints]
 workspace = true
