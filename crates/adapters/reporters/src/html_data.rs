@@ -44,8 +44,8 @@ fn files(snapshot: &RunSnapshot) -> Vec<String> {
     files
 }
 
-/// The run, its totals, lifecycle and failed teardown blocks (D304), and its files; a profile or file with a `name` is shown
-/// with it: `dev "Local dev"`, `users.crud — Users CRUD`.
+/// The run, its totals, lifecycle and failed teardown blocks (D304), and its files; a profile
+/// or file with a `name` is shown with it: `dev "Local dev"`, `users.crud — Users CRUD`.
 fn summary(snapshot: &RunSnapshot, files: &[String]) -> Value {
     let run = &snapshot.run;
     let titled =

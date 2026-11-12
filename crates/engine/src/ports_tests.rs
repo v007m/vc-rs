@@ -137,3 +137,89 @@ fn a_fresh_seed_fits_a_javascript_number_and_a_given_one_is_kept() {
     }
     assert_eq!(super::random(Some(u64::MAX)).0, u64::MAX, "`--seed` is used as given");
 }
+
+#[tokio::test]
+async fn a_blank_secret_is_unset_whether_required_or_optional() {
+    let (engine, sent) = project(&[("API_TOKEN", "  "), ("OTHER_KEY", OTHER)]);
+    let shown = refusal(&engine.run(&RunRequest::default(), interrupts().1).await.unwrap_err());
+    assert!(shown.starts_with("secrets: V5114: the declared secret `API_TOKEN` has no value"), "{shown}");
+    assert_eq!(sent.load(Ordering::SeqCst), 0, "a blank required secret refuses the run");
+    let blank = [("API_TOKEN", TOKEN), ("OTHER_KEY", " ")];
+    let (engine, sent) = project_of(&[CONFIG, LISTED, BOTH, OPTIONAL], &blank);
+    let report = engine.run(&RunRequest::default(), interrupts().1).await.unwrap();
+    assert_eq!((report.exit, sent.load(Ordering::SeqCst)), (1, 1), "listsUsers reads it and fails (V5114)");
+    let report = engine.run(&selected(&["users.crud#getsUser"]), interrupts().1).await.unwrap();
+    assert_eq!((report.exit, sent.load(Ordering::SeqCst)), (0, 2), "a run that does not read it passes");
+}
+
+/// A config whose `beforeRun` sends a request, so a refusal is seen to come before it.
+const WARMED: (&str, &[u8]) = (
+    "vibranium.config.yaml",
+    b"syntaxVersion: 2
+profiles:
+  - id: dev
+    default: true
+vars: {baseUrl: 'http://x'}
+beforeRun:
+  - id: warm
+    call: users#get
+",
+);
+/// The users api with `signed`, whose `beforeRequest` hook may read any secret.
+const SIGNED: (&str, &[u8]) = (
+    "services/users/users.api.yaml",
+    b"baseUrl: ${var.baseUrl}
+apis:
+  - id: get
+    path: /users/1
+  - id: signed
+    path: /signed
+    beforeRequest:
+      - function: ../../hooks/sign.ts#sign
+",
+);
+const SIGNS: (&str, &[u8]) = (
+    "services/users/crud.test.yaml",
+    b"tests:\n  - id: getsUser\n    call: users#get\n  - id: signsRequest\n    call: users#signed\n",
+);
+const HOOK: (&str, &[u8]) = (
+    "hooks/sign.ts",
+    b"export function sign(request, { secret }) { return { ...request, sig: secret('SIGNING_KEY') }; }\n",
+);
+const SIGNING: (&str, &[u8]) = (".env.schema", b"SIGNING_KEY=\n");
+
+#[tokio::test]
+async fn a_hook_in_the_selection_reads_every_declared_secret() {
+    let (engine, sent) = project_of(&[WARMED, SIGNED, SIGNS, HOOK, SIGNING], &[]);
+    let error = engine.run(&selected(&["users.crud#signsRequest"]), interrupts().1).await.unwrap_err();
+    let shown = refusal(&error);
+    assert!(shown.starts_with("secrets: V5114: the declared secret `SIGNING_KEY` has no value"), "{shown}");
+    assert_eq!(sent.load(Ordering::SeqCst), 0, "refused before beforeRun sends anything");
+    let report = engine.run(&selected(&["users.crud#getsUser"]), interrupts().1).await.unwrap();
+    assert_eq!((report.exit, sent.load(Ordering::SeqCst)), (0, 2), "pure YAML reads only what it names");
+}
+
+/// Profiles `dev` and `prod`, only `prod`'s vars reading `PROD_TOKEN`.
+const PROFILED: (&str, &[u8]) = (
+    "vibranium.config.yaml",
+    b"syntaxVersion: 2
+profiles:
+  - id: dev
+    default: true
+  - id: prod
+    vars: {token: '${secret.PROD_TOKEN}'}
+vars: {baseUrl: 'http://x', token: none}
+",
+);
+const PROD_SCHEMA: (&str, &[u8]) = (".env.schema", b"API_TOKEN=\nPROD_TOKEN=\n");
+
+#[tokio::test]
+async fn only_the_active_profiles_vars_are_read() {
+    let (engine, sent) = project_of(&[PROFILED, USERS, CRUD, PROD_SCHEMA], &[("API_TOKEN", TOKEN)]);
+    let report = engine.run(&RunRequest::default(), interrupts().1).await.unwrap();
+    assert_eq!((report.exit, sent.load(Ordering::SeqCst)), (0, 1), "dev does not read PROD_TOKEN");
+    let mut prod = RunRequest::default();
+    prod.plan.profiles = vec!["prod".to_owned()];
+    let shown = refusal(&engine.run(&prod, interrupts().1).await.unwrap_err());
+    assert!(shown.starts_with("secrets: V5114: the declared secret `PROD_TOKEN` has no value"), "{shown}");
+}

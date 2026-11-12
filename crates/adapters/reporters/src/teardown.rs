@@ -49,3 +49,7 @@ impl Teardown {
         self.failures(lifecycle).iter().map(TeardownView::label).collect()
     }
 }
+
+#[cfg(test)]
+#[path = "teardown_tests.rs"]
+mod tests;

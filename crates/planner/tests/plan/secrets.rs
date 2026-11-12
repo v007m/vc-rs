@@ -191,10 +191,15 @@ fn code_in_the_selection_reads_every_declared_secret() {
 #[test]
 fn a_redact_function_or_a_plugin_reads_every_declared_secret_on_every_run() {
     let all = ["SIGNING_KEY", "TOKEN"];
-    let redacting = coded("syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\nredact:\n  rules:\n    - function: hooks/redact.ts#mask\n");
+    let redacting = coded(
+        "syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\nredact:\n  rules:\n    - function: hooks/redact.ts#mask\n",
+    );
     assert_eq!(coded_read(&redacting, "hooked.code#callsPlain"), all);
-    let regex = coded("syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\nredact:\n  rules:\n    - regex: 'x+'\n");
+    let regex =
+        coded("syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\nredact:\n  rules:\n    - regex: 'x+'\n");
     assert!(coded_read(&regex, "hooked.code#callsPlain").is_empty(), "a regex rule runs no code");
-    let plugged = coded("syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\nplugins:\n  - id: acme\n    source: path:plugins/acme\n");
+    let plugged = coded(
+        "syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\nplugins:\n  - id: acme\n    source: path:plugins/acme\n",
+    );
     assert_eq!(coded_read(&plugged, "hooked.code#callsPlain"), all);
 }
