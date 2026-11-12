@@ -31,7 +31,8 @@ $ vc import [OPTIONS] <KIND> <SOURCE>
 | `--auth` | | openapi | Also writes a test per secured api that expects 401 without auth |
 | `--include` | `<TAG_OR_PATH>` | openapi | Only the operations with this tag or path prefix. Repeat for more |
 | `--only` | `<OPERATION_ID>` | openapi | Only the operation with this operation ID. Repeat for more. Kept in `source.only`, so `vc sync` takes the same operations |
-| `--profile` | `<IDS>` | all | The active profiles. Their vars fill `source.headers`, and a recording's hosts are matched against their base URLs |
+| `--profile` | `<IDS>` | all | The active profiles. Their vars fill the `--header`s, and a recording's hosts are matched against their base URLs |
+| `--header` | `'NAME: VALUE'` | openapi | A header sent with the fetch of a spec URL, to that URL's origin only, and kept in the api file's `source.headers` for `vc sync`. It reads `${var.…}`, `${env.…}` and `${secret.…}`. A credential's value (`authorization`, a cookie, a key or token) must be a template, such as `Bearer ${secret.SPEC_TOKEN}`: a literal one is refused with exit 2, naming the header but never its value ([V4009](/vc-rs/reference/diagnostics/v4009/)). Repeat for more |
 | `--flow` | `<TEST_ID>` | har, postman, bruno | Also writes a test that replays the recording, as `fileId#testId` or a bare test ID |
 | `--include-host` | `<HOST>` | har | Keeps a recording's calls to this third-party host. Repeat for more |
 | `--keep-static` | | har | Keeps a recording's static assets (scripts, styles, images, fonts) |

@@ -803,6 +803,7 @@ pub struct vc_engine::ImportRequest
 pub vc_engine::ImportRequest::auth: bool
 pub vc_engine::ImportRequest::file_id: core::option::Option<alloc::string::String>
 pub vc_engine::ImportRequest::flow: core::option::Option<alloc::string::String>
+pub vc_engine::ImportRequest::headers: alloc::vec::Vec<(alloc::string::String, alloc::string::String)>
 pub vc_engine::ImportRequest::include: alloc::vec::Vec<alloc::string::String>
 pub vc_engine::ImportRequest::keep: vc_engine::Keep
 pub vc_engine::ImportRequest::kind: alloc::string::String
@@ -1352,6 +1353,7 @@ impl core::marker::StructuralPartialEq for vc_engine::SyncReport
 pub struct vc_engine::SyncRequest
 pub vc_engine::SyncRequest::files: alloc::vec::Vec<alloc::string::String>
 pub vc_engine::SyncRequest::mode: vc_engine::SyncMode
+pub vc_engine::SyncRequest::profiles: alloc::vec::Vec<alloc::string::String>
 pub vc_engine::SyncRequest::settle: alloc::vec::Vec<(alloc::string::String, vc_engine::SyncSide)>
 impl core::clone::Clone for vc_engine::SyncRequest
 pub fn vc_engine::SyncRequest::clone(&self) -> Self

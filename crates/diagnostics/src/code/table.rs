@@ -86,6 +86,7 @@ code_table! {
     V4006 = 4006, Warning, "A `path` holds a `{name}` placeholder";
     V4007 = 4007, Warning, "A value in a `path` ends in the `urlEncode` pipe, which a run applies already";
     V4008 = 4008, Warning, "`allowFailure` expired; a failure fails the run again";
+    V4009 = 4009, Warning, "A sensitive header in `source.headers` has a literal value";
     // V5xxx: run time
     V5101 = 5101, Error, "Expectation failed";
     V5102 = 5102, Error, "CEL check false";

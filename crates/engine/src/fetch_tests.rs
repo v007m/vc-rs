@@ -5,10 +5,11 @@ use vc_interfaces::{FetchError, SpecFetcher, TransportError};
 use vc_testkit::{FakeTransport, MemorySources, status};
 
 use super::ProjectFetcher;
+use crate::spec_headers::SpecHeaders;
 
 fn fetcher(transport: FakeTransport) -> ProjectFetcher {
     let sources = MemorySources::new(&[("specs/users.yaml", b"openapi: 3.1.0\ninfo: {title: Users}\n")]);
-    ProjectFetcher { sources: Arc::new(sources), transport: Some(Arc::new(transport)) }
+    ProjectFetcher { sources: Arc::new(sources), transport: Some(Arc::new(transport)), headers: SpecHeaders::default() }
 }
 
 #[tokio::test]
@@ -73,7 +74,11 @@ async fn a_folder_lists_its_files_but_no_hidden_or_ignored_one() -> Result<(), F
         ("bruno/shop/users.api.yaml", b"apis: []\n"),
         ("specs/users.yaml", b"openapi: 3.1.0\n"),
     ];
-    let fetcher = ProjectFetcher { sources: Arc::new(MemorySources::new(&files)), transport: None };
+    let fetcher = ProjectFetcher {
+        sources: Arc::new(MemorySources::new(&files)),
+        transport: None,
+        headers: SpecHeaders::default(),
+    };
     let listed = fetcher.list("bruno/shop").await?;
     assert_eq!(listed, ["Carts/create-cart.bru", "bruno.json", "users.api.yaml"]);
     for nothing in ["specs/users.yaml", "bruno/gone", "bruno/shop/.env", "https://specs.test/shop"] {

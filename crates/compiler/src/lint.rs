@@ -19,6 +19,7 @@ mod redact_rules;
 mod reuse_keys;
 mod shared_writes;
 mod skip_reasons;
+mod source_headers;
 mod test_cache;
 #[cfg(test)]
 mod tests;
@@ -90,6 +91,7 @@ impl LintRegistry {
             Box::new(placeholders::PathPlaceholders),
             Box::new(path_encode::PathEncode),
             Box::new(expired::ALLOWED_FAILURES),
+            Box::new(source_headers::SourceHeaders),
         ];
         Self { lints }
     }

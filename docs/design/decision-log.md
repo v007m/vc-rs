@@ -580,13 +580,25 @@ Round 49 (12 November 2026; orchestrator, under Sarath's delegation):
 | --- | --- | --- | --- |
 | D312 | Token lifetimes are capped at a year | The token cache holds credentials for at most a year (`MAX_TOKEN_LIFETIME`), whatever lifetime they come with: OAuth `expires_in`, a plugin's `expiresIn` or a flow's `expiresIn`, as a number or a string. A stale time the clock cannot hold is now, so the token is used by the request that fetched it and fetched again by the next; it is never held forever | D193 (caps) |
 
+Round 50 (12 November 2026; orchestrator, under Sarath's delegation):
+
+| # | Topic | Decision | Supersedes |
+| --- | --- | --- | --- |
+| D313 | `vc sync` sends `source.headers` | `vc sync` renders an api file's `source.headers` under `--profile` (else the default profiles) from `${var.…}` (config, profiles, the file's own), `${env.…}` and `${secret.…}` only, and sends them to the origin of `source.openapi` alone: same scheme, host and port, no redirect followed, so a `$ref` to another host gets none. The file keeps the templates as written. Only the config, `.env.schema` and the synced api files are compiled to render them, so an error in another file does not stop the sync, and secrets load only when a header reads one. A header that does not render stops the sync before any fetch, naming the file and header, never the value; a fetch error masks each secret a header read as `••••` | — (fills a gap in D79) |
+
 Round 51 (12 November 2026; orchestrator, under Sarath's delegation):
 
 | # | Topic | Decision | Supersedes |
 | --- | --- | --- | --- |
 | D316 | One instance label everywhere | Every place that names a test instance labels it as the run's reporters do: `<test ID> › <row name> [row n, repeat m]`, numbered from 1, the row number shown when the row has no `name` or shares it, the repeat on every instance of a test that repeats (`vc_model::InstanceLabels`). The history stores each instance's label, masked as the run printed it, in a new `test_results.label` column (migration 4); a row stored before it is labelled `[row n]` and `[repeat n]` from its row and repeat. `vc history show`, the TUI, the server's wire history and MCP read that label. `vc plan` stays offline, never loads secrets and never shows a value drawn from the environment (it still renders a templated `examples:` with the environment, only to count its rows), so it shows only the names written inline in the test file, masked by `redact.rules` alone: a `function:` rule, which `vc plan` does not run, masks the whole name (it fails closed); a row from a `$file`, a dataset or a template shows as `[row n]` (fails closed: compiled data rows keep their origin, `Examples::Data`). Labels are printed on one line, every control character and bidi mark replaced (`vc_model::one_line`). | — |
 
-Round 52 (12 November 2026; lane C, decided under the standing delegation (2026-11-12); Sarath may override):
+Round 52 (12 November 2026; orchestrator, under Sarath's delegation):
+
+| # | Topic | Decision | Supersedes |
+| --- | --- | --- | --- |
+| D314 | `vc import openapi --header`, and V4009 | `vc import openapi <url> --header 'NAME: VALUE'` (repeatable) sends each header with the fetch of the spec, rendered and sent as `vc sync` sends `source.headers` (D313): under `--profile`, from the config's and profiles' vars, `${env.…}` and `${secret.…}`, to the spec URL's origin only. The headers are written to the new api file's `source.headers` as given, so `vc sync` sends them again. A header whose name is a credential's (`vc_model::credential`, the importers' list, which holds the redactor's `authorization`, `proxy-authorization`, `cookie` and `set-cookie`) must be a template: a literal value is refused before any fetch (exit 2, nothing written), citing V4009 and naming the header, never its value; so is a header given twice, one that does not render, a malformed `--header` and one given with a spec not fetched from a URL. V4009 (warning) is `vc check`'s for the same literal in a hand-written `source.headers`; it underlines the key and masks the value (`•••`), so neither `vc check` nor its `--json` prints the token. A `${env.X}` that names a declared secret is refused after the fetch, by the import's compile guard (V2107), not before | — (fills a gap in D313) |
+
+Round 53 (12 November 2026; lane C, under the standing delegation):
 
 | # | Topic | Decision | Supersedes |
 | --- | --- | --- | --- |

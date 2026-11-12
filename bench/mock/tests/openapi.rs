@@ -1,4 +1,5 @@
-//! `/openapi/users*.yaml`: the users spec in two versions, and the switch between them.
+//! `/openapi/users*.yaml`: the users spec in two versions, the switch between them, and the
+//! private copy only a bearer token is served.
 
 mod support;
 
@@ -34,5 +35,18 @@ async fn the_current_spec_is_v1_until_switched_and_again_after_a_reset() -> Test
     assert!(version().await?.contains("version: 1.0.0"));
     let stats = mock.handle.stats().await?;
     assert_eq!(stats.count("GET /openapi/users.yaml"), 1, "the switch is not counted: {stats:?}");
+    Ok(())
+}
+
+#[tokio::test]
+async fn the_private_spec_is_served_only_with_its_bearer_token() -> TestResult {
+    let mock = Mock::start().await?;
+    let path = "/openapi/private/users.yaml";
+    assert_eq!(mock.get(path).send().await?.status(), StatusCode::UNAUTHORIZED);
+    let wrong = mock.get(path).header("authorization", "Bearer someone-else").send().await?;
+    assert_eq!(wrong.status(), StatusCode::UNAUTHORIZED);
+    let read = mock.get(path).header("authorization", "Bearer spec-reader").send().await?;
+    assert_eq!(read.status(), StatusCode::OK);
+    assert!(read.text().await?.contains("version: 1.0.0"));
     Ok(())
 }

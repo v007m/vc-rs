@@ -30,10 +30,15 @@ pub struct ImportArgs {
     /// Only the operation with this operation ID; repeat for more.
     #[arg(long, value_name = "OPERATION_ID")]
     only: Vec<String>,
-    /// The active profiles whose vars fill `source.headers`, and whose base URLs a recording's
+    /// The active profiles whose vars fill the `--header`s, and whose base URLs a recording's
     /// hosts are matched against, as a comma list or repeated.
     #[arg(long = "profile", value_name = "IDS")]
     profiles: Vec<String>,
+    /// A header sent with the fetch of a spec from a URL, to its origin only, and kept in
+    /// `source.headers` for `vc sync`; a credential's value is a template such as
+    /// `Bearer ${secret.SPEC_TOKEN}`. Repeat for more.
+    #[arg(long = "header", value_name = "NAME: VALUE")]
+    headers: Vec<String>,
     #[command(flatten)]
     recording: RecordingArgs,
     /// Prints the plan and the diff of every file without writing.
@@ -87,6 +92,9 @@ pub struct SyncArgs {
     /// Settles a conflict you fixed by hand: the file stays, the snapshot takes the spec.
     #[arg(long, value_name = "API_ID")]
     resolved: Vec<String>,
+    /// The active profiles whose vars fill `source.headers`, as a comma list or repeated.
+    #[arg(long = "profile", value_name = "IDS")]
+    profiles: Vec<String>,
 }
 
 /// `vc import <kind> <source>`: exit 0 once written, 2 when the source cannot be read or the
@@ -100,6 +108,10 @@ pub fn import(args: &ImportArgs, project: Option<&Path>) -> anyhow::Result<Outco
         Ok(source) => source,
         Err(outcome) => return Ok(outcome),
     };
+    let headers = match given_headers(&args.headers) {
+        Ok(headers) => headers,
+        Err(outcome) => return Ok(outcome),
+    };
     let request = ImportRequest {
         kind: args.kind.clone(),
         source,
@@ -111,6 +123,7 @@ pub fn import(args: &ImportArgs, project: Option<&Path>) -> anyhow::Result<Outco
         include: args.include.clone(),
         only: args.only.clone(),
         profiles: args.profiles.clone(),
+        headers,
         flow: args.recording.flow.clone(),
         keep: Keep { hosts: args.recording.include_hosts.clone(), assets: args.recording.keep_static },
     };
@@ -118,6 +131,28 @@ pub fn import(args: &ImportArgs, project: Option<&Path>) -> anyhow::Result<Outco
         return previewed(&located.engine, &request);
     }
     imported(&located.engine, &request)
+}
+
+/// The `--header`s, each as its name and value.
+type Headers = Vec<(String, String)>;
+
+/// Each `--header NAME: VALUE` as its name and value, trimmed. One that is not so is refused
+/// without echoing it, since its value may be a credential.
+fn given_headers(given: &[String]) -> Result<Headers, Outcome> {
+    given
+        .iter()
+        .enumerate()
+        .map(|(at, header)| {
+            let parsed = header.split_once(':').map(|(name, value)| (name.trim(), value.trim()));
+            match parsed {
+                Some((name, value)) if !name.is_empty() => Ok((name.to_owned(), value.to_owned())),
+                _ => Err(Outcome::Helped(
+                    format!("`--header` number {} is not `NAME: VALUE`", at + 1),
+                    Some("write `--header 'Authorization: Bearer ${secret.SPEC_TOKEN}'`".to_owned()),
+                )),
+            }
+        })
+        .collect()
 }
 
 /// `vc init --from-openapi <source>`: the spec imported into the project just created.
@@ -231,7 +266,7 @@ fn sync_request(args: &SyncArgs) -> Result<SyncRequest, Outcome> {
         (_, true) => SyncMode::Check,
         _ => SyncMode::Write,
     };
-    Ok(SyncRequest { files: args.files.clone(), mode, settle })
+    Ok(SyncRequest { files: args.files.clone(), mode, settle, profiles: args.profiles.clone() })
 }
 
 /// `✓ synced`, the snapshots written and the conflicts left.
