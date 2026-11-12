@@ -210,6 +210,7 @@ The agent writes the file, runs `vc check`, applies certain fixes, and runs the 
    $ vc run people.lookup
    plan  1 test in 1 file · profile local
 
+   People lookup
    ✓ people.lookup#getsGraceById                                    11ms
 
    1 passed                                                     12ms · profile local
@@ -477,9 +478,11 @@ An agent reads the result with `vc load people.browse --json`, which prints one 
 
    ✓ people.openapi#listsPeople                                     48ms
    ✓ people.openapi#createsPerson                                   47ms
-   ✓ people.diff#getsGraceExactly                                   48ms
    ✓ people.openapi#getsPerson                                      49ms
+   ✓ people.diff#getsGraceExactly                                   48ms
    ✓ people.listing#listsAdaFirst                                   48ms
+
+   People lookup
    ✓ people.lookup#getsGraceById                                    48ms
 
    6 passed                                                     51ms · profile local

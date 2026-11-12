@@ -108,7 +108,7 @@
           "description": "`until`, `every`, `timeout`"
         },
         "provides": {
-          "description": "Names a `function` or `test` action saves (D128)",
+          "description": "Names a `function` or `test` action saves",
           "items": {
             "type": "string"
           },
@@ -163,7 +163,7 @@
     },
     "agents": {
       "additionalProperties": false,
-      "description": "What an agent may do under a profile (D195)",
+      "description": "What an agent may do under a profile",
       "properties": {
         "approve": {
           "default": [],
@@ -612,7 +612,7 @@
         },
         "retry": {
           "$ref": "#/$defs/retry",
-          "description": "Applied to every test unless overridden (D126)"
+          "description": "Applied to every test unless overridden"
         },
         "timeout": {
           "default": "30s",
@@ -890,14 +890,14 @@
           "default": {
             "attempts": 0
           },
-          "description": "Retry one request on a transport failure (D143)"
+          "description": "Retry one request on a transport failure"
         }
       },
       "type": "object"
     },
     "httpRetry": {
       "additionalProperties": false,
-      "description": "Transport retry of one request (D143)",
+      "description": "Transport retry of one request",
       "properties": {
         "attempts": {
           "default": 0,
@@ -1079,7 +1079,7 @@
       "properties": {
         "agents": {
           "$ref": "#/$defs/agents",
-          "description": "What agents may do under this profile; reads only when left out (D195)"
+          "description": "What agents may do under this profile; reads only when left out"
         },
         "default": {
           "default": false,
@@ -1127,7 +1127,7 @@
           "type": "array"
         },
         "rules": {
-          "description": "Your own masking rules (D171)",
+          "description": "Your own masking rules",
           "items": {
             "$ref": "#/$defs/redactRule"
           },
@@ -1185,7 +1185,7 @@
     },
     "retry": {
       "additionalProperties": false,
-      "description": "Re-run the whole test instance after a failure (D126)",
+      "description": "Re-run the whole test instance after a failure",
       "properties": {
         "attempts": {
           "description": "Further attempts after the first",
@@ -1216,7 +1216,7 @@
       "properties": {
         "provider": {
           "default": "env",
-          "description": "The secrets provider (D163)",
+          "description": "The secrets provider",
           "enum": [
             "env",
             "varlock"

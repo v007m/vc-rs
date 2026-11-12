@@ -59,7 +59,7 @@ $ vc demo stop
 left the demo on port 7421 running, as another `vc demo start` uses it
 ```
 
-If another program holds the port, `start` refuses rather than let your tests call that program:
+`start` knows the demo by its `/echo`: a `200` that returns the path it was asked for and names the demo's pid in the `x-vc-demo-pid` header. If another program holds the port, even an echo server that answers the same path, `start` refuses rather than let your tests call that program:
 
 ```console
 $ vc demo start --port 7454 --detach

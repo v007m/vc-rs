@@ -9,7 +9,7 @@ use super::types::{Scope, Shape, Ty};
 
 shape! {
     test_file = Shape::new("test", "A test file, `services/<service>/<area>.test.yaml`", &[
-        types::key("id", Ty::Text).default("path-derived").doc("File ID; must match the path (D139)").example("users.crud"),
+        types::key("id", Ty::Text).default("path-derived").doc("File ID; must match the path").example("users.crud"),
         types::key("name", Ty::Text).doc("Shown in reports"),
         types::key("tags", TEXTS).doc("Added to every test in the file").example("[smoke]"),
         types::key("vars", VARS).doc("File-level vars"),

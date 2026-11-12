@@ -13,6 +13,7 @@
 //! [`mark_run_folder`] marks a run's report folder, and [`prune_run_folders`] drops the marked
 //! folders of runs the history no longer keeps.
 
+mod blocks;
 mod collect;
 mod context;
 mod ctrf;

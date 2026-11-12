@@ -54,6 +54,7 @@ $ vc init && vc demo start --detach
 $ vc run sample.landing
 plan  1 test in 1 file · profile default
 
+User accounts
 ✓ sample.landing#createsUser — Creates a user with the given email    5ms
 
 1 passed                                                     6ms · profile default

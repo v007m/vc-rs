@@ -47,6 +47,7 @@ With no selector, every test in the project runs. Selectors are test IDs (`users
 $ vc run sample.basics
 plan  4 tests in 1 file · lifecycle: beforeAll command · profile default
 
+Sample tests
 ✓ sample.basics#rejectsMissingEmail — Rejects a user without an email    0ms
 ✓ sample.basics#listsUsers — Lists users                          0ms
 ✓ sample.basics#createsUser — Creates a user with the given email    0ms
@@ -62,7 +63,7 @@ The first line is the plan: how many tests, which lifecycle actions run around t
 
 ```console
 $ vc run sample.extra --include-skipped
-plan  3 tests in 1 file · profile default
+plan  3 tests (4 instances) in 1 file · profile default
 
 ✓ sample.extra#echoesBody — Echoes the body back                  0ms
 ✕ sample.extra#findsAda — Finds Ada first                         0ms
@@ -99,7 +100,7 @@ plan  1 test in 1 file · profile default
 
 ```console
 $ vc run sample.extra#echoesBody --repeat 2 --concurrency 1 --report junit
-plan  1 test in 1 file · profile default
+plan  1 test (2 instances) in 1 file · profile default
 
 ✓ sample.extra#echoesBody [repeat 1] — Echoes the body back       5ms
 ✓ sample.extra#echoesBody [repeat 2] — Echoes the body back       1ms

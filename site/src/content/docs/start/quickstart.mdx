@@ -204,6 +204,7 @@ A **test** calls an api by its ID and states what it expects. Tests live next to
    $ vc run
    plan  2 tests in 1 file · profile default
 
+   User accounts
    ✓ users.accounts#listsSeedUsers — Lists the two seed users        4ms
    ✓ users.accounts#createsUser — Creates a user with the given email    7ms
 
@@ -269,6 +270,7 @@ Mistakes are easier to fix when you have seen what they look like. Make two.
    $ vc run
    plan  2 tests in 1 file · profile default
 
+   User accounts
    ✕ users.accounts#listsSeedUsers — Lists the two seed users        2ms
      error[V5101]: expect.body.match.[1].name
        --> services/users/accounts.test.yaml:10:23
@@ -291,6 +293,7 @@ Mistakes are easier to fix when you have seen what they look like. Make two.
    $ vc run --failed
    plan  1 test in 1 file · profile default
 
+   User accounts
    ✓ users.accounts#listsSeedUsers — Lists the two seed users        3ms
 
    1 passed                                                     4ms · profile default
@@ -328,6 +331,7 @@ The same tests can run against another server. [JSONPlaceholder](https://jsonpla
    $ vc run users.accounts#listsSeedUsers --profile public
    plan  1 test in 1 file · profile public
 
+   User accounts
    ✕ users.accounts#listsSeedUsers — Lists the two seed users       31ms
      error[V5101]: expect.body.match.[0].name
       --> services/users/accounts.test.yaml:9:23
@@ -386,6 +390,7 @@ The same tests can run against another server. [JSONPlaceholder](https://jsonpla
    $ vc run users.accounts#listsSeedUsers --profile public
    plan  1 test in 1 file · profile public
 
+   User accounts
    ✓ users.accounts#listsSeedUsers — Lists the two seed users       28ms
 
    1 passed                                                     30ms · profile public
@@ -394,6 +399,7 @@ The same tests can run against another server. [JSONPlaceholder](https://jsonpla
    $ vc run users.accounts#listsSeedUsers
    plan  1 test in 1 file · profile default
 
+   User accounts
    ✓ users.accounts#listsSeedUsers — Lists the two seed users        3ms
 
    1 passed                                                     4ms · profile default

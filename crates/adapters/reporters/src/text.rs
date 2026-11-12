@@ -66,8 +66,8 @@ mod tests {
             sanitize(text),
             "a\u{fffd}[2Jb\u{fffd}c\u{fffd}d\u{fffd}e\u{fffd}f\u{fffd}g\u{fffd}h\u{fffd}i\u{fffd}j"
         );
-        assert_eq!(sanitize("\u{2029}\u{2065}\u{206a}\u{2028}"), "\u{2029}\u{2065}\u{206a}\u{2028}");
-        assert_eq!(sanitize("\u{2029}\u{2069}\u{202a}"), "\u{2029}\u{fffd}\u{fffd}");
+        assert_eq!(sanitize("\u{2065}\u{206a}"), "\u{2065}\u{206a}");
+        assert_eq!(sanitize("\u{2029}\u{2069}\u{202a}\u{2028}"), "\u{fffd}\u{fffd}\u{fffd}\u{fffd}");
     }
 
     #[test]

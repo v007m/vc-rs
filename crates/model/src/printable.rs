@@ -1,5 +1,6 @@
 //! Text fit for a terminal. A response, a message or an example row's name may hold characters
-//! that move the cursor, retitle the window or reorder a line; these give them back replaced.
+//! that move the cursor, retitle the window, reorder a line or break it; these give them back
+//! replaced.
 
 use std::borrow::Cow;
 
@@ -29,7 +30,7 @@ fn replaced(text: &str, unsafe_char: impl Fn(char) -> bool) -> Cow<'_, str> {
 
 const fn is_unsafe(c: char) -> bool {
     c.is_control()
-        || matches!(c, '\u{202a}'..='\u{202e}' | '\u{2066}'..='\u{2069}' | '\u{200e}' | '\u{200f}' | '\u{61c}')
+        || matches!(c, '\u{202a}'..='\u{202e}' | '\u{2066}'..='\u{2069}' | '\u{200e}' | '\u{200f}' | '\u{61c}' | '\u{2028}' | '\u{2029}')
 }
 
 #[cfg(test)]
@@ -40,6 +41,7 @@ mod tests {
     fn printable_keeps_tabs_and_newlines_and_one_line_does_not() {
         assert_eq!(printable("a\tb\nc\x1b]0;x\x07"), "a\tb\nc\u{fffd}]0;x\u{fffd}");
         assert_eq!(one_line("a\tb\nc\u{202e}d"), "a\u{fffd}b\u{fffd}c\u{fffd}d");
+        assert_eq!(one_line("a\u{2028}b\u{2029}c"), "a\u{fffd}b\u{fffd}c", "some terminals break lines at these");
         assert!(matches!(one_line("Oslo › 2"), std::borrow::Cow::Borrowed(_)));
     }
 }

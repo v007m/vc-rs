@@ -186,7 +186,7 @@ expect:
 - **`cel` and `custom` checks are only added.** A test's `cel` check with the same label as the api's does not replace it; both run.
 - **`replace: true`** drops every inherited check. See [replace](/vc-rs/reference/syntax/replace/).
 - **Default status.** When no level writes `status`, the call must return `2xx`. This holds even when the api has other checks, and even under `replace: true`. A failing call reports `expected ["2xx"], got 404` with the note `expected by api dflt#bare`. To accept another status, write `status` at some level.
-- **Steps.** A test-level `expect` on a test with `steps` is a default for every `call` step. A step's own `expect` merges over it in the same way. `test:`, `function` and `command` steps take no defaults: a reused test runs as written, with its own test-level `expect` (D270).
+- **Steps.** A test-level `expect` on a test with `steps` is a default for every `call` step. A step's own `expect` merges over it in the same way. `test:`, `function` and `command` steps take no defaults: a reused test runs as written, with its own test-level `expect`.
 - **All checks run.** A failing check does not stop the others for the same response. A failing step does stop the test.
 - **Templates.** Literal values in `headers`, `body.match` and `body.equals` can use `${…}` templates, such as `body.word: ${var.word}`. `status` cannot be templated ([V2303](/vc-rs/reference/diagnostics/v2303/)). `cel` uses CEL roots instead of templates.
 

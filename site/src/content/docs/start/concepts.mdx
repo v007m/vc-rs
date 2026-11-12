@@ -247,8 +247,9 @@ Each row becomes its own test instance, with its own result. `vc run users.data#
 
 ```console
 $ vc run users.data
-plan  1 test in 1 file · profile default
+plan  1 test (3 instances) in 1 file · profile default
 
+Data-driven tests
 ✓ users.data#createsEverySignup › Alan Turing — Creates a user for each sign-up row    9ms
 ✓ users.data#createsEverySignup › Ada Lovelace — Creates a user for each sign-up row   13ms
 ✓ users.data#createsEverySignup › Grace Hopper — Creates a user for each sign-up row   13ms

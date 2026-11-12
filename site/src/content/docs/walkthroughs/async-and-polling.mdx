@@ -108,6 +108,7 @@ Real APIs are not always instant or reliable. A report takes a few seconds to bu
    $ vc run jobs.polling
    plan  1 test in 1 file · profile default
 
+   Polling
    ✓ jobs.polling#waitsForJobToFinish — Waits until the job is done  415ms
 
    1 passed                                                     418ms · profile default
@@ -153,6 +154,7 @@ Real APIs are not always instant or reliable. A report takes a few seconds to bu
    $ vc run jobs.polling
    plan  2 tests in 1 file · profile default
 
+   Polling
    ✓ jobs.polling#waitsForJobToFinish — Waits until the job is done  408ms
    ✕ jobs.polling#givesUpOnStuckJob — Gives up when the job never finishes  757ms
      error[V5104]: `poll.until` did not hold within 1s: match.status: expected "done", got "pending"
@@ -188,6 +190,7 @@ Real APIs are not always instant or reliable. A report takes a few seconds to bu
    $ vc run jobs.retry
    plan  1 test in 1 file · profile default
 
+   Retries
    ~ jobs.retry#passesOnSecondTry — Passes when the second try succeeds flaky (2 attempts)  105ms
 
    0 passed · 1 flaky                                           105ms · profile default
@@ -199,6 +202,7 @@ Real APIs are not always instant or reliable. A report takes a few seconds to bu
    A flaky test still counts as a pass for the exit code, so CI stays green, but the report keeps a record of it. With `failTimes: 2` the line reads `flaky (3 attempts)`. When every try fails, the test fails. Tries that fail with the same error are shown once, under the tries they cover. With `failTimes: 5`:
 
    ```console
+   Retries
    ✕ jobs.retry#passesOnSecondTry — Passes when the second try succeeds (3 attempts)  207ms
      attempts 1, 2 and 3 of 3:
      error[V5101]: expect.status
@@ -229,6 +233,7 @@ Real APIs are not always instant or reliable. A report takes a few seconds to bu
    $ vc run jobs.retry#readsWarmCache
    plan  1 test in 1 file · profile default
 
+   Retries
    ✕ jobs.retry#readsWarmCache — Reads from a warm cache             1ms
      error[V5101]: expect.status
        --> services/jobs/retry.test.yaml:21:15
@@ -240,8 +245,9 @@ Real APIs are not always instant or reliable. A report takes a few seconds to bu
    reports  /home/you/async-demo/.vibranium/reports/4/ctrf.json
    next     vc run --failed
    $ vc run jobs.retry#readsWarmCache --repeat 10
-   plan  1 test in 1 file · profile default
+   plan  1 test (10 instances) in 1 file · profile default
 
+   Retries
    ✕ jobs.retry#readsWarmCache [repeat 1] — Reads from a warm cache    1ms
      error[V5101]: expect.status
        --> services/jobs/retry.test.yaml:21:15
@@ -305,6 +311,7 @@ Real APIs are not always instant or reliable. A report takes a few seconds to bu
    $ vc run jobs.transport
    plan  1 test in 1 file · profile default
 
+   Transport retries
    ✓ jobs.transport#survivesTwoUnavailableAnswers — Survives two 503 answers in a row  239ms
 
    1 passed                                                     240ms · profile default
@@ -321,6 +328,7 @@ Real APIs are not always instant or reliable. A report takes a few seconds to bu
    $ vc run jobs.retry#passesOnSecondTry
    plan  1 test in 1 file · profile default
 
+   Retries
    ✓ jobs.retry#passesOnSecondTry — Passes when the second try succeeds   74ms
 
    1 passed                                                     75ms · profile default
@@ -346,7 +354,10 @@ Real APIs are not always instant or reliable. A report takes a few seconds to bu
    $ vc run jobs.retry#passesOnSecondTry jobs.transport
    plan  2 tests in 2 files · profile default
 
+   Retries
    ~ jobs.retry#passesOnSecondTry — Passes when the second try succeeds flaky (2 attempts)  105ms
+
+   Transport retries
    ✓ jobs.transport#survivesTwoUnavailableAnswers — Survives two 503 answers in a row  242ms
 
    1 passed · 1 flaky                                           249ms · profile default
@@ -388,6 +399,7 @@ Real APIs are not always instant or reliable. A report takes a few seconds to bu
    $ vc run jobs.timeouts
    plan  2 tests in 1 file · profile default
 
+   Timeouts
    ✕ jobs.timeouts#finishesReportInTime — Builds the report within a second   1.0s
      error[V5104]: the test ran past its `timeout`
         = at: call jobs#slow

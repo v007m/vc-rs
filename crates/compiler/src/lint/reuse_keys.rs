@@ -36,7 +36,7 @@ impl ReuseKeys {
         let message = format!("a `test:` action ignores `{key}`");
         let diagnostic = Diagnostic::new(self.code(), entry.key_span, message)
             .label("has no effect")
-            .note("a `test:` action runs the reused test as written, with its own requests and checks (D270)")
+            .note("a `test:` action runs the reused test as written, with its own requests and checks")
             .help(format!("remove `{key}`, or set it in the reused test"));
         let Some(range) = whole_lines(source.text, entry) else { return diagnostic };
         let edit = TextEdit { file: source.file, range, new_text: String::new() };

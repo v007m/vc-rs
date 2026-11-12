@@ -16,11 +16,11 @@ Every `vc run` produces three kinds of output:
 
 `--reporter` picks what `vc run` prints on stdout.
 
-**`spec`** (the default) prints the plan, one line per test as it finishes, and a summary. A failure points at the line in your YAML that set the check:
+**`spec`** (the default) prints the plan, one line per test as it finishes, and a summary. Tests are grouped by file, under the file's `name`, dimmed in colour. In a parallel run, a file's tests wait until the file printing above them is done, so each file shows once. A failure points at the line in your YAML that set the check:
 
 ```console
 $ vc run sample.extra
-plan  3 tests in 1 file · profile default
+plan  3 tests (4 instances) in 1 file · profile default
 ✓ sample.extra#echoesBody — Echoes the body back                  0ms
 ✕ sample.extra#findsAda — Finds Ada first                         0ms
   error[V5101]: expect.body.match.[0].name

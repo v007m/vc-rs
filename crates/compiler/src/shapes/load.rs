@@ -8,7 +8,7 @@ const METRICS: &[&str] = &["p50", "p90", "p95", "p99", "max", "errorRate", "rps"
 
 shape! {
     load_file = Shape::new("load", "A load file: existing tests as a traffic mix", &[
-        types::key("id", Ty::Text).default("path-derived").doc("Scenario ID; must match the path (D139)"),
+        types::key("id", Ty::Text).default("path-derived").doc("Scenario ID; must match the path"),
         types::key("name", Ty::Text).doc("Shown in the load report"),
         types::key("mix", Ty::List(&Ty::Obj(mix))).required().doc("The tests and their weights"),
         types::key("stages", Ty::List(&Ty::Obj(stage))).required().doc("Users ramp from the previous stage's count"),

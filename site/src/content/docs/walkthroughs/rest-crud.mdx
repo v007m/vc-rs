@@ -289,6 +289,7 @@ The mock's `/users` collection behaves like a typical REST API:
    $ vc run
    plan  5 tests in 1 file · profile default
 
+   User CRUD
    ✓ users.crud#deletesUser — A deleted user is gone                 4ms
    ✓ users.crud#createsUser — Creates a user and returns its ID      4ms
    ✓ users.crud#readsCreatedUser — Reads back the user that was just created    4ms
@@ -359,8 +360,9 @@ The mock's `/users` collection behaves like a typical REST API:
 
    ```console
    $ vc run
-   plan  7 tests in 1 file · profile default
+   plan  7 tests (10 instances) in 1 file · profile default
 
+   User CRUD
    ✓ users.crud#rejectsBadBody › plain text — Rejects a create request whose body is not a JSON object    1ms
    ✓ users.crud#rejectsBadBody › broken JSON — Rejects a create request whose body is not a JSON object    1ms
    ✓ users.crud#rejectsBadBody › a list, not an object — Rejects a create request whose body is not a JSON object    2ms
@@ -380,7 +382,7 @@ The mock's `/users` collection behaves like a typical REST API:
 
    ```console
    $ vc plan users.crud
-   plan  7 tests in 1 file · profile default
+   plan  7 tests (10 instances) in 1 file · profile default
    users.crud
      users.crud#createsUser
      users.crud#readsCreatedUser
@@ -400,6 +402,7 @@ The mock's `/users` collection behaves like a typical REST API:
    $ vc run users.crud#rejectsBadBody:2
    plan  1 test in 1 file · profile default
 
+   User CRUD
    ✓ users.crud#rejectsBadBody › broken JSON — Rejects a create request whose body is not a JSON object    2ms
 
    1 passed                                                     2ms · profile default
@@ -416,6 +419,7 @@ The mock's `/users` collection behaves like a typical REST API:
    $ vc run users.crud#replacesUser
    plan  1 test in 1 file · profile default
 
+   User CRUD
    ✕ users.crud#replacesUser — PUT replaces every field of a user    7ms
      error[V5101]: expect.body.equals
        --> services/users/crud.test.yaml:52:11

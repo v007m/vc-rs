@@ -231,8 +231,7 @@ fn structured(render: &Render<'_>, value: Value, sending: &Sending<'_>) -> Resul
 /// The bytes of the `$file` at `path`, which the engine read before the run, and the
 /// `content-type` its extension implies (D272).
 fn file(render: &Render<'_>, path: &Template, action: ActionId) -> Result<Body, Failure> {
-    let path =
-        path.as_literal().ok_or_else(|| rendering("a `$file` body path cannot hold `${…}` references (D272)"))?;
+    let path = path.as_literal().ok_or_else(|| rendering("a `$file` body path cannot hold `${…}` references"))?;
     let read = media::file(&render.values().inputs().bodies, (action, ""), path)?;
     let (bytes, kind) = read.ok_or_else(|| media::not_read((action, ""), path))?;
     Ok((bytes, ContentType::Implied(kind)))

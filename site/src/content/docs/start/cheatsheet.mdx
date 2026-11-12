@@ -155,8 +155,9 @@ tests:
 
 ```console
 $ vc run users.crud
-plan  3 tests in 1 file · 1 skipped · profile default
+plan  3 tests (4 instances) in 1 file · 1 skipped · profile default
 
+User CRUD
 - users.crud#deletesUser — Deletes a user skipped: waiting for the delete endpoint
 ✓ users.crud#rejectsBadEmail › Number Email — Rejects a user without a valid email    3ms
 ✓ users.crud#rejectsBadEmail › No Email — Rejects a user without a valid email    3ms
