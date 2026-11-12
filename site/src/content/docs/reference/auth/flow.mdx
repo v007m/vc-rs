@@ -23,6 +23,7 @@ auth:
       - id: login
         method: POST
         url: ${var.labUrl}/login
+        timeout: 10s
         body:
           username: ${var.user}
           password: ${secret.LAB_PASSWORD}
@@ -54,7 +55,7 @@ auth:
 
 | Field | Type | Default | Required | Notes |
 | --- | --- | --- | --- | --- |
-| `steps` | list of steps | — | yes | Each step has `id`, `method`, `url`, `query`, `headers`, `body`, `expect` and `save` |
+| `steps` | list of steps | — | yes | Each step has `id`, `method`, `url`, `query`, `headers`, `body`, `expect`, `save` and `timeout` |
 | `apply.headers` | map of templates | — | no | Added to each request |
 | `apply.query` | map of templates | — | no | Added to each request's query string |
 | `apply.cookies` | map of templates | — | no | Sent as a `Cookie` header |
@@ -147,6 +148,7 @@ auth:
 - The steps run in a frame of their own that starts with the definition's `vars`. Each step's saves are visible to later steps, `apply` and `expiresIn`, and nowhere else.
 - Within a run the flow runs once for each set of vars, before the first request that needs it. Tests that need it at the same moment wait for that one login.
 - It runs again when the credentials expire (less `refreshBefore`) or a response matches `refreshOn`.
+- A step's `timeout` limits each of its request attempts, ahead of `defaults.timeout` (else 30s). A step that times out fails the flow with V5114 and the step's V5104.
 - Everything `apply` adds is masked in output, except plain header values such as `x-user`. A cookie shows as `sid=••••`.
 
 ## Common errors

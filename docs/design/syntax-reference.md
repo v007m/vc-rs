@@ -1041,7 +1041,7 @@ auth:
 
 ### Multi-step auth with `flow`
 
-A `flow` runs steps, then applies what they saved to every request that uses it. Each step describes its request inline with the api fields (`method`, `url`, `query`, `headers`, `body`, `expect`, `save`), so login endpoints need no api file of their own. A step that `call`s an api by ID is not supported yet. The steps run in a frame of their own that starts with the definition's `vars`; each step's `save` values are visible to the later steps, `apply` and `expiresIn`, and nowhere else.
+A `flow` runs steps, then applies what they saved to every request that uses it. Each step describes its request inline with the api fields (`method`, `url`, `query`, `headers`, `body`, `expect`, `save`) and a `timeout` that limits each of its attempts, ahead of `defaults.timeout` (D192), so login endpoints need no api file of their own. A step that `call`s an api by ID is not supported yet. The steps run in a frame of their own that starts with the definition's `vars`; each step's `save` values are visible to the later steps, `apply` and `expiresIn`, and nowhere else.
 
 | Key | Type | Default | Purpose |
 | --- | --- | --- | --- |

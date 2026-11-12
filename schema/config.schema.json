@@ -754,6 +754,14 @@
           "description": "Values for later steps and `apply`",
           "type": "object"
         },
+        "timeout": {
+          "description": "Per request attempt",
+          "examples": [
+            "5s"
+          ],
+          "pattern": "^[0-9]+(ms|s|m|h)$",
+          "type": "string"
+        },
         "url": {
           "description": "The whole URL",
           "examples": [
