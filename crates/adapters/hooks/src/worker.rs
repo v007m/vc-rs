@@ -11,9 +11,11 @@ use crate::engine::Engine;
 /// What a call gives back.
 pub type Answer = Result<HookOutput, HookError>;
 
-/// One call for the hook thread, with where to send its answer.
+/// One call for the hook thread, with where to say it has taken the call up and where to send
+/// its answer.
 struct Task {
     call: HookCall,
+    started: Sender<()>,
     reply: Sender<Answer>,
 }
 
@@ -47,12 +49,15 @@ impl Worker {
         Ok(Self { tasks })
     }
 
-    /// Runs `call`, waiting at most `patience` for its answer.
+    /// Runs `call`, waiting at most `patience` for its answer once the hook thread has taken it
+    /// up: starting a fresh engine, or waiting to be scheduled on a loaded machine, uses none of
+    /// it. A thread that cannot take the call up has answered already, or is gone.
     pub fn run(&self, call: HookCall, patience: Duration) -> Outcome {
-        let (reply, answer) = mpsc::channel();
-        if self.tasks.send(Task { call, reply }).is_err() {
+        let ((started, begun), (reply, answer)) = (mpsc::channel(), mpsc::channel());
+        if self.tasks.send(Task { call, started, reply }).is_err() {
             return Outcome::Gone;
         }
+        let _ = begun.recv();
         match answer.recv_timeout(patience) {
             Ok(answer) => Outcome::Done(answer),
             Err(RecvTimeoutError::Timeout) => Outcome::Stuck,
@@ -65,21 +70,23 @@ impl Worker {
 fn serve(inbox: &Receiver<Task>, interrupts: bool) {
     let mut engine = None;
     while let Ok(task) = inbox.recv() {
-        let answer = run(&mut engine, &task.call, interrupts);
+        let answer = run(&mut engine, &task, interrupts);
         // The supervisor may have stopped waiting; then nobody needs the answer.
         let _ = task.reply.send(answer);
     }
 }
 
-/// Runs `call` on the engine, starting one when there is none and dropping it after an overrun
-/// so the next call gets a clean runtime.
-fn run(engine: &mut Option<Engine>, call: &HookCall, interrupts: bool) -> Answer {
+/// Runs the task's call on the engine, starting one when there is none and dropping it after an
+/// overrun so the next call gets a clean runtime; says when the call starts.
+fn run(engine: &mut Option<Engine>, task: &Task, interrupts: bool) -> Answer {
     let mut ready = match engine.take() {
         Some(ready) => ready,
         None => Engine::new(interrupts)
             .map_err(|error| HookError::Unavailable { reason: format!("QuickJS could not start: {error}") })?,
     };
-    let answer = ready.call(call);
+    // The supervisor waits for this before it starts its watch.
+    let _ = task.started.send(());
+    let answer = ready.call(&task.call);
     if !matches!(answer, Err(HookError::Overran { .. })) {
         *engine = Some(ready);
     }
