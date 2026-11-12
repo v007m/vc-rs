@@ -5,7 +5,7 @@ use vc_interfaces::CommandOutput;
 use vc_testkit::{FakeCommands, FakeTransport, FakeVcs, MemoryEnvironment, MemorySources, status};
 
 use crate::sample::builder;
-use crate::{CallRequest, Engine, EngineError, ExplainRequest, RunRequest, interrupts};
+use crate::{CallRequest, Engine, EngineError, ExplainRequest, PlanRequest, RunRequest, interrupts};
 
 const CONFIG: (&str, &[u8]) = (
     "vibranium.config.yaml",
@@ -73,15 +73,19 @@ async fn a_run_with_every_declared_secret_set_sends_its_requests() {
 #[tokio::test]
 async fn the_env_provider_neither_loads_nor_requires_nor_masks_the_profile_variable() {
     const FLAGGED: (&str, &[u8]) = (".env.schema", b"# @currentEnv=$VC_PROFILE\nVC_PROFILE=dev\nAPI_TOKEN=\n");
-    let (unset, sent) = declaring(FLAGGED, &[("API_TOKEN", "tok-fixture-71")]);
-    assert_eq!(unset.run(&RunRequest::default(), interrupts().1).await.unwrap().exit, 0, "VC_PROFILE unset: no V5114");
+    let (without, sent) = declaring(FLAGGED, &[("API_TOKEN", "tok-fixture-71")]);
+    assert_eq!(
+        without.run(&RunRequest::default(), interrupts().1).await.unwrap().exit,
+        0,
+        "VC_PROFILE unset: no V5114"
+    );
     assert_eq!(sent.load(Ordering::SeqCst), 1);
     // Were it a loaded secret, its value would mask `baseUrl`, which is the same text.
-    let (set, _) = declaring(FLAGGED, &[("API_TOKEN", "tok-fixture-71"), ("VC_PROFILE", "http://x")]);
-    let checked = set.check_secrets(&ExplainRequest::default()).await.unwrap();
+    let (given, _) = declaring(FLAGGED, &[("API_TOKEN", "tok-fixture-71"), ("VC_PROFILE", "http://x")]);
+    let checked = given.check_secrets(&ExplainRequest::default()).await.unwrap();
     let names: Vec<&str> = checked.secrets.iter().map(|check| check.name.as_str()).collect();
     assert_eq!(names, ["API_TOKEN"]);
-    let explained = set.config_values(&["baseUrl".to_owned()], &ExplainRequest::default()).await.unwrap();
+    let explained = given.config_values(&["vars.baseUrl".to_owned()], &ExplainRequest::default()).await.unwrap();
     assert!(format!("{explained:?}").contains("http://x"), "{explained:?}");
 }
 
@@ -102,14 +106,22 @@ async fn a_run_and_a_call_give_varlock_the_last_profile_as_vc_profile_and_no_run
         .sources(Arc::new(MemorySources::new(&[VARLOCK, USERS, CRUD, SCHEMA])))
         .commands(Arc::new(commands))
         .transport(Arc::new(FakeTransport::new(move |request, _| {
-            assert_eq!(request.headers.get("x-token").map(|value| value.as_bytes()), Some(&b"tok-varlock-3a"[..]));
+            assert_eq!(request.headers.get("x-token").and_then(|value| value.to_str().ok()), Some("tok-varlock-3a"));
             counted.fetch_add(1, Ordering::SeqCst);
             Ok(status(200))
         })))
         .build()
         .unwrap();
     let profiles = vec!["dev".to_owned(), "qa".to_owned()];
-    let run = engine.run(&RunRequest { profiles: profiles.clone(), ..RunRequest::default() }, interrupts().1).await;
+    let run = engine
+        .run(
+            &RunRequest {
+                plan: PlanRequest { profiles: profiles.clone(), ..PlanRequest::default() },
+                ..RunRequest::default()
+            },
+            interrupts().1,
+        )
+        .await;
     assert_eq!(run.unwrap().exit, 0);
     let call = CallRequest { api: "users#get".into(), profiles, ..CallRequest::default() };
     assert_eq!(engine.call(&call).await.unwrap().exit, 0);

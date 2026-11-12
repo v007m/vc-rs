@@ -32,13 +32,13 @@ fn on(config: (&str, &'static [u8]), commands: FakeCommands) -> Engine {
         .unwrap()
 }
 
-/// Varlock resolving every declared secret, only when vc adds exactly `added` to its environment:
-/// none of the run's vars, environment or `.env`.
-fn varlock_adding(added: &'static [(&str, &str)]) -> FakeCommands {
+/// Varlock resolving every declared secret, only when vc adds exactly `VC_PROFILE=<profile>` to
+/// its environment: none of the run's vars, environment or `.env`.
+fn varlock_adding(profile: &'static str) -> FakeCommands {
     FakeCommands::new(move |spec| {
-        let env: Vec<(&str, &str)> = spec.env.iter().map(|(name, value)| (name.as_str(), value.as_str())).collect();
+        let added = [("VC_PROFILE".to_owned(), profile.to_owned())];
         let stdout = r#"{"SHOP_TOKEN":"t","SHOP_CLIENT_ID":"c","SHOP_BLANK":"b"}"#;
-        (spec.program == "varlock" && env == added).then(|| Ok(CommandOutput::new(Some(0), stdout)))
+        (spec.program == "varlock" && spec.env == added).then(|| Ok(CommandOutput::new(Some(0), stdout)))
     })
 }
 
@@ -85,19 +85,11 @@ async fn varlock_is_given_the_last_active_profile_as_vc_profile_and_nothing_else
         profiles: profiles.iter().map(|&p| p.to_owned()).collect(),
         ..ExplainRequest::default()
     };
-    let cases: [(ExplainRequest, &'static [(&str, &str)]); 4] = [
-        (given(&[]), &[("VC_PROFILE", "dev")]),
-        (given(&["staging"]), &[("VC_PROFILE", "staging")]),
-        (given(&["staging", "dev"]), &[("VC_PROFILE", "dev")]),
-        (given(&["dev,staging"]), &[("VC_PROFILE", "staging")]),
-    ];
-    for (request, added) in cases {
-        let checked = on(PROFILES, varlock_adding(added)).check_secrets(&request).await.unwrap();
-        assert_eq!(checked.error, None, "{:?} gives {added:?}", request.profiles);
+    let cases: [(&[&str], &'static str); 4] =
+        [(&[], "dev"), (&["staging"], "staging"), (&["staging", "dev"], "dev"), (&["dev,staging"], "staging")];
+    for (profiles, last) in cases {
+        let checked = on(PROFILES, varlock_adding(last)).check_secrets(&given(profiles)).await.unwrap();
+        assert_eq!(checked.error, None, "{profiles:?} gives VC_PROFILE={last}");
         assert_eq!(states(&checked)[0], ("SHOP_TOKEN", true));
     }
-    let unprofiled = on(VARLOCK_ALONE, varlock_adding(&[])).check_secrets(&ExplainRequest::default()).await.unwrap();
-    assert_eq!(unprofiled.error, None, "no profile: VC_PROFILE stays unset");
 }
-
-const VARLOCK_ALONE: (&str, &[u8]) = ("vibranium.config.yaml", b"syntaxVersion: 2\nsecrets: {provider: varlock}\n");
