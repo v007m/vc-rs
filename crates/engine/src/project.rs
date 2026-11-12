@@ -69,7 +69,12 @@ impl Engine {
     /// [`EngineError::Invalid`] with every diagnostic when any is an error, and the errors of
     /// [`Engine::compiled`].
     pub(crate) fn program(&self) -> Result<Valid, EngineError> {
-        let compiled = self.compiled()?;
+        self.program_with(&[])
+    }
+
+    /// As [`Engine::program`], compiled with `changes` in place of the files they change.
+    pub(crate) fn program_with(&self, changes: &[FileChange]) -> Result<Valid, EngineError> {
+        let compiled = self.compiled_with(changes)?;
         match compiled.program {
             Some(program) if !compiled.diagnostics.has_errors() => Ok((program, compiled.notices)),
             _ => Err(invalid(compiled.diagnostics, compiled.files, compiled.notices)),

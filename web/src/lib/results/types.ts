@@ -1,4 +1,5 @@
 import type { Status } from './status.ts';
+import type { Timing } from './timing.ts';
 
 /** One test in a list of results: `key` is unique in the list (a test instance's label). */
 export type TestRow = Readonly<{
@@ -30,6 +31,8 @@ export type ExchangeLine = Readonly<{
   /** Absent when no response came back. */
   status?: number;
   ms?: number;
+  /** The phases of the call, when they were measured. */
+  timing?: Timing;
   requestHeaders: readonly (readonly [string, string])[];
   responseHeaders: readonly (readonly [string, string])[];
   requestBody?: LazyBody;

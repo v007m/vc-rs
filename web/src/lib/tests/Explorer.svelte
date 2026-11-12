@@ -2,6 +2,7 @@
   import { resolve } from '$app/paths';
   import { SvelteSet } from 'svelte/reactivity';
   import type { RunSession } from '#lib/run/session.svelte.ts';
+  import type { SkipPort } from '#lib/skip/port.ts';
   import {
     changedSince,
     facets,
@@ -17,7 +18,8 @@
   import TestDetail from './TestDetail.svelte';
   import TestTree from './TestTree.svelte';
 
-  let { catalog, session }: { catalog: Catalog; session: RunSession } = $props();
+  let { catalog, session, skips }: { catalog: Catalog; session: RunSession; skips: SkipPort } =
+    $props();
 
   let text = $state('');
   let current: string | undefined = $state();
@@ -149,7 +151,13 @@
   </section>
 
   {#if currentRow}
-    <TestDetail row={currentRow} running={session.running} onrun={run} />
+    <TestDetail
+      row={currentRow}
+      running={session.running}
+      onrun={run}
+      {skips}
+      onchanged={() => void catalog.load()}
+    />
   {/if}
 </div>
 

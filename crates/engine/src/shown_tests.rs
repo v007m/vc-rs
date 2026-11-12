@@ -27,7 +27,7 @@ fn template(parts: Vec<Part>) -> TemplateValue {
 }
 
 fn var(name: &str, value: TemplateValue) -> Var {
-    Var { name: name.to_owned(), value, origin: "test".to_owned(), saved: false }
+    Var { name: name.to_owned(), value, origin: "test".to_owned(), saved: false, replaced: Vec::new() }
 }
 
 #[test]
@@ -83,6 +83,18 @@ fn a_set_var_replaces_the_one_before_in_its_place() {
     let shown: Vec<(&str, &str)> = vars.iter().map(|var| (var.name.as_str(), var.origin.as_str())).collect();
     assert_eq!(shown, [("a", "later"), ("b", "test")]);
     assert_eq!(Shown { program: &Program::default(), vars: &[] }.value(&vars[0].value), "3");
+}
+
+#[test]
+fn a_set_var_keeps_the_values_it_replaced_latest_first() {
+    let mut vars = Vec::new();
+    set(&mut vars, var("a", literal("1")));
+    set(&mut vars, Var { origin: "profile dev".into(), ..var("a", literal("2")) });
+    set(&mut vars, Var { origin: "api users#get".into(), ..var("a", literal("3")) });
+    let shown = Shown { program: &Program::default(), vars: &[] };
+    let replaced: Vec<(String, &str)> =
+        vars[0].replaced.iter().map(|(value, origin)| (shown.value(value), origin.as_str())).collect();
+    assert_eq!(replaced, [("2".to_owned(), "profile dev"), ("1".to_owned(), "test")]);
 }
 
 fn piped(name: &str, pipe: &str) -> Part {

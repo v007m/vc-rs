@@ -1,8 +1,8 @@
-//! The authoring RPCs: `Call`, `SaveCallAsTest` and `Import`. The web UI's call is the person at
+//! The authoring RPCs: `Call`, `SaveCallAsTest`, `Import`, `Skip` and `Unskip`. The web UI's call is the person at
 //! the browser's, as `vc call`'s is: the profiles' agent policy and the agent log, which are for
 //! agents on `/mcp`, do not apply (D241). An import reads only the
 //! text the request carries, never a URL or path, and fetches none of its `$ref`s from the
-//! network; it writes only when asked. A call and an import read and compile the project on the
+//! network; it writes only when asked, as a skip and an unskip do. A call and an import read and compile the project on the
 //! blocking pool, never on an async worker.
 
 use std::sync::Arc;
@@ -11,22 +11,31 @@ use serde_json::Value;
 use tokio::runtime::Handle;
 use vc_contracts::engine::v1 as wire;
 use vc_contracts::results::v1 as results;
-use vc_engine::{CallAsTest, CallReport, CallRequest, Changes, Exchange, FileChange, ImportRequest, Keep, cut_body};
+use vc_engine::{
+    CallAsTest, CallReport, CallRequest, Changes, Engine, EngineError, Exchange, FileChange, ImportRequest, Keep,
+    SkipRequest, cut_body,
+};
 
 use crate::engine_api::{EngineApi, Rpcs};
-use crate::{Code, ConnectError, wire_results};
+use crate::{Code, ConnectError, client_rpcs, wire_results};
 
 /// The name a pasted spec goes by: its relative references resolve from the project root.
 const PASTED: &str = "pasted";
 
 /// Adds the authoring RPCs.
 pub fn register(rpcs: Rpcs) -> Rpcs {
-    rpcs.unary("Call", call).unary("SaveCallAsTest", save_call_as_test).unary("Import", import)
+    rpcs.unary("Call", call)
+        .unary("SaveCallAsTest", save_call_as_test)
+        .unary("Import", import)
+        .unary("Skip", skip)
+        .unary("Unskip", unskip)
 }
 
-async fn call(api: Arc<EngineApi>, request: wire::CallRequest) -> Result<wire::CallResponse, ConnectError> {
+pub async fn call(api: Arc<EngineApi>, request: wire::CallRequest) -> Result<wire::CallResponse, ConnectError> {
     let (profiles, sets) = api.layers(request.profiles, request.sets);
-    let call = CallRequest { api: request.api, vars: request.vars, keep: request.keep, profiles, sets, agent: None };
+    let draft = request.draft.as_ref().map(client_rpcs::draft).transpose()?;
+    let call =
+        CallRequest { api: request.api, vars: request.vars, keep: request.keep, profiles, sets, agent: None, draft };
     let report = api.blocking(move |engine| Handle::current().block_on(engine.call(&call))).await?;
     let exchange = report.exchange.as_ref().map(|exchange| bodied(&report, exchange));
     let checks = report.checks.iter().map(|check| wire_results::check(&report.names, check)).collect();
@@ -112,6 +121,36 @@ async fn import(api: Arc<EngineApi>, request: wire::ImportRequest) -> Result<wir
         })
         .await?;
     Ok(response(changes))
+}
+
+/// `vc skip` from the web UI: previews the change with the digest of its file, or writes it when
+/// asked with the digest its preview gave; a file changed since is aborted (stale). The engine's
+/// guard (D107) refuses a change that would add an error, and nothing is written.
+async fn skip(api: Arc<EngineApi>, request: wire::SkipRequest) -> Result<wire::SkipResponse, ConnectError> {
+    let expected = request.write.then(|| request.expected_digest.unwrap_or_default());
+    let skip = SkipRequest { target: request.target, reason: request.reason, until: request.until };
+    let (changes, digest) = api.blocking(move |engine| previewed(engine, engine.skip(&skip)?, expected)).await?;
+    let wire::ImportResponse { files, titles } = response(changes);
+    Ok(wire::SkipResponse { files, titles, digest })
+}
+
+/// `vc unskip` from the web UI: previews or writes the change, as a skip does.
+async fn unskip(api: Arc<EngineApi>, request: wire::UnskipRequest) -> Result<wire::UnskipResponse, ConnectError> {
+    let expected = request.write.then(|| request.expected_digest.unwrap_or_default());
+    let target = request.target;
+    let (changes, digest) = api.blocking(move |engine| previewed(engine, engine.unskip(&target)?, expected)).await?;
+    let wire::ImportResponse { files, titles } = response(changes);
+    Ok(wire::UnskipResponse { files, titles, digest })
+}
+
+/// `changes` with the digest of their files as previewed; written first when `expected` holds
+/// the digest a preview gave and the files are still those.
+fn previewed(engine: &Engine, changes: Changes, expected: Option<String>) -> Result<(Changes, String), EngineError> {
+    let digest = engine.preview_digest(&changes)?;
+    if let Some(expected) = expected {
+        engine.write_previewed(&changes, &expected)?;
+    }
+    Ok((changes, digest))
 }
 
 fn response(changes: Changes) -> wire::ImportResponse {

@@ -36,8 +36,37 @@ function setup() {
         text: '201 Created · 9 ms · api expect passed',
         notices: [],
         responseJson,
+        exchange: {
+          method: 'POST',
+          url: 'http://localhost:7421/users',
+          status: 201,
+          ms: 9,
+          timing: { dnsMs: 1, connectMs: 2, firstByteMs: 5, downloadMs: 1, totalMs: 9 },
+          requestHeaders: [],
+          responseHeaders: [['x-id', 'u_1']],
+          truncated: false,
+        },
+        checks: [
+          {
+            label: 'status',
+            passed: true,
+            expected: '201',
+            actual: '201',
+            location: 'services/users/users.api.yaml:20',
+          },
+        ],
+        saved: [{ name: 'userId', from: '${response.body.id}', value: '"u_1"' }],
       });
     },
+    readDefinition: (id) =>
+      Promise.resolve({
+        path: 'u.api.yaml',
+        pointer: '/apis/0',
+        digest: 'd1',
+        node: { id: id.split('#')[1], method: 'POST', path: '/users' },
+      }),
+    explainApi: () => Promise.resolve({ vars: [], headers: [], curl: '', notices: [] }),
+    editFile: () => Promise.reject(new Error('unused')),
     saveCallAsTest: (input) => {
       sent.saves.push(input);
       return Promise.resolve({
@@ -72,6 +101,7 @@ describe('ClientScreen', () => {
   it('calls an api with a var and shows the status, body and headers', async () => {
     const { user, sent } = await rendered();
     await user.click(screen.getByRole('treeitem', { name: 'Create a user' }));
+    await user.click(screen.getByRole('tab', { name: 'Vars' }));
     await user.type(screen.getByRole('textbox', { name: 'email' }), 'grace@example.com');
     await user.click(screen.getByRole('button', { name: 'Send' }));
     expect(sent.calls).toEqual([
@@ -82,6 +112,26 @@ describe('ClientScreen', () => {
     expect(within(response).getByText(/"u_1"/)).toBeTruthy();
     await user.click(within(response).getByRole('tab', { name: 'Headers' }));
     expect(within(response).getByText('x-id')).toBeTruthy();
+  });
+
+  it('shows the timing waterfall, the checks that ran and the values saved', async () => {
+    const { user } = await rendered();
+    await user.click(screen.getByRole('treeitem', { name: 'Create a user' }));
+    await user.click(screen.getByRole('button', { name: 'Send' }));
+    const response = screen.getByRole('region', { name: 'Response' });
+    await user.click(within(response).getByRole('tab', { name: 'Timing' }));
+    const waterfall = within(response).getByRole('table', { name: 'Timing waterfall' });
+    const phases = within(waterfall)
+      .getAllByRole('rowheader')
+      .map((th) => th.textContent);
+    expect(phases).toEqual(['dns', 'connect', 'firstByte', 'download', 'total']);
+    await user.click(within(response).getByRole('tab', { name: 'Checks' }));
+    const checks = within(response).getByRole('list', { name: 'Checks' });
+    expect(checks.textContent?.replace(/\s+/g, ' ')).toContain('status held');
+    await user.click(within(response).getByRole('tab', { name: 'Saved' }));
+    const saved = within(response).getByRole('table', { name: 'Saved values' });
+    expect(within(saved).getByRole('rowheader', { name: 'userId' })).toBeTruthy();
+    expect(saved.textContent).toContain('${response.body.id}');
   });
 
   it('saves the call as a test expecting a chosen body field', async () => {
@@ -128,7 +178,35 @@ describe('ClientScreen', () => {
       within(screen.getByRole('group', { name: 'Mode' })).getByRole('button', { name: 'Flow' }),
     );
     const flows = screen.getByRole('list', { name: 'Flow tests' });
-    await user.click(within(flows).getByRole('button', { name: 'Run' }));
+    await user.click(
+      within(flows).getByRole('button', { name: 'Run users.recorded#replaysSession' }),
+    );
     expect(runs).toEqual([['users.recorded#replaysSession']]);
+  });
+
+  it('edits a flow test below the list, and runs it only as saved', async () => {
+    const s = setup();
+    s.port.readDefinition = () =>
+      Promise.resolve({
+        path: 'services/users/recorded.test.yaml',
+        pointer: '/tests/0',
+        digest: 'd1',
+        node: { id: 'replaysSession', steps: [{ call: 'users#listUsers' }] },
+      });
+    await s.client.load();
+    render(ClientScreen, { client: s.client, port: s.port, session: s.session });
+    await s.user.click(
+      within(screen.getByRole('group', { name: 'Mode' })).getByRole('button', { name: 'Flow' }),
+    );
+    const flows = screen.getByRole('list', { name: 'Flow tests' });
+    await s.user.click(
+      within(flows).getByRole('button', { name: 'Edit users.recorded#replaysSession' }),
+    );
+    const api = await screen.findByRole('combobox', { name: 'Stage 1 api' });
+    await s.user.selectOptions(api, 'users#createUser');
+    const run = within(flows).getByRole('button', { name: 'Run users.recorded#replaysSession' });
+    expect(run).toHaveProperty('disabled', true);
+    await s.user.click(screen.getByRole('button', { name: 'Discard' }));
+    expect(run).toHaveProperty('disabled', false);
   });
 });

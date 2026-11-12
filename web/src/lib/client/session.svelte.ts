@@ -1,5 +1,6 @@
-import { ConnectError } from '@connectrpc/connect';
+import { Code, ConnectError } from '@connectrpc/connect';
 import type { ApiInfo, CallInput, CallOutput, ClientPort, FlowInfo } from './port.ts';
+import { ApiRequest } from './request.svelte.ts';
 import { parseResponse, scalarFields, varArg, type CallResponse } from './response.ts';
 
 /** A var row in the request: a name the api declares, or one the user added. */
@@ -19,13 +20,15 @@ function message(error: unknown): string {
 }
 
 /**
- * The API client's state: the project's apis, the open one's vars, and the last call. A call
- * goes through the engine like `vc call`, so it uses the project's auth and active profile.
+ * The API client's state: the project's apis, the open one's vars and request, and the last
+ * call. A call goes through the engine like `vc call`, so it uses the project's auth and active
+ * profile, with the api as the request edited it.
  */
 export class ClientSession {
   apis: readonly ApiInfo[] = $state([]);
   flows: readonly FlowInfo[] = $state([]);
   current: ApiInfo | undefined = $state();
+  request: ApiRequest | undefined = $state();
   vars: VarRow[] = $state([]);
   keep = $state(false);
   sending = $state(false);
@@ -46,14 +49,16 @@ export class ClientSession {
     }
   }
 
-  /** Opens the api `id` with an empty row for each var it declares. */
-  open(id: string): void {
+  /** Opens the api `id` with an empty row for each var it declares, and reads its request. */
+  async open(id: string): Promise<void> {
     const api = this.apis.find((a) => a.id === id);
     if (!api || api.id === this.current?.id) return;
     this.current = api;
     this.vars = api.vars.map((name) => ({ name, value: '' }));
     this.result = undefined;
     this.error = undefined;
+    this.request = new ApiRequest(this.#port, api.id);
+    await this.request.load();
   }
 
   addVar(): void {
@@ -70,12 +75,29 @@ export class ClientSession {
     const vars = this.vars
       .filter((v) => v.name.trim() && v.value !== '')
       .map((v) => varArg(v.name.trim(), v.value));
-    return { api: this.current.id, vars, keep: this.keep };
+    const draft = this.request?.draft;
+    const input = { api: this.current.id, vars, keep: this.keep };
+    return draft ? { ...input, draft } : input;
+  }
+
+  /** Explains the open request as `send` would send it now; whether it could. */
+  async explain(): Promise<boolean> {
+    const [input, request] = [this.input, this.request];
+    if (!input || !request) return false;
+    try {
+      await request.explain(input.vars);
+      this.error = undefined;
+      return true;
+    } catch (error) {
+      if (ConnectError.from(error).code === Code.Aborted) request.stale();
+      this.error = message(error);
+      return false;
+    }
   }
 
   async send(): Promise<void> {
     const input = this.input;
-    if (!input || this.sending) return;
+    if (!input || this.sending || this.request?.problem !== undefined) return;
     this.sending = true;
     try {
       const output = await this.#port.call(input);
@@ -84,6 +106,7 @@ export class ClientSession {
       this.result = { input, output, response, fields };
       this.error = undefined;
     } catch (error) {
+      if (ConnectError.from(error).code === Code.Aborted) this.request?.stale();
       this.error = message(error);
     } finally {
       this.sending = false;

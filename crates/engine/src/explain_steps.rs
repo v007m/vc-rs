@@ -123,7 +123,13 @@ impl Explainer<'_> {
         };
         let origin = format!("saved by {}", vc_planner::action_label(self.program, id));
         for (name, value) in api.into_iter().chain([&action.save]).flat_map(|save| &save.values) {
-            let var = Var { name: self.text(name.sym()), value: value.clone(), origin: origin.clone(), saved: true };
+            let var = Var {
+                name: self.text(name.sym()),
+                value: value.clone(),
+                origin: origin.clone(),
+                saved: true,
+                replaced: Vec::new(),
+            };
             shown::set(&mut walk.saved, var);
         }
     }

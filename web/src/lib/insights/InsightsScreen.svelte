@@ -1,10 +1,32 @@
 <script lang="ts">
+  import { SvelteMap } from 'svelte/reactivity';
+  import type { SkipPort } from '#lib/skip/port.ts';
+  import SkipForm from '#lib/skip/SkipForm.svelte';
+  import { SkipChange } from '#lib/skip/skip.svelte.ts';
   import BarChart, { type Bar } from './BarChart.svelte';
+  import ExpiringSkips from './ExpiringSkips.svelte';
   import { windows, type Insights } from './insights.svelte.ts';
   import type { RunSummary } from './port.ts';
   import { duration, flakiest, mean, median, niceMax, passRate, when } from './stats.ts';
 
-  let { insights }: { insights: Insights } = $props();
+  let { insights, skips }: { insights: Insights; skips: SkipPort } = $props();
+
+  /** The skip being written or removed, one at a time. */
+  let skipping: SkipChange | undefined = $state();
+  /** What this page skipped, by test ID, until it is undone. */
+  const skipped = new SvelteMap<string, string>();
+
+  function openSkip(id: string, removing = false): void {
+    skipping =
+      skipping?.target === id && !removing ? undefined : new SkipChange(skips, id, removing);
+  }
+
+  function written(change: SkipChange): void {
+    if (change.removing) skipped.delete(change.target);
+    else skipped.set(change.target, change.until ? `skipped until ${change.until}` : 'skipped');
+    skipping = undefined;
+    void insights.loadSkips();
+  }
 
   const pct = (value: number | undefined) => (value === undefined ? '—' : `${Math.round(value)}%`);
   const rates = $derived(insights.runs.map(passRate).filter((r): r is number => r !== undefined));
@@ -133,14 +155,53 @@
     {:else}
       <ol>
         {#each worst as t (t.testId)}
+          {@const done = skipped.get(t.testId)}
           <li>
             <span class="mono">{t.testId}</span>
             <span class="muted">{t.flaky} flaky · {t.failed} failed of {t.results} results</span>
+            <span class="acts">
+              {#if done}
+                <span class="pill">{done}</span>
+                <button
+                  type="button"
+                  class="btn sm"
+                  aria-label="Undo the skip of {t.testId}"
+                  onclick={() => openSkip(t.testId, true)}>Undo</button
+                >
+              {:else}
+                <button
+                  type="button"
+                  class="btn sm"
+                  aria-label="Skip {t.testId} until…"
+                  aria-expanded={skipping?.target === t.testId}
+                  onclick={() => openSkip(t.testId)}>Skip until…</button
+                >
+              {/if}
+            </span>
+            {#if skipping?.target === t.testId}
+              {@const change = skipping}
+              <SkipForm
+                {change}
+                oncancel={() => (skipping = undefined)}
+                onwritten={() => written(change)}
+              />
+            {/if}
           </li>
         {/each}
       </ol>
+      <p class="muted note">
+        Skip writes <code>skip: &lbrace; reason, until &rbrace;</code> into the test: it is reported as
+        skipped with its reason, and runs again after the date.
+      </p>
     {/if}
   </section>
+
+  <ExpiringSkips
+    skips={insights.skips}
+    today={insights.today}
+    port={skips}
+    onchanged={() => void insights.loadSkips()}
+  />
 </div>
 
 <style>
@@ -225,7 +286,17 @@
   .flakiest li {
     display: flex;
     flex-wrap: wrap;
+    align-items: center;
     gap: 4px 12px;
+  }
+  .acts {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-left: auto;
+  }
+  .note {
+    font-size: 12px;
   }
   .flakiest p {
     margin: 4px 0 0;
