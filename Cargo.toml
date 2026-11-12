@@ -99,6 +99,7 @@ har = "0.9.0"
 hdrhistogram = { version = "7.6", default-features = false }
 hmac = "0.13.0"
 http = "1.5.0"
+http-body = "1.1.0"
 http-body-util = "0.1.5"
 hyper = { version = "1.12.0", features = ["client", "http1", "http2"] }
 hyper-util = { version = "0.1.21", features = ["client-legacy", "client-proxy", "http1", "http2", "tokio"] }

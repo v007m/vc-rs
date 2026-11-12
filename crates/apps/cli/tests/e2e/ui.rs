@@ -36,6 +36,8 @@ mod served {
     const HELLO: &str = r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"ui-agent","version":"1"}}}"#;
     const RUN: &str = r#"{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"run_tests","arguments":{"ids":["users.crud"]}}}"#;
     const CREATE: &str = r#"{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"call_api","arguments":{"api":"users#create"}}}"#;
+    const SEARCH: &str =
+        r#"{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"search","arguments":{"query":"list"}}}"#;
 
     /// One HTTP/1.1 exchange on loopback `port`; the whole reply. `head` is the method and path,
     /// then any further header lines.
@@ -63,9 +65,14 @@ mod served {
 
     /// Initializes an MCP session over `/mcp` with `token` and calls a tool with `call`; its reply.
     fn mcp_tool(port: &str, token: &str, call: &str) -> String {
+        mcp_tool_after(port, token, HELLO, call)
+    }
+
+    /// As [`mcp_tool`], with `hello` as the `initialize`.
+    fn mcp_tool_after(port: &str, token: &str, hello: &str, call: &str) -> String {
         let auth = format!("POST /mcp\r\nAuthorization: Bearer {token}\r\n{ACCEPT}");
         let auth = auth.trim_end();
-        let started = http(port, auth, HELLO);
+        let started = http(port, auth, hello);
         assert!(started.starts_with("HTTP/1.1 200"), "{started}");
         let session = header(&started, "mcp-session-id").unwrap().to_owned();
         let auth = format!("{auth}\r\nMcp-Session-Id: {session}\r\nMcp-Protocol-Version: 2025-11-25");
@@ -210,5 +217,26 @@ mod served {
         assert_eq!(each, [true; 4], "{logged}");
         ui.stop();
         assert_eq!(server.stats().await.unwrap().count("POST /users"), 0);
+    }
+
+    /// rmcp needs `clientInfo`; `/mcp` fills it in as stdio does, so a client that names itself
+    /// nowhere, or gives an empty `clientInfo`, is served and logged as `agent`.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn a_client_without_client_info_is_served_at_mcp_and_logged_as_agent() {
+        let server = MockServer::start().await.unwrap();
+        let project = project(&server.base_url());
+        let ui = Ui::start(&project);
+        let unnamed = r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{}}}"#;
+        let empty = unnamed.replace(r#""capabilities":{}"#, r#""capabilities":{},"clientInfo":{}"#);
+        for hello in [unnamed, empty.as_str()] {
+            let found = mcp_tool_after(&ui.port, &ui.agent, hello, SEARCH);
+            assert!(found.contains(r#""isError":false"#) && found.contains("users.crud#listsUsers"), "{found}");
+        }
+        ui.stop();
+        let db = rusqlite::Connection::open(project.path().join(".vibranium/history.db")).unwrap();
+        let mut rows = db.prepare("SELECT agent, tool FROM agent_actions ORDER BY id").unwrap();
+        let logged: Vec<(String, String)> =
+            rows.query_map([], |row| Ok((row.get(0)?, row.get(1)?))).unwrap().map(Result::unwrap).collect();
+        assert_eq!(logged, [("agent".to_owned(), "search".to_owned()), ("agent".to_owned(), "search".to_owned())]);
     }
 }

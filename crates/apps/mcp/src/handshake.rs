@@ -1,5 +1,6 @@
-//! The stdio handshake. An `initialize` without `clientInfo` is served as one from `agent`, and
-//! a client that sends something else before `initialize` ends the server with a user error.
+//! The handshake. An `initialize` without `clientInfo` is served as one from `agent`, over stdio
+//! and HTTP alike, and a client that sends something else before `initialize` ends the stdio
+//! server with a user error.
 
 use rmcp::RoleServer;
 use rmcp::model::{ClientJsonRpcMessage, ClientRequest, JsonRpcMessage};
@@ -47,10 +48,13 @@ impl<T: Transport<RoleServer>> Transport<RoleServer> for Named<T> {
 /// `message`, with `clientInfo` filled in when it is an `initialize` that rmcp could not read
 /// for want of it.
 pub fn named(message: ClientJsonRpcMessage) -> ClientJsonRpcMessage {
-    if !unread_initialize(&message) {
-        return message;
-    }
-    with_client_info(&message).unwrap_or(message)
+    filled(&message).unwrap_or(message)
+}
+
+/// `message` with `clientInfo` filled in, when it is an `initialize` that rmcp could not read for
+/// want of it and reads once it is filled in; otherwise `None`.
+pub fn filled(message: &ClientJsonRpcMessage) -> Option<ClientJsonRpcMessage> {
+    unread_initialize(message).then(|| with_client_info(message)).flatten()
 }
 
 /// The error for a client that sent `sent` where `initialize` belonged.
