@@ -325,6 +325,9 @@ impl Transport for Server {
         if path == "/slow" {
             tokio::time::sleep(SLOW).await;
         }
+        if path == "/panic" {
+            std::panic::panic_any("the fixture's worker failed");
+        }
         let first = || self.flaky.fetch_add(1, Ordering::SeqCst) == 0;
         let code = match path.as_str() {
             "/fail" => 500,

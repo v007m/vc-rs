@@ -58,6 +58,9 @@ pub enum InstanceInput {
     /// The action in flight was cut off by cancellation, with no result but the cleanups its
     /// finished parts registered.
     ActionCut(Vec<PendingCleanup>),
+    /// The action in flight was stopped by an abort, with the cleanups its finished parts
+    /// registered: they are abandoned with the rest.
+    ActionAborted(Vec<PendingCleanup>),
     /// The cleanup in flight finished; its outcome changes no result.
     CleanupDone,
     /// The `retry` delay passed.
@@ -72,7 +75,8 @@ pub enum InstanceInput {
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum InstanceCommand {
-    /// Run this action and report [`InstanceInput::ActionDone`] or [`InstanceInput::ActionCut`].
+    /// Run this action and report [`InstanceInput::ActionDone`], [`InstanceInput::ActionCut`] or
+    /// [`InstanceInput::ActionAborted`].
     RunAction(ActionId),
     /// Run this cleanup and report [`InstanceInput::CleanupDone`].
     RunCleanup(PendingCleanup),
@@ -150,16 +154,22 @@ impl InstanceWorkflow {
             (Done(_), _) => {}
             (Pending, InstanceInput::Start) | (Waiting, InstanceInput::RetryDue) => self.begin_attempt(out),
             (Pending, InstanceInput::Block(failure)) => self.finish(TestStatus::Blocked, Some(failure), out),
-            (Pending, InstanceInput::Cancelled | InstanceInput::Abort) => self.finish_cancelled(out),
+            (Pending, InstanceInput::Cancelled | InstanceInput::Abort | InstanceInput::ActionAborted(_)) => {
+                self.finish_cancelled(out);
+            }
             (Before(_) | Body(_) | After(_), InstanceInput::ActionDone(report)) => self.action_done(report, out),
             (Before(_) | Body(_) | After(_), InstanceInput::ActionCut(kept)) => {
                 self.cleanups.extend(kept);
                 self.cut(out);
             }
+            (Before(_) | Body(_) | After(_), InstanceInput::ActionAborted(kept)) => {
+                self.cleanups.extend(kept);
+                self.abort(out);
+            }
             (Cleanup, InstanceInput::CleanupDone) => self.next_cleanup(out),
             (Waiting, InstanceInput::Cancelled) => self.give_up_retrying(out),
             (_, InstanceInput::Cancelled) => self.cancelled = true,
-            (_, InstanceInput::Abort) => self.abort(out),
+            (_, InstanceInput::Abort | InstanceInput::ActionAborted(_)) => self.abort(out),
             _ => {}
         }
     }

@@ -1,4 +1,8 @@
+use std::any::Any;
+use std::panic::{self, AssertUnwindSafe};
+use std::pin::pin;
 use std::sync::Arc;
+use std::task::Poll;
 use std::time::Duration;
 
 use tokio::sync::Semaphore;
@@ -87,7 +91,8 @@ impl Crew {
         let (action, owner, slots, deadline) = (job.action, job.owner, job.slots(), job.deadline);
         self.bus.publish(Event::ActionStarted { action, owner }).await;
         let work = |request| cancel.guard(self.execute(request, deadline));
-        let (ran, kept) = merged(CleanupCollector::gather(job.request(&self.cx), work).await);
+        let gathered = Box::pin(CleanupCollector::gather(job.request(&self.cx), work)).await;
+        let (ran, kept) = merged(gathered).await;
         let outcome = match &ran {
             Ran::Done(report) => {
                 self.publish_report((action, owner), report).await;
@@ -116,10 +121,10 @@ impl Crew {
     }
 
     /// Runs `request`'s action; past `deadline` it is dropped and fails with V5104, the
-    /// cleanups of its finished parts handed to the frame's sink.
+    /// cleanups of its finished parts handed to the frame's sink. A panic fails it the same way.
     async fn execute(&self, request: ActionRequest, deadline: Option<Deadline>) -> ActionReport {
         let action = request.action;
-        let work = self.cx.executors.execute(request);
+        let work = unwound(action, self.cx.executors.execute(request));
         let Some(deadline) = deadline else { return work.await };
         time::timeout_at(deadline.at, work).await.unwrap_or_else(|_| {
             let failure = Failure::new(deadline.past).with_code(Code::V5104.to_string());
@@ -130,7 +135,7 @@ impl Crew {
     /// Runs a cleanup: cancellation does not stop it, an abort does.
     pub async fn clean(&self, job: Job, cancel: &CancelTree) -> Ran<ActionReport> {
         let (action, owner) = (job.action, job.owner);
-        let ran = cancel.cleanup(self.cx.executors.execute(job.request(&self.cx))).await;
+        let ran = cancel.cleanup(unwound(action, self.cx.executors.execute(job.request(&self.cx)))).await;
         if let Ran::Done(report) = &ran {
             let cleanup = CleanupRecord { action, owner, outcome: report.outcome.clone() };
             self.bus.publish(Event::CleanupFinished { cleanup }).await;
@@ -141,8 +146,28 @@ impl Crew {
 
 /// A done action's report with the cleanups `kept` first and nothing left over; otherwise the
 /// cleanups `kept` are left over.
-fn merged((ran, mut kept): (Ran<ActionReport>, CleanupCollector)) -> (Ran<ActionReport>, Vec<PendingCleanup>) {
-    let Ran::Done(mut report) = ran else { return (ran, kept.take(Vec::new())) };
-    report.cleanups = kept.take(std::mem::take(&mut report.cleanups));
+/// Waits for the parts still letting go of the collector's sink (a loop's aborted turns).
+async fn merged((ran, kept): (Ran<ActionReport>, CleanupCollector)) -> (Ran<ActionReport>, Vec<PendingCleanup>) {
+    let Ran::Done(mut report) = ran else { return (ran, kept.settle(Vec::new()).await) };
+    report.cleanups = kept.settle(std::mem::take(&mut report.cleanups)).await;
     (Ran::Done(report), Vec::new())
+}
+
+/// `work`'s report, or, when it panics, a failure of `action`: unwinding drops what it ran, so
+/// the cleanups its finished parts registered are handed over, and the worker carries on.
+async fn unwound(action: ActionId, work: impl Future<Output = ActionReport>) -> ActionReport {
+    let mut work = pin!(work);
+    let polled = std::future::poll_fn(|cx| match panic::catch_unwind(AssertUnwindSafe(|| work.as_mut().poll(cx))) {
+        Ok(Poll::Pending) => Poll::Pending,
+        Ok(Poll::Ready(report)) => Poll::Ready(Ok(report)),
+        Err(payload) => Poll::Ready(Err(payload)),
+    });
+    polled.await.unwrap_or_else(|payload| ActionReport::failed(Failure::new(panicked(&*payload)).at(action)))
+}
+
+/// What a panic with `payload` says.
+fn panicked(payload: &(dyn Any + Send)) -> String {
+    let message =
+        payload.downcast_ref::<&str>().copied().or_else(|| payload.downcast_ref::<String>().map(String::as_str));
+    message.map_or_else(|| "the action panicked".to_owned(), |message| format!("the action panicked: {message}"))
 }
