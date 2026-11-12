@@ -14,6 +14,7 @@ use crate::load_report::{self, LoadBreach, LoadEnding};
 use crate::notify::{self, Alerting};
 use crate::plan::{Extra, Prepared};
 use crate::plugin_hosts::Hosts;
+use crate::ports::SecretSource;
 use crate::run::executor_error;
 use crate::{
     Engine, EngineError, Interrupts, LoadReport, LoadRequest, LoadWatch, PlanRequest, SelectRequest, alerts, history,
@@ -56,7 +57,7 @@ impl Engine {
     /// [`Engine::load`]'s work, boxed there: a load run's future is large.
     async fn load_run(&self, request: &LoadRequest, mut watch: LoadWatch) -> Result<LoadReport, EngineError> {
         let mut session = self.load_session(request)?;
-        let secrets = self.secrets(&session.prepared.program.config.secrets, &session.prepared.environment).await?;
+        let secrets = self.secrets(SecretSource::of(&session.prepared)).await?;
         let live = Live::new(Arc::clone(&session.prepared.program), self.load_recording(&mut session), watch.ticks);
         let run_id = live.run_id().unwrap_or(0);
         session.alerting = self.alerting(&session.prepared, &secrets, (run_id, LOAD_KIND))?;

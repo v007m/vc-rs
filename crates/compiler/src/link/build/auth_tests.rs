@@ -115,6 +115,16 @@ fn an_undeclared_secret_is_v2106_with_a_fix_to_the_close_name() {
 }
 
 #[test]
+fn the_profile_variable_in_the_schema_is_no_secret_so_reading_it_is_v2106() {
+    let schema = "# @currentEnv=$VC_PROFILE\nVC_PROFILE=dev\nCLIENT_SECRET=\n";
+    let compiled =
+        compiled("apis:\n  - id: list\n    path: /users\n    headers: {x-a: '${secret.VC_PROFILE}'}\n", Some(schema));
+    let found: Vec<_> = compiled.diagnostics.iter().filter(|found| found.code == Code::V2106).collect();
+    let [problem] = found[..] else { panic!("{:?}", compiled.diagnostics) };
+    assert!(problem.message.contains("VC_PROFILE"), "{}", problem.message);
+}
+
+#[test]
 fn an_env_read_of_a_secret_is_v2107_with_a_certain_rewrite() {
     let api = "apis:\n  - id: list\n    path: /users\n    headers: {x-a: '${env.API_TOKEN}', x-b: '${env.HOME}'}\n";
     let compiled = compiled(api, Some(SCHEMA));

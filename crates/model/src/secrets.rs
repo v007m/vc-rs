@@ -8,6 +8,10 @@ pub const DEFAULT_SECRETS_PROVIDER: &str = "env";
 /// The file that declares secret names, relative to the project root (D165).
 pub const DEFAULT_SECRETS_SCHEMA: &str = ".env.schema";
 
+/// The variable Varlock is told the run's profile in (D306). A schema line declaring it is
+/// Varlock's `@currentEnv` flag, not a secret: [`schema_names`] leaves it out.
+pub const PROFILE_VARIABLE: &str = "VC_PROFILE";
+
 /// `secrets`: the provider that resolves `${secret.*}` and the names `.env.schema` declares.
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[expect(
@@ -57,12 +61,15 @@ pub enum RedactRule {
 }
 
 /// The names a `.env.schema` declares: each `NAME=` line, with or without a value or an
-/// `export ` before it; `#` lines (Varlock's decorators) and blank lines declare nothing.
+/// `export ` before it.
+///
+/// `#` lines (Varlock's decorators), blank lines and [`PROFILE_VARIABLE`] (Varlock's environment
+/// flag, D306) declare nothing.
 #[must_use]
 pub fn schema_names(text: &str) -> Vec<String> {
     let lines = text.lines().map(str::trim).filter(|line| !line.is_empty() && !line.starts_with('#'));
     let names = lines.filter_map(|line| line.strip_prefix("export ").unwrap_or(line).split_once('='));
-    let names = names.map(|(name, _)| name.trim()).filter(|name| is_name(name));
+    let names = names.map(|(name, _)| name.trim()).filter(|name| is_name(name) && *name != PROFILE_VARIABLE);
     let mut found: Vec<String> = Vec::new();
     for name in names {
         if !found.iter().any(|seen| seen == name) {
@@ -130,6 +137,17 @@ mod tests {
     fn a_schema_declares_each_assigned_name_once() {
         let text = "# @defaultSensitive=true\n\n# @required\nAPI_TOKEN=\nexport DB_URL=op(x)\n_X1 = 2\nAPI_TOKEN=again\n1BAD=x\nno equals\nA-B=1\n";
         assert_eq!(schema_names(text), ["API_TOKEN", "DB_URL", "_X1"]);
+    }
+
+    #[test]
+    fn the_profile_variable_is_varlock_s_environment_flag_not_a_secret() {
+        let text = "# @currentEnv=$VC_PROFILE\n# ---\nVC_PROFILE=dev\nexport VC_PROFILE=qa\nAPI_TOKEN=\n";
+        assert_eq!(schema_names(text), ["API_TOKEN"]);
+        assert_eq!(
+            schema_names("VC_PROFILES=\nVC_PROFILE_X=\n"),
+            ["VC_PROFILES", "VC_PROFILE_X"],
+            "only the exact name"
+        );
     }
 
     #[test]

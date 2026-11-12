@@ -9,6 +9,7 @@ use vc_model::{Alert, AlertTrigger, Program, RunStatus, Totals};
 
 use crate::alerts::in_profiles;
 use crate::notify::Senders;
+use crate::ports::SecretSource;
 use crate::{CallRequest, Engine, EngineError, ExplainRequest};
 
 /// What sending the sample to one channel did.
@@ -41,7 +42,7 @@ impl Engine {
         if rules.is_empty() {
             return Ok(Vec::new());
         }
-        let secrets = self.secrets(&program.config.secrets, &prepared.environment).await?;
+        let secrets = self.secrets(SecretSource::of(&prepared)).await?;
         let senders = self.senders(&prepared, &secrets)?;
         Ok(sent(&senders, (program, &rules), &notice).await)
     }

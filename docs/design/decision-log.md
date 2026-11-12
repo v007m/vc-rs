@@ -560,6 +560,7 @@ Round 47 (12 November 2026; orchestrator, under Sarath's delegation):
 | D300 | Documented statuses in coverage | An api's documented statuses are those its own `expect`, the `expect` of each test and step that calls it, and its spec snapshot's `responses` keys name (`default` names none). A class covers the codes in it: a documented `2xx` covers a seen `201`, which is not marked undocumented | — (fills a gap in the Insights coverage) |
 | D301 | Untested apis in coverage | An api is untested when no exchange of it is stored in the window, whatever the tests say. The Tests column is a static count of the tests that call it, skipped and `only`-filtered ones included, shown as `3 (1 skipped)`; a status seen in the window that no documented status covers shows as `undoc` | — (fills a gap in the Insights coverage) |
 | D305 | Test durations | A test's duration is measured by the executor, around the instance, and carried on its result and event; reporters and the store use it and never time by when they read an event | — |
+| D306 | Varlock and the run's profile | Varlock gets the run's profile as `VC_PROFILE` in its process environment: the last profile given, unset when there is none; vc never passes `--env`. A schema selects its environment with `@currentEnv=$VC_PROFILE`. `VC_PROFILE` in `.env.schema` declares Varlock's environment flag, not a secret: vc leaves it out of the declared secrets, never loads, masks or requires it, and `${secret.VC_PROFILE}` is V2106 | — (fills a gap in D163) |
 
 ## Open
 

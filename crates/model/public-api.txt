@@ -2274,6 +2274,7 @@ pub const vc_model::DEFAULT_SECRETS_PROVIDER: &str
 pub const vc_model::DEFAULT_SECRETS_SCHEMA: &str
 pub const vc_model::FILE_KEY: &str
 pub const vc_model::MULTIPART: &str
+pub const vc_model::PROFILE_VARIABLE: &str
 pub fn vc_model::auth_needs(&str) -> core::option::Option<&'static [&'static str]>
 pub fn vc_model::basename(&str) -> &str
 pub fn vc_model::check_label(&vc_model::CheckResult) -> alloc::string::String
