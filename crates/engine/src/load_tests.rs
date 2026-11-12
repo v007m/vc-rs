@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use serde_json::json;
 use tokio::sync::mpsc;
-use vc_interfaces::{HistoryError, HistoryWriter, Row, RunEnd, RunId, RunStart, Transport, TransportError};
+use vc_interfaces::{HistoryError, HistoryWriter, Row, RunEnd, RunFilter, RunId, RunStart, Transport, TransportError};
 use vc_loadtest::Ending;
 use vc_model::{AlertTrigger, Event, Keep, RenderedRequest, RunStatus};
 use vc_testkit::{FakeNotifiers, FakeTransport, FakeVcs, Fault, FaultyTransport, MemoryHistory, MemorySources, status};
@@ -246,7 +246,7 @@ async fn the_history_lists_a_load_run_by_its_iterations() {
         .unwrap();
     let (_interrupter, interrupts) = interrupts();
     let report = load(&engine, interrupts, None).await;
-    let listed = engine.history(10).unwrap();
+    let listed = engine.history(10, &RunFilter::default()).unwrap();
     let text = listed.text();
     let line = format!(
         "failed     load · {} iterations · {} errors  profile dev  users.peak",

@@ -8,7 +8,9 @@ use std::sync::Arc;
 use crossterm::event::KeyCode;
 use insta::assert_snapshot;
 use support::{Outcome, carry_on, engine_over, press, screen, tui};
-use vc_engine::{Engine, RunFeed, RunId, RunRow, RunStart, RunStatus, TestRow, TestStatus, TestTrend, Totals};
+use vc_engine::{
+    Engine, RunFeed, RunFilter, RunId, RunRow, RunStart, RunStatus, TestRow, TestStatus, TestTrend, Totals,
+};
 use vc_testkit::MemoryHistory;
 use vc_tui::{Ask, Tui, Update};
 
@@ -215,8 +217,8 @@ fn a_history_that_cannot_be_read_says_why() {
 
 /// What the terminal would send back for [`Ask::History`].
 fn read(engine: &Engine) -> Outcome<Update> {
-    let runs = engine.history(30)?.runs().to_vec();
-    Ok(Update::History { runs, trends: engine.trends(30)? })
+    let runs = engine.history(30, &RunFilter::default())?.runs().to_vec();
+    Ok(Update::History { runs, trends: engine.trends(30, &RunFilter::default())? })
 }
 
 #[tokio::test]

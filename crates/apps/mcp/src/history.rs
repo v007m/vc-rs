@@ -2,6 +2,7 @@
 
 use async_trait::async_trait;
 use serde_json::{Value, json};
+use vc_engine::RunFilter;
 
 use crate::McpError;
 use crate::args::{Args, count, optional_text, text};
@@ -35,7 +36,7 @@ impl Tool for QueryHistory {
             return Ok(cx.engine.stored(&run)?.json());
         }
         let limit = count(args, "limit")?.unwrap_or(LIMIT);
-        Ok(json!({ "runs": cx.engine.history(limit)?.json() }))
+        Ok(json!({ "runs": cx.engine.history(limit, &RunFilter::default())?.json() }))
     }
 }
 

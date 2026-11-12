@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use vc_interfaces::{Approvals as _, HistoryReader as _, Verdict};
+use vc_interfaces::{Approvals as _, HistoryReader as _, RunFilter, Verdict};
 use vc_model::{HttpResponse, RenderedRequest, RunStatus};
 use vc_testkit::{
     FakeAuth, FakeTransport, FakeVcs, MemoryApprovals, MemoryHistory, MemoryKeychain, MemorySources, RecordingBrowser,
@@ -79,7 +79,7 @@ async fn a_failed_expect_exits_1_and_says_why() {
     assert_eq!(report.exit, 1);
     assert!(report.text.starts_with("200 OK · 0 ms · api expect failed\n"), "{}", report.text);
     assert!(report.text.contains("✗ status: expected [418], got 200"), "{}", report.text);
-    let runs = history.runs(10).unwrap();
+    let runs = history.runs(10, &RunFilter::default()).unwrap();
     assert_eq!(runs.len(), 1);
     assert_eq!((runs[0].start.kind.as_str(), runs[0].status), ("adhoc", Some(RunStatus::Failed)));
     assert_eq!((runs[0].start.selector.as_str(), runs[0].totals.failed), ("users#teapot", 1));
@@ -89,7 +89,7 @@ async fn a_failed_expect_exits_1_and_says_why() {
 async fn a_passed_call_is_recorded_as_passed() {
     let (engine, _, history) = project();
     engine.call(&call("users#list")).await.unwrap();
-    let runs = history.runs(10).unwrap();
+    let runs = history.runs(10, &RunFilter::default()).unwrap();
     assert_eq!(
         (runs[0].status, runs[0].totals.passed, runs[0].start.profiles.clone()),
         (Some(RunStatus::Passed), 1, vec!["dev".to_owned()])

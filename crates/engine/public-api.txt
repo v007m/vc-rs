@@ -1,6 +1,7 @@
 pub mod vc_engine
 pub use vc_engine::ActionId
 pub use vc_engine::AgentAction
+pub use vc_engine::ApiTrend
 pub use vc_engine::Approval
 pub use vc_engine::ApprovalId
 pub use vc_engine::ApprovalRequest
@@ -36,6 +37,7 @@ pub use vc_engine::PluginManifest
 pub use vc_engine::PluginPermissions
 pub use vc_engine::PluginStderr
 pub use vc_engine::Render
+pub use vc_engine::RunFilter
 pub use vc_engine::RunId
 pub use vc_engine::RunRow
 pub use vc_engine::RunStart
@@ -548,6 +550,12 @@ pub fn vc_engine::Engine::approvals_decide(&self, vc_interfaces::approvals::Appr
 pub fn vc_engine::Engine::approvals_list(&self, bool) -> core::result::Result<alloc::vec::Vec<vc_interfaces::approvals::Approval>, vc_engine::EngineError>
 pub async fn vc_engine::Engine::record_agent_action(&self, &vc_engine::AgentCall, &vc_engine::AgentOutcome) -> core::result::Result<(), vc_engine::EngineError>
 impl vc_engine::Engine
+pub fn vc_engine::Engine::api_trends(&self, usize, &vc_interfaces::run_filter::RunFilter) -> core::result::Result<alloc::vec::Vec<vc_interfaces::trend::ApiTrend>, vc_engine::EngineError>
+pub fn vc_engine::Engine::history(&self, usize, &vc_interfaces::run_filter::RunFilter) -> core::result::Result<vc_engine::HistoryReport, vc_engine::EngineError>
+pub fn vc_engine::Engine::report(&self, &vc_engine::ReportRequest) -> core::result::Result<vc_engine::ReportFiles, vc_engine::EngineError>
+pub fn vc_engine::Engine::stored(&self, &str) -> core::result::Result<vc_engine::StoredRun, vc_engine::EngineError>
+pub fn vc_engine::Engine::trends(&self, usize, &vc_interfaces::run_filter::RunFilter) -> core::result::Result<alloc::vec::Vec<vc_interfaces::trend::TestTrend>, vc_engine::EngineError>
+impl vc_engine::Engine
 pub async fn vc_engine::Engine::cache_clear(&self, core::option::Option<&str>) -> core::result::Result<(usize, alloc::vec::Vec<alloc::string::String>), vc_engine::EngineError>
 pub fn vc_engine::Engine::cache_list(&self) -> core::result::Result<vc_engine::CacheReport, vc_engine::EngineError>
 impl vc_engine::Engine
@@ -580,11 +588,6 @@ impl vc_engine::Engine
 pub fn vc_engine::Engine::fix(&self, &vc_engine::CheckRequest) -> core::result::Result<vc_engine::FixReport, vc_engine::EngineError>
 impl vc_engine::Engine
 pub fn vc_engine::Engine::fmt(&self, &[alloc::string::String], bool) -> core::result::Result<vc_engine::Changes, vc_engine::EngineError>
-impl vc_engine::Engine
-pub fn vc_engine::Engine::history(&self, usize) -> core::result::Result<vc_engine::HistoryReport, vc_engine::EngineError>
-pub fn vc_engine::Engine::report(&self, &vc_engine::ReportRequest) -> core::result::Result<vc_engine::ReportFiles, vc_engine::EngineError>
-pub fn vc_engine::Engine::stored(&self, &str) -> core::result::Result<vc_engine::StoredRun, vc_engine::EngineError>
-pub fn vc_engine::Engine::trends(&self, usize) -> core::result::Result<alloc::vec::Vec<vc_interfaces::trend::TestTrend>, vc_engine::EngineError>
 impl vc_engine::Engine
 pub async fn vc_engine::Engine::import(&self, &vc_engine::ImportRequest) -> core::result::Result<vc_engine::Changes, vc_engine::EngineError>
 pub fn vc_engine::Engine::importers() -> alloc::vec::Vec<alloc::string::String>

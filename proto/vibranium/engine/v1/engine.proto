@@ -54,6 +54,8 @@ service EngineService {
   rpc GetRun(GetRunRequest) returns (GetRunResponse);
   // Each test's results over the last runs, as `vc history --trends` reports them.
   rpc Trends(TrendsRequest) returns (TrendsResponse);
+  // Each api's calls and response times over the same runs, for Insights' slowest apis.
+  rpc ApiTrends(ApiTrendsRequest) returns (ApiTrendsResponse);
   // Each setting's value and the layers it replaced, as `vc config explain` shows them, masked.
   rpc ExplainConfig(ExplainConfigRequest) returns (ExplainConfigResponse);
   // Whether each secret `.env.schema` declares resolves under a profile; never a value.
@@ -638,6 +640,34 @@ message TestTrend {
 
 message TrendsResponse {
   repeated TestTrend trends = 1;
+}
+
+message ApiTrendsRequest {
+  // Over this many runs; the engine's default when 0.
+  uint32 window = 1;
+  // Only runs under this profile, the window counted among them; every profile when absent.
+  optional string profile = 2;
+  // Only runs on this git branch, the window counted among them; every branch when absent.
+  optional string branch = 3;
+}
+
+// One api's calls over the window, shared and lifecycle ones included.
+message ApiTrend {
+  // `users#get`.
+  string api_id = 1;
+  string method = 2;
+  // Every call, those that got no response included.
+  uint32 calls = 3;
+  // Over the calls that got a response, by nearest rank; absent when none did.
+  optional double p50_ms = 4;
+  optional double p95_ms = 5;
+  // The statuses its responses had, each once, lowest first.
+  repeated uint32 statuses = 6;
+}
+
+message ApiTrendsResponse {
+  // In api ID order.
+  repeated ApiTrend trends = 1;
 }
 
 message ExplainConfigRequest {
