@@ -185,7 +185,7 @@ impl Seen<'_> {
 
     /// Whether a teardown block failed. Like a breach, it is the run's, whatever the rule's
     /// tags (D308).
-    fn torn(&self) -> bool {
+    const fn torn(&self) -> bool {
         !self.run.teardown.is_empty()
     }
 
