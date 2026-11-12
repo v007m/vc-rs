@@ -18,7 +18,7 @@ use vc_interfaces::{
     AuthProvider, ConfigEntry, Environment, HookRunner, NotifierFactory, PluginKind, Random, SecretError, SecretQuery,
     Secrets, Transport,
 };
-use vc_model::{Plan, Program, SecretsConfig};
+use vc_model::{ProfileId, Program, SecretsConfig};
 
 use crate::plan::Prepared;
 use crate::plugin_hosts::Hosts;
@@ -133,14 +133,15 @@ impl Engine {
         let config = &prepared.program.config.secrets;
         let loaded = self.loaded_secrets(config, &prepared.environment).await?;
         let wanted = |name: &&String| read.contains(*name) && config.requires(name);
-        let blank = |name: &&String| loaded.get(name).is_none_or(|secret| secret.expose().trim().is_empty());
-        let unset: Vec<&str> = config.declared.iter().filter(wanted).filter(blank).map(String::as_str).collect();
+        let unset = |name: &&String| loaded.get(name).is_none();
+        let unset: Vec<&str> = config.declared.iter().filter(wanted).filter(unset).map(String::as_str).collect();
         if unset.is_empty() { Ok(loaded) } else { Err(unset_error(&unset)) }
     }
 
     /// The secrets `.env.schema` declares, from the provider `secrets.provider` names (D163):
     /// `env` reads them from the run's `environment`, `varlock` runs through the command runner.
-    /// Nothing is loaded when nothing is declared, and a name without a value is left out.
+    /// Nothing is loaded when nothing is declared, and a name without a value, or with a blank
+    /// one, is left out: a blank secret is unset everywhere, so reading it fails (V5114, D302).
     ///
     /// # Errors
     ///
@@ -156,19 +157,38 @@ impl Engine {
         let commands = Arc::clone(&self.commands);
         let providers = SecretProviders::standard(Arc::clone(environment), commands, self.root().to_path_buf());
         let provider = providers.get(&config.provider).map_err(|error| secret_error(&error))?;
-        provider.load(&SecretQuery::new(config.declared.iter().cloned())).await.map_err(|error| secret_error(&error))
+        let loaded = provider.load(&SecretQuery::new(config.declared.iter().cloned())).await;
+        Ok(without_blanks(&loaded.map_err(|error| secret_error(&error))?))
     }
 }
 
-/// The secrets a run of `plan` reads (D280): what it runs, the api cleanups the cache's sweep
-/// can run when the program caches, and the alert channels its end sends to.
-pub fn run_reads(program: &Program, plan: &Plan) -> BTreeSet<String> {
-    let mut read = vc_planner::secrets(program, plan);
+/// The secrets a run of `prepared` reads (D280): what it runs under its active profiles, the
+/// api cleanups the cache's sweep can run when the program caches, and the alert channels its
+/// end sends to.
+pub fn run_reads(prepared: &Prepared) -> BTreeSet<String> {
+    let program = prepared.program.as_ref();
+    let mut read = vc_planner::secrets(program, &prepared.plan, &prepared.profiles);
     if crate::body_files::caches(program) {
-        read.extend(vc_planner::secrets_from(program, &crate::body_files::cleanups(program)));
+        read.extend(cleanup_reads(program));
     }
     read.extend(vc_planner::alert_secrets(program));
     read
+}
+
+/// The secrets the api cleanups read, under any profile: the cache runs each stored cleanup
+/// under the profiles its entry was made with.
+pub fn cleanup_reads(program: &Program) -> BTreeSet<String> {
+    let every: Vec<ProfileId> = program.profiles.keys().copied().collect();
+    vc_planner::secrets_from(program, &crate::body_files::cleanups(program), &every)
+}
+
+/// `loaded` without the secrets whose value is blank (D302).
+fn without_blanks(loaded: &Secrets) -> Secrets {
+    let mut kept = Secrets::new();
+    for (name, secret) in loaded.iter().filter(|(_, secret)| !secret.expose().trim().is_empty()) {
+        kept.insert(name, secret.clone());
+    }
+    kept
 }
 
 /// The declared secrets in `unset` have no value: named, never with any other secret.

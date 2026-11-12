@@ -56,7 +56,7 @@ impl Engine {
     /// [`Engine::load`]'s work, boxed there: a load run's future is large.
     async fn load_run(&self, request: &LoadRequest, mut watch: LoadWatch) -> Result<LoadReport, EngineError> {
         let mut session = self.load_session(request)?;
-        let read = crate::ports::run_reads(&session.prepared.program, &session.prepared.plan);
+        let read = crate::ports::run_reads(&session.prepared);
         let secrets = self.secrets(&session.prepared, &read).await?;
         let live = Live::new(Arc::clone(&session.prepared.program), self.load_recording(&mut session), watch.ticks);
         let run_id = live.run_id().unwrap_or(0);

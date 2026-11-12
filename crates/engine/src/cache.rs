@@ -155,7 +155,7 @@ impl Engine {
         let store = self.cache_store(layered.environment.as_ref())?;
         let prepared = unplanned(layered);
         let cleanups = crate::body_files::cleanups(&prepared.program);
-        let secrets = self.secrets(&prepared, &vc_planner::secrets_from(&prepared.program, &cleanups)).await?;
+        let secrets = self.secrets(&prepared, &crate::ports::cleanup_reads(&prepared.program)).await?;
         let cx = self.adhoc_cx(&prepared, (&cleanups, 0, secrets)).await?;
         let cleared = store.clear(label).map_err(|error| store_error(&error))?;
         let count = cleared.len();
