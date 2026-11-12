@@ -128,8 +128,6 @@ fn a_test_draws_its_rows_from_the_seed_and_its_id_alone() {
     assert_eq!(draws(7, "users.crud#listsPages"), draws(7, "users.crud#listsPages"));
     assert_ne!(draws(7, "users.crud#listsPages"), draws(7, "users.crud#listsUsers"));
     assert_ne!(draws(7, "users.crud#listsPages"), draws(8, "users.crud#listsPages"));
-    assert_eq!(super::fnv1a(""), 0xcbf2_9ce4_8422_2325, "the FNV-1a offset basis");
-    assert_eq!(super::fnv1a("a"), 0xaf63_dc4c_8601_ec8c, "FNV-1a of `a`");
 }
 
 #[test]

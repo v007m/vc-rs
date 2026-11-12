@@ -5,9 +5,13 @@ use std::fmt;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use vc_interfaces::{AuthError, AuthProvider, AuthRequest, Browser, Credentials, Keychain, Transport};
+use vc_interfaces::{AuthError, AuthProvider, AuthRequest, Credentials, Transport};
+#[cfg(not(target_family = "wasm"))]
+use vc_interfaces::{Browser, Keychain};
 
-use crate::{ApiKey, AuthorizationCode, Basic, Bearer, ClientCredentials, Flow, PasswordGrant, RefreshGrant};
+#[cfg(not(target_family = "wasm"))]
+use crate::AuthorizationCode;
+use crate::{ApiKey, Basic, Bearer, ClientCredentials, Flow, PasswordGrant, RefreshGrant};
 
 /// Every auth type, by the name `type:` gives it. It is a provider too: it hands each request
 /// to the entry for its `kind`.
@@ -25,6 +29,7 @@ impl AuthTypes {
 
     /// The standard types: token endpoints are reached through `transport`, the browser
     /// sign-in opens `browser`, and refresh tokens are kept in `keychain` when there is one.
+    #[cfg(not(target_family = "wasm"))]
     #[must_use]
     pub fn standard(
         transport: Arc<dyn Transport>,
@@ -32,6 +37,13 @@ impl AuthTypes {
         keychain: Option<Arc<dyn Keychain>>,
     ) -> Self {
         let code = AuthorizationCode::new(Arc::clone(&transport), browser, keychain);
+        Self::headless(transport).with("oauth2AuthorizationCode", Arc::new(code))
+    }
+
+    /// The standard types but the browser sign-in, `oauth2AuthorizationCode`: what a build with
+    /// no browser to open and no port to listen on (the playground) can run.
+    #[must_use]
+    pub fn headless(transport: Arc<dyn Transport>) -> Self {
         Self::new()
             .with("basic", Arc::new(Basic))
             .with("bearer", Arc::new(Bearer))
@@ -40,7 +52,6 @@ impl AuthTypes {
             .with("oauth2ClientCredentials", Arc::new(ClientCredentials::new(Arc::clone(&transport))))
             .with("oauth2Password", Arc::new(PasswordGrant::new(Arc::clone(&transport))))
             .with("oauth2Refresh", Arc::new(RefreshGrant::new(transport)))
-            .with("oauth2AuthorizationCode", Arc::new(code))
     }
 
     /// These types, with `kind` added or replaced.

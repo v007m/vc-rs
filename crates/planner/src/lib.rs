@@ -5,7 +5,9 @@
 //! each instance reads. The render functions turn the plan into the plan line, the `vc plan` tree,
 //! JSON, DOT and the `--explain` listing. No I/O: preloaded example row counts arrive in
 //! [`PlanOptions`] (D132); [`rows_wanted`] names the templated tests whose rows the engine must
-//! render first, and a test whose examples gave no rows is skipped ([`NO_ROWS`]).
+//! render first, [`plan_drawn`] plans with the rows a caller's closure draws for them, and a
+//! test whose examples gave no rows is skipped ([`NO_ROWS`]).
+//! [`active_profiles`] picks the profiles a run applies.
 
 mod bodies;
 mod build;
@@ -14,6 +16,7 @@ mod error;
 mod expand;
 mod needs;
 mod options;
+mod profiles;
 mod render;
 mod secrets;
 mod select;
@@ -22,11 +25,12 @@ mod testing;
 mod visit;
 
 pub use bodies::{bodies, bodies_from};
-pub use build::{plan, rows_wanted};
+pub use build::{DrawnRows, plan, plan_drawn, rows_wanted};
 pub use draws::generates;
 pub use error::PlanError;
-pub use expand::NO_ROWS;
+pub use expand::{NO_ROWS, no_rows_notices};
 pub use options::{PlanOptions, Selection};
+pub use profiles::{ActiveProfiles, active_profiles};
 pub use render::{action_label, check_lines, dot, explain, json, plan_line, shown_check_lines, tree};
 pub use secrets::{alert_secrets, secrets, secrets_from};
 pub use select::{closest, select_apis, select_files};

@@ -6,6 +6,7 @@ mod allowed;
 mod common;
 mod expand;
 mod listing;
+mod profiles;
 mod properties;
 mod render;
 mod secrets;

@@ -9,7 +9,7 @@ use serde_json::Value;
 use vc_executor::RunInputs;
 use vc_interfaces::{ConfigEntry, Environment, TestRow, VcsError};
 use vc_model::{Plan, ProfileId, Program, SourcePath};
-use vc_planner::{PlanError, PlanOptions, Selection};
+use vc_planner::{ActiveProfiles, PlanError, PlanOptions, Selection};
 
 use crate::examples::{self, Draw};
 use crate::failed;
@@ -148,7 +148,7 @@ impl Engine {
         let options = PlanOptions { repeat: request.repeat, today, strict, ..PlanOptions::default() };
         let plan = examples::planned(&program, &selection, (inputs, &mut draw, options))?;
         let mut notices = notices;
-        notices.extend(examples::empty(&program, &plan));
+        notices.extend(vc_planner::no_rows_notices(&program, &plan));
         Ok(Prepared { program, plan: Arc::new(plan), settings, profiles, names, notices, environment, dot_env, draw })
     }
 
@@ -200,43 +200,17 @@ pub fn profile_flag(profiles: &[String]) -> Option<ConfigEntry> {
     (!profiles.is_empty()).then(|| ConfigEntry::new("profile", profiles.join(","), "--profile"))
 }
 
-/// The active profiles, by ID and by name: those `named`, else the ones marked `default: true`.
-/// The active profiles: their IDs, and their names for the plan line.
-type Active = (Vec<ProfileId>, Vec<String>);
-
-pub fn profiles(program: &Program, named: Option<&Named>) -> Result<Active, EngineError> {
+/// The active profiles, by ID and by name: those `named`, else the ones marked `default: true`
+/// ([`vc_planner::active_profiles`]). An unknown name is a bad setting of the layer that set it.
+pub fn profiles(program: &Program, named: Option<&Named>) -> Result<ActiveProfiles, EngineError> {
     let Some(named) = named.filter(|named| !named.names.is_empty()) else {
-        return defaults(program);
+        return vc_planner::active_profiles(program, &[]).map_err(|error| plan_error(error, program));
     };
-    let mut ids = Vec::new();
-    for name in &named.names {
-        let Some(id) = program.profiles.keys().copied().find(|id| program.str(id.sym()) == Some(name)) else {
-            let help = Some(format!("the profiles are {}", known(program)));
-            return Err(EngineError::Setting {
-                origin: named.origin.clone(),
-                reason: format!("no profile `{name}`"),
-                help,
-            });
-        };
-        ids.push(id);
-    }
-    Ok((ids, named.names.clone()))
-}
-
-/// The profiles marked `default: true`; a project with profiles but no default needs one named.
-fn defaults(program: &Program) -> Result<Active, EngineError> {
-    let ids: Vec<ProfileId> = program.profiles.values().filter(|p| p.default).map(|p| p.id).collect();
-    if ids.is_empty() && !program.profiles.is_empty() {
-        let help = format!("pass `--profile <id>`; the profiles are {}", known(program));
-        return Err(EngineError::Selection { reason: "no profile is active".into(), help: Some(help) });
-    }
-    let names = ids.iter().map(|id| program.str(id.sym()).unwrap_or_default().to_owned()).collect();
-    Ok((ids, names))
-}
-
-fn known(program: &Program) -> String {
-    let names: Vec<&str> = program.profiles.keys().filter_map(|id| program.str(id.sym())).collect();
-    names.join(", ")
+    vc_planner::active_profiles(program, &named.names).map_err(|error| EngineError::Setting {
+        origin: named.origin.clone(),
+        reason: error.to_string(),
+        help: error.help(),
+    })
 }
 
 /// The planner's refusal as the engine's: definition problems as a check report, selector

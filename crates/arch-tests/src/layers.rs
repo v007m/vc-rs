@@ -27,6 +27,7 @@ const TABLE: &[(&str, &[&str])] = &[
     ("vc-adapter-plugins", &["vc-model", "vc-diagnostics", "vc-interfaces", "vc-contracts"]),
     ("vc-loadtest", &["vc-model", "vc-interfaces", "vc-executor"]),
     ("vc-engine", ENGINE),
+    ("vc-browser", BROWSER),
     ("vc-tui", &["vc-engine"]),
     ("vc-mcp", APP),
     ("vc-server", APP),
@@ -59,6 +60,23 @@ const ENGINE: &[&str] = &[
     "vc-adapter-notifiers",
     "vc-adapter-importers",
     "vc-adapter-plugins",
+];
+
+/// The playground's composition root: the core, the three adapters the browser can run, and the
+/// demo service in process.
+const BROWSER: &[&str] = &[
+    "vc-model",
+    "vc-diagnostics",
+    "vc-parser",
+    "vc-template",
+    "vc-interfaces",
+    "vc-compiler",
+    "vc-planner",
+    "vc-executor",
+    "vc-adapter-auth",
+    "vc-adapter-reporters",
+    "vc-adapter-system",
+    "vc-demo",
 ];
 
 /// The crates `package` may depend on, or `None` when it is not in the table.
