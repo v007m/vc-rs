@@ -26,12 +26,20 @@ const POLL: Duration = Duration::from_millis(50);
 
 /// Waits for this `start`'s turn on `port`, so two `start`s at once take turns: the second finds
 /// the first's demo answering and joins it, instead of seeing the port taken before the demo
-/// answers. The turn is an OS lock on `<port>.lock`, held until the file is dropped and freed when
-/// `vc` exits, so a crash leaves none behind; `None` (no turn, as before) when there is nowhere
-/// private for it, or another `start` holds it past [`TURN`].
+/// answers. The turn is an OS lock on `<port>.lock` (D297), held until the file is dropped and freed
+/// when `vc` exits, so a crash leaves none behind. The file is checked as the folder is: this user's
+/// own, not a link. `None` (no turn, as before) when there is nowhere private for it, or another
+/// `start` holds it past [`TURN`].
 pub fn turn(port: u16) -> Option<fs::File> {
     let path = folder()?.join(format!("{port}.lock"));
-    let file = fs::OpenOptions::new().create(true).truncate(false).write(true).open(path).ok()?;
+    let mut options = fs::OpenOptions::new();
+    options.create(true).truncate(false).write(true);
+    #[cfg(unix)]
+    std::os::unix::fs::OpenOptionsExt::mode(&mut options, 0o600);
+    let file = options.open(&path).ok()?;
+    if !own(&path).is_some_and(|metadata| metadata.is_file()) {
+        return None;
+    }
     let deadline = Instant::now() + TURN;
     loop {
         match file.try_lock() {
@@ -143,13 +151,47 @@ const fn alive(_pid: u32) -> bool {
     false
 }
 
-/// Whether `path` is a folder this user owns, not a link: the temp folder may be shared, and
-/// another user's link there is never followed.
+/// Whether `path` is a folder this user owns, not a link.
 fn own_folder(path: &Path) -> bool {
-    let Ok(metadata) = fs::symlink_metadata(path) else { return false };
+    own(path).is_some_and(|metadata| metadata.is_dir())
+}
+
+/// What `path` is when this user owns it, read without following a link (a link is neither a
+/// folder nor a file): the temp folder may be shared, and another user's link there is never
+/// followed.
+fn own(path: &Path) -> Option<fs::Metadata> {
+    let metadata = fs::symlink_metadata(path).ok()?;
     #[cfg(unix)]
     let mine = std::os::unix::fs::MetadataExt::uid(&metadata) == rustix::process::getuid().as_raw();
     #[cfg(not(unix))]
     let mine = true;
-    metadata.is_dir() && mine
+    mine.then_some(metadata)
+}
+
+#[cfg(test)]
+mod tests {
+    use std::fs;
+
+    use super::{folder, turn};
+
+    #[test]
+    fn a_turn_is_held_until_it_is_dropped() {
+        let held = turn(1).unwrap();
+        let other = fs::File::open(folder().unwrap().join("1.lock")).unwrap();
+        assert!(matches!(other.try_lock(), Err(fs::TryLockError::WouldBlock)), "another start waits");
+        drop(held);
+        assert!(other.try_lock().is_ok(), "the next start gets its turn");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_lock_file_that_is_a_link_gives_no_turn() {
+        let elsewhere = tempfile::tempdir().unwrap();
+        let link = folder().unwrap().join("2.lock");
+        fs::remove_file(&link).ok();
+        std::os::unix::fs::symlink(elsewhere.path().join("planted"), &link).unwrap();
+        let given = turn(2);
+        fs::remove_file(&link).unwrap();
+        assert!(given.is_none(), "a link is never locked through");
+    }
 }

@@ -552,6 +552,7 @@ Round 47 (12 November 2026; orchestrator, under Sarath's delegation):
 | # | Topic | Decision | Supersedes |
 | --- | --- | --- | --- |
 | D294 | Allowed failures in the pass rate | History's pass rate counts an allowed failure as a test that ran and did not pass. A run made up only of allowed failures shows 0% | — (fills a gap in D248) |
+| D297 | `vc demo start` takes turns through a file lock | Concurrent `vc demo start`s on one port take turns through an OS file lock (`File::try_lock`) on `<port>.lock` in the private `vibranium-demo-<uid>` folder. The lock file is checked as the pidfile's folder is: owned by the user, not a link. D113's allow-list is for in-process locks and shared mutable memory (`Mutex`, `RwLock`, `arc-swap`); a lock on a file that coordinates separate `vc` processes is I/O in the CLI layer, so it is outside that list and ARCH-LOCK and the arch-tests are unchanged | — (clarifies D113) |
 
 ## Open
 
