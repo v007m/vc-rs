@@ -5,7 +5,7 @@ use serde_json::Value;
 use vc_model::{CelProgram, Namespace, Part, Program, Reference, Segment, Template, TemplateValue};
 use vc_template::{Chance, PipeRegistry, RenderError, Renderer, Resolve};
 
-use crate::notify::Steady;
+use crate::restricted::Steady;
 
 /// A var in force: its name, its value and the level that set it.
 #[derive(Clone, Debug)]

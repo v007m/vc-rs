@@ -12,14 +12,14 @@ use tokio::sync::broadcast;
 use vc_adapter_plugins::StdioPluginHost;
 use vc_adapter_system::SystemEnvironment;
 use vc_interfaces::{PLUGINS_DIR, PluginHost, PluginKind, PluginStderr, Secrets};
-use vc_model::{CelProgram, Program, Reference, TemplateValue};
-use vc_template::{Chance, PipeRegistry, RenderError, Renderer, Resolve};
+use vc_model::{Program, TemplateValue};
+use vc_template::{PipeRegistry, Renderer};
 
 use crate::Engine;
-use crate::notify::Steady;
 use crate::plugin_intact::intact;
 use crate::plugin_lock::Locked;
 use crate::plugins::{self, PluginState};
+use crate::restricted::Restricted;
 
 /// Where each plugin keeps its own files, in a folder named by its id: its install folder is
 /// checked against the lock, so it must not change.
@@ -190,7 +190,9 @@ pub fn launch_plugin(args: impl Iterator<Item = OsString>) -> Option<String> {
 pub fn literal(config: Option<&TemplateValue>) -> Result<Value, String> {
     let Some(config) = config else { return Ok(Value::Null) };
     let pipes = PipeRegistry::builtin();
-    Renderer::new(&pipes, &Literal).value(config).map_err(|error| format!("its `config`: {error}"))
+    // A plugin's `config` has no `${…}` values: it answers no lookups.
+    let literal = Restricted { reads: Vec::new(), only: LITERAL_ONLY };
+    Renderer::new(&pipes, &literal).value(config).map_err(|error| format!("its `config`: {error}"))
 }
 
 /// The plugin `kind` with its article: "a `reporter`", "an `auth`".
@@ -198,23 +200,6 @@ pub fn a_kind(kind: PluginKind) -> String {
     let name = kind.name();
     let article = if name.starts_with(['a', 'e', 'i', 'o', 'u']) { "an" } else { "a" };
     format!("{article} `{name}`")
-}
-
-/// Answers no lookups: a plugin's `config` has no `${…}` values.
-struct Literal;
-
-impl Resolve for Literal {
-    fn resolve(&self, _reference: &Reference) -> Result<Value, RenderError> {
-        Err(RenderError::invalid(LITERAL_ONLY))
-    }
-
-    fn evaluate(&self, _program: &CelProgram) -> Result<Value, RenderError> {
-        Err(RenderError::invalid(LITERAL_ONLY))
-    }
-
-    fn chance(&self) -> &dyn Chance {
-        &Steady
-    }
 }
 
 #[cfg(test)]
