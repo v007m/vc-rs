@@ -22,8 +22,8 @@ pub struct ApprovalsArgs {
 pub struct ApproveArgs {
     /// The request to decide, as `vc approvals` lists it (`3` or `#3`).
     id: String,
-    /// Also allows calls like it (same profile, tool and method) from now on (D195). A write,
-    /// or a run that reaches a `command:` or `function:` action, still asks every time (D202).
+    /// Also allows calls like it (same profile, tool and method) from now on. A write,
+    /// or a run that reaches a `command:` or `function:` action, still asks every time.
     #[arg(long, conflicts_with = "deny")]
     always: bool,
     /// Refuses the call instead.

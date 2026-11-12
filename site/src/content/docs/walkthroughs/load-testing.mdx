@@ -33,7 +33,7 @@ This walkthrough keeps the load tiny: five users for ten seconds against a local
    $ vc init --no-sample
    ```
 
-   In `vibranium.config.yaml`, replace the `sampleUrl` line under `vars:` with:
+   `vc init --no-sample` writes a config with no `vars:` block. Add one at the end of `vibranium.config.yaml`:
 
    ```yaml title="vibranium.config.yaml"
    vars:
@@ -129,11 +129,11 @@ This walkthrough keeps the load tiny: five users for ten seconds against a local
    $ vc run
    plan  3 tests in 1 file · profile default
 
-   ✓ shop.browse#listsUsers                                          2ms
-   ✓ shop.browse#readsCreatedUser                                    3ms
-   ✓ shop.browse#buildsReport                                       45ms
+   ✓ shop.browse#listsUsers — Lists users                            1ms
+   ✓ shop.browse#readsCreatedUser — Reads back a user it just created    2ms
+   ✓ shop.browse#buildsReport — Builds the slow report              44ms
 
-   3 passed                                                     47ms · profile default
+   3 passed                                                     44ms · profile default
    reports  /home/you/shop/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
    ```
 
@@ -194,18 +194,18 @@ This walkthrough keeps the load tiny: five users for ten seconds against a local
    ```console
    $ vc load shop.smoke
        1s  0 users  0 rps  p50 0 ms  p95 0 ms  p99 0 ms  0 errors
-       2s  2 users  8 rps  p50 5 ms  p95 46 ms  p99 46 ms  0 errors
-       3s  3 users  12 rps  p50 4 ms  p95 46 ms  p99 47 ms  0 errors
-       4s  5 users  19 rps  p50 4 ms  p95 45 ms  p99 51 ms  0 errors
-       5s  5 users  22 rps  p50 4 ms  p95 45 ms  p99 47 ms  0 errors
-       6s  5 users  25 rps  p50 3 ms  p95 45 ms  p99 47 ms  0 errors
-       7s  5 users  27 rps  p50 4 ms  p95 45 ms  p99 47 ms  0 errors
-       8s  5 users  29 rps  p50 4 ms  p95 45 ms  p99 47 ms  0 errors
-       9s  5 users  30 rps  p50 4 ms  p95 45 ms  p99 47 ms  0 errors
-      10s  3 users  29 rps  p50 4 ms  p95 45 ms  p99 47 ms  0 errors
-      10s  0 users  29 rps  p50 4 ms  p95 45 ms  p99 47 ms  0 errors
-   shop.smoke finished after 10 s · 288 iterations · 28.8 rps · 0 errors
-   latency p50 4.0 ms · p90 28.8 ms · p95 45.3 ms · p99 47.6 ms · max 51.6 ms
+       2s  2 users  8 rps  p50 3 ms  p95 46 ms  p99 46 ms  0 errors
+       3s  3 users  14 rps  p50 3 ms  p95 9 ms  p99 46 ms  0 errors
+       4s  5 users  27 rps  p50 3 ms  p95 43 ms  p99 46 ms  0 errors
+       5s  5 users  35 rps  p50 3 ms  p95 45 ms  p99 46 ms  0 errors
+       6s  5 users  38 rps  p50 3 ms  p95 45 ms  p99 46 ms  0 errors
+       7s  5 users  37 rps  p50 3 ms  p95 44 ms  p99 46 ms  0 errors
+       8s  5 users  36 rps  p50 3 ms  p95 45 ms  p99 46 ms  0 errors
+       9s  5 users  37 rps  p50 3 ms  p95 44 ms  p99 46 ms  0 errors
+      10s  3 users  31 rps  p50 3 ms  p95 44 ms  p99 46 ms  0 errors
+      10s  0 users  31 rps  p50 3 ms  p95 44 ms  p99 46 ms  0 errors
+   shop.smoke — Shop smoke load · finished after 10 s · 286 iterations · 28.6 rps · 0 errors
+   latency p50 3.2 ms · p90 5.9 ms · p95 44.8 ms · p99 46.1 ms · max 46.4 ms
    $ echo $?
    0
    ```
@@ -223,18 +223,19 @@ This walkthrough keeps the load tiny: five users for ten seconds against a local
      "errorKinds": [],
      "errors": 0,
      "exit": 0,
-     "iterations": 278,
-     "maxMs": 47.711000000000006,
+     "iterations": 293,
+     "maxMs": 47.167,
      "name": "Shop smoke load",
      "notices": [],
-     "p50Ms": 4.627,
-     "p95Ms": 45.375,
+     "p50Ms": 3.433,
+     "p90Ms": 43.135,
+     "p95Ms": 45.407,
      "p99Ms": 46.623,
-     "rps": 27.8,
+     "rps": 29.3,
      "runId": 3,
      "scenario": "shop.smoke",
      "seconds": 10,
-     "seed": 5930638172000214
+     "seed": 1928812790314397
    }
    ```
 
@@ -266,20 +267,20 @@ abortOn: [errorRate]
 ```console
 $ vc load shop.tight
     1s  0 users  0 rps  p50 0 ms  p95 0 ms  p99 0 ms  0 errors
-    2s  2 users  8 rps  p50 3 ms  p95 44 ms  p99 44 ms  0 errors  breaching: p99, shop.browse#buildsReport: p95
-    3s  3 users  13 rps  p50 3 ms  p95 44 ms  p99 45 ms  0 errors  breaching: p99, shop.browse#buildsReport: p95
-    4s  5 users  20 rps  p50 3 ms  p95 44 ms  p99 45 ms  0 errors  breaching: p99, shop.browse#buildsReport: p95
-    5s  5 users  24 rps  p50 3 ms  p95 44 ms  p99 45 ms  0 errors  breaching: p99, shop.browse#buildsReport: p95
-    6s  5 users  27 rps  p50 3 ms  p95 44 ms  p99 45 ms  0 errors  breaching: p99, shop.browse#buildsReport: p95
-    7s  5 users  28 rps  p50 3 ms  p95 44 ms  p99 45 ms  0 errors  breaching: p99, shop.browse#buildsReport: p95
-    8s  5 users  30 rps  p50 3 ms  p95 44 ms  p99 45 ms  0 errors  breaching: p99, shop.browse#buildsReport: p95
-    9s  5 users  31 rps  p50 3 ms  p95 44 ms  p99 45 ms  0 errors  breaching: p99, shop.browse#buildsReport: p95
-   10s  3 users  30 rps  p50 3 ms  p95 44 ms  p99 45 ms  0 errors  breaching: p99, shop.browse#buildsReport: p95
-   10s  0 users  30 rps  p50 3 ms  p95 44 ms  p99 45 ms  0 errors
-shop.tight finished after 10 s · 298 iterations · 29.8 rps · 0 errors
-latency p50 3.2 ms · p90 28.2 ms · p95 44.8 ms · p99 45.5 ms · max 45.8 ms
-breached p99 at 45.471 ms (lt 30 ms)
-breached shop.browse#buildsReport: p95 at 45.535 ms (lt 20 ms)
+    2s  2 users  7 rps  p50 4 ms  p95 52 ms  p99 52 ms  0 errors  breaching: p99, shop.browse#buildsReport: p95
+    3s  3 users  12 rps  p50 4 ms  p95 54 ms  p99 54 ms  0 errors  breaching: p99, shop.browse#buildsReport: p95
+    4s  5 users  25 rps  p50 4 ms  p95 52 ms  p99 54 ms  0 errors  breaching: p99, shop.browse#buildsReport: p95
+    5s  5 users  31 rps  p50 3 ms  p95 49 ms  p99 54 ms  0 errors  breaching: p99, shop.browse#buildsReport: p95
+    6s  5 users  37 rps  p50 3 ms  p95 49 ms  p99 54 ms  0 errors  breaching: p99, shop.browse#buildsReport: p95
+    7s  5 users  37 rps  p50 3 ms  p95 48 ms  p99 54 ms  0 errors  breaching: p99, shop.browse#buildsReport: p95
+    8s  5 users  39 rps  p50 3 ms  p95 47 ms  p99 54 ms  0 errors  breaching: p99, shop.browse#buildsReport: p95
+    9s  5 users  39 rps  p50 3 ms  p95 46 ms  p99 54 ms  0 errors  breaching: p99, shop.browse#buildsReport: p95
+   10s  3 users  34 rps  p50 3 ms  p95 46 ms  p99 54 ms  0 errors  breaching: p99, shop.browse#buildsReport: p95
+   10s  0 users  34 rps  p50 3 ms  p95 46 ms  p99 54 ms  0 errors
+shop.tight — Shop smoke load, tight · finished after 10 s · 285 iterations · 28.5 rps · 0 errors
+latency p50 3.8 ms · p90 43.7 ms · p95 46.5 ms · p99 54.1 ms · max 54.5 ms
+breached p99 at 54.079 ms (lt 30 ms)
+breached shop.browse#buildsReport: p95 at 54.239 ms (lt 20 ms)
 $ echo $?
 3
 ```
@@ -297,29 +298,47 @@ abortOn: [errorRate, p99]
 ```console
 $ vc load shop.abort
     1s  0 users  0 rps  p50 0 ms  p95 0 ms  p99 0 ms  0 errors
-    2s  2 users  9 rps  p50 6 ms  p95 48 ms  p99 48 ms  0 errors  breaching: p99, shop.browse#buildsReport: p95
-    2s  0 users  9 rps  p50 6 ms  p95 48 ms  p99 48 ms  0 errors
-shop.abort aborted after 2 s · 17 iterations · 8.5 rps · 0 errors
-latency p50 6.3 ms · p90 31.7 ms · p95 48.6 ms · p99 48.6 ms · max 48.6 ms
-breached p99 at 48.639 ms (lt 30 ms)
-breached shop.browse#buildsReport: p95 at 48.639 ms (lt 20 ms)
+    2s  2 users  8 rps  p50 4 ms  p95 45 ms  p99 45 ms  0 errors  breaching: p99, shop.browse#buildsReport: p95
+    2s  0 users  8 rps  p50 4 ms  p95 45 ms  p99 45 ms  0 errors
+shop.abort — Shop smoke load, tight · aborted after 2 s · 15 iterations · 7.5 rps · 0 errors
+latency p50 4.5 ms · p90 44.8 ms · p95 45.3 ms · p99 45.3 ms · max 45.3 ms
+breached p99 at 45.311 ms (lt 30 ms)
+breached shop.browse#buildsReport: p95 at 45.311 ms (lt 20 ms)
 $ echo $?
 3
 ```
 
-In the JSON report, each breach names its metric and, for a per-test threshold, its test:
+In the JSON report (`vc load shop.abort --json`), each breach names its metric, the measured value, the limit with its unit and, for a per-test threshold, its test:
 
 ```json
 "breaches": [
-  { "actual": 47.807, "metric": "p99", "test": null },
-  { "actual": 47.807, "metric": "p95", "test": "shop.browse#buildsReport" }
+  {
+    "actual": 45.951,
+    "limit": {
+      "lt": 30.0
+    },
+    "metric": "p99",
+    "test": null,
+    "unit": "ms"
+  },
+  {
+    "actual": 45.951,
+    "limit": {
+      "lt": 20.0
+    },
+    "metric": "p95",
+    "test": "shop.browse#buildsReport",
+    "unit": "ms"
+  }
 ],
 "ending": "aborted",
+"errorKinds": [],
+"errors": 0,
 "exit": 3,
 ```
 
 <Aside title="checks: api or full">
-With the default `checks: api`, only the apis' own `expect` blocks count. A test whose own `expect` fails still counts as a good iteration. When a test's `expect` matters under load, as `match: { name: Ada }` does here, set `checks: full`. In a quick trial, a test with a wrong `match` ran with 0 errors under `checks: api`. Under `checks: full`, every iteration counted as an error, the `errorRate` threshold was breached and `vc load` exited `3`.
+With the default `checks: api`, only the apis' own `expect` blocks count. A test whose own `expect` fails still counts as a good iteration. When a test's `expect` matters under load, as `match: { name: Ada }` does here, set `checks: full`. In a quick trial, a test with a wrong `match` ran with 0 errors under `checks: api`. Under `checks: full`, every iteration of that test counted as an error, the `errorRate` threshold was breached, `abortOn` stopped the run and `vc load` exited `3`.
 </Aside>
 
 ## Try a variation

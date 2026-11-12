@@ -108,7 +108,7 @@ Exit code 4 means a spec has moved on since the last sync, or a conflict is stil
 | Code | When |
 | --- | --- |
 | `0` | Synced. A plain `vc sync` also exits 0 when it leaves a conflict; it says `1 conflict left` |
-| `2` | No such api file or api, a path where a file ID goes, the spec cannot be read, the spec is kept in `openapi/`, where snapshots go, or the snapshot path `openapi/<fileId>.yaml` is a link, names another file in a different case or is the spec another api file syncs from |
+| `2` | No such api file or api, an api file does not parse, a path where a file ID goes, the spec cannot be read, the spec is kept in `openapi/`, where snapshots go, or the snapshot path `openapi/<fileId>.yaml` is a link, names another file in a different case or is the spec another api file syncs from |
 | `4` | `--check` only: a spec changed since its snapshot, or a conflict is left |
 
 ```console

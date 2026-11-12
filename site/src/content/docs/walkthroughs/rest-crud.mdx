@@ -70,30 +70,35 @@ The mock's `/users` collection behaves like a typical REST API:
    $ vc new api users#create --method POST --url http://localhost:18080/users
    ✓ added users#create to services/users/users.api.yaml:6
    $ vc new api users#get --path '/users/{userId}'
-   ✓ added users#get to services/users/users.api.yaml:10
+   ✓ added users#get to services/users/users.api.yaml:11
    $ vc new api users#delete --method DELETE --path '/users/{userId}'
-   ✓ added users#delete to services/users/users.api.yaml:13
+   ✓ added users#delete to services/users/users.api.yaml:15
    ```
 
-   Add `users#list` (`--path /users`), `users#replace` (`--method PUT`) and `users#rename` (`--method PATCH`) the same way. The path parameter `{userId}` becomes `${var.userId}`:
+   Add `users#list` (`--path /users`), `users#replace` (`--method PUT --path '/users/{userId}'`) and `users#rename` (`--method PATCH --path '/users/{userId}'`) the same way. Every call after the first needs `--path`: without it, vc stops with `an api needs one of --path and --url`. The path parameter `{userId}` becomes `${var.userId}`, and each api gets a `name` from its ID:
 
    ```yaml title="services/users/users.api.yaml (scaffolded)"
+   # yaml-language-server: $schema=https://v007m.github.io/vc-rs/schema/api.schema.json
+   # users · api file · keys: https://github.com/v007m/vc-rs/blob/master/docs/design/syntax-reference.md#api-files
    baseUrl: ${var.usersUrl}
    apis:
-     # users#create · POST /users · keys: …
+     # users#create · POST /users · keys: https://github.com/v007m/vc-rs/blob/master/docs/design/syntax-reference.md#api-files
      - id: create
+       name: Create
        method: POST
        path: /users
-     # users#get · GET /users/{userId} · keys: …
+     # users#get · GET /users/{userId} · keys: https://github.com/v007m/vc-rs/blob/master/docs/design/syntax-reference.md#api-files
      - id: get
+       name: Get
        path: /users/${var.userId}
-     # users#delete · DELETE /users/{userId} · keys: …
+     # users#delete · DELETE /users/{userId} · keys: https://github.com/v007m/vc-rs/blob/master/docs/design/syntax-reference.md#api-files
      - id: delete
+       name: Delete
        method: DELETE
        path: /users/${var.userId}
    ```
 
-   And in `vibranium.config.yaml`:
+   And at the end of `vibranium.config.yaml`, a new `vars:` block:
 
    ```yaml title="vibranium.config.yaml (excerpt)"
    vars:
@@ -102,7 +107,7 @@ The mock's `/users` collection behaves like a typical REST API:
 
    The file ID comes from the path: `services/users/users.api.yaml` is `users`, so its apis are `users#create`, `users#get` and so on.
 
-3. **Fill in the api file.** Give each api a `name`, a body where it needs one, and what a normal answer looks like. Three keys on `create` do most of the work:
+3. **Fill in the api file.** Give each api a clearer `name`, a body where it needs one, and what a normal answer looks like. Three keys on `create` do most of the work:
 
    - `vars` gives each field a default. `${fake.person.fullName}` and `${fake.internet.email}` generate a fresh name and email for every test, so tests don't collide.
    - `save` keeps the new user's ID as `userId`. Every later call in the same test can read it as `${var.userId}`.
@@ -284,17 +289,17 @@ The mock's `/users` collection behaves like a typical REST API:
    $ vc run
    plan  5 tests in 1 file · profile default
 
-   ✓ users.crud#createsUser                                         34ms
-   ✓ users.crud#replacesUser                                        34ms
-   ✓ users.crud#deletesUser                                         37ms
-   ✓ users.crud#readsCreatedUser                                    37ms
-   ✓ users.crud#renamesUser                                         37ms
+   ✓ users.crud#deletesUser — A deleted user is gone                 4ms
+   ✓ users.crud#createsUser — Creates a user and returns its ID      4ms
+   ✓ users.crud#readsCreatedUser — Reads back the user that was just created    4ms
+   ✓ users.crud#renamesUser — PATCH changes the name and keeps the other fields    4ms
+   ✓ users.crud#replacesUser — PUT replaces every field of a user    4ms
 
-   5 passed                                                    48ms · profile default
+   5 passed                                                     5ms · profile default
    reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
    ```
 
-   Tests run in parallel, so the order changes from run to run. The report path is shortened here; vc prints the full path.
+   Each line ends with the test's `name`. Tests run in parallel, so the order changes from run to run. The report path is shortened here; vc prints the full path.
 
    Now look at the mock's store:
 
@@ -350,28 +355,28 @@ The mock's `/users` collection behaves like a typical REST API:
    `status: ${example.status}` takes each row's value as a status: a code (`404` or the text `"404"`), a class (`4xx`) or a list (`[400, 404]`). A value that is none of these fails the check. See [status](/vc-rs/reference/matchers/status/).
    </Aside>
 
-8. **Run the new rows.** Each row is reported as its own instance, labeled `[row n]`:
+8. **Run the new rows.** Each row is reported as its own instance. A row with a `name` key is labeled `› <name>`; a row without one is labeled by its position, `[row n]`:
 
    ```console
    $ vc run
    plan  7 tests in 1 file · profile default
 
-   ✓ users.crud#rejectsUnknownUser [row 2]                           4ms
-   ✓ users.crud#rejectsBadBody [row 1]                               4ms
-   ✓ users.crud#rejectsBadBody [row 3]                               4ms
-   ✓ users.crud#rejectsUnknownUser [row 1]                           4ms
-   ✓ users.crud#createsUser                                          5ms
-   ✓ users.crud#rejectsBadBody [row 2]                               5ms
-   ✓ users.crud#readsCreatedUser                                     5ms
-   ✓ users.crud#deletesUser                                          5ms
-   ✓ users.crud#replacesUser                                         6ms
-   ✓ users.crud#renamesUser                                          6ms
+   ✓ users.crud#rejectsBadBody › plain text — Rejects a create request whose body is not a JSON object    1ms
+   ✓ users.crud#rejectsBadBody › broken JSON — Rejects a create request whose body is not a JSON object    1ms
+   ✓ users.crud#rejectsBadBody › a list, not an object — Rejects a create request whose body is not a JSON object    2ms
+   ✓ users.crud#rejectsUnknownUser [row 1] — Answers 400 or 404 for IDs that name no user    2ms
+   ✓ users.crud#rejectsUnknownUser [row 2] — Answers 400 or 404 for IDs that name no user    2ms
+   ✓ users.crud#createsUser — Creates a user and returns its ID      2ms
+   ✓ users.crud#readsCreatedUser — Reads back the user that was just created    2ms
+   ✓ users.crud#replacesUser — PUT replaces every field of a user    2ms
+   ✓ users.crud#deletesUser — A deleted user is gone                 2ms
+   ✓ users.crud#renamesUser — PATCH changes the name and keeps the other fields    2ms
 
-   10 passed                                                    7ms · profile default
-   reports  …/.vibranium/reports/6/{ctrf.json,junit.xml,index.html}
+   10 passed                                                    3ms · profile default
+   reports  …/.vibranium/reports/2/{ctrf.json,junit.xml,index.html}
    ```
 
-   `vc plan` lists the instances without sending anything:
+   `vc plan` lists the instances without sending anything. It labels every row by its position:
 
    ```console
    $ vc plan users.crud
@@ -395,14 +400,14 @@ The mock's `/users` collection behaves like a typical REST API:
    $ vc run users.crud#rejectsBadBody:2
    plan  1 test in 1 file · profile default
 
-   ✓ users.crud#rejectsBadBody [row 2]                               3ms
+   ✓ users.crud#rejectsBadBody › broken JSON — Rejects a create request whose body is not a JSON object    2ms
 
-   1 passed                                                     5ms · profile default
-   reports  …/.vibranium/reports/8/{ctrf.json,junit.xml,index.html}
+   1 passed                                                     2ms · profile default
+   reports  …/.vibranium/reports/3/{ctrf.json,junit.xml,index.html}
    ```
 
    <Aside type="note">
-   The rows have a `name` key, but the console and reports still say `[row 1]`, `[row 2]`. Use `:n` with the row's position.
+   The console and reports label a row by its `name`, but `:n` always takes the row's position, as `vc plan` shows it: `:2` is the `broken JSON` row.
    </Aside>
 
 9. **See a failure.** Change `role: admin` to `role: owner` in the `equals` block of `replacesUser` and run it:
@@ -411,7 +416,7 @@ The mock's `/users` collection behaves like a typical REST API:
    $ vc run users.crud#replacesUser
    plan  1 test in 1 file · profile default
 
-   ✕ users.crud#replacesUser                                         7ms
+   ✕ users.crud#replacesUser — PUT replaces every field of a user    7ms
      error[V5101]: expect.body.equals
        --> services/users/crud.test.yaml:52:11
         |
@@ -585,7 +590,7 @@ vars:
   usersUrl: http://localhost:18080
 ```
 
-`vc init --no-sample` also leaves a `sampleUrl` var for the demo service. This project doesn't use it, so you can delete that line.
+`vc new api … --url` added this block in step 2. `vc init --no-sample` writes no `vars:` of its own.
 
 </TabItem>
 </Tabs>

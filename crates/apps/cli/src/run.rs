@@ -26,7 +26,7 @@ pub struct RunArgs {
     /// The console format: `spec` (the default) or `json`.
     #[arg(long, value_name = "FORMAT")]
     reporter: Option<String>,
-    /// Same as `--reporter json` (D264).
+    /// Same as `--reporter json`.
     #[arg(long, conflicts_with = "reporter")]
     json: bool,
     /// The report files to write, as a comma list or repeated: `ctrf`, `junit`, `html`. Over
@@ -46,7 +46,7 @@ pub struct RunArgs {
     /// Runs `cache:` actions every time, neither reading nor writing the cross-run cache.
     #[arg(long)]
     no_cache: bool,
-    /// Fails the run on every failure, including those under `allowFailure` (D248).
+    /// Fails the run on every failure, including those under `allowFailure`.
     #[arg(long)]
     strict: bool,
 }

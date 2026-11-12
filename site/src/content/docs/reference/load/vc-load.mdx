@@ -26,7 +26,7 @@ Arguments:
 Options:
       --profile <IDS>    The active profiles, as a comma list or repeated; later ones win
       --project <DIR>    The project to work on: this folder or the nearest one above it with a `vibranium.config.yaml`. Relative paths and selectors then start at the project root
-      --set <KEY=VALUE>  Sets one config value (`defaults.timeout=5s`, `vars.userId=7`), over every other config layer (D129)
+      --set <KEY=VALUE>  Sets one config value (`defaults.timeout=5s`, `vars.userId=7`), over every other config layer; a file's, test's or step's own `vars` still win over a config var
       --json             Prints the final report as JSON on stdout, with no live line
   -h, --help             Print help
 ```

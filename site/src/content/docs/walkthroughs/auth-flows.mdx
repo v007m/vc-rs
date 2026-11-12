@@ -78,28 +78,14 @@ By the end you will know how to:
    ```
 
    <Aside type="caution" title="Keep .env out of git">
-   `vc init` lists `.env` in `.gitignore`. If your project was not made by `vc init`, add it yourself:
+   `vc init` lists `.vibranium/` (run history and reports) and `.env` in `.gitignore`. If your project was not made by `vc init`, add them yourself:
 
    ```console
-   $ echo .env >> .gitignore
+   $ printf '.vibranium/\n.env\n' >> .gitignore
    ```
    </Aside>
 
-   `vc check` makes sure each `${secret.X}` you use is declared. A typo fails the check and suggests the closest name:
-
-   ```console
-   $ vc check
-   error[V2106]: `${secret.SHOP_API_KEY}` is not declared in `.env.schema`
-     --> vibranium.config.yaml:28:12
-      |
-   28 |     value: ${secret.SHOP_API_KEY}
-      |            ^^^^^^^^^^^^^^^^^^^^^^ SHOP_API_KEY is not in .env.schema
-      = help: add the line `SHOP_API_KEY=` to `.env.schema` at the project root, or fix the name
-      = help: did you mean `SHOP_APIKEY`?
-      = fix: Replace with SHOP_APIKEY (certain)
-   ```
-
-3. **Add the simple auth types.** Each entry in the config's `auth` list has an `id` and a `type`. Apis and tests refer to it by `id`.
+3. **Add the simple auth types.** Each entry in the config's `auth` list has an `id` and a `type`. Apis and tests refer to it by `id`. Add this to the end of the config:
 
    ```yaml title="vibranium.config.yaml (part)"
    auth:
@@ -128,6 +114,24 @@ By the end you will know how to:
    ```
 
    `httpbinBasic` has its own `vars`. A caller can change them, so one definition can log in as different users.
+
+   `vc check` makes sure each `${secret.X}` you use is declared in `.env.schema`. A typo fails the check and suggests the closest name. Write `${secret.SHOP_APIKEY}` in `headerKey` and run it:
+
+   ```console
+   $ vc check
+   error[V2106]: `${secret.SHOP_APIKEY}` is not declared in `.env.schema`
+     --> vibranium.config.yaml:28:12
+      |
+   28 |     value: ${secret.SHOP_APIKEY}
+      |            ^^^^^^^^^^^^^^^^^^^^^ SHOP_APIKEY is not in .env.schema
+      = help: add the line `SHOP_APIKEY=` to `.env.schema` at the project root, or fix the name
+      = help: did you mean `SHOP_API_KEY`?
+      = fix: Replace with SHOP_API_KEY (certain)
+
+   1 error · 0 warnings · 1 file checked
+   ```
+
+   Put the name back to `SHOP_API_KEY` before you go on.
 
 4. **Write the apis and tests for httpbin.** An api picks its auth with `auth:`. A test can override it in three ways: with another auth `id`, with the same `id` and different `vars`, or with `auth: none`.
 
@@ -221,14 +225,14 @@ By the end you will know how to:
    $ vc run httpbin.auth
    plan  6 tests in 1 file · profile default
 
-   ✓ httpbin.auth#sendsKeyInHeader                                 705ms
-   ✓ httpbin.auth#logsInWithBasicAuth                              705ms
-   ✓ httpbin.auth#rejectsMissingToken                              709ms
-   ✓ httpbin.auth#sendsKeyInQuery                                  705ms
-   ✓ httpbin.auth#sendsBearerToken                                 705ms
-   ✓ httpbin.auth#rejectsWrongUser                                 930ms
+   ✓ httpbin.auth#rejectsMissingToken — Rejects a call without a token  669ms
+   ✓ httpbin.auth#sendsKeyInQuery — Sends the API key in the query string  670ms
+   ✓ httpbin.auth#logsInWithBasicAuth — Logs in with HTTP basic auth  670ms
+   ✓ httpbin.auth#sendsKeyInHeader — Sends the API key in a header  671ms
+   ✓ httpbin.auth#sendsBearerToken — Sends the bearer token        671ms
+   ✓ httpbin.auth#rejectsWrongUser — Rejects basic auth for another user  890ms
 
-   6 passed                                                     942ms · profile default
+   6 passed                                                     891ms · profile default
    reports  /home/you/auth-demo/.vibranium/reports/1/ctrf.json
    ```
 
@@ -245,9 +249,12 @@ By the end you will know how to:
      vars
        mockUrl  http://localhost:18080  (vibranium.config.yaml)
        httpbinUrl  https://httpbin.org  (vibranium.config.yaml)
+     auth  httpbinBasic  (call)
      expect
        status: 401  (test httpbin.auth#rejectsWrongUser)
    ```
+
+   The `auth` line names the auth in effect and the level that chose it: `(call)` is the test's own `auth:`. For `logsInWithBasicAuth` it reads `(api httpbin#basicAuth)`. It does not list the `vars` the test passes to the auth, so `user: grace` is not shown. The `ada` in the URL is the api's path, not the user that is sent.
 
 5. **Add token-based auth.** Real APIs usually make you fetch a token first. Add two more entries to the config's `auth` list.
 
@@ -338,18 +345,18 @@ By the end you will know how to:
    $ vc run mock.session
    plan  3 tests in 1 file · profile default
 
-   ✓ mock.session#rejectsAnonymousCaller                             2ms
-   ✓ mock.session#readsProfileWithOauth [repeat 2]                   4ms
-   ✓ mock.session#readsProfileWithOauth [repeat 1]                   4ms
-   ✓ mock.session#readsProfileWithOauth [repeat 3]                   4ms
-   ✓ mock.session#readsProfileAfterLogin [repeat 3]                  5ms
-   ✓ mock.session#readsProfileAfterLogin [repeat 2]                  5ms
-   ✓ mock.session#readsProfileAfterLogin [repeat 1]                  6ms
+   ✓ mock.session#rejectsAnonymousCaller — Rejects a caller with no token    2ms
+   ✓ mock.session#readsProfileWithOauth [repeat 2] — Reads the profile with a client-credentials token    2ms
+   ✓ mock.session#readsProfileWithOauth [repeat 3] — Reads the profile with a client-credentials token    2ms
+   ✓ mock.session#readsProfileWithOauth [repeat 1] — Reads the profile with a client-credentials token    2ms
+   ✓ mock.session#readsProfileAfterLogin [repeat 1] — Reads the profile after a flow login    2ms
+   ✓ mock.session#readsProfileAfterLogin [repeat 3] — Reads the profile after a flow login    2ms
+   ✓ mock.session#readsProfileAfterLogin [repeat 2] — Reads the profile after a flow login    3ms
 
-   7 passed                                                     6ms · profile default
+   7 passed                                                     3ms · profile default
    reports  /home/you/auth-demo/.vibranium/reports/2/ctrf.json
    $ curl -s localhost:18080/__stats
-   {"requests":{"GET /auth/me":7,"POST /auth/token":1,"POST /oauth/token":1},"logins":2,"maxInFlight":{"GET /auth/me":3,"POST /auth/token":1,"POST /oauth/token":1},"maxInFlightTotal":3}
+   {"requests":{"GET /auth/me":7,"POST /auth/token":1,"POST /oauth/token":1},"logins":2,"maxInFlight":{"GET /auth/me":2,"POST /auth/token":1,"POST /oauth/token":1},"maxInFlightTotal":3}
    ```
 
    Seven calls to `/auth/me`, but only one `POST /auth/token` and one `POST /oauth/token`. This is the **token cache**: within a run, each login runs once, and every test that needs it at the same moment waits for that one login. It runs again only when `expiresIn` passes or a response matches `refreshOn`.
@@ -373,9 +380,9 @@ By the end you will know how to:
    $ vc run mock.refresh
    plan  1 test in 1 file · profile default
 
-   ✓ mock.refresh#logsInAgainAfterSessionsReset                     31ms
+   ✓ mock.refresh#logsInAgainAfterSessionsReset — Logs in again when the server forgets every session   14ms
 
-   1 passed                                                     33ms · profile default
+   1 passed                                                     15ms · profile default
    reports  /home/you/auth-demo/.vibranium/reports/3/ctrf.json
    $ curl -s localhost:18080/__stats
    {"requests":{"GET /auth/me":2,"POST /auth/token":1},"logins":1,"maxInFlight":{"GET /auth/me":1,"POST /auth/token":1},"maxInFlightTotal":1}
@@ -413,30 +420,29 @@ By the end you will know how to:
    $ vc run httpbin.leak
    plan  2 tests in 1 file · profile default
 
-   ✕ httpbin.leak#echoesQueryKey                                   671ms
+   ✕ httpbin.leak#echoesQueryKey — Echoes the query key (fails on purpose)  691ms
      error[V5101]: expect.body.match.url
        --> services/httpbin/leak.test.yaml:21:13
         |
      21 |             endsWith: nothing
         |             ^^^^^^^^^^^^^^^^^ expected {"endsWith":"nothing"}, got "https://httpbin.org/anything?api_key=••••"
-   ✕ httpbin.leak#echoesBearerToken                                671ms
+   ✕ httpbin.leak#echoesBearerToken — Echoes the bearer token (fails on purpose)  691ms
      error[V5101]: expect.body.match.headers.Authorization
        --> services/httpbin/leak.test.yaml:11:34
         |
      11 |           headers.Authorization: Bearer nope
         |                                  ^^^^^^^^^^^ expected "Bearer nope", got "••••"
 
-   0 passed · 2 failed                                          673ms · profile default
+   0 passed · 2 failed                                          692ms · profile default
    reports  /home/you/auth-demo/.vibranium/reports/4/ctrf.json
    next     vc run --failed
-   seed 2400231368798439284: pass `--seed 2400231368798439284` to run with the same generated data
    ```
 
    httpbin echoed the real values back in its response body, and vc still masked them. The same is true in the history:
 
    ```console
    $ vc history show last
-       4  2026-11-10 17:37Z  failed     0 passed · 2 failed · 0 blocked · 0 skipped  profile default  httpbin.leak
+       4  2026-11-12 05:03Z  failed     0 passed · 2 failed · 0 blocked · 0 skipped  profile default  httpbin.leak
      failed   httpbin.leak#echoesQueryKey
               match.url: expected {"endsWith":"nothing"}, got "https://httpbin.org/anything?api_key=••••"
      failed   httpbin.leak#echoesBearerToken
@@ -445,12 +451,56 @@ By the end you will know how to:
 
    Delete `leak.test.yaml` when you are done.
 
-9. **Know the two common failures.** If a declared secret has no value (it is in `.env.schema` but in neither the environment nor `.env`), each call that needs it fails. The other tests still run.
+9. **Know the common failures.** If a declared secret has no value (it is in `.env.schema` but in neither the environment nor `.env`), vc stops before it plans the run. Take the `MOCK_CLIENT_SECRET` line out of `.env` and run everything:
 
    ```console
-   error[V5111]: `secret.MOCK_CLIENT_SECRET` is missing: `secret` is {}
-      = at: call mock#meWithOauth
+   $ vc run
+   error: secrets: V5114: the declared secret `MOCK_CLIENT_SECRET` has no value
+     = help: set it in the environment or the project's `.env` (or in the `secrets.provider`), or remove it from `.env.schema`
+   $ echo $?
+   2
    ```
+
+   No test ran, not even the httpbin ones that don't need it. Before it sends anything, vc checks that every declared secret the selected tests read has a value, so a run never fails halfway for want of one. A selection that does not read it, such as `vc run httpbin.auth`, runs as usual. `vc check` reads no secret values, so it still reports `0 errors`.
+
+   If some runs can do without a secret, mark it `# @optional` in `.env.schema`, on the line just above its name (see [`.env.schema`](/vc-rs/reference/config/env-schema/)):
+
+   ```text title=".env.schema"
+   # The secret names this project uses, one NAME= line each, never their values.
+   HTTPBIN_TOKEN=
+   HTTPBIN_PASSWORD=
+   SHOP_API_KEY=
+   # @optional
+   MOCK_CLIENT_SECRET=
+   ```
+
+   Now the run goes ahead, and only the calls that read the secret fail, before they send anything:
+
+   ```console
+   $ curl -s -X POST localhost:18080/__reset
+   $ vc run mock.session
+   plan  3 tests in 1 file · profile default
+
+   ✕ mock.session#readsProfileWithOauth [repeat 1] — Reads the profile with a client-credentials token    0ms
+     error[V5114]: the secret `MOCK_CLIENT_SECRET` did not load
+        = at: call mock#meWithOauth
+   ✕ mock.session#readsProfileWithOauth [repeat 3] — Reads the profile with a client-credentials token    0ms
+     error[V5114]: the secret `MOCK_CLIENT_SECRET` did not load
+        = at: call mock#meWithOauth
+   ✕ mock.session#readsProfileWithOauth [repeat 2] — Reads the profile with a client-credentials token    0ms
+     error[V5114]: the secret `MOCK_CLIENT_SECRET` did not load
+        = at: call mock#meWithOauth
+   ✓ mock.session#rejectsAnonymousCaller — Rejects a caller with no token    1ms
+   ✓ mock.session#readsProfileAfterLogin [repeat 2] — Reads the profile after a flow login    1ms
+   ✓ mock.session#readsProfileAfterLogin [repeat 1] — Reads the profile after a flow login    1ms
+   ✓ mock.session#readsProfileAfterLogin [repeat 3] — Reads the profile after a flow login    1ms
+
+   4 passed · 3 failed                                          2ms · profile default
+   reports  /home/you/auth-demo/.vibranium/reports/5/ctrf.json
+   next     vc run --failed
+   ```
+
+   Put the line back in `.env` (and drop `# @optional` if every run needs the secret) before you go on.
 
    If the value is there but wrong, the token endpoint refuses it. vc names the auth and the status, but never the request or response, so nothing secret leaks:
 

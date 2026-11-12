@@ -42,11 +42,17 @@ You will call the demo service. Two of its endpoints matter here:
    ```console
    $ mkdir people && cd people
    $ vc init --no-sample
+   ✓ created a Vibranium project in /…/people
+     .env.schema
+     .gitignore
+     vibranium.config.yaml
+     schemas/  datasets/  hooks/  openapi/  load/
+   next: vc new api <service>#<id> --path /…
    $ vc demo start --port 7481 --detach
    demo running on http://localhost:7481 (pid 5603); `vc demo stop` stops it
    ```
 
-   In `vibranium.config.yaml`, replace the `sampleUrl` line under `vars` with a var for the demo:
+   `vc init --no-sample` writes no `vars:`. Add a `vars:` block to the end of `vibranium.config.yaml`, with a var for the demo:
 
    ```yaml title="vibranium.config.yaml (excerpt)"
    vars:
@@ -164,23 +170,23 @@ You will call the demo service. Two of its endpoints matter here:
              email: ${example.email}
    ```
 
-   Run the file. Every row is its own instance:
+   Run the file. Every row is its own instance. A row with a `name` is labeled by it (`› Grace Hopper`); a row without one is labeled by its position (`[row 2]`). Each line ends with the test's `name`:
 
    ```console
    $ vc run people.signup
    plan  3 tests in 1 file · profile default
 
-   ✓ people.signup#rejectsBadEmail [row 1]                           3ms
-   ✓ people.signup#rejectsBadEmail [row 3]                          42ms
-   ✓ people.signup#createsUsersFromFile [row 1]                     42ms
-   ✓ people.signup#rejectsBadEmail [row 2]                          42ms
-   ✓ people.signup#createsEachUser [row 2]                          42ms
-   ✓ people.signup#createsUsersFromFile [row 2]                     50ms
-   ✓ people.signup#createsEachUser [row 3]                          48ms
-   ✓ people.signup#createsEachUser [row 1]                          68ms
+   ✓ people.signup#rejectsBadEmail [row 1] — Rejects an email that is not text    4ms
+   ✓ people.signup#rejectsBadEmail [row 2] — Rejects an email that is not text    4ms
+   ✓ people.signup#createsEachUser › Ada Lovelace — Creates a user for every row    5ms
+   ✓ people.signup#createsEachUser › Grace Hopper — Creates a user for every row    5ms
+   ✓ people.signup#createsEachUser › Alan Turing — Creates a user for every row    5ms
+   ✓ people.signup#rejectsBadEmail [row 3] — Rejects an email that is not text    4ms
+   ✓ people.signup#createsUsersFromFile › Linus Torvalds — Creates a user for every row in signup-rows.yaml    4ms
+   ✓ people.signup#createsUsersFromFile › Margaret Hamilton — Creates a user for every row in signup-rows.yaml    5ms
 
-   8 passed                                                     77ms · profile default
-   reports  …/.vibranium/reports/37/{ctrf.json,junit.xml,index.html}
+   8 passed                                                     7ms · profile default
+   reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
    ```
 
    The report path is shortened on this page; vc prints the full path.
@@ -236,18 +242,19 @@ You will call the demo service. Two of its endpoints matter here:
    $ vc run people.datasets#sendsEveryCity:1
    plan  1 test in 1 file · profile default
 
-   ✕ people.datasets#sendsEveryCity [row 1]                          5ms
+   ✕ people.datasets#sendsEveryCity › Tokyo — Sends each city from datasets/cities.csv    1ms
      error[V5101]: expect.body.match.body.population
        --> services/people/datasets.test.yaml:20:13
         |
      20 |             type: integer
         |             ^^^^^^^^^^^^^ expected {"type":"integer"}, got "37400000"
 
-   0 passed · 1 failed                                          6ms · profile default
-   reports  …/.vibranium/reports/18/{ctrf.json,junit.xml,index.html}
+   0 passed · 1 failed                                          2ms · profile default
+   reports  …/.vibranium/reports/2/{ctrf.json,junit.xml,index.html}
    next     vc run --failed
-   seed 4755255180908973374: pass `--seed 4755255180908973374` to run with the same generated data
    ```
+
+   The dataset has a `name` column, so each row is labeled by it (`› Tokyo`).
 
    JSON and YAML datasets keep their types, so they need no pipe.
 
@@ -324,16 +331,16 @@ You will call the demo service. Two of its endpoints matter here:
    $ vc run people.datasets
    plan  4 tests in 1 file · profile default
 
-   ✓ people.datasets#sendsEveryCity [row 4]                         45ms
-   ✓ people.datasets#sendsEveryCity [row 2]                         45ms
-   ✓ people.datasets#sendsEveryCity [row 3]                         45ms
-   ✓ people.datasets#sendsEveryCity [row 1]                         45ms
-   ✓ people.datasets#triesEachPlan                                  45ms
-   ✓ people.datasets#countsTo                                       45ms
-   ✓ people.datasets#createsEveryAdmin                              45ms
+   ✓ people.datasets#sendsEveryCity › Tokyo — Sends each city from datasets/cities.csv    2ms
+   ✓ people.datasets#sendsEveryCity › Lagos — Sends each city from datasets/cities.csv    2ms
+   ✓ people.datasets#sendsEveryCity › Delhi — Sends each city from datasets/cities.csv    2ms
+   ✓ people.datasets#sendsEveryCity › Paris — Sends each city from datasets/cities.csv    3ms
+   ✓ people.datasets#triesEachPlan — Sends one request per plan name    3ms
+   ✓ people.datasets#countsTo — Sends the same request three times    3ms
+   ✓ people.datasets#createsEveryAdmin — Creates every admin, three at a time, then sends their IDs    3ms
 
-   7 passed                                                     49ms · profile default
-   reports  …/.vibranium/reports/38/{ctrf.json,junit.xml,index.html}
+   7 passed                                                     4ms · profile default
+   reports  …/.vibranium/reports/4/{ctrf.json,junit.xml,index.html}
    ```
 
    A loop is one test instance with one line in the console. Only `examples` (and `repeat` on a whole test, below) add lines.
@@ -426,13 +433,13 @@ You will call the demo service. Two of its endpoints matter here:
     $ vc run people.fake
     plan  2 tests in 1 file · profile default
 
-    ✓ people.fake#sendsFreshDataEachRun [repeat 3]                    8ms
-    ✓ people.fake#sendsGeneratedData                                  8ms
-    ✓ people.fake#sendsFreshDataEachRun [repeat 1]                    9ms
-    ✓ people.fake#sendsFreshDataEachRun [repeat 2]                   10ms
+    ✓ people.fake#sendsFreshDataEachRun [repeat 1] — Each repeat gets its own generated email    1ms
+    ✓ people.fake#sendsFreshDataEachRun [repeat 2] — Each repeat gets its own generated email    1ms
+    ✓ people.fake#sendsFreshDataEachRun [repeat 3] — Each repeat gets its own generated email    1ms
+    ✓ people.fake#sendsGeneratedData — Sends generated values and gets them back    2ms
 
-    4 passed                                                     11ms · profile default
-    reports  …/.vibranium/reports/39/{ctrf.json,junit.xml,index.html}
+    4 passed                                                     2ms · profile default
+    reports  …/.vibranium/reports/5/{ctrf.json,junit.xml,index.html}
     ```
 
     Each repeat is a new instance, so each gets its own email. To hunt for a flaky test without editing YAML, pass `--repeat` to `vc run`. It replaces every selected test's own `repeat`:
@@ -441,12 +448,12 @@ You will call the demo service. Two of its endpoints matter here:
     $ vc run people.fake#sendsGeneratedData --repeat 3
     plan  1 test in 1 file · profile default
 
-    ✓ people.fake#sendsGeneratedData                                  6ms
-    ✓ people.fake#sendsGeneratedData [repeat 3]                       6ms
-    ✓ people.fake#sendsGeneratedData [repeat 2]                       6ms
+    ✓ people.fake#sendsGeneratedData [repeat 1] — Sends generated values and gets them back    2ms
+    ✓ people.fake#sendsGeneratedData [repeat 3] — Sends generated values and gets them back    2ms
+    ✓ people.fake#sendsGeneratedData [repeat 2] — Sends generated values and gets them back    2ms
 
-    3 passed                                                     7ms · profile default
-    reports  …/.vibranium/reports/40/{ctrf.json,junit.xml,index.html}
+    3 passed                                                     2ms · profile default
+    reports  …/.vibranium/reports/6/{ctrf.json,junit.xml,index.html}
     ```
 
 11. **Replay generated data with `--seed`.** Every run picks a seed for its generators and for `random` and `shuffle`. Pass the same seed and you get the same data. The JSON reporter's `checkEvaluated` events show each value that came back:
@@ -479,11 +486,13 @@ You will call the demo service. Two of its endpoints matter here:
     [{"country":"JP","name":"Tokyo","population":"37400000"},{"country":"NG","name":"Lagos","population":"15900000"}]
     ```
 
-    You rarely pick a seed up front. When a run fails, vc prints the seed it used, as in step 6:
+    You rarely pick a seed up front. When a run that generated data fails, vc prints the seed it used as its last line:
 
     ```console
-    seed 4755255180908973374: pass `--seed 4755255180908973374` to run with the same generated data
+    seed 4319044467983137: pass `--seed 4319044467983137` to run with the same generated data
     ```
+
+    A failing run that generated nothing, such as the one in step 6, prints no seed.
 
     Copy that flag to reproduce the failure with the same data. The HTML report also shows the seed.
 
@@ -503,19 +512,31 @@ You will call the demo service. Two of its endpoints matter here:
        = help: did you mean `name`?
        = fix: Replace with name (certain)
 
-    error[V2002]: `dataset.users.admin` names no dataset
-      --> services/people/datasets.test.yaml:26:18
+    error[V2103]: ${example.nmae} names no column of this test's examples
+      --> services/people/datasets.test.yaml:18:22
        |
-    26 |         forEach: ${dataset.users.admin}
+     8 |     examples: ${dataset.cities}
+       |               ----------------- the rows
+    ...
+    18 |           body.city: ${example.nmae}
+       |                      ^^^^^^^^^^^^^^^ no row has `nmae`
+       = help: the columns are `country`, `name`, `population`
+       = help: did you mean `name`?
+       = fix: Replace with name (certain)
+
+    error[V2002]: `dataset.users.admin` names no dataset
+      --> services/people/datasets.test.yaml:25:18
+       |
+    25 |         forEach: ${dataset.users.admin}
        |                  ^^^^^^^^^^^^^^^^^^^^^^ no dataset has this ID
        = note: the datasets are `cities`, `users.admins`; a dataset is a file under `datasets/` or an entry of `datasets.files` in the config
        = help: did you mean `users.admins`?
        = fix: Replace with users.admins (certain)
+
+    3 errors · 0 warnings · 8 files checked
     ```
 
-    (The output also repeats V2103 for the second `${example.nmae}`, on line 18.)
-
-13. **Run one row.** `vc plan` shows each row's position; add `:n` to a test ID to run just that row:
+13. **Run one row.** `vc plan` shows each row's position; add `:n` to a test ID to run just that row. The run still labels the row by its `name`:
 
     ```console
     $ vc plan people.datasets
@@ -531,10 +552,10 @@ You will call the demo service. Two of its endpoints matter here:
     $ vc run people.datasets#sendsEveryCity:3
     plan  1 test in 1 file · profile default
 
-    ✓ people.datasets#sendsEveryCity [row 3]                          2ms
+    ✓ people.datasets#sendsEveryCity › Paris — Sends each city from datasets/cities.csv   18ms
 
-    1 passed                                                     3ms · profile default
-    reports  …/.vibranium/reports/16/{ctrf.json,junit.xml,index.html}
+    1 passed                                                     23ms · profile default
+    reports  …/.vibranium/reports/11/{ctrf.json,junit.xml,index.html}
     ```
 
 14. **Clean up.** Stop the demo when you are done:
@@ -568,28 +589,28 @@ The api file is in step 2, `signup.test.yaml` is steps 3 and 4, `datasets.test.y
 $ vc run --seed 42
 plan  9 tests in 3 files · profile default
 
-✓ people.signup#rejectsBadEmail [row 1]                           3ms
-✓ people.signup#rejectsBadEmail [row 3]                           3ms
-✓ people.fake#sendsFreshDataEachRun [repeat 3]                    3ms
-✓ people.fake#sendsFreshDataEachRun [repeat 1]                    3ms
-✓ people.datasets#sendsEveryCity [row 2]                          3ms
-✓ people.signup#rejectsBadEmail [row 2]                           3ms
-✓ people.datasets#sendsEveryCity [row 3]                          3ms
-✓ people.fake#sendsGeneratedData                                  4ms
-✓ people.signup#createsEachUser [row 3]                           4ms
-✓ people.datasets#sendsEveryCity [row 1]                          4ms
-✓ people.fake#sendsFreshDataEachRun [repeat 2]                    4ms
-✓ people.signup#createsEachUser [row 1]                           4ms
-✓ people.datasets#sendsEveryCity [row 4]                          1ms
-✓ people.datasets#triesEachPlan                                   5ms
-✓ people.signup#createsEachUser [row 2]                           5ms
-✓ people.signup#createsUsersFromFile [row 2]                      5ms
-✓ people.signup#createsUsersFromFile [row 1]                      5ms
-✓ people.datasets#countsTo                                        2ms
-✓ people.datasets#createsEveryAdmin                               3ms
+✓ people.fake#sendsFreshDataEachRun [repeat 2] — Each repeat gets its own generated email    7ms
+✓ people.fake#sendsFreshDataEachRun [repeat 3] — Each repeat gets its own generated email    7ms
+✓ people.datasets#sendsEveryCity › Tokyo — Sends each city from datasets/cities.csv    7ms
+✓ people.signup#rejectsBadEmail [row 1] — Rejects an email that is not text    7ms
+✓ people.fake#sendsFreshDataEachRun [repeat 1] — Each repeat gets its own generated email    7ms
+✓ people.signup#rejectsBadEmail [row 3] — Rejects an email that is not text    7ms
+✓ people.fake#sendsGeneratedData — Sends generated values and gets them back    7ms
+✓ people.signup#rejectsBadEmail [row 2] — Rejects an email that is not text    9ms
+✓ people.signup#createsEachUser › Ada Lovelace — Creates a user for every row   10ms
+✓ people.datasets#sendsEveryCity › Paris — Sends each city from datasets/cities.csv    2ms
+✓ people.datasets#sendsEveryCity › Lagos — Sends each city from datasets/cities.csv    9ms
+✓ people.datasets#sendsEveryCity › Delhi — Sends each city from datasets/cities.csv    3ms
+✓ people.signup#createsEachUser › Alan Turing — Creates a user for every row   10ms
+✓ people.signup#createsEachUser › Grace Hopper — Creates a user for every row   10ms
+✓ people.signup#createsUsersFromFile › Margaret Hamilton — Creates a user for every row in signup-rows.yaml   10ms
+✓ people.signup#createsUsersFromFile › Linus Torvalds — Creates a user for every row in signup-rows.yaml   10ms
+✓ people.datasets#countsTo — Sends the same request three times   10ms
+✓ people.datasets#triesEachPlan — Sends one request per plan name   11ms
+✓ people.datasets#createsEveryAdmin — Creates every admin, three at a time, then sends their IDs    3ms
 
-19 passed                                                    8ms · profile default
-reports  …/.vibranium/reports/19/{ctrf.json,junit.xml,index.html}
+19 passed                                                    35ms · profile default
+reports  …/.vibranium/reports/12/{ctrf.json,junit.xml,index.html}
 ```
 
 ## Try a variation
@@ -616,7 +637,7 @@ tests:
 - **`forEach`** and **`repeat`** run one action many times inside a test. `parallel` runs iterations at once. Saved names collect lists in iteration order.
 - **`repeat` on a test** and **`--repeat`** add test instances.
 - **`${fake.*}`** in `vars` is generated once per instance; inline, it is new on every render. Named **generators** live in the config.
-- **`--seed`** replays the same generated data, `random` and `shuffle` included. A failing run prints its seed.
+- **`--seed`** replays the same generated data, `random` and `shuffle` included. A failing run that generated data prints its seed.
 
 ## Next
 

@@ -6,6 +6,10 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 base=${1:-origin/master}
+if [[ $base == *..* ]]; then
+  printf 'commit-check: pass a base ref such as origin/master, not a range (%s)\n' "$base" >&2
+  exit 2
+fi
 readonly SUBJECT_RE='^(feat|fix|refactor|test|docs|chore|perf|build|ci)(\([^()]+\))?!?: [^ ]'
 readonly REFACTOR_RE='^refactor(\([^()]+\))?!?:'
 readonly TEST_FILE_RE='_tests?\.rs$|(^|/)tests\.rs$|\.(test|spec)\.[cm]?[jt]sx?$|(^|/)e2e/|(^|/)snapshots/[^/]+\.snap$'
@@ -36,7 +40,9 @@ touches_assertions() {
     END { if (changed && asserts) found = 1; exit !found }'
 }
 
-for sha in $(git rev-list --no-merges --reverse "$base..HEAD"); do
+# A plain assignment, so a bad base fails under set -e instead of looping over nothing.
+shas=$(git rev-list --no-merges --reverse "$base..HEAD")
+for sha in $shas; do
   subject=$(git log -1 --format=%s "$sha")
   short=$(git rev-parse --short "$sha")
   if ! [[ $subject =~ $SUBJECT_RE ]]; then
