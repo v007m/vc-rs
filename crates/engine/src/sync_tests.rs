@@ -185,3 +185,13 @@ async fn what_cannot_be_synced_is_refused_with_help() {
     let bad = engine(&api_file("put"), &theirs()).sync(&SyncRequest { settle, ..SyncRequest::default() }).await;
     assert_eq!(help(bad).as_deref(), Some("did you mean `users#update`?"));
 }
+
+#[tokio::test]
+async fn an_api_file_that_does_not_parse_is_refused_whether_named_or_not() {
+    let broken = engine(&api_file("put").replacen("apis:\n", "apis: [\n", 1), &theirs());
+    for files in [vec![], vec!["users".to_owned()]] {
+        let error = broken.sync(&SyncRequest { files: files.clone(), ..SyncRequest::default() }).await.unwrap_err();
+        assert!(error.to_string().starts_with(&format!("{API} does not parse: ")), "{files:?}: {error}");
+        assert_eq!(error.help().as_deref(), Some("fix it first; `vc check` shows where"), "{files:?}");
+    }
+}
