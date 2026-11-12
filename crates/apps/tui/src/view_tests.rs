@@ -1,7 +1,7 @@
 use ratatui::Terminal;
 use ratatui::backend::TestBackend;
 
-use super::{CONFIRM, STOPPING, draw_stopping, flown};
+use super::{CONFIRM, SHORT_KEYS, STOPPING, draw_stopping, flown, footer_keys};
 use crate::screen::Flight;
 use crate::{Tui, TuiOptions};
 
@@ -25,4 +25,13 @@ fn the_footers_name_what_is_in_flight() {
     assert_eq!([flown(&[]), flown(&[Flight::Run]), flown(&[Flight::Load])], [0, 0, 1]);
     assert_eq!([flown(&[Flight::Run, Flight::Load]), flown(&[Flight::Load, Flight::Run])], [2, 2]);
     assert!(STOPPING[1].contains("the load run") && CONFIRM[1].contains("a load run is"), "a load run is named so");
+}
+
+#[test]
+fn a_narrow_footer_drops_the_tabs_last_keys_and_keeps_help_and_quit() {
+    let own = [("↑↓", "move"), ("enter", "explain"), ("r", "reload")];
+    let footer = |width| footer_keys(&own, &SHORT_KEYS, width).to_string();
+    assert_eq!(footer(100), "  ↑↓  move  enter  explain  r  reload  ?  help  q  quit");
+    assert_eq!(footer(30), "  ↑↓  move  ?  help  q  quit", "the last keys go first");
+    assert_eq!(footer(10), "  ?  help  q  quit", "help and quit stay even when nothing else fits");
 }

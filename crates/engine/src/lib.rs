@@ -90,7 +90,6 @@ mod plugin_manifest;
 mod plugins;
 mod policy;
 mod ports;
-mod problems;
 mod project;
 mod project_info;
 mod rename;

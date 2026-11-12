@@ -3,6 +3,7 @@
 use std::collections::BTreeSet;
 use std::path::PathBuf;
 use std::process::{Command, Output};
+use std::time::Duration;
 
 use vc_interfaces::{Vcs, VcsError};
 use vc_model::SourcePath;
@@ -15,6 +16,8 @@ use vc_model::SourcePath;
 /// The base is first resolved with `rev-parse --verify <base>^{commit}`: outside a repository
 /// `git diff` would otherwise compare two files on disk (`--no-index`). Paths are relative to the
 /// project root, which may be a folder inside the repository; files outside it are left out.
+/// The recent files come from `git log --since-as-filter=<seconds> seconds ago`, which needs git
+/// 2.37 or later and, unlike `--since`, does not stop at the first commit dated before the window.
 #[derive(Clone, Debug)]
 pub struct GitVcs {
     root: PathBuf,
@@ -45,9 +48,36 @@ impl Vcs for GitVcs {
         let diff = ["diff", "--name-only", "-z", "--no-renames", "--relative", "--end-of-options", base, "--"];
         let mut paths = self.paths(base, &diff)?;
         paths.extend(self.paths(base, &["ls-files", "--others", "--exclude-standard", "-z", "--"])?);
-        let paths: BTreeSet<SourcePath> = paths.iter().filter_map(|path| SourcePath::new(path).ok()).collect();
+        Ok(sorted(&paths).into_iter().collect())
+    }
+
+    fn changed_within(&self, window: Duration) -> Result<Vec<SourcePath>, VcsError> {
+        let since = format!("{} seconds ago", window.as_secs());
+        let filter = format!("--since-as-filter={since}");
+        let merges = "--diff-merges=first-parent";
+        let log =
+            ["log", &filter, merges, "--name-only", "--format=", "-z", "--no-renames", "--relative", "HEAD", "--"];
+        let mut paths = sorted(&self.paths(&since, &log).map_err(older_git)?);
+        paths.extend(self.changed("HEAD")?);
         Ok(paths.into_iter().collect())
     }
+}
+
+/// `error`, saying what is missing when the `git` on the `PATH` is older than 2.37 and refuses
+/// `--since-as-filter` (`fatal: unrecognized argument`), so it never lists the wrong files.
+fn older_git(error: VcsError) -> VcsError {
+    match error {
+        VcsError::Failed { base, reason } if reason.contains("--since-as-filter") => VcsError::Failed {
+            base,
+            reason: format!("this needs git 2.37 or later, which has `--since-as-filter` ({reason})"),
+        },
+        other => other,
+    }
+}
+
+/// The valid project paths among `paths`, sorted and without repeats.
+fn sorted(paths: &[String]) -> BTreeSet<SourcePath> {
+    paths.iter().filter_map(|path| SourcePath::new(path).ok()).collect()
 }
 
 /// The paths in `output`, or a [`VcsError::Failed`] with git's message when it failed.

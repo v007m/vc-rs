@@ -1,0 +1,33 @@
+---
+/** Windows with equal heights per row: on wide screens the first two sit side by side and the
+ * third spans the row, so real run output fits unclipped; stacked in one column below 72rem. */
+---
+
+<div class="lp-window-row not-content">
+  <slot />
+</div>
+
+<style>
+  .lp-window-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.25rem;
+    align-items: stretch;
+    max-width: 44rem;
+    margin-inline: auto;
+  }
+  /* Wide screens: the YAML and the passing run side by side, the failing run across the row below,
+   * grown past the 67.5rem column so each window fits its widest line. */
+  @media (min-width: 72rem) {
+    .lp-window-row {
+      grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+      max-width: none;
+      --lp-row-w: min(100vw - 4rem, 80rem);
+      width: var(--lp-row-w);
+      margin-inline: calc((100% - var(--lp-row-w)) / 2);
+    }
+    .lp-window-row > :global(:nth-child(3)) {
+      grid-column: 1 / -1;
+    }
+  }
+</style>

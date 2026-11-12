@@ -2,12 +2,11 @@
 //! api would, through the run's token cache, without sending the call. Only what the credentials
 //! are called and how long they hold leave; a value never does, and a failure is masked.
 
-use std::iter;
 use std::sync::Arc;
 use std::time::Duration;
 
 use vc_executor::{ActionCx, ActionRequest, chosen_auth, probe_auth, probe_origin};
-use vc_model::{Action, ActionId, AuthId, AuthRef, Program, VarDefs};
+use vc_model::{Action, ActionId, ActionKind, AuthId, Failure, Owner, Program};
 
 use crate::call::{called, named_api, pushed};
 use crate::explain::did_you_mean;
@@ -56,21 +55,21 @@ impl Engine {
     ///
     /// # Errors
     ///
-    /// [`EngineError::Selection`] for an unknown auth or api, an auth no api uses, or a named api
+    /// [`EngineError::Selection`] for an unknown auth or api, an auth no call uses, or a named api
     /// that does not use it and sends to an origin no api that uses it sends to (then nothing is
     /// sent); [`EngineError::Invalid`] and [`EngineError::Setting`] as for `vc call`, and the
     /// error of a secret that does not resolve. Credentials that cannot be obtained are no
-    /// error: they are [`AuthTested::error`].
+    /// error: they are [`AuthTested::error`], masked.
     pub async fn test_auth(&self, request: &TestAuthRequest) -> Result<AuthTested, EngineError> {
         let layers =
             CallRequest { profiles: request.profiles.clone(), sets: request.sets.clone(), ..CallRequest::default() };
         let mut prepared = self.adhoc(&layers)?;
-        let probe = probe_call(&mut prepared.program, request)?;
+        let probe = probe_call(&mut prepared.program, request, prepared.names.join(", "))?;
         let secrets = self.secrets(&prepared.program.config.secrets, &prepared.environment).await?;
-        let actions: Vec<ActionId> = iter::once(probe.action).chain(probe.senders.iter().copied()).collect();
+        let actions: Vec<ActionId> = probe.target.into_iter().chain(probe.senders.iter().copied()).collect();
         let cx = self.adhoc_cx(&prepared, (&actions, 0, secrets)).await?;
-        same_origin(&cx, &probe, &request.auth).await?;
-        let probed = probe_auth(&ActionRequest::run(&cx, probe.action)).await;
+        let through = sender(&cx, &probe, &request.auth).await?;
+        let probed = probe_auth(&ActionRequest::run(&cx, through)).await;
         let tested =
             AuthTested { api: probe.api, notices: std::mem::take(&mut prepared.notices), ..AuthTested::default() };
         Ok(match probed {
@@ -82,70 +81,96 @@ impl Engine {
                 ..tested
             },
             Ok(None) => AuthTested { error: Some(format!("`{}` gives no credentials", request.auth)), ..tested },
-            Err(failure) => AuthTested { error: Some(failure.message), ..tested },
+            Err(failure) => AuthTested { error: Some(cx.redactor.masked_text(&failure.message).await), ..tested },
         })
     }
 }
 
-/// The call that obtains an auth's credentials, and the calls of the apis that use the auth
-/// when the call is given it, whose origins bound where it may go.
+/// The calls that send an auth, the first the one to obtain its credentials through, and the
+/// call of a named api that does not use the auth, which only picks the sender by its origin.
 struct Probe {
     /// The api's ID.
     api: String,
-    action: ActionId,
-    /// None when the api uses the auth itself.
+    /// The named api's call, when the api does not use the auth itself.
+    target: Option<ActionId>,
+    /// The calls that use the auth, each in its own scope: by api ID, an api's own first.
     senders: Vec<ActionId>,
+    /// The profiles the test runs under, for a refusal.
+    profiles: String,
 }
 
-/// Adds the action that obtains the auth's credentials for the api, and, when the api is given
-/// the auth, the calls of the apis that use it.
-fn probe_call(program: &mut Arc<Program>, request: &TestAuthRequest) -> Result<Probe, EngineError> {
+/// Adds the calls that send the auth and, for a named api that does not use it, the api's call.
+fn probe_call(program: &mut Arc<Program>, request: &TestAuthRequest, profiles: String) -> Result<Probe, EngineError> {
     let auth = named_auth(program, &request.auth)?;
-    let mut users = users(program, auth).into_iter();
+    let users = users(program, auth);
+    let first = users.first().map(|(api, _)| api.clone()).ok_or_else(|| unused(&request.auth))?;
+    let pushed_all = |program: &mut Arc<Program>, users: Vec<(String, Action)>| -> Result<Vec<ActionId>, EngineError> {
+        users.into_iter().map(|(_, action)| pushed(program, action)).collect()
+    };
     let Some(id) = &request.api else {
-        let (api, action) = users.next().ok_or_else(|| unused(&request.auth))?;
-        return Ok(Probe { api, action: pushed(program, action)?, senders: Vec::new() });
+        let senders = pushed_all(program, users)?;
+        return Ok(Probe { api: first, target: None, senders, profiles });
     };
     let api = named_api(program, id)?;
-    let mut action = called(api, true);
-    let given = chosen_auth(program, (api, &action)) != Some(auth);
-    let senders = if given {
-        action.auth = Some(AuthRef::Use { id: auth, vars: VarDefs::default() });
-        let senders: Vec<Action> = users.map(|(_, action)| action).collect();
-        if senders.is_empty() {
-            return Err(unused(&request.auth));
-        }
-        senders.into_iter().map(|sender| pushed(program, sender)).collect::<Result<_, _>>()?
-    } else {
-        Vec::new()
-    };
-    Ok(Probe { api: id.clone(), action: pushed(program, action)?, senders })
+    let action = called(api, true);
+    if chosen_auth(program, (api, &action)) == Some(auth) {
+        let senders = vec![pushed(program, action)?];
+        return Ok(Probe { api: id.clone(), target: None, senders, profiles });
+    }
+    let target = Some(pushed(program, action)?);
+    Ok(Probe { api: id.clone(), target, senders: pushed_all(program, users)?, profiles })
 }
 
-/// Refuses a call given an auth that sends to an origin none of the auth's own users send to,
-/// so a test never takes credentials to a host a run would not send them to.
-async fn same_origin(cx: &Arc<ActionCx>, probe: &Probe, auth: &str) -> Result<(), EngineError> {
-    if probe.senders.is_empty() {
-        return Ok(());
+/// The origin a call sends to, or why its URL does not render.
+type Origin = Result<String, Failure>;
+
+/// The call to obtain the credentials through: the first sender, or, for a named api that does
+/// not use the auth, the first sender on the api's origin, so the auth renders in the scope of a
+/// call a run makes and a test never takes credentials to a host a run would not send them to.
+async fn sender(cx: &Arc<ActionCx>, probe: &Probe, auth: &str) -> Result<ActionId, EngineError> {
+    let first = probe.senders.first().copied().ok_or_else(|| unused(auth))?;
+    let Some(target) = probe.target else { return Ok(first) };
+    let origins: Vec<(ActionId, Origin)> =
+        probe.senders.iter().map(|&sender| (sender, probe_origin(&ActionRequest::run(cx, sender)))).collect();
+    let wanted = probe_origin(&ActionRequest::run(cx, target));
+    if let Ok(origin) = &wanted
+        && let Some((found, _)) = origins.iter().find(|(_, sent)| sent.as_ref().ok() == Some(origin))
+    {
+        return Ok(*found);
     }
-    let mut allowed: Vec<String> =
-        probe.senders.iter().filter_map(|&sender| probe_origin(&ActionRequest::run(cx, sender)).ok()).collect();
-    allowed.sort();
-    allowed.dedup();
-    let reason = match probe_origin(&ActionRequest::run(cx, probe.action)) {
-        Ok(origin) if allowed.contains(&origin) => return Ok(()),
+    let rendered: Vec<Origin> = origins.into_iter().map(|(_, origin)| origin).collect();
+    let (reason, help) = refusal((probe, auth), &wanted, &rendered);
+    Err(EngineError::Selection {
+        reason: cx.redactor.masked_text(&reason).await,
+        help: Some(cx.redactor.masked_text(&help).await),
+    })
+}
+
+/// Why the named api is not given `auth`, and what to do: name an api on a sender's origin, or,
+/// when no sender's URL renders, the profile and the reason.
+fn refusal((probe, auth): (&Probe, &str), wanted: &Origin, rendered: &[Origin]) -> (String, String) {
+    let reason = match wanted {
         Ok(origin) => format!(
             "`{}` sends to `{origin}`, where no api that uses `{auth}` sends; it is not given `{auth}`",
             probe.api
         ),
         Err(failure) => format!("`{}` is not given `{auth}`: {}", probe.api, failure.message),
     };
-    let shown = allowed.iter().map(|origin| format!("`{origin}`")).collect::<Vec<_>>().join(", ");
-    let help = format!("name an api on {shown}, where `{auth}` is sent");
-    Err(EngineError::Selection {
-        reason: cx.redactor.masked_text(&reason).await,
-        help: Some(cx.redactor.masked_text(&help).await),
-    })
+    let mut allowed: Vec<&str> = rendered.iter().filter_map(|origin| origin.as_deref().ok()).collect();
+    allowed.sort_unstable();
+    allowed.dedup();
+    let help = if allowed.is_empty() {
+        let why = rendered.iter().find_map(|origin| origin.as_ref().err()).map(|failure| failure.message.as_str());
+        format!(
+            "no api that uses `{auth}` has a base URL under the profile `{}`: {}",
+            probe.profiles,
+            why.unwrap_or_default()
+        )
+    } else {
+        let shown = allowed.iter().map(|origin| format!("`{origin}`")).collect::<Vec<_>>().join(", ");
+        format!("name an api on {shown}, where `{auth}` is sent")
+    };
+    (reason, help)
 }
 
 /// The refusal of an auth no api uses.
@@ -168,16 +193,19 @@ fn named_auth(program: &Program, name: &str) -> Result<AuthId, EngineError> {
     })
 }
 
-/// The apis that use `auth`, by ID, each with its call.
+/// The calls that send `auth`, by api ID, each in its own scope: each api that uses it, then
+/// each test, step or action whose own `auth` is it, as a call of the api it calls.
 fn users(program: &Program, auth: AuthId) -> Vec<(String, Action)> {
-    let mut users: Vec<(String, Action)> = program
-        .apis
-        .values()
-        .filter_map(|api| {
-            let action = called(api, true);
-            let id = program.str(api.id.sym())?;
-            (chosen_auth(program, (api, &action)) == Some(auth)).then(|| (id.to_owned(), action))
-        })
+    let own = program.apis.values().map(|api| (api, called(api, true)));
+    let written = program.actions.iter().filter_map(|action| {
+        let ActionKind::Call(id) = &action.kind else { return None };
+        let api = program.apis.get(id)?;
+        action.auth.is_some().then(|| (api, Action { owner: Owner::Run, ..action.clone() }))
+    });
+    let mut users: Vec<(String, Action)> = own
+        .chain(written)
+        .filter(|(api, action)| chosen_auth(program, (api, action)) == Some(auth))
+        .filter_map(|(api, action)| Some((program.str(api.id.sym())?.to_owned(), action)))
         .collect();
     users.sort_by(|(one, _), (other, _)| one.cmp(other));
     users

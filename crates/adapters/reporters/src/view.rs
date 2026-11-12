@@ -121,7 +121,8 @@ pub struct TestView {
     pub example_row: Option<u32>,
     pub repeat_index: u32,
     pub attempts: u32,
-    /// When it started and stopped, in milliseconds after the run started; no start: it never ran.
+    /// When it started, in milliseconds after the run started as its first event arrived, and
+    /// that start plus the duration the executor measured (D305); no start: it never ran.
     pub start_ms: Option<u64>,
     pub stop_ms: u64,
     pub location: Option<Location>,

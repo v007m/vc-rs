@@ -5,18 +5,22 @@
 //! registry, which is itself a provider handing each request to the entry for its `type`.
 //! Token endpoints are reached through the injected `Transport`; the authorization code type
 //! signs in through the `Browser` port and keeps refresh tokens through the `Keychain` port.
-//! Nothing here caches: the executor's token cache does.
+//! Nothing here caches: the executor's token cache does. The WebAssembly build has no browser
+//! sign-in ([`AuthTypes::headless`]): it cannot listen for the redirect.
 
+#[cfg(not(target_family = "wasm"))]
 mod code;
 mod fixed;
 mod oauth;
 mod plugin;
+#[cfg(not(target_family = "wasm"))]
 mod redirect;
 mod registry;
 #[cfg(test)]
 mod testing;
 mod token;
 
+#[cfg(not(target_family = "wasm"))]
 pub use code::AuthorizationCode;
 pub use fixed::{ApiKey, Basic, Bearer, Flow};
 pub use oauth::{ClientCredentials, PasswordGrant, RefreshGrant};

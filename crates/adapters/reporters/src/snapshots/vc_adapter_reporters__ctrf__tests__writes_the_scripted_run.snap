@@ -46,6 +46,7 @@ expression: "serde_json::to_string_pretty(&document).unwrap()"
       "seed": null,
       "status": "failed",
       "totals": {
+        "allowedFailures": 0,
         "blocked": 1,
         "failed": 1,
         "flaky": 1,
@@ -239,9 +240,9 @@ expression: "serde_json::to_string_pretty(&document).unwrap()"
         "name": "users.crud#rejectsBadEmail [row 1]",
         "rawStatus": "failed",
         "retries": 0,
-        "start": 1793750400300,
+        "start": 1793750400150,
         "status": "failed",
-        "stop": 1793750400450,
+        "stop": 1793750400300,
         "tags": [
           "smoke"
         ]
@@ -393,9 +394,9 @@ expression: "serde_json::to_string_pretty(&document).unwrap()"
         "name": "users.crud#listsUsers [repeat 1]",
         "rawStatus": "flaky",
         "retries": 1,
-        "start": 1793750400750,
+        "start": 1793750400300,
         "status": "passed",
-        "stop": 1793750401050,
+        "stop": 1793750400600,
         "tags": [
           "smoke"
         ]
@@ -432,9 +433,9 @@ expression: "serde_json::to_string_pretty(&document).unwrap()"
         "name": "users.crud#listsUsers [repeat 2]",
         "rawStatus": "passed",
         "retries": 0,
-        "start": 1793750401200,
+        "start": 1793750400600,
         "status": "passed",
-        "stop": 1793750401350,
+        "stop": 1793750400750,
         "tags": [
           "smoke"
         ]

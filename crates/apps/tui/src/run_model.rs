@@ -157,7 +157,7 @@ impl RunModel {
     /// test skipped when the run was planned is not planned.
     pub const fn finished(&self) -> usize {
         let totals = &self.totals;
-        totals.passed + totals.failed + totals.blocked + totals.flaky + self.skipped_planned
+        totals.passed + totals.failed + totals.blocked + totals.flaky + totals.allowed_failures + self.skipped_planned
     }
 
     /// Folds the next item of the feed in.

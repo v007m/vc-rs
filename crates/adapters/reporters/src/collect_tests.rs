@@ -36,14 +36,14 @@ fn gathers_tests_with_their_steps_in_finish_order() {
     assert_eq!(collector.tests[1].steps[0].checks.len(), 2);
 }
 
+/// D305: the stopwatch places each instance at its first action; its duration is its result's.
 #[test]
-fn times_instances_from_their_first_action_to_their_result() {
+fn places_instances_at_their_first_action_and_times_them_by_their_result() {
     let collector = collected();
     let starts: Vec<Option<u64>> = collector.tests.iter().map(|t| t.start.map(text::millis)).collect();
-    assert_eq!(starts, [Some(0), Some(300), None, Some(750), Some(1_200), None]);
+    assert_eq!(starts, [Some(0), Some(150), None, Some(300), Some(600), None]);
     let durations: Vec<u64> = collector.tests.iter().map(|t| text::millis(t.duration())).collect();
     assert_eq!(durations, [150, 150, 0, 300, 150, 0]);
-    assert_eq!(text::millis(collector.tests[5].stop), 1_500);
 }
 
 #[test]

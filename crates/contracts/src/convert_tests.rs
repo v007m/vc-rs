@@ -7,10 +7,14 @@ use crate::results::v1 as wire;
 
 #[test]
 fn totals_and_statuses_take_their_wire_form() {
-    let totals = vc_model::Totals { passed: 3, failed: 1, blocked: 0, flaky: 2, skipped: usize::MAX };
+    let totals =
+        vc_model::Totals { passed: 3, failed: 1, blocked: 0, flaky: 2, skipped: usize::MAX, allowed_failures: 4 };
     let sent = wire::Totals::from(totals);
     assert_eq!((sent.passed, sent.failed, sent.flaky, sent.skipped), (3, 1, 2, u32::MAX));
+    assert_eq!(sent.allowed_failures, 4);
     assert_eq!(wire::TestStatus::from(vc_model::TestStatus::Flaky), wire::TestStatus::Flaky);
+    let allowed = wire::TestStatus::from(vc_model::TestStatus::AllowedFailure);
+    assert_eq!(allowed, wire::TestStatus::AllowedFailure);
     assert_eq!(wire::RunStatus::from(vc_model::RunStatus::Cancelled), wire::RunStatus::Cancelled);
     assert_eq!(wire::CheckKind::from(vc_model::CheckKind::Cel), wire::CheckKind::Cel);
     assert_eq!(wire::Protocol::from(vc_model::Protocol::Http2), wire::Protocol::Http2);

@@ -43,6 +43,7 @@ pub struct Token {
     /// The credentials the access token gives.
     pub credentials: Credentials,
     /// The refresh token, for `oauth2AuthorizationCode` to keep.
+    #[cfg_attr(target_family = "wasm", expect(dead_code, reason = "the WebAssembly build has no browser sign-in"))]
     pub refresh: Option<String>,
 }
 

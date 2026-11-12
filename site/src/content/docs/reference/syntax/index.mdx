@@ -197,6 +197,7 @@ Top level of a `*.test.yaml` file:
 | `id`, `name` | File ID and label | [id](/vc-rs/reference/syntax/id/), [name](/vc-rs/reference/syntax/name/) |
 | `tags` | Tags for every test in the file | [tags](/vc-rs/reference/syntax/tags/) |
 | `skip` | Skip the whole file | [skip](/vc-rs/reference/syntax/skip/) |
+| `allowFailure` | Let every test in the file fail without failing the run | [allowFailure](/vc-rs/reference/syntax/allow-failure/) |
 | `vars` | Vars for every test in the file | [vars](/vc-rs/reference/syntax/vars/) |
 | `profiles` | Per-profile overrides | [profiles](/vc-rs/reference/syntax/profiles/) |
 | `beforeAll`, `afterAll` | Actions once per file | [beforeAll](/vc-rs/reference/syntax/before-all/) |
@@ -220,6 +221,7 @@ Each entry in `tests`:
 | `poll` | Call until a check passes | [poll](/vc-rs/reference/syntax/poll/) |
 | `retry` | Retry the whole test | [retry](/vc-rs/reference/syntax/retry/) |
 | `skip` | Skip, with a reason and an end date | [skip](/vc-rs/reference/syntax/skip/) |
+| `allowFailure` | Fail without failing the run, with a reason and an end date | [allowFailure](/vc-rs/reference/syntax/allow-failure/) |
 | `before`, `after` | Actions around this test | [before](/vc-rs/reference/syntax/before/) |
 | `standalone` | Run only when another test reuses it with `test:` | [standalone](/vc-rs/reference/syntax/standalone/) |
 

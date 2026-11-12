@@ -18,6 +18,8 @@ pub const TEXTS: Ty = Ty::List(&Ty::Text);
 pub const AUTH: Ty = Ty::Either(&[Ty::Ref, Ty::Obj(auth_use)]);
 /// `skip`: a reason, or a reason and a date.
 pub const SKIP: Ty = Ty::Either(&[Ty::Text, Ty::Obj(skip)]);
+/// `allowFailure`: `true`, or a reason and a date (D248).
+pub const ALLOW_FAILURE: Ty = Ty::Either(&[Ty::Bool, Ty::Obj(allow_failure)]);
 /// A list of actions.
 pub const ACTIONS: Ty = Ty::List(&Ty::Obj(action));
 /// `beforeRequest` and `afterResponse`: a list of functions.
@@ -79,6 +81,13 @@ shape! {
     skip = Shape::new("skip", "Why and until when to skip", &[
         types::key("reason", Ty::Text).required().doc("Shown in reports").example("flaky upstream, see issue 123"),
         types::key("until", Ty::Date).doc("Last day of the skip; after it the test runs again and `vc check` warns (V3104)").example("2026-12-01"),
+    ])
+}
+
+shape! {
+    allow_failure = Shape::new("allowFailure", "Why and until when a failure is allowed (D248)", &[
+        types::key("reason", Ty::Text).required().doc("Shown in reports").example("known bug, see issue 123"),
+        types::key("until", Ty::Date).doc("Last day a failure is allowed; then it fails the run and `vc check` warns (V4008)").example("2026-12-01"),
     ])
 }
 

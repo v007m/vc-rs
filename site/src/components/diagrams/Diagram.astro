@@ -1,0 +1,131 @@
+---
+/**
+ * The frame every concept diagram shares: a card, a caption and the theme tokens the diagrams
+ * draw with, so each one is right in light and dark. Parts marked `d-step` appear in order
+ * (`--d-i`) when the diagram scrolls into view, and only when the reader allows motion; without
+ * JavaScript or with reduced motion, the diagram is simply shown in full.
+ */
+interface Props {
+  caption: string;
+}
+
+const { caption } = Astro.props;
+---
+
+<figure class="vc-diagram not-content" data-diagram>
+  <div class="vc-diagram-body"><slot /></div>
+  <figcaption>{caption}</figcaption>
+</figure>
+
+<script>
+  if (matchMedia('(prefers-reduced-motion: no-preference)').matches) {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (!e.isIntersecting) continue;
+          e.target.classList.add('is-in');
+          observer.unobserve(e.target);
+        }
+      },
+      { threshold: 0.2 },
+    );
+    for (const el of document.querySelectorAll('[data-diagram]')) {
+      el.classList.add('is-armed');
+      observer.observe(el);
+    }
+  }
+</script>
+
+<style is:global>
+  .vc-diagram {
+    --d-fg: var(--sl-color-white);
+    --d-text: var(--sl-color-gray-2);
+    --d-muted: var(--sl-color-gray-3);
+    --d-line: var(--sl-color-gray-5);
+    --d-surface: var(--sl-color-gray-7, var(--sl-color-gray-6));
+    --d-card: var(--sl-color-bg);
+    --d-accent: var(--sl-color-accent);
+    --d-accent-soft: var(--sl-color-accent-low);
+    --d-api: var(--sl-color-accent-high);
+    --d-test: var(--sl-color-green);
+    --d-load: var(--sl-color-orange);
+    --d-data: var(--sl-color-blue);
+    --d-hook: var(--sl-color-purple);
+    margin-block: 1.5rem 2rem;
+    padding: 1.25rem;
+    border: 1px solid var(--sl-color-hairline-light);
+    border-radius: 0.875rem;
+    background: var(--d-surface);
+  }
+  .vc-diagram-body {
+    container-type: inline-size;
+  }
+  .vc-diagram > figcaption {
+    margin-top: 1rem;
+    font-size: var(--sl-text-sm);
+    color: var(--d-muted);
+    text-align: center;
+  }
+  .vc-diagram .d-mono {
+    font-family: var(--__sl-font-mono);
+    font-size: 0.8125rem;
+  }
+  .vc-diagram .d-label {
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--d-muted);
+  }
+  /* An ID or a path in a label keeps its case: users.setup, readsOwner, datasets/signups.csv. */
+  .vc-diagram .d-label code {
+    padding: 0;
+    background: none;
+    font-family: var(--__sl-font-mono);
+    font-size: 0.75rem;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--d-text);
+  }
+  .vc-diagram .d-card {
+    border: 1px solid var(--d-line);
+    border-radius: 0.625rem;
+    background: var(--d-card);
+    padding: 0.75rem 0.875rem;
+    min-width: 0;
+  }
+  .vc-diagram .d-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.15rem 0.55rem;
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--d-kind, var(--d-line)) 55%, transparent);
+    background: color-mix(in srgb, var(--d-kind, var(--d-line)) 14%, transparent);
+    color: var(--d-fg);
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .vc-diagram .is-config { --d-kind: var(--sl-color-gray-3); }
+  .vc-diagram .is-api { --d-kind: var(--d-api); }
+  .vc-diagram .is-test { --d-kind: var(--d-test); }
+  .vc-diagram .is-load { --d-kind: var(--d-load); }
+  .vc-diagram .is-data { --d-kind: var(--d-data); }
+  .vc-diagram .is-hook { --d-kind: var(--d-hook); }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .vc-diagram.is-armed .d-step {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    .vc-diagram.is-in .d-step {
+      opacity: 1;
+      transform: none;
+      transition:
+        opacity 0.45s ease-out,
+        transform 0.45s ease-out;
+      transition-delay: calc(var(--d-i, 0) * 110ms);
+    }
+  }
+</style>

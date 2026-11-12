@@ -1,12 +1,14 @@
 //! End-to-end runs of the real `vc` binary against an in-process mock server: auth, lifecycle blocks
 //! and cleanups, retries and backoff, polls, loops, the per-host limit, timing checks, load
 //! thresholds, the config layers, `--changed`, `command:` actions, hooks, computed bodies, file,
-//! form and multipart bodies, the report files, `vc call`, `vc explain`, the completion scripts
-//! and `vc ui`. Each test gets its own project, home folder and server.
+//! form and multipart bodies, the report files, `vc call`, `vc explain`, the completion scripts,
+//! `vc ui`, and the docs playground printing what `vc run` prints. Each test gets its own project,
+//! home folder and server.
 
 #![cfg(test)]
 
 mod alerts;
+mod allowed;
 mod approvals;
 mod auth;
 mod bodies;
@@ -29,6 +31,7 @@ mod load;
 mod mcp;
 mod migrate;
 mod paths;
+mod playground;
 mod plugin;
 mod redaction;
 mod reports;

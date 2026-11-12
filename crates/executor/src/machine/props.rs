@@ -115,6 +115,7 @@ fn script() -> impl Strategy<Value = InstanceScript> {
         body: (10..10 + body).map(sim::act).collect(),
         after: (20..20 + after).map(sim::act).collect(),
         retry: retry.map(|attempts| Retry { attempts, delay: vc_model::Duration::new(Duration::from_millis(10)) }),
+        allow_failure: None,
     })
 }
 
@@ -274,7 +275,7 @@ fn run_input() -> impl Strategy<Value = RunInput> {
 proptest! {
     #[test]
     fn any_input_sequence_finishes_an_instance_at_most_once(inputs in prop::collection::vec(instance_input(), 0..40)) {
-        let script = InstanceScript { before: sim::acts(&[1]), body: sim::acts(&[10, 11]), after: sim::acts(&[20]), retry: Some(Retry { attempts: 2, delay: vc_model::Duration::default() }) };
+        let script = InstanceScript { before: sim::acts(&[1]), body: sim::acts(&[10, 11]), after: sim::acts(&[20]), retry: Some(Retry { attempts: 2, delay: vc_model::Duration::default() }), allow_failure: None };
         let mut workflow = InstanceWorkflow::new(Arc::new(script));
         let mut finishes = 0;
         for input in inputs {

@@ -90,7 +90,7 @@ fn previous(history: &dyn HistoryReader, (run, kind): (u64, &str), profiles: &[S
 
 /// Whether a test ran, rather than none or only skipped ones.
 const fn ran(totals: &Totals) -> bool {
-    totals.passed + totals.failed + totals.blocked + totals.flaky > 0
+    totals.passed + totals.failed + totals.blocked + totals.flaky + totals.allowed_failures > 0
 }
 
 /// Sends the notices of the rules that fire for `run`, which ended as `ending` says: a

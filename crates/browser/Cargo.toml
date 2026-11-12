@@ -1,0 +1,42 @@
+[package]
+name = "vc-browser"
+description = "The docs playground's composition root: check and run a project in the browser, against the demo service in process."
+edition.workspace = true
+version.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+# A WASI command: the playground's worker writes the request to stdin and shows stdout and stderr.
+[[bin]]
+name = "vc-playground"
+path = "src/main.rs"
+
+[dependencies]
+async-trait.workspace = true
+axum.workspace = true
+bytes.workspace = true
+http.workspace = true
+http-body-util.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tower.workspace = true
+vc-adapter-auth.workspace = true
+vc-adapter-reporters.workspace = true
+vc-adapter-system.workspace = true
+vc-compiler.workspace = true
+vc-demo.workspace = true
+vc-diagnostics.workspace = true
+vc-executor.workspace = true
+vc-interfaces.workspace = true
+vc-model.workspace = true
+vc-planner.workspace = true
+
+[dev-dependencies]
+vc-testkit.workspace = true
+
+[lints]
+workspace = true

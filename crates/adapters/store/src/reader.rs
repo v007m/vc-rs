@@ -13,7 +13,7 @@ use crate::schema;
 
 /// The columns a run is read from, in [`run_row`]'s order.
 const RUN_COLUMNS: &str = "id, started_at, finished_at, profiles, selector, git_commit, git_branch, seed, vc_version,
-    config_hash, kind, status, passed, failed, blocked, skipped, flaky";
+    config_hash, kind, status, passed, failed, blocked, skipped, flaky, allowed_failures";
 
 /// The kind of the runs trends are taken over when a filter names none.
 const TREND_KIND: &str = "run";
@@ -155,8 +155,14 @@ fn run_row(row: &SqlRow<'_>) -> rusqlite::Result<RunRow> {
     let status: Option<String> = row.get(11)?;
     let status = status.map(|text| run_status(&text).ok_or_else(|| unreadable(11, &text))).transpose()?;
     let count = |column| row.get::<_, Option<usize>>(column).map(Option::unwrap_or_default);
-    let totals =
-        Totals { passed: count(12)?, failed: count(13)?, blocked: count(14)?, skipped: count(15)?, flaky: count(16)? };
+    let totals = Totals {
+        passed: count(12)?,
+        failed: count(13)?,
+        blocked: count(14)?,
+        skipped: count(15)?,
+        flaky: count(16)?,
+        allowed_failures: count(17)?,
+    };
     Ok(RunRow { id: RunId::new(row.get(0)?), start, finished_ms: row.get(2)?, status, totals })
 }
 

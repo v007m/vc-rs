@@ -29,7 +29,7 @@ export default defineConfig({
         '@fontsource/jetbrains-mono/600.css',
         './src/styles/custom.css',
       ],
-      components: { Hero: './src/components/landing/Hero.astro' },
+      components: { Header: './src/components/Header.astro', Hero: './src/components/landing/Hero.astro' },
       expressiveCode: {
         styleOverrides: {
           borderRadius: '0.625rem',

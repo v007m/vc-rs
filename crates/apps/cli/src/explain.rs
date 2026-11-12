@@ -17,8 +17,8 @@ pub struct LayerArgs {
     /// The active profiles, as a comma list or repeated; later ones win.
     #[arg(long = "profile", value_name = "IDS")]
     profiles: Vec<String>,
-    /// Sets one config value (`defaults.timeout=5s`, `vars.userId=7`), over every other layer
-    /// (D129).
+    /// Sets one config value (`defaults.timeout=5s`, `vars.userId=7`), over every other config
+    /// layer (D129); a file's, test's or step's own `vars` still win over a config var.
     #[arg(long = "set", value_name = "KEY=VALUE")]
     sets: Vec<String>,
 }

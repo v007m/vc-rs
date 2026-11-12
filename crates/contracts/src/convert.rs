@@ -13,6 +13,7 @@ impl From<vc_model::TestStatus> for wire::TestStatus {
             vc_model::TestStatus::Blocked => Self::Blocked,
             vc_model::TestStatus::Flaky => Self::Flaky,
             vc_model::TestStatus::Skipped => Self::Skipped,
+            vc_model::TestStatus::AllowedFailure => Self::AllowedFailure,
         }
     }
 }
@@ -60,6 +61,7 @@ impl From<vc_model::Totals> for wire::Totals {
             blocked: count(totals.blocked),
             flaky: count(totals.flaky),
             skipped: count(totals.skipped),
+            allowed_failures: count(totals.allowed_failures),
         }
     }
 }

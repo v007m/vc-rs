@@ -10,7 +10,7 @@ use tokio::sync::watch;
 use tokio::task::{JoinError, JoinHandle};
 use vc_engine::{
     Changes, Engine, EngineError, ExplainRequest, FileKind, ImportRequest, Interrupter, ListKind, ListRequest,
-    LoadRequest, LoadWatch, RunFeed, RunFilter, RunRequest, RunWatch, interrupts,
+    LoadRequest, LoadWatch, RunFeed, RunFilter, RunRequest, RunWatch, SelectRequest, interrupts,
 };
 
 use crate::driver_edit::{drafted_edit, opened, saved};
@@ -44,6 +44,8 @@ pub struct Driver {
     running: Option<Running>,
     retry: Sender<Ask>,
     retried: Receiver<Ask>,
+    /// The window the Explore tab last asked for, which the read after a skip or an edit keeps.
+    explored: Option<Duration>,
 }
 
 /// The run or load run in progress: which it is, how to interrupt it, its task, which `done`
@@ -81,7 +83,7 @@ impl Driver {
     /// from `base`.
     pub fn new(engine: Engine, base: PathBuf, updates: Sender<Update>) -> Self {
         let (retry, retried) = mpsc::channel(RETRIES);
-        Self { engine: Arc::new(engine), base: base.into(), updates, running: None, retry, retried }
+        Self { engine: Arc::new(engine), base: base.into(), updates, running: None, retry, retried, explored: None }
     }
 
     /// Carries out `ask` without waiting on it. A run or load run asked for while the last one
@@ -97,17 +99,15 @@ impl Driver {
                 move |reason| Update::CompareFailed { before, after, reason },
                 move |engine| vec![compare(engine, before, after)],
             ),
-            Ask::Explore => self.read(Update::ExploreFailed, |engine| vec![explore(engine)]),
+            Ask::Explore => self.explore(None),
+            Ask::ExploreChanged(window) => self.explore(Some(window)),
             Ask::Explain { id, profiles } => {
                 let asked = id.clone();
                 let failed = move |reason| Update::ExplainFailed { id: asked, reason };
                 self.read(failed, move |engine| vec![explain(engine, id, profiles)]);
             }
-            Ask::Skip(request) => self
-                .read(Update::SkipFailed, move |engine| edited(engine, engine.skip(&request), (request.target, true))),
-            Ask::Unskip(target) => {
-                self.read(Update::SkipFailed, move |engine| edited(engine, engine.unskip(&target), (target, false)));
-            }
+            Ask::Skip(request) => self.quarantine((request.target.clone(), true), move |engine| engine.skip(&request)),
+            Ask::Unskip(target) => self.quarantine((target.clone(), false), move |engine| engine.unskip(&target)),
             Ask::Scenarios => self.read(Update::ScenariosFailed, |engine| vec![scenarios(engine)]),
             Ask::Load(request) => self.load(request),
             Ask::Import(request) => {
@@ -117,8 +117,28 @@ impl Driver {
             Ask::Write(changes) => self.read(Update::ImportFailed, move |engine| vec![written(engine, &changes)]),
             Ask::Open(path) => self.read(Update::EditFailed, move |engine| vec![opened(engine, path)]),
             Ask::Edit(request) => self.read(Update::EditFailed, move |engine| vec![drafted_edit(engine, &request)]),
-            Ask::Save(changes) => self.read(Update::EditFailed, move |engine| saved(engine, &changes)),
+            Ask::Save(changes) => {
+                let window = self.explored;
+                self.read(Update::EditFailed, move |engine| saved(engine, &changes, window));
+            }
         }
+    }
+
+    /// Reads the project's apis and tests for the Explore tab, in the files changed in the last
+    /// `window` when one is given, and keeps `window` for the reads after a skip or an edit.
+    fn explore(&mut self, window: Option<Duration>) {
+        self.explored = window;
+        self.read(Update::ExploreFailed, move |engine| vec![explore(engine, window)]);
+    }
+
+    /// Writes what `write` drafts, the skip or unskip of `target`, then reads the project again.
+    fn quarantine(
+        &self,
+        (target, skipped): (String, bool),
+        write: impl FnOnce(&Engine) -> Result<Changes, EngineError> + Send + 'static,
+    ) {
+        let window = self.explored;
+        self.read(Update::SkipFailed, move |engine| edited(engine, write(engine), (target, skipped, window)));
     }
 
     /// Reads or writes the project or the history on a blocking thread, as file reads and
@@ -298,9 +318,11 @@ fn compare(engine: &Engine, before: u64, after: u64) -> Update {
     }
 }
 
-/// The project's apis, then its tests, from one read of it.
-pub fn explore(engine: &Engine) -> Update {
-    match engine.catalog() {
+/// The project's apis, then its tests, from one read of it; only those in the files changed in
+/// the last `changed_since` when one is given.
+pub fn explore(engine: &Engine, changed_since: Option<Duration>) -> Update {
+    let select = SelectRequest { changed_since, ..SelectRequest::default() };
+    match engine.catalog(&select) {
         Ok(report) => Update::Explored { items: report.items, notices: report.notices },
         Err(error) => Update::ExploreFailed(error.to_string()),
     }
@@ -314,10 +336,18 @@ fn explain(engine: &Engine, id: String, profiles: Vec<String>) -> Update {
     }
 }
 
-/// Writes the skip or unskip `changes` of `target`, then reads the project again.
-fn edited(engine: &Engine, changes: Result<Changes, EngineError>, (target, skipped): (String, bool)) -> Vec<Update> {
+/// The test a skip or unskip is of, whether it skips, and the Explore tab's window.
+type Quarantined = (String, bool, Option<Duration>);
+
+/// Writes the skip or unskip `changes` of `target`, then reads the project again, in the files
+/// changed in the last `window` when one is given.
+fn edited(
+    engine: &Engine,
+    changes: Result<Changes, EngineError>,
+    (target, skipped, window): Quarantined,
+) -> Vec<Update> {
     match changes.and_then(|changes| engine.write(&changes)) {
-        Ok(()) => vec![Update::Quarantined { target, skipped }, explore(engine)],
+        Ok(()) => vec![Update::Quarantined { target, skipped }, explore(engine, window)],
         Err(error) => vec![Update::SkipFailed(error.to_string())],
     }
 }

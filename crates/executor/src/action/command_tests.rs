@@ -8,7 +8,7 @@ use vc_interfaces::{CommandError, CommandOutput, CommandRunner, CommandSpec};
 use vc_model::{ActionId, ActionKind, ActionOutcome, Failure, OwnerKey};
 use vc_testkit::FakeCommands;
 
-use super::{CommandExecutor, SHELL, cmd_word, last_lines, posix_word};
+use super::{CommandExecutor, CommandShell, cmd_word, last_lines, posix_word};
 use crate::fixture::Fixture;
 use crate::{ActionExecutors, ActionKindTag, ActionReport, ActionRequest, Frame};
 
@@ -36,7 +36,10 @@ async fn run(mut fixture: Fixture, line: &str, runner: Arc<dyn CommandRunner>) -
 
 async fn execute(fixture: Fixture, action: ActionId, runner: Arc<dyn CommandRunner>) -> ActionReport {
     let dot_env = vec![("FROM_DOTENV".to_owned(), "yes".to_owned())];
-    let executor = CommandExecutor::new(runner, PathBuf::from("/project"), dot_env);
+    execute_by(fixture, action, CommandExecutor::new(runner, PathBuf::from("/project"), dot_env)).await
+}
+
+async fn execute_by(fixture: Fixture, action: ActionId, executor: CommandExecutor) -> ActionReport {
     let executors = ActionExecutors::new().with(ActionKindTag::Command, Arc::new(executor));
     let cx = fixture.cx(executors);
     let request = ActionRequest { action, owner: OwnerKey::Run, cx: Arc::clone(&cx), frame: Frame::default() };
@@ -55,13 +58,33 @@ async fn runs_the_line_in_the_root_with_values_quoted_and_vars_exported() {
     let report = run(fixture, "seed --user ${var.userId} && echo done", commands).await;
     assert_eq!(report.outcome, ActionOutcome::Passed);
     let spec = specs.try_recv().unwrap();
-    let (shell, flag, word) = SHELL;
+    let CommandShell { program, flag, word } = CommandShell::HOST;
     let line = format!("seed --user {} && echo done", word("it's; exit 7").unwrap_or_default());
-    assert_eq!((spec.program.as_str(), spec.args.clone()), (shell, vec![flag.to_owned(), line]));
+    assert_eq!((spec.program.as_str(), spec.args.clone()), (program, vec![flag.to_owned(), line]));
     assert_eq!(spec.cwd, Some(PathBuf::from("/project")));
     let env = [("FROM_DOTENV", "yes"), ("VIB_VAR_userId", "it's; exit 7")].map(|(k, v)| (k.to_owned(), v.to_owned()));
     assert_eq!(spec.env, env, "a var that does not render here is left out");
     assert_eq!((spec.timeout, spec.output_cap), (Duration::from_secs(30), 64 * 1024));
+}
+
+/// The spec `shell` runs `seed ${var.userId}` as, with the var set to `it's`.
+async fn spec_through(shell: CommandShell) -> CommandSpec {
+    let mut fixture = Fixture::new();
+    fixture.program.config.vars.values = fixture.vars(&[("userId", "it's")]);
+    let template = fixture.template("seed ${var.userId}");
+    let action = fixture.action(ActionKind::Command(template));
+    let (commands, specs) = runner(Ok(exiting(0, "")));
+    let executor = CommandExecutor::new(commands, PathBuf::from("/project"), Vec::new()).with_shell(shell);
+    execute_by(fixture, action, executor).await;
+    specs.try_recv().unwrap()
+}
+
+#[tokio::test]
+async fn the_named_shell_wins_over_the_host_s() {
+    let posix = spec_through(CommandShell::POSIX).await;
+    assert_eq!((posix.program.as_str(), posix.args), ("sh", vec!["-c".to_owned(), r"seed 'it'\''s'".to_owned()]));
+    let cmd = spec_through(CommandShell::CMD).await;
+    assert_eq!((cmd.program.as_str(), cmd.args), ("cmd", vec!["/C".to_owned(), "seed \"it's\"".to_owned()]));
 }
 
 #[tokio::test]

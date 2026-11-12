@@ -32,6 +32,7 @@ const testWords: Record<TestStatus, [Level, string]> = {
   [TestStatus.BLOCKED]: ['warn', 'blocked'],
   [TestStatus.FLAKY]: ['warn', 'passed on a retry (flaky)'],
   [TestStatus.SKIPPED]: ['info', 'skipped'],
+  [TestStatus.ALLOWED_FAILURE]: ['warn', 'allowed to fail'],
 };
 
 /** How each event kind reads in the log; kinds not listed are not shown. */

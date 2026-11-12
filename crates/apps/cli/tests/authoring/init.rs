@@ -26,8 +26,21 @@ fn writes_the_documented_files_each_starting_with_its_schema_line() {
     for folder in FOLDERS {
         assert!(project.path().join(folder).is_dir(), "{folder}/");
     }
-    assert!(project.read(".gitignore").lines().any(|line| line == ".vibranium/"));
+    assert_eq!(project.read(".gitignore"), ".vibranium/\n.env\n", "generated data and secrets stay out of git");
     assert!(project.exists(".env.schema"));
+}
+
+/// D286: an existing `.gitignore` keeps its lines and gains only the ones it lacks.
+#[test]
+fn an_existing_gitignore_gains_only_the_lines_it_lacks() {
+    let project = Project::new(&[(".gitignore", "target\n/.vibranium/\n")]);
+    let output = project.vc(&["init", "--no-sample"]).output().unwrap();
+    assert_eq!(output.status.code(), Some(0), "{}", said(&output));
+    assert_eq!(project.read(".gitignore"), "target\n/.vibranium/\n.env\n");
+    project.vc(&["init", "--no-sample"]).assert().code(2);
+    let ignored = Project::new(&[(".gitignore", ".env\n.vibranium/\n")]);
+    ignored.vc(&["init", "--no-sample"]).assert().code(0);
+    assert_eq!(ignored.read(".gitignore"), ".env\n.vibranium/\n", "nothing to add");
 }
 
 #[test]

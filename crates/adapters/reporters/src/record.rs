@@ -127,7 +127,7 @@ fn test_view(names: &Names, record: &TestRecord, exchanges: Vec<ExchangeView>) -
         repeat_index,
         attempts: result.attempts,
         start_ms: record.start.map(text::millis),
-        stop_ms: text::millis(record.stop),
+        stop_ms: record.start.map_or(0, |start| text::millis(start.saturating_add(record.duration()))),
         location: names.test_location(result.test),
         tags: names.tags(result.test),
         failure: result.failure.as_ref().map(|failed| encode::failure(names, failed)),
@@ -145,7 +145,7 @@ fn message(result: &TestResult) -> Option<String> {
     match result.status {
         TestStatus::Skipped => result.skip_reason.clone(),
         TestStatus::Passed => None,
-        TestStatus::Failed | TestStatus::Blocked | TestStatus::Flaky => {
+        TestStatus::Failed | TestStatus::Blocked | TestStatus::Flaky | TestStatus::AllowedFailure => {
             result.failure.as_ref().map(|failure| failure.message.clone())
         }
     }

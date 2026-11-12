@@ -1,6 +1,6 @@
 [package]
 name = "vc-adapter-system"
-description = "System adapter: discovery and files, clock, random, environment, commands, git and config sources."
+description = "System adapter: discovery and files, clock, environment, commands, git and config sources."
 edition.workspace = true
 version.workspace = true
 rust-version.workspace = true
@@ -8,17 +8,22 @@ license.workspace = true
 repository.workspace = true
 publish.workspace = true
 
+[features]
+default = ["host"]
+# Everything but the clock: files, processes and file events. The playground builds without it (D293).
+host = ["dep:async-trait", "dep:ignore", "dep:notify", "dep:rustix", "dep:saphyr-parser", "dep:tokio"]
+
 [dependencies]
-async-trait.workspace = true
-ignore.workspace = true
-notify.workspace = true
-saphyr-parser.workspace = true
-tokio = { workspace = true, features = ["io-util", "process", "time"] }
+async-trait = { workspace = true, optional = true }
+ignore = { workspace = true, optional = true }
+notify = { workspace = true, optional = true }
+saphyr-parser = { workspace = true, optional = true }
+tokio = { workspace = true, features = ["io-util", "process", "time"], optional = true }
 vc-interfaces.workspace = true
 vc-model.workspace = true
 
 [target.'cfg(unix)'.dependencies]
-rustix.workspace = true
+rustix = { workspace = true, optional = true }
 
 [dev-dependencies]
 tempfile.workspace = true

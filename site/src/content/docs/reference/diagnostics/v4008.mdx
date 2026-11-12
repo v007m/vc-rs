@@ -1,0 +1,69 @@
+---
+title: "V4008 — allowFailure expired; a failure fails the run again"
+description: "An allowFailure has an until date that has passed (dates are compared in UTC), so it no longer holds: the test still runs, and a failure now counts as a normal failure that fails the run."
+sidebar:
+  label: "V4008 allowFailure expired; a failure fails the run again"
+  order: 4008
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="warning" variant="caution" /> <Badge text="Conventions" variant="note" />
+
+| | |
+| --- | --- |
+| Code | `V4008` |
+| Category | V4xxx: Conventions |
+| Severity | warning |
+| Certain fix | remove the allowFailure (certain fix) |
+
+An `allowFailure` has an `until` date that has passed (dates are compared in UTC), so it no longer holds: the test
+still runs, and a failure now counts as a normal failure that fails the run. This warning makes sure a forgotten
+allowance is noticed; the fix removes the `allowFailure`, or move `until` later if the reason still holds.
+
+## Wrong
+
+```yaml title="services/users/users.api.yaml"
+apis:
+  - id: getUser
+    path: /users/1
+```
+
+```yaml title="services/users/crud.test.yaml"
+tests:
+  - id: getsUser
+    call: users#getUser
+    allowFailure:
+      reason: known bug, see issue 212
+      until: 2026-01-31
+```
+
+## Right
+
+```yaml title="services/users/users.api.yaml"
+apis:
+  - id: getUser
+    path: /users/1
+```
+
+```yaml title="services/users/crud.test.yaml"
+tests:
+  - id: getsUser
+    call: users#getUser
+```
+
+
+## Explain it in your terminal
+
+The same page is built into the binary, so this works anywhere, even outside a project:
+
+```console
+$ vc explain V4008
+```
+
+## Related
+
+- [All diagnostic codes](/vc-rs/reference/diagnostics/)
+- [`vc explain`](/vc-rs/reference/cli/explain/)
+- [`vc check`](/vc-rs/reference/cli/check/)
+- [Errors and fixes](/vc-rs/guides/errors-and-fixes/)

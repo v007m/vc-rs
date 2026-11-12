@@ -11,7 +11,7 @@ interface Props {
 const { title, primary, secondary } = Astro.props;
 ---
 
-<section class="lp-cta not-content" aria-labelledby="get-started">
+<section class="lp-cta not-content" aria-labelledby="get-started" data-reveal>
   <h2 id="get-started" set:html={title} />
   <div class="lp-cta-copy"><slot /></div>
   <div class="lp-actions">
