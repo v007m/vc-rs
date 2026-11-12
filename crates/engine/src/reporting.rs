@@ -340,10 +340,8 @@ fn plugins(chosen: &Chosen, setup: &Setup, run: Option<RunId>) -> (Vec<PluginRep
 /// The check is lexical: a `..` part (from a `reports.dir` such as `../out`) leaves the root.
 fn inside(root: &Path, path: &Path) -> Option<PathBuf> {
     let relative = path.strip_prefix(root).ok()?;
-    let mut parts = relative.components();
-    parts
-        .all(|part| matches!(part, Component::Normal(_)))
-        .then(|| relative.components().collect())
+    let plain = relative.components().all(|part| matches!(part, Component::Normal(_)));
+    plain.then(|| relative.components().collect())
 }
 
 /// Ends each reporter plugin with `run`: the files they wrote, and why any did not.
