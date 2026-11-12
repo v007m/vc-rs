@@ -552,8 +552,8 @@ Round 47 (12 November 2026; orchestrator, under Sarath's delegation):
 | # | Topic | Decision | Supersedes |
 | --- | --- | --- | --- |
 | D294 | Allowed failures in the pass rate | History's pass rate counts an allowed failure as a test that ran and did not pass. A run made up only of allowed failures shows 0% | — (fills a gap in D248) |
-| D295 | Testing an auth from Settings | `TestAuth` obtains an auth's credentials under a profile through the run's token cache, as a call would, without sending the call. It returns only the api it obtained them for, the header, query and cookie names, how long they hold and the profile. The token is never returned, logged or kept, and a failure comes back masked (V5114) | — |
-| D296 | Which api an auth test may name | By default `TestAuth` uses the first api, by ID, that uses the auth. A named api that does not use it is given it only when its resolved origin equals that of an api that does, so a test never takes credentials to a host a run would not send them to | — (narrows D295) |
+| D295 | Testing an auth from Settings | `TestAuth` obtains an auth's credentials under a profile through the run's token cache, as a call would, without sending the call. It returns only the api it obtained them for, the header, query and cookie names and how long they hold; the client chooses the profile and the response does not echo it. The token is never returned, logged or kept, and every failure comes back masked by the run's redactor (V5114 for the credentials) | — |
+| D296 | Which api an auth test may name | The senders of an auth are the apis whose own call uses it and the tests, steps and actions whose own `auth` is it, each as a call of its api in that call's scope. By default `TestAuth` goes through the first sender by api ID. A named api that does not use the auth only picks the sender: the first whose resolved origin equals the api's, and the auth renders in that sender's scope, never the named api's, so a test never takes credentials (or a token request's client secret) to a host a run would not send them to | — (narrows D295) |
 
 ## Open
 
