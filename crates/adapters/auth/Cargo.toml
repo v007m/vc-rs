@@ -14,11 +14,15 @@ base64.workspace = true
 bytes.workspace = true
 http.workspace = true
 percent-encoding.workspace = true
-ring.workspace = true
 serde_json.workspace = true
 tokio = { workspace = true, features = ["io-util"] }
 vc-interfaces.workspace = true
 vc-model.workspace = true
+
+# The browser sign-in listens on a loopback port and hashes with ring: not in the WebAssembly build.
+[target.'cfg(not(target_family = "wasm"))'.dependencies]
+ring.workspace = true
+tokio = { workspace = true, features = ["net"] }
 
 [dev-dependencies]
 vc-testkit.workspace = true

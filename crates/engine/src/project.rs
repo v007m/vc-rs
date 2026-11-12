@@ -9,7 +9,7 @@ use vc_interfaces::{Discovery, SourceError, SourceFilter};
 use vc_model::{DEFAULT_SECRETS_SCHEMA, Program, SourceFile, SourceFiles, SourcePath};
 
 use crate::edit::{self, FileChange};
-use crate::{CheckReport, Engine, EngineError, problems};
+use crate::{CheckReport, Engine, EngineError};
 
 /// The project as compiled: the program when nothing stops one, every diagnostic (discovery
 /// problems included) and the files they point into.
@@ -41,7 +41,7 @@ impl Engine {
     pub(crate) fn compiled_with(&self, changes: &[FileChange]) -> Result<Compiled, EngineError> {
         let mut found = self.discover()?;
         let (schema, definitions) = schema_change(changes)?;
-        let secret_schema = schema.or_else(|| self.secret_schema(&mut found));
+        let secret_schema = schema.or_else(|| vc_interfaces::secret_schema(&*self.sources, &mut found));
         let mut notices = Vec::new();
         let previous = self.previous_cache(&mut notices);
         edit::overlay(&mut found.files, &definitions)?;
@@ -57,8 +57,8 @@ impl Engine {
             self.save_cache(&compiled.cache, &previous, &mut notices);
         }
         let (mut diagnostics, mut files) = (compiled.diagnostics, compiled.files);
-        problems::add_problems(&found.problems, &mut diagnostics, &mut files);
-        problems::add_problems(&unread, &mut diagnostics, &mut files);
+        vc_interfaces::add_problems(&found.problems, &mut diagnostics, &mut files);
+        vc_interfaces::add_problems(&unread, &mut diagnostics, &mut files);
         Ok(Compiled { program: compiled.program, diagnostics, files, notices })
     }
 
@@ -101,25 +101,6 @@ impl Engine {
         Ok(written_filter(&read)?.unwrap_or_default())
     }
 
-    /// `.env.schema` at the project root, read when discovery listed it (D165). A schema that
-    /// cannot be read joins `found`'s problems, so it is a V1012 error rather than no schema.
-    fn secret_schema(&self, found: &mut Discovery) -> Option<SourceFile> {
-        let path = SourcePath::new(DEFAULT_SECRETS_SCHEMA).ok()?;
-        if !found.assets.contains(&path) {
-            return None;
-        }
-        match self.sources.read(&[path]) {
-            Ok(mut read) => {
-                found.problems.append(&mut read.problems);
-                read.files.pop()
-            }
-            Err(error) => {
-                found.problems.push(error);
-                None
-            }
-        }
-    }
-
     /// `.env.schema` as it is now, for an import to add the secret names it references; none
     /// when the project has none. One there that cannot be read is a V1012 error, not none.
     pub(crate) fn secrets_schema(&self) -> Result<Option<SourceFile>, EngineError> {
@@ -130,7 +111,7 @@ impl Engine {
             return Ok(read.files.pop());
         }
         let (mut diagnostics, mut files) = (Diagnostics::default(), SourceFiles::default());
-        problems::add_problems(&read.problems, &mut diagnostics, &mut files);
+        vc_interfaces::add_problems(&read.problems, &mut diagnostics, &mut files);
         Err(invalid(diagnostics, files, Vec::new()))
     }
 

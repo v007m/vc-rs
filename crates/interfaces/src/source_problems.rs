@@ -1,6 +1,10 @@
+//! The files a [`crate::SourceProvider`] could not read, as V1012 diagnostics: what every
+//! composition root that compiles a project reports them as.
+
 use vc_diagnostics::{Code, Diagnostic, Diagnostics};
-use vc_interfaces::SourceError;
 use vc_model::{Pos, SourceFile, SourceFiles, SourcePath, SourceSpan};
+
+use crate::SourceError;
 
 /// What a diagnostic names when a problem has no usable path.
 const PROJECT: &str = "<project>";
@@ -13,8 +17,7 @@ pub fn add_problems(problems: &[SourceError], diagnostics: &mut Diagnostics, fil
     for problem in problems {
         let path = problem.path().and_then(|path| SourcePath::lossy(path).or_else(|_| SourcePath::data(path)).ok());
         let Some(path) = path.or_else(|| SourcePath::new(PROJECT).ok()) else { continue };
-        let Ok(id) = files.push(SourceFile { path, text: String::new(), hash: vc_interfaces::content_hash(&[]) })
-        else {
+        let Ok(id) = files.push(SourceFile { path, text: String::new(), hash: crate::content_hash(&[]) }) else {
             break;
         };
         let start = Pos::new(1, 1, 0);

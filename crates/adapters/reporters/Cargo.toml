@@ -25,6 +25,7 @@ vc-model.workspace = true
 criterion.workspace = true
 insta.workspace = true
 tempfile.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread"] }
 vc-compiler.workspace = true
 vc-planner.workspace = true
 vc-testkit.workspace = true

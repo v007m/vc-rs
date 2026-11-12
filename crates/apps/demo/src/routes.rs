@@ -84,7 +84,13 @@ async fn echo(request: Request<Body>) -> Response {
         "headers": headers_of(&parts),
         "body": body_of(&bytes),
     });
-    ([(PID_HEADER, std::process::id().to_string())], Json(echoed)).into_response()
+    let mut response = Json(echoed).into_response();
+    // A WASI build (the docs playground, which serves the demo in the page) has no processes, and
+    // `std::process::id` panics there, so it names none, as an older demo did.
+    if cfg!(not(target_os = "wasi")) {
+        response.headers_mut().insert(PID_HEADER, std::process::id().into());
+    }
+    response
 }
 
 fn query_of(parts: &Parts) -> BTreeMap<String, String> {

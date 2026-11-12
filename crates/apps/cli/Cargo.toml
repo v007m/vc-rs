@@ -21,7 +21,7 @@ path = "src/bin/vibranium.rs"
 anyhow.workspace = true
 clap.workspace = true
 clap_complete.workspace = true
-tokio.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "signal"] }
 vc-engine.workspace = true
 vc-mcp.workspace = true
 vc-server = { workspace = true, optional = true }
@@ -36,12 +36,15 @@ rustix.workspace = true
 
 [dev-dependencies]
 assert_cmd.workspace = true
+axum = { workspace = true, features = ["http1", "tokio"] }
 criterion.workspace = true
 predicates.workspace = true
 rusqlite.workspace = true
 serde_json.workspace = true
 tempfile.workspace = true
-tokio.workspace = true
+tokio = { workspace = true, features = ["net"] }
+vc-browser.workspace = true
+vc-demo.workspace = true
 vc-mock-server.workspace = true
 vc-testkit.workspace = true
 zstd.workspace = true

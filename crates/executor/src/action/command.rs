@@ -27,12 +27,38 @@ const CMD_SPECIAL: &[char] = &['&', '|', '<', '>', '^', '%', '!', '"', '(', ')',
 /// Turns one rendered value into one shell word.
 type Word = fn(&str) -> Result<String, Failure>;
 
-/// The shell, its flag and how it quotes a value: `sh -c` on unix, `cmd /C` on Windows.
-const SHELL: (&str, &str, Word) = if cfg!(windows) { ("cmd", "/C", cmd_word) } else { ("sh", "-c", posix_word) };
+/// The shell a `command:` line runs through: the program, its flag and how it quotes a value.
+#[derive(Clone, Copy, Debug)]
+pub struct CommandShell {
+    program: &'static str,
+    flag: &'static str,
+    word: Word,
+}
+
+impl CommandShell {
+    /// `sh -c`, each value single-quoted.
+    pub const POSIX: Self = Self { program: "sh", flag: "-c", word: posix_word };
+    /// `cmd /C`, each value double-quoted; a value `cmd` would still act on is refused (V5111).
+    pub const CMD: Self = Self { program: "cmd", flag: "/C", word: cmd_word };
+    /// The shell of the host the binary is built for: `cmd /C` on Windows, `sh -c` elsewhere.
+    pub const HOST: Self = if cfg!(windows) { Self::CMD } else { Self::POSIX };
+
+    /// The line: literals as written, each reference rendered and quoted as one word.
+    fn line(self, render: &Render<'_>, template: &Template) -> Result<String, Failure> {
+        let part = |part: &Part| match part {
+            Part::Literal(text) => Ok(text.clone()),
+            Part::Ref(reference) => {
+                (self.word)(&render.text(&request::lone(reference.clone())).map_err(request::failed)?)
+            }
+        };
+        template.parts.iter().map(part).collect()
+    }
+}
 
 /// Runs `command:` actions through a [`CommandRunner`].
 ///
-/// The line runs in the project root through the system shell. Literal text goes to the shell
+/// The line runs in the project root through the host's shell ([`CommandShell::HOST`]) unless
+/// [`CommandExecutor::with_shell`] names another. Literal text goes to the shell
 /// as written; each `${…}` is rendered and quoted as one word. The child gets `env` (the
 /// `.env` values the process does not set) and the run's config vars as `VIB_VAR_<name>`, over
 /// the process environment. A non-zero exit fails the action (V5110) with the exit code and the
@@ -42,6 +68,7 @@ pub struct CommandExecutor {
     runner: Arc<dyn CommandRunner>,
     root: PathBuf,
     env: Vec<(String, String)>,
+    shell: CommandShell,
 }
 
 impl std::fmt::Debug for CommandExecutor {
@@ -54,7 +81,14 @@ impl CommandExecutor {
     /// An executor that runs each line with `runner` in `root`, adding `env` to the child's.
     #[must_use]
     pub fn new(runner: Arc<dyn CommandRunner>, root: PathBuf, env: Vec<(String, String)>) -> Self {
-        Self { runner, root, env }
+        Self { runner, root, env, shell: CommandShell::HOST }
+    }
+
+    /// This executor, running each line through `shell` rather than the host's.
+    #[must_use]
+    pub const fn with_shell(mut self, shell: CommandShell) -> Self {
+        self.shell = shell;
+        self
     }
 
     async fn command(&self, request: &ActionRequest) -> Result<ActionReport, Failure> {
@@ -74,8 +108,8 @@ impl CommandExecutor {
     }
 
     fn spec(&self, render: &Render<'_>, template: &Template, action: &Action) -> Result<CommandSpec, Failure> {
-        let (shell, flag, _) = SHELL;
-        let mut spec = CommandSpec::new(shell, [flag.to_owned(), line(render, template)?])
+        let CommandShell { program, flag, .. } = self.shell;
+        let mut spec = CommandSpec::new(program, [flag.to_owned(), self.shell.line(render, template)?])
             .in_dir(self.root.clone())
             .with_timeout(own_limit(render.program(), action))
             .with_output_cap(KEPT);
@@ -94,16 +128,6 @@ impl ActionExecutor for CommandExecutor {
     fn follows(&self, _program: &Program, _action: &Action) -> Vec<ActionId> {
         vec![]
     }
-}
-
-/// The line: literals as written, each reference rendered and quoted as one word.
-fn line(render: &Render<'_>, template: &Template) -> Result<String, Failure> {
-    let (_, _, word) = SHELL;
-    let part = |part: &Part| match part {
-        Part::Literal(text) => Ok(text.clone()),
-        Part::Ref(reference) => word(&render.text(&request::lone(reference.clone())).map_err(request::failed)?),
-    };
-    template.parts.iter().map(part).collect()
 }
 
 /// The run's config vars that render in the action's scope, as `VIB_VAR_<name>`; a var that
