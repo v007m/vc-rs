@@ -4,22 +4,10 @@ use std::time::Duration;
 use serde_json::Value;
 use vc_model::TestStatus;
 
-/// Shown in place of a character that is unsafe to print.
-const SUBSTITUTE: char = '\u{fffd}';
-
 /// `text` with control characters (tabs and newlines aside) and bidi overrides replaced, so a
 /// response body or a message cannot move the cursor or reorder a terminal line.
 pub fn sanitize(text: &str) -> Cow<'_, str> {
-    if text.chars().any(is_unsafe) {
-        Cow::Owned(text.chars().map(|c| if is_unsafe(c) { SUBSTITUTE } else { c }).collect())
-    } else {
-        Cow::Borrowed(text)
-    }
-}
-
-const fn is_unsafe(c: char) -> bool {
-    (c.is_control() && !matches!(c, '\t' | '\n'))
-        || matches!(c, '\u{202a}'..='\u{202e}' | '\u{2066}'..='\u{2069}' | '\u{200e}' | '\u{200f}' | '\u{61c}')
+    vc_model::printable(text)
 }
 
 /// A duration as people read it: `840ms`, `6.4s`, `2m 5s`.

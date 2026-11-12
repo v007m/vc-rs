@@ -119,8 +119,8 @@ impl Prepared {
 
 impl Engine {
     /// Plans what `request` selects, as `vc run` would, without sending a request; its rows are
-    /// labelled offline, by names written in the files and masked by the config's rules alone
-    /// (D316).
+    /// labelled offline, by names written inline in the test files and masked by the config's
+    /// rules alone; it never loads secrets and never shows a value drawn from the environment (D316).
     ///
     /// # Errors
     ///

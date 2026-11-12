@@ -64,10 +64,10 @@ pub async fn mask_labels(plan: &mut Plan, redactor: &Redactor) {
     }
 }
 
-/// `plan`'s row labels as `vc plan` shows them, which stays offline and never reads a secret or
-/// the environment (D316): only names written in the files, masked by the config's rules alone,
-/// a `function:` rule masking a whole name (it fails closed); a name a template drew reads as
-/// its row number instead.
+/// `plan`'s row labels as `vc plan` shows them, which stays offline, never loads secrets and
+/// never shows a value drawn from the environment (D316): only names written inline in the test
+/// file, masked by the config's rules alone, a `function:` rule masking a whole name (it fails
+/// closed); a row from a `$file`, a dataset or a template reads as its row number instead.
 pub async fn offline_labels(program: &Program, plan: &mut Plan) {
     let written =
         |test: &TestId| matches!(program.tests.get(test).map(|test| &test.examples), Some(Some(Examples::Rows(_))));

@@ -242,6 +242,9 @@ pub struct RequestHooks {
 pub enum Examples {
     /// Rows written in the test.
     Rows(Vec<TemplateValue>),
+    /// Rows of a dataset or a `$file` the compile was given, as literal values: they run as
+    /// written rows do, but `vc plan`, which reads no data, never shows their names.
+    Data(Vec<TemplateValue>),
     /// A CSV, JSON or YAML file of rows.
     File(Template),
     /// A template that yields a list.

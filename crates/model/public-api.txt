@@ -204,6 +204,7 @@ impl core::fmt::Debug for vc_model::Event
 pub fn vc_model::Event::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_model::Event
 pub enum vc_model::Examples
+pub vc_model::Examples::Data(alloc::vec::Vec<vc_model::TemplateValue>)
 pub vc_model::Examples::File(vc_model::Template)
 pub vc_model::Examples::Rows(alloc::vec::Vec<vc_model::TemplateValue>)
 pub vc_model::Examples::Template(vc_model::Template)
@@ -1567,6 +1568,7 @@ pub vc_model::Plan::after_run: alloc::vec::Vec<vc_model::ActionId>
 pub vc_model::Plan::allowed_failures: alloc::collections::btree::map::BTreeMap<vc_model::TestId, vc_model::AllowFailure>
 pub vc_model::Plan::before_run: alloc::vec::Vec<vc_model::PlannedAction>
 pub vc_model::Plan::files: alloc::vec::Vec<vc_model::PlannedFile>
+pub vc_model::Plan::repeated: alloc::collections::btree::set::BTreeSet<vc_model::TestId>
 pub vc_model::Plan::row_names: alloc::collections::btree::map::BTreeMap<(vc_model::TestId, u32), alloc::string::String>
 pub vc_model::Plan::skipped: alloc::vec::Vec<vc_model::SkippedTest>
 impl vc_model::Plan
@@ -2315,7 +2317,9 @@ pub fn vc_model::import_paths(&str) -> alloc::vec::Vec<alloc::string::String>
 pub fn vc_model::instance_marks(core::option::Option<u32>, core::option::Option<u32>) -> alloc::string::String
 pub fn vc_model::is_multipart(&str) -> bool
 pub fn vc_model::is_third_person(&str) -> bool
+pub fn vc_model::one_line(&str) -> alloc::borrow::Cow<'_, str>
 pub fn vc_model::part_pointer(&str, core::option::Option<usize>) -> alloc::string::String
+pub fn vc_model::printable(&str) -> alloc::borrow::Cow<'_, str>
 pub fn vc_model::resolve_path(&[&str], &str) -> core::option::Option<alloc::string::String>
 pub fn vc_model::schema_names(&str) -> vc_model::SchemaNames
 pub fn vc_model::secret_name(&str) -> alloc::string::String

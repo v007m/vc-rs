@@ -146,7 +146,9 @@ message Check {
 message Test {
   // The test's full ID.
   string id = 1;
-  // The ID with the example row and repeat it ran as: `users.crud#rejectsBadEmail [row 2]`.
+  // The ID with the example row and repeat it ran as, on one line:
+  // `<id> › <row name> [row n, repeat m]`, such as `users.crud#rejectsBadEmail › missing @ [repeat 2]`
+  // or `users.crud#rejectsBadEmail [row 2]`.
   string label = 2;
   // The example row, from 0, when the test has examples.
   optional uint32 example_row = 3;

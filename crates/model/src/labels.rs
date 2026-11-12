@@ -6,7 +6,7 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt::Write as _;
 
-use crate::{InstanceId, Plan, TestId};
+use crate::{InstanceId, Plan, TestId, one_line};
 
 /// The labels of a plan's instances.
 #[derive(Clone, Debug, Default)]
@@ -22,14 +22,18 @@ pub struct InstanceLabels {
 }
 
 impl InstanceLabels {
-    /// The labels of `plan`'s instances, its rows named by its `row_names`.
+    /// The labels of `plan`'s instances, its rows named by its `row_names`, each name on one
+    /// line with its control characters and bidi marks replaced (a row from a file or a dataset
+    /// is anyone's text).
     #[must_use]
     pub fn new(plan: &Plan) -> Self {
         let instances = plan.files.iter().flat_map(|file| &file.instances);
         let slots = instances.clone().map(|i| (i.id, (i.example_row, i.repeat_index))).collect();
-        let repeated = instances.filter(|i| i.repeat_index > 0).map(|i| i.test).collect();
-        let shared = shared_names(&plan.row_names);
-        Self { slots, repeated, row_names: plan.row_names.clone(), shared }
+        let repeat = instances.filter(|i| i.repeat_index > 0).map(|i| i.test);
+        let repeated = repeat.chain(plan.repeated.iter().copied()).collect();
+        let row_names = plan.row_names.iter().map(|(&row, name)| (row, one_line(name).into_owned())).collect();
+        let shared = shared_names(&row_names);
+        Self { slots, repeated, row_names, shared }
     }
 
     /// The example row and repeat of `instance`, when the plan has it.

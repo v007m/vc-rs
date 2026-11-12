@@ -60,3 +60,17 @@ fn marks_number_rows_and_repeats_from_one() {
     assert_eq!(instance_marks(Some(0), None), " [row 1]");
     assert_eq!(instance_marks(None, None), "");
 }
+
+#[test]
+fn the_first_repeat_picked_alone_still_names_its_repeat() {
+    let (mut plan, test) = plan(&[(Some(1), 0)], &[]);
+    plan.repeated.insert(test);
+    let labels = InstanceLabels::new(&plan);
+    assert_eq!(labels.suffix(test, Some(InstanceId::new(0))), " [row 2, repeat 1]");
+}
+
+#[test]
+fn a_row_name_cannot_drive_the_terminal() {
+    let shown = suffixes(&[(Some(0), 0)], &[(0, "\u{1b}]0;pwned\u{7}\u{1b}[2J \u{202e}evil\nnext")]);
+    assert_eq!(shown, [" › \u{fffd}]0;pwned\u{fffd}\u{fffd}[2J \u{fffd}evil\u{fffd}next"]);
+}

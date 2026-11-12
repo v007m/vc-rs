@@ -40,7 +40,7 @@ impl Render<'_> {
     pub(super) fn example(&self, test: &Test, at: usize) -> Result<Value, RenderError> {
         let absent = || RenderError::invalid("the example row is not in the test");
         match &test.examples {
-            Some(Examples::Rows(rows)) => self.value(rows.get(at).ok_or_else(absent)?),
+            Some(Examples::Rows(rows) | Examples::Data(rows)) => self.value(rows.get(at).ok_or_else(absent)?),
             Some(Examples::Template(_)) => {
                 let rows = self.values().inputs().examples.get(&test.id);
                 rows.and_then(|rows| rows.get(at)).cloned().ok_or_else(absent)

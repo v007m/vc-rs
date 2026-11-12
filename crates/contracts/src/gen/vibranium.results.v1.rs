@@ -149,7 +149,9 @@ pub struct Test {
     /// The test's full ID.
     #[prost(string, tag="1")]
     pub id: ::prost::alloc::string::String,
-    /// The ID with the example row and repeat it ran as: `users.crud#rejectsBadEmail \[row 2\]`.
+    /// The ID with the example row and repeat it ran as, on one line:
+    /// `<id> › <row name> \[row n, repeat m\]`, such as `users.crud#rejectsBadEmail › missing @ \[repeat 2\]`
+    /// or `users.crud#rejectsBadEmail \[row 2\]`.
     #[prost(string, tag="2")]
     pub label: ::prost::alloc::string::String,
     /// The example row, from 0, when the test has examples.

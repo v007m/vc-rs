@@ -348,7 +348,7 @@ fn rows_from_a_given_dataset_or_file_are_built_as_literal_rows() {
     assert_eq!((compiled.data_wanted.len(), compiled.diagnostics.has_errors()), (0, false));
     let program = compiled.program.unwrap();
     let examples = |id: &str| test(&program, id).examples.clone();
-    let rows = |found| if let Some(Examples::Rows(rows)) = found { rows.len() } else { 0 };
+    let rows = |found| if let Some(Examples::Data(rows)) = found { rows.len() } else { 0 };
     assert_eq!((rows(examples("users.data#listsEachCity")), rows(examples("users.data#listsFileRows"))), (2, 1));
     let [each] = steps(&program, test(&program, "users.data#createsEachCity"))[..] else { panic!("one step") };
     let Some(Loop::ForEach { items: TemplateValue::List(items), .. }) = &each.repeat else { panic!("{each:?}") };

@@ -30,7 +30,7 @@ pub fn run(args: &PlanCommandArgs, project: Option<&Path>) -> anyhow::Result<Out
         Ok(request) => request,
         Err(reason) => return Ok(Outcome::Refused(reason)),
     };
-    let runtime = tokio::runtime::Builder::new_multi_thread().enable_all().build()?;
+    let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build()?;
     let report = match runtime.block_on(located.engine.plan(&request)) {
         Ok(report) => report,
         Err(error) => return Ok(Outcome::Engine(error)),

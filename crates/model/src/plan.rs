@@ -136,6 +136,9 @@ pub struct Plan {
     /// The `name` of each example row that gives one, by test and row index from 0: the
     /// instance's label in reports, `users.crud#rejectsBadEmail › missing @`.
     pub row_names: BTreeMap<(TestId, u32), String>,
+    /// The planned tests that run more than once a row (`repeat` or `--repeat` over 1), so every
+    /// instance's label names its repeat, even when `:n` picks only the first.
+    pub repeated: BTreeSet<TestId>,
 }
 
 impl Plan {
