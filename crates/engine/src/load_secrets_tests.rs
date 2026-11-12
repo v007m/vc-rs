@@ -1,5 +1,5 @@
 //! A load run masks the example-row labels its plan holds, as `vc run` does, and a secret's
-//! value given to one reaches neither its report nor its history.
+//! value given to one reaches neither its report nor its history, its findings included.
 
 use std::sync::Arc;
 
@@ -28,7 +28,12 @@ const TESTS: &str = concat!(
 const LOAD: &str = concat!(
     "mix:\n  - {test: echo.send#sendsFromEnv, weight: 1}\n  - {test: echo.send#sendsFromVar, weight: 1}\n",
     "  - {test: echo.send#sendsFromDataset, weight: 1}\nstages:\n  - {duration: 3s, users: 3}\nthinkTime: 1s\n",
+    "thresholds: {errorRate: {lt: 0.5}}\n",
 );
+
+/// A seed whose 3 iterations pick each test of the 1:1:1 mix once, so every row label reaches the
+/// history; a fresh one leaves a test out about 7 runs in 9.
+const ALL_PICKED: u64 = 12;
 
 /// Each thing the engine wrote to the history, as text.
 struct Written(mpsc::UnboundedSender<String>);
@@ -83,7 +88,7 @@ fn engine() -> (Engine, mpsc::UnboundedReceiver<String>) {
 }
 
 fn request() -> LoadRequest {
-    LoadRequest { scenario: "echo.peak".to_owned(), ..LoadRequest::default() }
+    LoadRequest { scenario: "echo.peak".to_owned(), seed: Some(ALL_PICKED), ..LoadRequest::default() }
 }
 
 #[tokio::test]
@@ -107,6 +112,12 @@ async fn a_secret_given_to_a_load_run_reaches_neither_its_report_nor_its_history
     let history: String = std::iter::from_fn(|| written.try_recv().ok()).collect::<Vec<_>>().join("\n");
     let (json, text) = (report.json().to_string(), report.text());
     assert!(history.contains("IntervalRow { test_id: \"echo.send#sendsFrom"), "the seconds were recorded: {history}");
+    assert!(history.contains("FindingRow { kind: Breach, test_id: None, api_id: None, metric: Some(\"errorRate\")"));
+    for test in ["sendsFromEnv", "sendsFromVar", "sendsFromDataset"] {
+        let found =
+            format!("FindingRow {{ kind: Error, test_id: Some(\"echo.send#{test}\"), api_id: Some(\"echo#send\")");
+        assert!(history.contains(&found), "each error kind is kept under its test and api IDs: {history}");
+    }
     for (shown, seen) in [("json", &json), ("text", &text), ("history", &history)] {
         assert!(!seen.contains(TOKEN), "the {shown} holds the secret: {seen}");
     }

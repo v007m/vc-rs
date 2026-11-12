@@ -2,8 +2,8 @@ use std::collections::BTreeMap;
 use std::sync::mpsc::{self, Sender};
 
 use vc_interfaces::{
-    ApiTrend, ExchangeRow, HistoryError, HistoryReader, HistoryWriter, Row, RunEnd, RunFilter, RunId, RunRef, RunRow,
-    RunStart, TestRow, TestTrend, api_trends,
+    ApiTrend, ExchangeRow, FindingRow, HistoryError, HistoryReader, HistoryWriter, Row, RunEnd, RunFilter, RunId,
+    RunRef, RunRow, RunStart, TestRow, TestTrend, api_trends,
 };
 use vc_model::{Keep, TestStatus, Totals};
 
@@ -29,6 +29,7 @@ enum Request {
     Snapshot(RunId, Sender<Option<Vec<u8>>>),
     Trends(usize, RunFilter, Sender<Vec<TestTrend>>),
     ApiTrends(usize, RunFilter, Sender<Vec<ApiTrend>>),
+    Findings(RunId, Sender<Vec<FindingRow>>),
 }
 
 /// One stored run.
@@ -38,6 +39,8 @@ struct Stored {
     tests: Vec<TestRow>,
     /// Every exchange, its tests' and lifecycle ones, in the order they were recorded.
     exchanges: Vec<ExchangeRow>,
+    /// A load run's breaches and errors, in the order they were recorded.
+    findings: Vec<FindingRow>,
     snapshot: Option<Vec<u8>>,
 }
 
@@ -76,6 +79,9 @@ impl State {
                 let calls: Vec<ExchangeRow> = runs.flat_map(|stored| stored.exchanges.iter().rev().cloned()).collect();
                 drop(reply.send(api_trends(&calls)));
             }
+            Request::Findings(run, reply) => {
+                drop(reply.send(self.find(RunRef::Id(run)).map(|run| run.findings.clone()).unwrap_or_default()));
+            }
         }
     }
 
@@ -83,7 +89,7 @@ impl State {
         self.next += 1;
         let row =
             RunRow { id: RunId::new(self.next), start, finished_ms: None, status: None, totals: Totals::default() };
-        self.runs.push(Stored { row, tests: Vec::new(), exchanges: Vec::new(), snapshot: None });
+        self.runs.push(Stored { row, tests: Vec::new(), exchanges: Vec::new(), findings: Vec::new(), snapshot: None });
         RunId::new(self.next)
     }
 
@@ -96,6 +102,7 @@ impl State {
                     stored.tests.push(test);
                 }
                 Row::Exchange(exchange) => stored.exchanges.push(exchange),
+                Row::Finding(finding) => stored.findings.push(finding),
                 Row::Interval(_) => {}
             }
         }
@@ -225,6 +232,10 @@ impl HistoryReader for MemoryHistory {
 
     fn api_trends(&self, window: usize, filter: &RunFilter) -> Result<Vec<ApiTrend>, HistoryError> {
         self.ask(|reply| Request::ApiTrends(window, filter.clone(), reply))
+    }
+
+    fn findings(&self, run: RunId) -> Result<Vec<FindingRow>, HistoryError> {
+        self.ask(|reply| Request::Findings(run, reply))
     }
 }
 

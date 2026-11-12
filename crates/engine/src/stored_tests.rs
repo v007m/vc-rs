@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use vc_interfaces::{HistoryWriter as _, Row, RunEnd, RunFilter, RunStart, TestRow};
+use vc_interfaces::{FindingKind, FindingRow, HistoryWriter as _, Row, RunEnd, RunFilter, RunStart, TestRow};
 use vc_model::{RunStatus, TestStatus, Totals};
 use vc_testkit::{FakeVcs, MemoryHistory};
 
@@ -73,6 +73,7 @@ fn shows_a_run_and_the_tests_that_did_not_pass() {
     assert!(text.contains("failed   users.crud#rejectsBadEmail [row 2]\n           expected 400, got 201"), "{text}");
     assert!(!text.contains("listsUsers"), "{text}");
     assert_eq!(shown.json()["tests"][1]["status"], "passed");
+    assert!(shown.json().get("findings").is_none(), "a test run has no load findings");
     assert_eq!(engine().stored("9").unwrap_err().to_string(), "history: no run 9 is stored");
     assert_eq!(engine().stored("x").unwrap_err().to_string(), "history: `x` is not a run");
 }
@@ -139,10 +140,23 @@ fn a_stored_label_or_message_cannot_drive_the_terminal() {
         ..TestRow::default()
     };
     assert_eq!(instance_label(&hostile), "users.crud#listsUsers › \u{fffd}]0;pwned\u{fffd}\u{fffd}x");
-    let shown = StoredRun { run: engine().stored("1").unwrap().run, tests: vec![hostile] };
+    let breach = FindingRow { shown: "breached p95 at \u{1b}[2J".into(), ..FindingRow::default() };
+    let error = FindingRow {
+        kind: FindingKind::Error,
+        test_id: Some("users.crud#lists\u{202e}Users".into()),
+        shown: "errors failed\n× 2".into(),
+        ..FindingRow::default()
+    };
+    let shown =
+        StoredRun { run: engine().stored("1").unwrap().run, tests: vec![hostile], findings: vec![breach, error] };
     let text = shown.text();
     assert!(!text.contains('\u{1b}') && !text.contains('\u{202e}'), "{text:?}");
     assert!(text.contains("           got \u{fffd}[2J\n"), "{text:?}");
+    assert!(
+        text.contains("\n  breached p95 at \u{fffd}[2J\n  test users.crud#lists\u{fffd}Users\n    errors failed"),
+        "{text:?}"
+    );
+    assert_eq!(text.lines().filter(|line| line.contains("× 2")).count(), 1, "{text:?}");
 }
 
 #[test]

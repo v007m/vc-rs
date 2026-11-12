@@ -242,6 +242,10 @@ async fn an_api_that_refuses_the_connection_is_counted_under_it_and_the_transpor
 
 /// A mix of a passing and a failing test, each request taking 300 ms, reports each test's own
 /// numbers, and the failing test's error kinds under it.
+/// A seed whose 6 iterations pick both tests of a 1:1 mix; a fresh one picks one test alone
+/// about one run in 30 (seed 7287421731789518 picks `breaksUsers` 6 times).
+const BOTH_PICKED: u64 = 1;
+
 #[tokio::test(start_paused = true)]
 async fn each_mix_test_has_its_own_numbers_and_error_kinds() {
     let mix = "mix:\n  - {test: users.crud#listsUsers, weight: 1}\n  - {test: users.crud#breaksUsers, weight: 1}\n";
@@ -253,7 +257,8 @@ async fn each_mix_test_has_its_own_numbers_and_error_kinds() {
     let delayed = FaultyTransport::new(Arc::new(answers), vec![Fault::Delay(Duration::from_millis(300)); 1000]);
     let (engine, _) = engine_over(CONFIG, file.as_bytes(), Arc::new(delayed));
     let (_interrupter, interrupts) = interrupts();
-    let report = load(&engine, interrupts, None).await;
+    let request = LoadRequest { scenario: "users.peak".to_owned(), seed: Some(BOTH_PICKED), ..LoadRequest::default() };
+    let report = engine.load(&request, LoadWatch { interrupts, ticks: None }).await.unwrap();
     let tests: Vec<_> = report.tests.iter().map(|test| (test.test.as_str(), test.errors == test.iterations)).collect();
     assert_eq!(tests, [("users.crud#listsUsers", false), ("users.crud#breaksUsers", true)], "{report:?}");
     assert_eq!(report.tests.iter().map(|test| test.iterations).sum::<u64>(), report.iterations);
@@ -300,17 +305,20 @@ async fn the_history_lists_a_load_run_by_its_iterations() {
     assert_eq!((json[0]["kind"].as_str(), json[0]["totals"]["failed"].as_u64()), (Some("load"), Some(report.errors)));
 }
 
+/// A breached threshold sends the `threshold` alert with the run's iterations as its totals,
+/// and `vc history show` prints the breach and the errors as the run did (D322).
 #[tokio::test(start_paused = true)]
-async fn a_breached_threshold_sends_the_threshold_alert_naming_it() {
+async fn a_breached_threshold_sends_the_threshold_alert_naming_it_and_is_kept_in_the_history() {
     let (notifiers, log) = FakeNotifiers::new(&["webhook"]);
     let alerts = "alerts:\n  - on: [threshold]\n    notify:\n      - webhook: {url: 'http://hook'}\n";
     let config = format!("{}{alerts}", String::from_utf8_lossy(CONFIG.1));
     let peak = scenario("breaksUsers", "{duration: 3s, users: 2}");
     let sources = [(CONFIG.0, config.as_bytes()), USERS, CRUD, ("load/users/peak.load.yaml", peak.as_slice())];
+    let history = Arc::new(MemoryHistory::new());
     let engine = builder(FakeVcs::default())
         .sources(Arc::new(MemorySources::new(&sources)))
         .transport(Arc::new(FakeTransport::new(|_: &RenderedRequest, _| Ok(status(500)))))
-        .history(Arc::new(MemoryHistory::new()), Arc::new(MemoryHistory::new()))
+        .history(history.clone(), history)
         .notifiers(Arc::new(notifiers))
         .build()
         .unwrap();
@@ -323,6 +331,23 @@ async fn a_breached_threshold_sends_the_threshold_alert_naming_it() {
         (sent.notice.trigger, sent.notice.breaches.as_slice()),
         (AlertTrigger::Threshold, ["errorRate".to_owned()].as_slice())
     );
+    let errors = usize::try_from(report.errors).unwrap();
+    assert!(errors > 0 && (sent.notice.summary.totals.passed, sent.notice.summary.totals.failed) == (0, errors));
+    let stored = engine.stored("last").unwrap();
+    let under = format!(
+        "\n  breached errorRate at 100% (lt 50%)\n  test users.crud#breaksUsers\n    errors users#broken 500 V5101 × {}\n",
+        report.errors
+    );
+    assert!(stored.text().ends_with(&under), "{}", stored.text());
+    let json = stored.json();
+    assert_eq!(
+        (json["findings"][0]["kind"].as_str(), json["findings"][0]["actual"].as_f64()),
+        (Some("breach"), Some(1.0))
+    );
+    let kind = json!({"kind": "error", "test": "users.crud#breaksUsers", "api": "users#broken", "metric": null,
+        "status": 500, "code": "V5101", "count": report.errors, "actual": null,
+        "shown": format!("errors users#broken 500 V5101 × {}", report.errors)});
+    assert_eq!(json["findings"][1], kind, "{json:#}");
 }
 
 #[tokio::test(start_paused = true)]

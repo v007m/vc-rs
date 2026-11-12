@@ -36,7 +36,8 @@ pub fn run(args: &LoadArgs, project: Option<&Path>) -> anyhow::Result<Outcome> {
         Err(outcome) => return Ok(outcome),
     };
     let layers = args.layers.request();
-    let request = LoadRequest { scenario: args.scenario.clone(), profiles: layers.profiles, sets: layers.sets };
+    let request =
+        LoadRequest { scenario: args.scenario.clone(), profiles: layers.profiles, sets: layers.sets, seed: None };
     let runtime = tokio::runtime::Builder::new_multi_thread().enable_all().build()?;
     let (stop, mut stops) = mpsc::unbounded_channel();
     let report = runtime.block_on(async {

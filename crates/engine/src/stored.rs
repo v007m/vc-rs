@@ -7,11 +7,12 @@ use std::time::Duration;
 
 use serde_json::{Value, json};
 use vc_adapter_reporters::{RunSnapshot, millis};
-use vc_interfaces::{ApiTrend, RunFilter, RunRow, TestRow, TestTrend};
+use vc_interfaces::{ApiTrend, FindingRow, RunFilter, RunRow, TestRow, TestTrend};
 use vc_model::{Date, Program, instance_marks, one_line, printable};
 
 use crate::history::history_error;
 use crate::load::LOAD_KIND;
+use crate::load_findings;
 use crate::reporting::{self, Chosen};
 use crate::settings::{Named, Settings};
 use crate::{Engine, EngineError, ReportFlags};
@@ -53,11 +54,12 @@ pub struct HistoryReport {
     runs: Vec<RunRow>,
 }
 
-/// One stored run and its tests, as `vc history show` prints it.
+/// One stored run and its tests, or a load run's findings (D322), as `vc history show` prints it.
 #[derive(Clone, Debug, PartialEq)]
 pub struct StoredRun {
     run: RunRow,
     tests: Vec<TestRow>,
+    findings: Vec<FindingRow>,
 }
 
 impl Engine {
@@ -98,8 +100,10 @@ impl Engine {
     /// [`EngineError::History`] when no such run is stored or the history cannot be read.
     pub fn stored(&self, which: &str) -> Result<StoredRun, EngineError> {
         let run = self.stored_run(which)?;
-        let tests = self.history_reader().tests(run.id).map_err(|error| history_error(&error))?;
-        Ok(StoredRun { run, tests })
+        let reader = self.history_reader();
+        let tests = reader.tests(run.id).map_err(|error| history_error(&error))?;
+        let findings = reader.findings(run.id).map_err(|error| history_error(&error))?;
+        Ok(StoredRun { run, tests, findings })
     }
 
     /// Writes the report files `request` names for a stored run, from its snapshot.
@@ -208,11 +212,12 @@ impl StoredRun {
         &self.tests
     }
 
-    /// The run's line, then a line per test that did not pass, its label and why it did not
-    /// pass with the characters that would drive a terminal replaced.
+    /// The run's line, then a load run's findings, then a line per test that did not pass,
+    /// its label and why it did not pass with the characters that would drive a terminal
+    /// replaced.
     #[must_use]
     pub fn text(&self) -> String {
-        let mut out = format!("{}\n", run_line(&self.run));
+        let mut out = format!("{}\n{}", run_line(&self.run), load_findings::text(&self.findings));
         let shown = self.tests.iter().filter(|test| text(test.status.as_ref()) != "passed");
         for test in shown {
             let _ = writeln!(out, "  {:<8} {}", text(test.status.as_ref()), instance_label(test));
@@ -223,11 +228,15 @@ impl StoredRun {
         out
     }
 
-    /// The run and every test as JSON.
+    /// The run and every test as JSON, and a load run's `findings`.
     #[must_use]
     pub fn json(&self) -> Value {
         let tests: Vec<Value> = self.tests.iter().map(test_json).collect();
-        json!({ "run": run_json(&self.run), "tests": tests })
+        let mut stored = json!({ "run": run_json(&self.run), "tests": tests });
+        if self.run.start.kind == LOAD_KIND {
+            stored["findings"] = self.findings.iter().map(load_findings::json).collect();
+        }
+        stored
     }
 }
 

@@ -9,6 +9,7 @@ use vc_interfaces::{Random, RunEnd, RunStart, RunSummary, Secrets};
 use vc_loadtest::{Ending, LoadError, LoadOutcome};
 use vc_model::{ActionId, ActionKind, LoadScenario, Program, RunStatus, Totals};
 
+use crate::load_findings;
 use crate::load_live::{self, Live};
 use crate::load_report::{self, LoadBreach, LoadEnding};
 use crate::notify::{self, Alerting};
@@ -102,7 +103,7 @@ impl Engine {
         let ids = scenario.mix.iter().filter_map(|entry| program.str(entry.test.sym()).map(str::to_owned)).collect();
         let select = SelectRequest { ids, ..SelectRequest::default() };
         let plan = PlanRequest { select, profiles: request.profiles.clone(), sets: request.sets.clone(), repeat: None };
-        let prepared = self.prepare(&plan, Extra::default())?;
+        let prepared = self.prepare(&plan, Extra { seed: request.seed, ..Extra::default() })?;
         let (seed, random) = (prepared.draw.seed, Arc::clone(&prepared.draw.random));
         let (name, id) = (scenario.name.clone(), request.scenario.clone());
         let report = LoadReport { scenario: id, name, seed, ..LoadReport::default() };
@@ -145,10 +146,10 @@ impl Engine {
         report.notices.extend(live.problem.take());
         let (totals, finished_ms) = (iterations(&report), self.clock.now_ms());
         let end = RunEnd { status, totals, finished_ms, snapshot: Vec::new() };
-        if let Some(recording) = live.recording.take()
-            && let Err(error) = recording.close(end, session.prepared.program.config.history.keep).await
-        {
-            report.notices.push(format!("history: {error}"));
+        if let Some(recording) = live.recording.take() {
+            let recorded = recording.record(load_findings::rows(&report));
+            let closed = recording.close(end, session.prepared.program.config.history.keep).await;
+            report.notices.extend(recorded.and(closed).err().map(|error| format!("history: {error}")));
         }
         if outcome.is_ok() {
             let sent = self.load_alerts(&mut session, &report, status).await;
@@ -161,7 +162,7 @@ impl Engine {
     /// with the thresholds breached; `recovery` once a run that recorded iterations breaches none.
     async fn load_alerts(&self, session: &mut Session, report: &LoadReport, status: RunStatus) -> Vec<String> {
         let elapsed = Duration::from_millis(self.clock.now_ms().saturating_sub(session.started_ms));
-        let run = RunSummary::new(status, Totals::default()).timed(session.started_ms, elapsed);
+        let run = RunSummary::new(status, iterations(report)).timed(session.started_ms, elapsed);
         let run = run.profiles(session.prepared.names.clone());
         let breaches = report.breaches.iter().map(breach).collect();
         let ending = alerts::Ending { breaches, ran: report.iterations > 0, ..alerts::Ending::default() };

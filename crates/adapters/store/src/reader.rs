@@ -3,8 +3,8 @@ use std::path::{Path, PathBuf};
 
 use rusqlite::{Connection, OptionalExtension, Row as SqlRow, params};
 use vc_interfaces::{
-    ApiTrend, CheckRow, ExchangeRow, HistoryError, HistoryReader, RunFilter, RunId, RunRef, RunRow, RunStart, TestRow,
-    TestTrend, TimingRow, api_trends,
+    ApiTrend, CheckRow, ExchangeRow, FindingKind, FindingRow, HistoryError, HistoryReader, RunFilter, RunId, RunRef,
+    RunRow, RunStart, TestRow, TestTrend, TimingRow, api_trends,
 };
 use vc_model::{TestStatus, Totals};
 
@@ -132,6 +132,32 @@ impl HistoryReader for SqliteHistoryReader {
         })?;
         Ok(api_trends(&calls))
     }
+
+    fn findings(&self, run: RunId) -> Result<Vec<FindingRow>, HistoryError> {
+        self.read(|connection| {
+            let mut statement = connection.prepare(
+                "SELECT kind, test_id, api_id, metric, status, code, count, actual, shown
+                 FROM load_findings WHERE run_id = ?1 ORDER BY id",
+            )?;
+            statement.query_map([run.get()], finding_row)?.collect()
+        })
+    }
+}
+
+fn finding_row(row: &SqlRow<'_>) -> rusqlite::Result<FindingRow> {
+    let kind: String = row.get(0)?;
+    let known = [FindingKind::Breach, FindingKind::Error].into_iter().find(|known| known.as_str() == kind);
+    Ok(FindingRow {
+        kind: known.ok_or_else(|| unreadable(0, &kind))?,
+        test_id: row.get(1)?,
+        api_id: row.get(2)?,
+        metric: row.get(3)?,
+        status: row.get(4)?,
+        code: row.get(5)?,
+        count: row.get::<_, Option<i64>>(6)?.map(i64::cast_unsigned),
+        actual: row.get(7)?,
+        shown: row.get(8)?,
+    })
 }
 
 /// A call as [`api_trends`] reads it: its api, method, status and total time.
