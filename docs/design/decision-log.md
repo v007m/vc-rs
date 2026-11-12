@@ -547,6 +547,12 @@ Round 46 (12 November 2026; Sarath approved the orchestrator's recommended answe
 
 D276 (literal matcher keys), D277 (`source.only`) and D278 (path encoding) are confirmed as written.
 
+Round 47 (12 November 2026; orchestrator, under Sarath's delegation):
+
+| # | Topic | Decision | Supersedes |
+| --- | --- | --- | --- |
+| D294 | Allowed failures in the pass rate | History's pass rate counts an allowed failure as a test that ran and did not pass. A run made up only of allowed failures shows 0% | — (fills a gap in D248) |
+
 ## Open
 
 All decisions needed for the PRD and technical design are settled. The language is decided by the spike (D6, D36, D37, D41).
