@@ -12,6 +12,7 @@ mod args;
 mod error;
 #[cfg(test)]
 mod fixture;
+mod handshake;
 mod history;
 #[cfg(feature = "http")]
 mod http;

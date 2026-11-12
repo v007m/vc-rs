@@ -8,16 +8,15 @@ use rmcp::model::{
     ServerCapabilities, ServerConfig,
 };
 use rmcp::service::{MaybeSendFuture, RequestContext, ServerInitializeError};
+use rmcp::transport::async_rw::AsyncRwTransport;
 use rmcp::{ErrorData, RoleServer, ServerHandler, ServiceExt as _};
 use serde_json::Value;
 use vc_engine::{AgentCall, AgentOutcome, Engine};
 
 use crate::McpError;
 use crate::args::{Args, known};
+use crate::handshake::{Named, UNNAMED, broken};
 use crate::tools::{Cx, Tools};
-
-/// The agent's name when its client gives none.
-const UNNAMED: &str = "agent";
 
 /// What the server tells the agent about itself.
 const INSTRUCTIONS: &str = "Vibranium tests HTTP APIs from YAML files. List or search the definitions, \
@@ -50,12 +49,17 @@ impl VcServer {
     ///
     /// # Errors
     ///
-    /// [`McpError::Serve`] when the session cannot start or fails. An agent that closes stdin
-    /// before it begins ends the session quietly.
+    /// [`McpError::Handshake`] when the client sends anything but `initialize` (or `ping`)
+    /// first, and [`McpError::Serve`] when the session cannot start or fails otherwise. An agent
+    /// that closes stdin before it begins ends the session quietly. An `initialize` without
+    /// `clientInfo` is served as one from `agent`.
     pub async fn serve_stdio(self) -> Result<(), McpError> {
-        let running = match self.serve(rmcp::transport::stdio()).await {
+        let (stdin, stdout) = rmcp::transport::stdio();
+        let transport = Named::new(AsyncRwTransport::new_server(stdin, stdout));
+        let running = match self.serve(transport).await {
             Ok(running) => running,
             Err(ServerInitializeError::ConnectionClosed(_)) => return Ok(()),
+            Err(ServerInitializeError::ExpectedInitializeRequest(sent)) => return Err(broken(sent.as_ref())),
             Err(error) => return Err(serve(error)),
         };
         running.waiting().await.map_err(serve)?;
@@ -127,7 +131,12 @@ impl ServerHandler for VcServer {
         request: CallToolRequestParams,
         context: RequestContext<RoleServer>,
     ) -> Result<CallToolResponse, ErrorData> {
-        let agent = context.peer.peer_info().map_or_else(|| UNNAMED.to_owned(), |info| info.client_info.name.clone());
+        let agent = context
+            .peer
+            .peer_info()
+            .map(|info| info.client_info.name.clone())
+            .filter(|name| !name.is_empty())
+            .unwrap_or_else(|| UNNAMED.to_owned());
         let args = request.arguments.unwrap_or_default();
         self.answer(&request.name, &agent, args).await.map(CallToolResponse::from)
     }

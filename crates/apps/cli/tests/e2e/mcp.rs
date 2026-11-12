@@ -1,6 +1,7 @@
 //! `vc mcp` serves the MCP tools over stdio (D197): a scripted agent lists the tools, reads,
 //! calls and runs against the mock, and needs a person's approval exactly where the profile's
-//! `agents` rules say (D195).
+//! `agents` rules say (D195). A client that names itself nowhere is `agent`; one that breaks
+//! the handshake ends the server with exit 2, never as a bug.
 
 use std::io::{BufRead as _, BufReader, Lines, Write as _};
 use std::process::{Child, ChildStdin, ChildStdout, Stdio};
@@ -28,14 +29,18 @@ struct Agent {
 
 impl Agent {
     fn start(project: &Project) -> Self {
+        let client = json!({"name": "e2e-agent", "version": "1.0.0"});
+        Self::hello(project, json!({"protocolVersion": "2025-11-25", "capabilities": {}, "clientInfo": client}))
+    }
+
+    /// Starts `vc mcp` and initializes it with `hello`.
+    fn hello(project: &Project, hello: Value) -> Self {
         let mut vc = std::process::Command::new(cargo_bin!("vc"));
         vc.current_dir(project.path()).arg("mcp").env("HOME", project.home()).env("NO_COLOR", "1");
         let mut child = vc.stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::null()).spawn().unwrap();
         let input = child.stdin.take().unwrap();
         let output = BufReader::new(child.stdout.take().unwrap()).lines();
         let mut agent = Self { child, input, output, next: 0 };
-        let client = json!({"name": "e2e-agent", "version": "1.0.0"});
-        let hello = json!({"protocolVersion": "2025-11-25", "capabilities": {}, "clientInfo": client});
         let answer = agent.ask("initialize", hello);
         assert_eq!(answer["result"]["serverInfo"]["name"], "vibranium", "{answer}");
         agent.send(&json!({"jsonrpc": "2.0", "method": "notifications/initialized"}));
@@ -216,4 +221,49 @@ async fn approve_always_says_whether_it_kept_a_rule() {
     assert!(said.starts_with("✓ approved request #2, and POST"), "{said}");
     assert!(said.trim_end().ends_with(" calls like it from now on; a write or code still asks"), "{said}");
     assert_eq!(agent.stop(), Some(0));
+}
+
+/// The `agent` column of the action log.
+fn logged_agents(project: &Project) -> Vec<String> {
+    let db = rusqlite::Connection::open(project.path().join(".vibranium/history.db")).unwrap();
+    let mut rows = db.prepare("SELECT agent FROM agent_actions ORDER BY id").unwrap();
+    rows.query_map([], |row| row.get(0)).unwrap().map(Result::unwrap).collect()
+}
+
+/// rmcp needs `clientInfo`; the server fills it in, so a client that names itself nowhere is
+/// served and logged as `agent`, as is one that sends an empty name.
+#[test]
+fn a_client_without_client_info_is_served_and_logged_as_agent() {
+    let project = Project::new(&[CONFIG, USERS, CRUD]);
+    let mut unnamed = Agent::hello(&project, json!({"protocolVersion": "2025-11-25", "capabilities": {}}));
+    let found = unnamed.call("search", json!({"query": "list"}));
+    assert_eq!(found["isError"], false, "{found}");
+    assert_eq!(unnamed.stop(), Some(0));
+    let empty = json!({"protocolVersion": "2025-11-25", "capabilities": {}, "clientInfo": {"name": ""}});
+    let mut nameless = Agent::hello(&project, empty);
+    nameless.call("search", json!({"query": "list"}));
+    assert_eq!(nameless.stop(), Some(0));
+    assert_eq!(logged_agents(&project), ["agent", "agent"]);
+}
+
+/// An `initialize` rmcp cannot read gets a JSON-RPC error and the server keeps serving; the
+/// `notifications/initialized` sent after it breaks the handshake: exit 2 naming what came.
+#[test]
+fn a_client_that_breaks_the_handshake_is_a_user_error_not_a_bug() {
+    let project = Project::new(&[CONFIG, USERS, CRUD]);
+    let bad = json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"clientInfo": {"name": "x"}}});
+    let initialized = json!({"jsonrpc": "2.0", "method": "notifications/initialized"});
+    let broken = project.vc(&["mcp"]).write_stdin(format!("{bad}\n{initialized}\n")).output().unwrap();
+    assert_eq!(broken.status.code(), Some(2), "{}", said(&broken));
+    let answer: Value = serde_json::from_slice(&broken.stdout).unwrap();
+    assert_eq!((answer["id"].clone(), answer["error"]["code"].clone()), (json!(1), json!(-32602)), "{answer}");
+    let stderr = String::from_utf8_lossy(&broken.stderr);
+    let error = "error: the MCP client broke the handshake: it sent `notifications/initialized` before an \
+        `initialize` was answered\n  = help: send `initialize` first, and `notifications/initialized` once it is answered\n";
+    assert_eq!(stderr, error);
+
+    let first = project.vc(&["mcp"]).write_stdin(format!("{initialized}\n")).output().unwrap();
+    assert_eq!(first.status.code(), Some(2), "{}", said(&first));
+    assert!(said(&first).contains("it sent `notifications/initialized` before"), "{}", said(&first));
+    assert!(!said(&first).contains("this is a bug"), "{}", said(&first));
 }
