@@ -552,6 +552,8 @@ Round 47 (12 November 2026; orchestrator, under Sarath's delegation):
 | # | Topic | Decision | Supersedes |
 | --- | --- | --- | --- |
 | D294 | Allowed failures in the pass rate | History's pass rate counts an allowed failure as a test that ran and did not pass. A run made up only of allowed failures shows 0% | — (fills a gap in D248) |
+| D298 | Calls with no response in api trends | An api's `calls` in `ApiTrends` count every call, including those that got no response (a timeout, a refused connection). Its p50 and p95 count only the calls that got a response, so a failed connection never reads as a fast call | — (fills a gap in the History api trends) |
+| D299 | Exchanges outside a test in api trends | `ApiTrends` sums up every exchange a run stored, including those of shared and lifecycle actions outside any test, since each one is a call the api answered | — (fills a gap in the History api trends) |
 
 ## Open
 
