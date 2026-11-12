@@ -119,11 +119,24 @@ fn trends_sum_up_each_test_over_the_newest_runs() {
 }
 
 #[test]
-fn an_instance_label_numbers_its_row_and_repeat_from_one() {
+fn an_instance_label_is_the_stored_one() {
+    let labelled = TestRow {
+        test_id: "users.crud#listsUsers".into(),
+        example_row: Some(0),
+        label: Some("users.crud#listsUsers › Oslo".into()),
+        ..TestRow::default()
+    };
+    assert_eq!(instance_label(&labelled), "users.crud#listsUsers › Oslo");
+}
+
+#[test]
+fn an_older_row_without_a_label_numbers_its_row_and_repeat_from_one() {
     let plain = TestRow { test_id: "users.crud#listsUsers".into(), ..TestRow::default() };
     assert_eq!(instance_label(&plain), "users.crud#listsUsers");
+    let row = TestRow { example_row: Some(1), ..plain.clone() };
+    assert_eq!(instance_label(&row), "users.crud#listsUsers [row 2]");
     let repeated = TestRow { example_row: Some(0), repeat_index: 2, ..plain };
-    assert_eq!(instance_label(&repeated), "users.crud#listsUsers [row 1] (repeat 3)");
+    assert_eq!(instance_label(&repeated), "users.crud#listsUsers [row 1, repeat 3]");
 }
 
 #[test]

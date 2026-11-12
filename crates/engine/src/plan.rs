@@ -118,15 +118,19 @@ impl Prepared {
 }
 
 impl Engine {
-    /// Plans what `request` selects, as `vc run` would, without sending a request.
+    /// Plans what `request` selects, as `vc run` would, without sending a request; its rows are
+    /// labelled offline, by names written in the files and masked by the config's rules alone
+    /// (D316).
     ///
     /// # Errors
     ///
     /// [`EngineError::Invalid`] when the project has errors, [`EngineError::Setting`] for a bad
     /// setting or an unknown profile, and [`EngineError::Selection`] when a selector cannot be
     /// read, matches nothing, or `--changed` or `--changed-since` cannot ask git.
-    pub fn plan(&self, request: &PlanRequest) -> Result<PlanReport, EngineError> {
-        Ok(self.prepare(request, Extra::default())?.report())
+    pub async fn plan(&self, request: &PlanRequest) -> Result<PlanReport, EngineError> {
+        let mut prepared = self.prepare(request, Extra::default())?;
+        examples::offline_labels(&prepared.program, Arc::make_mut(&mut prepared.plan)).await;
+        Ok(prepared.report())
     }
 
     /// Reads the settings, compiles, applies the settings, picks the profiles and plans.

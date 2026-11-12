@@ -1388,6 +1388,17 @@ impl serde_core::ser::Serialize for vc_model::InstanceId
 pub fn vc_model::InstanceId::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
 impl<'de> serde_core::de::Deserialize<'de> for vc_model::InstanceId
 pub fn vc_model::InstanceId::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub struct vc_model::InstanceLabels
+impl vc_model::InstanceLabels
+pub fn vc_model::InstanceLabels::new(&vc_model::Plan) -> Self
+pub fn vc_model::InstanceLabels::slot(&self, vc_model::InstanceId) -> core::option::Option<(core::option::Option<u32>, u32)>
+pub fn vc_model::InstanceLabels::suffix(&self, vc_model::TestId, core::option::Option<vc_model::InstanceId>) -> alloc::string::String
+impl core::clone::Clone for vc_model::InstanceLabels
+pub fn vc_model::InstanceLabels::clone(&self) -> Self
+impl core::default::Default for vc_model::InstanceLabels
+pub fn vc_model::InstanceLabels::default() -> Self
+impl core::fmt::Debug for vc_model::InstanceLabels
+pub fn vc_model::InstanceLabels::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 pub struct vc_model::Lifecycle
 pub vc_model::Lifecycle::after_all: alloc::vec::Vec<vc_model::ActionId>
 pub vc_model::Lifecycle::after_each: alloc::vec::Vec<vc_model::ActionId>
@@ -2301,6 +2312,7 @@ pub fn vc_model::form_pairs<'p>(impl core::iter::traits::collect::IntoIterator<I
 pub fn vc_model::form_text(&str) -> alloc::string::String
 pub fn vc_model::hidden_part(&str) -> bool
 pub fn vc_model::import_paths(&str) -> alloc::vec::Vec<alloc::string::String>
+pub fn vc_model::instance_marks(core::option::Option<u32>, core::option::Option<u32>) -> alloc::string::String
 pub fn vc_model::is_multipart(&str) -> bool
 pub fn vc_model::is_third_person(&str) -> bool
 pub fn vc_model::part_pointer(&str, core::option::Option<usize>) -> alloc::string::String

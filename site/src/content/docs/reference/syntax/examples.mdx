@@ -76,15 +76,15 @@ plan  4 tests in 1 file · profile default
 sample.rows
   sample.rows#rejectsBadEmail [row 1]
   sample.rows#rejectsBadEmail [row 2]
-  sample.rows#createsUsers [row 1]
-  sample.rows#createsUsers [row 2]
+  sample.rows#createsUsers › Ann
+  sample.rows#createsUsers › Bob
   sample.rows#createsFromDataset [row 1]
   sample.rows#createsFromDataset [row 2]
   sample.rows#createsFromFile [row 1]
   sample.rows#createsFromFile [row 2]
 ```
 
-The header counts tests. The list shows instances. Instances run in parallel, so they finish in any order. A row with a `name` is labeled by it (`› Ann`); a row without one by its number (`[row 2]`). The test's own `name` follows the label:
+The header counts tests. The list shows instances. `vc plan` reads no secret or environment, so it names only the rows written in the test file, masked by your `redact` rules; rows from a dataset, `$file` or a template are named once they are read, when the test runs. Instances run in parallel, so they finish in any order. A row with a `name` is labeled by it (`› Ann`); a row without one by its number (`[row 2]`). The test's own `name` follows the label:
 
 ```console
 $ vc run sample.rows

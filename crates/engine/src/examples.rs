@@ -10,7 +10,7 @@ use std::sync::Arc;
 
 use vc_executor::{ExampleRows, Redactor, RunInputs, RunValues};
 use vc_interfaces::Random;
-use vc_model::{Plan, Program, TestId};
+use vc_model::{Examples, Plan, Program, TestId};
 use vc_planner::{PlanOptions, Selection};
 use vc_template::PipeRegistry;
 
@@ -62,6 +62,17 @@ pub async fn mask_labels(plan: &mut Plan, redactor: &Redactor) {
     for name in plan.row_names.values_mut() {
         *name = redactor.masked_text(name).await;
     }
+}
+
+/// `plan`'s row labels as `vc plan` shows them, which stays offline and never reads a secret or
+/// the environment (D316): only names written in the files, masked by the config's rules alone,
+/// a `function:` rule masking a whole name (it fails closed); a name a template drew reads as
+/// its row number instead.
+pub async fn offline_labels(program: &Program, plan: &mut Plan) {
+    let written =
+        |test: &TestId| matches!(program.tests.get(test).map(|test| &test.examples), Some(Some(Examples::Rows(_))));
+    plan.row_names.retain(|(test, _), _| written(test));
+    mask_labels(plan, &Redactor::for_config(&program.config)).await;
 }
 
 /// Whether running `plan` generates data from the run's seed: a `${fake.…}`, or a built-in pipe

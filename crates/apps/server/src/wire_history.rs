@@ -3,7 +3,7 @@
 //! at their defaults.
 
 use vc_contracts::results::v1 as wire;
-use vc_engine::{CheckKind, CheckRow, ExchangeRow, RunRow, TestRow};
+use vc_engine::{CheckKind, CheckRow, ExchangeRow, RunRow, TestRow, instance_label};
 
 /// A stored run.
 pub fn run(row: &RunRow) -> wire::Run {
@@ -24,11 +24,11 @@ pub fn run(row: &RunRow) -> wire::Run {
     }
 }
 
-/// A stored test result, labelled as the CLI labels it: `users.crud#rejectsBadEmail [row 2]`.
+/// A stored test result, labelled as the run labelled it: `users.crud#rejectsBadEmail › missing @`.
 pub fn test(row: &TestRow) -> wire::Test {
     wire::Test {
         id: row.test_id.clone(),
-        label: label(row),
+        label: instance_label(row),
         example_row: row.example_row,
         repeat_index: row.repeat_index,
         status: row.status.map_or(wire::TestStatus::Unspecified, wire::TestStatus::from).into(),
@@ -40,13 +40,6 @@ pub fn test(row: &TestRow) -> wire::Test {
         checks: row.checks.iter().map(check).collect(),
         exchanges: row.exchanges.iter().map(exchange).collect(),
     }
-}
-
-fn label(row: &TestRow) -> String {
-    let row_mark = row.example_row.map(|index| format!("row {}", u64::from(index) + 1));
-    let repeat = (row.repeat_index > 0).then(|| format!("repeat {}", u64::from(row.repeat_index) + 1));
-    let marks: Vec<String> = row_mark.into_iter().chain(repeat).collect();
-    if marks.is_empty() { row.test_id.clone() } else { format!("{} [{}]", row.test_id, marks.join(", ")) }
 }
 
 fn check(row: &CheckRow) -> wire::Check {

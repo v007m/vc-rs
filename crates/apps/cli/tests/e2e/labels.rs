@@ -1,4 +1,4 @@
-//! How a run labels what it reports: an example row's `name`, every repeat of a repeated test the
+//! How a run labels what it reports: an example row's `name`, in the history and `vc plan` too, every repeat of a repeated test the
 //! same however it repeats, a skipped test reported inside its file and counted in its totals, and
 //! the `name` of a test, file and profile in the console, the json events, CTRF and `JUnit`.
 
@@ -23,6 +23,15 @@ async fn an_example_row_with_a_name_is_labeled_by_it() {
     labels.sort_by_key(ToString::to_string);
     let expected = ["users.pages#listsEachPage [row 2]", "users.pages#listsEachPage › first page"];
     assert_eq!(labels, expected, "{}", said(&run));
+    let shown = project.vc(&["history", "show", "1", "--json"]).output().unwrap();
+    let stored: Value = serde_json::from_slice(&shown.stdout).unwrap();
+    let mut ids: Vec<Value> = stored["tests"].as_array().unwrap().iter().map(|test| test["id"].clone()).collect();
+    ids.sort_by_key(ToString::to_string);
+    assert_eq!(ids, expected, "the history keeps the label the run printed: {}", said(&shown));
+    let planned = project.vc(&["plan"]).output().unwrap();
+    let tree = String::from_utf8_lossy(&planned.stdout);
+    assert!(tree.contains("  users.pages#listsEachPage › first page\n"), "{tree}");
+    assert!(tree.contains("  users.pages#listsEachPage [row 2]\n"), "{tree}");
 }
 
 #[tokio::test(flavor = "multi_thread")]
