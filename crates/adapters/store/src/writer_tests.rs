@@ -3,7 +3,9 @@ use std::time::{Duration, Instant};
 
 use rusqlite::Connection;
 use tempfile::TempDir;
-use vc_interfaces::{ExchangeRow, HistoryReader, HistoryWriter, IntervalRow, Row, RunEnd, RunId, RunStart, TestRow};
+use vc_interfaces::{
+    ExchangeRow, HistoryReader, HistoryWriter, IntervalRow, Row, RunEnd, RunFilter, RunId, RunStart, TestRow,
+};
 use vc_model::{RunStatus, TestStatus, Totals};
 use vc_testkit::{history_reader_suite, history_writer_suite};
 
@@ -135,5 +137,5 @@ fn a_file_that_is_not_a_database_cannot_be_opened() {
     std::fs::write(&path, b"not sqlite at all, but long enough to have a header of sorts......").unwrap();
     let error = SqliteHistory::open(&path).unwrap_err();
     assert!(error.to_string().contains("history.db"), "{error}");
-    assert!(SqliteHistoryReader::new(&path).runs(1).is_err());
+    assert!(SqliteHistoryReader::new(&path).runs(1, &RunFilter::default()).is_err());
 }

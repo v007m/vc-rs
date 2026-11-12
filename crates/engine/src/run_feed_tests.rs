@@ -2,7 +2,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use tokio::sync::mpsc::{self, Receiver};
-use vc_interfaces::HistoryReader as _;
+use vc_interfaces::{HistoryReader as _, RunFilter};
 use vc_model::{Event, Names, Sequenced};
 use vc_testkit::{FakeTransport, FakeVcs, MemoryHistory, status};
 
@@ -40,7 +40,7 @@ async fn a_watcher_gets_every_event_in_order_then_done_once_the_history_is_writt
         let mut seen = Vec::new();
         while let Some(next) = feed.recv().await {
             if let RunFeed::Done(report) = next {
-                let finished = history.runs(1).unwrap().first().and_then(|row| row.finished_ms);
+                let finished = history.runs(1, &RunFilter::default()).unwrap().first().and_then(|row| row.finished_ms);
                 return (names, seen, report, finished);
             }
             seen.push(next);

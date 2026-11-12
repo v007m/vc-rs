@@ -2,6 +2,7 @@ use std::io::Write;
 use std::path::Path;
 
 use clap::{Args, Subcommand};
+use vc_engine::RunFilter;
 
 use crate::Outcome;
 use crate::project;
@@ -46,7 +47,7 @@ pub fn run(args: &HistoryArgs, project: Option<&Path>) -> anyhow::Result<Outcome
     };
     let engine = &located.engine;
     let (text, json) = match &args.command {
-        None => match engine.history(args.limit) {
+        None => match engine.history(args.limit, &RunFilter::default()) {
             Ok(report) => (report.text(), args.json.then(|| report.json())),
             Err(error) => return Ok(Outcome::Engine(error)),
         },

@@ -11,7 +11,9 @@ use std::sync::Arc;
 
 use vc_adapter_reporters::prune_run_folders;
 use vc_adapter_store::{SqliteHistory, SqliteHistoryReader};
-use vc_interfaces::{HistoryError, HistoryReader, HistoryWriter, Row, RunEnd, RunId, RunRef, RunRow, RunStart};
+use vc_interfaces::{
+    HistoryError, HistoryReader, HistoryWriter, Row, RunEnd, RunFilter, RunId, RunRef, RunRow, RunStart,
+};
 use vc_model::Keep;
 
 use crate::reporting::REPORTS_DIR;
@@ -163,7 +165,7 @@ fn prune_folders(
     let (Some(folders), Keep::Runs(runs)) = (folders, keep) else {
         return Ok(());
     };
-    let stored = reader.runs(usize::try_from(runs).unwrap_or(usize::MAX))?;
+    let stored = reader.runs(usize::try_from(runs).unwrap_or(usize::MAX), &RunFilter::default())?;
     let oldest = stored.last().map(|row| row.id).or_else(|| current.filter(|_| runs == 0));
     let Some(oldest) = oldest else { return Ok(()) };
     let below = current.map_or(oldest, |current| oldest.min(current));

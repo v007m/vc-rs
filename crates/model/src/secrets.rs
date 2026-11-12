@@ -8,6 +8,10 @@ pub const DEFAULT_SECRETS_PROVIDER: &str = "env";
 /// The file that declares secret names, relative to the project root (D165).
 pub const DEFAULT_SECRETS_SCHEMA: &str = ".env.schema";
 
+/// The variable Varlock is told the run's profile in (D306). A schema line declaring it is
+/// Varlock's `@currentEnv` flag, not a secret: [`schema_names`] leaves it out.
+pub const PROFILE_VARIABLE: &str = "VC_PROFILE";
+
 /// `secrets`: the provider that resolves `${secret.*}` and the names `.env.schema` declares.
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[expect(
@@ -99,7 +103,8 @@ impl SchemaNames {
 /// are Varlock's decorators. A name is optional (D280, D303) when a comment line that is only
 /// `# @optional` is in the comment block just above it (a blank or any other line ends the
 /// block), or when the comment after its value is only `# @optional`; a `#` inside a quoted
-/// value is part of the value. Blank lines declare nothing.
+/// value is part of the value. Blank lines and [`PROFILE_VARIABLE`] (Varlock's environment flag,
+/// D306) declare nothing.
 #[must_use]
 pub fn schema_names(text: &str) -> SchemaNames {
     let mut names = SchemaNames::default();
@@ -128,11 +133,12 @@ fn trailing(value: &str) -> Option<&str> {
     rest.split_once('#').map(|(_, comment)| comment)
 }
 
-/// The name and value of a `NAME=value` line, `export ` or not; none for any other line.
+/// The name and value of a `NAME=value` line, `export ` or not; none for any other line and
+/// for [`PROFILE_VARIABLE`].
 fn item(line: &str) -> Option<(&str, &str)> {
     let (name, value) = line.strip_prefix("export ").unwrap_or(line).split_once('=')?;
     let name = name.trim();
-    is_name(name).then_some((name, value))
+    (is_name(name) && name != PROFILE_VARIABLE).then_some((name, value))
 }
 
 /// Whether a comment's whole text is the `@optional` decorator (D303).
@@ -261,6 +267,17 @@ mod tests {
         assert!(secrets.requires("TOKEN"));
         assert!(!secrets.requires("SANDBOX") && secrets.declares("SANDBOX"));
         assert!(!secrets.requires("OTHER"));
+    }
+
+    #[test]
+    fn the_profile_variable_is_varlock_s_environment_flag_not_a_secret() {
+        let text = "# @currentEnv=$VC_PROFILE\n# ---\nVC_PROFILE=dev\nexport VC_PROFILE=qa\nAPI_TOKEN=\n";
+        assert_eq!(schema_names(text).declared, ["API_TOKEN"]);
+        assert_eq!(
+            schema_names("VC_PROFILES=\nVC_PROFILE_X=\n").declared,
+            ["VC_PROFILES", "VC_PROFILE_X"],
+            "only the exact name"
+        );
     }
 
     #[test]

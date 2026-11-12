@@ -6,7 +6,7 @@ use std::path::PathBuf;
 
 use serde_json::{Value, json};
 use vc_adapter_reporters::RunSnapshot;
-use vc_interfaces::{RunRow, TestRow, TestTrend};
+use vc_interfaces::{ApiTrend, RunFilter, RunRow, TestRow, TestTrend};
 use vc_model::{Date, Program};
 
 use crate::history::history_error;
@@ -60,23 +60,34 @@ pub struct StoredRun {
 }
 
 impl Engine {
-    /// The newest `limit` stored runs.
+    /// The newest `limit` stored runs that `filter` matches.
     ///
     /// # Errors
     ///
     /// [`EngineError::History`] when the history cannot be read.
-    pub fn history(&self, limit: usize) -> Result<HistoryReport, EngineError> {
-        let runs = self.history_reader().runs(limit).map_err(|error| history_error(&error))?;
+    pub fn history(&self, limit: usize, filter: &RunFilter) -> Result<HistoryReport, EngineError> {
+        let runs = self.history_reader().runs(limit, filter).map_err(|error| history_error(&error))?;
         Ok(HistoryReport { runs })
     }
 
-    /// How each test did over the newest `window` runs (G15), for the History screens.
+    /// How each test did over the newest `window` runs that `filter` matches, of kind `run`
+    /// when it names none (G15), for the History and Insights screens.
     ///
     /// # Errors
     ///
     /// [`EngineError::History`] when the history cannot be read.
-    pub fn trends(&self, window: usize) -> Result<Vec<TestTrend>, EngineError> {
-        self.history_reader().trends(window).map_err(|error| history_error(&error))
+    pub fn trends(&self, window: usize, filter: &RunFilter) -> Result<Vec<TestTrend>, EngineError> {
+        self.history_reader().trends(window, filter).map_err(|error| history_error(&error))
+    }
+
+    /// How each api did over the same runs as [`Engine::trends`], shared and lifecycle calls
+    /// included: its calls, p50 and p95 and statuses, for Insights' slowest apis.
+    ///
+    /// # Errors
+    ///
+    /// [`EngineError::History`] when the history cannot be read.
+    pub fn api_trends(&self, window: usize, filter: &RunFilter) -> Result<Vec<ApiTrend>, EngineError> {
+        self.history_reader().api_trends(window, filter).map_err(|error| history_error(&error))
     }
 
     /// The stored run `which` names, `last` or a number, with its tests.

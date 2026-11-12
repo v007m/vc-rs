@@ -13,7 +13,7 @@ use vc_model::{Namespace, Part, Template, TemplateValue};
 use crate::config_explain::{BUILT_IN, Layer, every_key, layers_of, unknown};
 use crate::explain::{Explainer, VARS};
 use crate::plan::{self, profile_flag};
-use crate::ports::Layered;
+use crate::ports::{Layered, SecretSource};
 use crate::shown::Shown;
 use crate::{Engine, EngineError, ExplainRequest};
 
@@ -112,8 +112,9 @@ impl Engine {
     /// `function:` rules given them); when they cannot be loaded, one that masks every value
     /// but the built-in ones.
     pub(crate) async fn masker(&self, layered: &mut Layered) -> Masker {
+        let profiles = plan::profiles(&layered.program, layered.settings.profiles.as_ref()).map(|(_, names)| names);
+        let loaded = self.loaded_secrets(&SecretSource::layered(layered, &profiles.unwrap_or_default())).await;
         let program = &layered.program;
-        let loaded = self.loaded_secrets(&program.config.secrets, &layered.environment).await;
         let secrets = loaded.as_ref().map_or_else(|_| Secrets::new(), Clone::clone);
         let hooks = RuleHooks::new(self.hook_runner(program), secrets);
         let rules = MaskRules::standard().with_hooks(hooks, program).for_config(&program.config);

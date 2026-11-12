@@ -1,4 +1,5 @@
-//! `secrets.provider: varlock` (D163): one `varlock load --format json` per run.
+//! `secrets.provider: varlock` (D163): one `varlock load --format json` per run, told the run's
+//! profile as `VC_PROFILE` (D306).
 
 use std::fmt;
 use std::path::PathBuf;
@@ -10,6 +11,7 @@ use tokio::sync::OnceCell;
 use vc_interfaces::{
     CommandError, CommandOutput, CommandRunner, CommandSpec, Secret, SecretError, SecretProvider, SecretQuery, Secrets,
 };
+use vc_model::PROFILE_VARIABLE;
 
 /// The provider's name, in `secrets.provider` and in messages.
 const VARLOCK: &str = "varlock";
@@ -21,10 +23,12 @@ const ARGS: [&str; 3] = ["load", "--format", "json"];
 ///
 /// Varlock reads `.env.schema` in the project root and asks its own providers (1Password,
 /// Vault and the rest). It runs once; every later load in the run reads what that one gave.
+/// Its environment is vc's own plus `VC_PROFILE` when the run has a profile, and nothing else.
 #[derive(Clone)]
 pub struct VarlockSecrets {
     runner: Arc<dyn CommandRunner>,
     root: PathBuf,
+    profile: Option<String>,
     loaded: Arc<OnceCell<Result<Secrets, SecretError>>>,
 }
 
@@ -32,11 +36,20 @@ impl VarlockSecrets {
     /// A provider running Varlock with `runner` in the project `root`.
     #[must_use]
     pub fn new(runner: Arc<dyn CommandRunner>, root: impl Into<PathBuf>) -> Self {
-        Self { runner, root: root.into(), loaded: Arc::default() }
+        Self { runner, root: root.into(), profile: None, loaded: Arc::default() }
+    }
+
+    /// This provider, giving Varlock `profile` as `VC_PROFILE`: the run's last profile (D306).
+    /// `None` leaves it unset; vc never passes `--env`.
+    #[must_use]
+    pub fn for_profile(mut self, profile: Option<String>) -> Self {
+        self.profile = profile;
+        self
     }
 
     async fn all(&self) -> Result<Secrets, SecretError> {
-        let spec = CommandSpec::new(VARLOCK, ARGS).in_dir(&self.root);
+        let mut spec = CommandSpec::new(VARLOCK, ARGS).in_dir(&self.root);
+        spec.env.extend(self.profile.iter().map(|profile| (PROFILE_VARIABLE.to_owned(), profile.clone())));
         let output = self.runner.run(&spec).await.map_err(unavailable)?;
         parse(&output)
     }
@@ -44,7 +57,10 @@ impl VarlockSecrets {
 
 impl fmt::Debug for VarlockSecrets {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("VarlockSecrets").field("root", &self.root).finish_non_exhaustive()
+        f.debug_struct("VarlockSecrets")
+            .field("root", &self.root)
+            .field("profile", &self.profile)
+            .finish_non_exhaustive()
     }
 }
 

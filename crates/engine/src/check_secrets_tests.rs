@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use vc_interfaces::CommandOutput;
 use vc_testkit::{FakeCommands, FakeVcs, MemoryEnvironment, MemorySources};
 
 use super::{SecretCheck, SecretsChecked};
@@ -18,13 +19,27 @@ const VARLOCK: (&str, &[u8]) = (
 );
 
 fn project(config: (&str, &'static [u8])) -> Engine {
+    on(config, FakeCommands::new(|_| None))
+}
+
+fn on(config: (&str, &'static [u8]), commands: FakeCommands) -> Engine {
     let environment = [("SHOP_TOKEN", SECRET), ("SHOP_BLANK", "  ")];
     builder(FakeVcs::default())
         .sources(Arc::new(MemorySources::new(&[config, SCHEMA])))
         .environment(Arc::new(MemoryEnvironment::new(&environment)))
-        .commands(Arc::new(FakeCommands::new(|_| None)))
+        .commands(Arc::new(commands))
         .build()
         .unwrap()
+}
+
+/// Varlock resolving every declared secret, only when vc adds exactly `VC_PROFILE=<profile>` to
+/// its environment: none of the run's vars, environment or `.env`.
+fn varlock_adding(profile: &'static str) -> FakeCommands {
+    FakeCommands::new(move |spec| {
+        let added = [("VC_PROFILE".to_owned(), profile.to_owned())];
+        let stdout = r#"{"SHOP_TOKEN":"t","SHOP_CLIENT_ID":"c","SHOP_BLANK":"b"}"#;
+        (spec.program == "varlock" && spec.env == added).then(|| Ok(CommandOutput::new(Some(0), stdout)))
+    })
 }
 
 fn profile(name: &str) -> ExplainRequest {
@@ -58,4 +73,23 @@ async fn a_provider_that_cannot_load_resolves_none_and_says_why_without_a_value(
 async fn an_unknown_profile_is_refused() {
     let refused = project(CONFIG).check_secrets(&profile("prod")).await.unwrap_err();
     assert!(matches!(refused, EngineError::Setting { .. }), "{refused:?}");
+}
+
+#[tokio::test]
+async fn varlock_is_given_the_last_active_profile_as_vc_profile_and_nothing_else() {
+    const PROFILES: (&str, &[u8]) = (
+        "vibranium.config.yaml",
+        b"syntaxVersion: 2\nsecrets: {provider: varlock}\nvars: {region: us}\nprofiles:\n  - id: dev\n    default: true\n  - id: staging\n",
+    );
+    let given = |profiles: &[&str]| ExplainRequest {
+        profiles: profiles.iter().map(|&p| p.to_owned()).collect(),
+        ..ExplainRequest::default()
+    };
+    let cases: [(&[&str], &'static str); 4] =
+        [(&[], "dev"), (&["staging"], "staging"), (&["staging", "dev"], "dev"), (&["dev,staging"], "staging")];
+    for (profiles, last) in cases {
+        let checked = on(PROFILES, varlock_adding(last)).check_secrets(&given(profiles)).await.unwrap();
+        assert_eq!(checked.error, None, "{profiles:?} gives VC_PROFILE={last}");
+        assert_eq!(states(&checked)[0], ("SHOP_TOKEN", true));
+    }
 }

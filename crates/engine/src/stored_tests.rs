@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use vc_interfaces::{HistoryWriter as _, Row, RunEnd, RunStart, TestRow};
+use vc_interfaces::{HistoryWriter as _, Row, RunEnd, RunFilter, RunStart, TestRow};
 use vc_model::{RunStatus, TestStatus, Totals};
 use vc_testkit::{FakeVcs, MemoryHistory};
 
@@ -40,7 +40,7 @@ fn engine() -> Engine {
 
 #[test]
 fn lists_the_runs_newest_first() {
-    let report = engine().history(10).unwrap();
+    let report = engine().history(10, &RunFilter::default()).unwrap();
     let text = report.text();
     let lines: Vec<&str> = text.lines().collect();
     assert_eq!(lines.len(), 2, "{text}");
@@ -57,7 +57,7 @@ fn lists_the_runs_newest_first() {
 #[test]
 fn hands_screens_the_stored_rows() {
     let engine = engine();
-    let runs = engine.history(10).unwrap();
+    let runs = engine.history(10, &RunFilter::default()).unwrap();
     let ids: Vec<u64> = runs.runs().iter().map(|run| run.id.get()).collect();
     assert_eq!(ids, [2, 1]);
     let shown = engine.stored("1").unwrap();
@@ -115,7 +115,7 @@ fn trends_sum_up_each_test_over_the_newest_runs() {
     history.record(run, vec![Row::Test(flaky)]).unwrap();
     let engine = sample::builder(FakeVcs::default()).history(history.clone(), history).build().unwrap();
     let trend = TestTrend { test_id: "users.crud#listsUsers".into(), results: 1, failed: 0, flaky: 1, mean_ms: 8.0 };
-    assert_eq!(engine.trends(10).unwrap(), vec![trend]);
+    assert_eq!(engine.trends(10, &RunFilter::default()).unwrap(), vec![trend]);
 }
 
 #[test]
