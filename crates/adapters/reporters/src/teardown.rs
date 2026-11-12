@@ -8,10 +8,13 @@ use vc_model::{ActionId, Names, OwnerKey, Plan};
 use crate::collect::StepRecord;
 use crate::view::TeardownView;
 
+/// A teardown block: `afterAll` with its file, or `afterRun` with none.
+type Block = (&'static str, Option<String>);
+
 /// The block each teardown action of a plan belongs to: `afterAll` with its file, or `afterRun`.
 #[derive(Debug, Default)]
 pub struct Teardown {
-    blocks: HashMap<(OwnerKey, ActionId), (&'static str, Option<String>)>,
+    blocks: HashMap<(OwnerKey, ActionId), Block>,
 }
 
 impl Teardown {
