@@ -560,6 +560,22 @@ pub fn vc_interfaces::AgentAction::eq(&self, &Self) -> bool
 impl core::fmt::Debug for vc_interfaces::AgentAction
 pub fn vc_interfaces::AgentAction::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_interfaces::AgentAction
+pub struct vc_interfaces::ApiTrend
+pub vc_interfaces::ApiTrend::api_id: alloc::string::String
+pub vc_interfaces::ApiTrend::calls: u32
+pub vc_interfaces::ApiTrend::method: alloc::string::String
+pub vc_interfaces::ApiTrend::p50_ms: core::option::Option<f64>
+pub vc_interfaces::ApiTrend::p95_ms: core::option::Option<f64>
+pub vc_interfaces::ApiTrend::statuses: alloc::vec::Vec<u16>
+impl core::clone::Clone for vc_interfaces::ApiTrend
+pub fn vc_interfaces::ApiTrend::clone(&self) -> Self
+impl core::cmp::PartialEq for vc_interfaces::ApiTrend
+pub fn vc_interfaces::ApiTrend::eq(&self, &Self) -> bool
+impl core::default::Default for vc_interfaces::ApiTrend
+pub fn vc_interfaces::ApiTrend::default() -> Self
+impl core::fmt::Debug for vc_interfaces::ApiTrend
+pub fn vc_interfaces::ApiTrend::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::ApiTrend
 pub struct vc_interfaces::Approval
 pub vc_interfaces::Approval::created_ms: u64
 pub vc_interfaces::Approval::decided_by: core::option::Option<alloc::string::String>
@@ -1547,6 +1563,7 @@ pub fn vc_interfaces::Environment::var(&self, &str) -> core::option::Option<allo
 pub trait vc_interfaces::FileWatcher: core::marker::Send + core::marker::Sync
 pub fn vc_interfaces::FileWatcher::watch(&self, &vc_interfaces::SourceFilter) -> core::result::Result<std::sync::mpsc::Receiver<alloc::vec::Vec<vc_model::source::SourcePath>>, vc_interfaces::WatchError>
 pub trait vc_interfaces::HistoryReader: core::marker::Send + core::marker::Sync
+pub fn vc_interfaces::HistoryReader::api_trends(&self, usize, &vc_interfaces::RunFilter) -> core::result::Result<alloc::vec::Vec<vc_interfaces::ApiTrend>, vc_interfaces::HistoryError>
 pub fn vc_interfaces::HistoryReader::run(&self, vc_interfaces::RunRef) -> core::result::Result<core::option::Option<vc_interfaces::RunRow>, vc_interfaces::HistoryError>
 pub fn vc_interfaces::HistoryReader::runs(&self, usize, &vc_interfaces::RunFilter) -> core::result::Result<alloc::vec::Vec<vc_interfaces::RunRow>, vc_interfaces::HistoryError>
 pub fn vc_interfaces::HistoryReader::snapshot(&self, vc_interfaces::RunId) -> core::result::Result<core::option::Option<alloc::vec::Vec<u8>>, vc_interfaces::HistoryError>
@@ -1612,6 +1629,7 @@ pub trait vc_interfaces::Transport: core::marker::Send + core::marker::Sync
 pub fn vc_interfaces::Transport::send<'life0, 'life1, 'async_trait>(&'life0 self, vc_model::exchange::RenderedRequest, &'life1 vc_interfaces::SendContext) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::result::Result<vc_model::exchange::Exchange, vc_interfaces::TransportError>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait, 'life1: 'async_trait
 pub trait vc_interfaces::Vcs: core::marker::Send + core::marker::Sync
 pub fn vc_interfaces::Vcs::changed(&self, &str) -> core::result::Result<alloc::vec::Vec<vc_model::source::SourcePath>, vc_interfaces::VcsError>
+pub fn vc_interfaces::api_trends(&[vc_interfaces::ExchangeRow]) -> alloc::vec::Vec<vc_interfaces::ApiTrend>
 pub fn vc_interfaces::checked_ref(&str) -> core::result::Result<&str, vc_interfaces::VcsError>
 pub fn vc_interfaces::content_hash(&[u8]) -> vc_model::source::ContentHash
 pub fn vc_interfaces::resolve_reference(&str, &str) -> core::option::Option<alloc::string::String>

@@ -1,6 +1,6 @@
 use vc_interfaces::{
-    CheckRow, ExchangeRow, HistoryReader, HistoryWriter, Row, RunEnd, RunFilter, RunId, RunRef, RunStart, TestRow,
-    TestTrend,
+    ApiTrend, CheckRow, ExchangeRow, HistoryReader, HistoryWriter, Row, RunEnd, RunFilter, RunId, RunRef, RunStart,
+    TestRow, TestTrend, TimingRow,
 };
 use vc_model::{Keep, RunStatus, TestStatus, Totals};
 
@@ -22,6 +22,7 @@ pub fn history_reader_suite(make: &mut MakeHistory<'_>) {
     leaves_exchanges_out_of_tests(make);
     sums_up_each_test_over_the_newest_runs(make);
     counts_only_the_runs_a_filter_matches(make);
+    sums_up_each_api_over_the_newest_runs(make);
 }
 
 /// A run started with `profiles`, its seed past `i64::MAX` as half of all seeds are.
@@ -226,4 +227,55 @@ fn counts_only_the_runs_a_filter_matches(make: &mut MakeHistory<'_>) {
     assert_eq!(under_staging, Ok(vec![trend(1, 0, 30.0)]), "the window counts `run` runs only, by default");
     assert_eq!(reader.trends(9, &filter(None, None, Some("main"))), Ok(vec![trend(2, 1, 30.0)]));
     assert_eq!(reader.trends(9, &filter(Some("load"), None, None)), Ok(vec![trend(1, 1, 90.0)]));
+}
+
+/// A call of `api`, its ID and method, that got `status` after `total_ms`.
+fn call((api_id, method): (&str, &str), status: Option<u16>, total_ms: f64) -> ExchangeRow {
+    let timing = TimingRow { total_ms, ..TimingRow::default() };
+    let (api_id, method) = (Some(api_id.to_owned()), method.to_owned());
+    ExchangeRow {
+        action: "call".into(),
+        api_id,
+        method,
+        url: "https://api.test/x".into(),
+        status,
+        timing,
+        ..ExchangeRow::default()
+    }
+}
+
+fn sums_up_each_api_over_the_newest_runs(make: &mut MakeHistory<'_>) {
+    let (writer, reader) = make();
+    assert_eq!(reader.api_trends(5, &RunFilter::default()), Ok(Vec::new()));
+    let stored = |start: RunStart, rows: Vec<Row>| {
+        let run = writer.begin(&start).unwrap_or(RunId::new(0));
+        assert_eq!(writer.record(run, rows), Ok(()));
+        assert_eq!(writer.finish(run, end(b"")), Ok(()));
+    };
+    let tested = |calls: Vec<ExchangeRow>| Row::Test(TestRow { exchanges: calls, ..failed("users.crud#a") });
+    let (get, create) = (("users#get", "GET"), ("users#create", "POST"));
+    stored(start(&["dev"]), vec![tested(vec![call(get, Some(200), 100.0)])]);
+    stored(RunStart { kind: "load".into(), ..start(&["dev"]) }, vec![tested(vec![call(get, Some(200), 9e3)])]);
+    let unnamed = ExchangeRow { api_id: None, ..call(get, Some(200), 1.0) };
+    let rows = vec![
+        tested(vec![call(get, Some(500), 30.0), call(get, None, 5e3), unnamed]),
+        Row::Exchange(call(create, Some(201), 10.0)),
+    ];
+    stored(start(&["dev"]), rows);
+    stored(start(&["staging"]), vec![tested(vec![call(get, Some(200), 10.0)])]);
+    let trend = |(api_id, method): (&str, &str), calls, p50_ms, p95_ms, statuses: &[u16]| ApiTrend {
+        api_id: api_id.into(),
+        method: method.into(),
+        calls,
+        p50_ms: Some(p50_ms),
+        p95_ms: Some(p95_ms),
+        statuses: statuses.to_vec(),
+    };
+    let created = trend(create, 1, 10.0, 10.0, &[201]);
+    let newest = vec![created.clone(), trend(get, 3, 10.0, 30.0, &[200, 500])];
+    let message = "the newest 2 `run` runs, lifecycle calls and those with no response counted, unnamed ones left out";
+    assert_eq!(reader.api_trends(2, &RunFilter::default()), Ok(newest), "{message}");
+    let under_dev = vec![created, trend(get, 3, 30.0, 100.0, &[200, 500])];
+    assert_eq!(reader.api_trends(9, &filter(None, Some("dev"), None)), Ok(under_dev));
+    assert_eq!(reader.api_trends(9, &filter(None, None, Some("feat/x"))), Ok(Vec::new()));
 }

@@ -1,16 +1,16 @@
-//! The history and agent RPCs: `ListRuns`, `GetRun`, `Trends`, `ListAgentActions`,
+//! The history and agent RPCs: `ListRuns`, `GetRun`, `Trends`, `ApiTrends`, `ListAgentActions`,
 //! `ListApprovals` and `DecideApproval`, each over its engine method.
 
 use std::sync::Arc;
 
 use vc_contracts::engine::v1 as wire;
-use vc_engine::{Approval, ApprovalId, ApprovalStatus, LoggedAction, RunFilter, TestTrend, Verdict};
+use vc_engine::{ApiTrend, Approval, ApprovalId, ApprovalStatus, LoggedAction, RunFilter, TestTrend, Verdict};
 
 use crate::engine_api::{EngineApi, Rpcs};
 use crate::wire_history::{run, test};
 use crate::{Code, ConnectError};
 
-/// The runs `Trends` reads when the request says 0: the middle of the Insights screen's
+/// The runs `Trends` and `ApiTrends` read when the request says 0: the middle of the Insights screen's
 /// 10, 30 and 100.
 const TREND_WINDOW: usize = 30;
 
@@ -19,6 +19,7 @@ pub fn register(rpcs: Rpcs) -> Rpcs {
     rpcs.unary("ListRuns", list_runs)
         .unary("GetRun", get_run)
         .unary("Trends", trends)
+        .unary("ApiTrends", api_trends)
         .unary("ListAgentActions", list_agent_actions)
         .unary("ListApprovals", list_approvals)
         .unary("DecideApproval", decide_approval)
@@ -48,8 +49,13 @@ async fn get_run(api: Arc<EngineApi>, request: wire::GetRunRequest) -> Result<wi
     Ok(wire::GetRunResponse { run: Some(run(stored.run())), tests: stored.tests().iter().map(test).collect() })
 }
 
+/// `window` as the engine takes it: [`TREND_WINDOW`] for 0.
+fn window(window: u32) -> usize {
+    if window == 0 { TREND_WINDOW } else { limit(window) }
+}
+
 async fn trends(api: Arc<EngineApi>, request: wire::TrendsRequest) -> Result<wire::TrendsResponse, ConnectError> {
-    let window = if request.window == 0 { TREND_WINDOW } else { limit(request.window) };
+    let window = window(request.window);
     let filter = RunFilter { profile: request.profile, branch: request.branch, ..RunFilter::default() };
     let found = api.blocking(move |engine| engine.trends(window, &filter)).await?;
     Ok(wire::TrendsResponse { trends: found.into_iter().map(trend).collect() })
@@ -62,6 +68,27 @@ fn trend(trend: TestTrend) -> wire::TestTrend {
         failed: trend.failed,
         flaky: trend.flaky,
         mean_ms: trend.mean_ms,
+    }
+}
+
+async fn api_trends(
+    api: Arc<EngineApi>,
+    request: wire::ApiTrendsRequest,
+) -> Result<wire::ApiTrendsResponse, ConnectError> {
+    let window = window(request.window);
+    let filter = RunFilter { profile: request.profile, branch: request.branch, ..RunFilter::default() };
+    let found = api.blocking(move |engine| engine.api_trends(window, &filter)).await?;
+    Ok(wire::ApiTrendsResponse { trends: found.into_iter().map(api_trend).collect() })
+}
+
+fn api_trend(trend: ApiTrend) -> wire::ApiTrend {
+    wire::ApiTrend {
+        api_id: trend.api_id,
+        method: trend.method,
+        calls: trend.calls,
+        p50_ms: trend.p50_ms,
+        p95_ms: trend.p95_ms,
+        statuses: trend.statuses.into_iter().map(u32::from).collect(),
     }
 }
 

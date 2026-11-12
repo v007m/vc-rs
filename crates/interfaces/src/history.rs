@@ -7,7 +7,7 @@ use std::fmt;
 
 use vc_model::{Keep, RunStatus, TestStatus, Totals};
 
-use crate::{RunFilter, TestTrend};
+use crate::{ApiTrend, RunFilter, TestTrend};
 
 /// Stores runs as they happen.
 ///
@@ -84,6 +84,15 @@ pub trait HistoryReader: Send + Sync {
     ///
     /// [`HistoryError`] when the store cannot be read.
     fn trends(&self, window: usize, filter: &RunFilter) -> Result<Vec<TestTrend>, HistoryError>;
+
+    /// How each api did over the same runs as [`HistoryReader::trends`]: every call of it, those
+    /// of shared and lifecycle actions included, summed by [`crate::api_trends`] newest call
+    /// first, one trend per api in api ID order.
+    ///
+    /// # Errors
+    ///
+    /// [`HistoryError`] when the store cannot be read.
+    fn api_trends(&self, window: usize, filter: &RunFilter) -> Result<Vec<ApiTrend>, HistoryError>;
 }
 
 /// A stored run's number: 483, shown as `483` and used in `.vibranium/reports/483/`.

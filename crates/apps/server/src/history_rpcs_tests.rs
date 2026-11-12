@@ -1,10 +1,12 @@
+use std::fs;
+
 use vc_contracts::engine::v1 as wire;
 use vc_contracts::results::v1::{RunStatus, TestStatus};
 use vc_engine::{PlanRequest, RunRequest, interrupts};
 
-use super::{decide_approval, get_run, list_approvals, list_runs, trends};
+use super::{api_trends, decide_approval, get_run, list_approvals, list_runs, trends};
 use crate::Code;
-use crate::engine_fixture::project;
+use crate::engine_fixture::{CONFIG, project, serving};
 
 #[tokio::test]
 async fn an_empty_history_lists_no_run_and_has_no_last_one() {
@@ -74,6 +76,29 @@ async fn runs_and_trends_count_only_the_runs_under_the_profile_and_branch_asked_
     assert_eq!(results(trends(api.clone(), window("bare", None)).await.unwrap()), [1]);
     assert_eq!(results(trends(api.clone(), window("staging", None)).await.unwrap()), Vec::<u32>::new());
     assert_eq!(results(trends(api, window("bare", Some("main"))).await.unwrap()), Vec::<u32>::new());
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn api_trends_sum_each_apis_calls_over_the_runs_under_the_profile_asked_for() {
+    let (dir, api) = project();
+    let config = CONFIG.replace("http://127.0.0.1:9", &serving(200, b"[]".to_vec()));
+    fs::write(dir.path().join("vibranium.config.yaml"), config).unwrap();
+    for profile in ["dev", "bare"] {
+        let plan = PlanRequest { profiles: vec![profile.to_owned()], ..PlanRequest::default() };
+        api.engine().run(&RunRequest { plan, ..RunRequest::default() }, interrupts().1).await.unwrap();
+    }
+    let under = |profile: Option<&str>| wire::ApiTrendsRequest {
+        profile: profile.map(str::to_owned),
+        ..wire::ApiTrendsRequest::default()
+    };
+    let found = api_trends(api.clone(), under(None)).await.unwrap();
+    let [listed] = found.trends.as_slice() else { panic!("{found:?}") };
+    assert_eq!((listed.api_id.as_str(), listed.method.as_str(), listed.calls), ("users#list", "GET", 2));
+    assert_eq!(listed.statuses, [200]);
+    assert!(listed.p50_ms.is_some() && listed.p50_ms <= listed.p95_ms, "{listed:?}");
+    let [bare] = api_trends(api.clone(), under(Some("bare"))).await.unwrap().trends.try_into().unwrap();
+    assert_eq!(bare.calls, 1);
+    assert_eq!(api_trends(api, under(Some("staging"))).await.unwrap().trends, []);
 }
 
 #[tokio::test]

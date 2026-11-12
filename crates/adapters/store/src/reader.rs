@@ -3,7 +3,8 @@ use std::path::{Path, PathBuf};
 
 use rusqlite::{Connection, OptionalExtension, Row as SqlRow, params};
 use vc_interfaces::{
-    CheckRow, HistoryError, HistoryReader, RunFilter, RunId, RunRef, RunRow, RunStart, TestRow, TestTrend,
+    ApiTrend, CheckRow, ExchangeRow, HistoryError, HistoryReader, RunFilter, RunId, RunRef, RunRow, RunStart, TestRow,
+    TestTrend, TimingRow, api_trends,
 };
 use vc_model::{TestStatus, Totals};
 
@@ -22,6 +23,16 @@ const TREND_KIND: &str = "run";
 const MATCHING: &str = "(?2 IS NULL OR kind = ?2)
     AND (?3 IS NULL OR EXISTS (SELECT 1 FROM json_each(runs.profiles) WHERE value = ?3))
     AND (?4 IS NULL OR git_branch = ?4)";
+
+/// The calls of an api in the newest `?1` runs [`MATCHING`] matches, newest first: the window's run
+/// IDs bound the scan, so only their exchanges are read (`exchanges_by_run`).
+fn api_calls() -> String {
+    format!(
+        "SELECT api_id, method, status, total_ms FROM exchanges
+         WHERE api_id IS NOT NULL AND run_id IN (SELECT id FROM runs WHERE {MATCHING} ORDER BY id DESC LIMIT ?1)
+         ORDER BY id DESC"
+    )
+}
 
 /// Reads the history at a path. Each query opens its own read-only connection, so readers run
 /// beside the writer and other processes; a missing file is an empty history.
@@ -112,6 +123,21 @@ impl HistoryReader for SqliteHistoryReader {
             statement.query_map(parameters, trend_row)?.collect()
         })
     }
+
+    fn api_trends(&self, window: usize, filter: &RunFilter) -> Result<Vec<ApiTrend>, HistoryError> {
+        let calls: Vec<ExchangeRow> = self.read(|connection| {
+            let mut statement = connection.prepare(&api_calls())?;
+            let kind = filter.kind.as_deref().unwrap_or(TREND_KIND);
+            statement.query_map(params![window, kind, filter.profile, filter.branch], call_row)?.collect()
+        })?;
+        Ok(api_trends(&calls))
+    }
+}
+
+/// A call as [`api_trends`] reads it: its api, method, status and total time.
+fn call_row(row: &SqlRow<'_>) -> rusqlite::Result<ExchangeRow> {
+    let timing = TimingRow { total_ms: row.get::<_, Option<f64>>(3)?.unwrap_or_default(), ..TimingRow::default() };
+    Ok(ExchangeRow { api_id: row.get(0)?, method: row.get(1)?, status: row.get(2)?, timing, ..ExchangeRow::default() })
 }
 
 fn run_row(row: &SqlRow<'_>) -> rusqlite::Result<RunRow> {
@@ -188,3 +214,7 @@ fn checks(connection: &Connection, run: RunId) -> rusqlite::Result<BTreeMap<i64,
     }
     Ok(checks)
 }
+
+#[cfg(test)]
+#[path = "reader_tests.rs"]
+mod tests;
