@@ -40,7 +40,7 @@ mod tests {
     use vc_interfaces::Random;
     use vc_testkit::random_suite;
 
-    use super::SeededRandom;
+    use super::{MAX_FRESH_SEED, SeededRandom};
 
     #[test]
     fn seeded_random_meets_the_random_contract() {
@@ -52,5 +52,10 @@ mod tests {
         let random = SeededRandom::new(1_234_567);
         assert_eq!(random.next_u64(), 6_457_827_717_110_365_317);
         assert_eq!(random.next_u64(), 3_203_168_211_198_807_973);
+    }
+
+    #[test]
+    fn a_fresh_seed_is_capped_at_javascript_s_largest_safe_integer() {
+        assert_eq!(MAX_FRESH_SEED, 9_007_199_254_740_991, "`Number.MAX_SAFE_INTEGER`");
     }
 }
