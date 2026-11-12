@@ -74,13 +74,13 @@ const TESTS: MessageInitShape<typeof TestSchema>[] = [
   },
 ];
 
-function setup() {
+function setup(listed = RUNS) {
   const asked: { lists: number[]; gets: bigint[] } = { lists: [], gets: [] };
   const runs: string[][] = [];
   const engine = fakeEngine({
     listRuns: ({ limit }) => {
       asked.lists.push(limit);
-      return { runs: RUNS };
+      return { runs: listed };
     },
     getRun: ({ id }) => {
       asked.gets.push(id ?? 0n);
@@ -95,8 +95,8 @@ function setup() {
   return { history, session: new RunSession(engine), asked, runs, user: userEvent.setup() };
 }
 
-async function rendered() {
-  const s = setup();
+async function rendered(listed = RUNS) {
+  const s = setup(listed);
   await s.history.load();
   render(RunsScreen, { history: s.history, session: s.session });
   return s;
@@ -148,6 +148,35 @@ describe('RunsScreen', () => {
     await user.click(screen.getByRole('button', { name: 'Run #7, failed' }));
     await user.click(screen.getByRole('button', { name: 'Back to the current run' }));
     expect(screen.getByRole('button', { name: 'Run all tests' })).toBeTruthy();
+  });
+
+  it('filters the recent runs by a selector they used, and lists them all again', async () => {
+    const smoke = { ...RUNS[0], id: 5n, status: RunStatus.PASSED };
+    const { user } = await rendered([...RUNS, smoke]);
+    const selectors = screen.getByRole('list', { name: 'Selectors used' });
+    const uses = within(selectors).getAllByRole('button');
+    expect(uses.map((use) => use.getAttribute('aria-label'))).toEqual([
+      'tag:smoke, 2 runs',
+      'all tests, 1 run',
+    ]);
+    const recent = () =>
+      within(screen.getByRole('list', { name: 'Recent runs' }))
+        .getAllByRole('button')
+        .map((run) => run.getAttribute('aria-label'));
+    await user.click(within(selectors).getByRole('button', { name: 'tag:smoke, 2 runs' }));
+    expect(recent()).toEqual(['Run #7, failed', 'Run #5, passed']);
+    expect(uses[0]?.getAttribute('aria-pressed')).toBe('true');
+    await user.click(within(selectors).getByRole('button', { name: 'all tests, 1 run' }));
+    expect(recent()).toEqual(['Run #6, passed']);
+    expect(uses[0]?.getAttribute('aria-pressed')).toBe('false');
+    await user.click(within(selectors).getByRole('button', { name: 'all tests, 1 run' }));
+    expect(recent()).toEqual(['Run #7, failed', 'Run #6, passed', 'Run #5, passed']);
+    expect(screen.queryByRole('button', { name: /^Run tag:smoke/ })).toBeNull();
+  });
+
+  it('shows no selector filters while every recent run used the same selector', async () => {
+    await rendered([RUNS[0] ?? {}]);
+    expect(screen.queryByRole('list', { name: 'Selectors used' })).toBeNull();
   });
 
   it('says why the history could not be read', async () => {

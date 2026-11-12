@@ -142,7 +142,7 @@ If the file changed on disk after you opened it, Save stops and asks you to choo
 
 ## Runs
 
-The live view of the current run. With no run yet, it offers **Run all tests**.
+The live view of the current run. With no run yet, it offers **Run all tests**. While a run is going, **Runs** in the side nav says **1 live**.
 
 - The header shows the run number, its status (Running, Passed, Failed, Cancelled or Stopped by an error) and when it started.
 - A progress bar counts passed, failed, blocked, flaky and skipped tests.
@@ -166,6 +166,8 @@ Buttons:
 - for the selected test: why it failed, how many attempts it took, the action that blocked it or why it was skipped, its checks, and each request and response.
 
 Secret values are masked, as the history keeps them. **Re-run failed** runs that run's failed and blocked tests again. **Back to the current run** returns to the live view.
+
+When the recent runs used more than one selector, **Selectors used** lists each one with how many runs used it (a run of everything shows as `all tests`). Click a selector to list only its runs, and click it again to list them all. The history keeps a selector as one line, so it filters the list only; start a run with that selector from **Tests** or `vc run`.
 
 ## Insights
 

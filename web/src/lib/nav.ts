@@ -5,6 +5,8 @@ export interface NavItem {
   readonly route: RouteId;
   readonly label: string;
   readonly icon: readonly string[];
+  /** Whether the item counts the runs going on, as `1 live` beside its label. */
+  readonly live?: true;
 }
 
 /** The screens built so far, in the mockups' nav order (brief-shell-v2). */
@@ -24,6 +26,7 @@ export const navItems: readonly NavItem[] = [
     route: '/runs',
     label: 'Runs',
     icon: ['M8 2a6 6 0 1 0 0 12A6 6 0 0 0 8 2z', 'M6.5 5.5v5l4-2.5z'],
+    live: true,
   },
   { route: '/insights', label: 'Insights', icon: ['M2.5 13.5h11M4.5 11V8M8 11V4M11.5 11V6.5'] },
   {
@@ -44,6 +47,11 @@ export const navItems: readonly NavItem[] = [
     ],
   },
 ];
+
+/** What `item` says beside its label while `running` runs go on (the web UI has one at most). */
+export function liveCount(item: NavItem, running: number): string | undefined {
+  return item.live && running > 0 ? `${running} live` : undefined;
+}
 
 /** Whether `pathname` is `route` or a page under it. */
 export function isCurrent(pathname: string, route: RouteId): boolean {
