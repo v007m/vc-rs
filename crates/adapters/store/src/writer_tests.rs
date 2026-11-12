@@ -4,7 +4,8 @@ use std::time::{Duration, Instant};
 use rusqlite::Connection;
 use tempfile::TempDir;
 use vc_interfaces::{
-    ExchangeRow, HistoryReader, HistoryWriter, IntervalRow, Row, RunEnd, RunFilter, RunId, RunStart, TestRow,
+    ExchangeRow, FindingKind, FindingRow, HistoryReader, HistoryWriter, IntervalRow, Row, RunEnd, RunFilter, RunId,
+    RunStart, TestRow,
 };
 use vc_model::{RunStatus, TestStatus, Totals};
 use vc_testkit::{history_reader_suite, history_writer_suite};
@@ -117,6 +118,45 @@ fn a_load_interval_is_stored_with_its_histogram() {
         })
         .unwrap();
     assert_eq!(stored, (run.get().cast_signed(), "a.f#browses".to_owned(), 3, 40, 2, vec![1, 2, 3]));
+}
+
+/// A stored sample: its URL, run, test result and its finding's kind.
+type Sampled = (String, i64, Option<i64>, String);
+
+#[test]
+fn an_error_kind_s_samples_are_the_run_s_exchanges_under_its_finding_and_go_with_the_run() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("history.db");
+    let writer = SqliteHistory::open(&path).unwrap();
+    let run = writer.begin(&RunStart { kind: "load".into(), ..RunStart::default() }).unwrap();
+    let sample = |url: &str| ExchangeRow { action: "getUser".into(), url: url.into(), ..ExchangeRow::default() };
+    let breach = FindingRow { shown: "breached errorRate".into(), ..FindingRow::default() };
+    let error = FindingRow {
+        kind: FindingKind::Error,
+        shown: "errors users#get 503 V5101 × 2".into(),
+        samples: vec![sample("http://x/users/1"), sample("http://x/users/2")],
+        ..FindingRow::default()
+    };
+    writer.record(run, vec![Row::Finding(breach), Row::Finding(error)]).unwrap();
+    let end = RunEnd { status: RunStatus::Failed, totals: Totals::default(), finished_ms: 1, snapshot: Vec::new() };
+    writer.finish(run, end).unwrap();
+    let connection = Connection::open(&path).unwrap();
+    let mut statement = connection
+        .prepare(
+            "SELECT e.url, e.run_id, e.test_result_id, f.kind FROM exchanges e
+             JOIN load_findings f ON f.id = e.load_finding_id ORDER BY e.id",
+        )
+        .unwrap();
+    let stored: Vec<Sampled> = statement
+        .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)))
+        .unwrap()
+        .collect::<Result<_, _>>()
+        .unwrap();
+    let ours = |url: &str| (url.to_owned(), run.get().cast_signed(), None, "error".to_owned());
+    assert_eq!(stored, [ours("http://x/users/1"), ours("http://x/users/2")]);
+    drop(statement);
+    assert_eq!(writer.prune(vc_model::Keep::Runs(0)).unwrap(), 1);
+    assert_eq!((count(&path, "load_findings"), count(&path, "exchanges")), (0, 0), "a pruned run's samples go with it");
 }
 
 #[test]

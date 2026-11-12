@@ -4,7 +4,7 @@
 use std::time::Duration;
 
 use async_trait::async_trait;
-use vc_model::{ApiId, TestId};
+use vc_model::{ActionId, ApiId, Exchange, TestId};
 
 /// Runs single instances of a program's tests for a load run.
 ///
@@ -70,6 +70,12 @@ pub struct IterationFailure {
     pub code: Option<String>,
     /// What went wrong.
     pub message: String,
+    /// The failing action; `None` when the failure is not at one (a test that is not in the plan).
+    pub action: Option<ActionId>,
+    /// The failing action's last exchange, whole and **unmasked**; `None` when it got no response.
+    /// The engine keeps a few of each error kind and masks them with the run's redactor when the
+    /// run closes (D326), so it never reaches an event, a log or an error message.
+    pub exchange: Option<Box<Exchange>>,
 }
 
 /// One request an iteration sent.

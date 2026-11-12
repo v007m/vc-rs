@@ -49,7 +49,7 @@ pub use folders::{RUN_MARKER, mark_run_folder, prune_run_folders};
 pub use format::{Format, FormatRegistry, HtmlLayout};
 pub use noop::NoopReporter;
 pub use plugin::PluginReporter;
-pub use record::Recorder;
+pub use record::{Recorder, failed_exchange};
 pub use registry::{ReporterFactory, ReporterRegistry};
 #[doc(hidden)]
 pub use sample::sample_snapshot;

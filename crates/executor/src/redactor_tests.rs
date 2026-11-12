@@ -235,6 +235,25 @@ async fn masks_an_exchange_url_headers_and_both_bodies() {
 }
 
 #[tokio::test]
+async fn a_value_once_hidden_stays_masked_whatever_is_hidden_after_it() {
+    let redactor = Redactor::new(&[]);
+    redactor.hide_values(["tok-old-4821"]);
+    let sent = exchange("https://api.test/a?old=tok-old-4821&new=tok-new-9357", "tok-old-4821 tok-new-9357");
+    redactor.hide_values(["tok-new-9357"]);
+    redactor.hide_headers(["x-key"]);
+    redactor.hide_fields(["pin"]);
+    redactor.hide_values(Vec::<String>::new());
+    let masked = redactor.exchange(sent).await;
+    let (request, response) = (&masked.request, &masked.response);
+    let uri = request.uri.to_string();
+    assert!(!uri.contains("tok-old") && !uri.contains("tok-new"), "{uri}");
+    let both = format!("{MASKED} {MASKED}");
+    for body in [&request.body, &response.body] {
+        assert_eq!(String::from_utf8_lossy(body), both, "the old value as masked as the new");
+    }
+}
+
+#[tokio::test]
 async fn an_exchange_and_a_check_masked_alone_are_masked_as_their_events_are() {
     let redactor = configured();
     let (action, owner) = (ActionId::new(0), OwnerKey::Run);

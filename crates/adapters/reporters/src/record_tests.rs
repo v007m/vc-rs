@@ -1,5 +1,5 @@
 use vc_interfaces::{Row, TestRow};
-use vc_model::{Event, TestStatus};
+use vc_model::{Event, Names, TestStatus};
 
 use crate::testing::{self, Capture};
 
@@ -96,4 +96,31 @@ fn keeps_the_config_s_project_for_the_reports() {
     let snapshot = crate::Recorder::new(&context).finish(crate::RunFacts::of(7, &testing::summary()));
     assert_eq!(snapshot.project(), "shop");
     assert_eq!(testing::snapshot().project(), "vibranium", "no `project`, the fallback");
+}
+
+#[test]
+fn a_load_run_s_failed_exchange_is_named_and_cut_as_a_failed_test_s() {
+    let config = "syntaxVersion: 2\nprofiles: [{id: dev, default: true}]\nvars: {baseUrl: 'http://x'}\n";
+    let small = format!("{config}history: {{maxBodySize: 4b}}\n");
+    for (config, kept) in [(config.to_owned(), &b"{\"id\":1}"[..]), (small, &b"{\"id"[..])] {
+        let (program, plan) = testing::project_of(&[
+            ("vibranium.config.yaml", &config),
+            (
+                "services/users/users.api.yaml",
+                "baseUrl: ${var.baseUrl}\napis:\n  - id: create\n    method: POST\n    path: /users\n",
+            ),
+            (
+                "services/users/crud.test.yaml",
+                "beforeAll:\n  - id: seed\n    call: users#create\ntests:\n  - id: getsOne\n    call: users#create\n",
+            ),
+        ]);
+        let seed = plan.files[0].before_all[0].action;
+        let names = Names::new(program, &plan);
+        let row = crate::failed_exchange(&names, Some(seed), &testing::exchange("{}", "{\"id\":1}"));
+        assert_eq!((row.action.as_str(), row.api_id.as_deref(), row.status), ("seed", Some("users#create"), Some(201)));
+        assert_eq!(row.response_body.as_deref(), Some(kept), "a failure keeps its bodies, cut at maxBodySize");
+        assert_eq!(row.body_truncated, kept.len() == 4);
+        let unnamed = crate::failed_exchange(&names, None, &testing::exchange("{}", ""));
+        assert_eq!((unnamed.action.as_str(), unnamed.api_id), ("", None));
+    }
 }

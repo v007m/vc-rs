@@ -1,7 +1,11 @@
-use serde_json::json;
-use vc_interfaces::{FindingKind, FindingRow, Row};
+use std::sync::Arc;
 
-use super::{rows, text};
+use serde_json::json;
+use vc_executor::Redactor;
+use vc_interfaces::{FindingKind, FindingRow, Row};
+use vc_model::{ActionId, ConnectionInfo, Exchange, Names, Plan, Program, RenderedRequest, Timing};
+
+use super::{masked, rows, text};
 use crate::{ErrorKind, LoadBreach, LoadReport};
 
 fn report() -> LoadReport {
@@ -25,7 +29,11 @@ fn report() -> LoadReport {
 }
 
 fn found(report: &LoadReport) -> Vec<FindingRow> {
-    rows(report).into_iter().filter_map(|row| if let Row::Finding(found) = row { Some(found) } else { None }).collect()
+    let names = Names::new(Arc::new(Program::default()), &Plan::default());
+    rows(report, &names, Vec::new())
+        .into_iter()
+        .filter_map(|row| if let Row::Finding(found) = row { Some(found) } else { None })
+        .collect()
 }
 
 #[test]
@@ -55,4 +63,24 @@ fn a_finding_reads_as_json_with_nulls_for_what_it_lacks() {
         "status": null, "code": null, "count": null, "actual": 45.5,
         "shown": "breached users.crud#getsUser: p95 at 45.5 ms (lt 30 ms)"});
     assert_eq!(breach, expected);
+}
+
+#[tokio::test]
+async fn samples_are_masked_kind_by_kind_and_dropped_when_no_redactor_is_known() {
+    let exchange = |at: &str| Exchange {
+        request: RenderedRequest::new(http::Method::GET, format!("http://x/{at}").parse().unwrap()),
+        response: vc_testkit::status(500),
+        timing: Timing::default(),
+        connection: ConnectionInfo::default(),
+    };
+    let samples = || vec![vec![(Some(ActionId::new(1)), Box::new(exchange("tok-5821")))], vec![], vec![]];
+    let redactor = Redactor::new(&[]);
+    redactor.hide_values(["tok-5821"]);
+    let kept = masked(Some(&redactor), samples()).await;
+    let urls: Vec<Vec<String>> =
+        kept.iter().map(|kind| kind.iter().map(|(_, exchange)| exchange.request.uri.to_string()).collect()).collect();
+    assert_eq!(urls.len(), 3, "one list per kind, in order");
+    assert!(urls[0].len() == 1 && !urls[0][0].contains("tok-5821"), "{urls:?}");
+    assert_eq!(kept[0][0].0, Some(ActionId::new(1)));
+    assert!(masked(None, samples()).await.is_empty(), "never kept unmasked");
 }

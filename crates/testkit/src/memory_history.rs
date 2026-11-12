@@ -80,7 +80,9 @@ impl State {
                 drop(reply.send(api_trends(&calls)));
             }
             Request::Findings(run, reply) => {
-                drop(reply.send(self.find(RunRef::Id(run)).map(|run| run.findings.clone()).unwrap_or_default()));
+                let findings = self.find(RunRef::Id(run)).map(|run| run.findings.clone()).unwrap_or_default();
+                let read = findings.into_iter().map(|finding| FindingRow { samples: Vec::new(), ..finding });
+                drop(reply.send(read.collect()));
             }
         }
     }

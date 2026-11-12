@@ -4,10 +4,10 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use vc_diagnostics::Code;
-use vc_executor::{CancelTree, EventBus, ExecutorError, IterationSetup, ProgramIterations, RunOptions};
+use vc_executor::{CancelTree, EventBus, ExecutorError, IterationSetup, ProgramIterations, Redactor, RunOptions};
 use vc_interfaces::{Random, RunEnd, RunStart, RunSummary, Secrets};
 use vc_loadtest::{Ending, LoadError, LoadOutcome};
-use vc_model::{ActionId, ActionKind, LoadScenario, Program, RunStatus, Totals};
+use vc_model::{ActionId, ActionKind, LoadScenario, Names, Program, RunStatus, Totals};
 
 use crate::load_findings;
 use crate::load_live::{self, Live};
@@ -37,6 +37,8 @@ struct Session {
     report: LoadReport,
     /// What the run's end sends its alerts with.
     alerting: Option<Alerting>,
+    /// The run's redactor, once its inputs are known: what its close masks the kept samples with.
+    redactor: Option<Arc<Redactor>>,
 }
 
 impl Engine {
@@ -78,6 +80,7 @@ impl Engine {
         let inputs = self.inputs(&session.prepared, (Arc::clone(&session.random), run_id, reached)).await;
         let inputs = inputs.with_secrets(secrets).with_started_at(session.started_ms);
         let cx = Arc::new(self.action_cx(&session.prepared, (inputs, plugins))?);
+        session.redactor = Some(Arc::clone(&cx.redactor));
         let full_checks = session.scenario.full_checks;
         let setup = IterationSetup { bus: EventBus::spawn(), cancel: session.root.clone(), full_checks };
         let prepared = ProgramIterations::prepare(cx, Arc::clone(&session.prepared.plan), setup);
@@ -108,7 +111,7 @@ impl Engine {
         let (name, id) = (scenario.name.clone(), request.scenario.clone());
         let report = LoadReport { scenario: id, name, seed, ..LoadReport::default() };
         let (root, started_ms) = (CancelTree::new(RunOptions::default().grace), self.clock.now_ms());
-        Ok(Session { prepared, scenario, seed, random, root, started_ms, report, alerting: None })
+        Ok(Session { prepared, scenario, seed, random, root, started_ms, report, alerting: None, redactor: None })
     }
 
     /// Starts recording the load run; a history that cannot be opened leaves it unrecorded,
@@ -142,12 +145,15 @@ impl Engine {
             Ok(Some(outcome)) => load_report::fill(&mut report, &session.prepared.program, outcome),
             Ok(None) | Err(_) => report.status(),
         };
-        report.error_kinds = live.error_kinds(&session.prepared.program);
+        let (kinds, samples): (Vec<_>, Vec<_>) = live.error_kinds(&session.prepared.program).into_iter().unzip();
+        report.error_kinds = kinds;
         report.notices.extend(live.problem.take());
         let (totals, finished_ms) = (iterations(&report), self.clock.now_ms());
         let end = RunEnd { status, totals, finished_ms, snapshot: Vec::new() };
         if let Some(recording) = live.recording.take() {
-            let recorded = recording.record(load_findings::rows(&report));
+            let samples = load_findings::masked(session.redactor.as_deref(), samples).await;
+            let names = Names::new(Arc::clone(&session.prepared.program), &session.prepared.plan);
+            let recorded = recording.record(load_findings::rows(&report, &names, samples));
             let closed = recording.close(end, session.prepared.program.config.history.keep).await;
             report.notices.extend(recorded.and(closed).err().map(|error| format!("history: {error}")));
         }
