@@ -10,7 +10,8 @@ import {
   type RunSchema,
   type TestSchema,
 } from '#lib/gen/vibranium/results/v1/results_pb.ts';
-import { fakeEngine } from '#lib/testing/engine.ts';
+import type { RunEvent } from '#lib/gen/vibranium/engine/v1/events_pb.ts';
+import { events, fakeEngine } from '#lib/testing/engine.ts';
 import { RunSession } from '#lib/run/session.svelte.ts';
 import { RunHistory } from './history.svelte.ts';
 import { enginePort } from './port.ts';
@@ -74,7 +75,7 @@ const TESTS: MessageInitShape<typeof TestSchema>[] = [
   },
 ];
 
-function setup(listed = RUNS) {
+function setup(listed = RUNS, stream: RunEvent[] = []) {
   const asked: { lists: number[]; gets: bigint[] } = { lists: [], gets: [] };
   const runs: string[][] = [];
   const engine = fakeEngine({
@@ -86,17 +87,17 @@ function setup(listed = RUNS) {
       asked.gets.push(id ?? 0n);
       return { run: RUNS[0], tests: TESTS };
     },
-    // eslint-disable-next-line require-yield -- the run ends without events
     async *run(request) {
       runs.push(request.selection?.ids ?? []);
+      for (const event of stream) yield { event };
     },
   });
   const history = new RunHistory(enginePort(engine));
   return { history, session: new RunSession(engine), asked, runs, user: userEvent.setup() };
 }
 
-async function rendered(listed = RUNS) {
-  const s = setup(listed);
+async function rendered(listed = RUNS, stream: RunEvent[] = []) {
+  const s = setup(listed, stream);
   await s.history.load();
   render(RunsScreen, { history: s.history, session: s.session });
   return s;
@@ -141,6 +142,25 @@ describe('RunsScreen', () => {
     expect(runs).toEqual([['users.crud#createsUser', 'users.crud#deletesUser']]);
     expect(screen.queryByRole('heading', { name: 'Run #7' })).toBeNull();
     await vi.waitFor(() => expect(asked.lists).toEqual([20, 20]));
+  });
+
+  it('opens the record of the live run once it ends, built from the history, not its HTML file', async () => {
+    const htmlReport = '.vibranium/reports/7/index.html';
+    const ended = events(
+      {
+        case: 'runFinished',
+        value: { status: RunStatus.FAILED, totals: { passed: 1, failed: 1 } },
+      },
+      { case: 'report', value: { exit: 1, run: 7n, htmlReport } },
+    );
+    const { user, asked } = await rendered(RUNS, ended);
+    await user.click(screen.getByRole('button', { name: 'Run all tests' }));
+    await user.click(await screen.findByRole('button', { name: 'Open report' }));
+    expect(asked.gets).toEqual([7n]);
+    expect(screen.getByRole('heading', { name: 'Run #7' })).toBeTruthy();
+    expect(screen.getByText('status was 500, expected 201')).toBeTruthy();
+    expect(screen.getByRole('option', { name: /deletesUser/ })).toBeTruthy();
+    expect(document.querySelector('iframe, object, embed, a[href]')).toBeNull();
   });
 
   it('goes back to the live run', async () => {

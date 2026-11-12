@@ -45,6 +45,13 @@ describe('run model', () => {
     expect(view.counts.passed).toBe(4);
   });
 
+  it('takes the history id and the HTML report path from the report, and a new run forgets them', () => {
+    const htmlReport = '.vibranium\\reports\\3\\index.html';
+    const view = play(startingRun(), { case: 'report', value: { exit: 0, run: 3n, htmlReport } });
+    expect([view.runId, view.exit, view.htmlReport]).toEqual([3n, 0, htmlReport]);
+    expect(startingRun().htmlReport).toBeUndefined();
+  });
+
   it('keeps the last lines of a long stream and counts the rest', () => {
     const files = Array.from({ length: eventCap * 5 }, (_, i) => ({
       case: 'fileStarted' as const,

@@ -36,7 +36,7 @@
     {#if history.open}
       <StoredRunView stored={history.open} {history} {session} />
     {:else}
-      <RunPanel {session} />
+      <RunPanel {session} onopen={(id) => void history.show(id)} />
     {/if}
   </div>
 </div>

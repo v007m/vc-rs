@@ -280,6 +280,11 @@ pub struct RunReport {
     /// The run's number in the history, when it was recorded.
     #[prost(uint64, optional, tag="4")]
     pub run: ::core::option::Option<u64>,
+    /// Where the run's HTML report was written, relative to the project root, when it wrote one
+    /// there (`.vibranium/reports/12/index.html`). Display-only text: the server never serves
+    /// the file (D320).
+    #[prost(string, optional, tag="5")]
+    pub html_report: ::core::option::Option<::prost::alloc::string::String>,
 }
 /// Which tests or apis to act on, as `vc run` selects them.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]

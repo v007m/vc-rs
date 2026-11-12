@@ -154,8 +154,11 @@ Buttons:
 | Button | When | What it does |
 | --- | --- | --- |
 | **Stop and tear down** | While running | Stops the run like one Ctrl-C in `vc run`: cleanups still run |
+| **Open report** | After a run the history recorded | Shows that run's tests, failures and totals in the app, as **Recent runs** does |
 | **Re-run failed** | After a failed run | Runs the failed tests again |
 | **Run again** | After a run | Starts the same run again |
+
+When the run wrote an HTML report (`--report html`, or `html` in `reports.formats`), its path in the project (such as `.vibranium/reports/12/index.html`) appears under the header with **Copy path**. A report written outside the project folder isn't named. The web UI doesn't open the file itself; open it from your file browser.
 
 ### Recent runs
 

@@ -605,6 +605,7 @@ Round 53 (12 November 2026; lane C, under the standing delegation):
 | # | Topic | Decision | Supersedes |
 | --- | --- | --- | --- |
 | D319 | The web UI follows the system's dark mode | `tokens.css` redefines every token under `@media (prefers-color-scheme: dark)`, the same names with dark values, and sets `color-scheme`; components use tokens, not light-only colours (the primary button's text is `--panel`, its hover `--inkHover`). There is no in-app switch. The mockups' fonts stay parked | D245 (the dark-theme part) |
+| D320 | The web UI's **Open report** is an in-app page | Don't serve the stored HTML file, and don't relax the CSP or add a report CSP. **Open report** opens an in-app run detail page that the Svelte UI builds from `GetRun` data: the tests with their labels and statuses, the failures with their redacted messages, and the totals. It adds no new route that reads files, so there is no path-traversal surface, and it adds no inline script. If the html reporter wrote a file for that run, its path is shown as copyable text only (`RunReport.html_report`, display-only, relative to the project root, and not sent at all for a file outside it, so no home or scratch path reaches the wire) | — |
 
 Round 55 (12 November 2026; vc-worker1, under the standing delegation):
 

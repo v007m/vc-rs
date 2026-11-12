@@ -103,6 +103,38 @@ describe('RunPanel', () => {
     expect(seen).toEqual([false, true]);
   });
 
+  it('opens the ended run from the history and names its HTML report as text to copy', async () => {
+    const path = '.vibranium/reports/12/index.html';
+    const reported = [
+      ...failingRun.slice(0, -1),
+      ...events({ case: 'report', value: { exit: 1, run: 12n, htmlReport: path } }),
+    ];
+    const opened: number[] = [];
+    const user = userEvent.setup();
+    render(RunPanel, { session: sessionOver(reported), onopen: (id: number) => opened.push(id) });
+    await user.click(screen.getByRole('button', { name: 'Run all tests' }));
+    await user.click(await screen.findByRole('button', { name: 'Open report' }));
+    expect(opened).toEqual([12]);
+    const file = screen.getByText(path);
+    expect(file.tagName).toBe('CODE');
+    expect(screen.queryByRole('link')).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Copy path' }));
+    expect(await navigator.clipboard.readText()).toBe(path);
+    expect(screen.getByRole('button', { name: 'Copied' })).toBeTruthy();
+  });
+
+  it('offers no report for a run the history did not record, nor a path when no HTML was written', async () => {
+    const unrecorded = [
+      ...failingRun.slice(0, -1),
+      ...events({ case: 'report', value: { exit: 1 } }),
+    ];
+    render(RunPanel, { session: sessionOver(unrecorded), onopen: () => {} });
+    await userEvent.click(screen.getByRole('button', { name: 'Run all tests' }));
+    await screen.findByRole('button', { name: 'Re-run failed' });
+    expect(screen.queryByRole('button', { name: 'Open report' })).toBeNull();
+    expect(screen.queryByText('HTML report')).toBeNull();
+  });
+
   it('filters the log by level and text', async () => {
     render(RunPanel, { session: sessionOver(failingRun) });
     await userEvent.click(screen.getByRole('button', { name: 'Run all tests' }));

@@ -1,6 +1,7 @@
 //! `vc run`: plan, execute, fan the events out to the reporters, and send the alerts.
 
 use std::collections::{BTreeSet, HashMap};
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -20,7 +21,7 @@ use crate::notify::Alerting;
 use crate::plan::{Extra, Prepared};
 use crate::plugin_hosts::Hosts;
 use crate::ports::SecretSource;
-use crate::reporting::{self, Reporters, Setup};
+use crate::reporting::{self, Reported, Reporters, Setup};
 use crate::run_feed::Watching;
 use crate::{Engine, EngineError, Interrupts, RunRequest, history, notify};
 
@@ -51,6 +52,9 @@ pub struct RunReport {
     pub notices: Vec<String>,
     /// The run's number in the history, when it is recorded.
     pub run: Option<u64>,
+    /// Where the HTML report was written, relative to the project root, when the run wrote one
+    /// inside it (D320).
+    pub html_report: Option<PathBuf>,
 }
 
 impl Engine {
@@ -172,7 +176,8 @@ impl Engine {
         });
         let headline = format!("plan  {}", prepared.report().line());
         let (program, plan) = (Arc::clone(&prepared.program), Arc::clone(&prepared.plan));
-        let setup = Setup { program, plan, headline, color: request.color, seed, quiet: request.quiet(), plugins };
+        let (color, quiet, root) = (request.color, request.quiet(), self.root().to_path_buf());
+        let setup = Setup { program, plan, headline, color, seed, quiet, plugins, root };
         Ok((Reporters::create(chosen, setup, recording.ok())?, notices))
     }
 
@@ -305,7 +310,7 @@ async fn close(
     (ran, run): (Result<vc_executor::RunSummary, EngineError>, RunSummary),
 ) -> Result<RunReport, EngineError> {
     let Closing { seed: (seed, generated), run: id, mut notices, alerting, watching, mut heard } = closing;
-    let (problems, ending) = reporters.finish(run.clone()).await;
+    let Reported { problems, ending, html: html_report } = reporters.finish(run.clone()).await;
     notices.extend(problems);
     notices.extend(std::iter::from_fn(|| heard.try_recv().ok()));
     let ran = match ran {
@@ -314,13 +319,14 @@ async fn close(
             notices.push(error.to_string());
             let exit = if error.is_internal() { EXIT_INTERNAL } else { vc_executor::EXIT_NOTHING_RAN };
             if let Some(watching) = watching {
-                watching.finish(RunReport { exit, seed, generated, notices, run: id });
+                watching.finish(RunReport { exit, seed, generated, notices, run: id, html_report });
             }
             return Err(error);
         }
     };
     notices.extend(notify::send(alerting, run, ending).await);
-    let report = RunReport { exit: vc_executor::exit_code(ran), seed, generated, notices, run: id };
+    let exit = vc_executor::exit_code(ran);
+    let report = RunReport { exit, seed, generated, notices, run: id, html_report };
     if let Some(watching) = watching {
         watching.finish(report.clone());
     }

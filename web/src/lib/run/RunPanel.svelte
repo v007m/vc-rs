@@ -5,7 +5,12 @@
   import type { RunPhase } from './model.ts';
   import type { RunSession } from './session.svelte.ts';
 
-  let { session }: { session: RunSession } = $props();
+  /**
+   * The live run. Once it ends, **Open report** opens its record from the history through
+   * `onopen`, and the HTML report it wrote is named as text to copy; the file is never served
+   * (D320).
+   */
+  let { session, onopen }: { session: RunSession; onopen?: (id: number) => void } = $props();
 
   const pills: Record<RunPhase, [string, string]> = {
     idle: ['', 'Not started'],
@@ -22,6 +27,12 @@
   let started = $derived(
     view.startedMs === undefined ? undefined : new Date(Number(view.startedMs)),
   );
+  let copied = $state(false);
+
+  async function copy(path: string): Promise<void> {
+    await navigator.clipboard.writeText(path);
+    copied = true;
+  }
 </script>
 
 {#if view.phase === 'idle'}
@@ -45,6 +56,10 @@
     {#if session.running}
       <button type="button" class="btn" onclick={() => session.stop()}>Stop and tear down</button>
     {:else}
+      {#if onopen && view.runId !== undefined}
+        {@const id = Number(view.runId)}
+        <button type="button" class="btn" onclick={() => onopen(id)}>Open report</button>
+      {/if}
       {#if canRerun}
         <button type="button" class="btn" onclick={() => session.rerunFailed()}
           >Re-run failed</button
@@ -59,6 +74,19 @@
       </button>
     {/if}
   </div>
+  {#if !session.running && view.htmlReport}
+    {@const path = view.htmlReport}
+    <p class="file">
+      <span class="muted">HTML report</span>
+      <code class="mono path">{path}</code>
+      <button
+        type="button"
+        class="btn"
+        onclick={() => void copy(path)}
+        onblur={() => (copied = false)}>{copied ? 'Copied' : 'Copy path'}</button
+      >
+    </p>
+  {/if}
   <RunProgress counts={view.counts} planned={view.planned} />
   {#if view.plan.length}<PlanTable plan={view.plan} />{/if}
   <EventLog events={view.events} dropped={view.dropped} />
@@ -74,11 +102,20 @@
   .empty p {
     margin: 0;
   }
-  .head {
+  .head,
+  .file {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
     gap: 10px;
     padding: 0 20px;
+  }
+  .file {
+    margin: 0;
+  }
+  .path {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    user-select: all;
   }
 </style>
