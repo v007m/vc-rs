@@ -117,6 +117,8 @@ pub enum Event {
         rps: u64,
         /// The median iteration latency.
         p50: Duration,
+        /// The 90th percentile latency.
+        p90: Duration,
         /// The 95th percentile latency.
         p95: Duration,
         /// The 99th percentile latency.

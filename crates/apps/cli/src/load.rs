@@ -86,7 +86,7 @@ async fn print_ticks(mut heard: Receiver<Event>) {
 
 /// `  12s  50 users  412 rps  p50 31 ms  p95 88 ms  p99 140 ms  0 errors`, then what breaches.
 fn line(event: &Event) -> Option<String> {
-    let Event::LoadTick { second, users, rps, p50, p95, p99, errors, breaching } = event else {
+    let Event::LoadTick { second, users, rps, p50, p90: _, p95, p99, errors, breaching } = event else {
         return None;
     };
     let (p50, p95, p99) = (p50.as_millis(), p95.as_millis(), p99.as_millis());

@@ -106,11 +106,17 @@ fn kind(names: &Names, event: Event) -> Kind {
             instance: result.instance.map(InstanceId::index),
         }),
         Event::RunFinished { status, totals: sum } => Kind::RunFinished(run_finished(status, sum)),
-        Event::LoadTick { second, users, rps, p50, p95, p99, errors, breaching } => {
-            let (p50_ms, p95_ms, p99_ms) = (millis(p50), millis(p95), millis(p99));
-            Kind::LoadTick(wire::LoadTick { second, users, rps, p50_ms, p95_ms, p99_ms, errors, breaching })
-        }
+        tick @ Event::LoadTick { .. } => Kind::LoadTick(load_tick(tick)),
     }
+}
+
+/// A load run's closed second on the wire, its latencies in ms; any other event is empty.
+fn load_tick(event: Event) -> wire::LoadTick {
+    let Event::LoadTick { second, users, rps, p50, p90, p95, p99, errors, breaching } = event else {
+        return wire::LoadTick::default();
+    };
+    let (p50_ms, p90_ms, p95_ms, p99_ms) = (millis(p50), millis(p90), millis(p95), millis(p99));
+    wire::LoadTick { second, users, rps, p50_ms, p90_ms, p95_ms, p99_ms, errors, breaching }
 }
 
 /// `kind` under `seq`.
@@ -205,3 +211,7 @@ fn run_finished(status: RunStatus, sum: Totals) -> wire::RunFinished {
 fn run_report(report: RunReport) -> wire::RunReport {
     wire::RunReport { exit: u32::from(report.exit), seed: report.seed, notices: report.notices, run: report.run }
 }
+
+#[cfg(test)]
+#[path = "wire_events_tests.rs"]
+mod tests;

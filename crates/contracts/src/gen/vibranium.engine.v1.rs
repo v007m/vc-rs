@@ -248,6 +248,8 @@ pub struct LoadTick {
     pub rps: u64,
     #[prost(double, tag="4")]
     pub p50_ms: f64,
+    #[prost(double, tag="9")]
+    pub p90_ms: f64,
     #[prost(double, tag="5")]
     pub p95_ms: f64,
     #[prost(double, tag="6")]
