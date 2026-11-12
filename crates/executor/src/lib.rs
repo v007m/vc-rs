@@ -48,9 +48,9 @@ pub use check::{Arguments, Judge, MatcherFn, MatcherRegistry, Schemas};
 pub use exit::{EXIT_CANCELLED, EXIT_FAILED, EXIT_NOTHING_RAN, EXIT_PASSED, exit_code};
 pub use iterations::{IterationCall, IterationFailure, IterationReport, Iterations};
 pub use machine::{
-    ActionReport, CANCELLED, FailedActions, FileCommand, FileEnd, FileInput, FileOrchestrator, FilePhase, InstanceCommand,
-    InstanceInput, InstancePhase, InstanceScript, InstanceWorkflow, Launch, PendingCleanup, RunCommand, RunInput,
-    RunOrchestrator, RunPhase, RunSummary, Saved, Verdict,
+    ActionReport, CANCELLED, FailedActions, FileCommand, FileEnd, FileInput, FileOrchestrator, FilePhase,
+    InstanceCommand, InstanceInput, InstancePhase, InstanceScript, InstanceWorkflow, Launch, PendingCleanup,
+    RunCommand, RunInput, RunOrchestrator, RunPhase, RunSummary, Saved, Verdict,
 };
 pub use mask::{CelRule, MaskRule, MaskRuleMaker, MaskRules, RedactRuleKind, RegexRule};
 pub use pipeline::{

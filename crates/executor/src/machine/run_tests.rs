@@ -2,9 +2,9 @@ use std::sync::Arc;
 
 use vc_model::{Event, OwnerKey, Plan, PlannedFile, RunStatus, SkippedTest, TestStatus, Totals};
 
+use super::super::FileEnd;
 use super::super::sim;
 use super::super::{ActionReport, PendingCleanup};
-use super::super::FileEnd;
 use super::{RunCommand, RunInput, RunOrchestrator, RunPhase, RunSummary};
 
 fn file() -> PlannedFile {
