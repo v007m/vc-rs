@@ -119,6 +119,15 @@ fn an_unknown_metric_or_unusable_matcher_is_an_error() {
 }
 
 #[test]
+fn totals_list_each_test_with_its_own_iterations() {
+    let fixture = fixture(IndexMap::new(), IndexMap::new());
+    let totals = totals(&fixture);
+    let tests: Vec<(TestId, u64, u64)> =
+        totals.tests().map(|(test, tally)| (test, tally.count(), tally.errors())).collect();
+    assert_eq!(tests, [(fixture.fast, 30, 0), (fixture.slow, 10, 2)]);
+}
+
+#[test]
 fn the_window_keeps_the_last_ten_seconds() {
     let fixture = fixture(IndexMap::new(), IndexMap::new());
     let mut recorder = Recorder::new();

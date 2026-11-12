@@ -235,13 +235,18 @@ async fn an_api_that_refuses_the_connection_is_counted_under_it_and_the_transpor
     assert!(text.contains("\n  errors users#down V5105 × ") && !text.contains("inline request"), "{text}");
 }
 
-/// A mix of a passing and a failing test reports each test's own numbers, and the failing
-/// test's error kinds under it.
+/// A mix of a passing and a failing test, each request taking 300 ms, reports each test's own
+/// numbers, and the failing test's error kinds under it.
 #[tokio::test(start_paused = true)]
 async fn each_mix_test_has_its_own_numbers_and_error_kinds() {
     let mix = "mix:\n  - {test: users.crud#listsUsers, weight: 1}\n  - {test: users.crud#breaksUsers, weight: 1}\n";
     let file = format!("{mix}stages:\n  - {{duration: 4s, users: 4}}\nthinkTime: 1s\n");
-    let (engine, _) = engine(CONFIG, file.as_bytes());
+    let answers = FakeTransport::new(|request: &RenderedRequest, _| match request.uri.path() {
+        "/broken" => Ok(status(500)),
+        _ => Ok(status(200)),
+    });
+    let delayed = FaultyTransport::new(Arc::new(answers), vec![Fault::Delay(Duration::from_millis(300)); 1000]);
+    let (engine, _) = engine_over(CONFIG, file.as_bytes(), Arc::new(delayed));
     let (_interrupter, interrupts) = interrupts();
     let report = load(&engine, interrupts, None).await;
     let tests: Vec<_> = report.tests.iter().map(|test| (test.test.as_str(), test.errors == test.iterations)).collect();
@@ -253,6 +258,11 @@ async fn each_mix_test_has_its_own_numbers_and_error_kinds() {
     let (lists, breaks) = (text.find("\ntest users.crud#listsUsers · "), text.find("\ntest users.crud#breaksUsers · "));
     let errors = text.find("\n  errors users#broken 500 V5101 × ");
     assert!(lists < breaks && breaks < errors && lists.is_some(), "the kind is under its test:\n{text}");
+    assert_eq!(text.matches("\ntest users.crud#breaksUsers · ").count(), 1, "each test prints once:\n{text}");
+    for test in &report.tests {
+        let latencies = [test.p50_ms, test.p90_ms, test.p95_ms, test.p99_ms, test.max_ms];
+        assert!(latencies.iter().all(|ms| (300.0..400.0).contains(ms)), "300 ms a request: {test:?}");
+    }
     let json = report.json();
     let breaks = &json["tests"][1];
     assert_eq!((&breaks["test"], &breaks["errors"]), (&json!("users.crud#breaksUsers"), &json!(report.errors)));
