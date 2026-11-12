@@ -10,7 +10,7 @@ use crate::codec::{Location, now_ms};
 const BUSY_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// The schema, one numbered step per entry; a step never changes once released.
-pub(crate) const MIGRATIONS: &[&str] = &[
+pub const MIGRATIONS: &[&str] = &[
     r"
 CREATE TABLE runs (
   id INTEGER PRIMARY KEY, started_at INTEGER NOT NULL, finished_at INTEGER,
