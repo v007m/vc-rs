@@ -618,6 +618,12 @@ Round 56 (12 November 2026; vc-worker1, under the standing delegation):
 | --- | --- | --- | --- |
 | D324 | `after` actions carry no shell deadline | An `after` or `afterEach` action is outside the test's `timeout` and carries no deadline of the shell's: each kind enforces its own `timeout` as D192 defines it, so on a `call:` it is per attempt and the call's `http.retry` and `poll` run in full; without one, each kind keeps its default bound (a request's `defaults.timeout`, a command's, the hook budget). An after `command` or `function` with an action `retry` gets its `timeout` per attempt, as a call does | The LLD's whole-action limit for an `after` action with its own `timeout`, which cut a call's `http.retry` at the first attempt's timeout |
 
+Round 57 (12 November 2026; vc-worker1, approved by the orchestrator):
+
+| # | Topic | Decision | Supersedes |
+| --- | --- | --- | --- |
+| D325 | `hooks.threads` | `hooks.threads` (an integer, default `1`) starts that many QuickJS runtimes, each on its own hook thread under a supervisor. A dispatcher thread hands each call to a supervisor that has said it is idle, over a ready channel, so a call never waits behind a busy or stuck runtime while another is free; it needs no lock and no new dependency. A supervisor says it is idle again only after it has replied and replaced a hook thread the watchdog abandoned (V5116). Module state is per runtime, so a hook must not rely on module-level state across calls. The value is capped at 64, and one outside 1 to 64 is V2302: that is the secure default, because each runtime costs memory and an OS thread, and a config value should not be able to start an unbounded number of them. Dropping the runner ends every supervisor and hook thread but a stuck one | The LLD's "one thread serves all hooks" |
+
 ## Open
 
 All decisions needed for the PRD and technical design are settled. The language is decided by the spike (D6, D36, D37, D41).

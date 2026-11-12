@@ -43,6 +43,7 @@ Only `syntaxVersion` and one profile are required. Everything else has a default
 | [`datasets`](/vc-rs/reference/config/datasets/) | `files`, `allowRoots` | every file in `datasets/` | no | Data lists kept elsewhere. |
 | [`reports`](/vc-rs/reference/config/reports/) | `dir`, `formats`, `html` | CTRF in `.vibranium/reports` | no | Report files. |
 | [`history`](/vc-rs/reference/config/history/) | `bodies`, `maxBodySize`, `keep` | `failures`, `64kb`, `50` | no | What `history.db` keeps. |
+| [`hooks`](/vc-rs/reference/config/hooks/) | `threads` | `1` | no | How many runtimes run hooks at once. |
 | [`alerts`](/vc-rs/reference/config/alerts/) | list | — | no | Notifications after a run. |
 | [`plugins`](/vc-rs/reference/config/plugins/) | list | — | no | Third-party plugins. |
 | [`redact`](/vc-rs/reference/config/redact/) | `headers`, `fields`, `rules` | auth headers and secrets | no | Extra values to mask. |

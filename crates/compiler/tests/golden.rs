@@ -114,6 +114,7 @@ cases!(
     v2301_templated_timeout,
     v2302_wrong_type,
     v2302_below_least,
+    v2302_above_most,
     v2303_bad_status,
     v2305_template_syntax,
     v2306_matcher_arg,

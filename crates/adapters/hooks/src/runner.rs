@@ -1,15 +1,15 @@
-//! [`QuickJsHooks`], the async [`HookRunner`]: calls go over a channel to a supervisor thread,
-//! which hands them one at a time to the hook thread and restarts it when a call outlives its
-//! budget by more than the grace period.
+//! [`QuickJsHooks`], the async [`HookRunner`]: calls go over a channel to the dispatcher thread,
+//! which hands each to an idle one of its supervisors (D325).
 
-use std::thread;
+use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
 use async_trait::async_trait;
 use tokio::sync::{mpsc, oneshot};
-use vc_interfaces::{HookCall, HookError, HookOutput, HookRunner, Limit};
+use vc_interfaces::{HookCall, HookError, HookOutput, HookRunner};
+use vc_model::HooksConfig;
 
-use crate::worker::{Answer, Outcome, Worker};
+use crate::dispatch::{Job, Settings, dispatch};
 
 /// How long past its time budget a call may go unanswered before its thread is abandoned.
 const GRACE: Duration = Duration::from_secs(1);
@@ -19,51 +19,49 @@ const GRACE: Duration = Duration::from_secs(1);
 /// it is generous so a loaded machine is not mistaken for one.
 const START: Duration = Duration::from_secs(10);
 
-/// How many calls may wait for the hook thread.
+/// How many calls may wait for a hook thread.
 const QUEUE: usize = 256;
 
-/// One call from the async side.
-struct Job {
-    call: HookCall,
-    reply: oneshot::Sender<Answer>,
-}
-
-/// How the supervisor runs calls.
-#[derive(Clone, Copy, Debug)]
-struct Settings {
-    /// How long past its budget a call may run before the watchdog restarts the hook thread.
-    grace: Duration,
-    /// How long the hook thread may take to take a call up before it is restarted.
-    start: Duration,
-    /// Whether the interrupt handler enforces the time budget; off only to test the watchdog.
-    interrupts: bool,
-}
-
 /// Runs TypeScript hooks, already stripped to JavaScript by the compiler, in `QuickJS` on a
-/// dedicated thread (D172).
+/// dedicated thread, or on `hooks.threads` of them (D172, D325).
 ///
 /// Each call gets the time and memory of its [`Budget`](vc_interfaces::Budget); a call that runs
 /// past either is stopped and reported with its TypeScript line, and the next call gets a fresh
 /// runtime. A hook can import `vibranium:std` and, by relative path, the other hook files of
 /// the program; it has no file, network, process or environment access, and reads secrets only
-/// through `secret(name)`.
+/// through `secret(name)`. Module state is per runtime: with more than one, a call may land on
+/// any of them, so a hook must not rely on module-level state across calls.
 #[derive(Clone, Debug)]
 pub struct QuickJsHooks {
     jobs: mpsc::Sender<Job>,
 }
 
 impl QuickJsHooks {
-    /// A runner with its supervisor and hook threads started.
+    /// A runner with one hook runtime, its dispatcher, supervisor and hook threads started.
     #[must_use]
     pub fn new() -> Self {
-        Self::with(Settings { grace: GRACE, start: START, interrupts: true })
+        Self::with_threads(1)
     }
 
-    fn with(settings: Settings) -> Self {
+    /// A runner with `threads` hook runtimes, each on its own thread with its own module state,
+    /// so that many calls run at once (`hooks.threads`, D325); `threads` is held to 1 through
+    /// [`HooksConfig::MAX_THREADS`].
+    #[must_use]
+    pub fn with_threads(threads: u32) -> Self {
+        Self::start(Settings { grace: GRACE, start: START, interrupts: true }, threads).0
+    }
+
+    /// The runner and its dispatcher thread, which ends, once every clone of the runner is
+    /// dropped, after its supervisor and hook threads; none when it could not start.
+    fn start(settings: Settings, threads: u32) -> (Self, Option<JoinHandle<()>>) {
+        let threads = threads.clamp(1, HooksConfig::MAX_THREADS);
         let (jobs, inbox) = mpsc::channel(QUEUE);
         // When the thread cannot start, `inbox` is dropped and every call answers `Unavailable`.
-        let _ = thread::Builder::new().name("vc-hooks-supervisor".to_owned()).spawn(move || supervise(inbox, settings));
-        Self { jobs }
+        let dispatcher = thread::Builder::new()
+            .name("vc-hooks-dispatcher".to_owned())
+            .spawn(move || dispatch(inbox, settings, threads))
+            .ok();
+        (Self { jobs }, dispatcher)
     }
 }
 
@@ -83,72 +81,6 @@ impl HookRunner for QuickJsHooks {
     }
 }
 
-/// The supervisor thread: hands each job to the hook thread and starts a new one when it is
-/// stuck or gone.
-fn supervise(mut inbox: mpsc::Receiver<Job>, settings: Settings) {
-    let mut worker = Worker::spawn(settings.interrupts, settings.start);
-    while let Some(job) = inbox.blocking_recv() {
-        let (answer, lost) = attempt(&worker, job.call, settings.grace);
-        if lost {
-            worker = Worker::spawn(settings.interrupts, settings.start);
-        }
-        // The caller may have gone; then nobody needs the answer.
-        let _ = job.reply.send(answer);
-    }
-}
-
-/// Runs `call` on `worker`; the answer, and whether the worker must be replaced.
-fn attempt(worker: &Result<Worker, HookError>, call: HookCall, grace: Duration) -> (Answer, bool) {
-    let worker = match worker {
-        Ok(worker) => worker,
-        Err(error) => return (Err(error.clone()), true),
-    };
-    let patience = call.budget.time.saturating_add(grace);
-    match worker.run(call, patience) {
-        Outcome::Done(answer) => (answer, false),
-        Outcome::Stuck => (Err(HookError::Overran { limit: Limit::Time, line: None }), true),
-        Outcome::Gone => (Err(HookError::Unavailable { reason: "the hook thread stopped".to_owned() }), true),
-    }
-}
-
 #[cfg(test)]
-mod tests {
-    use std::collections::BTreeMap;
-    use std::time::{Duration, Instant};
-
-    use serde_json::{Value, json};
-    use vc_interfaces::{Budget, HookCall, HookError, HookRunner, Limit};
-    use vc_model::{HookModule, HookModules, HookRef};
-    use vc_testkit::hook_runner_suite;
-
-    use super::{QuickJsHooks, Settings};
-
-    #[tokio::test]
-    async fn quickjs_hooks_meet_the_hook_runner_contract() {
-        hook_runner_suite(&mut || Box::new(QuickJsHooks::new()) as Box<dyn HookRunner>).await;
-    }
-
-    /// A hook stuck where the interrupt handler cannot reach it is abandoned by the watchdog,
-    /// and the next call runs on a new thread.
-    #[tokio::test]
-    async fn the_watchdog_restarts_a_stuck_hook_thread() {
-        let js = "export function stall() { const end = Date.now() + 1500; while (Date.now() < end) {} }\n\
-                  export function ok() { return 'ok'; }\n";
-        let modules = HookModules::new(BTreeMap::from([(
-            "hooks/stall.ts".to_owned(),
-            HookModule { js: js.to_owned(), lines: vec![1, 2] },
-        )]));
-        let call = |export: &str| {
-            let hook = HookRef { file: "hooks/stall.ts".into(), export: export.into() };
-            HookCall::new(modules.clone(), hook, Value::Null)
-                .with_budget(Budget::new(Duration::from_millis(50), 64 << 20))
-        };
-        let settings = Settings { grace: Duration::from_millis(100), start: super::START, interrupts: false };
-        let runner = QuickJsHooks::with(settings);
-        let started = Instant::now();
-        let stalled = runner.call(call("stall")).await;
-        assert_eq!(stalled, Err(HookError::Overran { limit: Limit::Time, line: None }));
-        assert!(started.elapsed() < Duration::from_millis(1000), "the watchdog did not wait for the hook");
-        assert_eq!(runner.call(call("ok")).await.map(|output| output.value), Ok(json!("ok")));
-    }
-}
+#[path = "runner_tests.rs"]
+mod tests;

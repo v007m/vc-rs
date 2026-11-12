@@ -137,6 +137,7 @@ tests:
 
 - Hooks run inside the engine, not in Node. A hook can import other files by `./` or `../` path, `vibranium:std` (`hmacSha256Hex`, `sha256Hex`, `base64Encode`, `base64Decode`, `urlEncode`, `urlDecode`) and types from `@vibranium/sdk` with `import type`.
 - Each field of the returned object is saved as a var.
+- Don't rely on module-level state across calls. Each runtime keeps its own module state, and with [`hooks.threads`](/vc-rs/reference/config/hooks/) above 1, two calls of the same hook may run in different runtimes. Return the values a later step needs instead.
 - The default budget is 200ms. When it runs out the function is stopped and the action fails with V5116.
 - A failed `function` in `before` or `beforeEach` blocks the test. In `beforeAll` it blocks only the tests that read its values.
 - A saved name not listed in `provides` gives a V5108 warning at run time. A listed name the function does not return fails the action with V5109.

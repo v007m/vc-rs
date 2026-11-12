@@ -1,0 +1,6 @@
+syntaxVersion: 2
+profiles:
+  - id: dev
+    default: true
+hooks:
+  threads: 65

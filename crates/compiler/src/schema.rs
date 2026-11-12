@@ -91,6 +91,9 @@ fn property(key: &Key) -> Value {
     if let Some(min) = key.min {
         merge(&mut schema, json!({ "minimum": min }));
     }
+    if let Some(max) = key.max {
+        merge(&mut schema, json!({ "maximum": max }));
+    }
     if let Some(default) = key.default.and_then(yaml).filter(|node| fits(key.ty, node)) {
         merge(&mut schema, json!({ "default": to_json(&default) }));
     }
