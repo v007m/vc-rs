@@ -3,9 +3,13 @@
   import type { RunSession } from '#lib/run/session.svelte.ts';
   import type { RunHistory } from './history.svelte.ts';
   import RecentRuns from './RecentRuns.svelte';
+  import SelectorsUsed from './SelectorsUsed.svelte';
   import StoredRunView from './StoredRunView.svelte';
 
-  /** The live run, or a run from the history picked from the recent runs beside it. */
+  /**
+   * The live run, or a run from the history picked from the recent runs beside it, which the
+   * selectors they used filter.
+   */
   let { history, session }: { history: RunHistory; session: RunSession } = $props();
 
   let wasRunning = false;
@@ -18,8 +22,9 @@
 
 <div class="runs">
   <aside class="side">
+    <SelectorsUsed {history} />
     <RecentRuns
-      runs={history.runs}
+      runs={history.shown}
       current={history.open?.run.id}
       onopen={(id) => void history.show(id)}
     />

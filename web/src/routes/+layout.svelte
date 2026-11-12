@@ -5,7 +5,7 @@
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
   import { engine } from '#lib/api/transport.ts';
-  import { isCurrent, navItems } from '#lib/nav.ts';
+  import { isCurrent, liveCount, navItems } from '#lib/nav.ts';
   import { setRunSession } from '#lib/run/context.ts';
   import { RunSession } from '#lib/run/session.svelte.ts';
   import type { Snippet } from 'svelte';
@@ -14,7 +14,8 @@
   let collapsed = $state(false);
   let sideLabel = $derived(collapsed ? 'Expand sidebar' : 'Collapse sidebar');
   // One run at a time for the whole app, so a run started on any screen shows on Runs.
-  setRunSession(new RunSession(engine));
+  const session = new RunSession(engine);
+  setRunSession(session);
 </script>
 
 <div class="app" class:side-collapsed={collapsed}>
@@ -69,6 +70,7 @@
       </div>
       {#each navItems as item (item.route)}
         {@const current = isCurrent(page.url.pathname, item.route)}
+        {@const live = liveCount(item, session.running ? 1 : 0)}
         <a
           class="navitem"
           class:on={current}
@@ -92,6 +94,7 @@
             {/each}
           </svg>
           <span class="label">{item.label}</span>
+          {#if live}<span class="live"><span class="text">{live}</span></span>{/if}
         </a>
       {/each}
     </nav>
