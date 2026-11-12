@@ -41,6 +41,12 @@ pub fn breaches(notice: &Notice) -> Option<String> {
     (!notice.breaches.is_empty()).then(|| format!("Breached: {}", notice.breaches.join(", ")))
 }
 
+/// `teardown failed: afterAll in users.crud, afterRun` when a teardown block failed, as the
+/// console says it (D304).
+pub fn teardown(notice: &Notice) -> Option<String> {
+    (!notice.teardown.is_empty()).then(|| format!("teardown failed: {}", notice.teardown.join(", ")))
+}
+
 /// `Report: reports/ctrf.json` when the run wrote one.
 pub fn report(notice: &Notice) -> Option<String> {
     notice.report.as_ref().map(|report| format!("Report: {report}"))

@@ -35,6 +35,7 @@ fn full_notice(trigger: AlertTrigger) -> Notice {
             NoticeFailure::new("users.crud#rejectsBadEmail:2", "blocked: `beforeAll` seedUsers failed"),
         ])
         .breaches(vec!["errorRate".to_owned(), "p95 of checkout.flow#paysOrder".to_owned()])
+        .teardown(vec!["afterAll in users.crud".to_owned(), "afterRun".to_owned()])
         .report("reports/ctrf.json")
 }
 

@@ -9,6 +9,10 @@ const summary: Summary = {
   run: { id: 4, status: 'failed', startedMs: 0, durationMs: 900, profiles: ['dev'], seed: 7 },
   totals: { passed: 1, failed: 1 },
   lifecycle: [{ label: 'cleanup deleteUser', status: 'failed', message: '<b>500</b>' }],
+  teardownFailures: [
+    { block: 'afterAll', file: 'users.crud', message: 'expected 204, got 500' },
+    { block: 'afterRun', file: null, message: 'timed out' },
+  ],
   files: ['users.crud'],
   shardSize: 500,
 };
@@ -53,6 +57,9 @@ describe('Report', () => {
     expect(screen.getByRole('img').getAttribute('aria-label')).toMatch(/^1 passed, 1 failed/);
     expect(screen.getByText(/cleanup deleteUser: <b>500<\/b>/)).toBeTruthy();
     expect(screen.getByText('2 of 2 tests')).toBeTruthy();
+    expect(screen.getByRole('alert').textContent).toBe(
+      'teardown failed: afterAll in users.crud, afterRun',
+    );
   });
 
   it('filters by outcome and opens a test, rendering its label as text', async () => {

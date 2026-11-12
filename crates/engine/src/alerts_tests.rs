@@ -27,6 +27,7 @@ fn run(status: RunStatus, tests: &[(&str, &str, TestStatus)], breaches: &[&str])
         tests: tests.iter().map(|(test, tag, status)| ended(test, tag, *status)).collect(),
         breaches: breaches.iter().map(|breach| (*breach).to_owned()).collect(),
         ran: !tests.is_empty() || !breaches.is_empty(),
+        teardown: Vec::new(),
         report: None,
     }
 }

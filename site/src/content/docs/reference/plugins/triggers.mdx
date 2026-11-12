@@ -36,13 +36,13 @@ Each example posts to a local `webhook` channel, so you can see exactly what was
 **failure.** A test expected `418` and got `200`.
 
 ```json
-{"reportFormat":"CTRF","results":{"extra":{"breaches":[],"failures":[{"message":"status: expected [418], got 200","test":"sample.flip#listsUsersWithStatus"}],"moreFailures":0,"profiles":["default"],"project":"try-syntax-b","report":".vibranium/reports/15/ctrf.json","trigger":"failure"},"summary":{"failed":1,"other":0,"passed":0,"pending":0,"skipped":0,"start":1794332027009,"stop":1794332027017,"tests":1},"tool":{"name":"vibranium"}},"specVersion":"0.2.0"}
+{"reportFormat":"CTRF","results":{"extra":{"breaches":[],"failures":[{"message":"status: expected [418], got 200","test":"sample.flip#listsUsersWithStatus"}],"moreFailures":0,"profiles":["default"],"project":"try-syntax-b","report":".vibranium/reports/15/ctrf.json","teardownFailed":[],"trigger":"failure"},"summary":{"failed":1,"other":0,"passed":0,"pending":0,"skipped":0,"start":1794332027009,"stop":1794332027017,"tests":1},"tool":{"name":"vibranium"}},"specVersion":"0.2.0"}
 ```
 
 **recovery.** The next run, after fixing the test. A third passing run sends nothing, because the previous run did not fail.
 
 ```json
-{"reportFormat":"CTRF","results":{"extra":{"breaches":[],"failures":[],"moreFailures":0,"profiles":["default"],"project":"try-syntax-b","report":".vibranium/reports/16/ctrf.json","trigger":"recovery"},"summary":{"failed":0,"other":0,"passed":1,"pending":0,"skipped":0,"start":1794332034557,"stop":1794332034566,"tests":1},"tool":{"name":"vibranium"}},"specVersion":"0.2.0"}
+{"reportFormat":"CTRF","results":{"extra":{"breaches":[],"failures":[],"moreFailures":0,"profiles":["default"],"project":"try-syntax-b","report":".vibranium/reports/16/ctrf.json","teardownFailed":[],"trigger":"recovery"},"summary":{"failed":0,"other":0,"passed":1,"pending":0,"skipped":0,"start":1794332034557,"stop":1794332034566,"tests":1},"tool":{"name":"vibranium"}},"specVersion":"0.2.0"}
 ```
 
 **flaky.** A test with `retry: {attempts: 2}` that failed once, then passed.
@@ -54,7 +54,7 @@ Each example posts to a local `webhook` channel, so you can see exactly what was
 ```
 
 ```json
-{"reportFormat":"CTRF","results":{"extra":{"breaches":[],"failures":[],"moreFailures":0,"profiles":["default"],"project":"try-syntax-b","report":".vibranium/reports/20/ctrf.json","trigger":"flaky"},"summary":{"failed":0,"other":0,"passed":1,"pending":0,"skipped":0,"start":1794332094217,"stop":1794332094527,"tests":1},"tool":{"name":"vibranium"}},"specVersion":"0.2.0"}
+{"reportFormat":"CTRF","results":{"extra":{"breaches":[],"failures":[],"moreFailures":0,"profiles":["default"],"project":"try-syntax-b","report":".vibranium/reports/20/ctrf.json","teardownFailed":[],"trigger":"flaky"},"summary":{"failed":0,"other":0,"passed":1,"pending":0,"skipped":0,"start":1794332094217,"stop":1794332094527,"tests":1},"tool":{"name":"vibranium"}},"specVersion":"0.2.0"}
 ```
 
 **threshold.** A `vc load` scenario with `p95: {lt: 1ms}`, which a real server cannot meet. `vc load` exits 3, and the alert lists the breach.

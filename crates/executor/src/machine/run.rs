@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use vc_model::{ActionId, Event, OwnerKey, Plan, RunStatus, SkippedTest, TestId, TestResult, TestStatus, Totals};
 
-use super::{ActionReport, FailedActions, PendingCleanup, SharedActions};
+use super::{ActionReport, FailedActions, FileEnd, PendingCleanup, SharedActions};
 
 /// Where a [`RunOrchestrator`] is; the index is the lifecycle action in flight.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -39,8 +39,8 @@ pub enum RunInput {
     CleanupDone,
     /// An instance ended with this status (for `--bail`).
     Tested(TestStatus),
-    /// A file finished with these totals.
-    FileDone(Totals),
+    /// A file finished with these totals and `afterAll` failures.
+    FileDone(FileEnd),
     /// A Ctrl-C: the first cancels, the second skips the grace period, the third aborts.
     Interrupt,
     /// The events are with the subscribers.
@@ -92,6 +92,7 @@ pub struct RunOrchestrator {
     shared: SharedActions,
     cleanups: Vec<PendingCleanup>,
     totals: Totals,
+    teardown_failures: usize,
     files_left: usize,
     interrupts: u8,
     cancelled: bool,
@@ -109,6 +110,7 @@ impl RunOrchestrator {
             shared: SharedActions::new(OwnerKey::Run),
             cleanups: Vec::new(),
             totals: Totals::default(),
+            teardown_failures: 0,
             files_left: 0,
             interrupts: 0,
             cancelled: false,
@@ -138,7 +140,7 @@ impl RunOrchestrator {
             (Planned, RunInput::Start) => self.start(out),
             (BeforeRun(_) | AfterRun(_), RunInput::ActionDone(report)) => self.action_done(report, out),
             (BeforeRun(_) | AfterRun(_), RunInput::ActionCut(kept)) => self.action_cut(kept, out),
-            (Running, RunInput::FileDone(totals)) => self.file_done(totals, out),
+            (Running, RunInput::FileDone(end)) => self.file_done(end, out),
             (CleaningUp, RunInput::CleanupDone) => self.next_cleanup(out),
             (Reporting, RunInput::Reported) => self.finish(out),
             (_, RunInput::Tested(status)) => self.tested(status, out),
@@ -181,6 +183,7 @@ impl RunOrchestrator {
                 self.resume_before(out);
             }
             RunPhase::AfterRun(index) => {
+                self.teardown_failures += usize::from(report.outcome.failure().is_some());
                 self.phase = RunPhase::AfterRun(index + 1);
                 self.resume_after(out);
             }
@@ -188,10 +191,21 @@ impl RunOrchestrator {
         }
     }
 
-    /// A cut `beforeRun` action starts the files; a cut `afterRun` one, the cleanups.
+    /// A cut `beforeRun` action starts the files; a cut `afterRun` one, the cleanups. A cut
+    /// `afterRun` action of a run not cancelled failed: its worker panicked or was aborted.
     fn action_cut(&mut self, kept: Vec<PendingCleanup>, out: &mut Vec<RunCommand>) {
         self.cleanups.extend(kept);
-        if matches!(self.phase, RunPhase::BeforeRun(_)) { self.start_files(out) } else { self.clean_up(out) }
+        if matches!(self.phase, RunPhase::BeforeRun(_)) {
+            return self.start_files(out);
+        }
+        if let RunPhase::AfterRun(index) = self.phase
+            && let Some(&action) = self.plan.after_run.get(index)
+            && !self.cancelled
+        {
+            self.teardown_failures += 1;
+            out.push(RunCommand::Emit(super::teardown_cut(action, OwnerKey::Run)));
+        }
+        self.clean_up(out);
     }
 
     /// Files start even after a cancel, so that each reports its instances as skipped.
@@ -204,8 +218,9 @@ impl RunOrchestrator {
         out.push(RunCommand::StartFiles(self.shared.failed.clone()));
     }
 
-    fn file_done(&mut self, totals: Totals, out: &mut Vec<RunCommand>) {
-        self.totals.merge(totals);
+    fn file_done(&mut self, end: FileEnd, out: &mut Vec<RunCommand>) {
+        self.totals.merge(end.totals);
+        self.teardown_failures += end.teardown_failures;
         self.files_left = self.files_left.saturating_sub(1);
         if self.files_left == 0 {
             self.after_files(out);
@@ -303,7 +318,7 @@ impl RunOrchestrator {
     const fn summary(&self) -> RunSummary {
         let status = if self.interrupts > 0 {
             RunStatus::Cancelled
-        } else if self.totals.failures() > 0 {
+        } else if self.totals.failures() > 0 || self.teardown_failures > 0 {
             RunStatus::Failed
         } else {
             RunStatus::Passed

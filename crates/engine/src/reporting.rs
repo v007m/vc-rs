@@ -288,6 +288,7 @@ impl Reporters {
         problems.extend(failed);
         let report = artifacts.first().map(|artifact| artifact.path.clone());
         let ending = watch.map(|watch| watch.ending(report)).unwrap_or_default();
+        let ending = Ending { teardown: snapshot.teardown_failed(), ..ending };
         if let Some(history) = history
             && let Err(error) = close(history, keep, (&run, &snapshot)).await
         {

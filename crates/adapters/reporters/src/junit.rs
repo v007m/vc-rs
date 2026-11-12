@@ -1,13 +1,14 @@
 //! `JUnit` XML for CI dashboards: one `<testsuites>` named for the project, one `<testsuite>` per
 //! test file, one `<testcase>` per instance. Each suite's `<properties>` hold the run's `seed`
-//! (D131) and the file's `name`; a case's hold its test's `name`.
+//! (D131) and the file's `name`; a case's hold its test's `name`. Each failed teardown block is
+//! one `<system-err>` on `<testsuites>`, and changes no count (D304).
 
 use std::fmt::Write as _;
 
 use vc_interfaces::{Artifact, ReportError};
 use vc_model::{TestStatus, Totals};
 
-use crate::view::TestView;
+use crate::view::{TeardownView, TestView};
 use crate::{Destination, Format, RunSnapshot, text, xml};
 
 /// The file the format writes.
@@ -28,7 +29,14 @@ fn document(snapshot: &RunSnapshot) -> String {
     let run = &snapshot.run;
     let suites: String = suites(snapshot).iter().map(|(file, tests)| suite(file, tests, run.seed)).collect();
     let head = xml::open("testsuites", &counts(snapshot.project(), run.totals, run.duration_ms));
-    format!("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n{head}\n{suites}</testsuites>\n")
+    let teardown: String = snapshot.teardown_failures.iter().map(teardown_failure).collect();
+    format!("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n{head}\n{suites}{teardown}</testsuites>\n")
+}
+
+/// `<system-err>afterAll in users.crud failed: expected 204, got 500</system-err>`.
+fn teardown_failure(failed: &TeardownView) -> String {
+    let text = format!("{} failed: {}", failed.label(), failed.message);
+    format!("  {}\n", xml::element("system-err", &[], Some(&text)))
 }
 
 /// The tests by file: files in the order they started, then any file only a test names.

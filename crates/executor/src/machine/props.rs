@@ -9,7 +9,7 @@ use vc_model::{ActionId, ActionOutcome, Event, Plan, Retry, TestStatus, Totals};
 
 use super::sim;
 use super::{
-    ActionReport, FileCommand, FileInput, FileOrchestrator, InstanceCommand, InstanceInput, InstanceScript,
+    ActionReport, FileCommand, FileEnd, FileInput, FileOrchestrator, InstanceCommand, InstanceInput, InstanceScript,
     InstanceWorkflow, PendingCleanup, RunCommand, RunInput, RunOrchestrator,
 };
 
@@ -207,7 +207,7 @@ proptest! {
         for launch in launches {
             prop_assert_eq!(launch.block.is_some(), launch.instance.needs.iter().any(|a| failed.contains(&a)));
         }
-        let totals: Vec<_> = trace.log.iter().filter_map(|c| match c { FileCommand::Finish(t) => Some(*t), _ => None }).collect();
+        let totals: Vec<_> = trace.log.iter().filter_map(|c| match c { FileCommand::Finish(end) => Some(end.totals), _ => None }).collect();
         prop_assert!(matches!(&totals[..], [t] if t.total() == instances.len()));
         let cleaned: Vec<_> = trace.log.iter().filter_map(|c| match c { FileCommand::RunCleanup(c) => Some(c.action.index()), _ => None }).rev().collect();
         prop_assert_eq!(cleaned, responder.registered);
@@ -266,7 +266,7 @@ fn run_input() -> impl Strategy<Value = RunInput> {
         Just(RunInput::ActionCut(vec![PendingCleanup::new(sim::act(101))])),
         Just(RunInput::CleanupDone),
         Just(RunInput::Tested(TestStatus::Failed)),
-        Just(RunInput::FileDone(Totals::default())),
+        Just(RunInput::FileDone(FileEnd::default())),
         Just(RunInput::Interrupt),
         Just(RunInput::Reported),
     ]

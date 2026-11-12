@@ -8,7 +8,8 @@ mod values;
 use std::collections::HashSet;
 
 use vc_model::{
-    Action, ActionId, ActionKind, ApiId, AuthRef, FileId, Program, Reference, Test, TestBody, TestId, VarDefs,
+    Action, ActionId, ActionKind, ApiId, AuthRef, FileId, ProfileId, Program, Reference, RequestHooks, Test, TestBody,
+    TestId, VarDefs,
 };
 
 /// What a walk reports. Every method defaults to doing nothing.
@@ -19,12 +20,15 @@ pub trait Visit {
     fn action(&mut self, _id: ActionId, _action: &Action) {}
     /// The api file of an api the instance calls.
     fn group(&mut self, _group: FileId) {}
+    /// Code the instance may run: a function action, a request hook or a function check.
+    fn code(&mut self) {}
 }
 
 /// Walks a program's definitions and reports them to its visitor, each action, api and reused
-/// test at most once.
+/// test at most once; profile vars of every profile, or of only those given.
 pub struct Walker<'p, V> {
     program: &'p Program,
+    profiles: Option<&'p [ProfileId]>,
     visitor: V,
     actions: HashSet<ActionId>,
     apis: HashSet<ApiId>,
@@ -34,7 +38,14 @@ pub struct Walker<'p, V> {
 impl<'p, V: Visit> Walker<'p, V> {
     pub fn new(program: &'p Program, visitor: V) -> Self {
         let (actions, apis, tests) = Default::default();
-        Self { program, visitor, actions, apis, tests }
+        Self { program, profiles: None, visitor, actions, apis, tests }
+    }
+
+    /// The walker, following the vars of only `profiles`: the ones a run activates.
+    #[must_use]
+    pub const fn with_profiles(mut self, profiles: &'p [ProfileId]) -> Self {
+        self.profiles = Some(profiles);
+        self
     }
 
     pub fn into_visitor(self) -> V {
@@ -43,11 +54,19 @@ impl<'p, V: Visit> Walker<'p, V> {
 
     /// The run-wide templates every instance can read: config vars and headers, and profiles.
     pub fn run_scope(&mut self) {
-        let config = &self.program.config;
-        self.vars(&config.vars);
-        self.templates(config.defaults.headers.values());
-        for profile in self.program.profiles.values() {
+        let (program, profiles) = (self.program, self.profiles);
+        self.vars(&program.config.vars);
+        self.templates(program.config.defaults.headers.values());
+        for profile in program.profiles.values().filter(|profile| follows(profiles, profile.id)) {
             self.values(profile.vars.values());
+        }
+    }
+
+    /// The settings of every alert channel, which a run's end renders.
+    pub fn alerts(&mut self) {
+        let program = self.program;
+        for channel in program.config.alerts.iter().flat_map(|alert| &alert.notify) {
+            self.value(&channel.settings);
         }
     }
 
@@ -127,7 +146,7 @@ impl<'p, V: Visit> Walker<'p, V> {
                 self.templates(inline.query.values().chain(inline.headers.values()));
                 self.body(&inline.body);
             }
-            ActionKind::Function(_) => {}
+            ActionKind::Function(_) => self.visitor.code(),
         }
     }
 
@@ -152,6 +171,7 @@ impl<'p, V: Visit> Walker<'p, V> {
         self.templates(api.query.values().chain(api.headers.values()));
         self.body(&api.body);
         self.auth(&api.auth);
+        self.hooks(&api.hooks);
         self.expect(&api.expect);
         self.values(api.save.values.values());
         if let Some(cleanup) = api.cleanup {
@@ -168,6 +188,13 @@ impl<'p, V: Visit> Walker<'p, V> {
         self.templates(group.headers.values());
         self.vars(&group.vars);
         self.auth(&group.auth);
+        self.hooks(&group.hooks);
+    }
+
+    fn hooks(&mut self, hooks: &RequestHooks) {
+        if !hooks.before_request.is_empty() || !hooks.after_response.is_empty() {
+            self.visitor.code();
+        }
     }
 
     fn auth(&mut self, auth: &AuthRef) {
@@ -183,10 +210,16 @@ impl<'p, V: Visit> Walker<'p, V> {
 
     fn vars(&mut self, defs: &VarDefs) {
         self.values(defs.values.values());
-        for values in defs.by_profile.values() {
+        let profiles = self.profiles;
+        for (_, values) in defs.by_profile.iter().filter(|(profile, _)| follows(profiles, **profile)) {
             self.values(values.values());
         }
     }
+}
+
+/// Whether a walk over `profiles` (none: every profile) follows the vars of `profile`.
+fn follows(profiles: Option<&[ProfileId]>, profile: ProfileId) -> bool {
+    profiles.is_none_or(|profiles| profiles.contains(&profile))
 }
 
 /// The actions a test's body runs: its call, or its steps in order.

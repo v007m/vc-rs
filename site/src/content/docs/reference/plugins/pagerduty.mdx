@@ -41,13 +41,13 @@ The event:
 **A failed run triggers.**
 
 ```json
-{"dedup_key":"try-syntax-b#default","event_action":"trigger","payload":{"custom_details":{"breaches":[],"failures":[{"message":"status: expected [418], got 200","test":"sample.flip#listsUsersWithStatus"}],"moreFailures":0,"profiles":["default"],"project":"try-syntax-b","report":".vibranium/reports/18/ctrf.json","trigger":"failure"},"severity":"error","source":"try-syntax-b","summary":"try-syntax-b: run failed (default) — 0 passed, 1 failed, 0 blocked, 0 flaky, 0 skipped"},"routing_key":"R0UTINGKEY123"}
+{"dedup_key":"try-syntax-b#default","event_action":"trigger","payload":{"custom_details":{"breaches":[],"failures":[{"message":"status: expected [418], got 200","test":"sample.flip#listsUsersWithStatus"}],"moreFailures":0,"profiles":["default"],"project":"try-syntax-b","report":".vibranium/reports/18/ctrf.json","teardownFailed":[],"trigger":"failure"},"severity":"error","source":"try-syntax-b","summary":"try-syntax-b: run failed (default) — 0 passed, 1 failed, 0 blocked, 0 flaky, 0 skipped"},"routing_key":"R0UTINGKEY123"}
 ```
 
 **The next passing run resolves.** It has the same `dedup_key`, so PagerDuty closes the same incident. This rule set `severity: critical`.
 
 ```json
-{"dedup_key":"try-syntax-b#default","event_action":"resolve","payload":{"custom_details":{"breaches":[],"failures":[],"moreFailures":0,"profiles":["default"],"project":"try-syntax-b","report":".vibranium/reports/33/ctrf.json","trigger":"recovery"},"severity":"critical","source":"try-syntax-b","summary":"try-syntax-b: run recovered (default) — 1 passed, 0 failed, 0 blocked, 0 flaky, 0 skipped"},"routing_key":"R0UTE"}
+{"dedup_key":"try-syntax-b#default","event_action":"resolve","payload":{"custom_details":{"breaches":[],"failures":[],"moreFailures":0,"profiles":["default"],"project":"try-syntax-b","report":".vibranium/reports/33/ctrf.json","teardownFailed":[],"trigger":"recovery"},"severity":"critical","source":"try-syntax-b","summary":"try-syntax-b: run recovered (default) — 1 passed, 0 failed, 0 blocked, 0 flaky, 0 skipped"},"routing_key":"R0UTE"}
 ```
 
 **Page only for load breaches.**

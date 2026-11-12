@@ -131,7 +131,7 @@ impl Engine {
     /// reaches a reporter, the history or a watcher.
     async fn secured(&self, mut prepared: Prepared) -> Result<(Prepared, Secrets), EngineError> {
         let program = Arc::clone(&prepared.program);
-        let secrets = self.secrets(SecretSource::of(&prepared)).await?;
+        let secrets = self.secrets(SecretSource::of(&prepared), &crate::ports::run_reads(&prepared)).await?;
         if !prepared.plan.row_names.is_empty() {
             let hooks = RuleHooks::new(self.hook_runner(&program), secrets.clone());
             let rules = MaskRules::standard().with_hooks(hooks, &program).for_config(&program.config);

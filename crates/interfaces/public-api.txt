@@ -1192,6 +1192,7 @@ pub vc_interfaces::Notice::failures: alloc::vec::Vec<vc_interfaces::NoticeFailur
 pub vc_interfaces::Notice::project: alloc::string::String
 pub vc_interfaces::Notice::report: core::option::Option<alloc::string::String>
 pub vc_interfaces::Notice::summary: vc_interfaces::RunSummary
+pub vc_interfaces::Notice::teardown: alloc::vec::Vec<alloc::string::String>
 pub vc_interfaces::Notice::test: bool
 pub vc_interfaces::Notice::trigger: vc_model::alerts::AlertTrigger
 impl vc_interfaces::Notice
@@ -1201,6 +1202,7 @@ pub fn vc_interfaces::Notice::failures(self, alloc::vec::Vec<vc_interfaces::Noti
 pub const fn vc_interfaces::Notice::new(vc_model::alerts::AlertTrigger, alloc::string::String, vc_interfaces::RunSummary) -> Self
 pub fn vc_interfaces::Notice::profile_key(&self) -> alloc::string::String
 pub fn vc_interfaces::Notice::report(self, impl core::convert::Into<alloc::string::String>) -> Self
+pub fn vc_interfaces::Notice::teardown(self, alloc::vec::Vec<alloc::string::String>) -> Self
 impl core::clone::Clone for vc_interfaces::Notice
 pub fn vc_interfaces::Notice::clone(&self) -> Self
 impl core::cmp::Eq for vc_interfaces::Notice

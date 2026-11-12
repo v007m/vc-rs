@@ -179,7 +179,7 @@ pub fn drive_run(run: RunOrchestrator, respond: Respond, files: &[Totals]) -> Ve
         let inputs = match command {
             RunCommand::RunAction(action) => vec![RunInput::ActionDone(respond(action))],
             RunCommand::RunCleanup(_) => vec![RunInput::CleanupDone],
-            RunCommand::StartFiles(_) => files.iter().copied().map(RunInput::FileDone).collect(),
+            RunCommand::StartFiles(_) => files.iter().map(|&totals| RunInput::FileDone(totals.into())).collect(),
             RunCommand::Report(_) => vec![RunInput::Reported],
             _ => continue,
         };
