@@ -7,6 +7,10 @@ description: Write, run, check and fix HTTP API tests with Vibranium (the `vc` C
 
 Vibranium tests HTTP APIs from plain YAML files kept in git. One binary, `vc`, checks, runs, explains and load-tests them. `vc mcp` serves the same engine to agents over MCP.
 
+If `vc --version` fails, `vc` is not installed: point the user at https://v007m.github.io/vc-rs/start/install/ (Homebrew or Cargo) rather than guessing a command. `vibranium` is the same command under its long name; use it when `vc` is another tool on this machine.
+
+The full docs are at https://v007m.github.io/vc-rs/, and as plain text at https://v007m.github.io/vc-rs/llms.txt (an index) and `/vc-rs/llms-full.txt` (every page). This file is served at https://v007m.github.io/vc-rs/skill.md.
+
 ## File kinds
 
 | File | Where | Holds |
@@ -16,6 +20,11 @@ Vibranium tests HTTP APIs from plain YAML files kept in git. One binary, `vc`, c
 | `*.test.yaml` | `services/<service>/<area>.test.yaml` | `tests:` that `call:` apis and add `expect`, `before`, `steps`, `examples` |
 | `*.load.yaml` | `load/<service>/<name>.load.yaml` | A `mix` of existing tests, `stages`, `thresholds` |
 | `.env.schema` / `.env` | Project root | Secret names (committed) and values (never committed) |
+| `datasets/*.csv`, `*.json`, `*.yaml` | `datasets/` | Rows for data-driven tests: `examples: ${dataset.<id>}` |
+
+A "collection" from Postman, Insomnia or Bruno maps to one service folder: an api file (the requests) plus the test files that call it. `vc import postman <file>` (also `bruno`, `har`, `curl`, `http`, `openapi`) writes the api file for you.
+
+A new project: `vc init` writes a config and a sample (`vc init --no-sample` for the config and folders only). `vc demo start --detach` starts a small users service on http://localhost:7421 (`GET`/`POST /users`, `GET`/`DELETE /users/{id}`, `ANY /echo`) to try things against; `vc demo stop` stops it.
 
 ## IDs
 
@@ -28,7 +37,7 @@ Vibranium tests HTTP APIs from plain YAML files kept in git. One binary, `vc`, c
 
 ## Cheat sheet
 
-Every snippet below passes `vc check` and runs. For more, read `reference/syntax.md` next to this file.
+Every snippet below passes `vc check` and runs. For more, read `reference/syntax.md` next to this file (online: https://v007m.github.io/vc-rs/skill/reference/syntax.md).
 
 ```yaml
 # vibranium.config.yaml
@@ -36,7 +45,7 @@ syntaxVersion: 2
 project: shop
 
 vars:
-  usersUrl: http://localhost:7531
+  usersUrl: http://localhost:7421   # the `vc demo` service
 
 profiles:
   - id: local
@@ -170,28 +179,37 @@ tests:
 
 Key points:
 
-- A test's `expect` is merged over the api's `expect`. `replace: true` drops the api's checks (needed above, since the api expects 201).
+- A test's `expect` is merged over the api's `expect`; a test's `status` replaces the api's. `replace: true` drops every check the api states, keeping only the test's.
 - `${var.x}`, `${secret.X}`, `${fake.person.fullName}`, `${response.body.id}`, `${example.name}`, `${<stepId>.body.id}` are the template sources. A `save:` in a `before` call makes the var available to the test.
 - `body.match` paths are quoted when they start with `[`: `"[0].id"`, `"[*].name"`. Do not prefix them with `$`.
 - Matchers seen above: a plain value (equals), `type`, `every`, `contains`, `lt`. `body.equals` compares the whole body.
 - `headers:` belongs on a test, an api or `defaults.headers` in the config. A test file has no top-level `headers:` (V1004).
-- `skip: <reason>` on a test skips it; `vc run --include-skipped` runs it anyway.
+- `skip: <reason>` on a test skips it; `vc run --include-skipped` runs it anyway. `vc skip <testId> --reason "…" [--until YYYY-MM-DD]` writes it for you.
+- A secret must be declared in `.env.schema`, or `vc check` reports V2106. A declared secret with no value stops `vc run` before anything is sent (V5114, exit 2).
+- Lifecycle blocks in a test file: `beforeAll`/`afterAll` (once per file), `beforeEach`/`afterEach` (around every test); on a test: `before`/`after`. In the config: `beforeRun`/`afterRun`. Each is a list of actions: `call: <api>`, `test: <test>`, `command: <shell>` or `function: <path>#<export>`. A failed `before*` marks the test **blocked**, not failed.
 
 ## The loop: check, plan, run, explain
 
 Run every command from inside the project. Prefer the JSON forms when you need to parse output.
 
-1. **Check** after every edit: `vc check` (or `vc check --json`). Exit 2 means errors. Fix every error before running.
+1. **Check** after every edit: `vc check` (or `vc check --json`). Exit 2 means errors; `vc run` refuses to start while any are left. Fix every error before running.
 2. **Plan** to see what a selector picks without sending anything: `vc plan users.crud`, `vc plan --changed`, `vc plan -t smoke --json`.
-3. **Run**: `vc run users.crud`, `vc run 'users.crud#getsCreatedUser'`, `vc run -t smoke`, `vc run --changed main`. Use `--reporter json` for an NDJSON event stream. Exit 0 pass, 1 fail, 2 nothing ran.
+3. **Run**: `vc run users.crud`, `vc run 'users.crud#getsCreatedUser'`, `vc run -t smoke`, `vc run --changed main`, `vc run --profile staging`. Use `--reporter json` for an NDJSON event stream. Exit codes: 0 pass, 1 fail or blocked, 2 nothing ran (errors, or an empty selection), 3 load threshold breached, 4 sync drift, 70 internal error, 130 cancelled.
 4. **Explain** a failure:
    - `vc history show <run> --json` gives each test's status and message, including the body diff.
    - `vc explain users.crud#getsCreatedUser` shows the request as the run sees it, with the source of every var.
    - `vc call users#getUser --var userId=1` sends one api and prints the response, so you can compare it with the expectation.
-   - `vc run --failed` reruns what failed in the last run. A `vc call` counts as the last run, so after one, name the tests instead.
+   - `vc run --failed` reruns the tests that failed or were blocked in the last run.
 5. A failing run prints `seed N`; `vc run --seed N` replays the same generated data.
 
-Other commands: `vc list tests|apis|files [--json]`, `vc import openapi <spec> --id <service> --tests`, `vc sync [<service>] [--check|--dry-run]`, `vc load <scenario> [--json]` (exit 3 on a breached threshold), `vc history [--json]`.
+Authoring shortcuts, each followed by `vc check`:
+
+- `vc new api users#getUser --path '/users/{userId}'` appends an api (and a base-URL var in the config when the file is new). `--from-curl '<curl>'` reads a copied curl command.
+- `vc new test users.crud#getsUser --from users#getUser` appends a happy-path test; fill in its `replace-me` vars.
+- `vc call users#listUsers --save-as-test users.crud#listsUsers` writes a test that expects the status it got.
+- `vc rename users#create users#createUser` renames an ID and every reference; `vc fmt` rewrites files in the house style and keeps comments.
+
+Other commands: `vc list tests|apis|files [--json]`, `vc import openapi <spec> --id <service> --tests`, `vc sync [<service>] [--check|--dry-run]`, `vc load <scenario> [--json]` (exit 3 on a breached threshold), `vc history [--json]`, `vc config explain vars.<name>` (which value wins, and from where).
 
 ## Diagnostics
 
@@ -199,7 +217,7 @@ Every problem has a code (V1 syntax, V2 references and types, V3 lifecycle, V4 c
 
 - Read the `help:` line first. It usually names the right ID or key ("did you mean `people#getPerson`?").
 - `vc explain V2003` explains any code with a wrong and a right example.
-- `vc check --fix` shows the certain fixes as a diff and asks `Apply N fix? [y/N]`. Without a terminal, pipe the answer: `echo y | vc check --fix`. Read the diff first: a certain fix can rename a reference to a different api when only one name is close.
+- `vc check --fix` shows the certain fixes as a diff and asks before writing. Without a terminal, add `--yes`: `vc check --fix --yes` prints the diff and applies it. Read the diff: a certain fix can rename a reference to a different api when only one name is close.
 - `vc check --json` gives each fix as byte-range `edits`, if you prefer to apply them yourself.
 - V4 warnings (such as V4001, a test ID that is not camelCase) appear only once there are no errors.
 

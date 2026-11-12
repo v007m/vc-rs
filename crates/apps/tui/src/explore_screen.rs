@@ -1,10 +1,11 @@
 //! The Explore tab: the project's apis and tests by file, the chosen one's details and how a
 //! run sees it (`vc explain`), `t` to skip a test with a reason or to unskip it, and `e` to
-//! edit the chosen item's file (`edit_session.rs`). It reads the project when first shown, again
-//! on `r`, after each skip, unskip or edit written, and when shown after the Import tab wrote
-//! files.
+//! edit the chosen item's file (`edit_session.rs`), and `c` to show only what changed in the
+//! last week (D249). It reads the project when first shown, again on `r` and `c`, after each
+//! skip, unskip or edit written, and when shown after the Import tab wrote files.
 
 use std::cell::Cell;
+use std::time::Duration;
 
 use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::Frame;
@@ -19,14 +20,20 @@ use crate::screen::{Ask, Screen, Update, clamp_step, cursor_move, refound, scrol
 use crate::theme::first_line;
 
 /// The Explore tab's keys.
-const KEYS: [(&str, &str); 6] = [
+const KEYS: [(&str, &str); 7] = [
     ("↑↓", "move"),
     ("enter", "explain"),
     ("pgup/pgdn", "scroll"),
     ("t", "skip/unskip"),
     ("e", "edit"),
     ("r", "reload"),
+    ("c", "recent"),
 ];
+
+/// How many days back `c` looks for changed files.
+pub const RECENT_DAYS: u64 = 7;
+/// The window `c` asks for: [`RECENT_DAYS`] days.
+const RECENT: Duration = Duration::from_hours(RECENT_DAYS * 24);
 
 /// What the last key came to, for the status line.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -52,6 +59,7 @@ pub struct ExploreScreen {
     scroll: u16,
     explain_width: Cell<u16>,
     editing: Option<EditSession>,
+    recent: bool,
 }
 
 /// Whether `item` is an api, not a test.
@@ -129,6 +137,11 @@ impl ExploreScreen {
         self.note.as_ref()
     }
 
+    /// Whether only what changed in the last [`RECENT_DAYS`] days is shown.
+    pub const fn recent(&self) -> bool {
+        self.recent
+    }
+
     /// The file being edited.
     pub const fn editing(&self) -> Option<&EditSession> {
         self.editing.as_ref()
@@ -167,7 +180,16 @@ impl ExploreScreen {
             return None;
         }
         self.reading = ReadState::Reading;
-        Some(Ask::Explore)
+        Some(if self.recent { Ask::ExploreChanged(RECENT) } else { Ask::Explore })
+    }
+
+    /// Shows only what changed lately, or everything again, unless the project is being read.
+    fn toggle_recent(&mut self) -> Option<Ask> {
+        if self.reading == ReadState::Reading {
+            return None;
+        }
+        self.recent = !self.recent;
+        self.reload()
     }
 
     /// Asks how a run sees the chosen item.
@@ -295,6 +317,7 @@ impl Screen for ExploreScreen {
             KeyCode::Enter => return self.explain(),
             KeyCode::Char('t') => return self.quarantine(),
             KeyCode::Char('e') => return self.edit(),
+            KeyCode::Char('c') => return self.toggle_recent(),
             KeyCode::Char('r') => return self.reload(),
             _ => {}
         }

@@ -1,0 +1,21 @@
+---
+/**
+ * One install command from `~/lib/install`, as a code block with a copy button, and its note.
+ * Pages use this instead of writing the command, so it is stated in one place.
+ */
+import { Code } from '@astrojs/starlight/components';
+import { INSTALL, type InstallMethod } from '~/lib/install';
+
+interface Props {
+  method: InstallMethod;
+  /** Leaves out the one-sentence note under the command. */
+  bare?: boolean;
+}
+
+const { method, bare = false } = Astro.props;
+const { command, note } = INSTALL[method];
+const html = note.replace(/`([^`]+)`/g, '<code>$1</code>');
+---
+
+<Code code={command} lang="sh" />
+{!bare && <p set:html={html} />}

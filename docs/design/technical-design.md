@@ -99,7 +99,7 @@ The executor walks the planned graph and runs each test instance as soon as the 
 
 ### Results per test instance
 
-One of `passed`, `failed`, `blocked`, `skipped` or `flaky` (passed after a retry). Blocked instances are never retried (D126). Every expectation result carries its source span, expected value, actual value and a diff for structured values.
+One of `passed`, `failed`, `blocked`, `skipped`, `flaky` (passed after a retry) or `allowedFailure` (failed under `allowFailure`, which does not fail the run; D248). Blocked instances are never retried (D126). Every expectation result carries its source span, expected value, actual value and a diff for structured values.
 
 ### Load engine
 

@@ -72,13 +72,14 @@ plan  1 test in 1 file · profile default
 
 ### A reused test's saves
 
+`vc check` sees what `memberWithEcho`'s calls save, so the `test:` step declares `echoedName` and `userId` without a `provides`:
+
 ```yaml title="services/flow/reuse2.test.yaml"
 id: flow.reuse2
 tests:
   - id: readsDeclared
     steps:
       - test: shared.flows#memberWithEcho
-        provides: [echoedName, userId]
       - call: echo#json
         vars:
           name: ${var.echoedName}
@@ -115,7 +116,7 @@ tests:
 - `provides` matters for `function` and `test` actions. A `call` already declares its saves in the api and the test.
 - The names are plain var names, without `var.`.
 - Values from a `function` win over the test file's vars of the same name.
-- For a `test:` action, `vc check` already knows what the reused test saves. The run still prints V5108 for each name not in `provides`, so list them.
+- For a `test:` action, `vc check` already knows what the reused test's calls save, and counts those names as declared. List only the names a `function:` step inside it returns; reading one that is not listed is V5108.
 
 ## Common errors
 

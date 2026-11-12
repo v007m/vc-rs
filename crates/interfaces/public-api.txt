@@ -1596,6 +1596,7 @@ pub trait vc_interfaces::Transport: core::marker::Send + core::marker::Sync
 pub fn vc_interfaces::Transport::send<'life0, 'life1, 'async_trait>(&'life0 self, vc_model::exchange::RenderedRequest, &'life1 vc_interfaces::SendContext) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::result::Result<vc_model::exchange::Exchange, vc_interfaces::TransportError>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait, 'life1: 'async_trait
 pub trait vc_interfaces::Vcs: core::marker::Send + core::marker::Sync
 pub fn vc_interfaces::Vcs::changed(&self, &str) -> core::result::Result<alloc::vec::Vec<vc_model::source::SourcePath>, vc_interfaces::VcsError>
+pub fn vc_interfaces::Vcs::changed_within(&self, core::time::Duration) -> core::result::Result<alloc::vec::Vec<vc_model::source::SourcePath>, vc_interfaces::VcsError>
 pub fn vc_interfaces::checked_ref(&str) -> core::result::Result<&str, vc_interfaces::VcsError>
 pub fn vc_interfaces::content_hash(&[u8]) -> vc_model::source::ContentHash
 pub fn vc_interfaces::resolve_reference(&str, &str) -> core::option::Option<alloc::string::String>

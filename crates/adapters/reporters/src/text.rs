@@ -50,6 +50,7 @@ pub const fn status(status: TestStatus) -> &'static str {
         TestStatus::Blocked => "blocked",
         TestStatus::Flaky => "flaky",
         TestStatus::Skipped => "skipped",
+        TestStatus::AllowedFailure => "allowedFailure",
     }
 }
 
@@ -93,7 +94,14 @@ mod tests {
         assert_eq!([count(0, "file"), count(1, "file"), count(2, "file")], ["0 files", "1 file", "2 files"]);
         assert_eq!(value(&json!({"name": "A\u{1b}"})), "{\"name\":\"A\\u001b\"}");
         assert_eq!(value(&json!("x\u{202e}")), "\"x\u{fffd}\"");
-        let all = [TestStatus::Passed, TestStatus::Failed, TestStatus::Blocked, TestStatus::Flaky, TestStatus::Skipped];
-        assert_eq!(all.map(status), ["passed", "failed", "blocked", "flaky", "skipped"]);
+        let all = [
+            TestStatus::Passed,
+            TestStatus::Failed,
+            TestStatus::Blocked,
+            TestStatus::Flaky,
+            TestStatus::Skipped,
+            TestStatus::AllowedFailure,
+        ];
+        assert_eq!(all.map(status), ["passed", "failed", "blocked", "flaky", "skipped", "allowedFailure"]);
     }
 }

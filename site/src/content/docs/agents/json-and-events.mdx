@@ -114,7 +114,7 @@ For files, `id` is the file ID (`people.browse`) and `name` is currently always 
     "selector": "--changed main",
     "startedMs": 1794333119658,
     "status": "passed",
-    "totals": { "blocked": 0, "failed": 0, "flaky": 0, "passed": 6, "skipped": 0 },
+    "totals": { "allowedFailures": 0, "blocked": 0, "failed": 0, "flaky": 0, "passed": 6, "skipped": 0 },
     "vcVersion": "0.1.0"
   }
 ]
@@ -143,7 +143,7 @@ The run, as above, plus one entry per test (two of the six shown):
     "selector": "",
     "startedMs": 1794332930572,
     "status": "failed",
-    "totals": { "blocked": 0, "failed": 1, "flaky": 0, "passed": 5, "skipped": 0 },
+    "totals": { "allowedFailures": 0, "blocked": 0, "failed": 1, "flaky": 0, "passed": 5, "skipped": 0 },
     "vcVersion": "0.1.0"
   },
   "tests": [
@@ -201,9 +201,9 @@ A failing run, line by line:
 {"action":"call people#getPerson","check":{"actual":{"id":"2","name":"Grace Hopper"},"code":"V5101","diff":"--- expected\n+++ actual\n@@ -1,4 +1,4 @@\n {\n   \"id\": \"2\",\n-  \"name\": \"Grace Brewster Hopper\"\n+  \"name\": \"Grace Hopper\"\n }\n\\ No newline at end of file\n","error":null,"expected":{"id":"2","name":"Grace Brewster Hopper"},"key":"body.equals","location":{"column":11,"line":11,"path":"services/people/diff.test.yaml"},"origin":"test people.diff#getsGraceExactly","passed":false},"event":"checkEvaluated","owner":{"instance":0,"kind":"instance"}}
 {"action":"call people#getPerson","event":"actionFinished","failure":{"action":"call people#getPerson","code":"V5101","message":"equals: expected {\"id\":\"2\",\"name\":\"Grace Brewster Hopper\"}, got {\"id\":\"2\",\"name\":\"Grace Hopper\"}\n--- expected\n+++ actual\n@@ -1,4 +1,4 @@\n {\n   \"id\": \"2\",\n-  \"name\": \"Grace Brewster Hopper\"\n+  \"name\": \"Grace Hopper\"\n }\n\\ No newline at end of file\n"},"owner":{"instance":0,"kind":"instance"},"status":"failed"}
 {"attempts":1,"durationMs":3,"event":"testFinished","failure":{"action":"call people#getPerson","code":"V5101","message":"equals: expected {\"id\":\"2\",\"name\":\"Grace Brewster Hopper\"}, got {\"id\":\"2\",\"name\":\"Grace Hopper\"}\n--- expected\n+++ actual\n@@ -1,4 +1,4 @@\n {\n   \"id\": \"2\",\n-  \"name\": \"Grace Brewster Hopper\"\n+  \"name\": \"Grace Hopper\"\n }\n\\ No newline at end of file\n"},"instance":0,"label":"people.diff#getsGraceExactly","name":"Gets Grace exactly","skipReason":null,"status":"failed","test":"people.diff#getsGraceExactly"}
-{"event":"fileFinished","file":"people.diff","totals":{"blocked":0,"failed":1,"flaky":0,"passed":0,"skipped":0}}
-{"event":"runFinished","status":"failed","totals":{"blocked":0,"failed":1,"flaky":0,"passed":0,"skipped":0}}
-{"artifacts":[{"path":"/home/you/people/.vibranium/reports/23/ctrf.json","reporter":"ctrf"},{"path":"/home/you/people/.vibranium/reports/23/junit.xml","reporter":"junit"},{"path":"/home/you/people/.vibranium/reports/23/index.html","reporter":"html"}],"durationMs":5,"event":"summary","profileNames":{},"profiles":["default"],"startedMs":1794332266888,"status":"failed","totals":{"blocked":0,"failed":1,"flaky":0,"passed":0,"skipped":0}}
+{"event":"fileFinished","file":"people.diff","totals":{"allowedFailures":0,"blocked":0,"failed":1,"flaky":0,"passed":0,"skipped":0}}
+{"event":"runFinished","status":"failed","totals":{"allowedFailures":0,"blocked":0,"failed":1,"flaky":0,"passed":0,"skipped":0}}
+{"artifacts":[{"path":"/home/you/people/.vibranium/reports/23/ctrf.json","reporter":"ctrf"},{"path":"/home/you/people/.vibranium/reports/23/junit.xml","reporter":"junit"},{"path":"/home/you/people/.vibranium/reports/23/index.html","reporter":"html"}],"durationMs":5,"event":"summary","profileNames":{},"profiles":["default"],"startedMs":1794332266888,"status":"failed","totals":{"allowedFailures":0,"blocked":0,"failed":1,"flaky":0,"passed":0,"skipped":0}}
 ```
 
 A passing test with a cleanup adds a `cleanupFinished` line after the test's actions:

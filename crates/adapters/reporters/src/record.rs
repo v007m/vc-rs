@@ -145,7 +145,7 @@ fn message(result: &TestResult) -> Option<String> {
     match result.status {
         TestStatus::Skipped => result.skip_reason.clone(),
         TestStatus::Passed => None,
-        TestStatus::Failed | TestStatus::Blocked | TestStatus::Flaky => {
+        TestStatus::Failed | TestStatus::Blocked | TestStatus::Flaky | TestStatus::AllowedFailure => {
             result.failure.as_ref().map(|failure| failure.message.clone())
         }
     }

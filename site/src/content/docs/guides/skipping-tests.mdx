@@ -163,6 +163,19 @@ plan  4 tests in 1 file · profile default
 4 passed                                                     5ms · profile default
 ```
 
+## Keep running a test that may fail
+
+To keep a broken test running, so you see when it starts passing again, use [`allowFailure`](/vc-rs/reference/syntax/allow-failure/) instead of `skip`. It takes the same `reason` and `until`. The test runs, and if it fails it shows as `⚠ allowed to fail` and does not fail the run:
+
+```yaml
+  - id: getsUser
+    allowFailure:
+      reason: "flaky upstream, see #7"
+      until: 2026-12-31
+```
+
+`vc run --strict` turns every allowed failure back into a failure.
+
 ## Not running a test without skipping it
 
 A skip says "this test is broken for now". To leave tests out of one run for other reasons, select instead:
@@ -190,5 +203,6 @@ Tests left out by a selector are not counted at all, not even as skipped.
   <LinkCard title="vc skip" href="/vc-rs/reference/cli/skip/" description="Every flag and error." />
   <LinkCard title="vc unskip" href="/vc-rs/reference/cli/unskip/" description="Remove a skip." />
   <LinkCard title="skip" href="/vc-rs/reference/syntax/skip/" description="The YAML key." />
+  <LinkCard title="allowFailure" href="/vc-rs/reference/syntax/allow-failure/" description="Run it, and let it fail." />
   <LinkCard title="V3104" href="/vc-rs/reference/diagnostics/v3104/" description="The expired-skip warning." />
 </CardGrid>

@@ -1,8 +1,8 @@
 use indexmap::IndexMap;
 
 use crate::{
-    ApiId, AuthRef, BodySpec, CacheSpec, Duration, Examples, Expect, FileId, HookRef, Lifecycle, Loop, Method, Owner,
-    Poll, Retry, SaveSpec, Skip, SourceSpan, Sym, Tag, Template, TestId, VarDefs, VarName,
+    AllowFailure, ApiId, AuthRef, BodySpec, CacheSpec, Duration, Examples, Expect, FileId, HookRef, Lifecycle, Loop,
+    Method, Owner, Poll, Retry, SaveSpec, Skip, SourceSpan, Sym, Tag, Template, TestId, VarDefs, VarName,
 };
 
 /// One test file: what its tests share.
@@ -22,6 +22,8 @@ pub struct TestFile {
     pub vars: VarDefs,
     /// `skip` for every test in the file.
     pub skip: Option<Skip>,
+    /// `allowFailure` for every test in the file (D248).
+    pub allow_failure: Option<AllowFailure>,
     /// `beforeAll`, `afterAll`, `beforeEach`, `afterEach`.
     pub lifecycle: Lifecycle,
     /// The tests, in file order.
@@ -63,6 +65,8 @@ pub struct Test {
     pub timeout: Option<Duration>,
     /// `skip`.
     pub skip: Option<Skip>,
+    /// `allowFailure` (D248).
+    pub allow_failure: Option<AllowFailure>,
     /// `standalone`; true when not written.
     pub standalone: bool,
     /// The whole item.
@@ -119,6 +123,9 @@ pub struct Action {
     pub keep: bool,
     /// `provides`: the names a `function:` or `test:` action says it saves (D128).
     pub provides: Vec<VarName>,
+    /// The names a resolved `test:` action is seen to save (D282). V5108 counts them as declared;
+    /// V5109 does not require them, since a reused test may save them only on some paths.
+    pub implied: Vec<VarName>,
     /// `cache`.
     pub cache: Option<CacheSpec>,
     /// `repeat` or `forEach`.
@@ -147,6 +154,7 @@ impl Action {
             timeout: None,
             keep: false,
             provides: Vec::new(),
+            implied: Vec::new(),
             cache: None,
             repeat: None,
             span,

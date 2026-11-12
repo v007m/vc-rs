@@ -488,6 +488,7 @@ File-level keys of a test file:
 | `beforeEach`, `afterEach` | lists of actions | Run around every test instance in the file |
 | `tests` | list | The tests |
 | `skip` | a reason, or reason and until | Skip every test in the file (see Skipping) |
+| `allowFailure` | `true`, or reason and until | Every test in the file may fail without failing the run (see Allowing a failure) |
 
 Each item in `tests`:
 
@@ -511,6 +512,7 @@ Each item in `tests`:
 | `retry` | `attempts`, `delay` | `defaults.retry` | Re-run the whole test instance after a failure, cleanups included; a pass after a failure is reported as flaky (D126). A failure that repeats across attempts is shown once, under the attempts it happened in (`attempts 1, 2 and 3 of 3:`) |
 | `timeout` | duration | per-request timeout × calls | Whole-test limit, per attempt. `after` and `afterEach` actions are outside it: one with its own `timeout` is limited by that, one without only by its requests' timeouts |
 | `skip` | a reason, or reason and until | — | Skip with a reason, optionally until a date; reported as skipped (see Skipping) |
+| `allowFailure` | `true`, or reason and until | the file's | Run and report the test, but a failure does not fail the run (see Allowing a failure) |
 | `standalone` | boolean | `true` | `false`: runs only when reused with `test:`, never on its own |
 
 With `steps`, the test-level `auth`, `headers`, `query`, `body`, `poll` and `expect` are defaults for every `call` step, and a step's own value wins; `test:`, `function` and `command` steps take none (D124). A `test:` step runs the reused test as written, so neither the defaults nor those keys written on the step itself reach its calls (D270). A test-level `save` reads the last step's response. `vc check` warns when a `body` default reaches a `GET` or `HEAD` step (V3205), when no step uses a default (V3206), and when a `test:` action has one of those keys (V3207).
@@ -627,6 +629,20 @@ Notes on the example: `users#create` saves `userId` and declares its own cleanup
       until: 2026-11-15
 ```
 
+### Allowing a failure
+
+`allowFailure` keeps a known failure from failing the run while it is still worth running, like GitLab CI's `allow_failure`. It is `true`, or a map with the same shape as `skip`: a required `reason` and an optional `until` date (`YYYY-MM-DD`, UTC). Written at the top of a file it covers every test in the file; a test's own `allowFailure` wins over the file's, and a test's `allowFailure: false` turns the file's off for that test. The test still runs and is reported. When it fails (after its `retry`), it ends as **allowed to fail** (`allowedFailure`, shown as ⚠ with the reason), is counted apart in the summary (`1 allowed to fail`), in CTRF (`other`) and in JUnit (a skipped case whose message gives the reason and the failure), and does not change the exit code. A test that passes, or is blocked by a setup, is reported as usual. After `until`, the setting is ignored, so a failure fails the run again, and `vc check` warns that it expired (V4008); an expired test-level setting falls back to the file's. `vc run --strict` treats every allowed failure as a failure (D248).
+
+```yaml
+allowFailure: {reason: "payments sandbox is down, see #340", until: 2026-12-01}
+tests:
+  - id: refundsOrder
+    call: payments#refund
+  - id: listsRefunds
+    call: payments#list
+    allowFailure: true
+```
+
 ## Lifecycle blocks
 
 Lifecycle blocks prepare data and tidy up around tests, like JUnit's `@BeforeAll` and `@BeforeEach`. Each block is a list of actions, and where the block sits decides when it runs and how long what it creates lives. There is no separate scope setting.
@@ -655,7 +671,7 @@ An action is one entry in a lifecycle block or in a test's `steps`. Most actions
 
 In `beforeRun` and `beforeAll` every action that produces values needs an `id`, and everything it saves, including its api's `save`, is shared under that id: `${var.catalog.productIds}`. In per-test blocks and steps, saved names are plain (`${var.userId}`), as for any step.
 
-A `function:` or `test:` action can't always be read ahead of time to see what it saves, so it may declare `provides: [name, …]`; `vc check` then counts those names as set when it looks for vars that are never set (V2101). At run time, using a name such an action saved without declaring it is a V5108 warning (the run goes on, D186), and a declared name it did not save is V5109 (D128).
+A `function:` or `test:` action can't always be read ahead of time to see what it saves, so it may declare `provides: [name, …]`; `vc check` then counts those names as set when it looks for vars that are never set (V2101). A `test:` action that names a test `vc check` can resolve already declares everything that test saves (its own `save`, its api's `save`, and what its steps save), so it needs `provides` only for names it can't see, such as those a `function:` step inside it returns (D282). At run time, using a name such an action saved without declaring it is a V5108 warning (the run goes on, D186), and a name declared in `provides` that it did not save is V5109 (D128); the names a `test:` action declares by being resolved are not held to V5109, since the reused test may save some only on some paths.
 
 ```yaml
 # services/orders/checkout.test.yaml (excerpt)

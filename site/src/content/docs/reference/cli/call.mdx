@@ -20,7 +20,7 @@ $ vc call [OPTIONS] <API>
 | `--var` | `<NAME=VALUE>` | | Sets one var for this call. Repeat it for more. It beats the vars the api and the config define |
 | `--keep` | | | Leaves what the call made: the api's `cleanup` does not run afterwards |
 | `--profile` | `<IDS>` | the config's default | The active profiles, as a comma list or repeated. Later ones win |
-| `--set` | `<KEY=VALUE>` | | Sets one config value over every other layer |
+| `--set` | `<KEY=VALUE>` | | Sets one config value over every other config layer |
 | `--save-as-test` | `<TEST_ID>` | | Writes the call as a test with this ID (`users.crud#listsUsers`) that expects the status it got. No schema is inferred |
 | `--expect-field` | `<body.PATH>` | | With `--save-as-test`, also expects this body field at the value it came back with (`body.id`, `body.items[0].id`). Repeat it for more |
 | `--project` | `<DIR>` | | See [global flags](/vc-rs/reference/cli/#global-flags) |

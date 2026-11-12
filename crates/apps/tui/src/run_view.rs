@@ -74,6 +74,7 @@ fn counts(totals: &Totals, zeros: bool) -> Vec<Span<'static>> {
         (TestStatus::Blocked, totals.blocked),
         (TestStatus::Flaky, totals.flaky),
         (TestStatus::Skipped, totals.skipped),
+        (TestStatus::AllowedFailure, totals.allowed_failures),
     ];
     counted
         .into_iter()

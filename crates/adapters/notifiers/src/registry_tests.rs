@@ -27,7 +27,7 @@ fn accepting() -> NotifierRegistry {
 }
 
 fn full_notice(trigger: AlertTrigger) -> Notice {
-    let totals = Totals { passed: 7, failed: 1, blocked: 1, flaky: 1, skipped: 2 };
+    let totals = Totals { passed: 7, failed: 1, blocked: 1, flaky: 1, skipped: 2, allowed_failures: 0 };
     let summary = RunSummary::new(RunStatus::Failed, totals).timed(1_767_225_600_000, Duration::from_millis(4_210));
     Notice::new(trigger, "shop".to_owned(), summary.profiles(["staging", "eu"]))
         .failures(vec![

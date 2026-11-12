@@ -85,7 +85,10 @@ impl Fixture {
             ApiGroup { id: group, name: None, base_url, auth, headers, vars, hooks, source: None, apis },
         );
         let (tags, vars, lifecycle, tests) = Default::default();
-        program.test_files.insert(file, TestFile { id: file, name: None, tags, vars, skip: None, lifecycle, tests });
+        program.test_files.insert(
+            file,
+            TestFile { id: file, name: None, tags, vars, skip: None, allow_failure: None, lifecycle, tests },
+        );
         Self { program, file, group, names, strings: kept, bodies: BodyFiles::default() }
     }
 
@@ -156,6 +159,7 @@ impl Fixture {
             retry,
             timeout: None,
             skip: None,
+            allow_failure: None,
             standalone: false,
             span: span(),
         };
@@ -168,7 +172,9 @@ impl Fixture {
     pub fn test_file(&mut self, word: &str) -> FileId {
         let id = FileId::new(self.sym(word));
         let (name, tags, vars, skip, lifecycle, tests) = Default::default();
-        self.program.test_files.insert(id, TestFile { id, name, tags, vars, skip, lifecycle, tests });
+        self.program
+            .test_files
+            .insert(id, TestFile { id, name, tags, vars, skip, allow_failure: None, lifecycle, tests });
         id
     }
 

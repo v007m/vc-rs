@@ -107,18 +107,19 @@ fn summary(run: &RunFacts) -> Value {
         "failed": totals.failures(),
         "pending": 0,
         "skipped": totals.skipped,
-        "other": 0,
+        "other": totals.allowed_failures,
         "start": run.started_ms,
         "stop": run.started_ms.saturating_add(run.duration_ms),
     })
 }
 
-/// CTRF's status; `rawStatus` keeps Vibranium's own.
+/// CTRF's status; `rawStatus` keeps Vibranium's own. An allowed failure is `other` (D248).
 const fn status(status: TestStatus) -> &'static str {
     match status {
         TestStatus::Passed | TestStatus::Flaky => "passed",
         TestStatus::Failed | TestStatus::Blocked => "failed",
         TestStatus::Skipped => "skipped",
+        TestStatus::AllowedFailure => "other",
     }
 }
 
