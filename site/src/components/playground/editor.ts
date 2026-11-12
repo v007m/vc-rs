@@ -23,6 +23,8 @@ export interface EditorOptions {
   kind: Kind;
   doc: string;
   onProblems: (problems: Problem[]) => void;
+  /** Called with the whole text after each edit. */
+  onChange?: (doc: string) => void;
 }
 
 const highlight = HighlightStyle.define([
@@ -109,6 +111,9 @@ export function createEditor(parent: HTMLElement, opts: EditorOptions): EditorVi
       stateExtensions(schemas[opts.kind] as never),
       schemaLinter(opts.kind, opts.onProblems),
       EditorView.contentAttributes.of({ 'aria-label': `${opts.kind} YAML editor` }),
+      EditorView.updateListener.of((update) => {
+        if (update.docChanged) opts.onChange?.(update.state.doc.toString());
+      }),
     ],
   });
   return new EditorView({ state, parent });

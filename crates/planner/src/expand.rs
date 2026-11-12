@@ -5,7 +5,8 @@
 use std::collections::BTreeMap;
 
 use vc_model::{
-    AllowFailure, Examples, FileId, Instance, InstanceId, Needs, Program, Skip, SkippedTest, Test, TestFile, TestId,
+    AllowFailure, Examples, FileId, Instance, InstanceId, Needs, Plan, Program, Skip, SkippedTest, Test, TestFile,
+    TestId,
 };
 
 use crate::select::Pick;
@@ -17,6 +18,15 @@ type Slot = (Option<u32>, u32);
 /// Why a test whose examples gave no rows is skipped: it has nothing to run, and a run that
 /// passed without it must say so.
 pub const NO_ROWS: &str = "examples gave no rows";
+
+/// A notice for each planned test skipped because its examples gave no rows, so a run that
+/// passes without it says so.
+#[must_use]
+pub fn no_rows_notices(program: &Program, plan: &Plan) -> Vec<String> {
+    let empty = plan.skipped.iter().filter(|skipped| skipped.reason == NO_ROWS);
+    let name = |test: TestId| program.str(test.sym()).unwrap_or_default().to_owned();
+    empty.map(|skipped| format!("`{}`: {NO_ROWS}, so it is skipped", name(skipped.test))).collect()
+}
 
 /// The instances to run, by file, the selected tests that are skipped, and the planned tests
 /// whose failure is allowed (D248).
