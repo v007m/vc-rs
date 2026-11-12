@@ -121,10 +121,11 @@ pub fn ran_tests(run: &RunRow) -> bool {
 }
 
 /// The tests that ran and passed, flaky ones included, in tenths of a percent: `961` for
-/// 96.1%; `None` when none ran.
+/// 96.1%; `None` when none ran. An allowed failure ran but did not pass, so a run of nothing
+/// else shows 0%.
 pub fn pass_rate(totals: &Totals) -> Option<usize> {
     let passed = totals.passed + totals.flaky;
-    let ran = passed + totals.failed + totals.blocked;
+    let ran = passed + totals.failed + totals.blocked + totals.allowed_failures;
     (ran > 0).then(|| passed * 1_000 / ran)
 }
 
