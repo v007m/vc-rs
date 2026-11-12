@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { duration, expiring, flakiest, localDay, median, niceMax, passRate } from './stats.ts';
+import {
+  duration,
+  expiring,
+  flakiest,
+  latency,
+  localDay,
+  median,
+  niceMax,
+  passRate,
+  slowest,
+} from './stats.ts';
 
 const run = { id: 1, startedMs: 0, passed: 7, failed: 1, blocked: 1, flaky: 1 };
 
@@ -50,6 +60,21 @@ describe('stats', () => {
       t('a#one', 1, 0),
     ]);
     expect(ranked.map((x) => x.testId)).toEqual(['c#three', 'a#one', 'b#one']);
+  });
+
+  it('ranks apis by p95, ties by id, dropping those with no answer, at most the limit', () => {
+    const api = (apiId: string, p95Ms?: number) => ({
+      apiId,
+      method: 'GET',
+      calls: 1,
+      ...(p95Ms === undefined ? {} : { p50Ms: 1, p95Ms }),
+    });
+    const trends = [api('b', 50), api('none'), api('a', 50), api('c', 900), api('d', 10)];
+    expect(slowest(trends, 3).map(({ apiId }) => apiId)).toEqual(['c', 'a', 'b']);
+  });
+
+  it('formats a response time in ms below a second, else in seconds to two places', () => {
+    expect([latency(999.4), latency(1000), latency(1236)]).toEqual(['999 ms', '1.00 s', '1.24 s']);
   });
 
   it('rounds axis tops and formats durations', () => {

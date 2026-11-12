@@ -91,6 +91,12 @@ async function rendered(port?: Partial<InsightsPort>) {
           { testId: 'users.crud#createsOne', results: 2, failed: 0, flaky: 1, meanMs: 12 },
           { testId: 'users.crud#getsOne', results: 2, failed: 0, flaky: 0, meanMs: 8 },
         ]),
+      apiTrends: () =>
+        Promise.resolve([
+          { apiId: 'users#create', method: 'POST', calls: 1, p50Ms: 410, p95Ms: 1240 },
+          { apiId: 'users#delete', method: 'DELETE', calls: 3 },
+          { apiId: 'users#get', method: 'GET', calls: 5400, p50Ms: 20, p95Ms: 62 },
+        ]),
       ...port,
     },
     TODAY,
@@ -221,8 +227,28 @@ describe('InsightsScreen', () => {
     expect(within(panel).getByText('No skip ends in the next 14 days.')).toBeTruthy();
   });
 
+  it('bars the apis slowest at p95 first, an api with no answer left out', async () => {
+    await rendered();
+    const panel = screen.getByRole('region', { name: 'Slowest APIs' });
+    const bars = within(panel).getAllByRole('img');
+    expect(bars.map((b) => b.getAttribute('aria-label'))).toEqual([
+      'users#create: p50 410 ms, p95 1.24 s',
+      'users#get: p50 20 ms, p95 62 ms',
+    ]);
+    const widths = (bar: HTMLElement | undefined) =>
+      [...(bar?.children ?? [])].map((part) => (part as HTMLElement).style.width);
+    expect(widths(bars[0])).toEqual(['100%', expect.stringMatching(/^33\.06/)]);
+    expect(within(panel).getByText('5,400 calls')).toBeTruthy();
+    expect(within(panel).getByText('1 call')).toBeTruthy();
+  });
+
   it('says so when there is no history yet', async () => {
-    await rendered({ runs: () => Promise.resolve([]), trends: () => Promise.resolve([]) });
+    await rendered({
+      runs: () => Promise.resolve([]),
+      trends: () => Promise.resolve([]),
+      apiTrends: () => Promise.resolve([]),
+    });
+    expect(screen.getByText('No api answered in this range yet.')).toBeTruthy();
     expect(screen.getByText('No flaky or failing tests in this range.')).toBeTruthy();
     expect(screen.getAllByText('No runs in this range yet.')).toHaveLength(2);
   });
@@ -252,6 +278,22 @@ describe('enginePort', () => {
         trends: ({ window, profile, branch }) => {
           asked.push({ window, profile, branch });
           return { trends: [] };
+        },
+        apiTrends: ({ window, profile, branch }) => {
+          asked.push({ api: true, window, profile, branch });
+          return {
+            trends: [
+              {
+                apiId: 'users#get',
+                method: 'GET',
+                calls: 3,
+                p50Ms: 20,
+                p95Ms: 40,
+                statuses: [200],
+              },
+              { apiId: 'users#seed', method: 'POST', calls: 1 },
+            ],
+          };
         },
         listDefinitions: ({ kind, skipped }) => {
           asked.push({ kind, skipped });
@@ -283,10 +325,15 @@ describe('enginePort', () => {
       { id: 3, startedMs: 100, passed: 0, failed: 0, blocked: 0, flaky: 0 },
     ]);
     await port.trends(30, {});
+    expect(await port.apiTrends(100, { branch: 'main' })).toEqual([
+      { apiId: 'users#get', method: 'GET', calls: 3, p50Ms: 20, p95Ms: 40 },
+      { apiId: 'users#seed', method: 'POST', calls: 1 },
+    ]);
     expect(asked).toEqual([
       { kind: DefinitionKind.TESTS, skipped: true },
       { limit: 10, kind: 'run', profile: 'staging', branch: 'main' },
       { window: 30, profile: undefined, branch: undefined },
+      { api: true, window: 100, profile: undefined, branch: 'main' },
     ]);
   });
 });

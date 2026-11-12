@@ -5,6 +5,7 @@
   import { SkipChange } from '#lib/skip/skip.svelte.ts';
   import BarChart, { type Bar } from './BarChart.svelte';
   import ExpiringSkips from './ExpiringSkips.svelte';
+  import SlowestApis from './SlowestApis.svelte';
   import { windows, type Insights } from './insights.svelte.ts';
   import type { RunSummary } from './port.ts';
   import { duration, flakiest, mean, median, niceMax, passRate, when } from './stats.ts';
@@ -195,6 +196,8 @@
       </p>
     {/if}
   </section>
+
+  <SlowestApis trends={insights.apiTrends} {rangeLabel} />
 
   <ExpiringSkips
     skips={insights.skips}
