@@ -8,18 +8,34 @@ license.workspace = true
 repository.workspace = true
 publish.workspace = true
 
+[features]
+default = ["hooks"]
+# Strips TypeScript hook files with oxc (D172). The playground builds without it, as it refuses hooks.
+hooks = [
+  "dep:oxc_allocator",
+  "dep:oxc_ast",
+  "dep:oxc_ast_visit",
+  "dep:oxc_codegen",
+  "dep:oxc_diagnostics",
+  "dep:oxc_parser",
+  "dep:oxc_semantic",
+  "dep:oxc_span",
+  "dep:oxc_syntax",
+  "dep:oxc_transformer",
+]
+
 [dependencies]
 indexmap.workspace = true
-oxc_allocator.workspace = true
-oxc_ast.workspace = true
-oxc_ast_visit.workspace = true
-oxc_codegen.workspace = true
-oxc_diagnostics.workspace = true
-oxc_parser.workspace = true
-oxc_semantic.workspace = true
-oxc_span.workspace = true
-oxc_syntax.workspace = true
-oxc_transformer.workspace = true
+oxc_allocator = { workspace = true, optional = true }
+oxc_ast = { workspace = true, optional = true }
+oxc_ast_visit = { workspace = true, optional = true }
+oxc_codegen = { workspace = true, optional = true }
+oxc_diagnostics = { workspace = true, optional = true }
+oxc_parser = { workspace = true, optional = true }
+oxc_semantic = { workspace = true, optional = true }
+oxc_span = { workspace = true, optional = true }
+oxc_syntax = { workspace = true, optional = true }
+oxc_transformer = { workspace = true, optional = true }
 postcard.workspace = true
 regex.workspace = true
 serde.workspace = true
