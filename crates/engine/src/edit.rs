@@ -166,7 +166,11 @@ impl Engine {
 /// file, is written only while the file there is still the one read, or still not there, and
 /// it replaces that file rather than writing into it: a hard link there leaves the file it
 /// shares as it was, and a file or link put there since the guard ran is refused.
-fn written(writer: &dyn SourceWriter, path: &SourcePath, (change, every): (&FileChange, bool)) -> Result<(), SourceError> {
+fn written(
+    writer: &dyn SourceWriter,
+    path: &SourcePath,
+    (change, every): (&FileChange, bool),
+) -> Result<(), SourceError> {
     if !every && !is_snapshot(&change.path) {
         return writer.write(path, &change.after);
     }
