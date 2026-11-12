@@ -32,11 +32,13 @@ Each metric takes a [matcher](/vc-rs/reference/matchers/) such as `lt`, `lte`, `
 
 ### Passing thresholds
 
-`sample.smoke` sets `p99` below `500ms` and `errorRate` below `1%`. The run stays well within them and exits 0:
+`sample.smoke` sets `p99` below `500ms`, and `getsCreatedUser`'s `p95` below `300ms`. The run stays well within them and exits 0:
 
 ```console
-sample.smoke — Sample smoke load · finished after 10 s · 198 iterations · 19.8 rps · 0 errors
-latency p50 3.4 ms · p90 5.6 ms · p95 7.1 ms · p99 8.9 ms · max 9.8 ms
+sample.smoke — Sample smoke load · finished after 10 s · 195 iterations · 19.5 rps · 0 errors
+latency p50 3.7 ms · p90 8.4 ms · p95 9.9 ms · p99 22.9 ms · max 50.9 ms
+test sample.basics#listsUsers · 144 iterations · 14.4 rps · 0 errors · p50 3.6 ms · p90 7.7 ms · p95 9.9 ms · p99 19.8 ms · max 50.9 ms
+test sample.basics#getsCreatedUser · 51 iterations · 5.1 rps · 0 errors · p50 4.2 ms · p90 8.6 ms · p95 9.2 ms · p99 22.9 ms · max 22.9 ms
 ```
 
 ### A deliberate breach: exit code 3
@@ -66,26 +68,31 @@ thresholds:
 ```console
 $ vc load sample.strict; echo "exit $?"
     1s  0 users  0 rps  p50 0 ms  p95 0 ms  p99 0 ms  0 errors  breaching: rps
-    2s  1 users  139 rps  p50 2 ms  p95 7 ms  p99 19 ms  0 errors  breaching: p99, sample.basics#getsCreatedUser: p95
-    3s  2 users  249 rps  p50 2 ms  p95 10 ms  p99 19 ms  0 errors  breaching: p99, sample.basics#getsCreatedUser: p95
-    4s  3 users  417 rps  p50 2 ms  p95 8 ms  p99 15 ms  0 errors  breaching: p99, sample.basics#getsCreatedUser: p95
-    5s  2 users  462 rps  p50 2 ms  p95 8 ms  p99 15 ms  0 errors  breaching: p99, sample.basics#getsCreatedUser: p95
-    5s  0 users  462 rps  p50 2 ms  p95 8 ms  p99 15 ms  0 errors
-sample.strict — Too strict on purpose · finished after 5 s · 2315 iterations · 463.0 rps · 0 errors
-latency p50 2.7 ms · p90 6.0 ms · p95 8.2 ms · p99 15.6 ms · max 35.7 ms
-breached p99 at 15.615 ms (lt 1 ms)
-breached sample.basics#getsCreatedUser: p95 at 11.215 ms (lt 2 ms)
+    2s  1 users  332 rps  p50 1 ms  p95 1 ms  p99 2 ms  0 errors  breaching: p99, sample.basics#getsCreatedUser: p95
+    3s  2 users  669 rps  p50 1 ms  p95 1 ms  p99 3 ms  0 errors  breaching: p99, sample.basics#getsCreatedUser: p95
+    4s  3 users  1286 rps  p50 1 ms  p95 2 ms  p99 3 ms  0 errors  breaching: p99, sample.basics#getsCreatedUser: p95
+    5s  2 users  1420 rps  p50 1 ms  p95 2 ms  p99 4 ms  0 errors  breaching: p99, sample.basics#getsCreatedUser: p95
+    5s  0 users  1420 rps  p50 1 ms  p95 2 ms  p99 4 ms  0 errors
+sample.strict — Too strict on purpose · finished after 5 s · 4925 iterations · 985.0 rps · 0 errors
+latency p50 1.5 ms · p90 2.2 ms · p95 2.7 ms · p99 4.0 ms · max 14.0 ms
+breached p99 at 4.043 ms (lt 1 ms)
+breached sample.basics#getsCreatedUser: p95 at 3.369 ms (lt 2 ms)
+test sample.basics#listsUsers · 3701 iterations · 740.2 rps · 0 errors · p50 1.5 ms · p90 2.0 ms · p95 2.3 ms · p99 3.6 ms · max 11.6 ms
+test sample.basics#getsCreatedUser · 1224 iterations · 244.8 rps · 0 errors · p50 1.7 ms · p90 2.8 ms · p95 3.4 ms · p99 4.6 ms · max 14.0 ms
 exit 3
 ```
 
-`rps` was "breaching" in the first second, while no user had started yet, but the whole run made 463 rps, so it is not in the final list.
+`rps` was "breaching" in the first second, while no user had started yet, but the whole run made 985 rps, so it is not in the final list.
 
 ### An error-rate breach
 
 ```console
 breached errorRate at 100% (lt 1%)
-errors sample#listUsers 200 V5101 × 10
+test sample.wrong#expectsWrongStatus · 10 iterations · 5.0 rps · 10 errors · p50 3.4 ms · p90 4.1 ms · p95 5.3 ms · p99 5.3 ms · max 5.3 ms
+  errors sample#listUsers 200 V5101 × 10
 ```
+
+Each failure kind is listed under the test that made it, with the api it called, the status and the code.
 
 The value after `at` is in the metric's unit, with the threshold's limit in brackets: milliseconds for latency metrics, a percentage for `errorRate` (`100%` means every iteration failed) and iterations per second for `rps`.
 

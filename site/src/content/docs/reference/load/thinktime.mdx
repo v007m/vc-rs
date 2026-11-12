@@ -32,12 +32,12 @@ Think time sets how hard a few users push. Two real runs against the demo:
 
 ### No think time
 
-`sample.strict` has no `thinkTime`. Three users made 2315 iterations in 5 seconds:
+`sample.strict` has no `thinkTime`. Three users made 4925 iterations in 5 seconds:
 
 ```console
-    4s  3 users  417 rps  p50 2 ms  p95 8 ms  p99 15 ms  0 errors  breaching: p99, sample.basics#getsCreatedUser: p95
+    4s  3 users  1286 rps  p50 1 ms  p95 2 ms  p99 3 ms  0 errors  breaching: p99, sample.basics#getsCreatedUser: p95
 ...
-sample.strict — Too strict on purpose · finished after 5 s · 2315 iterations · 463.0 rps · 0 errors
+sample.strict — Too strict on purpose · finished after 5 s · 4925 iterations · 985.0 rps · 0 errors
 ```
 
 ### A random pause
@@ -45,9 +45,9 @@ sample.strict — Too strict on purpose · finished after 5 s · 2315 iterations
 `sample.smoke` has `thinkTime` from `50ms` to `200ms`. Five users made about 20 iterations a second:
 
 ```console
-    6s  5 users  20 rps  p50 3 ms  p95 6 ms  p99 8 ms  0 errors
+    6s  5 users  32 rps  p50 3 ms  p95 9 ms  p99 22 ms  0 errors
 ...
-sample.smoke — Sample smoke load · finished after 10 s · 198 iterations · 19.8 rps · 0 errors
+sample.smoke — Sample smoke load · finished after 10 s · 195 iterations · 19.5 rps · 0 errors
 ```
 
 ### A fixed pause

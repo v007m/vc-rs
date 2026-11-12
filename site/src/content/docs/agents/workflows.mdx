@@ -425,13 +425,15 @@ abortOn: [errorRate]
 ```console
 $ vc load people.browse
     1s  0 users  0 rps  p50 0 ms  p95 0 ms  p99 0 ms  0 errors
-    2s  2 users  307 rps  p50 2 ms  p95 7 ms  p99 20 ms  0 errors
-    3s  3 users  456 rps  p50 2 ms  p95 10 ms  p99 23 ms  0 errors
-    4s  5 users  653 rps  p50 2 ms  p95 11 ms  p99 23 ms  0 errors
-    5s  3 users  691 rps  p50 2 ms  p95 10 ms  p99 23 ms  0 errors
-    5s  0 users  691 rps  p50 2 ms  p95 10 ms  p99 23 ms  0 errors
-people.browse finished after 5 s · 3465 iterations · 693.0 rps · 0 errors
-latency p50 2.6 ms · p90 7.6 ms · p95 10.9 ms · p99 23.8 ms · max 55.5 ms
+    2s  2 users  468 rps  p50 1 ms  p95 4 ms  p99 6 ms  0 errors
+    3s  3 users  811 rps  p50 1 ms  p95 3 ms  p99 6 ms  0 errors
+    4s  5 users  1598 rps  p50 1 ms  p95 4 ms  p99 6 ms  0 errors
+    5s  3 users  1779 rps  p50 1 ms  p95 4 ms  p99 6 ms  0 errors
+    5s  0 users  1779 rps  p50 1 ms  p95 4 ms  p99 6 ms  0 errors
+people.browse — People browse mix · finished after 5 s · 6275 iterations · 1255.0 rps · 0 errors
+latency p50 1.8 ms · p90 3.1 ms · p95 4.0 ms · p99 6.7 ms · max 11.6 ms
+test people.openapi#listsPeople · 4681 iterations · 936.2 rps · 0 errors · p50 1.8 ms · p90 2.9 ms · p95 3.6 ms · p99 6.1 ms · max 10.8 ms
+test people.openapi#getsPerson · 1594 iterations · 318.8 rps · 0 errors · p50 2.1 ms · p90 3.7 ms · p95 5.0 ms · p99 8.2 ms · max 11.6 ms
 ```
 
 To see a breach, the same scenario with `p95: { lt: 1ms }` exits 3:
@@ -439,20 +441,22 @@ To see a breach, the same scenario with `p95: { lt: 1ms }` exits 3:
 ```console
 $ vc load people.browse
     1s  0 users  0 rps  p50 0 ms  p95 0 ms  p99 0 ms  0 errors
-    2s  2 users  551 rps  p50 1 ms  p95 2 ms  p99 2 ms  0 errors  breaching: p95
-    3s  3 users  877 rps  p50 1 ms  p95 2 ms  p99 2 ms  0 errors  breaching: p95
-    4s  5 users  1752 rps  p50 1 ms  p95 2 ms  p99 2 ms  0 errors  breaching: p95
-    5s  3 users  1952 rps  p50 1 ms  p95 2 ms  p99 2 ms  0 errors  breaching: p95
-    5s  0 users  1952 rps  p50 1 ms  p95 2 ms  p99 2 ms  0 errors
-people.browse finished after 5 s · 6976 iterations · 1395.2 rps · 0 errors
-latency p50 1.9 ms · p90 2.2 ms · p95 2.3 ms · p99 2.6 ms · max 20.4 ms
-breached p95 at 2.335 ms (lt 1 ms)
+    2s  2 users  484 rps  p50 1 ms  p95 3 ms  p99 7 ms  0 errors  breaching: p95
+    3s  3 users  926 rps  p50 1 ms  p95 3 ms  p99 5 ms  0 errors  breaching: p95
+    4s  5 users  2097 rps  p50 1 ms  p95 2 ms  p99 4 ms  0 errors  breaching: p95
+    5s  3 users  2503 rps  p50 1 ms  p95 2 ms  p99 3 ms  0 errors  breaching: p95
+    5s  0 users  2503 rps  p50 1 ms  p95 2 ms  p99 3 ms  0 errors
+people.browse — People browse mix · finished after 5 s · 8480 iterations · 1696.0 rps · 0 errors
+latency p50 1.5 ms · p90 1.8 ms · p95 2.1 ms · p99 3.8 ms · max 10.5 ms
+breached p95 at 2.093 ms (lt 1 ms)
+test people.openapi#listsPeople · 6358 iterations · 1271.6 rps · 0 errors · p50 1.4 ms · p90 1.7 ms · p95 2.0 ms · p99 3.7 ms · max 10.5 ms
+test people.openapi#getsPerson · 2122 iterations · 424.4 rps · 0 errors · p50 1.6 ms · p90 1.9 ms · p95 2.4 ms · p99 4.0 ms · max 10.4 ms
 ```
 
 An agent reads the result with `vc load people.browse --json`, which prints one object and no live lines (this is a second run, so its p95 differs a little). `exit` and `breaches` say what happened (full shape in [JSON output](/vc-rs/agents/json-and-events/#vc-load---json)):
 
 ```json
-{ "exit": 3, "ending": "finished", "breaches": [ { "actual": 2.139, "limit": { "lt": 1.0 }, "metric": "p95", "test": null, "unit": "ms" } ], "errors": 0, "p95Ms": 2.139 }
+{ "exit": 3, "ending": "finished", "breaches": [ { "actual": 1.879, "limit": { "lt": 1.0 }, "metric": "p95", "test": null, "unit": "ms" } ], "errors": 0, "p95Ms": 1.879 }
 ```
 
 ## 6. Run only what changed in a PR

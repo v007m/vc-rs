@@ -17,8 +17,8 @@ use vc_template::RenderError;
 use crate::history::Recording;
 use crate::{ErrorKind, Interrupts};
 
-/// What failed an iteration: the api its failing action calls (else the test), that action's
-/// last status and the failure's code.
+/// What failed an iteration: the api its failing action calls, the test, that action's last
+/// status and the failure's code.
 type Kind = (Option<ApiId>, Option<TestId>, Option<u16>, Option<String>);
 
 /// Closed seconds the stage loop may queue before it waits for the history.
@@ -133,12 +133,11 @@ fn breach_name(program: &Program, breach: &Breach) -> String {
     test.map_or_else(|| breach.metric.clone(), |test| format!("{test}: {}", breach.metric))
 }
 
-/// The kind of `test`'s failed iteration: by the action that failed it, not by the calls
-/// before or after (a `before` call, a cleanup); by the test when that action calls no api.
+/// The kind of `test`'s failed iteration: by the test and the action that failed it, not by
+/// the calls before or after (a `before` call, a cleanup).
 fn kind(test: TestId, report: &IterationReport) -> Kind {
     let Some(failure) = &report.failure else { return (None, Some(test), None, None) };
-    let test = failure.api.is_none().then_some(test);
-    (failure.api, test, failure.status, failure.code.clone())
+    (failure.api, Some(test), failure.status, failure.code.clone())
 }
 
 /// Renders a threshold's literal value; a load run has no call for a reference to read.

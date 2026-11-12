@@ -49,12 +49,13 @@ $ vc load sample.abort; echo "exit $?"
     3s  0 users  0 rps  p50 0 ms  p95 0 ms  p99 0 ms  0 errors
     4s  0 users  0 rps  p50 0 ms  p95 0 ms  p99 0 ms  0 errors
     5s  0 users  0 rps  p50 0 ms  p95 0 ms  p99 0 ms  0 errors
-    6s  1 users  2 rps  p50 3 ms  p95 5 ms  p99 5 ms  10 errors  breaching: errorRate
-    6s  0 users  2 rps  p50 3 ms  p95 5 ms  p99 5 ms  10 errors
+    6s  1 users  3 rps  p50 3 ms  p95 5 ms  p99 5 ms  10 errors  breaching: errorRate
+    6s  0 users  3 rps  p50 3 ms  p95 5 ms  p99 5 ms  10 errors
 sample.abort aborted after 6 s · 10 iterations · 1.7 rps · 10 errors
-latency p50 3.3 ms · p90 4.4 ms · p95 5.1 ms · p99 5.1 ms · max 5.1 ms
+latency p50 3.5 ms · p90 4.3 ms · p95 5.0 ms · p99 5.0 ms · max 5.0 ms
 breached errorRate at 100% (lt 1%)
-errors sample#listUsers 200 V5101 × 10
+test sample.wrong#expectsWrongStatus · 10 iterations · 1.7 rps · 10 errors · p50 3.5 ms · p90 4.3 ms · p95 5.0 ms · p99 5.0 ms · max 5.0 ms
+  errors sample#listUsers 200 V5101 × 10
 exit 3
 ```
 

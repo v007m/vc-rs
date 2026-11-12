@@ -38,10 +38,11 @@ The test's `expect` is skipped, so nothing fails:
 ```console
 $ vc load sample.checks
     1s  0 users  0 rps  p50 0 ms  p95 0 ms  p99 0 ms  0 errors
-    2s  1 users  5 rps  p50 3 ms  p95 7 ms  p99 7 ms  0 errors
-    2s  0 users  5 rps  p50 3 ms  p95 7 ms  p99 7 ms  0 errors
+    2s  1 users  5 rps  p50 4 ms  p95 7 ms  p99 7 ms  0 errors
+    2s  0 users  5 rps  p50 4 ms  p95 7 ms  p99 7 ms  0 errors
 sample.checks finished after 2 s · 10 iterations · 5.0 rps · 0 errors
-latency p50 3.7 ms · p90 5.9 ms · p95 7.3 ms · p99 7.3 ms · max 7.3 ms
+latency p50 4.2 ms · p90 4.7 ms · p95 7.6 ms · p99 7.6 ms · max 7.6 ms
+test sample.wrong#expectsWrongStatus · 10 iterations · 5.0 rps · 0 errors · p50 4.2 ms · p90 4.7 ms · p95 7.6 ms · p99 7.6 ms · max 7.6 ms
 ```
 
 ### `checks: full`
@@ -54,12 +55,13 @@ $ vc load sample.full
     2s  1 users  5 rps  p50 3 ms  p95 5 ms  p99 5 ms  10 errors  breaching: errorRate
     2s  0 users  5 rps  p50 3 ms  p95 5 ms  p99 5 ms  10 errors
 sample.full finished after 2 s · 10 iterations · 5.0 rps · 10 errors
-latency p50 3.7 ms · p90 4.6 ms · p95 5.2 ms · p99 5.2 ms · max 5.2 ms
+latency p50 3.4 ms · p90 4.1 ms · p95 5.3 ms · p99 5.3 ms · max 5.3 ms
 breached errorRate at 100% (lt 1%)
-errors sample#listUsers 200 V5101 × 10
+test sample.wrong#expectsWrongStatus · 10 iterations · 5.0 rps · 10 errors · p50 3.4 ms · p90 4.1 ms · p95 5.3 ms · p99 5.3 ms · max 5.3 ms
+  errors sample#listUsers 200 V5101 × 10
 ```
 
-The `errors` line groups failures by api, status and code: `sample#listUsers` answered `200` and its check failed (`V5101`), ten times.
+The indented `errors` line, under the test that failed, groups its failures by api, status and code: `sample#listUsers` answered `200` and its check failed (`V5101`), ten times.
 
 ### A wrong value
 

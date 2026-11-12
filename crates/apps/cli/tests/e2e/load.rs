@@ -111,7 +111,9 @@ async fn a_failed_check_on_the_second_call_is_counted_under_that_api_and_the_run
     assert_eq!(output.status.code(), Some(3), "{}", said(&output));
     let text = String::from_utf8_lossy(&output.stdout);
     assert!(text.contains("\nbreached errorRate at 100% (lt 50%)\n"), "{text}");
-    assert!(text.contains("\nerrors users#list 200 V5101 × ") && !text.contains("users#create"), "{text}");
+    let heading = "\ntest users.browse#addsThenLists · ";
+    assert!(text.contains(heading) && text.contains("\n  errors users#list 200 V5101 × "), "{text}");
+    assert!(!text.contains("users#create"), "{text}");
     assert!(server.stats().await.unwrap().count("DELETE /users/{id}") > 0, "each created user is removed");
 
     let listed = project.vc(&["history"]).output().unwrap();

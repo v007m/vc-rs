@@ -163,14 +163,15 @@ async fn a_failing_api_breaches_the_error_rate_and_is_counted_by_kind() {
     assert!(report.errors > 0 && report.errors == report.iterations, "{report:?}");
     let metrics: Vec<_> = report.breaches.iter().map(|breach| (breach.metric.as_str(), breach.test.clone())).collect();
     assert_eq!(metrics, [("errorRate", None)]);
-    let kind =
-        ErrorKind { api: Some("users#broken".to_owned()), status: Some(500), code: Some(v5101()), ..failed(&report) };
+    let api = Some("users#broken".to_owned());
+    let kind = ErrorKind { api, status: Some(500), code: Some(v5101()), ..failed(&report, "breaksUsers") };
     assert_eq!(report.error_kinds, [kind]);
     let text = report.text();
     assert!(text.starts_with("users.peak finished after "), "{text}");
     assert!(text.contains("\nlatency p50 ") && text.contains(" ms · p90 ") && text.contains(" ms · p95 "), "{text}");
     assert!(
-        text.contains("\nbreached errorRate at 100% (lt 50%)\n") && text.contains("\nerrors users#broken 500 V5101 × "),
+        text.contains("\nbreached errorRate at 100% (lt 50%)\n")
+            && text.contains("\n  errors users#broken 500 V5101 × "),
         "{text}"
     );
     let json = report.json();
@@ -178,7 +179,8 @@ async fn a_failing_api_breaches_the_error_rate_and_is_counted_by_kind() {
     let breach = json!({"metric": "errorRate", "test": null, "actual": 1.0, "unit": "share", "limit": {"lt": 0.5}});
     assert_eq!(json["breaches"], json!([breach]));
     assert!(json["p90Ms"].is_number(), "{json:#}");
-    let kind = json!({"api": "users#broken", "test": null, "status": 500, "code": "V5101", "count": report.errors});
+    let failing = "users.crud#breaksUsers";
+    let kind = json!({"api": "users#broken", "test": failing, "status": 500, "code": "V5101", "count": report.errors});
     assert_eq!(json["errorKinds"], json!([kind]));
     assert!(matches!(written(seen).last(), Some(Seen::End(RunStatus::Failed))));
 }
@@ -197,9 +199,9 @@ async fn a_breach_s_json_actual_is_the_measured_value_not_rounded() {
     assert!(report.text().contains("\nbreached errorRate at "), "{}", report.text());
 }
 
-/// No error kind yet: `report`'s errors, all of one kind.
-fn failed(report: &LoadReport) -> ErrorKind {
-    ErrorKind { count: report.errors, ..ErrorKind::default() }
+/// No error kind yet: `report`'s errors, all of one kind, in `users.crud`'s test `test`.
+fn failed(report: &LoadReport, test: &str) -> ErrorKind {
+    ErrorKind { test: Some(format!("users.crud#{test}")), count: report.errors, ..ErrorKind::default() }
 }
 
 fn v5101() -> String {
@@ -214,10 +216,10 @@ async fn a_failed_check_on_a_tests_second_call_is_counted_under_that_call_not_th
     let (_interrupter, interrupts) = interrupts();
     let report = load(&engine, interrupts, None).await;
     assert!(report.errors > 0 && report.errors == report.iterations, "{report:?}");
-    let kind =
-        ErrorKind { api: Some("users#get".to_owned()), status: Some(200), code: Some(v5101()), ..failed(&report) };
+    let api = Some("users#get".to_owned());
+    let kind = ErrorKind { api, status: Some(200), code: Some(v5101()), ..failed(&report, "checksSecond") };
     assert_eq!(report.error_kinds, [kind], "not its `before` call nor its `after` one");
-    assert!(report.text().contains("\nerrors users#get 200 V5101 × "), "{}", report.text());
+    assert!(report.text().contains("\n  errors users#get 200 V5101 × "), "{}", report.text());
 }
 
 #[tokio::test(start_paused = true)]
@@ -227,10 +229,46 @@ async fn an_api_that_refuses_the_connection_is_counted_under_it_and_the_transpor
     let report = load(&engine, interrupts, None).await;
     assert!(report.errors > 0, "{report:?}");
     let code = Some("V5105".to_owned());
-    let kind = ErrorKind { api: Some("users#down".to_owned()), status: None, code, ..failed(&report) };
+    let kind = ErrorKind { api: Some("users#down".to_owned()), status: None, code, ..failed(&report, "reachesDown") };
     assert_eq!(report.error_kinds, [kind]);
     let text = report.text();
-    assert!(text.contains("\nerrors users#down V5105 × ") && !text.contains("inline request"), "{text}");
+    assert!(text.contains("\n  errors users#down V5105 × ") && !text.contains("inline request"), "{text}");
+}
+
+/// A mix of a passing and a failing test, each request taking 300 ms, reports each test's own
+/// numbers, and the failing test's error kinds under it.
+#[tokio::test(start_paused = true)]
+async fn each_mix_test_has_its_own_numbers_and_error_kinds() {
+    let mix = "mix:\n  - {test: users.crud#listsUsers, weight: 1}\n  - {test: users.crud#breaksUsers, weight: 1}\n";
+    let file = format!("{mix}stages:\n  - {{duration: 4s, users: 4}}\nthinkTime: 1s\n");
+    let answers = FakeTransport::new(|request: &RenderedRequest, _| match request.uri.path() {
+        "/broken" => Ok(status(500)),
+        _ => Ok(status(200)),
+    });
+    let delayed = FaultyTransport::new(Arc::new(answers), vec![Fault::Delay(Duration::from_millis(300)); 1000]);
+    let (engine, _) = engine_over(CONFIG, file.as_bytes(), Arc::new(delayed));
+    let (_interrupter, interrupts) = interrupts();
+    let report = load(&engine, interrupts, None).await;
+    let tests: Vec<_> = report.tests.iter().map(|test| (test.test.as_str(), test.errors == test.iterations)).collect();
+    assert_eq!(tests, [("users.crud#listsUsers", false), ("users.crud#breaksUsers", true)], "{report:?}");
+    assert_eq!(report.tests.iter().map(|test| test.iterations).sum::<u64>(), report.iterations);
+    assert_eq!((report.tests[0].errors, report.tests[1].errors), (0, report.errors), "{report:?}");
+    assert_eq!(report.error_kinds.iter().map(|kind| kind.test.as_deref()).collect::<Vec<_>>(), [Some(tests[1].0)]);
+    let text = report.text();
+    let (lists, breaks) = (text.find("\ntest users.crud#listsUsers · "), text.find("\ntest users.crud#breaksUsers · "));
+    let errors = text.find("\n  errors users#broken 500 V5101 × ");
+    assert!(lists < breaks && breaks < errors && lists.is_some(), "the kind is under its test:\n{text}");
+    assert_eq!(text.matches("\ntest users.crud#breaksUsers · ").count(), 1, "each test prints once:\n{text}");
+    for test in &report.tests {
+        let latencies = [test.p50_ms, test.p90_ms, test.p95_ms, test.p99_ms, test.max_ms];
+        assert!(latencies.iter().all(|ms| (300.0..400.0).contains(ms)), "300 ms a request: {test:?}");
+    }
+    let json = report.json();
+    let breaks = &json["tests"][1];
+    assert_eq!((&breaks["test"], &breaks["errors"]), (&json!("users.crud#breaksUsers"), &json!(report.errors)));
+    for key in ["iterations", "rps", "p50Ms", "p90Ms", "p95Ms", "p99Ms", "maxMs"] {
+        assert!(breaks[key].is_number(), "tests[1].{key} is a number: {json:#}");
+    }
 }
 
 #[tokio::test(start_paused = true)]
