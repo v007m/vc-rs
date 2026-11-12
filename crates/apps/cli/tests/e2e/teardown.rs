@@ -102,7 +102,8 @@ async fn a_secret_a_failed_teardown_quotes_is_masked_in_every_report_and_alert()
     files(project.path().join(".vibranium").as_path(), &mut seen);
     files(project.path().join("out").as_path(), &mut seen);
     for report in ["out/ctrf.json", "out/junit.xml", "out/data/summary.js"] {
-        let text = seen.iter().find(|(name, _)| name.ends_with(report)).map(|(_, text)| text.as_str());
+        let text =
+            seen.iter().find(|(name, _)| name.replace('\\', "/").ends_with(report)).map(|(_, text)| text.as_str());
         let text = text.unwrap_or_else(|| panic!("{report} was written"));
         assert!(text.contains("afterRun") && text.contains("••••"), "{report} names the teardown, masked");
     }
