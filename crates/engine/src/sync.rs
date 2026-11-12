@@ -95,9 +95,7 @@ const READ_HELP: &str = "fix the spec, or narrow it with `source.include` or `so
 /// The api files named, or every one with a `source`.
 fn selected(project: &Authoring, files: &[String]) -> Result<Vec<String>, EngineError> {
     if files.is_empty() {
-        let apis = project.entries().filter(|(_, file)| file.kind() == Some(FileKind::Api));
-        let with_source = apis.filter(|&found| sourced(found));
-        return Ok(with_source.map(|(_, file)| FileKind::Api.file_id(file.path.as_str())).collect());
+        return with_source(project);
     }
     if let Some(wanted) = files.iter().find(|wanted| project.find(FileKind::Api, wanted).is_none()) {
         if let Some(file_id) = api_file_at(project, wanted) {
@@ -116,9 +114,17 @@ fn api_file_at(project: &Authoring, path: &str) -> Option<String> {
     apis.find(|(_, file)| file.path.as_str() == path).map(|_| FileKind::Api.file_id(path))
 }
 
-/// Whether the api file has a `source` at its root; one that does not parse has none.
-fn sourced(found: (SourceFileId, &SourceFile)) -> bool {
-    Authoring::open(found).is_ok_and(|opened| opened.document.root().get("source").is_some())
+/// The file ID of every api file with a `source`. A file that does not parse is refused, as it is
+/// when named, so no form of `vc sync` passes over it.
+fn with_source(project: &Authoring) -> Result<Vec<String>, EngineError> {
+    let apis = project.entries().filter(|(_, file)| file.kind() == Some(FileKind::Api));
+    let sourced = apis.map(|found| Ok(sourced(found)?.then(|| FileKind::Api.file_id(found.1.path.as_str()))));
+    sourced.filter_map(Result::transpose).collect()
+}
+
+/// Whether the api file has a `source` key; an error when it does not parse.
+fn sourced(found: (SourceFileId, &SourceFile)) -> Result<bool, EngineError> {
+    Ok(Authoring::open(found)?.document.root().get("source").is_some())
 }
 
 struct Syncing<'p> {

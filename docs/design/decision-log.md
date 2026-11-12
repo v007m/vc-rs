@@ -574,6 +574,12 @@ Round 48 (12 November 2026; orchestrator, under Sarath's delegation):
 | D310 | Installs ship the web UI | The Homebrew formula builds the web UI from source (`node` and `pnpm` as build dependencies, `pnpm install --frozen-lockfile --filter web`, `pnpm --filter web run build`) and installs `vc` with `--features web-ui`; `vc-demo` is built as before. `cargo install --git … vc-cli` gives a `vc` without `vc ui` (it says `this vc was built without UI`), which the install page and the README say plainly, next to the clone steps that build the UI. A release workflow with prebuilt binaries is post-MVP, to save Actions minutes | — |
 | D311 | The CSP allows the route announcer's inline style by its hash | The one inline style attribute, SvelteKit's route announcer, is allowed by `style-src 'self' 'unsafe-hashes' 'sha256-…'`, its SHA-256 written into the build's CSP meta and copied into the header like the script hashes, so the UI loads with no CSP errors. `'unsafe-inline'` is never allowed; the app's own styles use Svelte `style:` directives | — (fills a gap in D223) |
 
+Round 49 (12 November 2026; orchestrator, under Sarath's delegation):
+
+| # | Topic | Decision | Supersedes |
+| --- | --- | --- | --- |
+| D312 | Token lifetimes are capped at a year | The token cache holds credentials for at most a year (`MAX_TOKEN_LIFETIME`), whatever lifetime they come with: OAuth `expires_in`, a plugin's `expiresIn` or a flow's `expiresIn`, as a number or a string. A stale time the clock cannot hold is now, so the token is used by the request that fetched it and fetched again by the next; it is never held forever | D193 (caps) |
+
 ## Open
 
 All decisions needed for the PRD and technical design are settled. The language is decided by the spike (D6, D36, D37, D41).

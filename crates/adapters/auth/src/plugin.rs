@@ -153,6 +153,15 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn the_largest_expires_in_is_passed_on_for_the_cache_to_cap() {
+        let plugin = FakePlugin::new(manifest(), &Secrets::new())
+            .on("auth/credentials", |_, _| Ok(json!({"headers": {"authorization": "SSO x"}, "expiresIn": u64::MAX})));
+        let auth = PluginAuth::new().with(Arc::new(plugin));
+        let credentials = auth.credentials(&request(&json!({"plugin": "acmeSso"}))).await.unwrap();
+        assert_eq!(credentials.expires_in, Some(Duration::from_secs(u64::MAX)));
+    }
+
+    #[tokio::test]
     async fn an_unusable_plugin_fails_with_its_reason() {
         let auth = auth().unusable(("acmeSso", "V5118: its files changed"));
         let error = auth.credentials(&request(&json!({"plugin": "acmeSso"}))).await.unwrap_err();

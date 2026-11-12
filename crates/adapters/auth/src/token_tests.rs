@@ -103,3 +103,17 @@ async fn the_token_url_and_client_id_are_required() {
     let no_client = json!({"tokenUrl": "https://id.test/token"});
     assert_eq!(endpoint.token(&request("t", &no_client), &GRANT).await.err(), missing("clientId"));
 }
+
+#[tokio::test]
+async fn the_largest_expires_in_as_a_number_or_a_string_is_passed_on_for_the_cache_to_cap() {
+    const BODIES: [&str; 2] = [
+        r#"{"access_token":"x","expires_in":18446744073709551615}"#,
+        r#"{"access_token":"x","expires_in":"18446744073709551615"}"#,
+    ];
+    for body in BODIES {
+        let (transport, _) = token_server(body);
+        let settings = json!({"tokenUrl": "https://id.test/token", "clientId": "web"});
+        let token = TokenEndpoint::new(transport).token(&request("t", &settings), &GRANT).await.unwrap();
+        assert_eq!(token.credentials.expires_in, Some(Duration::from_secs(u64::MAX)), "{body}");
+    }
+}

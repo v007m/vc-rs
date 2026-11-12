@@ -1,6 +1,7 @@
 //! `vc import openapi` writes an api file, its tests, the base-URL var and the snapshot from a
 //! served spec, and they compile and run; `vc init --from-openapi` imports into a new project;
-//! `vc sync` merges the next version of the spec; a HAR recorded against the mock server, and a
+//! `vc sync` merges the next version of the spec, and every form of it refuses an api file
+//! that does not parse; a HAR recorded against the mock server, and a
 //! Postman or Bruno collection calling it (a Bruno one as its export or its folder), import into
 //! its api file and their flows run green; a folder without `bruno.json` is refused; a recording
 //! whose every host is third-party names them, and `--include-host` previews their new files;
@@ -69,6 +70,28 @@ async fn sync_merges_a_changed_spec_and_check_reports_drift() {
     project.vc(&["sync", "--check"]).assert().code(0);
     let unknown = project.vc(&["sync", "users", "--take", "theirs", "users#getUser"]).output().unwrap();
     assert_eq!(unknown.status.code(), Some(2), "{}", said(&unknown));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn every_form_of_sync_refuses_a_drifted_api_file_that_does_not_parse() {
+    let server = MockServer::start().await.unwrap();
+    let project = Project::new(&[CONFIG]);
+    let v1 = format!("{}/openapi/users-v1.yaml", server.base_url());
+    project.vc(&["import", "openapi", &v1, "--id", "users"]).assert().code(0);
+    let api_path = project.path().join("services/users/users.api.yaml");
+    let api = std::fs::read_to_string(&api_path).unwrap();
+    let broken = api.replace("users-v1.yaml", "users-v2.yaml").replacen("apis:\n", "apis: [\n", 1);
+    std::fs::write(&api_path, &broken).unwrap();
+    let snapshot = std::fs::read_to_string(project.path().join("openapi/users.yaml")).unwrap();
+    for args in [&["sync", "--check"][..], &["sync"], &["sync", "users"]] {
+        let output = project.vc(args).output().unwrap();
+        assert_eq!(output.status.code(), Some(2), "{args:?}: {}", said(&output));
+        let does_not_parse = "services/users/users.api.yaml does not parse: ";
+        assert!(said(&output).contains(does_not_parse), "{args:?}: {}", said(&output));
+        assert!(!said(&output).contains("✓ synced"), "{args:?}: {}", said(&output));
+    }
+    assert_eq!(std::fs::read_to_string(&api_path).unwrap(), broken);
+    assert_eq!(std::fs::read_to_string(project.path().join("openapi/users.yaml")).unwrap(), snapshot);
 }
 
 #[test]

@@ -207,6 +207,42 @@ async fn a_sign_in_opens_the_builder_browser() {
     assert_eq!(me.request.headers.get("authorization").unwrap(), "Bearer t0k3n");
 }
 
+/// A project whose `users#me` uses the client-credentials auth `svc` at `http://id/token`.
+const CLIENT: [(&str, &[u8]); 2] = [
+    (
+        "vibranium.config.yaml",
+        b"syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\nvars: {baseUrl: 'http://x'}\nauth:\n  - id: svc\n    type: oauth2ClientCredentials\n    tokenUrl: http://id/token\n    clientId: cli\n",
+    ),
+    ("services/users/users.api.yaml", b"baseUrl: ${var.baseUrl}\napis:\n  - id: me\n    path: /me\n    auth: svc\n"),
+];
+
+#[tokio::test]
+async fn a_token_living_longer_than_the_clock_can_hold_is_used_without_a_panic() {
+    for lifetime in ["18446744073709551615", r#""18446744073709551615""#] {
+        let body = format!(r#"{{"access_token":"t0k3n","token_type":"bearer","expires_in":{lifetime}}}"#);
+        let (transport, recordings) = RecordingTransport::new(Arc::new(FakeTransport::new(move |request, _| {
+            let mut response = status(200);
+            if request.uri.path() == "/token" {
+                response.body = body.clone().into();
+            }
+            Ok(response)
+        })));
+        let engine = builder(FakeVcs::default())
+            .sources(Arc::new(MemorySources::new(&CLIENT)))
+            .transport(Arc::new(transport))
+            .history(Arc::new(MemoryHistory::new()), Arc::new(MemoryHistory::new()))
+            .build()
+            .unwrap();
+        for _ in 0..2 {
+            assert_eq!(engine.call(&call("users#me")).await.unwrap().exit, 0, "{lifetime}");
+        }
+        let sent = recordings.take();
+        let paths: Vec<_> = sent.iter().map(|record| record.request.uri.path()).collect();
+        assert_eq!(paths, ["/token", "/me", "/token", "/me"], "each call fetches its own token: {lifetime}");
+        assert_eq!(sent[1].request.headers.get("authorization").unwrap(), "Bearer t0k3n", "{lifetime}");
+    }
+}
+
 const AGENTS: (&str, &[u8]) = (
     "vibranium.config.yaml",
     b"syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\n    agents: {call: [GET], approve: [POST]}\n  - id: bare\nvars: {baseUrl: 'http://x'}\n",
