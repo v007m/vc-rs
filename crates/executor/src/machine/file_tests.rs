@@ -244,3 +244,22 @@ fn failed_after_all_actions_are_counted_apart_from_the_totals() {
     });
     assert_eq!(ended, Some(FileEnd { totals: Totals { passed: 1, ..Totals::default() }, teardown_failures: 2 }));
 }
+
+/// An `afterAll` action cut with no report while the file is not cancelled (its worker
+/// panicked or was aborted) is a failed teardown; cut by a cancel, it is not.
+#[test]
+fn a_cut_after_all_action_fails_unless_the_file_was_cancelled() {
+    let file = sim::planned_file(vec![], vec![sim::instance(0, &[])], &[3]);
+    let (file, _) = FileOrchestrator::new(file, 1).transition(FileInput::Start(FailedActions::new()));
+    let (file, commands) = file.transition(FileInput::InstanceDone(TestStatus::Passed));
+    assert_eq!(commands, [FileCommand::RunAction(sim::act(3))]);
+    let (_, commands) = file.clone().transition(FileInput::ActionCut(Vec::new()));
+    let owner = vc_model::OwnerKey::File(sim::file_and_test().0);
+    let outcome = vc_model::ActionOutcome::Failed(Failure::new(super::super::TEARDOWN_CUT).at(sim::act(3)));
+    let cut = Event::ActionFinished { action: sim::act(3), owner, outcome };
+    assert_eq!(commands.first(), Some(&FileCommand::Emit(cut)));
+    assert!(commands.iter().any(|c| matches!(c, FileCommand::Finish(end) if end.teardown_failures == 1)));
+    let (file, _) = file.transition(FileInput::Cancelled);
+    let (_, commands) = file.transition(FileInput::ActionCut(Vec::new()));
+    assert!(commands.iter().any(|c| matches!(c, FileCommand::Finish(end) if end.teardown_failures == 0)));
+}

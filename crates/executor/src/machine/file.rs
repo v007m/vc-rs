@@ -145,10 +145,7 @@ impl FileOrchestrator {
             (Done, _) => {}
             (Waiting, FileInput::Start(failed)) => self.start(failed, out),
             (BeforeAll(_) | AfterAll(_), FileInput::ActionDone(report)) => self.action_done(*report, out),
-            (BeforeAll(_) | AfterAll(_), FileInput::ActionCut(kept)) => {
-                self.cleanups.extend(kept);
-                self.wind_down(out);
-            }
+            (BeforeAll(_) | AfterAll(_), FileInput::ActionCut(kept)) => self.action_cut(kept, out),
             (Running, FileInput::InstanceDone(status)) => self.instance_done(status, out),
             (CleaningUp, FileInput::CleanupDone) => self.next_cleanup(out),
             (_, FileInput::Cancelled) => self.cancel(out),
@@ -197,6 +194,20 @@ impl FileOrchestrator {
             }
             _ => {}
         }
+    }
+
+    /// A cut lifecycle action winds the file down. A cut `afterAll` action of a file not
+    /// cancelled failed: its worker panicked or was aborted.
+    fn action_cut(&mut self, kept: Vec<PendingCleanup>, out: &mut Vec<FileCommand>) {
+        self.cleanups.extend(kept);
+        if let FilePhase::AfterAll(index) = self.phase
+            && let Some(&action) = self.file.after_all.get(index)
+            && !self.cancelled
+        {
+            self.teardown_failures += 1;
+            out.push(FileCommand::Emit(super::teardown_cut(action, self.shared.owner)));
+        }
+        self.wind_down(out);
     }
 
     /// Launches instances up to the window; once all are done, moves on to `afterAll`.

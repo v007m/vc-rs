@@ -243,3 +243,41 @@ fn a_failed_teardown_fails_the_run_and_keeps_the_totals() {
     let finished = Event::RunFinished { status: RunStatus::Failed, totals: passed(1) };
     assert!(matches!(&commands[..], [RunCommand::Emit(event), RunCommand::Report(_)] if *event == finished));
 }
+
+/// `running()` with its file done: `afterRun`'s action 2 is in flight.
+fn in_after_run() -> RunOrchestrator {
+    let (run, commands) = running().transition(RunInput::FileDone(FileEnd::from(passed(1))));
+    assert_eq!(commands, [RunCommand::RunAction(sim::act(2))]);
+    run
+}
+
+/// An `afterRun` action whose worker panicked or was aborted is cut with no report: the run,
+/// not cancelled, counts it as a failed teardown and reports it as the action's failure.
+#[test]
+fn a_cut_after_run_action_of_a_run_not_cancelled_fails_the_run() {
+    let (run, commands) = in_after_run().transition(RunInput::ActionCut(Vec::new()));
+    let cut = Event::ActionFinished {
+        action: sim::act(2),
+        owner: OwnerKey::Run,
+        outcome: vc_model::ActionOutcome::Failed(vc_model::Failure::new(super::super::TEARDOWN_CUT).at(sim::act(2))),
+    };
+    assert_eq!(commands, [RunCommand::Emit(cut), RunCommand::RunCleanup(PendingCleanup::new(sim::act(100)))]);
+    let (_, commands) = run.transition(RunInput::CleanupDone);
+    let finished = Event::RunFinished { status: RunStatus::Failed, totals: passed(1) };
+    assert!(matches!(&commands[..], [RunCommand::Emit(event), RunCommand::Report(_)] if *event == finished));
+}
+
+/// A cancel wins over a failed or cut teardown: the run reports cancelled (exit 130).
+#[test]
+fn a_cancelled_run_stays_cancelled_whatever_its_teardown_did() {
+    let (cancelled, commands) = in_after_run().transition(RunInput::Interrupt);
+    assert_eq!(commands, [RunCommand::Cancel]);
+    let (run, _) = cancelled.clone().transition(RunInput::ActionDone(sim::fail(2)));
+    let (_, commands) = run.transition(RunInput::CleanupDone);
+    let finished = Event::RunFinished { status: RunStatus::Cancelled, totals: passed(1) };
+    assert!(matches!(&commands[..], [RunCommand::Emit(event), RunCommand::Report(_)] if *event == finished));
+    let (run, commands) = cancelled.transition(RunInput::ActionCut(Vec::new()));
+    assert_eq!(commands, [RunCommand::RunCleanup(PendingCleanup::new(sim::act(100)))], "a cancel's cut is no failure");
+    let (_, commands) = run.transition(RunInput::CleanupDone);
+    assert!(matches!(&commands[..], [RunCommand::Emit(event), RunCommand::Report(_)] if *event == finished));
+}

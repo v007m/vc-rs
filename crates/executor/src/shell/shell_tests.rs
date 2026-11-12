@@ -396,3 +396,23 @@ async fn an_interrupter_cancels_the_run_after_finish_took_the_handle() {
     assert_eq!(summary.status, RunStatus::Cancelled);
     assert_eq!(sent.counts().get("/never"), None);
 }
+
+/// A teardown action whose worker panics reports nothing: the run counts it as a failed
+/// teardown and fails, its totals as they were (D279), for `afterRun` and `afterAll` alike.
+#[tokio::test(start_paused = true)]
+async fn a_teardown_whose_worker_panics_fails_the_run() {
+    for after_all in [false, true] {
+        let mut fixture = Fixture::new();
+        let (crash, get) = (fixture.call("/panic"), fixture.call("/users"));
+        let test = fixture.test(vec![get], None);
+        let mut plan = fixture.plan(&[], &[(test, 1)]);
+        if after_all {
+            plan.files[0].after_all = vec![crash];
+        } else {
+            plan.after_run = vec![crash];
+        }
+        let outcome = run(fixture, plan, RunOptions::default(), &[]).await;
+        assert_eq!(outcome.summary, RunSummary { status: RunStatus::Failed, totals: totals([1, 0, 0, 0, 0]) });
+        assert_eq!((crate::exit_code(outcome.summary), outcome.sent("/panic")), (EXIT_FAILED, 1));
+    }
+}

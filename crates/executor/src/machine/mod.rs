@@ -113,6 +113,16 @@ impl ActionReport {
     }
 }
 
+/// The failure of a teardown action whose worker stopped before it ended, the run not cancelled.
+const TEARDOWN_CUT: &str = "the teardown action stopped before it ended";
+
+/// The event of the teardown `action` of `owner` that was cut off while the run was not
+/// cancelled: a failure, so that the run fails and the reports name its block (D279).
+fn teardown_cut(action: ActionId, owner: OwnerKey) -> Event {
+    let outcome = ActionOutcome::Failed(Failure::new(TEARDOWN_CUT).at(action));
+    Event::ActionFinished { action, owner, outcome }
+}
+
 /// The cleanup actions still on `stack`, newest first, for a `CleanupsAbandoned` event.
 fn newest_first(stack: &[PendingCleanup]) -> Vec<ActionId> {
     stack.iter().rev().map(|cleanup| cleanup.action).collect()
