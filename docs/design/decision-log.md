@@ -567,6 +567,13 @@ Round 47 (12 November 2026; orchestrator, under Sarath's delegation):
 | D307 | Invalid `body.schema` at check time | A literal `body.schema` (written inline, or a file the compile was given, with or without a `#/pointer`) that is not a valid JSON Schema is V2312 at check time, compiled by the one function a run uses (`vc_template::compile_schema`), with the JSON pointer of the keyword that breaks. The run-time V5101 stays for schemas known only at run time, such as a templated path | — (follows D201) |
 | D308 | A failed teardown fires `failure` | An alert with `on: failure` fires for every failed run, also one whose only failure is an `afterAll` or `afterRun` block. Like a load breach, a teardown failure is the run's, so it fires whatever the rule's `tags`. The notice names the failed blocks (`teardownFailed`, D304) and lists only the tests that failed, none when only a teardown did. A run with a failed teardown block is not a recovery | D256 (adds) |
 
+Round 48 (12 November 2026; orchestrator, under Sarath's delegation):
+
+| # | Topic | Decision | Supersedes |
+| --- | --- | --- | --- |
+| D310 | Installs ship the web UI | The Homebrew formula builds the web UI from source (`node` and `pnpm` as build dependencies, `pnpm install --frozen-lockfile --filter web`, `pnpm --filter web run build`) and installs `vc` with `--features web-ui`; `vc-demo` is built as before. `cargo install --git … vc-cli` gives a `vc` without `vc ui` (it says `this vc was built without UI`), which the install page and the README say plainly, next to the clone steps that build the UI. A release workflow with prebuilt binaries is post-MVP, to save Actions minutes | — |
+| D311 | The CSP allows the route announcer's inline style by its hash | The one inline style attribute, SvelteKit's route announcer, is allowed by `style-src 'self' 'unsafe-hashes' 'sha256-…'`, its SHA-256 written into the build's CSP meta and copied into the header like the script hashes, so the UI loads with no CSP errors. `'unsafe-inline'` is never allowed; the app's own styles use Svelte `style:` directives | — (fills a gap in D223) |
+
 ## Open
 
 All decisions needed for the PRD and technical design are settled. The language is decided by the spike (D6, D36, D37, D41).

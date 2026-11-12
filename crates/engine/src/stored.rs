@@ -3,9 +3,10 @@
 
 use std::fmt::{Debug, Write as _};
 use std::path::PathBuf;
+use std::time::Duration;
 
 use serde_json::{Value, json};
-use vc_adapter_reporters::RunSnapshot;
+use vc_adapter_reporters::{RunSnapshot, millis};
 use vc_interfaces::{ApiTrend, RunFilter, RunRow, TestRow, TestTrend};
 use vc_model::{Date, Program};
 
@@ -266,11 +267,12 @@ fn run_json(run: &RunRow) -> Value {
     })
 }
 
+/// A stored test, its `durationMs` in whole milliseconds as the json reporter writes it.
 fn test_json(test: &TestRow) -> Value {
     json!({
         "id": instance_label(test),
         "status": text(test.status.as_ref()),
-        "durationMs": test.duration_ms,
+        "durationMs": millis(Duration::try_from_secs_f64(test.duration_ms / 1_000.0).unwrap_or_default()),
         "attempts": test.attempts,
         "message": test.message,
         "blockedBy": test.blocked_by,

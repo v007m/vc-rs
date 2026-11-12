@@ -55,6 +55,7 @@ pub const fn status(status: TestStatus) -> &'static str {
 }
 
 /// Milliseconds, saturating.
+#[must_use]
 pub fn millis(time: Duration) -> u64 {
     u64::try_from(time.as_millis()).unwrap_or(u64::MAX)
 }

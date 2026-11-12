@@ -1,6 +1,8 @@
 //! The `Content-Security-Policy` header. It is built here, never copied from the page: only the
 //! `'sha256-…'` sources of the embedded `index.html`'s own CSP meta are taken from it, so a meta
-//! that allowed more (`'unsafe-inline'`, another host) cannot widen the policy.
+//! that allowed more (`'unsafe-inline'`, another host) cannot widen the policy. The meta's
+//! `script-src` hashes allow its inline scripts; its `style-src` hashes, sent with
+//! `'unsafe-hashes'`, allow exactly the inline style attributes they hash (D311).
 
 use axum::http::HeaderValue;
 
@@ -37,24 +39,30 @@ pub fn header(index: Option<&[u8]>) -> (HeaderValue, Option<&'static str>) {
 fn policy(index: Option<&[u8]>) -> Result<String, &'static str> {
     let Some(bytes) = index else { return Ok(FALLBACK.to_owned()) };
     let html = std::str::from_utf8(bytes).map_err(|_| NOT_UTF8)?;
-    let hashes = script_hashes(html);
-    if hashes.is_empty() {
+    let scripts = hashes(html, "script-src");
+    if scripts.is_empty() {
         return Err(NO_HASHES);
     }
+    let styles = hashes(html, "style-src");
+    let style_src = if styles.is_empty() {
+        String::new()
+    } else {
+        format!("; style-src 'self' 'unsafe-hashes' {}", styles.join(" "))
+    };
     Ok(format!(
-        "default-src 'self'; script-src 'self' {}; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
-        hashes.join(" ")
+        "default-src 'self'; script-src 'self' {}{style_src}; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
+        scripts.join(" ")
     ))
 }
 
-/// The `'sha256-…'` sources of the `script-src` directive in the page's first CSP meta.
-fn script_hashes(html: &str) -> Vec<&str> {
+/// The `'sha256-…'` sources of the `directive` (such as `script-src`) in the page's first CSP meta.
+fn hashes<'a>(html: &'a str, directive: &str) -> Vec<&'a str> {
     let Some(content) = csp_meta(html) else { return Vec::new() };
-    let script_src = content.split(';').find_map(|directive| {
-        let mut words = directive.split_ascii_whitespace();
-        words.next().is_some_and(|name| name.eq_ignore_ascii_case("script-src")).then_some(words)
+    let found = content.split(';').find_map(|part| {
+        let mut words = part.split_ascii_whitespace();
+        words.next().is_some_and(|name| name.eq_ignore_ascii_case(directive)).then_some(words)
     });
-    script_src.map(|sources| sources.filter(|source| is_hash(source)).collect()).unwrap_or_default()
+    found.map(|sources| sources.filter(|source| is_hash(source)).collect()).unwrap_or_default()
 }
 
 /// The `content` of the first `<meta http-equiv="content-security-policy">`, in any case.

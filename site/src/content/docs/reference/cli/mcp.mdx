@@ -61,7 +61,7 @@ The server offers no resources or prompts. See [MCP tools](/vc-rs/agents/mcp-too
 
 ### A run, as the agent sees it
 
-`run_tests` with `{"ids": ["sample.extra#echoesBody"]}` returns this `structuredContent`:
+A new project refuses `run_tests` until the profile's `agents` block sets `run: true` and lists, under `call`, every method the tests send (see [Policy and approvals](/vc-rs/agents/policy-and-approvals/)). With those, `run_tests` with `{"ids": ["sample.extra#echoesBody"]}` returns this `structuredContent`:
 
 ```json
 {
@@ -73,7 +73,7 @@ The server offers no resources or prompts. See [MCP tools](/vc-rs/agents/mcp-too
     {
       "attempts": 1,
       "blockedBy": null,
-      "durationMs": 59.6,
+      "durationMs": 59,
       "id": "sample.extra#echoesBody",
       "message": null,
       "skipReason": null,
