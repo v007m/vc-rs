@@ -13,12 +13,20 @@ fn json(values: &[(&str, &str)]) -> String {
     Value::Object(items).to_string()
 }
 
-fn answering(stdout: String) -> FakeCommands {
+/// Varlock, answering only when it runs as a list in the root with exactly `env` added to vc's
+/// own environment.
+fn answering_with(env: &[(&str, &str)], stdout: String) -> FakeCommands {
+    let env: Vec<(String, String)> =
+        env.iter().map(|(name, value)| ((*name).to_owned(), (*value).to_owned())).collect();
     FakeCommands::new(move |spec| {
         let as_list = spec.program == "varlock" && spec.args == ["load", "--format", "json"];
         let in_root = spec.cwd.as_deref() == Some(Path::new("/project"));
-        (as_list && in_root).then(|| Ok(CommandOutput::new(Some(0), stdout.clone())))
+        (as_list && in_root && spec.env == env).then(|| Ok(CommandOutput::new(Some(0), stdout.clone())))
     })
+}
+
+fn answering(stdout: String) -> FakeCommands {
+    answering_with(&[], stdout)
 }
 
 fn varlock(runner: FakeCommands) -> VarlockSecrets {
@@ -43,6 +51,18 @@ async fn varlock_runs_once_per_run_without_a_shell() {
     assert!(first.get("OPTIONAL").is_none());
     assert_eq!(again.len(), 1);
     assert!(!format!("{provider:?}").contains("API_TOKEN"));
+}
+
+#[tokio::test]
+async fn varlock_is_given_the_run_s_profile_as_vc_profile_and_nothing_else() {
+    let stdout = json(&[("TOKEN", "qa-token")]);
+    let runner = answering_with(&[("VC_PROFILE", "qa")], stdout.clone());
+    let provider = varlock(runner).for_profile(Some("qa".to_owned()));
+    let secrets = provider.load(&SecretQuery::new(["TOKEN"])).await.unwrap();
+    assert_eq!(secrets.get("TOKEN").map(Secret::expose), Some("qa-token"), "only VC_PROFILE is added");
+    let unset = varlock(answering(stdout)).for_profile(None);
+    assert_eq!(unset.load(&SecretQuery::new(["TOKEN"])).await.unwrap().len(), 1, "no profile: nothing is added");
+    assert!(format!("{provider:?}").contains(r#"profile: Some("qa")"#), "{provider:?}");
 }
 
 #[tokio::test]

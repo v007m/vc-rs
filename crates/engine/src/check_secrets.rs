@@ -5,6 +5,7 @@
 use vc_interfaces::{ConfigEntry, Secrets};
 
 use crate::plan::{self, profile_flag};
+use crate::ports::SecretSource;
 use crate::{Engine, EngineError, ExplainRequest};
 
 /// Whether one declared secret resolves.
@@ -42,9 +43,9 @@ impl Engine {
     pub async fn check_secrets(&self, request: &ExplainRequest) -> Result<SecretsChecked, EngineError> {
         let flags: Vec<ConfigEntry> = profile_flag(&request.profiles).into_iter().collect();
         let layered = self.layered(&request.sets, &flags)?;
-        plan::profiles(layered.program.as_ref(), layered.settings.profiles.as_ref())?;
+        let (_, profiles) = plan::profiles(layered.program.as_ref(), layered.settings.profiles.as_ref())?;
         let config = &layered.program.config.secrets;
-        let (loaded, error) = match self.loaded_secrets(config, &layered.environment).await {
+        let (loaded, error) = match self.loaded_secrets(&SecretSource::layered(&layered, &profiles)).await {
             Ok(loaded) => (loaded, None),
             Err(error) => (Secrets::new(), Some(error.to_string())),
         };

@@ -1,10 +1,11 @@
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use vc_testkit::{FakeTransport, FakeVcs, MemoryEnvironment, MemorySources, status};
+use vc_interfaces::CommandOutput;
+use vc_testkit::{FakeCommands, FakeTransport, FakeVcs, MemoryEnvironment, MemorySources, status};
 
 use crate::sample::builder;
-use crate::{CallRequest, Engine, EngineError, RunRequest, interrupts};
+use crate::{CallRequest, Engine, EngineError, ExplainRequest, PlanRequest, RunRequest, interrupts};
 
 const CONFIG: (&str, &[u8]) = (
     "vibranium.config.yaml",
@@ -21,10 +22,15 @@ const OTHER: &str = "other-fixture-5e21";
 
 /// The project with `environment`, and how many requests it sent.
 fn project(environment: &[(&str, &str)]) -> (Engine, Arc<AtomicUsize>) {
+    declaring(SCHEMA, environment)
+}
+
+/// The project with `schema` as its `.env.schema` and `environment`, and how many requests it sent.
+fn declaring(schema: (&str, &'static [u8]), environment: &[(&str, &str)]) -> (Engine, Arc<AtomicUsize>) {
     let sent = Arc::new(AtomicUsize::new(0));
     let counted = Arc::clone(&sent);
     let engine = builder(FakeVcs::default())
-        .sources(Arc::new(MemorySources::new(&[CONFIG, USERS, CRUD, SCHEMA])))
+        .sources(Arc::new(MemorySources::new(&[CONFIG, USERS, CRUD, schema])))
         .environment(Arc::new(MemoryEnvironment::new(environment)))
         .transport(Arc::new(FakeTransport::new(move |_, _| {
             counted.fetch_add(1, Ordering::SeqCst);
@@ -62,6 +68,66 @@ async fn a_run_with_every_declared_secret_set_sends_its_requests() {
     let (engine, sent) = project(&[("API_TOKEN", "tok-fixture-71"), ("OTHER_KEY", OTHER)]);
     let report = engine.run(&RunRequest::default(), interrupts().1).await.unwrap();
     assert_eq!((report.exit, sent.load(Ordering::SeqCst)), (0, 1));
+}
+
+#[tokio::test]
+async fn the_env_provider_neither_loads_nor_requires_nor_masks_the_profile_variable() {
+    const FLAGGED: (&str, &[u8]) = (".env.schema", b"# @currentEnv=$VC_PROFILE\nVC_PROFILE=dev\nAPI_TOKEN=\n");
+    let (without, sent) = declaring(FLAGGED, &[("API_TOKEN", "tok-fixture-71")]);
+    assert_eq!(
+        without.run(&RunRequest::default(), interrupts().1).await.unwrap().exit,
+        0,
+        "VC_PROFILE unset: no V5114"
+    );
+    assert_eq!(sent.load(Ordering::SeqCst), 1);
+    // Were it a loaded secret, its value would mask `baseUrl`, which is the same text.
+    let (given, _) = declaring(FLAGGED, &[("API_TOKEN", "tok-fixture-71"), ("VC_PROFILE", "http://x")]);
+    let checked = given.check_secrets(&ExplainRequest::default()).await.unwrap();
+    let names: Vec<&str> = checked.secrets.iter().map(|check| check.name.as_str()).collect();
+    assert_eq!(names, ["API_TOKEN"]);
+    let explained = given.config_values(&["vars.baseUrl".to_owned()], &ExplainRequest::default()).await.unwrap();
+    assert!(format!("{explained:?}").contains("http://x"), "{explained:?}");
+}
+
+#[tokio::test]
+async fn a_run_and_a_call_give_varlock_the_last_profile_as_vc_profile_and_no_run_value() {
+    const VARLOCK: (&str, &[u8]) = (
+        "vibranium.config.yaml",
+        b"syntaxVersion: 2\nsecrets: {provider: varlock}\nprofiles:\n  - id: dev\n    default: true\n  - id: qa\nvars: {baseUrl: 'http://x'}\n",
+    );
+    let commands = FakeCommands::new(|spec| {
+        let only_profile = spec.env == [("VC_PROFILE".to_owned(), "qa".to_owned())];
+        let stdout = r#"{"API_TOKEN":"tok-varlock-3a","OTHER_KEY":"o"}"#;
+        (spec.program == "varlock" && only_profile).then(|| Ok(CommandOutput::new(Some(0), stdout)))
+    });
+    let sent = Arc::new(AtomicUsize::new(0));
+    let counted = Arc::clone(&sent);
+    let engine = builder(FakeVcs::default())
+        .sources(Arc::new(MemorySources::new(&[VARLOCK, USERS, CRUD, SCHEMA])))
+        .commands(Arc::new(commands))
+        .transport(Arc::new(FakeTransport::new(move |request, _| {
+            assert_eq!(request.headers.get("x-token").and_then(|value| value.to_str().ok()), Some("tok-varlock-3a"));
+            counted.fetch_add(1, Ordering::SeqCst);
+            Ok(status(200))
+        })))
+        .build()
+        .unwrap();
+    let profiles = vec!["dev".to_owned(), "qa".to_owned()];
+    let run = engine
+        .run(
+            &RunRequest {
+                plan: PlanRequest { profiles: profiles.clone(), ..PlanRequest::default() },
+                ..RunRequest::default()
+            },
+            interrupts().1,
+        )
+        .await;
+    assert_eq!(run.unwrap().exit, 0);
+    let call = CallRequest { api: "users#get".into(), profiles, ..CallRequest::default() };
+    assert_eq!(engine.call(&call).await.unwrap().exit, 0);
+    assert_eq!(sent.load(Ordering::SeqCst), 2);
+    let unnamed = engine.run(&RunRequest::default(), interrupts().1).await;
+    assert!(unnamed.is_err(), "with `dev`, varlock is not given `qa`: {unnamed:?}");
 }
 
 #[test]
