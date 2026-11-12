@@ -230,12 +230,14 @@ Edit the test below. The editor checks it against the real schema as you type.
 - `$file` paths are relative to the file that holds them. In `services/<service>/`, that is `../../schemas/<name>.json`.
 - A `#/pointer` after the path picks one part of the file, such as a definition.
 - Up to five errors are shown, each as `<pointer>: <message>`, with `(and N more)` after that.
-- A file that is not a valid JSON Schema fails the check at run time with `the schema ... is not a valid JSON Schema`.
+- `vc check` reports a schema that is not a valid JSON Schema, written inline or in a named file, as V2312. A `$ref` must point into the same file: one to another file or a URL is never fetched.
+- A schema whose path holds a `${…}` template is known only at run time. If it is not a valid JSON Schema, the check fails then with `the schema ... is not a valid JSON Schema`.
 
 ## Common errors
 
 - [V2004](/vc-rs/reference/diagnostics/v2004/): the `$file` is not in the project. The path is relative to the file that holds it.
-- [V5101](/vc-rs/reference/diagnostics/v5101/): the body did not validate, or the schema itself is not valid.
+- [V2312](/vc-rs/reference/diagnostics/v2312/): the schema is not a valid JSON Schema.
+- [V5101](/vc-rs/reference/diagnostics/v5101/): the body did not validate, or a schema known only at run time is not valid.
 
 ## Related
 

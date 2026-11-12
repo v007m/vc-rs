@@ -163,6 +163,7 @@ cases!(
     v2309_from_reg_exp,
     v2310_header_name,
     v2311_redact_regex,
+    v2312_body_schema,
     datasets_clean,
     v1001_csv_dataset,
     v1002_dataset_not_rows,
