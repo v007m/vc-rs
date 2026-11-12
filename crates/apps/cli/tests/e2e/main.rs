@@ -36,6 +36,7 @@ mod plugin;
 mod redaction;
 mod reports;
 mod scheduling;
+mod teardown;
 mod timing;
 mod tui;
 mod ui;

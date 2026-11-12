@@ -22,10 +22,10 @@ The rule tries them in this order, whatever order `on` lists them in:
 
 | Trigger | Fires when | Sent by |
 | --- | --- | --- |
-| `failure` | A test the rule sees failed or was blocked | `vc run` |
+| `failure` | A test the rule sees failed or was blocked, or an `afterAll` or `afterRun` block failed, whatever the rule's `tags` | `vc run` |
 | `threshold` | A load threshold was breached, whatever the rule's `tags` | `vc load` |
 | `flaky` | A test the rule sees passed on a retry | `vc run` |
-| `recovery` | The previous run failed, and this one ran something, was not cancelled, breached nothing and had no failed test | `vc run`, `vc load` |
+| `recovery` | The previous run failed, and this one ran something, was not cancelled, breached nothing, had no failed test and no failed teardown block | `vc run`, `vc load` |
 
 `on` defaults to `[failure]`.
 
