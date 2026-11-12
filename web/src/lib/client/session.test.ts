@@ -1,6 +1,6 @@
 import { Code, ConnectError } from '@connectrpc/connect';
 import { describe, expect, it } from 'vitest';
-import type { ClientPort, SaveCallInput } from './port.ts';
+import type { ApiDraft, CallInput, ClientPort, SaveCallInput } from './port.ts';
 import { ClientSession } from './session.svelte.ts';
 
 const apis = [
@@ -15,14 +15,31 @@ const apis = [
 
 const created = JSON.stringify({ status: 201, headers: {}, body: { id: 'u_1', tags: [] } });
 
+const WRITTEN = {
+  path: 'services/users/users.api.yaml',
+  pointer: '/apis/1',
+  digest: 'd1',
+  node: { id: 'createUser', method: 'POST', path: '/users', expect: { status: 201 } },
+};
+
 function fakePort(overrides: Partial<ClientPort> = {}): ClientPort {
   return {
     apis: () => Promise.resolve(apis),
     flows: () => Promise.resolve([]),
     call: () =>
-      Promise.resolve({ exit: 0, text: '201 Created', notices: [], responseJson: created }),
+      Promise.resolve({
+        exit: 0,
+        text: '201 Created',
+        notices: [],
+        checks: [],
+        saved: [],
+        responseJson: created,
+      }),
     saveCallAsTest: () => Promise.resolve({ id: '', path: '', titles: [] }),
     importHar: () => Promise.resolve({ files: [], titles: [] }),
+    readDefinition: () => Promise.resolve(WRITTEN),
+    explainApi: () => Promise.resolve({ vars: [], headers: [], curl: '', notices: [] }),
+    editFile: () => Promise.resolve({ diff: '', digest: 'd2', written: true, problems: 0 }),
     ...overrides,
   };
 }
@@ -30,7 +47,7 @@ function fakePort(overrides: Partial<ClientPort> = {}): ClientPort {
 async function opened(port: ClientPort, id = 'users#createUser'): Promise<ClientSession> {
   const session = new ClientSession(port);
   await session.load();
-  session.open(id);
+  await session.open(id);
   return session;
 }
 
@@ -49,7 +66,14 @@ describe('ClientSession', () => {
       fakePort({
         call: (input) => {
           sent.push(input);
-          return Promise.resolve({ exit: 0, text: '201', notices: [], responseJson: created });
+          return Promise.resolve({
+            exit: 0,
+            text: '201',
+            notices: [],
+            checks: [],
+            saved: [],
+            responseJson: created,
+          });
         },
       }),
     );
@@ -97,5 +121,70 @@ describe('ClientSession', () => {
     expect(session.error).toBe('unknown api');
     expect(session.result).toBeUndefined();
     expect(session.sending).toBe(false);
+  });
+
+  it('sends the request as edited, with the added checks, and saves only the edits', async () => {
+    const sent: CallInput[] = [];
+    const saves: [ApiDraft, boolean][] = [];
+    const session = await opened(
+      fakePort({
+        call: (input) => {
+          sent.push(input);
+          return Promise.resolve({ exit: 0, text: '', notices: [], checks: [], saved: [] });
+        },
+        editFile: (draft, write) => {
+          saves.push([draft, write]);
+          return Promise.resolve({ diff: '+x', digest: 'd2', written: write, problems: 0 });
+        },
+      }),
+    );
+    const request = session.request;
+    if (!request) throw new Error('open made no request');
+    await session.send();
+    expect(sent[0]?.draft).toBeUndefined();
+    request.form.path = '/people';
+    expect(request.addCheck({ kind: 'status', path: '', op: 'equals', value: '202' })).toBe(
+      undefined,
+    );
+    await session.send();
+    const path = { pointer: '/apis/1/path', op: 'set', value: '/people' };
+    expect(sent[1]?.draft).toEqual({
+      path: WRITTEN.path,
+      digest: 'd1',
+      edits: [
+        path,
+        { pointer: '/apis/1/expect/status', op: 'remove' },
+        { pointer: '/apis/1/expect/status', op: 'set', value: 202 },
+      ],
+    });
+    await request.review();
+    expect(request.diff).toBe('+x');
+    await request.save();
+    expect(saves.map(([draft, write]) => [draft.edits, write])).toEqual([
+      [[path], false],
+      [[path], true],
+    ]);
+    expect(request.checks).toHaveLength(1);
+  });
+
+  it('marks the request stale when its file changed, and sends no body that is not JSON', async () => {
+    let calls = 0;
+    const session = await opened(
+      fakePort({
+        call: () => {
+          calls += 1;
+          return Promise.reject(new ConnectError('changed since it was opened', Code.Aborted));
+        },
+      }),
+    );
+    const request = session.request;
+    if (!request) throw new Error('open made no request');
+    request.form.path = '/people';
+    await session.send();
+    expect([request.state, calls]).toEqual(['conflict', 1]);
+    request.form.bodyMode = 'json';
+    request.form.body = '{';
+    await session.send();
+    expect(calls).toBe(1);
   });
 });

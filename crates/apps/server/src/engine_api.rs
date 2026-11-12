@@ -11,7 +11,8 @@ use vc_contracts::engine::v1 as wire;
 use vc_engine::{Engine, EngineError};
 
 use crate::{
-    Code, ConnectError, ConnectService, McpAccess, Sink, authoring_rpcs, history_rpcs, project_rpcs, run_stream,
+    Code, ConnectError, ConnectService, McpAccess, Sink, authoring_rpcs, client_rpcs, edit_rpcs, history_rpcs,
+    project_rpcs, run_stream,
 };
 
 /// The service's full protobuf name.
@@ -36,7 +37,8 @@ impl EngineApi {
     #[must_use]
     pub fn into_service(self) -> ConnectService {
         let rpcs = Rpcs { service: ConnectService::new(SERVICE), api: Arc::new(self) };
-        let rpcs = run_stream::register(authoring_rpcs::register(history_rpcs::register(project_rpcs::register(rpcs))));
+        let rpcs = project_rpcs::register(client_rpcs::register(edit_rpcs::register(rpcs)));
+        let rpcs = run_stream::register(authoring_rpcs::register(history_rpcs::register(rpcs)));
         rpcs.service
     }
 

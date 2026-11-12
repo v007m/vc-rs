@@ -38,7 +38,7 @@ pub const WARN: Style = Style::new().fg(AMBER);
 pub const INFO: Style = Style::new().fg(BLUE);
 
 /// A test status's mark and style, as the mockups show it: `✓` passed, `✕` failed, `⊘`
-/// blocked, `↻` flaky, `–` skipped.
+/// blocked, `↻` flaky, `–` skipped, `⚠` allowed to fail (D248).
 pub const fn mark(status: TestStatus) -> (&'static str, Style) {
     match status {
         TestStatus::Passed => ("✓", PASS),
@@ -46,6 +46,7 @@ pub const fn mark(status: TestStatus) -> (&'static str, Style) {
         TestStatus::Blocked => ("⊘", WARN),
         TestStatus::Flaky => ("↻", WARN),
         TestStatus::Skipped => ("–", DIM),
+        TestStatus::AllowedFailure => ("⚠", WARN),
     }
 }
 

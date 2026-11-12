@@ -5,7 +5,8 @@
 use std::collections::BTreeMap;
 
 use vc_model::{
-    Examples, FileId, Instance, InstanceId, Needs, Plan, Program, Skip, SkippedTest, Test, TestFile, TestId,
+    AllowFailure, Examples, FileId, Instance, InstanceId, Needs, Plan, Program, Skip, SkippedTest, Test, TestFile,
+    TestId,
 };
 
 use crate::select::Pick;
@@ -27,11 +28,13 @@ pub fn no_rows_notices(program: &Program, plan: &Plan) -> Vec<String> {
     empty.map(|skipped| format!("`{}`: {NO_ROWS}, so it is skipped", name(skipped.test))).collect()
 }
 
-/// The instances to run, by file, and the selected tests that are skipped.
+/// The instances to run, by file, the selected tests that are skipped, and the planned tests
+/// whose failure is allowed (D248).
 #[derive(Debug, Default)]
 pub struct Expanded {
     pub files: Vec<(FileId, Vec<Instance>)>,
     pub skipped: Vec<SkippedTest>,
+    pub allowed: BTreeMap<TestId, AllowFailure>,
 }
 
 /// Expands the picked tests, numbering instances in plan order.
@@ -50,7 +53,7 @@ impl<'p> Expander<'p> {
     pub fn expand(mut self, picked: &BTreeMap<TestId, Pick>) -> Result<Expanded, PlanError> {
         let mut expanded = Expanded::default();
         for file in self.program.test_files.values() {
-            let instances = self.file(file, picked, &mut expanded.skipped)?;
+            let instances = self.file(file, picked, &mut expanded)?;
             if !instances.is_empty() {
                 expanded.files.push((file.id, instances));
             }
@@ -62,17 +65,32 @@ impl<'p> Expander<'p> {
         &mut self,
         file: &TestFile,
         picked: &BTreeMap<TestId, Pick>,
-        skipped: &mut Vec<SkippedTest>,
+        expanded: &mut Expanded,
     ) -> Result<Vec<Instance>, PlanError> {
         let mut instances = Vec::new();
         let tests = file.tests.iter().filter_map(|id| Some((self.program.tests.get(id)?, picked.get(id)?)));
         for (test, pick) in tests.filter(|(test, _)| test.standalone) {
-            match self.not_run(file, test, pick)? {
-                Some(Skip { reason, until }) => skipped.push(SkippedTest { test: test.id, reason, until }),
-                None => instances.extend(self.instances(test, pick)?),
+            if let Some(Skip { reason, until }) = self.not_run(file, test, pick)? {
+                expanded.skipped.push(SkippedTest { test: test.id, reason, until });
+                continue;
+            }
+            instances.extend(self.instances(test, pick)?);
+            if let Some(allowed) = self.allowed(file, test) {
+                expanded.allowed.insert(test.id, allowed.clone());
             }
         }
         Ok(instances)
+    }
+
+    /// The `allowFailure` that holds for `test`: its own, else its file's, unless `until` has
+    /// passed, the one that applies is `false`, or the run is `--strict` (D248).
+    fn allowed<'t>(&self, file: &'t TestFile, test: &'t Test) -> Option<&'t AllowFailure> {
+        if self.options.strict {
+            return None;
+        }
+        let active = |allow: &&AllowFailure| !self.expired(allow.until.as_deref());
+        let own = test.allow_failure.as_ref().filter(active);
+        own.or_else(|| file.allow_failure.as_ref().filter(active)).filter(|allow| !allow.off)
     }
 
     /// Why `test` does not run: its file's `skip` or its own, else examples that gave no rows;
@@ -110,14 +128,14 @@ impl<'p> Expander<'p> {
         if self.include_skipped {
             return None;
         }
-        let active = |skip: &&Skip| !self.expired(skip);
+        let active = |skip: &&Skip| !self.expired(skip.until.as_deref());
         file.skip.as_ref().filter(active).or_else(|| test.skip.as_ref().filter(active))
     }
 
-    /// After `until`, the skip no longer holds.
-    fn expired(&self, skip: &Skip) -> bool {
+    /// After `until`, a `skip` or `allowFailure` no longer holds.
+    fn expired(&self, until: Option<&str>) -> bool {
         let today = self.options.today.as_deref();
-        today.zip(skip.until.as_deref()).is_some_and(|(today, until)| today > until)
+        today.zip(until).is_some_and(|(today, until)| today > until)
     }
 
     fn instances(&mut self, test: &Test, pick: &Pick) -> Result<Vec<Instance>, PlanError> {

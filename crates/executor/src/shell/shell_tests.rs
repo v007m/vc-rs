@@ -85,7 +85,7 @@ async fn run(fixture: Fixture, plan: Plan, options: RunOptions, interrupts: &[Du
 }
 
 fn totals([passed, failed, blocked, flaky, skipped]: [usize; 5]) -> Totals {
-    Totals { passed, failed, blocked, flaky, skipped }
+    Totals { passed, failed, blocked, flaky, skipped, allowed_failures: 0 }
 }
 
 #[tokio::test(start_paused = true)]

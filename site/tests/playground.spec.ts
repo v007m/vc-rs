@@ -6,7 +6,7 @@ import { expect, test } from '@playwright/test';
 const output = (page: import('@playwright/test').Page) => page.getByRole('log', { name: 'vc output' });
 
 test('the starter project passes', async ({ page }) => {
-  await page.goto('playground/');
+  await page.goto('/vc-rs/playground/');
   await page.getByRole('button', { name: 'Run', exact: true }).click();
   await expect(page.getByText(/^exit \d+$/)).toHaveText('exit 0', { timeout: 60_000 });
   await expect(output(page)).toContainText('plan  10 tests in 5 files');
@@ -14,7 +14,7 @@ test('the starter project passes', async ({ page }) => {
 });
 
 test('a broken value shows the failure excerpt and its code', async ({ page }) => {
-  await page.goto('playground/');
+  await page.goto('/vc-rs/playground/');
   await page.getByRole('tab', { name: /Query params/ }).click();
   const line = page.locator('.cm-line', { hasText: 'q: ${example.term}' });
   await line.click();
@@ -38,7 +38,7 @@ test('stop ends a run that has not finished, and the next run starts afresh', as
     await held;
     await route.continue();
   });
-  await page.goto('playground/');
+  await page.goto('/vc-rs/playground/');
   await page.getByRole('button', { name: 'Run', exact: true }).click();
   await page.getByRole('button', { name: 'Stop', exact: true }).click();
   await expect(output(page)).toContainText('Stopped.');

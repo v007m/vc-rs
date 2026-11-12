@@ -38,4 +38,6 @@ pub struct PlanOptions {
     /// them when it rendered them before the run (D132). `vc list` and the catalog render none,
     /// so they count every file or template test as one row.
     pub example_rows: BTreeMap<TestId, u32>,
+    /// `--strict`: no failure is allowed, whatever `allowFailure` says (D248).
+    pub strict: bool,
 }

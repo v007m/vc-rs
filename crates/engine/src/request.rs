@@ -1,10 +1,11 @@
 //! What apps ask the engine to plan, run, list and explain.
 
 use std::path::PathBuf;
+use std::time::Duration;
 
 use vc_model::SourcePath;
 
-use crate::RunWatch;
+use crate::{CallDraft, RunWatch};
 
 /// Which tests a command selects (cli-workflow "Selectors"); everything when empty.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -24,6 +25,10 @@ pub struct SelectRequest {
     /// `--changed [ref]`: only files changed since the ref (`Some("")` for `HEAD`, the
     /// uncommitted and untracked changes); every file when the config or `.env.schema` changed.
     pub changed: Option<String>,
+    /// `--changed-since <duration>`: only files a commit in that window touched, or that are
+    /// uncommitted or untracked; every file when the config or `.env.schema` is one (D249).
+    /// `changed` wins when both are given.
+    pub changed_since: Option<Duration>,
     /// `vc watch`: only the files [`crate::Engine::watch`] reported saved, and the tests that
     /// call an api in one; every file when the config, `.env` or `.env.schema` was saved.
     pub saved: Option<Vec<SourcePath>>,
@@ -76,6 +81,8 @@ pub struct RunRequest {
     /// `--no-cache`: `cache:` actions neither read nor write the cross-run cache, and no
     /// expired entry is cleaned up.
     pub no_cache: bool,
+    /// `--strict`: every failure fails the run, whatever `allowFailure` says (D248).
+    pub strict: bool,
     /// The agent starting the run (MCP), when one is: the run then passes the profiles' agent
     /// policy for `run` and every method its plan sends, with one approval for the whole run,
     /// prints nothing to stdout, and is logged (D195). `None` for a person at the CLI.
@@ -173,4 +180,7 @@ pub struct CallRequest {
     /// The agent making the call (MCP, the web UI), when one is: the call then passes the
     /// profiles' agent policy first and is logged (D178, D195). `None` for a person at the CLI.
     pub agent: Option<String>,
+    /// Edits the web UI's API client made to the api's file and has not saved: the call sends
+    /// the api as edited, and the file is left as it is (D245).
+    pub draft: Option<CallDraft>,
 }

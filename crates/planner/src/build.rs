@@ -87,14 +87,14 @@ impl<'p> PlanBuilder<'p> {
     }
 
     fn build(mut self, expanded: Expanded) -> Plan {
-        let Expanded { files, skipped } = expanded;
+        let Expanded { files, skipped, allowed: allowed_failures } = expanded;
         if files.is_empty() {
             return Plan { skipped, ..Plan::default() };
         }
         let blocks = &self.program.run_blocks;
         let before_run = self.run.plan(self.program, &blocks.before_run);
         let files = files.into_iter().map(|(id, instances)| self.file(id, instances, &skipped)).collect();
-        Plan { before_run, files, after_run: blocks.after_run.clone(), skipped, ..Plan::default() }
+        Plan { before_run, files, after_run: blocks.after_run.clone(), skipped, allowed_failures, ..Plan::default() }
     }
 
     fn file(&self, id: FileId, mut instances: Vec<Instance>, skipped: &[SkippedTest]) -> PlannedFile {

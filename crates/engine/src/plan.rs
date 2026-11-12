@@ -3,6 +3,7 @@
 
 use std::collections::BTreeSet;
 use std::sync::Arc;
+use std::time::Duration;
 
 use serde_json::Value;
 use vc_executor::RunInputs;
@@ -95,12 +96,13 @@ pub struct Prepared {
 }
 
 /// What `vc run` adds to a plan request: its flags that are settings, the results `--failed`
-/// runs again, and `--seed`, which the example rows are drawn with too.
+/// runs again, `--seed`, which the example rows are drawn with too, and `--strict` (D248).
 #[derive(Default)]
 pub struct Extra {
     pub flags: Vec<ConfigEntry>,
     pub rerun: Vec<TestRow>,
     pub seed: Option<u64>,
+    pub strict: bool,
 }
 
 impl Prepared {
@@ -122,14 +124,14 @@ impl Engine {
     ///
     /// [`EngineError::Invalid`] when the project has errors, [`EngineError::Setting`] for a bad
     /// setting or an unknown profile, and [`EngineError::Selection`] when a selector cannot be
-    /// read, matches nothing, or `--changed` cannot ask git.
+    /// read, matches nothing, or `--changed` or `--changed-since` cannot ask git.
     pub fn plan(&self, request: &PlanRequest) -> Result<PlanReport, EngineError> {
         Ok(self.prepare(request, Extra::default())?.report())
     }
 
     /// Reads the settings, compiles, applies the settings, picks the profiles and plans.
     pub(crate) fn prepare(&self, request: &PlanRequest, extra: Extra) -> Result<Prepared, EngineError> {
-        let Extra { mut flags, rerun, seed } = extra;
+        let Extra { mut flags, rerun, seed, strict } = extra;
         flags.splice(0..0, profile_flag(&request.profiles));
         let Layered { mut program, notices, settings, environment, dot_env, .. } =
             self.layered(&request.sets, &flags)?;
@@ -143,20 +145,21 @@ impl Engine {
         let inputs = RunInputs::new(Arc::clone(&draw.random), Arc::clone(&environment));
         let inputs = inputs.with_profiles(profiles.clone()).with_vars(run::vars(&settings.vars));
         let today = Some(self.clock.today().to_string());
-        let options = PlanOptions { repeat: request.repeat, today, ..PlanOptions::default() };
+        let options = PlanOptions { repeat: request.repeat, today, strict, ..PlanOptions::default() };
         let plan = examples::planned(&program, &selection, (inputs, &mut draw, options))?;
         let mut notices = notices;
         notices.extend(vc_planner::no_rows_notices(&program, &plan));
         Ok(Prepared { program, plan: Arc::new(plan), settings, profiles, names, notices, environment, dot_env, draw })
     }
 
-    /// The planner's selection for `select`, with `--changed` asked of the vcs; `vc watch`'s
-    /// saved files stand in for `--changed`.
+    /// The planner's selection for `select`, with `--changed` or `--changed-since` asked of the
+    /// vcs; `vc watch`'s saved files stand in for both.
     pub(crate) fn selection(&self, select: &SelectRequest) -> Result<Selection, EngineError> {
-        let changed = match (&select.saved, select.changed.as_deref()) {
-            (Some(saved), _) => affected(saved, SAVED_SHARED),
-            (None, Some(base)) => self.changed(base)?,
-            (None, None) => None,
+        let changed = match (&select.saved, select.changed.as_deref(), select.changed_since) {
+            (Some(saved), _, _) => affected(saved, SAVED_SHARED),
+            (None, Some(base), _) => self.changed(base)?,
+            (None, None, Some(window)) => self.changed_within(window)?,
+            (None, None, None) => None,
         };
         Ok(Selection {
             ids: select.ids.clone(),
@@ -172,7 +175,14 @@ impl Engine {
     /// and untracked changes); `None`, every file, when a file every test reads changed.
     fn changed(&self, base: &str) -> Result<Option<BTreeSet<String>>, EngineError> {
         let base = if base.is_empty() { DEFAULT_BASE } else { base };
-        let paths = self.vcs.changed(base).map_err(|error| vcs_error(&error))?;
+        let paths = self.vcs.changed(base).map_err(|error| vcs_error(&error, "--changed"))?;
+        Ok(affected(&paths, SHARED))
+    }
+
+    /// The IDs of the definition files changed in the last `window` (D249); `None`, every file,
+    /// when a file every test reads changed.
+    fn changed_within(&self, window: Duration) -> Result<Option<BTreeSet<String>>, EngineError> {
+        let paths = self.vcs.changed_within(window).map_err(|error| vcs_error(&error, "--changed-since"))?;
         Ok(affected(&paths, SHARED))
     }
 }
@@ -212,14 +222,14 @@ pub fn plan_error(error: PlanError, program: &Program) -> EngineError {
     }
 }
 
-/// `--changed` could not ask the vcs.
-fn vcs_error(error: &VcsError) -> EngineError {
+/// `flag`, `--changed` or `--changed-since`, could not ask the vcs.
+fn vcs_error(error: &VcsError, flag: &str) -> EngineError {
     let help = match error {
         VcsError::InvalidRef { .. } => Some("pass a branch, tag or commit, such as `--changed origin/main`".to_owned()),
-        VcsError::Unavailable { .. } => Some("install git, or run without `--changed`".to_owned()),
+        VcsError::Unavailable { .. } => Some(format!("install git, or run without `{flag}`")),
         _ => None,
     };
-    EngineError::Selection { reason: format!("--changed: {error}"), help }
+    EngineError::Selection { reason: format!("{flag}: {error}"), help }
 }
 
 #[cfg(test)]

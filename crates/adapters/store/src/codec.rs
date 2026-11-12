@@ -11,12 +11,13 @@ use vc_model::{RunStatus, TestStatus};
 const ZSTD_LEVEL: i32 = 3;
 
 /// How each test status is spelled in the file.
-const TEST_STATUSES: [(TestStatus, &str); 5] = [
+const TEST_STATUSES: [(TestStatus, &str); 6] = [
     (TestStatus::Passed, "passed"),
     (TestStatus::Failed, "failed"),
     (TestStatus::Blocked, "blocked"),
     (TestStatus::Flaky, "flaky"),
     (TestStatus::Skipped, "skipped"),
+    (TestStatus::AllowedFailure, "allowedFailure"),
 ];
 
 /// How each run status is spelled in the file.

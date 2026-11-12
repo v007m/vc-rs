@@ -10,7 +10,7 @@ interface Props {
 const { n, title, href, link } = Astro.props;
 ---
 
-<li class="lp-step">
+<li class="lp-step" data-reveal>
   <span class="lp-step-n" aria-hidden="true">{n}</span>
   <h3 class="lp-step-title" set:html={title} />
   <div class="lp-step-body"><slot /></div>

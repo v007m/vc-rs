@@ -2,8 +2,8 @@
 
 use indexmap::IndexMap;
 use vc_model::{
-    AgentPolicy, ApiSource, BodySpec, Duration, Examples, FILE_KEY, HookRef, Loop, Method, Retry, Size, Skip, Tag,
-    Template, TemplateValue, WriteDefinitions,
+    AgentPolicy, AllowFailure, ApiSource, BodySpec, Duration, Examples, FILE_KEY, HookRef, Loop, Method, Retry, Size,
+    Skip, Tag, Template, TemplateValue, WriteDefinitions,
 };
 use vc_parser::Node;
 
@@ -129,6 +129,17 @@ pub fn skip(node: &Node) -> Option<Skip> {
         return Some(Skip { reason: reason.text.clone(), until: None });
     }
     Some(Skip { reason: owned(skip, "reason")?, until: owned(skip, "until") })
+}
+
+/// `allowFailure`: `true`, or a reason with an end date (D248); `false` is kept as off, so a
+/// test's `false` wins over its file's.
+pub fn allow_failure(node: &Node) -> Option<AllowFailure> {
+    let allow = node.get("allowFailure")?;
+    if let Some(flag) = allow.as_scalar() {
+        let off = !flag.text.eq_ignore_ascii_case("true");
+        return Some(AllowFailure { off, ..AllowFailure::default() });
+    }
+    Some(AllowFailure { reason: owned(allow, "reason"), until: owned(allow, "until"), off: false })
 }
 
 /// `retry`: further attempts and the pause between them.

@@ -7,14 +7,14 @@ mod support;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use insta::assert_snapshot;
 use support::{Outcome, engine, press, screen, tui};
-use vc_engine::{Engine, EngineError, ExplainRequest, FileChange, SkipRequest};
+use vc_engine::{Engine, EngineError, ExplainRequest, FileChange, SelectRequest, SkipRequest};
 use vc_tui::{Ask, Tui, Update};
 
 const SIZE: (u16, u16) = (100, 24);
 
 /// What the terminal would send back for [`Ask::Explore`]: the apis, then the tests.
 fn explored(engine: &Engine) -> Outcome<Update> {
-    let report = engine.catalog()?;
+    let report = engine.catalog(&SelectRequest::default())?;
     Ok(Update::Explored { items: report.items, notices: report.notices })
 }
 
@@ -121,6 +121,28 @@ fn the_test_skipped_is_the_one_chosen_when_t_was_pressed_though_a_re_read_moved_
     let ask = press(&mut tui, &[KeyCode::Enter]);
     let Some(Ask::Skip(request)) = ask else { panic!("enter skips: {ask:?}") };
     assert_eq!(request.target, "users.crud#listsUsers");
+}
+
+#[test]
+fn c_shows_only_what_changed_in_the_last_week_until_pressed_again() {
+    let engine = engine().unwrap();
+    let mut tui = on_explore(&engine).unwrap();
+    let week = std::time::Duration::from_hours(7 * 24);
+    assert_eq!(press(&mut tui, &[KeyCode::Char('c')]), Some(Ask::ExploreChanged(week)));
+    assert_eq!(press(&mut tui, &[KeyCode::Char('c')]), None, "it is being read");
+    let Update::Explored { mut items, notices } = explored(&engine).unwrap() else { panic!("the project") };
+    items.retain(|item| item.id.starts_with("orders.flow#"));
+    tui.update(&Update::Explored { items, notices });
+    assert!(
+        status(&tui).starts_with("1 tests and 0 apis changed in the last 7 days · c shows all"),
+        "{}",
+        status(&tui)
+    );
+    assert_eq!(press(&mut tui, &[KeyCode::Char('r')]), Some(Ask::ExploreChanged(week)), "r keeps the filter");
+    tui.update(&explored(&engine).unwrap());
+    assert_eq!(press(&mut tui, &[KeyCode::Char('c')]), Some(Ask::Explore));
+    tui.update(&explored(&engine).unwrap());
+    assert!(!status(&tui).contains("changed in the last"), "{}", status(&tui));
 }
 
 #[test]

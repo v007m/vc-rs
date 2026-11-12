@@ -1,0 +1,142 @@
+---
+/**
+ * The virtual-user count of a three-stage load scenario over time: ramp to 50 users in a minute,
+ * hold for three, ramp down in one. A schematic of the `stages` list, not measured data.
+ */
+import Diagram from './Diagram.astro';
+
+const W = 480;
+const H = 220;
+const plot = { left: 44, right: 464, top: 24, bottom: 180 };
+const minutes = 5;
+const maxUsers = 60;
+const x = (m: number): number => plot.left + ((plot.right - plot.left) * m) / minutes;
+const y = (u: number): number => plot.bottom - ((plot.bottom - plot.top) * u) / maxUsers;
+
+const points: [number, number][] = [
+  [0, 0],
+  [1, 50],
+  [4, 50],
+  [5, 0],
+];
+const line = points.map(([m, u], i) => `${i ? 'L' : 'M'}${x(m).toFixed(1)} ${y(u).toFixed(1)}`).join(' ');
+const area = `${line} L${x(5)} ${plot.bottom} L${x(0)} ${plot.bottom} Z`;
+const stages = [
+  { from: 0, to: 1, label: 'ramp up', title: 'Stage 1: 0 → 50 users over 1m' },
+  { from: 1, to: 4, label: 'hold 50 users', title: 'Stage 2: 50 users for 3m' },
+  { from: 4, to: 5, label: 'ramp down', title: 'Stage 3: 50 → 0 users over 1m' },
+];
+---
+
+<Diagram caption="stages: users ramp from the previous stage's count. Thresholds are checked on a rolling 10 s window as the run goes, and once more on the whole run.">
+  <svg class="lr" viewBox={`0 0 ${W} ${H}`} role="img" aria-labelledby="lr-title">
+    <title id="lr-title">Virtual users over five minutes: up to 50 in the first minute, 50 for three minutes, down to 0 in the last.</title>
+    {
+      [0, 25, 50].map((u) => (
+        <g class="lr-grid">
+          <line x1={plot.left} x2={plot.right} y1={y(u)} y2={y(u)} />
+          <text x={plot.left - 8} y={y(u)} dy="0.35em" text-anchor="end">{u}</text>
+        </g>
+      ))
+    }
+    {
+      [0, 1, 2, 3, 4, 5].map((m) => (
+        <text class="lr-tick" x={x(m)} y={plot.bottom + 18} text-anchor="middle">{m ? `${m}m` : '0'}</text>
+      ))
+    }
+    <text class="lr-axis" x={plot.left - 8} y={plot.top - 10} text-anchor="end">users</text>
+    {
+      stages.map((s, i) => (
+        <g class="lr-stage">
+          <title>{s.title}</title>
+          <rect x={x(s.from)} y={plot.top} width={x(s.to) - x(s.from)} height={plot.bottom - plot.top} />
+          {i > 0 && <line class="lr-cut" x1={x(s.from)} x2={x(s.from)} y1={plot.top} y2={plot.bottom} />}
+          <text x={(x(s.from) + x(s.to)) / 2} y={plot.top + 14} text-anchor="middle">{s.label}</text>
+        </g>
+      ))
+    }
+    <path class="lr-area" d={area} />
+    <path class="lr-line" d={line} pathLength="1" />
+    <circle class="lr-dot" r="5" style={`offset-path: path('${line}')`} />
+  </svg>
+</Diagram>
+
+<style>
+  .lr {
+    display: block;
+    width: 100%;
+    max-width: 36rem;
+    height: auto;
+    margin-inline: auto;
+    overflow: visible;
+    font-family: var(--__sl-font);
+  }
+  .lr text {
+    font-size: 12px;
+    fill: var(--d-muted);
+  }
+  .lr-grid line {
+    stroke: var(--d-line);
+    stroke-width: 1;
+    stroke-dasharray: 2 4;
+  }
+  .lr-stage rect {
+    fill: transparent;
+  }
+  .lr-stage:hover rect {
+    fill: color-mix(in srgb, var(--d-accent) 8%, transparent);
+  }
+  .lr-stage text {
+    font-weight: 600;
+    fill: var(--d-text);
+  }
+  .lr-cut {
+    stroke: var(--d-line);
+    stroke-width: 1;
+  }
+  .lr-area {
+    fill: color-mix(in srgb, var(--d-accent) 16%, transparent);
+  }
+  .lr-line {
+    fill: none;
+    stroke: var(--d-accent);
+    stroke-width: 2;
+    stroke-linejoin: round;
+  }
+  .lr-dot {
+    display: none;
+    fill: var(--d-accent);
+    stroke: var(--d-surface);
+    stroke-width: 2;
+  }
+  @container (max-width: 26rem) {
+    .lr text {
+      font-size: 17px;
+    }
+    .lr-stage text {
+      font-size: 15px;
+    }
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    :global(.vc-diagram.is-armed) .lr-line {
+      stroke-dasharray: 1;
+      stroke-dashoffset: 1;
+    }
+    :global(.vc-diagram.is-in) .lr-line {
+      stroke-dashoffset: 0;
+      transition: stroke-dashoffset 1.4s ease-in-out 0.2s;
+    }
+    :global(.vc-diagram.is-in) .lr-dot {
+      display: block;
+      animation: lr-run 7s linear 1.6s infinite both;
+    }
+  }
+  @keyframes lr-run {
+    from {
+      offset-distance: 0%;
+    }
+    to {
+      offset-distance: 100%;
+    }
+  }
+</style>

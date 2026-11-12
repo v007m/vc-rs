@@ -22,7 +22,7 @@ use vc_model::{Program, SecretsConfig};
 use crate::plugin_hosts::Hosts;
 use crate::settings::{self, Settings};
 use crate::user::UnderProject;
-use crate::{Engine, EngineError};
+use crate::{Engine, EngineError, FileChange};
 
 /// The compiled program, the settings of a run and the environment its `${env.X}` reads.
 pub struct Layered {
@@ -46,7 +46,18 @@ impl Engine {
     /// [`EngineError::Invalid`] when the project has errors, and [`EngineError::Setting`] when a
     /// layer cannot be read or sets something unknown.
     pub(crate) fn layered(&self, sets: &[String], flags: &[ConfigEntry]) -> Result<Layered, EngineError> {
-        let (program, notices) = self.program()?;
+        self.layered_with(sets, flags, &[])
+    }
+
+    /// As [`Engine::layered`], over the program compiled with `changes` in place of the files
+    /// they change.
+    pub(crate) fn layered_with(
+        &self,
+        sets: &[String],
+        flags: &[ConfigEntry],
+        changes: &[FileChange],
+    ) -> Result<Layered, EngineError> {
+        let (program, notices) = self.program_with(changes)?;
         let dot_env = DotEnv::read(self.root()).map_err(|error| settings::source_error(&error))?;
         let process = self.environment.clone().unwrap_or_else(|| Arc::new(SystemEnvironment::capture()));
         let user = self.user_layer(process.as_ref())?;

@@ -96,6 +96,7 @@ pub fn totals(totals: Totals) -> Value {
         "blocked": totals.blocked,
         "flaky": totals.flaky,
         "skipped": totals.skipped,
+        "allowedFailures": totals.allowed_failures,
     })
 }
 

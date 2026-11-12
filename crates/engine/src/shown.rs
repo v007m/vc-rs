@@ -16,6 +16,8 @@ pub struct Var {
     /// Whether a run saves it from a response, so it is known only then and a reference to it
     /// is shown as written.
     pub saved: bool,
+    /// The values it took the place of, latest first, each with the level that set it.
+    pub replaced: Vec<(TemplateValue, String)>,
 }
 
 /// How deep `${var.x}` is followed before it is shown as written, so a var that names itself
@@ -149,11 +151,14 @@ pub fn literal(text: &str) -> TemplateValue {
     TemplateValue::String(Template { parts: vec![Part::Literal(text.to_owned())] })
 }
 
-/// Sets `var`, in the place of an earlier one with its name.
-pub fn set(vars: &mut Vec<Var>, var: Var) {
-    match vars.iter_mut().find(|known| known.name == var.name) {
-        Some(known) => *known = var,
-        None => vars.push(var),
+/// Sets `var`, in the place of an earlier one with its name, which it keeps as replaced.
+pub fn set(vars: &mut Vec<Var>, mut var: Var) {
+    if let Some(known) = vars.iter_mut().find(|known| known.name == var.name) {
+        let earlier = std::mem::replace(known, var);
+        known.replaced = std::iter::once((earlier.value, earlier.origin)).chain(earlier.replaced).collect();
+    } else {
+        var.replaced.clear();
+        vars.push(var);
     }
 }
 

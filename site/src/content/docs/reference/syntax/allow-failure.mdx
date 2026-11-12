@@ -1,0 +1,202 @@
+---
+title: allowFailure
+description: Let a known-broken test or test file fail without failing the run, with a reason and optionally an end date.
+sidebar: { order: 253, badge: { text: 'test', variant: 'note' } }
+---
+
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`allowFailure` lets a test fail without failing the run. Unlike `skip`, the test still runs and is reported. When it fails, its status is **allowed to fail** (⚠). It is counted on its own, and the exit code stays the same. When it passes, it is a normal pass. Written at the top of a test file, `allowFailure` covers every test in the file.
+
+```yaml
+  - id: searchesUsers
+    allowFailure: true
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `allowFailure` | `true` | the file's | no | Short form, with no reason. `false` turns it off; on a test it also turns off the file's. |
+| `allowFailure.reason` | string | — | yes | The reason, in the map form. It shows next to the ⚠ in every report. |
+| `allowFailure.until` | date `YYYY-MM-DD` | — | no | The last day it applies, in UTC. After that, a failure fails the run again and `vc check` warns (V4008). |
+
+You can write `allowFailure` on a test or at the top of a test file. A test's own `allowFailure` wins over the file's, so `allowFailure: false` on a test makes it fail the run as usual. Once the test's own setting expires, the file's applies again.
+
+`vc run --strict` ignores every `allowFailure`, so each allowed failure counts as a plain failure.
+
+## Examples
+
+```yaml title="services/sample/allow.test.yaml"
+id: sample.allow
+name: Allow failure
+
+tests:
+  - id: listsUsers
+    name: Lists users
+    call: sample#listUsers
+
+  - id: searchesUsers
+    name: Searches users by name
+    allowFailure: true
+    call: sample#listUsers
+    expect:
+      status: 404
+
+  - id: pagesUsers
+    name: Lists users a page at a time
+    allowFailure:
+      reason: "paging is broken upstream, see #212"
+      until: 2027-01-31
+    call: sample#listUsers
+    expect:
+      status: 206
+
+  - id: sortsUsers
+    name: Sorts users by name
+    allowFailure:
+      reason: waiting on a fix
+      until: 2026-01-31
+    call: sample#listUsers
+    expect:
+      status: 418
+```
+
+`searchesUsers` and `pagesUsers` fail and are allowed to fail. The `allowFailure` on `sortsUsers` ended on 2026-01-31, so its failure fails the run:
+
+```console
+$ vc run sample.allow
+plan  4 tests in 1 file · profile default
+
+✓ sample.allow#listsUsers                                         6ms
+⚠ sample.allow#pagesUsers allowed to fail: paging is broken upstream, see #212    6ms
+  error[V5101]: expect.status
+    --> services/sample/allow.test.yaml:23:15
+     |
+  23 |       status: 206
+     |               ^^^ expected [206], got 200
+⚠ sample.allow#searchesUsers allowed to fail                      6ms
+  error[V5101]: expect.status
+    --> services/sample/allow.test.yaml:14:15
+     |
+  14 |       status: 404
+     |               ^^^ expected [404], got 200
+✕ sample.allow#sortsUsers                                         7ms
+  error[V5101]: expect.status
+    --> services/sample/allow.test.yaml:32:15
+     |
+  32 |       status: 418
+     |               ^^^ expected [418], got 200
+
+1 passed · 1 failed · 2 allowed to fail                      10ms · profile default
+```
+
+`vc check` warns about the expired one:
+
+```console
+$ vc check
+warning[V4008]: this allowFailure expired after 2026-01-31
+  --> services/sample/allow.test.yaml:29:14
+   |
+29 |       until: 2026-01-31
+   |              ^^^^^^^^^^ today is 2026-11-11
+   = note: an expired allowFailure is ignored, so a failure fails the run again
+   = help: remove the allowFailure, or move `until` later if the reason still holds
+   = fix: Remove the allowFailure (certain)
+```
+
+### Allow a whole file to fail
+
+An `allowFailure` at the top of a file covers every test in it:
+
+```yaml title="services/payments/refunds.test.yaml"
+allowFailure:
+  reason: "refunds sandbox is down, see #340"
+  until: 2027-03-31
+tests:
+  - id: listsRefunds
+    call: payments#listRefunds
+  - id: refundsInFull
+    call: payments#listRefunds
+    expect:
+      status: 201
+```
+
+```console
+$ vc run payments.refunds
+plan  2 tests in 1 file · profile default
+
+⚠ payments.refunds#refundsInFull allowed to fail: refunds sandbox is down, see #340    2ms
+  error[V5101]: expect.status
+    --> services/payments/refunds.test.yaml:10:15
+     |
+  10 |       status: 201
+     |               ^^^ expected [201], got 200
+✓ payments.refunds#listsRefunds                                   3ms
+
+1 passed · 1 allowed to fail                                 4ms · profile default
+$ echo $?
+0
+```
+
+### Fail on every allowed failure
+
+`--strict` is for the run that has to be clean, such as a release gate:
+
+```console
+$ vc run sample.allow --strict
+...
+1 passed · 3 failed                                          5ms · profile default
+```
+
+### In reports
+
+With `--reporter json`, the test's `status` is `allowedFailure`, `failure` holds what went wrong, and `skipReason` holds the reason. Totals count it under `allowedFailures`:
+
+```console
+$ vc run payments.refunds --reporter json
+...
+{"attempts":1,"durationMs":1,"event":"testFinished","failure":{"action":"call payments#listRefunds","code":"V5101","message":"status: expected [201], got 200"},"instance":1,"label":"payments.refunds#refundsInFull","skipReason":"refunds sandbox is down, see #340","status":"allowedFailure","test":"payments.refunds#refundsInFull"}
+{"event":"runFinished","status":"passed","totals":{"allowedFailures":1,"blocked":0,"failed":0,"flaky":0,"passed":1,"skipped":0}}
+...
+```
+
+- **CTRF** gives the test status `other`, with `rawStatus: allowedFailure`. `summary.other` counts these tests, and `extra.totals.allowedFailures` holds the same count.
+- **JUnit** writes the test as a skipped case, with the reason and the failure in its message: `<skipped message="allowed to fail (refunds sandbox is down, see #340): status: expected [201], got 200">`.
+
+## Try it
+
+<Playground client:visible kind="test" code={`tests:
+  - id: searchesUsers
+    name: Searches users by name
+    allowFailure:
+      reason: "search is broken upstream, see #12"
+      until: 2027-01-31
+    call: sample#listUsers
+`} />
+
+## How it behaves
+
+- An allowed test runs as usual, including its `before`, `after` and cleanups. Its failure is shown in full.
+- Only a failure is allowed. A blocked test, whose setup failed, still fails the run. A test that passes counts as passed, and one that passes on a retry counts as flaky.
+- After `until`, the test's own `allowFailure` is ignored, and the file's applies if it is still valid. `vc check` warns with V4008 until the expired one is removed.
+- `--strict` ignores every `allowFailure`.
+- An allowed failure is not one of the failures that `vc run --failed` reruns, and it does not stop a `--bail` run.
+
+## Common errors
+
+As with `skip`, an unquoted `#` in a reason starts a YAML comment (V3204), an `until` that is not a date is V2302, and a map without `reason` is V1005: ``an allowFailure needs `reason` ``.
+
+- [V4008](/vc-rs/reference/diagnostics/v4008/): the allowFailure has expired.
+- [V3204](/vc-rs/reference/diagnostics/v3204/): a `#` cut the value short.
+- [V2302](/vc-rs/reference/diagnostics/v2302/): the date is not `YYYY-MM-DD`.
+- [V1005](/vc-rs/reference/diagnostics/v1005/): `reason` is missing.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="skip" href="/vc-rs/reference/syntax/skip/" />
+  <LinkCard title="retry" href="/vc-rs/reference/syntax/retry/" />
+  <LinkCard title="vc run" href="/vc-rs/reference/cli/run/" />
+</CardGrid>

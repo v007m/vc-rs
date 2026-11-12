@@ -93,10 +93,25 @@ impl Engine {
         Ok(())
     }
 
+    /// `text` masked as a run's values are; all of it when the project cannot be layered or its
+    /// secrets cannot be loaded.
+    pub(crate) async fn masked_text(&self, text: &str) -> String {
+        let Ok(mut layered) = self.layered(&[], &[]) else { return MASKED.to_owned() };
+        self.masker(&mut layered).await.text(text).await
+    }
+
+    /// `value` masked leaf by leaf as a run's values are, its keys and shape kept, so it still
+    /// reads as JSON; every string when the project cannot be layered or its secrets cannot be
+    /// loaded.
+    pub(crate) async fn masked_json(&self, value: Value) -> Value {
+        let Ok(mut layered) = self.layered(&[], &[]) else { return every_string_masked(value) };
+        self.masker(&mut layered).await.json(value).await
+    }
+
     /// The redactor a run would mask with, told the declared secrets' values and names (and its
     /// `function:` rules given them); when they cannot be loaded, one that masks every value
     /// but the built-in ones.
-    async fn masker(&self, layered: &mut Layered) -> Masker {
+    pub(crate) async fn masker(&self, layered: &mut Layered) -> Masker {
         let program = &layered.program;
         let loaded = self.loaded_secrets(&program.config.secrets, &layered.environment).await;
         let secrets = loaded.as_ref().map_or_else(|_| Secrets::new(), Clone::clone);
@@ -156,7 +171,7 @@ fn template_reads_secret(template: &Template) -> bool {
 }
 
 /// How the values are masked.
-struct Masker {
+pub struct Masker {
     redactor: Redactor,
     /// The secrets could not be loaded: mask every value but the built-in ones.
     blind: bool,
@@ -164,7 +179,7 @@ struct Masker {
 
 impl Masker {
     /// `key` and its `layers`, lowest first, as the value in force first, each masked.
-    async fn value(&self, key: String, layers: Vec<Layer>) -> ConfigValue {
+    pub async fn value(&self, key: String, layers: Vec<Layer>) -> ConfigValue {
         let field = key.strip_prefix(VARS).unwrap_or(&key).to_owned();
         let mut shown = Vec::with_capacity(layers.len());
         for (value, source) in layers.into_iter().rev() {
@@ -174,8 +189,19 @@ impl Masker {
         ConfigValue { key, layers: shown }
     }
 
+    /// `text` masked; all of it when the secrets could not be loaded.
+    pub async fn text(&self, text: &str) -> String {
+        if self.blind { MASKED.to_owned() } else { self.redactor.masked_text(text).await }
+    }
+
+    /// `value` masked leaf by leaf, a field named like a secret or a `redact.fields` entry
+    /// whole; every string when the secrets could not be loaded.
+    pub async fn json(&self, value: Value) -> Value {
+        if self.blind { every_string_masked(value) } else { self.redactor.masked(value).await }
+    }
+
     /// `value` as the field `field` set by `source`, masked.
-    async fn masked(&self, field: &str, value: String, source: &str) -> String {
+    pub async fn masked(&self, field: &str, value: String, source: &str) -> String {
         if self.blind && source != BUILT_IN {
             return MASKED.to_owned();
         }
@@ -184,6 +210,18 @@ impl Masker {
             Some(Value::String(text)) => text.clone(),
             _ => MASKED.to_owned(),
         }
+    }
+}
+
+/// `value` with every string in it [`MASKED`], its keys and the rest kept.
+fn every_string_masked(value: Value) -> Value {
+    match value {
+        Value::String(_) => Value::String(MASKED.to_owned()),
+        Value::Array(items) => Value::Array(items.into_iter().map(every_string_masked).collect()),
+        Value::Object(fields) => {
+            Value::Object(fields.into_iter().map(|(key, field)| (key, every_string_masked(field))).collect())
+        }
+        other @ (Value::Null | Value::Bool(_) | Value::Number(_)) => other,
     }
 }
 

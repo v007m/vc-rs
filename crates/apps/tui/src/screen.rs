@@ -2,6 +2,7 @@
 //! are a registry of screens (`tabs.rs`), so the shell never matches on which tab is chosen.
 
 use std::fmt::Debug;
+use std::time::Duration;
 
 use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::Frame;
@@ -32,6 +33,9 @@ pub enum Ask {
     },
     /// Read the project's apis and tests: [`Update::Explored`].
     Explore,
+    /// Read the project's apis and tests in the files changed in the last window, or not yet
+    /// committed (D249): [`Update::Explored`].
+    ExploreChanged(Duration),
     /// Explain a test or api as a run under `profiles` sees it: [`Update::Explained`].
     Explain {
         /// Its full ID.

@@ -1,11 +1,17 @@
 <script lang="ts">
   import { resolve } from '$app/paths';
+  import ConfigFormSection from './ConfigForm.svelte';
+  import type { ConfigForm } from './configForm.svelte.ts';
   import { MASKED } from './port.ts';
   import SecretsSection from './SecretsSection.svelte';
   import type { SecretSchema } from './secrets.svelte.ts';
   import type { EffectiveSettings } from './settings.svelte.ts';
 
-  let { settings, schema }: { settings: EffectiveSettings; schema?: SecretSchema } = $props();
+  let {
+    settings,
+    form,
+    schema,
+  }: { settings: EffectiveSettings; form?: ConfigForm; schema?: SecretSchema } = $props();
   const editorHref = `${resolve('/editor')}?file=vibranium.config.yaml`;
   const maskedNote = ' (secret, masked)';
 </script>
@@ -21,7 +27,7 @@
 <div class="settings">
   <p class="intro">
     Where each setting's value comes from under the profile you pick, as
-    <code>vc config explain</code> shows it. Change them in
+    <code>vc config explain</code> shows it. Change them{form ? ' below or' : ''} in
     <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- editorHref is resolve('/editor') plus a query -->
     <a href={editorHref} aria-label="Open vibranium.config.yaml in the editor"
       ><code>vibranium.config.yaml</code></a
@@ -80,6 +86,7 @@
       {/each}
     </tbody>
   </table>
+  {#if form}<ConfigFormSection {form} />{/if}
   {#if schema}<SecretsSection {schema} />{/if}
 </div>
 

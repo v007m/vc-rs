@@ -6,7 +6,7 @@ mod body_on_read;
 mod convention_tests;
 mod default_profiles;
 mod deprecated_calls;
-mod expired_skips;
+mod expired;
 mod header_names;
 mod item_ids;
 mod load_ranges;
@@ -62,7 +62,7 @@ impl LintRegistry {
         let lints: Vec<Box<dyn Lint>> = vec![
             Box::new(default_profiles::DefaultProfiles),
             Box::new(skip_reasons::SkipReasons),
-            Box::new(expired_skips::ExpiredSkips),
+            Box::new(expired::SKIPS),
             Box::new(shared_writes::SharedWrites),
             Box::new(test_cache::TestCache),
             Box::new(deprecated_calls::DeprecatedCalls),
@@ -87,6 +87,7 @@ impl LintRegistry {
             Box::new(urls::ApiUrls),
             Box::new(placeholders::PathPlaceholders),
             Box::new(path_encode::PathEncode),
+            Box::new(expired::ALLOWED_FAILURES),
         ];
         Self { lints }
     }
