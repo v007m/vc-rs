@@ -1,12 +1,12 @@
 ---
 title: "vc import"
-description: "Creates api files, and optionally tests, from an OpenAPI spec, a HAR recording, curl commands, a .http file or a Postman collection."
+description: "Creates api files, and optionally tests, from an OpenAPI spec, a HAR recording, curl commands, a .http file, or a Postman or Bruno collection."
 sidebar: { order: 19 }
 ---
 
 import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
 
-Creates api definitions from something you already have: an OpenAPI spec, a browser recording (HAR), a file of curl commands, a `.http` file, or a Postman collection. It can also write tests for what it imports.
+Creates api definitions from something you already have: an OpenAPI spec, a browser recording (HAR), a file of curl commands, a `.http` file, or a Postman or Bruno collection. It can also write tests for what it imports.
 
 ```console
 $ vc import [OPTIONS] <KIND> <SOURCE>
@@ -19,6 +19,7 @@ $ vc import [OPTIONS] <KIND> <SOURCE>
 | `curl` | A file with one curl command per line |
 | `http` | A `.http` file (the VS Code REST Client and JetBrains format) |
 | `postman` | A Postman collection, v2.1 |
+| `bruno` | A Bruno collection: its folder (the one with `bruno.json`), or the collection exported as one JSON file. Read by the `postman` rules |
 
 ## Options
 
@@ -31,7 +32,7 @@ $ vc import [OPTIONS] <KIND> <SOURCE>
 | `--include` | `<TAG_OR_PATH>` | openapi | Only the operations with this tag or path prefix. Repeat for more |
 | `--only` | `<OPERATION_ID>` | openapi | Only the operation with this operation ID. Repeat for more. Kept in `source.only`, so `vc sync` takes the same operations |
 | `--profile` | `<IDS>` | all | The active profiles. Their vars fill `source.headers`, and a recording's hosts are matched against their base URLs |
-| `--flow` | `<TEST_ID>` | har | Also writes a test that replays the recording, as `fileId#testId` or a bare test ID |
+| `--flow` | `<TEST_ID>` | har, postman, bruno | Also writes a test that replays the recording, as `fileId#testId` or a bare test ID |
 | `--include-host` | `<HOST>` | har | Keeps a recording's calls to this third-party host. Repeat for more |
 | `--keep-static` | | har | Keeps a recording's static assets (scripts, styles, images, fonts) |
 | `--dry-run` | | all | Prints the plan and the diff of every file without writing |

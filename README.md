@@ -36,11 +36,17 @@ tests:
         match: { email: ada@example.com, id: { type: string } }
 ```
 
+Make a project with `vc init`, save the test there as `services/sample/landing.test.yaml`, start the built-in demo service and run it:
+
 ```console
 $ vc init && vc demo start --detach
 $ vc run sample.landing
-✓ sample.landing#createsUser                                      4ms
-1 passed                                                     5ms · profile default
+plan  1 test in 1 file · profile default
+
+✓ sample.landing#createsUser — Creates a user with the given email    5ms
+
+1 passed                                                     6ms · profile default
+reports  /home/ada/shop/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
 ```
 
 ## Develop
