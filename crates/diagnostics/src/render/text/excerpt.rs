@@ -2,6 +2,7 @@ use std::iter;
 
 use vc_model::{Pos, SourceFileId, SourceSpan};
 
+use super::mask::LineMasks;
 use crate::{Diagnostic, Label};
 
 /// Spans covering more lines than this show their first two lines, `...`, and their last.
@@ -9,6 +10,7 @@ const MAX_FULL_LINES: u32 = 4;
 
 /// One label to draw: its span, trimmed by [`trimmed`], its text, and its place among the
 /// diagnostic's labels (the primary is 0).
+#[derive(Clone, Copy)]
 pub(super) struct Mark<'a> {
     pub(super) span: SourceSpan,
     pub(super) text: &'a str,
@@ -26,6 +28,18 @@ pub(super) struct Underline<'a> {
 impl<'a> Mark<'a> {
     fn new(label: &'a Label, order: usize) -> Self {
         Self { span: trimmed(label.span), text: &label.text, primary: order == 0, order }
+    }
+
+    /// This mark on `line` once `masks` replace their runs, its columns there moved to match.
+    pub(super) fn masked(&self, line: u32, masks: &LineMasks) -> Self {
+        let mut span = self.span;
+        if span.start.line == line {
+            span.start.column = masks.column(span.start.column);
+        }
+        if span.end.line == line {
+            span.end.column = masks.column(span.end.column);
+        }
+        Self { span, ..*self }
     }
 
     fn lines(&self) -> Vec<u32> {

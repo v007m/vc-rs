@@ -1,11 +1,13 @@
 use vc_model::{SourceFiles, SourceSpan};
 
 use self::excerpt::{Excerpt, FileExcerpts, Underline};
+use self::mask::LineMasks;
 use super::Render;
 use crate::{Diagnostic, Diagnostics, DiagnosticsError, Severity};
 
 mod escape;
 mod excerpt;
+mod mask;
 
 /// Renders diagnostics for a terminal, in the style of rustc:
 ///
@@ -22,7 +24,8 @@ mod excerpt;
 /// Secondary labels are underlined with `-`. Excerpts are grouped by file, the primary's
 /// first: each file gets one location line (`-->`, then `:::` for the others) and its excerpts
 /// in line order with `...` between them. Labels whose lines overlap, touch or are one line
-/// apart share an excerpt. Control characters and bidi controls in messages, labels, paths and
+/// apart share an excerpt. A diagnostic's masked spans print as `•••` in every excerpt, with the
+/// underlines after them moved to match ([`Diagnostic::masked`]). Control characters and bidi controls in messages, labels, paths and
 /// source lines are printed as visible stand-ins, so a file cannot drive the terminal. Colour
 /// is off unless [`TextRenderer::color`] turns it on; the CLI decides (a terminal, and no
 /// `NO_COLOR`).
@@ -46,7 +49,9 @@ impl Render for TextRenderer {
             check_edit_files(diagnostic, files)?;
             let excerpts = excerpt::excerpts(diagnostic);
             let width = excerpt::gutter_width(&excerpts);
-            Writer { files, paint: Paint(self.color), width, out: &mut out }.diagnostic(diagnostic, &excerpts)?;
+            let masked = &diagnostic.masked;
+            Writer { files, masked, paint: Paint(self.color), width, out: &mut out }
+                .diagnostic(diagnostic, &excerpts)?;
         }
         Ok(out)
     }
@@ -64,6 +69,7 @@ fn check_edit_files(diagnostic: &Diagnostic, files: &SourceFiles) -> Result<(), 
 /// Writes one diagnostic; `width` is the width of the line-number gutter.
 struct Writer<'a> {
     files: &'a SourceFiles,
+    masked: &'a [SourceSpan],
     paint: Paint,
     width: usize,
     out: &'a mut String,
@@ -111,11 +117,13 @@ impl Writer<'_> {
     }
 
     fn source_line(&mut self, excerpt: &Excerpt<'_>, number: u32, tone: Tone) {
-        let Some(text) = self.files.line(excerpt.file, number) else { return };
-        self.gutter(&number.to_string(), &escape::escape(text));
+        let Some(source) = self.files.line(excerpt.file, number) else { return };
+        let masks = LineMasks::of(self.masked, (excerpt.file, number), source);
+        let text = masks.apply(source);
+        self.gutter(&number.to_string(), &escape::escape(&text));
         for mark in excerpt.marks_on(number) {
             let tone = if mark.primary { tone } else { Tone::Secondary };
-            self.underline(&mark.underline(number, text), tone);
+            self.underline(&mark.masked(number, &masks).underline(number, &text), tone);
         }
     }
 

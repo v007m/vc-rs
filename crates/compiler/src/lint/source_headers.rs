@@ -1,6 +1,7 @@
 //! V4009: a credential header in an api file's `source.headers` written as a literal value, so
 //! the token sits in git with the file. `${secret.NAME}` reads it from `.env` instead (D314).
-//! The message names the header, never its value.
+//! The message names the header, never its value: the key is underlined and the value is
+//! masked, so the excerpt never prints the token either.
 
 use vc_diagnostics::{Code, Diagnostic};
 use vc_model::{FileKind, credential};
@@ -27,9 +28,12 @@ impl SourceHeaders {
     fn literal(&self, entry: &Entry) -> Diagnostic {
         let name = &entry.key;
         let message = format!("`source.headers.{name}` is a credential written as a literal value");
-        Diagnostic::new(self.code(), entry.value.span, message).label("kept in git with the file").help(format!(
-            "read it from `.env`: `{name}: Bearer ${{secret.NAME}}`, with `NAME=` declared in `.env.schema`"
-        ))
+        let help =
+            format!("read it from `.env`: `{name}: Bearer ${{secret.NAME}}`, with `NAME=` declared in `.env.schema`");
+        Diagnostic::new(self.code(), entry.key_span, message)
+            .label("its value is kept in git with the file")
+            .masked(entry.value.span)
+            .help(help)
     }
 }
 

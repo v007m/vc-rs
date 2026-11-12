@@ -128,3 +128,18 @@ async fn import_refuses_a_literal_bearer_token_with_v4009_and_writes_nothing() {
     let stats = server.stats().await.unwrap();
     assert_eq!(stats.count("GET /openapi/private/users.yaml"), 0, "{stats:?}");
 }
+
+#[test]
+fn check_warns_of_a_literal_token_in_source_headers_without_printing_any_part_of_it() {
+    let api = "baseUrl: ${var.baseUrl}\nsource:\n  openapi: https://specs.test/users.yaml\n  headers:\n    \
+               Authorization: Bearer sk-live-0042abcd\napis:\n  - id: get\n    path: /users/1\n";
+    let project = Project::new(&[CONFIG, ("services/users/users.api.yaml", api)]);
+    let text = project.vc(&["check"]).output().unwrap();
+    let json = project.vc(&["check", "--json"]).output().unwrap();
+    assert!(said(&text).contains("5 |     Authorization: •••\n"), "{}", said(&text));
+    for output in [&text, &json] {
+        assert_eq!(output.status.code(), Some(0), "{}", said(output));
+        assert!(said(output).contains("V4009"), "{}", said(output));
+        assert!(!["sk-live", "0042abcd"].iter().any(|part| said(output).contains(part)), "{}", said(output));
+    }
+}

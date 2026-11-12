@@ -49,6 +49,9 @@ pub struct Diagnostic {
     pub help: Vec<String>,
     /// Changes that resolve the problem.
     pub fixes: Vec<Fix>,
+    /// Places whose text excerpts never print, shown as `•••`: a literal token (D314).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub masked: Vec<SourceSpan>,
 }
 
 impl Diagnostic {
@@ -64,6 +67,7 @@ impl Diagnostic {
             notes: Vec::new(),
             help: Vec::new(),
             fixes: Vec::new(),
+            masked: Vec::new(),
         }
     }
 
@@ -99,6 +103,13 @@ impl Diagnostic {
     #[must_use]
     pub fn fix(mut self, fix: Fix) -> Self {
         self.fixes.push(fix);
+        self
+    }
+
+    /// Keeps the text at `span` out of every excerpt: the text renderer prints `•••` there.
+    #[must_use]
+    pub fn masked(mut self, span: SourceSpan) -> Self {
+        self.masked.push(span);
         self
     }
 
