@@ -16,6 +16,7 @@ use crate::import_homes::Home;
 use crate::import_recorded::{Recording, recorded};
 use crate::import_titles::origin_of;
 use crate::snapshot_guard::SnapshotGuard;
+use crate::spec_headers::SpecHeaders;
 use crate::{Changes, Engine, EngineError, import_write};
 
 /// What `vc import <kind> <url-or-file>` reads and what it makes of it.
@@ -154,14 +155,22 @@ impl Engine {
     pub(crate) fn fetcher(&self) -> Result<Arc<ProjectFetcher>, EngineError> {
         let environment = self.environment.clone().unwrap_or_else(|| Arc::new(SystemEnvironment::capture()));
         let transport = self.transport(environment.as_ref())?;
-        Ok(Arc::new(ProjectFetcher { sources: Arc::clone(&self.sources), transport: Some(transport) }))
+        Ok(Arc::new(ProjectFetcher {
+            sources: Arc::clone(&self.sources),
+            transport: Some(transport),
+            headers: SpecHeaders::default(),
+        }))
     }
 
     /// Fetches through the project's sources only: a pasted spec's `$ref`s never reach the
     /// network, so the web UI cannot be made to fetch from the server's side. Coverage decodes
     /// the spec snapshots with it.
     pub(crate) fn pasted_fetcher(&self) -> Arc<ProjectFetcher> {
-        Arc::new(ProjectFetcher { sources: Arc::clone(&self.sources), transport: None })
+        Arc::new(ProjectFetcher {
+            sources: Arc::clone(&self.sources),
+            transport: None,
+            headers: SpecHeaders::default(),
+        })
     }
 }
 

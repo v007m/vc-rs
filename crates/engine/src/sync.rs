@@ -2,6 +2,7 @@
 //! `openapi/<fileId>.yaml` the base, the spec now theirs and the file mine. The rules are in
 //! `sync_rules.rs`, the plan in `sync_plan.rs`, the edits in `sync_apply.rs`.
 
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use indexmap::IndexMap;
@@ -15,6 +16,7 @@ use crate::authoring::{Authoring, Named, Opened, refused};
 use crate::edit::{FileChange, internal};
 use crate::fetch::ProjectFetcher;
 use crate::snapshot_guard::{SnapshotGuard, snapshot_path};
+use crate::spec_headers::SpecHeaders;
 use crate::sync_plan::{Mine, SyncSide, Versions, plan};
 use crate::sync_snapshot::kept;
 use crate::{Changes, Engine, EngineError, import_write, sync_apply};
@@ -45,6 +47,8 @@ pub struct SyncRequest {
     pub mode: SyncMode,
     /// `--take spec|mine <apiId>` and `--resolved <apiId>`: conflicts settled, by api ID.
     pub settle: Vec<(String, SyncSide)>,
+    /// `--profile`, in order: the profiles whose vars render `source.headers` (D313).
+    pub profiles: Vec<String>,
 }
 
 /// What a sync found and would write.
@@ -72,11 +76,13 @@ impl Engine {
     /// [`EngineError::Invalid`] when the result would not compile.
     pub async fn sync(&self, request: &SyncRequest) -> Result<SyncReport, EngineError> {
         let project = self.authoring()?;
+        let files = selected(&project, &request.files)?;
+        let headers = self.spec_headers(&request.profiles, &files).await?;
         let guard = SnapshotGuard::new(self.sources.as_ref(), &project);
-        let syncing = Syncing { project: &project, fetcher: self.fetcher()?, guard, request };
+        let syncing = Syncing { project: &project, fetcher: self.fetcher()?, headers, guard, request };
         let mut report = SyncReport::default();
         let mut snapshots = Vec::new();
-        for file_id in selected(&project, &request.files)? {
+        for file_id in files {
             let synced = syncing.file(&file_id).await?;
             report.drift |= synced.drift;
             report.conflicts += synced.conflicts;
@@ -130,6 +136,8 @@ fn sourced(found: (SourceFileId, &SourceFile)) -> Result<bool, EngineError> {
 struct Syncing<'p> {
     project: &'p Authoring,
     fetcher: Arc<ProjectFetcher>,
+    /// Each file's rendered `source.headers`, by file ID.
+    headers: HashMap<String, SpecHeaders>,
     guard: SnapshotGuard<'p>,
     request: &'p SyncRequest,
 }
@@ -166,13 +174,14 @@ impl<'p> Syncing<'p> {
         let Source { location, include, only } = source(opened.document.root(), file_id)?;
         self.guard.check(&location, file_id)?;
         let opts = ImportOptions { file_id: file_id.to_owned(), include, only, ..ImportOptions::default() };
-        let fetcher: Arc<dyn SpecFetcher> = Arc::clone(&self.fetcher) as _;
+        let fetcher = Arc::new(self.fetcher.sending(self.headers.get(file_id).cloned().unwrap_or_default()));
+        let importer = Arc::clone(&fetcher) as Arc<dyn SpecFetcher>;
         let reader =
-            Reader { importer: ImporterRegistry::builtin().create("openapi", fetcher).map_err(internal)?, opts };
-        let bytes = self.fetcher.fetch(&location).await.map_err(|error| refused(error.to_string(), FETCH_HELP))?;
+            Reader { importer: ImporterRegistry::builtin().create("openapi", importer).map_err(internal)?, opts };
+        let bytes = fetcher.fetch(&location).await.map_err(|error| refused(error.to_string(), FETCH_HELP))?;
         let theirs = reader.read(&location, bytes).await?;
         let snapshot = snapshot_path(file_id);
-        let base = match self.fetcher.fetch(&snapshot).await {
+        let base = match fetcher.fetch(&snapshot).await {
             Ok(bytes) => Some(reader.read(&snapshot, bytes).await?),
             Err(_) => None,
         };

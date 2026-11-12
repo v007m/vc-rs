@@ -87,6 +87,9 @@ pub struct SyncArgs {
     /// Settles a conflict you fixed by hand: the file stays, the snapshot takes the spec.
     #[arg(long, value_name = "API_ID")]
     resolved: Vec<String>,
+    /// The active profiles whose vars fill `source.headers`, as a comma list or repeated.
+    #[arg(long = "profile", value_name = "IDS")]
+    profiles: Vec<String>,
 }
 
 /// `vc import <kind> <source>`: exit 0 once written, 2 when the source cannot be read or the
@@ -231,7 +234,7 @@ fn sync_request(args: &SyncArgs) -> Result<SyncRequest, Outcome> {
         (_, true) => SyncMode::Check,
         _ => SyncMode::Write,
     };
-    Ok(SyncRequest { files: args.files.clone(), mode, settle })
+    Ok(SyncRequest { files: args.files.clone(), mode, settle, profiles: args.profiles.clone() })
 }
 
 /// `✓ synced`, the snapshots written and the conflicts left.

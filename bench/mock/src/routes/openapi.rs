@@ -15,11 +15,16 @@ const SPECS: [&str; 2] = [include_str!("../../specs/users-v1.yaml"), include_str
 /// The `servers` URL in the spec files, replaced by the address the request was sent to.
 const SERVER: &str = "http://localhost:18080";
 
+/// The only `authorization` `/openapi/private/users.yaml` serves the spec to.
+const SPEC_READER: &str = "Bearer spec-reader";
+
 /// `GET /openapi/users-v1.yaml` and `GET /openapi/users-v2.yaml` serve one version each;
-/// `GET /openapi/users.yaml` serves the current one, v1 until `POST /__openapi/users/v2`.
+/// `GET /openapi/users.yaml` serves the current one, v1 until `POST /__openapi/users/v2`, and
+/// `GET /openapi/private/users.yaml` serves it too, but only with [`SPEC_READER`].
 pub fn routes(store: &Store) -> Router {
     Router::new()
         .route("/openapi/users.yaml", routing::get(current))
+        .route("/openapi/private/users.yaml", routing::get(private))
         .route("/openapi/users-v1.yaml", routing::get(|headers: HeaderMap| async move { spec(0, &headers) }))
         .route("/openapi/users-v2.yaml", routing::get(|headers: HeaderMap| async move { spec(1, &headers) }))
         .with_state(store.clone())
@@ -33,6 +38,13 @@ pub fn switch(store: &Store) -> Router {
 async fn current(State(store): State<Store>, headers: HeaderMap) -> Result<Response, MockError> {
     let version = store.call(|state| state.spec_version).await?;
     Ok(spec(version, &headers))
+}
+
+async fn private(store: State<Store>, headers: HeaderMap) -> Result<Response, MockError> {
+    if headers.get(header::AUTHORIZATION).is_none_or(|value| value != SPEC_READER) {
+        return Ok(StatusCode::UNAUTHORIZED.into_response());
+    }
+    current(store, headers).await
 }
 
 async fn pick(State(store): State<Store>, Path(version): Path<String>) -> Result<StatusCode, MockError> {

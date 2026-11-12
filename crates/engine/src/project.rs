@@ -6,7 +6,7 @@ use std::sync::Arc;
 use vc_compiler::{CompileCache, CompileInput, SourceGlobs};
 use vc_diagnostics::Diagnostics;
 use vc_interfaces::{Discovery, SourceError, SourceFilter};
-use vc_model::{DEFAULT_SECRETS_SCHEMA, Program, SourceFile, SourceFiles, SourcePath};
+use vc_model::{DEFAULT_SECRETS_SCHEMA, FileKind, Program, SourceFile, SourceFiles, SourcePath};
 
 use crate::edit::{self, FileChange};
 use crate::{CheckReport, Engine, EngineError};
@@ -21,7 +21,7 @@ pub struct Compiled {
 }
 
 /// A program without errors, and the compile's notices.
-type Valid = (Arc<Program>, Vec<String>);
+pub type Valid = (Arc<Program>, Vec<String>);
 
 impl Engine {
     /// Reads the whole project and compiles it, through the compile cache, then again with the
@@ -60,6 +60,31 @@ impl Engine {
         vc_interfaces::add_problems(&found.problems, &mut diagnostics, &mut files);
         vc_interfaces::add_problems(&unread, &mut diagnostics, &mut files);
         Ok(Compiled { program: compiled.program, diagnostics, files, notices })
+    }
+
+    /// The config, `.env.schema` and the api files `file_ids` name, compiled without the rest
+    /// of the project: what `vc sync` renders `source.headers` from, so an error in another file
+    /// never stops a sync (D313). The cache is neither read nor saved; discovery problems are
+    /// left to the command that opens the files.
+    pub(crate) fn compiled_apis(&self, file_ids: &[String]) -> Result<Compiled, EngineError> {
+        let mut found = self.discover()?;
+        let secret_schema = vc_interfaces::secret_schema(&*self.sources, &mut found);
+        found.files.retain(|file| match file.kind() {
+            Some(FileKind::Config) => true,
+            Some(FileKind::Api) => file_ids.iter().any(|id| *id == FileKind::Api.file_id(file.path.as_str())),
+            _ => false,
+        });
+        let input = CompileInput {
+            files: found.files,
+            previous: CompileCache::new(),
+            today: Some(self.clock.today()),
+            assets: Some(found.assets.into_iter().collect()),
+            secret_schema,
+        };
+        let (compiled, unread) = self.compile_wanted(input)?;
+        let (mut diagnostics, mut files) = (compiled.diagnostics, compiled.files);
+        vc_interfaces::add_problems(&unread, &mut diagnostics, &mut files);
+        Ok(Compiled { program: compiled.program, diagnostics, files, notices: Vec::new() })
     }
 
     /// The compiled program, for the commands that need one, and the compile's notices.
