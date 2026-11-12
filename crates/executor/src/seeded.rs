@@ -8,6 +8,10 @@ use vc_interfaces::Random;
 /// `SplitMix64`'s step: the state moves by this odd constant on every draw.
 const GOLDEN: u64 = 0x9E37_79B9_7F4A_7C15;
 
+/// The largest integer a JSON number holds exactly in JavaScript (2^53 - 1), the cap of a seed a
+/// run picks itself, so a seed read back from `--json`, MCP or the playground replays the same data.
+pub const MAX_FRESH_SEED: u64 = (1 << 53) - 1;
+
 /// A [`Random`] that gives the same draws for the same seed (`SplitMix64`, lock-free).
 #[derive(Debug)]
 pub struct SeededRandom {

@@ -61,7 +61,7 @@ pub use pipeline::{
     pipeline,
 };
 pub use redactor::{MASKED, RedactingSink, Redactor};
-pub use seeded::SeededRandom;
+pub use seeded::{MAX_FRESH_SEED, SeededRandom};
 pub use shell::{Executor, IterationSetup, ProgramIterations, RunHandle, RunInterrupter, RunOptions};
 pub use slots::{SharedResult, SharedSlots};
 use values::{Around, Render};

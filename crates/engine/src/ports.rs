@@ -13,6 +13,7 @@ use vc_adapter_notifiers::NotifierRegistry;
 use vc_adapter_secrets::SecretProviders;
 use vc_adapter_system::{DotEnv, SetFlags, SystemBrowser, SystemEnvironment, UserConfig, VibVars};
 use vc_diagnostics::Code;
+use vc_executor::MAX_FRESH_SEED;
 use vc_interfaces::{
     AuthProvider, ConfigEntry, Environment, HookRunner, NotifierFactory, PluginKind, Random, SecretError, SecretQuery,
     Secrets, Transport,
@@ -185,10 +186,6 @@ impl Engine {
         Some(self.hooks.clone().unwrap_or_else(|| Arc::new(QuickJsHooks::new())))
     }
 }
-
-/// The largest integer a JSON number holds exactly in JavaScript (2^53 - 1), the cap of a fresh
-/// seed, so a seed read back from `--json` or MCP replays the same data.
-pub const MAX_FRESH_SEED: u64 = (1 << 53) - 1;
 
 /// The seed of the run's random source, `seed` or a fresh one up to [`MAX_FRESH_SEED`], and the
 /// source.

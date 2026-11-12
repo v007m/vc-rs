@@ -8,7 +8,7 @@ use std::collections::hash_map::RandomState;
 use std::hash::{BuildHasher as _, Hasher as _};
 use std::sync::Arc;
 
-use vc_executor::{Defined, ExampleRows, RunInputs, RunValues, SeededRandom};
+use vc_executor::{Defined, ExampleRows, MAX_FRESH_SEED, RunInputs, RunValues, SeededRandom};
 use vc_interfaces::{Environment, Random};
 use vc_model::{Plan, ProfileId, Program, TestId};
 use vc_planner::{PlanError, PlanOptions, Selection};
@@ -35,7 +35,7 @@ pub fn prepare(
     (seed, today): (Option<u64>, String),
 ) -> Result<Prepared, BrowserError> {
     let (profiles, names) = vc_planner::active_profiles(&program, &[]).map_err(|error| plan_error(error, &program))?;
-    let seed = seed.unwrap_or_else(|| RandomState::new().build_hasher().finish());
+    let seed = seed.unwrap_or_else(fresh_seed);
     let random: Arc<dyn Random> = Arc::new(SeededRandom::new(seed));
     let inputs =
         RunInputs::new(Arc::clone(&random), environment).with_profiles(profiles.clone()).with_vars(Defined::new());
@@ -43,6 +43,12 @@ pub fn prepare(
     let (plan, rows) = planned(&program, inputs, (seed, options))?;
     let notices = vc_planner::no_rows_notices(&program, &plan);
     Ok(Prepared { program, plan: Arc::new(plan), profiles, names, seed, random, rows, notices })
+}
+
+/// A seed the run picks itself, up to [`MAX_FRESH_SEED`] as the engine's, so the seed a failed run
+/// prints reads exactly as a JavaScript number.
+fn fresh_seed() -> u64 {
+    RandomState::new().build_hasher().finish() & MAX_FRESH_SEED
 }
 
 /// Plans every test, drawing the rows of the templated ones the run does not skip first, each
@@ -82,3 +88,7 @@ pub fn headline(prepared: &Prepared) -> String {
     };
     format!("plan  {line}")
 }
+
+#[cfg(test)]
+#[path = "prepare_tests.rs"]
+mod tests;
