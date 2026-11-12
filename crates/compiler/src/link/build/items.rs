@@ -198,7 +198,7 @@ impl<'a> Build<'_, 'a> {
             expect: expect::read(source, node.get("expect"), Origin::Test(id)),
             examples: self
                 .rows(source, node.get("examples"))
-                .map(Examples::Rows)
+                .map(Examples::Data)
                 .or_else(|| read::examples(source, node.get("examples"))),
             repeat: read::number(node, "repeat").unwrap_or(1),
             retry: read::retry(source, node),

@@ -8,7 +8,7 @@ use std::time::Duration;
 use serde_json::{Value, json};
 use vc_adapter_reporters::{RunSnapshot, millis};
 use vc_interfaces::{ApiTrend, RunFilter, RunRow, TestRow, TestTrend};
-use vc_model::{Date, Program};
+use vc_model::{Date, Program, instance_marks, one_line, printable};
 
 use crate::history::history_error;
 use crate::load::LOAD_KIND;
@@ -208,7 +208,8 @@ impl StoredRun {
         &self.tests
     }
 
-    /// The run's line, then a line per test that did not pass.
+    /// The run's line, then a line per test that did not pass, its label and why it did not
+    /// pass with the characters that would drive a terminal replaced.
     #[must_use]
     pub fn text(&self) -> String {
         let mut out = format!("{}\n", run_line(&self.run));
@@ -216,7 +217,7 @@ impl StoredRun {
         for test in shown {
             let _ = writeln!(out, "  {:<8} {}", text(test.status.as_ref()), instance_label(test));
             if let Some(why) = test.message.as_ref().or(test.blocked_by.as_ref()).or(test.skip_reason.as_ref()) {
-                let _ = writeln!(out, "           {why}");
+                let _ = writeln!(out, "           {}", printable(why));
             }
         }
         out
@@ -290,19 +291,18 @@ fn text(status: Option<&impl Debug>) -> String {
     status.map_or_else(String::new, |status| format!("{status:?}").to_lowercase())
 }
 
-/// A stored test instance as `vc history show` names it: `users.crud#listsUsers [row 2]
-/// (repeat 3)`, both numbered from 1 like `vc run`'s output (the `:n` selector is not known
-/// here).
+/// A stored test instance as the run labelled it: `users.crud#listsUsers › Oslo [repeat 3]`.
+///
+/// A row stored before labels were (D316) gets its row and repeat, both from 1, the repeat only
+/// past the first (the plan that told whether a test repeats is not stored). On one line, with
+/// any control character or bidi mark replaced, whatever wrote the store.
 #[must_use]
 pub fn instance_label(test: &TestRow) -> String {
-    let mut id = test.test_id.clone();
-    if let Some(row) = test.example_row {
-        let _ = write!(id, " [row {}]", row.saturating_add(1));
-    }
-    if test.repeat_index > 0 {
-        let _ = write!(id, " (repeat {})", test.repeat_index.saturating_add(1));
-    }
-    id
+    let label = test.label.clone().unwrap_or_else(|| {
+        let repeat = (test.repeat_index > 0).then_some(test.repeat_index);
+        format!("{}{}", test.test_id, instance_marks(test.example_row, repeat))
+    });
+    one_line(&label).into_owned()
 }
 
 /// A Unix time in milliseconds as `2026-11-05 09:30Z`.

@@ -1476,6 +1476,7 @@ pub vc_interfaces::TestRow::checks: alloc::vec::Vec<vc_interfaces::CheckRow>
 pub vc_interfaces::TestRow::duration_ms: f64
 pub vc_interfaces::TestRow::example_row: core::option::Option<u32>
 pub vc_interfaces::TestRow::exchanges: alloc::vec::Vec<vc_interfaces::ExchangeRow>
+pub vc_interfaces::TestRow::label: core::option::Option<alloc::string::String>
 pub vc_interfaces::TestRow::message: core::option::Option<alloc::string::String>
 pub vc_interfaces::TestRow::repeat_index: u32
 pub vc_interfaces::TestRow::skip_reason: core::option::Option<alloc::string::String>

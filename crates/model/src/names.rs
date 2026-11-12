@@ -1,9 +1,9 @@
-use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt::Write as _;
 use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
+use crate::labels::InstanceLabels;
 use crate::{
     ActionId, ActionKind, CheckKind, CheckResult, FileId, InstanceId, OwnerKey, Plan, Program, Segment, SourceSpan,
     Sym, TestId, TestResult,
@@ -50,16 +50,10 @@ pub struct Planned {
 #[derive(Clone, Debug)]
 pub struct Names {
     program: Arc<Program>,
-    /// Each instance's example row and repeat index.
-    instances: HashMap<InstanceId, (Option<u32>, u32)>,
     /// The plan's instances in plan order.
     planned: Vec<Planned>,
-    /// The tests the plan runs more than once, by `repeat` or `--repeat`.
-    repeated: HashSet<TestId>,
-    /// The `name` of each example row that gives one.
-    row_labels: BTreeMap<(TestId, u32), String>,
-    /// The rows whose `name` another row of the same test gives too.
-    shared_rows: HashSet<(TestId, u32)>,
+    /// How each instance is labelled after its test's ID.
+    labels: InstanceLabels,
 }
 
 impl Names {
@@ -72,10 +66,7 @@ impl Names {
             .flat_map(|file| &file.instances)
             .map(|i| Planned { instance: i.id, test: i.test, example_row: i.example_row, repeat_index: i.repeat_index })
             .collect();
-        let instances = planned.iter().map(|p| (p.instance, (p.example_row, p.repeat_index))).collect();
-        let repeated = planned.iter().filter(|p| p.repeat_index > 0).map(|p| p.test).collect();
-        let shared_rows = shared_names(&plan.row_names);
-        Self { program, instances, planned, repeated, row_labels: plan.row_names.clone(), shared_rows }
+        Self { program, planned, labels: InstanceLabels::new(plan) }
     }
 
     /// The plan's instances, in plan order.
@@ -162,27 +153,13 @@ impl Names {
     /// The label of [`Names::instance`] for `test` run as `instance`.
     #[must_use]
     pub fn label(&self, test: TestId, instance: Option<InstanceId>) -> String {
-        let mut label = self.test(test).to_owned();
-        let slot = instance.and_then(|id| self.instances.get(&id));
-        let Some(&(row, repeat)) = slot else { return label };
-        let named = row.and_then(|row| self.row_labels.get(&(test, row)));
-        if let Some(name) = named {
-            let _ = write!(label, " › {name}");
-        }
-        let numbered = |r: &u32| named.is_none() || self.shared_rows.contains(&(test, *r));
-        let row = row.filter(numbered).map(|r| format!("row {}", u64::from(r) + 1));
-        let repeat = self.repeated.contains(&test).then(|| format!("repeat {}", u64::from(repeat) + 1));
-        let marks: Vec<String> = row.into_iter().chain(repeat).collect();
-        if !marks.is_empty() {
-            let _ = write!(label, " [{}]", marks.join(", "));
-        }
-        label
+        format!("{}{}", self.test(test), self.labels.suffix(test, instance))
     }
 
     /// The example row and repeat index of a result's instance; `(None, 0)` without one.
     #[must_use]
     pub fn slot(&self, result: &TestResult) -> (Option<u32>, u32) {
-        result.instance.and_then(|id| self.instances.get(&id)).copied().unwrap_or((None, 0))
+        result.instance.and_then(|id| self.labels.slot(id)).unwrap_or((None, 0))
     }
 
     /// The api a `call` action calls.
@@ -282,14 +259,4 @@ fn path_text(segments: &[Segment]) -> String {
         }
     }
     out
-}
-
-/// The rows of `names` whose `name` another row of the same test gives too.
-fn shared_names(names: &BTreeMap<(TestId, u32), String>) -> HashSet<(TestId, u32)> {
-    let mut counts: HashMap<(TestId, &str), usize> = HashMap::new();
-    for (&(test, _), name) in names {
-        *counts.entry((test, name.as_str())).or_default() += 1;
-    }
-    let shared = |test: TestId, name: &String| counts.get(&(test, name.as_str())).is_some_and(|&count| count > 1);
-    names.iter().filter(|&(&(test, _), name)| shared(test, name)).map(|(&key, _)| key).collect()
 }

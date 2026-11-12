@@ -67,6 +67,7 @@ CREATE TABLE approval_rules (
 );
 ",
     "ALTER TABLE runs ADD COLUMN allowed_failures INTEGER;",
+    "ALTER TABLE test_results ADD COLUMN label TEXT;",
 ];
 
 /// Why a file could not be opened: before its migrations, or while applying them.
@@ -129,18 +130,22 @@ pub fn open_for_reading(path: &Path) -> Result<Option<Connection>, HistoryError>
     Ok(Some(connection))
 }
 
-/// Shadows `runs` with a temporary view that adds the `allowed_failures` column (D248) as
-/// `NULL` when the file has none, so the reader's columns hold for a file not brought up to date.
+/// Shadows each table that lacks a column a later step added (`runs.allowed_failures`, D248;
+/// `test_results.label`, D316) with a temporary view that adds it as `NULL`, so the reader's
+/// columns hold for a file not brought up to date.
 fn older_columns(connection: &Connection) -> rusqlite::Result<()> {
-    let has: bool = connection.query_row(
-        "SELECT EXISTS (SELECT 1 FROM pragma_table_info('runs') WHERE name = 'allowed_failures')",
-        [],
-        |row| row.get(0),
-    )?;
-    if has {
-        return Ok(());
+    for (table, column) in [("runs", "allowed_failures"), ("test_results", "label")] {
+        let has: bool = connection.query_row(
+            "SELECT EXISTS (SELECT 1 FROM pragma_table_info(?1) WHERE name = ?2)",
+            (table, column),
+            |row| row.get(0),
+        )?;
+        if !has {
+            connection
+                .execute_batch(&format!("CREATE TEMP VIEW {table} AS SELECT *, NULL AS {column} FROM main.{table}"))?;
+        }
     }
-    connection.execute_batch("CREATE TEMP VIEW runs AS SELECT *, NULL AS allowed_failures FROM main.runs")
+    Ok(())
 }
 
 fn read_only(path: &Path, location: &Location) -> Result<Connection, HistoryError> {
@@ -194,16 +199,22 @@ mod tests {
 
     use super::{MIGRATIONS, applied, open_for_reading, open_for_writing};
 
-    /// A history file an older `vc` wrote, before the `allowed_failures` column, with one run.
+    /// A history file an older `vc` wrote, before the `allowed_failures` and `label` columns,
+    /// with one run and one test.
     fn older_file(path: &Path) {
         let connection = super::open_migrated(path, &MIGRATIONS[..2]).ok().unwrap();
         connection
-            .execute(
+            .execute_batch(
                 "INSERT INTO runs (started_at, profiles, selector, vc_version, config_hash, kind, passed)
-                 VALUES (1, '[]', '', '2.0.0', 'x', 'functional', 3)",
-                [],
+                 VALUES (1, '[]', '', '2.0.0', 'x', 'functional', 3);
+                 INSERT INTO test_results (run_id, test_id, example_row, status, duration_ms)
+                 VALUES (1, 'users.crud#rejectsBadEmail', 1, 'passed', 2.0);",
             )
             .unwrap();
+    }
+
+    fn label(connection: &rusqlite::Connection) -> Option<String> {
+        connection.query_row("SELECT label FROM test_results", [], |row| row.get(0)).unwrap()
     }
 
     #[cfg(unix)]
@@ -253,6 +264,17 @@ mod tests {
     }
 
     #[test]
+    fn step_four_adds_an_empty_label_to_the_tests_of_an_older_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("history.db");
+        older_file(&path);
+        let connection = open_for_writing(&path).unwrap();
+        assert_eq!(label(&connection), None);
+        connection.execute("UPDATE test_results SET label = 'users.crud#rejectsBadEmail › Oslo'", []).unwrap();
+        assert_eq!(label(&connection).as_deref(), Some("users.crud#rejectsBadEmail › Oslo"));
+    }
+
+    #[test]
     fn applied_counts_the_steps_a_file_has_had() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("history.db");
@@ -299,6 +321,7 @@ mod tests {
         let connection = open_for_reading(&path).unwrap().unwrap();
         assert_eq!(applied(&connection).unwrap(), 2);
         assert_eq!(allowed_failures(&connection), None);
+        assert_eq!(label(&connection), None);
         let passed: i64 = connection.query_row("SELECT passed FROM runs", [], |row| row.get(0)).unwrap();
         assert_eq!(passed, 3);
     }

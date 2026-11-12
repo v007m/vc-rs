@@ -2,7 +2,7 @@
 //! skipped entry (D126). Files plan in path order (the compiler
 //! sorts its sources) and tests keep file order.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use vc_model::{
     AllowFailure, Examples, FileId, Instance, InstanceId, Needs, Plan, Program, Skip, SkippedTest, Test, TestFile,
@@ -35,6 +35,7 @@ pub struct Expanded {
     pub files: Vec<(FileId, Vec<Instance>)>,
     pub skipped: Vec<SkippedTest>,
     pub allowed: BTreeMap<TestId, AllowFailure>,
+    pub repeated: BTreeSet<TestId>,
 }
 
 /// Expands the picked tests, numbering instances in plan order.
@@ -75,6 +76,9 @@ impl<'p> Expander<'p> {
                 continue;
             }
             instances.extend(self.instances(test, pick)?);
+            if self.options.repeat.unwrap_or(test.repeat) > 1 {
+                expanded.repeated.insert(test.id);
+            }
             if let Some(allowed) = self.allowed(file, test) {
                 expanded.allowed.insert(test.id, allowed.clone());
             }
@@ -171,7 +175,9 @@ impl<'p> Expander<'p> {
     fn rows(&self, test: &Test) -> Result<Option<u32>, PlanError> {
         match &test.examples {
             None => Ok(None),
-            Some(Examples::Rows(rows)) => Ok(Some(u32::try_from(rows.len()).unwrap_or(u32::MAX))),
+            Some(Examples::Rows(rows) | Examples::Data(rows)) => {
+                Ok(Some(u32::try_from(rows.len()).unwrap_or(u32::MAX)))
+            }
             Some(Examples::File(_) | Examples::Template(_)) => {
                 let loaded = self.options.example_rows.get(&test.id).copied();
                 let name = || self.program.str(test.id.sym()).unwrap_or_default().to_owned();

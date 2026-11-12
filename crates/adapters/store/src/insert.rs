@@ -78,8 +78,8 @@ fn test(transaction: &Transaction<'_>, run: RunId, test: &TestRow) -> rusqlite::
     transaction
         .prepare_cached(
             "INSERT INTO test_results (run_id, test_id, example_row, repeat_index, status, duration_ms, attempts,
-                                   blocked_by, skip_reason, message)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+                                   blocked_by, skip_reason, message, label)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
         )?
         .execute((
             run.get(),
@@ -92,6 +92,7 @@ fn test(transaction: &Transaction<'_>, run: RunId, test: &TestRow) -> rusqlite::
             &test.blocked_by,
             &test.skip_reason,
             &test.message,
+            &test.label,
         ))?;
     let id = transaction.last_insert_rowid();
     test.checks.iter().try_for_each(|check| self::check(transaction, id, check))?;

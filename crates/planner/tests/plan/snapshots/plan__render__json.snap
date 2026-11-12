@@ -1,6 +1,6 @@
 ---
 source: crates/planner/tests/plan/render.rs
-expression: "serde_json::to_string_pretty(&json(&program, &plan)).unwrap()"
+expression: "serde_json::to_string_pretty(&vc_planner::json(&program, &plan)).unwrap()"
 ---
 {
   "afterRun": [
@@ -32,6 +32,7 @@ expression: "serde_json::to_string_pretty(&json(&program, &plan)).unwrap()"
       "instances": [
         {
           "id": 0,
+          "label": "orders.checkout#paysOrder",
           "needs": [
             1,
             4
@@ -41,6 +42,7 @@ expression: "serde_json::to_string_pretty(&json(&program, &plan)).unwrap()"
         },
         {
           "id": 1,
+          "label": "orders.checkout#voidsOrder",
           "needs": [],
           "repeatIndex": 0,
           "test": "orders.checkout#voidsOrder"
@@ -59,18 +61,21 @@ expression: "serde_json::to_string_pretty(&json(&program, &plan)).unwrap()"
       "instances": [
         {
           "id": 2,
+          "label": "users.crud#listsUsers [repeat 1]",
           "needs": [],
           "repeatIndex": 0,
           "test": "users.crud#listsUsers"
         },
         {
           "id": 3,
+          "label": "users.crud#listsUsers [repeat 2]",
           "needs": [],
           "repeatIndex": 1,
           "test": "users.crud#listsUsers"
         },
         {
           "id": 4,
+          "label": "users.crud#createsUser",
           "needs": [
             8
           ],
@@ -79,6 +84,7 @@ expression: "serde_json::to_string_pretty(&json(&program, &plan)).unwrap()"
         },
         {
           "id": 5,
+          "label": "users.crud#readsWarm",
           "needs": [
             0
           ],

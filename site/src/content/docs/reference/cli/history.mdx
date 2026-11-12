@@ -126,7 +126,7 @@ error: history: no run 999 is stored
 | `profiles`, `selector`, `seed` | What the run used |
 | `startedMs`, `finishedMs` | Unix time in milliseconds |
 | `vcVersion` | The `vc` version that ran it |
-| `tests[]` (`show` only) | `{id, status, attempts, durationMs, message, blockedBy, skipReason}` for every test instance. Example rows show as `[row n]` in `id` |
+| `tests[]` (`show` only) | `{id, status, attempts, durationMs, message, blockedBy, skipReason}` for every test instance. `id` is the instance's label as the run printed it, masked: `sample.extra#rejectsBadEmail › empty`. A run stored by an older `vc` shows `[row n]` and `[repeat n]` instead |
 
 ## How it behaves
 

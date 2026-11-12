@@ -2,12 +2,12 @@
 
 use std::fmt::Write as _;
 
-use vc_model::{ActionId, Needs, Plan, PlannedAction, PlannedFile, Program};
+use vc_model::{ActionId, InstanceLabels, Needs, Plan, PlannedAction, PlannedFile, Program};
 
 /// The plan as an indented tree, two spaces a level.
 #[must_use]
 pub fn tree(program: &Program, plan: &Plan) -> String {
-    let mut out = Tree { program, text: String::new() };
+    let mut out = Tree { program, labels: InstanceLabels::new(plan), text: String::new() };
     out.planned("beforeRun", &plan.before_run, 0);
     for file in &plan.files {
         out.file(file);
@@ -24,6 +24,7 @@ pub fn tree(program: &Program, plan: &Plan) -> String {
 
 struct Tree<'p> {
     program: &'p Program,
+    labels: InstanceLabels,
     text: String,
 }
 
@@ -32,7 +33,7 @@ impl Tree<'_> {
         self.line(0, super::name(self.program, file.id.sym()));
         self.planned("beforeAll", &file.before_all, 1);
         for instance in &file.instances {
-            let label = super::instance_label(self.program, instance, super::repeats(&file.instances, instance));
+            let label = super::instance_label(self.program, &self.labels, instance);
             let needs = self.needs(&instance.needs);
             self.line(1, &format!("{label}{needs}"));
         }

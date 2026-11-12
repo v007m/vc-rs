@@ -55,13 +55,13 @@ $ vc plan sample.extra
 plan  2 tests in 1 file · 1 skipped · profile default
 sample.extra
   sample.extra#echoesBody
-  sample.extra#rejectsBadEmail [row 1]
-  sample.extra#rejectsBadEmail [row 2]
+  sample.extra#rejectsBadEmail › empty
+  sample.extra#rejectsBadEmail › no at sign
 skipped
   sample.extra#findsAda: demo data changed
 ```
 
-A test with example rows plans one instance per row. Skipped tests are listed with their reason at the end.
+A test with example rows plans one instance per row, labeled as `vc run` labels it. `vc plan` never loads secrets and never shows a value drawn from the environment, so it shows only the row names written in the test file, masked by your `redact` rules; rows from `$file`, a dataset or a template show as `[row n]`. Skipped tests are listed with their reason at the end.
 
 ### One instance, or repeats
 
@@ -69,7 +69,7 @@ A test with example rows plans one instance per row. Skipped tests are listed wi
 $ vc plan 'sample.extra#rejectsBadEmail:2'
 plan  1 test in 1 file · profile default
 sample.extra
-  sample.extra#rejectsBadEmail [row 2]
+  sample.extra#rejectsBadEmail › no at sign
 ```
 
 With `--repeat 3`, each test plans three instances, one line each:
@@ -98,6 +98,7 @@ $ vc plan sample.extra#echoesBody --json
       "instances": [
         {
           "id": 0,
+          "label": "sample.extra#echoesBody",
           "needs": [],
           "repeatIndex": 0,
           "test": "sample.extra#echoesBody"
@@ -160,7 +161,7 @@ A filter that leaves nothing, such as `-g zzz`, prints `plan  0 tests in 0 files
 | --- | --- |
 | `beforeRun`, `afterRun` | Run-level lifecycle actions, each `{action, label}` |
 | `files[]` | One entry per test file: `id`, `beforeAll`, `afterAll` (each `{action, label}`), and `instances` |
-| `files[].instances[]` | `id` (instance number), `test` (full test ID), `repeatIndex`, `needs` (instances it waits for) |
+| `files[].instances[]` | `id` (instance number), `test` (full test ID), `label` (as the tree and `vc run` print it, so a script can join plan, run and history by it), `exampleRow` (from 0, for a test with `examples`), `repeatIndex`, `needs` (instances it waits for) |
 | `instanceCount` | How many instances would run |
 | `skipped[]` | `{test, reason}` for each skipped test |
 
