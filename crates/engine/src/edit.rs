@@ -66,10 +66,19 @@ impl Engine {
     /// removed. A spec snapshot `openapi/<fileId>.yaml` replaces the file there only while it is
     /// still the one read, or still not there.
     pub fn write(&self, changes: &Changes) -> Result<(), EngineError> {
+        self.write_each(changes, false)
+    }
+
+    /// Writes each file of `changes`, every one only while it is the text the change was made
+    /// from when `every` is set, else only a spec snapshot.
+    fn write_each(&self, changes: &Changes, every: bool) -> Result<(), EngineError> {
         let writer = self.writer.as_ref().ok_or_else(|| internal("this engine has no folder to write into"))?;
         for change in &changes.files {
             let path = SourcePath::new(&change.path).map_err(internal)?;
-            written(writer.as_ref(), &path, change).map_err(sources_error)?;
+            written(writer.as_ref(), &path, (change, every)).map_err(|error| match error {
+                SourceError::Changed { .. } if every => changed(&change.path),
+                other => sources_error(other),
+            })?;
             if let Some(was) = &change.moved_from {
                 writer.remove(&SourcePath::new(was).map_err(internal)?).map_err(sources_error)?;
             }
@@ -102,18 +111,20 @@ impl Engine {
     }
 
     /// Writes `changes` as [`Engine::write`] does, but only while their files are the ones a
-    /// preview with `digest` showed.
+    /// preview with `digest` showed: the digest is compared first, then each file is written
+    /// only while its bytes are still the ones the change was made from
+    /// ([`SourceWriter::write_unchanged`]), so a save made between the two is not overwritten.
     ///
     /// # Errors
     ///
-    /// [`EngineError::Stale`] when a file changed since the preview, and nothing is written; as
-    /// [`Engine::write`].
+    /// [`EngineError::Stale`] when a file changed since the preview; that file, and the ones
+    /// after it, are not written. As [`Engine::write`] otherwise.
     pub fn write_previewed(&self, changes: &Changes, digest: &str) -> Result<(), EngineError> {
         if self.preview_digest(changes)? != digest {
             let path = changes.files.first().map_or("", |change| change.path.as_str());
             return Err(changed(path));
         }
-        self.write(changes)
+        self.write_each(changes, true)
     }
 
     /// Compiles the project as it would be after `changes` and refuses them when that adds an
@@ -151,12 +162,16 @@ impl Engine {
     }
 }
 
-/// Writes `change` at `path`. A spec snapshot `openapi/<fileId>.yaml` is written only while
-/// the file there is still the one read, or still not there, and it replaces that file rather
-/// than writing into it: a hard link there leaves the file it shares as it was, and a file or
-/// link put there since the guard ran is refused.
-fn written(writer: &dyn SourceWriter, path: &SourcePath, change: &FileChange) -> Result<(), SourceError> {
-    if !is_snapshot(&change.path) {
+/// Writes `change` at `path`. A spec snapshot `openapi/<fileId>.yaml`, and with `every` any
+/// file, is written only while the file there is still the one read, or still not there, and
+/// it replaces that file rather than writing into it: a hard link there leaves the file it
+/// shares as it was, and a file or link put there since the guard ran is refused.
+fn written(
+    writer: &dyn SourceWriter,
+    path: &SourcePath,
+    (change, every): (&FileChange, bool),
+) -> Result<(), SourceError> {
+    if !every && !is_snapshot(&change.path) {
         return writer.write(path, &change.after);
     }
     let was = change.before.as_deref().map(|before| vc_interfaces::content_hash(before.as_bytes()));

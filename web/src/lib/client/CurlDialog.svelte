@@ -19,7 +19,7 @@
 <Dialog title="Copy as cURL" {onclose}>
   <p class="help">
     Resolved for the active profile, with your unsaved edits and vars. Auth is left out because vc
-    applies it; the first line names it, and <code>vc auth token</code> prints a token.
+    applies it; the first line names it. Use <code>vc call</code> to send it with auth.
   </p>
   <pre class="curl mono" aria-label="cURL command">{curl}</pre>
   <div class="actions">

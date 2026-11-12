@@ -316,6 +316,9 @@ pub struct GetProjectResponse {
     pub default_profile: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(string, tag="4")]
     pub vc_version: ::prost::alloc::string::String,
+    /// The auth IDs the config defines, in its order.
+    #[prost(string, repeated, tag="5")]
+    pub auths: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ListDefinitionsRequest {
@@ -1050,6 +1053,73 @@ pub struct ExplainConfigResponse {
     #[prost(message, repeated, tag="1")]
     pub values: ::prost::alloc::vec::Vec<ConfigValue>,
     #[prost(string, repeated, tag="2")]
+    pub notices: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct CheckSecretsRequest {
+    /// As `--profile`; the default profiles when empty.
+    #[prost(string, repeated, tag="1")]
+    pub profiles: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// As `--set key=value`.
+    #[prost(string, repeated, tag="2")]
+    pub sets: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+/// One declared secret: its name and whether it resolves, never its value.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct SecretCheck {
+    #[prost(string, tag="1")]
+    pub name: ::prost::alloc::string::String,
+    /// The provider gave it a value that is not blank, as a run needs (V5114).
+    #[prost(bool, tag="2")]
+    pub resolved: bool,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CheckSecretsResponse {
+    /// `env` or `varlock`.
+    #[prost(string, tag="1")]
+    pub provider: ::prost::alloc::string::String,
+    /// In the order `.env.schema` writes them.
+    #[prost(message, repeated, tag="2")]
+    pub secrets: ::prost::alloc::vec::Vec<SecretCheck>,
+    /// Why the provider could not load them, holding no value; then none resolves.
+    #[prost(string, optional, tag="3")]
+    pub error: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, repeated, tag="4")]
+    pub notices: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct TestAuthRequest {
+    /// The auth's ID, `svc`.
+    #[prost(string, tag="1")]
+    pub auth: ::prost::alloc::string::String,
+    /// The api to obtain them for, `users#me`; the first api, by ID, that uses the auth when unset.
+    #[prost(string, optional, tag="2")]
+    pub api: ::core::option::Option<::prost::alloc::string::String>,
+    /// As `--profile`; the default profiles when empty.
+    #[prost(string, repeated, tag="3")]
+    pub profiles: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// As `--set key=value`.
+    #[prost(string, repeated, tag="4")]
+    pub sets: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct TestAuthResponse {
+    /// The api the credentials were obtained for.
+    #[prost(string, tag="1")]
+    pub api: ::prost::alloc::string::String,
+    #[prost(string, repeated, tag="2")]
+    pub headers: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, repeated, tag="3")]
+    pub query: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, repeated, tag="4")]
+    pub cookies: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// How long they hold, in milliseconds; unset when they never expire.
+    #[prost(uint64, optional, tag="5")]
+    pub expires_in_ms: ::core::option::Option<u64>,
+    /// Why they could not be obtained (V5114), masked; then there are no names.
+    #[prost(string, optional, tag="6")]
+    pub error: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, repeated, tag="7")]
     pub notices: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
