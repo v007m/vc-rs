@@ -1,6 +1,13 @@
 //! Retries, the transport's `http.retry` backoff, polls, loops under `parallel` and the per-host
 //! connection limit.
 
+use std::io::{Read, Write};
+use std::net::{TcpListener, TcpStream};
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, mpsc};
+use std::thread;
+use std::time::Instant;
+
 use vc_mock_server::MockServer;
 
 use crate::{CONFIG, Project, SCRIPTED, events, of_kind};
@@ -152,23 +159,62 @@ fn backing_off(max: &str) -> Project {
     Project::new(&[("vibranium.config.yaml", &config), SCRIPTED, ("services/scripted/backoff.test.yaml", test)])
 }
 
+/// When a request arrived, and when its answer was about to be sent.
+type Stamp = (Instant, Instant);
+
+/// When each request reached a server on a free port that answers its first two requests 503 and
+/// the rest 200: the instant it arrived, and the instant just before its answer was sent.
+fn stamping_server() -> (String, mpsc::Receiver<Stamp>) {
+    let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+    let url = format!("http://{}", listener.local_addr().unwrap());
+    let (stamps, stamped) = mpsc::channel();
+    let served = Arc::new(AtomicUsize::new(0));
+    thread::spawn(move || {
+        for connection in listener.incoming().flatten() {
+            let (stamps, served) = (stamps.clone(), Arc::clone(&served));
+            thread::spawn(move || answer(connection, &stamps, &served));
+        }
+    });
+    (url, stamped)
+}
+
+/// Answers each request on `connection` until the client closes it, stamping it on `stamps`.
+fn answer(mut connection: TcpStream, stamps: &mpsc::Sender<Stamp>, served: &AtomicUsize) {
+    let (mut head, mut chunk) = (Vec::new(), [0; 1024]);
+    while let Ok(read @ 1..) = connection.read(&mut chunk) {
+        head.extend_from_slice(chunk.get(..read).unwrap_or_default());
+        if !head.windows(4).any(|end| end == b"\r\n\r\n") {
+            continue;
+        }
+        let arrived = Instant::now();
+        head.clear();
+        let status = if served.fetch_add(1, Ordering::SeqCst) < 2 { "503 Service Unavailable" } else { "200 OK" };
+        let reply = format!("HTTP/1.1 {status}\r\ncontent-length: 0\r\n\r\n");
+        if stamps.send((arrived, Instant::now())).is_err() || connection.write_all(reply.as_bytes()).is_err() {
+            return;
+        }
+    }
+}
+
 /// The transport resends one request with an exponential `backoff`: 400 ms then 800 ms uncapped,
-/// 100 ms twice with `max: 100ms`. It is one attempt of the test, not a test retry. The test's
-/// own `durationMs` is compared, so process start-up under a loaded machine cannot blur it.
-#[tokio::test(flavor = "multi_thread")]
-async fn http_retry_backs_off_exponentially_up_to_its_max() {
-    let mut took = Vec::new();
-    for max in ["5s", "100ms"] {
-        let server = MockServer::start().await.unwrap();
-        let project = backing_off(max);
-        let output = project.run(&server.base_url(), &["--reporter", "json"]).output().unwrap();
+/// 100 ms twice with `max: 100ms`. It is one attempt of the test, not a test retry. Each wait is
+/// timed at the server, from just before it answers to when the next request arrives, so neither a
+/// loaded machine nor a reporter that reads its events late can make a wait look shorter.
+#[test]
+fn http_retry_backs_off_exponentially_up_to_its_max() {
+    let waits = |max: &str| {
+        let (url, stamped) = stamping_server();
+        let output = backing_off(max).run(&url, &["--reporter", "json"]).output().unwrap();
         assert_eq!(output.status.code(), Some(0), "max {max}: {}", crate::said(&output));
         let events = events(&output.stdout);
         let finished = of_kind(&events, "testFinished");
         assert_eq!(finished[0]["attempts"], 1, "the request was resent, not the test: {events:#?}");
-        took.push(finished[0]["durationMs"].as_u64().unwrap_or_default());
-        assert_eq!(server.stats().await.unwrap().count("GET /flaky"), 3, "max {max}");
-    }
-    assert!(took[0] >= 1150 && took[1] >= 150, "timer rounding aside, 1200 and 200: {took:?}");
-    assert!(took[1] + 600 < took[0], "the cap shortened the second wait: {took:?}");
+        let stamps = stamped.try_iter().collect::<Vec<_>>();
+        assert_eq!(stamps.len(), 3, "max {max}: {stamps:?}");
+        stamps.windows(2).map(|pair| pair[1].0.duration_since(pair[0].1).as_millis()).collect::<Vec<_>>()
+    };
+    let (uncapped, capped) = (waits("5s"), waits("100ms"));
+    assert!(uncapped[0] >= 400 && uncapped[1] >= 800, "base, then twice base: {uncapped:?}");
+    assert!(uncapped[0] < 800, "the first wait is not doubled: {uncapped:?}");
+    assert!(capped.iter().all(|wait| (100..400).contains(wait)), "max caps both waits at 100 ms: {capped:?}");
 }
