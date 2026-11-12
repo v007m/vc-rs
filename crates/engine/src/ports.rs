@@ -159,7 +159,7 @@ impl Engine {
 
 /// Where a run's declared secrets come from: the config's `secrets`, the run's environment, and
 /// its last active profile, which Varlock is given as `VC_PROFILE` (D306).
-pub(crate) struct SecretSource<'a> {
+pub struct SecretSource<'a> {
     pub config: &'a SecretsConfig,
     pub environment: &'a Arc<dyn Environment>,
     pub profile: Option<&'a str>,
