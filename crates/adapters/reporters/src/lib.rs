@@ -52,4 +52,5 @@ pub use record::Recorder;
 pub use registry::{ReporterFactory, ReporterRegistry};
 #[doc(hidden)]
 pub use sample::sample_snapshot;
+pub use text::millis;
 pub use view::{RunFacts, RunSnapshot};

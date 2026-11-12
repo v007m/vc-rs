@@ -5,7 +5,7 @@ use vc_interfaces::{HistoryWriter as _, Row, RunEnd, RunFilter, RunStart, TestRo
 use vc_model::{RunStatus, TestStatus, Totals};
 use vc_testkit::{FakeVcs, MemoryHistory};
 
-use super::{ReportRequest, instance_label, report_choice, started};
+use super::{ReportRequest, instance_label, report_choice, started, test_json};
 use crate::{Engine, ReportFlags, TestTrend, sample};
 
 /// 2026-11-05 10:22 UTC.
@@ -124,4 +124,12 @@ fn an_instance_label_numbers_its_row_and_repeat_from_one() {
     assert_eq!(instance_label(&plain), "users.crud#listsUsers");
     let repeated = TestRow { example_row: Some(0), repeat_index: 2, ..plain };
     assert_eq!(instance_label(&repeated), "users.crud#listsUsers [row 1] (repeat 3)");
+}
+
+#[test]
+fn a_test_lasts_whole_milliseconds_as_the_json_reporter_writes_them() {
+    let lasted = |duration_ms| test_json(&TestRow { duration_ms, ..TestRow::default() })["durationMs"].clone();
+    assert_eq!(lasted(3.046_166_999_999_999_6), 3);
+    assert_eq!(lasted(59.6), 59);
+    assert_eq!((lasted(0.102_166), lasted(-1.0), lasted(f64::NAN)), (0.into(), 0.into(), 0.into()));
 }
