@@ -514,3 +514,48 @@ async fn the_start_up_check_reaches_a_flow_s_steps() {
     let error = calls_only.check(&fixture.program, vec![call]).unwrap_err();
     assert!(matches!(error, crate::ExecutorError::NoExecutor { action, .. } if action == login));
 }
+
+fn probing(cx: &Arc<ActionCx>, action: vc_model::ActionId) -> ActionRequest {
+    ActionRequest { action, owner: OwnerKey::Run, cx: Arc::clone(cx), frame: Frame::default() }
+}
+
+#[tokio::test]
+async fn a_probe_names_what_the_auth_puts_on_a_request_and_fetches_through_the_run_s_cache() {
+    let mut fixture = Fixture::new();
+    let id = define(&mut fixture, "apiKey");
+    let call = fixture.call("/users");
+    fixture.api_mut(call).auth = uses(id, fixture.vars(&[("token", "probe-token")]));
+    let issuer = Arc::new(Issuer::default());
+    let (cx, recordings) =
+        context(fixture, Arc::clone(&issuer) as Arc<dyn AuthProvider>, vec![vc_testkit::status(200)]);
+    let probed = super::probe_auth(&probing(&cx, call)).await.unwrap().unwrap();
+    assert!(!format!("{probed:?}").contains("probe-token"), "{probed:?}");
+    assert_eq!(
+        (probed.headers.len(), probed.query, probed.cookies, probed.expires_in),
+        (0, vec!["api_key".to_owned()], vec!["sid".to_owned()], None)
+    );
+    let masked = cx.redactor.masked_text("got probe-token 1").await;
+    assert!(!masked.contains("probe-token"), "what a probe fetched is masked from then on: {masked}");
+    assert!(super::probe_auth(&probing(&cx, call)).await.unwrap().is_some());
+    assert_eq!((issuer.fetched(), recordings.take().len()), (1, 0), "one fetch, and nothing is sent");
+}
+
+#[tokio::test]
+async fn a_probe_of_credentials_that_cannot_be_obtained_is_a_v5114_failure_without_the_vars() {
+    let mut fixture = Fixture::new();
+    let id = define(&mut fixture, "broken");
+    let call = fixture.call("/users");
+    fixture.api_mut(call).auth = uses(id, fixture.vars(&[("token", "hunter22")]));
+    let (cx, _) = context(fixture, Arc::new(Issuer::default()), Vec::new());
+    let failure = super::probe_auth(&probing(&cx, call)).await.unwrap_err();
+    assert_eq!(failure.code, Some(Code::V5114.to_string()));
+    assert!(failure.message.contains("svc") && !failure.message.contains("hunter22"), "{}", failure.message);
+}
+
+#[tokio::test]
+async fn a_probe_of_a_call_without_auth_is_none() {
+    let mut fixture = Fixture::new();
+    let call = fixture.call("/users");
+    let (cx, _) = context(fixture, Arc::new(Issuer::default()), Vec::new());
+    assert_eq!(super::probe_auth(&probing(&cx, call)).await.unwrap(), None);
+}

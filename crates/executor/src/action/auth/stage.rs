@@ -41,6 +41,11 @@ impl AuthStage {
         Self { prepared, tokens, lease, provider, redactor }
     }
 
+    /// The credentials of the call's lease: the cached ones, or ones fetched now.
+    pub async fn credentials(&self) -> Result<Credentials, AuthError> {
+        self.tokens.get(&self.lease, self.prepared.refresh_before, || self.fetch()).await
+    }
+
     async fn fetch(&self) -> Result<Credentials, AuthError> {
         let credentials = self.provider.credentials(&self.prepared.request).await?;
         self.redactor.hide_values(hidden(&credentials));
@@ -52,9 +57,7 @@ impl AuthStage {
 #[async_trait]
 impl RequestStage for AuthStage {
     async fn apply(&self, request: RenderedRequest) -> Result<RenderedRequest, TransportError> {
-        let before = self.prepared.refresh_before;
-        let credentials =
-            self.tokens.get(&self.lease, before, || self.fetch()).await.map_err(TransportError::Credentials)?;
+        let credentials = self.credentials().await.map_err(TransportError::Credentials)?;
         attach(request, &credentials).ok_or_else(|| {
             let (auth, missing) = (self.prepared.request.auth.clone(), "usable header, cookie or query value".into());
             TransportError::Credentials(AuthError::Malformed { auth, missing })

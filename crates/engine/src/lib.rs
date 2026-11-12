@@ -11,8 +11,9 @@
 //! [`Engine::new_test`], [`Engine::new_auth`], [`Engine::new_file`], [`Engine::fmt`], [`Engine::init`],
 //! [`Engine::save_call_as_test`], [`Engine::write`]), opens and saves the web UI editor's files
 //! ([`Engine::read_file`], [`Engine::save_file`]), describes the project and its effective
-//! settings, masked, and whether its secrets resolve ([`Engine::project_info`],
-//! [`Engine::config_values`], [`Engine::check_secrets`]), and imports specs and
+//! settings, masked, whether its secrets resolve and what an auth's credentials are called
+//! ([`Engine::project_info`], [`Engine::config_values`], [`Engine::check_secrets`],
+//! [`Engine::test_auth`]), and imports specs and
 //! keeps api files in step with them ([`Engine::import`], [`Engine::sync`]).
 //! Agent calls pass the profiles' agent policy and, when it asks, the approval queue
 //! ([`Engine::policy_check`], [`Engine::admit`],
@@ -114,6 +115,7 @@ mod sync_apply;
 mod sync_plan;
 mod sync_rules;
 mod sync_snapshot;
+mod test_auth;
 mod user;
 mod wanted;
 mod watch;
@@ -161,6 +163,7 @@ pub use skip::SkipRequest;
 pub use stored::{HistoryReport, ReportFiles, ReportRequest, StoredRun, instance_label, started};
 pub use sync::{SyncMode, SyncReport, SyncRequest};
 pub use sync_plan::SyncSide;
+pub use test_auth::{AuthTested, TestAuthRequest};
 pub use vc_diagnostics::{
     Code, Diagnostic, Diagnostics, DiagnosticsError, Fix, JsonRenderer, Label, Render, Severity, Summary, TextRenderer,
 };

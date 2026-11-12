@@ -1,9 +1,9 @@
 use prost::Message as _;
 use vc_contracts::engine::v1 as wire;
 
-use super::{check, check_secrets, explain_config, get_project, list_definitions, read_file, write_file};
+use super::{check, check_secrets, explain_config, get_project, list_definitions, read_file, test_auth, write_file};
 use crate::Code;
-use crate::engine_fixture::{CRUD, SECRET, TESTS, project};
+use crate::engine_fixture::{API, CONFIG, CRUD, SECRET, TESTS, USERS, project};
 
 #[tokio::test]
 async fn get_project_names_the_project_its_profiles_and_the_default_one() {
@@ -163,4 +163,34 @@ async fn check_secrets_refuses_an_unknown_profile() {
     let (_dir, api) = project();
     let request = wire::CheckSecretsRequest { profiles: vec!["prod".into()], ..wire::CheckSecretsRequest::default() };
     assert_eq!(check_secrets(api, request).await.unwrap_err().code, Code::InvalidArgument);
+}
+
+#[tokio::test]
+async fn test_auth_names_the_credentials_of_a_secret_token_and_never_sends_the_token() {
+    let (dir, _) = project();
+    let config = format!("{CONFIG}auth:\n  - id: shop\n    type: bearer\n    token: ${{secret.SHOP_TOKEN}}\n");
+    std::fs::write(dir.path().join("vibranium.config.yaml"), config).unwrap();
+    std::fs::write(
+        dir.path().join(API),
+        USERS.replace("    path: /users\n  - id: create", "    path: /users\n    auth: shop\n  - id: create"),
+    )
+    .unwrap();
+    let engine = vc_engine::EngineBuilder::for_project(dir.path()).unwrap().build().unwrap();
+    let api = std::sync::Arc::new(crate::EngineApi::new(std::sync::Arc::new(engine), Vec::new(), Vec::new()));
+    let request = wire::TestAuthRequest { auth: "shop".into(), ..wire::TestAuthRequest::default() };
+    let tested = test_auth(api, request).await.unwrap();
+    assert_eq!(
+        (tested.api.as_str(), tested.headers.as_slice()),
+        ("users#list", ["authorization".to_owned()].as_slice())
+    );
+    assert_eq!((tested.expires_in_ms, tested.error.as_deref()), (None, None));
+    let bytes = tested.encode_to_vec();
+    assert!(!bytes.windows(SECRET.len()).any(|window| window == SECRET.as_bytes()));
+}
+
+#[tokio::test]
+async fn test_auth_refuses_an_unknown_auth() {
+    let (_dir, api) = project();
+    let request = wire::TestAuthRequest { auth: "nope".into(), ..wire::TestAuthRequest::default() };
+    assert_eq!(test_auth(api, request).await.unwrap_err().code, Code::InvalidArgument);
 }

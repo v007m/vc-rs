@@ -1,5 +1,7 @@
 <script lang="ts">
   import { resolve } from '$app/paths';
+  import AuthSection from './AuthSection.svelte';
+  import type { AuthTest } from './authTest.svelte.ts';
   import ConfigFormSection from './ConfigForm.svelte';
   import type { ConfigForm } from './configForm.svelte.ts';
   import { MASKED } from './port.ts';
@@ -13,11 +15,13 @@
     form,
     schema,
     check,
+    auth,
   }: {
     settings: EffectiveSettings;
     form?: ConfigForm;
     schema?: SecretSchema;
     check?: SecretCheck;
+    auth?: AuthTest;
   } = $props();
   const editorHref = `${resolve('/editor')}?file=vibranium.config.yaml`;
   const maskedNote = ' (secret, masked)';
@@ -95,6 +99,7 @@
   </table>
   {#if form}<ConfigFormSection {form} />{/if}
   {#if schema}<SecretsSection {schema} {check} profiles={settings.profiles} />{/if}
+  {#if auth}<AuthSection {auth} profile={settings.profile} />{/if}
 </div>
 
 <style>

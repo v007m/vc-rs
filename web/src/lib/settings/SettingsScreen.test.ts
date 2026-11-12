@@ -2,6 +2,7 @@ import { render, screen, within } from '@testing-library/svelte';
 import { userEvent } from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { fakeEngine } from '#lib/testing/engine.ts';
+import { AuthTest, authTestPort } from './authTest.svelte.ts';
 import { enginePort, MASKED, type Explained, type SettingsPort } from './port.ts';
 import SettingsScreen from './SettingsScreen.svelte';
 import { EffectiveSettings } from './settings.svelte.ts';
@@ -94,5 +95,26 @@ describe('SettingsScreen', () => {
     render(SettingsScreen, { settings });
     expect(screen.getByRole('alert').textContent).not.toBe('');
     expect(screen.getByRole('combobox', { name: 'Profile' })).toHaveProperty('value', 'dev');
+  });
+
+  it('tests an auth under the profile picked', async () => {
+    const asked: string[][] = [];
+    const engine = fakeEngine({
+      getProject: () => ({ name: 's', profiles: ['dev', 'staging'], auths: ['svc'] }),
+      explainConfig: () => ({ values: [] }),
+      testAuth: ({ profiles }) => {
+        asked.push(profiles);
+        return { api: 'users#me', headers: ['authorization'] };
+      },
+    });
+    const settings = new EffectiveSettings(enginePort(engine));
+    const auth = new AuthTest(authTestPort(engine));
+    await Promise.all([settings.load(), auth.load()]);
+    render(SettingsScreen, { settings, auth });
+    const user = userEvent.setup();
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Profile' }), 'staging');
+    await user.click(screen.getByRole('button', { name: 'Test svc' }));
+    expect(asked).toEqual([['staging']]);
+    expect(screen.getByRole('row', { name: /svc/ }).textContent).toContain('authorization');
   });
 });

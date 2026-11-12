@@ -37,3 +37,11 @@ apis:
     path: /users/${var.userId}
     expect:
       status: [204, 404]
+
+  - id: me
+    name: Who the token belongs to
+    method: GET
+    path: /auth/me
+    auth: mockOauth
+    expect:
+      status: 200

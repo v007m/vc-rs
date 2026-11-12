@@ -15,6 +15,8 @@ pub struct ProjectInfo {
     pub profiles: Vec<String>,
     /// The profiles marked `default: true`, which a run uses when none is chosen.
     pub defaults: Vec<String>,
+    /// The auth IDs the config defines, in its order.
+    pub auths: Vec<String>,
     /// This engine's version.
     pub vc_version: String,
 }
@@ -50,4 +52,5 @@ fn fill(program: &Program, info: &mut ProjectInfo) {
         }
         info.profiles.push(name);
     }
+    info.auths = program.auth.keys().filter_map(|id| program.str(id.sym())).map(str::to_owned).collect();
 }

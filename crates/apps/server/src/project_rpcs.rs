@@ -1,6 +1,6 @@
 //! The project's RPCs: `GetProject`, `ListDefinitions`, `Check`, the editor's `ReadFile` and
-//! `WriteFile`, `ExplainConfig`, whose values the engine masks (D229), and `CheckSecrets`,
-//! which sends no value. Each reads and compiles the project on the blocking pool, never on an
+//! `WriteFile`, `ExplainConfig`, whose values the engine masks (D229), and `CheckSecrets` and
+//! `TestAuth`, which send no value. Each reads and compiles the project on the blocking pool, never on an
 //! async worker.
 
 use std::sync::Arc;
@@ -10,7 +10,7 @@ use vc_contracts::engine::v1 as wire;
 use vc_contracts::results::v1::Span;
 use vc_engine::{
     ApiCall, CheckRequest, ConfigValue, ExplainRequest, ListKind, ListRequest, Listed, SaveFile, SecretCheck,
-    SelectRequest,
+    SelectRequest, TestAuthRequest,
 };
 
 use crate::ConnectError;
@@ -26,6 +26,7 @@ pub fn register(rpcs: Rpcs) -> Rpcs {
         .unary("WriteFile", write_file)
         .unary("ExplainConfig", explain_config)
         .unary("CheckSecrets", check_secrets)
+        .unary("TestAuth", test_auth)
 }
 
 async fn get_project(
@@ -38,6 +39,7 @@ async fn get_project(
         default_profile: info.defaults.into_iter().next(),
         profiles: info.profiles,
         vc_version: info.vc_version,
+        auths: info.auths,
     })
 }
 
@@ -169,6 +171,24 @@ async fn check_secrets(
 
 fn secret_check(check: SecretCheck) -> wire::SecretCheck {
     wire::SecretCheck { name: check.name, resolved: check.resolved }
+}
+
+async fn test_auth(
+    api: Arc<EngineApi>,
+    request: wire::TestAuthRequest,
+) -> Result<wire::TestAuthResponse, ConnectError> {
+    let (profiles, sets) = api.layers(request.profiles, request.sets);
+    let asked = TestAuthRequest { auth: request.auth, api: request.api, profiles, sets };
+    let tested = api.blocking(move |engine| Handle::current().block_on(engine.test_auth(&asked))).await?;
+    Ok(wire::TestAuthResponse {
+        api: tested.api,
+        headers: tested.headers,
+        query: tested.query,
+        cookies: tested.cookies,
+        expires_in_ms: tested.expires_in.map(|held| u64::try_from(held.as_millis()).unwrap_or(u64::MAX)),
+        error: tested.error,
+        notices: tested.notices,
+    })
 }
 
 #[cfg(test)]
