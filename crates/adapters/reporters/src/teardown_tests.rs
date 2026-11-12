@@ -110,6 +110,27 @@ async fn the_json_summary_lists_the_failed_blocks() {
 }
 
 #[test]
+fn the_after_all_blocks_of_two_files_are_listed_apart() {
+    let audit = "afterAll:\n  - id: sweep\n    call: users#purge\ntests:\n  - id: listsUsers\n    call: users#get\n";
+    let (program, plan) = testing::project_of(&[
+        ("vibranium.config.yaml", CONFIG),
+        ("services/users/users.api.yaml", USERS),
+        ("services/users/crud.test.yaml", CRUD),
+        ("services/users/audit.test.yaml", audit),
+    ]);
+    let context = ReporterContext::new(program, plan, Capture::new().0);
+    let failed = |file: &vc_model::PlannedFile| Event::ActionFinished {
+        action: file.after_all[0],
+        owner: OwnerKey::File(file.id),
+        outcome: ActionOutcome::Failed(Failure::new(MESSAGE)),
+    };
+    let events: Vec<Event> = context.plan().files.iter().map(failed).collect();
+    let mut labels = testing::record(&context, &events).1.teardown_failed();
+    labels.sort();
+    assert_eq!(labels, ["afterAll in users.audit", "afterAll in users.crud"]);
+}
+
+#[test]
 fn ctrf_lists_them_under_extra_and_keeps_its_counts() {
     let document = |failing| -> Value { serde_json::from_str(&written(&CtrfFormat, &snapshot(failing))).unwrap() };
     let (failed, passed) = (document(true), document(false));
