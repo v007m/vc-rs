@@ -1,3 +1,4 @@
+use std::iter;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -29,6 +30,37 @@ async fn prints_one_json_object_per_event_then_the_summary() {
     let last = lines.last().unwrap();
     assert_eq!(last["artifacts"], json!([{"reporter": "ctrf", "path": "out/ctrf.json"}]));
     insta::assert_snapshot!(printed);
+}
+
+/// The `durationMs` of each `testFinished` when the reporter reads it `late_by` stopwatch ticks
+/// late: its instance's last `ActionStarted` arrives that many more times before it.
+async fn finished_durations(late_by: usize) -> Vec<Value> {
+    let (capture, captured) = Capture::new();
+    let context = testing::context(capture);
+    let mut reporter = JsonReporter::new(&context);
+    let (mut events, mut started) = (Vec::new(), None);
+    for event in testing::script(&context.program(), context.plan()) {
+        match &event {
+            Event::ActionStarted { .. } => started = Some(event.clone()),
+            Event::TestFinished { .. } => {
+                events.extend(started.take().into_iter().flat_map(|again| iter::repeat_n(again, late_by)));
+            }
+            _ => {}
+        }
+        events.push(event);
+    }
+    assert_eq!(testing::run(&mut reporter, &events, &testing::summary()).await, []);
+    let printed = captured.take().0;
+    let lines = printed.lines().map(|line| serde_json::from_str::<Value>(line).unwrap());
+    lines.filter(|line| line["event"] == "testFinished").map(|line| line["durationMs"].clone()).collect()
+}
+
+/// D305: a test lasts as long as the executor measured, however late the reporter reads it.
+#[tokio::test]
+async fn a_late_read_leaves_a_test_s_duration_as_the_executor_measured_it() {
+    let on_time = finished_durations(0).await;
+    assert_eq!(on_time, [json!(150), json!(150), json!(0), json!(300), json!(150), json!(0)]);
+    assert_eq!(finished_durations(4).await, on_time);
 }
 
 #[tokio::test]
