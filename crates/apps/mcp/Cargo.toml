@@ -10,14 +10,26 @@ publish.workspace = true
 
 [dependencies]
 async-trait.workspace = true
+bytes = { workspace = true, optional = true }
+http = { workspace = true, optional = true }
+http-body = { workspace = true, optional = true }
+http-body-util = { workspace = true, optional = true }
 rmcp.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
+tower-service = { workspace = true, optional = true }
 vc-engine.workspace = true
 
 [features]
 # MCP over streamable HTTP, which `vc ui` mounts at `/mcp` (D197).
-http = ["rmcp/transport-streamable-http-server"]
+http = [
+  "rmcp/transport-streamable-http-server",
+  "dep:bytes",
+  "dep:http",
+  "dep:http-body",
+  "dep:http-body-util",
+  "dep:tower-service",
+]
 
 [dev-dependencies]
 rusqlite.workspace = true

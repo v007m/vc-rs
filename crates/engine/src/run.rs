@@ -128,8 +128,8 @@ impl Engine {
 
     /// `prepared` with its declared secrets, and with its example-row labels masked by a redactor
     /// like the one its events go through, so a row `name` holding a secret's value never
-    /// reaches a reporter, the history or a watcher.
-    async fn secured(&self, mut prepared: Prepared) -> Result<(Prepared, Secrets), EngineError> {
+    /// reaches a reporter, the history or a watcher. `vc run` and `vc load` both start here.
+    pub(crate) async fn secured(&self, mut prepared: Prepared) -> Result<(Prepared, Secrets), EngineError> {
         let program = Arc::clone(&prepared.program);
         let secrets = self.secrets(SecretSource::of(&prepared), &crate::ports::run_reads(&prepared)).await?;
         if !prepared.plan.row_names.is_empty() {

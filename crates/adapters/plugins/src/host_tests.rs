@@ -1,10 +1,15 @@
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+#[cfg(unix)]
 use std::time::Duration;
 
 use serde_json::json;
-use vc_interfaces::{CALL_DEADLINE, PluginError, PluginHost, PluginPermissions, Secret, Secrets};
-use vc_testkit::{plugin_host_suite, suite_plugin_manifest};
+use vc_interfaces::{CALL_DEADLINE, PluginError, PluginHost, PluginPermissions};
+#[cfg(unix)]
+use vc_interfaces::{Secret, Secrets};
+#[cfg(unix)]
+use vc_testkit::plugin_host_suite;
+use vc_testkit::suite_plugin_manifest;
 
 use super::StdioPluginHost;
 
@@ -14,6 +19,7 @@ fn suite_dir() -> PathBuf {
 }
 
 /// Whether `python3` runs here; the tests that start the fixture skip without it.
+#[cfg(unix)]
 fn python() -> bool {
     std::process::Command::new("python3").arg("--version").output().is_ok_and(|output| output.status.success())
 }
@@ -243,6 +249,7 @@ async fn a_confined_plugin_writes_its_data_folder_and_nothing_else_in_the_projec
 }
 
 /// Reads one framed message from stdin.
+#[cfg(unix)]
 const READ: &str = r#"
 import json, sys, time
 def read():
@@ -257,6 +264,7 @@ def send(body):
 "#;
 
 /// Answers `initialize`, answers the next call with a message that is not an object, then hangs.
+#[cfg(unix)]
 const BREAKS: &str = r#"
 first = read()
 send(json.dumps({"jsonrpc": "2.0", "id": first["id"], "result": None}).encode())
@@ -266,6 +274,7 @@ time.sleep(30)
 "#;
 
 /// Answers `initialize`, then writes a file in its data folder and answers with the folder.
+#[cfg(unix)]
 const KEEPS: &str = r#"
 import os
 for _ in range(2):
@@ -292,6 +301,7 @@ for _ in range(2):
 "#;
 
 /// Answers `initialize`, then never reads its input again.
+#[cfg(unix)]
 const STALLS: &str = r#"
 first = read()
 send(json.dumps({"jsonrpc": "2.0", "id": first["id"], "result": None}).encode())
@@ -299,6 +309,7 @@ time.sleep(30)
 "#;
 
 /// Answers `initialize`, then exits on the next call.
+#[cfg(unix)]
 const EXITS: &str = r#"
 import json, sys
 def read():
@@ -316,6 +327,7 @@ sys.exit(3)
 "#;
 
 /// The suite's plugin, but writing `word` to its stderr and exiting.
+#[cfg(unix)]
 fn writes_to_stderr(word: &str) -> vc_interfaces::PluginManifest {
     vc_interfaces::PluginManifest {
         command: "python3".into(),
@@ -379,6 +391,7 @@ async fn a_log_that_cannot_be_made_drops_the_stderr_and_says_why_as_the_plugin_s
 
 /// Answers every call; after answering `shutdown`, waits for its input to close, then writes
 /// `stopped.txt` in its data folder and exits.
+#[cfg(unix)]
 const STOPS: &str = r#"
 import os
 while True:
@@ -409,6 +422,7 @@ async fn shutdown_closes_the_plugin_s_input_and_returns_once_it_has_exited() {
 }
 
 /// Waits up to five seconds for `log` to hold `text`.
+#[cfg(unix)]
 async fn logged(log: &Path, text: &str) {
     for _ in 0..100 {
         if std::fs::read_to_string(log).is_ok_and(|logged| logged == text) {
