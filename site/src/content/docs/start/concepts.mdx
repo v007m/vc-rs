@@ -1,27 +1,307 @@
 ---
 title: Concepts
-description: The mental model behind Vibranium, from config, apis and tests to vars, profiles, lifecycle blocks, runs and results.
+description: The mental model behind Vibranium, shown on a small shop API, from projects, services, apis and tests to steps, lifecycle, datasets, profiles and load scenarios.
 sidebar: { order: 3 }
 ---
 
 import { Aside, CardGrid, LinkCard } from '@astrojs/starlight/components';
+import ProjectMap from '~/components/diagrams/ProjectMap.astro';
+import RequestFlow from '~/components/diagrams/RequestFlow.astro';
+import LifecycleTimeline from '~/components/diagrams/LifecycleTimeline.astro';
+import DatasetFanout from '~/components/diagrams/DatasetFanout.astro';
+import LoadRamp from '~/components/diagrams/LoadRamp.astro';
 
-Vibranium tests HTTP APIs from plain YAML files in your repo. One engine runs functional, contract and load tests. The CLI, the TUI, the web UI and the MCP server for AI agents all drive that same engine.
+Vibranium tests HTTP APIs from plain YAML files in your repo. This page explains each idea once, on one running example: a small **shop** with three services, `users`, `orders` and `payments`. The YAML here is real. Every file on this page runs against the demo service's `users` endpoints (`vc demo start`), so you can copy any of it into a project and try it.
 
-## The pieces
+## A project at a glance
 
-A project is one `vibranium.config.yaml` at the root, plus api, test and load files anywhere below it.
+A **project** is a folder with a `vibranium.config.yaml` at its root. Below it, each **service** of your system gets a folder under `services/`, and that folder holds two kinds of file: **api files** say how to call the service's endpoints, and **test files** say what to call and what to expect.
+
+<ProjectMap />
 
 | Piece | File | What it holds | Referred to as |
 | --- | --- | --- | --- |
 | **Config** | `vibranium.config.yaml` | Project-wide vars, profiles, auth, secrets, defaults, reports and history settings | — |
-| **Api** | `services/<service>/<service>.api.yaml` | How to call one endpoint: method, path, headers, body, and its own `expect`, `save` and `cleanup` | `users#createUser` |
-| **Test** | `services/<service>/<area>.test.yaml` | Tests that call apis and state what they expect, plus lifecycle blocks around them | `users.crud#getsCreatedUser` |
-| **Load scenario** | `load/<area>/<name>.load.yaml` | A mix of existing tests, run at a rate in stages, with thresholds | `checkout.peak` |
-| **Dataset** | `datasets/*.csv`, `*.json`, `*.yaml` | Rows of your own data for data-driven tests | `${dataset.cities}` |
-| **Hook** | `hooks/*.ts`, `*.js`, … | Functions for setup actions, request hooks and custom checks | `../../hooks/seed.ts#seedUser` (a path from the file, then `#` and the export) |
+| **Service** | `services/<service>/` | The api and test files for one service of your system | `users` |
+| **Api** | `services/users/users.api.yaml` | How to call one endpoint: method, path, headers, body, and its own `expect`, `save` and `cleanup` | `users#createUser` |
+| **Test** | `services/users/accounts.test.yaml` | Tests that call apis and state what they expect, plus lifecycle blocks around them | `users.accounts#createsUser` |
+| **Load scenario** | `load/users/browse.load.yaml` | A mix of existing tests, run by many virtual users in stages, with thresholds | `users.browse` |
+| **Dataset** | `datasets/signups.csv` (or `.json`, `.yaml`) | Rows of your own data for data-driven tests | `${dataset.signups}` |
+| **Hook** | `hooks/seed.ts` | Functions for setup actions, request hooks and custom checks | `../../hooks/seed.ts#seedUser` |
 
-An api knows how to call an endpoint. A test decides what to call and what to expect. Many tests reuse one api, so a change to the endpoint is a change in one place.
+An api knows how to call an endpoint. A test decides what to call and what to expect. Many tests reuse one api, so when an endpoint changes, you change one place.
+
+## Coming from Postman
+
+If you have used Postman, most ideas map one to one. A Postman collection becomes a service folder: its requests go into the api file, and its Tests tabs become tests in test files.
+
+| In Postman | In Vibranium |
+| --- | --- |
+| Collection | A service folder, `services/<service>/` |
+| Request | An api, an entry in `<service>.api.yaml` |
+| Tests tab | `expect` on a test (or on the api, for checks every call needs) |
+| Environment | A profile, chosen with `--profile` |
+| Variables | `vars`, read as `${var.name}` |
+| Pre-request script | A `before` block, or a hook |
+| Collection runner | `vc run` |
+| Runner data file | `examples`, often from a dataset |
+
+`vc import` turns an existing collection or an OpenAPI spec into an api file to start from (see [OpenAPI and imports](/vc-rs/guides/openapi-import-and-sync/)).
+
+## An api and a test
+
+Here is the `users` service's api file. Each entry under `apis` is one endpoint. `createUser` also **saves** the new user's ID and **cleans up** after itself: when a test that created a user ends, the user is deleted for you.
+
+```yaml title="services/users/users.api.yaml"
+name: Users service
+baseUrl: ${var.usersUrl}
+
+apis:
+  - id: listUsers
+    name: List users
+    path: /users
+    expect:
+      status: 200
+
+  - id: getUser
+    name: Get one user
+    path: /users/${var.userId}
+    expect:
+      status: 200
+
+  - id: createUser
+    name: Create a user
+    method: POST
+    path: /users
+    vars:
+      name: ${fake.person.fullName}
+      email: ${fake.internet.email}
+    body:
+      name: ${var.name}
+      email: ${var.email}
+    expect:
+      status: 201
+    save:
+      userId: ${response.body.id}
+    cleanup:
+      call: deleteUser
+      vars:
+        userId: ${response.body.id}
+
+  - id: deleteUser
+    name: Delete a user
+    method: DELETE
+    path: /users/${var.userId}
+    expect:
+      status: [204, 404]
+```
+
+A test **calls** an api by its ID and adds the checks it cares about. `createsUser` sets the email itself; the name stays a fake one.
+
+```yaml title="services/users/accounts.test.yaml"
+name: User accounts
+tests:
+  - id: listsSeedUsers
+    name: Lists the two seed users
+    call: users#listUsers
+    expect:
+      body:
+        match:
+          "[0].name": Ada Lovelace
+          "[1].name": Grace Hopper
+
+  - id: createsUser
+    name: Creates a user with the given email
+    call: users#createUser
+    vars:
+      email: ada@example.com
+    expect:
+      body:
+        match:
+          email: ada@example.com
+          id:
+            type: string
+```
+
+When `createsUser` runs, one request goes out and four things happen:
+
+<RequestFlow />
+
+- **`expect`** holds the checks: status, headers, body matches, schema and timing. The api's own `expect` applies too, and the test's checks merge over it.
+- **`save`** names a value from the response, here `userId`, so later calls can use it as `${var.userId}`.
+- **`cleanup`** undoes a successful call after the test, even when the test fails.
+
+## Steps: several calls in one test
+
+A test with `call` sends one request. A test with **`steps`** sends several, in order. Each step can have an `id`, and a later step reads an earlier one's response through it: `${create.body.id}` is the `id` in the body of the step called `create`.
+
+```yaml title="services/users/flow.test.yaml"
+name: User flows
+tests:
+  - id: createsThenReadsUser
+    name: Creates a user, then reads it back
+    steps:
+      - id: create
+        call: users#createUser
+        vars:
+          email: grace@example.com
+      - id: read
+        call: users#getUser
+        vars:
+          userId: ${create.body.id}
+        expect:
+          body:
+            match:
+              id: ${create.body.id}
+```
+
+Steps run in order, and each step's own `expect` is checked as it goes. The cleanups the steps register, here the deletion of the created user, run after the test, whether it passed or not.
+
+## Lifecycle: setup that runs around tests
+
+Tests often need data before they start: a user to read, an order to refund. **Lifecycle blocks** create it. Where a block sits decides when it runs and how long its data lives:
+
+<LifecycleTimeline />
+
+- `beforeAll` and `afterAll` run once per file. `beforeEach` and `afterEach` run around every test in the file. `before` and `after` belong to one test.
+- `beforeRun` and `afterRun` live in the config and run once per run.
+- A block is a list of actions. Most actions are a `call`; an action can also reuse a whole test (`test:`), run a function from a code file (`function:`) or run a shell command (`command:`).
+
+In this file, `beforeAll` creates one shop owner that both tests could read, and `readsNewCustomer` creates its own customer in `before`:
+
+```yaml title="services/users/setup.test.yaml"
+name: Shared setup
+beforeAll:                 # once, before the first test in this file
+  - id: owner              # its saves are read as ${var.owner.<name>}
+    call: users#createUser
+    vars:
+      name: Shop Owner
+tests:
+  - id: readsOwner
+    name: Reads the owner beforeAll created
+    call: users#getUser
+    vars:
+      userId: ${var.owner.userId}
+    expect:
+      body:
+        match:
+          id: ${var.owner.userId}
+
+  - id: readsNewCustomer
+    name: Reads a customer its before block created
+    before:                # just before this test; its save sets ${var.userId}
+      - call: users#createUser
+        vars:
+          name: New Customer
+    call: users#getUser
+    expect:
+      body:
+        match:
+          id: ${var.userId}
+```
+
+`vc plan` shows the setup a run will do, without sending anything:
+
+```console
+$ vc plan users.setup
+plan  2 tests in 1 file · lifecycle: beforeAll owner · profile default
+users.setup
+  beforeAll
+    owner
+  users.setup#readsOwner  needs: owner
+  users.setup#readsNewCustomer
+```
+
+If setup fails, the tests that needed it are not run. They are marked **blocked**, not failed, so the report tells a broken fixture apart from a broken API.
+
+## Data-driven tests: examples and datasets
+
+To run one test over many inputs, give it **`examples`**: a list of rows, written inline or read from a **dataset** file under `datasets/`. The test runs once per row, and `${example.<column>}` reads the current row.
+
+```csv title="datasets/signups.csv"
+name,email
+Ada Lovelace,ada@example.com
+Alan Turing,alan@example.com
+Grace Hopper,grace@example.com
+```
+
+```yaml title="services/users/data.test.yaml"
+name: Data-driven tests
+tests:
+  - id: createsEverySignup
+    name: Creates a user for each sign-up row
+    examples: ${dataset.signups}
+    call: users#createUser
+    vars:
+      name: ${example.name}
+      email: ${example.email}
+    expect:
+      body:
+        match:
+          email: ${example.email}
+```
+
+<DatasetFanout />
+
+Each row becomes its own test instance, with its own result. `vc run users.data#createsEverySignup:2` runs only the second row. A row with a `name` column is labelled by it in the output:
+
+```console
+$ vc run users.data
+plan  1 test in 1 file · profile default
+
+✓ users.data#createsEverySignup › Alan Turing — Creates a user for each sign-up row    9ms
+✓ users.data#createsEverySignup › Ada Lovelace — Creates a user for each sign-up row   13ms
+✓ users.data#createsEverySignup › Grace Hopper — Creates a user for each sign-up row   13ms
+
+3 passed                                                     15ms · profile default
+reports  /home/you/shop/.vibranium/reports/5/{ctrf.json,junit.xml,index.html}
+```
+
+## Values: vars, templates and profiles
+
+Every dynamic value is a **template**, `${namespace.path}`:
+
+| Template | Where the value comes from |
+| --- | --- |
+| `${var.userId}` | A var: set in the config, an api or test file, a call, a profile, or saved from a response |
+| `${secret.API_KEY}` | The secrets provider, such as the environment or a `.env` file. Always redacted |
+| `${env.CI_COMMIT_SHA}` | An environment variable |
+| `${response.body.id}` | The current response, in `expect`, `save`, `poll` and `cleanup` |
+| `${create.body.id}` | An earlier step's response, by the step's `id` |
+| `${fake.internet.email}` | Generated data, a new value on every call |
+| `${example.email}` | The current row of `examples` |
+
+A **profile** is a named set of var overrides, such as `staging` or `public`, like an environment in Postman. Every run has one active profile: the one marked `default: true`, or the one you pass with `--profile`. The config's profiles override config vars, and any api or test file can carry its own `profiles` list for its own vars. `vc config explain vars.<name>` shows which value wins. The [Quickstart](/vc-rs/start/quickstart/#point-it-at-a-public-api) adds a profile step by step.
+
+## Load scenarios
+
+A **load scenario** reuses tests you already have. It names a **mix** of tests, and many **virtual users** run that mix over and over. **Stages** say how many virtual users run, and for how long; each stage ramps from the previous stage's count to its own.
+
+```yaml title="load/users/browse.load.yaml"
+name: Browse and sign up
+mix:
+  - test: users.accounts#listsSeedUsers
+    weight: 3
+  - test: users.accounts#createsUser
+    weight: 1
+stages:
+  - duration: 1m
+    users: 50
+  - duration: 3m
+    users: 50
+  - duration: 1m
+    users: 0
+thresholds:
+  p95:
+    lt: 300ms
+  errorRate:
+    lt: 1%
+abortOn: [errorRate]
+```
+
+<LoadRamp />
+
+`vc load users.browse` runs it with a live line per second. **Thresholds** are the pass criteria: here, 95% of requests answer in under 300 ms and fewer than 1% fail. `abortOn` stops the run early once the error rate breaches its threshold. A breached threshold makes `vc load` exit with code 3.
 
 ## How a run flows
 
@@ -37,44 +317,18 @@ An api knows how to call an endpoint. A test decides what to call and what to ex
 - **`vc run`** runs tests in parallel. Each test instance ends as **passed**, **failed**, **blocked** (its setup failed), **skipped** or **flaky** (passed on a retry).
 - Each run writes reports to `.vibranium/reports/<n>/` and a row to the run history. `vc history` lists past runs.
 
-## Inside a test
-
-A test is a `call` of one api, or `steps` of several actions in order. Around it:
-
-- **`expect`** states the checks: status, headers, body matches, schema and timing. The api's own `expect` applies too, and the test's checks merge over it. A test's `status` replaces the api's.
-- **`save`** names values from a response, such as `userId: ${response.body.id}`, for later steps.
-- **`cleanup`** on an api undoes a successful call automatically, after the test. Create a user, and it gets deleted for you.
-- **Lifecycle blocks** prepare data: `beforeAll` and `afterAll` once per file, `beforeEach` and `afterEach` around every test, `before` and `after` around one test. Where a block sits decides how long its data lives.
-- **Loops and data**: `examples` runs one instance per row, `repeat` runs a test several times, and `forEach` loops inside a block.
-- **Waiting**: `poll` re-sends a request until a condition holds, and `retry` re-runs a whole flaky test.
-
-## Values: vars, profiles and templates
-
-Every dynamic value is a template, `${namespace.path}`:
-
-| Template | Where the value comes from |
-| --- | --- |
-| `${var.userId}` | A var: set in the config, an api or test file, a call, a profile, or saved from a response |
-| `${secret.API_KEY}` | The secrets provider, such as the environment or a `.env` file. Always redacted |
-| `${env.CI_COMMIT_SHA}` | An environment variable |
-| `${response.body.id}` | The current response, in `expect`, `save`, `poll` and `cleanup` |
-| `${fake.internet.email}` | Generated data, a new value on every call |
-| `${example.email}` | The current row of `examples` |
-
-A **profile** is a named set of var overrides, such as `staging` or `public`. Every run has one active profile: the one marked `default: true`, or the one you pass with `--profile`. The config's profiles override config vars, and any api or test file can carry its own `profiles` list for its own vars. `vc config explain vars.<name>` shows which value wins.
-
 ## IDs
 
 Everything has an ID, and IDs come from paths:
 
-- A file's ID comes from its path under `services/` (or `load/` or `datasets/`). `services/users/crud.test.yaml` is `users.crud`. `services/users/users.api.yaml` is `users`.
-- An item's full ID is `<fileId>#<id>`: `users.crud#getsCreatedUser`, `users#createUser`.
+- A file's ID comes from its path under `services/` (or `load/` or `datasets/`). `services/users/accounts.test.yaml` is `users.accounts`. `services/users/users.api.yaml` is `users`. `load/users/browse.load.yaml` is `users.browse`.
+- An item's full ID is `<fileId>#<id>`: `users.accounts#createsUser`, `users#createUser`.
 - Item IDs are camelCase. Test IDs read as third-person verbs: `rejectsDeclinedCard`.
 
 These IDs are what you pass to `vc run`, `vc call` and `vc explain`. See [Project layout](/vc-rs/start/project-layout/) for the full rules.
 
 <Aside type="tip">
-`vc explain` takes a diagnostic code (`vc explain V2003`) or an ID (`vc explain sample.basics#getsCreatedUser`). For an ID, it shows the resolved request, where each var comes from, and the checks that apply.
+`vc explain` takes a diagnostic code (`vc explain V2003`) or an ID (`vc explain users.accounts#createsUser`). For an ID, it shows the resolved request, where each var comes from, and the checks that apply.
 </Aside>
 
 ## Where to go next

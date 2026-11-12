@@ -1,6 +1,6 @@
 # Vibranium syntax reference (for agents)
 
-Short, checked examples of the forms used most. Each block passed `vc check` and ran against a demo users service. The full reference is at https://v007m.github.io/vc-rs/ (`/vc-rs/llms-full.txt` has the whole site as text).
+Short, checked examples of the forms used most. Each block passed `vc check` and ran against `vc demo` (the users service on port 7421). The full reference is at https://v007m.github.io/vc-rs/ (`/vc-rs/llms-full.txt` has the whole site as text).
 
 ## Api file
 
@@ -185,7 +185,60 @@ tests:
       readId: ${response.body.id}
 ```
 
-Secrets come from the provider in the config (`secrets.provider: env` reads the environment and `.env`). Declare each name in `.env.schema` (`USERS_TOKEN=`) and keep the value in `.env`, which is not committed. A missing value fails the test at run time with V5111 "`secret.USERS_TOKEN` is missing".
+Secrets come from the provider in the config (`secrets.provider: env` reads the environment and `.env`). Declare each name in `.env.schema` (`USERS_TOKEN=`) and keep the value in `.env`, which is not committed. A name used but not declared in `.env.schema` is a check error (V2106). A declared name with no value stops `vc run` and `vc load` before anything is sent (V5114, exit 2).
+
+## Lifecycle blocks
+
+```yaml
+# services/users/setup.test.yaml  (file ID: users.setup)
+name: Setup blocks
+beforeAll:                   # once per file, before its first test
+  - id: owner                # its saves are read as ${var.owner.<name>}
+    call: users#createUser
+    vars:
+      name: File Owner
+beforeEach:                  # before every test instance in the file
+  - call: users#createUser
+tests:
+  - id: readsSharedOwner
+    name: Reads the user beforeAll made
+    call: users#getUser
+    vars:
+      userId: ${var.owner.userId}
+    expect:
+      body:
+        match:
+          id: ${var.owner.userId}
+```
+
+The order is: `beforeRun` (config) → `beforeAll` → per instance `beforeEach` → `before` → the call or steps → `after` → `afterEach` → that instance's cleanups → `afterAll` → `afterRun`. An entry is a `call:` (an api), a `test:` (another test's calls), a `function: <path>#<export>` (a TypeScript or JavaScript hook, path relative to the file) or a `command:` (a shell command, for example `vc demo start --detach`). `after`, `afterEach` and cleanups run even when something failed; a failed `before` or `beforeEach` marks the test blocked. `vc plan` lists the blocks a selection needs.
+
+## Datasets
+
+```csv
+name,email
+Ada Lovelace,ada@example.com
+Alan Turing,alan@example.com
+```
+
+Saved as `datasets/signups.csv`:
+
+```yaml
+# services/users/data.test.yaml  (file ID: users.data)
+name: Data-driven tests
+tests:
+  - id: createsEverySignup
+    name: Creates a user for each sign-up row
+    examples: ${dataset.signups}   # one instance per row: users.data#createsEverySignup:1, :2
+    call: users#createUser
+    vars:
+      name: ${example.name}
+      email: ${example.email}
+    expect:
+      body:
+        match:
+          email: ${example.email}
+```
 
 ## Load scenario
 
@@ -222,6 +275,8 @@ abortOn: [errorRate]
 | `${response.body.id}` | The current response, in `save` and `cleanup` |
 | `${<stepId>.body.id}` | An earlier step's response |
 | `${example.name}` | The current `examples` row |
+| `${dataset.signups}` | Every row of `datasets/signups.csv` (or `.json`, `.yaml`), for `examples` |
+| `${env.HOME}` | An environment variable |
 
 ## Selectors
 

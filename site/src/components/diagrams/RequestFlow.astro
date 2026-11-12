@@ -1,0 +1,165 @@
+---
+/**
+ * One call of `users#createUser`, left to right: the request the api builds, the checks run on
+ * the response, the values saved from it, and the cleanup registered for after the test.
+ */
+import Diagram from './Diagram.astro';
+---
+
+<Diagram caption="One call: the api builds the request, the checks run on the response, a save keeps a value for later, and the cleanup runs after the test.">
+  <ol class="rf" role="list">
+    <li class="rf-stage d-step" style="--d-i: 0">
+      <span class="d-label">1 · Request</span>
+      <div class="d-card">
+        <p class="d-mono rf-line"><span class="rf-verb">POST</span> /users</p>
+        <p class="d-mono rf-dim">{'{ "name": "Ada…", "email": "ada@example.com" }'}</p>
+      </div>
+      <p class="rf-from">From the api: method, path, body. The test's <code>vars</code> fill in the values.</p>
+    </li>
+    <li class="rf-arrow" aria-hidden="true"><span class="rf-wire"><span class="rf-dot"></span></span></li>
+    <li class="rf-stage d-step" style="--d-i: 1">
+      <span class="d-label">2 · Checks</span>
+      <div class="d-card">
+        <p class="d-mono rf-line"><span class="rf-ok">✓</span> status 201</p>
+        <p class="d-mono rf-line"><span class="rf-ok">✓</span> email = ada@example.com</p>
+        <p class="d-mono rf-line"><span class="rf-ok">✓</span> id is a string</p>
+      </div>
+      <p class="rf-from">The api's <code>expect</code>, then the test's on top. Each one is reported on its own.</p>
+    </li>
+    <li class="rf-arrow" aria-hidden="true"><span class="rf-wire"><span class="rf-dot"></span></span></li>
+    <li class="rf-stage d-step" style="--d-i: 2">
+      <span class="d-label">3 · Saves</span>
+      <div class="d-card">
+        <p class="d-mono rf-line">userId ← <span class="rf-dim">response.body.id</span></p>
+        <p class="d-mono rf-dim">= "3"</p>
+      </div>
+      <p class="rf-from">Later steps read it as <code>{'${var.userId}'}</code>.</p>
+    </li>
+    <li class="rf-arrow is-later" aria-hidden="true"><span class="rf-wire"><span class="rf-dot"></span></span></li>
+    <li class="rf-stage is-later d-step" style="--d-i: 3">
+      <span class="d-label">4 · Cleanup, after the test</span>
+      <div class="d-card">
+        <p class="d-mono rf-line"><span class="rf-verb">DELETE</span> /users/3</p>
+      </div>
+      <p class="rf-from">The api's <code>cleanup</code> undoes the call, even when the test failed.</p>
+    </li>
+  </ol>
+</Diagram>
+
+<style>
+  .rf {
+    display: grid;
+    gap: 0.25rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .rf-stage {
+    display: grid;
+    gap: 0.4rem;
+    min-width: 0;
+  }
+  .rf-stage .d-card {
+    display: grid;
+    gap: 0.2rem;
+  }
+  .rf-stage.is-later .d-card {
+    border-style: dashed;
+  }
+  .rf p {
+    margin: 0;
+  }
+  .rf-line {
+    color: var(--d-fg);
+    overflow-wrap: anywhere;
+  }
+  .rf-dim {
+    color: var(--d-muted);
+    overflow-wrap: anywhere;
+  }
+  .rf-verb {
+    color: var(--sl-color-text-accent);
+    font-weight: 700;
+  }
+  .rf-ok {
+    color: var(--d-test);
+    font-weight: 700;
+  }
+  .rf-from {
+    font-size: var(--sl-text-xs);
+    line-height: 1.5;
+    color: var(--d-muted);
+  }
+  .rf-from code {
+    font-size: 0.95em;
+  }
+  .rf-arrow {
+    display: grid;
+  }
+  /* The wire between two cards, with an arrowhead and a dot that travels down it. */
+  .rf-wire {
+    position: relative;
+    justify-self: center;
+    width: 2px;
+    height: 1.6rem;
+    background: var(--d-line);
+  }
+  .rf-wire::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    bottom: -2px;
+    translate: -50% 0;
+    border: 5px solid transparent;
+    border-top-color: var(--d-line);
+    border-bottom-width: 0;
+  }
+  .rf-arrow.is-later .rf-wire {
+    background: repeating-linear-gradient(var(--d-line) 0 4px, transparent 4px 8px);
+  }
+  .rf-dot {
+    position: absolute;
+    left: 50%;
+    top: 0;
+    width: 0.45rem;
+    height: 0.45rem;
+    border-radius: 50%;
+    background: var(--d-accent);
+    translate: -50% 0;
+    opacity: 0;
+  }
+  /* Room for a second column: the card on the left, what it means on the right. */
+  @container (min-width: 32rem) {
+    .rf-stage {
+      grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+      column-gap: 1.25rem;
+    }
+    .rf-stage .d-label {
+      grid-column: 1 / -1;
+    }
+    .rf-from {
+      align-self: center;
+    }
+    .rf-arrow {
+      grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+      column-gap: 1.25rem;
+    }
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    :global(.vc-diagram.is-in) .rf-dot {
+      animation: rf-travel 3.6s ease-in-out infinite;
+    }
+    .rf-arrow:nth-child(4) .rf-dot {
+      animation-delay: 0.6s;
+    }
+    .rf-arrow:nth-child(6) .rf-dot {
+      animation-delay: 1.2s;
+    }
+  }
+  @keyframes rf-travel {
+    0% { top: 0; opacity: 0; }
+    8% { opacity: 1; }
+    30% { top: calc(100% - 0.45rem); opacity: 1; }
+    40%, 100% { top: calc(100% - 0.45rem); opacity: 0; }
+  }
+</style>

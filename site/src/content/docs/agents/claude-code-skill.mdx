@@ -4,7 +4,11 @@ description: "Install the Vibranium skill for Claude Code, and add short AGENTS.
 sidebar: { order: 7 }
 ---
 
-import { Tabs, TabItem, Aside, Steps } from '@astrojs/starlight/components';
+import { Tabs, TabItem, Aside, Code } from '@astrojs/starlight/components';
+import SkillInstall from '~/components/SkillInstall.astro';
+import { skillInstall } from '~/lib/skill';
+
+export const PROJECT_INSTALL = skillInstall('.claude/skills/vibranium');
 
 A [Claude Code skill](https://docs.claude.com/en/docs/claude-code/skills) is a folder with a `SKILL.md` file. Claude loads it when a task matches its description. The Vibranium skill teaches Claude the file kinds, the ID rules, a checked syntax cheat sheet, the check, plan, run and explain loop, how to act on diagnostics, how to use the MCP tools, and what not to do.
 
@@ -21,32 +25,23 @@ The skill's description makes Claude load it for work on `*.test.yaml`, `*.api.y
 
 ## Install
 
-<Tabs syncKey="skill-scope">
-  <TabItem label="For one project">
-    Copy the folder into the project's `.claude/skills/` and commit it, so everyone on the team gets it:
+The site publishes both files at stable URLs: [`/vc-rs/skill.md`](/vc-rs/skill.md) and [`/vc-rs/skill/reference/syntax.md`](/vc-rs/skill/reference/syntax.md). They are the same bytes as `skills/vibranium/` on `master`, rebuilt with every docs deploy.
 
+<SkillInstall />
+
+To share the skill with everyone on a project, put it in the project instead and commit it:
+
+<Tabs syncKey="skill-scope">
+  <TabItem label="From a clone">
     ```console
     mkdir -p .claude/skills
     cp -R /path/to/vc-rs/skills/vibranium .claude/skills/
     ```
   </TabItem>
-  <TabItem label="For all your projects">
-    Copy it into your user skills folder:
-
-    ```console
-    mkdir -p ~/.claude/skills
-    cp -R /path/to/vc-rs/skills/vibranium ~/.claude/skills/
-    ```
+  <TabItem label="Without a clone">
+    <Code code={PROJECT_INSTALL} lang="console" wrap />
   </TabItem>
 </Tabs>
-
-Without a clone, download just the folder:
-
-```console
-mkdir -p .claude/skills/vibranium/reference
-curl -fsSL -o .claude/skills/vibranium/SKILL.md https://raw.githubusercontent.com/v007m/vc-rs/master/skills/vibranium/SKILL.md
-curl -fsSL -o .claude/skills/vibranium/reference/syntax.md https://raw.githubusercontent.com/v007m/vc-rs/master/skills/vibranium/reference/syntax.md
-```
 
 Start a new Claude Code session and ask, for example, "add a test that creates an order and checks it is pending". Claude reads the skill, writes the test, runs `vc check`, and runs the test.
 
@@ -92,7 +87,7 @@ For Claude Code with the MCP server connected, add:
 
 ## Keep it current
 
-The skill describes the `vc` version it was written for (0.1.0). When you update `vc`, copy the skill folder again from the same release.
+The skill describes the `vc` version it was written for (0.1.0). When you update `vc`, run the install command again; the published files always match the docs you are reading.
 
 ## Related
 
