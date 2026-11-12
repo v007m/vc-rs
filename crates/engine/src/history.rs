@@ -176,7 +176,18 @@ pub fn selector(select: &SelectRequest) -> String {
     parts.extend(select.tags.iter().map(|tag| format!("-t {tag}")));
     parts.extend(select.grep.iter().map(|grep| format!("--grep {grep}")));
     parts.extend(select.changed.iter().map(|base| format!("--changed {base}").trim_end().to_owned()));
+    parts.extend(select.changed_since.map(|window| format!("--changed-since {}", window_text(window))));
     parts.join(" ")
+}
+
+/// `7d`, `12h`, or `90s` for a window of no whole hours.
+fn window_text(window: std::time::Duration) -> String {
+    let seconds = window.as_secs();
+    match (seconds % 86_400, seconds % 3_600) {
+        (0, _) if seconds > 0 => format!("{}d", seconds / 86_400),
+        (_, 0) if seconds > 0 => format!("{}h", seconds / 3_600),
+        _ => format!("{seconds}s"),
+    }
 }
 
 /// A history failure as the engine's error.
@@ -197,10 +208,17 @@ mod tests {
             tags: vec!["smoke".into()],
             grep: Some("email".into()),
             changed: Some(String::new()),
+            changed_since: None,
             saved: None,
             include_skipped: false,
         };
         assert_eq!(selector(&select), "users.crud services/orders -t smoke --grep email --changed");
         assert_eq!(selector(&SelectRequest::default()), "");
+        for (seconds, text) in
+            [(14 * 86_400, "--changed-since 14d"), (36 * 3_600, "--changed-since 36h"), (90, "--changed-since 90s")]
+        {
+            let changed_since = Some(std::time::Duration::from_secs(seconds));
+            assert_eq!(selector(&SelectRequest { changed_since, ..SelectRequest::default() }), text);
+        }
     }
 }

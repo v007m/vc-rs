@@ -23,58 +23,74 @@ hero:
 
 import Section from '~/components/landing/Section.astro';
 import Split from '~/components/landing/Split.astro';
+import Window from '~/components/landing/Window.astro';
+import WindowRow from '~/components/landing/WindowRow.astro';
+import SkillInstall from '~/components/SkillInstall.astro';
 import Grid from '~/components/landing/Grid.astro';
 import Feature from '~/components/landing/Feature.astro';
 import HowStep from '~/components/landing/HowStep.astro';
 import Cta from '~/components/landing/Cta.astro';
 import LandingFooter from '~/components/landing/LandingFooter.astro';
 
-<Section id="a-test" eyebrow="A test in ten lines" title="Say what you expect. Get told exactly what broke." lead="An <strong>api</strong> says how to call an endpoint once. A <strong>test</strong> calls it by ID and states what it expects. When a check fails, the error points at the line of YAML that set it.">
-<Split startLabel="You write" endLabel="vc tells you">
-<div slot="start">
+<Section id="a-test" eyebrow="A whole test file" title="Say what you expect. Get told exactly what broke." lead="An <strong>api</strong> says how to call an endpoint once. A <strong>test</strong> calls it by ID and states what it expects. When a check fails, the error points at the line of YAML that set it.">
+<WindowRow>
+<Window title="services/users/signup.test.yaml">
 
-`vc init` creates a project with a `sample` api for the bundled demo service. Add this file next to it:
-
-```yaml title="services/sample/landing.test.yaml"
-name: User accounts
+```yaml title="services/users/signup.test.yaml" {"8":8}
+name: Sign-up
 tests:
   - id: createsUser
-    name: Creates a user with the given email
-    call: sample#createUser
+    name: Creates a user with an email
+    call: users#createUser
     vars: { email: ada@example.com }
     expect:
       status: 201
       body:
-        match: { email: ada@example.com, id: { type: string } }
+        match:
+          email: ada@example.com
+          id: { type: string }
 ```
 
-</div>
-<div slot="end">
+</Window>
+<Window title="vc run users.signup" badge="passed" tone="ok">
 
 ```console title="It passes"
-$ vc demo start --detach
-$ vc run sample.landing
+$ vc run users.signup
 plan  1 test in 1 file · profile default
 
-✓ sample.landing#createsUser                                      4ms
+✓ users.signup#createsUser — Creates a user with an email         9ms
 
-1 passed                                                     5ms · profile default
+1 passed                                                     11ms · profile default
+reports  /home/you/shop/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
 ```
 
-```console title="Change the email, and it fails at the exact line"
-✕ sample.landing#createsUser                                     50ms
-  error[V5101]: expect.body.match.email
-    --> services/sample/landing.test.yaml:10:25
-     |
-  10 |         match: { email: bob@example.com, id: { type: string } }
-     |                         ^^^^^^^^^^^^^^^ expected "bob@example.com", got "ada@example.com"
+</Window>
+<Window title="same test, expecting 200" badge="failed" tone="bad">
+
+```console title="The same test with line 8 changed to status: 200"
+$ vc run users.signup
+plan  1 test in 1 file · profile default
+
+✕ users.signup#createsUser — Creates a user with an email         3ms
+  error[V5101]: expect.status
+   --> services/users/signup.test.yaml:8:15
+    |
+  8 |       status: 200
+    |               ^^^ expected [200], got 201
+
+0 passed · 1 failed                                          4ms · profile default
+reports  /home/you/shop/.vibranium/reports/2/{ctrf.json,junit.xml,index.html}
+next     vc run --failed
+seed 3072041205346804: pass `--seed 3072041205346804` to run with the same generated data
 ```
 
-</div>
-</Split>
+</Window>
+</WindowRow>
+
+<p class="lp-note">The last window is the same test with line 8 changed to <code>status: 200</code>: the error names that line. <code>users#createUser</code> is <code>POST /users</code> on the bundled <code>vc demo</code> shop service, described once in <code>services/users/users.api.yaml</code>. The <a href="/vc-rs/start/quickstart/">quickstart</a> writes that file with you.</p>
 </Section>
 
-<Section id="features" variant="band" eyebrow="What it does" title="One engine for every kind of API test" lead="Write a test once, then check it, run it, load it or hand it to an agent. Every front end runs the same engine.">
+<Section id="features" eyebrow="What it does" title="One engine for every kind of API test" lead="Write a test once, then check it, run it, load it or hand it to an agent. Every front end runs the same engine.">
 <Grid>
 <Feature title="Functional tests" icon="check" href="/vc-rs/walkthroughs/rest-crud/">
 Call each endpoint from tests with matchers, data-driven examples, polling, setup and cleanup.
@@ -139,33 +155,29 @@ $ vc run --profile ci --report junit,ctrf,html --out reports
 </Grid>
 </Section>
 
-<Section id="agents" variant="band" eyebrow="For AI agents" title="Built so an agent can write, run and fix tests" lead="Everything an agent needs is plain text with a stable shape, and every error says what to do next.">
+<Section id="agents" eyebrow="For AI agents" title="Built so an agent can write, run and fix tests" lead="Everything an agent needs is plain text with a stable shape, and every error says what to do next.">
 <Split>
 <div slot="start">
 
+- **An agent skill.** One command installs it for Claude Code; any other agent can read it from [/vc-rs/skill.md](/vc-rs/skill.md). It teaches the file kinds, the IDs and the check, run, fix loop.
 - **Nine MCP tools** over stdio with `vc mcp`, or over HTTP at `/mcp` while `vc ui` runs.
 - **Rules and approvals.** Each profile's `agents` block says what an agent may run, call and write. Anything else is refused or waits for `vc approve`.
 - **Diagnostics with fixes.** Every problem has a code, a span and a `help:` line. `vc check --fix` applies the certain fixes.
 - **JSON everywhere.** `--json` output, an NDJSON run stream and a hosted [llms.txt](/vc-rs/llms.txt) of the whole site.
 
-<p class="lp-links"><a href="/vc-rs/agents/mcp-setup/">Set up MCP →</a> <a href="/vc-rs/agents/mcp-tools/">See the tools →</a></p>
+<p class="lp-links"><a href="/vc-rs/agents/claude-code-skill/">About the skill →</a> <a href="/vc-rs/agents/mcp-setup/">Set up MCP →</a></p>
 
 </div>
 <div slot="end">
 
+<p class="lp-pane-label"><span class="lp-pane-dot" aria-hidden="true"></span>1. Give your agent the skill</p>
+
+<SkillInstall />
+
+<p class="lp-pane-label"><span class="lp-pane-dot is-end" aria-hidden="true"></span>2. Connect the MCP server</p>
+
 ```console title="Claude Code, in the project folder"
 claude mcp add vibranium -- vc mcp
-```
-
-```json title=".mcp.json"
-{
-  "mcpServers": {
-    "vibranium": {
-      "command": "vc",
-      "args": ["mcp"]
-    }
-  }
-}
 ```
 
 </div>

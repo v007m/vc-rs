@@ -16,6 +16,9 @@ pub struct Totals {
     pub flaky: u32,
     #[prost(uint32, tag="5")]
     pub skipped: u32,
+    /// Failed under `allowFailure` (D248).
+    #[prost(uint32, tag="6")]
+    pub allowed_failures: u32,
 }
 /// Why an action, a test or a run did not pass.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
@@ -216,6 +219,8 @@ pub enum TestStatus {
     /// It failed, then passed on a retry.
     Flaky = 4,
     Skipped = 5,
+    /// It failed under `allowFailure`, so it does not fail the run (D248).
+    AllowedFailure = 6,
 }
 impl TestStatus {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -230,6 +235,7 @@ impl TestStatus {
             Self::Blocked => "TEST_STATUS_BLOCKED",
             Self::Flaky => "TEST_STATUS_FLAKY",
             Self::Skipped => "TEST_STATUS_SKIPPED",
+            Self::AllowedFailure => "TEST_STATUS_ALLOWED_FAILURE",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -241,6 +247,7 @@ impl TestStatus {
             "TEST_STATUS_BLOCKED" => Some(Self::Blocked),
             "TEST_STATUS_FLAKY" => Some(Self::Flaky),
             "TEST_STATUS_SKIPPED" => Some(Self::Skipped),
+            "TEST_STATUS_ALLOWED_FAILURE" => Some(Self::AllowedFailure),
             _ => None,
         }
     }

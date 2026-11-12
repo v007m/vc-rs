@@ -118,6 +118,46 @@ fn a_skip_on_a_line_it_shares_has_no_fix() {
 }
 
 #[test]
+fn an_allow_failure_whose_until_has_passed_is_v4008_with_a_fix_that_removes_it() {
+    let text = concat!(
+        "name: Crud\nallowFailure: {reason: down, until: 2026-11-02}\ntests:\n",
+        "  - id: getsUser\n    call: users#get\n    allowFailure:\n      reason: flaky\n      until: 2026-01-31\n",
+        "  - id: getsToday\n    call: users#get\n    allowFailure: {reason: x, until: 2026-11-03}\n",
+        "  - id: getsAny\n    call: users#get\n    allowFailure: true\n",
+    );
+    let mut input = input(CONFIG, text);
+    input.today = vc_model::Date::parse("2026-11-03");
+    let compiled = crate::compile(input);
+    let found: Vec<_> = compiled.diagnostics.iter().map(|d| (d.code, d.primary.span.start.line)).collect();
+    assert_eq!(found, [(Code::V4008, 2), (Code::V4008, 8)], "{:?}", compiled.diagnostics);
+    let text = &compiled.files.get(vc_model::SourceFileId::new(0)).unwrap().text;
+    let removed: Vec<&str> = compiled.diagnostics.iter().map(|d| &text[d.fixes[0].edits[0].range.clone()]).collect();
+    assert_eq!(
+        removed,
+        [
+            "allowFailure: {reason: down, until: 2026-11-02}\n",
+            "    allowFailure:\n      reason: flaky\n      until: 2026-01-31\n"
+        ]
+    );
+    assert!(compiled.program.is_some(), "an expired allowFailure is a warning");
+}
+
+#[test]
+fn an_allow_failure_needs_a_reason_in_its_object_form_and_a_bool_otherwise() {
+    let found = |setting: &str| {
+        let compiled =
+            compiled(CONFIG, &tests(&format!("  - id: a\n    call: users#get\n    allowFailure: {setting}\n")));
+        let shown = compiled.diagnostics.iter().filter(|d| d.code.category() != Category::Convention);
+        shown.map(|d| d.code).collect::<Vec<_>>()
+    };
+    assert_eq!(found("false"), []);
+    assert_eq!(found("{reason: flaky}"), []);
+    assert_ne!(found("{until: 2027-01-01}"), [], "a dated allowFailure says why");
+    assert_ne!(found("sometimes"), []);
+    assert_ne!(found("{reason: x, until: soon}"), [], "`until` is a date");
+}
+
+#[test]
 fn a_write_that_sends_a_shared_value_is_reported() {
     let text = format!(
         "name: Crud\nbeforeAll:\n  - id: seed\n    call: users#make\ntests:\n{}",

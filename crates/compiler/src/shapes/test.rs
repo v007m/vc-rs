@@ -3,7 +3,7 @@
 use vc_diagnostics::Code;
 
 use super::common;
-use super::common::{ACTIONS, PROFILES, SKIP, TEXTS, VARS};
+use super::common::{ACTIONS, ALLOW_FAILURE, PROFILES, SKIP, TEXTS, VARS};
 use super::types;
 use super::types::{Scope, Shape, Ty};
 
@@ -20,6 +20,7 @@ shape! {
         types::key("afterEach", ACTIONS).doc("Run after every test instance"),
         types::key("tests", Ty::List(&Ty::Obj(test))).doc("The tests"),
         types::key("skip", SKIP).doc("Skip every test in the file"),
+        types::key("allowFailure", ALLOW_FAILURE).doc("Allow every test in the file to fail"),
     ])
 }
 
@@ -35,6 +36,7 @@ shape! {
         types::key("examples", Ty::Value).scope(Scope::ROWS).doc("One test instance per row: a list of maps, `$file` or a template"),
         types::key("repeat", Ty::Int).default("1").min(1).doc("Run the whole test this many times"),
         types::key("skip", SKIP).doc("Skip with a reason, optionally until a date"),
+        types::key("allowFailure", ALLOW_FAILURE).doc("Runs; a failure is reported but does not fail the run"),
         types::key("standalone", Ty::Bool).default("true").doc("`false`: runs only when reused with `test:`"),
     ])
     .mixins(&[common::request])

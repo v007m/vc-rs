@@ -18,7 +18,7 @@ $ vc config explain [OPTIONS] <KEY>
 | --- | --- | --- | --- |
 | `<KEY>` | | | A setting or a var, by its `--set` key: `profile`, `defaults.concurrency`, `defaults.perHost`, `defaults.timeout`, `defaults.retry.attempts`, `defaults.retry.delay`, `reports.dir`, `reports.formats`, `reports.html.layout`, or `vars.<name>` |
 | `--profile` | `<IDS>` | the config's default | The active profiles, as a comma list or repeated. Later ones win |
-| `--set` | `<KEY=VALUE>` | | Sets one config value over every other layer, as on `vc run` |
+| `--set` | `<KEY=VALUE>` | | Sets one config value over every other config layer, as on `vc run` |
 | `--project` | `<DIR>` | | See [global flags](/vc-rs/reference/cli/#global-flags) |
 
 ## Examples

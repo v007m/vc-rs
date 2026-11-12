@@ -95,15 +95,15 @@ error: services/sample/basics.test.yaml already exists
 | --- | --- |
 | `vibranium.config.yaml` | `syntaxVersion: 2`, `project` (the folder name), `defaults` (timeout `30s`, concurrency `16`, perHost `8`, `accept` and `user-agent` headers), `vars.sampleUrl`, a `default` profile, `secrets` (provider `env`, schema `.env.schema`), `reports` (`.vibranium/reports`, formats ctrf, junit and html) and `history` settings. Commented examples show auth and a second profile |
 | `.env.schema` | Where you list the secret names the project uses, one `NAME=` line each, never values. It starts with comments only |
-| `.gitignore` | Adds `.vibranium/` (reports, history and cache stay local) |
+| `.gitignore` | Adds `.vibranium/` (reports, history and cache stay local) and `.env` (secret values stay out of git), each only when it is missing |
 | `services/sample/sample.api.yaml` | Four apis against the demo service: `listUsers`, `createUser`, `getUser`, `deleteUser` |
 | `services/sample/basics.test.yaml` | Four tests that call them, with the demo started in `beforeAll` |
 | `schemas/`, `datasets/`, `hooks/`, `openapi/`, `load/` | Empty folders for JSON Schemas, data files, hook functions, spec snapshots and load scenarios |
 
 Each file starts with a `yaml-language-server` schema line, so editors complete keys as you type. See [Editor setup](/vc-rs/start/editor-setup/).
 
-<Aside type="caution">
-`.gitignore` does not list `.env`. If you keep secret values in `.env`, add it to `.gitignore` yourself.
+<Aside>
+An existing `.gitignore` keeps its lines. `vc init` adds `.vibranium/` and `.env` only when it lacks them, and a line with a leading `/` counts.
 </Aside>
 
 ## Related

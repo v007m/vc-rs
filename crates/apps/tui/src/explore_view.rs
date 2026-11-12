@@ -9,7 +9,7 @@ use ratatui::widgets::{List, ListItem, ListState, Paragraph, Wrap};
 use vc_engine::Listed;
 
 use crate::edit_view;
-use crate::explore_screen::{ExploreScreen, Note, is_api};
+use crate::explore_screen::{ExploreScreen, Note, RECENT_DAYS, is_api};
 use crate::history_screen::ReadState;
 use crate::input::Input;
 use crate::theme::{self, clean};
@@ -60,7 +60,7 @@ fn status_line(screen: &ExploreScreen) -> Line<'static> {
         (ReadState::Unread | ReadState::Reading, _) => Line::styled("reading the project…", theme::INFO),
         (ReadState::Failed(reason), _) | (ReadState::Read, Some(Note::Failed(reason))) => failed(reason),
         (ReadState::Read, Some(Note::Said(said))) => Line::styled(clean(said), theme::INFO),
-        (ReadState::Read, None) => summary(screen.items(), screen.notices()),
+        (ReadState::Read, None) => summary(screen),
     }
 }
 
@@ -83,11 +83,19 @@ fn prompt(reason: &Input, id: &str, note: Option<&Note>) -> Line<'static> {
     ])
 }
 
-/// `5 tests and 2 apis · enter explains, t skips or unskips`, then the notices.
-fn summary(items: &[Listed], notices: &[String]) -> Line<'static> {
+/// `5 tests and 2 apis · enter explains, t skips or unskips, e edits`, then the notices; under
+/// `c`, the counts are of what changed in the last week.
+fn summary(screen: &ExploreScreen) -> Line<'static> {
+    let items = screen.items();
     let apis = items.iter().filter(|item| is_api(item)).count();
-    let counted = format!("{} tests and {apis} apis · enter explains, t skips or unskips, e edits", items.len() - apis);
-    Line::from_iter(std::iter::once(Span::styled(counted, theme::DIM)).chain(theme::notices(notices)))
+    let counted = format!("{} tests and {apis} apis", items.len() - apis);
+    let keys = " · enter explains, t skips or unskips, e edits";
+    let mut spans = vec![Span::styled(counted, theme::DIM)];
+    if screen.recent() {
+        spans.push(Span::styled(format!(" changed in the last {RECENT_DAYS} days · c shows all"), theme::INFO));
+    }
+    spans.push(Span::styled(keys, theme::DIM));
+    Line::from_iter(spans.into_iter().chain(theme::notices(screen.notices())))
 }
 
 /// The items under their files' paths, the chosen one highlighted.

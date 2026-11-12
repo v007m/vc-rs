@@ -18,10 +18,32 @@
 }
 
 /* ---------- Header ---------- */
+/* Two rows (see components/Header.astro): the bar, then the tabs. Starlight sizes the page from --sl-nav-height. */
+:root {
+  --vc-bar-height: 3.5rem;
+  --vc-tabs-height: 2.75rem;
+  --sl-nav-height: calc(var(--vc-bar-height) + var(--vc-tabs-height));
+}
+@media (min-width: 50em) {
+  :root {
+    --vc-bar-height: 4rem;
+  }
+}
+:root[data-has-sidebar] header.header {
+  --vc-header-pad-end: calc(var(--sl-nav-gap) + var(--sl-nav-pad-x) + var(--sl-menu-button-size));
+}
 header.header {
-  background-color: color-mix(in srgb, var(--sl-color-bg-nav) 80%, transparent);
-  backdrop-filter: saturate(1.4) blur(12px);
-  -webkit-backdrop-filter: saturate(1.4) blur(12px);
+  padding-block: 0;
+}
+starlight-menu-button button {
+  top: calc((var(--vc-bar-height) - var(--sl-menu-button-size)) / 2);
+}
+/* Content scrolling under the header must not read through it: a near-solid tint plus a blur.
+ * Only the standard backdrop-filter is written (Safari 18 reads it too): writing the -webkit- copy
+ * as well made the CSS minifier keep only the prefixed one, which Chromium ignores. */
+header.header {
+  background-color: color-mix(in srgb, var(--sl-color-bg-nav) 90%, transparent);
+  backdrop-filter: saturate(1.4) blur(16px);
   border-bottom-color: var(--sl-color-hairline);
 }
 header.header::after {
@@ -279,7 +301,6 @@ header.header::after {
   --lp-surface-strong: rgb(13 12 23 / 0.72);
   --lp-card: rgb(255 255 255 / 0.025);
   --lp-card-hover: rgb(124 92 255 / 0.07);
-  --lp-band: linear-gradient(180deg, rgb(124 92 255 / 0.06), rgb(124 92 255 / 0.015));
   --lp-accent-solid: #6d4aff;
   --lp-accent-solid-hover: #5b36f2;
   --lp-accent-border: rgb(124 92 255 / 0.35);
@@ -299,7 +320,6 @@ header.header::after {
   --lp-surface-strong: #fff;
   --lp-card: #fff;
   --lp-card-hover: #faf8ff;
-  --lp-band: linear-gradient(180deg, #f6f3ff, #fbfaff);
   --lp-accent-solid: #5b36f2;
   --lp-accent-solid-hover: #4824dc;
   --lp-accent-border: rgb(91 54 242 / 0.28);
@@ -379,21 +399,22 @@ header.header::after {
     transform: translateX(3px);
   }
 }
-.lp-pane ul {
+/* Only the pane's own lists: tab lists inside a pane keep Starlight's look. */
+.lp-pane > div > ul {
   display: grid;
   gap: 1rem;
   margin: 0;
   padding: 0;
   list-style: none;
 }
-.lp-pane li {
+.lp-pane > div > ul > li {
   position: relative;
   margin: 0;
   padding-inline-start: 1.75rem;
   color: var(--sl-color-gray-2);
   line-height: 1.6;
 }
-.lp-pane li::before {
+.lp-pane > div > ul > li::before {
   content: '';
   position: absolute;
   inset-inline-start: 0;
@@ -406,7 +427,7 @@ header.header::after {
       center / 0.7rem no-repeat,
     var(--lp-accent-solid);
 }
-.lp-pane li strong {
+.lp-pane > div > ul > li strong {
   color: var(--sl-color-white);
 }
 .lp-pane :is(li, p) code {
@@ -420,6 +441,18 @@ header.header::after {
 }
 .lp-pane a {
   color: var(--sl-color-text-accent);
+}
+.lp-note {
+  max-width: 44rem;
+  margin: 1.75rem auto 0;
+  text-align: center;
+  font-size: var(--sl-text-sm);
+  line-height: 1.7;
+  color: var(--sl-color-gray-3);
+}
+.lp-note code {
+  font-size: 0.9em;
+  color: var(--sl-color-gray-2);
 }
 .lp-links {
   display: flex;

@@ -161,6 +161,31 @@
       },
       "type": "object"
     },
+    "allowFailure": {
+      "additionalProperties": false,
+      "description": "Why and until when a failure is allowed (D248)",
+      "properties": {
+        "reason": {
+          "description": "Shown in reports",
+          "examples": [
+            "known bug, see issue 123"
+          ],
+          "type": "string"
+        },
+        "until": {
+          "description": "Last day a failure is allowed; then it fails the run and `vc check` warns (V4008)",
+          "examples": [
+            "2026-12-01"
+          ],
+          "format": "date",
+          "type": "string"
+        }
+      },
+      "required": [
+        "reason"
+      ],
+      "type": "object"
+    },
     "authUse": {
       "additionalProperties": false,
       "description": "An auth with vars for it",
@@ -459,6 +484,17 @@
           },
           "type": "array"
         },
+        "allowFailure": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "$ref": "#/$defs/allowFailure"
+            }
+          ],
+          "description": "Runs; a failure is reported but does not fail the run"
+        },
         "auth": {
           "anyOf": [
             {
@@ -636,6 +672,17 @@
         "$ref": "#/$defs/action"
       },
       "type": "array"
+    },
+    "allowFailure": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "$ref": "#/$defs/allowFailure"
+        }
+      ],
+      "description": "Allow every test in the file to fail"
     },
     "beforeAll": {
       "description": "Run once before the file's tests",

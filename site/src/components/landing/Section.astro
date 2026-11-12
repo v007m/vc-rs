@@ -5,15 +5,13 @@ interface Props {
   eyebrow: string;
   title: string;
   lead?: string;
-  /** `band` paints a full-width tinted background behind the section. */
-  variant?: 'plain' | 'band';
 }
 
-const { id, eyebrow, title, lead, variant = 'plain' } = Astro.props;
+const { id, eyebrow, title, lead } = Astro.props;
 ---
 
-<section class:list={['lp-section', 'not-content', { 'lp-band': variant === 'band' }]} aria-labelledby={id}>
-  <header class="lp-section-head">
+<section class="lp-section not-content" aria-labelledby={id}>
+  <header class="lp-section-head" data-reveal>
     <p class="lp-eyebrow">{eyebrow}</p>
     <h2 id={id} set:html={title} />
     {lead && <p class="lp-lead" set:html={lead} />}
@@ -23,17 +21,7 @@ const { id, eyebrow, title, lead, variant = 'plain' } = Astro.props;
 
 <style>
   .lp-section {
-    position: relative;
-    isolation: isolate;
-    padding-block: clamp(3.5rem, 2.5rem + 4vw, 6.5rem);
-  }
-  .lp-band::before {
-    content: '';
-    position: absolute;
-    z-index: -1;
-    inset: 0 calc(50% - 50vw);
-    background: var(--lp-band);
-    border-block: 1px solid var(--lp-border-soft);
+    padding-block: clamp(2rem, 1.5rem + 2vw, 3.25rem);
   }
   .lp-section-head {
     max-width: 42rem;

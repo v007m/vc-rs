@@ -622,6 +622,7 @@ impl core::fmt::Debug for vc_model::TestBody
 pub fn vc_model::TestBody::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_model::TestBody
 pub enum vc_model::TestStatus
+pub vc_model::TestStatus::AllowedFailure
 pub vc_model::TestStatus::Blocked
 pub vc_model::TestStatus::Failed
 pub vc_model::TestStatus::Flaky
@@ -664,6 +665,7 @@ pub vc_model::Action::cache: core::option::Option<vc_model::CacheSpec>
 pub vc_model::Action::expect: vc_model::Expect
 pub vc_model::Action::headers: indexmap::map::IndexMap<alloc::string::String, vc_model::Template>
 pub vc_model::Action::id: core::option::Option<vc_model::Sym>
+pub vc_model::Action::implied: alloc::vec::Vec<vc_model::VarName>
 pub vc_model::Action::keep: bool
 pub vc_model::Action::kind: vc_model::ActionKind
 pub vc_model::Action::owner: vc_model::Owner
@@ -750,6 +752,20 @@ pub fn vc_model::AlertChannel::eq(&self, &Self) -> bool
 impl core::fmt::Debug for vc_model::AlertChannel
 pub fn vc_model::AlertChannel::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_model::AlertChannel
+pub struct vc_model::AllowFailure
+pub vc_model::AllowFailure::off: bool
+pub vc_model::AllowFailure::reason: core::option::Option<alloc::string::String>
+pub vc_model::AllowFailure::until: core::option::Option<alloc::string::String>
+impl core::clone::Clone for vc_model::AllowFailure
+pub fn vc_model::AllowFailure::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::AllowFailure
+impl core::cmp::PartialEq for vc_model::AllowFailure
+pub fn vc_model::AllowFailure::eq(&self, &Self) -> bool
+impl core::default::Default for vc_model::AllowFailure
+pub fn vc_model::AllowFailure::default() -> Self
+impl core::fmt::Debug for vc_model::AllowFailure
+pub fn vc_model::AllowFailure::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::AllowFailure
 pub struct vc_model::Api
 pub vc_model::Api::auth: vc_model::AuthRef
 pub vc_model::Api::body: vc_model::BodySpec
@@ -1537,6 +1553,7 @@ impl<'de> serde_core::de::Deserialize<'de> for vc_model::PipeCall
 pub fn vc_model::PipeCall::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub struct vc_model::Plan
 pub vc_model::Plan::after_run: alloc::vec::Vec<vc_model::ActionId>
+pub vc_model::Plan::allowed_failures: alloc::collections::btree::map::BTreeMap<vc_model::TestId, vc_model::AllowFailure>
 pub vc_model::Plan::before_run: alloc::vec::Vec<vc_model::PlannedAction>
 pub vc_model::Plan::files: alloc::vec::Vec<vc_model::PlannedFile>
 pub vc_model::Plan::row_names: alloc::collections::btree::map::BTreeMap<(vc_model::TestId, u32), alloc::string::String>
@@ -2102,6 +2119,7 @@ impl<'de> serde_core::de::Deserialize<'de> for vc_model::Template
 pub fn vc_model::Template::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub struct vc_model::Test
 pub vc_model::Test::after: alloc::vec::Vec<vc_model::ActionId>
+pub vc_model::Test::allow_failure: core::option::Option<vc_model::AllowFailure>
 pub vc_model::Test::before: alloc::vec::Vec<vc_model::ActionId>
 pub vc_model::Test::body: vc_model::TestBody
 pub vc_model::Test::examples: core::option::Option<vc_model::Examples>
@@ -2126,6 +2144,7 @@ impl core::fmt::Debug for vc_model::Test
 pub fn vc_model::Test::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_model::Test
 pub struct vc_model::TestFile
+pub vc_model::TestFile::allow_failure: core::option::Option<vc_model::AllowFailure>
 pub vc_model::TestFile::id: vc_model::FileId
 pub vc_model::TestFile::lifecycle: vc_model::Lifecycle
 pub vc_model::TestFile::name: core::option::Option<alloc::string::String>
@@ -2203,6 +2222,7 @@ pub fn vc_model::Timing::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt:
 impl core::marker::Copy for vc_model::Timing
 impl core::marker::StructuralPartialEq for vc_model::Timing
 pub struct vc_model::Totals
+pub vc_model::Totals::allowed_failures: usize
 pub vc_model::Totals::blocked: usize
 pub vc_model::Totals::failed: usize
 pub vc_model::Totals::flaky: usize

@@ -2,6 +2,7 @@
   import { engine } from '#lib/api/transport.ts';
   import Screen from '#lib/Screen.svelte';
   import { getRunSession } from '#lib/run/context.ts';
+  import { enginePort as skipPort } from '#lib/skip/port.ts';
   import { Catalog } from '#lib/tests/catalog.svelte.ts';
   import Explorer from '#lib/tests/Explorer.svelte';
 
@@ -11,5 +12,5 @@
 </script>
 
 <Screen title="Tests">
-  <Explorer {catalog} {session} />
+  <Explorer {catalog} {session} skips={skipPort(engine)} />
 </Screen>

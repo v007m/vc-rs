@@ -133,6 +133,38 @@ pub fn summary() -> RunSummary {
         .profiles(["dev"])
 }
 
+/// The script's events with its failed test allowed to fail for `upstream sandbox` (D248).
+pub fn allowing(events: Vec<Event>) -> Vec<Event> {
+    let allow = |mut result: TestResult| {
+        result.status = TestStatus::AllowedFailure;
+        result.skip_reason = Some("upstream sandbox".to_owned());
+        result
+    };
+    let event = |event| match event {
+        Event::TestFinished { result } if result.status == TestStatus::Failed => {
+            Event::TestFinished { result: allow(result) }
+        }
+        other => other,
+    };
+    events.into_iter().map(event).collect()
+}
+
+/// [`summary`] with its failure counted as allowed; the blocked test still fails the run.
+pub fn allowed_summary() -> RunSummary {
+    let totals = Totals { failed: 0, allowed_failures: 1, ..totals() };
+    RunSummary::new(RunStatus::Failed, totals).timed(1_793_750_400_000, Duration::from_millis(2_500))
+}
+
+/// The snapshot of the scripted run with its failure allowed, ended as [`allowed_summary`].
+pub fn allowed_snapshot() -> RunSnapshot {
+    let (capture, _captured) = Capture::new();
+    let context = context(capture);
+    let events = allowing(script(&context.program(), context.plan()));
+    let mut recorder = Recorder::new(&context);
+    let _rows: Vec<Row> = events.iter().flat_map(|event| recorder.take(event)).collect();
+    recorder.finish(RunFacts::of(7, &allowed_summary()))
+}
+
 fn totals() -> Totals {
     let mut totals = Totals::default();
     let statuses = [TestStatus::Passed, TestStatus::Failed, TestStatus::Blocked, TestStatus::Flaky];
@@ -302,7 +334,7 @@ fn finished(test: TestId, instance: Option<u32>, status: TestStatus, failure: Op
     let attempts = match status {
         TestStatus::Flaky => 2,
         TestStatus::Skipped | TestStatus::Blocked => 0,
-        TestStatus::Passed | TestStatus::Failed => 1,
+        TestStatus::Passed | TestStatus::Failed | TestStatus::AllowedFailure => 1,
     };
     let skip_reason = (status == TestStatus::Skipped).then(|| "rewrite pending".to_owned());
     let instance = instance.map(InstanceId::new);

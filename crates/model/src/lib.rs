@@ -53,8 +53,8 @@ pub use config::{
 };
 pub use date::Date;
 pub use defs::{
-    AuthRef, CacheSpec, Examples, HookRef, Lifecycle, Loop, Method, Owner, Poll, RequestHooks, Retry, RunBlocks,
-    SaveSpec, Skip, Tag, VarDefs,
+    AllowFailure, AuthRef, CacheSpec, Examples, HookRef, Lifecycle, Loop, Method, Owner, Poll, RequestHooks, Retry,
+    RunBlocks, SaveSpec, Skip, Tag, VarDefs,
 };
 pub use error::ModelError;
 pub use event::{Event, Feed, Sequenced};

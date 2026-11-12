@@ -80,6 +80,17 @@ fn names_the_suites_after_the_project() {
     assert!(xml.contains(r#"<testsuites name="shop" tests="6""#), "{xml}");
 }
 
+/// D248: an allowed failure is a skipped case whose message gives the reason and the failure.
+#[test]
+fn writes_an_allowed_failure_as_a_skipped_case_with_its_reason_and_failure() {
+    let xml = rendered(&testing::allowed_snapshot());
+    let suites = r#"<testsuites name="vibranium" tests="6" failures="0" errors="1" skipped="2" time="2.500">"#;
+    assert!(xml.contains(suites), "{xml}");
+    assert!(xml.contains(r#"<testsuite name="users.crud" tests="6" failures="0" errors="1" skipped="2""#), "{xml}");
+    assert!(xml.contains(r#"<skipped message="allowed to fail (upstream sandbox): expected 400, got 201">"#), "{xml}");
+    assert!(!xml.contains("<failure "), "{xml}");
+}
+
 #[test]
 fn gives_each_suite_the_seed_and_files_name_and_each_case_its_tests_name() {
     let mut snapshot = testing::snapshot();

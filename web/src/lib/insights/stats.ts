@@ -1,4 +1,4 @@
-import type { RunSummary, TestTrend } from './port.ts';
+import type { RunSummary, SkipLine, TestTrend } from './port.ts';
 
 /** Tests that ran in `run`: every result but the skipped ones. */
 export function ran(run: RunSummary): number {
@@ -55,4 +55,24 @@ export function when(ms: number): string {
     minute: '2-digit',
     hourCycle: 'h23',
   });
+}
+
+/** A UTC day, which has no daylight-saving change. */
+const DAY_MS = 86_400_000;
+
+/** The local calendar day at `ms`, `YYYY-MM-DD`, as `skip.until` is written. */
+export function localDay(ms: number): string {
+  const date = new Date(ms);
+  const two = (n: number) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${two(date.getMonth() + 1)}-${two(date.getDate())}`;
+}
+
+/** The skips that end within `days` days of `today`, or have ended, soonest first. */
+export function expiring(skips: readonly SkipLine[], today: string, days = 14): SkipLine[] {
+  const lastDay = new Date(Date.parse(`${today}T00:00:00Z`) + days * DAY_MS)
+    .toISOString()
+    .slice(0, 10);
+  return skips
+    .filter((skip) => skip.ended || skip.until <= lastDay)
+    .sort((a, b) => a.until.localeCompare(b.until) || a.id.localeCompare(b.id));
 }

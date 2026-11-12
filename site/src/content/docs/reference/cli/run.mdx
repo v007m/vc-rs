@@ -21,15 +21,18 @@ With no selector, every test in the project runs. Selectors are test IDs (`users
 | `-t`, `--tag` | `<TAGS>` | | Only tests with this tag expression. `!` excludes, `,` means or. Repeat to require every one |
 | `-g`, `--grep` | `<TEXT>` | | Only tests whose full ID or name contains this text, ignoring case |
 | `--changed` | `[<REF>]` | | Only files changed since this git ref, or the uncommitted and untracked changes when no ref is given |
+| `--changed-since` | `<DURATION>` | | Only files committed in the last hours, days or weeks (`12h`, `7d`, `2w`, at most 10 years), merges included, plus the uncommitted and untracked changes. Not with `--changed`. Needs git 2.37 or later |
 | `--include-skipped` | | | Also runs the tests marked `skip` |
 | `--failed` | | | Runs the tests that failed or were blocked in the last run, under its profiles. A `vc call` since then does not count as the last run |
 | `--profile` | `<IDS>` | the config's default | The active profiles, as a comma list or repeated. Later ones win |
-| `--set` | `<KEY=VALUE>` | | Sets one config value for this run (`defaults.timeout=5s`, `vars.userId=7`), over every other layer |
+| `--set` | `<KEY=VALUE>` | | Sets one config value for this run (`defaults.timeout=5s`, `vars.userId=7`), over every other config layer. A file's, test's or step's own `vars` still win over a config var |
 | `--repeat` | `<N>` | | Runs every selected test this many times, instead of its own `repeat` |
 | `--seed` | `<N>` | random | The seed for generated data. A failing run prints its seed so you can pass it here |
 | `--bail` | | | Starts no more tests after the first failure |
+| `--strict` | | | Ignores every `allowFailure`, so each allowed failure counts as a failure |
 | `--concurrency` | `<N>` | `defaults.concurrency` | Test instances at once |
 | `--reporter` | `<FORMAT>` | `spec` | The console format: `spec` or `json` (one JSON event per line) |
+| `--json` | | | An alias of `--reporter json` |
 | `--report` | `<FORMATS>` | `reports.formats`, else `ctrf` | The report files to write, as a comma list or repeated: `ctrf`, `junit`, `html` |
 | `--out` | `<DIR>` | `<reports.dir>/<run>/` | The folder the report files go in, as they are |
 | `--single-file` | | | Writes the HTML report as one self-contained `report.html` |
@@ -127,16 +130,16 @@ $ vc run sample.extra#echoesBody --reporter json --report ctrf --out build/vc
 {"action":"call sample#listUsers","check":{"actual":200,"code":null,"diff":null,"error":null,"expected":[200],"key":"status","location":{"column":15,"line":12,"path":"services/sample/extra.test.yaml"},"origin":"test sample.extra#echoesBody","passed":true},"event":"checkEvaluated","owner":{"instance":0,"kind":"instance"}}
 {"action":"call sample#listUsers","event":"actionFinished","failure":null,"owner":{"instance":0,"kind":"instance"},"status":"passed"}
 {"attempts":1,"durationMs":22,"event":"testFinished","failure":null,"instance":0,"label":"sample.extra#echoesBody","name":"Echoes the body back","skipReason":null,"status":"passed","test":"sample.extra#echoesBody"}
-{"event":"fileFinished","file":"sample.extra","totals":{"blocked":0,"failed":0,"flaky":0,"passed":1,"skipped":0}}
-{"event":"runFinished","status":"passed","totals":{"blocked":0,"failed":0,"flaky":0,"passed":1,"skipped":0}}
-{"artifacts":[{"path":"/home/ada/shop/build/vc/ctrf.json","reporter":"ctrf"}],"durationMs":23,"event":"summary","profileNames":{},"profiles":["default"],"startedMs":1794332843979,"status":"passed","totals":{"blocked":0,"failed":0,"flaky":0,"passed":1,"skipped":0}}
+{"event":"fileFinished","file":"sample.extra","totals":{"allowedFailures":0,"blocked":0,"failed":0,"flaky":0,"passed":1,"skipped":0}}
+{"event":"runFinished","status":"passed","totals":{"allowedFailures":0,"blocked":0,"failed":0,"flaky":0,"passed":1,"skipped":0}}
+{"artifacts":[{"path":"/home/ada/shop/build/vc/ctrf.json","reporter":"ctrf"}],"durationMs":23,"event":"summary","profileNames":{},"profiles":["default"],"startedMs":1794332843979,"status":"passed","totals":{"allowedFailures":0,"blocked":0,"failed":0,"flaky":0,"passed":1,"skipped":0}}
 ```
 
 ## Exit codes
 
 | Code | When |
 | --- | --- |
-| `0` | Every instance passed, was skipped, or was flaky (failed, then passed on a retry) |
+| `0` | Every instance passed, was skipped, was flaky (failed, then passed on a retry) or was allowed to fail |
 | `1` | An instance failed or was blocked, or an `afterAll` or `afterRun` action failed |
 | `2` | Nothing ran: the project has errors, the selection is empty, or a flag is wrong (an unknown profile, a bad `--set` key, a bad `--changed` ref) |
 | `130` | Cancelled with Ctrl-C |
@@ -151,7 +154,7 @@ error: --changed: cannot list the files changed since nosuchref: fatal: Needed a
 
 ## JSON output
 
-`--reporter json` prints one JSON object per line (NDJSON) on stdout, each with an `event` field:
+`--reporter json`, or its alias `--json`, prints one JSON object per line (NDJSON) on stdout, each with an `event` field:
 
 | Event | Fields |
 | --- | --- |
@@ -163,10 +166,10 @@ error: --changed: cannot list the files changed since nosuchref: fatal: Needed a
 | `actionFinished` | `action`, `owner`, `status`, `failure` |
 | `testFinished` | `test`, `instance`, `label`, `status`, `attempts`, `durationMs`, `failure` `{action, code, message}`, `skipReason` |
 | `cleanupFinished` | A cleanup action finished |
-| `runFinished` | `status`, `totals` `{passed, failed, blocked, skipped, flaky}` |
+| `runFinished` | `status`, `totals` `{passed, failed, blocked, skipped, flaky, allowedFailures}` |
 | `summary` | `status`, `totals`, `durationMs`, `startedMs`, `profiles`, `artifacts` `[{reporter, path}]` |
 
-`status` on a test is `passed`, `failed`, `blocked`, `skipped` or `flaky`.
+`status` on a test is `passed`, `failed`, `blocked`, `skipped`, `flaky` or `allowedFailure`. For an allowed failure, `skipReason` holds the `allowFailure` reason.
 
 ## How it behaves
 
@@ -174,6 +177,7 @@ error: --changed: cannot list the files changed since nosuchref: fatal: Needed a
 - **Reports.** Each run writes its report files to `<reports.dir>/<run number>/` (default `.vibranium/reports/<n>/`). The HTML report is `index.html` with its assets beside it, or one `report.html` with `--single-file`. `--out <dir>` writes the files straight into `<dir>`.
 - **History.** Every run is stored in `.vibranium/history.db`, so [`vc history`](/vc-rs/reference/cli/history/), [`vc report`](/vc-rs/reference/cli/report/) and `--failed` can use it later.
 - **Skipped tests.** A test with `skip` prints `- <id> skipped: <reason>` and does not run, unless you pass `--include-skipped`.
+- **Allowed failures.** A test with [`allowFailure`](/vc-rs/reference/syntax/allow-failure/) that fails prints `⚠ <id> allowed to fail: <reason>` and does not fail the run, unless you pass `--strict`.
 - **Blocked tests.** When a `before` action or a lifecycle action a test needs fails, the test is blocked rather than failed.
 - **Seed.** Generated data (`${fake.…}`) comes from a seed. Pass `--seed` with the printed value to get the same data again.
 

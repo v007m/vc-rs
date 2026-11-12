@@ -14,22 +14,23 @@ pub fn scripts(program: &Program, plan: &Plan) -> Result<Scripts, ExecutorError>
     let mut scripts = Scripts::new();
     for instance in plan.files.iter().flat_map(|file| &file.instances) {
         if let Entry::Vacant(entry) = scripts.entry(instance.test) {
-            entry.insert(Arc::new(script(program, instance.test)?));
+            entry.insert(Arc::new(script(program, plan, instance.test)?));
         }
     }
     Ok(scripts)
 }
 
 /// `beforeEach` and `before`, then the call or steps, then `after` and `afterEach`; the test's
-/// `retry`, else `defaults.retry` (D126).
-fn script(program: &Program, id: TestId) -> Result<InstanceScript, ExecutorError> {
+/// `retry`, else `defaults.retry` (D126); and the `allowFailure` the plan holds for it (D248).
+fn script(program: &Program, plan: &Plan, id: TestId) -> Result<InstanceScript, ExecutorError> {
     let test = program.tests.get(&id).ok_or(ExecutorError::UnknownTest(id))?;
     let lifecycle = program.test_files.get(&test.file).map(|file| &file.lifecycle);
     let each = |pick: fn(&Lifecycle) -> &Vec<ActionId>| lifecycle.map(pick).cloned().unwrap_or_default();
     let before = each(|blocks| &blocks.before_each).into_iter().chain(test.before.iter().copied()).collect();
     let after = test.after.iter().copied().chain(each(|blocks| &blocks.after_each)).collect();
     let retry = test.retry.or(program.config.defaults.retry);
-    Ok(InstanceScript { before, body: crate::body_actions(&test.body), after, retry })
+    let allow_failure = plan.allowed_failures.get(&id).cloned();
+    Ok(InstanceScript { before, body: crate::body_actions(&test.body), after, retry, allow_failure })
 }
 
 /// Every action the run starts directly: the shared lifecycle and each script.

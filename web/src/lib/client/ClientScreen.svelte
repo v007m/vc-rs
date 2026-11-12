@@ -3,6 +3,8 @@
   import type { RunSession } from '#lib/run/session.svelte.ts';
   import GroupTree from '#lib/tree/GroupTree.svelte';
   import { apiGroups } from './apis.ts';
+  import { FlowEditor } from './flow.svelte.ts';
+  import FlowPanel from './FlowPanel.svelte';
   import HarDialog from './HarDialog.svelte';
   import { HarImport } from './har.svelte.ts';
   import type { ClientPort } from './port.ts';
@@ -15,18 +17,28 @@
     client,
     port,
     session,
-  }: { client: ClientSession; port: Pick<ClientPort, 'importHar'>; session: RunSession } = $props();
+  }: {
+    client: ClientSession;
+    port: Pick<ClientPort, 'importHar' | 'readDefinition' | 'editFile'>;
+    session: RunSession;
+  } = $props();
 
   let mode: 'request' | 'flow' = $state('request');
   let filter = $state('');
   let dialog: 'save' | 'har' | undefined = $state();
   let har: HarImport | undefined = $state();
   let said = $state('');
+  let flow: FlowEditor | undefined = $state();
   const groups = $derived(apiGroups(client.apis, filter));
 
   function openHar(): void {
     har = new HarImport(port);
     dialog = 'har';
+  }
+
+  function edit(id: string): void {
+    flow = new FlowEditor(port, id);
+    void flow.load();
   }
 
   function done(what: string): void {
@@ -58,7 +70,7 @@
         label="Apis"
         {groups}
         current={client.current?.id}
-        onopen={(id) => client.open(id)}
+        onopen={(id) => void client.open(id)}
       />
       {#if groups.length === 0}
         <p class="empty">{client.apis.length ? `No api matches “${filter}”.` : 'No apis yet.'}</p>
@@ -71,7 +83,7 @@
       <p class="error" role="alert">{client.error}</p>
     {/if}
     {#if mode === 'request'}
-      <RequestPanel {client} />
+      <RequestPanel {client} onsaved={(what) => (said = what)} />
       <ResponsePanel {client} onsave={() => (dialog = 'save')} />
     {:else}
       <section aria-labelledby="flows-title">
@@ -80,16 +92,24 @@
           A flow is a test whose <code>steps</code> call apis in order, saving values between them.
         </p>
         <ul class="flows" aria-label="Flow tests">
-          {#each client.flows as flow (flow.id)}
+          {#each client.flows as listed (listed.id)}
             <li>
               <span class="grow"
-                ><span class="mono">{flow.id}</span> · {flow.name} · {flow.steps} steps</span
+                ><span class="mono">{listed.id}</span> · {listed.name} · {listed.steps} steps</span
               >
               <button
                 type="button"
                 class="btn sm"
-                disabled={session.running}
-                onclick={() => session.start({ selection: { ids: [flow.id] } })}>Run</button
+                aria-label="Edit {listed.id}"
+                aria-pressed={flow?.id === listed.id}
+                onclick={() => edit(listed.id)}>Edit</button
+              >
+              <button
+                type="button"
+                class="btn sm"
+                aria-label="Run {listed.id}"
+                disabled={session.running || (flow?.id === listed.id && flow.dirty)}
+                onclick={() => session.start({ selection: { ids: [listed.id] } })}>Run</button
               >
             </li>
           {:else}
@@ -100,6 +120,16 @@
           <a href={resolve('/runs')}>See the running flow in Runs</a>
         {/if}
       </section>
+      {#if flow}
+        <FlowPanel
+          {flow}
+          apis={client.apis}
+          onsaved={(what) => {
+            said = what;
+            void client.load();
+          }}
+        />
+      {/if}
     {/if}
     <p class="said" role="status">{said}</p>
   </div>

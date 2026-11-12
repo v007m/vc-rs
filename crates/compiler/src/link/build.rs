@@ -15,6 +15,8 @@ mod load_tests;
 mod read;
 mod rows;
 #[cfg(test)]
+mod saves_tests;
+#[cfg(test)]
 mod schema_tests;
 mod schemas;
 #[cfg(test)]
@@ -33,6 +35,7 @@ use vc_parser::Node;
 use super::data::Data;
 use super::project;
 use super::project::{Project, Source};
+use super::saves::Saves;
 use action::Place;
 pub use expect::path as body_path;
 pub use read::{duration, flag, method};
@@ -49,7 +52,8 @@ pub fn program(
     let mut builder = ProgramBuilder::new(project.strings.clone(), files);
     builder.hooks(hooks);
     let (api_expects, http_retry) = (HashMap::new(), HttpRetry::default());
-    let mut build = Build { project, data, builder, api_expects, http_retry, secrets };
+    let saves = Saves::new(project);
+    let mut build = Build { project, data, builder, api_expects, http_retry, secrets, saves };
     build.all().ok()?;
     Some(build.builder.freeze())
 }
@@ -64,6 +68,8 @@ struct Build<'p, 'a> {
     http_retry: HttpRetry,
     /// The secret names `.env.schema` declares (D165), the optional ones apart (D280).
     secrets: &'p SchemaNames,
+    /// What reused tests save, worked out once each (D282).
+    saves: Saves<'p, 'a>,
 }
 
 impl<'a> Build<'_, 'a> {

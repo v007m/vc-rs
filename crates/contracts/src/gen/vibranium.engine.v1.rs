@@ -356,6 +356,18 @@ pub struct Definition {
     /// An api's declared var names, in order.
     #[prost(string, repeated, tag="9")]
     pub vars: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Why a skipped test does not run: its `skip.reason`, or that its examples gave no rows. Kept
+    /// after the skip expires.
+    #[prost(string, optional, tag="10")]
+    pub skip_reason: ::core::option::Option<::prost::alloc::string::String>,
+    /// The `skip.until` date of a skipped test (`YYYY-MM-DD`), as written; absent without one. Kept
+    /// after the skip expires.
+    #[prost(string, optional, tag="11")]
+    pub skip_until: ::core::option::Option<::prost::alloc::string::String>,
+    /// The written `skip`'s `until` has passed: the test runs again (`skipped` is false) and
+    /// `vc check` warns (V3104) until the line is removed.
+    #[prost(bool, tag="12")]
+    pub skip_expired: bool,
 }
 /// An api a test calls.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
@@ -519,6 +531,50 @@ pub struct WriteFileResponse {
     #[prost(string, tag="3")]
     pub check_error: ::prost::alloc::string::String,
 }
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct PointerEdit {
+    /// RFC 6901, such as `/defaults/timeout` or `/profiles/0/default`.
+    #[prost(string, tag="1")]
+    pub pointer: ::prost::alloc::string::String,
+    #[prost(enumeration="EditOp", tag="2")]
+    pub op: i32,
+    /// The value as JSON text: `"5s"`, `8`, `true`, a list or a map; empty for a remove.
+    #[prost(string, tag="3")]
+    pub value_json: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct EditFileRequest {
+    /// Relative to the project root.
+    #[prost(string, tag="1")]
+    pub path: ::prost::alloc::string::String,
+    /// The digest `ReadFile` gave; the edit is refused if the file changed since.
+    #[prost(string, tag="2")]
+    pub digest: ::prost::alloc::string::String,
+    /// Made in order, each pointer read against the file the edits before it left.
+    #[prost(message, repeated, tag="3")]
+    pub edits: ::prost::alloc::vec::Vec<PointerEdit>,
+    /// Writes the file; otherwise only previews it.
+    #[prost(bool, tag="4")]
+    pub write: bool,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct EditFileResponse {
+    /// The change as a unified diff, masked as a run's values are; empty when the edits change
+    /// nothing.
+    #[prost(string, tag="1")]
+    pub diff: ::prost::alloc::string::String,
+    /// The digest on disk: the new one once written, else the one sent.
+    #[prost(string, tag="2")]
+    pub digest: ::prost::alloc::string::String,
+    #[prost(bool, tag="3")]
+    pub written: bool,
+    /// The diagnostics of the project with the file written; empty for a preview.
+    #[prost(message, repeated, tag="4")]
+    pub diagnostics: ::prost::alloc::vec::Vec<Diagnostic>,
+    /// Why the project could not be checked after the write, with its help; empty when it was.
+    #[prost(string, tag="5")]
+    pub check_error: ::prost::alloc::string::String,
+}
 /// An agent's request to do something its policy holds for a person.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct Approval {
@@ -598,7 +654,7 @@ pub struct ListAgentActionsResponse {
     #[prost(message, repeated, tag="1")]
     pub actions: ::prost::alloc::vec::Vec<AgentAction>,
 }
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CallRequest {
     /// The api's full ID.
     #[prost(string, tag="1")]
@@ -613,6 +669,105 @@ pub struct CallRequest {
     pub profiles: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
     #[prost(string, repeated, tag="5")]
     pub sets: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Edits to the api's file that are not saved: the call sends the api as edited, and the
+    /// file is left as it is.
+    #[prost(message, optional, tag="6")]
+    pub draft: ::core::option::Option<ApiDraft>,
+}
+/// Pointer edits to an api file, made over it as it was opened; nothing is written.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ApiDraft {
+    /// Relative to the project root; only a file the editor opens.
+    #[prost(string, tag="1")]
+    pub path: ::prost::alloc::string::String,
+    /// The digest `ReadDefinition` or `ReadFile` gave; a call over a changed file is aborted.
+    #[prost(string, tag="2")]
+    pub digest: ::prost::alloc::string::String,
+    /// As `EditFile` takes them.
+    #[prost(message, repeated, tag="3")]
+    pub edits: ::prost::alloc::vec::Vec<PointerEdit>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ReadDefinitionRequest {
+    /// An api's or test's full ID: `users#get`, `users.crud#getsCreatedUser`.
+    #[prost(string, tag="1")]
+    pub id: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ReadDefinitionResponse {
+    /// Its file, relative to the project root.
+    #[prost(string, tag="1")]
+    pub path: ::prost::alloc::string::String,
+    /// Where it sits in its file, `/apis/2` or `/tests/0`; its edits' pointers start with it.
+    #[prost(string, tag="2")]
+    pub pointer: ::prost::alloc::string::String,
+    /// The file's digest, for a draft or an `EditFile` over it.
+    #[prost(string, tag="3")]
+    pub digest: ::prost::alloc::string::String,
+    /// As its file writes it, as JSON text: templates as written, secrets masked.
+    #[prost(string, tag="4")]
+    pub json: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ExplainApiRequest {
+    /// The api's full ID.
+    #[prost(string, tag="1")]
+    pub api: ::prost::alloc::string::String,
+    /// `name=value` vars at call level, as `vc call` takes them.
+    #[prost(string, repeated, tag="2")]
+    pub vars: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, repeated, tag="3")]
+    pub profiles: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, repeated, tag="4")]
+    pub sets: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// The form's unsaved edits, as a `Call` would send them: explained in place of the file.
+    #[prost(message, optional, tag="5")]
+    pub draft: ::core::option::Option<ApiDraft>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ExplainApiResponse {
+    /// Every var the api uses, each with the layers that set it, highest first: call, saved,
+    /// api, file, profile, config. Values are masked.
+    #[prost(message, repeated, tag="1")]
+    pub vars: ::prost::alloc::vec::Vec<ConfigValue>,
+    /// The headers added at send time, masked, with where each comes from.
+    #[prost(message, repeated, tag="2")]
+    pub headers: ::prost::alloc::vec::Vec<InheritedHeader>,
+    /// The auth the api is sent with, when it has one.
+    #[prost(message, optional, tag="3")]
+    pub auth: ::core::option::Option<ApiAuth>,
+    /// The request as a curl command, the bearer token replaced by `$TOKEN`.
+    #[prost(string, tag="4")]
+    pub curl: ::prost::alloc::string::String,
+    #[prost(string, repeated, tag="5")]
+    pub notices: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+/// A header an api is sent with that it does not write itself.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct InheritedHeader {
+    #[prost(string, tag="1")]
+    pub name: ::prost::alloc::string::String,
+    /// Masked.
+    #[prost(string, tag="2")]
+    pub value: ::prost::alloc::string::String,
+    /// `vibranium.config.yaml`, `users.api.yaml`, `auth shopOauth`.
+    #[prost(string, tag="3")]
+    pub from: ::prost::alloc::string::String,
+}
+/// An auth, named and described, never its token or secret values.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ApiAuth {
+    #[prost(string, tag="1")]
+    pub id: ::prost::alloc::string::String,
+    /// `oauth2`, `bearer`, `basic`, `apiKey` or a plugin's type.
+    #[prost(string, tag="2")]
+    pub r#type: ::prost::alloc::string::String,
+    /// Where its token comes from, when it fetches one; templates as written.
+    #[prost(string, tag="3")]
+    pub token_url: ::prost::alloc::string::String,
+    /// The secrets it reads, by name.
+    #[prost(string, repeated, tag="4")]
+    pub secrets: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CallResponse {
@@ -745,11 +900,70 @@ pub struct ImportResponse {
     #[prost(string, repeated, tag="2")]
     pub titles: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
-#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct SkipRequest {
+    /// A test (`users.crud#listsUsers`) or a test file (`users.crud`).
+    #[prost(string, tag="1")]
+    pub target: ::prost::alloc::string::String,
+    /// Why, for the report; never blank.
+    #[prost(string, tag="2")]
+    pub reason: ::prost::alloc::string::String,
+    /// The last day of the skip, `YYYY-MM-DD`; no end date when absent.
+    #[prost(string, optional, tag="3")]
+    pub until: ::core::option::Option<::prost::alloc::string::String>,
+    /// Write the file; a preview when false.
+    #[prost(bool, tag="4")]
+    pub write: bool,
+    /// The digest the preview gave; a write is aborted when the file changed since, or without it.
+    #[prost(string, optional, tag="5")]
+    pub expected_digest: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SkipResponse {
+    #[prost(message, repeated, tag="1")]
+    pub files: ::prost::alloc::vec::Vec<FileChange>,
+    #[prost(string, repeated, tag="2")]
+    pub titles: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// The digest of the file as previewed, which the write passes back.
+    #[prost(string, tag="3")]
+    pub digest: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct UnskipRequest {
+    /// A skipped test or test file.
+    #[prost(string, tag="1")]
+    pub target: ::prost::alloc::string::String,
+    /// Write the file; a preview when false.
+    #[prost(bool, tag="2")]
+    pub write: bool,
+    /// The digest the preview gave; a write is aborted when the file changed since, or without it.
+    #[prost(string, optional, tag="3")]
+    pub expected_digest: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct UnskipResponse {
+    #[prost(message, repeated, tag="1")]
+    pub files: ::prost::alloc::vec::Vec<FileChange>,
+    #[prost(string, repeated, tag="2")]
+    pub titles: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// The digest of the file as previewed, which the write passes back.
+    #[prost(string, tag="3")]
+    pub digest: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ListRunsRequest {
     /// At most this many; all when 0.
     #[prost(uint32, tag="1")]
     pub limit: u32,
+    /// Only runs of this kind (`run`, `load`), the limit counted among them; every kind when absent.
+    #[prost(string, optional, tag="2")]
+    pub kind: ::core::option::Option<::prost::alloc::string::String>,
+    /// Only runs under this profile; every profile when absent.
+    #[prost(string, optional, tag="3")]
+    pub profile: ::core::option::Option<::prost::alloc::string::String>,
+    /// Only runs on this git branch; every branch when absent.
+    #[prost(string, optional, tag="4")]
+    pub branch: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ListRunsResponse {
@@ -769,11 +983,17 @@ pub struct GetRunResponse {
     #[prost(message, repeated, tag="2")]
     pub tests: ::prost::alloc::vec::Vec<super::super::results::v1::Test>,
 }
-#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct TrendsRequest {
     /// Over this many runs; the engine's default when 0.
     #[prost(uint32, tag="1")]
     pub window: u32,
+    /// Only runs under this profile, the window counted among them; every profile when absent.
+    #[prost(string, optional, tag="2")]
+    pub profile: ::core::option::Option<::prost::alloc::string::String>,
+    /// Only runs on this git branch, the window counted among them; every branch when absent.
+    #[prost(string, optional, tag="3")]
+    pub branch: ::core::option::Option<::prost::alloc::string::String>,
 }
 /// One test's results over the window.
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -906,6 +1126,42 @@ impl Severity {
             "SEVERITY_INFO" => Some(Self::Info),
             "SEVERITY_WARNING" => Some(Self::Warning),
             "SEVERITY_ERROR" => Some(Self::Error),
+            _ => None,
+        }
+    }
+}
+/// What an edit does at its pointer.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum EditOp {
+    Unspecified = 0,
+    /// Replaces the value there, or adds the key with any maps above it that are missing.
+    Set = 1,
+    /// Removes the map entry or list item there, with its lines.
+    Remove = 2,
+    /// Adds a key to a map, or a last item to a list (`/profiles/-`).
+    Insert = 3,
+}
+impl EditOp {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "EDIT_OP_UNSPECIFIED",
+            Self::Set => "EDIT_OP_SET",
+            Self::Remove => "EDIT_OP_REMOVE",
+            Self::Insert => "EDIT_OP_INSERT",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "EDIT_OP_UNSPECIFIED" => Some(Self::Unspecified),
+            "EDIT_OP_SET" => Some(Self::Set),
+            "EDIT_OP_REMOVE" => Some(Self::Remove),
+            "EDIT_OP_INSERT" => Some(Self::Insert),
             _ => None,
         }
     }

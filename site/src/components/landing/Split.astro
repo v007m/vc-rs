@@ -9,11 +9,11 @@ const { startLabel, endLabel } = Astro.props;
 ---
 
 <div class="lp-split">
-  <div class="lp-pane">
+  <div class="lp-pane" data-reveal>
     {startLabel && <p class="lp-pane-label"><span class="lp-pane-dot" aria-hidden="true"></span>{startLabel}</p>}
     <slot name="start" />
   </div>
-  <div class="lp-pane">
+  <div class="lp-pane" data-reveal>
     {endLabel && <p class="lp-pane-label"><span class="lp-pane-dot is-end" aria-hidden="true"></span>{endLabel}</p>}
     <slot name="end" />
   </div>
@@ -60,7 +60,8 @@ const { startLabel, endLabel } = Astro.props;
   .lp-pane > :global(*) {
     margin: 0;
   }
-  .lp-pane-label {
+  /* Global so a label written inside a slot gets the same look. */
+  .lp-pane :global(.lp-pane-label) {
     display: flex;
     align-items: center;
     gap: 0.5rem;
@@ -68,13 +69,13 @@ const { startLabel, endLabel } = Astro.props;
     font-weight: 600;
     color: var(--sl-color-gray-2);
   }
-  .lp-pane-dot {
+  .lp-pane :global(.lp-pane-dot) {
     width: 0.5rem;
     height: 0.5rem;
     border-radius: 50%;
     background: var(--sl-color-accent);
   }
-  .lp-pane-dot.is-end {
+  .lp-pane :global(.lp-pane-dot.is-end) {
     background: var(--lp-ok);
   }
   .lp-pane :global(p:not(.lp-pane-label)) {

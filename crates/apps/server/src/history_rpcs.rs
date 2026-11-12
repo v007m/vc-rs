@@ -4,7 +4,7 @@
 use std::sync::Arc;
 
 use vc_contracts::engine::v1 as wire;
-use vc_engine::{Approval, ApprovalId, ApprovalStatus, LoggedAction, TestTrend, Verdict};
+use vc_engine::{Approval, ApprovalId, ApprovalStatus, LoggedAction, RunRow, TestTrend, Verdict};
 
 use crate::engine_api::{EngineApi, Rpcs};
 use crate::wire_history::{run, test};
@@ -36,9 +36,11 @@ async fn list_runs(
     api: Arc<EngineApi>,
     request: wire::ListRunsRequest,
 ) -> Result<wire::ListRunsResponse, ConnectError> {
-    let limit = limit(request.limit);
-    let report = api.blocking(move |engine| engine.history(limit)).await?;
-    Ok(wire::ListRunsResponse { runs: report.runs().iter().map(run).collect() })
+    let (most, kind) = (limit(request.limit), request.kind);
+    let read = if kind.is_some() { limit(0) } else { most };
+    let report = api.blocking(move |engine| engine.history(read)).await?;
+    let of_kind = |row: &&RunRow| kind.as_ref().is_none_or(|kind| &row.start.kind == kind);
+    Ok(wire::ListRunsResponse { runs: report.runs().iter().filter(of_kind).take(most).map(run).collect() })
 }
 
 async fn get_run(api: Arc<EngineApi>, request: wire::GetRunRequest) -> Result<wire::GetRunResponse, ConnectError> {
