@@ -586,6 +586,12 @@ Round 51 (12 November 2026; orchestrator, under Sarath's delegation):
 | --- | --- | --- | --- |
 | D316 | One instance label everywhere | Every place that names a test instance labels it as the run's reporters do: `<test ID> › <row name> [row n, repeat m]`, numbered from 1, the row number shown when the row has no `name` or shares it, the repeat on every instance of a test that repeats (`vc_model::InstanceLabels`). The history stores each instance's label, masked as the run printed it, in a new `test_results.label` column (migration 4); a row stored before it is labelled `[row n]` and `[repeat n]` from its row and repeat. `vc history show`, the TUI, the server's wire history and MCP read that label. `vc plan` stays offline, never loads secrets and never shows a value drawn from the environment (it still renders a templated `examples:` with the environment, only to count its rows), so it shows only the names written inline in the test file, masked by `redact.rules` alone: a `function:` rule, which `vc plan` does not run, masks the whole name (it fails closed); a row from a `$file`, a dataset or a template shows as `[row n]` (fails closed: compiled data rows keep their origin, `Examples::Data`). Labels are printed on one line, every control character and bidi mark replaced (`vc_model::one_line`). | — |
 
+Round 52 (12 November 2026; lane C, assigned by the orchestrator, for Sarath to confirm):
+
+| # | Topic | Decision | Supersedes |
+| --- | --- | --- | --- |
+| D319 | The web UI follows the system's dark mode | `tokens.css` redefines every token under `@media (prefers-color-scheme: dark)`, the same names with dark values, and sets `color-scheme`; components use tokens, not light-only colours (the primary button's text is `--panel`, its hover `--inkHover`). There is no in-app switch. The mockups' fonts stay parked | D245 (the dark theme part) |
+
 ## Open
 
 All decisions needed for the PRD and technical design are settled. The language is decided by the spike (D6, D36, D37, D41).

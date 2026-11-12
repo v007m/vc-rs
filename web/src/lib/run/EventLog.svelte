@@ -88,7 +88,7 @@
     line-height: 1.45;
   }
   .ev.error {
-    background: #fffaf9;
+    background: color-mix(in srgb, var(--failSoft) 30%, var(--panel));
   }
   .ev .dot {
     margin-top: 5px;
