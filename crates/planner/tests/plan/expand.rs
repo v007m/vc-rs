@@ -1,7 +1,8 @@
 use std::collections::BTreeMap;
 
-use vc_model::Program;
-use vc_planner::{NO_ROWS, PlanError, PlanOptions, Selection};
+use vc_diagnostics::{Code, Diagnostic};
+use vc_model::{Pos, Program, SourceFileId, SourceSpan, TestId};
+use vc_planner::{DrawnRows, NO_ROWS, PlanError, PlanOptions, Selection};
 
 use crate::common;
 
@@ -103,6 +104,18 @@ fn a_test_whose_examples_give_no_rows_is_skipped_not_dropped() {
 }
 
 #[test]
+fn only_a_test_skipped_for_no_rows_gets_a_notice() {
+    let program = with_examples();
+    let none = common::planned(&program, &common::ids(&["users.rows#listsNoPages"]));
+    let notices = vc_planner::no_rows_notices(&program, &none);
+    assert_eq!(notices, ["`users.rows#listsNoPages`: examples gave no rows, so it is skipped"]);
+    let project = common::project();
+    let skipped = vc_planner::plan(&project, &Selection::default(), &PlanOptions::default()).unwrap();
+    assert_eq!(skipped.skipped.len(), 3);
+    assert_eq!(vc_planner::no_rows_notices(&project, &skipped), Vec::<String>::new());
+}
+
+#[test]
 fn an_instance_picked_by_number_from_no_rows_does_not_exist() {
     let program = with_examples();
     let selector = "users.rows#listsNoPages:1";
@@ -200,4 +213,50 @@ fn a_function_action_is_planned_like_any_other() {
     let program = common::project_with(&[("services/users/hooks.test.yaml", each)]);
     let plan = common::try_plan(&program, &common::ids(&["users.hooks"]));
     assert!(plan.is_ok_and(|plan| plan.files.len() == 1), "a `function:` action no longer stops the plan");
+}
+
+#[test]
+fn plan_drawn_draws_only_the_rows_wanted_and_plans_with_their_counts() {
+    let program = with_examples();
+    let test = common::test_id(&program, "users.rows#listsEnvPages");
+    let mut asked = Vec::new();
+    let draw = |wanted: &[TestId]| {
+        asked.extend_from_slice(wanted);
+        Ok(DrawnRows::from([(test, vec!["a", "b", "c"])]))
+    };
+    let selection = common::ids(&["users.rows#listsEnvPages", "users.rows#listsPages"]);
+    let (plan, rows) = vc_planner::plan_drawn(&program, &selection, (options(|_| {}), draw)).unwrap();
+    assert_eq!(asked, [test]);
+    assert_eq!(rows[&test], ["a", "b", "c"]);
+    assert_eq!(common::slots(&program, &plan, "users.rows#listsEnvPages"), [(Some(0), 0), (Some(1), 0), (Some(2), 0)]);
+    assert_eq!(common::slots(&program, &plan, "users.rows#listsPages").len(), 4);
+}
+
+#[test]
+fn plan_drawn_does_not_draw_when_no_row_is_wanted() {
+    let never = |_: &[TestId]| -> Result<DrawnRows<&str>, Box<Diagnostic>> { Err(Box::new(failed())) };
+    let project = common::project();
+    let (plan, rows) = vc_planner::plan_drawn(&project, &Selection::default(), (options(|_| {}), never)).unwrap();
+    assert!(rows.is_empty() && !plan.files.is_empty());
+    let program = with_examples();
+    let pages = common::ids(&["users.rows#listsPages"]);
+    let (plan, rows) = vc_planner::plan_drawn(&program, &pages, (options(|_| {}), never)).unwrap();
+    assert!(rows.is_empty());
+    assert_eq!(common::slots(&program, &plan, "users.rows#listsPages").len(), 4);
+}
+
+#[test]
+fn plan_drawn_turns_a_failed_draw_into_its_diagnostic_and_reports_a_bad_selection_first() {
+    let fails = |_: &[TestId]| -> Result<DrawnRows<&str>, Box<Diagnostic>> { Err(Box::new(failed())) };
+    let program = with_examples();
+    let selection = common::ids(&["users.rows#listsEnvPages"]);
+    let refused = vc_planner::plan_drawn(&program, &selection, (options(|_| {}), fails));
+    assert_eq!(refused.unwrap_err(), PlanError::Diagnostics(vec![failed()]));
+    let unknown = vc_planner::plan_drawn(&program, &common::ids(&["users.rows#nope"]), (options(|_| {}), fails));
+    assert!(!matches!(unknown, Err(PlanError::Diagnostics(_)) | Ok(_)), "{unknown:?}");
+}
+
+fn failed() -> Diagnostic {
+    let span = SourceSpan::new(SourceFileId::new(0), Pos::START, Pos::START);
+    Diagnostic::new(Code::V5111, span, "the rows did not render")
 }

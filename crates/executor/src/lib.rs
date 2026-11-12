@@ -13,6 +13,7 @@
 //! through the [`vc_interfaces::HookRunner`] in [`PipelineParts::hook_runner`] (D172). Runtime values: [`RunValues`] holds the var definitions of each level with
 //! the active profiles applied once per run; each action reads its [`Frame`] and renders through
 //! a renderer, so a `call:` sends the real request and saves values for later actions.
+//! [`SeededRandom`] is the run's `--seed` random source, the same in every composition root.
 //! [`Iterations`] is the seam the load engine drives: one test instance at a time, per user;
 //! [`ProgramIterations`] runs the program's tests through it, the shared lifecycle once.
 
@@ -30,14 +31,15 @@ mod machine;
 mod mask;
 mod pipeline;
 mod redactor;
+mod seeded;
 mod shell;
 mod slots;
 mod values;
 
 pub use action::{
     ActionCx, ActionExecutor, ActionExecutors, ActionKindTag, ActionRequest, AuthKey, CachedExecutor, CallExecutor,
-    CleanupSink, CommandExecutor, FunctionExecutor, InlineExecutor, Lease, NoAuth, ProbedAuth, RuleHooks, RunCache,
-    TestExecutor, TokenCache, auth_steps, body_actions, chosen_auth, probe_auth, probe_origin, received,
+    CleanupSink, CommandExecutor, CommandShell, FunctionExecutor, InlineExecutor, Lease, NoAuth, ProbedAuth, RuleHooks,
+    RunCache, TestExecutor, TokenCache, auth_steps, body_actions, chosen_auth, probe_auth, probe_origin, received,
 };
 use action::{CleanupCollector, called, own_limit};
 pub use bus::EventBus;
@@ -59,10 +61,11 @@ pub use pipeline::{
     pipeline,
 };
 pub use redactor::{MASKED, RedactingSink, Redactor};
+pub use seeded::{MAX_FRESH_SEED, SeededRandom};
 pub use shell::{Executor, IterationSetup, ProgramIterations, RunHandle, RunInterrupter, RunOptions};
 pub use slots::{SharedResult, SharedSlots};
 use values::{Around, Render};
 pub use values::{
-    BodyFiles, Defined, ExampleRows, Frame, Iteration, RunInputs, RunValues, Unread, UnreadVar, example_rows,
-    unread_var,
+    BodyFiles, Defined, ExampleRows, Frame, Iteration, RandomFor, RunInputs, RunValues, Unread, UnreadVar, draw_rows,
+    example_rows, row_names, row_seed, unread_var,
 };

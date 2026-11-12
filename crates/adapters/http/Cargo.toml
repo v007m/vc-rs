@@ -20,7 +20,7 @@ hyper-util.workspace = true
 rustls.workspace = true
 rustls-native-certs.workspace = true
 thiserror.workspace = true
-tokio = { workspace = true, features = ["io-util"] }
+tokio = { workspace = true, features = ["io-util", "net"] }
 tokio-rustls.workspace = true
 tower-service.workspace = true
 vc-interfaces.workspace = true

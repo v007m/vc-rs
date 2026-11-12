@@ -17,6 +17,17 @@ pub struct Summary {
     pub infos: usize,
 }
 
+impl Summary {
+    /// The line `vc check` ends with: `1 error · 0 warnings · 3 files checked`.
+    #[must_use]
+    pub fn line(self, checked: usize) -> String {
+        let counts = [(self.errors, "error"), (self.warnings, "warning"), (checked, "file")];
+        let [errors, warnings, files] =
+            counts.map(|(count, noun)| format!("{count} {noun}{}", if count == 1 { "" } else { "s" }));
+        format!("{errors} · {warnings} · {files} checked")
+    }
+}
+
 /// The diagnostics found by one check or run, in the order they were pushed until sorted.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize)]
 #[serde(transparent)]
@@ -107,6 +118,13 @@ mod tests {
     fn at(file: u32, line: u32, code: Code) -> Diagnostic {
         let start = Pos::new(line, 1, 0);
         Diagnostic::new(code, SourceSpan::new(SourceFileId::new(file), start, start), "")
+    }
+
+    #[test]
+    fn summary_line_counts_with_plurals() {
+        assert_eq!(Summary::default().line(3), "0 errors · 0 warnings · 3 files checked");
+        let one = Summary { errors: 1, warnings: 1, infos: 0 };
+        assert_eq!(one.line(1), "1 error · 1 warning · 1 file checked");
     }
 
     #[test]

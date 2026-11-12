@@ -1,8 +1,6 @@
 //! The `vc-demo` binary: the small users and echo service the `vc init` sample calls, on
 //! localhost. `vc demo start` launches it (D175, D188); it serves until it is stopped.
 
-mod routes;
-
 use std::net::{Ipv4Addr, SocketAddr};
 
 use clap::Parser;
@@ -20,5 +18,5 @@ struct Args {
 async fn main() -> std::io::Result<()> {
     let args = Args::parse();
     let listener = tokio::net::TcpListener::bind(SocketAddr::from((Ipv4Addr::LOCALHOST, args.port))).await?;
-    axum::serve(listener, routes::router()).await
+    axum::serve(listener, vc_demo::router()).await
 }
