@@ -1,7 +1,8 @@
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use vc_testkit::{FakeTransport, FakeVcs, MemoryEnvironment, MemorySources, status};
+use vc_interfaces::CommandOutput;
+use vc_testkit::{FakeCommands, FakeTransport, FakeVcs, MemoryEnvironment, MemorySources, status};
 
 use crate::sample::builder;
 use crate::{CallRequest, Engine, EngineError, RunRequest, interrupts};
@@ -62,6 +63,39 @@ async fn a_run_with_every_declared_secret_set_sends_its_requests() {
     let (engine, sent) = project(&[("API_TOKEN", "tok-fixture-71"), ("OTHER_KEY", OTHER)]);
     let report = engine.run(&RunRequest::default(), interrupts().1).await.unwrap();
     assert_eq!((report.exit, sent.load(Ordering::SeqCst)), (0, 1));
+}
+
+#[tokio::test]
+async fn a_run_and_a_call_give_varlock_the_last_profile_as_vc_profile_and_no_run_value() {
+    const VARLOCK: (&str, &[u8]) = (
+        "vibranium.config.yaml",
+        b"syntaxVersion: 2\nsecrets: {provider: varlock}\nprofiles:\n  - id: dev\n    default: true\n  - id: qa\nvars: {baseUrl: 'http://x'}\n",
+    );
+    let commands = FakeCommands::new(|spec| {
+        let only_profile = spec.env == [("VC_PROFILE".to_owned(), "qa".to_owned())];
+        let stdout = r#"{"API_TOKEN":"tok-varlock-3a","OTHER_KEY":"o"}"#;
+        (spec.program == "varlock" && only_profile).then(|| Ok(CommandOutput::new(Some(0), stdout)))
+    });
+    let sent = Arc::new(AtomicUsize::new(0));
+    let counted = Arc::clone(&sent);
+    let engine = builder(FakeVcs::default())
+        .sources(Arc::new(MemorySources::new(&[VARLOCK, USERS, CRUD, SCHEMA])))
+        .commands(Arc::new(commands))
+        .transport(Arc::new(FakeTransport::new(move |request, _| {
+            assert_eq!(request.headers.get("x-token").map(|value| value.as_bytes()), Some(&b"tok-varlock-3a"[..]));
+            counted.fetch_add(1, Ordering::SeqCst);
+            Ok(status(200))
+        })))
+        .build()
+        .unwrap();
+    let profiles = vec!["dev".to_owned(), "qa".to_owned()];
+    let run = engine.run(&RunRequest { profiles: profiles.clone(), ..RunRequest::default() }, interrupts().1).await;
+    assert_eq!(run.unwrap().exit, 0);
+    let call = CallRequest { api: "users#get".into(), profiles, ..CallRequest::default() };
+    assert_eq!(engine.call(&call).await.unwrap().exit, 0);
+    assert_eq!(sent.load(Ordering::SeqCst), 2);
+    let unnamed = engine.run(&RunRequest::default(), interrupts().1).await;
+    assert!(unnamed.is_err(), "with `dev`, varlock is not given `qa`: {unnamed:?}");
 }
 
 #[test]

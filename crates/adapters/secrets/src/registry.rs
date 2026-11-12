@@ -2,10 +2,9 @@
 
 use std::collections::BTreeMap;
 use std::fmt;
-use std::path::PathBuf;
 use std::sync::Arc;
 
-use vc_interfaces::{CommandRunner, Environment, SecretError, SecretProvider};
+use vc_interfaces::{Environment, SecretError, SecretProvider};
 
 use crate::{EnvSecrets, VarlockSecrets};
 
@@ -22,12 +21,13 @@ impl SecretProviders {
         Self::default()
     }
 
-    /// `env` over `environment`, and `varlock` run with `runner` in the project `root`.
+    /// `env` over `environment`, and `varlock` as `varlock` runs it (its root and the run's
+    /// profile).
     #[must_use]
-    pub fn standard(environment: Arc<dyn Environment>, runner: Arc<dyn CommandRunner>, root: PathBuf) -> Self {
+    pub fn standard(environment: Arc<dyn Environment>, varlock: VarlockSecrets) -> Self {
         Self::new()
             .with(vc_model::DEFAULT_SECRETS_PROVIDER, Arc::new(EnvSecrets::new(environment)))
-            .with("varlock", Arc::new(VarlockSecrets::new(runner, root)))
+            .with("varlock", Arc::new(varlock))
     }
 
     /// These providers, with `name` added or replaced.
@@ -61,12 +61,13 @@ mod tests {
     use vc_testkit::{FakeCommands, MemoryEnvironment};
 
     use super::SecretProviders;
+    use crate::VarlockSecrets;
 
     #[tokio::test]
     async fn the_standard_providers_are_env_and_varlock() {
         let environment = Arc::new(MemoryEnvironment::new(&[("TOKEN", "from-env")]));
         let runner = Arc::new(FakeCommands::printing("varlock", r#"{"TOKEN":"from-varlock"}"#));
-        let providers = SecretProviders::standard(environment, runner, "/p".into());
+        let providers = SecretProviders::standard(environment, VarlockSecrets::new(runner, "/p"));
         assert_eq!(format!("{providers:?}"), r#"{"env", "varlock"}"#);
         let query = SecretQuery::new(["TOKEN"]);
         for (name, value) in [("env", "from-env"), ("varlock", "from-varlock")] {

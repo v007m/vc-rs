@@ -10,7 +10,7 @@ use vc_adapter_auth::{AuthTypes, PluginAuth};
 use vc_adapter_hooks::QuickJsHooks;
 use vc_adapter_http::{HttpOptions, HttpTransport, ProxyConfig};
 use vc_adapter_notifiers::NotifierRegistry;
-use vc_adapter_secrets::SecretProviders;
+use vc_adapter_secrets::{SecretProviders, VarlockSecrets};
 use vc_adapter_system::{DotEnv, SetFlags, SystemBrowser, SystemEnvironment, UserConfig, VibVars};
 use vc_diagnostics::Code;
 use vc_executor::MAX_FRESH_SEED;
@@ -20,6 +20,7 @@ use vc_interfaces::{
 };
 use vc_model::{Program, SecretsConfig};
 
+use crate::plan::Prepared;
 use crate::plugin_hosts::Hosts;
 use crate::settings::{self, Settings};
 use crate::user::UnderProject;
@@ -127,36 +128,54 @@ impl Engine {
     /// # Errors
     ///
     /// [`EngineError::Setting`] when the provider fails or a declared name has no value.
-    pub(crate) async fn secrets(
-        &self,
-        config: &SecretsConfig,
-        environment: &Arc<dyn Environment>,
-    ) -> Result<Secrets, EngineError> {
-        let loaded = self.loaded_secrets(config, environment).await?;
+    pub(crate) async fn secrets(&self, source: SecretSource<'_>) -> Result<Secrets, EngineError> {
+        let loaded = self.loaded_secrets(&source).await?;
+        let config = source.config;
         let blank = |name: &&String| loaded.get(name).is_none_or(|secret| secret.expose().trim().is_empty());
         let unset: Vec<&str> = config.declared.iter().filter(blank).map(String::as_str).collect();
         if unset.is_empty() { Ok(loaded) } else { Err(unset_error(&unset)) }
     }
 
     /// The secrets `.env.schema` declares, from the provider `secrets.provider` names (D163):
-    /// `env` reads them from the run's `environment`, `varlock` runs through the command runner.
-    /// Nothing is loaded when nothing is declared, and a name without a value is left out.
+    /// `env` reads them from the run's environment, `varlock` runs through the command runner,
+    /// given the run's profile (D306). Nothing is loaded when nothing is declared, and a name
+    /// without a value is left out.
     ///
     /// # Errors
     ///
     /// [`EngineError::Setting`] when the provider is unknown or cannot load them.
-    pub(crate) async fn loaded_secrets(
-        &self,
-        config: &SecretsConfig,
-        environment: &Arc<dyn Environment>,
-    ) -> Result<Secrets, EngineError> {
+    pub(crate) async fn loaded_secrets(&self, source: &SecretSource<'_>) -> Result<Secrets, EngineError> {
+        let config = source.config;
         if config.declared.is_empty() {
             return Ok(Secrets::new());
         }
-        let commands = Arc::clone(&self.commands);
-        let providers = SecretProviders::standard(Arc::clone(environment), commands, self.root().to_path_buf());
+        let profile = source.profile.map(str::to_owned);
+        let varlock = VarlockSecrets::new(Arc::clone(&self.commands), self.root().to_path_buf()).for_profile(profile);
+        let providers = SecretProviders::standard(Arc::clone(source.environment), varlock);
         let provider = providers.get(&config.provider).map_err(|error| secret_error(&error))?;
         provider.load(&SecretQuery::new(config.declared.iter().cloned())).await.map_err(|error| secret_error(&error))
+    }
+}
+
+/// Where a run's declared secrets come from: the config's `secrets`, the run's environment, and
+/// its last active profile, which Varlock is given as `VC_PROFILE` (D306).
+pub(crate) struct SecretSource<'a> {
+    pub config: &'a SecretsConfig,
+    pub environment: &'a Arc<dyn Environment>,
+    pub profile: Option<&'a str>,
+}
+
+impl<'a> SecretSource<'a> {
+    /// The secrets of `prepared`'s run, under the last of its active profiles.
+    pub fn of(prepared: &'a Prepared) -> Self {
+        let profile = prepared.names.last().map(String::as_str);
+        Self { config: &prepared.program.config.secrets, environment: &prepared.environment, profile }
+    }
+
+    /// The secrets of `layered`, under the last of `profiles`, the ones its settings make active.
+    pub fn layered(layered: &'a Layered, profiles: &'a [String]) -> Self {
+        let profile = profiles.last().map(String::as_str);
+        Self { config: &layered.program.config.secrets, environment: &layered.environment, profile }
     }
 }
 
