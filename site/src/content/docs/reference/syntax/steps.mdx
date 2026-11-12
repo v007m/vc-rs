@@ -35,7 +35,7 @@ A test entry has either `call` or `steps`, never both. Each step is an action: e
 
 ## Step defaults
 
-Six test-level keys are defaults for the steps: `auth`, `headers`, `query`, `body`, `poll` and `expect`. They reach every `call` step. `test:`, `function` and `command` steps take none of them: a `test:` step runs the reused test as written (D270).
+Six test-level keys are defaults for the steps: `auth`, `headers`, `query`, `body`, `poll` and `expect`. They reach every `call` step. `test:`, `function` and `command` steps take none of them: a `test:` step runs the reused test as written.
 
 A step's own value wins:
 

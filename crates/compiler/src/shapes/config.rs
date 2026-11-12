@@ -56,7 +56,7 @@ shape! {
         types::key("timeout", Ty::Duration).default("30s").doc("Per request"),
         types::key("concurrency", Ty::Int).default("16").min(1).doc("Test instances in flight"),
         types::key("perHost", Ty::Int).default("8").min(1).doc("Connections per host"),
-        types::key("retry", Ty::Obj(common::retry)).doc("Applied to every test unless overridden (D126)"),
+        types::key("retry", Ty::Obj(common::retry)).doc("Applied to every test unless overridden"),
         types::key("headers", TEMPLATES).doc("Sent with every request"),
     ])
 }
@@ -67,12 +67,12 @@ shape! {
         types::key("name", Ty::Text).doc("Shown in reports"),
         types::key("default", Ty::Bool).default("false").doc("Active when no profile is named"),
         types::key("vars", VARS).doc("Values that replace the config's vars"),
-        types::key("agents", Ty::Obj(agents)).doc("What agents may do under this profile; reads only when left out (D195)"),
+        types::key("agents", Ty::Obj(agents)).doc("What agents may do under this profile; reads only when left out"),
     ])
 }
 
 shape! {
-    agents = Shape::new("agents", "What an agent may do under a profile (D195)", &[
+    agents = Shape::new("agents", "What an agent may do under a profile", &[
         types::key("run", Ty::Bool).default("false").doc("Run tests, within `call` and `approve`"),
         types::key("call", Ty::List(&Ty::Enum(METHODS))).default("[]").doc("Methods sent without asking").example("[GET, POST]"),
         types::key("approve", Ty::List(&Ty::Enum(METHODS))).default("[]").doc("Methods sent once a person approves"),
@@ -136,7 +136,7 @@ shape! {
 
 shape! {
     secrets = Shape::new("secrets", "Where secrets come from", &[
-        types::key("provider", Ty::Enum(&["env", "varlock"])).default("env").doc("The secrets provider (D163)"),
+        types::key("provider", Ty::Enum(&["env", "varlock"])).default("env").doc("The secrets provider"),
         types::key("schema", Ty::Text).default(".env.schema").doc("The file that declares the secret names"),
     ])
 }
@@ -220,7 +220,7 @@ shape! {
     redact = Shape::new("redact", "Extra values to mask", &[
         types::key("headers", TEXTS).doc("Header names"),
         types::key("fields", TEXTS).doc("Body field names"),
-        types::key("rules", Ty::List(&Ty::Obj(redact_rule))).doc("Your own masking rules (D171)"),
+        types::key("rules", Ty::List(&Ty::Obj(redact_rule))).doc("Your own masking rules"),
     ])
 }
 

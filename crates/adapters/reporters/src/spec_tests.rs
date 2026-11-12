@@ -167,7 +167,7 @@ async fn a_retried_failure_shows_each_different_failure_once_under_its_attempts(
         reporter.on_event(event).await.unwrap();
     }
     let printed = captured.take().0;
-    assert!(printed.starts_with("✕ users.crud#getsUser (3 attempts)"), "{printed}");
+    assert!(printed.starts_with("Crud\n✕ users.crud#getsUser (3 attempts)"), "{printed}");
     assert!(printed.contains("  attempts 1 and 2 of 3:\n") && printed.contains("  attempt 3 of 3:\n"), "{printed}");
     assert_eq!(printed.matches("got 503").count(), 1, "the same failure once: {printed}");
     assert_eq!(printed.matches("got 500").count(), 1, "{printed}");
@@ -247,4 +247,102 @@ async fn names_each_failed_teardown_block_once_in_the_summary() {
     let tail = printed.rsplit_once("\n\n").map_or(printed.as_str(), |(_, tail)| tail);
     assert_eq!(tail, format!("{:<60} 12ms\nteardown failed: afterAll in users.crud, afterRun\n", "1 passed"));
     assert!(printed.contains("✕ sweep (file users.crud) failed"), "the action is shown as it fails: {printed}");
+}
+
+const NAMED_CRUD: &str = "name: \"Users \\e[2J\\ncrud\"
+tests:
+  - id: getsUser
+    call: users#get
+  - id: listsUsers
+    call: users#get
+";
+const BILLING: &str = "name: Billing
+tests:
+  - id: chargesCard
+    call: users#get
+";
+
+/// The `users.crud` file (two tests) and the `users.billing` file (one), and each one's index
+/// in the plan.
+fn two_files() -> (Arc<vc_model::Program>, Arc<vc_model::Plan>, usize, usize) {
+    let (program, plan) = testing::project_of(&[
+        ("vibranium.config.yaml", TEARDOWN_CONFIG),
+        ("services/users/users.api.yaml", TEARDOWN_USERS),
+        ("services/users/crud.test.yaml", NAMED_CRUD),
+        ("services/users/billing.test.yaml", BILLING),
+    ]);
+    let crud = plan.files.iter().position(|file| program.str(file.id.sym()) == Some("users.crud")).unwrap();
+    (program, plan, crud, 1 - crud)
+}
+
+/// Test `at` of the plan's file `n`, passed.
+fn passed(plan: &vc_model::Plan, (n, at): (usize, usize)) -> Event {
+    let instance = &plan.files[n].instances[at];
+    let (status, failure, duration) = (TestStatus::Passed, None, Duration::ZERO);
+    let (test, instance, attempts, skip_reason) = (instance.test, Some(instance.id), 1, None);
+    Event::TestFinished {
+        result: vc_model::TestResult { test, instance, status, attempts, failure, skip_reason, duration },
+    }
+}
+
+/// What the reporter printed after each of `events`, then after the summary.
+async fn printed_after_each(context: &ReporterContext, events: &[Event], captured: Captured) -> Vec<String> {
+    let mut reporter = SpecReporter::new(context);
+    let mut printed = Vec::new();
+    for event in events {
+        reporter.on_event(event).await.unwrap();
+        printed.push(captured.take().0);
+    }
+    reporter.finish(&testing::summary()).await.unwrap();
+    printed.push(captured.take().0);
+    printed
+}
+
+/// Tests of two files finishing in turn print as a block per file, each under its file's
+/// `name` once (D321), dimmed under colour; a name cannot drive the terminal.
+#[tokio::test]
+async fn prints_a_block_per_file_under_its_name_when_files_finish_in_turn() {
+    let (program, plan, crud, billing) = two_files();
+    let events: Vec<Event> = [(crud, 0), (billing, 0), (crud, 1)].into_iter().map(|at| passed(&plan, at)).collect();
+    for (color, heading) in [
+        (Color::Plain, "Users \u{fffd}[2J\u{fffd}crud"),
+        (Color::Ansi, "\u{1b}[2mUsers \u{fffd}[2J\u{fffd}crud\u{1b}[0m"),
+    ] {
+        let (capture, captured) = Capture::new();
+        let context = ReporterContext::new(Arc::clone(&program), Arc::clone(&plan), capture).color(color);
+        let printed = printed_after_each(&context, &events, captured).await;
+        assert!(printed[1].is_empty(), "billing waits for crud: {printed:?}");
+        let printed = printed.concat();
+        assert_eq!(printed.matches(heading).count(), 1, "{printed}");
+        assert!(printed.starts_with(&format!("{heading}\n")), "{printed}");
+        let order = ["getsUser", "listsUsers", "\n\n", "Billing", "chargesCard"].map(|text| printed.find(text));
+        assert!(order.is_sorted() && order[0].is_some(), "crud, a blank line, then billing: {printed}");
+        assert!(!printed.contains("\u{1b}[2J"), "{printed}");
+    }
+}
+
+/// A run cut short (bailed or cancelled) still prints every waiting block, before the summary.
+#[tokio::test]
+async fn prints_the_waiting_blocks_when_a_run_ends_early() {
+    let (program, plan, crud, billing) = two_files();
+    let events = [passed(&plan, (crud, 0)), passed(&plan, (billing, 0))];
+    let (capture, captured) = Capture::new();
+    let context = ReporterContext::new(program, plan, capture);
+    let printed = printed_after_each(&context, &events, captured).await;
+    assert!(printed[1].is_empty(), "{printed:?}");
+    assert!(printed[2].starts_with("\nBilling\n✓ users.billing#chargesCard"), "{printed:?}");
+    assert!(printed[2].contains("passed"), "then the summary: {printed:?}");
+}
+
+/// A serial run prints each test as it finishes.
+#[tokio::test]
+async fn prints_each_test_as_it_finishes_when_files_run_one_after_another() {
+    let (program, plan, crud, billing) = two_files();
+    let events: Vec<Event> = [(billing, 0), (crud, 0), (crud, 1)].into_iter().map(|at| passed(&plan, at)).collect();
+    let (capture, captured) = Capture::new();
+    let context = ReporterContext::new(program, plan, capture);
+    let printed = printed_after_each(&context, &events, captured).await;
+    assert!(printed[0].starts_with("Billing\n✓ users.billing#chargesCard"), "{printed:?}");
+    assert!(printed[1].starts_with("\nUsers \u{fffd}[2J\u{fffd}crud\n✓ users.crud#getsUser"), "{printed:?}");
+    assert!(printed[2].starts_with("✓ users.crud#listsUsers"), "{printed:?}");
 }

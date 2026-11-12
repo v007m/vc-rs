@@ -48,7 +48,7 @@ pub fn file(files: &BodyFiles, (action, pointer): (ActionId, &str), path: &str) 
 /// V5111 for the `$file` at `pointer` whose written path holds `${…}`, whatever it renders to.
 pub fn templated(pointer: &str) -> Failure {
     rendering(&format!(
-        "the `$file` at `{pointer}` cannot hold `${{…}}` references in its path; write it as plain text (D272)"
+        "the `$file` at `{pointer}` cannot hold `${{…}}` references in its path; write it as plain text"
     ))
 }
 

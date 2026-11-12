@@ -3,7 +3,7 @@
 //! gives the same spec output once timings and the demo's address are masked, when it passes and
 //! when a value is broken.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write as _;
 use std::net::{Ipv4Addr, SocketAddr};
 use std::path::Path;
@@ -66,13 +66,24 @@ async fn on_a_socket(files: &BTreeMap<String, String>) -> (i32, String, String) 
     (run.status.code().unwrap(), out, said(&run))
 }
 
+/// The `name` of each test file, which heads its tests in the spec output.
+fn headings(files: &BTreeMap<String, String>) -> BTreeSet<String> {
+    let tests = files.iter().filter(|(path, _)| path.ends_with(".test.yaml"));
+    tests.filter_map(|(_, text)| text.lines().find_map(|line| line.strip_prefix("name: "))).map(str::to_owned).collect()
+}
+
 /// `text` as the two runs can be compared: each duration (`12ms`, `1.4s`) is `<t>`, with the
 /// padding that right-aligns it collapsed to one space, since a longer duration takes more of
-/// it; the tests (each with its failure excerpt) are sorted, since they finish in any order; and
+/// it; the tests (each with its failure excerpt) are sorted, since they finish in any order, and
+/// so are the file headings, which come again each time the next test is from another file; and
 /// the line naming the report files is left out, since the page writes none and says so on stderr.
-fn masked(text: &str) -> String {
-    let (mut lines, mut tests) = (Vec::new(), Vec::<String>::new());
-    for line in text.lines().filter(|line| !line.starts_with("reports  ")) {
+fn masked(text: &str, headings: &BTreeSet<String>) -> String {
+    let (mut lines, mut tests, mut headed) = (Vec::new(), Vec::<String>::new(), BTreeSet::new());
+    for line in text.lines().filter(|line| !line.starts_with("reports  ") && !line.is_empty()) {
+        if headings.contains(line) {
+            headed.insert(line);
+            continue;
+        }
         let mut line: String = line.split(' ').map(timeless).collect::<Vec<_>>().join(" ");
         while line.contains("  <t>") {
             line = line.replace("  <t>", " <t>");
@@ -84,7 +95,8 @@ fn masked(text: &str) -> String {
         }
     }
     tests.sort();
-    format!("{}\n{}", lines.join("\n"), tests.concat())
+    let headed: Vec<&str> = headed.into_iter().collect();
+    format!("{}\n{}\n{}", lines.join("\n"), headed.join("\n"), tests.concat())
 }
 
 fn timeless(word: &str) -> String {
@@ -97,11 +109,13 @@ fn timeless(word: &str) -> String {
 #[tokio::test(flavor = "multi_thread")]
 async fn the_playground_prints_what_vc_run_prints_for_the_example_project() {
     let files = examples();
+    let headings = headings(&files);
     let (native, native_out, said) = on_a_socket(&files).await;
     let (page, page_out) = in_the_page(files).await;
     assert_eq!(native, 0, "{said}");
     assert_eq!(page, 0, "{page_out}");
-    assert_eq!(masked(&page_out), masked(&native_out));
+    assert!(headings.iter().all(|name| native_out.contains(&format!("\n{name}\n"))), "{native_out}");
+    assert_eq!(masked(&page_out, &headings), masked(&native_out, &headings));
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -109,10 +123,11 @@ async fn the_playground_prints_the_same_failure_excerpt_as_vc_run() {
     let mut files = examples();
     let search = files.get_mut("services/echo/search.test.yaml").unwrap();
     *search = search.replace("q: ${example.term}", "q: boots");
+    let headings = headings(&files);
     let (native, native_out, said) = on_a_socket(&files).await;
     let (page, page_out) = in_the_page(files).await;
     assert_eq!(native, 1, "{said}");
     assert_eq!(page, 1, "{page_out}");
     assert!(page_out.contains("boots"), "{page_out}");
-    assert_eq!(masked(&page_out), masked(&native_out));
+    assert_eq!(masked(&page_out, &headings), masked(&native_out, &headings));
 }

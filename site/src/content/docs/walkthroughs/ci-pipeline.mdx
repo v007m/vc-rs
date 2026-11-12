@@ -109,6 +109,7 @@ There is no prebuilt release, installer or GitHub setup action for `vc` yet. The
    $ vc run --profile ci --report junit,ctrf,html --out reports
    plan  4 tests in 1 file · lifecycle: beforeAll command · profile ci
 
+   Sample tests
    ✓ sample.basics#rejectsMissingEmail — Rejects a user without an email    0ms
    ✓ sample.basics#listsUsers — Lists users                          0ms
    ✓ sample.basics#createsUser — Creates a user with the given email    1ms
@@ -126,6 +127,7 @@ There is no prebuilt release, installer or GitHub setup action for `vc` yet. The
    $ vc run --profile ci --set vars.sampleUrl=http://127.0.0.1:18099
    plan  4 tests in 1 file · lifecycle: beforeAll command · profile ci
 
+   Sample tests
    ⊘ sample.basics#getsCreatedUser — Returns the user that was just created blocked    0ms
      error[V5105]: cannot connect to 127.0.0.1:18099: Connection refused (os error 61)
         = at: call sample#createUser

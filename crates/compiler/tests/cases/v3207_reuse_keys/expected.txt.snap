@@ -7,7 +7,7 @@ warning[V3207]: a `test:` action ignores `headers`
   |
 8 |         headers: {x-trace: '1'}
   |         ^^^^^^^ has no effect
-  = note: a `test:` action runs the reused test as written, with its own requests and checks (D270)
+  = note: a `test:` action runs the reused test as written, with its own requests and checks
   = help: remove `headers`, or set it in the reused test
   = fix: Remove `headers` (certain)
 
@@ -16,6 +16,6 @@ warning[V3207]: a `test:` action ignores `expect`
   |
 9 |         expect: {status: 201}
   |         ^^^^^^ has no effect
-  = note: a `test:` action runs the reused test as written, with its own requests and checks (D270)
+  = note: a `test:` action runs the reused test as written, with its own requests and checks
   = help: remove `expect`, or set it in the reused test
   = fix: Remove `expect` (certain)

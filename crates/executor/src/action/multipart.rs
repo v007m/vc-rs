@@ -34,7 +34,7 @@ pub fn multipart(fields: &Map<String, Value>, encoding: &Encoding<'_>) -> Result
             if named.is_some_and(|delimiter| holds(head.as_bytes(), delimiter) || holds(&bytes, delimiter)) {
                 return Err(rendering(&format!(
                     "the multipart boundary `{boundary}` appears inside the part `{name}`; name another, or \
-                     leave it out and one is drawn (D274)"
+                     leave it out and one is drawn"
                 )));
             }
             let pieces: [&[u8]; 5] = [delimiter.as_bytes(), b"\r\n", head.as_bytes(), &bytes, b"\r\n"];
@@ -120,7 +120,7 @@ fn part(value: &Value, (name, at): (&str, Option<usize>), encoding: &Encoding<'_
     let read = media::file(encoding.files, (encoding.action, &pointer), path)?;
     let (bytes, kind) = read.ok_or_else(|| {
         rendering(&format!(
-            "the `$file` in part `{name}` arrives in a `${{…}}` value; its path must be written in the body (D272)"
+            "the `$file` in part `{name}` arrives in a `${{…}}` value; its path must be written in the body"
         ))
     })?;
     Ok((Some(vc_model::basename(path).to_owned()), Some(kind), bytes))

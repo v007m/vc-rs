@@ -25,7 +25,7 @@ input_file: crates/compiler/tests/cases/v3207_reuse_keys/project
       },
       "secondary": [],
       "notes": [
-        "a `test:` action runs the reused test as written, with its own requests and checks (D270)"
+        "a `test:` action runs the reused test as written, with its own requests and checks"
       ],
       "help": [
         "remove `headers`, or set it in the reused test"
@@ -63,7 +63,7 @@ input_file: crates/compiler/tests/cases/v3207_reuse_keys/project
       },
       "secondary": [],
       "notes": [
-        "a `test:` action runs the reused test as written, with its own requests and checks (D270)"
+        "a `test:` action runs the reused test as written, with its own requests and checks"
       ],
       "help": [
         "remove `expect`, or set it in the reused test"

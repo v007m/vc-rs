@@ -152,7 +152,7 @@
       ]
     },
     "id": {
-      "description": "Scenario ID; must match the path (D139)",
+      "description": "Scenario ID; must match the path",
       "type": "string"
     },
     "mix": {

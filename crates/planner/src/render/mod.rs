@@ -18,13 +18,18 @@ pub use self::json::json;
 pub use self::tree::tree;
 
 /// The one-line summary `vc run` prints first:
-/// `4 tests in 3 files · lifecycle: beforeRun admin · beforeAll catalog · beforeEach ×9 calls`.
+/// `4 tests (9 instances) in 3 files · lifecycle: beforeRun admin · beforeAll catalog · beforeEach ×9 calls`.
 ///
-/// It counts tests, not instances: an example row or a repeat adds `beforeEach` calls, not tests.
+/// It counts tests, then, when example rows or repeats make more, the instances they run.
 /// The engine appends what only it knows, such as the profiles and cache hits.
 #[must_use]
 pub fn plan_line(program: &Program, plan: &Plan) -> String {
-    let mut line = format!("{} in {}", count(test_count(plan), "test"), count(plan.files.len(), "file"));
+    let tests = test_count(plan);
+    let mut line = count(tests, "test");
+    if plan.instance_count() != tests {
+        let _ = write!(line, " ({})", count(plan.instance_count(), "instance"));
+    }
+    let _ = write!(line, " in {}", count(plan.files.len(), "file"));
     let lifecycle = lifecycle(program, plan);
     if !lifecycle.is_empty() {
         line.push_str(" · lifecycle: ");

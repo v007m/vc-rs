@@ -4,6 +4,7 @@ expression: printed
 ---
 5 tests in 1 file
 
+Crud
 ✓ users.crud#getsUser                                           150ms
 ✕ users.crud#rejectsBadEmail [row 1]                            150ms
   error[V5101]: expect.status

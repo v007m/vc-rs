@@ -48,23 +48,23 @@ The MCP server has no tool for import, sync or load. For those steps the agent r
    $ vc import openapi specs/people.yaml --id people --tests
    ✓ imported specs/people.yaml
    $ vc check
-   0 errors · 0 warnings · 3 files checked
+   0 errors · 0 warnings · 4 files checked
    $ vc run people.openapi
    plan  3 tests in 1 file · profile local
 
-   ✓ people.openapi#createsPerson                                   41ms
-   ✓ people.openapi#listsPeople                                     41ms
-   ✕ people.openapi#getsPerson                                      42ms
-     error[V5101]: expect.status
-       --> services/people/openapi.test.yaml:20:15
+   ✓ people.openapi#createsPerson — Create a person                  3ms
+   ✓ people.openapi#listsPeople — List people                        3ms
+   ✕ people.openapi#getsPerson — Get a person                        4ms
+     error[V5101]: expect.body.schema
+       --> services/people/openapi.test.yaml:33:11
         |
-     20 |       status: 200
-        |               ^^^ expected [200], got 404
+     33 |           $file: ../../openapi/people.yaml#/components/schemas/Person
+        |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ /: "name" is a required property
 
-   2 passed · 1 failed                                          47ms · profile local
+   2 passed · 1 failed                                          6ms · profile local
    ```
 
-   The import wrote `services/people/people.api.yaml`. It matched the spec's server to the `peopleUrl` var, so `baseUrl` is `${var.peopleUrl}`. Request bodies and path params get generated data:
+   The import wrote `services/people/people.api.yaml`. It matched the spec's server to the `peopleUrl` var, so `baseUrl` is `${var.peopleUrl}`. Request bodies and path params get generated data, and `getsPerson` first creates a person, then gets it by the id `createPerson` saved:
 
    ```yaml title="services/people/people.api.yaml (part)"
    - id: getPerson
@@ -79,20 +79,20 @@ The MCP server has no tool for import, sync or load. For those steps the agent r
 
    ```json title="explain_failure for people.openapi#getsPerson (part)"
    {
-     "definition": "people.openapi#getsPerson  Get a person returns 200\nprofile  local\ncall people#getPerson\n  GET http://localhost:7531/users/${fake.lorem.word}\n  vars\n    peopleUrl  http://localhost:7531  (vibranium.config.yaml)\n    id  ${fake.lorem.word}  (api people#getPerson)\n  expect\n    status: 200  (test people.openapi#getsPerson)\n",
+     "definition": "people.openapi#getsPerson  Get a person\nprofile  local\nbefore  call people#createPerson\ncall people#getPerson\n  GET http://localhost:7531/users/${var.userId}\n  vars\n    peopleUrl  http://localhost:7531  (vibranium.config.yaml)\n    id  ${var.userId}  (test)\n    userId  ${response.body.id}  (saved by call people#createPerson)\n  headers\n    accept  application/json  (vibranium.config.yaml)\n    user-agent  vibranium/2  (vibranium.config.yaml)\n  expect\n    status: 200  (test people.openapi#getsPerson)\n    schema: openapi/people.yaml#/components/schemas/Person  (test people.openapi#getsPerson)\n",
      "results": [
-       { "id": "people.openapi#getsPerson", "status": "failed", "message": "status: expected [200], got 404", "attempts": 1, "durationMs": 42.742834, "blockedBy": null, "skipReason": null }
+       { "attempts": 1, "blockedBy": null, "durationMs": 4, "id": "people.openapi#getsPerson", "message": "schema: /: \"name\" is a required property", "skipReason": null, "status": "failed" }
      ]
    }
    ```
 
-   The id is a random word, so the service has no such person. `call_api` on `people#listPeople` shows which ids exist:
+   The created person reads back as its id alone, so the spec's required `name` is missing. The demo service stores nothing it is sent. `call_api` on `people#listPeople` shows which people exist:
 
    ```json title="call_api for people#listPeople (part)"
    { "exit": 0, "response": { "status": 200, "body": [ { "id": "1", "name": "Ada Lovelace" }, { "id": "2", "name": "Grace Hopper" } ] } }
    ```
 
-4. Fix the test with `write_definition`, giving it a real id and a body check:
+4. Fix the test with `write_definition`: get an existing person by id and check the name:
 
    ```yaml title="services/people/openapi.test.yaml (part)"
    - id: getsPerson
@@ -159,12 +159,13 @@ The agent writes the file, runs `vc check`, applies certain fixes, and runs the 
      |
    6 |     call: people#getPersn
      |           ^^^^^^^^^^^^^^^ no api has this ID
-     = help: did you mean one of `people#getPerson`, `people#createPerson`?
+     = help: did you mean `people#getPerson`?
+     = fix: Replace with people#getPerson (certain)
 
-   1 error · 0 warnings · 4 files checked
+   1 error · 0 warnings · 5 files checked
    ```
 
-   `vc check` exits 2 when there are errors. With `--json`, the same diagnostic has the path, line, column and `help` as fields (see [JSON output](/vc-rs/agents/json-and-events/#vc-check---json)). This one has no certain fix, so the agent takes the suggestion from `help` and edits the file.
+   `vc check` exits 2 when there are errors. With `--json`, the same diagnostic has the path, line, column, `help` and fix as fields (see [JSON output](/vc-rs/agents/json-and-events/#vc-check---json)). Only one api ID is close, so the fix is certain; the agent edits the api ID and leaves the test ID for the next check.
 
 3. Check again. Now that the errors are gone, the convention lint runs:
 
@@ -175,10 +176,10 @@ The agent writes the file, runs `vc check`, applies certain fixes, and runs the 
      |
    4 |   - id: gets-grace
      |         ^^^^^^^^^^ rename it
-     = help: test IDs are camelCase: `getsGraceById`
+     = help: test IDs are camelCase third-person verbs: `getsGraceById`
      = fix: Rename to getsGraceById (certain)
 
-   0 errors · 1 warning · 4 files checked
+   0 errors · 1 warning · 5 files checked
    ```
 
 4. Apply the certain fix. `vc check --fix` shows the diff and asks before writing; `--yes` applies it without asking:
@@ -197,7 +198,7 @@ The agent writes the file, runs `vc check`, applies certain fixes, and runs the 
         call: people#getPerson
         vars:
    ✓ applied 1 fix
-   0 errors · 0 warnings · 4 files checked
+   0 errors · 0 warnings · 5 files checked
    ```
 
    An agent working from `vc check --json` can apply the fix itself instead: each fix lists its `edits` as byte ranges and `newText`.
@@ -210,9 +211,10 @@ The agent writes the file, runs `vc check`, applies certain fixes, and runs the 
    $ vc run people.lookup
    plan  1 test in 1 file · profile local
 
-   ✓ people.lookup#getsGraceById                                    11ms
+   People lookup
+   ✓ people.lookup#getsGraceById — Gets Grace by id                  6ms
 
-   1 passed                                                     12ms · profile local
+   1 passed                                                     7ms · profile local
    ```
 </Steps>
 
@@ -223,7 +225,7 @@ The agent writes the file, runs `vc check`, applies certain fixes, and runs the 
 ```json title="write_definition with call: people#listPeeple"
 {
   "kind": "error",
-  "reason": "nothing was written: the change would add error[V2003] at services/people/listing.test.yaml:6: unknown api \"people#listPeeple\"",
+  "reason": "nothing was written: the change would add error[V2003] at services/people/listing.test.yaml:4: unknown api \"people#listPeeple\"",
   "help": "did you mean `people#listPeople`?"
 }
 ```
@@ -234,7 +236,7 @@ The agent corrects the text and writes again, then calls `check` and `run_tests`
 { "titles": ["Create services/people/listing.test.yaml"], "written": ["services/people/listing.test.yaml"] }
 
 { "diagnostics": { "diagnostics": [], "summary": { "errors": 0, "infos": 0, "warnings": 0 } },
-  "notices": [], "summary": { "checked": 5, "errors": 0, "warnings": 0 } }
+  "notices": [], "summary": { "checked": 6, "errors": 0, "warnings": 0 } }
 ```
 
 <Aside type="caution">
@@ -250,16 +252,16 @@ Pass the tests to run as `ids`: `run_tests {"ids": ["people.listing"]}`. The ser
 
    ```console
    $ vc history --limit 3
-       8  2026-11-10 17:48Z  failed     5 passed · 1 failed · 0 blocked · 0 skipped  profile local
-       7  2026-11-10 17:48Z  passed     1 passed · 0 failed · 0 blocked · 0 skipped  profile local  people.listing
-       6  2026-11-10 17:48Z  passed     1 passed · 0 failed · 0 blocked · 0 skipped  profile local  people.listing
+       7  2026-11-12 11:11Z  failed     5 passed · 1 failed · 0 blocked · 0 skipped  profile local
+       6  2026-11-12 11:11Z  passed     1 passed · 0 failed · 0 blocked · 0 skipped  profile local  people.listing
+       5  2026-11-12 11:11Z  passed     1 passed · 0 failed · 0 blocked · 0 skipped  profile local  people.listing
    ```
 
 2. See what failed, with the diff:
 
    ```console
-   $ vc history show 8
-       8  2026-11-10 17:48Z  failed     5 passed · 1 failed · 0 blocked · 0 skipped  profile local
+   $ vc history show 7
+       7  2026-11-12 11:11Z  failed     5 passed · 1 failed · 0 blocked · 0 skipped  profile local
      failed   people.diff#getsGraceExactly
               equals: expected {"id":"2","name":"Grace Brewster Hopper"}, got {"id":"2","name":"Grace Hopper"}
    --- expected
@@ -277,13 +279,13 @@ Pass the tests to run as `ids`: `run_tests {"ids": ["people.listing"]}`. The ser
 
    ```json title="explain_failure (part)"
    {
-     "definition": "people.diff#getsGraceExactly  Gets Grace exactly\nprofile  local\ncall people#getPerson\n  GET http://localhost:7531/users/2\n  vars\n    peopleUrl  http://localhost:7531  (vibranium.config.yaml)\n    id  2  (test)\n  expect\n    status: 200  (test people.diff#getsGraceExactly)\n    equals: equals  (test people.diff#getsGraceExactly)\n",
+     "definition": "people.diff#getsGraceExactly  Gets Grace exactly\nprofile  local\ncall people#getPerson\n  GET http://localhost:7531/users/2\n  vars\n    peopleUrl  http://localhost:7531  (vibranium.config.yaml)\n    id  2  (test)\n  headers\n    accept  application/json  (vibranium.config.yaml)\n    user-agent  vibranium/2  (vibranium.config.yaml)\n  expect\n    status: 200  (test people.diff#getsGraceExactly)\n    equals: {id: 2, name: Grace Brewster Hopper}  (test people.diff#getsGraceExactly)\n",
      "results": [
        {
+         "attempts": 1, "blockedBy": null, "durationMs": 1,
          "id": "people.diff#getsGraceExactly",
-         "status": "failed",
          "message": "equals: expected {\"id\":\"2\",\"name\":\"Grace Brewster Hopper\"}, got {\"id\":\"2\",\"name\":\"Grace Hopper\"}\n--- expected\n+++ actual\n@@ -1,4 +1,4 @@\n {\n   \"id\": \"2\",\n-  \"name\": \"Grace Brewster Hopper\"\n+  \"name\": \"Grace Hopper\"\n }\n\\ No newline at end of file\n",
-         "attempts": 1, "durationMs": 0.304542, "blockedBy": null, "skipReason": null
+         "skipReason": null, "status": "failed"
        }
      ]
    }
@@ -303,14 +305,14 @@ Pass the tests to run as `ids`: `run_tests {"ids": ["people.listing"]}`. The ser
    $ vc run people.diff
    plan  1 test in 1 file · profile local
 
-   ✓ people.diff#getsGraceExactly                                   33ms
+   ✓ people.diff#getsGraceExactly — Gets Grace exactly               1ms
 
-   1 passed                                                     38ms · profile local
+   1 passed                                                     2ms · profile local
    ```
 </Steps>
 
-<Aside type="caution">
-Calls are stored in history as runs of kind `adhoc`. After `call_api` or `vc call`, `vc history show` (which shows `last`) and `vc run --failed` look at that call, not at the failed run: `vc run --failed` then says "run 9 had no failed or blocked test; nothing to run". Name the run (`vc history show 8`) or the tests (`vc run people.diff`) instead.
+<Aside>
+Calls are stored in history as runs of kind `adhoc`; the `call_api` above is run 8. `vc history show` and `vc run --failed` skip them and look at the last test run, so after the call `vc run --failed` still reruns `people.diff#getsGraceExactly`.
 </Aside>
 
 ## 4. Keep apis in step with the spec: `vc sync`
@@ -475,14 +477,16 @@ An agent reads the result with `vc load people.browse --json`, which prints one 
    $ vc run --changed main
    plan  6 tests in 4 files · profile local
 
-   ✓ people.openapi#listsPeople                                     48ms
-   ✓ people.openapi#createsPerson                                   47ms
-   ✓ people.diff#getsGraceExactly                                   48ms
-   ✓ people.openapi#getsPerson                                      49ms
-   ✓ people.listing#listsAdaFirst                                   48ms
-   ✓ people.lookup#getsGraceById                                    48ms
+   ✓ people.listing#listsAdaFirst — Lists Ada first                  2ms
+   ✓ people.diff#getsGraceExactly — Gets Grace exactly               2ms
+   ✓ people.openapi#createsPerson — Create a person                  2ms
+   ✓ people.openapi#getsPerson — Get a person returns 200            2ms
+   ✓ people.openapi#listsPeople — List people                        2ms
 
-   6 passed                                                     51ms · profile local
+   People lookup
+   ✓ people.lookup#getsGraceById — Gets Grace by id                  2ms
+
+   6 passed                                                     3ms · profile local
    ```
 
 3. In CI, check out enough history for the ref to exist (for GitHub Actions, `fetch-depth: 0`) and run:

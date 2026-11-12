@@ -108,7 +108,7 @@
           "description": "`until`, `every`, `timeout`"
         },
         "provides": {
-          "description": "Names a `function` or `test` action saves (D128)",
+          "description": "Names a `function` or `test` action saves",
           "items": {
             "type": "string"
           },
@@ -163,7 +163,7 @@
     },
     "allowFailure": {
       "additionalProperties": false,
-      "description": "Why and until when a failure is allowed (D248)",
+      "description": "Why and until when a failure is allowed",
       "properties": {
         "reason": {
           "description": "Shown in reports",
@@ -411,7 +411,7 @@
     },
     "retry": {
       "additionalProperties": false,
-      "description": "Re-run the whole test instance after a failure (D126)",
+      "description": "Re-run the whole test instance after a failure",
       "properties": {
         "attempts": {
           "description": "Further attempts after the first",
@@ -699,7 +699,7 @@
       "type": "array"
     },
     "id": {
-      "description": "File ID; must match the path (D139)",
+      "description": "File ID; must match the path",
       "examples": [
         "users.crud"
       ],

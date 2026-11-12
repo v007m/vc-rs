@@ -57,7 +57,7 @@
         },
         "http": {
           "$ref": "#/$defs/http",
-          "description": "Transport retry for this api; keys replace the config's (D143)"
+          "description": "Transport retry for this api; keys replace the config's"
         },
         "id": {
           "description": "camelCase; `create` is referenced as `users#create`",
@@ -107,7 +107,7 @@
           "type": "object"
         },
         "saveOn": {
-          "description": "The statuses on which `save` runs (D191)",
+          "description": "The statuses on which `save` runs",
           "examples": [
             201
           ],
@@ -337,14 +337,14 @@
           "default": {
             "attempts": 0
           },
-          "description": "Retry one request on a transport failure (D143)"
+          "description": "Retry one request on a transport failure"
         }
       },
       "type": "object"
     },
     "httpRetry": {
       "additionalProperties": false,
-      "description": "Transport retry of one request (D143)",
+      "description": "Transport retry of one request",
       "properties": {
         "attempts": {
           "default": 0,
@@ -551,7 +551,7 @@
       "type": "object"
     },
     "id": {
-      "description": "File ID; must match the path (D139)",
+      "description": "File ID; must match the path",
       "examples": [
         "users"
       ],

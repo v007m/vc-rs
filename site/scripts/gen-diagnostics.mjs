@@ -63,10 +63,13 @@ function readLldRows() {
   const map = new Map();
   for (const line of readIf(lldFile).split('\n')) {
     const m = line.match(/^\| (V\d{4}) \| (\w+) \| .* \| (.*) \|$/);
-    if (m) map.set(m[1], { outcome: m[2], fix: m[3].trim() });
+    if (m) map.set(m[1], { outcome: m[2], fix: withoutDecisions(m[3]) });
   }
   return map;
 }
+
+/** `text` without the decision numbers the LLD cites, `(D139)`, which mean nothing to a reader of the site. */
+const withoutDecisions = (text) => text.replace(/\s*\(D\d+(?:, D\d+)*\)/g, '').trim();
 
 /** Escapes MDX-hostile characters in prose, leaving inline code spans as they are. */
 function escapeProse(line) {

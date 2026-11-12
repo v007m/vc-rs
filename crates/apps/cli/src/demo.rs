@@ -207,17 +207,23 @@ fn local(port: u16) -> SocketAddr {
     SocketAddr::from((Ipv4Addr::LOCALHOST, port))
 }
 
-/// Whether the demo answers on `port`.
+/// Whether the demo answers on `port`: its `/echo` names a pid, which another echo server's
+/// does not.
 fn is_demo(port: u16) -> bool {
-    echo(port).is_some()
+    echo(port).is_some_and(|reply| named_pid(&reply).is_some())
 }
 
 /// Whether a demo answers on `port` as the process `pid`, or names no pid (an older `vc-demo`).
 fn answers_as(port: u16, pid: u32) -> bool {
     let Some(reply) = echo(port) else { return false };
+    named_pid(&reply).is_none_or(|named| named.parse() == Ok(pid))
+}
+
+/// The pid the reply's [`PID_HEADER`] names, trimmed.
+fn named_pid(reply: &str) -> Option<&str> {
     let headers = reply.lines().take_while(|line| !line.is_empty());
-    let named = headers.filter_map(|line| line.split_once(':')).find(|(name, _)| name.eq_ignore_ascii_case(PID_HEADER));
-    named.is_none_or(|(_, named)| named.trim().parse() == Ok(pid))
+    let mut named = headers.filter_map(|line| line.split_once(':'));
+    named.find(|(name, _)| name.eq_ignore_ascii_case(PID_HEADER)).map(|(_, pid)| pid.trim())
 }
 
 /// The demo's reply on `port`: its `/echo` returns the path it was asked for, which a program

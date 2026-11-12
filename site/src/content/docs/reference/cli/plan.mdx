@@ -52,7 +52,7 @@ sample.basics
 
 ```console
 $ vc plan sample.extra
-plan  2 tests in 1 file · 1 skipped · profile default
+plan  2 tests (3 instances) in 1 file · 1 skipped · profile default
 sample.extra
   sample.extra#echoesBody
   sample.extra#rejectsBadEmail › empty
@@ -76,7 +76,7 @@ With `--repeat 3`, each test plans three instances, one line each:
 
 ```console
 $ vc plan 'sample.extra#echoesBody' --repeat 3
-plan  1 test in 1 file · profile default
+plan  1 test (3 instances) in 1 file · profile default
 sample.extra
   sample.extra#echoesBody [repeat 1]
   sample.extra#echoesBody [repeat 2]

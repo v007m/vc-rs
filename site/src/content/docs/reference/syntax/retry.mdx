@@ -70,6 +70,7 @@ The command in `passesOnSecondTry` fails on its first run and passes on its seco
 $ vc run sample.retry
 plan  3 tests in 1 file · profile default
 
+Retry
 ✕ sample.retry#neverPasses — Fails on every attempt (3 attempts)   12ms
   attempts 1, 2 and 3 of 3:
   error[V5101]: expect.status
@@ -100,6 +101,7 @@ A run whose only result is flaky exits with 0:
 $ vc run 'sample.retry#passesOnSecondTry'
 plan  1 test in 1 file · profile default
 
+Retry
 ~ sample.retry#passesOnSecondTry — Passes on the second attempt flaky (2 attempts)  244ms
 
 0 passed · 1 flaky                                           246ms · profile default

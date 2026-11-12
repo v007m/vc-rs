@@ -225,6 +225,7 @@ By the end you will know how to:
    $ vc run httpbin.auth
    plan  6 tests in 1 file · profile default
 
+   Auth schemes against httpbin.org
    ✓ httpbin.auth#rejectsMissingToken — Rejects a call without a token  669ms
    ✓ httpbin.auth#sendsKeyInQuery — Sends the API key in the query string  670ms
    ✓ httpbin.auth#logsInWithBasicAuth — Logs in with HTTP basic auth  670ms
@@ -343,8 +344,9 @@ By the end you will know how to:
    ```console
    $ curl -s -X POST localhost:18080/__reset
    $ vc run mock.session
-   plan  3 tests in 1 file · profile default
+   plan  3 tests (7 instances) in 1 file · profile default
 
+   Logged-in calls against the mock server
    ✓ mock.session#rejectsAnonymousCaller — Rejects a caller with no token    2ms
    ✓ mock.session#readsProfileWithOauth [repeat 2] — Reads the profile with a client-credentials token    2ms
    ✓ mock.session#readsProfileWithOauth [repeat 3] — Reads the profile with a client-credentials token    2ms
@@ -380,6 +382,7 @@ By the end you will know how to:
    $ vc run mock.refresh
    plan  1 test in 1 file · profile default
 
+   Token refresh
    ✓ mock.refresh#logsInAgainAfterSessionsReset — Logs in again when the server forgets every session   14ms
 
    1 passed                                                     15ms · profile default
@@ -420,6 +423,7 @@ By the end you will know how to:
    $ vc run httpbin.leak
    plan  2 tests in 1 file · profile default
 
+   Secrets stay hidden
    ✕ httpbin.leak#echoesQueryKey — Echoes the query key (fails on purpose)  691ms
      error[V5101]: expect.body.match.url
        --> services/httpbin/leak.test.yaml:21:13
@@ -479,8 +483,9 @@ By the end you will know how to:
    ```console
    $ curl -s -X POST localhost:18080/__reset
    $ vc run mock.session
-   plan  3 tests in 1 file · profile default
+   plan  3 tests (7 instances) in 1 file · profile default
 
+   Logged-in calls against the mock server
    ✕ mock.session#readsProfileWithOauth [repeat 1] — Reads the profile with a client-credentials token    0ms
      error[V5114]: the secret `MOCK_CLIENT_SECRET` did not load
         = at: call mock#meWithOauth

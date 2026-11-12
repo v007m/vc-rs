@@ -4,8 +4,11 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use vc_interfaces::{Artifact, ReportError, Reporter, RunSummary};
-use vc_model::{ActionId, ActionOutcome, CleanupRecord, Event, Names, OwnerKey, RunStatus, TestStatus, Totals};
+use vc_model::{
+    ActionId, ActionOutcome, CleanupRecord, Event, Names, OwnerKey, RunStatus, TestId, TestStatus, Totals, one_line,
+};
 
+use crate::blocks::FileBlocks;
 use crate::collect::{Collector, TestRecord};
 use crate::teardown::Teardown;
 use crate::{Color, Destination, ReporterContext, failure, text};
@@ -14,7 +17,8 @@ use crate::{Color, Destination, ReporterContext, failure, text};
 const NAME_WIDTH: usize = 60;
 
 /// The `spec` console format: a plan line, one line per test as it finishes with a detailed
-/// block under each failure, and a summary that names any teardown block that failed (D279).
+/// block under each failure, grouped by file under the file's `name` (D321), and a summary that
+/// names any teardown block that failed (D279).
 #[derive(Debug)]
 pub struct SpecReporter {
     names: Names,
@@ -23,6 +27,7 @@ pub struct SpecReporter {
     color: Color,
     collector: Collector,
     headline: Option<String>,
+    blocks: FileBlocks,
 }
 
 impl SpecReporter {
@@ -31,6 +36,7 @@ impl SpecReporter {
         let names = Names::new(context.program(), context.plan());
         Self {
             teardown: Teardown::new(context.plan(), &names),
+            blocks: FileBlocks::new(names.program(), context.plan()),
             names,
             destination: context.destination(),
             color: context.color_mode(),
@@ -41,6 +47,14 @@ impl SpecReporter {
 
     fn print(&self, text: &str) -> Result<(), ReportError> {
         if text.is_empty() { Ok(()) } else { self.destination.print(text) }
+    }
+
+    /// A finished test's text placed in its file's block, which prints it now or later.
+    fn placed(&mut self, test: TestId, shown: String) -> String {
+        let Some(file) = self.names.program().tests.get(&test).map(|found| found.file) else { return shown };
+        let heading =
+            self.names.file_name_of(test).map(|name| format!("{}\n", self.paint(&one_line(name), Tone::Quiet)));
+        self.blocks.test(file, heading.unwrap_or_default(), &shown)
     }
 
     fn shown(&self, event: &Event) -> String {
@@ -128,11 +142,14 @@ impl SpecReporter {
 impl Reporter for SpecReporter {
     async fn on_event(&mut self, event: &Event) -> Result<(), ReportError> {
         self.collector.take(event);
-        self.print(&self.shown(event))
+        let shown = self.shown(event);
+        let out = if let Event::TestFinished { result } = event { self.placed(result.test, shown) } else { shown };
+        self.print(&out)
     }
 
     async fn finish(&mut self, run: &RunSummary) -> Result<Vec<Artifact>, ReportError> {
-        self.print(&self.summary(run))?;
+        let rest = self.blocks.rest();
+        self.print(&format!("{rest}{}", self.summary(run)))?;
         Ok(Vec::new())
     }
 }

@@ -133,6 +133,28 @@ fn refuses_a_port_another_program_holds() {
     assert!(text.contains("help: pick another `--port`, and change `sampleUrl`"), "{text}");
 }
 
+/// An echo server that answers `/echo` as the demo does but names no pid is not the demo, so
+/// `start` neither joins it nor lets the tests call it.
+#[test]
+fn refuses_an_echo_server_that_names_no_demo_pid() {
+    let (project, held) = (Project::empty(), TcpListener::bind(("127.0.0.1", 0)).unwrap());
+    let port = held.local_addr().unwrap().port();
+    std::thread::spawn(move || {
+        for stream in held.incoming().flatten() {
+            let mut lines = BufReader::new(&stream).lines();
+            while lines.next().is_some_and(|line| line.is_ok_and(|line| !line.is_empty())) {}
+            let body = r#"{"method":"GET","path":"/echo"}"#;
+            let reply = format!("HTTP/1.1 200 OK\r\ncontent-length: {}\r\n\r\n{body}", body.len());
+            (&stream).write_all(reply.as_bytes()).ok();
+        }
+    });
+    let mut start = project.vc(&["demo", "start", "--port", &port.to_string(), "--detach"]);
+    let output = start.timeout(Duration::from_secs(20)).output().unwrap();
+    let text = crate::said(&output);
+    assert_eq!(output.status.code(), Some(2), "{text}");
+    assert!(text.contains(&format!("error: port {port} is taken by a program that is not the demo")), "{text}");
+}
+
 #[test]
 fn in_the_foreground_it_says_where_it_listens_and_how_to_stop_it() {
     let (project, port) = (Project::empty(), free_port());

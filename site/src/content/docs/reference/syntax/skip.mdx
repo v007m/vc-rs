@@ -90,6 +90,7 @@ skipped
 $ vc run sample.skip
 plan  2 tests in 1 file · 2 skipped · profile default
 
+Skip
 - sample.skip#searchesUsers skipped: demo service has no search yet
 - sample.skip#listsUsersPaged skipped: paging is flaky upstream, see #212
 ✓ sample.skip#getsUser                                            0ms
@@ -104,6 +105,7 @@ plan  2 tests in 1 file · 2 skipped · profile default
 $ vc run sample.skip --include-skipped
 plan  4 tests in 1 file · profile default
 
+Skip
 ✓ sample.skip#listsUsers                                          3ms
 ✓ sample.skip#getsUser                                            3ms
 ✓ sample.skip#searchesUsers                                       3ms
