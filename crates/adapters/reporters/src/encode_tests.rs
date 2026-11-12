@@ -94,12 +94,13 @@ fn encodes_a_load_tick_in_milliseconds() {
         users: 20,
         rps: 57,
         p50: ms(12_500),
+        p90: ms(30_000),
         p95: ms(40_000),
         p99: ms(81_000),
         errors: 1,
         breaching: vec!["p95".to_owned()],
     };
-    let encoded = json!({"second": 4, "users": 20, "rps": 57, "p50Ms": 12.5, "p95Ms": 40.0, "p99Ms": 81.0,
+    let encoded = json!({"second": 4, "users": 20, "rps": 57, "p50Ms": 12.5, "p90Ms": 30.0, "p95Ms": 40.0, "p99Ms": 81.0,
         "errors": 1, "breaching": ["p95"]});
     assert_eq!(tick(&event), encoded);
     assert_eq!(tick(&Event::RunStarted { files: 1, instances: 1 }), json!({}));

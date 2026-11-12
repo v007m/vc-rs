@@ -58,7 +58,7 @@ pub struct Tick {
 impl Tick {
     /// The tick `event` tells, if it is one.
     fn of(event: &Event) -> Option<Self> {
-        let Event::LoadTick { second, users, rps, p50, p95, p99, errors, breaching } = event else {
+        let Event::LoadTick { second, users, rps, p50, p90: _, p95, p99, errors, breaching } = event else {
             return None;
         };
         let latencies = [p50.as_millis(), p95.as_millis(), p99.as_millis()];

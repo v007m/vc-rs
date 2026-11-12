@@ -171,6 +171,7 @@ message LoadTick {
   // Iterations per second, rounded.
   uint64 rps = 3;
   double p50_ms = 4;
+  double p90_ms = 9;
   double p95_ms = 5;
   double p99_ms = 6;
   uint64 errors = 7;

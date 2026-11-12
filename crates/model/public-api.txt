@@ -178,6 +178,7 @@ pub vc_model::Event::LoadTick
 pub vc_model::Event::LoadTick::breaching: alloc::vec::Vec<alloc::string::String>
 pub vc_model::Event::LoadTick::errors: u64
 pub vc_model::Event::LoadTick::p50: core::time::Duration
+pub vc_model::Event::LoadTick::p90: core::time::Duration
 pub vc_model::Event::LoadTick::p95: core::time::Duration
 pub vc_model::Event::LoadTick::p99: core::time::Duration
 pub vc_model::Event::LoadTick::rps: u64

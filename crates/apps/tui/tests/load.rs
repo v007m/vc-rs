@@ -43,6 +43,7 @@ fn tick(second: u64, errors: u64, breaching: &[&str]) -> Update {
         users: 10 * u32::try_from(second).unwrap_or(u32::MAX),
         rps: 40 * second,
         p50: ms(30 + second),
+        p90: ms(60 + 2 * second),
         p95: ms(80 + 4 * second),
         p99: ms(140 + 9 * second),
         errors,

@@ -152,6 +152,11 @@ async fn runs_the_stages_writing_each_second_and_ticking_the_live_view() {
     assert_eq!(counted, report.iterations, "every iteration is in a stored second");
     let Ok(Event::LoadTick { users, errors, breaching, .. }) = heard.try_recv() else { panic!("a tick") };
     assert!(users <= 2 && errors == 0 && breaching.is_empty());
+    let ticks: Vec<Event> = std::iter::from_fn(|| heard.try_recv().ok()).collect();
+    for tick in &ticks {
+        let Event::LoadTick { p50, p90, p95, .. } = tick else { panic!("a tick: {tick:?}") };
+        assert!(p50 <= p90 && p90 <= p95, "{tick:?}");
+    }
 }
 
 #[tokio::test(start_paused = true)]

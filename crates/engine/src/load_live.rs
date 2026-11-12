@@ -116,6 +116,7 @@ fn tick(program: &Program, second: &Second) -> Event {
         users: second.users,
         rps: second.rps,
         p50: millis(latencies.quantile_ms(0.5)),
+        p90: millis(latencies.quantile_ms(0.9)),
         p95: millis(latencies.quantile_ms(0.95)),
         p99: millis(latencies.quantile_ms(0.99)),
         errors: all.errors(),

@@ -111,13 +111,14 @@ pub const fn run_status(status: RunStatus) -> &'static str {
 
 /// A load run's second as the live view shows it; any other event is empty.
 pub fn tick(event: &Event) -> Value {
-    let Event::LoadTick { second, users, rps, p50, p95, p99, errors, breaching } = event else { return json!({}) };
+    let Event::LoadTick { second, users, rps, p50, p90, p95, p99, errors, breaching } = event else { return json!({}) };
     let ms = |latency: &std::time::Duration| latency.as_secs_f64() * 1000.0;
     json!({
         "second": second,
         "users": users,
         "rps": rps,
         "p50Ms": ms(p50),
+        "p90Ms": ms(p90),
         "p95Ms": ms(p95),
         "p99Ms": ms(p99),
         "errors": errors,
