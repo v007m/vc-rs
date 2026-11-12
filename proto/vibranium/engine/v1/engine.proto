@@ -22,6 +22,10 @@ service EngineService {
   rpc ReadFile(ReadFileRequest) returns (ReadFileResponse);
   // Saves a project file the editor changed, unless it changed on disk since it was read.
   rpc WriteFile(WriteFileRequest) returns (WriteFileResponse);
+  // Sets, removes or adds values in a config, api, test or load file by JSON pointer, keeping
+  // its comments: a preview with the diff, or the file written. Refused when the file changed
+  // since it was read, or when the result adds an error (D107).
+  rpc EditFile(EditFileRequest) returns (EditFileResponse);
   // The agents' approval requests, newest first.
   rpc ListApprovals(ListApprovalsRequest) returns (ListApprovalsResponse);
   // Approves or denies an agent's request.
@@ -31,10 +35,19 @@ service EngineService {
   // Sends one api's request, as `vc call` does. The person at the browser is no agent, so the
   // profiles' agent policy and the agent log do not apply (D241).
   rpc Call(CallRequest) returns (CallResponse);
+  // An api or test as its file writes it, for the Client's forms to edit (D245, D251).
+  rpc ReadDefinition(ReadDefinitionRequest) returns (ReadDefinitionResponse);
+  // How the API client would send an api: its vars, inherited headers, auth and curl (D245).
+  rpc ExplainApi(ExplainApiRequest) returns (ExplainApiResponse);
   // Writes a call as a test, as `vc call --save-as` does.
   rpc SaveCallAsTest(SaveCallAsTestRequest) returns (SaveCallAsTestResponse);
   // Imports a spec or recording, as `vc import` does: a preview, or the files written.
   rpc Import(ImportRequest) returns (ImportResponse);
+  // Writes a test's or test file's `skip`, as `vc skip` does: a preview with the diff, or the
+  // file written. Refused when the result adds an error (D107).
+  rpc Skip(SkipRequest) returns (SkipResponse);
+  // Removes a test's or test file's `skip`, as `vc unskip` does: a preview, or the file written.
+  rpc Unskip(UnskipRequest) returns (UnskipResponse);
   // The runs the history keeps, newest first.
   rpc ListRuns(ListRunsRequest) returns (ListRunsResponse);
   // One run of the history with its tests.
@@ -109,6 +122,15 @@ message Definition {
   uint32 steps = 8;
   // An api's declared var names, in order.
   repeated string vars = 9;
+  // Why a skipped test does not run: its `skip.reason`, or that its examples gave no rows. Kept
+  // after the skip expires.
+  optional string skip_reason = 10;
+  // The `skip.until` date of a skipped test (`YYYY-MM-DD`), as written; absent without one. Kept
+  // after the skip expires.
+  optional string skip_until = 11;
+  // The written `skip`'s `until` has passed: the test runs again (`skipped` is false) and
+  // `vc check` warns (V3104) until the line is removed.
+  bool skip_expired = 12;
 }
 
 // An api a test calls.
@@ -235,6 +257,49 @@ message WriteFileResponse {
   string check_error = 3;
 }
 
+// What an edit does at its pointer.
+enum EditOp {
+  EDIT_OP_UNSPECIFIED = 0;
+  // Replaces the value there, or adds the key with any maps above it that are missing.
+  EDIT_OP_SET = 1;
+  // Removes the map entry or list item there, with its lines.
+  EDIT_OP_REMOVE = 2;
+  // Adds a key to a map, or a last item to a list (`/profiles/-`).
+  EDIT_OP_INSERT = 3;
+}
+
+message PointerEdit {
+  // RFC 6901, such as `/defaults/timeout` or `/profiles/0/default`.
+  string pointer = 1;
+  EditOp op = 2;
+  // The value as JSON text: `"5s"`, `8`, `true`, a list or a map; empty for a remove.
+  string value_json = 3;
+}
+
+message EditFileRequest {
+  // Relative to the project root.
+  string path = 1;
+  // The digest `ReadFile` gave; the edit is refused if the file changed since.
+  string digest = 2;
+  // Made in order, each pointer read against the file the edits before it left.
+  repeated PointerEdit edits = 3;
+  // Writes the file; otherwise only previews it.
+  bool write = 4;
+}
+
+message EditFileResponse {
+  // The change as a unified diff, masked as a run's values are; empty when the edits change
+  // nothing.
+  string diff = 1;
+  // The digest on disk: the new one once written, else the one sent.
+  string digest = 2;
+  bool written = 3;
+  // The diagnostics of the project with the file written; empty for a preview.
+  repeated Diagnostic diagnostics = 4;
+  // Why the project could not be checked after the write, with its help; empty when it was.
+  string check_error = 5;
+}
+
 // Where an approval request stands.
 enum ApprovalStatus {
   APPROVAL_STATUS_UNSPECIFIED = 0;
@@ -317,6 +382,79 @@ message CallRequest {
   bool keep = 3;
   repeated string profiles = 4;
   repeated string sets = 5;
+  // Edits to the api's file that are not saved: the call sends the api as edited, and the
+  // file is left as it is.
+  optional ApiDraft draft = 6;
+}
+
+// Pointer edits to an api file, made over it as it was opened; nothing is written.
+message ApiDraft {
+  // Relative to the project root; only a file the editor opens.
+  string path = 1;
+  // The digest `ReadDefinition` or `ReadFile` gave; a call over a changed file is aborted.
+  string digest = 2;
+  // As `EditFile` takes them.
+  repeated PointerEdit edits = 3;
+}
+
+message ReadDefinitionRequest {
+  // An api's or test's full ID: `users#get`, `users.crud#getsCreatedUser`.
+  string id = 1;
+}
+
+message ReadDefinitionResponse {
+  // Its file, relative to the project root.
+  string path = 1;
+  // Where it sits in its file, `/apis/2` or `/tests/0`; its edits' pointers start with it.
+  string pointer = 2;
+  // The file's digest, for a draft or an `EditFile` over it.
+  string digest = 3;
+  // As its file writes it, as JSON text: templates as written, secrets masked.
+  string json = 4;
+}
+
+message ExplainApiRequest {
+  // The api's full ID.
+  string api = 1;
+  // `name=value` vars at call level, as `vc call` takes them.
+  repeated string vars = 2;
+  repeated string profiles = 3;
+  repeated string sets = 4;
+  // The form's unsaved edits, as a `Call` would send them: explained in place of the file.
+  optional ApiDraft draft = 5;
+}
+
+message ExplainApiResponse {
+  // Every var the api uses, each with the layers that set it, highest first: call, saved,
+  // api, file, profile, config. Values are masked.
+  repeated ConfigValue vars = 1;
+  // The headers added at send time, masked, with where each comes from.
+  repeated InheritedHeader headers = 2;
+  // The auth the api is sent with, when it has one.
+  optional ApiAuth auth = 3;
+  // The request as a curl command, the bearer token replaced by `$TOKEN`.
+  string curl = 4;
+  repeated string notices = 5;
+}
+
+// A header an api is sent with that it does not write itself.
+message InheritedHeader {
+  string name = 1;
+  // Masked.
+  string value = 2;
+  // `vibranium.config.yaml`, `users.api.yaml`, `auth shopOauth`.
+  string from = 3;
+}
+
+// An auth, named and described, never its token or secret values.
+message ApiAuth {
+  string id = 1;
+  // `oauth2`, `bearer`, `basic`, `apiKey` or a plugin's type.
+  string type = 2;
+  // Where its token comes from, when it fetches one; templates as written.
+  string token_url = 3;
+  // The secrets it reads, by name.
+  repeated string secrets = 4;
 }
 
 message CallResponse {
@@ -411,9 +549,51 @@ message ImportResponse {
   repeated string titles = 2;
 }
 
+message SkipRequest {
+  // A test (`users.crud#listsUsers`) or a test file (`users.crud`).
+  string target = 1;
+  // Why, for the report; never blank.
+  string reason = 2;
+  // The last day of the skip, `YYYY-MM-DD`; no end date when absent.
+  optional string until = 3;
+  // Write the file; a preview when false.
+  bool write = 4;
+  // The digest the preview gave; a write is aborted when the file changed since, or without it.
+  optional string expected_digest = 5;
+}
+
+message SkipResponse {
+  repeated FileChange files = 1;
+  repeated string titles = 2;
+  // The digest of the file as previewed, which the write passes back.
+  string digest = 3;
+}
+
+message UnskipRequest {
+  // A skipped test or test file.
+  string target = 1;
+  // Write the file; a preview when false.
+  bool write = 2;
+  // The digest the preview gave; a write is aborted when the file changed since, or without it.
+  optional string expected_digest = 3;
+}
+
+message UnskipResponse {
+  repeated FileChange files = 1;
+  repeated string titles = 2;
+  // The digest of the file as previewed, which the write passes back.
+  string digest = 3;
+}
+
 message ListRunsRequest {
   // At most this many; all when 0.
   uint32 limit = 1;
+  // Only runs of this kind (`run`, `load`), the limit counted among them; every kind when absent.
+  optional string kind = 2;
+  // Only runs under this profile; every profile when absent.
+  optional string profile = 3;
+  // Only runs on this git branch; every branch when absent.
+  optional string branch = 4;
 }
 
 message ListRunsResponse {
@@ -433,6 +613,10 @@ message GetRunResponse {
 message TrendsRequest {
   // Over this many runs; the engine's default when 0.
   uint32 window = 1;
+  // Only runs under this profile, the window counted among them; every profile when absent.
+  optional string profile = 2;
+  // Only runs on this git branch, the window counted among them; every branch when absent.
+  optional string branch = 3;
 }
 
 // One test's results over the window.

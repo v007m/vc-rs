@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DefinitionKind } from '#lib/gen/vibranium/engine/v1/engine_pb.ts';
+import { DefinitionKind, EditOp } from '#lib/gen/vibranium/engine/v1/engine_pb.ts';
 import { fakeEngine } from '#lib/testing/engine.ts';
 import { enginePort } from './port.ts';
 
@@ -43,7 +43,14 @@ describe('enginePort', () => {
       }),
     );
     const out = await port.call({ api: 'users#listUsers', vars: ['a=1'], keep: true });
-    expect(out).toEqual({ exit: 0, text: '200 OK', notices: [], responseJson: '{"status":200}' });
+    expect(out).toEqual({
+      exit: 0,
+      text: '200 OK',
+      notices: [],
+      checks: [],
+      saved: [],
+      responseJson: '{"status":200}',
+    });
     const saved = await port.saveCallAsTest({
       testId: 'users.crud#listsOne',
       api: 'users#listUsers',
@@ -65,6 +72,84 @@ describe('enginePort', () => {
       { api: 'users#listUsers', vars: ['a=1'], keep: true },
       { id: 'users.crud#listsOne', responseJson: '{"status":200}', fields: ['body.id'] },
       { kind: 'har', flow: 'n#replays', write: false },
+    ]);
+  });
+
+  it('reads and explains an api, sends a call with its draft, then saves it as EditFile', async () => {
+    const seen: unknown[] = [];
+    const port = enginePort(
+      fakeEngine({
+        readDefinition: ({ id }) => {
+          seen.push({ id });
+          return {
+            path: 'services/users/users.api.yaml',
+            pointer: '/apis/1',
+            digest: 'd1',
+            json: '{"id":"get","path":"/users/${var.userId}"}',
+          };
+        },
+        explainApi: ({ api, vars, draft }) => {
+          const edits = draft?.edits.map(({ pointer, op, valueJson }) => ({
+            pointer,
+            op,
+            valueJson,
+          }));
+          seen.push(draft ? { api, vars, digest: draft.digest, edits } : { api, vars });
+          return {
+            vars: [{ key: 'userId', layers: [{ value: '1', source: 'api' }] }],
+            headers: [{ name: 'X-Key', value: '••••', from: 'users.api.yaml' }],
+            auth: { id: 'shopOauth', type: 'oauth2', tokenUrl: '${var.authUrl}', secrets: ['ID'] },
+            curl: 'curl http://x/users/1',
+          };
+        },
+        call: ({ draft }) => {
+          seen.push(draft?.edits.map(({ pointer, op, valueJson }) => ({ pointer, op, valueJson })));
+          return { exit: 0, text: '200 OK' };
+        },
+        editFile: ({ path, digest, write }) => {
+          seen.push({ path, digest, write });
+          return { diff: '-a\n+b\n', digest: 'd2', written: true, diagnostics: [] };
+        },
+      }),
+    );
+    const written = await port.readDefinition('users#get');
+    expect(written).toEqual({
+      path: 'services/users/users.api.yaml',
+      pointer: '/apis/1',
+      digest: 'd1',
+      node: { id: 'get', path: '/users/${var.userId}' },
+    });
+    expect(await port.explainApi('users#get', ['userId=2'])).toEqual({
+      vars: [{ key: 'userId', layers: [{ value: '1', source: 'api' }] }],
+      headers: [{ name: 'X-Key', value: '••••', from: 'users.api.yaml' }],
+      auth: { id: 'shopOauth', type: 'oauth2', tokenUrl: '${var.authUrl}', secrets: ['ID'] },
+      curl: 'curl http://x/users/1',
+      notices: [],
+    });
+    const draft = {
+      path: written.path,
+      digest: 'd1',
+      edits: [{ pointer: '/apis/1/method', op: 'set', value: 'POST' } as const],
+    };
+    await port.explainApi('users#get', [], draft);
+    await port.call({ api: 'users#get', vars: [], keep: false, draft });
+    expect(await port.editFile(draft, true)).toEqual({
+      diff: '-a\n+b\n',
+      digest: 'd2',
+      written: true,
+      problems: 0,
+    });
+    expect(seen).toEqual([
+      { id: 'users#get' },
+      { api: 'users#get', vars: ['userId=2'] },
+      {
+        api: 'users#get',
+        vars: [],
+        digest: 'd1',
+        edits: [{ pointer: '/apis/1/method', op: EditOp.SET, valueJson: '"POST"' }],
+      },
+      [{ pointer: '/apis/1/method', op: EditOp.SET, valueJson: '"POST"' }],
+      { path: 'services/users/users.api.yaml', digest: 'd1', write: true },
     ]);
   });
 });

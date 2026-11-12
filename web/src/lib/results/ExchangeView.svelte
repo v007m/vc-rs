@@ -1,6 +1,7 @@
 <script lang="ts">
   import BodyView from './BodyView.svelte';
   import { ms } from './status.ts';
+  import Waterfall from './Waterfall.svelte';
   import type { ExchangeLine } from './types.ts';
 
   let { exchange }: { exchange: ExchangeLine } = $props();
@@ -19,6 +20,7 @@
     <span class="muted">→ {status}{time}</span>
   </summary>
   {#if open}
+    {#if exchange.timing}<Waterfall timing={exchange.timing} />{/if}
     {#each parts as part (part.title)}
       {#if part.headers.length}
         <table class="mono" aria-label="{part.title} headers">

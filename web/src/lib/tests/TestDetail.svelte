@@ -1,9 +1,30 @@
 <script lang="ts">
   import { resolve } from '$app/paths';
+  import type { SkipPort } from '#lib/skip/port.ts';
+  import SkipForm from '#lib/skip/SkipForm.svelte';
+  import { SkipChange } from '#lib/skip/skip.svelte.ts';
   import type { TestRow } from './catalog.ts';
 
-  let { row, running, onrun }: { row: TestRow; running: boolean; onrun: (ids: string[]) => void } =
-    $props();
+  let {
+    row,
+    running,
+    onrun,
+    skips,
+    onchanged,
+  }: {
+    row: TestRow;
+    running: boolean;
+    onrun: (ids: string[]) => void;
+    skips: SkipPort;
+    /** After a skip is written or removed, so the list is read again. */
+    onchanged: () => void;
+  } = $props();
+
+  let skipping: SkipChange | undefined = $state();
+  // Another test opened: its skip form starts closed.
+  $effect.pre(() => {
+    if (skipping && skipping.target !== row.id) skipping = undefined;
+  });
 
   let editorHref = $derived(`${resolve('/editor')}?file=${encodeURIComponent(row.path)}`);
   let where = $derived(row.line ? `${row.path}:${row.line}` : row.path);
@@ -40,7 +61,24 @@
     </button>
     <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- editorHref is resolve('/editor') plus a query -->
     <a class="btn sm" href={editorHref}>Open in editor</a>
+    <button
+      class="btn sm"
+      type="button"
+      aria-expanded={skipping !== undefined}
+      onclick={() => (skipping = skipping ? undefined : new SkipChange(skips, row.id, row.skipped))}
+      >{row.skipped ? 'Unskip…' : 'Skip…'}</button
+    >
   </div>
+  {#if skipping}
+    <SkipForm
+      change={skipping}
+      oncancel={() => (skipping = undefined)}
+      onwritten={() => {
+        skipping = undefined;
+        onchanged();
+      }}
+    />
+  {/if}
 </section>
 
 <style>

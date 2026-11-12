@@ -1,0 +1,144 @@
+---
+/**
+ * A window with the same chrome as `Terminal`: three dots, a title and an optional status badge.
+ * Its body is a code block (expressive-code's own frame header is hidden) and fills the window's
+ * height, so windows side by side in a `WindowRow` line up.
+ */
+interface Props {
+  title: string;
+  /** A short status shown at the end of the title bar. */
+  badge?: string;
+  tone?: 'file' | 'ok' | 'bad';
+}
+
+const { title, badge, tone = 'file' } = Astro.props;
+---
+
+<figure class:list={['lp-window', 'not-content', `is-${tone}`]} data-reveal>
+  <figcaption class="lp-window-bar">
+    <span class="lp-window-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+    <span class="lp-window-title">{title}</span>
+    {badge ? <span class="lp-window-badge">{badge}</span> : <span class="lp-window-spacer" aria-hidden="true"></span>}
+  </figcaption>
+  <div class="lp-window-body"><slot /></div>
+</figure>
+
+<style>
+  .lp-window {
+    --w-bg: #0d0c17;
+    --w-bar: #15131f;
+    --w-dim: #9196ad;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-width: 0;
+    margin: 0;
+    border-radius: 0.875rem;
+    background: var(--w-bg);
+    border: 1px solid rgb(255 255 255 / 0.09);
+    box-shadow:
+      0 0 0 1px rgb(0 0 0 / 0.3),
+      0 24px 60px -28px rgb(91 54 242 / 0.5);
+    overflow: hidden;
+  }
+  .lp-window-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.65rem 0.9rem;
+    background: var(--w-bar);
+    border-bottom: 1px solid rgb(255 255 255 / 0.06);
+  }
+  .lp-window-dots,
+  .lp-window-spacer {
+    display: flex;
+    flex: none;
+    gap: 0.4rem;
+    min-width: 3rem;
+  }
+  .lp-window-dots i {
+    width: 0.65rem;
+    height: 0.65rem;
+    border-radius: 50%;
+    background: #3a3750;
+  }
+  .lp-window-title {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: center;
+    font-family: var(--__sl-font-mono);
+    font-size: 0.75rem;
+    color: var(--w-dim);
+  }
+  .lp-window-badge {
+    flex: none;
+    min-width: 3rem;
+    text-align: end;
+    font-family: var(--__sl-font-mono);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+  .is-ok .lp-window-badge {
+    color: #6ee7a0;
+  }
+  .is-bad .lp-window-badge {
+    color: #ff7b8f;
+  }
+  .lp-window-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  /* The code block becomes the window's body: no frame of its own, and it fills the height. */
+  .lp-window-body :global(.expressive-code) {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    --ec-codeFontSize: 0.75rem;
+  }
+  .lp-window-body :global(.expressive-code .frame) {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    box-shadow: none;
+  }
+  .lp-window-body :global(.expressive-code .frame .header) {
+    display: none;
+  }
+  .lp-window-body :global(.expressive-code pre) {
+    flex: 1;
+    border: 0;
+    border-radius: 0;
+  }
+  /* Light theme: the code is light, so the chrome is too. */
+  :global(:root[data-theme='light']) .lp-window {
+    --w-bg: #fff;
+    --w-bar: #f4f2fb;
+    --w-dim: #5d6178;
+    border-color: rgb(30 23 71 / 0.12);
+    box-shadow:
+      0 0 0 1px rgb(30 23 71 / 0.03),
+      0 24px 50px -30px rgb(91 54 242 / 0.35);
+  }
+  :global(:root[data-theme='light']) .lp-window-bar {
+    border-bottom-color: rgb(30 23 71 / 0.08);
+  }
+  :global(:root[data-theme='light']) .lp-window-dots i {
+    background: #d6d3e6;
+  }
+  :global(:root[data-theme='light']) .is-ok .lp-window-badge {
+    color: #15803d;
+  }
+  :global(:root[data-theme='light']) .is-bad .lp-window-badge {
+    color: #c8102e;
+  }
+  .lp-window-body :global(.expressive-code .copy) {
+    inset-block-start: 0.4rem;
+  }
+</style>

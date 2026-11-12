@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use vc_model::SourcePath;
 
-use crate::RunWatch;
+use crate::{CallDraft, RunWatch};
 
 /// Which tests a command selects (cli-workflow "Selectors"); everything when empty.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -180,4 +180,7 @@ pub struct CallRequest {
     /// The agent making the call (MCP, the web UI), when one is: the call then passes the
     /// profiles' agent policy first and is logged (D178, D195). `None` for a person at the CLI.
     pub agent: Option<String>,
+    /// Edits the web UI's API client made to the api's file and has not saved: the call sends
+    /// the api as edited, and the file is left as it is (D245).
+    pub draft: Option<CallDraft>,
 }

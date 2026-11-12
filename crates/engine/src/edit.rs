@@ -77,6 +77,45 @@ impl Engine {
         Ok(())
     }
 
+    /// The digest of the files `changes` change, as they are now: what a preview of them gives
+    /// and a write of them passes to [`Engine::write_previewed`]. Each file's is its
+    /// [`Engine::read_file`] digest, `new` for a file the change creates.
+    ///
+    /// # Errors
+    ///
+    /// [`EngineError::Stale`] when a file is no longer the text the change was made from; as
+    /// [`Engine::read_file`].
+    pub fn preview_digest(&self, changes: &Changes) -> Result<String, EngineError> {
+        let mut digests = Vec::with_capacity(changes.files.len());
+        for change in &changes.files {
+            let Some(before) = &change.before else {
+                digests.push("new".to_owned());
+                continue;
+            };
+            let opened = self.read_file(&change.path)?;
+            if &opened.text != before {
+                return Err(changed(&change.path));
+            }
+            digests.push(opened.digest);
+        }
+        Ok(digests.join(","))
+    }
+
+    /// Writes `changes` as [`Engine::write`] does, but only while their files are the ones a
+    /// preview with `digest` showed.
+    ///
+    /// # Errors
+    ///
+    /// [`EngineError::Stale`] when a file changed since the preview, and nothing is written; as
+    /// [`Engine::write`].
+    pub fn write_previewed(&self, changes: &Changes, digest: &str) -> Result<(), EngineError> {
+        if self.preview_digest(changes)? != digest {
+            let path = changes.files.first().map_or("", |change| change.path.as_str());
+            return Err(changed(path));
+        }
+        self.write(changes)
+    }
+
     /// Compiles the project as it would be after `changes` and refuses them when that adds an
     /// error: one whose code and message are not among the errors in `before`, the project's
     /// diagnostics now.
@@ -180,6 +219,11 @@ fn refusal(error: &Diagnostic, files: &SourceFiles) -> EngineError {
 /// An error that should not happen, as a bug to report.
 pub fn internal(error: impl std::fmt::Display) -> EngineError {
     EngineError::Internal { reason: error.to_string() }
+}
+
+/// The error for a file that changed since a preview of a change to it.
+fn changed(path: &str) -> EngineError {
+    EngineError::Stale { reason: format!("{path}: changed since the preview; nothing was written") }
 }
 
 #[cfg(test)]

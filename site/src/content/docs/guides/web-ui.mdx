@@ -52,7 +52,7 @@ A sidebar on the left links the seven screens. Use the button at its top to coll
 | **Runs** | Watch the current run live |
 | **Insights** | Pass rate, duration and flaky tests across runs |
 | **AI agents** | Connect agents, approve their requests, see what they did |
-| **Settings** | See each setting's value and where it comes from |
+| **Settings** | See each setting's value and where it comes from, and change the project's config |
 
 A run you start on any screen shows up on **Runs**. Only one run goes at a time.
 
@@ -76,6 +76,8 @@ Keyboard: `↑` `↓` `Home` `End` move, `←` `→` close and open files, `Ente
 
 The detail panel shows the test's name, ID, `path:line`, its steps, tags and the apis it calls, with **Run this test** and **Open in editor**.
 
+**Skip…** parks the test, as [`vc skip`](/vc-rs/reference/cli/skip/) does: type a reason, optionally pick an **Until** date, then **Preview** shows the change to the test file and **Write skip** writes it. A skipped test has **Unskip…**, which previews and removes the `skip` block. Either is refused if the result would not compile.
+
 ## API client
 
 Calls a single api, the way `vc call` does, with the project's auth and the active profile.
@@ -83,13 +85,19 @@ Calls a single api, the way `vc call` does, with the project's auth and the acti
 <Steps>
 
 1. Pick an api from the list on the left. Filter the list by typing.
-2. On the **Vars** tab, fill in any vars. Empty vars keep the api's defaults. **Add var** sends extra ones, like `--var`.
-3. On the **Options** tab, check **Keep what the call creates** to skip the api's cleanup, like `--keep`.
-4. Click **Send**, or press Ctrl+Enter (Cmd+Enter on a Mac).
+2. On the **Request** tab, change the method, path, query parameters, headers or body if you want to. Untick a row to leave it out.
+3. On the **Vars** tab, fill in any vars. Empty vars keep the api's defaults. **Add var** sends extra ones, like `--var`.
+4. On the **Checks** tab, add any checks for this request.
+5. On the **Options** tab, check **Keep what the call creates** to skip the api's cleanup, like `--keep`.
+6. Click **Send**, or press Ctrl+Enter (Cmd+Enter on a Mac).
 
 </Steps>
 
-The response shows a pass or fail dot for the api's `expect`, and three tabs: **Body**, **Headers** and **Output** (the text `vc call` would print, which also explains a call that got no response).
+Your edits are sent with the call, but the api file isn't changed. To keep them, click **Save changes to api**. It shows what will change in the file, then writes it and keeps the file's comments. Added checks are never saved; they stay in the tab.
+
+A value that reads a secret shows as `••••`. You can't edit it here, so change it in the api file. If the file changes on disk while you edit it, the Client won't send or save over it; click **Reload from disk**.
+
+The response shows a pass or fail dot for the api's `expect`, and these tabs: **Body**, **Headers**, **Timing** (a waterfall of the call's dns, connect, tls, firstByte and download phases; a reused connection shows only the last two), **Checks** (each check the api ran, with what it expected and what came back), **Saved** (each value the api's `save` took, with the template it came from) and **Output** (the text `vc call` would print, which also explains a call that got no response). Secret values are masked on every tab.
 
 ### Save as test
 
@@ -110,7 +118,15 @@ The response shows a pass or fail dot for the api's `expect`, and three tabs: **
 
 Static files, third-party hosts and preflight requests are dropped. Secrets become `${secret.…}` references.
 
-The **Flow** mode lists flow tests (tests whose `steps` call apis in order) with a **Run** button for each.
+### Flow tests
+
+The **Flow** mode lists flow tests (tests whose `steps` call apis in order) with a **Run** button for each. Click **Edit** to see a flow's stages below the list: the api each stage calls, the vars it uses and saves, and how often it runs.
+
+- Pick another api for a stage, or click **Remove** to drop it. Choose an api under **Api to add** and click **Add stage** to add one at the end.
+- Set how often a stage runs: **Once**, **Repeat ×N** (`repeat`), **For each** item of a list such as `["a", "b"]` or a template such as `${var.ids}` (`forEach`), or **Poll until** a status, checking every so often until a timeout (`poll`).
+- Click **Save changes to flow**. It shows what will change in the test file, then writes it and keeps the file's comments.
+
+Stages keep their order. A poll that checks more than a status, or a list that reads a secret, shows as written in the file; change it in the editor. A flow with unsaved edits doesn't run, since a run runs the file as saved.
 
 ## Editor
 
@@ -140,14 +156,28 @@ Buttons:
 | **Re-run failed** | After a failed run | Runs the failed tests again |
 | **Run again** | After a run | Starts the same run again |
 
+### Recent runs
+
+**Recent runs**, beside the live run, lists the last 20 runs in the history (load runs too), each with its pass rate. Click one to see it in place of the live run:
+
+- its outcome, profiles, selector, branch and commit, and when it started and how long it took;
+- its totals, and each test with its status and time; it opens at the first test that didn't pass;
+- for the selected test: why it failed, how many attempts it took, the action that blocked it or why it was skipped, its checks, and each request and response.
+
+Secret values are masked, as the history keeps them. **Re-run failed** runs that run's failed and blocked tests again. **Back to the current run** returns to the live view.
+
 ## Insights
 
-Trends across stored test runs. Choose **Last 10**, **30** or **100 runs**.
+Trends across stored test runs. Choose **Last 10**, **30** or **100 runs**. **Profile** and **Branch** narrow every figure to the runs under one profile or on one git branch; the branches listed are the ones the runs read so far were on.
 
 - Summary figures: last run's pass rate, average pass rate, median run duration, number of runs, and flaky tests.
 - **Pass rate per run**: passed tests (flaky included) out of the tests that ran. Runs with blocked tests are marked.
 - **Run duration**: wall-clock time of the whole suite.
 - A table of the latest runs, and **Flakiest tests**: the top ten by flaky and failed results.
+
+Each flakiest test has **Skip until…**: give a reason and a date, preview the change, and write it. The test is then reported as skipped with its reason, and runs again after the date. **Undo** removes the skip the same way.
+
+**Skips expiring soon** lists the skipped tests whose `until` date is in the next 14 days or has already passed (the test runs again then, and `vc check` warns), with the reason. **Unskip…** previews and removes the skip.
 
 ## AI agents
 
@@ -199,7 +229,17 @@ The agent policy and the activity log apply to agents only. What you do in the b
 
 Shows the effective value of every setting under the profile you pick, as `vc config explain` does. The **Set by** column says where each value comes from, and lists any values it replaced. Secrets always show as `••••`.
 
-Settings is read-only. To change a value, follow the link to open `vibranium.config.yaml` in the Editor.
+**Project config** is a form over `vibranium.config.yaml`: the project's name, `defaults.timeout`, `defaults.concurrency` and `defaults.perHost`, the profiles (pick the default, add or remove one) and the vars. It shows what the file itself sets, as written (`${env.USERS_URL}` stays as it is), not a profile's or `.env`'s value. A var marked **resolved** is shown with its references filled in, because the page couldn't read it as written; if you change it, what you type replaces it. A var that reads a secret shows as `••••`; you can remove it here, but change it in the Editor.
+
+1. Change the values you want. The status line counts the unsaved changes.
+2. Click **Review changes** to see the diff of the file. Nothing is written yet, and secret values are masked in the diff too.
+3. Click **Save**. Only the lines you changed are rewritten, so the file keeps its comments and layout.
+
+A change that would add an error to the project, such as removing a profile a test needs, isn't saved, and the message says which change it was. If the file changed on disk since the page read it, nothing is written: click **Reload from disk** and make the change again.
+
+For anything else, such as `reports` or `auth`, follow the link to open `vibranium.config.yaml` in the Editor.
+
+**Secrets** lists the names `.env.schema` declares. Add or remove a name and click **Save**. A secret's value goes in `.env` or your secrets provider, never on this page.
 
 ## Security
 

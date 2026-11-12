@@ -1,0 +1,183 @@
+---
+/**
+ * `examples` turning one test into one instance per dataset row, each with its own ID suffix and
+ * its own result.
+ */
+import Diagram from './Diagram.astro';
+
+const rows = [
+  { name: 'Ada Lovelace', email: 'ada@example.com' },
+  { name: 'Alan Turing', email: 'alan@example.com' },
+  { name: 'Grace Hopper', email: 'grace@example.com' },
+];
+---
+
+<Diagram caption="examples: one test, one instance per row. Each instance has its own ID (:1, :2, :3), runs on its own and reports its own result.">
+  <div class="df">
+    <div class="df-col d-step" style="--d-i: 0">
+      <span class="d-label">dataset <code>datasets/signups.csv</code></span>
+      <table class="df-table d-mono">
+        <thead><tr><th>name</th><th>email</th></tr></thead>
+        <tbody>
+          {rows.map((r) => <tr><td>{r.name}</td><td>{r.email}</td></tr>)}
+        </tbody>
+      </table>
+    </div>
+    <span class="df-join" aria-hidden="true">→</span>
+    <div class="df-col d-step" style="--d-i: 1">
+      <span class="d-label">One test</span>
+      <div class="d-card df-test">
+        <span class="d-chip is-test">createsEverySignup</span>
+        <code class="d-mono">{'examples: ${dataset.signups}'}</code>
+        <code class="d-mono">{'email: ${example.email}'}</code>
+      </div>
+    </div>
+    <svg class="df-fan d-step" style="--d-i: 2" viewBox="0 0 600 48" preserveAspectRatio="none" aria-hidden="true">
+      <path d="M456 0 C 456 26, 100 22, 100 48" />
+      <path d="M456 0 C 456 26, 300 22, 300 48" />
+      <path d="M456 0 C 456 26, 500 22, 500 48" />
+    </svg>
+    <span class="df-join is-phone" aria-hidden="true">↓</span>
+    <ol class="df-col df-instances" role="list">
+      {
+        rows.map((r, i) => (
+          <li class="d-card df-instance d-step" style={`--d-i: ${i + 3}`}>
+            <code class="d-mono"><span class="df-file">users.data</span>#createsEverySignup:{i + 1}</code>
+            <span class="df-row">
+              <span class="df-ok" aria-label="passed">✓</span> {r.email}
+            </span>
+          </li>
+        ))
+      }
+    </ol>
+  </div>
+</Diagram>
+
+<style>
+  .df {
+    display: grid;
+    gap: 0.75rem;
+  }
+  .df-col {
+    display: grid;
+    gap: 0.4rem;
+    min-width: 0;
+    align-content: center;
+  }
+  .df-table {
+    width: 100%;
+    margin: 0;
+    border-collapse: collapse;
+    font-size: 0.75rem;
+    border: 1px solid var(--d-line);
+    border-radius: 0.5rem;
+    background: var(--d-card);
+    display: table;
+  }
+  .df-table th,
+  .df-table td {
+    padding: 0.3rem 0.55rem;
+    border: 0;
+    border-bottom: 1px solid var(--d-line);
+    text-align: start;
+    color: var(--d-fg);
+    overflow-wrap: anywhere;
+  }
+  .df-table th {
+    color: var(--d-muted);
+    font-weight: 600;
+    background: none;
+  }
+  .df-table tr:last-child td {
+    border-bottom: 0;
+  }
+  .df-test {
+    display: grid;
+    gap: 0.35rem;
+    justify-items: start;
+  }
+  .df-test code,
+  .df-instance code {
+    padding: 0;
+    background: none;
+    color: var(--d-text);
+    font-size: 0.75rem;
+    overflow-wrap: anywhere;
+  }
+  .df-instances {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: 0.5rem;
+  }
+  .df-instance {
+    display: grid;
+    gap: 0.15rem;
+    margin: 0;
+    padding: 0.45rem 0.7rem;
+  }
+  .df-instance code {
+    color: var(--d-fg);
+  }
+  .df-row {
+    font-size: var(--sl-text-xs);
+    color: var(--d-muted);
+  }
+  .df-ok {
+    color: var(--d-test);
+    font-weight: 700;
+  }
+  .df-file {
+    display: block;
+    color: var(--d-muted);
+  }
+  .df-join {
+    justify-self: center;
+    color: var(--d-muted);
+    font-size: 1.1rem;
+    line-height: 1;
+  }
+  .df-join:not(.is-phone) {
+    rotate: 90deg;
+  }
+  .df-fan {
+    display: none;
+    width: 100%;
+    height: 3rem;
+    overflow: visible;
+  }
+  .df-fan path {
+    fill: none;
+    stroke: var(--d-line);
+    stroke-width: 2;
+    vector-effect: non-scaling-stroke;
+  }
+  /* Wide enough: the csv and the test side by side, the instances fanned out in a row below. */
+  @container (min-width: 32rem) {
+    .df {
+      grid-template-columns: minmax(0, 1fr) 1.5rem minmax(0, 1fr);
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .df-join:not(.is-phone) {
+      rotate: none;
+    }
+    .df-join.is-phone {
+      display: none;
+    }
+    .df-fan {
+      display: block;
+      grid-column: 1 / -1;
+    }
+    .df-instances {
+      grid-column: 1 / -1;
+      grid-template-rows: none;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    .df-table td {
+      overflow-wrap: normal;
+      white-space: nowrap;
+    }
+  }
+</style>

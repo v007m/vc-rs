@@ -12,7 +12,7 @@ interface Props {
 const { title, icon, href } = Astro.props;
 ---
 
-<a class="lp-feature" href={href}>
+<a class="lp-feature" href={href} data-reveal>
   <span class="lp-feature-icon"><LineIcon name={icon} /></span>
   <span class="lp-feature-title">{title}<LineIcon name="arrow" class="lp-feature-arrow" /></span>
   <span class="lp-feature-body"><slot /></span>
