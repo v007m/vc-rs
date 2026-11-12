@@ -22,7 +22,7 @@ const DRAIN: Duration = Duration::from_millis(200);
 ///
 /// It reads stdout and stderr as they come and keeps the last `output_cap` bytes of each, so a
 /// chatty program never fills memory. The run ends when the program exits; what its streams
-/// still hold is read for [`DRAIN`] more, so a process it left in the background never holds
+/// still hold is read for 200 ms more (`DRAIN`), so a process it left in the background never holds
 /// the run open. That process lives on while vc runs, a detached task reading and discarding
 /// what it writes; once vc exits, it dies of `SIGPIPE` at its next write. On unix the program leads a process group
 /// of its own, and a timeout, or dropping the run, kills the whole group; elsewhere it kills the
