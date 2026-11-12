@@ -59,7 +59,7 @@ impl Engine {
         for group in program.api_groups.values() {
             let file_id = program.str(group.id.sym()).unwrap_or_default();
             let path = snapshot_path(file_id);
-            match self.snapshot(&path) {
+            match self.spec_snapshot(&path) {
                 Snapshot::Read(doc) => tally.spec(group, &path, &doc),
                 Snapshot::Missing if group.source.is_some() => tally.notes.push(format!(
                     "`{path}` is missing, so the statuses its spec documents are left out; `vc sync {file_id}` writes it"
@@ -75,7 +75,7 @@ impl Engine {
 
     /// The spec snapshot at `path`, read from the project's sources and decoded as sync decodes
     /// it, through a fetcher with no transport.
-    fn snapshot(&self, path: &str) -> Snapshot {
+    fn spec_snapshot(&self, path: &str) -> Snapshot {
         let Ok(source) = SourcePath::new(path) else { return Snapshot::Unreadable };
         match self.sources.read_bytes(&source) {
             Ok(bytes) => self.pasted_fetcher().decode(path, &bytes).map_or(Snapshot::Unreadable, Snapshot::Read),
@@ -211,7 +211,7 @@ fn documented(mut patterns: Vec<StatusPattern>) -> Vec<String> {
         .collect()
 }
 
-/// The methods an OpenAPI path item can hold.
+/// The methods an `OpenAPI` path item can hold.
 const METHODS: [&str; 8] = ["get", "put", "post", "delete", "options", "head", "patch", "trace"];
 
 /// One operation of a spec.

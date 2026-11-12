@@ -6,7 +6,10 @@ use super::{Coverage, CoveredApi};
 use crate::sample::builder;
 use crate::{Engine, EngineError};
 
-const CONFIG: (&str, &[u8]) = ("vibranium.config.yaml", b"syntaxVersion: 2\nvars: {baseUrl: 'http://x'}\n");
+const CONFIG: (&str, &[u8]) = (
+    "vibranium.config.yaml",
+    b"syntaxVersion: 2\nvars: {baseUrl: 'http://x'}\nprofiles:\n  - id: dev\n    default: true\n",
+);
 
 /// `users` comes from a spec: `list` and `get` link to its operations, `remove` to none.
 const USERS: (&str, &[u8]) = (
@@ -14,7 +17,7 @@ const USERS: (&str, &[u8]) = (
     b"baseUrl: ${var.baseUrl}\nsource:\n  openapi: https://specs.test/users.json\napis:
   - id: list\n    path: /users\n    operationId: listUsers\n    expect: {status: 200}
   - id: get\n    path: /users/${var.userId}\n    vars: {userId: 1}\n    operationId: getUser
-  - id: remove\n    method: delete\n    path: /users/1\n",
+  - id: remove\n    method: DELETE\n    path: /users/1\n",
 );
 
 /// The sample clock's day is 2026-11-05: `getsThenLists` is still skipped, `listsAgain`'s skip
@@ -54,8 +57,7 @@ fn row(api: &str, method: &str, path: &str, file: &str) -> CoveredApi {
 }
 
 fn documented(coverage: &Coverage) -> Vec<(&str, Vec<&str>)> {
-    let shown = |row: &CoveredApi| row.documented.iter().map(String::as_str).collect();
-    coverage.apis.iter().map(|row| (row.api.as_str(), shown(row))).collect()
+    coverage.apis.iter().map(|row| (row.api.as_str(), row.documented.iter().map(String::as_str).collect())).collect()
 }
 
 #[test]
