@@ -2,7 +2,7 @@ use super::{FALLBACK, NO_HASHES, NOT_UTF8, header as sent, policy};
 
 const HASH: &str = "'sha256-CbculNcflElcZFscHVVSn37ckaTi9ym23lQrblhKGW4='";
 
-/// The hash of SvelteKit's route announcer style, which the web build lists in `style-src`.
+/// The hash of the route announcer's inline style, which the web build lists in `style-src`.
 const ANNOUNCER: &str = "'sha256-S8qMpvofolR8Mpjy4kQvEm7m1q8clzU4dfDH0AmvZjo='";
 
 /// `index.html` as `pnpm -C web build` writes it.

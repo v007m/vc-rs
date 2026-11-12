@@ -4,6 +4,7 @@ use std::path::Path;
 
 /// Every file under `root` as text, by its path from `root` with `/` between folders: a project
 /// on disk (such as the docs site's example project) as the in-memory sources a test hands over.
+///
 /// A `.vibranium/` folder is skipped: it holds what a `vc` run there cached, not sources.
 ///
 /// # Errors
