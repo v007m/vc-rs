@@ -13,8 +13,8 @@ use vc_adapter_auth::AuthTypes;
 use vc_adapter_reporters::{Color, ReporterContext, ReporterRegistry};
 use vc_adapter_system::SystemClock;
 use vc_executor::{
-    ActionCx, ActionExecutors, ActionKindTag, CommandExecutor, Defined, EventBus, Executor, ExecutorError, HostLimits,
-    MaskRules, PipelineParts, RunHandle, RunInputs, RunOptions,
+    ActionCx, ActionExecutors, ActionKindTag, CommandExecutor, CommandShell, Defined, EventBus, Executor,
+    ExecutorError, HostLimits, MaskRules, PipelineParts, RunHandle, RunInputs, RunOptions,
 };
 use vc_interfaces::{Clock as _, MemorySources, Reporter, RunSummary, Secrets, Transport};
 use vc_model::{Feed, RunStatus, Totals};
@@ -125,13 +125,14 @@ fn console(prepared: &Prepared, sink: Arc<dyn Sink>, color: bool) -> Result<Box<
 }
 
 /// The executor of `prepared`: HTTP through `transport` under the config's limits, `command:`
-/// lines through [`PageCommands`], the auth types
+/// lines through [`PageCommands`] in the `sh -c` form whatever the host, the auth types
 /// a page can run, events masked by the standard and the config's redact rules, and no secrets.
 fn executor(prepared: &Prepared, project: &MemorySources, transport: Arc<dyn Transport>) -> Executor {
     let defaults = &prepared.program.config.defaults;
     let per_host = widen(defaults.per_host.unwrap_or(PER_HOST));
     let parts = PipelineParts::new(Arc::clone(&transport), HostLimits::spawn(per_host));
-    let commands = CommandExecutor::new(Arc::new(PageCommands), PathBuf::new(), Vec::new());
+    let commands =
+        CommandExecutor::new(Arc::new(PageCommands), PathBuf::new(), Vec::new()).with_shell(CommandShell::POSIX);
     let executors = Arc::new(ActionExecutors::standard(parts).with(ActionKindTag::Command, Arc::new(commands)));
     let cx = ActionCx::new(Arc::clone(&prepared.program), executors, inputs(prepared, project))
         .with_mask_rules(&MaskRules::standard())

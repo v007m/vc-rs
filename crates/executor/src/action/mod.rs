@@ -37,7 +37,7 @@ use crate::{
 pub use auth::{AuthKey, Lease, NoAuth, TokenCache, steps as auth_steps};
 pub use cached::{CachedExecutor, RunCache};
 pub use call::{CallExecutor, called};
-pub use command::CommandExecutor;
+pub use command::{CommandExecutor, CommandShell};
 pub use function::FunctionExecutor;
 pub use inline::InlineExecutor;
 pub use reuse::{TestExecutor, body_actions};
