@@ -19,7 +19,7 @@ use crate::{Engine, EngineError, ReportFlags};
 /// Milliseconds in a day, for the start times.
 const DAY_MS: u64 = 86_400_000;
 /// What `vc report` writes when `--format` names nothing.
-const REPORT: &str = "html";
+const REPORT: &str = reporting::HTML;
 
 /// What `vc report` asks for.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]

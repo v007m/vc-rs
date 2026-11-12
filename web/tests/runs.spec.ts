@@ -43,3 +43,16 @@ test('lists the finished run in recent runs and opens it from the history', asyn
   await page.getByRole('button', { name: 'Back to the current run' }).click();
   await expect(page.getByRole('log', { name: 'Run events, newest first' })).toBeVisible();
 });
+
+test('opens the ended run from the history, in the app', async ({ page }) => {
+  await page.goto('/runs');
+  await page.getByRole('button', { name: 'Run all tests' }).click();
+  await expect(page.getByRole('status')).toHaveText(/Passed|Failed/, { timeout: 30_000 });
+  const title = await page.getByRole('heading', { name: /^Run #\d+$/ }).textContent();
+  // The seed project writes no HTML report, so no path is named.
+  await expect(page.getByText('HTML report')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Open report' }).click();
+  await expect(page.getByRole('button', { name: 'Back to the current run' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: title ?? '' })).toBeVisible();
+  await expect(page.getByRole('listbox', { name: 'Tests' })).toContainText('users.crud#listsUsers');
+});

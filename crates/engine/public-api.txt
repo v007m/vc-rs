@@ -1180,6 +1180,7 @@ impl core::marker::StructuralPartialEq for vc_engine::ReportRequest
 #[non_exhaustive] pub struct vc_engine::RunReport
 pub vc_engine::RunReport::exit: u8
 pub vc_engine::RunReport::generated: bool
+pub vc_engine::RunReport::html_report: core::option::Option<std::path::PathBuf>
 pub vc_engine::RunReport::notices: alloc::vec::Vec<alloc::string::String>
 pub vc_engine::RunReport::run: core::option::Option<u64>
 pub vc_engine::RunReport::seed: u64

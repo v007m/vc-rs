@@ -38,9 +38,11 @@ const ROLES: &[(&str, Role)] = &[
     ("dots", Role::LaterConsole),
     ("ctrf", Role::File),
     ("junit", Role::File),
-    ("html", Role::File),
+    (HTML, Role::File),
 ];
 
+/// The HTML report's name, whose file the live run names (D320).
+pub const HTML: &str = "html";
 /// The console format when none is given.
 const CONSOLE: &str = "spec";
 /// The report files when neither a flag, a layer nor the config names any.
@@ -191,6 +193,16 @@ pub struct Setup {
     pub quiet: bool,
     /// The run's plugins, among them the reporter plugins the choice names.
     pub plugins: Hosts,
+    /// The project root, which the HTML report's path is named from.
+    pub root: PathBuf,
+}
+
+/// How the reporters finished: their problems, one line each, what the alerts read, and where
+/// the HTML report was written, relative to the project root, when it was written inside it.
+pub struct Reported {
+    pub problems: Vec<String>,
+    pub ending: Ending,
+    pub html: Option<PathBuf>,
 }
 
 /// The run's reporters, its record and its report files, and the problems they had; a report
@@ -208,6 +220,7 @@ pub struct Reporters {
     watch: Option<Watch>,
     /// The reporter plugins still taking events.
     plugins: Vec<PluginReporter>,
+    root: PathBuf,
 }
 
 impl Reporters {
@@ -228,7 +241,8 @@ impl Reporters {
         let console = ReporterRegistry::builtin().create(&chosen.console, &context).map_err(internal)?;
         let formats = chosen.formats()?;
         let recorder = Recorder::new(&context);
-        Ok(Self { console, recorder, formats, chosen, history, keep, seed: setup.seed, problems, watch, plugins })
+        let (seed, root) = (setup.seed, setup.root);
+        Ok(Self { console, recorder, formats, chosen, history, keep, seed, problems, watch, plugins, root })
     }
 
     /// The run's number in the history, when it is recorded.
@@ -274,9 +288,10 @@ impl Reporters {
     }
 
     /// Writes the report files and closes the run in the history, then ends the console with
-    /// the files' paths: the problems, one line each, and what the alerts read.
-    pub async fn finish(self, run: RunSummary) -> (Vec<String>, Ending) {
-        let Self { mut console, recorder, formats, chosen, history, keep, seed, mut problems, watch, plugins } = self;
+    /// the files' paths.
+    pub async fn finish(self, run: RunSummary) -> Reported {
+        let Self { mut console, recorder, formats, chosen, history, keep, seed, mut problems, watch, plugins, root } =
+            self;
         let id = history.as_ref().map_or(0, |history| history.id().get());
         let snapshot = recorder.finish(RunFacts { seed: Some(seed), ..RunFacts::of(id, &run) });
         let (dir, unmarked) = chosen.run_folder(history.as_ref().map(Recording::id));
@@ -287,6 +302,8 @@ impl Reporters {
         artifacts.extend(written);
         problems.extend(failed);
         let report = artifacts.first().map(|artifact| artifact.path.clone());
+        let html =
+            artifacts.iter().find(|artifact| artifact.reporter == HTML).and_then(|html| inside(&root, &html.path));
         let ending = watch.map(|watch| watch.ending(report)).unwrap_or_default();
         let ending = Ending { teardown: snapshot.teardown_failed(), ..ending };
         if let Some(history) = history
@@ -297,7 +314,7 @@ impl Reporters {
         if let Err(error) = console.finish(&run.artifacts(artifacts)).await {
             problems.insert(error.to_string());
         }
-        (problems.into_iter().collect(), ending)
+        Reported { problems: problems.into_iter().collect(), ending, html }
     }
 }
 
@@ -316,6 +333,12 @@ fn plugins(chosen: &Chosen, setup: &Setup, run: Option<RunId>) -> (Vec<PluginRep
         }
     }
     (reporters, problems)
+}
+
+/// `path` relative to the project `root`, rebuilt from its parts as [`crate::paths::under`]
+/// does; none outside it, so a watcher is never told where the project is, nor a path beyond it.
+fn inside(root: &Path, path: &Path) -> Option<PathBuf> {
+    path.strip_prefix(root).ok().map(|relative| relative.components().collect())
 }
 
 /// Ends each reporter plugin with `run`: the files they wrote, and why any did not.

@@ -192,4 +192,8 @@ message RunReport {
   repeated string notices = 3;
   // The run's number in the history, when it was recorded.
   optional uint64 run = 4;
+  // Where the run's HTML report was written, relative to the project root, when it wrote one
+  // there (`.vibranium/reports/12/index.html`). Display-only text: the server never serves
+  // the file (D320).
+  optional string html_report = 5;
 }

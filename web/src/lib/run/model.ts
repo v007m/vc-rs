@@ -37,6 +37,8 @@ export type RunView = Readonly<{
   /** The history id, once the report names it. */
   runId?: bigint;
   exit?: number;
+  /** Where the run's HTML report was written, once the report names it; text only (D320). */
+  htmlReport?: string;
   /** Why the stream broke off, when phase is `error`. */
   error?: string;
 }>;
@@ -114,7 +116,9 @@ const steps: Partial<Record<NonNullable<RunEvent['kind']['case']>, Step>> = {
         }
       : view,
   report: (view, { kind }) =>
-    kind.case === 'report' ? { ...view, runId: kind.value.run, exit: kind.value.exit } : view,
+    kind.case === 'report'
+      ? { ...view, runId: kind.value.run, exit: kind.value.exit, htmlReport: kind.value.htmlReport }
+      : view,
 };
 
 /** The view after one more event of the run's stream. */

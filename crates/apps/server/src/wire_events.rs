@@ -201,7 +201,14 @@ fn run_finished(status: RunStatus, sum: Totals) -> wire::RunFinished {
     wire::RunFinished { status: results::RunStatus::from(status).into(), totals: Some(sum.into()) }
 }
 
-/// How the run ended, as `vc run` reports it.
+/// How the run ended, as `vc run` reports it, with its HTML report's path as text only (D320).
 fn run_report(report: RunReport) -> wire::RunReport {
-    wire::RunReport { exit: u32::from(report.exit), seed: report.seed, notices: report.notices, run: report.run }
+    let html_report = report.html_report.map(|path| path.display().to_string());
+    wire::RunReport {
+        exit: u32::from(report.exit),
+        seed: report.seed,
+        notices: report.notices,
+        run: report.run,
+        html_report,
+    }
 }
