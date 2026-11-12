@@ -132,7 +132,7 @@ impl Explainer<'_> {
     }
 
     /// The vars `defs` sets at the level `origin`, each active profile's over them.
-    fn level(&self, vars: &mut Vec<Var>, defs: &VarDefs, origin: &str) {
+    pub(crate) fn level(&self, vars: &mut Vec<Var>, defs: &VarDefs, origin: &str) {
         let profiles = self.active.iter().filter_map(|id| Some((id, defs.by_profile.get(id)?)));
         let profiles = profiles.map(|(id, values)| (format!("{origin}, profile {}", self.text(id.sym())), values));
         for (origin, values) in std::iter::once((origin.to_owned(), &defs.values)).chain(profiles) {

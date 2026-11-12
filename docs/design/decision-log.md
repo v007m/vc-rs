@@ -580,6 +580,12 @@ Round 49 (12 November 2026; orchestrator, under Sarath's delegation):
 | --- | --- | --- | --- |
 | D312 | Token lifetimes are capped at a year | The token cache holds credentials for at most a year (`MAX_TOKEN_LIFETIME`), whatever lifetime they come with: OAuth `expires_in`, a plugin's `expiresIn` or a flow's `expiresIn`, as a number or a string. A stale time the clock cannot hold is now, so the token is used by the request that fetched it and fetched again by the next; it is never held forever | D193 (caps) |
 
+Round 50 (12 November 2026; orchestrator, under Sarath's delegation):
+
+| # | Topic | Decision | Supersedes |
+| --- | --- | --- | --- |
+| D313 | `vc sync` sends `source.headers` | `vc sync` renders an api file's `source.headers` under `--profile` (else the default profiles) from `${var.…}` (config, profiles, the file's own), `${env.…}` and `${secret.…}` only, and sends them to the origin of `source.openapi` alone: same scheme, host and port, no redirect followed, so a `$ref` to another host gets none. The file keeps the templates as written. Only the config, `.env.schema` and the synced api files are compiled to render them, so an error in another file does not stop the sync, and secrets load only when a header reads one. A header that does not render stops the sync before any fetch, naming the file and header, never the value; a fetch error masks each secret a header read as `••••` | — (fills a gap in D79) |
+
 Round 51 (12 November 2026; orchestrator, under Sarath's delegation):
 
 | # | Topic | Decision | Supersedes |

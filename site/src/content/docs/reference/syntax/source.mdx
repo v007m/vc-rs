@@ -27,7 +27,7 @@ source:
 | `source.openapi` | path or URL | — | yes | The spec. A path is relative to the project root |
 | `source.include` | list of tags or path prefixes | every operation | no | Only operations with one of these tags or under one of these paths are imported and synced |
 | `source.only` | list of operation IDs | every operation | no | Only these operations are imported and synced. `vc import --only` writes it |
-| `source.headers` | map of strings | — | no | Headers sent when fetching a protected spec URL, such as an auth token |
+| `source.headers` | map of templates | — | no | Headers sent when fetching a protected spec URL, such as an auth token. They read `${var.…}`, `${env.…}` and `${secret.…}`, and go only to the spec URL's own scheme, host and port |
 
 Each api that came from the spec also carries an [`operationId`](/vc-rs/reference/syntax/operation-id/). That is how `vc sync` matches an api to its operation.
 
@@ -122,6 +122,26 @@ source:
     - getPet
 ```
 
+### A protected spec URL
+
+A spec behind a token takes `source.headers`. Keep the token in a secret, so the api file holds only its name:
+
+```yaml title="services/users/users.api.yaml (excerpt)"
+source:
+  openapi: https://specs.example.com/users.yaml
+  headers:
+    authorization: Bearer ${secret.SPEC_TOKEN}
+    x-team: ${var.team}
+```
+
+```console
+$ vc sync users --profile staging
+fetched https://specs.example.com/users.yaml (4 operations)
+✓ synced
+```
+
+The headers are rendered under the active profiles (`--profile`, else the `default: true` ones), with the config's, the profiles' and the file's own vars. They are sent to `https://specs.example.com` only: a `$ref` to another host gets none, and no redirect is followed. The file keeps `${secret.SPEC_TOKEN}` as written, and an error from the fetch shows `••••` in place of a header's value.
+
 ## Try it
 
 <Playground client:visible kind="api" code={`
@@ -139,6 +159,10 @@ apis:
 ## How it behaves
 
 - `source` changes nothing at run time. It is read by `vc import` and `vc sync` only.
+- A `source.headers` value that does not render (a secret that is not set, a var no active profile sets, a root other than `var`, `env` and `secret`) stops `vc sync` before it fetches anything, naming the header but never its value.
+- `vc sync` renders `source.headers` from the config, `.env.schema` and the api files it syncs only, so an error in a test file does not stop it. It loads secrets only when a header reads one, directly or through a var.
+- The headers go to the spec URL's origin only. `HTTPS://Specs.Example.com:443` and `https://specs.example.com` are the same origin; a user name in the URL is not part of it.
+- When the fetch fails, each secret a header read shows as `••••` in the error.
 - Sync matches apis by `operationId`. An api without one is left alone.
 - Sync updates what the spec owns (method, path, parameters) and keeps what you added (`expect`, `save`, `cleanup`, vars you set, a renamed `id`).
 - An operation that leaves the spec is never deleted. Its api is marked `deprecated: true`.

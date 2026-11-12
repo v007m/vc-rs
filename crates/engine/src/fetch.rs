@@ -14,11 +14,15 @@ use vc_interfaces::{FetchError, SendContext, SourceFilter, SourceProvider, SpecF
 use vc_model::{RenderedRequest, SourceFileId, SourcePath, hidden_part};
 use vc_parser::Syntax;
 
+use crate::spec_headers::SpecHeaders;
+
 /// Fetches specs for one import or sync.
 pub struct ProjectFetcher {
     pub sources: Arc<dyn SourceProvider>,
     /// How URLs are fetched; none for a pasted spec, whose URLs are refused.
     pub transport: Option<Arc<dyn Transport>>,
+    /// The `source.headers` sent to the spec's origin, and only there (D313).
+    pub headers: SpecHeaders,
 }
 
 #[async_trait]
@@ -56,13 +60,23 @@ impl SpecFetcher for ProjectFetcher {
 }
 
 impl ProjectFetcher {
+    /// This fetcher, sending `headers` to their spec's origin.
+    #[must_use]
+    pub fn sending(&self, headers: SpecHeaders) -> Self {
+        Self { sources: Arc::clone(&self.sources), transport: self.transport.clone(), headers }
+    }
+
     async fn get(&self, location: &str) -> Result<Vec<u8>, FetchError> {
-        let failed = |reason: String| FetchError::Failed { location: location.to_owned(), reason };
+        let failed =
+            |reason: String| FetchError::Failed { location: location.to_owned(), reason: self.headers.masked(&reason) };
         let Some(transport) = &self.transport else {
             return Err(failed("a pasted spec may not fetch URLs; import it from its URL with `vc import`".to_owned()));
         };
         let uri = location.parse().map_err(|error: http::uri::InvalidUri| failed(error.to_string()))?;
-        let request = RenderedRequest::new(http::Method::GET, uri);
+        let mut request = RenderedRequest::new(http::Method::GET, uri);
+        if let Some(headers) = self.headers.for_uri(&request.uri) {
+            request.headers.extend(headers.clone());
+        }
         let exchange =
             transport.send(request, &SendContext::default()).await.map_err(|error| failed(error.to_string()))?;
         let status = exchange.response.status;
