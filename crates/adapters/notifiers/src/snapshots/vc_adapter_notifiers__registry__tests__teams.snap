@@ -39,6 +39,11 @@ expression: "serde_json::to_string_pretty(&body).unwrap()"
             "wrap": true
           },
           {
+            "text": "teardown failed: afterAll in users.crud, afterRun",
+            "type": "TextBlock",
+            "wrap": true
+          },
+          {
             "text": "Report: reports/ctrf.json",
             "type": "TextBlock",
             "wrap": true

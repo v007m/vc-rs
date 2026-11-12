@@ -30,4 +30,4 @@ expression: printed
 {"cleanup":{"action":"seed","failure":{"action":null,"code":"V5107","message":"410 gone"},"owner":{"file":"users.crud","kind":"file"},"status":"failed"},"event":"cleanupFinished"}
 {"event":"fileFinished","file":"users.crud","totals":{"allowedFailures":0,"blocked":1,"failed":1,"flaky":1,"passed":2,"skipped":1}}
 {"event":"runFinished","status":"failed","totals":{"allowedFailures":0,"blocked":1,"failed":1,"flaky":1,"passed":2,"skipped":1}}
-{"artifacts":[{"path":"out/ctrf.json","reporter":"ctrf"}],"durationMs":2500,"event":"summary","profileNames":{"dev":"Local dev"},"profiles":["dev"],"startedMs":1793750400000,"status":"failed","totals":{"allowedFailures":0,"blocked":1,"failed":1,"flaky":1,"passed":2,"skipped":1}}
+{"artifacts":[{"path":"out/ctrf.json","reporter":"ctrf"}],"durationMs":2500,"event":"summary","profileNames":{"dev":"Local dev"},"profiles":["dev"],"startedMs":1793750400000,"status":"failed","teardownFailures":[],"totals":{"allowedFailures":0,"blocked":1,"failed":1,"flaky":1,"passed":2,"skipped":1}}

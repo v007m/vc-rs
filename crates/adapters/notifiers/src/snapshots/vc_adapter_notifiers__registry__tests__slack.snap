@@ -33,6 +33,13 @@ expression: "serde_json::to_string_pretty(&body).unwrap()"
       "type": "section"
     },
     {
+      "text": {
+        "text": "teardown failed: afterAll in users.crud, afterRun",
+        "type": "mrkdwn"
+      },
+      "type": "section"
+    },
+    {
       "elements": [
         {
           "text": "Report: reports/ctrf.json",

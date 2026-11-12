@@ -45,6 +45,7 @@ expression: "serde_json::to_string_pretty(&document).unwrap()"
       ],
       "seed": null,
       "status": "failed",
+      "teardownFailures": [],
       "totals": {
         "allowedFailures": 0,
         "blocked": 1,
