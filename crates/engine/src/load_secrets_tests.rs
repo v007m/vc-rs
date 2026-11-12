@@ -106,7 +106,7 @@ async fn a_secret_given_to_a_load_run_reaches_neither_its_report_nor_its_history
     assert!(report.iterations > 0 && report.errors == report.iterations, "{report:?}");
     let history: String = std::iter::from_fn(|| written.try_recv().ok()).collect::<Vec<_>>().join("\n");
     let (json, text) = (report.json().to_string(), report.text());
-    assert!(history.contains("echo.send#sendsFromDataset"), "the seconds were recorded: {history}");
+    assert!(history.contains("IntervalRow { test_id: \"echo.send#sendsFrom"), "the seconds were recorded: {history}");
     for (shown, seen) in [("json", &json), ("text", &text), ("history", &history)] {
         assert!(!seen.contains(TOKEN), "the {shown} holds the secret: {seen}");
     }
