@@ -85,7 +85,9 @@ mod trend;
 mod vcs;
 mod watch;
 
-pub use action_cache::{CacheEntry, CacheKey, CacheListing, CacheStore, CacheStoreError, CachedCleanup, CachedValues};
+pub use action_cache::{
+    CacheEntry, CacheKey, CacheListing, CacheStore, CacheStoreError, CachedCleanup, CachedValues, TakenEntries,
+};
 pub use agent_log::{AgentActionLog, AgentActionReader, LoggedAction};
 pub use approvals::{
     AgentAction, AgentActionWriter, Approval, ApprovalError, ApprovalId, ApprovalRequest, ApprovalStatus, Approvals,

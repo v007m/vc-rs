@@ -2,7 +2,7 @@ use std::path::Path;
 use std::sync::mpsc::{self, Sender};
 
 use rusqlite::{Connection, OptionalExtension, Row, params};
-use vc_interfaces::{CacheEntry, CacheKey, CacheListing, CacheStore, CacheStoreError};
+use vc_interfaces::{CacheEntry, CacheKey, CacheListing, CacheStore, CacheStoreError, TakenEntries};
 
 use crate::cache_codec::{Columns, decode_cleanups, decode_values, encode_cleanups, encode_values};
 use crate::crypt::{CacheSecret, Sealer};
@@ -84,7 +84,7 @@ impl CacheStore for SqliteCache {
         self.ask(move |shelf| shelf.forget(key))
     }
 
-    fn take_expired(&self, now_ms: u64) -> Result<Vec<CacheEntry>, CacheStoreError> {
+    fn take_expired(&self, now_ms: u64) -> Result<TakenEntries, CacheStoreError> {
         self.ask(move |shelf| shelf.take("expires_at <= ?1", now_ms))
     }
 
@@ -92,7 +92,7 @@ impl CacheStore for SqliteCache {
         self.ask(|shelf| shelf.list())
     }
 
-    fn clear(&self, label: Option<&str>) -> Result<Vec<CacheEntry>, CacheStoreError> {
+    fn clear(&self, label: Option<&str>) -> Result<TakenEntries, CacheStoreError> {
         let label = label.map(str::to_owned);
         self.ask(move |shelf| shelf.take("?1 IS NULL OR label = ?1", label))
     }
@@ -131,8 +131,9 @@ impl Shelf {
         Ok(buried)
     }
 
-    /// Removes the rows `filter` picks and gives back the ones that still open, oldest first.
-    fn take(&mut self, filter: &str, value: impl rusqlite::ToSql) -> rusqlite::Result<Vec<CacheEntry>> {
+    /// Removes the rows `filter` picks and gives back the ones that still open, oldest first,
+    /// with the count of those that do not.
+    fn take(&mut self, filter: &str, value: impl rusqlite::ToSql) -> rusqlite::Result<TakenEntries> {
         let Self { connection, sealer } = self;
         let transaction = connection.transaction()?;
         let sql = format!("SELECT {COLUMNS} FROM entries WHERE {filter} ORDER BY created_at, key");
@@ -143,7 +144,8 @@ impl Shelf {
         };
         transaction.execute(&format!("DELETE FROM entries WHERE {filter}"), [&value])?;
         transaction.commit()?;
-        Ok(rows.into_iter().flatten().collect())
+        let unopened = rows.iter().filter(|row| row.is_none()).count();
+        Ok(TakenEntries { entries: rows.into_iter().flatten().collect(), unopened })
     }
 
     fn list(&self) -> rusqlite::Result<Vec<CacheListing>> {

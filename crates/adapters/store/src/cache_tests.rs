@@ -2,7 +2,7 @@ use std::path::Path;
 
 use rusqlite::Connection;
 use serde_json::json;
-use vc_interfaces::{CacheEntry, CacheKey, CacheListing, CacheStore, CachedCleanup};
+use vc_interfaces::{CacheEntry, CacheKey, CacheListing, CacheStore, CachedCleanup, TakenEntries};
 use vc_testkit::cache_store_suite;
 
 use super::SqliteCache;
@@ -65,8 +65,20 @@ fn a_row_that_no_longer_opens_is_a_miss_and_dropped() {
     let connection = Connection::open(&path).unwrap();
     connection.execute("UPDATE entries SET saved = CAST(saved || x'00' AS BLOB)", []).unwrap();
     let cache = open(&path, 1);
-    assert_eq!(cache.clear(None).unwrap(), Vec::new(), "a changed row is cleared without its cleanups");
+    let cleared = TakenEntries { entries: Vec::new(), unopened: 1 };
+    assert_eq!(cache.clear(None).unwrap(), cleared, "a changed row is cleared without its cleanups, and counted");
     assert_eq!(cache.list().unwrap(), Vec::new());
+}
+
+#[test]
+fn an_expired_row_under_another_key_is_taken_and_counted() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("cache.db");
+    open(&path, 1).put(entry(1)).unwrap();
+    open(&path, 1).put(CacheEntry { key: CacheKey::new([2; 32]), ..entry(2) }).unwrap();
+    let taken = open(&path, 2).take_expired(1000).unwrap();
+    assert_eq!(taken, TakenEntries { entries: Vec::new(), unopened: 2 });
+    assert_eq!(open(&path, 1).list().unwrap(), Vec::new(), "both rows are gone");
 }
 
 #[test]
