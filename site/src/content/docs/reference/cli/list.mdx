@@ -27,7 +27,7 @@ $ vc list [OPTIONS] <KIND> [SELECTORS]...
 | `-t`, `--tag` | `<TAGS>` | | Only tests with this tag expression. `!` excludes, `,` means or. Repeat to require every one |
 | `-g`, `--grep` | `<TEXT>` | | Only tests whose full ID or name contains this text, ignoring case |
 | `--changed` | `[<REF>]` | | Only files changed since this git ref, or the uncommitted and untracked changes when no ref is given |
-| `--changed-since` | `<DURATION>` | | Only files committed in the last hours, days or weeks (`12h`, `7d`, `2w`), plus the uncommitted and untracked changes. Not with `--changed`. Needs git 2.37 or later |
+| `--changed-since` | `<DURATION>` | | Only files committed in the last hours, days or weeks (`12h`, `7d`, `2w`, at most 10 years), merges included, plus the uncommitted and untracked changes. Not with `--changed`. Needs git 2.37 or later |
 | `--include-skipped` | | | Also lists the skipped tests, without the `(skipped: …)` marker |
 | `--skipped` | | | Lists only the skipped tests, and the tests whose skip has ended |
 | `--json` | | | Prints the list as JSON on stdout |

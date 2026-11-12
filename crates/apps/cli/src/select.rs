@@ -64,7 +64,10 @@ impl SelectArgs {
     }
 }
 
-/// `--changed-since`'s window: a whole number above zero and `h`, `d` or `w`.
+/// The longest `--changed-since` window, 10 years: git takes no date much further back.
+const MAX_WINDOW: u64 = 3_650 * 86_400;
+
+/// `--changed-since`'s window: a whole number above zero and `h`, `d` or `w`, at most 10 years.
 fn window(text: &str) -> Result<Duration, String> {
     let wrong = || format!("`{text}` is not a duration such as `12h`, `7d` or `2w`");
     let unit = text.chars().last().ok_or_else(wrong)?;
@@ -72,6 +75,9 @@ fn window(text: &str) -> Result<Duration, String> {
     let digits = text.strip_suffix(unit).filter(|digits| digits.bytes().all(|b| b.is_ascii_digit()));
     let count: u64 = digits.ok_or_else(wrong)?.parse().map_err(|_| wrong())?;
     let total = count.checked_mul(*seconds).filter(|total| *total > 0).ok_or_else(wrong)?;
+    if total > MAX_WINDOW {
+        return Err(format!("`{text}` is longer than 10 years (`3650d` or `521w`)"));
+    }
     Ok(Duration::from_secs(total))
 }
 
@@ -122,6 +128,16 @@ mod tests {
         assert_eq!(window("2w"), Ok(Duration::from_hours(14 * 24)));
         for bad in ["", "d", "7", "0d", "-1d", "+1d", "1.5d", "7dd", "7 d", "3m", "99999999999999999w"] {
             assert!(window(bad).is_err(), "{bad:?}");
+        }
+    }
+
+    #[test]
+    fn a_window_is_at_most_ten_years() {
+        assert_eq!(window("3650d"), Ok(Duration::from_hours(3_650 * 24)));
+        assert_eq!(window("87600h"), Ok(Duration::from_hours(87_600)));
+        assert_eq!(window("521w"), Ok(Duration::from_hours(521 * 7 * 24)));
+        for long in ["3651d", "87601h", "522w", "1000000w"] {
+            assert_eq!(window(long), Err(format!("`{long}` is longer than 10 years (`3650d` or `521w`)")));
         }
     }
 }
