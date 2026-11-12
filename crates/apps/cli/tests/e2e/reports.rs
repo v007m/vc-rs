@@ -106,3 +106,31 @@ fn attr(tag: &str, name: &str) -> Option<String> {
     let start = tag.find(&format!(" {name}=\""))? + name.len() + 3;
     tag.get(start..)?.split_once('"').map(|(value, _)| value.to_owned())
 }
+
+const RETRIED: (&str, &str) = (
+    "services/scripted/retried.test.yaml",
+    "name: Retried\ntests:\n  - id: passesSecondTime\n    call: scripted#flaky\n    expect: {status: 200}\n\
+     \x20   retry: {attempts: 2, delay: 50ms}\n  - id: listsUsers\n    call: users#list\n",
+);
+const QUICK: (&str, &str) = (
+    "services/users/quick.test.yaml",
+    "name: Quick\ntests:\n  - id: listsOnce\n    call: users#list\n  - id: listsTwice\n    call: users#list\n\
+     \x20 - id: listsThrice\n    call: users#list\n",
+);
+
+/// A retried instance finishes once, so in a parallel run its file still prints one block
+/// under one heading (D321) while the other file's tests finish during the retry's delay.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_retried_test_keeps_its_file_in_one_block() {
+    let server = MockServer::start().await.unwrap();
+    let project = Project::new(&[CONFIG, USERS, SCRIPTED, RETRIED, QUICK]);
+    let run = project.run(&server.base_url(), &["--concurrency", "8"]).output().unwrap();
+    let printed = String::from_utf8_lossy(&run.stdout);
+    assert_eq!(run.status.code(), Some(0), "{printed}");
+    let lines: Vec<&str> = printed.lines().collect();
+    for heading in ["Retried", "Quick"] {
+        assert_eq!(lines.iter().filter(|line| **line == heading).count(), 1, "{printed}");
+    }
+    let block = printed.split("Retried\n").nth(1).and_then(|rest| rest.split("\n\n").next()).unwrap_or_default();
+    assert!(block.contains("passesSecondTime flaky (2 attempts)") && block.contains("retried#listsUsers"), "{printed}");
+}

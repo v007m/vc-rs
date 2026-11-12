@@ -476,16 +476,16 @@ An agent reads the result with `vc load people.browse --json`, which prints one 
    $ vc run --changed main
    plan  6 tests in 4 files · profile local
 
-   ✓ people.openapi#listsPeople                                     48ms
-   ✓ people.openapi#createsPerson                                   47ms
-   ✓ people.openapi#getsPerson                                      49ms
-   ✓ people.diff#getsGraceExactly                                   48ms
-   ✓ people.listing#listsAdaFirst                                   48ms
+   ✓ people.listing#listsAdaFirst — Lists Ada first                  2ms
+   ✓ people.diff#getsGraceExactly — Gets Grace exactly               2ms
+   ✓ people.openapi#createsPerson — Create a person                  2ms
+   ✓ people.openapi#getsPerson — Get a person returns 200            2ms
+   ✓ people.openapi#listsPeople — List people                        2ms
 
    People lookup
-   ✓ people.lookup#getsGraceById                                    48ms
+   ✓ people.lookup#getsGraceById — Gets Grace by id                  2ms
 
-   6 passed                                                     51ms · profile local
+   6 passed                                                     3ms · profile local
    ```
 
 3. In CI, check out enough history for the ref to exist (for GitHub Actions, `fetch-depth: 0`) and run:

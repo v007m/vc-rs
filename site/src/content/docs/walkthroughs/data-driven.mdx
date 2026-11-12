@@ -595,32 +595,32 @@ The api file is in step 2, `signup.test.yaml` is steps 3 and 4, `datasets.test.y
 $ vc run --seed 42
 plan  9 tests (19 instances) in 3 files · profile default
 
-Generated data
-✓ people.fake#sendsFreshDataEachRun [repeat 2] — Each repeat gets its own generated email    7ms
-✓ people.fake#sendsFreshDataEachRun [repeat 3] — Each repeat gets its own generated email    7ms
-✓ people.fake#sendsFreshDataEachRun [repeat 1] — Each repeat gets its own generated email    7ms
-✓ people.fake#sendsGeneratedData — Sends generated values and gets them back    7ms
-
 Tests fed by datasets
-✓ people.datasets#sendsEveryCity › Tokyo — Sends each city from datasets/cities.csv    7ms
-✓ people.datasets#sendsEveryCity › Paris — Sends each city from datasets/cities.csv    2ms
-✓ people.datasets#sendsEveryCity › Lagos — Sends each city from datasets/cities.csv    9ms
-✓ people.datasets#sendsEveryCity › Delhi — Sends each city from datasets/cities.csv    3ms
-✓ people.datasets#countsTo — Sends the same request three times   10ms
-✓ people.datasets#triesEachPlan — Sends one request per plan name   11ms
+✓ people.datasets#sendsEveryCity › Lagos — Sends each city from datasets/cities.csv    2ms
+✓ people.datasets#sendsEveryCity › Tokyo — Sends each city from datasets/cities.csv    3ms
+✓ people.datasets#sendsEveryCity › Paris — Sends each city from datasets/cities.csv    3ms
+✓ people.datasets#sendsEveryCity › Delhi — Sends each city from datasets/cities.csv    0ms
+✓ people.datasets#triesEachPlan — Sends one request per plan name    3ms
+✓ people.datasets#countsTo — Sends the same request three times    0ms
 ✓ people.datasets#createsEveryAdmin — Creates every admin, three at a time, then sends their IDs    3ms
 
 Sign-up with many inputs
-✓ people.signup#rejectsBadEmail [row 1] — Rejects an email that is not text    7ms
-✓ people.signup#rejectsBadEmail [row 3] — Rejects an email that is not text    7ms
-✓ people.signup#rejectsBadEmail [row 2] — Rejects an email that is not text    9ms
-✓ people.signup#createsEachUser › Ada Lovelace — Creates a user for every row   10ms
-✓ people.signup#createsEachUser › Alan Turing — Creates a user for every row   10ms
-✓ people.signup#createsEachUser › Grace Hopper — Creates a user for every row   10ms
-✓ people.signup#createsUsersFromFile › Margaret Hamilton — Creates a user for every row in signup-rows.yaml   10ms
-✓ people.signup#createsUsersFromFile › Linus Torvalds — Creates a user for every row in signup-rows.yaml   10ms
+✓ people.signup#rejectsBadEmail [row 2] — Rejects an email that is not text    2ms
+✓ people.signup#rejectsBadEmail [row 1] — Rejects an email that is not text    2ms
+✓ people.signup#rejectsBadEmail [row 3] — Rejects an email that is not text    3ms
+✓ people.signup#createsUsersFromFile › Margaret Hamilton — Creates a user for every row in signup-rows.yaml    3ms
+✓ people.signup#createsEachUser › Ada Lovelace — Creates a user for every row    3ms
+✓ people.signup#createsEachUser › Grace Hopper — Creates a user for every row    3ms
+✓ people.signup#createsUsersFromFile › Linus Torvalds — Creates a user for every row in signup-rows.yaml    3ms
+✓ people.signup#createsEachUser › Alan Turing — Creates a user for every row    0ms
 
-19 passed                                                    35ms · profile default
+Generated data
+✓ people.fake#sendsFreshDataEachRun [repeat 3] — Each repeat gets its own generated email    2ms
+✓ people.fake#sendsFreshDataEachRun [repeat 1] — Each repeat gets its own generated email    3ms
+✓ people.fake#sendsFreshDataEachRun [repeat 2] — Each repeat gets its own generated email    3ms
+✓ people.fake#sendsGeneratedData — Sends generated values and gets them back    3ms
+
+19 passed                                                    4ms · profile default
 reports  …/.vibranium/reports/12/{ctrf.json,junit.xml,index.html}
 ```
 
