@@ -557,6 +557,7 @@ Round 47 (12 November 2026; orchestrator, under Sarath's delegation):
 | D297 | `vc demo start` takes turns through a file lock | Concurrent `vc demo start`s on one port take turns through an OS file lock (`File::try_lock`) on `<port>.lock` in the private `vibranium-demo-<uid>` folder. The lock file is checked as the pidfile's folder is, on the opened handle: owned by the user, not a link (its device and inode match the path's, read without following a link). D113's allow-list is for in-process locks and shared mutable memory (`Mutex`, `RwLock`, `arc-swap`); a lock on a file that coordinates separate `vc` processes is I/O in the CLI layer, so it is outside that list and ARCH-LOCK and the arch-tests are unchanged | — (clarifies D113) |
 | D298 | Calls with no response in api trends | An api's `calls` in `ApiTrends` count every call, including those that got no response (a timeout, a refused connection). Its p50 and p95 count only the calls that got a response, so a failed connection never reads as a fast call | — (fills a gap in the History api trends) |
 | D299 | Exchanges outside a test in api trends | `ApiTrends` sums up every exchange a run stored, including those of shared and lifecycle actions outside any test, since each one is a call the api answered | — (fills a gap in the History api trends) |
+| D305 | Test durations | A test's duration is measured by the executor, around the instance, and carried on its result and event; reporters and the store use it and never time by when they read an event | — |
 
 ## Open
 
