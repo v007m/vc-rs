@@ -1019,6 +1019,44 @@ pub struct TrendsResponse {
     pub trends: ::prost::alloc::vec::Vec<TestTrend>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ApiTrendsRequest {
+    /// Over this many runs; the engine's default when 0.
+    #[prost(uint32, tag="1")]
+    pub window: u32,
+    /// Only runs under this profile, the window counted among them; every profile when absent.
+    #[prost(string, optional, tag="2")]
+    pub profile: ::core::option::Option<::prost::alloc::string::String>,
+    /// Only runs on this git branch, the window counted among them; every branch when absent.
+    #[prost(string, optional, tag="3")]
+    pub branch: ::core::option::Option<::prost::alloc::string::String>,
+}
+/// One api's calls over the window, shared and lifecycle ones included.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ApiTrend {
+    /// `users#get`.
+    #[prost(string, tag="1")]
+    pub api_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub method: ::prost::alloc::string::String,
+    /// Every call, those that got no response included.
+    #[prost(uint32, tag="3")]
+    pub calls: u32,
+    /// Over the calls that got a response, by nearest rank; absent when none did.
+    #[prost(double, optional, tag="4")]
+    pub p50_ms: ::core::option::Option<f64>,
+    #[prost(double, optional, tag="5")]
+    pub p95_ms: ::core::option::Option<f64>,
+    /// The statuses its responses had, each once, lowest first.
+    #[prost(uint32, repeated, tag="6")]
+    pub statuses: ::prost::alloc::vec::Vec<u32>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ApiTrendsResponse {
+    /// In api ID order.
+    #[prost(message, repeated, tag="1")]
+    pub trends: ::prost::alloc::vec::Vec<ApiTrend>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ExplainConfigRequest {
     /// `defaults.timeout`, `vars.baseUrl`; every setting and every var a layer sets when empty.
     #[prost(string, repeated, tag="1")]

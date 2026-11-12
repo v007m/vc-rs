@@ -1,10 +1,12 @@
+use std::fs;
+
 use vc_contracts::engine::v1 as wire;
 use vc_contracts::results::v1::{RunStatus, TestStatus};
-use vc_engine::{RunRequest, interrupts};
+use vc_engine::{PlanRequest, RunRequest, interrupts};
 
-use super::{decide_approval, get_run, list_approvals, list_runs, trends};
+use super::{api_trends, decide_approval, get_run, list_approvals, list_runs, trends};
 use crate::Code;
-use crate::engine_fixture::project;
+use crate::engine_fixture::{CONFIG, project, serving};
 
 #[tokio::test]
 async fn an_empty_history_lists_no_run_and_has_no_last_one() {
@@ -47,6 +49,58 @@ async fn runs_list_by_kind_with_the_limit_counted_among_them() {
     let listed = list_runs(api.clone(), of("run", 1)).await.unwrap();
     assert_eq!(listed.runs.iter().map(|run| run.id).collect::<Vec<_>>(), [newest.id]);
     assert_eq!(list_runs(api, of("load", 0)).await.unwrap().runs, []);
+}
+
+#[tokio::test]
+async fn runs_and_trends_count_only_the_runs_under_the_profile_and_branch_asked_for() {
+    let (_dir, api) = project();
+    for profile in ["dev", "bare", "bare"] {
+        let plan = PlanRequest { profiles: vec![profile.to_owned()], ..PlanRequest::default() };
+        api.engine().run(&RunRequest { plan, ..RunRequest::default() }, interrupts().1).await.unwrap();
+    }
+    let under = |profile: &str, branch: Option<&str>| wire::ListRunsRequest {
+        limit: 1,
+        profile: Some(profile.to_owned()),
+        branch: branch.map(str::to_owned),
+        ..wire::ListRunsRequest::default()
+    };
+    let [dev] = list_runs(api.clone(), under("dev", None)).await.unwrap().runs.try_into().unwrap();
+    assert_eq!(dev.profiles, ["dev"], "the limit is counted among the dev runs, though two are newer");
+    assert_eq!(list_runs(api.clone(), under("dev", Some("main"))).await.unwrap().runs, [], "no run knows its branch");
+    let window = |profile: &str, branch: Option<&str>| wire::TrendsRequest {
+        window: 1,
+        profile: Some(profile.to_owned()),
+        branch: branch.map(str::to_owned),
+    };
+    let results = |found: wire::TrendsResponse| found.trends.iter().map(|trend| trend.results).collect::<Vec<_>>();
+    assert_eq!(results(trends(api.clone(), window("bare", None)).await.unwrap()), [1]);
+    assert_eq!(results(trends(api.clone(), window("staging", None)).await.unwrap()), Vec::<u32>::new());
+    assert_eq!(results(trends(api, window("bare", Some("main"))).await.unwrap()), Vec::<u32>::new());
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn api_trends_sum_each_apis_calls_over_the_runs_under_the_profile_asked_for() {
+    let (dir, api) = project();
+    let config = CONFIG.replace("http://127.0.0.1:9", &serving(200, b"[]".to_vec()));
+    fs::write(dir.path().join("vibranium.config.yaml"), config).unwrap();
+    for profile in ["dev", "bare"] {
+        let plan = PlanRequest { profiles: vec![profile.to_owned()], ..PlanRequest::default() };
+        api.engine().run(&RunRequest { plan, ..RunRequest::default() }, interrupts().1).await.unwrap();
+    }
+    let under = |profile: Option<&str>| wire::ApiTrendsRequest {
+        profile: profile.map(str::to_owned),
+        ..wire::ApiTrendsRequest::default()
+    };
+    let found = api_trends(api.clone(), under(None)).await.unwrap();
+    let [listed] = found.trends.as_slice() else { panic!("{found:?}") };
+    assert_eq!((listed.api_id.as_str(), listed.method.as_str(), listed.calls), ("users#list", "GET", 2));
+    assert_eq!(listed.statuses, [200]);
+    assert!(listed.p50_ms.is_some() && listed.p50_ms <= listed.p95_ms, "{listed:?}");
+    let [bare] = api_trends(api.clone(), under(Some("bare"))).await.unwrap().trends.try_into().unwrap();
+    assert_eq!(bare.calls, 1);
+    assert_eq!(api_trends(api.clone(), under(Some("staging"))).await.unwrap().trends, []);
+    let on_main = wire::ApiTrendsRequest { branch: Some("main".to_owned()), ..wire::ApiTrendsRequest::default() };
+    assert_eq!(api_trends(api, on_main).await.unwrap().trends, [], "no run knows its branch");
 }
 
 #[tokio::test]
