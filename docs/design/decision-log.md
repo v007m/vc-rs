@@ -552,6 +552,8 @@ Round 47 (12 November 2026; orchestrator, under Sarath's delegation):
 | # | Topic | Decision | Supersedes |
 | --- | --- | --- | --- |
 | D294 | Allowed failures in the pass rate | History's pass rate counts an allowed failure as a test that ran and did not pass. A run made up only of allowed failures shows 0% | — (fills a gap in D248) |
+| D295 | Testing an auth from Settings | `TestAuth` obtains an auth's credentials under a profile through the run's token cache, as a call would, without sending the call. It returns only the api it obtained them for, the header, query and cookie names, how long they hold and the profile. The token is never returned, logged or kept, and a failure comes back masked (V5114) | — |
+| D296 | Which api an auth test may name | By default `TestAuth` uses the first api, by ID, that uses the auth. A named api that does not use it is given it only when its resolved origin equals that of an api that does, so a test never takes credentials to a host a run would not send them to | — (narrows D295) |
 
 ## Open
 
