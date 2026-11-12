@@ -97,6 +97,7 @@ mod rename;
 mod rename_name;
 mod reporting;
 mod request;
+mod restricted;
 mod run;
 mod run_feed;
 #[cfg(test)]

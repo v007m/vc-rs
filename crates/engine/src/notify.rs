@@ -9,12 +9,13 @@ use vc_diagnostics::Code;
 use vc_interfaces::{
     Environment, HistoryReader, Notice, NotifierFactory, RunFilter, RunId, RunRow, RunSummary, Secrets,
 };
-use vc_model::{AlertChannel, CelProgram, Namespace, Program, Reference, RunStatus, Segment, Totals};
-use vc_template::{Chance, PipeRegistry, RenderError, Renderer, Resolve};
+use vc_model::{AlertChannel, Namespace, Program, RunStatus, Totals};
+use vc_template::{PipeRegistry, RenderError, Renderer};
 
 use crate::alerts::{self, Ending, Finished};
 use crate::load::RUN_KIND;
 use crate::plan::Prepared;
+use crate::restricted::{Read, Restricted, env_value, secret_value};
 use crate::{Engine, EngineError};
 
 /// How many stored runs are searched for the previous one.
@@ -131,7 +132,7 @@ impl Senders {
     fn settings(&self, program: &Program, channel: &AlertChannel) -> Result<Value, String> {
         let pipes = PipeRegistry::builtin();
         let lookup = Lookup { senders: self, program };
-        let rendered = Renderer::new(&pipes, &lookup).value(&channel.settings);
+        let rendered = Renderer::new(&pipes, &lookup.restricted()).value(&channel.settings);
         rendered.map_err(|error| format!("the `{}` alert channel's settings: {error}", channel.kind))
     }
 }
@@ -142,50 +143,20 @@ struct Lookup<'l> {
     program: &'l Program,
 }
 
-impl Lookup<'_> {
+impl<'l> Lookup<'l> {
     fn env(&self, name: &str) -> Result<Value, RenderError> {
-        if self.program.config.secrets.declares(name) {
-            let reason = format!("`env.{name}` is a declared secret; use `${{secret.{name}}}` so it is masked");
-            return Err(RenderError::invalid(reason));
-        }
-        let value = self.senders.environment.var(name);
-        value.map(Value::String).ok_or_else(|| RenderError::missing(format!("`env.{name}` is not set")))
+        env_value(self.program, self.senders.environment.as_ref(), name)
     }
 
-    fn secret(&self, name: &str) -> Result<Value, RenderError> {
-        let secret = self.senders.secrets.get(name);
-        let missing = || RenderError::missing(format!("`secret.{name}` is not loaded"));
-        secret.map(|secret| Value::String(secret.expose().to_owned())).ok_or_else(missing)
+    /// The resolver reading `env` and `secret` through this lookup.
+    fn restricted(&'l self) -> Restricted<'l> {
+        let env: Read<'l> = Box::new(|name| self.env(name));
+        let secret: Read<'l> = Box::new(|name| secret_value(&self.senders.secrets, name));
+        Restricted { reads: vec![(Namespace::Env, env), (Namespace::Secret, secret)], only: ONLY }
     }
 }
 
-impl Resolve for Lookup<'_> {
-    fn resolve(&self, reference: &Reference) -> Result<Value, RenderError> {
-        let (root, name, rest) = match (&reference.ns, reference.path.segments.split_first()) {
-            (Namespace::Env, Some((Segment::Key(name), rest))) => ("env", self.env(name)?, rest),
-            (Namespace::Secret, Some((Segment::Key(name), rest))) => ("secret", self.secret(name)?, rest),
-            _ => return Err(RenderError::invalid("alert settings read only `${secret.…}` and `${env.…}`")),
-        };
-        vc_template::select(root, &name, rest)
-    }
-
-    fn evaluate(&self, _program: &CelProgram) -> Result<Value, RenderError> {
-        Err(RenderError::invalid("alert settings read only `${secret.…}` and `${env.…}`"))
-    }
-
-    fn chance(&self) -> &dyn Chance {
-        &Steady
-    }
-}
-
-/// The random source of settings, which have no random values.
-pub struct Steady;
-
-impl Chance for Steady {
-    fn next_u64(&self) -> u64 {
-        0
-    }
-}
+const ONLY: &str = "alert settings read only `${secret.…}` and `${env.…}`";
 
 #[cfg(test)]
 #[path = "notify_tests.rs"]
