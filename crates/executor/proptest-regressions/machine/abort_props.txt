@@ -1,0 +1,7 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc f067c88db8c80f43e7f180b3a988301c3e3d41a4abed92552e0f7dca4b91b071 # shrinks to counts = [2], abort = Some(Abort { at: 0, stopped: true, reply_first: false })

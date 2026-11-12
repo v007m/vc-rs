@@ -65,6 +65,27 @@ async fn an_abort_during_a_step_abandons_the_cleanups_its_finished_parts_registe
 }
 
 #[tokio::test(start_paused = true)]
+async fn an_abort_during_a_before_all_cleanup_abandons_it_first_then_the_cleanups_left() {
+    let mut fixture = Fixture::new();
+    let (first, slow) = (fixture.call("/first/delete"), fixture.call("/slow"));
+    let before = [fixture.creating("/first", first), fixture.creating("/second", slow)];
+    let get = fixture.call("/users/1");
+    let test = fixture.test(vec![get], None);
+    let plan = fixture.plan(&before, &[(test, 1)]);
+    let outcome = run(fixture, plan, RunOptions::default(), &[SECOND, SECOND, SECOND]).await;
+    let abandoned: Vec<_> = outcome
+        .events
+        .iter()
+        .filter_map(|event| match event {
+            Event::CleanupsAbandoned { cleanups, .. } => Some(cleanups.clone()),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(abandoned, [vec![slow, first]], "the one in flight first, then the rest newest first");
+    assert_eq!((outcome.summary.status, outcome.sent("/first/delete")), (RunStatus::Cancelled, 0));
+}
+
+#[tokio::test(start_paused = true)]
 async fn an_action_that_panics_fails_and_the_cleanups_it_and_earlier_steps_registered_run() {
     let mut fixture = Fixture::new();
     let first = fixture.call("/first/delete");

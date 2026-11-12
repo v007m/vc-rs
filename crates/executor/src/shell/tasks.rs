@@ -11,8 +11,8 @@ use crate::{ActionReport, FileInput, PendingCleanup, RunInput};
 pub trait FrameInput: Send + 'static {
     /// A shared action ended, or was cut off with the cleanups `kept` from its finished parts.
     fn acted(ran: Ran<ActionReport>, kept: Vec<PendingCleanup>) -> Self;
-    /// A cleanup ended.
-    fn cleaned() -> Self;
+    /// A cleanup ended, or was stopped by an abort.
+    fn cleaned(ran: &Ran<ActionReport>) -> Self;
 }
 
 /// Both frame inputs report workers the same way.
@@ -26,8 +26,11 @@ macro_rules! frame_input {
                 }
             }
 
-            fn cleaned() -> Self {
-                Self::CleanupDone
+            fn cleaned(ran: &Ran<ActionReport>) -> Self {
+                match ran {
+                    Ran::Aborted => Self::CleanupAborted,
+                    Ran::Done(_) | Ran::Cut => Self::CleanupDone,
+                }
             }
         }
     )+};
@@ -82,13 +85,7 @@ impl<I: FrameInput> Tasks<I> {
     /// Runs a cleanup of the frame.
     pub fn clean(&mut self, crew: &Crew, job: Job, cancel: &CancelTree) {
         let (crew, cancel) = (crew.clone(), cancel.clone());
-        self.spawn(
-            async move {
-                crew.clean(job, &cancel).await;
-                I::cleaned()
-            },
-            I::cleaned(),
-        );
+        self.spawn(async move { I::cleaned(&crew.clean(job, &cancel).await) }, I::cleaned(&Ran::Cut));
     }
 }
 

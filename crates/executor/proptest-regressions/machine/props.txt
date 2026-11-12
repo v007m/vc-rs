@@ -5,3 +5,4 @@
 # It is recommended to check this file in to source control so that
 # everyone who runs the test benefits from these saved cases.
 cc 9b9f4c6ffa48e7630900b825198b52568e6a3cf0e0f616bd7771e0eec098fc62 # shrinks to chain = [], needs = [], window = 1, answers = [Pass]
+cc e2405d89a48b5eaf775133551a229030cfbc34bbc526045d8aaf208ec5665d9f # shrinks to script = InstanceScript { before: [ActionId(1)], body: [ActionId(10), ActionId(11), ActionId(12)], after: [ActionId(20)], retry: Some(Retry { attempts: 1, delay: Duration(10ms) }), allow_failure: None }, answers = [Register(2), Register(2), Fail, Register(2)], interrupt = Some((4, true))

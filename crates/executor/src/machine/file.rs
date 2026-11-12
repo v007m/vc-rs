@@ -36,6 +36,8 @@ pub enum FileInput {
     ActionCut(Vec<PendingCleanup>),
     /// The cleanup in flight finished.
     CleanupDone,
+    /// The cleanup in flight was stopped by an abort: it is listed first among the abandoned.
+    CleanupAborted,
     /// A launched instance finished.
     InstanceDone(TestStatus),
     /// The run was cancelled.
@@ -60,7 +62,7 @@ pub struct Launch {
 pub enum FileCommand {
     /// Run this lifecycle action and report [`FileInput::ActionDone`] or [`FileInput::ActionCut`].
     RunAction(ActionId),
-    /// Run this cleanup and report [`FileInput::CleanupDone`].
+    /// Run this cleanup and report [`FileInput::CleanupDone`] or [`FileInput::CleanupAborted`].
     RunCleanup(PendingCleanup),
     /// Start this instance and report [`FileInput::InstanceDone`] when it ends.
     Launch(Launch),
@@ -98,6 +100,7 @@ pub struct FileOrchestrator {
     next: usize,
     running: usize,
     cleanups: Vec<PendingCleanup>,
+    cleaning: Option<ActionId>,
     totals: Totals,
     teardown_failures: usize,
     cancelled: bool,
@@ -117,6 +120,7 @@ impl FileOrchestrator {
             next: 0,
             running: 0,
             cleanups: Vec::new(),
+            cleaning: None,
             totals: Totals::default(),
             teardown_failures: 0,
             cancelled: false,
@@ -147,7 +151,8 @@ impl FileOrchestrator {
             (BeforeAll(_) | AfterAll(_), FileInput::ActionDone(report)) => self.action_done(*report, out),
             (BeforeAll(_) | AfterAll(_), FileInput::ActionCut(kept)) => self.action_cut(kept, out),
             (Running, FileInput::InstanceDone(status)) => self.instance_done(status, out),
-            (CleaningUp, FileInput::CleanupDone) => self.next_cleanup(out),
+            (CleaningUp, FileInput::CleanupDone) => self.cleaned(false, out),
+            (CleaningUp, FileInput::CleanupAborted) => self.cleaned(true, out),
             (_, FileInput::Cancelled) => self.cancel(out),
             (_, FileInput::Abort) => self.abort(out),
             _ => {}
@@ -265,7 +270,9 @@ impl FileOrchestrator {
     }
 
     fn next_cleanup(&mut self, out: &mut Vec<FileCommand>) {
-        match self.cleanups.pop() {
+        let next = self.cleanups.pop();
+        self.cleaning = next.as_ref().map(|cleanup| cleanup.action);
+        match next {
             Some(cleanup) => out.push(FileCommand::RunCleanup(cleanup)),
             None => self.finish(out),
         }
@@ -280,14 +287,35 @@ impl FileOrchestrator {
         }
     }
 
-    /// Stops now: abandons the cleanups, then finishes once running instances have stopped.
+    /// The cleanup in flight ended, `stopped` by an abort or not. After an abort, the cleanups
+    /// left are abandoned, the stopped one first.
+    fn cleaned(&mut self, stopped: bool, out: &mut Vec<FileCommand>) {
+        let in_flight = self.cleaning.take().filter(|_| stopped);
+        if stopped || self.aborted {
+            self.cancelled = true;
+            self.aborted = true;
+            self.halt(in_flight, out);
+        } else {
+            self.next_cleanup(out);
+        }
+    }
+
+    /// Stops now. A cleanup in flight reports first, so that it is abandoned only if the abort
+    /// stopped it; [`Self::cleaned`] then abandons the rest.
     fn abort(&mut self, out: &mut Vec<FileCommand>) {
         self.cancelled = true;
         self.aborted = true;
-        if !self.cleanups.is_empty() {
-            let cleanups = super::newest_first(&self.cleanups);
+        if self.cleaning.is_none() {
+            self.halt(None, out);
+        }
+    }
+
+    /// Abandons the cleanups, `in_flight` first, then finishes once running instances have stopped.
+    fn halt(&mut self, in_flight: Option<ActionId>, out: &mut Vec<FileCommand>) {
+        let cleanups = super::abandoned(in_flight, &self.cleanups);
+        self.cleanups.clear();
+        if !cleanups.is_empty() {
             out.push(FileCommand::Emit(Event::CleanupsAbandoned { owner: self.shared.owner, cleanups }));
-            self.cleanups.clear();
         }
         self.skip_rest(out);
         if self.running == 0 {

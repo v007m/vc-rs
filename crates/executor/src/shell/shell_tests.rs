@@ -173,7 +173,7 @@ async fn cancelling_during_a_retry_wait_gives_up_with_the_failure() {
 }
 
 #[tokio::test(start_paused = true)]
-async fn a_third_interrupt_abandons_the_cleanups_left() {
+async fn a_third_interrupt_abandons_the_cleanup_it_stopped_then_the_cleanups_left() {
     let mut fixture = Fixture::new();
     let (first, second) = (fixture.call("/slow"), fixture.call("/slow"));
     let steps =
@@ -182,8 +182,10 @@ async fn a_third_interrupt_abandons_the_cleanups_left() {
     let plan = fixture.plan(&[], &[(test, 1)]);
     let outcome = run(fixture, plan, RunOptions::default(), &[SECOND, 2 * SECOND, 3 * SECOND]).await;
     assert_eq!(outcome.summary.status, RunStatus::Cancelled);
-    let abandoned =
-        Event::CleanupsAbandoned { owner: OwnerKey::Instance(vc_model::InstanceId::new(0)), cleanups: vec![first] };
+    let abandoned = Event::CleanupsAbandoned {
+        owner: OwnerKey::Instance(vc_model::InstanceId::new(0)),
+        cleanups: vec![second, first],
+    };
     assert!(outcome.events.contains(&abandoned), "{:?}", outcome.events);
     assert_eq!((outcome.cleaned(), outcome.elapsed), (vec![], 3 * SECOND), "the cleanup in flight was stopped");
 }

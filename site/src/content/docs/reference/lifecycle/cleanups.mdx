@@ -104,6 +104,8 @@ GET /slow?s=10
 DELETE /items/i6
 ```
 
+A second Ctrl-C ends the grace period, and the cleanups still run. A third stops them: vc lists the cleanups that did not finish, the one it stopped first (its request may already have reached the server), then the rest, newest first.
+
 `vc call` registers the cleanup too. Pass `--keep` to leave the item in place:
 
 ```console
