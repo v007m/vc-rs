@@ -74,7 +74,7 @@ impl Chosen {
     /// The same choice with a relative report folder under `root`.
     #[must_use]
     pub fn under(self, root: &Path) -> Self {
-        Self { dir: root.join(self.dir), ..self }
+        Self { dir: crate::paths::under(root, self.dir), ..self }
     }
 
     /// The same choice writing straight into its folder when `flat`, as `--out` does.

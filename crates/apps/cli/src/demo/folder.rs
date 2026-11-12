@@ -189,7 +189,9 @@ mod tests {
     use std::fs;
     use std::net::TcpListener;
 
-    use super::{folder, opened_here, turn};
+    #[cfg(unix)]
+    use super::opened_here;
+    use super::{folder, turn};
 
     /// A port the OS just handed out, so no demo answers on it and no other test run names its
     /// files in this user's real folder.
