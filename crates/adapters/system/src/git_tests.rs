@@ -102,6 +102,26 @@ fn a_file_committed_before_the_window_and_left_alone_is_not_recent() {
     assert!(years.contains(&SourcePath::new("services/legacy/legacy.api.yaml").unwrap()));
 }
 
+/// A merge commit lists what it brought in against its first parent, so a branch whose own
+/// commits are old still counts once it is merged in the window.
+#[test]
+fn a_file_merged_in_the_window_is_recent_though_its_commit_is_older() {
+    let repo = TempDir::new().unwrap();
+    let old = Some("2020-01-01T00:00:00Z");
+    write(repo.path(), &[("services/users/users.api.yaml", "apis: []\n")]);
+    git(repo.path(), &["init", "-q"]);
+    git(repo.path(), &["add", "-A"]);
+    git_dated(repo.path(), &["commit", "-q", "-m", "start"], old);
+    git(repo.path(), &["checkout", "-q", "-b", "feature"]);
+    write(repo.path(), &[("services/users/crud.test.yaml", "tests: []\n")]);
+    git(repo.path(), &["add", "-A"]);
+    git_dated(repo.path(), &["commit", "-q", "-m", "crud"], Some("2020-06-01T00:00:00Z"));
+    git(repo.path(), &["checkout", "-q", "-"]);
+    git(repo.path(), &["merge", "-q", "--no-ff", "--no-edit", "feature"]);
+    let recent = GitVcs::new(repo.path()).changed_within(Duration::from_hours(1)).unwrap();
+    assert_eq!(recent, [SourcePath::new("services/users/crud.test.yaml").unwrap()]);
+}
+
 #[test]
 fn outside_a_repository_it_fails_with_gits_message() {
     let folder = TempDir::new().unwrap();

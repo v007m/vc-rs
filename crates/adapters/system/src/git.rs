@@ -54,7 +54,9 @@ impl Vcs for GitVcs {
     fn changed_within(&self, window: Duration) -> Result<Vec<SourcePath>, VcsError> {
         let since = format!("{} seconds ago", window.as_secs());
         let filter = format!("--since-as-filter={since}");
-        let log = ["log", &filter, "--name-only", "--format=", "-z", "--no-renames", "--relative", "HEAD", "--"];
+        let merges = "--diff-merges=first-parent";
+        let log =
+            ["log", &filter, merges, "--name-only", "--format=", "-z", "--no-renames", "--relative", "HEAD", "--"];
         let mut paths = sorted(&self.paths(&since, &log).map_err(older_git)?);
         paths.extend(self.changed("HEAD")?);
         Ok(paths.into_iter().collect())
