@@ -201,23 +201,3 @@ fn every_test_ending_as_counts_as_finished(mut tui: Tui, feed: Vec<RunFeed>, sta
     let (finished, planned) = counts.split_once('/').unwrap_or_default();
     assert!(status.starts_with("running ") && planned != "0" && finished == planned, "{status}");
 }
-
-#[tokio::test]
-async fn allowed_failures_count_as_finished() {
-    let mut tui = tui();
-    let ask = press(&mut tui, &[KeyCode::Char('a')]);
-    for mut item in feed_of(&engine().unwrap(), ask).await.unwrap() {
-        if let RunFeed::Event(Sequenced { event: Event::TestFinished { result, .. }, .. }) = &mut item
-            && result.instance.is_some()
-        {
-            result.status = TestStatus::AllowedFailure;
-        }
-        if !matches!(item, RunFeed::Done(_)) {
-            tui.update(&Update::Run(item));
-        }
-    }
-    let status = screen(&tui, SIZE).lines().nth(1).unwrap_or_default().to_owned();
-    let counts = status.split_whitespace().nth(1).unwrap_or_default();
-    let (finished, planned) = counts.split_once('/').unwrap_or_default();
-    assert!(status.starts_with("running ") && planned != "0" && finished == planned, "{status}");
-}
