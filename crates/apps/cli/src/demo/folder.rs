@@ -27,9 +27,9 @@ const POLL: Duration = Duration::from_millis(50);
 /// Waits for this `start`'s turn on `port`, so two `start`s at once take turns: the second finds
 /// the first's demo answering and joins it, instead of seeing the port taken before the demo
 /// answers. The turn is an OS lock on `<port>.lock` (D297), held until the file is dropped and freed
-/// when `vc` exits, so a crash leaves none behind. The file is checked as the folder is: this user's
-/// own, not a link. `None` (no turn, as before) when there is nowhere private for it, or another
-/// `start` holds it past [`TURN`].
+/// when `vc` exits, so a crash leaves none behind. The file is checked as the folder is, on the
+/// handle opened: this user's own, not a link ([`opened_here`]). `None` (no turn, as before) when
+/// there is nowhere private for it, or another `start` holds it past [`TURN`].
 pub fn turn(port: u16) -> Option<fs::File> {
     let path = folder()?.join(format!("{port}.lock"));
     let mut options = fs::OpenOptions::new();
@@ -37,7 +37,7 @@ pub fn turn(port: u16) -> Option<fs::File> {
     #[cfg(unix)]
     std::os::unix::fs::OpenOptionsExt::mode(&mut options, 0o600);
     let file = options.open(&path).ok()?;
-    if !own(&path).is_some_and(|metadata| metadata.is_file()) {
+    if !opened_here(&file, &path) {
         return None;
     }
     let deadline = Instant::now() + TURN;
@@ -151,6 +151,22 @@ const fn alive(_pid: u32) -> bool {
     false
 }
 
+/// Whether `file`, opened at `path`, is the regular file this user owns there and not one a link
+/// led to: the path, read without following a link, is the same file (device and inode) as the
+/// handle, so a link swapped in or out around the open is refused.
+#[cfg(unix)]
+fn opened_here(file: &fs::File, path: &Path) -> bool {
+    use std::os::unix::fs::MetadataExt;
+    let (Ok(opened), Some(there)) = (file.metadata(), own(path)) else { return false };
+    there.is_file() && (opened.dev(), opened.ino()) == (there.dev(), there.ino())
+}
+
+/// Elsewhere the path is checked without following a link, as a folder is.
+#[cfg(not(unix))]
+fn opened_here(_file: &fs::File, path: &Path) -> bool {
+    own(path).is_some_and(|metadata| metadata.is_file())
+}
+
 /// Whether `path` is a folder this user owns, not a link.
 fn own_folder(path: &Path) -> bool {
     own(path).is_some_and(|metadata| metadata.is_dir())
@@ -172,7 +188,7 @@ fn own(path: &Path) -> Option<fs::Metadata> {
 mod tests {
     use std::fs;
 
-    use super::{folder, turn};
+    use super::{folder, opened_here, turn};
 
     #[test]
     fn a_turn_is_held_until_it_is_dropped() {
@@ -193,5 +209,16 @@ mod tests {
         let given = turn(2);
         fs::remove_file(&link).unwrap();
         assert!(given.is_none(), "a link is never locked through");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_handle_to_another_file_than_the_path_names_is_not_the_lock_file() {
+        let files = tempfile::tempdir().unwrap();
+        let (here, there) = (files.path().join("here"), files.path().join("there"));
+        fs::write(&here, "").unwrap();
+        fs::write(&there, "").unwrap();
+        assert!(opened_here(&fs::File::open(&here).unwrap(), &here), "the file the path names");
+        assert!(!opened_here(&fs::File::open(&there).unwrap(), &here), "a file swapped in around the open");
     }
 }
