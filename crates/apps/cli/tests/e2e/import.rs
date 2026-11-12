@@ -4,6 +4,7 @@
 //! Postman or Bruno collection calling it (a Bruno one as its export or its folder), import into
 //! its api file and their flows run green; a folder without `bruno.json` is refused; a recording
 //! whose every host is third-party names them, and `--include-host` previews their new files;
+//! an `--include` or `--only` that keeps no operation is refused and writes nothing;
 //! no secret in a recording is said or written; import and sync refuse a snapshot path that is
 //! the spec, a link or another file's name in another case, and sync replaces a snapshot hard
 //! linked to the spec rather than writing into it.
@@ -76,6 +77,18 @@ fn a_spec_path_outside_the_project_is_refused() {
     let output = project.vc(&["import", "openapi", "../elsewhere/openapi.yaml"]).output().unwrap();
     assert_eq!(output.status.code(), Some(2), "{}", said(&output));
     assert!(said(&output).contains("give a URL, or a path inside the project"), "{}", said(&output));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_filter_that_keeps_no_operation_is_refused_and_writes_nothing() {
+    let server = MockServer::start().await.unwrap();
+    let project = Project::new(&[CONFIG]);
+    let spec = format!("{}/openapi/users.yaml", server.base_url());
+    let output = project.vc(&["import", "openapi", &spec, "--id", "users", "--only", "nope"]).output().unwrap();
+    assert_eq!(output.status.code(), Some(2), "{}", said(&output));
+    assert!(said(&output).contains("no operation in"), "{}", said(&output));
+    assert!(said(&output).contains("matches the filter `--only nope`"), "{}", said(&output));
+    assert!(!project.path().join("services").exists() && !project.path().join("openapi").exists());
 }
 
 /// A session recorded against the mock server, its origin `http://127.0.0.1:7421`.

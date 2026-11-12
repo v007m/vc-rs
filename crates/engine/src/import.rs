@@ -5,7 +5,9 @@ use std::sync::Arc;
 
 use vc_adapter_importers::ImporterRegistry;
 use vc_adapter_system::SystemEnvironment;
-use vc_interfaces::{DraftGroup, FetchError, ImportOptions, ImportSource, Importer, RecordingFilter, SpecFetcher};
+use vc_interfaces::{
+    DraftGroup, FetchError, ImportDraft, ImportOptions, ImportSource, Importer, RecordingFilter, SpecFetcher,
+};
 use vc_model::SourcePath;
 
 use crate::authoring::refused;
@@ -109,6 +111,7 @@ impl Engine {
             return self.guarded(&project, recorded(&recording, &draft, &request.source)?);
         }
         guard.check(&request.source, &opts.file_id)?;
+        matched(&draft, request)?;
         let (mut changes, mut snapshots) = import_write::drafted(&project, &draft, request)?;
         for snapshot in &mut snapshots {
             snapshot.before = self.kept_text(&snapshot.path);
@@ -201,6 +204,19 @@ fn one_origin<'id>(file_id: Option<&'id str>, groups: &[DraftGroup]) -> Result<O
         reason,
         "import without `--id`: each origin goes to the api file whose base URL renders to it, or to a new one",
     ))
+}
+
+/// Refuses a spec import whose `--include` or `--only` keeps no operation, naming the filter,
+/// so nothing is written.
+fn matched(draft: &ImportDraft, request: &ImportRequest) -> Result<(), EngineError> {
+    let filtered = !request.include.is_empty() || !request.only.is_empty();
+    if !filtered || draft.groups.iter().any(|group| !group.apis.is_empty()) {
+        return Ok(());
+    }
+    let include = request.include.iter().map(|value| format!("--include {value}"));
+    let filter: Vec<String> = include.chain(request.only.iter().map(|value| format!("--only {value}"))).collect();
+    let reason = format!("no operation in {} matches the filter `{}`", request.source, filter.join(" "));
+    Err(refused(reason, "--include takes a tag or a path prefix, --only an operation ID, as the spec writes them"))
 }
 
 const FETCH_HELP: &str = "give a URL, or a path inside the project";
