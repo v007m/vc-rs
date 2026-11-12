@@ -566,6 +566,12 @@ Round 47 (12 November 2026; orchestrator, under Sarath's delegation):
 | D306 | Varlock and the run's profile | Varlock gets the run's profile as `VC_PROFILE` in its process environment: the last profile given, unset when there is none; vc never passes `--env`. A schema selects its environment with `@currentEnv=$VC_PROFILE`. `VC_PROFILE` in `.env.schema` declares Varlock's environment flag, not a secret: vc leaves it out of the declared secrets, never loads, masks or requires it, and `${secret.VC_PROFILE}` is V2106 | — (fills a gap in D163) |
 | D307 | Invalid `body.schema` at check time | A literal `body.schema` (written inline, or a file the compile was given, with or without a `#/pointer`) that is not a valid JSON Schema is V2312 at check time, compiled by the one function a run uses (`vc_template::compile_schema`), with the JSON pointer of the keyword that breaks. The run-time V5101 stays for schemas known only at run time, such as a templated path | — (follows D201) |
 
+Round 49 (12 November 2026; orchestrator, under Sarath's delegation):
+
+| # | Topic | Decision | Supersedes |
+| --- | --- | --- | --- |
+| D312 | Token lifetimes are capped at a year | The token cache holds credentials for at most a year (`MAX_TOKEN_LIFETIME`), whatever lifetime they come with: OAuth `expires_in`, a plugin's `expiresIn` or a flow's `expiresIn`, as a number or a string. A stale time the clock cannot hold is now, so the token is used by the request that fetched it and fetched again by the next; it is never held forever | D193 (caps) |
+
 ## Open
 
 All decisions needed for the PRD and technical design are settled. The language is decided by the spike (D6, D36, D37, D41).

@@ -486,6 +486,32 @@ async fn a_flow_renders_when_its_credentials_expire() {
     }
 }
 
+/// A second before a token held for a year goes stale: a year less the default `refreshBefore`
+/// (60 s), less 1 s.
+const JUST_BEFORE: Duration = Duration::from_secs(365 * 24 * 60 * 60 - 61);
+
+#[tokio::test(start_paused = true)]
+async fn a_flow_s_expiry_past_a_year_is_held_for_a_year_and_then_fetched_again() {
+    for expires_in in [json!(u64::MAX), json!("18446744073709551615ms")] {
+        let mut fixture = Fixture::new();
+        let id = flow(&mut fixture, Some("${var.token}"));
+        let call = fixture.call("/users");
+        fixture.api_mut(call).auth = uses(id, IndexMap::new());
+        let login = || json_response(200, &json!({"access_token": expires_in}));
+        let ok = vc_testkit::status;
+        let issuer = Arc::new(Issuer::default());
+        let answers = vec![login(), ok(200), ok(200), login(), ok(200)];
+        let (cx, recordings) = context(fixture, Arc::clone(&issuer) as Arc<dyn AuthProvider>, answers);
+        for wait in [Duration::ZERO, JUST_BEFORE, Duration::from_secs(1)] {
+            tokio::time::advance(wait).await;
+            assert!(run(&cx, call).await.outcome.failure().is_none(), "{expires_in}");
+        }
+        let paths: Vec<_> = recordings.take().iter().map(|sent| sent.request.uri.path().to_owned()).collect();
+        assert_eq!(paths, ["/login", "/users", "/users", "/login", "/users"], "{expires_in}");
+        assert_eq!(issuer.fetched(), 2, "{expires_in}");
+    }
+}
+
 #[tokio::test]
 async fn a_flow_fails_on_an_expiry_that_is_no_duration_or_an_empty_list_of_steps() {
     let mut fixture = Fixture::new();

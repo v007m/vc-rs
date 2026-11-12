@@ -146,3 +146,22 @@ async fn a_request_drops_only_the_credentials_it_used() {
     assert_eq!(token(&cache.get(&other, Duration::ZERO, &fetch).await.unwrap()), "Bearer t1", "it held nothing");
     assert_eq!(calls.load(Ordering::SeqCst), 2);
 }
+
+#[tokio::test(start_paused = true)]
+async fn a_lifetime_past_a_year_is_held_for_a_year_and_then_fetched_again() {
+    let year = Duration::from_hours(365 * 24);
+    let just_before = Duration::from_secs(365 * 24 * 60 * 60 - 61);
+    for lifetime in [Duration::from_secs(u64::MAX), Duration::MAX, year + Duration::from_secs(1)] {
+        let cache = TokenCache::new([0; 32]);
+        let calls = Arc::new(AtomicUsize::new(0));
+        let lease = Lease::new(cache.key("svc", &json!({}), &json!({})));
+        let fetch = counting(&calls, Some(lifetime));
+        let refresh = Duration::from_secs(60);
+        assert_eq!(token(&cache.get(&lease, refresh, &fetch).await.unwrap()), "Bearer t0");
+        tokio::time::advance(just_before).await;
+        assert_eq!(token(&cache.get(&lease, refresh, &fetch).await.unwrap()), "Bearer t0", "{lifetime:?}");
+        tokio::time::advance(Duration::from_secs(1)).await;
+        assert_eq!(token(&cache.get(&lease, refresh, &fetch).await.unwrap()), "Bearer t1", "{lifetime:?}");
+        assert_eq!(calls.load(Ordering::SeqCst), 2);
+    }
+}

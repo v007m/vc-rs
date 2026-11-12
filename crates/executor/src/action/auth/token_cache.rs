@@ -170,9 +170,18 @@ impl TokenCache {
     }
 }
 
+/// The longest a token is held, whatever lifetime its issuer gives it (D312).
+const MAX_TOKEN_LIFETIME: Duration = Duration::from_hours(365 * 24);
+
+/// `result` with when it goes stale: its lifetime, at most [`MAX_TOKEN_LIFETIME`], less
+/// `refresh_before`. A time past what the clock can hold is now, so it is fetched again.
 fn cached(result: Result<Credentials, AuthError>, refresh_before: Duration) -> Cached {
     let lifetime = result.as_ref().ok().and_then(|credentials| credentials.expires_in);
-    let stale_at = lifetime.map(|lifetime| Instant::now() + lifetime.saturating_sub(refresh_before.min(lifetime / 2)));
+    let stale_at = lifetime.map(|lifetime| {
+        let lifetime = lifetime.min(MAX_TOKEN_LIFETIME);
+        let now = Instant::now();
+        now.checked_add(lifetime.saturating_sub(refresh_before.min(lifetime / 2))).unwrap_or(now)
+    });
     Cached { result, stale_at }
 }
 
