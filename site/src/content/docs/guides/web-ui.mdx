@@ -123,10 +123,11 @@ Static files, third-party hosts and preflight requests are dropped. Secrets beco
 The **Flow** mode lists flow tests (tests whose `steps` call apis in order) with a **Run** button for each. Click **Edit** to see a flow's stages below the list: the api each stage calls, the vars it uses and saves, and how often it runs.
 
 - Pick another api for a stage, or click **Remove** to drop it. Choose an api under **Api to add** and click **Add stage** to add one at the end.
+- Click **Move up** or **Move down** to change a stage's place. A screen reader hears where it went, and focus stays on the stage. A stage moves with the comments above it.
 - Set how often a stage runs: **Once**, **Repeat ×N** (`repeat`), **For each** item of a list such as `["a", "b"]` or a template such as `${var.ids}` (`forEach`), or **Poll until** a status, checking every so often until a timeout (`poll`).
 - Click **Save changes to flow**. It shows what will change in the test file, then writes it and keeps the file's comments.
 
-Stages keep their order. A poll that checks more than a status, or a list that reads a secret, shows as written in the file; change it in the editor. A flow with unsaved edits doesn't run, since a run runs the file as saved.
+To move stages, the file must list them in block style, each on lines of its own (`- call: …`), as `vc fmt` writes them. A poll that checks more than a status, or a list that reads a secret, shows as written in the file; change it in the editor. A flow with unsaved edits doesn't run, since a run runs the file as saved.
 
 ## Editor
 

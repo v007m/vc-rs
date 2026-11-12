@@ -203,10 +203,24 @@ function stepOf(stage: Stage): Node {
   return entry ? { call: stage.target, [entry[0]]: entry[1] } : { call: stage.target };
 }
 
+/** The moves that put `current` in the order of `stages`, each to its place in turn. */
+function moveEdits(steps: string, current: Stage[], stages: readonly Stage[]): PointerEdit[] {
+  const edits: PointerEdit[] = [];
+  for (const [to, stage] of stages.entries()) {
+    const from = current.indexOf(stage);
+    if (from === to) continue;
+    edits.push({ pointer: `${steps}/${from}`, op: 'move', value: to });
+    current.splice(from, 1);
+    current.splice(to, 0, stage);
+  }
+  return edits;
+}
+
 /**
  * The pointer edits that turn the steps of the test at `pointer` from `base` into `stages`:
- * removed steps last first, then each kept step's changes at its place after them, then the
- * new steps at the end. Steps keep their order, so their comments stay with them.
+ * removed steps last first, then the new steps at the end, then the moves that put the steps
+ * in their new order, then each kept step's changes at its new place. A step moves with the
+ * comments above it.
  */
 export function flowEdits(
   pointer: string,
@@ -216,20 +230,21 @@ export function flowEdits(
   const steps = `${pointer}/steps`;
   const kept = stages.filter((stage) => stage.at !== undefined);
   const keptAt = new Set(kept.map((stage) => stage.at));
-  const removed = base.filter((stage) => !keptAt.has(stage.at)).reverse();
-  const removes = removed.map((stage) => ({
-    pointer: `${steps}/${stage.at}`,
-    op: 'remove' as const,
-  }));
-  const changes = kept.flatMap((stage, at) => {
-    const before = base.find((b) => b.at === stage.at);
-    return before ? stageEdits(`${steps}/${at}`, before, stage) : [];
-  });
+  const removes = base
+    .filter((stage) => !keptAt.has(stage.at))
+    .reverse()
+    .map((stage) => ({ pointer: `${steps}/${stage.at}`, op: 'remove' as const }));
   const added = stages.filter((stage) => stage.at === undefined);
   const inserts = added.map((stage) => ({
     pointer: `${steps}/-`,
     op: 'insert' as const,
     value: stepOf(stage),
   }));
-  return [...removes, ...changes, ...inserts];
+  const written = [...kept].sort((a, b) => (a.at ?? 0) - (b.at ?? 0));
+  const moves = moveEdits(steps, [...written, ...added], stages);
+  const changes = stages.flatMap((stage, at) => {
+    const before = base.find((b) => stage.at !== undefined && b.at === stage.at);
+    return before ? stageEdits(`${steps}/${at}`, before, stage) : [];
+  });
+  return [...removes, ...inserts, ...moves, ...changes];
 }

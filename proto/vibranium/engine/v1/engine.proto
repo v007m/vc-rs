@@ -278,13 +278,17 @@ enum EditOp {
   EDIT_OP_REMOVE = 2;
   // Adds a key to a map, or a last item to a list (`/profiles/-`).
   EDIT_OP_INSERT = 3;
+  // Moves the list item there, with the comment lines above it, to the place `value_json`
+  // names (`0` for the top); the items between move over by one.
+  EDIT_OP_MOVE = 4;
 }
 
 message PointerEdit {
   // RFC 6901, such as `/defaults/timeout` or `/profiles/0/default`.
   string pointer = 1;
   EditOp op = 2;
-  // The value as JSON text: `"5s"`, `8`, `true`, a list or a map; empty for a remove.
+  // The value as JSON text: `"5s"`, `8`, `true`, a list or a map; the new place for a move;
+  // empty for a remove.
   string value_json = 3;
 }
 

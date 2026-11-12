@@ -101,11 +101,39 @@ describe('FlowPanel', () => {
       digest: 'd1',
       edits: [
         { pointer: '/tests/0/steps/1', op: 'remove' },
-        { pointer: '/tests/0/steps/0/repeat', op: 'set', value: 3 },
         { pointer: '/tests/0/steps/-', op: 'insert', value: { call: 'users#delete' } },
+        { pointer: '/tests/0/steps/0/repeat', op: 'set', value: 3 },
       ],
     });
     expect(said).toEqual(['Saved users.flow#createsThenGets.']);
+  });
+
+  it('moves a stage up and down, says where it went, keeps focus on it and saves the move', async () => {
+    const { user, flow } = await rendered();
+    const button = (name: string) => screen.getByRole('button', { name });
+    expect(button('Move up stage 1')).toHaveProperty('disabled', true);
+    expect(button('Move down stage 2')).toHaveProperty('disabled', true);
+    await user.click(button('Move down stage 1'));
+    expect(screen.getByRole('status').textContent).toBe('Stage 1 moved down to place 2.');
+    expect(document.activeElement).toBe(button('Move up stage 2'));
+    expect(flow.stages.map((stage) => stage.target)).toEqual(['users#get', 'users#create']);
+    expect(flow.edits).toEqual([{ pointer: '/tests/0/steps/1', op: 'move', value: 0 }]);
+    await user.click(button('Move up stage 2'));
+    expect(screen.getByRole('status').textContent).toBe('Stage 2 moved up to place 1.');
+    expect(document.activeElement).toBe(button('Move down stage 1'));
+    expect(flow.edits).toEqual([]);
+    expect(flow.dirty).toBe(false);
+  });
+
+  it('keeps the moved stage on the button the keyboard pressed while it is not at an end', async () => {
+    const { user, flow } = await rendered();
+    flow.addStage('users#delete');
+    await user.click(await screen.findByRole('button', { name: 'Move up stage 3' }));
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Move up stage 2' }));
+    expect(flow.edits).toEqual([
+      { pointer: '/tests/0/steps/-', op: 'insert', value: { call: 'users#delete' } },
+      { pointer: '/tests/0/steps/2', op: 'move', value: 1 },
+    ]);
   });
 
   it('says why the flow cannot be saved', async () => {

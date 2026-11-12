@@ -129,6 +129,18 @@ async fn inserts_and_removes_list_items_and_keys_one_after_another() {
 }
 
 #[tokio::test]
+async fn a_move_takes_a_list_item_with_its_comment_to_another_place() {
+    let (_dir, engine) = project();
+    let request = edits(&engine, CONFIG_PATH, vec![edit("/profiles/1", EditOp::Move, "0")]);
+    let edited = engine.edit_by_pointer(&request).await.unwrap();
+    let staging = "  # The shared staging stack.\n  - id: staging\n    vars:\n      usersUrl: https://users.staging.shop.example\n";
+    let (head, _) = CONFIG.split_once("  - id: dev").unwrap();
+    assert_eq!(edited.text, format!("{head}{staging}  - id: dev\n    default: true\n"));
+    let twice = vec![edit("/profiles/1", EditOp::Move, "0"), edit("/profiles/1", EditOp::Move, "0")];
+    assert_eq!(engine.edit_by_pointer(&edits(&engine, CONFIG_PATH, twice)).await.unwrap().text, CONFIG);
+}
+
+#[tokio::test]
 async fn the_diff_masks_a_secret_value_the_file_repeats() {
     let (dir, engine) = project();
     let config = CONFIG.replacen("vars:\n", "vars:\n  note: 'sent tok-edit-31f'\n", 1);
@@ -175,6 +187,9 @@ async fn an_edit_that_does_not_fit_is_refused_by_its_place_never_its_pointer_or_
         (edit("/vars/nobody", EditOp::Remove, ""), "edit 1 points at nothing"),
         (edit("vars", EditOp::Set, value), "edit 1 needs a pointer starting with /"),
         (edit("/project", EditOp::Set, "tok-edit-31f"), "edit 1 needs its value as JSON text"),
+        (edit("/profiles/7", EditOp::Move, "0"), "edit 1 needs a block list with items on lines of their own"),
+        (edit("/profiles/0", EditOp::Move, value), "edit 1 needs the item's new place as a number"),
+        (edit("/vars/usersUrl", EditOp::Move, "0"), "edit 1 moves list items only"),
     ];
     for (bad, told) in cases {
         let refused = engine.edit_by_pointer(&edits(&engine, CONFIG_PATH, vec![bad])).await.unwrap_err();
