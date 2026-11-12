@@ -261,14 +261,16 @@ fn an_action_aborted_in_flight_abandons_what_it_kept_with_the_rest() {
 }
 
 #[test]
-fn abort_during_cleanups_keeps_the_verdict() {
+fn abort_during_a_cleanup_keeps_the_verdict_and_abandons_that_cleanup() {
     let (workflow, _) = in_body().transition(InstanceInput::ActionDone(sim::fail(11)));
     let (workflow, _) = workflow.transition(InstanceInput::ActionDone(ActionReport::passed()));
     let (workflow, commands) = workflow.transition(InstanceInput::ActionDone(ActionReport::passed()));
     assert!(matches!(&commands[..], [InstanceCommand::RunCleanup(_)]));
     let (workflow, commands) = workflow.transition(InstanceInput::Abort);
     assert_eq!(workflow.phase(), InstancePhase::Done(TestStatus::Failed));
-    assert!(matches!(&commands[..], [InstanceCommand::Finish(_)]));
+    assert!(
+        matches!(&commands[..], [InstanceCommand::Abandon(stopped), InstanceCommand::Finish(_)] if *stopped == sim::acts(&[100]))
+    );
 }
 
 #[test]

@@ -2,7 +2,8 @@
 //! api's `save` runs only on a status its `saveOn` matches (D191), `afterEach` follows every test
 //! and `afterAll` the last one, a failed `afterAll` or `afterRun` fails the run without changing
 //! a test's verdict (D279), a `standalone: false` test runs only where `test:` reuses it (and
-//! selecting it alone says so), and a `test:` reuse runs the reused test as written (D270).
+//! selecting it alone says so), a `test:` reuse runs the reused test as written (D270), and a
+//! third Ctrl-C lists the cleanup it stopped first among those it abandons.
 
 use vc_mock_server::MockServer;
 
@@ -104,6 +105,49 @@ async fn ctrl_c_runs_the_cleanups_and_exits_130() {
     newest_first(&cleanups(&output.stdout));
     let stats = server.stats().await.unwrap();
     assert_eq!((stats.count("DELETE /users/{id}"), stats.count("DELETE /orders/{id}")), (1, 1), "{stats:?}");
+}
+
+/// A test whose `held#hold` step registers a cleanup that takes 20 s, after `users#create`.
+const HELD: (&str, &str) = (
+    "services/held/held.api.yaml",
+    concat!(
+        "baseUrl: ${var.baseUrl}\napis:\n",
+        "  - id: hold\n    method: POST\n    path: /echo\n    cleanup:\n      call: release\n",
+        "  - id: release\n    path: /slow\n    query: {ms: '20000'}\n",
+    ),
+);
+
+#[cfg(unix)]
+#[tokio::test(flavor = "multi_thread")]
+async fn a_third_ctrl_c_lists_the_cleanup_it_stopped_first_among_those_abandoned() {
+    use std::process::{Command, Stdio};
+    use std::time::{Duration, Instant};
+
+    let server = MockServer::start().await.unwrap();
+    let test = "tests:\n  - id: holdsAUser\n    steps:\n      - call: users#create\n      - call: held#hold\n";
+    let project = Project::new(&[CONFIG, USERS, HELD, ("services/held/users.test.yaml", test)]);
+    let base = format!("vars.baseUrl={}", server.base_url());
+    let mut vc = Command::new(env!("CARGO_BIN_EXE_vc"));
+    vc.current_dir(project.path()).args(["run", "--set", &base, "--reporter", "spec"]);
+    vc.env("NO_COLOR", "1").env("HOME", project.home()).env("XDG_CONFIG_HOME", project.home());
+    let child = vc.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().unwrap();
+    let started = Instant::now();
+    while server.stats().await.unwrap().count("GET /slow") == 0 {
+        assert!(started.elapsed() < Duration::from_secs(20), "the slow cleanup never started");
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+    let pid = child.id().to_string();
+    for _ in 0..3 {
+        assert!(Command::new("kill").args(["-INT", &pid]).status().unwrap().success());
+        tokio::time::sleep(Duration::from_millis(300)).await;
+    }
+    let output = tokio::task::spawn_blocking(move || child.wait_with_output()).await.unwrap().unwrap();
+    assert!(started.elapsed() < Duration::from_secs(15), "the abort did not stop the slow cleanup");
+    assert_eq!(output.status.code(), Some(130), "{}", crate::said(&output));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let line = stdout.lines().find(|line| line.contains("cleanups abandoned for")).unwrap_or_default();
+    assert!(line.ends_with(": call held#release, call users#remove"), "the stopped one first: {stdout}");
+    assert_eq!(server.stats().await.unwrap().count("DELETE /users/{id}"), 0);
 }
 
 /// A `beforeAll` call with `retry` runs again until the flaky route answers, and the test reads

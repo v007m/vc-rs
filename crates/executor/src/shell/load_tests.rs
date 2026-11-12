@@ -2,7 +2,10 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use vc_diagnostics::Code;
-use vc_model::{ActionKind, Check, CheckKind, Loop, Matcher, Origin, Retry, StatusPattern, TemplateValue, TestId};
+use vc_model::{
+    ActionKind, Check, CheckKind, Event, Feed, Loop, Matcher, Origin, Retry, Sequenced, StatusPattern, TemplateValue,
+    TestId,
+};
 
 use super::{IterationSetup, ProgramIterations};
 use crate::cancel::CancelTree;
@@ -15,10 +18,19 @@ async fn prepare(
     (before_all, tests): (&[vc_model::ActionId], &[TestId]),
     full_checks: bool,
 ) -> (Result<ProgramIterations, ExecutorError>, Sent) {
+    let setup = IterationSetup { bus: EventBus::spawn(), cancel: CancelTree::new(Duration::from_secs(5)), full_checks };
+    prepare_with(fixture, (before_all, tests), setup).await
+}
+
+/// [`prepare`] with the given bus and root.
+async fn prepare_with(
+    fixture: Fixture,
+    (before_all, tests): (&[vc_model::ActionId], &[TestId]),
+    setup: IterationSetup,
+) -> (Result<ProgramIterations, ExecutorError>, Sent) {
     let plan = fixture.plan(before_all, &tests.iter().map(|&test| (test, 1)).collect::<Vec<_>>());
     let (server, sent) = Server::new();
     let executors = ActionExecutors::standard(PipelineParts::new(server, HostLimits::spawn(64)));
-    let setup = IterationSetup { bus: EventBus::spawn(), cancel: CancelTree::new(Duration::from_secs(5)), full_checks };
     (ProgramIterations::prepare(fixture.cx(executors), Arc::new(plan), setup).await, sent)
 }
 
@@ -150,6 +162,34 @@ async fn finish_runs_every_cleanup_an_owner_registered() {
     iterations.unwrap().finish().await;
     let counts = sent.counts();
     assert_eq!((counts.get("/cleanup/a"), counts.get("/cleanup/b")), (Some(&1), Some(&1)), "{counts:?}");
+}
+
+#[tokio::test(start_paused = true)]
+async fn an_abort_during_a_cleanup_abandons_it_first_then_the_cleanups_left() {
+    let mut fixture = Fixture::new();
+    let (undo, slow) = (fixture.call("/cleanup/a"), fixture.call("/slow"));
+    let seeds = [fixture.creating("/seed/a", undo), fixture.creating("/seed/b", slow)];
+    let browse = fixture.call("/browse");
+    let test = fixture.test(vec![browse], None);
+    let (bus, cancel) = (EventBus::spawn(), CancelTree::new(Duration::from_secs(5)));
+    let mut feed = bus.subscribe(64);
+    let setup = IterationSetup { bus: bus.clone(), cancel: cancel.clone(), full_checks: false };
+    let (iterations, sent) = prepare_with(fixture, (&seeds, &[test]), setup).await;
+    let aborting = tokio::spawn(async move {
+        tokio::time::sleep(Duration::from_secs(1)).await;
+        cancel.abort();
+    });
+    iterations.unwrap().finish().await;
+    aborting.await.unwrap();
+    bus.flush().await;
+    let abandoned: Vec<_> = std::iter::from_fn(|| feed.try_recv().ok())
+        .filter_map(|feed| match feed {
+            Feed::Event(Sequenced { event: Event::CleanupsAbandoned { cleanups, .. }, .. }) => Some(cleanups),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(abandoned, [vec![slow, undo]], "the one in flight first");
+    assert_eq!(sent.counts().get("/cleanup/a"), None);
 }
 
 #[tokio::test]

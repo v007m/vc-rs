@@ -63,11 +63,18 @@ impl Responder {
 struct Probe {
     responder: Responder,
     log: Vec<InstanceCommand>,
+    /// The cleanups answered `CleanupDone`; an abort leaves the one in flight unanswered.
+    finished: Vec<u32>,
     blocked_attempt: bool,
     retried_blocked: bool,
 }
 
 impl Probe {
+    fn new(answers: Vec<Answer>) -> Self {
+        let (log, finished) = (Vec::new(), Vec::new());
+        Self { responder: Responder::new(answers), log, finished, blocked_attempt: false, retried_blocked: false }
+    }
+
     fn run(&mut self, workflow: InstanceWorkflow, interrupt: Option<(usize, bool)>) {
         let (mut workflow, commands) = workflow.transition(InstanceInput::Start);
         let mut pending = VecDeque::from(commands);
@@ -98,7 +105,10 @@ impl Probe {
                 self.blocked_attempt |= action.index() < 10 && report.outcome.failure().is_some();
                 Some(InstanceInput::ActionDone(report))
             }
-            InstanceCommand::RunCleanup(_) => Some(InstanceInput::CleanupDone),
+            InstanceCommand::RunCleanup(cleanup) => {
+                self.finished.push(cleanup.action.index());
+                Some(InstanceInput::CleanupDone)
+            }
             InstanceCommand::Wait(_) => {
                 self.retried_blocked |= self.blocked_attempt;
                 self.blocked_attempt = false;
@@ -119,17 +129,13 @@ fn script() -> impl Strategy<Value = InstanceScript> {
     })
 }
 
-/// Every cleanup started or abandoned, in order.
-fn closed(log: &[InstanceCommand]) -> Vec<u32> {
-    let mut closed = Vec::new();
-    for command in log {
-        match command {
-            InstanceCommand::RunCleanup(cleanup) => closed.push(cleanup.action.index()),
-            InstanceCommand::Abandon(cleanups) => closed.extend(cleanups.iter().map(|a| a.index())),
-            _ => {}
-        }
-    }
-    closed
+/// Every cleanup the probe finished, then those abandoned, in order.
+fn closed(probe: &Probe) -> Vec<u32> {
+    let abandoned = probe.log.iter().filter_map(|command| match command {
+        InstanceCommand::Abandon(cleanups) => Some(cleanups.iter().map(|a| a.index())),
+        _ => None,
+    });
+    probe.finished.iter().copied().chain(abandoned.flatten()).collect()
 }
 
 proptest! {
@@ -140,11 +146,11 @@ proptest! {
         interrupt in prop::option::of((0usize..30, prop::arbitrary::any::<bool>())),
     ) {
         let retry = script.retry.map_or(0, |r| r.attempts);
-        let mut probe = Probe { responder: Responder::new(answers), log: Vec::new(), blocked_attempt: false, retried_blocked: false };
+        let mut probe = Probe::new(answers);
         probe.run(InstanceWorkflow::new(Arc::new(script)), interrupt);
         let verdicts: Vec<_> = probe.log.iter().filter_map(|c| match c { InstanceCommand::Finish(v) => Some(v.clone()), _ => None }).collect();
         prop_assert_eq!(verdicts.len(), 1);
-        let mut closed = closed(&probe.log);
+        let mut closed = closed(&probe);
         closed.sort_unstable();
         prop_assert_eq!(closed, probe.responder.registered.clone());
         prop_assert!(!probe.retried_blocked);
@@ -156,7 +162,7 @@ proptest! {
 
     #[test]
     fn a_blocked_instance_runs_nothing_and_is_not_retried(script in script()) {
-        let mut probe = Probe { responder: Responder::new(vec![Answer::Pass]), log: Vec::new(), blocked_attempt: false, retried_blocked: false };
+        let mut probe = Probe::new(vec![Answer::Pass]);
         let (workflow, commands) = InstanceWorkflow::new(Arc::new(script)).transition(InstanceInput::Block(vc_model::Failure::new("x")));
         probe.log.extend(commands);
         probe.run(workflow, None);
@@ -252,6 +258,7 @@ fn file_input() -> impl Strategy<Value = FileInput> {
         Just(FileInput::ActionCut(Vec::new())),
         Just(FileInput::ActionCut(vec![PendingCleanup::new(sim::act(101))])),
         Just(FileInput::CleanupDone),
+        Just(FileInput::CleanupAborted),
         Just(FileInput::InstanceDone(TestStatus::Passed)),
         Just(FileInput::Cancelled),
         Just(FileInput::Abort),
@@ -266,6 +273,7 @@ fn run_input() -> impl Strategy<Value = RunInput> {
         Just(RunInput::ActionCut(Vec::new())),
         Just(RunInput::ActionCut(vec![PendingCleanup::new(sim::act(101))])),
         Just(RunInput::CleanupDone),
+        Just(RunInput::CleanupAborted),
         Just(RunInput::Tested(TestStatus::Failed)),
         Just(RunInput::FileDone(FileEnd::default())),
         Just(RunInput::Interrupt),

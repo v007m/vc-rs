@@ -37,6 +37,8 @@ pub enum RunInput {
     ActionCut(Vec<PendingCleanup>),
     /// The cleanup in flight finished.
     CleanupDone,
+    /// The cleanup in flight was stopped by an abort: it is listed first among the abandoned.
+    CleanupAborted,
     /// An instance ended with this status (for `--bail`).
     Tested(TestStatus),
     /// A file finished with these totals and `afterAll` failures.
@@ -63,7 +65,7 @@ pub struct RunSummary {
 pub enum RunCommand {
     /// Run this lifecycle action and report [`RunInput::ActionDone`] or [`RunInput::ActionCut`].
     RunAction(ActionId),
-    /// Run this cleanup and report [`RunInput::CleanupDone`].
+    /// Run this cleanup and report [`RunInput::CleanupDone`] or [`RunInput::CleanupAborted`].
     RunCleanup(PendingCleanup),
     /// Start every file; these run-level shared actions failed. Report [`RunInput::FileDone`]
     /// for each.
@@ -91,6 +93,7 @@ pub struct RunOrchestrator {
     phase: RunPhase,
     shared: SharedActions,
     cleanups: Vec<PendingCleanup>,
+    cleaning: Option<ActionId>,
     totals: Totals,
     teardown_failures: usize,
     files_left: usize,
@@ -109,6 +112,7 @@ impl RunOrchestrator {
             phase: RunPhase::Planned,
             shared: SharedActions::new(OwnerKey::Run),
             cleanups: Vec::new(),
+            cleaning: None,
             totals: Totals::default(),
             teardown_failures: 0,
             files_left: 0,
@@ -141,7 +145,8 @@ impl RunOrchestrator {
             (BeforeRun(_) | AfterRun(_), RunInput::ActionDone(report)) => self.action_done(report, out),
             (BeforeRun(_) | AfterRun(_), RunInput::ActionCut(kept)) => self.action_cut(kept, out),
             (Running, RunInput::FileDone(end)) => self.file_done(end, out),
-            (CleaningUp, RunInput::CleanupDone) => self.next_cleanup(out),
+            (CleaningUp, RunInput::CleanupDone) => self.cleaned(false, out),
+            (CleaningUp, RunInput::CleanupAborted) => self.cleaned(true, out),
             (Reporting, RunInput::Reported) => self.finish(out),
             (_, RunInput::Tested(status)) => self.tested(status, out),
             (_, RunInput::Interrupt) => self.interrupt(out),
@@ -252,7 +257,9 @@ impl RunOrchestrator {
     }
 
     fn next_cleanup(&mut self, out: &mut Vec<RunCommand>) {
-        if let Some(cleanup) = self.cleanups.pop() {
+        let next = self.cleanups.pop();
+        self.cleaning = next.as_ref().map(|cleanup| cleanup.action);
+        if let Some(cleanup) = next {
             return out.push(RunCommand::RunCleanup(cleanup));
         }
         self.phase = RunPhase::Reporting;
@@ -283,7 +290,18 @@ impl RunOrchestrator {
         }
     }
 
-    /// Stops now: abandons the run's cleanups, then finishes once the files have stopped.
+    /// The cleanup in flight ended, `stopped` by an abort or not. After an abort, the cleanups
+    /// left are abandoned, the stopped one first.
+    fn cleaned(&mut self, stopped: bool, out: &mut Vec<RunCommand>) {
+        if stopped {
+            self.abort(out);
+        }
+        let in_flight = self.cleaning.take().filter(|_| stopped);
+        if self.aborted { self.halt(in_flight, out) } else { self.next_cleanup(out) }
+    }
+
+    /// Stops now. A cleanup in flight reports first, so that it is abandoned only if the abort
+    /// stopped it; [`Self::cleaned`] then abandons the rest.
     fn abort(&mut self, out: &mut Vec<RunCommand>) {
         if self.aborted {
             return;
@@ -291,10 +309,17 @@ impl RunOrchestrator {
         self.cancelled = true;
         self.aborted = true;
         out.push(RunCommand::Abort);
-        if !self.cleanups.is_empty() {
-            let cleanups = super::newest_first(&self.cleanups);
+        if self.cleaning.is_none() {
+            self.halt(None, out);
+        }
+    }
+
+    /// Abandons the run's cleanups, `in_flight` first, then finishes once the files have stopped.
+    fn halt(&mut self, in_flight: Option<ActionId>, out: &mut Vec<RunCommand>) {
+        let cleanups = super::abandoned(in_flight, &self.cleanups);
+        self.cleanups.clear();
+        if !cleanups.is_empty() {
             out.push(RunCommand::Emit(Event::CleanupsAbandoned { owner: OwnerKey::Run, cleanups }));
-            self.cleanups.clear();
         }
         match self.phase {
             RunPhase::Running if self.files_left > 0 => {}

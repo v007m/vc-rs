@@ -123,9 +123,10 @@ fn teardown_cut(action: ActionId, owner: OwnerKey) -> Event {
     Event::ActionFinished { action, owner, outcome }
 }
 
-/// The cleanup actions still on `stack`, newest first, for a `CleanupsAbandoned` event.
-fn newest_first(stack: &[PendingCleanup]) -> Vec<ActionId> {
-    stack.iter().rev().map(|cleanup| cleanup.action).collect()
+/// The cleanups a frame abandons, for a `CleanupsAbandoned` event: the one an abort stopped in
+/// flight first, then those still on `stack`, newest first.
+fn abandoned(in_flight: Option<ActionId>, stack: &[PendingCleanup]) -> Vec<ActionId> {
+    in_flight.into_iter().chain(stack.iter().rev().map(|cleanup| cleanup.action)).collect()
 }
 
 /// The shared lifecycle actions of one frame (`beforeRun` or `beforeAll`) and which failed.
@@ -168,6 +169,8 @@ impl SharedActions {
     }
 }
 
+#[cfg(test)]
+mod abort_props;
 #[cfg(test)]
 mod props;
 #[cfg(test)]

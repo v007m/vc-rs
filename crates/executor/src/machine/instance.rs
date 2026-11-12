@@ -67,7 +67,8 @@ pub enum InstanceInput {
     RetryDue,
     /// The run was cancelled: no new action starts, cleanups still run.
     Cancelled,
-    /// The run was aborted: stop now and list the cleanups that did not run.
+    /// The run was aborted: stop now and list the cleanups that did not run. During a cleanup it
+    /// is that cleanup's report, so the cleanup is listed first.
     Abort,
 }
 
@@ -78,11 +79,12 @@ pub enum InstanceCommand {
     /// Run this action and report [`InstanceInput::ActionDone`], [`InstanceInput::ActionCut`] or
     /// [`InstanceInput::ActionAborted`].
     RunAction(ActionId),
-    /// Run this cleanup and report [`InstanceInput::CleanupDone`].
+    /// Run this cleanup and report [`InstanceInput::CleanupDone`], or [`InstanceInput::Abort`]
+    /// when an abort stopped it.
     RunCleanup(PendingCleanup),
     /// Wait for the `retry` delay and report [`InstanceInput::RetryDue`].
     Wait(Duration),
-    /// These cleanups will not run (abort), newest first.
+    /// These cleanups will not run (abort): the one stopped in flight, then the rest newest first.
     Abandon(Vec<ActionId>),
     /// The instance is finished.
     Finish(Verdict),
@@ -108,6 +110,7 @@ pub struct InstanceWorkflow {
     script: Arc<InstanceScript>,
     phase: InstancePhase,
     cleanups: Vec<PendingCleanup>,
+    cleaning: Option<ActionId>,
     attempt: u32,
     failure: Option<Failure>,
     earlier: Option<Failure>,
@@ -124,6 +127,7 @@ impl InstanceWorkflow {
             script,
             phase: InstancePhase::Pending,
             cleanups: Vec::new(),
+            cleaning: None,
             attempt: 0,
             failure: None,
             earlier: None,
@@ -226,7 +230,9 @@ impl InstanceWorkflow {
 
     fn next_cleanup(&mut self, out: &mut Vec<InstanceCommand>) {
         self.phase = InstancePhase::Cleanup;
-        match self.cleanups.pop() {
+        let next = self.cleanups.pop();
+        self.cleaning = next.as_ref().map(|cleanup| cleanup.action);
+        match next {
             Some(cleanup) => out.push(InstanceCommand::RunCleanup(cleanup)),
             None => self.conclude(out),
         }
@@ -276,9 +282,10 @@ impl InstanceWorkflow {
     fn abort(&mut self, out: &mut Vec<InstanceCommand>) {
         self.cancelled = true;
         self.cut_short |= self.phase != InstancePhase::Cleanup;
-        if !self.cleanups.is_empty() {
-            out.push(InstanceCommand::Abandon(super::newest_first(&self.cleanups)));
-            self.cleanups.clear();
+        let cleanups = super::abandoned(self.cleaning.take(), &self.cleanups);
+        self.cleanups.clear();
+        if !cleanups.is_empty() {
+            out.push(InstanceCommand::Abandon(cleanups));
         }
         self.conclude(out);
     }
