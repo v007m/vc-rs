@@ -33,6 +33,7 @@ use vc_diagnostics::Diagnostics;
 use vc_model::{Date, FileKind, Program, SourceFiles, SourcePath, StringTable};
 
 pub use assets::folder;
+pub use body_schema::{is_inline as schema_is_inline, key as schema_key, nodes as schema_nodes};
 pub use build::{body_path, duration, flag, method};
 pub use data::DataWanted;
 pub use project::{Project, Source, TEST_BLOCKS, actions, list, text};

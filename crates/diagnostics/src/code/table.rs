@@ -63,6 +63,7 @@ code_table! {
     V2309 = 2309, Error, "fromRegExp pattern not supported";
     V2310 = 2310, Error, "Invalid HTTP header name";
     V2311 = 2311, Error, "Redact pattern does not compile";
+    V2312 = 2312, Error, "`body.schema` is not a valid JSON Schema";
     // V3xxx: lifecycle
     V3101 = 3101, Error, "No profile defined, or no active profile for this run";
     V3102 = 3102, Error, "More than one default profile";

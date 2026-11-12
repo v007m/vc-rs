@@ -1,0 +1,4 @@
+baseUrl: http://localhost:7421
+apis:
+  - id: get
+    path: /users/1
