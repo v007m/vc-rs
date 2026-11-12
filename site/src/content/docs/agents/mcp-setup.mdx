@@ -154,7 +154,7 @@ Ask the agent: "Which tests does this project have?" It should call `list_defini
 
 The server offers tools only. `resources/list` and `prompts/list` return empty lists.
 
-The name the client sends in `initialize` (`clientInfo.name`) is the agent's name in the approval queue and in the action log. A client that sends no `clientInfo`, or an empty name, is logged as `agent`.
+The name the client sends in `initialize` (`clientInfo.name`) is the agent's name in the approval queue and in the action log. With `vc mcp` (stdio), a client that sends no `clientInfo`, or an empty name, is logged as `agent`. The `/mcp` endpoint of `vc ui` (HTTP) still needs `clientInfo` for now.
 
 The client must send `initialize` first (a `ping` is also allowed). If it sends anything else first, it has broken the handshake. For example, it might send `notifications/initialized` before its `initialize` was answered. `vc mcp` then prints what the client sent to stderr and exits with code 2.
 
