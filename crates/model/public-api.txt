@@ -1830,12 +1830,29 @@ impl serde_core::ser::Serialize for vc_model::ScalarSource
 pub fn vc_model::ScalarSource::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
 impl<'de> serde_core::de::Deserialize<'de> for vc_model::ScalarSource
 pub fn vc_model::ScalarSource::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub struct vc_model::SchemaNames
+pub vc_model::SchemaNames::declared: alloc::vec::Vec<alloc::string::String>
+pub vc_model::SchemaNames::optional: alloc::vec::Vec<alloc::string::String>
+impl vc_model::SchemaNames
+pub fn vc_model::SchemaNames::required(&self) -> impl core::iter::traits::iterator::Iterator<Item = &str>
+impl core::clone::Clone for vc_model::SchemaNames
+pub fn vc_model::SchemaNames::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::SchemaNames
+impl core::cmp::PartialEq for vc_model::SchemaNames
+pub fn vc_model::SchemaNames::eq(&self, &Self) -> bool
+impl core::default::Default for vc_model::SchemaNames
+pub fn vc_model::SchemaNames::default() -> Self
+impl core::fmt::Debug for vc_model::SchemaNames
+pub fn vc_model::SchemaNames::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::SchemaNames
 pub struct vc_model::SecretsConfig
 pub vc_model::SecretsConfig::declared: alloc::vec::Vec<alloc::string::String>
+pub vc_model::SecretsConfig::optional: alloc::vec::Vec<alloc::string::String>
 pub vc_model::SecretsConfig::provider: alloc::string::String
 pub vc_model::SecretsConfig::schema: alloc::string::String
 impl vc_model::SecretsConfig
 pub fn vc_model::SecretsConfig::declares(&self, &str) -> bool
+pub fn vc_model::SecretsConfig::requires(&self, &str) -> bool
 impl core::clone::Clone for vc_model::SecretsConfig
 pub fn vc_model::SecretsConfig::clone(&self) -> Self
 impl core::cmp::Eq for vc_model::SecretsConfig
@@ -2269,6 +2286,6 @@ pub fn vc_model::is_multipart(&str) -> bool
 pub fn vc_model::is_third_person(&str) -> bool
 pub fn vc_model::part_pointer(&str, core::option::Option<usize>) -> alloc::string::String
 pub fn vc_model::resolve_path(&[&str], &str) -> core::option::Option<alloc::string::String>
-pub fn vc_model::schema_names(&str) -> alloc::vec::Vec<alloc::string::String>
+pub fn vc_model::schema_names(&str) -> vc_model::SchemaNames
 pub fn vc_model::secret_name(&str) -> alloc::string::String
 pub fn vc_model::third_person(&str) -> alloc::string::String
