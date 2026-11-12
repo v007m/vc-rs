@@ -1,4 +1,4 @@
-import type { RunSummary, SkipLine, TestTrend } from './port.ts';
+import type { ApiTrend, RunSummary, SkipLine, TestTrend } from './port.ts';
 
 /** Tests that ran in `run`: every result but the skipped ones. */
 export function ran(run: RunSummary): number {
@@ -29,6 +29,19 @@ export function flakiest(trends: readonly TestTrend[], limit = 10): TestTrend[] 
     .filter((t) => t.flaky + t.failed > 0)
     .sort((a, b) => b.flaky + b.failed - (a.flaky + a.failed) || a.testId.localeCompare(b.testId))
     .slice(0, limit);
+}
+
+/** The apis with a p95, slowest p95 first, at most `limit`. */
+export function slowest(trends: readonly ApiTrend[], limit = 8): ApiTrend[] {
+  return trends
+    .filter((t) => t.p95Ms !== undefined)
+    .sort((a, b) => (b.p95Ms ?? 0) - (a.p95Ms ?? 0) || a.apiId.localeCompare(b.apiId))
+    .slice(0, limit);
+}
+
+/** A response time: `410 ms`, `1.24 s`. */
+export function latency(ms: number): string {
+  return ms < 1000 ? `${Math.round(ms)} ms` : `${(ms / 1000).toFixed(2)} s`;
 }
 
 /** A round axis top at or above `max`: 1, 2 or 5 times a power of ten. */

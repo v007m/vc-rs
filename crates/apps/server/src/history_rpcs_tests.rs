@@ -4,7 +4,7 @@ use vc_contracts::engine::v1 as wire;
 use vc_contracts::results::v1::{RunStatus, TestStatus};
 use vc_engine::{PlanRequest, RunRequest, interrupts};
 
-use super::{api_trends, decide_approval, get_run, list_approvals, list_runs, trends};
+use super::{api_coverage, api_trends, decide_approval, get_run, list_approvals, list_runs, trends};
 use crate::Code;
 use crate::engine_fixture::{CONFIG, project, serving};
 
@@ -101,6 +101,31 @@ async fn api_trends_sum_each_apis_calls_over_the_runs_under_the_profile_asked_fo
     assert_eq!(api_trends(api.clone(), under(Some("staging"))).await.unwrap().trends, []);
     let on_main = wire::ApiTrendsRequest { branch: Some("main".to_owned()), ..wire::ApiTrendsRequest::default() };
     assert_eq!(api_trends(api, on_main).await.unwrap().trends, [], "no run knows its branch");
+}
+
+#[tokio::test]
+async fn api_coverage_lists_each_api_with_its_tests_then_the_operations_only_the_snapshot_has() {
+    let (dir, api) = project();
+    let spec = "openapi: 3.1.0\ninfo: {title: Users, version: '1'}\npaths:\n  /users/{id}:\n    delete: {operationId: removeUser, responses: {'204': {description: gone}}}\n";
+    fs::create_dir_all(dir.path().join("openapi")).unwrap();
+    fs::write(dir.path().join("openapi/users.yaml"), spec).unwrap();
+    let found = api_coverage(api.clone(), wire::ApiCoverageRequest::default()).await.unwrap();
+    let rows: Vec<_> =
+        found.apis.iter().map(|row| (row.api_id.as_str(), row.method.as_str(), row.tests, row.spec_only)).collect();
+    assert_eq!(
+        rows,
+        [("users#list", "GET", 1, false), ("users#create", "POST", 0, false), ("removeUser", "DELETE", 0, true)]
+    );
+    assert_eq!(
+        (found.apis[2].documented.as_slice(), found.apis[2].file.as_str()),
+        (["204".to_owned()].as_slice(), "openapi/users.yaml")
+    );
+    assert_eq!(found.notes, Vec::<String>::new());
+    fs::write(dir.path().join("openapi/users.yaml"), "paths: [unclosed\n").unwrap();
+    let broken = api_coverage(api, wire::ApiCoverageRequest::default()).await.unwrap();
+    assert_eq!(broken.apis.len(), 2, "{broken:?}");
+    let [note] = broken.notes.as_slice() else { panic!("{broken:?}") };
+    assert!(note.contains("cannot be read as a spec"), "{note}");
 }
 
 #[tokio::test]

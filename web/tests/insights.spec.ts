@@ -26,6 +26,15 @@ test('lists the flakiest tests, or says there are none', async ({ page }) => {
   await expect(flaky.getByText(/No flaky or failing tests|users\.crud#/).first()).toBeVisible();
 });
 
+test('shows the slowest apis by p50 and p95', async ({ page }) => {
+  await runOnce(page);
+  await page.goto('/insights');
+  const slowest = page.getByRole('region', { name: 'Slowest APIs' });
+  await expect(
+    slowest.getByRole('img', { name: /#\w+: p50 [\d.]+ m?s, p95 / }).first(),
+  ).toBeVisible();
+});
+
 test('narrows the window with the time range', async ({ page }) => {
   await runOnce(page);
   await page.goto('/insights');
@@ -35,4 +44,13 @@ test('narrows the window with the time range', async ({ page }) => {
     'aria-pressed',
     'true',
   );
+});
+
+test('lists every api with its tests and statuses', async ({ page }) => {
+  await runOnce(page);
+  await page.goto('/insights');
+  const coverage = page.getByRole('region', { name: 'API coverage' });
+  await expect(coverage.getByRole('rowheader', { name: /\w+#\w+/ }).first()).toBeVisible();
+  // A status chip's screen-reader text; the legend has no colon.
+  await expect(coverage.getByText(/: documented and seen;/).first()).toBeAttached();
 });

@@ -1,10 +1,12 @@
-//! The history and agent RPCs: `ListRuns`, `GetRun`, `Trends`, `ApiTrends`, `ListAgentActions`,
-//! `ListApprovals` and `DecideApproval`, each over its engine method.
+//! The history and agent RPCs: `ListRuns`, `GetRun`, `Trends`, `ApiTrends`, `ApiCoverage`,
+//! `ListAgentActions`, `ListApprovals` and `DecideApproval`, each over its engine method.
 
 use std::sync::Arc;
 
 use vc_contracts::engine::v1 as wire;
-use vc_engine::{ApiTrend, Approval, ApprovalId, ApprovalStatus, LoggedAction, RunFilter, TestTrend, Verdict};
+use vc_engine::{
+    ApiTrend, Approval, ApprovalId, ApprovalStatus, CoveredApi, Engine, LoggedAction, RunFilter, TestTrend, Verdict,
+};
 
 use crate::engine_api::{EngineApi, Rpcs};
 use crate::wire_history::{run, test};
@@ -20,6 +22,7 @@ pub fn register(rpcs: Rpcs) -> Rpcs {
         .unary("GetRun", get_run)
         .unary("Trends", trends)
         .unary("ApiTrends", api_trends)
+        .unary("ApiCoverage", api_coverage)
         .unary("ListAgentActions", list_agent_actions)
         .unary("ListApprovals", list_approvals)
         .unary("DecideApproval", decide_approval)
@@ -89,6 +92,27 @@ fn api_trend(trend: ApiTrend) -> wire::ApiTrend {
         p50_ms: trend.p50_ms,
         p95_ms: trend.p95_ms,
         statuses: trend.statuses.into_iter().map(u32::from).collect(),
+    }
+}
+
+async fn api_coverage(
+    api: Arc<EngineApi>,
+    _request: wire::ApiCoverageRequest,
+) -> Result<wire::ApiCoverageResponse, ConnectError> {
+    let found = api.blocking(Engine::coverage).await?;
+    Ok(wire::ApiCoverageResponse { apis: found.apis.into_iter().map(covered).collect(), notes: found.notes })
+}
+
+fn covered(row: CoveredApi) -> wire::CoveredApi {
+    wire::CoveredApi {
+        api_id: row.api,
+        method: row.method,
+        path: row.path,
+        file: row.file,
+        tests: row.tests,
+        skipped: row.skipped,
+        documented: row.documented,
+        spec_only: row.spec_only,
     }
 }
 

@@ -1,0 +1,42 @@
+tests:
+  - id: rejectsAnUnknownType
+    call: users#get
+    expect:
+      body:
+        schema:
+          type: object
+          properties:
+            age: {type: integr}
+  - id: pollsWithANegativeLength
+    call: users#get
+    poll:
+      every: 1s
+      timeout: 5s
+      until:
+        body:
+          schema: {minLength: -1}
+  - id: matchesAValidSchema
+    call: users#get
+    expect:
+      body:
+        schema: {type: object, required: [id]}
+  - id: pointsAtAValidPart
+    call: users#get
+    expect:
+      body:
+        schema: {$file: ../../schemas/user.json#/definitions/user}
+  - id: pointsAtABrokenPart
+    call: users#get
+    expect:
+      body:
+        schema: {$file: ../../schemas/user.json#/definitions/broken}
+  - id: refersOutsideTheFile
+    call: users#get
+    expect:
+      body:
+        schema: ../../schemas/remote.json
+  - id: namesItsFileByAVar
+    call: users#get
+    expect:
+      body:
+        schema: ${var.schemaFile}

@@ -1,0 +1,82 @@
+---
+title: "V2312 — body.schema is not a valid JSON Schema"
+description: "A body.schema check validates the response body against a JSON Schema."
+sidebar:
+  label: "V2312 body.schema is not a valid JSON Schema"
+  order: 2312
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="error" variant="danger" /> <Badge text="References and types" variant="note" />
+
+| | |
+| --- | --- |
+| Code | `V2312` |
+| Category | V2xxx: References and types |
+| Severity | error |
+| Certain fix | none; `vc check --fix` leaves this one to you |
+
+A `body.schema` check validates the response body against a JSON Schema. `vc check` compiles each schema written inline,
+and each schema file the project names, the way a run does: by its `$schema` draft, with no remote or file `$ref`
+fetched. A schema that does not compile is reported here, with the place in the schema that breaks, rather than failing
+every run of the test with V5101. A schema whose path holds a template, such as `${var.schemaFile}`, is known only at
+run time, so a run still reports it as V5101. Here `type` names a type JSON Schema does not have.
+
+## Wrong
+
+```yaml wrong V2312 title="services/users/users.api.yaml"
+baseUrl: http://localhost:7421
+apis:
+  - id: get
+    path: /users/1
+```
+
+```yaml wrong V2312 title="services/users/crud.test.yaml"
+tests:
+  - id: getsUser
+    call: users#get
+    expect:
+      body:
+        schema:
+          type: object
+          properties:
+            age: {type: integr}
+```
+
+## Right
+
+```yaml title="services/users/users.api.yaml"
+baseUrl: http://localhost:7421
+apis:
+  - id: get
+    path: /users/1
+```
+
+```yaml title="services/users/crud.test.yaml"
+tests:
+  - id: getsUser
+    call: users#get
+    expect:
+      body:
+        schema:
+          type: object
+          properties:
+            age: {type: integer}
+```
+
+
+## Explain it in your terminal
+
+The same page is built into the binary, so this works anywhere, even outside a project:
+
+```console
+$ vc explain V2312
+```
+
+## Related
+
+- [All diagnostic codes](/vc-rs/reference/diagnostics/)
+- [`vc explain`](/vc-rs/reference/cli/explain/)
+- [`vc check`](/vc-rs/reference/cli/check/)
+- [Errors and fixes](/vc-rs/guides/errors-and-fixes/)

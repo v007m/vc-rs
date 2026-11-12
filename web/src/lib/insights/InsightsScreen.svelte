@@ -3,8 +3,11 @@
   import type { SkipPort } from '#lib/skip/port.ts';
   import SkipForm from '#lib/skip/SkipForm.svelte';
   import { SkipChange } from '#lib/skip/skip.svelte.ts';
+  import ApiCoverage from './ApiCoverage.svelte';
   import BarChart, { type Bar } from './BarChart.svelte';
+  import { coverageRows, testedShare } from './coverage.ts';
   import ExpiringSkips from './ExpiringSkips.svelte';
+  import SlowestApis from './SlowestApis.svelte';
   import { windows, type Insights } from './insights.svelte.ts';
   import type { RunSummary } from './port.ts';
   import { duration, flakiest, mean, median, niceMax, passRate, when } from './stats.ts';
@@ -59,6 +62,7 @@
     })),
   );
   const rangeLabel = $derived(`last ${insights.window} runs`);
+  const covered = $derived(coverageRows(insights.coverage.apis, insights.apiTrends));
 </script>
 
 <div class="insights">
@@ -97,6 +101,10 @@
     <div>
       <dt>Flaky tests</dt>
       <dd>{flakyTests}</dd>
+    </div>
+    <div>
+      <dt>API coverage</dt>
+      <dd>{pct(testedShare(covered))}</dd>
     </div>
   </dl>
 
@@ -195,6 +203,10 @@
       </p>
     {/if}
   </section>
+
+  <SlowestApis trends={insights.apiTrends} {rangeLabel} />
+
+  <ApiCoverage rows={covered} notes={insights.coverage.notes} {rangeLabel} />
 
   <ExpiringSkips
     skips={insights.skips}
