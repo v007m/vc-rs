@@ -67,6 +67,11 @@ impl Totals {
     pub fn test(&self, test: TestId) -> Option<&Tally> {
         self.tests.get(&test)
     }
+
+    /// Each test that ran in the span, with its iterations, in test order.
+    pub fn tests(&self) -> impl Iterator<Item = (TestId, &Tally)> {
+        self.tests.iter().map(|(test, tally)| (*test, tally))
+    }
 }
 
 /// The rows of the last [`WINDOW_SECONDS`] closed seconds.

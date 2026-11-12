@@ -7,7 +7,7 @@ use vc_model::{ApiId, Part, StringTable, Template, TemplateValue, TestId};
 use super::{kind, literal};
 
 #[test]
-fn an_iteration_fails_by_the_action_that_failed_it_else_by_its_test() {
+fn an_iteration_fails_by_its_test_and_the_action_that_failed_it() {
     let mut strings = StringTable::new();
     let [before, failed] = ["a#before", "a#failed"].map(|name| ApiId::new(strings.intern(name).unwrap()));
     let test = TestId::new(strings.intern("a.f#t").unwrap());
@@ -17,7 +17,7 @@ fn an_iteration_fails_by_the_action_that_failed_it_else_by_its_test() {
         |failure| IterationReport { calls: calls.clone(), failure: Some(failure), ..IterationReport::default() };
     let check =
         IterationFailure { api: Some(failed), status: Some(200), code: Some("V5101".into()), ..Default::default() };
-    assert_eq!(kind(test, &blamed(check)), (Some(failed), None, Some(200), Some("V5101".to_owned())));
+    assert_eq!(kind(test, &blamed(check)), (Some(failed), Some(test), Some(200), Some("V5101".to_owned())));
     let command = IterationFailure { code: Some("V5110".into()), ..Default::default() };
     assert_eq!(kind(test, &blamed(command)), (None, Some(test), None, Some("V5110".to_owned())));
     assert_eq!(kind(test, &IterationReport::default()), (None, Some(test), None, None));

@@ -48,16 +48,18 @@ thresholds:
 ```console
 $ vc load sample.smoke
     1s  0 users  0 rps  p50 0 ms  p95 0 ms  p99 0 ms  0 errors
-    2s  2 users  300 rps  p50 2 ms  p95 7 ms  p99 19 ms  0 errors
-    3s  3 users  514 rps  p50 2 ms  p95 6 ms  p99 22 ms  0 errors
-    4s  5 users  717 rps  p50 2 ms  p95 6 ms  p99 23 ms  0 errors
-    5s  3 users  737 rps  p50 2 ms  p95 6 ms  p99 25 ms  0 errors
-    5s  0 users  737 rps  p50 2 ms  p95 6 ms  p99 25 ms  0 errors
-sample.smoke — Sample smoke load · finished after 5 s · 3696 iterations · 739.2 rps · 0 errors
-latency p50 2.5 ms · p90 4.8 ms · p95 6.4 ms · p99 25.2 ms · max 278.8 ms
+    2s  2 users  562 rps  p50 1 ms  p95 2 ms  p99 4 ms  0 errors
+    3s  3 users  1021 rps  p50 1 ms  p95 2 ms  p99 3 ms  0 errors
+    4s  5 users  1962 rps  p50 1 ms  p95 2 ms  p99 4 ms  0 errors
+    5s  3 users  2157 rps  p50 1 ms  p95 2 ms  p99 4 ms  0 errors
+    5s  0 users  2157 rps  p50 1 ms  p95 2 ms  p99 4 ms  0 errors
+sample.smoke — Sample smoke load · finished after 5 s · 7597 iterations · 1519.4 rps · 0 errors
+latency p50 1.6 ms · p90 2.4 ms · p95 2.8 ms · p99 4.1 ms · max 11.7 ms
+test sample.basics#createsUser · 1846 iterations · 369.2 rps · 0 errors · p50 1.7 ms · p90 2.7 ms · p95 3.3 ms · p99 4.8 ms · max 11.7 ms
+test sample.extra#echoesBody · 5751 iterations · 1150.2 rps · 0 errors · p50 1.5 ms · p90 2.2 ms · p95 2.6 ms · p99 3.8 ms · max 11.4 ms
 ```
 
-The live lines go to stderr; the summary goes to stdout. Each live line shows the elapsed time, active users, iterations per second over the last 3 seconds, latency percentiles and errors.
+The live lines go to stderr; the summary goes to stdout. Each live line shows the elapsed time, active users, iterations per second over the last 3 seconds, latency percentiles and errors. The summary ends with a `test` line for each test of the mix, with that test's own iterations, rate, errors and latency.
 
 ### A breached threshold
 
@@ -66,11 +68,12 @@ The live lines go to stderr; the summary goes to stdout. Each live line shows th
 ```console
 $ vc load sample.strict
     1s  0 users  0 rps  p50 0 ms  p95 0 ms  p99 0 ms  0 errors
-    2s  1 users  257 rps  p50 1 ms  p95 2 ms  p99 3 ms  0 errors  breaching: p95
-    2s  0 users  257 rps  p50 1 ms  p95 2 ms  p99 3 ms  0 errors
-sample.strict — Too strict on purpose · finished after 2 s · 515 iterations · 257.5 rps · 0 errors
-latency p50 1.8 ms · p90 2.4 ms · p95 2.6 ms · p99 3.3 ms · max 4.3 ms
-breached p95 at 2.597 ms (lt 1 ms)
+    2s  1 users  323 rps  p50 1 ms  p95 2 ms  p99 2 ms  0 errors  breaching: p95
+    2s  0 users  323 rps  p50 1 ms  p95 2 ms  p99 2 ms  0 errors
+sample.strict — Too strict on purpose · finished after 2 s · 646 iterations · 323.0 rps · 0 errors
+latency p50 1.4 ms · p90 1.8 ms · p95 2.2 ms · p99 2.9 ms · max 5.8 ms
+breached p95 at 2.193 ms (lt 1 ms)
+test sample.basics#listsUsers · 646 iterations · 323.0 rps · 0 errors · p50 1.4 ms · p90 1.8 ms · p95 2.2 ms · p99 2.9 ms · max 5.8 ms
 $ echo $?
 3
 ```
@@ -79,25 +82,26 @@ $ echo $?
 
 ### Errors
 
-When iterations fail, the summary groups them by the api of the call that failed, its status and the failure's code. Here `sampleUrl` points at a port nothing listens on, so no call got a status and each failed with [V5105](/vc-rs/reference/diagnostics/v5105/):
+When iterations fail, the summary groups them under the test that failed, by the api of the call that failed, its status and the failure's code, one indented `errors` line each. Here `sampleUrl` points at a port nothing listens on, so no call got a status and each failed with [V5105](/vc-rs/reference/diagnostics/v5105/):
 
 ```console
 $ vc load sample.strict --set vars.sampleUrl=http://127.0.0.1:9
 ...
-sample.strict — Too strict on purpose · finished after 2 s · 590 iterations · 295.0 rps · 590 errors
-latency p50 1.6 ms · p90 2.1 ms · p95 2.1 ms · p99 2.5 ms · max 2.8 ms
-breached p95 at 2.149 ms (lt 1 ms)
+sample.strict — Too strict on purpose · finished after 2 s · 611 iterations · 305.5 rps · 611 errors
+latency p50 1.5 ms · p90 1.9 ms · p95 2.3 ms · p99 3.3 ms · max 5.6 ms
+breached p95 at 2.271 ms (lt 1 ms)
 breached errorRate at 100% (lt 1%)
-errors sample#listUsers V5105 × 590
+test sample.basics#listsUsers · 611 iterations · 305.5 rps · 611 errors · p50 1.5 ms · p90 1.9 ms · p95 2.3 ms · p99 3.3 ms · max 5.6 ms
+  errors sample#listUsers V5105 × 611
 ```
 
-A failed check is `V5101` with the status the call got (`errors sample#listUsers 200 V5101 × 10`). The failure is counted under the call that failed, not under a `before` call or a cleanup around it. A failure with no api, such as a `command` action's, is counted under the test.
+A failed check is `V5101` with the status the call got (`errors sample#listUsers 200 V5101 × 10`). The failure is counted under the call that failed, not under a `before` call or a cleanup around it. A failure with no api, such as a `command` action's, shows just its status and code under its test.
 
 ### JSON for CI
 
 ```console
 $ vc load sample.strict --json
-{"blocked":null,"breaches":[{"actual":2.6229999999999998,"limit":{"lt":1.0},"metric":"p95","test":null,"unit":"ms"}],"ending":"finished","errorKinds":[],"errors":0,"exit":3,"iterations":496,"maxMs":7.119,"name":"Too strict on purpose","notices":[],"p50Ms":1.894,"p90Ms":2.481,"p95Ms":2.623,"p99Ms":3.433,"rps":248.0,"runId":8,"scenario":"sample.strict","seconds":2,"seed":5677014093771026}
+{"blocked":null,"breaches":[{"actual":2.303,"limit":{"lt":1.0},"metric":"p95","test":null,"unit":"ms"}],"ending":"finished","errorKinds":[],"errors":0,"exit":3,"iterations":619,"maxMs":5.491,"name":"Too strict on purpose","notices":[],"p50Ms":1.54,"p90Ms":1.918,"p95Ms":2.303,"p99Ms":3.131,"rps":309.5,"runId":4,"scenario":"sample.strict","seconds":2,"seed":4198991845218770,"tests":[{"errors":0,"iterations":619,"maxMs":5.491,"p50Ms":1.54,"p90Ms":1.918,"p95Ms":2.303,"p99Ms":3.131,"rps":309.5,"test":"sample.basics#listsUsers"}]}
 ```
 
 ## Exit codes
@@ -125,7 +129,8 @@ error: no load scenario has the ID `sample.nope`
 | `seconds`, `iterations`, `rps` | Duration, iterations run, and requests per second |
 | `p50Ms`, `p90Ms`, `p95Ms`, `p99Ms`, `maxMs` | Latency in milliseconds |
 | `errors` | How many iterations failed |
-| `errorKinds[]` | `{api, test, status, code, count}` for each kind of error: the api of the call that failed (else the test), the status it got and the diagnostic code |
+| `errorKinds[]` | `{api, test, status, code, count}` for each kind of error: the test that failed, the api of the call that failed (`null` when none did, as for a `command` action), the status it got and the diagnostic code |
+| `tests[]` | `{test, iterations, rps, errors, p50Ms, p90Ms, p95Ms, p99Ms, maxMs}` for each test of the mix |
 | `breaches[]` | `{metric, test, actual, unit, limit}` for each breached threshold; `test` is set for a per-test threshold, `unit` is `ms`, `share` (0 to 1) or `perSecond`, and `limit` is the matcher's arguments in that unit (`{"lt": 1.0}`) |
 | `blocked` | Why the scenario could not start, or `null` |
 | `notices[]` | Warnings raised during the run |

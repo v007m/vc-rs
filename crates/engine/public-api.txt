@@ -934,6 +934,7 @@ pub vc_engine::LoadReport::run_id: core::option::Option<u64>
 pub vc_engine::LoadReport::scenario: alloc::string::String
 pub vc_engine::LoadReport::seconds: u64
 pub vc_engine::LoadReport::seed: u64
+pub vc_engine::LoadReport::tests: alloc::vec::Vec<vc_engine::LoadTestReport>
 impl vc_engine::LoadReport
 pub fn vc_engine::LoadReport::json(&self) -> serde_json::value::Value
 pub fn vc_engine::LoadReport::text(&self) -> alloc::string::String
@@ -960,6 +961,25 @@ pub fn vc_engine::LoadRequest::default() -> Self
 impl core::fmt::Debug for vc_engine::LoadRequest
 pub fn vc_engine::LoadRequest::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_engine::LoadRequest
+#[non_exhaustive] pub struct vc_engine::LoadTestReport
+pub vc_engine::LoadTestReport::errors: u64
+pub vc_engine::LoadTestReport::iterations: u64
+pub vc_engine::LoadTestReport::max_ms: f64
+pub vc_engine::LoadTestReport::p50_ms: f64
+pub vc_engine::LoadTestReport::p90_ms: f64
+pub vc_engine::LoadTestReport::p95_ms: f64
+pub vc_engine::LoadTestReport::p99_ms: f64
+pub vc_engine::LoadTestReport::rps: f64
+pub vc_engine::LoadTestReport::test: alloc::string::String
+impl core::clone::Clone for vc_engine::LoadTestReport
+pub fn vc_engine::LoadTestReport::clone(&self) -> Self
+impl core::cmp::PartialEq for vc_engine::LoadTestReport
+pub fn vc_engine::LoadTestReport::eq(&self, &Self) -> bool
+impl core::default::Default for vc_engine::LoadTestReport
+pub fn vc_engine::LoadTestReport::default() -> Self
+impl core::fmt::Debug for vc_engine::LoadTestReport
+pub fn vc_engine::LoadTestReport::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_engine::LoadTestReport
 pub struct vc_engine::LoadWatch
 pub vc_engine::LoadWatch::interrupts: vc_engine::Interrupts
 pub vc_engine::LoadWatch::ticks: core::option::Option<tokio::sync::mpsc::bounded::Sender<vc_model::event::Event>>
