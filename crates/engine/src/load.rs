@@ -7,7 +7,7 @@ use vc_diagnostics::Code;
 use vc_executor::{CancelTree, EventBus, ExecutorError, IterationSetup, ProgramIterations, RunOptions};
 use vc_interfaces::{Random, RunEnd, RunStart, RunSummary, Secrets};
 use vc_loadtest::{Ending, LoadError, LoadOutcome};
-use vc_model::{ActionId, ActionKind, Keep, LoadScenario, Program, RunStatus, Totals};
+use vc_model::{ActionId, ActionKind, LoadScenario, Program, RunStatus, Totals};
 
 use crate::load_findings;
 use crate::load_live::{self, Live};
@@ -147,8 +147,9 @@ impl Engine {
         let (totals, finished_ms) = (iterations(&report), self.clock.now_ms());
         let end = RunEnd { status, totals, finished_ms, snapshot: Vec::new() };
         if let Some(recording) = live.recording.take() {
-            let keep = session.prepared.program.config.history.keep;
-            report.notices.extend(store(recording, &report, end, keep).await);
+            let recorded = recording.record(load_findings::rows(&report));
+            let closed = recording.close(end, session.prepared.program.config.history.keep).await;
+            report.notices.extend(recorded.and(closed).err().map(|error| format!("history: {error}")));
         }
         if outcome.is_ok() {
             let sent = self.load_alerts(&mut session, &report, status).await;
@@ -167,14 +168,6 @@ impl Engine {
         let ending = alerts::Ending { breaches, ran: report.iterations > 0, ..alerts::Ending::default() };
         notify::send(session.alerting.take(), run, ending).await
     }
-}
-
-/// Stores what `report` found in `recording` and closes it as `end`: how the history failed,
-/// if it did.
-async fn store(recording: history::Recording, report: &LoadReport, end: RunEnd, keep: Keep) -> Option<String> {
-    let recorded = recording.record(load_findings::rows(report));
-    let closed = recording.close(end, keep).await;
-    recorded.and(closed).err().map(|error| format!("history: {error}"))
 }
 
 /// Marks `session`'s report blocked by a shared action's failure, or cancelled when Ctrl-C cut
