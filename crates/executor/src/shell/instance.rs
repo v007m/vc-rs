@@ -119,15 +119,11 @@ impl InstanceShell {
         Job { action, owner: self.owner(), frame: self.frame.clone(), deadline: self.deadline(action) }
     }
 
-    /// The attempt's deadline, or for an `after` or `afterEach` action only its own `timeout`
-    /// from now (D192): they always run, so the attempt's passing deadline must not cut them,
-    /// and without a `timeout` only their requests' own limits bound them.
+    /// The attempt's deadline, or none for an `after` or `afterEach` action: they always run, so
+    /// the attempt's passing deadline must not cut them, and each kind enforces its own `timeout`
+    /// (D192, D324).
     fn deadline(&self, action: ActionId) -> Option<Deadline> {
-        if !self.script.after.contains(&action) {
-            return self.deadline;
-        }
-        let timeout = self.crew.cx.action(action).and_then(|found| found.timeout)?;
-        Some(Deadline::after(timeout.get()))
+        self.deadline.filter(|_| !self.script.after.contains(&action))
     }
 
     async fn carry_out(&mut self, command: InstanceCommand, inputs: &mut VecDeque<InstanceInput>) -> Option<Verdict> {
