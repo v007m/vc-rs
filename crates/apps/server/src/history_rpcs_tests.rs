@@ -98,7 +98,9 @@ async fn api_trends_sum_each_apis_calls_over_the_runs_under_the_profile_asked_fo
     assert!(listed.p50_ms.is_some() && listed.p50_ms <= listed.p95_ms, "{listed:?}");
     let [bare] = api_trends(api.clone(), under(Some("bare"))).await.unwrap().trends.try_into().unwrap();
     assert_eq!(bare.calls, 1);
-    assert_eq!(api_trends(api, under(Some("staging"))).await.unwrap().trends, []);
+    assert_eq!(api_trends(api.clone(), under(Some("staging"))).await.unwrap().trends, []);
+    let on_main = wire::ApiTrendsRequest { branch: Some("main".to_owned()), ..wire::ApiTrendsRequest::default() };
+    assert_eq!(api_trends(api, on_main).await.unwrap().trends, [], "no run knows its branch");
 }
 
 #[tokio::test]
