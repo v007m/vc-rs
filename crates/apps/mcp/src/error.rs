@@ -32,6 +32,13 @@ pub enum McpError {
         /// What went wrong.
         reason: String,
     },
+    /// The client sent something other than `initialize` first, which the protocol does not
+    /// allow: the client's fault, not the server's.
+    #[error("the MCP client broke the handshake: it sent {sent} before an `initialize` was answered")]
+    Handshake {
+        /// What it sent: a method in backticks, `a response` or `nothing`.
+        sent: String,
+    },
     /// The MCP session could not start or ended with an error.
     #[error("the MCP server stopped: {reason}")]
     Serve {
@@ -49,7 +56,7 @@ impl McpError {
             Self::Engine(error @ EngineError::Refused { .. }) => ("refused", error.help()),
             Self::Engine(error) => ("error", error.help()),
             Self::Argument { .. } | Self::UnknownArgument { .. } => ("arguments", None),
-            Self::Internal { .. } | Self::Serve { .. } => ("error", None),
+            Self::Internal { .. } | Self::Handshake { .. } | Self::Serve { .. } => ("error", None),
         };
         json!({ "kind": kind, "reason": self.to_string(), "help": help })
     }
