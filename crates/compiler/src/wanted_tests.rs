@@ -49,7 +49,9 @@ fn reader<'a>(
     }
 }
 
+/// A chain is followed through its imports, which only oxc (the `hooks` feature) reads.
 #[test]
+#[cfg(feature = "hooks")]
 fn reads_each_hook_an_import_chain_reaches_one_level_a_round() {
     let (hooks, mut asks) = (chain(7), Vec::new());
     let (compiled, problems) = compile_wanted(input(CONFIG), reader(&hooks, &mut asks)).unwrap();
@@ -61,6 +63,7 @@ fn reads_each_hook_an_import_chain_reaches_one_level_a_round() {
 }
 
 #[test]
+#[cfg(feature = "hooks")]
 fn a_chain_still_wanting_files_after_eight_rounds_is_too_deep() {
     let (hooks, mut asks) = (chain(8), Vec::new());
     let Err(error) = compile_wanted(input(CONFIG), reader(&hooks, &mut asks)) else { panic!("one round too many") };
