@@ -780,7 +780,7 @@ next     vc run --failed · vc report 483 --open
 
 Every test instance ends as `passed`, `failed`, `blocked` (a setup it needs failed; never retried), `skipped`, `flaky` (failed, then passed when its `retry` re-ran the whole test) (D126) or `allowedFailure` (failed under `allowFailure`; shown as `⚠ … allowed to fail: <reason>` with its failure block, and counted as `N allowed to fail`) (D248).
 
-A failed check or action in an `afterAll` or `afterRun` leaves every test's verdict as it was, but the run fails (exit 1) and the summary adds a line under the counts naming each block that failed, once: `teardown failed: afterAll in users.crud, afterRun` (D279).
+A failed check or action in an `afterAll` or `afterRun` leaves every test's verdict as it was, but the run fails (exit 1) and the summary adds a line under the counts naming each block that failed, once: `teardown failed: afterAll in users.crud, afterRun` (D279). An action of either block cut off before it reports (its worker panicked or was aborted) counts as failed, unless the run was cancelled, which exits 130. `--reporter json`'s `summary` line and the HTML report carry `teardownFailures: [{block, file, message}]` (`file` is null for `afterRun`), CTRF the same list under `results.extra.teardownFailures`, and JUnit one `<system-err>` on `<testsuites>` per block; messages are masked and no count changes (D304).
 
 Console formats: `spec` (above, the default in a terminal), `dots` (compact), `json` (one event per line, for tools). In CI, where there is no terminal, colour and progress bars switch off and output stays line-based. When the reader of stdout goes away (`vc run | head -1`), the rest of the output is dropped quietly and the command ends with the exit code it would have had.
 

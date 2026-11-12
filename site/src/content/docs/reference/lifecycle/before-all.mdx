@@ -116,7 +116,7 @@ tests:
 - The file's tests then run in parallel, up to `defaults.concurrency`. `afterAll` waits for all of them.
 - Values saved by `beforeAll` sit between the test's own saves and the file's `vars` in [var precedence](/vc-rs/reference/templates/). Treat them as read-only.
 - After `afterAll`, the cleanups registered by `beforeAll` (for example the shared user's delete) run, newest first.
-- A failed check or action in `afterAll` doesn't change any test's verdict, but the run exits 1 and the summary names the block: `teardown failed: afterAll in users.crud`.
+- A failed check or action in `afterAll` doesn't change any test's verdict, but the run exits 1 and the summary names the block: `teardown failed: afterAll in users.crud`. So does an action cut off before it reports (a crash), unless the run was cancelled. The json summary line and the HTML report list it under `teardownFailures` with its file, CTRF under `results.extra.teardownFailures` and JUnit as a `<system-err>`, with the message masked; no count changes.
 
 ## Common errors
 
