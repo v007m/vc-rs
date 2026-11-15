@@ -1,0 +1,43 @@
+name: Docs issue
+description: Something on the docs site or in a README is wrong, unclear or missing.
+title: "docs: "
+labels: [documentation]
+body:
+  - type: input
+    id: page
+    attributes:
+      label: Page
+      description: The URL of the page, or the file path in the repo.
+      placeholder: https://v007m.github.io/vc-rs/start/quickstart/
+    validations:
+      required: true
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Kind of problem
+      options:
+        - Wrong (the docs say something vc doesn't do)
+        - Unclear
+        - Missing
+        - Broken link or example
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What's wrong
+      description: Quote the part of the page, and say what is wrong with it. For an example that fails, paste the command and its output.
+    validations:
+      required: true
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested fix
+      description: The wording or example you would expect, if you have one.
+  - type: input
+    id: version
+    attributes:
+      label: vc version
+      description: The output of `vc --version`, if the problem is about how vc behaves.
+      placeholder: vc 0.1.0

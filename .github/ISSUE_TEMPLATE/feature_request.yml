@@ -1,0 +1,54 @@
+name: Feature request
+description: Suggest a new feature or a change to how vc works.
+title: "feat: "
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the idea. Vibranium's design is written down in [`docs/design/`](https://github.com/v007m/vc-rs/tree/master/docs/design), and every settled choice is a numbered row in the [decision log](https://github.com/v007m/vc-rs/blob/master/docs/design/decision-log.md). If your request changes one of those decisions, say which one (`D123`).
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What you are trying to do, and what makes it hard or impossible today.
+      placeholder: When I test an API that pages its results, I have to ...
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: What you would like vc to do. A YAML snippet or the command you'd type helps.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives
+      description: Other ways you considered, or how you work around it now.
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Surface
+      description: Where the feature would show up. Pick every one that applies.
+      multiple: true
+      options:
+        - CLI
+        - TUI
+        - Web UI
+        - MCP (AI agents)
+        - Load testing
+        - Contract testing (OpenAPI import and sync)
+        - Test file syntax
+        - Plugins and alerts
+        - Other
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I searched the existing issues and this is not a duplicate.
+          required: true
