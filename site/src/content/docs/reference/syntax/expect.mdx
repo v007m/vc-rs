@@ -84,9 +84,9 @@ $ vc explain users.crud#createsMember
 ...
   expect
     status: 201  (api users#create)
-    header content-type: contains  (api users#create)
-    match id: type  (api users#create)
-    match email: equals  (test users.crud#createsMember)
+    header content-type: contains json  (api users#create)
+    match id: type string  (api users#create)
+    match email: ada@example.com  (test users.crud#createsMember)
 ```
 
 **A negative test.** Writing `status` in the test replaces the api's `status: 201`. The api's other checks still apply, so the body check on `id` would fail on a 400 response. Override that check too, by writing the same path:
@@ -193,7 +193,7 @@ expect:
 `vc explain <testId>` prints the merged checks for a test, with the level each came from.
 
 <Aside type="note">
-`vc explain` does not list the default `status: 2xx`, although the run applies it.
+When no level writes `status`, `vc explain` lists the default as `status: 2xx  (default)`.
 </Aside>
 
 ## Common errors

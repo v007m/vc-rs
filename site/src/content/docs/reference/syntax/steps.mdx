@@ -177,8 +177,9 @@ The demo's `/echo` returns the request it got. The step sees `x-a` from the test
 `vc explain` lists each check on the second step with its source:
 
 ```console
-header content-type: contains  (test flow.steps#sendsDefaultsToEveryStep)
-match headers.x-request-source: equals  (step call echo#text)
+status: 2xx  (default)
+header content-type: contains json  (test flow.steps#sendsDefaultsToEveryStep)
+match headers.x-request-source: step-wins  (step call echo#text)
 ```
 
 ### Test-level save reads the last step

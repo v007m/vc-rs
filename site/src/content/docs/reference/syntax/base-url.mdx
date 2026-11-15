@@ -53,9 +53,11 @@ profile  default
   GET http://localhost:7432/echo
   vars
     sampleUrl  http://localhost:7432  (vibranium.config.yaml)
-    adminPassword  s3cret  (vibranium.config.yaml)
-    pageSize  20  (file req)
+  headers
+    accept  application/json  (vibranium.config.yaml)
+    user-agent  vibranium/2  (vibranium.config.yaml)
   expect
+    status: 2xx  (default)
 ```
 
 ### A path prefix
@@ -76,8 +78,11 @@ profile  default
   GET http://localhost:7432/users/1
   vars
     sampleUrl  http://localhost:7432  (vibranium.config.yaml)
-    adminPassword  s3cret  (vibranium.config.yaml)
+  headers
+    accept  application/json  (vibranium.config.yaml)
+    user-agent  vibranium/2  (vibranium.config.yaml)
   expect
+    status: 2xx  (default)
 
 $ vc call prefix#first
 200 OK · 7 ms · api expect passed
@@ -107,9 +112,11 @@ profile  staging
   GET https://sample.staging.example/echo
   vars
     sampleUrl  https://sample.staging.example  (profile staging)
-    adminPassword  s3cret  (vibranium.config.yaml)
-    pageSize  20  (file req)
+  headers
+    accept  application/json  (vibranium.config.yaml)
+    user-agent  vibranium/2  (vibranium.config.yaml)
   expect
+    status: 2xx  (default)
 ```
 
 For one run only, use `--set`:
@@ -121,9 +128,11 @@ profile  default
   GET http://localhost:9000/echo
   vars
     sampleUrl  http://localhost:9000  (--set)
-    adminPassword  s3cret  (vibranium.config.yaml)
-    pageSize  20  (file req)
+  headers
+    accept  application/json  (vibranium.config.yaml)
+    user-agent  vibranium/2  (vibranium.config.yaml)
   expect
+    status: 2xx  (default)
 ```
 
 ### Point one call somewhere else
@@ -148,8 +157,9 @@ call req#defaultMethod
   GET http://localhost:7442/echo
   vars
     sampleUrl  http://localhost:7442  (test)
-    adminPassword  s3cret  (vibranium.config.yaml)
-    pageSize  20  (file req)
+  headers
+    accept  application/json  (vibranium.config.yaml)
+    user-agent  vibranium/2  (vibranium.config.yaml)
   expect
     status: 404  (test nobase.urls#pointsElsewhere)
 
@@ -207,6 +217,13 @@ $ vc explain nobase#rel
 nobase#rel
 profile  default
   GET /echo
+  vars
+    sampleUrl  http://localhost:7432  (vibranium.config.yaml)
+  headers
+    accept  application/json  (vibranium.config.yaml)
+    user-agent  vibranium/2  (vibranium.config.yaml)
+  expect
+    status: 2xx  (default)
 
 $ vc call nobase#rel
 ✗ `nobase#rel` sends to `/echo`, which is not a full URL: no `baseUrl` is set for `nobase` (profile default); help: add `baseUrl: ${var.nobaseUrl}` to its api file and set `nobaseUrl` in the config, a profile, or with `--set vars.nobaseUrl=http://…`

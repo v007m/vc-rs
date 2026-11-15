@@ -134,8 +134,12 @@ call prec#show
     b  from-test-file  (file prec.levels)
     c  from-api-file  (file prec)
     d  from-api-file-profile  (file prec, profile default)
+  headers
+    accept  application/json  (vibranium.config.yaml)
+    user-agent  vibranium/2  (vibranium.config.yaml)
   expect
-    match body.a: equals  (test prec.levels#showsLevels)
+    status: 2xx  (default)
+    match body.a: from-test  (test prec.levels#showsLevels)
 ```
 
 Read it line by line: the test's `a` beats the api's `a`; the test file's `b` beats the api's `b`; `c` falls through to the api file; `d` comes from the api file's profile; `f` falls through to the config.
@@ -155,7 +159,11 @@ profile  default
     b  from-api  (api prec#show)
     c  from-api-file  (file prec)
     d  from-api-file-profile  (file prec, profile default)
+  headers
+    accept  application/json  (vibranium.config.yaml)
+    user-agent  vibranium/2  (vibranium.config.yaml)
   expect
+    status: 2xx  (default)
 ```
 
 ### Overriding an api's input from a test

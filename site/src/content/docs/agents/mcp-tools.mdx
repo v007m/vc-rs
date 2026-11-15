@@ -117,7 +117,7 @@ Output: `{id, text, notices}`. `text` is exactly what `vc explain <id>` prints.
 {
   "id": "people.openapi#getsPerson",
   "notices": [],
-  "text": "people.openapi#getsPerson  Get a person returns 200\nprofile  default\ncall people#getPerson\n  GET http://localhost:7531/users/1\n  vars\n    sampleUrl  http://localhost:7531  (vibranium.config.yaml)\n    id  1  (test)\n  expect\n    status: 200  (test people.openapi#getsPerson)\n    match name: equals  (test people.openapi#getsPerson)\n"
+  "text": "people.openapi#getsPerson  Get a person returns 200\nprofile  default\ncall people#getPerson\n  GET http://localhost:7531/users/1\n  vars\n    sampleUrl  http://localhost:7531  (vibranium.config.yaml)\n    id  1  (test)\n  expect\n    status: 200  (test people.openapi#getsPerson)\n    match name: Ada Lovelace  (test people.openapi#getsPerson)\n"
 }
 ```
 
@@ -231,7 +231,7 @@ Output: `{run, results, definition}`. `results` holds one row per instance of th
 
 ```json title="structuredContent"
 {
-  "definition": "people.diff#getsGraceExactly  Gets Grace exactly\nprofile  default\ncall people#getPerson\n  GET http://localhost:7531/users/2\n  vars\n    sampleUrl  http://localhost:7531  (vibranium.config.yaml)\n    id  2  (test)\n  expect\n    status: 200  (test people.diff#getsGraceExactly)\n    equals: equals  (test people.diff#getsGraceExactly)\n",
+  "definition": "people.diff#getsGraceExactly  Gets Grace exactly\nprofile  default\ncall people#getPerson\n  GET http://localhost:7531/users/2\n  vars\n    sampleUrl  http://localhost:7531  (vibranium.config.yaml)\n    id  2  (test)\n  expect\n    status: 200  (test people.diff#getsGraceExactly)\n    equals: {id: 2, name: Grace Brewster Hopper}  (test people.diff#getsGraceExactly)\n",
   "results": [
     {
       "attempts": 1,
