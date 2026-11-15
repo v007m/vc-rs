@@ -170,6 +170,26 @@ async fn a_confined_plugin_naming_a_file_outside_the_project_never_starts() {
     assert_eq!(reason, "its file permission `../elsewhere` is not a path inside the project");
 }
 
+/// Confined, a missing entry is found missing before anything starts: on macOS `sandbox-exec`
+/// would start, fail to run it, and print its own `execvp()` error on the plugin's stderr.
+#[tokio::test]
+async fn a_confined_plugin_whose_entry_cannot_be_found_never_starts_and_says_why() {
+    let root = tempfile::tempdir().unwrap();
+    let (told, mut heard) = tokio::sync::broadcast::channel(4);
+    let manifest =
+        vc_interfaces::PluginManifest { command: "no-such-plugin-program".into(), ..suite_plugin_manifest() };
+    let host = StdioPluginHost::new(manifest, suite_dir(), granted())
+        .told(told)
+        .confined(root.path(), Arc::default())
+        .allow_unconfined(true);
+    let refused = host.call("suite/echo", json!({}), CALL_DEADLINE).await.unwrap_err();
+    let PluginError::Start { reason, .. } = refused else { panic!("{refused:?}") };
+    let expected = "cannot run `no-such-plugin-program`: it cannot be found: install it, or fix `entry.command` \
+                    in its vibranium-plugin.yaml";
+    assert_eq!(reason, expected);
+    assert!(heard.try_recv().is_err(), "nothing started, so nothing ran unconfined");
+}
+
 #[test]
 fn a_plugin_that_cannot_be_confined_is_refused_on_macos_and_elsewhere_runs_unconfined_and_says_so() {
     let (told, mut heard) = tokio::sync::broadcast::channel(4);
