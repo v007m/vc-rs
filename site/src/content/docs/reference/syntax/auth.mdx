@@ -207,7 +207,7 @@ A test-level `auth` is the default for each `call` step. A step's own `auth` win
 
 ### Change an auth's vars
 
-An auth definition can declare `vars` with defaults. Pass `id` and `vars` to change them for one api or call. A var the calling test sets reaches the auth's templates too:
+An auth definition can declare `vars` with defaults. Pass `id` and `vars` to change them for one api or call. A var the calling test sets reaches the auth's templates too, unless the definition sets that var itself: a test's `who: caller` leaves `demoKey` sending `key-for-service`, so pass such a var in the use site's `vars`:
 
 ```yaml title="services/authlab/authlab.api.yaml"
   - id: simpleWithVars
@@ -221,12 +221,13 @@ An auth definition can declare `vars` with defaults. Pass `id` and `vars` to cha
 ```yaml title="services/authlab/who.test.yaml"
   - id: callVarsReachAuth
     call: authlab#fromFile
+    auth: adminBasic
     vars:
-      who: caller
+      adminPassword: changed
     expect:
       body:
         match:
-          headers.x-api-key: key-for-caller
+          headers.authorization: Basic YWRtaW46Y2hhbmdlZA==
 ```
 
 ```yaml title="services/authlab/simple.test.yaml"
@@ -280,7 +281,7 @@ tests:
 - The most specific level wins: step or action, then test, then api, then file. `none` at any level turns auth off for that call.
 - Each api takes its default from its own file. A test that calls two services sends each one's credentials without saying so.
 - Credentials are masked as `••••` in `vc call` output. Matchers in `expect` still see the real values.
-- An auth's `vars` are defaults. `auth: { id, vars }` replaces some of them. A var set in the calling test's `vars` also reaches the auth's templates.
+- An auth's `vars` are defaults. `auth: { id, vars }` replaces some of them. A var set in the calling test's `vars` also reaches the auth's templates, unless the auth sets that var itself.
 - `vc explain` does not show which auth a call uses. Call an echo endpoint, as above, to check.
 
 ## Common errors
