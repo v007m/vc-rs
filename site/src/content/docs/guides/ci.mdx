@@ -18,13 +18,13 @@ Each one fails the step with a non-zero exit code, so you need no extra scriptin
 
 ## Install vc
 
-There is no release download or setup action yet. Build it with Cargo (Rust 1.99 or later):
+There is no prebuilt binary or setup action yet, so build the v0.1.0 release with Cargo (Rust 1.99 or later):
 
 ```console
-$ cargo install --git https://github.com/v007m/vc-rs vc-cli vc-demo --locked
+$ cargo install --git https://github.com/v007m/vc-rs --tag v0.1.0 vc-cli vc-demo --locked
 ```
 
-`vc-demo` is only needed if your tests call the [demo service](/vc-rs/reference/cli/demo/), like the `vc init` sample does.
+On a runner with Homebrew, `brew install v007m/tap/vibranium` installs the same release. `vc-demo` is only needed if your tests call the [demo service](/vc-rs/reference/cli/demo/), like the `vc init` sample does.
 
 ## Exit codes
 
@@ -95,7 +95,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Install vc
-        run: cargo install --git https://github.com/v007m/vc-rs vc-cli vc-demo --locked
+        run: cargo install --git https://github.com/v007m/vc-rs --tag v0.1.0 vc-cli vc-demo --locked
       - uses: actions/cache@v4
         with:
           path: .vibranium
@@ -125,7 +125,7 @@ api-tests:
     paths:
       - .vibranium/
   before_script:
-    - cargo install --git https://github.com/v007m/vc-rs vc-cli vc-demo --locked
+    - cargo install --git https://github.com/v007m/vc-rs --tag v0.1.0 vc-cli vc-demo --locked
   script:
     - vc check
     - vc sync --check

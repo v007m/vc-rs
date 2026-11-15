@@ -16,8 +16,8 @@ On macOS and Linux, install from the project's tap:
 
 <InstallCommand method="brew" />
 
-<Aside title="Why --HEAD">
-There is no tagged release yet, so the formula builds the latest `master`. Once v0.1.0 is tagged the command drops `--HEAD`. `brew upgrade --fetch-HEAD vibranium` rebuilds it from the newest commit.
+<Aside title="Stable or latest">
+This installs the stable release, v0.1.0, built from source; there is no prebuilt binary yet. For the latest `master` instead, run `brew install --HEAD v007m/tap/vibranium`. `brew upgrade --fetch-HEAD vibranium` then rebuilds it from the newest commit.
 </Aside>
 
 ## Cargo

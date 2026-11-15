@@ -3,15 +3,16 @@
  * them, so a change to the tap or the formula is a change here only.
  */
 
-/** Homebrew, through the project's own tap (D45). `--HEAD` until the first tagged release. */
-export const BREW_INSTALL = 'brew install --HEAD v007m/tap/vibranium';
+/** Homebrew, through the project's own tap (D45): the stable release. `--HEAD` builds `master`. */
+export const BREW_INSTALL = 'brew install v007m/tap/vibranium';
 
 /** What the Homebrew command does, in one sentence. */
 export const BREW_NOTE =
   'Builds from source with Homebrew’s Rust and Node, so it takes a few minutes, and installs `vc` with its web UI, `vibranium` (a link to `vc`) and `vc-demo`.';
 
-/** The fallback: Cargo straight from Git (Rust 1.99 or later). */
-export const CARGO_INSTALL = 'cargo install --git https://github.com/v007m/vc-rs vc-cli vc-demo --locked';
+/** The fallback: Cargo straight from Git, at the release tag (Rust 1.99 or later). */
+export const CARGO_INSTALL =
+  'cargo install --git https://github.com/v007m/vc-rs --tag v0.1.0 vc-cli vc-demo --locked';
 
 /** What the Cargo command does, in one sentence. */
 export const CARGO_NOTE =
