@@ -128,7 +128,7 @@ warning[V3203]: this api is deprecated
 
 ### Conflicts
 
-When you and the spec changed the same thing, sync leaves that api as it is, syncs the rest, and tells you how to settle it:
+When you and the spec changed the same thing, sync leaves that api as it is, syncs the rest, and tells you how to settle it. Say you changed `deleteUser` to `method: POST`, and the spec moved it to `put`:
 
 ```console
 $ vc sync users
@@ -141,6 +141,15 @@ fetched specs/users.yaml (5 operations)
 - `--take spec <api>`: use the spec's value.
 - `--take mine <api>`: keep yours.
 - Edit the file by hand, then `--resolved <api>`.
+
+```console
+$ vc sync users --take spec users#deleteUser
+fetched specs/users.yaml (5 operations)
+  ↑ users#deleteUser method POST → PUT
+✓ synced · snapshot openapi/users.yaml updated
+```
+
+`--take mine` and `--resolved` say `= users#deleteUser kept your method` instead. Until the conflict is settled, `vc sync --check` exits `4`.
 
 ## In CI
 
