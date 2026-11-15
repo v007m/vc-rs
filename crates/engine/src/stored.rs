@@ -14,7 +14,7 @@ use crate::history::history_error;
 use crate::load::LOAD_KIND;
 use crate::load_findings;
 use crate::reporting::{self, Chosen};
-use crate::settings::{Named, Settings};
+use crate::settings::{Named, Settings, Sourced};
 use crate::{Engine, EngineError, ReportFlags};
 
 /// Milliseconds in a day, for the start times.
@@ -120,7 +120,9 @@ impl Engine {
         }
         let snapshot = self.snapshot(&row)?;
         let chosen = report_choice(&request.files)?.under(self.root()).flat(request.files.out.is_some());
-        let (artifacts, notices) = chosen.render(&snapshot, row.id)?;
+        let (chosen, withheld) = chosen.confined(self.root());
+        let (artifacts, mut notices) = chosen.render(&snapshot, row.id)?;
+        notices.extend(withheld);
         let files = artifacts.into_iter().map(|artifact| artifact.path).collect();
         Ok(ReportFiles { run: row.id.get(), files, notices })
     }
@@ -165,7 +167,10 @@ fn report_choice(flags: &ReportFlags) -> Result<Chosen, EngineError> {
     }
     let settings = Settings {
         formats: Some(Named { names, origin: "--format".to_owned() }),
-        reports_dir: flags.out.as_ref().map(|out| out.to_string_lossy().into_owned()),
+        reports_dir: flags
+            .out
+            .as_ref()
+            .map(|out| Sourced { value: out.to_string_lossy().into_owned(), origin: "--out".to_owned() }),
         html_single_file: Some(flags.single_file),
         ..Settings::default()
     };

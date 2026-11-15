@@ -186,18 +186,23 @@ async fn with_failure_bodies_kept_the_feed_sends_none_even_for_a_failing_exchang
     assert_eq!(sent, (Some(500), 0, false), "the stored run holds them once the test has failed");
 }
 
-/// The report a run streams last when the fixture's config has `reports: <reports>`.
-async fn streamed_report(reports: &str) -> (tempfile::TempDir, wire::RunReport) {
-    let (dir, api) = project();
-    std::fs::write(dir.path().join("vibranium.config.yaml"), format!("{CONFIG}reports: {reports}\n")).unwrap();
-    let (events, _) = parse(&stream_from(api, &wire::RunRequest::default()).await);
+/// The report a run streams last when the fixture's config has `reports: <reports>` and the
+/// request sets `reports.dir` to `dir`, a folder the user chose (D327), when it names one.
+async fn streamed_report(reports: &str, dir: Option<String>) -> (tempfile::TempDir, wire::RunReport) {
+    let (root, api) = project();
+    std::fs::write(root.path().join("vibranium.config.yaml"), format!("{CONFIG}reports: {reports}\n")).unwrap();
+    let request = wire::RunRequest {
+        sets: dir.map(|dir| format!("reports.dir={dir}")).into_iter().collect(),
+        ..Default::default()
+    };
+    let (events, _) = parse(&stream_from(api, &request).await);
     let Some(Kind::Report(report)) = events.last().and_then(|event| event.kind.clone()) else { panic!("{events:?}") };
-    (dir, report)
+    (root, report)
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn the_report_names_the_html_file_the_run_wrote_as_text() {
-    let (dir, report) = streamed_report("{formats: [ctrf, html]}").await;
+    let (dir, report) = streamed_report("{formats: [ctrf, html]}", None).await;
     let Some(path) = report.html_report.clone() else { panic!("{report:?}") };
     let run = report.run.unwrap();
     let expected: std::path::PathBuf = [".vibranium", "reports", &run.to_string(), "index.html"].iter().collect();
@@ -209,15 +214,14 @@ async fn the_report_names_the_html_file_the_run_wrote_as_text() {
 #[tokio::test(flavor = "multi_thread")]
 async fn the_report_names_no_html_file_written_outside_the_project() {
     let out = tempfile::tempdir().unwrap();
-    let reports = format!("{{formats: [html], dir: '{}'}}", out.path().display());
-    let (_dir, report) = streamed_report(&reports).await;
+    let (_dir, report) = streamed_report("{formats: [html]}", Some(out.path().display().to_string())).await;
     assert_eq!(report.html_report, None, "a path beyond the project is never sent");
     assert!(std::fs::read_dir(out.path()).unwrap().next().is_some(), "the report is still written there");
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn the_report_names_no_html_file_when_the_run_wrote_none() {
-    let (_dir, report) = streamed_report("{formats: [ctrf, junit]}").await;
+    let (_dir, report) = streamed_report("{formats: [ctrf, junit]}", None).await;
     assert_eq!((report.html_report, report.run.is_some()), (None, true), "the other files are not named");
 }
 
@@ -225,7 +229,7 @@ async fn the_report_names_no_html_file_when_the_run_wrote_none() {
 async fn the_report_names_no_html_file_written_up_and_out_of_the_project() {
     let out = tempfile::tempdir().unwrap();
     let sibling = out.path().file_name().unwrap().to_string_lossy();
-    let (_dir, report) = streamed_report(&format!("{{formats: [html], dir: '../{sibling}'}}")).await;
+    let (_dir, report) = streamed_report("{formats: [html]}", Some(format!("../{sibling}"))).await;
     assert_eq!(report.html_report, None, "`../` leaves the project, so the path is never sent");
     assert!(std::fs::read_dir(out.path()).unwrap().next().is_some(), "the report is still written there");
 }

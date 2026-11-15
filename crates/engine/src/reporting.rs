@@ -3,12 +3,12 @@
 //! `reports.formats` names (G6), fed the same events.
 
 use std::collections::BTreeSet;
-use std::path::{Component, Path, PathBuf};
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use vc_adapter_reporters::{
     Color, Format, FormatRegistry, FsDestination, HtmlLayout, PluginReporter, Recorder, ReporterContext,
-    ReporterRegistry, RunFacts, RunSnapshot, mark_run_folder,
+    ReporterRegistry, RunFacts, RunSnapshot, mark_run_folder, resolves_inside,
 };
 use vc_diagnostics::Code;
 use vc_interfaces::{Artifact, PluginKind, ReportError, Reporter, RunEnd, RunId, RunSummary};
@@ -70,6 +70,9 @@ pub struct Chosen {
     pub single_file: bool,
     /// The reporter plugins it names, by ID.
     pub plugins: Vec<String>,
+    /// Whether the folder is the project's (its config's `reports.dir`, else the default), which
+    /// must stay inside the project on disk; one the user chose is theirs (D327).
+    pub project: bool,
 }
 
 impl Chosen {
@@ -77,6 +80,17 @@ impl Chosen {
     #[must_use]
     pub fn under(self, root: &Path) -> Self {
         Self { dir: crate::paths::under(root, self.dir), ..self }
+    }
+
+    /// The same choice, writing no report when its folder is the project's and leads outside
+    /// `root` on disk ([`resolves_inside`]), with why (V5121, D327).
+    #[must_use]
+    pub fn confined(self, root: &Path) -> (Self, Option<String>) {
+        if !self.project || resolves_inside(root, &self.dir) {
+            return (self, None);
+        }
+        let why = format!("{}; no report is written", leads_out(&self.dir));
+        (Self { files: Vec::new(), plugins: Vec::new(), per_run: false, ..self }, Some(why))
     }
 
     /// The same choice writing straight into its folder when `flat`, as `--out` does.
@@ -154,9 +168,20 @@ pub fn choose(console: Option<&str>, settings: &Settings, program: &Program) -> 
     for file in &files {
         check(file, &named.origin, Role::File)?;
     }
-    let dir = settings.reports_dir.as_deref().or(program.config.reports_dir.as_deref()).unwrap_or(REPORTS_DIR);
+    let dir = settings.reports_folder().or(program.config.reports_dir.as_deref()).unwrap_or(REPORTS_DIR);
     let single_file = settings.html_single_file.unwrap_or(program.config.html_single_file);
-    Ok(Chosen { console: console.to_owned(), files, dir: PathBuf::from(dir), per_run: true, single_file, plugins })
+    let (dir, project) = (PathBuf::from(dir), settings.project_reports_dir());
+    Ok(Chosen { console: console.to_owned(), files, dir, per_run: true, single_file, plugins, project })
+}
+
+/// Why the project's report folder `dir` is not used: it leads outside the project (V5121).
+#[must_use]
+pub fn leads_out(dir: &Path) -> String {
+    format!(
+        "{}: the report folder {} leads outside the project on disk, or cannot be resolved",
+        Code::V5121,
+        dir.display()
+    )
 }
 
 /// Whether `name`, given by `origin`, is a reporter of role `wanted`.
@@ -302,8 +327,10 @@ impl Reporters {
         artifacts.extend(written);
         problems.extend(failed);
         let report = artifacts.first().map(|artifact| artifact.path.clone());
-        let html =
-            artifacts.iter().find(|artifact| artifact.reporter == HTML).and_then(|html| inside(&root, &html.path));
+        let html = artifacts
+            .iter()
+            .find(|artifact| artifact.reporter == HTML)
+            .and_then(|html| crate::paths::plain(&root, &html.path));
         let ending = watch.map(|watch| watch.ending(report)).unwrap_or_default();
         let ending = Ending { teardown: snapshot.teardown_failed(), ..ending };
         if let Some(history) = history
@@ -333,15 +360,6 @@ fn plugins(chosen: &Chosen, setup: &Setup, run: Option<RunId>) -> (Vec<PluginRep
         }
     }
     (reporters, problems)
-}
-
-/// `path` relative to the project `root`, rebuilt from its parts as [`crate::paths::under`]
-/// does; none outside it, so a watcher is never told where the project is, nor a path beyond it.
-/// The check is lexical: a `..` part (from a `reports.dir` such as `../out`) leaves the root.
-fn inside(root: &Path, path: &Path) -> Option<PathBuf> {
-    let relative = path.strip_prefix(root).ok()?;
-    let plain = relative.components().all(|part| matches!(part, Component::Normal(_)));
-    plain.then(|| relative.components().collect())
 }
 
 /// Ends each reporter plugin with `run`: the files they wrote, and why any did not.

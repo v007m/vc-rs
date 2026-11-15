@@ -166,6 +166,7 @@ cases!(
     v2310_header_name,
     v2311_redact_regex,
     v2312_body_schema,
+    v2313_reports_dir,
     datasets_clean,
     v1001_csv_dataset,
     v1002_dataset_not_rows,

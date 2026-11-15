@@ -1,0 +1,10 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2313_reports_dir/project
+---
+error[V2313]: `reports.dir` is `reports/../../ci-reports`, which leaves the project
+ --> vibranium.config.yaml:8:8
+  |
+8 |   dir: reports/../../ci-reports
+  |        ^^^^^^^^^^^^^^^^^^^^^^^^ `..` leads out of the project
+  = help: `reports.dir` at vibranium.config.yaml:8 is the project's, and stays inside it: write a folder such as `reports/ci`, or pass `--out <dir>` for one outside it

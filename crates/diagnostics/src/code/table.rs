@@ -64,6 +64,7 @@ code_table! {
     V2310 = 2310, Error, "Invalid HTTP header name";
     V2311 = 2311, Error, "Redact pattern does not compile";
     V2312 = 2312, Error, "`body.schema` is not a valid JSON Schema";
+    V2313 = 2313, Error, "`reports.dir` in the project config leaves the project";
     // V3xxx: lifecycle
     V3101 = 3101, Error, "No profile defined, or no active profile for this run";
     V3102 = 3102, Error, "More than one default profile";
@@ -108,4 +109,5 @@ code_table! {
     V5118 = 5118, Error, "A plugin failed, ran past its deadline or asked for what it was not granted";
     V5119 = 5119, Error, "A plugin cannot be confined to its permissions";
     V5120 = 5120, Warning, "A run cannot use a plugin in the config";
+    V5121 = 5121, Warning, "The project's report folder leads outside the project";
 }

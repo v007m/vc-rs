@@ -45,7 +45,7 @@ host! {
     pub use browser::SystemBrowser;
     pub use command::ProcessRunner;
     pub use compile_cache::FsCompileCache;
-    pub use config_sources::{DotEnv, SetFlags, VibVars};
+    pub use config_sources::{DOT_ENV, DotEnv, SetFlags, VibVars};
     pub use environment::SystemEnvironment;
     pub use git::GitVcs;
     pub use root::{CONFIG_FILE, find_project_root, project_path};
