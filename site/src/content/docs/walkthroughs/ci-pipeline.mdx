@@ -16,8 +16,8 @@ You first run each command locally, so you know what the job will print and whic
 - `vc` and `vc-demo` on your `PATH` (see [Install](/vc-rs/start/install/)).
 - A project in a git repo with a GitHub remote. This page uses the sample project from `vc init`, because it runs anywhere: its test file starts the demo service in `beforeAll` and stops it in `afterAll`. A project that tests your own service works the same way, with a profile that points at it.
 
-<Aside type="caution" title="No release or setup action yet">
-There is no prebuilt release, installer or GitHub setup action for `vc` yet. The workflow below builds it from the repo with `cargo install`, which needs Rust 1.99 or later. GitHub's hosted runners come with `rustup`.
+<Aside type="caution" title="No prebuilt binary or setup action yet">
+There is no prebuilt binary, installer or GitHub setup action for `vc` yet. The workflow below builds the v0.1.0 release from the repo with `cargo install`, which needs Rust 1.99 or later. GitHub's hosted runners come with `rustup`.
 </Aside>
 
 ## Build the pipeline
@@ -243,7 +243,7 @@ jobs:
       - name: Install vc and vc-demo
         run: |
           rustup toolchain install 1.99 --profile minimal
-          cargo +1.99 install --git https://github.com/v007m/vc-rs vc-cli vc-demo --locked
+          cargo +1.99 install --git https://github.com/v007m/vc-rs --tag v0.1.0 vc-cli vc-demo --locked
 
       - name: Check the definitions
         run: vc check
@@ -316,7 +316,7 @@ Every `vc` command uses the same codes, so a CI step can branch on them.
 
 ## What you learned
 
-- Install `vc` in CI with `cargo install --git https://github.com/v007m/vc-rs vc-cli vc-demo --locked`. No release or setup action exists yet.
+- Install `vc` in CI with `cargo install --git https://github.com/v007m/vc-rs --tag v0.1.0 vc-cli vc-demo --locked`. No prebuilt binary or setup action exists yet.
 - Order the steps from cheap to expensive: `vc check`, then `vc sync --check`, then `vc run`.
 - `--report junit,ctrf,html --out reports` writes the report files to one folder to upload. `--single-file` makes the HTML one file.
 - `--reporter json` streams NDJSON events on stdout.
