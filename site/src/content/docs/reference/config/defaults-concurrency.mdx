@@ -27,6 +27,7 @@ Four tests each wait 500ms. One at a time takes two seconds:
 ```console
 $ vc run slow.par --set defaults.concurrency=1
 4 passed                                                     2.0s · profile default
+reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
 ```
 
 Four at a time takes half a second:
@@ -34,6 +35,7 @@ Four at a time takes half a second:
 ```console
 $ vc run slow.par --set defaults.concurrency=4
 4 passed                                                     510ms · profile default
+reports  …/.vibranium/reports/2/{ctrf.json,junit.xml,index.html}
 ```
 
 A value that is not a whole number above 0 is refused on the command line:

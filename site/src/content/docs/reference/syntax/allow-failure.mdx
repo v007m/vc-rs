@@ -114,6 +114,7 @@ Allow failure
      |               ^^^ expected [418], got 200
 
 1 passed · 1 failed · 2 allowed to fail                      10ms · profile default
+reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
 ```
 
 `vc check` warns about the expired one:
@@ -170,6 +171,7 @@ plan  2 tests in 1 file · profile default
 ✓ payments.refunds#listsRefunds                                   3ms
 
 1 passed · 1 allowed to fail                                 4ms · profile default
+reports  …/.vibranium/reports/2/{ctrf.json,junit.xml,index.html}
 $ echo $?
 0
 ```
@@ -182,6 +184,7 @@ $ echo $?
 $ vc run sample.allow --strict
 ...
 1 passed · 3 failed                                          5ms · profile default
+reports  …/.vibranium/reports/3/{ctrf.json,junit.xml,index.html}
 ```
 
 ### In reports

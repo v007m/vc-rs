@@ -83,6 +83,7 @@ plan  3 tests in 1 file · profile default
 ✓ slow.time#stepTimeoutWins                                      1.9s
 
 1 passed · 2 failed                                          2.0s · profile default
+reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
 ```
 
 - `apiTimeoutHits` fails: the server needs 2 s and the api allows 1 s.
@@ -112,6 +113,7 @@ plan  2 tests in 1 file · profile default
 ✓ slow.t2#usesDefaultsTimeout                                   983ms
 
 1 passed · 1 failed                                          1.0s · profile default
+reports  …/.vibranium/reports/2/{ctrf.json,junit.xml,index.html}
 ```
 
 To give one call more time, put `timeout` on a step inside `steps`, as in `stepTimeoutWins`.
@@ -132,6 +134,7 @@ plan  2 tests in 1 file · profile default
      = at: call slow#wait
 
 0 passed · 2 failed                                          1.0s · profile default
+reports  …/.vibranium/reports/3/{ctrf.json,junit.xml,index.html}
 ```
 
 The api's own `1s` still wins over the default.
@@ -166,6 +169,7 @@ plan  2 tests in 1 file · profile default
 ✓ slow.t3#afterOutsideTimeout                                    1.0s
 
 1 passed · 1 failed                                          1.0s · profile default
+reports  …/.vibranium/reports/4/{ctrf.json,junit.xml,index.html}
 ```
 
 ## Try it

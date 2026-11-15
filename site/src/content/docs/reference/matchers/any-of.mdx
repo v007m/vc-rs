@@ -73,6 +73,7 @@ plan  1 test in 1 file · profile default
 ✓ sample.anyof#qtyRule — Quantity is 0 or above 2                 0ms
 
 1 passed                                                     55ms · profile default
+reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
 ```
 
 ### Null or a date
@@ -97,6 +98,7 @@ plan  1 test in 1 file · profile default
 ✓ sample.anyof#noteOrDate — Note is null or a date                5ms
 
 1 passed                                                     8ms · profile default
+reports  …/.vibranium/reports/2/{ctrf.json,junit.xml,index.html}
 ```
 
 ### A failing check
@@ -126,6 +128,7 @@ plan  1 test in 1 file · profile default
      |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected {"anyOf":[{"eq":0},{"gt":10}]}, got 3
 
 0 passed · 1 failed                                          28ms · profile default
+reports  …/.vibranium/reports/3/{ctrf.json,junit.xml,index.html}
 ```
 
 ## Try it

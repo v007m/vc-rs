@@ -87,6 +87,7 @@ plan  1 test in 1 file · profile default
 ✓ sample.none#noC3 — No SKU is C3                                 0ms
 
 1 passed                                                     8ms · profile default
+reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
 ```
 
 ### No test tags
@@ -111,6 +112,7 @@ plan  1 test in 1 file · profile default
 ✓ sample.none#noTestTag — No tag starts with test                 2ms
 
 1 passed                                                     4ms · profile default
+reports  …/.vibranium/reports/2/{ctrf.json,junit.xml,index.html}
 ```
 
 ### A failing check
@@ -140,6 +142,7 @@ plan  1 test in 1 file · profile default
      |                              ^^^^^^^^^^^^^^^^^^^^^^^ expected {"none":{"startsWith":"A"}}, got ["A1","B2"]
 
 0 passed · 1 failed                                          5ms · profile default
+reports  …/.vibranium/reports/3/{ctrf.json,junit.xml,index.html}
 ```
 
 ### A missing list fails
@@ -169,6 +172,7 @@ plan  1 test in 1 file · profile default
      |                         ^^^^^^^^^^^^^^^^^^^^^ expected {"none":{"eq":"expired"}}, got nothing
 
 0 passed · 1 failed                                          5ms · profile default
+reports  …/.vibranium/reports/4/{ctrf.json,junit.xml,index.html}
 ```
 
 ## Try it

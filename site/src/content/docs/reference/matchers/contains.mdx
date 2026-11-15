@@ -89,6 +89,7 @@ plan  1 test in 1 file · profile default
 ✓ sample.contains#nameHasLove — Name contains Love                0ms
 
 1 passed                                                     35ms · profile default
+reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
 ```
 
 ### A list element
@@ -113,6 +114,7 @@ plan  1 test in 1 file · profile default
 ✓ sample.contains#isVip — Tags include vip                        0ms
 
 1 passed                                                     34ms · profile default
+reports  …/.vibranium/reports/2/{ctrf.json,junit.xml,index.html}
 ```
 
 ### An object in a list
@@ -150,6 +152,7 @@ plan  2 tests in 1 file · profile default
      |                       ^^^^^^^^^^^^^^^^^^^^^ expected {"contains":{"sku":"A1"}}, got [{"price":10,"sku":"A1"},{"price":32.5,"sku":"B2"}]
 
 1 passed · 1 failed                                          52ms · profile default
+reports  …/.vibranium/reports/3/{ctrf.json,junit.xml,index.html}
 ```
 
 To match on one field of each element, use a `[*]` path: `body.items[*].sku: {contains: A1}`.
@@ -181,6 +184,7 @@ plan  1 test in 1 file · profile default
      |                      ^^^^^^^^^^^^^^^^ expected {"contains":"love"}, got "Ada Lovelace"
 
 0 passed · 1 failed                                          25ms · profile default
+reports  …/.vibranium/reports/4/{ctrf.json,junit.xml,index.html}
 ```
 
 ### Values from a list path
@@ -205,6 +209,7 @@ plan  1 test in 1 file · profile default
 ✓ sample.contains#hasSkuB2 — Some item is B2                      0ms
 
 1 passed                                                     91ms · profile default
+reports  …/.vibranium/reports/5/{ctrf.json,junit.xml,index.html}
 ```
 
 ## Try it

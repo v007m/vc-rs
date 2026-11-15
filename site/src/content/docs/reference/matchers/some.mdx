@@ -82,6 +82,7 @@ plan  1 test in 1 file · profile default
 ✓ sample.some#hasBigItem — Some price is over 30                  3ms
 
 1 passed                                                     6ms · profile default
+reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
 ```
 
 ### Match whole elements
@@ -106,6 +107,7 @@ plan  1 test in 1 file · profile default
 ✓ sample.some#hasB2 — Some item is B2 at 32.5                     3ms
 
 1 passed                                                     6ms · profile default
+reports  …/.vibranium/reports/2/{ctrf.json,junit.xml,index.html}
 ```
 
 ### A failing check
@@ -135,6 +137,7 @@ plan  1 test in 1 file · profile default
      |                                ^^^^^^^^^^^^^^^^^ expected {"some":{"gt":100}}, got [10,32.5]
 
 0 passed · 1 failed                                          4ms · profile default
+reports  …/.vibranium/reports/3/{ctrf.json,junit.xml,index.html}
 ```
 
 ## Try it

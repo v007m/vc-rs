@@ -84,6 +84,7 @@ plan  1 test in 1 file · profile default
 ✓ sample.startswith#isOrderId — ID starts with ord_               6ms
 
 1 passed                                                     7ms · profile default
+reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
 ```
 
 ### Check every element
@@ -108,6 +109,7 @@ plan  1 test in 1 file · profile default
 ✓ sample.startswith#skusAreLetters — Every SKU starts with a capital A or B   15ms
 
 1 passed                                                     100ms · profile default
+reports  …/.vibranium/reports/2/{ctrf.json,junit.xml,index.html}
 ```
 
 ### A failing check
@@ -137,6 +139,7 @@ plan  1 test in 1 file · profile default
      |                    ^^^^^^^^^^^^^^^^^^ expected {"startsWith":"inv_"}, got "ord_123"
 
 0 passed · 1 failed                                          49ms · profile default
+reports  …/.vibranium/reports/3/{ctrf.json,junit.xml,index.html}
 ```
 
 ## Try it

@@ -73,6 +73,7 @@ plan  1 test in 1 file · profile default
 ✓ sample.exists#hasId — Order has an ID                           4ms
 
 1 passed                                                     5ms · profile default
+reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
 ```
 
 ### Forbid a field
@@ -97,6 +98,7 @@ plan  1 test in 1 file · profile default
 ✓ sample.exists#hidesSecret — No password in the body             0ms
 
 1 passed                                                     15ms · profile default
+reports  …/.vibranium/reports/2/{ctrf.json,junit.xml,index.html}
 ```
 
 ### Null counts as present
@@ -121,6 +123,7 @@ plan  1 test in 1 file · profile default
 ✓ sample.exists#hasNote — Note is present                        16ms
 
 1 passed                                                     19ms · profile default
+reports  …/.vibranium/reports/3/{ctrf.json,junit.xml,index.html}
 ```
 
 ### A failing check
@@ -150,6 +153,7 @@ plan  1 test in 1 file · profile default
      |                           ^^^^^^^^^^^^^^ expected {"exists":true}, got nothing
 
 0 passed · 1 failed                                          6ms · profile default
+reports  …/.vibranium/reports/4/{ctrf.json,junit.xml,index.html}
 ```
 
 ## Try it

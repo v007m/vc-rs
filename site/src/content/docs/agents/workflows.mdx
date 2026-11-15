@@ -62,6 +62,7 @@ The MCP server has no tool for import, sync or load. For those steps the agent r
         |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ /: "name" is a required property
 
    2 passed · 1 failed                                          6ms · profile local
+   reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
    ```
 
    The import wrote `services/people/people.api.yaml`. It matched the spec's server to the `peopleUrl` var, so `baseUrl` is `${var.peopleUrl}`. Request bodies and path params get generated data, and `getsPerson` first creates a person, then gets it by the id `createPerson` saved:
@@ -215,6 +216,7 @@ The agent writes the file, runs `vc check`, applies certain fixes, and runs the 
    ✓ people.lookup#getsGraceById — Gets Grace by id                  6ms
 
    1 passed                                                     7ms · profile local
+   reports  …/.vibranium/reports/2/{ctrf.json,junit.xml,index.html}
    ```
 </Steps>
 
@@ -308,6 +310,7 @@ Pass the tests to run as `ids`: `run_tests {"ids": ["people.listing"]}`. The ser
    ✓ people.diff#getsGraceExactly — Gets Grace exactly               1ms
 
    1 passed                                                     2ms · profile local
+   reports  …/.vibranium/reports/3/{ctrf.json,junit.xml,index.html}
    ```
 </Steps>
 
@@ -491,6 +494,7 @@ An agent reads the result with `vc load people.browse --json`, which prints one 
    ✓ people.lookup#getsGraceById — Gets Grace by id                  2ms
 
    6 passed                                                     3ms · profile local
+   reports  …/.vibranium/reports/4/{ctrf.json,junit.xml,index.html}
    ```
 
 3. In CI, check out enough history for the ref to exist (for GitHub Actions, `fetch-depth: 0`) and run:

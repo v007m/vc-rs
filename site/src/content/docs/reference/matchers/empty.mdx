@@ -76,6 +76,7 @@ plan  1 test in 1 file · profile default
 ✓ sample.empty#hasTags — Tags are set                            16ms
 
 1 passed                                                     20ms · profile default
+reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
 ```
 
 ### An empty list
@@ -100,6 +101,7 @@ plan  1 test in 1 file · profile default
 ✓ sample.empty#noExtras — The empty list is empty               159ms
 
 1 passed                                                     168ms · profile default
+reports  …/.vibranium/reports/2/{ctrf.json,junit.xml,index.html}
 ```
 
 ### A failing check
@@ -129,6 +131,7 @@ plan  1 test in 1 file · profile default
      |                      ^^^^^^^^^^^^^ expected {"empty":true}, got ["new","vip"]
 
 0 passed · 1 failed                                          85ms · profile default
+reports  …/.vibranium/reports/3/{ctrf.json,junit.xml,index.html}
 ```
 
 ### Missing values fail both ways
@@ -158,6 +161,7 @@ plan  1 test in 1 file · profile default
      |                         ^^^^^^^^^^^^^^ expected {"empty":false}, got nothing
 
 0 passed · 1 failed                                          48ms · profile default
+reports  …/.vibranium/reports/4/{ctrf.json,junit.xml,index.html}
 ```
 
 ## Try it

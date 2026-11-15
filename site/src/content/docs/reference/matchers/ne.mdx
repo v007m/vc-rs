@@ -75,6 +75,7 @@ plan  1 test in 1 file · profile default
 ✓ sample.ne#isNotClosed — Order is not closed                     3ms
 
 1 passed                                                     4ms · profile default
+reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
 ```
 
 ### Require a value that is not null
@@ -99,6 +100,7 @@ plan  1 test in 1 file · profile default
 ✓ sample.ne#hasEmail — Email is set                               4ms
 
 1 passed                                                     5ms · profile default
+reports  …/.vibranium/reports/2/{ctrf.json,junit.xml,index.html}
 ```
 
 ### A failing check
@@ -128,6 +130,7 @@ plan  1 test in 1 file · profile default
      |                      ^^^^^^^^^^ expected {"ne":null}, got null
 
 0 passed · 1 failed                                          4ms · profile default
+reports  …/.vibranium/reports/3/{ctrf.json,junit.xml,index.html}
 ```
 
 ### A missing path passes
@@ -165,6 +168,7 @@ plan  2 tests in 1 file · profile default
      |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^ expected {"exists":true,"ne":"closed"}, got nothing
 
 1 passed · 1 failed                                          9ms · profile default
+reports  …/.vibranium/reports/4/{ctrf.json,junit.xml,index.html}
 ```
 
 The second test fails because `state` is not in the body.

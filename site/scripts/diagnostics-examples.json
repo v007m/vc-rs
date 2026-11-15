@@ -160,7 +160,7 @@
       }
     ],
     "command": "vc run users.crud#listsUsers",
-    "output": "plan  1 test in 1 file · profile default\n\nUsers CRUD\n✕ users.crud#listsUsers — Lists users                             2ms\n  error[V5101]: expect.status\n   --> services/users/crud.test.yaml:8:15\n    |\n  8 |       status: 201\n    |               ^^^ expected [201], got 200\n\n0 passed · 1 failed                                          3ms · profile default",
+    "output": "plan  1 test in 1 file · profile default\n\nUsers CRUD\n✕ users.crud#listsUsers — Lists users                             2ms\n  error[V5101]: expect.status\n   --> services/users/crud.test.yaml:8:15\n    |\n  8 |       status: 201\n    |               ^^^ expected [201], got 200\n\n0 passed · 1 failed                                          3ms · profile default\nreports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}",
     "exit": 1
   },
   "V5102": {
@@ -172,7 +172,7 @@
       }
     ],
     "command": "vc run users.crud#countsUsers",
-    "output": "plan  1 test in 1 file · profile default\n\nUsers CRUD\n✕ users.crud#countsUsers — Counts users                           7ms\n  error[V5102]: expect.cel.returns users\n    --> services/users/crud.test.yaml:14:24\n     |\n  14 |         returns users: response.body.users.size() > 0\n     |                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ found no matching overload for '_._' applied to '(list, string)'\n\n0 passed · 1 failed                                          8ms · profile default",
+    "output": "plan  1 test in 1 file · profile default\n\nUsers CRUD\n✕ users.crud#countsUsers — Counts users                           7ms\n  error[V5102]: expect.cel.returns users\n    --> services/users/crud.test.yaml:14:24\n     |\n  14 |         returns users: response.body.users.size() > 0\n     |                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ found no matching overload for '_._' applied to '(list, string)'\n\n0 passed · 1 failed                                          8ms · profile default\nreports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}",
     "exit": 1
   },
   "V5105": {
@@ -189,7 +189,7 @@
       }
     ],
     "command": "vc run",
-    "output": "plan  1 test in 1 file · profile default\n\nUsers CRUD\n✕ users.crud#listsUsers — Lists users                             1ms\n  error[V5105]: cannot connect to localhost:7499: Connection refused (os error 61)\n     = at: call users#listUsers\n\n0 passed · 1 failed                                          2ms · profile default",
+    "output": "plan  1 test in 1 file · profile default\n\nUsers CRUD\n✕ users.crud#listsUsers — Lists users                             1ms\n  error[V5105]: cannot connect to localhost:7499: Connection refused (os error 61)\n     = at: call users#listUsers\n\n0 passed · 1 failed                                          2ms · profile default\nreports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}",
     "exit": 1
   }
 }

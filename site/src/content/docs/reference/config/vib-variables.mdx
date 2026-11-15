@@ -57,7 +57,7 @@ Change the report formats for one run:
 ```console
 $ VIB_REPORTS_FORMATS=junit,html vc run
 ...
-reports  out/reports/6/{junit.xml,report.html}
+reports  …/.vibranium/reports/6/{junit.xml,index.html}
 ```
 
 Write the reports somewhere else:
@@ -65,7 +65,7 @@ Write the reports somewhere else:
 ```console
 $ VIB_REPORTS_DIR=elsewhere vc run
 ...
-reports  elsewhere/7/{ctrf.json,junit.xml,report.html}
+reports  …/elsewhere/7/{ctrf.json,junit.xml,index.html}
 ```
 
 A bad value stops the command with exit code 2:

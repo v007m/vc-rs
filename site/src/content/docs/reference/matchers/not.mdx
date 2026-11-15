@@ -73,6 +73,7 @@ plan  1 test in 1 file · profile default
 ✓ sample.not#isOpen — Status is not closed or cancelled           3ms
 
 1 passed                                                     5ms · profile default
+reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
 ```
 
 ### Invert a text check
@@ -97,6 +98,7 @@ plan  1 test in 1 file · profile default
 ✓ sample.not#notTestEmail — Email does not contain test           4ms
 
 1 passed                                                     5ms · profile default
+reports  …/.vibranium/reports/2/{ctrf.json,junit.xml,index.html}
 ```
 
 ### A failing check
@@ -126,6 +128,7 @@ plan  1 test in 1 file · profile default
      |                        ^^^^^^^^^^^^^^^^^^^ expected {"not":{"eq":"active"}}, got "active"
 
 0 passed · 1 failed                                          18ms · profile default
+reports  …/.vibranium/reports/3/{ctrf.json,junit.xml,index.html}
 ```
 
 ### A missing path passes
@@ -158,6 +161,7 @@ plan  2 tests in 1 file · profile default
 ✓ sample.not#needsTheField — Status is present and not closed     0ms
 
 2 passed                                                     15ms · profile default
+reports  …/.vibranium/reports/4/{ctrf.json,junit.xml,index.html}
 ```
 
 ## Try it

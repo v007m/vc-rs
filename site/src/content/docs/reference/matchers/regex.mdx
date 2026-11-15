@@ -73,6 +73,7 @@ plan  1 test in 1 file · profile default
 ✓ sample.regex#idPattern — ID is ord_ and digits                 36ms
 
 1 passed                                                     39ms · profile default
+reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
 ```
 
 ### Ignore case
@@ -97,6 +98,7 @@ plan  1 test in 1 file · profile default
 ✓ sample.regex#idAnyCase — ID starts with ORD in any case        25ms
 
 1 passed                                                     79ms · profile default
+reports  …/.vibranium/reports/2/{ctrf.json,junit.xml,index.html}
 ```
 
 ### A failing check
@@ -126,6 +128,7 @@ plan  1 test in 1 file · profile default
      |                    ^^^^^^^^^^^^^^^ expected {"regex":"^ORD"}, got "ord_123"
 
 0 passed · 1 failed                                          17ms · profile default
+reports  …/.vibranium/reports/3/{ctrf.json,junit.xml,index.html}
 ```
 
 ### Numbers do not match
@@ -155,6 +158,7 @@ plan  1 test in 1 file · profile default
      |                     ^^^^^^^^^^^^ expected {"regex":"3"}, got 3
 
 0 passed · 1 failed                                          25ms · profile default
+reports  …/.vibranium/reports/4/{ctrf.json,junit.xml,index.html}
 ```
 
 ## Try it

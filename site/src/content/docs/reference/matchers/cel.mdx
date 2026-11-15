@@ -88,6 +88,7 @@ plan  1 test in 1 file · profile default
 ✓ sample.cel#twoNamedUsers — Two users, all named                 8ms
 
 1 passed                                                     9ms · profile default
+reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
 ```
 
 ### Compare fields with each other
@@ -111,6 +112,7 @@ plan  1 test in 1 file · profile default
 ✓ sample.cel#totalAddsUp — Total is the sum of item prices        4ms
 
 1 passed                                                     5ms · profile default
+reports  …/.vibranium/reports/2/{ctrf.json,junit.xml,index.html}
 ```
 
 ### A failing check
@@ -139,6 +141,7 @@ plan  1 test in 1 file · profile default
      |                     ^^^^^^^^^^^^^^^^^^^^^^^^ expected true, got false
 
 0 passed · 1 failed                                          4ms · profile default
+reports  …/.vibranium/reports/3/{ctrf.json,junit.xml,index.html}
 ```
 
 ### Write response.body, not body

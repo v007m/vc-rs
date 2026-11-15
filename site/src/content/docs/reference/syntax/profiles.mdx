@@ -89,6 +89,7 @@ $ vc run prof.checkout --profile staging,eu
 ✓ prof.checkout#sendsCurrency                                     2ms
 
 1 passed                                                     4ms · profiles staging, eu
+reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
 ```
 
 With the default profile, `currency` stays `USD`:
@@ -103,6 +104,7 @@ $ vc run prof.checkout
      |                          ^^^ expected "EUR", got "USD"
 
 0 passed · 1 failed                                          3ms · profile default
+reports  …/.vibranium/reports/2/{ctrf.json,junit.xml,index.html}
 ```
 
 `vc explain` shows which profile set each value. `staging` and `eu` both set `f` in the config, and `eu` wins because it is listed last:

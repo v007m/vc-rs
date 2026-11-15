@@ -67,6 +67,7 @@ $ vc call sample#getUser --var userId=1
    ✓ sample.parked#getsUser — Gets a user                            9ms
 
    2 passed · 1 skipped                                         15ms · profile default
+   reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
    ```
 
 4. **Remove it when the cause is fixed.**
@@ -181,6 +182,7 @@ plan  4 tests in 1 file · profile default
 ✓ sample.skip#listsUsersPaged — Lists users a page at a time      3ms
 
 4 passed                                                     5ms · profile default
+reports  …/.vibranium/reports/2/{ctrf.json,junit.xml,index.html}
 ```
 
 ## Keep running a test that may fail
@@ -213,6 +215,7 @@ plan  1 test in 1 file · profile default
 ✓ sample.parked#getsUser — Gets a user                           13ms
 
 1 passed                                                     16ms · profile default
+reports  …/.vibranium/reports/3/{ctrf.json,junit.xml,index.html}
 ```
 
 Tests left out by a selector are not counted at all, not even as skipped.

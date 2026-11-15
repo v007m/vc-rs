@@ -29,6 +29,7 @@ plan  4 tests in 1 file · lifecycle: beforeRun call sample#listUsers · profile
 ✓ slow.par#waits3                                               491ms
 
 4 passed                                                     528ms · profile default
+reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
 ```
 
 A failed `beforeRun` action is reported once. Only tests that read its values are blocked; here no test does, so they all run:
@@ -46,6 +47,7 @@ plan  4 tests in 1 file · lifecycle: beforeRun call sample#listUsers · profile
 ✓ slow.par#waits2                                               509ms
 
 4 passed                                                     551ms · profile default
+reports  …/.vibranium/reports/2/{ctrf.json,junit.xml,index.html}
 ```
 
 Actions are `call`, `test`, `command` and `function`, as in every lifecycle block. Give an action an `id` to share what it saves, as `${var.<id>.<name>}`.

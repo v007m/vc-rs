@@ -71,6 +71,7 @@ plan  1 test in 1 file · profile default
 ✓ sample.allof#idShape — ID starts with ord_ and has 7 characters    0ms
 
 1 passed                                                     35ms · profile default
+reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
 ```
 
 ### The same thing in one map
@@ -95,6 +96,7 @@ plan  1 test in 1 file · profile default
 ✓ sample.allof#idShapeMap — ID is a 7-character string starting with ord_    0ms
 
 1 passed                                                     14ms · profile default
+reports  …/.vibranium/reports/2/{ctrf.json,junit.xml,index.html}
 ```
 
 ### A failing check
@@ -124,6 +126,7 @@ plan  1 test in 1 file · profile default
      |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected {"allOf":[{"startsWith":"ord_"},{"length":8}]}, got "ord_123"
 
 0 passed · 1 failed                                          15ms · profile default
+reports  …/.vibranium/reports/3/{ctrf.json,junit.xml,index.html}
 ```
 
 ## Try it

@@ -264,7 +264,7 @@ Tests and apis are the definitions; everything else is something they point at.
 | `openapi/` | Snapshots of each spec as it was at the last import or sync; written only by `vc import` and `vc sync` | `vc sync`, as the merge base | `openapi/users.yaml` |
 | `.env.schema` | Secret names (`NAME=` lines), and where each comes from when Varlock is the provider | `${secret.X}` anywhere | `${secret.SHOP_CLIENT_SECRET}` |
 | `vibranium.lock` | Approved plugin permissions | `vc plugin add` | — |
-| `.vibranium/` | Reports, `history.db`, `cache.db`; generated, git-ignored | `vc report`, `vc history`, the TUI and web UI | `.vibranium/reports/report.html` |
+| `.vibranium/` | Reports, `history.db`, `cache.db`; generated, git-ignored | `vc report`, `vc history`, the TUI and web UI | `.vibranium/reports/<n>/index.html` |
 
 Paths in `$file` and `function:` are relative to the file that contains them, so moving a folder of api and test files keeps working as long as its references move with it; `vc check` reports any that break.
 
@@ -774,7 +774,7 @@ error[V2101]: ${var.couponCode} is used but never set
     --> services/orders/checkout.test.yaml:35:9
 
 9 passed · 1 failed · 1 blocked · 1 skipped · 1 flaky        14.2s · profile staging
-reports  .vibranium/reports/483/{ctrf.json,junit.xml,report.html}
+reports  …/.vibranium/reports/483/{ctrf.json,junit.xml,index.html}
 next     vc run --failed · vc report 483 --open
 ```
 

@@ -89,6 +89,7 @@ plan  1 test in 1 file · profile default
 ✓ sample.every#pricesPositive — Every price is positive           0ms
 
 1 passed                                                     11ms · profile default
+reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
 ```
 
 ### Several matchers per element
@@ -113,6 +114,7 @@ plan  1 test in 1 file · profile default
 ✓ sample.every#tagsShort — Every tag is short text                0ms
 
 1 passed                                                     5ms · profile default
+reports  …/.vibranium/reports/2/{ctrf.json,junit.xml,index.html}
 ```
 
 ### An empty list passes
@@ -137,6 +139,7 @@ plan  1 test in 1 file · profile default
 ✓ sample.every#emptyPasses — Every element of an empty list       0ms
 
 1 passed                                                     14ms · profile default
+reports  …/.vibranium/reports/3/{ctrf.json,junit.xml,index.html}
 ```
 
 ### A failing check
@@ -166,6 +169,7 @@ plan  1 test in 1 file · profile default
      |                                ^^^^^^^^^^^^^^^^^ expected {"every":{"lt":20}}, got [10,32.5]
 
 0 passed · 1 failed                                          5ms · profile default
+reports  …/.vibranium/reports/4/{ctrf.json,junit.xml,index.html}
 ```
 
 ### Use a list path for fields
@@ -195,6 +199,7 @@ plan  1 test in 1 file · profile default
      |                       ^^^^^^^^^^^^^^^^^^^^^^^^^ expected {"every":{"price":{"gt":0}}}, got [{"price":10,"sku":"A1"},{"price":32.5,"sku":"B2"}]
 
 0 passed · 1 failed                                          7ms · profile default
+reports  …/.vibranium/reports/5/{ctrf.json,junit.xml,index.html}
 ```
 
 Write `body.items[*].price: {every: {gt: 0}}` instead.

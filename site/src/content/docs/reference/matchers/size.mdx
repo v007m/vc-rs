@@ -67,6 +67,7 @@ plan  1 test in 1 file · profile default
 ✓ sample.size#smallList — The list is under 1 KiB                 2ms
 
 1 passed                                                     4ms · profile default
+reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
 ```
 
 ### A range
@@ -89,6 +90,7 @@ plan  1 test in 1 file · profile default
 ✓ sample.size#notEmptyNotHuge — The list is between 10 bytes and 2 MiB    0ms
 
 1 passed                                                     24ms · profile default
+reports  …/.vibranium/reports/2/{ctrf.json,junit.xml,index.html}
 ```
 
 ### A failing check
@@ -116,6 +118,7 @@ plan  1 test in 1 file · profile default
      |             ^^^^^^^^^ expected {"gt":1024}, got 67
 
 0 passed · 1 failed                                          36ms · profile default
+reports  …/.vibranium/reports/3/{ctrf.json,junit.xml,index.html}
 ```
 
 ### A size needs a unit

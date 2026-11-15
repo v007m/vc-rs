@@ -85,6 +85,7 @@ plan  1 test in 1 file · profile default
 ✓ sample.bodyschema#matchesOrderSchema — Body matches the order schema    4ms
 
 1 passed                                                     5ms · profile default
+reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
 ```
 
 ```json title="schemas/order.json"
@@ -127,6 +128,7 @@ plan  1 test in 1 file · profile default
 ✓ sample.bodyschema#matchesUserList — Body is a list of users     3ms
 
 1 passed                                                     3ms · profile default
+reports  …/.vibranium/reports/2/{ctrf.json,junit.xml,index.html}
 ```
 
 ```json title="schemas/users.json"
@@ -178,6 +180,7 @@ plan  1 test in 1 file · profile default
      |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ /0: "email" is a required property; /1: "email" is a required property
 
 0 passed · 1 failed                                          39ms · profile default
+reports  …/.vibranium/reports/3/{ctrf.json,junit.xml,index.html}
 ```
 
 ### A failing check lists the errors
@@ -206,6 +209,7 @@ plan  1 test in 1 file · profile default
      |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ /body: "currency" is a required property; /body/status: value is not one of "paid" or "shipped"; /body/total: value is not of type "integer"
 
 0 passed · 1 failed                                          54ms · profile default
+reports  …/.vibranium/reports/4/{ctrf.json,junit.xml,index.html}
 ```
 
 ```json title="schemas/strict-order.json"

@@ -78,6 +78,7 @@ plan  1 test in 1 file · profile default
 ✓ sample.lte#totalLte425 — Total <= 42.5                          3ms
 
 1 passed                                                     4ms · profile default
+reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
 ```
 
 ### Use a var as the bound
@@ -104,6 +105,7 @@ plan  1 test in 1 file · profile default
 ✓ sample.lte#totalFromVar — Total against a var                   9ms
 
 1 passed                                                     85ms · profile default
+reports  …/.vibranium/reports/2/{ctrf.json,junit.xml,index.html}
 ```
 
 ### Compare strings
@@ -128,6 +130,7 @@ plan  1 test in 1 file · profile default
 ✓ sample.lte#dayCompare — Day against a date                      0ms
 
 1 passed                                                     16ms · profile default
+reports  …/.vibranium/reports/3/{ctrf.json,junit.xml,index.html}
 ```
 
 ### A failing check
@@ -157,6 +160,7 @@ plan  1 test in 1 file · profile default
      |                       ^^^^^^^^^ expected {"lte":42}, got 42.5
 
 0 passed · 1 failed                                          7ms · profile default
+reports  …/.vibranium/reports/4/{ctrf.json,junit.xml,index.html}
 ```
 
 ### Check response time
@@ -180,6 +184,7 @@ plan  1 test in 1 file · profile default
 ✓ sample.lte#answersQuickly — Lists users quickly                 0ms
 
 1 passed                                                     30ms · profile default
+reports  …/.vibranium/reports/5/{ctrf.json,junit.xml,index.html}
 ```
 
 ## Try it
