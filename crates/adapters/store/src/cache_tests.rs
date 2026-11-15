@@ -1,4 +1,5 @@
 use std::path::Path;
+use std::sync::{Arc, Barrier};
 
 use rusqlite::Connection;
 use serde_json::json;
@@ -88,4 +89,26 @@ fn a_cache_that_cannot_be_created_says_where() {
     std::fs::write(&blocker, "").unwrap();
     let error = SqliteCache::open(&blocker.join("cache.db"), &CacheSecret::new([1; 32])).unwrap_err();
     assert!(error.to_string().contains("cannot open the cache at"), "{error}");
+}
+
+/// Two caches on one file, as two `vc` processes, each storing and taking at once: a read that
+/// became a write without the lock failed with "database is locked" at once, past the timeout.
+#[test]
+fn two_caches_on_one_file_write_at_once_without_a_locked_error() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("cache.db");
+    open(&path, 1).put(entry(1)).unwrap();
+    let start = Arc::new(Barrier::new(2));
+    let writers: Vec<_> = (0..2)
+        .map(|_| {
+            let (cache, start) = (open(&path, 1), Arc::clone(&start));
+            std::thread::spawn(move || {
+                start.wait();
+                (0..200).try_for_each(|_| cache.put(entry(1)).and_then(|_| cache.take_expired(0)).map(drop))
+            })
+        })
+        .collect();
+    for writer in writers {
+        assert_eq!(writer.join().unwrap(), Ok(()));
+    }
 }

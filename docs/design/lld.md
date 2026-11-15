@@ -948,7 +948,7 @@ Known limit from the spike: a single long built-in call, such as a pathological 
 
 ### History store (`.vibranium/history.db`)
 
-SQLite in WAL mode through `rusqlite` (bundled, no system library). One writer task owns the connection, receives events, and commits in batches (every 200 ms or 500 events); readers (`vc history`, TUI, web UI, MCP, report generation) open their own read-only connections, which WAL lets run alongside the writer. A second `vc` process writing to the same file waits on SQLite's busy timeout (5 s) and then reports which process holds it.
+SQLite in WAL mode through `rusqlite` (bundled, no system library). One writer task owns the connection, receives events, and commits in batches (every 200 ms or 500 events); readers (`vc history`, TUI, web UI, MCP, report generation) open their own read-only connections, which WAL lets run alongside the writer. A second `vc` process writing to the same file waits on SQLite's busy timeout (5 s) and then reports which process holds it. The engine opens a writer per run, so two runs in one process (two MCP `run_tests` calls) meet the same way. A transaction that reads before it writes (the cache's store and take, recording an approval decision) begins `IMMEDIATE`: SQLite does not wait on the busy timeout when a read turns into a write, and fails at once with "database is locked".
 
 ```sql
 CREATE TABLE runs (

@@ -1,7 +1,7 @@
 use std::path::Path;
 use std::sync::mpsc::{self, Sender};
 
-use rusqlite::{Connection, OptionalExtension, Row, params};
+use rusqlite::{Connection, OptionalExtension, Row, TransactionBehavior, params};
 use vc_interfaces::{CacheEntry, CacheKey, CacheListing, CacheStore, CacheStoreError, TakenEntries};
 
 use crate::cache_codec::{Columns, decode_cleanups, decode_values, encode_cleanups, encode_values};
@@ -116,10 +116,11 @@ impl Shelf {
     }
 
     /// Stores `fresh` in place of the row under its key, and the entry that row held, live or
-    /// expired, as a tombstone when it still opens; gives back the tombstone.
+    /// expired, as a tombstone when it still opens; gives back the tombstone. It reads under the
+    /// write lock, so a writer in another process makes it wait on the busy timeout, not fail.
     fn put(&mut self, fresh: &CacheEntry) -> rusqlite::Result<Option<CacheEntry>> {
         let Self { connection, sealer } = self;
-        let transaction = connection.transaction()?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
         let read = format!("SELECT {COLUMNS} FROM entries WHERE key = ?1");
         let replaced = transaction.query_row(&read, [fresh.key.bytes()], |row| entry(sealer, row)).optional()?;
         write(&transaction, sealer, fresh)?;
@@ -132,10 +133,10 @@ impl Shelf {
     }
 
     /// Removes the rows `filter` picks and gives back the ones that still open, oldest first,
-    /// with the count of those that do not.
+    /// with the count of those that do not. Under the write lock, as [`Shelf::put`].
     fn take(&mut self, filter: &str, value: impl rusqlite::ToSql) -> rusqlite::Result<TakenEntries> {
         let Self { connection, sealer } = self;
-        let transaction = connection.transaction()?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
         let sql = format!("SELECT {COLUMNS} FROM entries WHERE {filter} ORDER BY created_at, key");
         let rows = {
             let mut statement = transaction.prepare(&sql)?;
