@@ -119,7 +119,7 @@ profile  default
   PUT http://localhost:7421/echo/abc 123
 ```
 
-`vc explain` shows each value as it renders, before it is encoded: the call sends `/echo/abc%20123`. A template with a pipe is shown unrendered, as in `GET http://localhost:7421/users/${var.userId | trim}`.
+`vc explain` shows each value as it renders, before it is encoded: the call sends `/echo/abc%20123`. A template with a pipe is rendered too: with `userId` set to `" 1 "`, `path: /users/${var.userId | trim}` shows as `GET http://localhost:7421/users/1`.
 
 ## Try it
 
