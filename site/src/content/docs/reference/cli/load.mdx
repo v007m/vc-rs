@@ -101,7 +101,50 @@ A failed check is `V5101` with the status the call got (`errors sample#listUsers
 
 ```console
 $ vc load sample.strict --json
-{"blocked":null,"breaches":[{"actual":2.303,"limit":{"lt":1.0},"metric":"p95","test":null,"unit":"ms"}],"ending":"finished","errorKinds":[],"errors":0,"exit":3,"iterations":619,"maxMs":5.491,"name":"Too strict on purpose","notices":[],"p50Ms":1.54,"p90Ms":1.918,"p95Ms":2.303,"p99Ms":3.131,"rps":309.5,"runId":4,"scenario":"sample.strict","seconds":2,"seed":4198991845218770,"tests":[{"errors":0,"iterations":619,"maxMs":5.491,"p50Ms":1.54,"p90Ms":1.918,"p95Ms":2.303,"p99Ms":3.131,"rps":309.5,"test":"sample.basics#listsUsers"}]}
+{
+  "blocked": null,
+  "breaches": [
+    {
+      "actual": 2.303,
+      "limit": {
+        "lt": 1.0
+      },
+      "metric": "p95",
+      "test": null,
+      "unit": "ms"
+    }
+  ],
+  "ending": "finished",
+  "errorKinds": [],
+  "errors": 0,
+  "exit": 3,
+  "iterations": 619,
+  "maxMs": 5.491,
+  "name": "Too strict on purpose",
+  "notices": [],
+  "p50Ms": 1.54,
+  "p90Ms": 1.918,
+  "p95Ms": 2.303,
+  "p99Ms": 3.131,
+  "rps": 309.5,
+  "runId": 4,
+  "scenario": "sample.strict",
+  "seconds": 2,
+  "seed": 4198991845218770,
+  "tests": [
+    {
+      "errors": 0,
+      "iterations": 619,
+      "maxMs": 5.491,
+      "p50Ms": 1.54,
+      "p90Ms": 1.918,
+      "p95Ms": 2.303,
+      "p99Ms": 3.131,
+      "rps": 309.5,
+      "test": "sample.basics#listsUsers"
+    }
+  ]
+}
 ```
 
 ## Exit codes

@@ -159,25 +159,44 @@ Editors, scripts and agents read diagnostics with `vc check --json`. It prints o
 ```console
 $ vc check --json
 {
-  "summary": { "errors": 1, "warnings": 0, "infos": 0 },
+  "summary": {
+    "errors": 1,
+    "warnings": 0,
+    "infos": 0
+  },
   "diagnostics": [
     {
       "code": "V2003",
       "severity": "error",
       "message": "unknown api \"sample#whoAmi\"",
       "primary": {
-        "span": { "path": "services/sample/secret.test.yaml", "line": 4, "column": 11, "endLine": 4, "endColumn": 24 },
+        "span": {
+          "path": "services/sample/secret.test.yaml",
+          "line": 4,
+          "column": 11,
+          "endLine": 4,
+          "endColumn": 24
+        },
         "text": "no api has this ID"
       },
       "secondary": [],
       "notes": [],
-      "help": ["did you mean `sample#whoAmI`?"],
+      "help": [
+        "did you mean `sample#whoAmI`?"
+      ],
       "fixes": [
         {
           "title": "Replace with sample#whoAmI",
           "certain": true,
           "edits": [
-            { "path": "services/sample/secret.test.yaml", "range": { "start": 65, "end": 78 }, "newText": "sample#whoAmI" }
+            {
+              "path": "services/sample/secret.test.yaml",
+              "range": {
+                "start": 65,
+                "end": 78
+              },
+              "newText": "sample#whoAmI"
+            }
           ]
         }
       ]

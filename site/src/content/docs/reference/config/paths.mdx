@@ -28,8 +28,8 @@ The project has `services/sample/`, `legacy/old.test.yaml` and `node_modules/x/n
 ```console
 $ vc list files
 legacy.old
-sample.basics
-sample
+sample.basics  Sample tests
+sample  Demo service built into Vibranium
 ```
 
 Read only `services/`:
@@ -41,8 +41,8 @@ paths:
 
 ```console
 $ vc list files
-sample.basics
-sample
+sample.basics  Sample tests
+sample  Demo service built into Vibranium
 ```
 
 Skip `legacy/`. A written `exclude` replaces the default one, so `node_modules` is now read:
@@ -55,8 +55,8 @@ paths:
 ```console
 $ vc list files
 node_modules.x.nm
-sample.basics
-sample
+sample.basics  Sample tests
+sample  Demo service built into Vibranium
 ```
 
 Keep the defaults by writing them out:
@@ -68,8 +68,8 @@ paths:
 
 ```console
 $ vc list files
-sample.basics
-sample
+sample.basics  Sample tests
+sample  Demo service built into Vibranium
 ```
 
 ## Try it

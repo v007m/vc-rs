@@ -126,6 +126,7 @@ The JSON reporter emits one `cleanupFinished` event per cleanup:
 ```console
 $ vc run prec.order --reporter json | grep cleanupFinished
 {"cleanup":{"action":"call prec.clean#undo","failure":{"action":"call prec.clean#undo","code":"V5101","message":"match.query.label: expected \"never\", got \"second\""},"owner":{"instance":0,"kind":"instance"},"status":"failed"},"event":"cleanupFinished"}
+{"cleanup":{"action":"call prec.clean#undo","failure":{"action":"call prec.clean#undo","code":"V5101","message":"match.query.label: expected \"never\", got \"first\""},"owner":{"instance":0,"kind":"instance"},"status":"failed"},"event":"cleanupFinished"}
 ```
 
 ### Cleanups run even when the test fails

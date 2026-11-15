@@ -52,12 +52,12 @@ A file's ID is its path below `services/`, `load/` or `datasets/`, with the fold
 | `load/checkout/peak.load.yaml` | `checkout.peak` |
 | `datasets/users/admins.json` | `users.admins` |
 
-`vc list files` prints every file ID in the project:
+`vc list files` prints every file ID in the project, with its name:
 
 ```console
 $ vc list files
-sample.basics
-sample
+sample.basics  Sample tests
+sample  Demo service built into Vibranium
 ```
 
 Every item in a file has a camelCase `id`. Its full ID is `<fileId>#<id>`:

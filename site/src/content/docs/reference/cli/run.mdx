@@ -133,7 +133,7 @@ $ vc run sample.extra#echoesBody --reporter json --report ctrf --out build/vc
 {"attempts":1,"durationMs":22,"event":"testFinished","failure":null,"instance":0,"label":"sample.extra#echoesBody","name":"Echoes the body back","skipReason":null,"status":"passed","test":"sample.extra#echoesBody"}
 {"event":"fileFinished","file":"sample.extra","totals":{"allowedFailures":0,"blocked":0,"failed":0,"flaky":0,"passed":1,"skipped":0}}
 {"event":"runFinished","status":"passed","totals":{"allowedFailures":0,"blocked":0,"failed":0,"flaky":0,"passed":1,"skipped":0}}
-{"artifacts":[{"path":"/home/ada/shop/build/vc/ctrf.json","reporter":"ctrf"}],"durationMs":23,"event":"summary","profileNames":{},"profiles":["default"],"startedMs":1794332843979,"status":"passed","totals":{"allowedFailures":0,"blocked":0,"failed":0,"flaky":0,"passed":1,"skipped":0}}
+{"artifacts":[{"path":"/home/ada/shop/build/vc/ctrf.json","reporter":"ctrf"}],"durationMs":23,"event":"summary","profileNames":{},"profiles":["default"],"startedMs":1794332843979,"status":"passed","teardownFailures":[],"totals":{"allowedFailures":0,"blocked":0,"failed":0,"flaky":0,"passed":1,"skipped":0}}
 ```
 
 ## Exit codes
@@ -165,10 +165,10 @@ error: --changed: cannot list the files changed since nosuchref: fatal: Needed a
 | `exchanged` | `action`, `owner`, `method`, `url`, `status`, `ms` |
 | `checkEvaluated` | `action`, `owner`, `check` `{key, expected, actual, passed, diff, error, code, origin, location {path, line, column}}` |
 | `actionFinished` | `action`, `owner`, `status`, `failure` |
-| `testFinished` | `test`, `instance`, `label`, `status`, `attempts`, `durationMs`, `failure` `{action, code, message}`, `skipReason` |
+| `testFinished` | `test`, `instance`, `label`, `name` (the test's `name`, or `null`), `status`, `attempts`, `durationMs`, `failure` `{action, code, message}`, `skipReason` |
 | `cleanupFinished` | A cleanup action finished |
 | `runFinished` | `status`, `totals` `{passed, failed, blocked, skipped, flaky, allowedFailures}` |
-| `summary` | `status`, `totals`, `durationMs`, `startedMs`, `profiles`, `artifacts` `[{reporter, path}]` |
+| `summary` | `status`, `totals`, `durationMs`, `startedMs`, `profiles`, `profileNames`, `artifacts` `[{reporter, path}]`, `teardownFailures` `[{block, file, message}]` (each `afterAll` or `afterRun` block that failed) |
 
 `status` on a test is `passed`, `failed`, `blocked`, `skipped`, `flaky` or `allowedFailure`. For an allowed failure, `skipReason` holds the `allowFailure` reason.
 

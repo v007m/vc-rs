@@ -189,7 +189,7 @@ With `--reporter json`, the test's `status` is `allowedFailure`, `failure` holds
 ```console
 $ vc run payments.refunds --reporter json
 ...
-{"attempts":1,"durationMs":1,"event":"testFinished","failure":{"action":"call payments#listRefunds","code":"V5101","message":"status: expected [201], got 200"},"instance":1,"label":"payments.refunds#refundsInFull","skipReason":"refunds sandbox is down, see #340","status":"allowedFailure","test":"payments.refunds#refundsInFull"}
+{"attempts":1,"durationMs":1,"event":"testFinished","failure":{"action":"call payments#listRefunds","code":"V5101","message":"status: expected [201], got 200"},"instance":1,"label":"payments.refunds#refundsInFull","name":null,"skipReason":"refunds sandbox is down, see #340","status":"allowedFailure","test":"payments.refunds#refundsInFull"}
 {"event":"runFinished","status":"passed","totals":{"allowedFailures":1,"blocked":0,"failed":0,"flaky":0,"passed":1,"skipped":0}}
 ...
 ```
