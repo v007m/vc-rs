@@ -62,9 +62,9 @@ $ vc call sample#getUser --var userId=1
    $ vc run sample.parked
    plan  2 tests in 1 file · 1 skipped · profile default
 
-   - sample.parked#searchesUsers skipped: demo service has no search yet
+   - sample.parked#searchesUsers — Searches users by name skipped: demo service has no search yet
    ✓ sample.parked#listsUsers                                        8ms
-   ✓ sample.parked#getsUser                                          9ms
+   ✓ sample.parked#getsUser — Gets a user                            9ms
 
    2 passed · 1 skipped                                         15ms · profile default
    ```
@@ -175,10 +175,10 @@ To check whether a skipped test passes now, run it with `--include-skipped`. It 
 $ vc run sample.skip --include-skipped
 plan  4 tests in 1 file · profile default
 
-✓ sample.skip#listsUsers                                          3ms
-✓ sample.skip#getsUser                                            3ms
-✓ sample.skip#searchesUsers                                       3ms
-✓ sample.skip#listsUsersPaged                                     3ms
+✓ sample.skip#listsUsers — Lists users                            3ms
+✓ sample.skip#getsUser — Gets a user                              3ms
+✓ sample.skip#searchesUsers — Searches users by name              3ms
+✓ sample.skip#listsUsersPaged — Lists users a page at a time      3ms
 
 4 passed                                                     5ms · profile default
 ```
@@ -210,7 +210,7 @@ A skip says "this test is broken for now". To leave tests out of one run for oth
 $ vc run sample.parked -t '!slow'
 plan  1 test in 1 file · profile default
 
-✓ sample.parked#getsUser                                         13ms
+✓ sample.parked#getsUser — Gets a user                           13ms
 
 1 passed                                                     16ms · profile default
 ```

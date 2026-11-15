@@ -77,7 +77,7 @@ tests:
 $ vc run sample.between#totalInRange
 plan  1 test in 1 file · profile default
 
-✓ sample.between#totalInRange                                     0ms
+✓ sample.between#totalInRange — Total is between 40 and 50        0ms
 
 1 passed                                                     22ms · profile default
 ```
@@ -101,7 +101,7 @@ tests:
 $ vc run sample.between#qtyAtEdge
 plan  1 test in 1 file · profile default
 
-✓ sample.between#qtyAtEdge                                        0ms
+✓ sample.between#qtyAtEdge — Quantity is between 1 and 3          0ms
 
 1 passed                                                     25ms · profile default
 ```
@@ -125,7 +125,7 @@ tests:
 $ vc run sample.between#dayInYear
 plan  1 test in 1 file · profile default
 
-✓ sample.between#dayInYear                                        3ms
+✓ sample.between#dayInYear — Day is in 2026                       3ms
 
 1 passed                                                     4ms · profile default
 ```
@@ -149,7 +149,7 @@ tests:
 $ vc run sample.between#failsOutOfRange
 plan  1 test in 1 file · profile default
 
-✕ sample.between#failsOutOfRange                                  0ms
+✕ sample.between#failsOutOfRange — Total is between 0 and 10      0ms
   error[V5101]: expect.body.match.body.total
     --> services/sample/between.test.yaml:29:23
      |
@@ -176,7 +176,7 @@ tests:
 $ vc run sample.between#smallBody
 plan  1 test in 1 file · profile default
 
-✓ sample.between#smallBody                                        0ms
+✓ sample.between#smallBody — Body is between 10 bytes and 1 KiB    0ms
 
 1 passed                                                     7ms · profile default
 ```

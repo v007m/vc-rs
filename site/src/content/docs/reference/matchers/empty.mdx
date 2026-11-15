@@ -73,7 +73,7 @@ tests:
 $ vc run sample.empty#hasTags
 plan  1 test in 1 file · profile default
 
-✓ sample.empty#hasTags                                           16ms
+✓ sample.empty#hasTags — Tags are set                            16ms
 
 1 passed                                                     20ms · profile default
 ```
@@ -97,7 +97,7 @@ tests:
 $ vc run sample.empty#noExtras
 plan  1 test in 1 file · profile default
 
-✓ sample.empty#noExtras                                         159ms
+✓ sample.empty#noExtras — The empty list is empty               159ms
 
 1 passed                                                     168ms · profile default
 ```
@@ -121,7 +121,7 @@ tests:
 $ vc run sample.empty#failsOnTags
 plan  1 test in 1 file · profile default
 
-✕ sample.empty#failsOnTags                                        0ms
+✕ sample.empty#failsOnTags — Tags are empty                       0ms
   error[V5101]: expect.body.match.body.tags
     --> services/sample/empty.test.yaml:22:22
      |
@@ -150,7 +150,7 @@ tests:
 $ vc run sample.empty#failsOnMissing
 plan  1 test in 1 file · profile default
 
-✕ sample.empty#failsOnMissing                                    25ms
+✕ sample.empty#failsOnMissing — Missing list has items           25ms
   error[V5101]: expect.body.match.body.missing
     --> services/sample/empty.test.yaml:29:25
      |

@@ -84,7 +84,7 @@ tests:
 $ vc run signed.upload
 plan  1 test in 1 file · profile default
 
-✓ signed.upload#sendsSignature                                   15ms
+✓ signed.upload#sendsSignature — The upload carries an HMAC signature   15ms
 
 1 passed                                                     17ms · profile default
 ```
@@ -197,7 +197,7 @@ export const fileIsPdf: CustomCheck = ({ response, vars }) => {
 
 ```console
 $ vc run sample.hooks#checksWithCode
-✕ sample.hooks#checksWithCode                                    13ms
+✕ sample.hooks#checksWithCode — Custom checks read the response and vars   13ms
   error[V5103]: expect.custom
     --> services/sample/hooks.test.yaml:35:11
      |

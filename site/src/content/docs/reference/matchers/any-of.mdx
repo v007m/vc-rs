@@ -70,7 +70,7 @@ tests:
 $ vc run sample.anyof#qtyRule
 plan  1 test in 1 file · profile default
 
-✓ sample.anyof#qtyRule                                            0ms
+✓ sample.anyof#qtyRule — Quantity is 0 or above 2                 0ms
 
 1 passed                                                     55ms · profile default
 ```
@@ -94,7 +94,7 @@ tests:
 $ vc run sample.anyof#noteOrDate
 plan  1 test in 1 file · profile default
 
-✓ sample.anyof#noteOrDate                                         5ms
+✓ sample.anyof#noteOrDate — Note is null or a date                5ms
 
 1 passed                                                     8ms · profile default
 ```
@@ -118,7 +118,7 @@ tests:
 $ vc run sample.anyof#failsOnQty
 plan  1 test in 1 file · profile default
 
-✕ sample.anyof#failsOnQty                                         8ms
+✕ sample.anyof#failsOnQty — Quantity is 0 or above 10             8ms
   error[V5101]: expect.body.match.body.qty
     --> services/sample/anyof.test.yaml:22:21
      |

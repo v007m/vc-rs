@@ -75,7 +75,7 @@ tests:
 $ vc run sample.lt#totalLt50
 plan  1 test in 1 file · profile default
 
-✓ sample.lt#totalLt50                                             3ms
+✓ sample.lt#totalLt50 — Total < 50                                3ms
 
 1 passed                                                     10ms · profile default
 ```
@@ -101,7 +101,7 @@ tests:
 $ vc run sample.lt#totalFromVar
 plan  1 test in 1 file · profile default
 
-✓ sample.lt#totalFromVar                                          3ms
+✓ sample.lt#totalFromVar — Total against a var                    3ms
 
 1 passed                                                     4ms · profile default
 ```
@@ -125,7 +125,7 @@ tests:
 $ vc run sample.lt#dayCompare
 plan  1 test in 1 file · profile default
 
-✓ sample.lt#dayCompare                                            0ms
+✓ sample.lt#dayCompare — Day against a date                       0ms
 
 1 passed                                                     26ms · profile default
 ```
@@ -149,7 +149,7 @@ tests:
 $ vc run sample.lt#failsOnTotal
 plan  1 test in 1 file · profile default
 
-✕ sample.lt#failsOnTotal                                         20ms
+✕ sample.lt#failsOnTotal — Total < 42.5                          20ms
   error[V5101]: expect.body.match.body.total
     --> services/sample/lt.test.yaml:31:23
      |
@@ -177,7 +177,7 @@ tests:
 $ vc run sample.lt#answersQuickly
 plan  1 test in 1 file · profile default
 
-✓ sample.lt#answersQuickly                                        0ms
+✓ sample.lt#answersQuickly — Lists users quickly                  0ms
 
 1 passed                                                     8ms · profile default
 ```

@@ -70,7 +70,7 @@ tests:
 $ vc run sample.bodyequals#listsBothUsers
 plan  1 test in 1 file · profile default
 
-✓ sample.bodyequals#listsBothUsers                                0ms
+✓ sample.bodyequals#listsBothUsers — Lists exactly two users      0ms
 
 1 passed                                                     68ms · profile default
 ```
@@ -95,7 +95,7 @@ tests:
 $ vc run sample.bodyequals#failsOnName
 plan  1 test in 1 file · profile default
 
-✕ sample.bodyequals#failsOnName                                   0ms
+✕ sample.bodyequals#failsOnName — Lists Grace Kelly               0ms
   error[V5101]: expect.body.equals
     --> services/sample/bodyequals.test.yaml:16:11
      |

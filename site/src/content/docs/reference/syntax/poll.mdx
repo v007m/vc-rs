@@ -122,7 +122,7 @@ Poll
 ✕ sample.poll#givesUp                                           815ms
   error[V5104]: `poll.until` did not hold within 1s: status: expected [200], got 404
      = at: call sample#getUser
-✓ sample.poll#waitsForLateUser                                   1.2s
+✓ sample.poll#waitsForLateUser — Reads a user created a moment later   1.2s
 
 1 passed · 1 failed                                          1.2s · profile default
 ```
@@ -171,7 +171,7 @@ User 1 already has a name, so the first call ends the polling and the step takes
 ```
 
 ```console
-✕ sample.polls#holdsButFails                                     16ms
+✕ sample.polls#holdsButFails — Holds until, then fails expect    16ms
   error[V5101]: expect.body.match.name
     --> services/sample/polls.test.yaml:39:17
      |

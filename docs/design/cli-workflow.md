@@ -764,7 +764,7 @@ error[V2101]: ${var.couponCode} is used but never set
 `vc run` prints a plan line, one line per test as it finishes, a detailed block for each failure, and a summary. Tests are grouped by file, under the file's `name` when it has one, dimmed in colour. When files run one after another, each test prints as it finishes. When they run in parallel, one file prints live and the others' tests wait until it finishes, so each file's block appears once; a cancelled or bailed run prints whatever is waiting before the summary. A file without a `name` gets no heading, and the `json` reporter prints none (D321). The detailed block reads like a compiler error: the file, line and column of the failing check, expected and actual values, and where an expected value came from.
 
 ```
-✕ orders.checkout#placesOrder                                  6.4s
+✕ orders.checkout#placesOrder — A cart with two items becomes a paid order   6.4s
   error: expect.body.match.total
     --> services/orders/checkout.test.yaml:33:11
      |

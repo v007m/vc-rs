@@ -72,7 +72,7 @@ tests:
 $ vc run sample.ne#isNotClosed
 plan  1 test in 1 file · profile default
 
-✓ sample.ne#isNotClosed                                           3ms
+✓ sample.ne#isNotClosed — Order is not closed                     3ms
 
 1 passed                                                     4ms · profile default
 ```
@@ -96,7 +96,7 @@ tests:
 $ vc run sample.ne#hasEmail
 plan  1 test in 1 file · profile default
 
-✓ sample.ne#hasEmail                                              4ms
+✓ sample.ne#hasEmail — Email is set                               4ms
 
 1 passed                                                     5ms · profile default
 ```
@@ -120,7 +120,7 @@ tests:
 $ vc run sample.ne#failsOnNullNote
 plan  1 test in 1 file · profile default
 
-✕ sample.ne#failsOnNullNote                                       3ms
+✕ sample.ne#failsOnNullNote — Note is set                         3ms
   error[V5101]: expect.body.match.body.note
     --> services/sample/ne.test.yaml:22:22
      |
@@ -156,8 +156,8 @@ tests:
 $ vc run sample.ne#passesOnMissing sample.ne#needsTheField
 plan  2 tests in 1 file · profile default
 
-✓ sample.ne#passesOnMissing                                       6ms
-✕ sample.ne#needsTheField                                         1ms
+✓ sample.ne#passesOnMissing — Missing field is not closed         6ms
+✕ sample.ne#needsTheField — State is present and not closed       1ms
   error[V5101]: expect.body.match.body.state
     --> services/sample/ne.test.yaml:36:23
      |

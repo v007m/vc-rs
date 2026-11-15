@@ -68,7 +68,7 @@ tests:
 $ vc run sample.endswith#isDotCom
 plan  1 test in 1 file · profile default
 
-✓ sample.endswith#isDotCom                                        0ms
+✓ sample.endswith#isDotCom — Email ends with .com                 0ms
 
 1 passed                                                     59ms · profile default
 ```
@@ -92,7 +92,7 @@ tests:
 $ vc run sample.endswith#failsOnDomain
 plan  1 test in 1 file · profile default
 
-✕ sample.endswith#failsOnDomain                                   0ms
+✕ sample.endswith#failsOnDomain — Email ends with .org            0ms
   error[V5101]: expect.body.match.body.email
     --> services/sample/endswith.test.yaml:15:23
      |

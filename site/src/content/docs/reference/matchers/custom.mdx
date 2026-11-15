@@ -81,7 +81,7 @@ tests:
 $ vc run sample.custom#pricesInOrder
 plan  1 test in 1 file · profile default
 
-✓ sample.custom#pricesInOrder                                     0ms
+✓ sample.custom#pricesInOrder — Item prices ascend                0ms
 
 1 passed                                                     28ms · profile default
 ```
@@ -130,7 +130,7 @@ tests:
 $ vc run sample.custom#failsOnMinItems
 plan  1 test in 1 file · profile default
 
-✕ sample.custom#failsOnMinItems                                   7ms
+✕ sample.custom#failsOnMinItems — At least five items             7ms
   error[V5103]: expect.custom
     --> services/sample/custom.test.yaml:16:11
      |

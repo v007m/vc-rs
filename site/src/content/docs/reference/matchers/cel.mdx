@@ -85,7 +85,7 @@ tests:
 $ vc run sample.cel#twoNamedUsers
 plan  1 test in 1 file · profile default
 
-✓ sample.cel#twoNamedUsers                                        8ms
+✓ sample.cel#twoNamedUsers — Two users, all named                 8ms
 
 1 passed                                                     9ms · profile default
 ```
@@ -108,7 +108,7 @@ tests:
 $ vc run sample.cel#totalAddsUp
 plan  1 test in 1 file · profile default
 
-✓ sample.cel#totalAddsUp                                          4ms
+✓ sample.cel#totalAddsUp — Total is the sum of item prices        4ms
 
 1 passed                                                     5ms · profile default
 ```
@@ -131,7 +131,7 @@ tests:
 $ vc run sample.cel#failsOnCount
 plan  1 test in 1 file · profile default
 
-✕ sample.cel#failsOnCount                                         1ms
+✕ sample.cel#failsOnCount — Three users                           1ms
   error[V5102]: expect.cel.threeUsers
     --> services/sample/cel.test.yaml:20:21
      |

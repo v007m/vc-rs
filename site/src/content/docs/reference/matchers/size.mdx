@@ -64,7 +64,7 @@ tests:
 $ vc run sample.size#smallList
 plan  1 test in 1 file · profile default
 
-✓ sample.size#smallList                                           2ms
+✓ sample.size#smallList — The list is under 1 KiB                 2ms
 
 1 passed                                                     4ms · profile default
 ```
@@ -86,7 +86,7 @@ tests:
 $ vc run sample.size#notEmptyNotHuge
 plan  1 test in 1 file · profile default
 
-✓ sample.size#notEmptyNotHuge                                     0ms
+✓ sample.size#notEmptyNotHuge — The list is between 10 bytes and 2 MiB    0ms
 
 1 passed                                                     24ms · profile default
 ```
@@ -108,7 +108,7 @@ tests:
 $ vc run sample.size#failsOnSize
 plan  1 test in 1 file · profile default
 
-✕ sample.size#failsOnSize                                         0ms
+✕ sample.size#failsOnSize — The list is over 1 KiB                0ms
   error[V5101]: expect.size
     --> services/sample/size.test.yaml:16:13
      |

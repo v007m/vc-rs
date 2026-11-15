@@ -84,7 +84,7 @@ tests:
 $ vc run sample.none#noC3
 plan  1 test in 1 file · profile default
 
-✓ sample.none#noC3                                                0ms
+✓ sample.none#noC3 — No SKU is C3                                 0ms
 
 1 passed                                                     8ms · profile default
 ```
@@ -108,7 +108,7 @@ tests:
 $ vc run sample.none#noTestTag
 plan  1 test in 1 file · profile default
 
-✓ sample.none#noTestTag                                           2ms
+✓ sample.none#noTestTag — No tag starts with test                 2ms
 
 1 passed                                                     4ms · profile default
 ```
@@ -132,7 +132,7 @@ tests:
 $ vc run sample.none#failsOnSku
 plan  1 test in 1 file · profile default
 
-✕ sample.none#failsOnSku                                          4ms
+✕ sample.none#failsOnSku — No SKU starts with A                   4ms
   error[V5101]: expect.body.match.body.items[*].sku
     --> services/sample/none.test.yaml:22:30
      |
@@ -161,7 +161,7 @@ tests:
 $ vc run sample.none#failsOnMissing
 plan  1 test in 1 file · profile default
 
-✕ sample.none#failsOnMissing                                      1ms
+✕ sample.none#failsOnMissing — No coupon is expired               1ms
   error[V5101]: expect.body.match.body.coupons
     --> services/sample/none.test.yaml:29:25
      |

@@ -93,20 +93,20 @@ $ vc run sample.allow
 plan  4 tests in 1 file · profile default
 
 Allow failure
-✓ sample.allow#listsUsers                                         6ms
-⚠ sample.allow#pagesUsers allowed to fail: paging is broken upstream, see #212    6ms
+✓ sample.allow#listsUsers — Lists users                           6ms
+⚠ sample.allow#pagesUsers — Lists users a page at a time allowed to fail: paging is broken upstream, see #212    6ms
   error[V5101]: expect.status
     --> services/sample/allow.test.yaml:23:15
      |
   23 |       status: 206
      |               ^^^ expected [206], got 200
-⚠ sample.allow#searchesUsers allowed to fail                      6ms
+⚠ sample.allow#searchesUsers — Searches users by name allowed to fail    6ms
   error[V5101]: expect.status
     --> services/sample/allow.test.yaml:14:15
      |
   14 |       status: 404
      |               ^^^ expected [404], got 200
-✕ sample.allow#sortsUsers                                         7ms
+✕ sample.allow#sortsUsers — Sorts users by name                   7ms
   error[V5101]: expect.status
     --> services/sample/allow.test.yaml:32:15
      |

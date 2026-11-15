@@ -78,7 +78,7 @@ tests:
 $ vc run sample.merging#keepsApiStatus
 plan  1 test in 1 file · profile default
 
-✕ sample.merging#keepsApiStatus                                   0ms
+✕ sample.merging#keepsApiStatus — Missing email, api status still expected    0ms
   error[V5101]: expect.status
     --> services/sample/sample.api.yaml:35:15
      |
@@ -111,7 +111,7 @@ tests:
 $ vc run sample.merging#rejectsMissingEmail
 plan  1 test in 1 file · profile default
 
-✓ sample.merging#rejectsMissingEmail                              0ms
+✓ sample.merging#rejectsMissingEmail — Rejects a user without an email    0ms
 
 1 passed                                                     27ms · profile default
 ```
@@ -136,7 +136,7 @@ tests:
 $ vc run sample.merging#onlyChecksId
 plan  1 test in 1 file · profile default
 
-✓ sample.merging#onlyChecksId                                     4ms
+✓ sample.merging#onlyChecksId — Only the ID matters               4ms
 
 1 passed                                                     10ms · profile default
 ```

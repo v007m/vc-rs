@@ -116,7 +116,7 @@ Each example row and each repeat is its own instance, labeled `[row n]` or `[rep
 ```console
 $ vc run sample.extra --include-skipped --bail
 ...
-- sample.extra#rejectsBadEmail › empty skipped: cancelled
+- sample.extra#rejectsBadEmail › empty — Rejects a bad email skipped: cancelled
 0 passed · 1 failed · 3 skipped
 ```
 
@@ -177,8 +177,8 @@ error: --changed: cannot list the files changed since nosuchref: fatal: Needed a
 - **Check first.** `vc run` compiles the whole project before it sends anything. Any error stops the run with exit code 2 and the same output as [`vc check`](/vc-rs/reference/cli/check/).
 - **Reports.** Each run writes its report files to `<reports.dir>/<run number>/` (default `.vibranium/reports/<n>/`). The HTML report is `index.html` with its assets beside it, or one `report.html` with `--single-file`. `--out <dir>` writes the files straight into `<dir>`.
 - **History.** Every run is stored in `.vibranium/history.db`, so [`vc history`](/vc-rs/reference/cli/history/), [`vc report`](/vc-rs/reference/cli/report/) and `--failed` can use it later.
-- **Skipped tests.** A test with `skip` prints `- <id> skipped: <reason>` and does not run, unless you pass `--include-skipped`.
-- **Allowed failures.** A test with [`allowFailure`](/vc-rs/reference/syntax/allow-failure/) that fails prints `⚠ <id> allowed to fail: <reason>` and does not fail the run, unless you pass `--strict`.
+- **Skipped tests.** A test with `skip` prints `- <id> — <name> skipped: <reason>` and does not run, unless you pass `--include-skipped`.
+- **Allowed failures.** A test with [`allowFailure`](/vc-rs/reference/syntax/allow-failure/) that fails prints `⚠ <id> — <name> allowed to fail: <reason>` and does not fail the run, unless you pass `--strict`.
 - **Blocked tests.** When a `before` action or a lifecycle action a test needs fails, the test is blocked rather than failed.
 - **Seed.** Generated data (`${fake.…}`) comes from a seed. Pass `--seed` with the printed value to get the same data again.
 

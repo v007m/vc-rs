@@ -86,7 +86,7 @@ tests:
 $ vc run sample.length#twoTags
 plan  1 test in 1 file · profile default
 
-✓ sample.length#twoTags                                           0ms
+✓ sample.length#twoTags — Two tags                                0ms
 
 1 passed                                                     31ms · profile default
 ```
@@ -110,7 +110,7 @@ tests:
 $ vc run sample.length#idLongEnough
 plan  1 test in 1 file · profile default
 
-✓ sample.length#idLongEnough                                     27ms
+✓ sample.length#idLongEnough — ID has at least 5 characters      27ms
 
 1 passed                                                     56ms · profile default
 ```
@@ -135,7 +135,7 @@ tests:
 $ vc run sample.length#counts
 plan  1 test in 1 file · profile default
 
-✓ sample.length#counts                                            0ms
+✓ sample.length#counts — Counts                                   0ms
 
 1 passed                                                     11ms · profile default
 ```
@@ -159,7 +159,7 @@ tests:
 $ vc run sample.length#failsOnItems
 plan  1 test in 1 file · profile default
 
-✕ sample.length#failsOnItems                                      0ms
+✕ sample.length#failsOnItems — Three items                        0ms
   error[V5101]: expect.body.match.body.items
     --> services/sample/length.test.yaml:30:23
      |

@@ -92,7 +92,7 @@ tests:
 $ vc run sample.type#idIsText
 plan  1 test in 1 file · profile default
 
-✓ sample.type#idIsText                                            3ms
+✓ sample.type#idIsText — ID is a string                           3ms
 
 1 passed                                                     4ms · profile default
 ```
@@ -117,7 +117,7 @@ tests:
 $ vc run sample.type#qtyIsInteger
 plan  1 test in 1 file · profile default
 
-✓ sample.type#qtyIsInteger                                        4ms
+✓ sample.type#qtyIsInteger — Quantity is a whole number           4ms
 
 1 passed                                                     15ms · profile default
 ```
@@ -143,7 +143,7 @@ tests:
 $ vc run sample.type#shapes
 plan  1 test in 1 file · profile default
 
-✓ sample.type#shapes                                             20ms
+✓ sample.type#shapes — Shapes of the order                       20ms
 
 1 passed                                                     25ms · profile default
 ```
@@ -167,7 +167,7 @@ tests:
 $ vc run sample.type#failsOnTotal
 plan  1 test in 1 file · profile default
 
-✕ sample.type#failsOnTotal                                        8ms
+✕ sample.type#failsOnTotal — Total is a whole number              8ms
   error[V5101]: expect.body.match.body.total
     --> services/sample/type.test.yaml:32:23
      |
