@@ -4,7 +4,7 @@ input_file: crates/compiler/tests/cases/v2302_below_least/project
 ---
 {
   "summary": {
-    "errors": 6,
+    "errors": 7,
     "warnings": 0,
     "infos": 0
   },
@@ -132,6 +132,27 @@ input_file: crates/compiler/tests/cases/v2302_below_least/project
       "notes": [],
       "help": [
         "write 1 or more"
+      ],
+      "fixes": []
+    },
+    {
+      "code": "V2302",
+      "severity": "error",
+      "message": "`threads` takes a whole number of at least 1, found 0",
+      "primary": {
+        "span": {
+          "path": "vibranium.config.yaml",
+          "line": 12,
+          "column": 12,
+          "endLine": 12,
+          "endColumn": 13
+        },
+        "text": "below 1"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "write 1 or more: `threads: 4`"
       ],
       "fixes": []
     }

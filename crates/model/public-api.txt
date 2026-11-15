@@ -995,6 +995,7 @@ pub struct vc_model::Config
 pub vc_model::Config::alerts: alloc::vec::Vec<vc_model::Alert>
 pub vc_model::Config::defaults: vc_model::Defaults
 pub vc_model::Config::history: vc_model::HistoryConfig
+pub vc_model::Config::hooks: vc_model::HooksConfig
 pub vc_model::Config::html_single_file: bool
 pub vc_model::Config::http_retry: vc_model::HttpRetry
 pub vc_model::Config::plugins: alloc::vec::Vec<vc_model::PluginRef>
@@ -1308,6 +1309,21 @@ pub fn vc_model::HookRef::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt
 impl core::hash::Hash for vc_model::HookRef
 pub fn vc_model::HookRef::hash<__H: core::hash::Hasher>(&self, &mut __H)
 impl core::marker::StructuralPartialEq for vc_model::HookRef
+pub struct vc_model::HooksConfig
+pub vc_model::HooksConfig::threads: u32
+impl vc_model::HooksConfig
+pub const vc_model::HooksConfig::MAX_THREADS: u32
+impl core::clone::Clone for vc_model::HooksConfig
+pub fn vc_model::HooksConfig::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::HooksConfig
+impl core::cmp::PartialEq for vc_model::HooksConfig
+pub fn vc_model::HooksConfig::eq(&self, &Self) -> bool
+impl core::default::Default for vc_model::HooksConfig
+pub fn vc_model::HooksConfig::default() -> Self
+impl core::fmt::Debug for vc_model::HooksConfig
+pub fn vc_model::HooksConfig::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for vc_model::HooksConfig
+impl core::marker::StructuralPartialEq for vc_model::HooksConfig
 pub struct vc_model::HttpResponse
 pub vc_model::HttpResponse::body: bytes::bytes::Bytes
 pub vc_model::HttpResponse::headers: http::header::map::HeaderMap

@@ -1,0 +1,10 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2302_above_most/project
+---
+error[V2302]: `threads` takes a whole number of at most 64, found 65
+ --> vibranium.config.yaml:6:12
+  |
+6 |   threads: 65
+  |            ^^ above 64
+  = help: write 64 or less

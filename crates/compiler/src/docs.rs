@@ -23,9 +23,11 @@ fn table(shape: &Shape) -> String {
 
 fn row(key: &Key) -> String {
     let ty = key.ty.describe();
-    let ty = match key.min {
-        Some(min) => format!("{ty}, at least {min}"),
-        None => ty,
+    let ty = match (key.min, key.max) {
+        (Some(min), Some(max)) => format!("{ty}, {min} to {max}"),
+        (Some(min), None) => format!("{ty}, at least {min}"),
+        (None, Some(max)) => format!("{ty}, at most {max}"),
+        (None, None) => ty,
     };
     let ty = if key.required { format!("{ty}, required") } else { ty };
     let default = key.default.unwrap_or_default();

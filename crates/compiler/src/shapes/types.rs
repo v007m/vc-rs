@@ -118,6 +118,8 @@ pub struct Key {
     pub scope: Scope,
     /// The smallest whole number it takes, written as a number.
     pub min: Option<i64>,
+    /// The largest whole number it takes, written as a number.
+    pub max: Option<i64>,
 }
 
 /// Starts a key declaration: `key("path", Ty::Template).required().doc("…")`.
@@ -133,6 +135,7 @@ pub const fn key(name: &'static str, ty: Ty) -> Key {
         example: None,
         scope: Scope::NONE,
         min: None,
+        max: None,
     }
 }
 
@@ -184,6 +187,13 @@ impl Key {
     #[must_use]
     pub const fn min(mut self, min: i64) -> Self {
         self.min = Some(min);
+        self
+    }
+
+    /// Takes no whole number above `max`.
+    #[must_use]
+    pub const fn max(mut self, max: i64) -> Self {
+        self.max = Some(max);
         self
     }
 }

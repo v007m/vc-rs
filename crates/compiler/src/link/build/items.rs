@@ -3,9 +3,9 @@
 use indexmap::IndexMap;
 use vc_diagnostics::Diagnostics;
 use vc_model::{
-    Api, ApiGroup, ApiId, Bodies, Config, Defaults, Examples, FileId, GeneratorDef, HistoryConfig, HttpRetry, Keep,
-    Lifecycle, Origin, Owner, Profile, ProfileId, RequestHooks, RunBlocks, SaveSpec, Test, TestBody, TestFile, TestId,
-    VarDefs,
+    Api, ApiGroup, ApiId, Bodies, Config, Defaults, Examples, FileId, GeneratorDef, HistoryConfig, HooksConfig,
+    HttpRetry, Keep, Lifecycle, Origin, Owner, Profile, ProfileId, RequestHooks, RunBlocks, SaveSpec, Test, TestBody,
+    TestFile, TestId, VarDefs,
 };
 use vc_parser::Node;
 use vc_template::FakeRegistry;
@@ -39,6 +39,7 @@ impl<'a> Build<'_, 'a> {
             redact_headers: redact.map(|redact| read::texts(redact, "headers")).unwrap_or_default(),
             redact_fields: redact.map(|redact| read::texts(redact, "fields")).unwrap_or_default(),
             history: root.get("history").map(|history| Self::history(source, history)).unwrap_or_default(),
+            hooks: root.get("hooks").map(Self::hooks).unwrap_or_default(),
             ..Config::default()
         };
         let config = self.alerts_and_plugins(source, config)?;
@@ -86,6 +87,10 @@ impl<'a> Build<'_, 'a> {
             retry: read::retry(source, node),
             headers: read::templates(source, node, "headers"),
         }
+    }
+
+    fn hooks(node: &Node) -> HooksConfig {
+        HooksConfig { threads: read::number(node, "threads").unwrap_or_else(|| HooksConfig::default().threads) }
     }
 
     fn history(source: &Source<'_>, node: &Node) -> HistoryConfig {

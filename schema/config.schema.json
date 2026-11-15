@@ -874,6 +874,23 @@
       },
       "type": "object"
     },
+    "hooks": {
+      "additionalProperties": false,
+      "description": "How TypeScript and JavaScript hooks run",
+      "properties": {
+        "threads": {
+          "default": 1,
+          "description": "Hook runtimes, each on its own thread, so that many hooks run at once (D325)",
+          "examples": [
+            4
+          ],
+          "maximum": 64,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
     "html": {
       "additionalProperties": false,
       "description": "HTML report settings",
@@ -1319,6 +1336,10 @@
     "history": {
       "$ref": "#/$defs/history",
       "description": "Run history and retention"
+    },
+    "hooks": {
+      "$ref": "#/$defs/hooks",
+      "description": "How TypeScript and JavaScript hooks run"
     },
     "http": {
       "$ref": "#/$defs/http",

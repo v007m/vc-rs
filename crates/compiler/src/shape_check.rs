@@ -142,6 +142,7 @@ impl Walker {
             self.value(&entry.value, key.ty, scope.with(key.scope).with(sibling_scope(shape, entries, key)));
             self.path.pop();
             self.least(&entry.value, key);
+            self.most(&entry.value, key);
         }
         self.required(node, shape);
         self.one_of(node, shape);
@@ -151,11 +152,7 @@ impl Walker {
     /// V2302 for a whole number below the least `key` takes: `repeat: 0`.
     fn least(&mut self, node: &Node, key: &Key) {
         let Some(min) = key.min else { return };
-        let scalar = node.as_scalar().filter(|scalar| scalar.kind == ScalarKind::Int);
-        let Some(number) = scalar.and_then(|scalar| scalar.text.parse::<i64>().ok()).filter(|number| *number < min)
-        else {
-            return;
-        };
+        let Some(number) = whole(node).filter(|number| *number < min) else { return };
         let message = format!("`{}` takes a whole number of at least {min}, found {number}", key.name);
         let help = key.example.map_or_else(
             || format!("write {min} or more"),
@@ -163,6 +160,15 @@ impl Walker {
         );
         let diagnostic = Diagnostic::new(Code::V2302, node.span, message).label(format!("below {min}"));
         self.push(diagnostic.help(help));
+    }
+
+    /// V2302 for a whole number above the most `key` takes: `threads: 65`.
+    fn most(&mut self, node: &Node, key: &Key) {
+        let Some(max) = key.max else { return };
+        let Some(number) = whole(node).filter(|number| *number > max) else { return };
+        let message = format!("`{}` takes a whole number of at most {max}, found {number}", key.name);
+        let diagnostic = Diagnostic::new(Code::V2302, node.span, message).label(format!("above {max}"));
+        self.push(diagnostic.help(format!("write {max} or less")));
     }
 
     fn required(&mut self, node: &Node, shape: &'static Shape) {
@@ -293,6 +299,11 @@ fn other_word(node: &Node, text: &str, alternatives: &[Ty]) -> Diagnostic {
         return diagnostic;
     }
     suggest::hint(diagnostic, &Misspelling { word: text, span: node.span, known: &words })
+}
+
+/// The whole number `node` is written as, if it is one.
+fn whole(node: &Node) -> Option<i64> {
+    node.as_scalar().filter(|scalar| scalar.kind == ScalarKind::Int).and_then(|scalar| scalar.text.parse().ok())
 }
 
 /// How a message names what `ty` takes: a map by its first keys, not by its shape's name.

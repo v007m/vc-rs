@@ -8,3 +8,5 @@ profiles:
 defaults:
   concurrency: 0
   perHost: -1
+hooks:
+  threads: 0

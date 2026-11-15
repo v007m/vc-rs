@@ -46,6 +46,9 @@ fn describes_keys_with_types_defaults_and_examples() {
         json!({ "type": "string", "description": "Per request", "default": "30s", "pattern": "^[0-9]+(ms|s|m|h)$" });
     assert_eq!(defaults["timeout"], timeout, "a duration names its form");
     assert_eq!(defaults["concurrency"]["default"], 16);
+    let threads = &config["$defs"]["hooks"]["properties"]["threads"];
+    let bounds = (&threads["minimum"], &threads["maximum"], &threads["default"]);
+    assert_eq!(bounds, (&json!(1), &json!(vc_model::HooksConfig::MAX_THREADS), &json!(1)), "D325's cap is the model's");
     assert!(config["properties"]["project"].get("default").is_none(), "a described default stays out");
 }
 

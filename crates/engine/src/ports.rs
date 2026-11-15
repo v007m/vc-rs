@@ -244,13 +244,14 @@ fn secret_error(error: &SecretError) -> EngineError {
 }
 
 impl Engine {
-    /// The runner of `program`'s hooks: the injected one, else `QuickJS`; none when it has no
-    /// hook files, so a run without hooks starts no hook thread.
+    /// The runner of `program`'s hooks: the injected one, else `QuickJS` on `hooks.threads`
+    /// runtimes (D325); none when it has no hook files, so a run without hooks starts no hook
+    /// thread.
     pub(crate) fn hook_runner(&self, program: &Program) -> Option<Arc<dyn HookRunner>> {
         if program.hooks.is_empty() {
             return None;
         }
-        Some(self.hooks.clone().unwrap_or_else(|| Arc::new(QuickJsHooks::new())))
+        Some(self.hooks.clone().unwrap_or_else(|| Arc::new(QuickJsHooks::with_threads(program.config.hooks.threads))))
     }
 }
 

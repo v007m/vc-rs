@@ -42,6 +42,8 @@ pub struct Config {
     pub secrets: SecretsConfig,
     /// `history` (D170).
     pub history: HistoryConfig,
+    /// `hooks` (D325).
+    pub hooks: HooksConfig,
     /// `alerts`.
     pub alerts: Vec<Alert>,
     /// `plugins`.
@@ -104,6 +106,30 @@ impl Default for HttpRetry {
             max: Duration::new(std::time::Duration::from_secs(2)),
             jitter: true,
         }
+    }
+}
+
+/// `hooks`: how TypeScript and JavaScript hooks run (D325).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
+pub struct HooksConfig {
+    /// `threads`: hook runtimes, each on its own thread, from 1 to [`HooksConfig::MAX_THREADS`].
+    pub threads: u32,
+}
+
+impl HooksConfig {
+    /// The most runtimes `threads` may start: each costs memory and an OS thread, and a config
+    /// value must not start an unbounded number of them (D325).
+    pub const MAX_THREADS: u32 = 64;
+}
+
+impl Default for HooksConfig {
+    /// One runtime, as before `threads` existed.
+    fn default() -> Self {
+        Self { threads: 1 }
     }
 }
 

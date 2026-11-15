@@ -1,0 +1,81 @@
+---
+title: "hooks"
+description: "How many QuickJS runtimes run TypeScript and JavaScript hooks, so that many hooks can run at once."
+sidebar: { order: 62 }
+---
+
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+Hooks (a [`function:`](/vc-rs/reference/syntax/function/) step, a [request hook](/vc-rs/reference/syntax/request-hooks/) or a [custom matcher](/vc-rs/reference/syntax/custom/)) run in QuickJS runtimes inside `vc`. With `hooks.threads`, several runtimes run at once, each on its own thread.
+
+```yaml title="vibranium.config.yaml"
+syntaxVersion: 2
+hooks:
+  threads: 4
+profiles:
+  - id: dev
+    default: true
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `hooks.threads` | integer, 1 to 64 | `1` | no | How many runtimes run hooks. Each one has its own thread. |
+
+## Examples
+
+With the default of one runtime, hooks take turns. A test that runs a slow hook makes every other test's hooks wait for it. With two runtimes, a second hook runs while the first is still going:
+
+```yaml title="vibranium.config.yaml"
+syntaxVersion: 2
+hooks:
+  threads: 2
+defaults:
+  concurrency: 4
+profiles:
+  - id: dev
+    default: true
+```
+
+A value outside the range is an error:
+
+```console
+$ vc check
+error[V2302]: `threads` takes a whole number of at most 64, found 65
+ --> vibranium.config.yaml:6:12
+  |
+6 |   threads: 65
+  |            ^^ above 64
+  = help: write 64 or less
+```
+
+## Try it
+
+<Playground client:visible kind="config" code={`syntaxVersion: 2
+hooks:
+  threads: 2
+profiles:
+  - id: dev
+    default: true
+`} />
+
+## How it behaves
+
+- A hook goes to a runtime that is free. It never waits behind a busy runtime while another one is free.
+- Each runtime keeps its own module state. Two calls of the same hook may run in different runtimes, so a hook must not rely on module-level state across calls. Return values instead, and save them with [`provides`](/vc-rs/reference/syntax/provides/).
+- A hook that runs past its budget is stopped ([V5116](/vc-rs/reference/diagnostics/v5116/)). If its runtime can't be stopped, it is replaced. The other runtimes keep serving in the meantime.
+- Each runtime costs memory and an OS thread, so the limit is 64. A config value can't start an unbounded number of them.
+- More runtimes help only when hooks run at the same time, for example when [`defaults.concurrency`](/vc-rs/reference/config/defaults-concurrency/) is above 1, or in a load test.
+
+## Common errors
+
+- [V2302](/vc-rs/reference/diagnostics/v2302/): `threads` is below 1, above 64 or not a whole number.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="function" href="/vc-rs/reference/syntax/function/" />
+  <LinkCard title="defaults.concurrency" href="/vc-rs/reference/config/defaults-concurrency/" />
+</CardGrid>
