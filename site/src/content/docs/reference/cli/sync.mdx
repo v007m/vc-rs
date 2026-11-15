@@ -65,7 +65,7 @@ Your name and `limit` stay. The new parameter is added with a generated var.
 
 ### A conflict
 
-You changed `deleteUser` to `method: DELETE`, and the spec changed it to `put`:
+You changed `deleteUser` to `method: POST`, and the spec changed it to `put`:
 
 ```console
 $ vc sync users
@@ -80,12 +80,12 @@ The rest of the file is synced; the conflicting api is left as it is. Settle it 
 ```console
 $ vc sync users --take spec users#deleteUser
 fetched specs/users.yaml (5 operations)
-  ↑ users#deleteUser method DELETE → PUT
+  ↑ users#deleteUser method POST → PUT
 ✓ synced · snapshot openapi/users.yaml updated
 
-$ vc sync users --take mine users#createUser
+$ vc sync users --take mine users#deleteUser
 fetched specs/users.yaml (5 operations)
-  = users#createUser kept your method
+  = users#deleteUser kept your method
 ✓ synced · snapshot openapi/users.yaml updated
 
 $ vc sync users --resolved users#deleteUser

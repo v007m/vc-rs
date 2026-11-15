@@ -2,7 +2,8 @@
 /**
  * A window with the same chrome as `Terminal`: three dots, a title and an optional status badge.
  * Its body is a code block (expressive-code's own frame header is hidden) and fills the window's
- * height, so windows side by side in a `WindowRow` line up.
+ * height, so windows side by side in a `WindowRow` line up. A title too long for the bar wraps, a path
+ * after one of its slashes, so a phone shows the whole name.
  */
 interface Props {
   title: string;
@@ -12,12 +13,14 @@ interface Props {
 }
 
 const { title, badge, tone = 'file' } = Astro.props;
+/** The title cut after each slash, with a line break allowed between the parts. */
+const parts = title.split(/(?<=\/)/);
 ---
 
 <figure class:list={['lp-window', 'not-content', `is-${tone}`]} data-reveal>
   <figcaption class="lp-window-bar">
     <span class="lp-window-dots" aria-hidden="true"><i></i><i></i><i></i></span>
-    <span class="lp-window-title">{title}</span>
+    <span class="lp-window-title">{parts.map((part, i) => (i > 0 ? <Fragment><wbr />{part}</Fragment> : part))}</span>
     {badge ? <span class="lp-window-badge">{badge}</span> : <span class="lp-window-spacer" aria-hidden="true"></span>}
   </figcaption>
   <div class="lp-window-body"><slot /></div>
@@ -65,9 +68,9 @@ const { title, badge, tone = 'file' } = Astro.props;
   .lp-window-title {
     flex: 1;
     min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    overflow-wrap: anywhere;
+    text-wrap: balance;
+    line-height: 1.4;
     text-align: center;
     font-family: var(--__sl-font-mono);
     font-size: 0.75rem;

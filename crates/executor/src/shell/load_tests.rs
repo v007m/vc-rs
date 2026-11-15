@@ -321,3 +321,27 @@ async fn a_retry_past_the_test_timeout_is_blamed_on_its_own_timeout_not_the_earl
     let failure = report.failure.unwrap_or_default();
     assert_eq!((failure.api, failure.status, failure.code), (Some(api), None, Some(Code::V5104.to_string())));
 }
+
+#[tokio::test(start_paused = true)]
+async fn a_ctrl_c_that_cuts_a_retry_short_is_blamed_on_the_attempt_before() {
+    let mut fixture = Fixture::new();
+    let (flaky, slow) = (fixture.call("/flaky"), fixture.call("/slow"));
+    let api = fixture.api_mut(flaky).id;
+    let retry = Retry { attempts: 1, delay: vc_model::Duration::new(Duration::from_millis(10)) };
+    let test = fixture.test(vec![flaky, slow], Some(retry));
+    let cancel = CancelTree::new(Duration::from_secs(5));
+    let setup = IterationSetup { bus: EventBus::spawn(), cancel: cancel.clone(), full_checks: false };
+    let (iterations, sent) = prepare_with(fixture, (&[], &[test]), setup).await;
+    let iterations = iterations.unwrap();
+    let ctrl_c = tokio::spawn(async move {
+        tokio::time::sleep(Duration::from_secs(1)).await;
+        cancel.cancel();
+    });
+    let report = iterations.iterate(test, 1).await;
+    ctrl_c.await.unwrap();
+    assert_eq!((report.passed, sent.counts()["/slow"]), (false, 1), "the retry got as far as the slow call");
+    assert_eq!(statuses(&report), [Some(503), Some(200)], "the cut slow call got no status");
+    let failure = report.failure.unwrap_or_default();
+    assert_eq!((failure.api, failure.status, failure.code), (Some(api), Some(503), Some(Code::V5101.to_string())));
+    assert!(failure.exchange.is_some_and(|exchange| exchange.response.status.as_u16() == 503), "its call's exchange");
+}

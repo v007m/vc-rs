@@ -1,6 +1,7 @@
 //! The tests `vc import openapi --tests` writes for the mock users spec create the user each
 //! call needs first and remove it afterwards, and check every body against its schema in the
-//! snapshot: `vc check` finds nothing to warn about and every test passes.
+//! snapshot: `vc check` finds nothing to warn about and every test passes. A creator read through
+//! two of its properties saves each.
 
 use vc_mock_server::MockServer;
 
@@ -170,4 +171,55 @@ async fn a_nested_creator_reads_the_outer_item_s_generic_id_and_the_tests_pass()
     for passed in ["createsUser", "createsOrder", "getsOrder", "deletesOrder"] {
         assert!(said(&run).contains(&format!("✓ shop.openapi#{passed}")), "{}", said(&run));
     }
+}
+
+/// Products created with an `id` and a `slug`, read back by the slug and deleted by the ID.
+const CATALOG: &str = "openapi: 3.0.3
+info: {title: Catalog, version: 1.0.0}
+servers:
+  - url: http://127.0.0.1:9
+components:
+  schemas:
+    Product:
+      type: object
+      properties: {id: {type: integer}, slug: {type: string}}
+paths:
+  /products:
+    post:
+      operationId: createProduct
+      responses:
+        '201': {description: The product, content: {application/json: {schema: {$ref: '#/components/schemas/Product'}}}}
+  /products/{slug}:
+    get:
+      operationId: getProduct
+      parameters: [{name: slug, in: path, required: true, schema: {type: string}}]
+      responses:
+        '200': {description: The product, content: {application/json: {schema: {$ref: '#/components/schemas/Product'}}}}
+  /products/{id}:
+    delete:
+      operationId: deleteProduct
+      parameters: [{name: id, in: path, required: true, schema: {type: integer}}]
+      responses:
+        '204': {description: Gone}
+";
+
+/// A creator two paths read through different properties saves each, and each test passes the
+/// one its parameter names: the delete gets the product's ID, never its slug.
+#[test]
+fn a_creator_read_by_slug_and_by_id_saves_both_and_checks_clean() {
+    let project = Project::new(&[CONFIG]);
+    project.write("specs/catalog.yaml", CATALOG);
+    let output = project.vc(&["import", "openapi", "specs/catalog.yaml", "--tests"]).output().unwrap();
+    assert_eq!(output.status.code(), Some(0), "{}", said(&output));
+    let apis = std::fs::read_to_string(project.path().join("services/catalog/catalog.api.yaml")).unwrap();
+    let saves = "save:\n      productId: ${response.body.id}\n      productId2: ${response.body.slug}\n";
+    assert!(apis.contains(saves), "{apis}");
+    let tests = std::fs::read_to_string(project.path().join("services/catalog/openapi.test.yaml")).unwrap();
+    let test = |id: &str| tests.split("  - id: ").find(|test| test.starts_with(id)).unwrap_or_default().to_owned();
+    assert!(test("getsProduct\n").contains("slug: ${var.productId2}\n"), "{tests}");
+    let deletes = test("deletesProduct\n");
+    assert!(deletes.contains("id: ${var.productId}\n") && !deletes.contains("${var.productId2}"), "{tests}");
+    let check = project.vc(&["check"]).output().unwrap();
+    assert_eq!(check.status.code(), Some(0), "{}", said(&check));
+    assert!(said(&check).contains("0 errors"), "{}", said(&check));
 }

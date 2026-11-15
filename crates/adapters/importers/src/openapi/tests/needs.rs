@@ -138,3 +138,43 @@ async fn a_nested_creator_reads_the_outer_item_through_the_var_the_test_passes()
     assert!(saved("createUser", "userId") && saved("createOrder", "orderId"), "{:?}", group.apis);
     Ok(())
 }
+
+/// Products created with an `id` and a `slug`, read back by the slug and deleted by the ID.
+fn catalog() -> Value {
+    let product = json_response(&json!({
+        "properties": { "id": { "type": "integer" }, "slug": { "type": "string" } },
+    }));
+    let op = |id: &str, status: &str, response: Value| json!({ "operationId": id, "responses": { status: response } });
+    json!({
+        "openapi": "3.1.0",
+        "info": { "title": "Catalog", "version": "1" },
+        "paths": {
+            "/products": { "post": op("createProduct", "201", product.clone()) },
+            "/products/{slug}": { "parameters": [path_param("slug")], "get": op("getProduct", "200", product) },
+            "/products/{id}": {
+                "parameters": [path_param("id")],
+                "delete": op("deleteProduct", "204", json!({ "description": "gone" })),
+            },
+        },
+    })
+}
+
+#[tokio::test]
+async fn a_creator_read_through_two_properties_saves_each_and_each_test_passes_its_own() -> Result<(), ImportError> {
+    let opts = ImportOptions { file_id: "catalog".to_owned(), tests: true, ..ImportOptions::default() };
+    let draft = read_json(&catalog(), &opts).await?;
+    let group = draft.groups.first().cloned().unwrap_or_default();
+    let saves = IndexMap::from([
+        ("productId".to_owned(), "${response.body.id}".to_owned()),
+        ("productId2".to_owned(), "${response.body.slug}".to_owned()),
+    ]);
+    let create = api(&group, "createProduct");
+    assert_eq!(create.map(|api| &api.save), Some(&saves));
+    let vars = IndexMap::from([("id".to_owned(), "${response.body.id}".to_owned())]);
+    let cleanup = Some(DraftCleanup { call: "deleteProduct".to_owned(), vars });
+    assert_eq!(create.map(|api| api.cleanup.clone()), Some(cleanup));
+    let passed = |param: &str, var: &str| IndexMap::from([(param.to_owned(), json!(format!("${{var.{var}}}")))]);
+    assert_eq!(drafted(&group, "getsProduct").vars, passed("slug", "productId2"));
+    assert_eq!(drafted(&group, "deletesProduct").vars, passed("id", "productId"), "the ID, never the slug");
+    Ok(())
+}
