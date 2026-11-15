@@ -45,8 +45,8 @@ $ vc watch [OPTIONS] [SELECTORS]...
 $ vc watch sample.extra
 plan  2 tests (3 instances) in 1 file · 1 skipped · profile default
 
-- sample.extra#findsAda skipped: demo data changed
-✓ sample.extra#echoesBody                                         9ms
+- sample.extra#findsAda — Finds Ada first skipped: demo data changed
+✓ sample.extra#echoesBody — Echoes the body back                  9ms
 ✓ sample.extra#rejectsBadEmail › empty — Rejects a bad email     10ms
 ✓ sample.extra#rejectsBadEmail › no at sign — Rejects a bad email    10ms
 
@@ -67,7 +67,8 @@ error[V2003]: unknown api "sample#listUser"
    |
 10 |     call: sample#listUser
    |           ^^^^^^^^^^^^^^^ no api has this ID
-   = help: did you mean one of `sample#listUsers`, `sample#getUser`, `sample#createUser`?
+   = help: did you mean `sample#listUsers`?
+   = fix: Replace with sample#listUsers (certain)
 
 1 error · 0 warnings · 16 files checked
 error: the project has 1 error(s); nothing ran

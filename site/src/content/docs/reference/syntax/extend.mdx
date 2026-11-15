@@ -124,6 +124,7 @@ plan  5 tests in 1 file · profile default
 ✓ bodylab.extend#extendsResponse                                  5ms
 
 5 passed                                                     6ms · profile default
+reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
 ```
 
 `shipping.city` changed and `shipping` kept its other keys. The list `items` was replaced whole. `qty` came through unchanged.
@@ -219,6 +220,7 @@ plan  3 tests in 1 file · profile default
 ✓ bodylab.extend2#extendsParsedText                              11ms
 
 3 passed                                                     13ms · profile default
+reports  …/.vibranium/reports/2/{ctrf.json,junit.xml,index.html}
 ```
 
 ## Try it
@@ -264,7 +266,7 @@ error[V2101]: ${var.nope} is used but never set
  --> services/m/m.api.yaml:7:16
   |
 7 |       $extend: ${var.nope}
-  |                ^^^^^^^^^^^ no level sets nope for any profile
+  |                ^^^^^^^^^^^ no level sets nope for profile default
  ::: services/m/t.test.yaml:3:11
   |
 3 |     call: m#extendMissing

@@ -66,9 +66,10 @@ tests:
 $ vc run sample.headers#answersJson
 plan  1 test in 1 file · profile default
 
-✓ sample.headers#answersJson                                      0ms
+✓ sample.headers#answersJson — Answers JSON                       0ms
 
 1 passed                                                     21ms · profile default
+reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
 ```
 
 ### A failing literal
@@ -89,7 +90,7 @@ tests:
 $ vc run sample.headers#failsOnHtml
 plan  1 test in 1 file · profile default
 
-✕ sample.headers#failsOnHtml                                      0ms
+✕ sample.headers#failsOnHtml — Answers HTML                       0ms
   error[V5101]: expect.headers.content-type
     --> services/sample/headers.test.yaml:13:23
      |
@@ -97,6 +98,8 @@ plan  1 test in 1 file · profile default
      |                       ^^^^^^^^^ expected "text/html", got "application/json"
 
 0 passed · 1 failed                                          43ms · profile default
+reports  …/.vibranium/reports/2/{ctrf.json,junit.xml,index.html}
+next     vc run --failed
 ```
 
 ### A missing header
@@ -117,7 +120,7 @@ tests:
 $ vc run sample.headers#failsOnRequestId
 plan  1 test in 1 file · profile default
 
-✕ sample.headers#failsOnRequestId                                 3ms
+✕ sample.headers#failsOnRequestId — Sends a request ID            3ms
   error[V5101]: expect.headers.x-request-id
     --> services/sample/headers.test.yaml:19:23
      |
@@ -125,6 +128,8 @@ plan  1 test in 1 file · profile default
      |                       ^^^^^^^^^^^^^^ expected {"exists":true}, got nothing
 
 0 passed · 1 failed                                          4ms · profile default
+reports  …/.vibranium/reports/3/{ctrf.json,junit.xml,index.html}
+next     vc run --failed
 ```
 
 ### Forbid a header
@@ -145,9 +150,10 @@ tests:
 $ vc run sample.headers#hidesServer
 plan  1 test in 1 file · profile default
 
-✓ sample.headers#hidesServer                                      0ms
+✓ sample.headers#hidesServer — Does not reveal the server         0ms
 
 1 passed                                                     4ms · profile default
+reports  …/.vibranium/reports/4/{ctrf.json,junit.xml,index.html}
 ```
 
 ## Try it

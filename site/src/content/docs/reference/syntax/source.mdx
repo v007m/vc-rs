@@ -140,6 +140,8 @@ fetched https://specs.example.com/users.yaml (4 operations)
 ✓ synced
 ```
 
+`specs.example.com` stands for a spec server of your own that needs a token.
+
 The headers are rendered under the active profiles (`--profile`, else the `default: true` ones), with the config's, the profiles' and the file's own vars. They are sent to `https://specs.example.com` only: a `$ref` to another host gets none, and no redirect is followed. The file keeps `${secret.SPEC_TOKEN}` as written, and an error from the fetch shows `••••` in place of a header's value.
 
 `vc import openapi <url> --header 'authorization: Bearer ${secret.SPEC_TOKEN}'` fetches the spec with the header the same way and writes it here.

@@ -120,12 +120,14 @@ This page builds two small plugins in Python, using only the standard library: a
    ...
    4 passed · 1 failed · 1 flaky                                104ms · profile default
    reports  .vibranium/reports/28/{ctrf.json,digest.md}
+   next     vc run --failed
+   seed 2405169031753500: pass `--seed 2405169031753500` to run with the same generated data
    ```
 
    ```markdown title=".vibranium/reports/28/digest.md"
    # Nightly digest: failed
 
-   0 blocked, 1 failed, 1 flaky, 4 passed, 0 skipped
+   0 allowedFailures, 0 blocked, 1 failed, 1 flaky, 4 passed, 0 skipped
 
    - [x] sample.basics#listsUsers (passed)
    - [ ] sample.flip#listsUsersWithStatus (failed)
@@ -231,7 +233,7 @@ For a `path:` plugin, `vibranium.lock` holds a hash of its installed files. Afte
      "headers": {
        "accept": "application/json",
        "accept-encoding": "gzip, br, zstd, deflate",
-       "host": "localhost:7467",
+       "host": "localhost:7421",
        "user-agent": "vibranium/2",
        "x-stamp": "••••"
      },

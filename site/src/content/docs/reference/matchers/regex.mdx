@@ -70,9 +70,10 @@ tests:
 $ vc run sample.regex#idPattern
 plan  1 test in 1 file · profile default
 
-✓ sample.regex#idPattern                                         36ms
+✓ sample.regex#idPattern — ID is ord_ and digits                 36ms
 
 1 passed                                                     39ms · profile default
+reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
 ```
 
 ### Ignore case
@@ -94,9 +95,10 @@ tests:
 $ vc run sample.regex#idAnyCase
 plan  1 test in 1 file · profile default
 
-✓ sample.regex#idAnyCase                                         25ms
+✓ sample.regex#idAnyCase — ID starts with ORD in any case        25ms
 
 1 passed                                                     79ms · profile default
+reports  …/.vibranium/reports/2/{ctrf.json,junit.xml,index.html}
 ```
 
 ### A failing check
@@ -118,7 +120,7 @@ tests:
 $ vc run sample.regex#failsOnCase
 plan  1 test in 1 file · profile default
 
-✕ sample.regex#failsOnCase                                        0ms
+✕ sample.regex#failsOnCase — ID starts with ORD                   0ms
   error[V5101]: expect.body.match.body.id
     --> services/sample/regex.test.yaml:22:20
      |
@@ -126,6 +128,8 @@ plan  1 test in 1 file · profile default
      |                    ^^^^^^^^^^^^^^^ expected {"regex":"^ORD"}, got "ord_123"
 
 0 passed · 1 failed                                          17ms · profile default
+reports  …/.vibranium/reports/3/{ctrf.json,junit.xml,index.html}
+next     vc run --failed
 ```
 
 ### Numbers do not match
@@ -147,7 +151,7 @@ tests:
 $ vc run sample.regex#failsOnNumber
 plan  1 test in 1 file · profile default
 
-✕ sample.regex#failsOnNumber                                      0ms
+✕ sample.regex#failsOnNumber — Quantity has a 3                   0ms
   error[V5101]: expect.body.match.body.qty
     --> services/sample/regex.test.yaml:29:21
      |
@@ -155,6 +159,8 @@ plan  1 test in 1 file · profile default
      |                     ^^^^^^^^^^^^ expected {"regex":"3"}, got 3
 
 0 passed · 1 failed                                          25ms · profile default
+reports  …/.vibranium/reports/4/{ctrf.json,junit.xml,index.html}
+next     vc run --failed
 ```
 
 ## Try it

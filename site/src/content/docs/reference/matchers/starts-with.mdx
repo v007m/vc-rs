@@ -81,9 +81,10 @@ tests:
 $ vc run sample.startswith#isOrderId
 plan  1 test in 1 file · profile default
 
-✓ sample.startswith#isOrderId                                     6ms
+✓ sample.startswith#isOrderId — ID starts with ord_               6ms
 
 1 passed                                                     7ms · profile default
+reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
 ```
 
 ### Check every element
@@ -105,9 +106,10 @@ tests:
 $ vc run sample.startswith#skusAreLetters
 plan  1 test in 1 file · profile default
 
-✓ sample.startswith#skusAreLetters                               15ms
+✓ sample.startswith#skusAreLetters — Every SKU starts with a capital A or B   15ms
 
 1 passed                                                     100ms · profile default
+reports  …/.vibranium/reports/2/{ctrf.json,junit.xml,index.html}
 ```
 
 ### A failing check
@@ -129,7 +131,7 @@ tests:
 $ vc run sample.startswith#failsOnPrefix
 plan  1 test in 1 file · profile default
 
-✕ sample.startswith#failsOnPrefix                                47ms
+✕ sample.startswith#failsOnPrefix — ID starts with inv_          47ms
   error[V5101]: expect.body.match.body.id
     --> services/sample/startswith.test.yaml:22:20
      |
@@ -137,6 +139,8 @@ plan  1 test in 1 file · profile default
      |                    ^^^^^^^^^^^^^^^^^^ expected {"startsWith":"inv_"}, got "ord_123"
 
 0 passed · 1 failed                                          49ms · profile default
+reports  …/.vibranium/reports/3/{ctrf.json,junit.xml,index.html}
+next     vc run --failed
 ```
 
 ## Try it

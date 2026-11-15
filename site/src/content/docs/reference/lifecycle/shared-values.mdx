@@ -9,7 +9,7 @@ import Playground from '~/components/Playground.svelte';
 
 Tests run in parallel, up to `defaults.concurrency`. Values saved in `beforeRun` and `beforeAll` are computed once and shared by every test, so treat them as read-only. When a shared action fails, only the tests that read its values are blocked.
 
-The example calls a local lab server. `lab#status` is a `GET /status/${var.code}` that answers with that status, so `code: 503` makes it fail; `lab#whoami` is a `GET /whoami`:
+The example calls a local lab server, a stand-in for a test server of your own. `lab#status` is a `GET /status/${var.code}` that answers with that status, so `code: 503` makes it fail; `lab#whoami` is a `GET /whoami`:
 
 ```yaml title="services/lab/lab.api.yaml (excerpt)"
 apis:
@@ -72,6 +72,8 @@ A failing `beforeRun` works the same way across the whole run:
 ✓ lab.needsadmin#ignoresAdmin                                     1ms
 
 1 passed · 1 blocked
+reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
+next     vc run --failed
 ```
 
 A test that changes data makes its own copy. This one deletes an item (`lab#deleteItem` is a `DELETE /items/${var.itemId}`), so it creates the item in `before`, not in `beforeAll`:

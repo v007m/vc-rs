@@ -70,12 +70,12 @@ sample.extra#findsAda  Finds Ada first  [extra, slow]  (skipped: demo data chang
 
 Each skipped test shows its reason, then its `until` date when it has one: `(skipped: flaky upstream, until 2026-11-30)`. A test whose examples gave no rows shows `(skipped: examples gave no rows)`.
 
-A skip past its `until` date no longer holds, so the test runs again and `vc check` warns (V3104). The list still shows it, as `(skip ended 2000-01-01: no search yet)`, so you can find the stale `skip` and remove it:
+A skip past its `until` date no longer holds, so the test runs again and `vc check` warns (V3104). The list still shows it, as `(skip ended 2000-01-01: no search yet)`, so you can find the stale `skip` and remove it. Here `sample.extra` has gained a fourth test, `searchesUsers`, whose skip has ended:
 
 ```console
 $ vc list tests --skipped
 sample.extra#findsAda  Finds Ada first  [extra, slow]  (skipped: demo data changed)
-sample.extra#searchesUsers  (skip ended 2000-01-01: no search yet)
+sample.extra#searchesUsers  [extra]  (skip ended 2000-01-01: no search yet)
 ```
 
 ### Apis and files

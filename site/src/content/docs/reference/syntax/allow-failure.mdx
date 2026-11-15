@@ -93,20 +93,20 @@ $ vc run sample.allow
 plan  4 tests in 1 file · profile default
 
 Allow failure
-✓ sample.allow#listsUsers                                         6ms
-⚠ sample.allow#pagesUsers allowed to fail: paging is broken upstream, see #212    6ms
+✓ sample.allow#listsUsers — Lists users                           6ms
+⚠ sample.allow#pagesUsers — Lists users a page at a time allowed to fail: paging is broken upstream, see #212    6ms
   error[V5101]: expect.status
     --> services/sample/allow.test.yaml:23:15
      |
   23 |       status: 206
      |               ^^^ expected [206], got 200
-⚠ sample.allow#searchesUsers allowed to fail                      6ms
+⚠ sample.allow#searchesUsers — Searches users by name allowed to fail    6ms
   error[V5101]: expect.status
     --> services/sample/allow.test.yaml:14:15
      |
   14 |       status: 404
      |               ^^^ expected [404], got 200
-✕ sample.allow#sortsUsers                                         7ms
+✕ sample.allow#sortsUsers — Sorts users by name                   7ms
   error[V5101]: expect.status
     --> services/sample/allow.test.yaml:32:15
      |
@@ -114,6 +114,8 @@ Allow failure
      |               ^^^ expected [418], got 200
 
 1 passed · 1 failed · 2 allowed to fail                      10ms · profile default
+reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
+next     vc run --failed
 ```
 
 `vc check` warns about the expired one:
@@ -128,6 +130,8 @@ warning[V4008]: this allowFailure expired after 2026-01-31
    = note: an expired allowFailure is ignored, so a failure fails the run again
    = help: remove the allowFailure, or move `until` later if the reason still holds
    = fix: Remove the allowFailure (certain)
+
+0 errors · 1 warning · 4 files checked
 ```
 
 ### Allow a whole file to fail
@@ -168,6 +172,7 @@ plan  2 tests in 1 file · profile default
 ✓ payments.refunds#listsRefunds                                   3ms
 
 1 passed · 1 allowed to fail                                 4ms · profile default
+reports  …/.vibranium/reports/2/{ctrf.json,junit.xml,index.html}
 $ echo $?
 0
 ```
@@ -180,6 +185,8 @@ $ echo $?
 $ vc run sample.allow --strict
 ...
 1 passed · 3 failed                                          5ms · profile default
+reports  …/.vibranium/reports/3/{ctrf.json,junit.xml,index.html}
+next     vc run --failed
 ```
 
 ### In reports
@@ -189,7 +196,7 @@ With `--reporter json`, the test's `status` is `allowedFailure`, `failure` holds
 ```console
 $ vc run payments.refunds --reporter json
 ...
-{"attempts":1,"durationMs":1,"event":"testFinished","failure":{"action":"call payments#listRefunds","code":"V5101","message":"status: expected [201], got 200"},"instance":1,"label":"payments.refunds#refundsInFull","skipReason":"refunds sandbox is down, see #340","status":"allowedFailure","test":"payments.refunds#refundsInFull"}
+{"attempts":1,"durationMs":1,"event":"testFinished","failure":{"action":"call payments#listRefunds","code":"V5101","message":"status: expected [201], got 200"},"instance":1,"label":"payments.refunds#refundsInFull","name":null,"skipReason":"refunds sandbox is down, see #340","status":"allowedFailure","test":"payments.refunds#refundsInFull"}
 {"event":"runFinished","status":"passed","totals":{"allowedFailures":1,"blocked":0,"failed":0,"flaky":0,"passed":1,"skipped":0}}
 ...
 ```

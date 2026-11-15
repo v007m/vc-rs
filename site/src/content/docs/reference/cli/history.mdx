@@ -70,19 +70,37 @@ $ vc history show 80 --json
     "finishedMs": 1794333709049,
     "id": 80,
     "kind": "run",
-    "profiles": ["default"],
+    "profiles": [
+      "default"
+    ],
     "seed": 10829795558665289009,
     "selector": "sample.extra",
     "startedMs": 1794333708495,
     "status": "failed",
-    "totals": { "allowedFailures": 0, "blocked": 0, "failed": 1, "flaky": 0, "passed": 3, "skipped": 0 },
+    "totals": {
+      "allowedFailures": 0,
+      "blocked": 0,
+      "failed": 1,
+      "flaky": 0,
+      "passed": 3,
+      "skipped": 0
+    },
     "vcVersion": "0.1.0"
   },
   "tests": [
     {
       "attempts": 1,
       "blockedBy": null,
-      "durationMs": 8.1,
+      "durationMs": 8,
+      "id": "sample.extra#echoesBody",
+      "message": null,
+      "skipReason": null,
+      "status": "passed"
+    },
+    {
+      "attempts": 1,
+      "blockedBy": null,
+      "durationMs": 8,
       "id": "sample.extra#findsAda",
       "message": "match[0].name: expected \"Grace Hopper\", got \"Ada Lovelace\"",
       "skipReason": null,

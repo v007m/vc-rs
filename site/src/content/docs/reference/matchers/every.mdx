@@ -86,9 +86,10 @@ tests:
 $ vc run sample.every#pricesPositive
 plan  1 test in 1 file · profile default
 
-✓ sample.every#pricesPositive                                     0ms
+✓ sample.every#pricesPositive — Every price is positive           0ms
 
 1 passed                                                     11ms · profile default
+reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
 ```
 
 ### Several matchers per element
@@ -110,9 +111,10 @@ tests:
 $ vc run sample.every#tagsShort
 plan  1 test in 1 file · profile default
 
-✓ sample.every#tagsShort                                          0ms
+✓ sample.every#tagsShort — Every tag is short text                0ms
 
 1 passed                                                     5ms · profile default
+reports  …/.vibranium/reports/2/{ctrf.json,junit.xml,index.html}
 ```
 
 ### An empty list passes
@@ -134,9 +136,10 @@ tests:
 $ vc run sample.every#emptyPasses
 plan  1 test in 1 file · profile default
 
-✓ sample.every#emptyPasses                                        0ms
+✓ sample.every#emptyPasses — Every element of an empty list       0ms
 
 1 passed                                                     14ms · profile default
+reports  …/.vibranium/reports/3/{ctrf.json,junit.xml,index.html}
 ```
 
 ### A failing check
@@ -158,7 +161,7 @@ tests:
 $ vc run sample.every#failsOnPrice
 plan  1 test in 1 file · profile default
 
-✕ sample.every#failsOnPrice                                       3ms
+✕ sample.every#failsOnPrice — Every price is under 20             3ms
   error[V5101]: expect.body.match.body.items[*].price
     --> services/sample/every.test.yaml:29:32
      |
@@ -166,6 +169,8 @@ plan  1 test in 1 file · profile default
      |                                ^^^^^^^^^^^^^^^^^ expected {"every":{"lt":20}}, got [10,32.5]
 
 0 passed · 1 failed                                          5ms · profile default
+reports  …/.vibranium/reports/4/{ctrf.json,junit.xml,index.html}
+next     vc run --failed
 ```
 
 ### Use a list path for fields
@@ -187,7 +192,7 @@ tests:
 $ vc run sample.every#failsOnFieldMap
 plan  1 test in 1 file · profile default
 
-✕ sample.every#failsOnFieldMap                                    5ms
+✕ sample.every#failsOnFieldMap — Every item has a positive price    5ms
   error[V5101]: expect.body.match.body.items
     --> services/sample/every.test.yaml:36:23
      |
@@ -195,6 +200,8 @@ plan  1 test in 1 file · profile default
      |                       ^^^^^^^^^^^^^^^^^^^^^^^^^ expected {"every":{"price":{"gt":0}}}, got [{"price":10,"sku":"A1"},{"price":32.5,"sku":"B2"}]
 
 0 passed · 1 failed                                          7ms · profile default
+reports  …/.vibranium/reports/5/{ctrf.json,junit.xml,index.html}
+next     vc run --failed
 ```
 
 Write `body.items[*].price: {every: {gt: 0}}` instead.

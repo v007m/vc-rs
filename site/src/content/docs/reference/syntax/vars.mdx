@@ -63,7 +63,7 @@ Set the same names at several levels, then ask `vc explain` where each value cam
 
 ```yaml title="vibranium.config.yaml (excerpt)"
 vars:
-  sampleUrl: http://localhost:7433
+  sampleUrl: http://localhost:7421
   e: from-config
   f: from-config
 ```
@@ -125,17 +125,21 @@ $ vc explain prec.levels#showsLevels
 prec.levels#showsLevels
 profile  default
 call prec#show
-  POST http://localhost:7433/echo
+  POST http://localhost:7421/echo
   vars
-    sampleUrl  http://localhost:7433  (vibranium.config.yaml)
+    sampleUrl  http://localhost:7421  (vibranium.config.yaml)
     e  from-test-file  (file prec.levels)
     f  from-config  (vibranium.config.yaml)
     a  from-test  (test)
     b  from-test-file  (file prec.levels)
     c  from-api-file  (file prec)
     d  from-api-file-profile  (file prec, profile default)
+  headers
+    accept  application/json  (vibranium.config.yaml)
+    user-agent  vibranium/2  (vibranium.config.yaml)
   expect
-    match body.a: equals  (test prec.levels#showsLevels)
+    status: 2xx  (default)
+    match body.a: from-test  (test prec.levels#showsLevels)
 ```
 
 Read it line by line: the test's `a` beats the api's `a`; the test file's `b` beats the api's `b`; `c` falls through to the api file; `d` comes from the api file's profile; `f` falls through to the config.
@@ -146,16 +150,20 @@ Call the api on its own and the api's defaults win instead:
 $ vc explain prec#show
 prec#show
 profile  default
-  POST http://localhost:7433/echo
+  POST http://localhost:7421/echo
   vars
-    sampleUrl  http://localhost:7433  (vibranium.config.yaml)
+    sampleUrl  http://localhost:7421  (vibranium.config.yaml)
     e  from-config  (vibranium.config.yaml)
     f  from-config  (vibranium.config.yaml)
     a  from-api  (api prec#show)
     b  from-api  (api prec#show)
     c  from-api-file  (file prec)
     d  from-api-file-profile  (file prec, profile default)
+  headers
+    accept  application/json  (vibranium.config.yaml)
+    user-agent  vibranium/2  (vibranium.config.yaml)
   expect
+    status: 2xx  (default)
 ```
 
 ### Overriding an api's input from a test
@@ -251,7 +259,7 @@ error[V2101]: ${var.nickname} is used but never set
  --> services/layer/unset.test.yaml:5:23
   |
 5 |       greeting: hello ${var.nickname}
-  |                       ^^^^^^^^^^^^^^^ no level sets nickname for any profile
+  |                       ^^^^^^^^^^^^^^^ no level sets nickname for profile default
   = help: set it in this test's vars, in the file's vars, or in the config's vars
 ```
 

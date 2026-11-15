@@ -86,7 +86,7 @@ $ vc run users.crud#listsUsers
 plan  1 test in 1 file · profile default
 
 Users CRUD
-✕ users.crud#listsUsers                                           2ms
+✕ users.crud#listsUsers — Lists users                             2ms
   error[V5101]: expect.status
    --> services/users/crud.test.yaml:8:15
     |
@@ -94,6 +94,8 @@ Users CRUD
     |               ^^^ expected [201], got 200
 
 0 passed · 1 failed                                          3ms · profile default
+reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
+next     vc run --failed
 $ echo $?
 1
 ```

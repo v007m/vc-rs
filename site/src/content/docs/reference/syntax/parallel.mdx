@@ -88,10 +88,11 @@ $ vc run sample.naps
 plan  2 tests in 1 file · profile default
 
 Naps
-✓ sample.naps#napsTogether                                       1.0s
-✓ sample.naps#napsInTurn                                         3.0s
+✓ sample.naps#napsTogether — Three naps at once                  1.0s
+✓ sample.naps#napsInTurn — Three naps in turn                    3.0s
 
 2 passed                                                     3.0s · profile default
+reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
 ```
 
 ### Saved lists keep their order
@@ -147,10 +148,11 @@ $ vc run sample.parallel
 plan  2 tests in 1 file · profile default
 
 Parallel
-✓ sample.parallel#echoesSixNames                                  6ms
-✓ sample.parallel#createsThreeAtOnce                              6ms
+✓ sample.parallel#echoesSixNames — Echoes six names, three at a time    6ms
+✓ sample.parallel#createsThreeAtOnce — Creates three users at once    6ms
 
 2 passed                                                     7ms · profile default
+reports  …/.vibranium/reports/2/{ctrf.json,junit.xml,index.html}
 ```
 
 ### Seed data faster

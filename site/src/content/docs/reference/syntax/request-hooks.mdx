@@ -94,7 +94,7 @@ $ vc call hooked#echo
     "accept-encoding": "gzip, br, zstd, deflate",
     "content-length": "17",
     "content-type": "application/json",
-    "host": "localhost:7433",
+    "host": "localhost:7421",
     "user-agent": "vibranium/2",
     "x-signature": "cb9c1f54d8102d68b7a40c2376e1f0e85e330f2df11a0bb83c8084694f5c73c2",
     "x-trace": "api-level"
@@ -140,7 +140,7 @@ export function rejectNotFound({ request, response }) {
 
 ```console
 $ vc call hooked#missing
-✗ `hooks/sign.ts#rejectNotFound`: the hook threw: Error: GET http://localhost:7433/users/999 returned 404 (line 24)
+✗ `hooks/sign.ts#rejectNotFound`: the hook threw: Error: GET http://localhost:7421/users/999 returned 404 (line 20)
 ```
 
 The `expect` passed, but the hook's throw still fails the call.

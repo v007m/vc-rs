@@ -84,9 +84,10 @@ tests:
 $ vc run signed.upload
 plan  1 test in 1 file · profile default
 
-✓ signed.upload#sendsSignature                                   15ms
+✓ signed.upload#sendsSignature — The upload carries an HMAC signature   15ms
 
 1 passed                                                     17ms · profile default
+reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
 ```
 
 The request the hook sees looks like this (from the demo, with a secret header set to `${secret.UPLOAD_KEY}`):
@@ -197,7 +198,7 @@ export const fileIsPdf: CustomCheck = ({ response, vars }) => {
 
 ```console
 $ vc run sample.hooks#checksWithCode
-✕ sample.hooks#checksWithCode                                    13ms
+✕ sample.hooks#checksWithCode — Custom checks read the response and vars   13ms
   error[V5103]: expect.custom
     --> services/sample/hooks.test.yaml:35:11
      |

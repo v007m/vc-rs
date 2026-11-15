@@ -90,9 +90,10 @@ tests:
 $ vc run sample.literal#plainValues
 plan  1 test in 1 file · profile default
 
-✓ sample.literal#plainValues                                      0ms
+✓ sample.literal#plainValues — Plain values                       0ms
 
 1 passed                                                     21ms · profile default
+reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
 ```
 
 ### Objects
@@ -114,9 +115,10 @@ tests:
 $ vc run sample.literal#firstItem
 plan  1 test in 1 file · profile default
 
-✓ sample.literal#firstItem                                        0ms
+✓ sample.literal#firstItem — First item                           0ms
 
 1 passed                                                     22ms · profile default
+reports  …/.vibranium/reports/2/{ctrf.json,junit.xml,index.html}
 ```
 
 ### A failing object shows a diff
@@ -138,7 +140,7 @@ tests:
 $ vc run sample.literal#failsOnPrice
 plan  1 test in 1 file · profile default
 
-✕ sample.literal#failsOnPrice                                     3ms
+✕ sample.literal#failsOnPrice — First item costs 11               3ms
   error[V5101]: expect.body.match.body.items[0]
     --> services/sample/literal.test.yaml:24:26
      |
@@ -156,6 +158,8 @@ plan  1 test in 1 file · profile default
        \ No newline at end of file
 
 0 passed · 1 failed                                          5ms · profile default
+reports  …/.vibranium/reports/3/{ctrf.json,junit.xml,index.html}
+next     vc run --failed
 ```
 
 ### Lists from a list path
@@ -177,9 +181,10 @@ tests:
 $ vc run sample.literal#allPrices
 plan  1 test in 1 file · profile default
 
-✓ sample.literal#allPrices                                        0ms
+✓ sample.literal#allPrices — Prices in order                      0ms
 
 1 passed                                                     30ms · profile default
+reports  …/.vibranium/reports/4/{ctrf.json,junit.xml,index.html}
 ```
 
 ## Try it

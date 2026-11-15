@@ -73,9 +73,10 @@ tests:
 $ vc run sample.empty#hasTags
 plan  1 test in 1 file · profile default
 
-✓ sample.empty#hasTags                                           16ms
+✓ sample.empty#hasTags — Tags are set                            16ms
 
 1 passed                                                     20ms · profile default
+reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
 ```
 
 ### An empty list
@@ -97,9 +98,10 @@ tests:
 $ vc run sample.empty#noExtras
 plan  1 test in 1 file · profile default
 
-✓ sample.empty#noExtras                                         159ms
+✓ sample.empty#noExtras — The empty list is empty               159ms
 
 1 passed                                                     168ms · profile default
+reports  …/.vibranium/reports/2/{ctrf.json,junit.xml,index.html}
 ```
 
 ### A failing check
@@ -121,7 +123,7 @@ tests:
 $ vc run sample.empty#failsOnTags
 plan  1 test in 1 file · profile default
 
-✕ sample.empty#failsOnTags                                        0ms
+✕ sample.empty#failsOnTags — Tags are empty                       0ms
   error[V5101]: expect.body.match.body.tags
     --> services/sample/empty.test.yaml:22:22
      |
@@ -129,6 +131,8 @@ plan  1 test in 1 file · profile default
      |                      ^^^^^^^^^^^^^ expected {"empty":true}, got ["new","vip"]
 
 0 passed · 1 failed                                          85ms · profile default
+reports  …/.vibranium/reports/3/{ctrf.json,junit.xml,index.html}
+next     vc run --failed
 ```
 
 ### Missing values fail both ways
@@ -150,7 +154,7 @@ tests:
 $ vc run sample.empty#failsOnMissing
 plan  1 test in 1 file · profile default
 
-✕ sample.empty#failsOnMissing                                    25ms
+✕ sample.empty#failsOnMissing — Missing list has items           25ms
   error[V5101]: expect.body.match.body.missing
     --> services/sample/empty.test.yaml:29:25
      |
@@ -158,6 +162,8 @@ plan  1 test in 1 file · profile default
      |                         ^^^^^^^^^^^^^^ expected {"empty":false}, got nothing
 
 0 passed · 1 failed                                          48ms · profile default
+reports  …/.vibranium/reports/4/{ctrf.json,junit.xml,index.html}
+next     vc run --failed
 ```
 
 ## Try it

@@ -81,9 +81,10 @@ tests:
 $ vc run sample.custom#pricesInOrder
 plan  1 test in 1 file · profile default
 
-✓ sample.custom#pricesInOrder                                     0ms
+✓ sample.custom#pricesInOrder — Item prices ascend                0ms
 
 1 passed                                                     28ms · profile default
+reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
 ```
 
 ```ts title="hooks/checks.ts"
@@ -130,7 +131,7 @@ tests:
 $ vc run sample.custom#failsOnMinItems
 plan  1 test in 1 file · profile default
 
-✕ sample.custom#failsOnMinItems                                   7ms
+✕ sample.custom#failsOnMinItems — At least five items             7ms
   error[V5103]: expect.custom
     --> services/sample/custom.test.yaml:16:11
      |
@@ -138,6 +139,8 @@ plan  1 test in 1 file · profile default
      |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 2 items, need 5
 
 0 passed · 1 failed                                          9ms · profile default
+reports  …/.vibranium/reports/2/{ctrf.json,junit.xml,index.html}
+next     vc run --failed
 ```
 
 ### A missing export

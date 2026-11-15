@@ -87,9 +87,10 @@ tests:
 $ vc run sample.eq#matchesStatus
 plan  1 test in 1 file · profile default
 
-✓ sample.eq#matchesStatus                                         0ms
+✓ sample.eq#matchesStatus — Order is active                       0ms
 
 1 passed                                                     39ms · profile default
+reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
 ```
 
 ### Compare null and numbers
@@ -112,9 +113,10 @@ tests:
 $ vc run sample.eq#matchesNullNote
 plan  1 test in 1 file · profile default
 
-✓ sample.eq#matchesNullNote                                       0ms
+✓ sample.eq#matchesNullNote — Note is null                        0ms
 
 1 passed                                                     14ms · profile default
+reports  …/.vibranium/reports/2/{ctrf.json,junit.xml,index.html}
 ```
 
 ### Compare an object
@@ -136,9 +138,10 @@ tests:
 $ vc run sample.eq#matchesFirstItem
 plan  1 test in 1 file · profile default
 
-✓ sample.eq#matchesFirstItem                                      5ms
+✓ sample.eq#matchesFirstItem — First item is A1                   5ms
 
 1 passed                                                     6ms · profile default
+reports  …/.vibranium/reports/3/{ctrf.json,junit.xml,index.html}
 ```
 
 ### A failing check
@@ -160,7 +163,7 @@ tests:
 $ vc run sample.eq#failsOnQty
 plan  1 test in 1 file · profile default
 
-✕ sample.eq#failsOnQty                                            0ms
+✕ sample.eq#failsOnQty — Quantity is 4                            0ms
   error[V5101]: expect.body.match.body.qty
     --> services/sample/eq.test.yaml:30:21
      |
@@ -168,6 +171,8 @@ plan  1 test in 1 file · profile default
      |                     ^^^^^^^ expected {"eq":4}, got 3
 
 0 passed · 1 failed                                          59ms · profile default
+reports  …/.vibranium/reports/4/{ctrf.json,junit.xml,index.html}
+next     vc run --failed
 ```
 
 ### A missing path is not null
@@ -189,7 +194,7 @@ tests:
 $ vc run sample.eq#failsOnMissing
 plan  1 test in 1 file · profile default
 
-✕ sample.eq#failsOnMissing                                        0ms
+✕ sample.eq#failsOnMissing — deletedAt is null                    0ms
   error[V5101]: expect.body.match.body.deletedAt
     --> services/sample/eq.test.yaml:37:27
      |
@@ -197,6 +202,8 @@ plan  1 test in 1 file · profile default
      |                           ^^^^^^^^^^ expected {"eq":null}, got nothing
 
 0 passed · 1 failed                                          100ms · profile default
+reports  …/.vibranium/reports/5/{ctrf.json,junit.xml,index.html}
+next     vc run --failed
 ```
 
 ## Try it

@@ -86,9 +86,10 @@ tests:
 $ vc run sample.contains#nameHasLove
 plan  1 test in 1 file · profile default
 
-✓ sample.contains#nameHasLove                                     0ms
+✓ sample.contains#nameHasLove — Name contains Love                0ms
 
 1 passed                                                     35ms · profile default
+reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
 ```
 
 ### A list element
@@ -110,9 +111,10 @@ tests:
 $ vc run sample.contains#isVip
 plan  1 test in 1 file · profile default
 
-✓ sample.contains#isVip                                           0ms
+✓ sample.contains#isVip — Tags include vip                        0ms
 
 1 passed                                                     34ms · profile default
+reports  …/.vibranium/reports/2/{ctrf.json,junit.xml,index.html}
 ```
 
 ### An object in a list
@@ -141,8 +143,8 @@ tests:
 $ vc run sample.contains#hasItemA1 sample.contains#failsOnPartial
 plan  2 tests in 1 file · profile default
 
-✓ sample.contains#hasItemA1                                      22ms
-✕ sample.contains#failsOnPartial                                  0ms
+✓ sample.contains#hasItemA1 — Items include A1 at 10             22ms
+✕ sample.contains#failsOnPartial — Items include sku A1           0ms
   error[V5101]: expect.body.match.body.items
     --> services/sample/contains.test.yaml:29:23
      |
@@ -150,6 +152,8 @@ plan  2 tests in 1 file · profile default
      |                       ^^^^^^^^^^^^^^^^^^^^^ expected {"contains":{"sku":"A1"}}, got [{"price":10,"sku":"A1"},{"price":32.5,"sku":"B2"}]
 
 1 passed · 1 failed                                          52ms · profile default
+reports  …/.vibranium/reports/3/{ctrf.json,junit.xml,index.html}
+next     vc run --failed
 ```
 
 To match on one field of each element, use a `[*]` path: `body.items[*].sku: {contains: A1}`.
@@ -173,7 +177,7 @@ tests:
 $ vc run sample.contains#failsOnCase
 plan  1 test in 1 file · profile default
 
-✕ sample.contains#failsOnCase                                    20ms
+✕ sample.contains#failsOnCase — Name contains love               20ms
   error[V5101]: expect.body.match.body.name
     --> services/sample/contains.test.yaml:36:22
      |
@@ -181,6 +185,8 @@ plan  1 test in 1 file · profile default
      |                      ^^^^^^^^^^^^^^^^ expected {"contains":"love"}, got "Ada Lovelace"
 
 0 passed · 1 failed                                          25ms · profile default
+reports  …/.vibranium/reports/4/{ctrf.json,junit.xml,index.html}
+next     vc run --failed
 ```
 
 ### Values from a list path
@@ -202,9 +208,10 @@ tests:
 $ vc run sample.contains#hasSkuB2
 plan  1 test in 1 file · profile default
 
-✓ sample.contains#hasSkuB2                                        0ms
+✓ sample.contains#hasSkuB2 — Some item is B2                      0ms
 
 1 passed                                                     91ms · profile default
+reports  …/.vibranium/reports/5/{ctrf.json,junit.xml,index.html}
 ```
 
 ## Try it

@@ -64,9 +64,10 @@ tests:
 $ vc run sample.status#listsUsers
 plan  1 test in 1 file · profile default
 
-✓ sample.status#listsUsers                                        9ms
+✓ sample.status#listsUsers — Lists users                          9ms
 
 1 passed                                                     12ms · profile default
+reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
 ```
 
 ### A class or a list
@@ -91,10 +92,11 @@ tests:
 $ vc run sample.status#anySuccess sample.status#okOrNoContent
 plan  2 tests in 1 file · profile default
 
-✓ sample.status#anySuccess                                       41ms
-✓ sample.status#okOrNoContent                                     0ms
+✓ sample.status#anySuccess — Any success                         41ms
+✓ sample.status#okOrNoContent — 200 or 204                        0ms
 
 2 passed                                                     46ms · profile default
+reports  …/.vibranium/reports/2/{ctrf.json,junit.xml,index.html}
 ```
 
 ### A matcher
@@ -114,9 +116,10 @@ tests:
 $ vc run sample.status#inRange
 plan  1 test in 1 file · profile default
 
-✓ sample.status#inRange                                           4ms
+✓ sample.status#inRange — Status is from 200 to 299               4ms
 
 1 passed                                                     6ms · profile default
+reports  …/.vibranium/reports/3/{ctrf.json,junit.xml,index.html}
 ```
 
 ### A failing check
@@ -141,13 +144,13 @@ tests:
 $ vc run sample.status#failsOnClass sample.status#failsOnList
 plan  2 tests in 1 file · profile default
 
-✕ sample.status#failsOnClass                                      0ms
+✕ sample.status#failsOnClass — Expects a client error             0ms
   error[V5101]: expect.status
     --> services/sample/status.test.yaml:26:15
      |
   26 |       status: 4xx
      |               ^^^ expected ["4xx"], got 200
-✕ sample.status#failsOnList                                       0ms
+✕ sample.status#failsOnList — Expects 201 or 204                  0ms
   error[V5101]: expect.status
     --> services/sample/status.test.yaml:31:15
      |
@@ -155,6 +158,8 @@ plan  2 tests in 1 file · profile default
      |               ^^^^^^^^^^ expected [201,204], got 200
 
 0 passed · 2 failed                                          15ms · profile default
+reports  …/.vibranium/reports/4/{ctrf.json,junit.xml,index.html}
+next     vc run --failed
 ```
 
 ### An invalid status

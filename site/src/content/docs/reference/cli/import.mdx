@@ -50,6 +50,7 @@ Import 4 apis from specs/users.yaml
 +++ b/services/users/users.api.yaml
 @@ -0,0 +1,37 @@
 +# yaml-language-server: $schema=https://v007m.github.io/vc-rs/schema/api.schema.json
++# users · api file · keys: https://github.com/v007m/vc-rs/blob/master/docs/design/syntax-reference.md#api-files
 +id: users
 +name: Users
 +baseUrl: ${var.usersUrl}
@@ -198,7 +199,8 @@ $ vc import openapi nope.yaml
 error: nope.yaml: not a file or folder in the project at /home/ada/shop
   = help: give a URL, or a path inside the project
 $ vc import pdf specs/users.yaml
-error: unknown import kind "pdf"; known: …
+error: unknown import kind "pdf"; known: bruno, curl, har, http, openapi, postman
+  = help: the importers are bruno, curl, har, http, openapi, postman
 $ vc import openapi specs/users.yaml --id admin --only nope
 error: no operation in specs/users.yaml matches the filter `--only nope`
   = help: --include takes a tag or a path prefix, --only an operation ID, as the spec writes them

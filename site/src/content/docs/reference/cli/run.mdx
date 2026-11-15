@@ -118,8 +118,10 @@ Each example row and each repeat is its own instance, labeled `[row n]` or `[rep
 ```console
 $ vc run sample.extra --include-skipped --bail
 ...
-- sample.extra#rejectsBadEmail › empty skipped: cancelled
+- sample.extra#rejectsBadEmail › empty — Rejects a bad email skipped: cancelled
 0 passed · 1 failed · 3 skipped
+reports  /home/ada/shop/.vibranium/reports/39/{ctrf.json,junit.xml,index.html}
+next     vc run --failed
 ```
 
 ### Machine-readable output for a script
@@ -135,7 +137,7 @@ $ vc run sample.extra#echoesBody --reporter json --report ctrf --out build/vc
 {"attempts":1,"durationMs":22,"event":"testFinished","failure":null,"instance":0,"label":"sample.extra#echoesBody","name":"Echoes the body back","skipReason":null,"status":"passed","test":"sample.extra#echoesBody"}
 {"event":"fileFinished","file":"sample.extra","totals":{"allowedFailures":0,"blocked":0,"failed":0,"flaky":0,"passed":1,"skipped":0}}
 {"event":"runFinished","status":"passed","totals":{"allowedFailures":0,"blocked":0,"failed":0,"flaky":0,"passed":1,"skipped":0}}
-{"artifacts":[{"path":"/home/ada/shop/build/vc/ctrf.json","reporter":"ctrf"}],"durationMs":23,"event":"summary","profileNames":{},"profiles":["default"],"startedMs":1794332843979,"status":"passed","totals":{"allowedFailures":0,"blocked":0,"failed":0,"flaky":0,"passed":1,"skipped":0}}
+{"artifacts":[{"path":"/home/ada/shop/build/vc/ctrf.json","reporter":"ctrf"}],"durationMs":23,"event":"summary","profileNames":{},"profiles":["default"],"startedMs":1794332843979,"status":"passed","teardownFailures":[],"totals":{"allowedFailures":0,"blocked":0,"failed":0,"flaky":0,"passed":1,"skipped":0}}
 ```
 
 ## Exit codes
@@ -167,10 +169,10 @@ error: --changed: cannot list the files changed since nosuchref: fatal: Needed a
 | `exchanged` | `action`, `owner`, `method`, `url`, `status`, `ms` |
 | `checkEvaluated` | `action`, `owner`, `check` `{key, expected, actual, passed, diff, error, code, origin, location {path, line, column}}` |
 | `actionFinished` | `action`, `owner`, `status`, `failure` |
-| `testFinished` | `test`, `instance`, `label`, `status`, `attempts`, `durationMs`, `failure` `{action, code, message}`, `skipReason` |
+| `testFinished` | `test`, `instance`, `label`, `name` (the test's `name`, or `null`), `status`, `attempts`, `durationMs`, `failure` `{action, code, message}`, `skipReason` |
 | `cleanupFinished` | A cleanup action finished |
 | `runFinished` | `status`, `totals` `{passed, failed, blocked, skipped, flaky, allowedFailures}` |
-| `summary` | `status`, `totals`, `durationMs`, `startedMs`, `profiles`, `artifacts` `[{reporter, path}]` |
+| `summary` | `status`, `totals`, `durationMs`, `startedMs`, `profiles`, `profileNames`, `artifacts` `[{reporter, path}]`, `teardownFailures` `[{block, file, message}]` (each `afterAll` or `afterRun` block that failed) |
 
 `status` on a test is `passed`, `failed`, `blocked`, `skipped`, `flaky` or `allowedFailure`. For an allowed failure, `skipReason` holds the `allowFailure` reason.
 
@@ -179,8 +181,8 @@ error: --changed: cannot list the files changed since nosuchref: fatal: Needed a
 - **Check first.** `vc run` compiles the whole project before it sends anything. Any error stops the run with exit code 2 and the same output as [`vc check`](/vc-rs/reference/cli/check/).
 - **Reports.** Each run writes its report files to `<reports.dir>/<run number>/` (default `.vibranium/reports/<n>/`). The HTML report is `index.html` with its assets beside it, or one `report.html` with `--single-file`. `--out <dir>` writes the files straight into `<dir>`.
 - **History.** Every run is stored in `.vibranium/history.db`, so [`vc history`](/vc-rs/reference/cli/history/), [`vc report`](/vc-rs/reference/cli/report/) and `--failed` can use it later.
-- **Skipped tests.** A test with `skip` prints `- <id> skipped: <reason>` and does not run, unless you pass `--include-skipped`.
-- **Allowed failures.** A test with [`allowFailure`](/vc-rs/reference/syntax/allow-failure/) that fails prints `⚠ <id> allowed to fail: <reason>` and does not fail the run, unless you pass `--strict`.
+- **Skipped tests.** A test with `skip` prints `- <id> — <name> skipped: <reason>` and does not run, unless you pass `--include-skipped`.
+- **Allowed failures.** A test with [`allowFailure`](/vc-rs/reference/syntax/allow-failure/) that fails prints `⚠ <id> — <name> allowed to fail: <reason>` and does not fail the run, unless you pass `--strict`.
 - **Blocked tests.** When a `before` action or a lifecycle action a test needs fails, the test is blocked rather than failed.
 - **Seed.** Generated data (`${fake.…}`) comes from a seed. Pass `--seed` with the printed value to get the same data again.
 

@@ -75,9 +75,10 @@ tests:
 $ vc run sample.lte#totalLte425
 plan  1 test in 1 file · profile default
 
-✓ sample.lte#totalLte425                                          3ms
+✓ sample.lte#totalLte425 — Total <= 42.5                          3ms
 
 1 passed                                                     4ms · profile default
+reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
 ```
 
 ### Use a var as the bound
@@ -101,9 +102,10 @@ tests:
 $ vc run sample.lte#totalFromVar
 plan  1 test in 1 file · profile default
 
-✓ sample.lte#totalFromVar                                         9ms
+✓ sample.lte#totalFromVar — Total against a var                   9ms
 
 1 passed                                                     85ms · profile default
+reports  …/.vibranium/reports/2/{ctrf.json,junit.xml,index.html}
 ```
 
 ### Compare strings
@@ -125,9 +127,10 @@ tests:
 $ vc run sample.lte#dayCompare
 plan  1 test in 1 file · profile default
 
-✓ sample.lte#dayCompare                                           0ms
+✓ sample.lte#dayCompare — Day against a date                      0ms
 
 1 passed                                                     16ms · profile default
+reports  …/.vibranium/reports/3/{ctrf.json,junit.xml,index.html}
 ```
 
 ### A failing check
@@ -149,7 +152,7 @@ tests:
 $ vc run sample.lte#failsOnTotal
 plan  1 test in 1 file · profile default
 
-✕ sample.lte#failsOnTotal                                         5ms
+✕ sample.lte#failsOnTotal — Total <= 42                           5ms
   error[V5101]: expect.body.match.body.total
     --> services/sample/lte.test.yaml:31:23
      |
@@ -157,6 +160,8 @@ plan  1 test in 1 file · profile default
      |                       ^^^^^^^^^ expected {"lte":42}, got 42.5
 
 0 passed · 1 failed                                          7ms · profile default
+reports  …/.vibranium/reports/4/{ctrf.json,junit.xml,index.html}
+next     vc run --failed
 ```
 
 ### Check response time
@@ -177,9 +182,10 @@ tests:
 $ vc run sample.lte#answersQuickly
 plan  1 test in 1 file · profile default
 
-✓ sample.lte#answersQuickly                                       0ms
+✓ sample.lte#answersQuickly — Lists users quickly                 0ms
 
 1 passed                                                     30ms · profile default
+reports  …/.vibranium/reports/5/{ctrf.json,junit.xml,index.html}
 ```
 
 ## Try it

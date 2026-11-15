@@ -264,7 +264,7 @@ Tests and apis are the definitions; everything else is something they point at.
 | `openapi/` | Snapshots of each spec as it was at the last import or sync; written only by `vc import` and `vc sync` | `vc sync`, as the merge base | `openapi/users.yaml` |
 | `.env.schema` | Secret names (`NAME=` lines), and where each comes from when Varlock is the provider | `${secret.X}` anywhere | `${secret.SHOP_CLIENT_SECRET}` |
 | `vibranium.lock` | Approved plugin permissions | `vc plugin add` | — |
-| `.vibranium/` | Reports, `history.db`, `cache.db`; generated, git-ignored | `vc report`, `vc history`, the TUI and web UI | `.vibranium/reports/report.html` |
+| `.vibranium/` | Reports, `history.db`, `cache.db`; generated, git-ignored | `vc report`, `vc history`, the TUI and web UI | `.vibranium/reports/<n>/index.html` |
 
 Paths in `$file` and `function:` are relative to the file that contains them, so moving a folder of api and test files keeps working as long as its references move with it; `vc check` reports any that break.
 
@@ -764,7 +764,7 @@ error[V2101]: ${var.couponCode} is used but never set
 `vc run` prints a plan line, one line per test as it finishes, a detailed block for each failure, and a summary. Tests are grouped by file, under the file's `name` when it has one, dimmed in colour. When files run one after another, each test prints as it finishes. When they run in parallel, one file prints live and the others' tests wait until it finishes, so each file's block appears once; a cancelled or bailed run prints whatever is waiting before the summary. A file without a `name` gets no heading, and the `json` reporter prints none (D321). The detailed block reads like a compiler error: the file, line and column of the failing check, expected and actual values, and where an expected value came from.
 
 ```
-✕ orders.checkout#placesOrder                                  6.4s
+✕ orders.checkout#placesOrder — A cart with two items becomes a paid order   6.4s
   error: expect.body.match.total
     --> services/orders/checkout.test.yaml:33:11
      |
@@ -774,8 +774,8 @@ error[V2101]: ${var.couponCode} is used but never set
     --> services/orders/checkout.test.yaml:35:9
 
 9 passed · 1 failed · 1 blocked · 1 skipped · 1 flaky        14.2s · profile staging
-reports  .vibranium/reports/483/{ctrf.json,junit.xml,report.html}
-next     vc run --failed · vc report 483 --open
+reports  …/.vibranium/reports/483/{ctrf.json,junit.xml,index.html}
+next     vc run --failed
 ```
 
 Every test instance ends as `passed`, `failed`, `blocked` (a setup it needs failed; never retried), `skipped`, `flaky` (failed, then passed when its `retry` re-ran the whole test) (D126) or `allowedFailure` (failed under `allowFailure`; shown as `⚠ … allowed to fail: <reason>` with its failure block, and counted as `N allowed to fail`) (D248).

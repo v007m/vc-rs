@@ -97,10 +97,10 @@ $ vc explain lab.expect#overridesOne
 ...
   expect
     status: 200, 201  (test lab.expect#overridesOne)
-    header content-type: contains  (api checked#post)
-    match method: equals  (api checked#post)
-    match body.word: equals  (api checked#post)
-    cel echoes the path: equals  (api checked#post)
+    header content-type: contains json  (api checked#post)
+    match method: POST  (api checked#post)
+    match body.word: hello  (api checked#post)
+    cel echoes the path: response.body.path == "/echo"  (api checked#post)
 ```
 
 **With `replace`.** Only the test's own check is left:
@@ -158,7 +158,7 @@ call checked#post
   ...
   expect
     status: 200  (test lab.merge#testReplace)
-    header content-type: contains  (step call checked#post)
+    header content-type: contains json  (step call checked#post)
 ```
 
 ## Try it

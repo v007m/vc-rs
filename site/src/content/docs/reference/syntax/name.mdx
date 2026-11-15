@@ -128,12 +128,14 @@ tests:
 ```console
 $ vc check services/layer
 warning[V4001]: test ID `Lists_Twice` is not camelCase
- --> services/layer/named.test.yaml:5:9
+ --> services/layer/named.test.yaml:2:9
   |
-5 |   - id: Lists_Twice
+2 |   - id: Lists_Twice
   |         ^^^^^^^^^^^ rename it
-  = help: test IDs are camelCase: `rejectsADeclinedCard`
+  = help: test IDs are camelCase third-person verbs: `rejectsADeclinedCard`
   = fix: Rename to rejectsADeclinedCard (certain)
+
+0 errors · 1 warning · 1 file checked
 ```
 
 `vc check --fix` applies the rename and updates every reference.

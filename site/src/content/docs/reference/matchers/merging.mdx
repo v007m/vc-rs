@@ -78,7 +78,7 @@ tests:
 $ vc run sample.merging#keepsApiStatus
 plan  1 test in 1 file · profile default
 
-✕ sample.merging#keepsApiStatus                                   0ms
+✕ sample.merging#keepsApiStatus — Missing email, api status still expected    0ms
   error[V5101]: expect.status
     --> services/sample/sample.api.yaml:35:15
      |
@@ -87,6 +87,9 @@ plan  1 test in 1 file · profile default
      = note: expected by api sample#createUser
 
 0 passed · 1 failed                                          33ms · profile default
+reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
+next     vc run --failed
+seed 5998138905167938: pass `--seed 5998138905167938` to run with the same generated data
 ```
 
 ### A check with the same key replaces it
@@ -111,9 +114,10 @@ tests:
 $ vc run sample.merging#rejectsMissingEmail
 plan  1 test in 1 file · profile default
 
-✓ sample.merging#rejectsMissingEmail                              0ms
+✓ sample.merging#rejectsMissingEmail — Rejects a user without an email    0ms
 
 1 passed                                                     27ms · profile default
+reports  …/.vibranium/reports/2/{ctrf.json,junit.xml,index.html}
 ```
 
 ### replace drops everything inherited
@@ -136,9 +140,10 @@ tests:
 $ vc run sample.merging#onlyChecksId
 plan  1 test in 1 file · profile default
 
-✓ sample.merging#onlyChecksId                                     4ms
+✓ sample.merging#onlyChecksId — Only the ID matters               4ms
 
 1 passed                                                     10ms · profile default
+reports  …/.vibranium/reports/3/{ctrf.json,junit.xml,index.html}
 ```
 
 ## Try it

@@ -70,9 +70,10 @@ tests:
 $ vc run sample.exists#hasId
 plan  1 test in 1 file · profile default
 
-✓ sample.exists#hasId                                             4ms
+✓ sample.exists#hasId — Order has an ID                           4ms
 
 1 passed                                                     5ms · profile default
+reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
 ```
 
 ### Forbid a field
@@ -94,9 +95,10 @@ tests:
 $ vc run sample.exists#hidesSecret
 plan  1 test in 1 file · profile default
 
-✓ sample.exists#hidesSecret                                       0ms
+✓ sample.exists#hidesSecret — No password in the body             0ms
 
 1 passed                                                     15ms · profile default
+reports  …/.vibranium/reports/2/{ctrf.json,junit.xml,index.html}
 ```
 
 ### Null counts as present
@@ -118,9 +120,10 @@ tests:
 $ vc run sample.exists#hasNote
 plan  1 test in 1 file · profile default
 
-✓ sample.exists#hasNote                                          16ms
+✓ sample.exists#hasNote — Note is present                        16ms
 
 1 passed                                                     19ms · profile default
+reports  …/.vibranium/reports/3/{ctrf.json,junit.xml,index.html}
 ```
 
 ### A failing check
@@ -142,7 +145,7 @@ tests:
 $ vc run sample.exists#failsOnMissing
 plan  1 test in 1 file · profile default
 
-✕ sample.exists#failsOnMissing                                    4ms
+✕ sample.exists#failsOnMissing — Order has deletedAt              4ms
   error[V5101]: expect.body.match.body.deletedAt
     --> services/sample/exists.test.yaml:29:27
      |
@@ -150,6 +153,8 @@ plan  1 test in 1 file · profile default
      |                           ^^^^^^^^^^^^^^ expected {"exists":true}, got nothing
 
 0 passed · 1 failed                                          6ms · profile default
+reports  …/.vibranium/reports/4/{ctrf.json,junit.xml,index.html}
+next     vc run --failed
 ```
 
 ## Try it

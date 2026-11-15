@@ -70,9 +70,10 @@ tests:
 $ vc run sample.notin#isOpen
 plan  1 test in 1 file · profile default
 
-✓ sample.notin#isOpen                                             4ms
+✓ sample.notin#isOpen — Order is not closed or cancelled          4ms
 
 1 passed                                                     5ms · profile default
+reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
 ```
 
 ### A failing check
@@ -94,7 +95,7 @@ tests:
 $ vc run sample.notin#failsOnQty
 plan  1 test in 1 file · profile default
 
-✕ sample.notin#failsOnQty                                         4ms
+✕ sample.notin#failsOnQty — Quantity is not 3                     4ms
   error[V5101]: expect.body.match.body.qty
     --> services/sample/notin.test.yaml:15:21
      |
@@ -102,6 +103,8 @@ plan  1 test in 1 file · profile default
      |                     ^^^^^^^^^^^^ expected {"notIn":[3]}, got 3
 
 0 passed · 1 failed                                          5ms · profile default
+reports  …/.vibranium/reports/2/{ctrf.json,junit.xml,index.html}
+next     vc run --failed
 ```
 
 ### A missing path passes
@@ -123,9 +126,10 @@ tests:
 $ vc run sample.notin#passesOnMissing
 plan  1 test in 1 file · profile default
 
-✓ sample.notin#passesOnMissing                                    3ms
+✓ sample.notin#passesOnMissing — Missing field is not closed      3ms
 
 1 passed                                                     4ms · profile default
+reports  …/.vibranium/reports/3/{ctrf.json,junit.xml,index.html}
 ```
 
 ## Try it

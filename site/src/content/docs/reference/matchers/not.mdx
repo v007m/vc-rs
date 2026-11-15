@@ -70,9 +70,10 @@ tests:
 $ vc run sample.not#isOpen
 plan  1 test in 1 file · profile default
 
-✓ sample.not#isOpen                                               3ms
+✓ sample.not#isOpen — Status is not closed or cancelled           3ms
 
 1 passed                                                     5ms · profile default
+reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
 ```
 
 ### Invert a text check
@@ -94,9 +95,10 @@ tests:
 $ vc run sample.not#notTestEmail
 plan  1 test in 1 file · profile default
 
-✓ sample.not#notTestEmail                                         4ms
+✓ sample.not#notTestEmail — Email does not contain test           4ms
 
 1 passed                                                     5ms · profile default
+reports  …/.vibranium/reports/2/{ctrf.json,junit.xml,index.html}
 ```
 
 ### A failing check
@@ -118,7 +120,7 @@ tests:
 $ vc run sample.not#failsOnStatus
 plan  1 test in 1 file · profile default
 
-✕ sample.not#failsOnStatus                                        0ms
+✕ sample.not#failsOnStatus — Status is not active                 0ms
   error[V5101]: expect.body.match.body.status
     --> services/sample/not.test.yaml:22:24
      |
@@ -126,6 +128,8 @@ plan  1 test in 1 file · profile default
      |                        ^^^^^^^^^^^^^^^^^^^ expected {"not":{"eq":"active"}}, got "active"
 
 0 passed · 1 failed                                          18ms · profile default
+reports  …/.vibranium/reports/3/{ctrf.json,junit.xml,index.html}
+next     vc run --failed
 ```
 
 ### A missing path passes
@@ -154,10 +158,11 @@ tests:
 $ vc run sample.not#passesOnMissing sample.not#needsTheField
 plan  2 tests in 1 file · profile default
 
-✓ sample.not#passesOnMissing                                      0ms
-✓ sample.not#needsTheField                                        0ms
+✓ sample.not#passesOnMissing — Missing field is not 1             0ms
+✓ sample.not#needsTheField — Status is present and not closed     0ms
 
 2 passed                                                     15ms · profile default
+reports  …/.vibranium/reports/4/{ctrf.json,junit.xml,index.html}
 ```
 
 ## Try it

@@ -79,9 +79,10 @@ tests:
 $ vc run sample.format#emailAndUuid
 plan  1 test in 1 file · profile default
 
-✓ sample.format#emailAndUuid                                      0ms
+✓ sample.format#emailAndUuid — Email and UUID look right          0ms
 
 1 passed                                                     18ms · profile default
+reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
 ```
 
 ### Dates and times
@@ -104,9 +105,10 @@ tests:
 $ vc run sample.format#dates
 plan  1 test in 1 file · profile default
 
-✓ sample.format#dates                                            47ms
+✓ sample.format#dates — Dates look right                         47ms
 
 1 passed                                                     61ms · profile default
+reports  …/.vibranium/reports/2/{ctrf.json,junit.xml,index.html}
 ```
 
 ### URI and IPv4
@@ -129,9 +131,10 @@ tests:
 $ vc run sample.format#addresses
 plan  1 test in 1 file · profile default
 
-✓ sample.format#addresses                                        40ms
+✓ sample.format#addresses — Addresses look right                 40ms
 
 1 passed                                                     43ms · profile default
+reports  …/.vibranium/reports/3/{ctrf.json,junit.xml,index.html}
 ```
 
 ### A failing check
@@ -153,7 +156,7 @@ tests:
 $ vc run sample.format#failsOnDay
 plan  1 test in 1 file · profile default
 
-✕ sample.format#failsOnDay                                        8ms
+✕ sample.format#failsOnDay — Day is a date-time                   8ms
   error[V5101]: expect.body.match.body.day
     --> services/sample/format.test.yaml:32:21
      |
@@ -161,6 +164,8 @@ plan  1 test in 1 file · profile default
      |                     ^^^^^^^^^^^^^^^^^^ expected {"format":"dateTime"}, got "2026-11-10"
 
 0 passed · 1 failed                                          23ms · profile default
+reports  …/.vibranium/reports/4/{ctrf.json,junit.xml,index.html}
+next     vc run --failed
 ```
 
 ## Try it

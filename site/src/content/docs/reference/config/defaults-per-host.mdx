@@ -29,6 +29,7 @@ One connection at a time:
 ```console
 $ vc run slow.par --set defaults.perHost=1
 4 passed                                                     2.0s · profile default
+reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
 ```
 
 Two at a time:
@@ -36,6 +37,7 @@ Two at a time:
 ```console
 $ vc run slow.par --set defaults.perHost=2
 4 passed                                                     1.0s · profile default
+reports  …/.vibranium/reports/2/{ctrf.json,junit.xml,index.html}
 ```
 
 ## Try it

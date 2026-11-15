@@ -28,9 +28,9 @@ permissions:
 | `kind` | `reporter` \| `auth` \| `importer` \| `executor` | — | yes | `importer` and `executor` are accepted but have no host methods yet |
 | `entry.command` | text | — | yes | A file in the plugin folder or a program on `PATH`. Started directly, never through a shell |
 | `entry.args` | list of text | `[]` | no | Arguments passed to the command |
-| `permissions.network` | list of hosts | `[]` | no | Hosts it says it reaches. Shown and recorded, not enforced |
+| `permissions.network` | list of hosts | `[]` | no | Hosts it reaches. None means no network. Enforced by the OS on macOS and Linux |
 | `permissions.secrets` | list of names | `[]` | no | Secrets it may ask for with `secrets/get`. Enforced by `vc` |
-| `permissions.files` | list of project paths | `[]` | no | Paths it says it reads or writes. Shown and recorded, not enforced |
+| `permissions.files` | list of project paths | `[]` | no | Paths it reads and writes. Enforced by the OS on macOS and Linux |
 
 ## Examples
 
@@ -75,13 +75,14 @@ permissions:
   files: [reports/]
 ```
 
-**What `vc plugin add` shows for it.** The `asks to reach` line comes from `permissions`.
+**What `vc plugin add` shows for it.** The `asks to reach` line comes from `permissions`. `--yes` approves it; without a terminal to ask in, `vc plugin add` stops there and exits 2.
 
 ```console
-$ vc plugin add path:plugins/summary
+$ vc plugin add path:plugins/summary --yes
 summary 1.0.0 · reporter plugin from path:plugins/summary (plugins/summary)
   runs: python3 report.py
   asks to reach: secret reportToken
+✓ added plugin summary from path:plugins/summary
 ```
 
 ## Try it
@@ -102,10 +103,10 @@ reports:
 ## How it behaves
 
 - The command runs in the plugin's installed folder, `.vibranium/plugins/<id>/`.
-- `vc plugin add` checks the manifest's shape, but not that `entry.command` exists. A missing program shows up at run time:
+- `vc plugin add` checks the manifest's shape, and warns, but still adds the plugin, when `entry.command` cannot be found. The run then cannot start it. On macOS:
 
   ```console
-  warning[V5118]: cannot write the `ghost` report: plugin `ghost` could not start: cannot run `no-such-program`: No such file or directory (os error 2)
+  warning[V5118]: cannot write the `ghost` report: plugin `ghost` could not start: `initialize` failed: plugin `ghost` stopped: it exited with exit status: 71
   ```
 - When you change `permissions`, run `vc plugin add` again. Until then the run refuses the plugin, because it asks for more than `vibranium.lock` grants.
 

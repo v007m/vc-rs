@@ -22,7 +22,7 @@ alerts:
 
 | Field | Type | Default | Required | Notes |
 | --- | --- | --- | --- | --- |
-| `on` | list of `failure`, `recovery`, `flaky`, `threshold` | `[failure]` | no | The [triggers](/vc-rs/reference/plugins/triggers/) this rule fires on |
+| `on` | list of `failure`, `blocked`, `recovery`, `flaky`, `threshold` | `[failure]` | no | The [triggers](/vc-rs/reference/plugins/triggers/) this rule fires on |
 | `profiles` | list of profile IDs | all | no | The rule applies only to runs under one of these profiles |
 | `tags` | list of tags | all | no | The rule sees only tests with one of these tags (a test's own tags or its file's) |
 | `notify` | list of channel maps | — | yes | Each key is a channel: `webhook`, `slack`, `teams` or `pagerduty`, with its settings |

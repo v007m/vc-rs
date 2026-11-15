@@ -75,9 +75,10 @@ tests:
 $ vc run sample.gte#totalGte425
 plan  1 test in 1 file · profile default
 
-✓ sample.gte#totalGte425                                          0ms
+✓ sample.gte#totalGte425 — Total >= 42.5                          0ms
 
 1 passed                                                     7ms · profile default
+reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
 ```
 
 ### Use a var as the bound
@@ -101,9 +102,10 @@ tests:
 $ vc run sample.gte#totalFromVar
 plan  1 test in 1 file · profile default
 
-✓ sample.gte#totalFromVar                                         0ms
+✓ sample.gte#totalFromVar — Total against a var                   0ms
 
 1 passed                                                     48ms · profile default
+reports  …/.vibranium/reports/2/{ctrf.json,junit.xml,index.html}
 ```
 
 ### Compare strings
@@ -125,9 +127,10 @@ tests:
 $ vc run sample.gte#dayCompare
 plan  1 test in 1 file · profile default
 
-✓ sample.gte#dayCompare                                           0ms
+✓ sample.gte#dayCompare — Day against a date                      0ms
 
 1 passed                                                     11ms · profile default
+reports  …/.vibranium/reports/3/{ctrf.json,junit.xml,index.html}
 ```
 
 ### A failing check
@@ -149,7 +152,7 @@ tests:
 $ vc run sample.gte#failsOnTotal
 plan  1 test in 1 file · profile default
 
-✕ sample.gte#failsOnTotal                                         0ms
+✕ sample.gte#failsOnTotal — Total >= 43                           0ms
   error[V5101]: expect.body.match.body.total
     --> services/sample/gte.test.yaml:31:23
      |
@@ -157,6 +160,8 @@ plan  1 test in 1 file · profile default
      |                       ^^^^^^^^^ expected {"gte":43}, got 42.5
 
 0 passed · 1 failed                                          6ms · profile default
+reports  …/.vibranium/reports/4/{ctrf.json,junit.xml,index.html}
+next     vc run --failed
 ```
 
 ### Check response time
@@ -177,9 +182,10 @@ tests:
 $ vc run sample.gte#answersQuickly
 plan  1 test in 1 file · profile default
 
-✓ sample.gte#answersQuickly                                       0ms
+✓ sample.gte#answersQuickly — Lists users quickly                 0ms
 
 1 passed                                                     70ms · profile default
+reports  …/.vibranium/reports/5/{ctrf.json,junit.xml,index.html}
 ```
 
 ## Try it

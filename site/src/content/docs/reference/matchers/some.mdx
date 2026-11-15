@@ -79,9 +79,10 @@ tests:
 $ vc run sample.some#hasBigItem
 plan  1 test in 1 file · profile default
 
-✓ sample.some#hasBigItem                                          3ms
+✓ sample.some#hasBigItem — Some price is over 30                  3ms
 
 1 passed                                                     6ms · profile default
+reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
 ```
 
 ### Match whole elements
@@ -103,9 +104,10 @@ tests:
 $ vc run sample.some#hasB2
 plan  1 test in 1 file · profile default
 
-✓ sample.some#hasB2                                               3ms
+✓ sample.some#hasB2 — Some item is B2 at 32.5                     3ms
 
 1 passed                                                     6ms · profile default
+reports  …/.vibranium/reports/2/{ctrf.json,junit.xml,index.html}
 ```
 
 ### A failing check
@@ -127,7 +129,7 @@ tests:
 $ vc run sample.some#failsOnPrice
 plan  1 test in 1 file · profile default
 
-✕ sample.some#failsOnPrice                                        3ms
+✕ sample.some#failsOnPrice — Some price is over 100               3ms
   error[V5101]: expect.body.match.body.items[*].price
     --> services/sample/some.test.yaml:22:32
      |
@@ -135,6 +137,8 @@ plan  1 test in 1 file · profile default
      |                                ^^^^^^^^^^^^^^^^^ expected {"some":{"gt":100}}, got [10,32.5]
 
 0 passed · 1 failed                                          4ms · profile default
+reports  …/.vibranium/reports/3/{ctrf.json,junit.xml,index.html}
+next     vc run --failed
 ```
 
 ## Try it

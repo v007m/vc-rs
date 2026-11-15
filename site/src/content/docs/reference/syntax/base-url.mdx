@@ -33,7 +33,7 @@ Keep the address in the config's vars. Every api file for that service refers to
 
 ```yaml title="vibranium.config.yaml"
 vars:
-  sampleUrl: http://localhost:7432
+  sampleUrl: http://localhost:7421
 ```
 
 ```yaml title="services/req/req.api.yaml"
@@ -50,12 +50,14 @@ apis:
 $ vc explain req#defaultMethod
 req#defaultMethod
 profile  default
-  GET http://localhost:7432/echo
+  GET http://localhost:7421/echo
   vars
-    sampleUrl  http://localhost:7432  (vibranium.config.yaml)
-    adminPassword  s3cret  (vibranium.config.yaml)
-    pageSize  20  (file req)
+    sampleUrl  http://localhost:7421  (vibranium.config.yaml)
+  headers
+    accept  application/json  (vibranium.config.yaml)
+    user-agent  vibranium/2  (vibranium.config.yaml)
   expect
+    status: 2xx  (default)
 ```
 
 ### A path prefix
@@ -73,11 +75,14 @@ apis:
 $ vc explain prefix#first
 prefix#first
 profile  default
-  GET http://localhost:7432/users/1
+  GET http://localhost:7421/users/1
   vars
-    sampleUrl  http://localhost:7432  (vibranium.config.yaml)
-    adminPassword  s3cret  (vibranium.config.yaml)
+    sampleUrl  http://localhost:7421  (vibranium.config.yaml)
+  headers
+    accept  application/json  (vibranium.config.yaml)
+    user-agent  vibranium/2  (vibranium.config.yaml)
   expect
+    status: 2xx  (default)
 
 $ vc call prefix#first
 200 OK · 7 ms · api expect passed
@@ -107,9 +112,11 @@ profile  staging
   GET https://sample.staging.example/echo
   vars
     sampleUrl  https://sample.staging.example  (profile staging)
-    adminPassword  s3cret  (vibranium.config.yaml)
-    pageSize  20  (file req)
+  headers
+    accept  application/json  (vibranium.config.yaml)
+    user-agent  vibranium/2  (vibranium.config.yaml)
   expect
+    status: 2xx  (default)
 ```
 
 For one run only, use `--set`:
@@ -121,9 +128,11 @@ profile  default
   GET http://localhost:9000/echo
   vars
     sampleUrl  http://localhost:9000  (--set)
-    adminPassword  s3cret  (vibranium.config.yaml)
-    pageSize  20  (file req)
+  headers
+    accept  application/json  (vibranium.config.yaml)
+    user-agent  vibranium/2  (vibranium.config.yaml)
   expect
+    status: 2xx  (default)
 ```
 
 ### Point one call somewhere else
@@ -148,8 +157,9 @@ call req#defaultMethod
   GET http://localhost:7442/echo
   vars
     sampleUrl  http://localhost:7442  (test)
-    adminPassword  s3cret  (vibranium.config.yaml)
-    pageSize  20  (file req)
+  headers
+    accept  application/json  (vibranium.config.yaml)
+    user-agent  vibranium/2  (vibranium.config.yaml)
   expect
     status: 404  (test nobase.urls#pointsElsewhere)
 
@@ -160,6 +170,7 @@ plan  2 tests in 1 file · profile default
 ✓ nobase.urls#pointsElsewhere                                     0ms
 
 2 passed                                                     55ms · profile default
+reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
 ```
 
 ### No baseUrl
@@ -169,7 +180,7 @@ Without `baseUrl`, each `path` must be a full URL:
 ```yaml title="services/nobase/nobase.api.yaml"
 apis:
   - id: full
-    path: http://localhost:7432/echo
+    path: http://localhost:7421/echo
 ```
 
 ## Try it
@@ -193,7 +204,7 @@ apis:
 
 ## Common errors
 
-A trailing slash in `baseUrl` doubles the slash. `baseUrl: ${var.sampleUrl}/` with `path: /echo` sends `http://localhost:7432//echo`, and the demo answers 404. `vc check` warns with [V4005](/vc-rs/reference/diagnostics/v4005/), and `vc check --fix` removes the `/`.
+A trailing slash in `baseUrl` doubles the slash. `baseUrl: ${var.sampleUrl}/` with `path: /echo` sends `http://localhost:7421//echo`, and the demo answers 404. `vc check` warns with [V4005](/vc-rs/reference/diagnostics/v4005/), and `vc check --fix` removes the `/`.
 
 A relative path with no `baseUrl` also passes `vc check`, then fails when sent:
 
@@ -207,9 +218,16 @@ $ vc explain nobase#rel
 nobase#rel
 profile  default
   GET /echo
+  vars
+    sampleUrl  http://localhost:7421  (vibranium.config.yaml)
+  headers
+    accept  application/json  (vibranium.config.yaml)
+    user-agent  vibranium/2  (vibranium.config.yaml)
+  expect
+    status: 2xx  (default)
 
 $ vc call nobase#rel
-✗ error[V5111]: `nobase#rel` sends to `/echo`, which is not a full URL: no `baseUrl` is set for `nobase` (profile default); help: add `baseUrl: ${var.nobaseUrl}` to its api file and set `nobaseUrl` in the config, a profile, or with `--set vars.nobaseUrl=http://…`
+✗ `nobase#rel` sends to `/echo`, which is not a full URL: no `baseUrl` is set for `nobase` (profile default); help: add `baseUrl: ${var.nobaseUrl}` to its api file and set `nobaseUrl` in the config, a profile, or with `--set vars.nobaseUrl=http://…`
 ```
 
 A `baseUrl` var that no level sets fails `vc check` with [V2101](/vc-rs/reference/diagnostics/v2101/). A host that can't be reached fails the call with [V5105](/vc-rs/reference/diagnostics/v5105/).

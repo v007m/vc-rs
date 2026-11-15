@@ -41,6 +41,8 @@ The config declares the profiles:
 profiles:
   - id: default
     default: true
+    vars:
+      f: from-config-default
   - id: staging
     vars:
       f: from-config-staging
@@ -87,6 +89,7 @@ $ vc run prof.checkout --profile staging,eu
 ✓ prof.checkout#sendsCurrency                                     2ms
 
 1 passed                                                     4ms · profiles staging, eu
+reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
 ```
 
 With the default profile, `currency` stays `USD`:
@@ -101,6 +104,8 @@ $ vc run prof.checkout
      |                          ^^^ expected "EUR", got "USD"
 
 0 passed · 1 failed                                          3ms · profile default
+reports  …/.vibranium/reports/2/{ctrf.json,junit.xml,index.html}
+next     vc run --failed
 ```
 
 `vc explain` shows which profile set each value. `staging` and `eu` both set `f` in the config, and `eu` wins because it is listed last:
@@ -110,11 +115,12 @@ $ vc explain prof.checkout#sendsCurrency --profile staging,eu
 prof.checkout#sendsCurrency
 profile  staging, eu
 call prof#show
-  POST http://localhost:7433/echo
+  POST http://localhost:7421/echo
   vars
     ...
     f  from-config-eu  (profile eu)
     region  us  (file prof, profile staging)
+    tier  paid  (api prof#show)
     currency  EUR  (file prof.checkout, profile eu)
 ```
 
@@ -145,7 +151,7 @@ apis:
 $ vc explain prof#show --profile staging
 prof#show
 profile  staging
-  POST http://localhost:7433/echo
+  POST http://localhost:7421/echo
   vars
     ...
     region  us  (file prof, profile staging)
@@ -205,7 +211,7 @@ error[V2002]: unknown profile `qa`
    |
 10 |   - id: qa
    |         ^^ the config has no such profile
-   = help: expected one of `default`, `staging`
+   = help: expected one of `default`, `eu`, `staging`
 ```
 
 | Code | When |

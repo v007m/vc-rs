@@ -71,9 +71,10 @@ tests:
 $ vc run sample.timing#answersQuickly
 plan  1 test in 1 file · profile default
 
-✓ sample.timing#answersQuickly                                    2ms
+✓ sample.timing#answersQuickly — Answers within 500 ms            2ms
 
 1 passed                                                     3ms · profile default
+reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
 ```
 
 ### Several phases
@@ -95,9 +96,10 @@ tests:
 $ vc run sample.timing#fastPhases
 plan  1 test in 1 file · profile default
 
-✓ sample.timing#fastPhases                                        0ms
+✓ sample.timing#fastPhases — Fast first byte and total            0ms
 
 1 passed                                                     8ms · profile default
+reports  …/.vibranium/reports/2/{ctrf.json,junit.xml,index.html}
 ```
 
 ### A failing check
@@ -118,7 +120,7 @@ tests:
 $ vc run sample.timing#failsOnTime
 plan  1 test in 1 file · profile default
 
-✕ sample.timing#failsOnTime                                       4ms
+✕ sample.timing#failsOnTime — Answers in no time                  4ms
   error[V5101]: expect.timing.total
     --> services/sample/timing.test.yaml:20:16
      |
@@ -126,6 +128,8 @@ plan  1 test in 1 file · profile default
      |                ^^^^^^^^^ expected {"lt":0.0}, got 4.9705
 
 0 passed · 1 failed                                          8ms · profile default
+reports  …/.vibranium/reports/3/{ctrf.json,junit.xml,index.html}
+next     vc run --failed
 ```
 
 ### A duration needs a unit

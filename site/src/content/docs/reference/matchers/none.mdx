@@ -84,9 +84,10 @@ tests:
 $ vc run sample.none#noC3
 plan  1 test in 1 file · profile default
 
-✓ sample.none#noC3                                                0ms
+✓ sample.none#noC3 — No SKU is C3                                 0ms
 
 1 passed                                                     8ms · profile default
+reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
 ```
 
 ### No test tags
@@ -108,9 +109,10 @@ tests:
 $ vc run sample.none#noTestTag
 plan  1 test in 1 file · profile default
 
-✓ sample.none#noTestTag                                           2ms
+✓ sample.none#noTestTag — No tag starts with test                 2ms
 
 1 passed                                                     4ms · profile default
+reports  …/.vibranium/reports/2/{ctrf.json,junit.xml,index.html}
 ```
 
 ### A failing check
@@ -132,7 +134,7 @@ tests:
 $ vc run sample.none#failsOnSku
 plan  1 test in 1 file · profile default
 
-✕ sample.none#failsOnSku                                          4ms
+✕ sample.none#failsOnSku — No SKU starts with A                   4ms
   error[V5101]: expect.body.match.body.items[*].sku
     --> services/sample/none.test.yaml:22:30
      |
@@ -140,6 +142,8 @@ plan  1 test in 1 file · profile default
      |                              ^^^^^^^^^^^^^^^^^^^^^^^ expected {"none":{"startsWith":"A"}}, got ["A1","B2"]
 
 0 passed · 1 failed                                          5ms · profile default
+reports  …/.vibranium/reports/3/{ctrf.json,junit.xml,index.html}
+next     vc run --failed
 ```
 
 ### A missing list fails
@@ -161,7 +165,7 @@ tests:
 $ vc run sample.none#failsOnMissing
 plan  1 test in 1 file · profile default
 
-✕ sample.none#failsOnMissing                                      1ms
+✕ sample.none#failsOnMissing — No coupon is expired               1ms
   error[V5101]: expect.body.match.body.coupons
     --> services/sample/none.test.yaml:29:25
      |
@@ -169,6 +173,8 @@ plan  1 test in 1 file · profile default
      |                         ^^^^^^^^^^^^^^^^^^^^^ expected {"none":{"eq":"expired"}}, got nothing
 
 0 passed · 1 failed                                          5ms · profile default
+reports  …/.vibranium/reports/4/{ctrf.json,junit.xml,index.html}
+next     vc run --failed
 ```
 
 ## Try it

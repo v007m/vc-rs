@@ -20,7 +20,7 @@ alerts:
 
 | Field | Type | Notes |
 | --- | --- | --- |
-| `alerts[].on` | list | `failure`, `recovery`, `flaky`, `threshold`. |
+| `alerts[].on` | list | `failure`, `blocked`, `recovery`, `flaky`, `threshold`. |
 | `alerts[].profiles` | list | Only runs under these profiles. |
 | `alerts[].tags` | list | Only tests with these tags. |
 | `alerts[].notify` | list | Channels: `slack`, `teams`, `pagerduty`, `webhook`. |
@@ -29,12 +29,12 @@ An unknown event:
 
 ```console
 $ vc check
-error[V2302]: expected one of failure, recovery, flaky, threshold, found `boom`
+error[V2302]: expected one of failure, blocked, recovery, flaky, threshold, found `boom`
   --> vibranium.config.yaml:87:10
    |
 87 |   - on: [boom]
    |          ^^^^ not a known value
-   = help: expected one of `failure`, `recovery`, `flaky`, `threshold`
+   = help: expected one of `failure`, `blocked`, `recovery`, `flaky`, `threshold`
 ```
 
 <Aside type="caution">

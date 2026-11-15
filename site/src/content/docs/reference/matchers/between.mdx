@@ -77,9 +77,10 @@ tests:
 $ vc run sample.between#totalInRange
 plan  1 test in 1 file · profile default
 
-✓ sample.between#totalInRange                                     0ms
+✓ sample.between#totalInRange — Total is between 40 and 50        0ms
 
 1 passed                                                     22ms · profile default
+reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
 ```
 
 ### The ends are included
@@ -101,9 +102,10 @@ tests:
 $ vc run sample.between#qtyAtEdge
 plan  1 test in 1 file · profile default
 
-✓ sample.between#qtyAtEdge                                        0ms
+✓ sample.between#qtyAtEdge — Quantity is between 1 and 3          0ms
 
 1 passed                                                     25ms · profile default
+reports  …/.vibranium/reports/2/{ctrf.json,junit.xml,index.html}
 ```
 
 ### A date range
@@ -125,9 +127,10 @@ tests:
 $ vc run sample.between#dayInYear
 plan  1 test in 1 file · profile default
 
-✓ sample.between#dayInYear                                        3ms
+✓ sample.between#dayInYear — Day is in 2026                       3ms
 
 1 passed                                                     4ms · profile default
+reports  …/.vibranium/reports/3/{ctrf.json,junit.xml,index.html}
 ```
 
 ### A failing check
@@ -149,7 +152,7 @@ tests:
 $ vc run sample.between#failsOutOfRange
 plan  1 test in 1 file · profile default
 
-✕ sample.between#failsOutOfRange                                  0ms
+✕ sample.between#failsOutOfRange — Total is between 0 and 10      0ms
   error[V5101]: expect.body.match.body.total
     --> services/sample/between.test.yaml:29:23
      |
@@ -157,6 +160,8 @@ plan  1 test in 1 file · profile default
      |                       ^^^^^^^^^^^^^^^^^^ expected {"between":[0,10]}, got 42.5
 
 0 passed · 1 failed                                          96ms · profile default
+reports  …/.vibranium/reports/4/{ctrf.json,junit.xml,index.html}
+next     vc run --failed
 ```
 
 ### A size range
@@ -176,9 +181,10 @@ tests:
 $ vc run sample.between#smallBody
 plan  1 test in 1 file · profile default
 
-✓ sample.between#smallBody                                        0ms
+✓ sample.between#smallBody — Body is between 10 bytes and 1 KiB    0ms
 
 1 passed                                                     7ms · profile default
+reports  …/.vibranium/reports/5/{ctrf.json,junit.xml,index.html}
 ```
 
 ## Try it

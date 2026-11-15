@@ -91,13 +91,15 @@ The ID comes from the path under `datasets/`, without the extension, each word i
 
 ### 1. One test instance per row: `examples`
 
-`examples:` runs the test once per row. Each row is `${example.<column>}`. The result lists each row:
+`examples:` runs the test once per row. Each row is `${example.<column>}`. The result lists each row by its `name` column:
 
 ```console
 $ vc run sample.data
-✓ sample.data#echoesEveryCapital [row 2]                          0ms
-✓ sample.data#echoesEveryCapital [row 1]                         11ms
-✓ sample.data#echoesEveryCapital [row 3]                         12ms
+plan  1 test (3 instances) in 1 file · profile default
+
+✓ sample.data#echoesEveryCapital › Delhi — Echo returns each capital    0ms
+✓ sample.data#echoesEveryCapital › Tokyo — Echo returns each capital   11ms
+✓ sample.data#echoesEveryCapital › Paris — Echo returns each capital   12ms
 ```
 
 Rows run in parallel, so they can finish in any order. To pick one row, add `:n` to the test ID: `vc run sample.data#echoesEveryCapital:2`.
@@ -186,8 +188,8 @@ datasets:
 examples: ${dataset.smokeUsers}
 ```
 
-<Aside type="caution" title="allowRoots doesn't work yet">
-`datasets.allowRoots` is meant to let `datasets.files` read files outside the project. In the current build, `vc check` accepts it but `vc run` refuses the file with [V1012](/vc-rs/reference/diagnostics/v1012/) (`links to a file outside the project`). Keep data files inside the project for now.
+<Aside title="Files outside the project">
+`datasets.allowRoots` lets `datasets.files` read files outside the project. List the outside folder there, and both `vc check` and `vc run` read the file. Without it, the file is refused with [V1012](/vc-rs/reference/diagnostics/v1012/).
 </Aside>
 
 ## Try it
