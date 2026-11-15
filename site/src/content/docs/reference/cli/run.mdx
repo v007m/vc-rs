@@ -96,6 +96,8 @@ plan  1 test in 1 file · profile default
 0 passed · 1 failed                                          4ms · profile default
 ```
 
+A test marked `skip` since the last run stays skipped and is listed as skipped. When every test it would rerun is, `vc run --failed` runs nothing and exits 2; add `--include-skipped` to rerun them anyway.
+
 ### Repeat a test and choose the reports
 
 ```console

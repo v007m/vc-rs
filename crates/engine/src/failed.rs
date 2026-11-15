@@ -1,10 +1,10 @@
 //! `vc run --failed` (D170): the failed and blocked tests of the last run, again, under the
-//! same profiles.
+//! same profiles. A test marked `skip` stays skipped unless `--include-skipped` (D328).
 
 use std::collections::{BTreeSet, HashMap};
 
 use vc_interfaces::TestRow;
-use vc_model::{Program, Test, TestStatus};
+use vc_model::{Plan, Program, Test, TestStatus};
 
 use crate::history::{self, history_error};
 use crate::{Engine, EngineError, RunRequest};
@@ -48,6 +48,22 @@ const fn needs_rerun(status: Option<TestStatus>) -> bool {
     matches!(status, Some(TestStatus::Failed | TestStatus::Blocked))
 }
 
+/// With `--failed`, a refusal when `plan` runs nothing and only skips: every test the last run
+/// failed or blocked is marked `skip` now (D328).
+///
+/// # Errors
+///
+/// [`EngineError::Selection`] when `plan` has no instance and skips a test.
+pub fn none_left(plan: &Plan) -> Result<(), EngineError> {
+    if plan.instance_count() > 0 || plan.skipped.is_empty() {
+        return Ok(());
+    }
+    Err(EngineError::Selection {
+        reason: "the last run's failed and blocked tests are all marked `skip` now; nothing to run".to_owned(),
+        help: Some("`vc run --failed --include-skipped` reruns them anyway".to_owned()),
+    })
+}
+
 /// The selectors of `failed` in `program`: a test's ID, or for an `examples` row each of its
 /// instances (`users.crud#rejectsBadEmail:3`), numbered as the planner numbers them with
 /// `repeat` or the test's own. Tests no longer in the project are left out.
@@ -87,7 +103,8 @@ mod tests {
     use vc_testkit::{FakeVcs, MemoryHistory};
 
     use super::selectors;
-    use crate::{Engine, PlanRequest, RunRequest, sample};
+    use crate::plan::Extra;
+    use crate::{Engine, EngineError, PlanRequest, RunRequest, sample};
 
     fn row(id: &str, example_row: Option<u32>, status: TestStatus) -> TestRow {
         TestRow { test_id: id.to_owned(), example_row, status: Some(status), ..TestRow::default() }
@@ -151,5 +168,29 @@ mod tests {
         assert_eq!(selectors(&program, &failed[1..2], Some(1)).unwrap(), ["users.crud#listsUsers:2"]);
         let error = selectors(&program, &failed[3..], None).unwrap_err();
         assert!(error.to_string().contains("any more"), "{error}");
+    }
+
+    /// What `--failed` plans after a run that failed `rows`: how many instances it runs and
+    /// which tests it skips, or why it refuses.
+    fn replanned(rows: Vec<TestRow>, include_skipped: bool) -> Result<(usize, Vec<String>), EngineError> {
+        let engine = engine(rows);
+        let (mut plan, rerun) = engine.rerun(&failed())?;
+        plan.select.include_skipped = include_skipped;
+        let prepared = engine.prepare(&plan, Extra { rerun, ..Extra::default() })?;
+        let name = |test| prepared.program.str(test).unwrap_or_default().to_owned();
+        let skipped = prepared.plan.skipped.iter().map(|skipped| name(skipped.test.sym())).collect();
+        Ok((prepared.plan.instance_count(), skipped))
+    }
+
+    #[test]
+    fn a_test_marked_skip_stays_skipped_and_when_all_are_the_rerun_is_refused() {
+        let parked = || row("users.crud#skipsUsers", None, TestStatus::Failed);
+        let error = replanned(vec![parked()], false).unwrap_err();
+        assert!(error.to_string().contains("all marked `skip` now"), "{error}");
+        assert_eq!(error.help().as_deref(), Some("`vc run --failed --include-skipped` reruns them anyway"));
+        let some = replanned(vec![parked(), row("users.crud#listsUsers", None, TestStatus::Failed)], false).unwrap();
+        assert_eq!((some.0 > 0, some.1), (true, vec!["users.crud#skipsUsers".to_owned()]));
+        let included = replanned(vec![parked()], true).unwrap();
+        assert_eq!((included.0, included.1.len()), (1, 0), "`--include-skipped` runs it again");
     }
 }
