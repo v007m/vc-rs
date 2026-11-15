@@ -68,7 +68,13 @@ Iterations run one after another unless the step also has [`parallel`](/vc-rs/re
 
 ## Examples
 
-All three tests below come from one file, and all pass against `vc demo`:
+All three tests below come from one file, and all pass against `vc demo`. The `beforeAll` reads this dataset:
+
+```text title="datasets/people.csv"
+email,name
+ann@example.com,Ann
+bob@example.com,Bob
+```
 
 ```yaml title="services/sample/loops.test.yaml"
 id: sample.loops

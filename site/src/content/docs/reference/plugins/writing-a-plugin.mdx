@@ -113,13 +113,13 @@ This page builds two small plugins in Python, using only the standard library: a
      formats: [ctrf, digest]
    ```
 
-5. **Run.** The digest lands next to the other reports.
+5. **Run.** The digest lands next to the other reports. Here `sample.flip` holds a test that fails and `sample.wobble` one that passes on its retry.
 
    ```console
    $ vc run sample.basics sample.flip sample.wobble
    ...
    4 passed · 1 failed · 1 flaky                                104ms · profile default
-   reports  .vibranium/reports/28/{ctrf.json,digest.md}
+   reports  …/.vibranium/reports/28/{ctrf.json,digest.md}
    next     vc run --failed
    seed 2405169031753500: pass `--seed 2405169031753500` to run with the same generated data
    ```
@@ -246,6 +246,10 @@ For a `path:` plugin, `vibranium.lock` holds a hash of its installed files. Afte
    ```
 
 </Steps>
+
+## The plugins the other pages use
+
+The other plugin pages use `plugins/stamp` from above, and a `summary` reporter: the manifest from [vibranium-plugin.yaml](/vc-rs/reference/plugins/manifest/) in `plugins/summary/`, with `digest.py` saved next to it as `report.py`. The full `stamp.py` is `digest.py` with the block above in place of its `title`, `tests`, `finish` and `answer`.
 
 ## Tips
 

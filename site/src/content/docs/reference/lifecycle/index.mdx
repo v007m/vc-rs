@@ -9,9 +9,11 @@ import Playground from '~/components/Playground.svelte';
 
 Lifecycle blocks run actions before and after your tests: set up data, start services, and tidy up. Each block is a list of actions.
 
-The example below calls a users service. `users#create` is a `POST /users` that answers 201 and saves `userId`; `users#get` is a `GET /users/${var.userId}`. `catalog#seedProducts` stands for any api that loads test data.
+The example below calls a users service on the demo (`vc init`'s `sampleUrl`). `users#create` is a `POST /users` that answers 201 and saves `userId`; `users#get` is a `GET /users/${var.userId}`. `catalog#seedProducts` stands for any api that loads test data.
 
-```yaml title="services/users/users.api.yaml (excerpt)"
+```yaml title="services/users/users.api.yaml"
+id: users
+baseUrl: ${var.sampleUrl}
 apis:
   - id: create
     method: POST
@@ -38,6 +40,17 @@ $ vc call users#create --var 'name=Ada Lovelace' --var email=ada@example.com
   "id": "12",
   "name": "Ada Lovelace"
 }
+```
+
+```yaml title="services/catalog/catalog.api.yaml"
+id: catalog
+baseUrl: ${var.sampleUrl}
+apis:
+  - id: seedProducts
+    method: POST
+    path: /echo          # the demo echoes the body; a real service would load the products
+    body:
+      products: [kettle, teapot]
 ```
 
 ```yaml title="services/users/crud.test.yaml"
@@ -80,6 +93,32 @@ Every entry in a block (and every entry in a test's `steps`) is one action.
 ## Order of work
 
 `vc plan` shows the blocks a run will use. This file has a `beforeAll`, `afterAll`, `beforeEach` and one test, and the config has a `beforeRun` and `afterRun`:
+
+```yaml title="services/life/blocks.test.yaml"
+beforeAll:
+  - id: shared
+    call: sample#createUser
+beforeEach:
+  - call: sample#createUser
+afterAll:
+  - command: echo file done
+tests:
+  - id: readsSharedValues
+    call: sample#getUser
+    vars:
+      userId: ${var.shared.userId}
+    headers:
+      x-admin: ${var.admin.userId}
+```
+
+```yaml title="vibranium.config.yaml (excerpt)"
+beforeRun:
+  - command: echo starting run
+  - id: admin
+    call: sample#createUser
+afterRun:
+  - command: echo run finished
+```
 
 ```console
 $ vc plan life.blocks

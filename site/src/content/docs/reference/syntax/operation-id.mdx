@@ -56,6 +56,25 @@ apis:
     operationId: listPets
 ```
 
+```yaml title="specs/pets.yaml (after the move)"
+openapi: 3.0.3
+info: {title: Pets, version: "1"}
+paths:
+  /pets/all:
+    get:
+      operationId: listPets
+      summary: List pets
+      responses: {"200": {description: ok}}
+    post:
+      operationId: createPet
+      summary: Create pet
+      requestBody:
+        content:
+          application/json:
+            schema: {type: object}
+      responses: {"201": {description: ok}}
+```
+
 ```console
 $ vc sync pets --dry-run
 fetched specs/pets.yaml (2 operations)
@@ -63,7 +82,7 @@ fetched specs/pets.yaml (2 operations)
   ↑ pets#createPet path /pets → /pets/all
 --- a/services/pets/pets.api.yaml
 +++ b/services/pets/pets.api.yaml
-@@ -11,12 +11,12 @@
+@@ -9,11 +9,11 @@
  apis:
    - id: list
      name: List pets

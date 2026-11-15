@@ -135,6 +135,73 @@ reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
 
 Use `vc explain <testId>` to see the merged request, every var with the level it came from, and every check with the level it came from.
 
+## The project these pages use
+
+Unless a page shows its own config, the examples on the syntax pages run in a project made with [`vc init`](/vc-rs/reference/cli/init/), against `vc demo` on port 7421. Pages that call `echo#…` or `users#…` also use these two vars and api files; a page shows the apis it calls again, as an excerpt.
+
+```yaml title="vibranium.config.yaml (excerpt)"
+vars:
+  sampleUrl: http://localhost:7421
+  usersUrl: http://localhost:7421
+  echoUrl: http://localhost:7421
+```
+
+```yaml title="services/echo/echo.api.yaml"
+name: Echo service
+baseUrl: ${var.echoUrl}
+
+apis:
+  - id: json
+    name: Echo a JSON body
+    method: POST
+    path: /echo
+    vars:
+      name: Ada
+    body:
+      name: ${var.name}
+      tags: [a, b]
+```
+
+```yaml title="services/users/users.api.yaml"
+name: Users service
+baseUrl: ${var.usersUrl}
+
+apis:
+  - id: list
+    name: List users
+    path: /users
+
+  - id: create
+    name: Create a user
+    method: POST
+    path: /users
+    vars:
+      name: ${fake.person.fullName}
+      email: ${fake.internet.email}
+    body:
+      name: ${var.name}
+      email: ${var.email}
+    expect:
+      status: 201
+    save:
+      userId: ${response.body.id}
+    cleanup:
+      call: delete
+      vars:
+        userId: ${response.body.id}
+
+  - id: get
+    name: Get a user
+    path: /users/${var.userId}
+
+  - id: delete
+    name: Delete a user
+    method: DELETE
+    path: /users/${var.userId}
+    expect:
+      status: [204, 404]
+```
+
 ## Try it
 
 <Playground client:visible kind="test" code={`name: User CRUD

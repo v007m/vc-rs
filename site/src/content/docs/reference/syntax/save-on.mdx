@@ -60,11 +60,12 @@ apis:
       userId: ${response.body.id}
 ```
 
-The second step calls `prec#show`, the api from the [`vars`](/vc-rs/reference/syntax/vars/) page. It sends `POST /echo` with its vars in the body, and the demo answers with the request it got, the body under `body`:
+The second step calls `prec#show`, the api from the [`vars`](/vc-rs/reference/syntax/vars/) page (with that page's config vars `e` and `f`). It sends `POST /echo` with its vars in the body, and the demo answers with the request it got, the body under `body`:
 
 ```yaml title="services/prec/status.test.yaml (excerpt)"
 vars:
   userId: none-yet
+  problem: none-yet
 tests:
   - id: skipsSaveOn400
     steps:
@@ -102,9 +103,6 @@ tests:
 ```
 
 ```yaml title="services/prec/status.test.yaml (excerpt)"
-vars:
-  problem: none-yet
-tests:
   - id: savesOn400
     steps:
       - call: prec.saveon#createAny
@@ -175,6 +173,30 @@ apis:
       in: [400, 409]
     save:
       problem: ${response.body.error}
+```
+
+Each test calls one of them, then `prec#show` to read back what was saved:
+
+```yaml title="services/prof/saving.test.yaml"
+tests:
+  - id: savesOn4xx
+    steps:
+      - call: prof.so#tryCreate
+      - call: prec#show
+        vars: { a: "${var.problem}" }
+        expect: { body: { match: { body.a: a user needs an email } } }
+  - id: savesOnList
+    steps:
+      - call: prof.so#tryCreateList
+      - call: prec#show
+        vars: { a: "${var.problem}" }
+        expect: { body: { match: { body.a: a user needs an email } } }
+  - id: savesOnMatcher
+    steps:
+      - call: prof.so#tryCreateMatcher
+      - call: prec#show
+        vars: { a: "${var.problem}" }
+        expect: { body: { match: { body.a: a user needs an email } } }
 ```
 
 ```console

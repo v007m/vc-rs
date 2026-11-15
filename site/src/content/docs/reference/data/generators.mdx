@@ -173,6 +173,17 @@ Run it with `vc run sample.gen --seed 42`; the demo echoes the values back, and 
 | [V2305](/vc-rs/reference/diagnostics/v2305/) | Bad argument syntax | `text arguments take single quotes` (with a certain fix: write `'x'`); `` `null` is not an argument `` |
 | [V2309](/vc-rs/reference/diagnostics/v2309/) | `fromRegExp` pattern outside the supported subset | see [fromRegExp patterns](/vc-rs/reference/data/fromregexp/) |
 
+A pattern in double quotes:
+
+```yaml wrong V2305 title="services/sample/tmp.test.yaml"
+tests:
+  - id: quotesWrongly
+    name: Quotes a pattern wrongly
+    call: sample#echo
+    body:
+      a: ${fake.string.fromRegExp("[a-z]{3}")}
+```
+
 ```console
 $ vc check
 error[V2305]: invalid template: text arguments take single quotes
@@ -183,7 +194,7 @@ error[V2305]: invalid template: text arguments take single quotes
   = help: use single quotes
   = fix: Write '[a-z]{3}' (certain)
 
-1 error · 0 warnings · 29 files checked
+1 error · 0 warnings · 5 files checked
 ```
 
 ## Related

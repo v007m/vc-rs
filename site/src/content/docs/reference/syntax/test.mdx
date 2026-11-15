@@ -9,7 +9,7 @@ import Playground from '~/components/Playground.svelte';
 
 The `test:` action runs another test's call or steps in place, so one flow can be shared by many tests.
 
-The examples call `sample#createUser` and `sample#getUser` from the sample api file that [`vc init`](/vc-rs/reference/cli/init/) writes. The shared flow also calls `echo#json`, a minimal api for this page that sends `POST /echo` with a small JSON body; the demo answers with the request it got, the body under `body`:
+The examples call `sample#createUser` and `sample#getUser` from the sample api file that [`vc init`](/vc-rs/reference/cli/init/) writes. The shared flow also calls `echo#json`, a minimal api for this page that sends `POST /echo` with a small JSON body; the demo answers with the request it got, the body under `body`. Both are in [the project these pages use](/vc-rs/reference/syntax/#the-project-these-pages-use):
 
 ```yaml title="services/sample/sample.api.yaml (excerpt)"
 baseUrl: ${var.sampleUrl}
@@ -156,6 +156,10 @@ tests:
       userId: ${var.shared.userId}
     expect:
       status: 200
+  - id: reusesInSteps
+    steps:
+      - test: shared.flows#memberWithEcho
+      - call: sample#getUser
 ```
 
 `vc plan` shows which tests need it:

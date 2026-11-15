@@ -265,6 +265,14 @@ error[V2101]: ${var.nickname} is used but never set
 
 A template root used where it does not exist yet is V2105:
 
+```yaml wrong V2105 title="services/layer/root.test.yaml"
+vars:
+  lastId: ${response.body.id}
+tests:
+  - id: showsLastId
+    call: layer#show
+```
+
 ```console
 $ vc check
 error[V2105]: `response` is not available here

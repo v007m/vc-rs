@@ -10,6 +10,8 @@ import Playground from '~/components/Playground.svelte';
 When YAML can't say it, a function can: every hook is `function: path#exportName`, an exported function in a `.ts`, `.mts`, `.js` or `.mjs` file that runs inside the engine.
 
 ```yaml title="services/signed/signed.api.yaml"
+id: signed
+baseUrl: ${var.sampleUrl}
 apis:
   - id: upload
     name: Upload a file
@@ -200,9 +202,9 @@ export const fileIsPdf: CustomCheck = ({ response, vars }) => {
 $ vc run sample.hooks#checksWithCode
 ✕ sample.hooks#checksWithCode — Custom checks read the response and vars   13ms
   error[V5103]: expect.custom
-    --> services/sample/hooks.test.yaml:35:11
+    --> services/sample/hooks.test.yaml:31:11
      |
-  35 |         - function: ../../hooks/checks.ts#fileIsPdf
+  31 |         - function: ../../hooks/checks.ts#fileIsPdf
      |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ report.pdf does not end in .txt
 ```
 

@@ -91,20 +91,39 @@ tests:
       userId: ${var.admin.userId}
 ```
 
-An action that saves values must have an `id`. Without one, `vc check` stops:
+An action that saves values must have an `id`. Without one (here `- call: sample#createUser` added under `beforeRun:` at the end of the `vc init` config), `vc check` stops:
 
 ```console
 $ vc check
 error[V2210]: this beforeRun action saves values but has no `id`
-   --> vibranium.config.yaml:180:5
-    |
-180 |   - call: lab#createItem
-    |     ^^^^ needs an `id`
-    = help: shared values are read as `${var.<id>.<name>}`; give the action an `id`
-    = fix: Add id: createItem (certain)
+  --> vibranium.config.yaml:53:5
+   |
+53 |   - call: sample#createUser
+   |     ^^^^ needs an `id`
+   = help: shared values are read as `${var.<id>.<name>}`; give the action an `id`
+   = fix: Add id: createUser (certain)
 ```
 
-When a `beforeRun` action fails, it is reported once, and only the tests that read its values are blocked. Here `readsAdmin` reads `${var.admin.code}` and `ignoresAdmin` reads nothing from it:
+When a `beforeRun` action fails, it is reported once, and only the tests that read its values are blocked. Here, on the local lab server the [cleanups](/vc-rs/reference/lifecycle/cleanups/) examples use, `admin` gets a 503, `readsAdmin` reads `${var.admin.code}` and `ignoresAdmin` reads nothing from it:
+
+```yaml title="vibranium.config.yaml (excerpt)"
+beforeRun:
+  - command: echo starting run
+  - id: admin
+    call: lab#status
+    vars:
+      code: 503
+```
+
+```yaml title="services/lab/needsadmin.test.yaml"
+tests:
+  - id: readsAdmin
+    call: lab#whoami
+    query:
+      code: ${var.admin.code}
+  - id: ignoresAdmin
+    call: lab#whoami
+```
 
 ```console
 $ vc run lab.needsadmin

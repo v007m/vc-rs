@@ -83,7 +83,6 @@ tests:
 $ vc list tests tagged.flows
 tagged.flows#listsUsers  Lists every user  [users, smoke]
 tagged.flows#listsSlowly  [users, smoke, slow-network]
-tagged.flows#listsNightly  [users, smoke, nightly]
 ```
 
 A run prints it after the test's label, joined by a dash:
@@ -162,13 +161,22 @@ tests:
 
 `name` has no errors of its own. A value that is not text is error V2302:
 
+```yaml wrong V2302 title="services/layer/named.test.yaml"
+tests:
+  - id: listsTwice
+    name: [a, b]
+    call: sample#listUsers
+```
+
 ```console
 $ vc check
 error[V2302]: expected text, found a list
- --> services/layer/named.test.yaml:9:11
+ --> services/layer/named.test.yaml:3:11
   |
-9 |     name: [a, b]
+3 |     name: [a, b]
   |           ^^^^^^ expected text
+
+1 error · 0 warnings · 6 files checked
 ```
 
 ## Related

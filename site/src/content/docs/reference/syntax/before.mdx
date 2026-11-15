@@ -50,6 +50,12 @@ $ vc call sample#getUser --var userId=1
 }
 ```
 
+```ts title="hooks/seed.ts"
+export function seedUser(input: unknown) {
+  return { userId: "1", userEmail: "ada@example.com" };
+}
+```
+
 ```yaml title="services/flow/fn.test.yaml"
 tests:
   - id: getsSeededUser
@@ -75,6 +81,14 @@ Each entry is an action: [`call`](/vc-rs/reference/syntax/call/), [`test`](/vc-r
 The api `sample#createUser` saves `userId`, so the test's own call reads that user. Its cleanup deletes the user after the test.
 
 ```yaml title="services/flow/order.test.yaml"
+beforeAll:
+  - command: echo beforeAll >> build/order.txt
+beforeEach:
+  - command: echo beforeEach >> build/order.txt
+afterEach:
+  - command: echo afterEach >> build/order.txt
+afterAll:
+  - command: echo afterAll >> build/order.txt
 tests:
   - id: runsInOrder
     before:
@@ -87,9 +101,12 @@ tests:
       - call: sample#getUser
 ```
 
-`after` sees values saved in `before` and in the steps. With `beforeAll`, `beforeEach`, `afterEach` and `afterAll` in the same file, `build/order.txt` reads:
+`after` sees values saved in `before` and in the steps. After a run, `build/order.txt` shows where `before` and `after` sit between the file's `beforeAll`, `beforeEach`, `afterEach` and `afterAll`:
 
 ```console
+$ mkdir -p build && vc run flow.order
+...
+1 passed                                                     206ms · profile default
 $ cat build/order.txt
 beforeAll
 beforeEach

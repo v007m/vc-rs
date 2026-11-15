@@ -78,6 +78,8 @@ tests:
         schema: {$file: ../../schemas/order.json}
 ```
 
+Save `schemas/order.json` (below) first, then run:
+
 ```console
 $ vc run sample.bodyschema#matchesOrderSchema
 plan  1 test in 1 file · profile default
@@ -120,6 +122,8 @@ tests:
       body:
         schema: {$file: "../../schemas/users.json#/definitions/userList"}
 ```
+
+Save `schemas/users.json` (below) first, then run:
 
 ```console
 $ vc run sample.bodyschema#matchesUserList
@@ -197,6 +201,8 @@ tests:
       body:
         schema: {$file: ../../schemas/strict-order.json}
 ```
+
+Save `schemas/strict-order.json` (below) first, then run:
 
 ```console
 $ vc run sample.bodyschema#failsOnStrictSchema

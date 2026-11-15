@@ -88,7 +88,7 @@ tests:
       attempts: 2
       delay: 200ms
     steps:
-      - command: n=$(cat tmp/count 2>/dev/null || echo 0); n=$((n+1)); echo $n > tmp/count; test $n -ge 2
+      - command: mkdir -p tmp; n=$(cat tmp/count 2>/dev/null || echo 0); n=$((n+1)); echo $n > tmp/count; test $n -ge 2
       - call: sample#listUsers
 
   - id: neverPasses
@@ -141,7 +141,7 @@ A failed test prints each different failure once, headed by the attempts that hi
 
 ### Flaky counts as passed for the exit code
 
-A run whose only result is flaky exits with 0:
+A run whose only result is flaky exits with 0. With the counter reset first (`rm tmp/count`):
 
 ```console
 $ vc run 'sample.retry#passesOnSecondTry'

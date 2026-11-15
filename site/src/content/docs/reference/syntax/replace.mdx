@@ -65,7 +65,7 @@ $ vc call checked#post
 }
 ```
 
-The negative test calls `users#create` from the users api file in the [syntax overview](/vc-rs/reference/syntax/):
+The negative test calls `users#create` from the users api file in [the project these pages use](/vc-rs/reference/syntax/#the-project-these-pages-use), which also sets `echoUrl` and `usersUrl`:
 
 ```yaml title="services/users/users.api.yaml (excerpt)"
 baseUrl: ${var.usersUrl}
@@ -105,7 +105,7 @@ $ vc explain lab.expect#overridesOne
 
 **With `replace`.** Only the test's own check is left:
 
-```yaml
+```yaml title="services/lab/expect.test.yaml (excerpt)"
 - id: replacesAll
   call: checked#post
   expect:

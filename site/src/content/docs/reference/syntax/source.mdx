@@ -37,6 +37,39 @@ Each api that came from the spec also carries an [`operationId`](/vc-rs/referenc
 
 Start from a spec with three `pets` operations and one `admin` operation. Import only the `pets` tag:
 
+```yaml title="specs/pets.yaml"
+openapi: 3.0.3
+info: { title: Pets, version: "1" }
+servers:
+  - url: http://localhost:7421
+paths:
+  /pets:
+    get:
+      operationId: listPets
+      summary: List pets
+      tags: [pets]
+    post:
+      operationId: createPet
+      summary: Create pet
+      tags: [pets]
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object }
+  /pets/{petId}:
+    get:
+      operationId: getPet
+      summary: Get pet
+      tags: [pets]
+      parameters:
+        - { name: petId, in: path, required: true, schema: { type: string } }
+  /admin/stats:
+    get:
+      operationId: getStats
+      summary: Get stats
+      tags: [admin]
+```
+
 ```console
 $ vc import openapi specs/pets.yaml --id pets --include pets
 ✓ imported specs/pets.yaml
@@ -76,7 +109,7 @@ The importer matched the spec's server URL to the config's `sampleUrl` var, so `
 
 ### Syncing after the spec changes
 
-Edit the api file as you like: add a body, an `expect`, a better ID. Then the spec changes: `getPet` is removed and `createPet` becomes `PUT`.
+Edit the api file as you like: add a body, an `expect`, a better ID. Then the spec changes: `getPet` is removed and `createPet` becomes `PUT` (in `specs/pets.yaml`, delete the `/pets/{petId}` path and change `post:` to `put:`).
 
 ```console
 $ vc sync pets
@@ -175,6 +208,15 @@ apis:
 
 ## Common errors
 
+```yaml wrong V1005 title="services/src1/src1.api.yaml"
+baseUrl: ${var.sampleUrl}
+source:
+  include: [pets]
+apis:
+  - id: listPets
+    path: /pets
+```
+
 ```console
 $ vc check
 error[V1005]: a source needs `openapi`
@@ -183,6 +225,8 @@ error[V1005]: a source needs `openapi`
 3 |   include: [pets]
   |   ^^^^^^^ `openapi` is missing
   = help: add `openapi: specs/users.yaml`: A URL or a file, JSON or YAML
+
+1 error · 0 warnings · 3 files checked
 ```
 
 A spec path that names no file in the project fails `vc check`. A URL is not fetched; a wrong one shows up when you

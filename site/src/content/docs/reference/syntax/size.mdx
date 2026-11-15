@@ -61,7 +61,7 @@ expect:
     between: [100b, 2kb]
 ```
 
-**An exact size.** Write the byte count as a plain number. This example calls `users#delete` from the users api file in the [syntax overview](/vc-rs/reference/syntax/). It sends `DELETE /users/<userId>`, and the demo answers with no body:
+**An exact size.** Write the byte count as a plain number. This example calls `users#delete` from the users api file in [the project these pages use](/vc-rs/reference/syntax/#the-project-these-pages-use). It sends `DELETE /users/<userId>`, and the demo answers with no body:
 
 ```yaml title="services/users/users.api.yaml (excerpt)"
 baseUrl: ${var.usersUrl}

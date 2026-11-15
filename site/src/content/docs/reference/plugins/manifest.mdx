@@ -112,7 +112,7 @@ reports:
 
 ## Common errors
 
-`vc plugin add` refuses a bad manifest and exits 2:
+`vc plugin add` refuses a bad manifest and exits 2. Here `plugins/bad/vibranium-plugin.yaml` has `kind: notifier`, then `id: Bad-Name`:
 
 ```console
 $ vc plugin add path:plugins/bad --yes

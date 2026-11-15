@@ -32,6 +32,8 @@ A source is `npm:<package>[@<range>]` or `path:<folder>`. A path is relative to 
 
 ## Examples
 
+These use the `stamp` and `summary` plugins from [Write a plugin](/vc-rs/reference/plugins/writing-a-plugin/#the-plugins-the-other-pages-use).
+
 **Add a local plugin in a script.** Without a terminal, `vc plugin add` needs `--yes`.
 
 ```console
@@ -64,12 +66,12 @@ $ vc plugin list
 summary  reporter 1.0.0  path:plugins/summary  asks for more: secret reportToken; `vc plugin add` it again  may reach: nothing
 ```
 
-**Spot a plugin a run cannot start.** Its installed files changed since the lock approved them, or its entry program is not installed.
+**Spot a plugin a run cannot start.** Its installed files changed since the lock approved them, or its entry program is not installed. Here `.vibranium/plugins/stamp/stamp.py` was edited after `vc plugin add`, and `summary` was added again with `entry.command: python3.99`.
 
 ```console
 $ vc plugin list
 stamp  auth 0.1.0  path:plugins/stamp  V5118: its installed files changed since vibranium.lock approved them; `vc plugin add` it again  may reach: secret stampKey
-summary  reporter 1.0.0  path:plugins/summary  its entry program `python3.13` cannot be found: install it, or fix `entry.command` in its vibranium-plugin.yaml  may reach: secret reportToken
+summary  reporter 1.0.0  path:plugins/summary  its entry program `python3.99` cannot be found: install it, or fix `entry.command` in its vibranium-plugin.yaml  may reach: secret reportToken
 ```
 
 **Remove a plugin.** `vc` refuses when the config still uses it, and writes nothing.

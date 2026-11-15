@@ -109,7 +109,7 @@ A test var keeps its YAML type. A `--var` on the command line is always a string
 
 ### Pasted JSON
 
-YAML reads JSON, so you can paste a body from API docs. Templates still work inside the strings:
+YAML reads JSON, so you can paste a body from API docs. Templates still work inside the strings. The `echo#…` apis on this page are entries added to the [shared echo api file](/vc-rs/reference/syntax/#the-project-these-pages-use):
 
 ```yaml title="services/echo/echo.api.yaml"
   - id: pasted
@@ -136,8 +136,7 @@ $ vc call echo#pasted
     "content-length": "35",
     "content-type": "application/json",
     "host": "localhost:7421",
-    "user-agent": "vibranium/2",
-    "x-file-header": "from-file"
+    "user-agent": "vibranium/2"
   },
   "method": "POST",
   "path": "/echo",
@@ -207,6 +206,13 @@ $ vc call bodylab#rawJson
 
 Without a `content-type`, a string goes out as `text/plain; charset=utf-8`:
 
+```yaml title="services/echo/echo.api.yaml"
+  - id: text
+    method: POST
+    path: /echo
+    body: plain words
+```
+
 ```console
 $ vc call echo#text
 200 OK · 4 ms · api expect passed
@@ -218,8 +224,7 @@ $ vc call echo#text
     "content-length": "11",
     "content-type": "text/plain; charset=utf-8",
     "host": "localhost:7421",
-    "user-agent": "vibranium/2",
-    "x-file-header": "from-file"
+    "user-agent": "vibranium/2"
   },
   "method": "POST",
   "path": "/echo",
@@ -250,8 +255,7 @@ $ vc call echo#b64
     "content-length": "5",
     "content-type": "application/octet-stream",
     "host": "localhost:7421",
-    "user-agent": "vibranium/2",
-    "x-file-header": "from-file"
+    "user-agent": "vibranium/2"
   },
   "method": "POST",
   "path": "/echo",
@@ -358,17 +362,16 @@ tests:
             exists: false
 ```
 
+With `typedValues` and `replacesBody` in `extend.test.yaml`, and the `fixtures/` files that the `$file` examples name in place:
+
 ```console
 $ vc run bodylab.extend
-plan  5 tests in 1 file · profile default
+plan  2 tests in 1 file · profile default
 
 ✓ bodylab.extend#typedValues                                      4ms
-✓ bodylab.extend#rawStringJson                                    4ms
 ✓ bodylab.extend#replacesBody                                     4ms
-✓ bodylab.extend#xmlText                                          4ms
-✓ bodylab.extend#extendsResponse                                  5ms
 
-5 passed                                                     6ms · profile default
+2 passed                                                     6ms · profile default
 reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
 ```
 

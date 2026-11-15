@@ -144,6 +144,8 @@ tests:
 
 ## Common errors
 
+With `listsNightly`'s tags in `flows.test.yaml` changed to `[nightly, Bad_Tag]`:
+
 ```console
 $ vc check
 warning[V4004]: tag `Bad_Tag` is not lower kebab-case
@@ -153,6 +155,8 @@ warning[V4004]: tag `Bad_Tag` is not lower kebab-case
    |                     ^^^^^^^ rename it
    = help: tags are lower case, with a dash between words: `bad-tag`
    = fix: Rename to bad-tag (certain)
+
+0 errors · 1 warning · 3 files checked
 ```
 
 `vc check --fix` applies the rename.

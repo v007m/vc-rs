@@ -45,7 +45,7 @@ Its return value decides the result:
 
 ## Examples
 
-The examples call `echo#json`, a minimal api for this page that sends `POST /echo` with a small JSON body; the demo answers with the request it got, the body under `body`:
+The examples call `echo#json`, the [shared echo api](/vc-rs/reference/syntax/#the-project-these-pages-use) that sends `POST /echo` with a small JSON body; the demo answers with the request it got, the body under `body`:
 
 ```yaml title="services/echo/echo.api.yaml (excerpt)"
 baseUrl: ${var.echoUrl}

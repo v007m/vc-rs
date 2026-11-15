@@ -54,10 +54,17 @@ vc percent-encodes each `${…}` value in the path, so whatever it holds stays o
 as written.
 
 ```yaml title="services/req/req.api.yaml"
+baseUrl: ${var.sampleUrl}
+apis:
   - id: getUser
     path: /users/${var.userId}
     vars:
       userId: "1"
+  - id: put
+    method: PUT
+    path: /echo/${var.slug}
+    vars:
+      slug: abc 123
 ```
 
 ```console
@@ -149,12 +156,20 @@ A missing leading slash is a V4005 warning. Left as it is, the run fails: `7421e
 connecting to port 80:
 
 ```yaml title="services/h/h.api.yaml"
+baseUrl: ${var.sampleUrl}
+apis:
   - id: noSlash
     path: echo
 ```
 
+```yaml title="services/h/t.test.yaml"
+tests:
+  - id: failsToConnect
+    call: h#noSlash
+```
+
 ```console
-$ vc check
+$ vc check services/h
 warning[V4005]: `path` does not start with `/`
  --> services/h/h.api.yaml:4:11
   |
@@ -169,16 +184,27 @@ profile  default
   GET http://localhost:7421echo
 
 $ vc run h.t
-✕ h.t#c                                                           4ms
+✕ h.t#failsToConnect                                              4ms
   error[V5105]: cannot connect to localhost:80: Connection refused (os error 61)
      = at: call h#noSlash
 ```
 
 An OpenAPI-style placeholder is a V4006 warning, with a suggested fix:
 
+```yaml title="services/jobs/jobs.api.yaml"
+baseUrl: ${var.sampleUrl}
+apis:
+  - id: status
+    path: /poll/{jobId}
+```
+
 ```console
-$ vc check
+$ vc check services/jobs
 warning[V4006]: `{jobId}` in a `path` is sent as is; it is not a var
+ --> services/jobs/jobs.api.yaml:4:11
+  |
+4 |     path: /poll/{jobId}
+  |           ^^^^^^^^^^^^^ a placeholder, not a template
   = help: write each one as a var: `${var.jobId}`, and set it in the test's `vars`
   = fix: Write each placeholder as a var
 ```

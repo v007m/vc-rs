@@ -46,6 +46,8 @@ $ vc call sample#getUser --var userId=1
 }
 ```
 
+`shared.flows#memberWithEcho` is the flow from [test](/vc-rs/reference/syntax/test/#a-shared-flow), which also calls [`echo#json`](/vc-rs/reference/syntax/#the-project-these-pages-use):
+
 ```yaml title="services/flow/reuse.test.yaml"
 id: flow.reuse
 beforeAll:
@@ -74,12 +76,11 @@ tests:
 
 ```console
 $ vc plan flow.reuse
-plan  2 tests in 1 file · lifecycle: beforeAll shared · profile default
+plan  1 test in 1 file · lifecycle: beforeAll shared · profile default
 flow.reuse
   beforeAll
     shared
   flow.reuse#readsSharedMember  needs: shared
-  flow.reuse#reusesInSteps
 ```
 
 - A failed `beforeAll` action blocks only the tests that read its values (`needs:` in the plan). The rest still run.
