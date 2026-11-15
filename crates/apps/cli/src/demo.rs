@@ -182,6 +182,9 @@ fn stop(port: u16) -> anyhow::Result<Outcome> {
     if let Some(path) = path {
         fs::remove_file(path).ok();
     }
+    if let Some(users) = users(port) {
+        fs::remove_dir(users).ok();
+    }
     let said = if stopped { "stopped the demo on port" } else { "no demo running on port" };
     writeln!(stdout::out(), "{said} {port}")?;
     Ok(Outcome::Done)

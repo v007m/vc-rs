@@ -254,17 +254,18 @@ impl Engine {
 
     /// The action context of a run with no plan: `vc call`'s, or the cleanups `vc cache clear`
     /// runs. It holds `secrets`, the draw's unseeded random source and the `$file` bodies `actions`
-    /// reach (D272), and starts now.
+    /// reach (D272), and starts now. Its plugins come with it: the caller ends them once it is
+    /// done ([`Hosts::around`]).
     pub(crate) async fn adhoc_cx(
         &self,
         prepared: &Prepared,
         (actions, run_id, secrets): (&[ActionId], u64, Secrets),
-    ) -> Result<Arc<ActionCx>, EngineError> {
+    ) -> Result<(Arc<ActionCx>, Hosts), EngineError> {
         let plugins = self.plugin_hosts(&prepared.program, &secrets);
         let reached = vc_planner::bodies_from(&prepared.program, actions);
         let inputs = self.inputs(prepared, (Arc::clone(&prepared.draw.random), run_id, reached)).await;
         let inputs = inputs.with_secrets(secrets).with_started_at(self.clock.now_ms());
-        Ok(Arc::new(self.action_cx(prepared, (inputs, &plugins))?))
+        Ok((Arc::new(self.action_cx(prepared, (inputs, &plugins))?), plugins))
     }
 }
 

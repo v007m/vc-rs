@@ -77,6 +77,18 @@ fn schema_export_writes_under_the_project_root() {
     assert!(dir.path().join("app/schemas").is_dir());
 }
 
+/// A nested `--out` written with `/` is named with the platform's separators.
+#[test]
+fn schema_export_names_a_nested_out_folder_with_the_platform_s_separators() {
+    let dir = project().unwrap();
+    let wrote = vc(dir.path(), &["--project", "app", "schema", "export", "--out", "schemas/v2"]).output().unwrap();
+    assert_eq!(wrote.status.code(), Some(0));
+    let said = String::from_utf8_lossy(&wrote.stderr);
+    let folder = format!("{0}app{0}schemas{0}v2\n", std::path::MAIN_SEPARATOR);
+    assert!(said.starts_with("wrote ") && said.ends_with(&folder), "{said}");
+    assert!(dir.path().join("app").join("schemas").join("v2").is_dir());
+}
+
 /// A project inside a folder the enclosing repository ignores is still discovered in full
 /// (D133: discovery respects `.gitignore`, and the walker reads the parents' ignore files).
 #[test]

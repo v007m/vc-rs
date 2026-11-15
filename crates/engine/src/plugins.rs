@@ -4,6 +4,7 @@
 //! `.vibranium/plugins/<id>/`. Removing it takes all three back out.
 
 use std::fmt;
+use std::path::PathBuf;
 
 use vc_adapter_plugins::entry_found;
 use vc_diagnostics::Code;
@@ -208,8 +209,14 @@ impl Engine {
         if !unchanged.map_err(|error| store_error(&error))? {
             return Ok(Some(PluginState::Changed));
         }
-        let dir = self.root().join(PLUGINS_DIR).join(&listing.id);
-        Ok((!entry_found(manifest, &dir)).then(|| PluginState::NoEntry(manifest.command.clone())))
+        Ok((!entry_found(manifest, &self.plugin_dir(&listing.id)))
+            .then(|| PluginState::NoEntry(manifest.command.clone())))
+    }
+
+    /// The folder the plugin `id` is installed in, `.vibranium/plugins/<id>` under the root, with
+    /// the platform's separators ([`crate::paths::under`]).
+    pub(crate) fn plugin_dir(&self, id: &str) -> PathBuf {
+        crate::paths::under(self.root(), PLUGINS_DIR).join(id)
     }
 
     /// The installed manifest of `id`; none when it is not installed or does not parse.

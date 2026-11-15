@@ -11,7 +11,7 @@ use serde_json::Value;
 use tokio::sync::broadcast;
 use vc_adapter_plugins::StdioPluginHost;
 use vc_adapter_system::SystemEnvironment;
-use vc_interfaces::{PLUGINS_DIR, PluginHost, PluginKind, PluginStderr, Secrets};
+use vc_interfaces::{PluginHost, PluginKind, PluginStderr, Secrets};
 use vc_model::{Program, TemplateValue};
 use vc_template::{PipeRegistry, Renderer};
 
@@ -167,8 +167,7 @@ impl Engine {
         let (PluginState::Ready, Some(lock), Some(manifest)) = (&state, lock, manifest) else {
             return Err(state.to_string());
         };
-        let dir = self.root().join(PLUGINS_DIR).join(id);
-        let host = StdioPluginHost::new(manifest, dir, lock.permissions.clone())
+        let host = StdioPluginHost::new(manifest, self.plugin_dir(id), lock.permissions.clone())
             .data(self.root(), Path::new(PLUGIN_DATA).join(id))
             .confined(self.root(), Arc::clone(&self.confiner));
         let logged = self.plugin_processes.stderr == PluginStderr::Log;

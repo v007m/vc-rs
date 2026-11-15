@@ -17,14 +17,14 @@ pub struct ExportArgs {
 }
 
 /// `vc schema export [--out <dir>]`; with `--project`, a relative `--out` is under the
-/// project root.
+/// project root, joined with the platform's separators.
 pub fn export(args: &ExportArgs, project: Option<&Path>) -> anyhow::Result<Outcome> {
     let Some(out) = &args.out else {
         stdout::out().write_all(Engine::schema_bundle()?.as_bytes())?;
         return Ok(Outcome::Done);
     };
     let dir = match project.map(project::root).transpose()? {
-        Some(Ok(root)) => root.join(out),
+        Some(Ok(root)) => vc_engine::under(&root, out),
         Some(Err(outcome)) => return Ok(outcome),
         None => out.clone(),
     };
