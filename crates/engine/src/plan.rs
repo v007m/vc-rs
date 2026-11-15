@@ -151,6 +151,9 @@ impl Engine {
         let today = Some(self.clock.today().to_string());
         let options = PlanOptions { repeat: request.repeat, today, strict, ..PlanOptions::default() };
         let plan = examples::planned(&program, &selection, (inputs, &mut draw, options))?;
+        if !rerun.is_empty() {
+            failed::none_left(&plan)?;
+        }
         let mut notices = notices;
         notices.extend(vc_planner::no_rows_notices(&program, &plan));
         Ok(Prepared { program, plan: Arc::new(plan), settings, profiles, names, notices, environment, dot_env, draw })

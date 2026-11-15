@@ -643,6 +643,12 @@ Round 59 (12 November 2026; vc-worker1, under the orchestrator's delegation from
 | --- | --- | --- | --- |
 | D327 | The project's report folder stays inside the project | `reports.dir` in `vibranium.config.yaml` must be a relative path of plain folder names: an absolute path, a drive or a `..` part (`/` and `\` read alike) is V2313, whose help names the file and line and suggests `--out`. A run also resolves the project's folder (that `reports.dir`, else `.vibranium/reports`) on disk before it writes: the nearest part that exists, links followed, must be inside the project; when it is not, or cannot be resolved, the run writes no report files (V5121, a warning; the tests and the exit code are unchanged), and `vc report` and `vc history prune` refuse it, the prune exiting 2 before it drops a run. A `VIB_REPORTS_DIR` line in the project's `.env` counts as the project's and is checked at run time (V5121), because the `.env` is a project file a clone brings along: otherwise a committed `.env` with `VIB_REPORTS_DIR=../..` would write and prune outside the project. A folder the user chooses (`--out`, `--set reports.dir`, `VIB_REPORTS_DIR` in the process environment, the user config) is not checked. A behaviour change: a project that wrote its reports outside itself must now pass `--out` | — |
 
+Round 60 (15 November 2026; vc-worker1, under the orchestrator's delegation from Sarath):
+
+| # | Topic | Decision | Supersedes |
+| --- | --- | --- | --- |
+| D328 | `--failed` and tests marked `skip` | `vc run --failed` keeps honouring `skip`: a test the last run failed or blocked that is marked `skip` now stays skipped, unless `--include-skipped`. When some are, the rest run and the skipped ones are listed as skipped; when every test it would rerun is, nothing runs and it exits 2, saying so, with help suggesting `vc run --failed --include-skipped` | D170 (clarified) |
+
 ## Open
 
 All decisions needed for the PRD and technical design are settled. The language is decided by the spike (D6, D36, D37, D41).

@@ -160,6 +160,21 @@ async fn a_call_ends_the_auth_plugin_it_started_before_vc_exits() {
     assert_eq!(log, "shutdown\n");
 }
 
+/// An unknown name in `reports.formats` gets help listing the built-in formats only: the added
+/// `stamp` plugin is an auth plugin, so it is never offered as a reporter.
+#[test]
+fn an_unknown_report_format_s_help_never_names_an_auth_plugin() {
+    let project = stamped();
+    let added = project.vc(&["plugin", "add", "path:plugin", "--yes"]).output().unwrap();
+    assert_eq!(added.status.code(), Some(0), "{}", said(&added));
+    let config = fs::read_to_string(project.path().join("vibranium.config.yaml")).unwrap();
+    project.write("vibranium.config.yaml", &format!("{config}reports: {{formats: [ghost]}}\n"));
+    let check = project.vc(&["check"]).output().unwrap();
+    assert_eq!(check.status.code(), Some(2), "{}", said(&check));
+    assert!(said(&check).contains("help: expected one of `ctrf`, `junit`, `html`\n"), "{}", said(&check));
+    assert!(!said(&check).contains("`stamp`"), "{}", said(&check));
+}
+
 /// A reporter plugin that writes down each message it reads, then the end of its stdin.
 const HEARD_PY: &str = include_str!("../fixtures/plugin/heard.py");
 

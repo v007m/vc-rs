@@ -1,6 +1,7 @@
 //! The run history: each run is stored with its report snapshot and gets a report folder of
 //! its own; `vc history` lists and shows the runs, `vc report` writes a stored run's files
-//! again, and `vc run --failed` reruns what failed under the same profiles.
+//! again, and `vc run --failed` reruns what failed under the same profiles; a test marked `skip`
+//! stays skipped unless `--include-skipped` (D328).
 
 use std::fs;
 use std::path::PathBuf;
@@ -15,6 +16,13 @@ const MIXED: (&str, &str) = (
     "tests:\n  - id: listsUsers\n    call: users#list\n\
      \x20 - id: wantsAnError\n    call: users#list\n    expect: {status: 500}\n\
      \x20 - id: isParked\n    call: users#list\n    skip: {reason: later}\n",
+);
+
+/// A parked test and a live one, each expecting a status the mock never answers.
+const PARKED: (&str, &str) = (
+    "services/users/parked.test.yaml",
+    "tests:\n  - id: isParked\n    call: users#list\n    expect: {status: 500}\n    skip: {reason: later}\n\
+     \x20 - id: wantsAnError\n    call: users#list\n    expect: {status: 500}\n",
 );
 
 fn json(output: &std::process::Output) -> Value {
@@ -148,4 +156,50 @@ async fn a_call_is_not_the_last_run() {
     let rerun = project.run(&server.base_url(), &["--failed", "--reporter", "json"]).output().unwrap();
     assert_eq!(rerun.status.code(), Some(1), "{}", said(&rerun));
     assert_eq!(of_kind(&events(&rerun.stdout), "testFinished").len(), 1, "{}", said(&rerun));
+}
+
+/// A project whose last run failed only its parked test, run with `--include-skipped`.
+fn parked_failure(base: &str) -> Project {
+    let project = Project::new(&[CONFIG, USERS, PARKED]);
+    project.run(base, &["users.parked#isParked", "--include-skipped"]).assert().code(1);
+    project
+}
+
+/// When every failure is parked now, `--failed` has nothing to run: it exits 2 and suggests
+/// `--include-skipped`.
+#[tokio::test(flavor = "multi_thread")]
+async fn failed_refuses_when_every_failure_is_parked() {
+    let server = MockServer::start().await.unwrap();
+    let project = parked_failure(&server.base_url());
+    let parked = project.run(&server.base_url(), &["--failed"]).output().unwrap();
+    assert_eq!(parked.status.code(), Some(2), "{}", said(&parked));
+    assert!(said(&parked).contains("all marked `skip` now; nothing to run"), "{}", said(&parked));
+    assert!(said(&parked).contains("`vc run --failed --include-skipped` reruns them anyway"), "{}", said(&parked));
+}
+
+/// `--failed --include-skipped` reruns a parked failure.
+#[tokio::test(flavor = "multi_thread")]
+async fn failed_with_include_skipped_reruns_a_parked_failure() {
+    let server = MockServer::start().await.unwrap();
+    let project = parked_failure(&server.base_url());
+    let included = project.run(&server.base_url(), &["--failed", "--include-skipped"]).output().unwrap();
+    assert_eq!(included.status.code(), Some(1), "{}", said(&included));
+    assert!(said(&included).contains("✕ users.parked#isParked"), "{}", said(&included));
+    assert!(said(&included).contains("0 passed · 1 failed"), "{}", said(&included));
+}
+
+/// When only some of the failures are parked, `--failed` reruns the rest and lists the parked
+/// one as skipped.
+#[tokio::test(flavor = "multi_thread")]
+async fn failed_reruns_the_live_failures_and_lists_the_parked_one_as_skipped() {
+    let server = MockServer::start().await.unwrap();
+    let project = Project::new(&[CONFIG, USERS, PARKED]);
+    project.run(&server.base_url(), &["--include-skipped"]).assert().code(1);
+    let rerun = project.run(&server.base_url(), &["--failed"]).output().unwrap();
+    assert_eq!(rerun.status.code(), Some(1), "{}", said(&rerun));
+    for line in
+        ["✕ users.parked#wantsAnError", "- users.parked#isParked skipped: later", "0 passed · 1 failed · 1 skipped"]
+    {
+        assert!(said(&rerun).contains(line), "{line}: {}", said(&rerun));
+    }
 }
