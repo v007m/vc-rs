@@ -209,7 +209,9 @@ impl<'a> Globals<'a> {
         self.unknown(id, &self.profiles, "profile")
     }
 
-    /// V2302 for a `reports.formats` name that is neither a report format nor a plugin's ID.
+    /// V2302 for a `reports.formats` name that is neither a report format nor a plugin's ID. A
+    /// close plugin ID is offered, but the choices listed are the built-in formats only: the
+    /// compiler cannot tell a reporter plugin from one of another kind.
     fn format(&self, node: &Node) -> Option<Diagnostic> {
         let name = node.as_scalar()?.text.as_str();
         if !self.known || REPORT_FORMATS.contains(&name) || self.plugins.contains(name) {
@@ -220,8 +222,9 @@ impl<'a> Globals<'a> {
         let diagnostic = Diagnostic::new(Code::V2302, node.span, message).label("not a report format or plugin");
         let mut plugins: Vec<&str> = self.plugins.iter().copied().collect();
         plugins.sort_unstable();
-        let known = [REPORT_FORMATS.as_slice(), &plugins].concat();
-        Some(suggest::hint(diagnostic, &suggest::Misspelling { word: name, span: node.span, known: &known }))
+        let all = [REPORT_FORMATS.as_slice(), &plugins].concat();
+        let known: &[&str] = if suggest::close(name, all.iter().copied()).is_empty() { &REPORT_FORMATS } else { &all };
+        Some(suggest::hint(diagnostic, &suggest::Misspelling { word: name, span: node.span, known }))
     }
 
     fn unknown(&self, node: &Node, known: &HashSet<&str>, kind: &str) -> Option<Diagnostic> {
