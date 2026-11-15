@@ -1439,3 +1439,4 @@ pub fn vc_engine::instance_label(&vc_interfaces::history_rows::TestRow) -> alloc
 pub fn vc_engine::interrupts() -> (vc_engine::Interrupter, vc_engine::Interrupts)
 pub fn vc_engine::launch_plugin(impl core::iter::traits::iterator::Iterator<Item = std::ffi::os_str::OsString>) -> core::option::Option<alloc::string::String>
 pub fn vc_engine::started(u64) -> alloc::string::String
+pub fn vc_engine::under(&std::path::Path, impl core::convert::AsRef<std::path::Path>) -> std::path::PathBuf

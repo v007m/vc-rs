@@ -143,6 +143,23 @@ async fn an_auth_plugin_signs_every_request_with_what_it_answered_once() {
     assert_eq!(server.stats().await.unwrap().count("GET /echo"), 2);
 }
 
+/// `vc call` ends the plugins it started before it exits, as a run does: the auth plugin that
+/// signed the call hears `shutdown`.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_call_ends_the_auth_plugin_it_started_before_vc_exits() {
+    if !has_python() {
+        return;
+    }
+    let server = MockServer::start().await.unwrap();
+    let project = stamped();
+    project.vc(&["plugin", "add", "path:plugin", "--yes"]).assert().code(0);
+    let base = format!("vars.baseUrl={}", server.base_url());
+    let call = project.vc(&["call", "partner#echo", "--set", &base]).env("STAMP_KEY", "k3y").output().unwrap();
+    assert_eq!(call.status.code(), Some(0), "{}", said(&call));
+    let log = fs::read_to_string(project.path().join(".vibranium/plugin-data/stamp/stamp.log")).unwrap();
+    assert_eq!(log, "shutdown\n");
+}
+
 /// A reporter plugin that writes down each message it reads, then the end of its stdin.
 const HEARD_PY: &str = include_str!("../fixtures/plugin/heard.py");
 

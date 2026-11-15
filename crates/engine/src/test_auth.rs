@@ -69,9 +69,13 @@ impl Engine {
         let actions: Vec<ActionId> = probe.target.into_iter().chain(probe.senders.iter().copied()).collect();
         let read = vc_planner::secrets_from(&prepared.program, &actions, &prepared.profiles);
         let secrets = self.secrets(SecretSource::of(&prepared), &read).await?;
-        let cx = self.adhoc_cx(&prepared, (&actions, 0, secrets)).await?;
-        let through = sender(&cx, &probe, &request.auth).await?;
-        let probed = probe_auth(&ActionRequest::run(&cx, through)).await;
+        let (cx, plugins) = self.adhoc_cx(&prepared, (&actions, 0, secrets)).await?;
+        let probed = plugins
+            .around(async {
+                let through = sender(&cx, &probe, &request.auth).await?;
+                Ok::<_, EngineError>(probe_auth(&ActionRequest::run(&cx, through)).await)
+            })
+            .await?;
         let tested =
             AuthTested { api: probe.api, notices: std::mem::take(&mut prepared.notices), ..AuthTested::default() };
         Ok(match probed {

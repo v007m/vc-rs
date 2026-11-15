@@ -80,6 +80,13 @@ fn an_approved_plugin_is_in_the_config_the_lock_and_its_folder() {
     listed_ready(&engine);
 }
 
+#[test]
+fn a_plugin_s_folder_is_under_the_root_with_the_platform_s_separators() {
+    let (dir, engine) = project();
+    let expected = dir.path().join(".vibranium").join("plugins").join("report");
+    assert_eq!(engine.plugin_dir("report").to_str(), expected.to_str(), "never `.vibranium/plugins` joined as one");
+}
+
 /// Checks `vc plugin list` shows the one plugin `report`, ready.
 fn listed_ready(engine: &Engine) {
     let listed = engine.plugin_list().unwrap();

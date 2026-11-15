@@ -152,6 +152,7 @@ pub use interrupt::{Interrupter, Interrupts, interrupts};
 pub use list::{ListReport, Listed};
 pub use list_detail::{ApiCall, action_call};
 pub use load_report::{ErrorKind, LoadBreach, LoadEnding, LoadReport, LoadRequest, LoadTestReport, LoadWatch};
+pub use paths::under;
 pub use plan::PlanReport;
 pub use plugin_hosts::launch_plugin;
 pub use plugins::{PluginListing, PluginOffer, PluginState};

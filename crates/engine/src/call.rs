@@ -31,7 +31,7 @@ const CALL_TOOL: &str = "call_api";
 
 impl Engine {
     /// Sends the api `request.api` once, runs its cleanup unless `request.keep`, and records
-    /// the call in the history.
+    /// the call in the history. The plugins it started have exited by the time it returns.
     ///
     /// # Errors
     ///
@@ -46,8 +46,8 @@ impl Engine {
         let mut notices = std::mem::take(&mut prepared.notices);
         let recording = self.call_recording(&prepared, &request.api, &mut notices);
         let run_id = recording.as_ref().map_or(0, |recording| recording.id().get());
-        let cx = self.adhoc_cx(&prepared, (&[action], run_id, secrets)).await?;
-        let (report, failed) = sent_once(&cx, action, given).await;
+        let (cx, plugins) = self.adhoc_cx(&prepared, (&[action], run_id, secrets)).await?;
+        let (report, failed) = plugins.around(sent_once(&cx, action, given)).await;
         notices.extend(failed);
         let passed = matches!(report.outcome, ActionOutcome::Passed);
         notices.extend(self.closed(recording, passed, &prepared.program).await);
