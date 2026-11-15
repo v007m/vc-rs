@@ -216,7 +216,7 @@ fn a_join_whose_caller_is_gone_does_not_keep_the_demo_running() {
     assert_eq!(launched, Some(0));
     assert_eq!(stopped, format!("stopped the demo on port {port}\n"));
     assert!(wait_until(port, false), "the stale join is dropped and the demo ends");
-    assert!(std::fs::read_dir(&users).unwrap().next().is_none(), "the stale join is pruned");
+    assert!(!users.exists(), "the stale join is pruned, and its folder goes with the demo");
 }
 
 /// A `start` run by a shell line that ended before the run did (its caller is gone) still keeps
@@ -352,4 +352,32 @@ fn a_demo_the_user_started_outlives_two_load_runs_that_start_and_stop_it() {
     assert!(still_up.is_some_and(|line| line.contains(" 200 ")), "the demo still answers after both loads");
     assert_eq!(stopped, format!("stopped the demo on port {port}\n"), "the loads' joins were all let go");
     assert!(wait_until(port, false), "the user's stop ends it");
+}
+
+/// A real stop takes the pidfile and the joins' folder with the demo, and keeps only the port's
+/// lock file for the next `start` (D297). The test's `vc` uses the project's own temp folder, so
+/// the user's has none of them.
+#[cfg(unix)]
+#[test]
+fn a_real_stop_leaves_only_the_port_s_lock_file_and_none_in_the_user_s_temp_folder() {
+    let (project, port) = (Project::empty(), free_port());
+    let at = &port.to_string();
+    let launched = exit_code(&project, &["demo", "start", "--port", at, "--detach"]);
+    let joined = printed(&project, &["demo", "start", "--port", at, "--detach"]);
+    let folder = demo_folder(project.home());
+    let users = folder.join(format!("{port}.users")).is_dir();
+    let stops =
+        [printed(&project, &["demo", "stop", "--port", at]), printed(&project, &["demo", "stop", "--port", at])];
+    let left: Vec<String> = std::fs::read_dir(&folder)
+        .unwrap()
+        .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+        .collect();
+    assert_eq!(launched, Some(0));
+    assert_eq!(joined, format!("a demo already answers on port {port}\n"));
+    assert!(users, "the join is noted in the port's joins folder");
+    assert_eq!(stops[1], format!("stopped the demo on port {port}\n"));
+    assert_eq!(left, [format!("{port}.lock")], "only the lock file is kept");
+    let outside = demo_folder(&std::env::temp_dir()).join(format!("{port}.lock"));
+    assert!(!outside.exists(), "the user's temp folder is left alone: {}", outside.display());
+    assert!(wait_until(port, false), "the second stop ends it");
 }

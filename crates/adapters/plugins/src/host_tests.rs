@@ -244,6 +244,7 @@ async fn a_confined_plugin_writes_its_data_folder_and_nothing_else_in_the_projec
         .data(root.path(), ".vibranium/plugin-data/suitePlugin")
         .confined(root.path(), Arc::default());
     host.call("suite/keep", json!({}), Duration::from_secs(5)).await.unwrap();
+    host.shutdown().await;
     assert_eq!(std::fs::read_to_string(data.join("state.txt")).unwrap(), "kept");
     assert!(!root.path().join("leaked.txt").exists(), "the project outside its data folder is closed");
 }

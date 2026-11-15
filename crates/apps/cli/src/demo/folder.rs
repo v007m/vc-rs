@@ -27,9 +27,10 @@ const POLL: Duration = Duration::from_millis(50);
 /// Waits for this `start`'s turn on `port`, so two `start`s at once take turns: the second finds
 /// the first's demo answering and joins it, instead of seeing the port taken before the demo
 /// answers. The turn is an OS lock on `<port>.lock` (D297), held until the file is dropped and freed
-/// when `vc` exits, so a crash leaves none behind. The file is checked as the folder is, on the
-/// handle opened: this user's own, not a link ([`opened_here`]). `None` (no turn, as before) when
-/// there is nowhere private for it, or another `start` holds it past [`TURN`].
+/// when `vc` exits, so a crash leaves none behind; the empty file stays for the next `start`. The
+/// file is checked as the folder is, on the handle opened: this user's own, not a link
+/// ([`opened_here`]). `None` (no turn, as before) when there is nowhere private for it, or another
+/// `start` holds it past [`TURN`].
 pub fn turn(port: u16) -> Option<fs::File> {
     let path = folder()?.join(format!("{port}.lock"));
     let mut options = fs::OpenOptions::new();

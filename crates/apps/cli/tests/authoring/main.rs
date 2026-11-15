@@ -92,8 +92,9 @@ impl Project {
         self.write(CONFIG.0, &config);
     }
 
-    /// `vc <args>` in the project, with no colour, its own home, no `VIB_*` from outside, and
-    /// this build's `vc` first on `PATH` (the sample's `command:` steps call `vc demo`).
+    /// `vc <args>` in the project, with no colour, its own home, which is also its temp folder (so
+    /// the demo's pidfiles, locks and joins go with the test), no `VIB_*` from outside, and this
+    /// build's `vc` first on `PATH` (the sample's `command:` steps call `vc demo`).
     pub(crate) fn vc(&self, args: &[&str]) -> Command {
         Command::from_std(self.process(args))
     }
@@ -103,6 +104,9 @@ impl Project {
         let mut vc = std::process::Command::new(cargo_bin!("vc"));
         vc.current_dir(self.path()).args(args).env("NO_COLOR", "1").env("PATH", path_with_vc());
         vc.env("HOME", self.home()).env("XDG_CONFIG_HOME", self.home()).env_remove("APPDATA");
+        for temp in ["TMPDIR", "TMP", "TEMP"] {
+            vc.env(temp, self.home());
+        }
         for (name, _) in std::env::vars_os() {
             if name.to_string_lossy().starts_with("VIB_") {
                 vc.env_remove(name);
