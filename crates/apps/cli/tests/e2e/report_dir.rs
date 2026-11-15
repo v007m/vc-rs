@@ -1,6 +1,7 @@
 //! Where a run writes its reports (D327): `reports.dir` in the project config stays inside the
-//! project (V2313, and V5121 for one a link leads out of), while a folder the user chooses, with
-//! `--out`, `--set` or `VIB_REPORTS_DIR`, may be anywhere.
+//! project (V2313, and V5121 for one a link leads out of), and so does `VIB_REPORTS_DIR` in the
+//! project's `.env`, while a folder the user chooses, with `--out`, `--set` or `VIB_REPORTS_DIR` in
+//! the environment, may be anywhere.
 
 use std::fs;
 use std::path::Path;
@@ -81,4 +82,27 @@ async fn a_report_folder_linked_out_of_the_project_gets_nothing_and_is_never_pru
     let pruned = project.vc(&["history", "prune", "--keep", "1"]).env("VIB_REPORTS_DIR", &dir).assert().code(0);
     pruned.stdout("pruned 1 run\n");
     assert!(!outside.path().join("1").exists(), "a folder the user chose is theirs to prune");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_report_folder_the_project_env_file_points_outside_gets_nothing_and_is_never_pruned() {
+    let server = MockServer::start().await.unwrap();
+    let outside = tempfile::tempdir().unwrap();
+    fs::create_dir(outside.path().join("1")).unwrap();
+    fs::write(outside.path().join("1/.vc-run"), "").unwrap();
+    let sibling = outside.path().file_name().unwrap().to_string_lossy().into_owned();
+    for dir in [format!("../{sibling}"), outside.path().display().to_string()] {
+        let env = format!("VIB_REPORTS_DIR={dir}\n");
+        let project = Project::new(&[CONFIG, USERS, LISTS, (".env", env.as_str())]);
+        let run = project.run(&server.base_url(), &["--report", "ctrf,junit,html"]).output().unwrap();
+        let printed = said(&run);
+        assert_eq!(run.status.code(), Some(0), "the tests still pass: {printed}");
+        assert!(printed.contains("V5121") && printed.contains("no report is written"), "{dir}: {printed}");
+        assert_eq!(names(outside.path()), ["1"], "{dir}: a cloned `.env` writes nothing outside");
+        let prune = project.vc(&["history", "prune", "--keep", "0"]).output().unwrap();
+        let printed = said(&prune);
+        assert_eq!(prune.status.code(), Some(2), "{printed}");
+        assert!(printed.contains("V5121") && printed.contains("no run is pruned"), "{dir}: {printed}");
+        assert!(outside.path().join("1/.vc-run").is_file(), "{dir}: a marked folder outside stays");
+    }
 }

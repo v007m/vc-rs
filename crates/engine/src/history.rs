@@ -110,6 +110,7 @@ impl Engine {
 
     /// Where each run's report folder goes: the layers' `reports.dir`, else the config's, else
     /// `.vibranium/reports`, under the root; the default when the project or a layer has errors.
+    /// The config's and the project `.env`'s folder must stay inside the project.
     ///
     /// # Errors
     ///
@@ -117,8 +118,8 @@ impl Engine {
     /// (V5121, D327), so nothing is pruned.
     fn report_folders(&self) -> Result<PathBuf, EngineError> {
         let layered = self.layered(&[], &[]).ok();
-        let set = layered.as_ref().and_then(|layered| layered.settings.reports_dir.clone());
-        let project = set.is_none();
+        let set = layered.as_ref().and_then(|layered| layered.settings.reports_folder().map(str::to_owned));
+        let project = layered.as_ref().is_none_or(|layered| layered.settings.project_reports_dir());
         let configured = || layered.as_ref().and_then(|layered| layered.program.config.reports_dir.clone());
         let folders =
             crate::paths::under(self.root(), set.or_else(configured).unwrap_or_else(|| REPORTS_DIR.to_owned()));

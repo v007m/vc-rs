@@ -1,8 +1,8 @@
 ---
-title: "V5121 — The project's report folder leads outside the project through a link"
-description: "reports.dir in vibranium.config.yaml, or the default .vibranium/reports, must stay inside the project on disk too."
+title: "V5121 — The project's report folder leads outside the project"
+description: "reports.dir in vibranium.config.yaml, a VIB_REPORTS_DIR line in the project's .env, or the default .vibranium/reports, must stay inside the project on disk too: a .env comes with a project you clone, like its config, so its folder is the project's."
 sidebar:
-  label: "V5121 The project's report folder leads outside the project through a link"
+  label: "V5121 The project's report folder leads outside the project"
   order: 5121
 ---
 
@@ -17,12 +17,14 @@ import { Badge } from '@astrojs/starlight/components';
 | Severity | warning |
 | Certain fix | none; `vc check --fix` leaves this one to you |
 
-`reports.dir` in `vibranium.config.yaml`, or the default `.vibranium/reports`, must stay inside the project on disk
-too. Before a run writes a report, and before `vc history prune` removes a run folder, `vc` resolves the folder's
-nearest part that exists, links followed; when that is outside the project, or cannot be resolved, the run writes no
-report files (its tests still run, and their results and exit code are unchanged) and `vc history prune` exits 2
-without removing anything. Replace the link with a folder, or point `reports.dir` inside the project. A folder outside
-the project is yours to choose with `--out <dir>`, `VIB_REPORTS_DIR` or your user config, and is not checked (D327).
+`reports.dir` in `vibranium.config.yaml`, a `VIB_REPORTS_DIR` line in the project's `.env`, or the default
+`.vibranium/reports`, must stay inside the project on disk too: a `.env` comes with a project you clone, like its
+config, so its folder is the project's. Before a run writes a report, and before `vc history prune` removes a run
+folder, `vc` resolves the folder's nearest part that exists, links followed; when that is outside the project, or cannot
+be resolved, the run writes no report files (its tests still run, and their results and exit code are unchanged) and `vc
+history prune` exits 2 without removing anything. Replace the link with a folder, or point `reports.dir`, or the `.env`
+line, inside the project. A folder outside the project is yours to choose with `--out <dir>`, `--set reports.dir=<dir>`,
+`VIB_REPORTS_DIR` in your environment or your user config, and is not checked (D327).
 
 ## Wrong
 

@@ -4,6 +4,7 @@
 use std::sync::Arc;
 use std::time::Duration as StdDuration;
 
+use vc_adapter_system::DOT_ENV;
 use vc_interfaces::{ConfigEntry, ConfigSource, ConfigSourceError};
 use vc_model::{Duration, Pos, Program, Retry, SourceFileId, SourceSpan};
 
@@ -13,6 +14,13 @@ use crate::EngineError;
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Named {
     pub names: Vec<String>,
+    pub origin: String,
+}
+
+/// A setting's text, and the layer that set it.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Sourced {
+    pub value: String,
     pub origin: String,
 }
 
@@ -32,7 +40,7 @@ pub struct Settings {
     /// `defaults.retry.delay`: the pause between them.
     pub retry_delay: Option<Duration>,
     /// `reports.dir`, absolute or relative to the root.
-    pub reports_dir: Option<String>,
+    pub reports_dir: Option<Sourced>,
     /// `reports.formats`.
     pub formats: Option<Named>,
     /// `reports.html.layout`: whether the HTML report is one file (`single`) or a folder.
@@ -61,6 +69,19 @@ pub const KEYS: &[(&str, Apply)] = &[
 const VARS: &str = "vars.";
 
 impl Settings {
+    /// The `reports.dir` a layer set.
+    #[must_use]
+    pub fn reports_folder(&self) -> Option<&str> {
+        self.reports_dir.as_ref().map(|dir| dir.value.as_str())
+    }
+
+    /// Whether the report folder is the project's to keep inside it (D327): no layer set it, or
+    /// the project's own `.env` did, a file a clone brings along like the config.
+    #[must_use]
+    pub fn project_reports_dir(&self) -> bool {
+        self.reports_dir.as_ref().is_none_or(|dir| dir.origin == DOT_ENV)
+    }
+
     /// `program` with the `defaults` these settings set in place of its config's: the timeout,
     /// and the retry's attempts and delay, each over the config's own.
     pub fn apply(&self, program: &mut Arc<Program>) {
@@ -191,7 +212,7 @@ fn reports_dir(settings: &mut Settings, entry: &ConfigEntry) -> Result<(), Strin
     if entry.value.trim().is_empty() {
         return Err("the folder is empty".to_owned());
     }
-    settings.reports_dir = Some(entry.value.trim().to_owned());
+    settings.reports_dir = Some(Sourced { value: entry.value.trim().to_owned(), origin: entry.origin.clone() });
     Ok(())
 }
 

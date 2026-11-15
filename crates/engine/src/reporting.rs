@@ -168,9 +168,9 @@ pub fn choose(console: Option<&str>, settings: &Settings, program: &Program) -> 
     for file in &files {
         check(file, &named.origin, Role::File)?;
     }
-    let dir = settings.reports_dir.as_deref().or(program.config.reports_dir.as_deref()).unwrap_or(REPORTS_DIR);
+    let dir = settings.reports_folder().or(program.config.reports_dir.as_deref()).unwrap_or(REPORTS_DIR);
     let single_file = settings.html_single_file.unwrap_or(program.config.html_single_file);
-    let (dir, project) = (PathBuf::from(dir), settings.reports_dir.is_none());
+    let (dir, project) = (PathBuf::from(dir), settings.project_reports_dir());
     Ok(Chosen { console: console.to_owned(), files, dir, per_run: true, single_file, plugins, project })
 }
 

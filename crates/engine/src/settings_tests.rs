@@ -58,10 +58,23 @@ fn every_key_reads_its_value() {
     assert_eq!(settings.timeout.map(vc_model::Duration::get), Some(Duration::from_secs(2)));
     assert_eq!(settings.retry_attempts, Some(0));
     assert_eq!(settings.retry_delay.map(vc_model::Duration::get), Some(Duration::from_millis(250)));
-    assert_eq!(settings.reports_dir.as_deref(), Some("out"));
+    assert_eq!(settings.reports_folder(), Some("out"));
+    assert!(!settings.project_reports_dir(), "`--set` is the user's");
     assert_eq!(settings.formats.map(|formats| formats.names), Some(vec!["ctrf".into(), "junit".into()]));
     assert_eq!(settings.html_single_file, Some(true));
     assert_eq!(Settings::resolve(&[], &[]).unwrap(), Settings::default());
+}
+
+#[test]
+fn the_report_folder_keeps_the_layer_that_set_it_last() {
+    let env = layer(".env", &[("reports.dir", "../out")]);
+    let settings = Settings::resolve(&[&env], &[]).unwrap();
+    assert!(settings.project_reports_dir(), "the project's `.env` is the project's (D327)");
+    let process = layer("VIB_REPORTS_DIR", &[("reports.dir", "../out")]);
+    let settings = Settings::resolve(&[&env, &process], &[]).unwrap();
+    assert_eq!(settings.reports_folder(), Some("../out"));
+    assert!(!settings.project_reports_dir(), "the same value from the process environment is the user's");
+    assert!(Settings::default().project_reports_dir(), "no layer set it, so the config's folder holds");
 }
 
 #[test]

@@ -14,7 +14,7 @@ use crate::history::history_error;
 use crate::load::LOAD_KIND;
 use crate::load_findings;
 use crate::reporting::{self, Chosen};
-use crate::settings::{Named, Settings};
+use crate::settings::{Named, Settings, Sourced};
 use crate::{Engine, EngineError, ReportFlags};
 
 /// Milliseconds in a day, for the start times.
@@ -167,7 +167,10 @@ fn report_choice(flags: &ReportFlags) -> Result<Chosen, EngineError> {
     }
     let settings = Settings {
         formats: Some(Named { names, origin: "--format".to_owned() }),
-        reports_dir: flags.out.as_ref().map(|out| out.to_string_lossy().into_owned()),
+        reports_dir: flags
+            .out
+            .as_ref()
+            .map(|out| Sourced { value: out.to_string_lossy().into_owned(), origin: "--out".to_owned() }),
         html_single_file: Some(flags.single_file),
         ..Settings::default()
     };

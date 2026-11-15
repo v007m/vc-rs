@@ -5,7 +5,7 @@ use vc_model::{PluginRef, Program, SourceFiles, StringTable};
 
 use super::Chosen;
 use crate::EngineError;
-use crate::settings::{Named, Settings};
+use crate::settings::{Named, Settings, Sourced};
 
 fn program(formats: &[&str], dir: Option<&str>) -> Program {
     let mut program = Program::default();
@@ -72,9 +72,19 @@ fn the_config_formats_and_folder_apply_when_no_layer_names_any() {
 
 #[test]
 fn a_flag_wins_over_the_config_and_an_absolute_out_stays() {
-    let settings = Settings { reports_dir: Some("/tmp/r".into()), ..flag(&["ctrf", "junit"]) };
+    let reports_dir = Some(Sourced { value: "/tmp/r".into(), origin: "--set".into() });
+    let settings = Settings { reports_dir, ..flag(&["ctrf", "junit"]) };
     let chosen = choose(None, &settings, &program(&["junit"], Some("out"))).unwrap();
-    assert_eq!((chosen.files.len(), chosen.dir), (2, PathBuf::from("/tmp/r")));
+    assert_eq!((chosen.files.len(), chosen.dir, chosen.project), (2, PathBuf::from("/tmp/r"), false));
+}
+
+#[test]
+fn a_folder_from_the_project_env_file_is_the_projects_and_one_from_the_user_is_not() {
+    for (origin, project) in [(".env", true), ("VIB_REPORTS_DIR", false), ("--set", false), ("--out", false)] {
+        let reports_dir = Some(Sourced { value: "../out".into(), origin: origin.into() });
+        let chosen = choose(None, &Settings { reports_dir, ..Settings::default() }, &program(&[], None)).unwrap();
+        assert_eq!(chosen.project, project, "{origin}");
+    }
 }
 
 #[test]
