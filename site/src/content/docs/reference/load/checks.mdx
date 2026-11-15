@@ -31,6 +31,16 @@ tests:
       status: 201
 ```
 
+```yaml title="load/sample/checks.load.yaml"
+mix:
+  - test: sample.wrong#expectsWrongStatus
+    weight: 1
+stages:
+  - duration: 2s
+    users: 2
+thinkTime: 100ms
+```
+
 ### `checks: api` (default)
 
 The test's `expect` is skipped, so nothing fails:
@@ -46,6 +56,20 @@ test sample.wrong#expectsWrongStatus · 10 iterations · 5.0 rps · 0 errors · 
 ```
 
 ### `checks: full`
+
+```yaml title="load/sample/full.load.yaml"
+mix:
+  - test: sample.wrong#expectsWrongStatus
+    weight: 1
+stages:
+  - duration: 2s
+    users: 2
+thinkTime: 100ms
+checks: full
+thresholds:
+  errorRate:
+    lt: 1%
+```
 
 Every iteration fails, the `errorRate` threshold is breached and the exit code is 3:
 

@@ -29,10 +29,10 @@ profiles:
     default: true
     agents:
       call: [GET]
-      approve: [POST]
+      approve: [POST, DELETE]
 ```
 
-an agent's `call_api` on `sample#createUser` (the `vc init` sample's `POST /users`) waits:
+an agent's `call_api` on `sample#createUser` (the `vc init` sample's `POST /users`, whose cleanup sends a `DELETE`) waits. Here the agent is Claude Code, connected through [`vc mcp`](/vc-rs/reference/cli/mcp/):
 
 ```console
 $ vc approvals
@@ -40,6 +40,8 @@ $ vc approvals
 ```
 
 The columns are the request number, the agent's name (the MCP client's), the tool, the profile and a summary of the call. Newest first.
+
+After `vc approve 1`, `vc approve 2 --deny` and `vc approve 3`, with a fourth call waiting:
 
 ```console
 $ vc approvals --all

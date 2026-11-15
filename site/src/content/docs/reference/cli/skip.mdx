@@ -25,7 +25,7 @@ $ vc skip [OPTIONS] --reason <REASON> <TARGET>
 
 ### Skip one test
 
-The test calls `users#listUsers`, a `GET /users` on a users service.
+These examples run in the project the [`vc new test`](/vc-rs/reference/cli/new/#vc-new-test) example builds: `users.crud` holds `listsUsers` and `rejectsAnonymousListUsers`, which call `users#listUsers`, a `GET /users` on a users service.
 
 ```console
 $ vc skip users.crud#listsUsers --reason "waiting on JIRA-12"
@@ -38,6 +38,7 @@ tests:
     name: Lists users
     call: users#listUsers
     skip: waiting on JIRA-12
+  ...
 ```
 
 ### Skip a file until a date

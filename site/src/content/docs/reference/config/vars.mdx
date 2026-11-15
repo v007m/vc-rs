@@ -26,6 +26,8 @@ Name vars in camelCase. End a name with `Id` or `Url` where that fits: `orgId`, 
 
 ## Examples
 
+These run in [the project these pages use](/vc-rs/reference/config/#the-project-these-pages-use), which has an `eu` profile.
+
 Where a value comes from:
 
 ```console
@@ -85,16 +87,28 @@ vars.owner = {name: ana, team: core}  (vibranium.config.yaml)
 
 A typo is caught before anything runs, with a certain fix:
 
+```yaml wrong V2101 title="vibranium.config.yaml"
+syntaxVersion: 2
+vars:
+  region: local
+defaults:
+  headers:
+    x-team: ${var.regoin}
+profiles:
+  - id: default
+    default: true
+```
+
 ```console
 $ vc check
 error[V2101]: ${var.regoin} is used but never set
-  --> vibranium.config.yaml:21:13
-   |
-21 |     x-team: ${var.regoin}
-   |             ^^^^^^^^^^^^^ no level sets regoin for profile default
-   = help: set it in this test's vars, in the file's vars, or in the config's vars
-   = help: did you mean `region`?
-   = fix: Replace with region (certain)
+ --> vibranium.config.yaml:6:13
+  |
+6 |     x-team: ${var.regoin}
+  |             ^^^^^^^^^^^^^ no level sets regoin for profile default
+  = help: set it in this test's vars, in the file's vars, or in the config's vars
+  = help: did you mean `region`?
+  = fix: Replace with region (certain)
 ```
 
 ## Try it

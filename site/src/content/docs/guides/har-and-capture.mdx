@@ -49,7 +49,7 @@ $ vc call sample#listUsers
 
 <Steps>
 
-1. **Record.** Open your browser's dev tools on the **Network** tab, use the app, then save the requests as a HAR file (in Chrome and Firefox, right-click the request list and choose **Save all as HAR**). Save it inside the project, for example `rec/signup.har`.
+1. **Record.** Open your browser's dev tools on the **Network** tab, use the app, then save the requests as a HAR file (in Chrome and Firefox, right-click the request list and choose **Save all as HAR**). Save it inside the project, for example `rec/signup.har`. The output below is for a session of five requests: a script, an analytics call, and `GET /users`, `POST /users` and `GET /users/{id}` with a bearer token.
 
 2. **Preview.** `--dry-run` prints what would be written, and writes nothing. `--flow` adds a test that replays the session:
 
@@ -118,7 +118,7 @@ $ vc call sample#listUsers
 
 Then make the test check something: add an `expect` to each step, or to the apis. The import only records what was called.
 
-A new host gets a new api file and a `<file>Url` var in the config. Requests with IDs in the path get a var for the ID (`/v1/carts/${var.cartId}/items`), and JSON body fields become vars with the recorded values:
+A new host gets a new api file and a `<file>Url` var in the config. Requests with IDs in the path get a var for the ID (`/v1/carts/${var.cartId}/items`), and JSON body fields become vars with the recorded values. Here `rec/checkout.har` is a checkout on `api.shop.test`, whose `shop` api file already has `POST /v1/carts`, with a payment call to `pay.shop.test`:
 
 ```console
 $ vc import har rec/checkout.har --include-host api.shop.test --flow checkout#placesOrder
@@ -142,7 +142,7 @@ The web UI does the same from its **API client** screen: **Import HAR** previews
 
 ## From curl, .http and Postman
 
-The same rules apply to these sources: one file per host, matching apis left alone, credentials dropped.
+The same rules apply to these sources: one file per host, matching apis left alone, credentials dropped. Here `rec/calls.sh` holds two curl commands to `api.shop.test`, the second a `POST /v1/carts` with an `authorization` header:
 
 ```console
 $ vc import curl rec/calls.sh --id shop

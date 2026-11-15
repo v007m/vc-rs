@@ -18,7 +18,7 @@ generators:
     oneOf: [PRIVATE, PUBLIC]
 ```
 
-The test sends the values as the `payload` of an echo api, a `POST /echo` that answers with the request it got:
+The test sends the values as the `payload` of the `echo` api in [the project these pages use](/vc-rs/reference/config/#the-project-these-pages-use), a `POST /echo` that answers with the request it got:
 
 ```yaml title="services/slow/gen.test.yaml"
     vars:
@@ -38,12 +38,23 @@ A retry gets fresh values, such as `{"seats":2,"team":"Jllmruvvb Team","visibili
 
 A name that is not a generator:
 
+```yaml wrong V2002 title="services/slow/gen.test.yaml"
+tests:
+  - id: sendsGenerated
+    call: slow#echo
+    vars:
+      payload:
+        team: ${fake.teamNam}
+        seats: ${fake.seats}
+        visibility: ${fake.visibility}
+```
+
 ```console
 $ vc check
 error[V2002]: `fake.teamNam` is not a generator
- --> services/slow/gen.test.yaml:7:15
+ --> services/slow/gen.test.yaml:6:15
   |
-7 |         team: ${fake.teamNam}
+6 |         team: ${fake.teamNam}
   |               ^^^^^^^^^^^^^^^ no generator has this name
   = note: the generators are `commerce.price`, `date.future`, …, `seats`, …, `teamName`, `visibility`
   = help: did you mean `teamName`?

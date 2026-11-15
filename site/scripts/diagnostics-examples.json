@@ -43,6 +43,11 @@
   "V2007": {
     "files": [
       {
+        "path": "services/users/users.api.yaml",
+        "lang": "yaml",
+        "code": "id: users\nname: Users\nbaseUrl: http://localhost:7421\napis:\n  - id: listUsers\n    name: List users\n    path: /users"
+      },
+      {
         "path": "services/users/crud.test.yaml",
         "lang": "yaml",
         "code": "id: users.basics\nname: Users CRUD\ntests:\n  - id: listsUsers\n    name: Lists users\n    call: users#listUsers"
@@ -101,6 +106,11 @@
   "V2306": {
     "files": [
       {
+        "path": "services/users/users.api.yaml",
+        "lang": "yaml",
+        "code": "id: users\nname: Users\nbaseUrl: http://localhost:7421\napis:\n  - id: listUsers\n    name: List users\n    path: /users"
+      },
+      {
         "path": "services/users/crud.test.yaml",
         "lang": "yaml",
         "code": "id: users.crud\nname: Users CRUD\ntests:\n  - id: listsUsers\n    name: Lists users\n    call: users#listUsers\n    expect:\n      body:\n        match:\n          id: {type: strng}"
@@ -130,6 +140,11 @@
   "V3204": {
     "files": [
       {
+        "path": "services/users/users.api.yaml",
+        "lang": "yaml",
+        "code": "id: users\nname: Users\nbaseUrl: http://localhost:7421\napis:\n  - id: listUsers\n    name: List users\n    path: /users"
+      },
+      {
         "path": "services/users/crud.test.yaml",
         "lang": "yaml",
         "code": "id: users.crud\nname: Users CRUD\ntests:\n  - id: listsUsers\n    name: Lists users\n    call: users#listUsers\n    skip: flaky upstream, see #212"
@@ -154,17 +169,27 @@
   "V5101": {
     "files": [
       {
+        "path": "services/users/users.api.yaml",
+        "lang": "yaml",
+        "code": "id: users\nname: Users\nbaseUrl: http://localhost:7421\napis:\n  - id: listUsers\n    name: List users\n    path: /users"
+      },
+      {
         "path": "services/users/crud.test.yaml",
         "lang": "yaml",
         "code": "id: users.crud\nname: Users CRUD\ntests:\n  - id: listsUsers\n    name: Lists users\n    call: users#listUsers\n    expect:\n      status: 201\n  - id: countsUsers\n    name: Counts users\n    call: users#listUsers\n    expect:\n      cel:\n        returns users: response.body.users.size() > 0"
       }
     ],
     "command": "vc run users.crud#listsUsers",
-    "output": "plan  1 test in 1 file · profile default\n\nUsers CRUD\n✕ users.crud#listsUsers — Lists users                             2ms\n  error[V5101]: expect.status\n   --> services/users/crud.test.yaml:8:15\n    |\n  8 |       status: 201\n    |               ^^^ expected [201], got 200\n\n0 passed · 1 failed                                          3ms · profile default\nreports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}\nnext     vc run --failed",
+    "output": "plan  1 test in 1 file · profile default\n\nUsers CRUD\n✕ users.crud#listsUsers — Lists users                             2ms\n  error[V5101]: expect.status\n   --> services/users/crud.test.yaml:8:15\n    |\n  8 |       status: 201\n    |               ^^^ expected [201], got 200\n\n0 passed · 1 failed                                          3ms · profile default\nreports  …/.vibranium/reports/1/ctrf.json\nnext     vc run --failed",
     "exit": 1
   },
   "V5102": {
     "files": [
+      {
+        "path": "services/users/users.api.yaml",
+        "lang": "yaml",
+        "code": "id: users\nname: Users\nbaseUrl: http://localhost:7421\napis:\n  - id: listUsers\n    name: List users\n    path: /users"
+      },
       {
         "path": "services/users/crud.test.yaml",
         "lang": "yaml",
@@ -172,7 +197,7 @@
       }
     ],
     "command": "vc run users.crud#countsUsers",
-    "output": "plan  1 test in 1 file · profile default\n\nUsers CRUD\n✕ users.crud#countsUsers — Counts users                           7ms\n  error[V5102]: expect.cel.returns users\n    --> services/users/crud.test.yaml:14:24\n     |\n  14 |         returns users: response.body.users.size() > 0\n     |                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ found no matching overload for '_._' applied to '(list, string)'\n\n0 passed · 1 failed                                          8ms · profile default\nreports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}\nnext     vc run --failed",
+    "output": "plan  1 test in 1 file · profile default\n\nUsers CRUD\n✕ users.crud#countsUsers — Counts users                           7ms\n  error[V5102]: expect.cel.returns users\n    --> services/users/crud.test.yaml:14:24\n     |\n  14 |         returns users: response.body.users.size() > 0\n     |                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ found no matching overload for '_._' applied to '(list, string)'\n\n0 passed · 1 failed                                          8ms · profile default\nreports  …/.vibranium/reports/1/ctrf.json\nnext     vc run --failed",
     "exit": 1
   },
   "V5105": {

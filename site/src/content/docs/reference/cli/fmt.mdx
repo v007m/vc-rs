@@ -54,6 +54,8 @@ The count is the files that changed. Run it again and it prints `✓ formatted 0
 
 ### Remove the generated comments
 
+In the project the [`vc new`](/vc-rs/reference/cli/new/) page builds, `services/billing` holds the api file and the test file `vc new` wrote:
+
 ```console
 $ vc fmt --strip-comments services/billing
 ✓ formatted 2 files
@@ -92,6 +94,8 @@ A comment on its own line just before a `]` or `}` has no item to go with, so `v
 | --- | --- |
 | `0` | Formatted, including when nothing changed |
 | `2` | A file does not parse, or a path is not in the project. Nothing is written |
+
+Here `services/notes/bad.api.yaml` has a flow list that never closes (`tags: [a, b`):
 
 ```console
 $ vc fmt services/notes

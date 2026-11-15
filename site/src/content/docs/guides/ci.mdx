@@ -42,7 +42,7 @@ On a runner with Homebrew, `brew install v007m/tap/vibranium` installs the same 
 
 ## Reports
 
-`--report` picks the files and `--out` puts them in one folder that CI can collect:
+`--report` picks the files and `--out` puts them in one folder that CI can collect. Here the project has the `ci` profile from the [CI walkthrough](/vc-rs/walkthroughs/ci-pipeline/):
 
 ```console
 $ vc run --profile ci --report junit,ctrf,html --out reports
@@ -63,9 +63,12 @@ For logs that a script reads, `--reporter json` replaces the console output with
 
 On a pull request, `--changed <ref>` runs the tests in test files changed since `<ref>`, and every test that calls an api in a changed api file. A changed `vibranium.config.yaml` selects everything. Without a ref, it uses the uncommitted and untracked changes.
 
+Here in a git checkout of a `vc init` project whose `basics.test.yaml` changed since `origin/master`:
+
 ```console
 $ vc plan --changed origin/master
 plan  4 tests in 1 file · lifecycle: beforeAll command · profile default
+...
 ```
 
 The ref must exist in the clone, so fetch the history (`fetch-depth: 0` in GitHub Actions, `GIT_DEPTH: 0` in GitLab). When nothing relevant changed, the selection is empty and `vc run` exits `2`. Guard it with `vc list tests --changed`, which prints nothing and exits `0` in that case:
@@ -189,7 +192,7 @@ Keep it with your CI system's cache, as in the pipelines above.
 
 ### VIB_CACHE_KEY
 
-The `cache:` entries are encrypted. On a laptop the key lives in the OS keychain. A CI runner has no keychain, so without a key the cross-run cache is off: every `cache:` action runs each time, and the run warns:
+The `cache:` entries are encrypted. On a laptop the key lives in the OS keychain. A CI runner has no keychain, so without a key the cross-run cache is off: every `cache:` action runs each time, and the run warns. Here the project has a `beforeAll` that calls `sample#createUser` with a `cache:` of `for: 24h`:
 
 ```console
 $ vc run

@@ -35,15 +35,26 @@ $ vc call slow#hdr
 
 The types are `basic`, `bearer`, `apiKey`, `oauth2ClientCredentials`, `oauth2Password`, `oauth2AuthorizationCode`, `oauth2Refresh`, `flow` and `plugin`. A typo gets a certain fix:
 
+```yaml wrong V2302 title="vibranium.config.yaml"
+syntaxVersion: 2
+profiles:
+  - id: dev
+    default: true
+auth:
+  - id: apiToken
+    type: bearr
+    token: ${secret.API_TOKEN}
+```
+
 ```console
 $ vc check
 error[V2302]: expected one of basic, bearer, apiKey, oauth2ClientCredentials, oauth2Password, oauth2AuthorizationCode, oauth2Refresh, flow, plugin, found `bearr`
-  --> vibranium.config.yaml:83:11
-   |
-83 |     type: bearr
-   |           ^^^^^ not a known value
-   = help: did you mean `bearer`?
-   = fix: Replace with bearer (certain)
+ --> vibranium.config.yaml:7:11
+  |
+7 |     type: bearr
+  |           ^^^^^ not a known value
+  = help: did you mean `bearer`?
+  = fix: Replace with bearer (certain)
 ```
 
 Each type's keys, token caching and login flows are in the auth reference.

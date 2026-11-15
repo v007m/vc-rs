@@ -41,6 +41,8 @@ $ vc history prune [OPTIONS]
 
 ### List the latest runs
 
+In the [sample project](/vc-rs/reference/cli/#the-project-these-pages-use), after `vc load sample.strict`, a second one cancelled with Ctrl-C, and `vc run sample.extra --include-skipped`:
+
 ```console
 $ vc history --limit 3
    80  2026-11-10 18:01Z  failed     3 passed · 1 failed · 0 blocked · 0 skipped  profile default  sample.extra
@@ -114,6 +116,8 @@ $ vc history show 80 --json
 `vc history --json` prints an array of `run` objects like the one above.
 
 ### Drop old runs
+
+With 27 runs stored:
 
 ```console
 $ vc history prune --keep 20

@@ -30,6 +30,8 @@ vc config explain [--profile <IDS>] [--set <KEY=VALUE>] [--project <DIR>] <KEY>
 
 ## Examples
 
+These run in [the project these pages use](/vc-rs/reference/config/#the-project-these-pages-use).
+
 A value from a `VIB_*` variable:
 
 ```console
@@ -39,7 +41,7 @@ defaults.timeout = 5s  (VIB_DEFAULTS_TIMEOUT)
   over 30s  (built-in)
 ```
 
-A value from the user config shows the file's full path:
+A value from the user config shows the file's full path. Here the project sets no `defaults.timeout`, and `~/.config/vibranium/config.yaml` sets it to `12s`:
 
 ```console
 $ vc config explain defaults.timeout
@@ -55,7 +57,7 @@ profile = eu  (VIB_PROFILE)
   over default  (vibranium.config.yaml)
 ```
 
-The whole chain for one var:
+The whole chain for one var, with `VIB_VAR_region=dotenv` in `.env`:
 
 ```console
 $ VIB_VAR_region=envvar vc config explain vars.region --profile staging --set vars.region=flag
@@ -71,7 +73,7 @@ A key it does not know (exit 2). The help line lists every key you can ask about
 ```console
 $ vc config explain history.keep
 error: no setting `history.keep`
-  = help: the settings are profile, defaults.concurrency, defaults.perHost, defaults.timeout, defaults.retry.attempts, defaults.retry.delay, reports.dir, reports.formats, reports.html.layout, vars.region, vars.sampleUrl and vars.<name>
+  = help: the settings are profile, defaults.concurrency, defaults.perHost, defaults.timeout, defaults.retry.attempts, defaults.retry.delay, reports.dir, reports.formats, reports.html.layout, vars.sampleUrl, vars.region and vars.<name>
 ```
 
 ## Try it

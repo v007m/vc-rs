@@ -22,7 +22,7 @@ defaults:
 
 ## Examples
 
-A test calls an endpoint that answers after two seconds. With a one-second limit it fails:
+In [the project these pages use](/vc-rs/reference/config/#the-project-these-pages-use), a test calls an endpoint that answers after two seconds. With a one-second limit it fails:
 
 ```console
 $ vc run slow.timing --set defaults.timeout=1s
@@ -52,7 +52,7 @@ $ vc run slow.timing --set defaults.timeout=1s
 reports  …/.vibranium/reports/2/{ctrf.json,junit.xml,index.html}
 ```
 
-With [`http.retry`](/vc-rs/reference/config/http-retry/) on, each attempt gets the full timeout. Three attempts of 500ms, plus backoff:
+With [`http.retry`](/vc-rs/reference/config/http-retry/) on (`attempts: 2`) and no `timeout` on the api, each attempt gets the full timeout. Three attempts of 500ms, plus backoff:
 
 ```console
 $ vc run slow.timing --set defaults.timeout=500ms
@@ -62,6 +62,15 @@ $ vc run slow.timing --set defaults.timeout=500ms
 ```
 
 A duration without a unit:
+
+```yaml wrong V2301 title="vibranium.config.yaml"
+syntaxVersion: 2
+profiles:
+  - id: dev
+    default: true
+defaults:
+  timeout: abc
+```
 
 ```console
 $ vc check

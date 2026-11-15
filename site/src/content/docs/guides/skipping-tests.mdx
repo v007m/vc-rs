@@ -30,6 +30,26 @@ $ vc call sample#getUser --var userId=1
 }
 ```
 
+The file starts with three tests, one of them skipped already:
+
+```yaml title="services/sample/parked.test.yaml"
+tests:
+  - id: searchesUsers
+    name: Searches users by name
+    tags: [slow]
+    skip: demo service has no search yet
+    call: sample#listUsers
+
+  - id: listsUsers
+    call: sample#listUsers
+
+  - id: getsUser
+    name: Gets a user
+    call: sample#getUser
+    vars:
+      userId: "1"
+```
+
 <Steps>
 
 1. **Skip it with a reason, and a date if you know one.**
@@ -60,13 +80,13 @@ $ vc call sample#getUser --var userId=1
 
    ```console
    $ vc run sample.parked
-   plan  2 tests in 1 file · 1 skipped · profile default
+   plan  1 test in 1 file · 2 skipped · profile default
 
    - sample.parked#searchesUsers — Searches users by name skipped: demo service has no search yet
+   - sample.parked#getsUser — Gets a user skipped: flaky upstream, see #7
    ✓ sample.parked#listsUsers                                        8ms
-   ✓ sample.parked#getsUser — Gets a user                            9ms
 
-   2 passed · 1 skipped                                         15ms · profile default
+   1 passed · 2 skipped                                         15ms · profile default
    reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
    ```
 
@@ -83,7 +103,7 @@ Skipped tests never fail a run. A run where every test is skipped exits `0`.
 
 ## Skip a whole file
 
-Pass a file ID to skip every test in the file. Its `beforeAll` and `afterAll` do not run either:
+Pass a file ID to skip every test in the file. Its `beforeAll` and `afterAll` do not run either. Here `users.crud` is the [cheatsheet's test file](/vc-rs/start/cheatsheet/#a-test-file):
 
 ```console
 $ vc skip users.crud --reason "auth broken in staging" --until 2026-12-01
@@ -120,6 +140,10 @@ skipped
 $ vc list tests --skipped
 sample.parked#searchesUsers  Searches users by name  [slow]  (skipped: demo service has no search yet)
 sample.parked#getsUser  Gets a user  (skipped: flaky upstream, see #7, until 2026-11-30)
+users.crud#getsCreatedUser  Reads back a created user  [smoke]  (skipped: auth broken in staging, until 2026-12-01)
+users.crud#rejectsBadEmail  Rejects a user without a valid email  [smoke]  (skipped: auth broken in staging, until 2026-12-01)
+users.crud#createsThenReads  Creates a user, then reads it  [smoke]  (skipped: auth broken in staging, until 2026-12-01)
+users.crud#deletesUser  Deletes a user  [smoke]  (skipped: auth broken in staging, until 2026-12-01)
 ```
 
 The reports keep the reason too:
@@ -130,7 +154,7 @@ The reports keep the reason too:
 
 ## When the date passes
 
-After the `until` day (in UTC), the skip is ignored and the test runs again. `vc check` warns until you remove it:
+After the `until` day (in UTC), the skip is ignored and the test runs again. `vc check` warns until you remove it, here for a `getsUser` skip with `until: 2026-11-01`:
 
 ```console
 $ vc check
@@ -143,7 +167,7 @@ warning[V3104]: this skip expired after 2026-11-01
    = help: remove the skip, or move `until` later if the reason still holds
    = fix: Remove the skip (certain)
 
-0 errors · 1 warning · 18 files checked
+0 errors · 1 warning · 6 files checked
 ```
 
 `vc check --fix` shows the fix as a diff and removes the skip when you confirm:
@@ -170,12 +194,13 @@ Give every skip an `until`, even a rough one. A skip without a date stays until 
 
 ## Run skipped tests anyway
 
-To check whether a skipped test passes now, run it with `--include-skipped`. It runs like any other test:
+To check whether a skipped test passes now, run it with `--include-skipped`. It runs like any other test. Here it runs `sample.skip`, the file from the [`skip` reference](/vc-rs/reference/syntax/skip/#examples):
 
 ```console
 $ vc run sample.skip --include-skipped
 plan  4 tests in 1 file · profile default
 
+Skip
 ✓ sample.skip#listsUsers — Lists users                            3ms
 ✓ sample.skip#getsUser — Gets a user                              3ms
 ✓ sample.skip#searchesUsers — Searches users by name              3ms
@@ -210,11 +235,12 @@ A skip says "this test is broken for now". To leave tests out of one run for oth
 
 ```console
 $ vc run sample.parked -t '!slow'
-plan  1 test in 1 file · profile default
+plan  2 tests in 1 file · profile default
 
 ✓ sample.parked#getsUser — Gets a user                           13ms
+✓ sample.parked#listsUsers                                        1ms
 
-1 passed                                                     16ms · profile default
+2 passed                                                     16ms · profile default
 reports  …/.vibranium/reports/3/{ctrf.json,junit.xml,index.html}
 ```
 

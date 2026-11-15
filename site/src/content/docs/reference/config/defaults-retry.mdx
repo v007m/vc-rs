@@ -39,6 +39,17 @@ apis:
 
 An endpoint fails the first call and passes the second. With `attempts: 1` the test is flaky, and the run still passes (exit 0):
 
+```yaml title="services/slow/tr.test.yaml"
+tests:
+  - id: passesOnSecondTry
+    call: slow#flaky
+    vars:
+      key: tr-${run.id}
+      failTimes: 1
+    expect:
+      status: 200
+```
+
 ```console
 $ vc run slow.tr
 plan  1 test in 1 file · profile default
@@ -51,19 +62,15 @@ reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
 
 The CTRF report marks it with `"flaky": true` and `"retries": 1`.
 
-A test that fails every attempt shows each attempt's errors and fails:
+A test that fails every attempt, such as `failsAfterThree503s` from [`http.retry`](/vc-rs/reference/config/http-retry/), shows each attempt's errors and fails:
 
 ```console
-✕ slow.retry#failsAfterThree503s                                106ms
+✕ slow.retry#failsAfterThree503s (2 attempts)                   106ms
+  attempts 1 and 2 of 2:
   error[V5101]: expect.status
-    --> services/slow/retry.test.yaml:20:15
+    --> services/slow/retry.test.yaml:15:15
      |
-  20 |       status: 200
-     |               ^^^ expected [200], got 503
-  error[V5101]: expect.status
-    --> services/slow/retry.test.yaml:20:15
-     |
-  20 |       status: 200
+  15 |       status: 200
      |               ^^^ expected [200], got 503
 ```
 
@@ -95,14 +102,24 @@ The server saw one call, and the test failed.
 
 `attempts` is required:
 
+```yaml wrong V1005 title="vibranium.config.yaml"
+syntaxVersion: 2
+profiles:
+  - id: dev
+    default: true
+defaults:
+  retry:
+    delay: 100ms
+```
+
 ```console
 $ vc check
 error[V1005]: a retry needs `attempts`
-  --> vibranium.config.yaml:15:5
-   |
-15 |     delay: 100ms
-   |     ^^^^^ `attempts` is missing
-   = help: add `attempts: 2`: Further attempts after the first
+ --> vibranium.config.yaml:7:5
+  |
+7 |     delay: 100ms
+  |     ^^^^^ `attempts` is missing
+  = help: add `attempts: 2`: Further attempts after the first
 ```
 
 ## Try it

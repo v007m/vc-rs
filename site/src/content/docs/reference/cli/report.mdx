@@ -24,6 +24,8 @@ $ vc report [OPTIONS] [RUN]
 
 ## Examples
 
+These examples run in the [sample project](/vc-rs/reference/cli/#the-project-these-pages-use), after `vc run` has stored runs up to number 82.
+
 ### HTML for the last run
 
 ```console
@@ -64,7 +66,7 @@ error: --format: no report format `pdf`
   = help: the report formats are ctrf, junit, html
 ```
 
-`vc report` writes the files of test runs only. A load run keeps no report to write again: `vc history` lists it, and its report is what `vc load` prints as it runs, as JSON with `--json`. Getting one means running the load again:
+`vc report` writes the files of test runs only. A load run keeps no report to write again: `vc history` lists it, and its report is what `vc load` prints as it runs, as JSON with `--json`. Getting one means running the load again. In a project with a `checkout.peak` load scenario:
 
 ```console
 $ vc load checkout.peak

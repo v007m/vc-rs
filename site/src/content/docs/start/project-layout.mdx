@@ -70,7 +70,7 @@ A bare dotted word is always a file ID, so `vc run payments.refunds.partial` run
 
 ### The optional `id:` key
 
-A file may say its own ID with a top-level `id:`. It must match the path. If it doesn't, `vc check` reports V2007 and offers a fix:
+A file may say its own ID with a top-level `id:`. It must match the path. If it doesn't, `vc check` reports V2007 and offers a fix. Here the file is added to a `vc init` project:
 
 ```console
 $ vc check
@@ -81,6 +81,8 @@ error[V2007]: the file ID is `payments.refunds.partial` from its path, not `paym
   |     ^^^^^^^^^^^^^^^^ does not match the path
   = help: remove the `id:` key, or move the file to match it
   = fix: Write payments.refunds.partial (certain)
+
+1 error · 0 warnings · 4 files checked
 ```
 
 `vc check --fix` shows the change as a diff and asks before it writes anything. To rename a file or an item and update every reference to it, use [`vc rename`](/vc-rs/reference/cli/rename/).

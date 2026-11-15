@@ -43,6 +43,67 @@ $ vc import [OPTIONS] <KIND> <SOURCE>
 
 ### Preview an OpenAPI import
 
+These examples run in a project made by [`vc init`](/vc-rs/reference/cli/init/), with this spec added:
+
+```yaml title="specs/users.yaml"
+openapi: 3.1.0
+info: { title: Users, version: "1" }
+servers:
+  - url: http://localhost:18080
+paths:
+  /users:
+    get:
+      operationId: listUsers
+      summary: List users
+      responses:
+        "200": { description: OK }
+    post:
+      operationId: createUser
+      summary: Create user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/NewUser" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+  /users/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    get:
+      operationId: getUser
+      summary: Get user
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+    delete:
+      operationId: deleteUser
+      summary: Delete user
+      tags: [admin]
+      responses:
+        "204": { description: Deleted }
+components:
+  schemas:
+    NewUser:
+      type: object
+      required: [email, name]
+      properties:
+        email: { type: string, format: email }
+        name: { type: string }
+    User:
+      type: object
+      required: [id]
+      properties:
+        id: { type: string }
+```
+
 ```console
 $ vc import openapi specs/users.yaml --dry-run
 Import 4 apis from specs/users.yaml
@@ -79,7 +140,7 @@ Import 4 apis from specs/users.yaml
 @@ -18,6 +18,7 @@
  vars:
    sampleUrl: http://localhost:7421    # the demo service used by services/sample
-+  usersUrl: http://localhost:7421
++  usersUrl: http://localhost:18080
 ...
 --- /dev/null
 +++ b/openapi/users.yaml
@@ -123,6 +184,8 @@ Import 1 api from specs/users.yaml
 
 ### A HAR recording, with a replay test
 
+Here the project already has a `shop` api file with `baseUrl: https://api.shop.test` and one api, `addItem` (`POST /v1/carts/${var.cartId}/items`). The recording holds a script file, a new cart, two items added to it, an analytics call, and an `OPTIONS` and a payment on `pay.shop.test`:
+
 ```console
 $ vc import har rec/checkout.har --include-host api.shop.test --flow checkout#placesOrder
 ✓ imported rec/checkout.har
@@ -135,14 +198,14 @@ flow checkout#placesOrder (4 steps)
 POST /v1/carts/${var.cartId}/items: recorded 2 times, merged into one api
 ```
 
-A HAR import groups requests by host, one api file per host. It drops static assets, analytics hosts and `OPTIONS` requests. Credentials are never written: headers such as `authorization` and cookies are dropped, and secret-looking body fields become `${secret.…}` names declared in `.env.schema`. `--flow` writes a test whose steps replay the calls in order, with the IDs the server returned saved and passed along. In it, `shop#postV1Carts` is the recorded `POST /v1/carts`, which answers with the new cart's `id`, and `shop#addItem` is `POST /v1/carts/${var.cartId}/items`:
+A HAR import groups requests by host, one api file per host. It drops static assets, analytics hosts and `OPTIONS` requests. Credentials are never written: headers such as `authorization` and cookies are dropped, and secret-looking body fields become `${secret.…}` names declared in `.env.schema`. `--flow` writes a test whose steps replay the calls in order, with the IDs the server returned saved and passed along. In it, `shop#createCart` is the recorded `POST /v1/carts`, which answers with the new cart's `id`, and `shop#addItem` is `POST /v1/carts/${var.cartId}/items`:
 
 ```yaml title="services/checkout.test.yaml"
 tests:
   - id: placesOrder
     name: Places order
     steps:
-      - call: shop#postV1Carts
+      - call: shop#createCart
         save:
           cartId: ${response.body.id}
       - call: shop#addItem
@@ -155,10 +218,14 @@ See [HAR and capture](/vc-rs/guides/har-and-capture/) for the whole workflow.
 
 ### curl commands
 
-```console
-$ cat rec/calls.sh
+In a project with no `shop` api file yet:
+
+```sh title="rec/calls.sh"
 curl -X POST 'https://api.shop.test/v1/carts' -H 'content-type: application/json' -H 'authorization: Bearer eyJhbGciOi' -d '{"sku":"tea-01","qty":2}'
 curl 'https://api.shop.test/v1/carts/c_8Kq2Tz9w/items?expand=price'
+```
+
+```console
 $ vc import curl rec/calls.sh --id shop
 ✓ imported rec/calls.sh
   api.shop.test → shop (new)  2 new
@@ -169,16 +236,18 @@ The body fields become vars (`sku: tea-01`, `qty: 2`) and path IDs become vars t
 
 ### A `.http` file or a Postman collection
 
+After the OpenAPI import above, `rec/users.http` holds a `GET http://localhost:18080/users` with an `Accept` header and a `POST` to the same URL with an `Authorization` header. `rec/coll.json` is a Postman collection named Shop with the same two requests, and the `POST`'s test script saves `userId` from the response:
+
 ```console
 $ vc import http rec/users.http
 ✓ imported rec/users.http
-  localhost:7421 → users (existing)  2 matched
+  localhost:18080 → users (existing)  2 matched
 GET /users: headers are not imported: Accept
 POST /users: header Authorization: a credential is never written; add it with `vc new auth`
 $ vc import postman rec/coll.json
 ✓ imported rec/coll.json
 collection Shop · 2 requests
-  localhost:7421 → users (existing)  2 matched
+  localhost:18080 → users (existing)  2 matched
 POST /users: the test script is not imported, apart from the values it saves
 ```
 
@@ -190,6 +259,8 @@ A request whose host and path match an existing api is reported as `matched` and
 | --- | --- |
 | `0` | Imported, or the dry run printed |
 | `2` | The source cannot be read, the kind is unknown, the api file exists already, the spec is kept in `openapi/`, where snapshots go, the snapshot path `openapi/<fileId>.yaml` is a link, names another file in a different case or is the spec another api file syncs from, `--id` is given for a recording of several origins, or `--include` and `--only` keep no operation (the error names the filter) |
+
+After the imports above:
 
 ```console
 $ vc import openapi specs/users.yaml

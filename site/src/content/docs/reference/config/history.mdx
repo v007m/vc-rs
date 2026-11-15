@@ -26,7 +26,7 @@ history:
 
 ## Examples
 
-List the stored runs, newest first:
+After three `vc run slow.par` runs in [the project these pages use](/vc-rs/reference/config/#the-project-these-pages-use), list the stored runs, newest first:
 
 ```console
 $ vc history
@@ -67,7 +67,7 @@ $ vc history show last --json
     {
       "attempts": 1,
       "blockedBy": null,
-      "durationMs": 488.41491599999995,
+      "durationMs": 488,
       "id": "slow.par#waits2",
       ...
 ```
@@ -91,21 +91,31 @@ With `maxBodySize: 20b`, a body is cut short and marked as truncated.
 
 Bad values:
 
+```yaml wrong V2302 title="vibranium.config.yaml"
+syntaxVersion: 2
+profiles:
+  - id: dev
+    default: true
+history:
+  bodies: some
+  maxBodySize: lots
+```
+
 ```console
 $ vc check
 error[V2302]: expected one of none, failures, all, found `some`
-  --> vibranium.config.yaml:56:11
-   |
-56 |   bodies: some
-   |           ^^^^ not a known value
-   = help: expected one of `none`, `failures`, `all`
+ --> vibranium.config.yaml:6:11
+  |
+6 |   bodies: some
+  |           ^^^^ not a known value
+  = help: expected one of `none`, `failures`, `all`
 
 error[V2301]: invalid size `lots`
-  --> vibranium.config.yaml:57:16
-   |
-57 |   maxBodySize: lots
-   |                ^^^^
-   = help: write a whole number and a unit: `512b`, `4kb`, `1mb` or `2gb`
+ --> vibranium.config.yaml:7:16
+  |
+7 |   maxBodySize: lots
+  |                ^^^^
+  = help: write a whole number and a unit: `512b`, `4kb`, `1mb` or `2gb`
 ```
 
 ## Try it

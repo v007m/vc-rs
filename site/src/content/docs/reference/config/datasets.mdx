@@ -23,14 +23,25 @@ datasets:
 
 A file outside the project is refused:
 
+```yaml wrong V1012 title="vibranium.config.yaml"
+syntaxVersion: 2
+profiles:
+  - id: dev
+    default: true
+datasets:
+  files:
+    - id: worldCities
+      file: ../sbc-scratch/shared/world-cities.csv
+```
+
 ```console
 $ vc check
 error[V1012]: the dataset file `../sbc-scratch/shared/world-cities.csv` is outside the project
-  --> vibranium.config.yaml:89:13
-   |
-89 |       file: ../sbc-scratch/shared/world-cities.csv
-   |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ not under the project or an allowed root
-   = help: paths are relative to the project root; add a folder outside it to `datasets.allowRoots`
+ --> vibranium.config.yaml:8:13
+  |
+8 |       file: ../sbc-scratch/shared/world-cities.csv
+  |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ not under the project or an allowed root
+  = help: paths are relative to the project root; add a folder outside it to `datasets.allowRoots`
 ```
 
 With its folder in `allowRoots`, the same file loads:

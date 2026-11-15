@@ -50,7 +50,7 @@ Everything else (`history`, `redact`, `http`, `auth`, ...) is set only in `vibra
 
 ## Examples
 
-All seven layers at once. The project sets `region: local`, the `staging` profile sets `us`, `.env` holds `VIB_VAR_region=dotenv`:
+All seven layers at once, in [the project these pages use](/vc-rs/reference/config/#the-project-these-pages-use). The project sets `region: local`, the `staging` profile sets `us`, `.env` holds `VIB_VAR_region=dotenv`:
 
 ```console
 $ VIB_VAR_region=envvar vc config explain vars.region --profile staging --set vars.region=flag
@@ -61,7 +61,7 @@ vars.region = flag  (--set)
   over local  (vibranium.config.yaml)
 ```
 
-Two profiles. The later one wins:
+Two profiles, with no `.env`. The later one wins:
 
 ```console
 $ vc config explain vars.region --profile staging,eu

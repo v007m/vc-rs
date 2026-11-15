@@ -53,25 +53,43 @@ $ vc check
 
 An unknown method:
 
+```yaml wrong V2302 title="vibranium.config.yaml"
+syntaxVersion: 2
+profiles:
+  - id: dev
+    default: true
+    agents:
+      call: [GET, FETCH]
+```
+
 ```console
 $ vc check
 error[V2302]: expected one of GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS, found `FETCH`
-  --> vibranium.config.yaml:32:19
-   |
-32 |       call: [GET, FETCH]
-   |                   ^^^^^ not a known value
-   = help: expected one of `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS`
+ --> vibranium.config.yaml:6:19
+  |
+6 |       call: [GET, FETCH]
+  |                   ^^^^^ not a known value
+  = help: expected one of `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS`
 ```
 
 A bad `writeDefinitions` value:
 
+```yaml wrong V2302 title="vibranium.config.yaml"
+syntaxVersion: 2
+profiles:
+  - id: dev
+    default: true
+    agents:
+      writeDefinitions: maybe
+```
+
 ```console
 $ vc check
 error[V2302]: expected one of true, false, ask, found `maybe`
-  --> vibranium.config.yaml:32:25
-   |
-32 |       writeDefinitions: maybe
-   |                         ^^^^^ not a known value
+ --> vibranium.config.yaml:6:25
+  |
+6 |       writeDefinitions: maybe
+  |                         ^^^^^ not a known value
 ```
 
 ## Try it

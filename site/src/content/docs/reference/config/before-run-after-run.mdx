@@ -8,7 +8,7 @@ import { LinkCard } from '@astrojs/starlight/components';
 
 `beforeRun` runs once before any test starts. `afterRun` runs once after the last test ends.
 
-Here `beforeRun` calls `sample#listUsers`, the `vc init` sample's `GET /users`, which answers 200 with the list of users:
+Here, in [the project these pages use](/vc-rs/reference/config/#the-project-these-pages-use), `beforeRun` calls `sample#listUsers`, the `vc init` sample's `GET /users`, which answers 200 with the list of users:
 
 ```yaml title="vibranium.config.yaml"
 beforeRun:
@@ -32,7 +32,7 @@ plan  4 tests in 1 file · lifecycle: beforeRun call sample#listUsers · profile
 reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
 ```
 
-A failed `beforeRun` action is reported once. Only tests that read its values are blocked; here no test does, so they all run:
+With `sampleUrl` set to `http://localhost:7462`, where nothing listens, the call fails. A failed `beforeRun` action is reported once. Only tests that read its values are blocked; here no test does, so they all run:
 
 ```console
 $ vc run slow.par

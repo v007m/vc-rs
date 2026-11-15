@@ -102,7 +102,7 @@ The columns are the ID, kind, version, source, state, and what it may reach. The
 | `V5118: its installed files changed since vibranium.lock approved them; …` | `vc plugin add` it again, if the change was intended |
 | ``its entry program `…` cannot be found: …`` | install the program, or fix `entry.command` in its `vibranium-plugin.yaml` |
 
-`vc plugin add` checks the entry program too. When it cannot find it, in the plugin's folder or on `PATH`, it still installs the plugin, with a warning:
+`vc plugin add` checks the entry program too. When it cannot find it, in the plugin's folder or on `PATH`, it still installs the plugin, with a warning. Here the manifest's `entry.command` is `python3.13`, on a machine without it, and `secrets: [reportToken]` is its only permission:
 
 ```console
 $ vc plugin add path:plugins/summary --yes
@@ -130,6 +130,8 @@ It removes the plugin from the config and the lock, and uninstalls the copy in `
 | --- | --- |
 | `0` | Added, listed or removed |
 | `2` | Not approved, a bad source or manifest, or no such plugin |
+
+Here `plugins/bad/vibranium-plugin.yaml` has `id: Bad-Name`:
 
 ```console
 $ vc plugin add nope:x --yes
