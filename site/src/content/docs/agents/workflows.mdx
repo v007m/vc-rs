@@ -340,10 +340,10 @@ Since the import, the spec gained a `POST /echo` operation and a required `limit
      ↑ people#listPeople query limit none → ${var.limit}
    --- a/services/people/people.api.yaml
    +++ b/services/people/people.api.yaml
-   @@ -11,6 +11,10 @@
-        name: List people
-        path: /users
+   @@ -13,6 +13,10 @@
         operationId: listPeople
+        expect:
+          status: 200
    +    query:
    +      limit: ${var.limit}
    +    vars:
@@ -351,7 +351,7 @@ Since the import, the spec gained a `POST /echo` operation and a required `limit
       - id: createPerson
         name: Create a person
         method: POST
-   @@ -28,3 +32,8 @@
+   @@ -32,3 +36,8 @@
         vars:
           id: ${fake.lorem.word}
         operationId: getPerson
