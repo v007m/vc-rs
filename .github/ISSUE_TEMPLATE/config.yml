@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/v007m/vc-rs/security/policy
+    about: Report it privately, as SECURITY.md describes. Don't open a public issue.
+  - name: Documentation
+    url: https://v007m.github.io/vc-rs/
+    about: Guides, the syntax reference and every diagnostic code, searchable with Cmd/Ctrl+K.

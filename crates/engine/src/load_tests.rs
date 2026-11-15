@@ -393,6 +393,58 @@ async fn ctrl_c_stops_the_users_and_exits_130() {
     assert!(matches!(written(seen).last(), Some(Seen::End(RunStatus::Cancelled))));
 }
 
+/// A Ctrl-C while `beforeRun` waits on its [`SLOW`] call starts no user, and the history
+/// records the run as cancelled, not failed.
+#[tokio::test(start_paused = true)]
+async fn ctrl_c_during_before_run_records_the_run_as_cancelled() {
+    let broken = FakeTransport::new(|_: &RenderedRequest, _| Ok(status(500)));
+    let slow = FaultyTransport::new(Arc::new(broken), vec![Fault::Delay(SLOW); 1000]);
+    let (engine, seen) = engine_over(BLOCKED, &scenario("listsUsers", "{duration: 1m, users: 1}"), Arc::new(slow));
+    let (interrupter, interrupts) = interrupts();
+    let press = async {
+        tokio::time::sleep(Duration::from_millis(500)).await;
+        interrupter.interrupt();
+    };
+    let (report, ()) = tokio::join!(load(&engine, interrupts, None), press);
+    assert_eq!((report.exit, report.ending, report.iterations), (130, LoadEnding::Cancelled, 0), "{report:?}");
+    assert_eq!(report.blocked, None, "{report:?}");
+    assert!(matches!(written(seen).last(), Some(Seen::End(RunStatus::Cancelled))));
+}
+
+/// With every request taking 300 ms, a tick's latencies are about 300 ms, and its rolling
+/// breaches name a scenario threshold by its metric and a test's own after the test. The last
+/// tick, sent as the users stop, judges nothing.
+#[tokio::test(start_paused = true)]
+async fn a_tick_shows_the_latencies_and_names_each_rolling_breach() {
+    let mix = "mix:\n  - {test: users.crud#listsUsers, weight: 1, thresholds: {p95: {lt: 100ms}}}\n";
+    let stages = "stages:\n  - {duration: 3s, users: 2}\nthinkTime: 1s\nthresholds: {p50: {lt: 100ms}}\n";
+    let file = format!("{mix}{stages}");
+    let answers = FakeTransport::new(|_: &RenderedRequest, _| Ok(status(200)));
+    let delayed = FaultyTransport::new(Arc::new(answers), vec![Fault::Delay(Duration::from_millis(300)); 1000]);
+    let (engine, _) = engine_over(CONFIG, file.as_bytes(), Arc::new(delayed));
+    let (ticks, mut heard) = mpsc::channel(64);
+    let (_interrupter, interrupts) = interrupts();
+    let report = load(&engine, interrupts, Some(ticks)).await;
+    let ticks: Vec<Event> = std::iter::from_fn(|| heard.try_recv().ok()).collect();
+    let measured: Vec<_> = ticks
+        .iter()
+        .filter_map(|tick| match tick {
+            Event::LoadTick { p50, p99, breaching, .. } if *p50 > Duration::ZERO => Some((*p50, *p99, breaching)),
+            _ => None,
+        })
+        .collect();
+    assert!(report.iterations > 0 && !measured.is_empty(), "{ticks:?}");
+    for (p50, p99, _) in &measured {
+        let ms = |latency: Duration| latency.as_millis();
+        assert!((300..400).contains(&ms(*p50)) && (300..400).contains(&ms(*p99)), "{p50:?} {p99:?}");
+    }
+    let named: Vec<_> = measured.iter().filter(|(.., breaching)| !breaching.is_empty()).collect();
+    assert_eq!(named.len(), measured.len() - 1, "{ticks:?}");
+    for (.., breaching) in named {
+        assert_eq!(*breaching, &["p50", "users.crud#listsUsers: p95"]);
+    }
+}
+
 #[tokio::test(start_paused = true)]
 async fn ctrl_c_counts_no_kind_for_an_iteration_it_drops() {
     let (engine, _, sent) = slow_engine(&scenario("breaksUsers", "{duration: 10s, users: 10}"));

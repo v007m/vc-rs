@@ -49,6 +49,16 @@ profiles:
       f: from-config-eu
 ```
 
+The test calls `prof#show`. It sends `POST /echo`, and the demo answers with the request it got, the body under `body`. The whole api file, with a profile of its own, is [further down](#an-api-file-with-a-staging-profile):
+
+```yaml title="services/prof/prof.api.yaml (excerpt)"
+baseUrl: ${var.sampleUrl}
+apis:
+  - id: show
+    method: POST
+    path: /echo
+```
+
 The test file overrides its own `currency` under `eu`:
 
 ```yaml title="services/prof/checkout.test.yaml"

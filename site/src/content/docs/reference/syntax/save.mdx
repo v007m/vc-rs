@@ -62,7 +62,25 @@ tests:
 
 ### Saving a group of values
 
-A save value can be a map. Read its fields with a dotted path.
+A save value can be a map. Read its fields with a dotted path. The examples from here on also call `prec#show`, the api from the [`vars`](/vc-rs/reference/syntax/vars/) page. It sends `POST /echo` with its vars in the body, and the demo answers with the request it got, the body under `body`:
+
+```yaml title="services/prec/prec.api.yaml (excerpt)"
+baseUrl: ${var.sampleUrl}
+apis:
+  - id: show
+    method: POST
+    path: /echo
+    vars:
+      a: from-api
+      b: from-api
+    body:
+      a: ${var.a}
+      b: ${var.b}
+      c: ${var.c}
+      d: ${var.d}
+      e: ${var.e}
+      f: ${var.f}
+```
 
 ```yaml title="services/prec/saves.test.yaml (excerpt)"
 steps:
@@ -144,7 +162,7 @@ The three `createUser` calls also registered three cleanups, which ran when the 
 
 ### A save beats the file's vars
 
-Saved values sit at level 2 of the [`vars` order](/vc-rs/reference/syntax/vars/), above the test file's `vars`. With `userId: from-file` in the test file, `${var.userId}` after `sample#createUser` is the new user's ID. A deliberately inverted check proves it:
+Saved values sit at level 2 of the [`vars` order](/vc-rs/reference/syntax/vars/), above the test file's `vars`. With `userId: from-file` in the test file, `${var.userId}` after `sample#createUser` is the new user's ID. A deliberately inverted check proves it. `layer#show` is the api from the [`apis`](/vc-rs/reference/syntax/apis/) page; it sends `POST /echo` the same way:
 
 ```yaml title="services/layer/saved.test.yaml (excerpt)"
 vars:

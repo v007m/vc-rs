@@ -53,6 +53,17 @@ All samples are real output with `--seed 3`.
 
 ### An order code in a request body
 
+In this sketch, `orders#place` is a `POST /orders` on an orders service that answers 201:
+
+```yaml title="services/orders/orders.api.yaml (excerpt)"
+apis:
+  - id: place
+    method: POST
+    path: /orders
+    expect:
+      status: 201
+```
+
 ```yaml title="services/orders/checkout.test.yaml"
 tests:
   - id: placesOrderWithCode

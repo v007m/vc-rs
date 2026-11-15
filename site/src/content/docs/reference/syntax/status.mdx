@@ -86,6 +86,24 @@ expect:
 
 **Override the api's status in a negative test.** The test's `status` replaces the api's. The api's other checks still run (see [expect](/vc-rs/reference/syntax/expect/)).
 
+The test calls `users#get` from the users api file in the [syntax overview](/vc-rs/reference/syntax/). It sends `GET /users/<userId>`. The api sets no status, so on its own a missing user fails the default `2xx`:
+
+```yaml title="services/users/users.api.yaml (excerpt)"
+baseUrl: ${var.usersUrl}
+apis:
+  - id: get
+    name: Get a user
+    path: /users/${var.userId}
+```
+
+```console
+$ vc call users#get --var userId=999
+404 Not Found · 3 ms · api expect failed
+✗ status: expected ["2xx"], got 404
+```
+
+The test expects the `404` instead:
+
 ```yaml
 tests:
   - id: returnsNotFound

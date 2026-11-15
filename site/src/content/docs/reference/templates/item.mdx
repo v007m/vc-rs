@@ -9,6 +9,17 @@ import Playground from '~/components/Playground.svelte';
 
 Inside a `forEach`, `${item}` is the current element of the list, and `${item.field}` reads a field of a row.
 
+In this sketch, `geo#createCity` is a `POST /cities` on a geo service that takes the city's name:
+
+```yaml title="services/geo/geo.api.yaml (excerpt)"
+apis:
+  - id: createCity
+    method: POST
+    path: /cities
+    body:
+      name: ${var.cityName}
+```
+
 ```yaml
       - call: geo#createCity
         forEach: ${dataset.capitals}
@@ -26,6 +37,36 @@ Inside a `forEach`, `${item}` is the current element of the list, and `${item.fi
 Available only inside the action that has the `forEach` (anything else is V2102). [`iteration`](/vc-rs/reference/templates/iteration/) is available there too.
 
 ## Examples
+
+The examples call `sample#echo`, a `POST /echo` on the demo that sends the request back, with the body under `body`:
+
+```yaml title="services/sample/sample.api.yaml (excerpt)"
+apis:
+  - id: echo
+    method: POST
+    path: /echo
+    vars:
+      payload: {}
+    body: ${var.payload}
+```
+
+```console
+$ vc call sample#echo --var 'payload={"item":"red","index":1,"count":2}'
+200 OK · 4 ms · api expect passed
+{
+  "body": {
+    "count": 2,
+    "index": 1,
+    "item": "red"
+  },
+  "headers": {
+    ...
+  },
+  "method": "POST",
+  "path": "/echo",
+  "query": {}
+}
+```
 
 A literal list. Each name saved inside the loop collects a list, in iteration order:
 

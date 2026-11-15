@@ -40,7 +40,8 @@ const { caption } = Astro.props;
   .vc-diagram {
     --d-fg: var(--sl-color-white);
     --d-text: var(--sl-color-gray-2);
-    --d-muted: var(--sl-color-gray-3);
+    /* A touch lighter than gray-3, which is 4.49:1 on the dark surface. */
+    --d-muted: color-mix(in srgb, var(--sl-color-gray-3) 90%, var(--sl-color-white));
     --d-line: var(--sl-color-gray-5);
     --d-surface: var(--sl-color-gray-7, var(--sl-color-gray-6));
     --d-card: var(--sl-color-bg);
@@ -48,6 +49,8 @@ const { caption } = Astro.props;
     --d-accent-soft: var(--sl-color-accent-low);
     --d-api: var(--sl-color-accent-high);
     --d-test: var(--sl-color-green);
+    /* Text in the test colour: the -high shade keeps 4.5:1 on the light theme too. */
+    --d-test-text: var(--sl-color-green-high);
     --d-load: var(--sl-color-orange);
     --d-data: var(--sl-color-blue);
     --d-hook: var(--sl-color-purple);

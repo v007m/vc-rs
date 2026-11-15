@@ -25,6 +25,17 @@ defaults:
 
 ## Examples
 
+The tests call `slow#flaky`, a `GET /flaky` on the repo's mock server (`bench/mock`). The first `failTimes` calls for each `key` get 503, and later calls get 200; the body is `{"attempt": n}`:
+
+```yaml title="services/slow/slow.api.yaml (excerpt)"
+apis:
+  - id: flaky
+    path: /flaky
+    query:
+      key: ${var.key}
+      failTimes: ${var.failTimes}
+```
+
 An endpoint fails the first call and passes the second. With `attempts: 1` the test is flaky, and the run still passes (exit 0):
 
 ```console

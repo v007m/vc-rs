@@ -21,9 +21,43 @@ expect:
 | --- | --- | --- | --- | --- |
 | `format` | `email`, `uuid`, `uri`, `date`, `dateTime` or `ipv4` | — | yes | Checks the shape of the text only. |
 
-## Examples
+## The API
 
-The examples call `sample#echoOrder`, which posts a sample order to the demo service; the demo sends it back under `body`. See [Following along](/vc-rs/reference/matchers/#following-along).
+The examples call `sample#echoOrder`. It posts a sample order to the demo's `/echo`, and the demo sends the request back, so the order shows up under `body`. Here are the fields these examples check; [Following along](/vc-rs/reference/matchers/#following-along) has the whole entry and how to start the demo.
+
+```yaml title="services/sample/sample.api.yaml (excerpt)"
+  - id: echoOrder
+    name: Echo a sample order
+    method: POST
+    path: /echo
+    body:
+      email: ada@example.com
+      day: "2026-11-10"
+      created: "2026-11-10T09:30:00Z"
+      ip: 10.0.0.1
+      uuid: 3f2b8c1e-9a4d-4e2f-8b7a-1c2d3e4f5a6b
+      site: https://shop.example/a
+      ...
+```
+
+```console
+$ vc call sample#echoOrder
+200 OK · 2 ms · api expect passed
+{
+  "body": {
+    "created": "2026-11-10T09:30:00Z",
+    "day": "2026-11-10",
+    "email": "ada@example.com",
+    "ip": "10.0.0.1",
+    "site": "https://shop.example/a",
+    "uuid": "3f2b8c1e-9a4d-4e2f-8b7a-1c2d3e4f5a6b",
+    ...
+  },
+  ...
+}
+```
+
+## Examples
 
 ### Email and UUID
 

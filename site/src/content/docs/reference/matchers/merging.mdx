@@ -20,9 +20,42 @@ expect:
 | --- | --- | --- | --- | --- |
 | `replace` | `true` | — | no | Drop every inherited check and keep only the ones written here. |
 
-## Examples
+## The API
 
-The examples call `sample#createUser`, which `vc init` creates with `expect: {status: 201}`. See [Following along](/vc-rs/reference/matchers/#following-along).
+The examples call `sample#createUser` from the `vc init` sample. It sends `POST /users` with a name and an email, and its `expect: {status: 201}` applies to every call. [Following along](/vc-rs/reference/matchers/#following-along) shows how to start the demo.
+
+```yaml title="services/sample/sample.api.yaml (excerpt)"
+  - id: createUser
+    name: Create a user
+    method: POST
+    path: /users
+    vars:
+      name: ${fake.person.fullName}
+      email: ${fake.internet.email}
+    body:
+      name: ${var.name}
+      email: ${var.email}
+    expect:
+      status: 201
+    save:
+      userId: ${response.body.id}
+    cleanup:
+      call: deleteUser
+      vars:
+        userId: ${response.body.id}
+```
+
+```console
+$ vc call sample#createUser
+201 Created · 4 ms · api expect passed
+{
+  "email": "george@example.org",
+  "id": "10",
+  "name": "Carmela Hartmann"
+}
+```
+
+## Examples
 
 ### The api's checks still apply
 

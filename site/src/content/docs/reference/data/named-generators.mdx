@@ -34,6 +34,34 @@ Each entry has an `id` and exactly one kind.
 
 ## Examples
 
+The examples call `sample#echo`, a `POST /echo` on the demo that sends the request back, with the body under `body`:
+
+```yaml title="services/sample/sample.api.yaml (excerpt)"
+apis:
+  - id: echo
+    method: POST
+    path: /echo
+    vars:
+      payload: {}
+    body: ${var.payload}
+```
+
+```console
+$ vc call sample#echo --var 'payload={"team":"Falcon Team"}'
+200 OK · 3 ms · api expect passed
+{
+  "body": {
+    "team": "Falcon Team"
+  },
+  "headers": {
+    ...
+  },
+  "method": "POST",
+  "path": "/echo",
+  "query": {}
+}
+```
+
 ### All four kinds
 
 ```yaml title="vibranium.config.yaml"

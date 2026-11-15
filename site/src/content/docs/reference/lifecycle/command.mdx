@@ -39,7 +39,7 @@ afterRun:
   - command: docker compose down
 ```
 
-Pass a var. The value is quoted as one word, so it cannot add a second command. With `word` set to `it's; touch pwned`, this prints the text and creates no file:
+Pass a var. The value is quoted as one word, so it cannot add a second command. With `word` set to `it's; touch pwned`, this prints the text and creates no file. The test's call, `lab#whoami`, is a `GET /whoami` on a local lab server:
 
 ```yaml
 tests:

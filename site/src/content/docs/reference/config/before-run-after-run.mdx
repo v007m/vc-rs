@@ -8,6 +8,8 @@ import { LinkCard } from '@astrojs/starlight/components';
 
 `beforeRun` runs once before any test starts. `afterRun` runs once after the last test ends.
 
+Here `beforeRun` calls `sample#listUsers`, the `vc init` sample's `GET /users`, which answers 200 with the list of users:
+
 ```yaml title="vibranium.config.yaml"
 beforeRun:
   - call: sample#listUsers

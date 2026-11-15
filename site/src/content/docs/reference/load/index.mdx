@@ -7,7 +7,7 @@ sidebar: { order: 0 }
 import { LinkCard, CardGrid, Aside } from '@astrojs/starlight/components';
 import Playground from '~/components/Playground.svelte';
 
-A `*.load.yaml` file reuses tests you already have as a traffic mix; it adds no requests or checks of its own.
+A `*.load.yaml` file reuses tests you already have as a traffic mix; it adds no requests or checks of its own. The mix below names the `vc init` sample tests: `listsUsers` calls `sample#listUsers`, a `GET /users`, and `getsCreatedUser` creates a user with `POST /users` and reads it back with `GET /users/${var.userId}`.
 
 ```yaml title="load/sample/smoke.load.yaml"
 name: Sample smoke load

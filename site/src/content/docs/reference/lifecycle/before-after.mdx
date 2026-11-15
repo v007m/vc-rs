@@ -9,6 +9,32 @@ import Playground from '~/components/Playground.svelte';
 
 `before` and `after` belong to one test. `before` runs just before the test's call or steps; `after` runs just after, even when the test failed.
 
+The example calls `sample#echo`, a `POST /echo` on the demo that sends the request back, with the body it got under `body`:
+
+```yaml title="services/sample/sample.api.yaml (excerpt)"
+apis:
+  - id: echo
+    method: POST
+    path: /echo
+    vars:
+      payload: {}
+    body: ${var.payload}
+```
+
+```console
+$ vc call sample#echo --var 'payload=from before'
+200 OK · 3 ms · api expect passed
+{
+  "body": "from before",
+  "headers": {
+    ...
+  },
+  "method": "POST",
+  "path": "/echo",
+  "query": {}
+}
+```
+
 ```yaml title="services/life/blocks.test.yaml (excerpt)"
 tests:
   - id: readsSharedValues
@@ -41,7 +67,7 @@ tests:
 
 ## Examples
 
-Create the resource this test changes, so no other test sees the change:
+Create the resource this test changes, so no other test sees the change. Here `users#create` is a `POST /users` that saves `userId`, and `users#update` is a `PUT /users/${var.userId}`:
 
 ```yaml
 tests:
@@ -64,7 +90,7 @@ before:
       note: ${response.body.body}
 ```
 
-Run a hook to seed data, then use its return value:
+Run a hook to seed data, then use its return value. `lab#whoami` is a `GET /whoami` on a local lab server:
 
 ```yaml
 before:

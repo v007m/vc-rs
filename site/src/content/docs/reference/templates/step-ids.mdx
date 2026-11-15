@@ -9,6 +9,17 @@ import Playground from '~/components/Playground.svelte';
 
 Give an action or step an `id`, and later actions in the same test or block can read its last response as `${<id>.…}`.
 
+In this sketch, `shop#placeOrder` is a `POST /orders` that answers with the new order's `id`, and `shop#getOrder` is a `GET /orders/${var.orderId}`:
+
+```yaml title="services/shop/shop.api.yaml (excerpt)"
+apis:
+  - id: placeOrder
+    method: POST
+    path: /orders
+  - id: getOrder
+    path: /orders/${var.orderId}
+```
+
 ```yaml
     steps:
       - id: place
@@ -31,7 +42,35 @@ The `id` is a camelCase name on the action. It cannot be a root name such as `ru
 
 ## Examples
 
-Read the first step from the second. The demo's `/echo` returns what it received under `body`, so the sent `n` is at `first.body.body.n`:
+The examples call `sample#echo`, a `POST /echo` on the demo that sends the request back, with the body under `body`:
+
+```yaml title="services/sample/sample.api.yaml (excerpt)"
+apis:
+  - id: echo
+    method: POST
+    path: /echo
+    vars:
+      payload: {}
+    body: ${var.payload}
+```
+
+```console
+$ vc call sample#echo --var 'payload={"n":1}'
+200 OK · 1 ms · api expect passed
+{
+  "body": {
+    "n": 1
+  },
+  "headers": {
+    ...
+  },
+  "method": "POST",
+  "path": "/echo",
+  "query": {}
+}
+```
+
+Read the first step from the second. The sent `n` is at `first.body.body.n`:
 
 ```yaml title="services/tpl/flow.test.yaml"
 tests:

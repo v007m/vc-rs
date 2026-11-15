@@ -76,6 +76,7 @@ export default defineConfig({
         dir('CLI', 'reference/cli'),
         dir('Guides', 'guides'),
         dir('For AI agents', 'agents'),
+        { label: 'Contributing', link: '/contributing/' },
         dir('Diagnostics', 'reference/diagnostics', true),
       ],
     }),

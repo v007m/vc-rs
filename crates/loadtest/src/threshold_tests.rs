@@ -165,3 +165,18 @@ fn the_live_rate_follows_the_last_three_seconds() {
     assert_eq!(rates, [1, 2, 2, 3, 4, 5], "1, 3 and 6 over 1, 2 and 3 seconds; then 9, 12, 15 over 3");
     assert_eq!(RATE_SECONDS, 3);
 }
+
+#[test]
+fn the_window_takes_in_no_row_for_a_second_still_open() {
+    let fixture = fixture(IndexMap::new(), IndexMap::new());
+    let mut recorder = Recorder::new();
+    for second in 0..3 {
+        let latency = StdDuration::from_millis(1);
+        recorder.record(Sample { test: fixture.fast, second, latency, failed: false }).unwrap();
+    }
+    let mut window = Window::new();
+    window.advance(2, recorder.close(3));
+    let totals = window.totals().unwrap();
+    assert_eq!((totals.seconds(), totals.all().count()), (2, 2), "second 2 is still open at end 2");
+    assert_eq!(window.rps(), 1, "2 iterations over 2 seconds");
+}

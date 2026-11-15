@@ -16,6 +16,37 @@ Credentials are never written to the files in any of these.
 
 ## From a browser session
 
+This session was recorded against the demo service, in a project made by `vc init`. Its api file already has the three calls the session makes, so the import matches them:
+
+```yaml title="services/sample/sample.api.yaml (excerpt)"
+id: sample
+baseUrl: ${var.sampleUrl}
+apis:
+  - id: listUsers
+    method: GET
+    path: /users
+  - id: createUser
+    method: POST
+    path: /users
+    body:
+      name: ${var.name}
+      email: ${var.email}
+  - id: getUser
+    path: /users/${var.userId}
+```
+
+```console
+$ vc call sample#listUsers
+200 OK · 3 ms · api expect passed
+[
+  {
+    "id": "1",
+    "name": "Ada Lovelace"
+  },
+  ...
+]
+```
+
 <Steps>
 
 1. **Record.** Open your browser's dev tools on the **Network** tab, use the app, then save the requests as a HAR file (in Chrome and Firefox, right-click the request list and choose **Save all as HAR**). Save it inside the project, for example `rec/signup.har`.

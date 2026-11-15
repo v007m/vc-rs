@@ -23,7 +23,7 @@ $ vc cache clear [OPTIONS] [ID]
 
 ## Examples
 
-Given a cached setup step:
+The test below calls the `vc init` sample apis: `sample#createUser` is a `POST /users` that saves `userId`, and `sample#getUser` is a `GET /users/${var.userId}`. Given its cached setup step:
 
 ```yaml title="services/sample/fixture.test.yaml"
 beforeAll:

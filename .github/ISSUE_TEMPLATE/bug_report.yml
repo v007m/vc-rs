@@ -1,0 +1,103 @@
+name: Bug report
+description: vc did something wrong, crashed or printed a misleading error.
+title: "bug: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. A small project that reproduces it is the fastest way to a fix.
+
+        **Redact secrets first.** Remove tokens, passwords, API keys, cookies and private hostnames from everything you paste below. Never paste a `.env` file. To report a security vulnerability, don't open an issue: follow [SECURITY.md](https://github.com/v007m/vc-rs/blob/master/SECURITY.md).
+  - type: input
+    id: version
+    attributes:
+      label: vc version
+      description: The output of `vc --version`.
+      placeholder: vc 0.1.0
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - macOS
+        - Linux
+        - Windows
+        - Other (say which below)
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: Install method
+      options:
+        - Homebrew (brew install v007m/tap/vibranium)
+        - Homebrew from master (brew install --HEAD v007m/tap/vibranium)
+        - cargo install --git
+        - Built from a clone
+        - Other (say which below)
+    validations:
+      required: true
+  - type: textarea
+    id: files
+    attributes:
+      label: Minimal project
+      description: |
+        The smallest `*.test.yaml`, `*.api.yaml` and `vibranium.config.yaml` that show the bug, each with its path (for example `services/users/crud.test.yaml`). Cut everything the bug doesn't need.
+      render: yaml
+      placeholder: |
+        # services/users/users.api.yaml
+        id: users
+        baseUrl: ${var.usersUrl}
+        apis:
+          - id: getUser
+            method: GET
+            path: /users/${var.userId}
+    validations:
+      required: true
+  - type: input
+    id: command
+    attributes:
+      label: Command
+      description: The exact command you ran.
+      placeholder: vc run users.crud#getsCreatedUser --profile staging
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+      description: What you expected vc to do.
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behaviour
+      description: What vc did instead, with its console output and exit code (`echo $?`).
+      render: console
+    validations:
+      required: true
+  - type: textarea
+    id: json
+    attributes:
+      label: JSON output
+      description: |
+        The same command with `--reporter json` added (`vc run ... --reporter json`). For a problem in `vc check`, paste the output of `vc check --json`. Redact secrets.
+      render: json
+  - type: textarea
+    id: context
+    attributes:
+      label: Anything else
+      description: The surface it happened in (CLI, TUI, web UI, MCP), how often it happens, or a workaround you found.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I removed secrets and private data from everything above.
+          required: true
+        - label: I searched the existing issues and this is not a duplicate.
+          required: true

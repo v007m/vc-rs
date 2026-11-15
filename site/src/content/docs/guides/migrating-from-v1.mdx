@@ -105,6 +105,39 @@ Vibranium v2 is a rewrite. It reads YAML, not v1's JSON scenarios, and has one t
 }
 ```
 
+In v2 the requests (URL, query, headers) become apis in `services/catalog/catalog.api.yaml`, where every test can call them:
+
+```yaml title="services/catalog/catalog.api.yaml (v2)"
+name: catalog
+baseUrl: ${var.apiUrl}
+vars:
+  pageSize: 20
+  searchTerm: ${fake.lorem.word}
+apis:
+  - id: listCategories
+    name: List product categories
+    method: GET
+    path: /api/v1/categories
+    headers:
+      Accept: application/json
+  - id: searchProducts
+    name: Search products in a random category
+    method: GET
+    path: /api/v1/products
+    query:
+      category: ${var.categoryCode}
+      limit: ${var.pageSize}
+      q: ${var.searchTerm}
+  - id: legacySearch
+    name: Old search endpoint, kept for reference
+    method: GET
+    path: /api/v0/search
+    query:
+      q: ${var.searchTerm}
+```
+
+The scenario's flow and checks become a test file that calls them:
+
 ```yaml title="services/catalog/browse.test.yaml (v2)"
 name: catalog_browse
 tags:
@@ -144,7 +177,6 @@ What changed:
 - The cached `01_list_categories` became a `beforeAll` call that runs once for the file, and the dependency became a `save` the test reads.
 - The JavaScript checks became [matchers](/vc-rs/reference/matchers/): `length` with `lte`, and `every` over `items[*].category`.
 - `ignore: true` became `skip` with a reason.
-- The request (URL, query, headers) moved to an api in `catalog.api.yaml`, where every test can call it.
 
 Read the generated test IDs. They are made from the v1 names, and some read oddly, like `legaciesSearch` above. [`vc rename`](/vc-rs/reference/cli/rename/) renames one and updates every reference.
 

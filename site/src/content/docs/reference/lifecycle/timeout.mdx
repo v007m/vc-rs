@@ -28,7 +28,15 @@ A duration is a number and a unit: `500ms`, `5s`, `2m`.
 
 ## Examples
 
-Limit one call. This api waits 2 seconds before it answers:
+Limit one call. `lab#slow` is a `GET /slow` on a local lab server that waits `seconds` before it answers:
+
+```yaml title="services/lab/lab.api.yaml (excerpt)"
+apis:
+  - id: slow
+    path: /slow
+    query:
+      seconds: ${var.seconds}
+```
 
 ```yaml
 steps:

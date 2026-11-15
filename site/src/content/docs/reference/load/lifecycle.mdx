@@ -27,6 +27,8 @@ There is nothing to add to the load file. The blocks are the ones in the test fi
 
 ### Create once, read many times
 
+The test file uses the `vc init` sample apis: `sample#createUser` is a `POST /users` that saves the new `userId`, `sample#listUsers` is a `GET /users`, and `sample#getUser` is a `GET /users/${var.userId}`.
+
 ```yaml title="services/sample/life.test.yaml"
 beforeAll:
   - call: sample#createUser

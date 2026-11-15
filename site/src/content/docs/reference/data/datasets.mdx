@@ -16,6 +16,45 @@ Delhi,IN,32900000
 Paris,FR,11200000
 ```
 
+The examples call two apis on the demo. `sample#echo` is a `POST /echo` that sends the request back, with the body under `body`; `sample#createUser` is a `POST /users` that answers 201 with the new user:
+
+```yaml title="services/sample/sample.api.yaml (excerpt)"
+apis:
+  - id: echo
+    method: POST
+    path: /echo
+    vars:
+      payload: {}
+    body: ${var.payload}
+  - id: createUser
+    method: POST
+    path: /users
+    vars:
+      name: ${fake.person.fullName}
+      email: ${fake.internet.email}
+    body:
+      name: ${var.name}
+      email: ${var.email}
+    expect:
+      status: 201
+```
+
+```console
+$ vc call sample#echo --var 'payload={"city":"Tokyo"}'
+200 OK · 33 ms · api expect passed
+{
+  "body": {
+    "city": "Tokyo"
+  },
+  "headers": {
+    ...
+  },
+  "method": "POST",
+  "path": "/echo",
+  "query": {}
+}
+```
+
 ```yaml title="services/sample/data.test.yaml"
 tests:
   - id: echoesEveryCapital

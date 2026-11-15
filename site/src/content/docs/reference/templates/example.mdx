@@ -28,6 +28,35 @@ Available only in a test that has `examples` (anything else is V2102).
 
 ## Examples
 
+The examples call `sample#echo`, a `POST /echo` on the demo that sends the request back, with the body under `body`:
+
+```yaml title="services/sample/sample.api.yaml (excerpt)"
+apis:
+  - id: echo
+    method: POST
+    path: /echo
+    vars:
+      payload: {}
+    body: ${var.payload}
+```
+
+```console
+$ vc call sample#echo --var 'payload={"email":"a@example.com","age":30}'
+200 OK · 1 ms · api expect passed
+{
+  "body": {
+    "age": 30,
+    "email": "a@example.com"
+  },
+  "headers": {
+    ...
+  },
+  "method": "POST",
+  "path": "/echo",
+  "query": {}
+}
+```
+
 Inline rows. The number keeps its type:
 
 ```yaml title="services/tpl/flow.test.yaml"

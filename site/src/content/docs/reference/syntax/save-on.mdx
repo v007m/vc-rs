@@ -60,6 +60,8 @@ apis:
       userId: ${response.body.id}
 ```
 
+The second step calls `prec#show`, the api from the [`vars`](/vc-rs/reference/syntax/vars/) page. It sends `POST /echo` with its vars in the body, and the demo answers with the request it got, the body under `body`:
+
 ```yaml title="services/prec/status.test.yaml (excerpt)"
 vars:
   userId: none-yet

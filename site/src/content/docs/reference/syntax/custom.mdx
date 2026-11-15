@@ -45,6 +45,44 @@ Its return value decides the result:
 
 ## Examples
 
+The examples call `echo#json`, a minimal api for this page that sends `POST /echo` with a small JSON body; the demo answers with the request it got, the body under `body`:
+
+```yaml title="services/echo/echo.api.yaml (excerpt)"
+baseUrl: ${var.echoUrl}
+apis:
+  - id: json
+    name: Echo a JSON body
+    method: POST
+    path: /echo
+    vars:
+      name: Ada
+    body:
+      name: ${var.name}
+      tags: [a, b]
+```
+
+```console
+$ vc call echo#json
+200 OK · 1 ms · api expect passed
+{
+  "body": {
+    "name": "Ada",
+    "tags": [
+      "a",
+      "b"
+    ]
+  },
+  "headers": {
+    ...
+    "content-type": "application/json",
+    ...
+  },
+  "method": "POST",
+  "path": "/echo",
+  "query": {}
+}
+```
+
 **A check that returns a message.** Return `true`, or a string that explains the failure.
 
 ```ts

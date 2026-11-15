@@ -9,6 +9,41 @@ import Playground from '~/components/Playground.svelte';
 
 `beforeEach` runs before every test instance in the file, and `afterEach` runs after every one, even a failed one. Parallel instances never share what `beforeEach` creates.
 
+The example calls the `vc init` sample apis on the demo. `sample#createUser` is a `POST /users` that answers 201, saves `userId` and deletes the user afterwards; `sample#getUser` is a `GET /users/${var.userId}`:
+
+```yaml title="services/sample/sample.api.yaml (excerpt)"
+apis:
+  - id: createUser
+    method: POST
+    path: /users
+    vars:
+      name: ${fake.person.fullName}
+      email: ${fake.internet.email}
+    body:
+      name: ${var.name}
+      email: ${var.email}
+    expect:
+      status: 201
+    save:
+      userId: ${response.body.id}
+    cleanup:
+      call: deleteUser
+      vars:
+        userId: ${response.body.id}
+  - id: getUser
+    path: /users/${var.userId}
+```
+
+```console
+$ vc call sample#createUser
+201 Created · 3 ms · api expect passed
+{
+  "email": "alta@example.net",
+  "id": "11",
+  "name": "Zoey Dietrich"
+}
+```
+
 ```yaml title="services/life/blocks.test.yaml"
 beforeEach:
   - call: sample#createUser      # saves ${var.userId}, deleted after the test
@@ -32,7 +67,7 @@ tests:
 
 ## Examples
 
-Give every test its own buyer and cart. Both apis declare a `cleanup`, so nothing needs deleting by hand:
+Give every test its own buyer and cart. `users#create` is a `POST /users` and `carts#create` a `POST /carts`; each saves the new ID and declares a `cleanup`, so nothing needs deleting by hand:
 
 ```yaml title="services/orders/checkout.test.yaml (excerpt)"
 beforeEach:

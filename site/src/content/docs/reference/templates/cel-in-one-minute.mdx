@@ -60,7 +60,31 @@ A time result that becomes a value is text: `2024-05-01T14:00:00Z` for a timesta
 
 ## Examples
 
-Checks against the demo's `/users`, which returns two users. All passed:
+The examples call `sample#listUsers`, the `vc init` sample's `GET /users`. On the demo it returns two users:
+
+```yaml title="services/sample/sample.api.yaml (excerpt)"
+apis:
+  - id: listUsers
+    method: GET
+    path: /users
+```
+
+```console
+$ vc call sample#listUsers
+200 OK · 60 ms · api expect passed
+[
+  {
+    "id": "1",
+    "name": "Ada Lovelace"
+  },
+  {
+    "id": "2",
+    "name": "Grace Hopper"
+  }
+]
+```
+
+Checks against that list. All passed:
 
 ```yaml title="services/tpl/cel.test.yaml"
 tests:

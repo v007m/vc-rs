@@ -9,6 +9,41 @@ import Playground from '~/components/Playground.svelte';
 
 `examples` turns one test into several test instances, one per row. Each row is a map. Its values are read with `${example.<column>}`.
 
+The examples call `sample#createUser` from the sample api file that [`vc init`](/vc-rs/reference/cli/init/) writes:
+
+```yaml title="services/sample/sample.api.yaml (excerpt)"
+baseUrl: ${var.sampleUrl}
+apis:
+  - id: createUser
+    name: Create a user
+    method: POST
+    path: /users
+    vars:
+      name: ${fake.person.fullName}
+      email: ${fake.internet.email}
+    body:
+      name: ${var.name}
+      email: ${var.email}
+    expect:
+      status: 201
+    save:
+      userId: ${response.body.id}
+    cleanup:
+      call: deleteUser
+      vars:
+        userId: ${response.body.id}
+```
+
+```console
+$ vc call sample#createUser --var name="Ada Lovelace" --var email=ada@example.com
+201 Created · 0 ms · api expect passed
+{
+  "email": "ada@example.com",
+  "id": "6",
+  "name": "Ada Lovelace"
+}
+```
+
 ```yaml
   - id: createsUsers
     examples:

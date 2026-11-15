@@ -25,6 +25,37 @@ Variables in the expression: `var`, `env`, `response`, `request`, `example`, `it
 
 ## Examples
 
+The examples call two apis on the demo. `sample#echo` is a `POST /echo` that sends the request back, with the body under `body`; `sample#listUsers` is a `GET /users`, which returns two users:
+
+```yaml title="services/sample/sample.api.yaml (excerpt)"
+apis:
+  - id: listUsers
+    method: GET
+    path: /users
+  - id: echo
+    method: POST
+    path: /echo
+    vars:
+      payload: {}
+    body: ${var.payload}
+```
+
+```console
+$ vc call sample#echo --var 'payload={"subtotal":58.5}'
+200 OK · 3 ms · api expect passed
+{
+  "body": {
+    "subtotal": 58.5
+  },
+  "headers": {
+    ...
+  },
+  "method": "POST",
+  "path": "/echo",
+  "query": {}
+}
+```
+
 These values were computed with `price: 19.5`, `qty: 3`, `total: 150`, `prices: [1, 2, 3.5]` and `wholes: [1, 2, 3]`, then sent through the demo's `/echo`:
 
 ```yaml title="services/tpl/flow.test.yaml"

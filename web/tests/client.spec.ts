@@ -1,10 +1,31 @@
 import { fileURLToPath } from 'node:url';
 import { expect, test, type Page } from '@playwright/test';
 import { requiresVcUi } from './support';
+import { startVcUi } from './vcui';
 
 requiresVcUi();
 
 const har = fileURLToPath(new URL('fixtures/har/users-session.har', import.meta.url));
+
+/**
+ * A test that writes files gets its own `vc ui` on a port the OS picks, over a fresh copy of the
+ * seed project, so the seed the other specs share never changes and a repeat or a retry does not
+ * find the test or flow it wrote last time already there.
+ */
+const solo = test.extend({
+  page: async ({ browser }, use) => {
+    const vcUi = await startVcUi('0');
+    try {
+      const context = await browser.newContext({ baseURL: vcUi.origin });
+      const page = await context.newPage();
+      await page.goto(vcUi.printed.launchUrl);
+      await use(page);
+      await context.close();
+    } finally {
+      await vcUi.stop();
+    }
+  },
+});
 
 /** Opens the API client on one api of the seed project. */
 async function openApi(page: Page, name: string): Promise<void> {
@@ -39,7 +60,7 @@ test('shows how long each phase of a call took, its checks and what it saved', a
   await expect(saved.getByRole('rowheader', { name: 'userId' })).toBeVisible();
 });
 
-test('saves a call with a var as a test expecting a body field', async ({ page }) => {
+solo('saves a call with a var as a test expecting a body field', async ({ page }) => {
   await openApi(page, 'Create a user');
   await page.getByRole('tab', { name: 'Vars' }).click();
   await page.getByRole('textbox', { name: 'email' }).fill('grace@example.com');
@@ -60,7 +81,7 @@ test('saves a call with a var as a test expecting a body field', async ({ page }
   );
 });
 
-test('imports a HAR file with a flow test after a preview', async ({ page }) => {
+solo('imports a HAR file with a flow test after a preview', async ({ page }) => {
   await page.goto('/client');
   await page.getByRole('button', { name: 'Import HAR' }).click();
   const dialog = page.getByRole('dialog', { name: 'Import a HAR file' });
@@ -89,7 +110,7 @@ test('reaches every part of the request from the keyboard', async ({ page }) => 
   await expect(page.getByRole('button', { name: 'Send' })).toBeEnabled();
 });
 
-test('moves a recorded flow stage up and saves the steps in their new order', async ({ page }) => {
+solo('moves a recorded flow stage up and saves the steps in their new order', async ({ page }) => {
   await page.goto('/client');
   await page.getByRole('button', { name: 'Import HAR' }).click();
   const dialog = page.getByRole('dialog', { name: 'Import a HAR file' });

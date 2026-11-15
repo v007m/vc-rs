@@ -32,7 +32,7 @@ Both refresh keys work on every auth type that expires: the `oauth2*` types, `fl
 
 ## Examples
 
-Two tests share one token. The server saw a single `POST /token`:
+Two tests share one token. Both call `lab#whoami`, a `GET /whoami` on a local lab server. The server saw a single `POST /token`:
 
 ```yaml
 tests:

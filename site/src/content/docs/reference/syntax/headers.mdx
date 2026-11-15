@@ -147,7 +147,14 @@ $ vc call qlab#typed
 
 ### A default for every step
 
-A test-level `headers` map is a default for each `call` step. A step's own value wins. If every step replaces it, `vc check` warns that the default is unused:
+A test-level `headers` map is a default for each `call` step. A step's own value wins. If every step replaces it, `vc check` warns that the default is unused. Here `bodylab#get` is a minimal api that sends `GET /echo`:
+
+```yaml title="services/bodylab/bodylab.api.yaml (excerpt)"
+baseUrl: ${var.sampleUrl}
+apis:
+  - id: get
+    path: /echo
+```
 
 ```yaml title="services/bodylab/e.test.yaml"
   - id: unusedDefault

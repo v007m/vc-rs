@@ -9,6 +9,21 @@ import Playground from '~/components/Playground.svelte';
 
 `call: <api>` sends an api you already defined. The api brings its URL, auth, body, checks, saved values and cleanup, so the action only says which api and which values.
 
+The example calls `lab#createItem` on a local lab server, a `POST /items` that answers 201 and saves `itemId`:
+
+```yaml title="services/lab/lab.api.yaml (excerpt)"
+apis:
+  - id: createItem
+    method: POST
+    path: /items
+    body:
+      label: ${var.label}
+    expect:
+      status: 201
+    save:
+      itemId: ${response.body.id}
+```
+
 ```yaml
 beforeEach:
   - call: lab#createItem
@@ -35,7 +50,7 @@ beforeEach:
 
 ## Examples
 
-The simplest action: call an api with its defaults.
+The simplest action: call an api with its defaults. `users#create` is a `POST /users` that answers 201 and saves `userId`:
 
 ```yaml
 before:
@@ -51,7 +66,7 @@ before:
       label: second
 ```
 
-Share a result with every test in the file. In `beforeAll` and `beforeRun`, the saved values live under the `id`:
+Share a result with every test in the file. In `beforeAll` and `beforeRun`, the saved values live under the `id`. `sample#createUser` is the `vc init` sample's `POST /users`, which saves `userId`:
 
 ```yaml
 beforeAll:
@@ -75,7 +90,7 @@ steps:
       label: kept
 ```
 
-Override the api's checks and save something extra:
+Override the api's checks and save something extra. `sample#echo` is a `POST /echo` on the demo that sends the request back, with the body under `body`:
 
 ```yaml
 before:

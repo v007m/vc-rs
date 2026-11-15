@@ -28,7 +28,7 @@ auth:
 
 ## Examples
 
-With `LAB_PASSWORD=open-sesame` in `.env`, the server received:
+The examples call a local lab server's `lab#whoami`, a `GET /whoami`, and a users service's `users#create`, a `POST /users` that answers 201 with the new user. With `LAB_PASSWORD=open-sesame` in `.env`, the lab server received:
 
 ```console
 GET /whoami  authorization: Basic YWRhOm9wZW4tc2VzYW1l

@@ -28,6 +28,34 @@ body:
 
 ## Examples
 
+The examples call `sample#echo`, a `POST /echo` on the demo that sends the request back, with the body under `body`:
+
+```yaml title="services/sample/sample.api.yaml (excerpt)"
+apis:
+  - id: echo
+    method: POST
+    path: /echo
+    vars:
+      payload: {}
+    body: ${var.payload}
+```
+
+```console
+$ vc call sample#echo --var 'payload={"city":"Tokyo"}'
+200 OK · 33 ms · api expect passed
+{
+  "body": {
+    "city": "Tokyo"
+  },
+  "headers": {
+    ...
+  },
+  "method": "POST",
+  "path": "/echo",
+  "query": {}
+}
+```
+
 ### Once per instance versus inline
 
 This test reads a var twice and writes an inline generator twice. Run with `--seed 42`:

@@ -32,8 +32,35 @@ import HowStep from '~/components/landing/HowStep.astro';
 import Cta from '~/components/landing/Cta.astro';
 import LandingFooter from '~/components/landing/LandingFooter.astro';
 
-<Section id="a-test" eyebrow="A whole test file" title="Say what you expect. Get told exactly what broke." lead="An <strong>api</strong> says how to call an endpoint once. A <strong>test</strong> calls it by ID and states what it expects. When a check fails, the error points at the line of YAML that set it.">
+<Section id="a-test" eyebrow="API, test, output" title="Say what you expect. Get told exactly what broke." lead="An <strong>api</strong> says how to call an endpoint once. A <strong>test</strong> calls it by ID and states what it expects. When a check fails, the error points at the line of YAML that set it.">
 <WindowRow>
+<Window title="services/users/users.api.yaml">
+
+```yaml title="services/users/users.api.yaml (excerpt)"
+name: Users service
+baseUrl: ${var.usersUrl}
+apis:
+  - id: create
+    name: Create a user
+    method: POST
+    path: /users
+    vars:
+      name: ${fake.person.fullName}
+      email: ${fake.internet.email}
+    body:
+      name: ${var.name}
+      email: ${var.email}
+    expect:
+      status: 201
+    save:
+      userId: ${response.body.id}
+    cleanup:
+      call: delete
+      vars:
+        userId: ${response.body.id}
+```
+
+</Window>
 <Window title="services/users/signup.test.yaml">
 
 ```yaml title="services/users/signup.test.yaml" {"8":8}
@@ -41,7 +68,7 @@ name: Sign-up
 tests:
   - id: createsUser
     name: Creates a user with an email
-    call: users#createUser
+    call: users#create
     vars: { email: ada@example.com }
     expect:
       status: 201
@@ -52,25 +79,11 @@ tests:
 ```
 
 </Window>
-<Window title="vc run users.signup" badge="passed" tone="ok">
-
-```console title="It passes"
-$ vc run users.signup
-plan  1 test in 1 file · profile default
-
-Sign-up
-✓ users.signup#createsUser — Creates a user with an email         9ms
-
-1 passed                                                     11ms · profile default
-reports  /home/you/shop/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
-```
-
-</Window>
-<Window title="same test, expecting 200" badge="failed" tone="bad">
+<Window title="with line 8 set to 200" badge="failed" tone="bad">
 
 ```console title="The same test with line 8 changed to status: 200"
 $ vc run users.signup
-plan  1 test in 1 file · profile default
+plan  1 test in 1 file · profile local
 
 Sign-up
 ✕ users.signup#createsUser — Creates a user with an email         3ms
@@ -80,16 +93,16 @@ Sign-up
   8 |       status: 200
     |               ^^^ expected [200], got 201
 
-0 passed · 1 failed                                          4ms · profile default
-reports  /home/you/shop/.vibranium/reports/2/{ctrf.json,junit.xml,index.html}
+0 passed · 1 failed                                          4ms · profile local
+reports  /home/you/shop/.vibranium/reports/2/{ctrf.json,junit.xml}
 next     vc run --failed
-seed 3072041205346804: pass `--seed 3072041205346804` to run with the same generated data
+seed 3050924948966528: pass `--seed 3050924948966528` to run with the same generated data
 ```
 
 </Window>
 </WindowRow>
 
-<p class="lp-note">The last window is the same test with line 8 changed to <code>status: 200</code>: the error names that line. <code>users#createUser</code> is <code>POST /users</code> on the bundled <code>vc demo</code> shop service, described once in <code>services/users/users.api.yaml</code>. The <a href="/vc-rs/start/quickstart/">quickstart</a> writes that file with you.</p>
+<p class="lp-note">As written, the test passes: <code>POST /users</code> on the bundled <code>vc demo</code> service answers <code>201</code> with the new user, and the api's <code>cleanup</code> deletes it after the run. The last window is the same test with line 8 changed to <code>status: 200</code>, and the error names that line. The <a href="/vc-rs/start/quickstart/">quickstart</a> builds this with you.</p>
 </Section>
 
 <Section id="features" eyebrow="What it does" title="One engine for every kind of API test" lead="Write a test once, then check it, run it, load it or hand it to an agent. Every front end runs the same engine.">
@@ -130,7 +143,7 @@ Describe each endpoint once in `services/<service>/<service>.api.yaml`, then wri
 ```yaml title="services/users/crud.test.yaml (excerpt)"
 tests:
   - id: getsUser
-    call: users#getUser
+    call: users#get
     expect: { status: 200 }
 ```
 

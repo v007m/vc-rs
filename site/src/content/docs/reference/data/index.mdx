@@ -9,6 +9,34 @@ import Playground from '~/components/Playground.svelte';
 
 Tests need data: a new email for each signup, a list of cities to loop over, a signature on a request. Vibranium gives you four tools for this, and none of them needs a line of code until you really want one.
 
+The example calls `sample#echo`, a `POST /echo` on the demo that sends the request back, with the body under `body`:
+
+```yaml title="services/sample/sample.api.yaml (excerpt)"
+apis:
+  - id: echo
+    method: POST
+    path: /echo
+    vars:
+      payload: {}
+    body: ${var.payload}
+```
+
+```console
+$ vc call sample#echo --var 'payload={"city":"Tokyo"}'
+200 OK · 33 ms · api expect passed
+{
+  "body": {
+    "city": "Tokyo"
+  },
+  "headers": {
+    ...
+  },
+  "method": "POST",
+  "path": "/echo",
+  "query": {}
+}
+```
+
 ```yaml title="services/sample/data.test.yaml"
 tests:
   - id: echoesEveryCapital

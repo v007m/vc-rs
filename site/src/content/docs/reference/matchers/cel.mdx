@@ -20,9 +20,51 @@ expect:
 | --- | --- | --- | --- | --- |
 | `cel.<label>` | CEL expression | — | no | The label names the check in the report. It can contain spaces. |
 
-## Examples
+## The API
 
-The examples call `sample#listUsers` and `sample#echoOrder`. See [Following along](/vc-rs/reference/matchers/#following-along).
+The examples call `sample#echoOrder` and `sample#listUsers`. `echoOrder` posts a sample order to the demo's `/echo`, and the demo sends the request back, so the order shows up under `body`. `listUsers` sends `GET /users`, and the demo answers with two users. Here are the fields these examples check; [Following along](/vc-rs/reference/matchers/#following-along) has the whole entry and how to start the demo.
+
+```yaml title="services/sample/sample.api.yaml (excerpt)"
+  - id: listUsers
+    name: List users
+    method: GET
+    path: /users
+  ...
+  - id: echoOrder
+    name: Echo a sample order
+    method: POST
+    path: /echo
+    body:
+      total: 42.5
+      items:
+        - {sku: A1, price: 10}
+        - {sku: B2, price: 32.5}
+      ...
+```
+
+```console
+$ vc call sample#echoOrder
+200 OK · 36 ms · api expect passed
+{
+  "body": {
+    "items": [
+      {
+        "price": 10,
+        "sku": "A1"
+      },
+      {
+        "price": 32.5,
+        "sku": "B2"
+      }
+    ],
+    "total": 42.5,
+    ...
+  },
+  ...
+}
+```
+
+## Examples
 
 ### Count and inspect a list
 

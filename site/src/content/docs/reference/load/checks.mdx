@@ -20,7 +20,7 @@ checks: full
 
 ## Examples
 
-Both runs use this test, which expects the wrong status on purpose:
+Both runs use this test. It calls `sample#listUsers`, the `vc init` sample's `GET /users`, which answers 200, and it expects the wrong status on purpose:
 
 ```yaml title="services/sample/wrong.test.yaml"
 tests:

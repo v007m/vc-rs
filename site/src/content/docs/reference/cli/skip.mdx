@@ -25,6 +25,8 @@ $ vc skip [OPTIONS] --reason <REASON> <TARGET>
 
 ### Skip one test
 
+The test calls `users#listUsers`, a `GET /users` on a users service.
+
 ```console
 $ vc skip users.crud#listsUsers --reason "waiting on JIRA-12"
 ✓ skipped users.crud#listsUsers: waiting on JIRA-12
