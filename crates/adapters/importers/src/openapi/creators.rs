@@ -86,23 +86,34 @@ impl Reader<'_> {
     }
 }
 
-/// Gives the creators the `used` routes call distinct saves, in route order: a creator whose
-/// save an earlier one already has saves `<name>2`, `<name>3`… instead.
+/// Gives the creators the `used` routes call distinct saves, one for each property of its
+/// response they are read through, in route order: a save an earlier one already has is
+/// `<name>2`, `<name>3`… instead. So a creator one path reads by `{slug}` and another by
+/// `{id}` saves both, each test passing the one its parameter names.
 pub fn unique(needs: &mut [Needs], used: &[bool]) {
     let mut links: Vec<&Link> =
         needs.iter().zip(used).filter(|(_, used)| **used).flat_map(|(needs, _)| needs.links()).collect();
     links.sort_by_key(|link| link.creator);
-    let mut names: Vec<(usize, String)> = Vec::new();
+    let mut names: Vec<(Saved, String)> = Vec::new();
     for link in links {
-        if !names.iter().any(|(creator, _)| *creator == link.creator) {
+        if !names.iter().any(|(saved, _)| saved.of(link)) {
             let name = free(&link.saved, names.len(), |name| names.iter().any(|(_, taken)| taken == name));
-            names.push((link.creator, name));
+            names.push((Saved(link.creator, link.property.clone()), name));
         }
     }
     for link in needs.iter_mut().flat_map(Needs::links_mut) {
-        if let Some((_, name)) = names.iter().find(|(creator, _)| *creator == link.creator) {
+        if let Some((_, name)) = names.iter().find(|(saved, _)| saved.of(link)) {
             link.saved.clone_from(name);
         }
+    }
+}
+
+/// A creator, and the property of its response a save reads.
+struct Saved(usize, String);
+
+impl Saved {
+    fn of(&self, link: &Link) -> bool {
+        self.0 == link.creator && self.1 == link.property
     }
 }
 
