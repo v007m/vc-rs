@@ -48,7 +48,7 @@ export function areaFor(pathname: string): DocsArea | undefined {
 
 /** The landing page's sections, by the `id` of each section's heading. */
 export const LANDING_SECTIONS: NavLink[] = [
-  { label: 'A test', href: '#a-test' },
+  { label: 'Example', href: '#a-test' },
   { label: 'Features', href: '#features' },
   { label: 'How it works', href: '#how-it-works' },
   { label: 'AI agents', href: '#agents' },
