@@ -407,7 +407,7 @@ Selecting a few tests never runs other files' setup. Running one checkout test r
 
 ```
 $ vc run orders.checkout#placesOrder --profile staging
-plan  1 test · lifecycle: beforeAll catalog (cached, 3h left) · beforeEach ×3 calls · profile staging
+plan  1 test · lifecycle: beforeAll catalog (cached, 3h left) · beforeEach ×3 actions · profile staging
 ```
 
 ## Creating apis and tests

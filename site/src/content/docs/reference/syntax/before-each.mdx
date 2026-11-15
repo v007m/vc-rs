@@ -77,7 +77,7 @@ Each entry is a [`call`](/vc-rs/reference/syntax/call/), [`test`](/vc-rs/referen
 
 - Order inside one instance: `beforeEach`, `before`, the `call` or `steps`, the test-level `save`, `after`, `afterEach`, then cleanups.
 - Values saved in `beforeEach` are vars of that instance, read as `${var.<name>}`. Below, `sample#createUser` saves `userId`, and `sample#getUser` reads it.
-- `vc plan` lists it in the header, such as `lifecycle: beforeEach ×2 calls`.
+- `vc plan` lists it in the header, such as `lifecycle: beforeEach ×2 actions`: its actions of any kind, once per instance.
 - A failed `beforeEach` blocks that instance. `afterEach` still runs:
 
 ```yaml title="services/flow/each2.test.yaml"

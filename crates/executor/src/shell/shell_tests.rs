@@ -197,9 +197,8 @@ async fn bail_stops_starting_tests_after_the_first_failure() {
     let test = fixture.test(vec![fail], None);
     let plan = fixture.plan(&[], &[(test, 3)]);
     let outcome = run(fixture, plan, RunOptions { concurrency: 1, bail: true, ..RunOptions::default() }, &[]).await;
-    let Totals { failed, skipped, .. } = outcome.summary.totals;
-    assert_eq!((outcome.summary.status, failed + skipped), (RunStatus::Failed, 3));
-    assert!(skipped >= 1, "{:?}", outcome.summary);
+    assert_eq!((outcome.summary.status, outcome.summary.totals), (RunStatus::Failed, totals([0, 1, 0, 0, 2])));
+    assert_eq!(outcome.sent("/fail"), 1, "the instances after the failure never start");
 }
 
 #[tokio::test(start_paused = true)]

@@ -3,10 +3,12 @@ use std::ops::Range;
 use std::sync::Arc;
 use std::time::Duration;
 
+use tokio::sync::oneshot;
 use tokio::time::Instant;
 use vc_model::{ActionId, ApiId, Event, Exchange, Failure, OwnerKey, TestResult, TestStatus};
 
 use super::crew::{Crew, Deadline, Job};
+use super::run::Inbound;
 use crate::cancel::{CancelTree, Ran};
 use crate::{
     ActionReport, Frame, InstanceCommand, InstanceInput, InstanceScript, InstanceWorkflow, IterationCall,
@@ -21,7 +23,9 @@ pub struct Ticket {
 }
 
 /// Runs one test instance to its verdict. Its actions run one after another in this task,
-/// which owns the instance's [`InstanceWorkflow`] and its [`Frame`].
+/// which owns the instance's [`InstanceWorkflow`] and its [`Frame`]. It keeps its turn of the
+/// run's limit until the run has carried out its status, so the next instance starts only once
+/// the run has cancelled, on `--bail`; the cancel is checked on start.
 pub async fn instance(crew: Crew, ticket: Ticket) -> TestStatus {
     let _permit = Arc::clone(&crew.limit).acquire_owned().await.ok();
     let mut shell = InstanceShell::new(crew, ticket);
@@ -236,13 +240,16 @@ impl InstanceShell {
         }
     }
 
+    /// Publishes the result and waits until the run has carried out the status, or is gone.
     async fn finish(&self, verdict: Verdict) -> TestStatus {
         let Verdict { status, attempts, failure, skip_reason } = verdict;
         let instance = &self.ticket.launch.instance;
         let (test, duration) = (instance.test, self.started.elapsed());
         let result = TestResult { test, instance: Some(instance.id), status, attempts, failure, skip_reason, duration };
         self.crew.bus.publish(Event::TestFinished { result }).await;
-        self.crew.run.send(RunInput::Tested(status)).ok();
+        let (carried_out, done) = oneshot::channel();
+        self.crew.run.send(Inbound { input: RunInput::Tested(status), carried_out: Some(carried_out) }).ok();
+        done.await.ok();
         status
     }
 }

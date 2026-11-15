@@ -19,7 +19,7 @@ use vc_model::Plan;
 
 use self::crew::Crew;
 pub use self::load::{IterationSetup, ProgramIterations};
-use self::run::RunFrame;
+use self::run::{Inbound, RunFrame};
 use crate::cancel::CancelTree;
 use crate::{ActionCx, EventBus, ExecutorError, RedactingSink, RunInput, RunSummary};
 
@@ -90,7 +90,7 @@ impl Executor {
 /// A run in progress.
 #[derive(Debug)]
 pub struct RunHandle {
-    inbox: UnboundedSender<RunInput>,
+    inbox: UnboundedSender<Inbound>,
     task: JoinHandle<RunSummary>,
 }
 
@@ -98,7 +98,7 @@ impl RunHandle {
     /// A Ctrl-C: the first cancels (work in flight gets the grace period, cleanups run), the
     /// second ends the grace period, the third aborts (cleanups are abandoned).
     pub fn interrupt(&self) {
-        self.inbox.send(RunInput::Interrupt).ok();
+        self.inbox.send(RunInput::Interrupt.into()).ok();
     }
 
     /// A handle that interrupts this run like [`RunHandle::interrupt`], kept after
@@ -121,13 +121,13 @@ impl RunHandle {
 /// Interrupts a run from anywhere, such as a Ctrl-C handler: see [`RunHandle::interrupt`].
 #[derive(Clone, Debug)]
 pub struct RunInterrupter {
-    inbox: UnboundedSender<RunInput>,
+    inbox: UnboundedSender<Inbound>,
 }
 
 impl RunInterrupter {
     /// One Ctrl-C, as [`RunHandle::interrupt`]; nothing once the run has finished.
     pub fn interrupt(&self) {
-        self.inbox.send(RunInput::Interrupt).ok();
+        self.inbox.send(RunInput::Interrupt.into()).ok();
     }
 }
 
@@ -146,6 +146,10 @@ mod after_tests;
 #[cfg(test)]
 #[path = "flow_tests.rs"]
 mod flow_tests;
+
+#[cfg(test)]
+#[path = "bail_tests.rs"]
+mod bail_tests;
 
 #[cfg(test)]
 #[path = "redaction_tests.rs"]

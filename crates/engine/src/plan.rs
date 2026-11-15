@@ -37,7 +37,7 @@ pub struct PlanReport {
 
 impl PlanReport {
     /// The plan line, with the active profiles:
-    /// `1 test in 1 file · beforeEach ×3 calls · profile staging`.
+    /// `1 test in 1 file · beforeEach ×3 actions · profile staging`.
     #[must_use]
     pub fn line(&self) -> String {
         let line = vc_planner::plan_line(&self.program, &self.plan);

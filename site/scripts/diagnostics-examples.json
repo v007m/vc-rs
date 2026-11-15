@@ -214,7 +214,7 @@
       }
     ],
     "command": "vc run",
-    "output": "plan  1 test in 1 file · profile default\n\nUsers CRUD\n✕ users.crud#listsUsers — Lists users                             1ms\n  error[V5105]: cannot connect to localhost:7499: Connection refused (os error 61)\n     = at: call users#listUsers\n\n0 passed · 1 failed                                          2ms · profile default\nreports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}\nnext     vc run --failed",
+    "output": "plan  1 test in 1 file · profile default\n\nUsers CRUD\n✕ users.crud#listsUsers — Lists users                             4ms\n  error[V5105]: cannot connect to localhost:7499: Connection refused (os error 61)\n     = at: call users#listUsers\n\n0 passed · 1 failed                                          6ms · profile default\nreports  …/.vibranium/reports/1/ctrf.json\nnext     vc run --failed",
     "exit": 1
   }
 }

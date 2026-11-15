@@ -10,11 +10,12 @@ use tokio::time::{self, Instant};
 use vc_diagnostics::Code;
 use vc_model::{ActionId, ActionOutcome, CleanupRecord, Event, Failure, OwnerKey};
 
+use super::run::Inbound;
 use super::script::Scripts;
 use crate::cancel::{CancelTree, Ran};
 use crate::{
-    ActionCx, ActionReport, ActionRequest, CANCELLED, CleanupCollector, Frame, PendingCleanup, RedactingSink, RunInput,
-    Saved, SharedSlots,
+    ActionCx, ActionReport, ActionRequest, CANCELLED, CleanupCollector, Frame, PendingCleanup, RedactingSink, Saved,
+    SharedSlots,
 };
 
 /// What every worker of a run shares.
@@ -31,7 +32,7 @@ pub struct Crew {
     /// How many instances a file launches at once.
     pub window: usize,
     /// The run's inbox, for test verdicts (`--bail`).
-    pub run: UnboundedSender<RunInput>,
+    pub run: UnboundedSender<Inbound>,
 }
 
 /// One action to run, in its frame.

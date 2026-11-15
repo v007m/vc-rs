@@ -1,5 +1,5 @@
-//! Retries, the transport's `http.retry` backoff, polls, loops under `parallel` and the per-host
-//! connection limit.
+//! Retries, the transport's `http.retry` backoff, polls, loops under `parallel`, the per-host
+//! connection limit and `--bail`.
 
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
@@ -10,7 +10,7 @@ use std::time::Instant;
 
 use vc_mock_server::MockServer;
 
-use crate::{CONFIG, Project, SCRIPTED, events, of_kind};
+use crate::{CONFIG, Project, SCRIPTED, USERS, events, of_kind, said};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn a_pass_after_a_failed_attempt_is_flaky() {
@@ -219,4 +219,21 @@ fn http_retry_backs_off_exponentially_up_to_its_max() {
     let (uncapped, capped) = (waits("5s"), waits("100ms"));
     assert!(uncapped[0] >= 400 && uncapped[1] >= 800, "base, then twice base: {uncapped:?}");
     assert!(capped.iter().all(|wait| *wait >= 100), "max caps both waits at 100 ms, not 0: {capped:?}");
+}
+
+/// `--bail` one test at a time stops at the first failure every run: the instance after it
+/// never starts, however fast the failure comes back.
+#[tokio::test(flavor = "multi_thread")]
+async fn bail_one_at_a_time_stops_at_the_first_failure_every_run() {
+    let server = MockServer::start().await.unwrap();
+    let test = "tests:\n  - id: expectsATeapot\n    call: users#list\n    expect: {status: 418}\n\
+                \x20 - id: listsUsers\n    call: users#list\n";
+    let project = Project::new(&[CONFIG, USERS, ("services/users/bail.test.yaml", test)]);
+    for _ in 0..20 {
+        let output = project.run(&server.base_url(), &["--bail", "--concurrency", "1", "--repeat", "2"]).output();
+        let output = output.unwrap();
+        assert_eq!(output.status.code(), Some(1), "{}", said(&output));
+        assert!(said(&output).contains("0 passed · 1 failed · 3 skipped"), "{}", said(&output));
+    }
+    assert_eq!(server.stats().await.unwrap().count("GET /users"), 20, "one request a run");
 }

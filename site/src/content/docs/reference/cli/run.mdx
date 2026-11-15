@@ -118,13 +118,30 @@ Each example row and each repeat is its own instance, labeled `[row n]` or `[rep
 ### Stop at the first failure
 
 ```console
-$ vc run sample.extra --include-skipped --bail
-...
-- sample.extra#rejectsBadEmail › empty — Rejects a bad email skipped: cancelled
-0 passed · 1 failed · 3 skipped
+$ vc run sample.extra --include-skipped --bail --concurrency 1 --repeat 2
+plan  3 tests (8 instances) in 1 file · profile default
+
+✓ sample.extra#echoesBody [repeat 1] — Echoes the body back       0ms
+✓ sample.extra#echoesBody [repeat 2] — Echoes the body back       0ms
+✓ sample.extra#rejectsBadEmail › empty [repeat 1] — Rejects a bad email    0ms
+✓ sample.extra#rejectsBadEmail › empty [repeat 2] — Rejects a bad email    0ms
+✓ sample.extra#rejectsBadEmail › no at sign [repeat 1] — Rejects a bad email    0ms
+✓ sample.extra#rejectsBadEmail › no at sign [repeat 2] — Rejects a bad email    0ms
+✕ sample.extra#findsAda [repeat 1] — Finds Ada first              0ms
+  error[V5101]: expect.body.match.[0].name
+    --> services/sample/extra.test.yaml:35:23
+     |
+  35 |           "[0].name": Grace Hopper
+     |                       ^^^^^^^^^^^^ expected "Grace Hopper", got "Ada Lovelace"
+- sample.extra#findsAda [repeat 2] — Finds Ada first skipped: cancelled
+
+6 passed · 1 failed · 1 skipped                              4ms · profile default
 reports  /home/ada/shop/.vibranium/reports/39/{ctrf.json,junit.xml,index.html}
 next     vc run --failed
+seed 4412980376030547: pass `--seed 4412980376030547` to run with the same generated data
 ```
+
+The instances after the first failure never start: each is listed `skipped: cancelled`. With `--concurrency` above 1, the instances already running when a test fails still finish and count; only those not yet started are skipped.
 
 ### Machine-readable output for a script
 
