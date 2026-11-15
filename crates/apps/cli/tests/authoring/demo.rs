@@ -300,3 +300,56 @@ fn two_starts_at_once_leave_one_demo_that_their_stops_end() {
     assert_eq!(stops.1, format!("stopped the demo on port {port}\n"));
     assert!(wait_until(port, false), "no demo is left running");
 }
+
+/// A project whose `demo.users` file starts the demo on `port` in its `beforeAll` and stops it
+/// in its `afterAll`, as the `vc init` sample does, and whose `demo.peak` load file mixes its one
+/// test, which lists the users: a ramp to one user, then a second at one.
+fn loading(port: u16) -> Project {
+    let config = format!(
+        "syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\nvars: {{baseUrl: 'http://localhost:{port}'}}\n"
+    );
+    let api = "baseUrl: ${var.baseUrl}\napis:\n  - id: list\n    path: /users\n    expect: {status: 200}\n";
+    let tests = format!(
+        "beforeAll:\n  - command: vc demo start --port {port} --detach\nafterAll:\n  - command: vc demo stop --port {port}\n\
+         tests:\n  - id: listsUsers\n    call: demo#list\n"
+    );
+    let load = "mix:\n  - {test: demo.users#listsUsers, weight: 1}\nstages:\n  - {duration: 1s, users: 1}\n  - {duration: 1s, users: 1}\n";
+    let files = [
+        ("vibranium.config.yaml", config.as_str()),
+        ("services/demo/demo.api.yaml", api),
+        ("services/demo/users.test.yaml", tests.as_str()),
+        ("load/demo/peak.load.yaml", load),
+    ];
+    Project::new(&files)
+}
+
+/// A load run's exit code, iterations and errors.
+type Loaded = (Option<i32>, Option<u64>, Option<u64>);
+
+/// The [`Loaded`] of `vc load demo.peak --json`.
+fn loaded(project: &Project) -> Loaded {
+    let output = project.vc(&["load", "demo.peak", "--json"]).timeout(Duration::from_secs(60)).output().unwrap();
+    let report: serde_json::Value =
+        serde_json::from_slice(&output.stdout).unwrap_or_else(|_| panic!("{}", crate::said(&output)));
+    (output.status.code(), report["iterations"].as_u64(), report["errors"].as_u64())
+}
+
+/// A load run runs each mixed file's `afterAll`, so the sample's `vc demo stop` runs after every
+/// `vc load`: it must leave a demo the user started running, load after load (C19).
+#[test]
+fn a_demo_the_user_started_outlives_two_load_runs_that_start_and_stop_it() {
+    let port = free_port();
+    let (project, at) = (loading(port), &port.to_string());
+    let launched = exit_code(&project, &["demo", "start", "--port", at, "--detach"]);
+    let runs = [loaded(&project), loaded(&project)];
+    let still_up = get(port, "/users");
+    let stopped = printed(&project, &["demo", "stop", "--port", at]);
+    assert_eq!(launched, Some(0));
+    for &(code, iterations, errors) in &runs {
+        assert_eq!((code, errors), (Some(0), Some(0)), "each load runs clean: {runs:?}");
+        assert!(iterations.is_some_and(|count| count > 0), "{runs:?}");
+    }
+    assert!(still_up.is_some_and(|line| line.contains(" 200 ")), "the demo still answers after both loads");
+    assert_eq!(stopped, format!("stopped the demo on port {port}\n"), "the loads' joins were all let go");
+    assert!(wait_until(port, false), "the user's stop ends it");
+}
