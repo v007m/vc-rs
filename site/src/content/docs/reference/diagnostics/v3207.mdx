@@ -1,6 +1,6 @@
 ---
 title: "V3207 — A key a test: action ignores"
-description: "A test: action runs the reused test as written: its own calls, with their own auth, headers, query, body, poll and expect (D270)."
+description: "A test: action runs the reused test as written: its own calls, with their own auth, headers, query, body, poll and expect."
 sidebar:
   label: "V3207 A key a test: action ignores"
   order: 3207
@@ -18,7 +18,7 @@ import { Badge } from '@astrojs/starlight/components';
 | Certain fix | remove the key |
 
 A `test:` action runs the reused test as written: its own calls, with their own `auth`, `headers`, `query`, `body`,
-`poll` and `expect` (D270). Written on the `test:` action itself, those keys never reach the reused test's calls, so
+`poll` and `expect`. Written on the `test:` action itself, those keys never reach the reused test's calls, so
 they have no effect. Remove the key, or set it in the reused test.
 
 ## Wrong
