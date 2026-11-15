@@ -24,7 +24,7 @@ def answer(method, params):
     if method == "initialize":
         return {}
     if method == "shutdown":
-        with open(os.path.join(os.environ["VIB_PLUGIN_DATA"], "stamp.log"), "a") as log:
+        with open(os.path.join(os.environ["VIB_PLUGIN_DATA"], "stamp.log"), "a", newline="") as log:
             log.write("shutdown\n")
     return None
 
