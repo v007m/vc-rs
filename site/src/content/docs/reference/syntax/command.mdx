@@ -59,7 +59,7 @@ beforeAll:
 tests:
   - id: seesConfigVars
     before:
-      - command: test "$VIB_VAR_sampleUrl" = "http://localhost:7434"
+      - command: test "$VIB_VAR_sampleUrl" = "http://localhost:7421"
     call: sample#listUsers
 ```
 
@@ -102,6 +102,7 @@ No file named `hacked` is created. The text reached `echo` as one argument.
 
 ```console
 $ vc run flow.cmd
+plan  4 tests in 1 file · lifecycle: beforeAll command · profile default
 
 ⊘ flow.cmd#failsOnExit blocked                                   14ms
   error[V5110]: the command exited with 1:

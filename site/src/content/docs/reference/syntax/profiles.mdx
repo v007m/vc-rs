@@ -112,7 +112,7 @@ $ vc explain prof.checkout#sendsCurrency --profile staging,eu
 prof.checkout#sendsCurrency
 profile  staging, eu
 call prof#show
-  POST http://localhost:7433/echo
+  POST http://localhost:7421/echo
   vars
     ...
     f  from-config-eu  (profile eu)
@@ -148,7 +148,7 @@ apis:
 $ vc explain prof#show --profile staging
 prof#show
 profile  staging
-  POST http://localhost:7433/echo
+  POST http://localhost:7421/echo
   vars
     ...
     region  us  (file prof, profile staging)

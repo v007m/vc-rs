@@ -63,7 +63,7 @@ Set the same names at several levels, then ask `vc explain` where each value cam
 
 ```yaml title="vibranium.config.yaml (excerpt)"
 vars:
-  sampleUrl: http://localhost:7433
+  sampleUrl: http://localhost:7421
   e: from-config
   f: from-config
 ```
@@ -125,9 +125,9 @@ $ vc explain prec.levels#showsLevels
 prec.levels#showsLevels
 profile  default
 call prec#show
-  POST http://localhost:7433/echo
+  POST http://localhost:7421/echo
   vars
-    sampleUrl  http://localhost:7433  (vibranium.config.yaml)
+    sampleUrl  http://localhost:7421  (vibranium.config.yaml)
     e  from-test-file  (file prec.levels)
     f  from-config  (vibranium.config.yaml)
     a  from-test  (test)
@@ -150,9 +150,9 @@ Call the api on its own and the api's defaults win instead:
 $ vc explain prec#show
 prec#show
 profile  default
-  POST http://localhost:7433/echo
+  POST http://localhost:7421/echo
   vars
-    sampleUrl  http://localhost:7433  (vibranium.config.yaml)
+    sampleUrl  http://localhost:7421  (vibranium.config.yaml)
     e  from-config  (vibranium.config.yaml)
     f  from-config  (vibranium.config.yaml)
     a  from-api  (api prec#show)
