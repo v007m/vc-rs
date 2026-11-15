@@ -23,6 +23,8 @@ $ vc approve [OPTIONS] <ID>
 
 ## Examples
 
+These examples use the [`vc approvals`](/vc-rs/reference/cli/approvals/) profile with `writeDefinitions: ask` added to its `agents` block. Requests 1 to 3 are an agent's `call_api` on `sample#createUser`, and request 4 is a `write_definition`.
+
 ```console
 $ vc approvals
 #1  claude-code  call_api  default  POST sample#createUser

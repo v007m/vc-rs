@@ -33,6 +33,19 @@ $ vc check
 
 ### Errors
 
+In a `vc init` project with this file added:
+
+```yaml title="services/orders/checkout.test.yaml"
+name: Checkout
+tests:
+  - id: placesOrder
+    name: Places an order
+    call: sample#creatUser
+  - id: findsUser
+    name: Finds a user
+    call: sample#getUser
+```
+
 ```console
 $ vc check
 error[V2003]: unknown api "sample#creatUser"
@@ -53,7 +66,7 @@ error[V2101]: ${var.userId} is used but never set
    |           -------------- called from here
    = help: set it in this test's vars, in the file's vars, or in the config's vars
 
-2 errors · 0 warnings · 15 files checked
+2 errors · 0 warnings · 4 files checked
 $ echo $?
 2
 ```
@@ -61,6 +74,8 @@ $ echo $?
 Each diagnostic has a code, the file, line and column, the lines it points at, and a `help:` line. A `:::` block shows a second place that matters, here the test whose call needs the var. Run [`vc explain V2101`](/vc-rs/reference/cli/explain/) for a longer explanation, or open the [diagnostics reference](/vc-rs/reference/diagnostics/).
 
 ### Warnings with fixes
+
+Here `checkout.test.yaml` is the file the `--fix` diff below starts from:
 
 ```console
 $ vc check
@@ -89,7 +104,7 @@ warning[V3104]: this skip expired after 2026-01-01
    = help: remove the skip, or move `until` later if the reason still holds
    = fix: Remove the skip (certain)
 
-0 errors · 3 warnings · 15 files checked
+0 errors · 3 warnings · 4 files checked
 ```
 
 Warnings do not change the exit code. A `fix:` marked `(certain)` is one `--fix` can apply.
@@ -116,7 +131,7 @@ $ vc check --fix
 -      until: 2026-01-01
 Apply 3 fixes? [y/N] y
 ✓ applied 3 fixes
-0 errors · 0 warnings · 15 files checked
+0 errors · 0 warnings · 4 files checked
 ```
 
 Answer `n` (or press Enter) and it prints `nothing changed`. With nothing to fix it prints the diagnostics, then `no certain fixes to apply`.

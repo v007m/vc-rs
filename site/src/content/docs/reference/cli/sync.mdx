@@ -26,6 +26,8 @@ $ vc sync [OPTIONS] [FILES]...
 
 ## Examples
 
+These examples run in order, in a project where the spec of the [`vc import`](/vc-rs/reference/cli/import/#preview-an-openapi-import) examples was imported with `vc import openapi specs/users.yaml`.
+
 ### Nothing changed
 
 ```console
@@ -35,6 +37,8 @@ fetched specs/users.yaml (4 operations)
 ```
 
 ### A new operation in the spec
+
+The spec adds `POST /users/{id}/restore`, with the operation ID `restoreUser`:
 
 ```console
 $ vc sync users --check
@@ -52,7 +56,7 @@ fetched specs/users.yaml (5 operations)
 
 ### A change merged next to your edit
 
-You renamed `listUsers` and set `query.limit` in the api file. The spec then added a required `page` query parameter:
+You changed the `name` of `listUsers` and set `query.limit` in the api file. The spec then added a required `page` query parameter:
 
 ```console
 $ vc sync users

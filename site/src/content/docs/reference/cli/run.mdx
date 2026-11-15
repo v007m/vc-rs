@@ -41,6 +41,8 @@ With no selector, every test in the project runs. Selectors are test IDs (`users
 
 ## Examples
 
+These examples use the [sample project](/vc-rs/reference/cli/#the-project-these-pages-use).
+
 ### Run one file
 
 ```console
@@ -148,6 +150,8 @@ $ vc run sample.extra#echoesBody --reporter json --report ctrf --out build/vc
 | `1` | An instance failed or was blocked, or an `afterAll` or `afterRun` action failed |
 | `2` | Nothing ran: the project has errors, the selection is empty, or a flag is wrong (an unknown profile, a bad `--set` key, a bad `--changed` ref) |
 | `130` | Cancelled with Ctrl-C |
+
+In a project that is a git repository:
 
 ```console
 $ vc run --profile staging

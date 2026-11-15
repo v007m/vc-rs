@@ -23,6 +23,63 @@ vc 0.1.0
 
 Run `vc <command> --help` for the flags of any command. The pages in this section list the same flags and show what each command prints.
 
+## The project these pages use
+
+Unless a page shows its own files, the examples in this section run in a project made by [`vc init`](/vc-rs/reference/cli/init/), with the demo service running (`vc demo start`) and these two files added:
+
+```yaml title="services/sample/extra.test.yaml"
+# More tests on the vc init sample. They have no beforeAll, so start
+# the demo service first: vc demo start
+id: sample.extra
+tags: [extra]
+
+tests:
+  - id: echoesBody
+    name: Echoes the body back
+    tags: [smoke]
+    call: sample#listUsers
+    expect:
+      status: 200
+
+  - id: rejectsBadEmail
+    name: Rejects a bad email
+    examples:
+      - name: empty
+        email: ""
+      - name: no at sign
+        email: ada.example.com
+    call: sample#createUser
+    vars:
+      email: ${example.email}
+    expect:
+      status: [201, 400]
+
+  - id: findsAda
+    name: Finds Ada first
+    tags: [slow]
+    skip: demo data changed
+    call: sample#listUsers
+    expect:
+      body:
+        match:
+          "[0].name": Grace Hopper
+```
+
+```yaml title="load/sample/strict.load.yaml"
+name: Too strict on purpose
+mix:
+  - test: sample.basics#listsUsers
+    weight: 1
+stages:
+  - duration: 2s
+    users: 1
+thresholds:
+  p95:
+    lt: 1ms
+  errorRate:
+    lt: 1%
+```
+
 ## Commands by job
 
 ### Start a project
