@@ -367,7 +367,7 @@ The order of checks is:
 
 1. The path must end in `.api.yaml`, `.test.yaml` or `.load.yaml`. Otherwise: "`notes.txt` is not a definition file", help "give a project path ending in .api.yaml, .test.yaml or .load.yaml".
 2. It must not be `vibranium.config.yaml`: "an agent cannot write vibranium.config.yaml", help "it holds the agent rules; a person edits it".
-3. The project with the new text must compile with no errors. Otherwise nothing is written, and the first error comes back with its code, place and help, for example: `nothing was written: the change would add error[V2003] at services/sample/extra.test.yaml:4: unknown api "sample#listUser"`, help "did you mean one of `sample#listUsers`, `sample#getUser`, `sample#createUser`?".
+3. The project with the new text must compile with no errors. Otherwise nothing is written, and the first error comes back with its code, place and help, for example: `nothing was written: the change would add error[V2003] at services/sample/extra.test.yaml:4: unknown api "sample#listUser"`, help "did you mean `sample#listUsers`?".
 4. Then `agents.writeDefinitions` decides: `true` writes, `ask` waits for a person, `false` refuses.
 
 Because the compile check comes first, a person is never asked to approve a write that would break the project.

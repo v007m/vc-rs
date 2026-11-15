@@ -124,7 +124,7 @@
       }
     ],
     "command": "vc check",
-    "output": "error[V3103]: `skip` needs a reason\n --> services/users/crud.test.yaml:7:11\n  |\n7 |     skip: ''\n  |           ^^ no reason given\n  = help: say why, for the report: `skip: flaky upstream, see #123`\n\n1 error · 0 warnings · 3 files checked",
+    "output": "error[V3103]: `skip` needs a reason\n --> services/users/crud.test.yaml:7:11\n  |\n7 |     skip: ''\n  |           ^^ no reason given\n  = help: say why, for the report: `skip: flaky upstream, see issue 123`\n\n1 error · 0 warnings · 3 files checked",
     "exit": 2
   },
   "V3204": {
@@ -148,7 +148,7 @@
       }
     ],
     "command": "vc check",
-    "output": "warning[V4001]: test ID `test_list_users` is not camelCase\n --> services/users/crud.test.yaml:4:9\n  |\n4 |   - id: test_list_users\n  |         ^^^^^^^^^^^^^^^ rename it\n  = help: test IDs are camelCase: `listsUsers`\n  = fix: Rename to listsUsers (certain)\n\n0 errors · 1 warning · 3 files checked",
+    "output": "warning[V4001]: test ID `test_list_users` is not camelCase\n --> services/users/crud.test.yaml:4:9\n  |\n4 |   - id: test_list_users\n  |         ^^^^^^^^^^^^^^^ rename it\n  = help: test IDs are camelCase third-person verbs: `listsUsers`\n  = fix: Rename to listsUsers (certain)\n\n0 errors · 1 warning · 3 files checked",
     "exit": 0
   },
   "V5101": {

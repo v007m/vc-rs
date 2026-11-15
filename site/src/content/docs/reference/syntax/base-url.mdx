@@ -209,7 +209,7 @@ profile  default
   GET /echo
 
 $ vc call nobase#rel
-✗ error[V5111]: `nobase#rel` sends to `/echo`, which is not a full URL: no `baseUrl` is set for `nobase` (profile default); help: add `baseUrl: ${var.nobaseUrl}` to its api file and set `nobaseUrl` in the config, a profile, or with `--set vars.nobaseUrl=http://…`
+✗ `nobase#rel` sends to `/echo`, which is not a full URL: no `baseUrl` is set for `nobase` (profile default); help: add `baseUrl: ${var.nobaseUrl}` to its api file and set `nobaseUrl` in the config, a profile, or with `--set vars.nobaseUrl=http://…`
 ```
 
 A `baseUrl` var that no level sets fails `vc check` with [V2101](/vc-rs/reference/diagnostics/v2101/). A host that can't be reached fails the call with [V5105](/vc-rs/reference/diagnostics/v5105/).

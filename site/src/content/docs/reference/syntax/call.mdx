@@ -226,11 +226,12 @@ tests:
 
 ## Common errors
 
-An api ID with a typo fails `vc check` and suggests near matches:
+An api ID with a typo fails `vc check` and suggests the closest match:
 
 ```console
 error[V2003]: unknown api "sample#listUser"
-   = help: did you mean one of `sample#listUsers`, `sample#getUser`, `sample#createUser`?
+   = help: did you mean `sample#listUsers`?
+   = fix: Replace with sample#listUsers (certain)
 ```
 
 A bare ID is never resolved against the current file. Write the api's full ID:

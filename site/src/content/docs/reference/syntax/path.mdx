@@ -156,6 +156,10 @@ connecting to port 80:
 ```console
 $ vc check
 warning[V4005]: `path` does not start with `/`
+ --> services/h/h.api.yaml:4:11
+  |
+4 |     path: echo
+  |           ^^^^ runs into the base URL's host
   = help: start it with `/`: `path: /echo`
   = fix: Add the leading `/` (certain)
 

@@ -40,7 +40,7 @@ error[V2003]: unknown api "sample#creatUser"
   |
 5 |     call: sample#creatUser
   |           ^^^^^^^^^^^^^^^^ no api has this ID
-  = help: did you mean one of `sample#createUser`, `sample#getUser`, `sample#deleteUser`?
+  = help: did you mean one of `sample#createUser`, `sample#getUser`?
 
 error[V2101]: ${var.userId} is used but never set
   --> services/sample/sample.api.yaml:45:18
@@ -77,7 +77,7 @@ warning[V4001]: test ID `PlacesOrder` is not camelCase
   |
 3 |   - id: PlacesOrder
   |         ^^^^^^^^^^^ rename it
-  = help: test IDs are camelCase: `placesAnOrder`
+  = help: test IDs are camelCase third-person verbs: `placesAnOrder`
   = fix: Rename to placesAnOrder (certain)
 
 warning[V3104]: this skip expired after 2026-01-01
@@ -151,7 +151,7 @@ $ vc check --json
       },
       "secondary": [],
       "notes": [],
-      "help": ["did you mean one of `sample#createUser`, `sample#getUser`, `sample#deleteUser`?"],
+      "help": ["did you mean one of `sample#createUser`, `sample#getUser`?"],
       "fixes": []
     }
   ]

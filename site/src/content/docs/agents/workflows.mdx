@@ -203,7 +203,7 @@ The agent writes the file, runs `vc check`, applies certain fixes, and runs the 
 
    An agent working from `vc check --json` can apply the fix itself instead: each fix lists its `edits` as byte ranges and `newText`.
 
-   Read the diff before you answer `y`. When an unknown api ID is close to only one existing ID, `vc check` offers replacing it as a certain fix, even when that api is not the one you meant: `people#nah` gets "fix: Replace with people#echo (certain)".
+   Read the diff before you answer `y`. When an unknown api ID is close to only one existing ID, `vc check` offers replacing it as a certain fix, even when that api is not the one you meant: `people#getPersons`, written for a list of people, gets "fix: Replace with people#getPerson (certain)". An ID close to none, such as `people#nah`, gets no suggestion.
 
 5. Run it:
 
