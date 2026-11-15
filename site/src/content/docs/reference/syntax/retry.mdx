@@ -134,6 +134,7 @@ Retry
 
 0 passed · 1 failed · 1 blocked · 1 flaky                    278ms · profile default
 reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
+next     vc run --failed
 ```
 
 A failed test prints each different failure once, headed by the attempts that hit it: `attempts 1, 2 and 3 of 3:` when every attempt failed the same way, or `attempt 1 of 3:` and `attempts 2 and 3 of 3:` when they differ. A test's `name` follows its ID.

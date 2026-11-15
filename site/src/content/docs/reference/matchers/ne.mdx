@@ -131,6 +131,7 @@ plan  1 test in 1 file · profile default
 
 0 passed · 1 failed                                          4ms · profile default
 reports  …/.vibranium/reports/3/{ctrf.json,junit.xml,index.html}
+next     vc run --failed
 ```
 
 ### A missing path passes
@@ -169,6 +170,7 @@ plan  2 tests in 1 file · profile default
 
 1 passed · 1 failed                                          9ms · profile default
 reports  …/.vibranium/reports/4/{ctrf.json,junit.xml,index.html}
+next     vc run --failed
 ```
 
 The second test fails because `state` is not in the body.

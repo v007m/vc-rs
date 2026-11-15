@@ -105,6 +105,7 @@ $ vc run prof.checkout
 
 0 passed · 1 failed                                          3ms · profile default
 reports  …/.vibranium/reports/2/{ctrf.json,junit.xml,index.html}
+next     vc run --failed
 ```
 
 `vc explain` shows which profile set each value. `staging` and `eu` both set `f` in the config, and `eu` wins because it is listed last:

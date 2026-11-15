@@ -63,6 +63,7 @@ The MCP server has no tool for import, sync or load. For those steps the agent r
 
    2 passed · 1 failed                                          6ms · profile local
    reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
+   next     vc run --failed
    ```
 
    The import wrote `services/people/people.api.yaml`. It matched the spec's server to the `peopleUrl` var, so `baseUrl` is `${var.peopleUrl}`. Request bodies and path params get generated data, and `getsPerson` first creates a person, then gets it by the id `createPerson` saved:

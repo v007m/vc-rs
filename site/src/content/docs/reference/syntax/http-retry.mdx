@@ -122,6 +122,7 @@ plan  3 tests in 1 file · profile default
 
 1 passed · 2 failed                                          274ms · profile default
 reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
+next     vc run --failed
 ```
 
 ### POST is not retried unless you say so
@@ -200,6 +201,7 @@ plan  3 tests in 1 file · profile default
 
 1 passed · 2 failed                                          705ms · profile default
 reports  …/.vibranium/reports/2/{ctrf.json,junit.xml,index.html}
+next     vc run --failed
 ```
 
 `flakyOff` now passes, thanks to the config. `postRetried` still fails, after three sends: `/status/503` always answers 503. `timeoutRetried` took about 700 ms: two attempts of 300 ms each, plus the backoff. The api's `attempts: 1` replaced the config's `2`.

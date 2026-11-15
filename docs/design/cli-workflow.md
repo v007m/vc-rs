@@ -775,7 +775,7 @@ error[V2101]: ${var.couponCode} is used but never set
 
 9 passed · 1 failed · 1 blocked · 1 skipped · 1 flaky        14.2s · profile staging
 reports  …/.vibranium/reports/483/{ctrf.json,junit.xml,index.html}
-next     vc run --failed · vc report 483 --open
+next     vc run --failed
 ```
 
 Every test instance ends as `passed`, `failed`, `blocked` (a setup it needs failed; never retried), `skipped`, `flaky` (failed, then passed when its `retry` re-ran the whole test) (D126) or `allowedFailure` (failed under `allowFailure`; shown as `⚠ … allowed to fail: <reason>` with its failure block, and counted as `N allowed to fail`) (D248).

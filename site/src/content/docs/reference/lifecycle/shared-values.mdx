@@ -73,6 +73,7 @@ A failing `beforeRun` works the same way across the whole run:
 
 1 passed · 1 blocked
 reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
+next     vc run --failed
 ```
 
 A test that changes data makes its own copy. This one deletes an item (`lab#deleteItem` is a `DELETE /items/${var.itemId}`), so it creates the item in `before`, not in `beforeAll`:

@@ -116,6 +116,7 @@ plan  4 tests in 1 file · lifecycle: beforeAll command · profile default
 
 2 passed · 2 blocked                                         1.0s · profile default
 reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
+next     vc run --failed
 ```
 
 A failed command in `before` blocks the test; the call never runs. A V5110 error shows the exit code and the last 20 lines of output.
