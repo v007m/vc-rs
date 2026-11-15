@@ -203,6 +203,12 @@ $ vc unskip 'sample.skip#searchesUsers'
 
 Both take a test ID or a file ID. On a file ID, `vc skip` writes the short form at the top of the file:
 
+```yaml title="services/lab/par2.test.yaml"
+tests:
+  - id: listsUsers
+    call: sample#listUsers
+```
+
 ```console
 $ vc skip lab.par2 --reason "command loops under review"
 ✓ skipped lab.par2: command loops under review

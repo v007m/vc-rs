@@ -211,6 +211,15 @@ tests:
 
 ## Common errors
 
+```yaml wrong V2201 title="services/e2/both.test.yaml"
+tests:
+  - id: doesBoth
+    call: sample#listUsers
+    steps:
+      - call: sample#listUsers
+  - id: doesNeither
+```
+
 ```console
 $ vc check
 error[V2201]: write only one of `call`, `steps`
@@ -226,6 +235,8 @@ error[V2201]: a testEntry needs one of `call`, `steps`
   |
 6 |   - id: doesNeither
   |     ^^
+
+2 errors · 0 warnings · 6 files checked
 ```
 
 | Code | When |

@@ -93,7 +93,16 @@ next     vc run --failed
 
 ### A test timeout does not lift a request timeout
 
-On a test with `call:`, `timeout` is the whole-test limit. The api's per-request `1s` still applies:
+On a test with `call:`, `timeout` is the whole-test limit. The api's per-request `1s` still applies. These tests also use two more apis of the same file:
+
+```yaml title="services/slow/slow.api.yaml (excerpt)"
+  - id: waitDefault
+    path: /slow
+    query:
+      ms: "1000"
+  - id: count
+    path: /echo
+```
 
 ```yaml title="services/slow/t2.test.yaml"
 tests:

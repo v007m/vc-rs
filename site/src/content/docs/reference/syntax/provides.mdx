@@ -23,7 +23,7 @@ before:
 
 ## Examples
 
-The examples call `echo#json`, a minimal api for this page that sends `POST /echo` with a small JSON body; the demo answers with the request it got, the body under `body`. One also calls `sample#getUser` from the sample api file that [`vc init`](/vc-rs/reference/cli/init/) writes:
+The examples call `echo#json`, a minimal api for this page that sends `POST /echo` with a small JSON body; the demo answers with the request it got, the body under `body`. One also calls `sample#getUser` from the sample api file that [`vc init`](/vc-rs/reference/cli/init/) writes. Both are in [the project these pages use](/vc-rs/reference/syntax/#the-project-these-pages-use):
 
 ```yaml title="services/echo/echo.api.yaml (excerpt)"
 baseUrl: ${var.echoUrl}
@@ -73,7 +73,13 @@ apis:
 
 `vc check` cannot read what a function returns. Without `provides`, a later read of a name that nothing else sets is an error:
 
-```yaml title="services/flow/prov.test.yaml"
+```ts title="hooks/seed.ts"
+export function seedUser(input: unknown) {
+  return { userId: "1", userEmail: "ada@example.com" };
+}
+```
+
+```yaml wrong V2101 title="services/flow/prov.test.yaml"
 id: flow.prov
 tests:
   - id: needsProvides
@@ -119,7 +125,7 @@ reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
 
 ### A reused test's saves
 
-`vc check` sees what `memberWithEcho`'s calls save, so the `test:` step declares `echoedName` and `userId` without a `provides`:
+`vc check` sees what `memberWithEcho`'s calls save (the flow from [`standalone`](/vc-rs/reference/syntax/standalone/#a-flow-that-only-runs-when-reused)), so the `test:` step declares `echoedName` and `userId` without a `provides`:
 
 ```yaml title="services/flow/reuse2.test.yaml"
 id: flow.reuse2

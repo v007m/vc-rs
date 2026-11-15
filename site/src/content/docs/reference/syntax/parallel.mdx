@@ -99,7 +99,7 @@ reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
 
 Iterations may finish in any order, but saved values stay in iteration order:
 
-The first test calls `echo#json`, a minimal api for this page that sends `POST /echo` with a small JSON body; the demo answers with the request it got, the body under `body`:
+The first test calls `echo#json`, a minimal api for this page that sends `POST /echo` with a small JSON body; the demo answers with the request it got, the body under `body`. It is in [the project these pages use](/vc-rs/reference/syntax/#the-project-these-pages-use):
 
 ```yaml title="services/echo/echo.api.yaml (excerpt)"
 baseUrl: ${var.echoUrl}

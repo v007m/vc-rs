@@ -9,7 +9,7 @@ import Playground from '~/components/Playground.svelte';
 
 `repeat` runs something several times. On a test, it runs the whole test that many times and reports each run as its own instance. On a step or action, it repeats that one call inside the test.
 
-Most examples call `echo#json`, a minimal api for this page that sends `POST /echo` with a small JSON body; the demo answers with the request it got, the body under `body`. One calls `sample#createUser` and `sample#getUser` from the sample api file that [`vc init`](/vc-rs/reference/cli/init/) writes:
+Most examples call `echo#json`, a minimal api for this page that sends `POST /echo` with a small JSON body; the demo answers with the request it got, the body under `body`. One calls `sample#createUser` and `sample#getUser` from the sample api file that [`vc init`](/vc-rs/reference/cli/init/) writes. Both are in [the project these pages use](/vc-rs/reference/syntax/#the-project-these-pages-use):
 
 ```yaml title="services/echo/echo.api.yaml (excerpt)"
 baseUrl: ${var.echoUrl}
@@ -140,7 +140,7 @@ reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
 
 On a step, `repeat` stays inside one test instance. A value saved inside the loop collects a list, one entry per run:
 
-```yaml
+```yaml title="services/sample/repeat.test.yaml (excerpt)"
   - id: createsFiveUsers
     name: Creates five users and keeps every id
     steps:

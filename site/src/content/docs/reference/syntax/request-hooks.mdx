@@ -185,30 +185,58 @@ apis:
 
 ## Common errors
 
+```yaml wrong V2005 title="services/errs/errs.api.yaml"
+baseUrl: ${var.sampleUrl}
+apis:
+  - id: typo
+    path: /echo
+    beforeRequest:
+      - function: ../../hooks/sign.ts#addSignatur
+  - id: noFile
+    path: /echo
+    afterResponse:
+      - function: ../../hooks/nope.ts#check
+```
+
 ```console
 $ vc check
 error[V2005]: ../../hooks/sign.ts exports no function `addSignatur`
- --> services/errs/errs.api.yaml:7:19
+ --> services/errs/errs.api.yaml:6:19
   |
-7 |       - function: ../../hooks/sign.ts#addSignatur
+6 |       - function: ../../hooks/sign.ts#addSignatur
   |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ not exported
   = help: did you mean `addSignature`?
   = fix: Replace with addSignature (certain)
 
 error[V2004]: ../../hooks/nope.ts is not in the project
-  --> services/errs/errs.api.yaml:11:19
+  --> services/errs/errs.api.yaml:10:19
    |
-11 |       - function: ../../hooks/nope.ts#check
+10 |       - function: ../../hooks/nope.ts#check
    |                   ^^^^^^^^^^^^^^^^^^^^^^^^^ no file at hooks/nope.ts
    = help: did you mean `../../hooks/sign.ts`?
    = fix: Replace with ../../hooks/sign.ts (certain)
+
+2 errors · 0 warnings · 5 files checked
 ```
 
 A hook that calls `console.log` fails at run time:
 
+```yaml title="services/hooked/hooked.api.yaml (excerpt)"
+  - id: logged
+    path: /echo
+    afterResponse:
+      - function: ../../hooks/sign.ts#logStatus
+```
+
+```ts title="hooks/sign.ts (excerpt)"
+export function logStatus({ response }) {
+  console.log(response.status);
+}
+```
+
 ```console
-$ vc call hooked2#logged
-✗ `hooks/sign.ts#logStatus`: the hook threw: ReferenceError: console is not defined (line 33)
+$ vc call hooked#logged
+✗ `hooks/sign.ts#logStatus`: the hook threw: ReferenceError: console is not defined (line 25)
 ```
 
 | Code | When |

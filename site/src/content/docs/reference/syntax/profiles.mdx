@@ -46,6 +46,7 @@ profiles:
   - id: staging
     vars:
       f: from-config-staging
+      zone: from-config-staging
   - id: eu
     vars:
       f: from-config-eu
@@ -119,6 +120,7 @@ call prof#show
   vars
     ...
     f  from-config-eu  (profile eu)
+    zone  from-api-file  (file prof)
     region  us  (file prof, profile staging)
     tier  paid  (api prof#show)
     currency  EUR  (file prof.checkout, profile eu)
@@ -131,6 +133,7 @@ baseUrl: ${var.sampleUrl}
 vars:
   region: eu
   tier: free
+  zone: from-api-file
 profiles:
   - id: staging
     vars:
@@ -154,6 +157,7 @@ profile  staging
   POST http://localhost:7421/echo
   vars
     ...
+    zone  from-api-file  (file prof)
     region  us  (file prof, profile staging)
     tier  paid  (api prof#show)
 ```
@@ -204,14 +208,23 @@ tests:
 
 ## Common errors
 
+```yaml wrong V2002 title="services/prof/qa.test.yaml"
+profiles:
+  - id: qa
+    vars:
+      currency: GBP
+```
+
 ```console
 $ vc check
 error[V2002]: unknown profile `qa`
-  --> services/prof/prof.api.yaml:10:9
-   |
-10 |   - id: qa
-   |         ^^ the config has no such profile
-   = help: expected one of `default`, `eu`, `staging`
+ --> services/prof/qa.test.yaml:2:9
+  |
+2 |   - id: qa
+  |         ^^ the config has no such profile
+  = help: expected one of `default`, `eu`, `staging`
+
+1 error · 0 warnings · 4 files checked
 ```
 
 | Code | When |
