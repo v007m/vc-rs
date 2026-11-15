@@ -9,7 +9,7 @@ import Playground from '~/components/Playground.svelte';
 
 `.env.schema` lists the secret names a project uses, one `NAME=` line each, never the values. `vc init` creates it.
 
-```ini title=".env.schema"
+```dotenv title=".env.schema"
 # The secret names this project uses, one NAME= line each, never their values.
 API_TOKEN=
 SHOP_CLIENT_SECRET=
@@ -65,7 +65,7 @@ error[V2106]: `${secret.OTHER}` is not declared in `.env.schema`
 
 A secret only some runs need, marked optional:
 
-```ini title=".env.schema"
+```dotenv title=".env.schema"
 API_TOKEN=
 # Only the partner tests read it.
 # @optional
