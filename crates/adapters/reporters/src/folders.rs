@@ -1,11 +1,12 @@
 //! The report folders of runs the history no longer keeps: `history.keep` and
 //! `vc history prune` drop a run's `<reports.dir>/<run>/` with its row. Only a folder `vc` made
-//! for a run, and marked as one, is ever removed.
+//! for a run, and marked as one, is ever removed. [`resolves_inside`] tells whether the
+//! project's own report folder stays inside the project on disk, links followed (D327).
 
 use std::ffi::OsStr;
 use std::fs;
 use std::io;
-use std::path::Path;
+use std::path::{Component, Path};
 
 use vc_interfaces::{ReportError, RunId};
 
@@ -51,6 +52,20 @@ pub fn prune_run_folders(dir: &Path, below: RunId) -> Result<usize, ReportError>
     Ok(removed)
 }
 
+/// Whether `dir` stays inside `root` on disk, links followed.
+///
+/// The nearest part of it that exists must resolve to `root` or under it, and the parts after
+/// that be plain names. A `dir` none of whose parts exists, or one that cannot be resolved (a
+/// link to nowhere), does not.
+#[must_use]
+pub fn resolves_inside(root: &Path, dir: &Path) -> bool {
+    let Ok(root) = fs::canonicalize(root) else { return false };
+    let Some(existing) = dir.ancestors().find(|at| at.symlink_metadata().is_ok()) else { return false };
+    let plain =
+        dir.strip_prefix(existing).is_ok_and(|rest| rest.components().all(|part| matches!(part, Component::Normal(_))));
+    plain && fs::canonicalize(existing).is_ok_and(|real| real.starts_with(&root))
+}
+
 /// Whether `name` is a run number, written plainly, of a run older than `below`.
 fn pruned(name: &OsStr, below: RunId) -> bool {
     let number = name.to_str().and_then(|name| name.parse::<u64>().ok().filter(|number| number.to_string() == name));
@@ -74,7 +89,7 @@ mod tests {
 
     use vc_interfaces::RunId;
 
-    use super::{RUN_MARKER, mark_run_folder, prune_run_folders, pruned};
+    use super::{RUN_MARKER, mark_run_folder, prune_run_folders, pruned, resolves_inside};
 
     fn left(root: &Path) -> Vec<String> {
         let mut left: Vec<String> =
@@ -127,5 +142,32 @@ mod tests {
         assert!(!pruned(OsStr::new("10"), below));
         assert!(!pruned(OsStr::new("+9"), below) && !pruned(OsStr::new("09"), below));
         assert!(!pruned(OsStr::new("run-9"), below));
+    }
+
+    #[test]
+    fn a_folder_resolves_inside_until_a_link_leads_it_out() {
+        let (root, outside) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+        let root = root.path();
+        assert!(resolves_inside(root, &root.join(".vibranium/reports")), "nothing made yet: the root decides");
+        fs::create_dir_all(root.join("reports/ci")).unwrap();
+        assert!(resolves_inside(root, &root.join("reports/ci")));
+        assert!(!resolves_inside(root, &root.join("reports/../../b")), "`..` resolves above the root");
+        assert!(!resolves_inside(root, outside.path()));
+        assert!(!resolves_inside(&root.join("missing"), &root.join("reports")), "a root that is not there");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_link_out_of_the_root_or_to_nowhere_does_not_resolve_inside() {
+        let (root, outside) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+        let root = root.path();
+        std::os::unix::fs::symlink(outside.path(), root.join("out")).unwrap();
+        assert!(!resolves_inside(root, &root.join("out")));
+        assert!(!resolves_inside(root, &root.join("out/reports/1")), "a folder not made yet under the link");
+        std::os::unix::fs::symlink(root.join("gone"), root.join("dangling")).unwrap();
+        assert!(!resolves_inside(root, &root.join("dangling/reports")));
+        fs::create_dir(root.join("real")).unwrap();
+        std::os::unix::fs::symlink(root.join("real"), root.join("inner")).unwrap();
+        assert!(resolves_inside(root, &root.join("inner/reports")), "a link that stays inside is fine");
     }
 }

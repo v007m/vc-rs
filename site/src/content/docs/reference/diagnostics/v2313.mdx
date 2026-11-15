@@ -1,0 +1,64 @@
+---
+title: "V2313 — reports.dir in the project config leaves the project"
+description: "A run writes its report files into reports.dir, and history.keep and vc history prune remove old run folders from it."
+sidebar:
+  label: "V2313 reports.dir in the project config leaves the project"
+  order: 2313
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="error" variant="danger" /> <Badge text="References and types" variant="note" />
+
+| | |
+| --- | --- |
+| Code | `V2313` |
+| Category | V2xxx: References and types |
+| Severity | error |
+| Certain fix | none; `vc check --fix` leaves this one to you |
+
+A run writes its report files into `reports.dir`, and `history.keep` and `vc history prune` remove old run folders
+from it. In `vibranium.config.yaml` it must name a folder inside the project, written as plain folder names, such as
+`reports/ci`: an absolute path (`/tmp/out`, `C:\out`) or a `..` part (`../out`) is refused, so a project you clone
+cannot write or prune files elsewhere on your machine. A folder outside the project is yours to choose: pass `--out
+<dir>`, `--set reports.dir=<dir>` or `VIB_REPORTS_DIR`, or set `reports.dir` in your user config
+(`~/.config/vibranium/config.yaml`); none of those is checked. A run also follows links: a project folder that
+leads outside the project through one is V5121, and nothing is written there (D327).
+
+## Wrong
+
+```yaml wrong V2313 title="vibranium.config.yaml"
+syntaxVersion: 2
+profiles:
+  - id: dev
+    default: true
+reports:
+  dir: ../ci-reports
+```
+
+## Right
+
+```yaml title="vibranium.config.yaml"
+syntaxVersion: 2
+profiles:
+  - id: dev
+    default: true
+reports:
+  dir: reports/ci
+```
+
+
+## Explain it in your terminal
+
+The same page is built into the binary, so this works anywhere, even outside a project:
+
+```console
+$ vc explain V2313
+```
+
+## Related
+
+- [All diagnostic codes](/vc-rs/reference/diagnostics/)
+- [`vc explain`](/vc-rs/reference/cli/explain/)
+- [`vc check`](/vc-rs/reference/cli/check/)
+- [Errors and fixes](/vc-rs/guides/errors-and-fixes/)

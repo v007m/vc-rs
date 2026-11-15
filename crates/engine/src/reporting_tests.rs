@@ -40,6 +40,7 @@ fn defaults_to_spec_and_ctrf_under_the_reports_folder() {
         per_run: true,
         single_file: false,
         plugins: vec![],
+        project: true,
     };
     assert_eq!(chosen, expected);
 }

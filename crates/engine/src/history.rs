@@ -9,18 +9,22 @@
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use vc_adapter_reporters::prune_run_folders;
+use vc_adapter_reporters::{prune_run_folders, resolves_inside};
 use vc_adapter_store::{SqliteHistory, SqliteHistoryReader};
 use vc_interfaces::{
     HistoryError, HistoryReader, HistoryWriter, Row, RunEnd, RunFilter, RunId, RunRef, RunRow, RunStart,
 };
 use vc_model::Keep;
 
-use crate::reporting::REPORTS_DIR;
+use crate::reporting::{REPORTS_DIR, leads_out};
 use crate::{Engine, EngineError, SelectRequest};
 
 /// Where the history lives, under the project root.
 const HISTORY: &str = ".vibranium/history.db";
+
+/// How to prune again when the project's report folder leads out of the project.
+const LEADS_OUT_HELP: &str = "replace the link with a folder, or point `reports.dir` inside the project; \
+                              `vc explain V5121` says more";
 
 /// A run being written to the history.
 pub struct Recording {
@@ -96,9 +100,9 @@ impl Engine {
             Some(runs) => Keep::Runs(runs),
             None => self.program()?.0.config.history.keep,
         };
+        let folders = self.report_folders()?;
         let writer = self.history_writer().map_err(|error| history_error(&error))?;
         let pruned = writer.prune(keep).map_err(|error| history_error(&error))?;
-        let folders = self.report_folders();
         let reader = self.history_reader();
         prune_folders(reader.as_ref(), keep, (Some(&folders), None)).map_err(|error| history_error(&error))?;
         Ok(pruned)
@@ -106,11 +110,23 @@ impl Engine {
 
     /// Where each run's report folder goes: the layers' `reports.dir`, else the config's, else
     /// `.vibranium/reports`, under the root; the default when the project or a layer has errors.
-    fn report_folders(&self) -> PathBuf {
+    ///
+    /// # Errors
+    ///
+    /// [`EngineError::History`] when the folder is the project's and leads outside it on disk
+    /// (V5121, D327), so nothing is pruned.
+    fn report_folders(&self) -> Result<PathBuf, EngineError> {
         let layered = self.layered(&[], &[]).ok();
         let set = layered.as_ref().and_then(|layered| layered.settings.reports_dir.clone());
+        let project = set.is_none();
         let configured = || layered.as_ref().and_then(|layered| layered.program.config.reports_dir.clone());
-        crate::paths::under(self.root(), set.or_else(configured).unwrap_or_else(|| REPORTS_DIR.to_owned()))
+        let folders =
+            crate::paths::under(self.root(), set.or_else(configured).unwrap_or_else(|| REPORTS_DIR.to_owned()));
+        if project && !resolves_inside(self.root(), &folders) {
+            let reason = format!("{}; no run is pruned", leads_out(&folders));
+            return Err(EngineError::History { reason, help: Some(LEADS_OUT_HELP.to_owned()) });
+        }
+        Ok(folders)
     }
 
     /// The stored run `which` names: `last` or a run number.

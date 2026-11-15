@@ -157,7 +157,7 @@ impl Engine {
         (seed, plugins, started_ms): (u64, Hosts, u64),
     ) -> Result<(Reporters, Vec<String>), EngineError> {
         let chosen = reporting::choose(request.console.as_deref(), &prepared.settings, &prepared.program)?;
-        let chosen = chosen.under(self.root()).flat(request.files.out.is_some());
+        let (chosen, withheld) = chosen.under(self.root()).flat(request.files.out.is_some()).confined(self.root());
         let selector = history::selector(&request.plan.select);
         let selector = if request.failed { format!("--failed {selector}").trim_end().to_owned() } else { selector };
         let start = RunStart {
@@ -170,6 +170,7 @@ impl Engine {
             ..RunStart::default()
         };
         let mut notices = plugins.notices(&chosen.plugins);
+        notices.extend(withheld);
         let folders = chosen.per_run.then(|| chosen.dir.clone());
         let recording = self.recording(&start).map(|recording| recording.pruning(folders)).inspect_err(|error| {
             notices.push(format!("history: {error}; this run is not recorded"));

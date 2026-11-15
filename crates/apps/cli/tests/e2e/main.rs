@@ -34,6 +34,7 @@ mod paths;
 mod playground;
 mod plugin;
 mod redaction;
+mod report_dir;
 mod reports;
 mod scheduling;
 mod spec_headers;

@@ -19,7 +19,7 @@ reports:
 
 | Field | Type | Default | Required | Notes |
 | --- | --- | --- | --- | --- |
-| `reports.dir` | path | `.vibranium/reports` | no | Each run writes to a numbered folder inside it. |
+| `reports.dir` | path | `.vibranium/reports` | no | Each run writes to a numbered folder inside it. In `vibranium.config.yaml` it is a folder inside the project. |
 | `reports.formats` | list | `[ctrf]` | no | `ctrf`, `junit`, `html` or a reporter plugin's ID. |
 | `reports.html.layout` | `folder` or `single` | `folder` | no | `folder`: `index.html` plus a `data/` folder. `single`: one `report.html`. |
 
@@ -94,11 +94,16 @@ profiles:
 - Reports are masked by [secrets](/vc-rs/reference/config/secrets/) and [`redact`](/vc-rs/reference/config/redact/) before they are written.
 - Request and response bodies appear in reports only when [`history.bodies`](/vc-rs/reference/config/history/) keeps them.
 - Use `single` when you want one file to attach to a CI job.
+- `reports.dir` in `vibranium.config.yaml` must stay inside the project, as plain folder names. An absolute path or a `..` part is an error (V2313). A folder outside the project is yours to pick: pass `--out <dir>`, `--set reports.dir=<dir>` or `VIB_REPORTS_DIR`, or set it in your user config.
+- Before a run writes, `vc` resolves the project's folder on disk. If a link leads it out of the project, the run writes no report files and says why (V5121). The tests and the exit code do not change. `vc history prune` then exits 2 and removes nothing.
+- **Changed in Round 59 (D327):** an absolute or `..` `reports.dir` in the project config is now refused. A project that wrote its reports outside itself must pass `--out` instead.
 - A reporter plugin adds its own format ID. See [plugins](/vc-rs/reference/config/plugins/).
 
 ## Common errors
 
 - [V2302](/vc-rs/reference/diagnostics/v2302/): an unknown format.
+- [V2313](/vc-rs/reference/diagnostics/v2313/): a project `reports.dir` that leaves the project.
+- [V5121](/vc-rs/reference/diagnostics/v5121/): the project's report folder leads outside it through a link.
 
 ## Related
 

@@ -1,0 +1,65 @@
+---
+title: "V5121 — The project's report folder leads outside the project through a link"
+description: "reports.dir in vibranium.config.yaml, or the default .vibranium/reports, must stay inside the project on disk too."
+sidebar:
+  label: "V5121 The project's report folder leads outside the project through a link"
+  order: 5121
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="warning" variant="caution" /> <Badge text="Run time" variant="note" />
+
+| | |
+| --- | --- |
+| Code | `V5121` |
+| Category | V5xxx: Run time |
+| Severity | warning |
+| Certain fix | none; `vc check --fix` leaves this one to you |
+
+`reports.dir` in `vibranium.config.yaml`, or the default `.vibranium/reports`, must stay inside the project on disk
+too. Before a run writes a report, and before `vc history prune` removes a run folder, `vc` resolves the folder's
+nearest part that exists, links followed; when that is outside the project, or cannot be resolved, the run writes no
+report files (its tests still run, and their results and exit code are unchanged) and `vc history prune` exits 2
+without removing anything. Replace the link with a folder, or point `reports.dir` inside the project. A folder outside
+the project is yours to choose with `--out <dir>`, `VIB_REPORTS_DIR` or your user config, and is not checked (D327).
+
+## Wrong
+
+`.vibranium/reports` is a link to a folder outside the project.
+
+```yaml title="vibranium.config.yaml"
+syntaxVersion: 2
+profiles:
+  - id: dev
+    default: true
+```
+
+## Right
+
+`.vibranium/reports` is a folder in the project, or `reports.dir` names one.
+
+```yaml title="vibranium.config.yaml"
+syntaxVersion: 2
+profiles:
+  - id: dev
+    default: true
+reports:
+  dir: reports/ci
+```
+
+
+## Explain it in your terminal
+
+The same page is built into the binary, so this works anywhere, even outside a project:
+
+```console
+$ vc explain V5121
+```
+
+## Related
+
+- [All diagnostic codes](/vc-rs/reference/diagnostics/)
+- [`vc explain`](/vc-rs/reference/cli/explain/)
+- [`vc check`](/vc-rs/reference/cli/check/)
+- [Errors and fixes](/vc-rs/guides/errors-and-fixes/)

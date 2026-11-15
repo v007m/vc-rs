@@ -1,0 +1,8 @@
+syntaxVersion: 2
+project: shop
+profiles:
+  - id: dev
+    default: true
+reports:
+  formats: [ctrf]
+  dir: reports/../../ci-reports

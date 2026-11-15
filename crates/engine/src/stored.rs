@@ -120,7 +120,9 @@ impl Engine {
         }
         let snapshot = self.snapshot(&row)?;
         let chosen = report_choice(&request.files)?.under(self.root()).flat(request.files.out.is_some());
-        let (artifacts, notices) = chosen.render(&snapshot, row.id)?;
+        let (chosen, withheld) = chosen.confined(self.root());
+        let (artifacts, mut notices) = chosen.render(&snapshot, row.id)?;
+        notices.extend(withheld);
         let files = artifacts.into_iter().map(|artifact| artifact.path).collect();
         Ok(ReportFiles { run: row.id.get(), files, notices })
     }

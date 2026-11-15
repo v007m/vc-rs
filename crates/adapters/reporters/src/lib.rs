@@ -11,7 +11,8 @@
 //! report (D169), each rendered from a snapshot, so `vc report` renders them again later. A
 //! [`PluginReporter`] hands the run to a reporter plugin named in `reports.formats` (G6).
 //! [`mark_run_folder`] marks a run's report folder, and [`prune_run_folders`] drops the marked
-//! folders of runs the history no longer keeps.
+//! folders of runs the history no longer keeps; [`resolves_inside`] keeps the project's own
+//! report folder from leading out of the project through a link.
 
 mod blocks;
 mod collect;
@@ -45,7 +46,7 @@ mod xml;
 
 pub use context::{Color, ReporterContext, Stopwatch, SystemStopwatch};
 pub use destination::{Destination, FsDestination};
-pub use folders::{RUN_MARKER, mark_run_folder, prune_run_folders};
+pub use folders::{RUN_MARKER, mark_run_folder, prune_run_folders, resolves_inside};
 pub use format::{Format, FormatRegistry, HtmlLayout};
 pub use noop::NoopReporter;
 pub use plugin::PluginReporter;

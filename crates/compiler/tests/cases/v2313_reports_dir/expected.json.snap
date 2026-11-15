@@ -1,0 +1,34 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2313_reports_dir/project
+---
+{
+  "summary": {
+    "errors": 1,
+    "warnings": 0,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "code": "V2313",
+      "severity": "error",
+      "message": "`reports.dir` is `reports/../../ci-reports`, which leaves the project",
+      "primary": {
+        "span": {
+          "path": "vibranium.config.yaml",
+          "line": 8,
+          "column": 8,
+          "endLine": 8,
+          "endColumn": 32
+        },
+        "text": "`..` leads out of the project"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "`reports.dir` at vibranium.config.yaml:8 is the project's, and stays inside it: write a folder such as `reports/ci`, or pass `--out <dir>` for one outside it"
+      ],
+      "fixes": []
+    }
+  ]
+}

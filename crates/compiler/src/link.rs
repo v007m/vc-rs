@@ -17,6 +17,7 @@ mod ids;
 mod layer;
 mod project;
 mod refs;
+mod reports_dir;
 mod saves;
 mod secrets;
 mod shared;
@@ -91,6 +92,7 @@ pub fn link(entries: &[CacheEntry], files: &SourceFiles, world: &World<'_>) -> L
     diagnostics.extend(data::unknown(&project, &data));
     diagnostics.extend(fakes::check(&project));
     diagnostics.extend(auth_keys::check(&project));
+    diagnostics.extend(reports_dir::check(&project));
     diagnostics.extend(shared::profiles(&project));
     diagnostics.extend(world.secrets.map(|names| secrets::check(&project, &names.declared)).unwrap_or_default());
     if !clean {
