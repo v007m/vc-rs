@@ -2,6 +2,7 @@ use std::collections::VecDeque;
 use std::sync::Arc;
 
 use tokio::sync::mpsc::UnboundedReceiver;
+use tokio::sync::oneshot;
 use vc_model::{ActionId, OwnerKey, Plan};
 
 use super::crew::{Crew, Job};
@@ -11,10 +12,24 @@ use super::tasks::Tasks;
 use crate::cancel::CancelTree;
 use crate::{FailedActions, FileEnd, Frame, RunCommand, RunInput, RunOrchestrator, RunSummary, SharedSlots};
 
+/// What the run's inbox takes: an interrupt, or a test's status with the sender the run tells
+/// once it has carried out what the status led to. The instance keeps its turn until then, so
+/// the next instance waiting for one starts only after a `--bail` cancel.
+pub struct Inbound {
+    pub input: RunInput,
+    pub carried_out: Option<oneshot::Sender<()>>,
+}
+
+impl From<RunInput> for Inbound {
+    fn from(input: RunInput) -> Self {
+        Self { input, carried_out: None }
+    }
+}
+
 /// The run's own frame: its inbox (interrupts and test verdicts), its cancellation root and
 /// whether the first failure stops it.
 pub struct RunFrame {
-    pub inbox: UnboundedReceiver<RunInput>,
+    pub inbox: UnboundedReceiver<Inbound>,
     pub cancel: CancelTree,
     pub bail: bool,
 }
@@ -25,8 +40,8 @@ pub async fn run(crew: Crew, plan: Arc<Plan>, frame: RunFrame) -> RunSummary {
     let slots = SharedSlots::new(plan.before_run.iter().map(|planned| planned.action));
     let frame_values = Frame { run: Arc::new(slots), ..Frame::default() };
     let mut machine = RunOrchestrator::new(Arc::clone(&plan), frame.bail);
-    let mut shell =
-        RunShell { crew, plan, frame: frame_values, cancel: frame.cancel, tasks: Tasks::new(), inbox: frame.inbox };
+    let (cancel, inbox) = (frame.cancel, frame.inbox);
+    let mut shell = RunShell { crew, plan, frame: frame_values, cancel, tasks: Tasks::new(), inbox, carried_out: None };
     let mut inputs = VecDeque::from([RunInput::Start]);
     loop {
         while let Some(input) = inputs.pop_front() {
@@ -46,7 +61,9 @@ struct RunShell {
     frame: Frame,
     cancel: CancelTree,
     tasks: Tasks<RunInput>,
-    inbox: UnboundedReceiver<RunInput>,
+    inbox: UnboundedReceiver<Inbound>,
+    /// Told once the run has carried out the input it took in last.
+    carried_out: Option<oneshot::Sender<()>>,
 }
 
 impl RunShell {
@@ -109,11 +126,18 @@ impl RunShell {
     }
 
     /// The next input: from the inbox (interrupts, verdicts) first, else the next worker to end.
+    /// What the last input led to is carried out by now, so its sender is told.
     async fn next_input(&mut self) -> RunInput {
+        if let Some(carried_out) = self.carried_out.take() {
+            carried_out.send(()).ok();
+        }
         loop {
             let input = tokio::select! {
                 biased;
-                input = self.inbox.recv() => input,
+                inbound = self.inbox.recv() => inbound.map(|inbound| {
+                    self.carried_out = inbound.carried_out;
+                    inbound.input
+                }),
                 input = self.tasks.next(), if !self.tasks.is_empty() => input,
             };
             if let Some(input) = input {
