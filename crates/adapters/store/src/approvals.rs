@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use notify::{RecommendedWatcher, RecursiveMode, Watcher as _};
-use rusqlite::{Connection, OptionalExtension as _, Row as SqlRow, Transaction, params};
+use rusqlite::{Connection, OptionalExtension as _, Row as SqlRow, Transaction, TransactionBehavior, params};
 use tokio::sync::mpsc::{UnboundedSender, unbounded_channel};
 use tokio::time::Instant;
 use vc_interfaces::{
@@ -171,7 +171,9 @@ impl Approvals for SqliteApprovals {
 
     fn decide(&self, decision: &Decision) -> Result<Decided, ApprovalError> {
         let mut connection = schema::open_for_writing(&self.path).map_err(|error| self.failed(&error))?;
-        let transaction = connection.transaction().map_err(|error| self.failed(&error))?;
+        let transaction = connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(|error| self.failed(&error))?;
         let found = standing(&transaction, decision.id).map_err(|error| self.failed(&error))?;
         let Some((status, rule)) = found else { return Err(ApprovalError::Unknown { id: decision.id }) };
         if status != "pending" {

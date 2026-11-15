@@ -1,4 +1,5 @@
 use std::iter;
+use std::sync::{Arc, Barrier};
 use std::time::{Duration, Instant};
 
 use tempfile::TempDir;
@@ -95,6 +96,31 @@ async fn a_wait_nothing_ends_does_not_keep_waking_itself() {
     assert_eq!(agent.wait(id, Duration::from_secs(2)).await, Ok(ApprovalStatus::Expired));
     let count = iter::from_fn(|| events.try_recv().ok()).count();
     assert!(count < LIMIT, "{count} file events in a 2s wait: its own looks kept waking it");
+}
+
+/// Two people deciding at once, as `vc approve` and the web UI: each decision reads the request
+/// and then settles it, under the write lock, so neither fails with "database is locked".
+#[test]
+fn two_decisions_at_once_are_both_recorded() {
+    let mut dirs = Vec::new();
+    let queue = fresh(&mut dirs);
+    let ids: Vec<_> = (0..100).map(|_| queue.create(&request()).unwrap()).collect();
+    let start = Arc::new(Barrier::new(2));
+    let people: Vec<_> = ids
+        .chunks(50)
+        .map(|ids| {
+            let (person, start, ids) = (queue.clone(), Arc::clone(&start), ids.to_vec());
+            std::thread::spawn(move || {
+                start.wait();
+                ids.into_iter().try_for_each(|id| {
+                    person.decide(&Decision { id, verdict: Verdict::Approve, by: "sam".into() }).map(drop)
+                })
+            })
+        })
+        .collect();
+    for person in people {
+        assert_eq!(person.join().unwrap(), Ok(()));
+    }
 }
 
 /// A watcher as slow to start as the macOS file event service was in a full gates run.

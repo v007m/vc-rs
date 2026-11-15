@@ -13,9 +13,12 @@ use async_trait::async_trait;
 use serde_json::{Value, json};
 use tokio::process::Command;
 use tokio::sync::{OnceCell, broadcast, mpsc, oneshot};
-use vc_interfaces::{INITIALIZE_DEADLINE, PluginError, PluginHost, PluginManifest, PluginPermissions, Secrets};
+use vc_interfaces::{
+    INITIALIZE_DEADLINE, MANIFEST_FILE, PluginError, PluginHost, PluginManifest, PluginPermissions, Secrets,
+};
 
 use crate::confine::{self, Confiner, Entry, Policy};
+use crate::found::entry_found;
 use crate::owned;
 use crate::session::{Call, ENDING, SHUTDOWN, Session};
 use crate::stderr_log;
@@ -334,8 +337,9 @@ type Confinement = (Policy, Vec<PathBuf>);
 
 /// The plugin's `entry` in `dir` and, when it runs confined `within` the project at a root with
 /// a data folder, its policy and the files it cannot make ([`confine::uncreatable`]); why not, when its
-/// manifest names a file outside the project. Blocking file-system calls, so the host runs them
-/// off the runtime's workers.
+/// manifest names a file outside the project, or its entry program cannot be found: confined,
+/// the sandbox would start and fail to run it, and say so on the plugin's stderr. Blocking
+/// file-system calls, so the host runs them off the runtime's workers.
 fn plan(
     manifest: &PluginManifest,
     dir: &Path,
@@ -343,6 +347,10 @@ fn plan(
 ) -> Result<(Entry, Option<Confinement>), String> {
     let planned = match within {
         Some((root, data)) => {
+            if !entry_found(manifest, dir) {
+                let fix = format!("install it, or fix `entry.command` in its {MANIFEST_FILE}");
+                return Err(format!("cannot run `{}`: it cannot be found: {fix}", manifest.command));
+            }
             let policy = Policy::new(&root, dir, &manifest.permissions)?.writing(data.as_deref());
             let closed = confine::uncreatable(&policy);
             Some((policy, closed))

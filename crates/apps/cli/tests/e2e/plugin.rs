@@ -222,6 +222,28 @@ fn the_list_shows_a_plugin_whose_files_changed_or_whose_entry_program_is_missing
     assert_eq!(String::from_utf8_lossy(&listed.stdout), row);
 }
 
+/// A reporter plugin whose entry program is missing is named in one run notice, never started:
+/// confined on macOS, `sandbox-exec` started and printed its own `execvp()` error on the console.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_reporter_plugin_whose_entry_is_missing_gets_a_notice_and_never_starts() {
+    let server = MockServer::start().await.unwrap();
+    let missing = MANIFEST.replace("command: python3", "command: vibranium-no-such-program");
+    let plugin = [("plugin/vibranium-plugin.yaml", missing.as_str()), ("plugin/report.py", "print()\n")];
+    let project = Project::new(&[CONFIG, USERS, LISTS, plugin[0], plugin[1]]);
+    let added = project.vc(&["plugin", "add", "path:plugin", "--yes"]).output().unwrap();
+    assert_eq!(added.status.code(), Some(0), "{}", said(&added));
+    let config = fs::read_to_string(project.path().join(CONFIG.0)).unwrap();
+    project.write(CONFIG.0, &format!("{config}reports: {{formats: [report]}}\n"));
+    let run = project.run(&server.base_url(), &[]).output().unwrap();
+    assert_eq!(run.status.code(), Some(0), "{}", said(&run));
+    let said = said(&run);
+    assert!(!said.contains("execvp"), "{said}");
+    let notice = "warning[V5118]: cannot write the `report` report: plugin `report` could not start: cannot run \
+                  `vibranium-no-such-program`: it cannot be found: install it, or fix `entry.command` in its \
+                  vibranium-plugin.yaml";
+    assert_eq!(said.matches(notice).count(), 1, "{said}");
+}
+
 /// A reporter plugin whose installed manifest asks for more than the lock grants is named in
 /// one run notice, which says its report is not written.
 #[tokio::test(flavor = "multi_thread")]
