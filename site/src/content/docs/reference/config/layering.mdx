@@ -75,6 +75,7 @@ A `--set` on a key that is not settable:
 ```console
 $ vc run --set history.keep=3
 error: --set: `history.keep`: not a setting
+  = help: the settings are profile, defaults.concurrency, defaults.perHost, defaults.timeout, defaults.retry.attempts, defaults.retry.delay, reports.dir, reports.formats, reports.html.layout and vars.<name>
 ```
 
 A bad value is refused before anything runs (exit 2):

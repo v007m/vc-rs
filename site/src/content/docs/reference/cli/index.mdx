@@ -10,7 +10,10 @@ import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
 
 ```console
 $ vc --help
+The vc command-line launcher.
+
 Usage: vc [OPTIONS] <COMMAND>
+...
 $ vc -V
 vc 0.1.0
 ```
@@ -110,7 +113,7 @@ error: no vibranium.config.yaml in /tmp or any folder above it
 ```console
 $ vc run --set defaults.foo=1
 error: --set: `defaults.foo`: not a setting
-  = help: the settings are profile, defaults.concurrency, defaults.perHost, defaults.timeout, defaults.retry.attempts, defaults.retry.delay, reports.dir, reports.formats, reports.html.layout, vars.sampleUrl and vars.<name>
+  = help: the settings are profile, defaults.concurrency, defaults.perHost, defaults.timeout, defaults.retry.attempts, defaults.retry.delay, reports.dir, reports.formats, reports.html.layout and vars.<name>
 ```
 
 ## Selectors
