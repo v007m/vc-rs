@@ -37,6 +37,15 @@ $ vc call sample#echo --var 'payload={"city":"Tokyo"}'
 }
 ```
 
+The test reads its rows from a CSV file (see [Datasets](/vc-rs/reference/data/datasets/)):
+
+```csv title="datasets/capitals.csv"
+name,country,population
+Tokyo,JP,37400000
+Delhi,IN,32900000
+Paris,FR,11200000
+```
+
 ```yaml title="services/sample/data.test.yaml"
 tests:
   - id: echoesEveryCapital

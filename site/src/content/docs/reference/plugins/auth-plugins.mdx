@@ -77,10 +77,11 @@ stamp: credentials for partnerStamp (tenant eu)
 
 **Reuse.** With `"expiresIn": 300`, three requests in one run asked the plugin once. With `"expiresIn": 0`, they asked it three times.
 
-**An empty answer.** It fails the request:
+**An empty answer.** When `auth/credentials` returns `{}`, the request fails:
 
 ```console
-$ vc call sample#echoStamped
+$ stampKey=s3cr3tkey vc call sample#echoStamped
+stamp: credentials for partnerStamp (tenant eu)
 ✗ credentials could not be obtained: the `partnerStamp` auth plugin failed: `auth/credentials` returned no headers, query or cookies
 ```
 

@@ -84,7 +84,18 @@ afterEach:
   - command: ./scripts/reset-feature-flags.sh
 ```
 
-When a `beforeEach` or `before` action fails, the instance is **blocked**, not failed. Its `after`, `afterEach` and cleanups still run. Here `before` creates an item and then hits a 500:
+When a `beforeEach` or `before` action fails, the instance is **blocked**, not failed. Its `after`, `afterEach` and cleanups still run. Here, on the local lab server the [cleanups](/vc-rs/reference/lifecycle/cleanups/) examples use, `before` creates an item and then hits a 500:
+
+```yaml title="services/lab/blocked.test.yaml"
+tests:
+  - id: failsInBefore
+    before:
+      - call: lab#createItem
+      - call: lab#status
+        vars:
+          code: 500
+    call: lab#whoami
+```
 
 ```console
 $ vc run lab.blocked#failsInBefore

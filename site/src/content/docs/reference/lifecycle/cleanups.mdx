@@ -88,7 +88,16 @@ GET /status/500
 DELETE /items/i3
 ```
 
-Ctrl-C cancels the run, and the cleanups still run before vc exits with code 130:
+Ctrl-C cancels the run, and the cleanups still run before vc exits with code 130. This test makes an item, then calls the [timeout](/vc-rs/reference/lifecycle/timeout/) page's slow endpoint:
+
+```yaml
+  - id: cleansUpOnCtrlC
+    steps:
+      - call: lab#createItem
+      - call: lab#slow
+        vars:
+          seconds: 10
+```
 
 ```console
 $ vc run lab.cleanup#cleansUpOnCtrlC
@@ -103,7 +112,7 @@ reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
 
 ```console
 POST /items body={"label":"item"}
-GET /slow?s=10
+GET /slow?seconds=10
 DELETE /items/i6
 ```
 

@@ -58,7 +58,7 @@ Each example posts to a local `webhook` channel, so you can see exactly what was
 {"reportFormat":"CTRF","results":{"extra":{"breaches":[],"failures":[],"moreFailures":0,"profiles":["default"],"project":"try-syntax-b","report":".vibranium/reports/20/ctrf.json","teardownFailed":[],"trigger":"flaky"},"summary":{"failed":0,"other":0,"passed":1,"pending":0,"skipped":0,"start":1794332094217,"stop":1794332094527,"tests":1},"tool":{"name":"vibranium"}},"specVersion":"0.2.0"}
 ```
 
-**threshold.** A `vc load` scenario with `p95: {lt: 1ms}`, which a real server cannot meet. `vc load` exits 3, and the alert lists the breach.
+**threshold.** A `vc load` scenario, `load/sample/burst.load.yaml`, that runs `sample.basics#listsUsers` with 2 users for 3 s and `p95: {lt: 1ms}`, which a real server cannot meet. `vc load` exits 3, and the alert lists the breach.
 
 ```console
 $ vc load sample.burst

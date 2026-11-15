@@ -50,7 +50,7 @@ apiKey refused -32001
 
 `reportToken` came back empty here because the run had no value for it. Set it and the plugin gets the value.
 
-**The manifest asks for more than the lock grants.** `vc plugin list` says so, and the run skips the report:
+**The manifest asks for more than the lock grants.** Here the lock entry of the `summary` plugin from [Write a plugin](/vc-rs/reference/plugins/writing-a-plugin/#the-plugins-the-other-pages-use) grants `secrets: []`. `vc plugin list` says so, and the run skips the report:
 
 ```console
 $ vc plugin list

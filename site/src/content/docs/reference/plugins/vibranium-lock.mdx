@@ -68,7 +68,7 @@ plugins:
 warning[V5118]: cannot write the `summary` report: plugin `summary` could not start: V5118: its installed files changed since vibranium.lock approved them: write state to $VIB_PLUGIN_DATA; re-approve with `vc plugin add` if the change was intended
 ```
 
-**The manifest asks for more than the lock grants.** A new secret was added to `permissions`:
+**The manifest asks for more than the lock grants.** A new secret was added to the `permissions` of the `summary` plugin from [Write a plugin](/vc-rs/reference/plugins/writing-a-plugin/#the-plugins-the-other-pages-use):
 
 ```console
 $ vc plugin list
@@ -77,13 +77,13 @@ summary  reporter 1.0.0  path:plugins/summary  asks for more: secret reportToken
 
 Run `vc plugin add path:plugins/summary` again to approve it.
 
-**A plugin missing from the lock.** The config names it, but nobody approved it. An auth that uses it fails:
+**A plugin missing from the lock.** The config names the `stamp` plugin, but nobody approved it. An auth that uses it fails:
 
 ```console
 $ vc plugin list
 stamp  auth 0.1.0  path:plugins/stamp  not approved: `vc plugin add` it  may reach: nothing
 
-$ vc call sample#echoStamped
+$ stampKey=s3cr3tkey vc call sample#echoStamped
 ✗ credentials could not be obtained: the `partnerStamp` auth plugin failed: plugin `stamp` cannot be used: not approved: `vc plugin add` it
 ```
 
