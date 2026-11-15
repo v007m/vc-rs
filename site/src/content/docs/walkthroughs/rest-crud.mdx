@@ -378,7 +378,7 @@ The mock's `/users` collection behaves like a typical REST API:
    reports  …/.vibranium/reports/2/{ctrf.json,junit.xml,index.html}
    ```
 
-   `vc plan` lists the instances without sending anything. It labels every row by its position:
+   `vc plan` lists the instances without sending anything. It labels the rows as the run does:
 
    ```console
    $ vc plan users.crud
@@ -389,9 +389,9 @@ The mock's `/users` collection behaves like a typical REST API:
      users.crud#replacesUser
      users.crud#renamesUser
      users.crud#deletesUser
-     users.crud#rejectsBadBody [row 1]
-     users.crud#rejectsBadBody [row 2]
-     users.crud#rejectsBadBody [row 3]
+     users.crud#rejectsBadBody › plain text
+     users.crud#rejectsBadBody › broken JSON
+     users.crud#rejectsBadBody › a list, not an object
      users.crud#rejectsUnknownUser [row 1]
      users.crud#rejectsUnknownUser [row 2]
    ```
@@ -410,7 +410,7 @@ The mock's `/users` collection behaves like a typical REST API:
    ```
 
    <Aside type="note">
-   The console and reports label a row by its `name`, but `:n` always takes the row's position, as `vc plan` shows it: `:2` is the `broken JSON` row.
+   The console, the reports and `vc plan` label a row by its `name`, but `:n` always takes the row's position in the file: `:2` is the `broken JSON` row.
    </Aside>
 
 9. **See a failure.** Change `role: admin` to `role: owner` in the `equals` block of `replacesUser` and run it:
