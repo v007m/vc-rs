@@ -91,7 +91,7 @@ afterAll:
   - command: ./scripts/print-order-stats.sh
 ```
 
-A failing `beforeAll` blocks only the tests that read its values. `beforeAll` runs even when you select one test of the file. On the local lab server, `lab#status` is a `GET /status/${var.code}` that answers with that status, and `lab#whoami` is a `GET /whoami`:
+A failing `beforeAll` blocks only the tests that read its values. `beforeAll` runs even when you select one test of the file. On the local lab server (a stand-in for a test server of your own), `lab#status` is a `GET /status/${var.code}` that answers with that status, and `lab#whoami` is a `GET /whoami`:
 
 ```yaml title="services/lab/blocked.test.yaml"
 beforeAll:

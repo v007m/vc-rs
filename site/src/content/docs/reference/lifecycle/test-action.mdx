@@ -9,7 +9,7 @@ import Playground from '~/components/Playground.svelte';
 
 `test: <test ID>` runs another test's calls in order, as if you had written them in place. Use it when a multi-step setup already exists as a test.
 
-The example calls a local lab server. `lab#createItem` is a `POST /items` that answers 201 and saves `itemId`; `lab#whoami` is a `GET /whoami`:
+The example calls a local lab server, a stand-in for a test server of your own. `lab#createItem` is a `POST /items` that answers 201 and saves `itemId`; `lab#whoami` is a `GET /whoami`:
 
 ```yaml title="services/lab/lab.api.yaml (excerpt)"
 apis:

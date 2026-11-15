@@ -33,7 +33,7 @@ apis:
 
 ## Examples
 
-The examples call a small local server whose `/slow?s=N` answers after `N` seconds.
+`localhost:7442` stands for a slow test server of your own; its `/slow?ms=N` answers after `N` milliseconds.
 
 ### An api's limit
 
@@ -44,9 +44,9 @@ apis:
     path: /slow
     timeout: 1s
     query:
-      s: ${var.seconds}
+      ms: ${var.ms}
     vars:
-      seconds: "2"
+      ms: "2000"
 ```
 
 ```yaml title="services/slow/time.test.yaml"
@@ -63,11 +63,11 @@ tests:
       - call: slow#wait
         timeout: 5s
         vars:
-          seconds: "1"
+          ms: "1000"
       - call: slow#wait
         timeout: 5s
         vars:
-          seconds: "1"
+          ms: "1000"
 ```
 
 ```console
@@ -153,7 +153,7 @@ tests:
       - call: slow#wait
         timeout: 3s
         vars:
-          seconds: "1"
+          ms: "1000"
 ```
 
 ```console

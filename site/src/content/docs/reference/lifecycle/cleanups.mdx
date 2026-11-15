@@ -41,6 +41,8 @@ apis:
 
 ## Examples
 
+The examples call a local lab server, a stand-in for a test server of your own.
+
 Cleanups run newest first. This test makes three items and keeps the last one:
 
 ```yaml title="services/lab/cleanup.test.yaml"
@@ -112,7 +114,8 @@ A second Ctrl-C ends the grace period, and the cleanups still run. A third stops
 $ vc call lab#createItem --var label=adhoc
 201 Created · 23 ms · api expect passed
 {
-  "id": "i7"
+  "id": "i7",
+  "label": "adhoc"
 }
 ```
 

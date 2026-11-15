@@ -17,7 +17,7 @@ auth:
 
 ```yaml title="services/slow/slow.api.yaml"
 id: slow
-baseUrl: http://localhost:7469
+baseUrl: http://localhost:7421
 auth: apiToken
 ```
 
@@ -27,7 +27,7 @@ The token is sent as `authorization`, and it is masked in all output:
 $ vc call slow#hdr
 200 OK · 5 ms · api expect passed
 {
-  "body": "",
+  "body": null,
   "headers": {
     ...
     "authorization": "••••",

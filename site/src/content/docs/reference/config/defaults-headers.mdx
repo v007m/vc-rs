@@ -40,18 +40,19 @@ An endpoint that echoes the request headers shows what was sent:
 $ vc call slow#hdr --profile eu
 200 OK · 3 ms · api expect passed
 {
-  "body": "",
+  "body": null,
   "headers": {
     "accept": "text/plain",
     "accept-encoding": "gzip, br, zstd, deflate",
     "authorization": "••••",
-    "host": "localhost:7469",
+    "host": "localhost:7421",
     "user-agent": "vibranium/2",
     "x-team": "eu",
     "x-token": "••••"
   },
-  "secret": "••••",
-  "tokenStartsWith": "tok-"
+  "method": "GET",
+  "path": "/echo",
+  "query": {}
 }
 ```
 
@@ -59,7 +60,7 @@ $ vc call slow#hdr --profile eu
 
 ```yaml title="services/slow/slow.api.yaml"
   - id: hdr
-    path: /hdr
+    path: /echo
     headers:
       accept: text/plain
       x-token: ${secret.API_TOKEN}

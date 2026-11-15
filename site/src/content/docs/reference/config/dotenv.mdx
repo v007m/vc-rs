@@ -58,9 +58,12 @@ A secret. `.env.schema` declares `API_TOKEN=`, `.env` holds the value, and an ap
 $ vc call slow#hdr
 200 OK · 2 ms · api expect passed
 {
+  ...
   "headers": {
-    "x-token": "••••",
     ...
+    "x-token": "••••"
+  },
+  ...
 ```
 
 With `API_TOKEN=from-shell-env` in the shell, the server got the shell's value instead.
