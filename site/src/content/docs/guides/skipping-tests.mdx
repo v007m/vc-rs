@@ -10,6 +10,26 @@ Sometimes a test cannot pass for a while: the service is down in staging, or a f
 
 ## Skip a test
 
+The examples park tests in `services/sample/parked.test.yaml`. They call the `vc init` sample apis, such as `getUser`, which reads one user from the demo service:
+
+```yaml title="services/sample/sample.api.yaml (excerpt)"
+id: sample
+baseUrl: ${var.sampleUrl}
+apis:
+  - id: getUser
+    name: Get a user
+    path: /users/${var.userId}
+```
+
+```console
+$ vc call sample#getUser --var userId=1
+200 OK · 19 ms · api expect passed
+{
+  "id": "1",
+  "name": "Ada Lovelace"
+}
+```
+
 <Steps>
 
 1. **Skip it with a reason, and a date if you know one.**

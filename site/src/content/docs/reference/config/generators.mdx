@@ -18,6 +18,8 @@ generators:
     oneOf: [PRIVATE, PUBLIC]
 ```
 
+The test sends the values as the `payload` of an echo api, a `POST /echo` that answers with the request it got:
+
 ```yaml title="services/slow/gen.test.yaml"
     vars:
       payload:

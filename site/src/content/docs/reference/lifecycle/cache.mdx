@@ -9,6 +9,23 @@ import Playground from '~/components/Playground.svelte';
 
 `cache` keeps what a slow or rate-limited action saved, so later runs reuse it instead of calling again. It belongs on actions in `beforeRun` and `beforeAll`.
 
+The example calls a local lab server. `lab#createItem` is a `POST /items` that answers 201 and saves `itemId`; `lab#whoami` is a `GET /whoami`:
+
+```yaml title="services/lab/lab.api.yaml (excerpt)"
+apis:
+  - id: createItem
+    method: POST
+    path: /items
+    body:
+      label: ${var.label}
+    expect:
+      status: 201
+    save:
+      itemId: ${response.body.id}
+  - id: whoami
+    path: /whoami
+```
+
 ```yaml title="services/lab/cached.test.yaml"
 beforeAll:
   - id: fixture

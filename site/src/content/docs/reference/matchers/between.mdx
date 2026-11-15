@@ -21,9 +21,42 @@ expect:
 | --- | --- | --- | --- | --- |
 | `between` | list of two values: `[low, high]` | — | yes | Both ends are included. Values are numbers, strings, durations or sizes. |
 
-## Examples
+## The API
 
-The examples call `sample#echoOrder`, which posts a sample order to the demo service; the demo sends it back under `body`. See [Following along](/vc-rs/reference/matchers/#following-along).
+The examples call `sample#echoOrder` and `sample#listUsers`. `echoOrder` posts a sample order to the demo's `/echo`, and the demo sends the request back, so the order shows up under `body`. `listUsers` sends `GET /users`, and the demo answers with two users. Here are the fields these examples check; [Following along](/vc-rs/reference/matchers/#following-along) has the whole entry and how to start the demo.
+
+```yaml title="services/sample/sample.api.yaml (excerpt)"
+  - id: listUsers
+    name: List users
+    method: GET
+    path: /users
+  ...
+  - id: echoOrder
+    name: Echo a sample order
+    method: POST
+    path: /echo
+    body:
+      total: 42.5
+      qty: 3
+      day: "2026-11-10"
+      ...
+```
+
+```console
+$ vc call sample#echoOrder
+200 OK · 63 ms · api expect passed
+{
+  "body": {
+    "day": "2026-11-10",
+    "qty": 3,
+    "total": 42.5,
+    ...
+  },
+  ...
+}
+```
+
+## Examples
 
 ### A number range
 

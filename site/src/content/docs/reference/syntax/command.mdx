@@ -27,6 +27,29 @@ A `command` saves no values and takes no `auth`, `headers`, `query`, `body`, `ex
 
 ## Examples
 
+The examples call `sample#listUsers` from the sample api file that [`vc init`](/vc-rs/reference/cli/init/) writes:
+
+```yaml title="services/sample/sample.api.yaml (excerpt)"
+baseUrl: ${var.sampleUrl}
+apis:
+  - id: listUsers
+    name: List users
+    method: GET
+    path: /users
+```
+
+```console
+$ vc call sample#listUsers
+200 OK · 3 ms · api expect passed
+[
+  {
+    "id": "1",
+    "name": "Ada Lovelace"
+  },
+  ...
+]
+```
+
 ### Set up files before a run
 
 ```yaml title="services/flow/cmd.test.yaml"

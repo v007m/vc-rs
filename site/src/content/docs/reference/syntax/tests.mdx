@@ -11,6 +11,50 @@ import Playground from '~/components/Playground.svelte';
 
 `tests` is the list at the heart of a test file. Each entry is one test: either a single `call` to an api, or a list of `steps`, plus the checks that must hold.
 
+The examples call `sample#listUsers`, `sample#createUser` and `sample#getUser` from the sample api file that [`vc init`](/vc-rs/reference/cli/init/) writes:
+
+```yaml title="services/sample/sample.api.yaml (excerpt)"
+baseUrl: ${var.sampleUrl}
+apis:
+  - id: listUsers
+    name: List users
+    method: GET
+    path: /users
+  - id: createUser
+    name: Create a user
+    method: POST
+    path: /users
+    vars:
+      name: ${fake.person.fullName}
+      email: ${fake.internet.email}
+    body:
+      name: ${var.name}
+      email: ${var.email}
+    expect:
+      status: 201
+    save:
+      userId: ${response.body.id}
+    cleanup:
+      call: deleteUser
+      vars:
+        userId: ${response.body.id}
+  - id: getUser
+    name: Get a user
+    path: /users/${var.userId}
+```
+
+```console
+$ vc call sample#listUsers
+200 OK · 3 ms · api expect passed
+[
+  {
+    "id": "1",
+    "name": "Ada Lovelace"
+  },
+  ...
+]
+```
+
 ```yaml title="services/sample/users.test.yaml"
 tests:
   - id: listsUsers

@@ -9,6 +9,25 @@ import Playground from '~/components/Playground.svelte';
 
 `repeat` and `forEach` run one action several times without writing it several times. They work on every kind: `call`, `test`, `function` and `command`. `parallel` lets iterations overlap. Each name the action saves becomes a list, in iteration order.
 
+The examples call a local lab server. `lab#createItem` is a `POST /items` that answers 201 and saves `itemId`; `lab#whoami` is a `GET /whoami`; `lab#status` is a `GET /status/${var.code}` that answers with that status:
+
+```yaml title="services/lab/lab.api.yaml (excerpt)"
+apis:
+  - id: createItem
+    method: POST
+    path: /items
+    body:
+      label: ${var.label}
+    expect:
+      status: 201
+    save:
+      itemId: ${response.body.id}
+  - id: whoami
+    path: /whoami
+  - id: status
+    path: /status/${var.code}
+```
+
 ```yaml title="services/lab/loops.test.yaml"
 tests:
   - id: collectsSavedIds
@@ -70,7 +89,7 @@ DELETE /items/i11
 DELETE /items/i10
 ```
 
-Loop over a var or a data file:
+Loop over a var or a data file. Here `geo#createCity` is a `POST /cities` that answers with the new city's `id` and `name`, and `geo#createLocationGroup` is a `POST /location-groups`:
 
 ```yaml
 - call: geo#createCity

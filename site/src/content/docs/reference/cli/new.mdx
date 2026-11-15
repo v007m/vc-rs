@@ -105,6 +105,8 @@ Appends a happy-path test that calls an api, to the test file its ID derives fro
 | `--negative` | | Also a test with one example row per invalid body, built from the api's request body schema. Apis cannot declare one yet, so for now it exits 2: drop the flag and add the invalid bodies as [`examples`](/vc-rs/reference/syntax/examples/) rows |
 | `--auth` | | Also a test calling the api with `auth: none` and expecting `401` |
 
+Here `users#listUsers` is a `GET /users` in `services/users/users.api.yaml`.
+
 ```console
 $ vc new test users.crud#listsUsers --from users#listUsers --auth
 ✓ added users.crud#listsUsers to services/users/crud.test.yaml:5

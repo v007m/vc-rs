@@ -23,6 +23,34 @@ Write `$${` where you want a literal `${` in a value.
 
 ## Examples
 
+The first example sets the `payload` of `sample#echo`, a `POST /echo` on the demo that sends the request back, with the body under `body`:
+
+```yaml title="services/sample/sample.api.yaml (excerpt)"
+apis:
+  - id: echo
+    method: POST
+    path: /echo
+    vars:
+      payload: {}
+    body: ${var.payload}
+```
+
+```console
+$ vc call sample#echo --var 'payload={"count":42}'
+200 OK · 38 ms · api expect passed
+{
+  "body": {
+    "count": 42
+  },
+  "headers": {
+    ...
+  },
+  "method": "POST",
+  "path": "/echo",
+  "query": {}
+}
+```
+
 With `count: 42`:
 
 ```yaml title="services/tpl/roots.test.yaml"

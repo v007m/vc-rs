@@ -23,6 +23,73 @@ expect:
 
 ## Examples
 
+Most examples call `checked#post`, a minimal api for this page. It sends `POST /echo` with a small JSON body, and the demo answers with the request it got. It has five checks of its own:
+
+```yaml title="services/checked/checked.api.yaml (excerpt)"
+baseUrl: ${var.echoUrl}
+apis:
+  - id: post
+    name: Echo a word, with five checks
+    method: POST
+    path: /echo
+    body:
+      word: hello
+    expect:
+      status: 200
+      headers:
+        content-type:
+          contains: json
+      body:
+        match:
+          method: POST
+          body.word: hello
+      cel:
+        echoes the path: response.body.path == "/echo"
+```
+
+```console
+$ vc call checked#post
+200 OK · 5 ms · api expect passed
+{
+  "body": {
+    "word": "hello"
+  },
+  "headers": {
+    ...
+    "content-type": "application/json",
+    ...
+  },
+  "method": "POST",
+  "path": "/echo",
+  "query": {}
+}
+```
+
+The negative test calls `users#create` from the users api file in the [syntax overview](/vc-rs/reference/syntax/):
+
+```yaml title="services/users/users.api.yaml (excerpt)"
+baseUrl: ${var.usersUrl}
+apis:
+  - id: create
+    name: Create a user
+    method: POST
+    path: /users
+    vars:
+      name: ${fake.person.fullName}
+      email: ${fake.internet.email}
+    body:
+      name: ${var.name}
+      email: ${var.email}
+    expect:
+      status: 201
+    save:
+      userId: ${response.body.id}
+    cleanup:
+      call: delete
+      vars:
+        userId: ${response.body.id}
+```
+
 **Without `replace`.** The api `checked#post` has five checks. A test that writes only `status` replaces one of them and keeps four:
 
 ```console

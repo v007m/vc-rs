@@ -24,6 +24,18 @@ import Playground from '~/components/Playground.svelte';
 
 ## Examples
 
+The example sets the `payload` of `sample#echo`, a `POST /echo` on the demo that sends the request back, with the body under `body`:
+
+```yaml title="services/sample/sample.api.yaml (excerpt)"
+apis:
+  - id: echo
+    method: POST
+    path: /echo
+    vars:
+      payload: {}
+    body: ${var.payload}
+```
+
 A run sent this payload:
 
 ```yaml

@@ -9,6 +9,39 @@ import Playground from '~/components/Playground.svelte';
 
 Inside a loop, `${iteration.index}` is the current pass, counting from 1, and `${iteration.count}` is the number of passes.
 
+The examples call two apis on the demo. `sample#createUser` is a `POST /users` that answers 201 with the new user; `sample#echo` is a `POST /echo` that sends the request back, with the body under `body`:
+
+```yaml title="services/sample/sample.api.yaml (excerpt)"
+apis:
+  - id: createUser
+    method: POST
+    path: /users
+    vars:
+      name: ${fake.person.fullName}
+      email: ${fake.internet.email}
+    body:
+      name: ${var.name}
+      email: ${var.email}
+    expect:
+      status: 201
+  - id: echo
+    method: POST
+    path: /echo
+    vars:
+      payload: {}
+    body: ${var.payload}
+```
+
+```console
+$ vc call sample#createUser --var 'name=User 1'
+201 Created · 8 ms · api expect passed
+{
+  "email": "herminio@example.net",
+  "id": "19",
+  "name": "User 1"
+}
+```
+
 ```yaml
       - call: sample#createUser
         repeat: 3

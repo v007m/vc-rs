@@ -11,6 +11,28 @@ import Playground from '~/components/Playground.svelte';
 
 `name` is a human label. The `id` is what tools and other files use; the `name` is a sentence for people. It is always optional.
 
+Most examples call `tagged#list`, a minimal api for this page. It sends `GET /users` to the demo and gets the user list back:
+
+```yaml title="services/tagged/tagged.api.yaml"
+baseUrl: ${var.sampleUrl}
+apis:
+  - id: list
+    name: List users
+    path: /users
+```
+
+```console
+$ vc call tagged#list
+200 OK · 1 ms · api expect passed
+[
+  {
+    "id": "1",
+    "name": "Ada Lovelace"
+  },
+  ...
+]
+```
+
 ```yaml title="services/tagged/flows.test.yaml"
 tests:
   - id: listsUsers

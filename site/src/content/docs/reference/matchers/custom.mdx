@@ -21,9 +21,46 @@ expect:
 | `custom` | list | — | no | Each entry is one function. |
 | `custom[].function` | `path#export` | — | yes | Path relative to the file that holds it. TypeScript or JavaScript: `.ts`, `.mts`, `.js`, `.mjs`. |
 
-## Examples
+## The API
 
-The examples call `sample#echoOrder`, which posts a sample order to the demo service; the demo sends it back under `body`. See [Following along](/vc-rs/reference/matchers/#following-along).
+The examples call `sample#echoOrder`. It posts a sample order to the demo's `/echo`, and the demo sends the request back, so the order shows up under `body`. Here are the fields these examples check; [Following along](/vc-rs/reference/matchers/#following-along) has the whole entry and how to start the demo.
+
+```yaml title="services/sample/sample.api.yaml (excerpt)"
+  - id: echoOrder
+    name: Echo a sample order
+    method: POST
+    path: /echo
+    body:
+      total: 42.5
+      items:
+        - {sku: A1, price: 10}
+        - {sku: B2, price: 32.5}
+      ...
+```
+
+```console
+$ vc call sample#echoOrder
+200 OK · 27 ms · api expect passed
+{
+  "body": {
+    "items": [
+      {
+        "price": 10,
+        "sku": "A1"
+      },
+      {
+        "price": 32.5,
+        "sku": "B2"
+      }
+    ],
+    "total": 42.5,
+    ...
+  },
+  ...
+}
+```
+
+## Examples
 
 ### Write the function
 

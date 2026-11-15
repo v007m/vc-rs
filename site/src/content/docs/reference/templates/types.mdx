@@ -27,6 +27,34 @@ A field that is exactly one template keeps the value's type. A template mixed wi
 
 ## Examples
 
+The examples call `sample#echo`, a `POST /echo` on the demo that sends the request back, with the body under `body`:
+
+```yaml title="services/sample/sample.api.yaml (excerpt)"
+apis:
+  - id: echo
+    method: POST
+    path: /echo
+    vars:
+      payload: {}
+    body: ${var.payload}
+```
+
+```console
+$ vc call sample#echo --var 'payload={"count":42}'
+200 OK · 38 ms · api expect passed
+{
+  "body": {
+    "count": 42
+  },
+  "headers": {
+    ...
+  },
+  "method": "POST",
+  "path": "/echo",
+  "query": {}
+}
+```
+
 With `count: 42` and `order.items: [apple, banana, cherry]`, this payload went to the demo's `/echo`:
 
 ```yaml title="services/tpl/roots.test.yaml"

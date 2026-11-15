@@ -9,6 +9,70 @@ import Playground from '~/components/Playground.svelte';
 
 `repeat` runs something several times. On a test, it runs the whole test that many times and reports each run as its own instance. On a step or action, it repeats that one call inside the test.
 
+Most examples call `echo#json`, a minimal api for this page that sends `POST /echo` with a small JSON body; the demo answers with the request it got, the body under `body`. One calls `sample#createUser` and `sample#getUser` from the sample api file that [`vc init`](/vc-rs/reference/cli/init/) writes:
+
+```yaml title="services/echo/echo.api.yaml (excerpt)"
+baseUrl: ${var.echoUrl}
+apis:
+  - id: json
+    name: Echo a JSON body
+    method: POST
+    path: /echo
+    vars:
+      name: Ada
+    body:
+      name: ${var.name}
+      tags: [a, b]
+```
+
+```console
+$ vc call echo#json
+200 OK · 1 ms · api expect passed
+{
+  "body": {
+    "name": "Ada",
+    "tags": [
+      "a",
+      "b"
+    ]
+  },
+  "headers": {
+    ...
+    "content-type": "application/json",
+    ...
+  },
+  "method": "POST",
+  "path": "/echo",
+  "query": {}
+}
+```
+
+```yaml title="services/sample/sample.api.yaml (excerpt)"
+baseUrl: ${var.sampleUrl}
+apis:
+  - id: createUser
+    name: Create a user
+    method: POST
+    path: /users
+    vars:
+      name: ${fake.person.fullName}
+      email: ${fake.internet.email}
+    body:
+      name: ${var.name}
+      email: ${var.email}
+    expect:
+      status: 201
+    save:
+      userId: ${response.body.id}
+    cleanup:
+      call: deleteUser
+      vars:
+        userId: ${response.body.id}
+  - id: getUser
+    name: Get a user
+    path: /users/${var.userId}
+```
+
 ```yaml
   - id: echoesEachRun
     repeat: 3

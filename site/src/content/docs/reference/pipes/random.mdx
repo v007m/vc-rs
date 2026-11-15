@@ -21,6 +21,30 @@ import Playground from '~/components/Playground.svelte';
 | output | any value | — | — | One element, with its own type. |
 | arguments | none | — | — |  |
 
+## The API
+
+The examples call `sample#echo`. It posts the `payload` var to the demo's `/echo`, and the demo sends the request back, so what a test sent shows up under `body`. To follow along, run `vc demo start` in a project made by `vc init` and add this entry to `services/sample/sample.api.yaml`:
+
+```yaml title="services/sample/sample.api.yaml (excerpt)"
+  - id: echo
+    method: POST
+    path: /echo
+    vars:
+      payload: {}
+    body: ${var.payload}
+```
+
+```console
+$ vc call sample#echo --var 'payload={"orderId": "o-1"}'
+200 OK · 4 ms · api expect passed
+{
+  "body": {
+    "orderId": "o-1"
+  },
+  ...
+}
+```
+
 ## Examples
 
 ```yaml

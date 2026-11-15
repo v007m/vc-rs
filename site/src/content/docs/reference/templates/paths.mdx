@@ -21,6 +21,36 @@ After the root, a path walks into the value: `${response.body.items[0].sku}`. Th
 
 ## Examples
 
+The examples call two apis on the demo. `sample#echo` is a `POST /echo` that sends the request back, with the body under `body`; `sample#listUsers` is a `GET /users`:
+
+```yaml title="services/sample/sample.api.yaml (excerpt)"
+apis:
+  - id: listUsers
+    method: GET
+    path: /users
+  - id: echo
+    method: POST
+    path: /echo
+    vars:
+      payload: {}
+    body: ${var.payload}
+```
+
+```console
+$ vc call sample#listUsers
+200 OK · 60 ms · api expect passed
+[
+  {
+    "id": "1",
+    "name": "Ada Lovelace"
+  },
+  {
+    "id": "2",
+    "name": "Grace Hopper"
+  }
+]
+```
+
 With this var:
 
 ```yaml

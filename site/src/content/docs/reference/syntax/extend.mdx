@@ -29,6 +29,54 @@ body:
 
 ## Examples
 
+The examples call `bodylab#post`, the api from the [body](/vc-rs/reference/syntax/body/) page. It sends `POST /echo` with an order-like body, and the demo answers with the request it got, the body under `body`:
+
+```yaml title="services/bodylab/bodylab.api.yaml"
+baseUrl: ${var.sampleUrl}
+apis:
+  - id: post
+    method: POST
+    path: /echo
+    vars:
+      name: Ada
+      qty: 2
+    body:
+      name: ${var.name}
+      qty: ${var.qty}
+      label: qty-${var.qty}
+      shipping:
+        city: Paris
+        zip: "75001"
+      items: [a, b, c]
+```
+
+```console
+$ vc call bodylab#post
+200 OK · 1 ms · api expect passed
+{
+  "body": {
+    "items": [
+      "a",
+      "b",
+      "c"
+    ],
+    "label": "qty-2",
+    "name": "Ada",
+    "qty": 2,
+    "shipping": {
+      "city": "Paris",
+      "zip": "75001"
+    }
+  },
+  "headers": {
+    ...
+  },
+  "method": "POST",
+  "path": "/echo",
+  "query": {}
+}
+```
+
 ### Change a response and send it back
 
 The first step creates an order. The second sends the same body with a new city, a new item list, no `name` value, and no `label` or `shipping.zip`:
@@ -63,7 +111,7 @@ tests:
               headers.content-type: application/json
 ```
 
-`bodylab#post` sends `{name, qty, label, shipping: {city, zip}, items}` to the demo's `/echo`, which returns it under `body`. So `${original.body.body}` is the object that was sent.
+The demo returns what it was sent under `body`, so `${original.body.body}` is the object the first step sent.
 
 ```console
 $ vc run bodylab.extend

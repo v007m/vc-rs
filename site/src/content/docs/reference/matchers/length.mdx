@@ -21,9 +21,51 @@ expect:
 | --- | --- | --- | --- | --- |
 | `length` | whole number or matcher | — | yes | Counts characters in a string, items in a list, keys in an object. |
 
-## Examples
+## The API
 
-The examples call `sample#echoOrder`, which posts a sample order to the demo service; the demo sends it back under `body`. See [Following along](/vc-rs/reference/matchers/#following-along).
+The examples call `sample#echoOrder`. It posts a sample order to the demo's `/echo`, and the demo sends the request back, so the order shows up under `body`. Here are the fields these examples check; [Following along](/vc-rs/reference/matchers/#following-along) has the whole entry and how to start the demo.
+
+```yaml title="services/sample/sample.api.yaml (excerpt)"
+  - id: echoOrder
+    name: Echo a sample order
+    method: POST
+    path: /echo
+    body:
+      id: ord_123
+      tags: [new, vip]
+      items:
+        - {sku: A1, price: 10}
+        - {sku: B2, price: 32.5}
+      ...
+```
+
+```console
+$ vc call sample#echoOrder
+200 OK · 1 ms · api expect passed
+{
+  "body": {
+    "id": "ord_123",
+    "items": [
+      {
+        "price": 10,
+        "sku": "A1"
+      },
+      {
+        "price": 32.5,
+        "sku": "B2"
+      }
+    ],
+    "tags": [
+      "new",
+      "vip"
+    ],
+    ...
+  },
+  ...
+}
+```
+
+## Examples
 
 ### An exact count
 

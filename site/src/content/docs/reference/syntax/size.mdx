@@ -61,7 +61,23 @@ expect:
     between: [100b, 2kb]
 ```
 
-**An exact size.** Write the byte count as a plain number.
+**An exact size.** Write the byte count as a plain number. This example calls `users#delete` from the users api file in the [syntax overview](/vc-rs/reference/syntax/). It sends `DELETE /users/<userId>`, and the demo answers with no body:
+
+```yaml title="services/users/users.api.yaml (excerpt)"
+baseUrl: ${var.usersUrl}
+apis:
+  - id: delete
+    name: Delete a user
+    method: DELETE
+    path: /users/${var.userId}
+    expect:
+      status: [204, 404]
+```
+
+```console
+$ vc call users#delete --var userId=15
+204 No Content · 61 ms · api expect passed
+```
 
 ```yaml
 - id: emptyBody

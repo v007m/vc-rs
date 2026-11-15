@@ -19,9 +19,33 @@ expect:
 | --- | --- | --- | --- | --- |
 | `status` | integer, class, list, matcher or template | — | no | Codes are 100 to 599. Classes are `1xx` to `5xx`, lowercase. |
 
-## Examples
+## The API
 
-The examples call `sample#listUsers` on the demo service, which answers `[{"id":"1","name":"Ada Lovelace"},{"id":"2","name":"Grace Hopper"}]`. See [Following along](/vc-rs/reference/matchers/#following-along).
+The examples call `sample#listUsers` from the `vc init` sample. It sends `GET /users`, and the demo answers with two users. [Following along](/vc-rs/reference/matchers/#following-along) shows how to start the demo.
+
+```yaml title="services/sample/sample.api.yaml (excerpt)"
+  - id: listUsers
+    name: List users
+    method: GET
+    path: /users
+```
+
+```console
+$ vc call sample#listUsers
+200 OK · 53 ms · api expect passed
+[
+  {
+    "id": "1",
+    "name": "Ada Lovelace"
+  },
+  {
+    "id": "2",
+    "name": "Grace Hopper"
+  }
+]
+```
+
+## Examples
 
 ### One code
 

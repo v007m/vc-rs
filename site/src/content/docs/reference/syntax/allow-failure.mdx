@@ -28,6 +28,29 @@ You can write `allowFailure` on a test or at the top of a test file. A test's ow
 
 ## Examples
 
+Most examples call `sample#listUsers` from the sample api file that [`vc init`](/vc-rs/reference/cli/init/) writes:
+
+```yaml title="services/sample/sample.api.yaml (excerpt)"
+baseUrl: ${var.sampleUrl}
+apis:
+  - id: listUsers
+    name: List users
+    method: GET
+    path: /users
+```
+
+```console
+$ vc call sample#listUsers
+200 OK · 3 ms · api expect passed
+[
+  {
+    "id": "1",
+    "name": "Ada Lovelace"
+  },
+  ...
+]
+```
+
 ```yaml title="services/sample/allow.test.yaml"
 id: sample.allow
 name: Allow failure
@@ -109,7 +132,15 @@ warning[V4008]: this allowFailure expired after 2026-01-31
 
 ### Allow a whole file to fail
 
-An `allowFailure` at the top of a file covers every test in it:
+An `allowFailure` at the top of a file covers every test in it. This example calls `payments#listRefunds`, a minimal api for this page that sends `GET /refunds` and gets `200` back:
+
+```yaml title="services/payments/payments.api.yaml (excerpt)"
+baseUrl: ${var.paymentsUrl}
+apis:
+  - id: listRefunds
+    name: List refunds
+    path: /refunds
+```
 
 ```yaml title="services/payments/refunds.test.yaml"
 allowFailure:

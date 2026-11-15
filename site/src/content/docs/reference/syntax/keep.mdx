@@ -9,6 +9,49 @@ import Playground from '~/components/Playground.svelte';
 
 `keep: true` on a call turns off the cleanup its api would register. The data it creates stays after the test.
 
+The examples call `sample#createUser` from the sample api file that [`vc init`](/vc-rs/reference/cli/init/) writes. Its cleanup calls `sample#deleteUser`:
+
+```yaml title="services/sample/sample.api.yaml (excerpt)"
+baseUrl: ${var.sampleUrl}
+apis:
+  - id: createUser
+    name: Create a user
+    method: POST
+    path: /users
+    vars:
+      name: ${fake.person.fullName}
+      email: ${fake.internet.email}
+    body:
+      name: ${var.name}
+      email: ${var.email}
+    expect:
+      status: 201
+    save:
+      userId: ${response.body.id}
+    cleanup:
+      call: deleteUser
+      vars:
+        userId: ${response.body.id}
+  - id: deleteUser
+    name: Delete a user
+    method: DELETE
+    path: /users/${var.userId}
+    expect:
+      status:
+        - 204
+        - 404
+```
+
+```console
+$ vc call sample#createUser --var name="Ada Lovelace" --var email=ada@example.com
+201 Created · 0 ms · api expect passed
+{
+  "email": "ada@example.com",
+  "id": "6",
+  "name": "Ada Lovelace"
+}
+```
+
 ```yaml title="services/flow/keep.test.yaml"
 - call: sample#createUser
   keep: true

@@ -9,6 +9,29 @@ import Playground from '~/components/Playground.svelte';
 
 The `function:` action calls an exported function from a hook file. The fields of the object it returns are saved as vars.
 
+The examples call `sample#getUser` and `sample#listUsers` from the sample api file that [`vc init`](/vc-rs/reference/cli/init/) writes:
+
+```yaml title="services/sample/sample.api.yaml (excerpt)"
+baseUrl: ${var.sampleUrl}
+apis:
+  - id: listUsers
+    name: List users
+    method: GET
+    path: /users
+  - id: getUser
+    name: Get a user
+    path: /users/${var.userId}
+```
+
+```console
+$ vc call sample#getUser --var userId=1
+200 OK · 1 ms · api expect passed
+{
+  "id": "1",
+  "name": "Ada Lovelace"
+}
+```
+
 ```yaml title="services/flow/fn.test.yaml"
 tests:
   - id: getsSeededUser

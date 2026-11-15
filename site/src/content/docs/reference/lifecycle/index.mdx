@@ -9,6 +9,37 @@ import Playground from '~/components/Playground.svelte';
 
 Lifecycle blocks run actions before and after your tests: set up data, start services, and tidy up. Each block is a list of actions.
 
+The example below calls a users service. `users#create` is a `POST /users` that answers 201 and saves `userId`; `users#get` is a `GET /users/${var.userId}`. `catalog#seedProducts` stands for any api that loads test data.
+
+```yaml title="services/users/users.api.yaml (excerpt)"
+apis:
+  - id: create
+    method: POST
+    path: /users
+    vars:
+      name: ${fake.person.fullName}
+      email: ${fake.internet.email}
+    body:
+      name: ${var.name}
+      email: ${var.email}
+    expect:
+      status: 201
+    save:
+      userId: ${response.body.id}
+  - id: get
+    path: /users/${var.userId}
+```
+
+```console
+$ vc call users#create --var 'name=Ada Lovelace' --var email=ada@example.com
+201 Created · 4 ms · api expect passed
+{
+  "email": "ada@example.com",
+  "id": "12",
+  "name": "Ada Lovelace"
+}
+```
+
 ```yaml title="services/users/crud.test.yaml"
 beforeAll:
   - id: catalog

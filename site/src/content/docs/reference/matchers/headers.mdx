@@ -20,9 +20,33 @@ expect:
 | --- | --- | --- | --- | --- |
 | `headers.<name>` | literal or matcher | — | no | Names are case-insensitive. Values are strings. |
 
-## Examples
+## The API
 
-The examples call `sample#listUsers` on the demo service, which answers `[{"id":"1","name":"Ada Lovelace"},{"id":"2","name":"Grace Hopper"}]`. See [Following along](/vc-rs/reference/matchers/#following-along).
+The examples call `sample#listUsers` from the `vc init` sample. It sends `GET /users`, and the demo answers with two users. The response has `content-type: application/json` and no `x-request-id` header. [Following along](/vc-rs/reference/matchers/#following-along) shows how to start the demo.
+
+```yaml title="services/sample/sample.api.yaml (excerpt)"
+  - id: listUsers
+    name: List users
+    method: GET
+    path: /users
+```
+
+```console
+$ vc call sample#listUsers
+200 OK · 1 ms · api expect passed
+[
+  {
+    "id": "1",
+    "name": "Ada Lovelace"
+  },
+  {
+    "id": "2",
+    "name": "Grace Hopper"
+  }
+]
+```
+
+## Examples
 
 ### Check the content type
 

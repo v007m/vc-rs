@@ -9,6 +9,57 @@ import Playground from '~/components/Playground.svelte';
 
 The `test:` action runs another test's call or steps in place, so one flow can be shared by many tests.
 
+The examples call `sample#createUser` and `sample#getUser` from the sample api file that [`vc init`](/vc-rs/reference/cli/init/) writes. The shared flow also calls `echo#json`, a minimal api for this page that sends `POST /echo` with a small JSON body; the demo answers with the request it got, the body under `body`:
+
+```yaml title="services/sample/sample.api.yaml (excerpt)"
+baseUrl: ${var.sampleUrl}
+apis:
+  - id: createUser
+    name: Create a user
+    method: POST
+    path: /users
+    vars:
+      name: ${fake.person.fullName}
+      email: ${fake.internet.email}
+    body:
+      name: ${var.name}
+      email: ${var.email}
+    expect:
+      status: 201
+    save:
+      userId: ${response.body.id}
+    cleanup:
+      call: deleteUser
+      vars:
+        userId: ${response.body.id}
+  - id: getUser
+    name: Get a user
+    path: /users/${var.userId}
+```
+
+```console
+$ vc call sample#getUser --var userId=1
+200 OK · 1 ms · api expect passed
+{
+  "id": "1",
+  "name": "Ada Lovelace"
+}
+```
+
+```yaml title="services/echo/echo.api.yaml (excerpt)"
+baseUrl: ${var.echoUrl}
+apis:
+  - id: json
+    name: Echo a JSON body
+    method: POST
+    path: /echo
+    vars:
+      name: Ada
+    body:
+      name: ${var.name}
+      tags: [a, b]
+```
+
 ```yaml title="services/flow/reuse.test.yaml"
 tests:
   - id: reusesInSteps

@@ -9,6 +9,50 @@ import Playground from '~/components/Playground.svelte';
 
 `call` names the api a test, step or lifecycle action sends. The api supplies the method, path, headers and body. The test adds what it expects.
 
+The examples call `sample#listUsers`, `sample#createUser` and `sample#getUser` from the sample api file that [`vc init`](/vc-rs/reference/cli/init/) writes:
+
+```yaml title="services/sample/sample.api.yaml (excerpt)"
+baseUrl: ${var.sampleUrl}
+apis:
+  - id: listUsers
+    name: List users
+    method: GET
+    path: /users
+  - id: createUser
+    name: Create a user
+    method: POST
+    path: /users
+    vars:
+      name: ${fake.person.fullName}
+      email: ${fake.internet.email}
+    body:
+      name: ${var.name}
+      email: ${var.email}
+    expect:
+      status: 201
+    save:
+      userId: ${response.body.id}
+    cleanup:
+      call: deleteUser
+      vars:
+        userId: ${response.body.id}
+  - id: getUser
+    name: Get a user
+    path: /users/${var.userId}
+```
+
+```console
+$ vc call sample#listUsers
+200 OK · 3 ms · api expect passed
+[
+  {
+    "id": "1",
+    "name": "Ada Lovelace"
+  },
+  ...
+]
+```
+
 ```yaml title="services/sample/users.test.yaml"
 tests:
   - id: listsUsers
@@ -58,7 +102,45 @@ tests:
 
 ### Overriding the api for one call
 
-Here the api `echo#json` sends `{name, tags}` with the var `name` set to `Ada`. The test changes the var, turns auth off, adds a header and a query param, and sets a timeout.
+`echo#json` is a minimal api for this page. It sends `POST /echo` with a small JSON body, and the demo answers with the request it got, the body under `body`:
+
+```yaml title="services/echo/echo.api.yaml (excerpt)"
+baseUrl: ${var.echoUrl}
+apis:
+  - id: json
+    name: Echo a JSON body
+    method: POST
+    path: /echo
+    vars:
+      name: Ada
+    body:
+      name: ${var.name}
+      tags: [a, b]
+```
+
+```console
+$ vc call echo#json
+200 OK · 1 ms · api expect passed
+{
+  "body": {
+    "name": "Ada",
+    "tags": [
+      "a",
+      "b"
+    ]
+  },
+  "headers": {
+    ...
+    "content-type": "application/json",
+    ...
+  },
+  "method": "POST",
+  "path": "/echo",
+  "query": {}
+}
+```
+
+The api sends `{name, tags}` with the var `name` set to `Ada`. The test below changes the var, turns auth off, adds a header and a query param, and sets a timeout.
 
 ```yaml title="services/flow/call.test.yaml"
   - id: sendsOverrides

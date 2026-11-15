@@ -31,6 +31,20 @@ There is no prebuilt release, installer or GitHub setup action for `vc` yet. The
    $ git init
    ```
 
+   The sample api file describes the demo's users endpoints. The tests on this page call them, for example `listUsers`:
+
+   ```yaml title="services/sample/sample.api.yaml (excerpt)"
+   id: sample
+   baseUrl: ${var.sampleUrl}
+   apis:
+     - id: listUsers
+       name: List users
+       method: GET
+       path: /users
+   ```
+
+   `GET /users` answers `200` with `[{"id":"1","name":"Ada Lovelace"},{"id":"2","name":"Grace Hopper"}]`. The api file also has `createUser` (`POST /users`, `201`), `getUser` and `deleteUser`.
+
 2. **Add a `ci` profile.** A profile overrides vars for one environment. In CI, the demo listens on `127.0.0.1`. For your own service, this is where its CI or staging URL goes.
 
    ```yaml title="vibranium.config.yaml"

@@ -27,6 +27,34 @@ Available in the same places as [`response`](/vc-rs/reference/templates/response
 
 ## Examples
 
+The examples call `sample#echo`, a `POST /echo` on the demo that sends the request back, with the body under `body`:
+
+```yaml title="services/sample/sample.api.yaml (excerpt)"
+apis:
+  - id: echo
+    method: POST
+    path: /echo
+    vars:
+      payload: {}
+    body: ${var.payload}
+```
+
+```console
+$ vc call sample#echo --var 'payload={"n":1}'
+200 OK · 1 ms · api expect passed
+{
+  "body": {
+    "n": 1
+  },
+  "headers": {
+    ...
+  },
+  "method": "POST",
+  "path": "/echo",
+  "query": {}
+}
+```
+
 Save what was sent. A call to the demo's `/echo` with `payload: { n: 1 }` saved these values:
 
 ```yaml title="services/tpl/flow.test.yaml"

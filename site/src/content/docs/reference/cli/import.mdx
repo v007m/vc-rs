@@ -134,7 +134,7 @@ flow checkout#placesOrder (4 steps)
 POST /v1/carts/${var.cartId}/items: recorded 2 times, merged into one api
 ```
 
-A HAR import groups requests by host, one api file per host. It drops static assets, analytics hosts and `OPTIONS` requests. Credentials are never written: headers such as `authorization` and cookies are dropped, and secret-looking body fields become `${secret.…}` names declared in `.env.schema`. `--flow` writes a test whose steps replay the calls in order, with the IDs the server returned saved and passed along:
+A HAR import groups requests by host, one api file per host. It drops static assets, analytics hosts and `OPTIONS` requests. Credentials are never written: headers such as `authorization` and cookies are dropped, and secret-looking body fields become `${secret.…}` names declared in `.env.schema`. `--flow` writes a test whose steps replay the calls in order, with the IDs the server returned saved and passed along. In it, `shop#postV1Carts` is the recorded `POST /v1/carts`, which answers with the new cart's `id`, and `shop#addItem` is `POST /v1/carts/${var.cartId}/items`:
 
 ```yaml title="services/checkout.test.yaml"
 tests:

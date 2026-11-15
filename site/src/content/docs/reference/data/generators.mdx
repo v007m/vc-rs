@@ -9,6 +9,33 @@ import Playground from '~/components/Playground.svelte';
 
 `${fake.<module>.<name>}` makes a realistic value, such as a name, an email or a date, each time the template is rendered.
 
+The example calls the `vc init` sample's `sample#createUser`, a `POST /users` on the demo that answers 201 with the new user. Its vars default to fake values:
+
+```yaml title="services/sample/sample.api.yaml (excerpt)"
+apis:
+  - id: createUser
+    method: POST
+    path: /users
+    vars:
+      name: ${fake.person.fullName}
+      email: ${fake.internet.email}
+    body:
+      name: ${var.name}
+      email: ${var.email}
+    expect:
+      status: 201
+```
+
+```console
+$ vc call sample#createUser
+201 Created · 3 ms · api expect passed
+{
+  "email": "alta@example.net",
+  "id": "11",
+  "name": "Zoey Dietrich"
+}
+```
+
 ```yaml title="services/sample/basics.test.yaml"
 tests:
   - id: createsUser

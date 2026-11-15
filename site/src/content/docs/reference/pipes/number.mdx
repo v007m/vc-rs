@@ -21,6 +21,30 @@ import Playground from '~/components/Playground.svelte';
 | output | number | — | — | A whole number stays whole; a decimal stays a decimal. |
 | arguments | none | — | — |  |
 
+## The API
+
+The examples call `sample#echo`. It posts the `payload` var to the demo's `/echo`, and the demo sends the request back, so what a test sent shows up under `body`. To follow along, run `vc demo start` in a project made by `vc init` and add this entry to `services/sample/sample.api.yaml`:
+
+```yaml title="services/sample/sample.api.yaml (excerpt)"
+  - id: echo
+    method: POST
+    path: /echo
+    vars:
+      payload: {}
+    body: ${var.payload}
+```
+
+```console
+$ vc call sample#echo --var 'payload={"orderId": "o-1"}'
+200 OK · 1 ms · api expect passed
+{
+  "body": {
+    "orderId": "o-1"
+  },
+  ...
+}
+```
+
 ## Examples
 
 Results below are the body that the demo's `/echo` api sent back.

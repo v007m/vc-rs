@@ -9,6 +9,41 @@ import Playground from '~/components/Playground.svelte';
 
 `beforeAll` runs once before any selected test in the file starts. `afterAll` runs once after all of them have finished.
 
+The example calls the `vc init` sample apis on the demo. `sample#createUser` is a `POST /users` that answers 201, saves `userId` and deletes the user afterwards; `sample#getUser` is a `GET /users/${var.userId}`:
+
+```yaml title="services/sample/sample.api.yaml (excerpt)"
+apis:
+  - id: createUser
+    method: POST
+    path: /users
+    vars:
+      name: ${fake.person.fullName}
+      email: ${fake.internet.email}
+    body:
+      name: ${var.name}
+      email: ${var.email}
+    expect:
+      status: 201
+    save:
+      userId: ${response.body.id}
+    cleanup:
+      call: deleteUser
+      vars:
+        userId: ${response.body.id}
+  - id: getUser
+    path: /users/${var.userId}
+```
+
+```console
+$ vc call sample#createUser --var 'name=File Owner' --var email=owner@example.com
+201 Created · 15 ms · api expect passed
+{
+  "email": "owner@example.com",
+  "id": "13",
+  "name": "File Owner"
+}
+```
+
 ```yaml title="services/life/blocks.test.yaml"
 beforeAll:
   - id: shared
@@ -35,7 +70,7 @@ tests:
 
 ## Examples
 
-Seed a catalog once for the whole file and read it from every test:
+Seed a catalog once for the whole file and read it from every test. Here `catalog#seedProducts` is a `POST /products/seed` that saves the new `productIds`, and `carts#addItem` is a `POST /carts/${var.cartId}/items`:
 
 ```yaml title="services/orders/checkout.test.yaml (excerpt)"
 beforeAll:
@@ -56,7 +91,7 @@ afterAll:
   - command: ./scripts/print-order-stats.sh
 ```
 
-A failing `beforeAll` blocks only the tests that read its values. `beforeAll` runs even when you select one test of the file:
+A failing `beforeAll` blocks only the tests that read its values. `beforeAll` runs even when you select one test of the file. On the local lab server, `lab#status` is a `GET /status/${var.code}` that answers with that status, and `lab#whoami` is a `GET /whoami`:
 
 ```yaml title="services/lab/blocked.test.yaml"
 beforeAll:

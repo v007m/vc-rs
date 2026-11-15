@@ -11,6 +11,18 @@ import Playground from '~/components/Playground.svelte';
 
 Every api and test has a camelCase `id`. Its file has an ID too, taken from its path. Together they make the full ID, `<fileId>#<id>`, which is how you call, select and report on anything.
 
+Here the api `getUser` is a minimal one for this page. It sends `GET /users/<userId>` and gets that user back:
+
+```yaml title="services/users/users.api.yaml (excerpt)"
+baseUrl: ${var.usersUrl}
+apis:
+  - id: getUser                # full ID: users#getUser
+    name: Get a user
+    path: /users/${var.userId}
+```
+
+A test calls it by that full ID:
+
 ```yaml title="services/users/crud.test.yaml"
 tests:
   - id: getsCreatedUser        # full ID: users.crud#getsCreatedUser

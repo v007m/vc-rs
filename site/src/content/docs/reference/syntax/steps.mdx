@@ -9,6 +9,67 @@ import Playground from '~/components/Playground.svelte';
 
 `steps` is a list of actions that run one after another as one test. Use it for a flow, such as create then read.
 
+Most examples call `sample#createUser` and `sample#getUser` from the sample api file that [`vc init`](/vc-rs/reference/cli/init/) writes:
+
+```yaml title="services/sample/sample.api.yaml (excerpt)"
+baseUrl: ${var.sampleUrl}
+apis:
+  - id: createUser
+    name: Create a user
+    method: POST
+    path: /users
+    vars:
+      name: ${fake.person.fullName}
+      email: ${fake.internet.email}
+    body:
+      name: ${var.name}
+      email: ${var.email}
+    expect:
+      status: 201
+    save:
+      userId: ${response.body.id}
+    cleanup:
+      call: deleteUser
+      vars:
+        userId: ${response.body.id}
+  - id: getUser
+    name: Get a user
+    path: /users/${var.userId}
+```
+
+```console
+$ vc call sample#createUser --var name="Ada Lovelace" --var email=ada@example.com
+201 Created · 0 ms · api expect passed
+{
+  "email": "ada@example.com",
+  "id": "6",
+  "name": "Ada Lovelace"
+}
+```
+
+The examples on step defaults call `echo#json` and `echo#text`, two minimal apis for this page. Both send `POST /echo`, and the demo answers with the request it got. The file sets one header for every api in it:
+
+```yaml title="services/echo/echo.api.yaml (excerpt)"
+baseUrl: ${var.echoUrl}
+headers:
+  x-file-header: from-file
+apis:
+  - id: json
+    name: Echo a JSON body
+    method: POST
+    path: /echo
+    vars:
+      name: Ada
+    body:
+      name: ${var.name}
+      tags: [a, b]
+  - id: text
+    name: Echo a text body
+    method: POST
+    path: /echo
+    body: plain words
+```
+
 ```yaml title="services/flow/steps.test.yaml"
 tests:
   - id: createsThenReads

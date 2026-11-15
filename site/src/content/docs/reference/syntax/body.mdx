@@ -399,7 +399,14 @@ apis:
 
 ## Common errors
 
-A test-level `body` default that reaches a `GET` step:
+A test-level `body` default that reaches a `GET` step. Here `bodylab#get` is a minimal api that sends `GET /echo`:
+
+```yaml title="services/bodylab/bodylab.api.yaml (excerpt)"
+baseUrl: ${var.sampleUrl}
+apis:
+  - id: get
+    path: /echo
+```
 
 ```yaml title="services/bodylab/e.test.yaml"
   - id: defaultOnGet

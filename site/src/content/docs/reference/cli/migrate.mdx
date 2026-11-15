@@ -58,7 +58,15 @@ The output has three kinds of line:
 
 ### What a scenario becomes
 
-A v1 endpoint with JavaScript checks such as `"{response.length} > 0"` and `"{response.all.id}.every(id => id.length === 32)"` becomes a test with [matchers](/vc-rs/reference/matchers/):
+A v1 endpoint with JavaScript checks such as `"{response.length} > 0"` and `"{response.all.id}.every(id => id.length === 32)"` becomes a test with [matchers](/vc-rs/reference/matchers/). The test calls `users#listUsers`, which the migration wrote from the v1 endpoint `01_list_users`:
+
+```yaml title="services/users/users.api.yaml (excerpt)"
+apis:
+  - id: listUsers
+    name: List all users
+    method: GET
+    path: /api/v1/users
+```
 
 ```yaml title="services/users/crud.test.yaml"
 name: users_crud
