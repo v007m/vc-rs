@@ -139,6 +139,8 @@ pub struct FindingRow {
     pub actual: Option<f64>,
     /// The line the run printed for it, masked; never a raw value.
     pub shown: String,
+    /// An error's first few exchanges (at most 5), masked, bodies cut as a failed test's are (D326).
+    pub samples: Vec<ExchangeRow>,
 }
 
 /// Whether a [`FindingRow`] is a breached threshold or a kind of error.

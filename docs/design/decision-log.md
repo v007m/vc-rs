@@ -631,6 +631,12 @@ Round 57 (12 November 2026; vc-worker1, approved by the orchestrator):
 | --- | --- | --- | --- |
 | D325 | `hooks.threads` | `hooks.threads` (an integer, default `1`) starts that many QuickJS runtimes, each on its own hook thread under a supervisor. A dispatcher thread hands each call to a supervisor that has said it is idle, over a ready channel, so a call never waits behind a busy or stuck runtime while another is free; it needs no lock and no new dependency. A supervisor says it is idle again only after it has replied and replaced a hook thread the watchdog abandoned (V5116). Module state is per runtime, so a hook must not rely on module-level state across calls. The value is capped at 64, and one outside 1 to 64 is V2302: that is the secure default, because each runtime costs memory and an OS thread, and a config value should not be able to start an unbounded number of them. Dropping the runner ends every supervisor and hook thread but a stuck one | The LLD's "one thread serves all hooks" |
 
+Round 58 (12 November 2026; vc-worker2, assigned by the orchestrator):
+
+| # | Topic | Decision | Supersedes |
+| --- | --- | --- | --- |
+| D326 | A load run keeps a few exchanges per error kind | A load run keeps the exchanges of the first 5 failed iterations of each error kind, a fixed number that is not configurable: the failing call's last exchange, carried unmasked out of the executor and kept only in the run's memory, masked at close with the run's redactor, before it is cut (whole, as an `Exchanged` event is; only the kept ones, and only when the run is recorded: the rest are dropped unmasked, and no unmasked one reaches an event, a tick, a log or an error), then cut at `history.maxBodySize` and kept with its bodies as a failed test's are, by the reporters' own code. They are stored as `exchanges` rows of the run with no test and `load_finding_id` naming their error kind's `load_findings` row (migration 6, `ON DELETE SET NULL`, indexed), so pruning the run removes them; the reader does not read them back, as it leaves a test's exchanges out. The report and its JSON do not show them | — (fills the "not yet" in D322) |
+
 ## Open
 
 All decisions needed for the PRD and technical design are settled. The language is decided by the spike (D6, D36, D37, D41).

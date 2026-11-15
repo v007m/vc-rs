@@ -4,8 +4,8 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use vc_interfaces::Row;
-use vc_model::{ActionId, ActionOutcome, Event, InstanceId, Names, OwnerKey, TestResult, TestStatus};
+use vc_interfaces::{ExchangeRow, Row};
+use vc_model::{ActionId, ActionOutcome, Event, Exchange, InstanceId, Names, OwnerKey, TestResult, TestStatus};
 
 use crate::collect::{Collector, TestRecord};
 use crate::exchange::{self, Keeping};
@@ -110,6 +110,18 @@ impl Recorder {
         self.tests.push(view);
         vec![Row::Test(row)]
     }
+}
+
+/// A load run's failed exchange as the history keeps it beside its error kind (D326): already
+/// masked, named as the recorder names a test's, its bodies cut and kept as a failed test's are.
+#[must_use]
+pub fn failed_exchange(names: &Names, action: Option<ActionId>, exchange: &Exchange) -> ExchangeRow {
+    let history = names.program().config.history;
+    let keeping = Keeping { bodies: history.bodies, max_body: history.max_body() };
+    let view = exchange::view(exchange, keeping.max_body);
+    let action_name = action.map(|action| names.action(action)).unwrap_or_default();
+    let view = ExchangeView { action: action_name, api: action.and_then(|action| names.api_of(action)), ..view };
+    rows::exchange(&kept(view, keeping.bodies_of(true)))
 }
 
 fn kept(view: ExchangeView, bodies: bool) -> ExchangeView {

@@ -4,15 +4,42 @@
 use std::fmt::Write as _;
 
 use serde_json::{Value, json};
+use vc_adapter_reporters::failed_exchange;
+use vc_executor::Redactor;
 use vc_interfaces::{FindingKind, FindingRow, Row};
-use vc_model::one_line;
+use vc_model::{Names, one_line};
 
+use crate::load_live::Sample;
 use crate::{ErrorKind, LoadBreach, LoadReport};
 
-/// `report`'s breaches, then its error kinds, as history rows.
-pub fn rows(report: &LoadReport) -> Vec<Row> {
+/// `report`'s breaches, then its error kinds as history rows, each with its `samples` (in the
+/// same order) named and cut as the history keeps a failed test's exchanges (D326).
+pub fn rows(report: &LoadReport, names: &Names, samples: Vec<Vec<Sample>>) -> Vec<Row> {
     let breaches = report.breaches.iter().map(breach);
-    breaches.chain(report.error_kinds.iter().map(error)).map(Row::Finding).collect()
+    let errors = report.error_kinds.iter().zip(samples.into_iter().chain(std::iter::repeat_with(Vec::new)));
+    let errors = errors.map(|(kind, samples)| {
+        let samples = samples.iter().map(|(action, exchange)| failed_exchange(names, *action, exchange));
+        FindingRow { samples: samples.collect(), ..error(kind) }
+    });
+    breaches.chain(errors).map(Row::Finding).collect()
+}
+
+/// `samples` masked whole by the run's `redactor`, as an `Exchanged` event is, before they are
+/// cut. Only the few each error kind keeps are masked, once, when the run closes, so a failing
+/// iteration costs no masking (D326); with no redactor known they are dropped unmasked.
+pub async fn masked(redactor: Option<&Redactor>, samples: Vec<Vec<Sample>>) -> Vec<Vec<Sample>> {
+    let Some(redactor) = redactor else {
+        return Vec::new();
+    };
+    let mut masked = Vec::with_capacity(samples.len());
+    for kind in samples {
+        let mut kept = Vec::with_capacity(kind.len());
+        for (action, exchange) in kind {
+            kept.push((action, Box::new(redactor.exchange(*exchange).await)));
+        }
+        masked.push(kept);
+    }
+    masked
 }
 
 fn breach(breach: &LoadBreach) -> FindingRow {

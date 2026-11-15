@@ -76,6 +76,10 @@ CREATE TABLE load_findings (
 );
 CREATE INDEX load_findings_by_run ON load_findings(run_id);
 ",
+    r"
+ALTER TABLE exchanges ADD COLUMN load_finding_id INTEGER REFERENCES load_findings(id) ON DELETE SET NULL;
+CREATE INDEX exchanges_by_finding ON exchanges(load_finding_id);
+",
 ];
 
 /// What a file without `load_findings` (D322) reads in its place: the same columns, no rows.
@@ -144,7 +148,7 @@ pub fn open_for_reading(path: &Path) -> Result<Option<Connection>, HistoryError>
 }
 
 /// Shadows each table that lacks a column a later step added (`runs.allowed_failures`, D248;
-/// `test_results.label`, D316) with a temporary view that adds it as `NULL`, and a missing
+/// `test_results.label`, D316; `exchanges.load_finding_id`, D326) with a temporary view that adds it as `NULL`, and a missing
 /// `load_findings` table with an empty view, so the reader's queries hold for a file not
 /// brought up to date.
 fn older_columns(connection: &Connection) -> rusqlite::Result<()> {
@@ -156,7 +160,8 @@ fn older_columns(connection: &Connection) -> rusqlite::Result<()> {
     if !has_findings {
         connection.execute_batch(NO_FINDINGS)?;
     }
-    for (table, column) in [("runs", "allowed_failures"), ("test_results", "label")] {
+    let added = [("runs", "allowed_failures"), ("test_results", "label"), ("exchanges", "load_finding_id")];
+    for (table, column) in added {
         let has: bool = connection.query_row(
             "SELECT EXISTS (SELECT 1 FROM pragma_table_info(?1) WHERE name = ?2)",
             (table, column),
@@ -350,6 +355,9 @@ mod tests {
         assert_eq!(label(&connection), None);
         let findings: i64 = connection.query_row("SELECT COUNT(*) FROM load_findings", [], |row| row.get(0)).unwrap();
         assert_eq!(findings, 0);
+        let sampled: Option<i64> =
+            connection.query_row("SELECT MAX(load_finding_id) FROM exchanges", [], |row| row.get(0)).unwrap();
+        assert_eq!(sampled, None);
         let passed: i64 = connection.query_row("SELECT passed FROM runs", [], |row| row.get(0)).unwrap();
         assert_eq!(passed, 3);
     }

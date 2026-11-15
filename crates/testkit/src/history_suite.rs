@@ -143,13 +143,21 @@ fn findings() -> Vec<FindingRow> {
     vec![breach, error]
 }
 
+/// [`findings`] as written: the error with a sample, which the reader leaves out as it leaves a
+/// test's exchanges out.
+fn findings_sampled() -> Vec<FindingRow> {
+    let sample =
+        ExchangeRow { action: "getUser".into(), method: "GET".into(), status: Some(503), ..ExchangeRow::default() };
+    findings().into_iter().map(|finding| FindingRow { samples: vec![sample.clone()], ..finding }).collect()
+}
+
 fn keeps_a_load_runs_findings(make: &mut MakeHistory<'_>) {
     let (writer, reader) = make();
     let run = writer.begin(&start(&["dev"])).unwrap_or(RunId::new(0));
-    let rows = findings().into_iter().map(Row::Finding).collect();
+    let rows = findings_sampled().into_iter().map(Row::Finding).collect();
     assert_eq!(writer.record(run, rows), Ok(()));
     assert_eq!(writer.finish(run, end(b"load")), Ok(()));
-    assert_eq!(reader.findings(run), Ok(findings()), "the findings are kept as given, in order");
+    assert_eq!(reader.findings(run), Ok(findings()), "the findings are kept as given, in order, samples left out");
     let later = one_run(writer.as_ref(), &["dev"]);
     assert_eq!(reader.findings(later), Ok(Vec::new()), "another run has none of them");
     assert_eq!(writer.prune(Keep::Runs(1)), Ok(1));

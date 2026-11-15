@@ -105,12 +105,92 @@ fn an_older_file_gains_only_the_findings_table_and_reads_its_load_run_as_finding
         let added: Vec<&str> = after.iter().filter(|object| !before.contains(object)).map(String::as_str).collect();
         let kept = before.iter().filter(|object| after.contains(object)).count();
         if steps == 4 {
-            assert_eq!(kept, before.len(), "step 5 changed what was there: {after:?}");
-            assert_eq!(added.len(), 2, "{added:?}");
-            assert!(added[0].starts_with("CREATE TABLE load_findings ("), "{added:?}");
-            assert_eq!(added[1], "CREATE INDEX load_findings_by_run ON load_findings(run_id)");
+            assert_eq!(kept, before.len() - 1, "only step 6 changed what was there, the exchanges: {after:?}");
+            assert_steps_5_and_6_added(&added);
         }
     }
+}
+
+/// `added` is what steps 5 and 6 create: the sample column with its index, and the findings table with its.
+fn assert_steps_5_and_6_added(added: &[&str]) {
+    assert_eq!(added.len(), 4, "{added:?}");
+    assert!(added[0].contains("load_finding_id INTEGER REFERENCES load_findings(id) ON DELETE SET NULL"));
+    assert_eq!(added[1], "CREATE INDEX exchanges_by_finding ON exchanges(load_finding_id)");
+    assert!(added[2].starts_with("CREATE TABLE load_findings ("), "{added:?}");
+    assert_eq!(added[3], "CREATE INDEX load_findings_by_run ON load_findings(run_id)");
+}
+
+#[test]
+fn a_file_with_findings_gains_only_the_sample_column_and_its_index_and_keeps_its_rows() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("history.db");
+    older_load_file(&path, 5);
+    Connection::open(&path)
+        .unwrap()
+        .execute_batch(
+            "INSERT INTO load_findings (run_id, kind, test_id, api_id, status, code, count, shown)
+             VALUES (1, 'error', 'echo.send#sends', 'echo#send', 500, 'V5101', 3, 'errors echo#send 500 V5101 × 3');
+             INSERT INTO exchanges (run_id, action, method, url, total_ms) VALUES (1, 'seed', 'POST', 'http://x', 1.0);",
+        )
+        .unwrap();
+    let before = objects(&path);
+    let reader = SqliteHistoryReader::new(&path);
+    let findings = reader.findings(RunId::new(1)).unwrap();
+    assert_eq!((findings.len(), findings[0].count, findings[0].samples.len()), (1, Some(3), 0));
+    assert_eq!(applied(&path), MIGRATIONS.len());
+    let after = objects(&path);
+    let added: Vec<&str> = after.iter().filter(|object| !before.contains(object)).map(String::as_str).collect();
+    let gone: Vec<&str> = before.iter().filter(|object| !after.contains(object)).map(String::as_str).collect();
+    assert_eq!(added.len(), 2, "the exchanges with their new column, and its index: {added:?}");
+    assert!(added[0].contains("load_finding_id INTEGER REFERENCES load_findings(id) ON DELETE SET NULL"));
+    assert_eq!(added[1], "CREATE INDEX exchanges_by_finding ON exchanges(load_finding_id)");
+    assert_eq!(gone.len(), 1, "{gone:?}");
+    assert!(gone[0].contains("exchanges") && !gone[0].contains("load_finding_id"), "{gone:?}");
+    let owner: Option<i64> = Connection::open(&path)
+        .unwrap()
+        .query_row("SELECT load_finding_id FROM exchanges WHERE action = 'seed'", [], |row| row.get(0))
+        .unwrap();
+    assert_eq!(owner, None, "an exchange stored before samples were belongs to no finding");
+}
+
+#[test]
+fn a_sample_outlives_a_deleted_finding_as_belonging_to_none() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("history.db");
+    older_load_file(&path, MIGRATIONS.len());
+    let connection = Connection::open(&path).unwrap();
+    connection.execute_batch("PRAGMA foreign_keys = ON;").unwrap();
+    connection
+        .execute_batch(
+            "INSERT INTO load_findings (id, run_id, kind, shown) VALUES (7, 1, 'error', 'errors × 1');
+             INSERT INTO exchanges (run_id, action, method, url, total_ms, load_finding_id)
+             VALUES (1, 'getUser', 'GET', 'http://x', 1.0, 7);
+             DELETE FROM load_findings;",
+        )
+        .unwrap();
+    let owner: Option<i64> =
+        connection.query_row("SELECT load_finding_id FROM exchanges", [], |row| row.get(0)).unwrap();
+    assert_eq!(owner, None);
+}
+
+#[test]
+fn the_missing_steps_up_to_the_sample_column_apply_together_or_not_at_all() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("history.db");
+    older_load_file(&path, 3);
+    Connection::open(&path)
+        .unwrap()
+        .execute_batch("ALTER TABLE exchanges ADD COLUMN load_finding_id INTEGER;")
+        .unwrap();
+    assert!(SqliteHistory::open(&path).is_err(), "step 6 cannot add its column");
+    assert_eq!(applied(&path), 3, "steps 4 and 5 were rolled back with step 6");
+    let objects = objects(&path);
+    assert!(!objects.iter().any(|object| object.contains("load_findings")), "{objects:?}");
+    let labels: u64 = Connection::open(&path)
+        .unwrap()
+        .query_row("SELECT COUNT(*) FROM pragma_table_info('test_results') WHERE name = 'label'", [], |row| row.get(0))
+        .unwrap();
+    assert_eq!(labels, 0);
 }
 
 #[test]

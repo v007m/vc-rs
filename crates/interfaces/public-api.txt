@@ -1060,6 +1060,7 @@ pub vc_interfaces::FindingRow::code: core::option::Option<alloc::string::String>
 pub vc_interfaces::FindingRow::count: core::option::Option<u64>
 pub vc_interfaces::FindingRow::kind: vc_interfaces::FindingKind
 pub vc_interfaces::FindingRow::metric: core::option::Option<alloc::string::String>
+pub vc_interfaces::FindingRow::samples: alloc::vec::Vec<vc_interfaces::ExchangeRow>
 pub vc_interfaces::FindingRow::shown: alloc::string::String
 pub vc_interfaces::FindingRow::status: core::option::Option<u16>
 pub vc_interfaces::FindingRow::test_id: core::option::Option<alloc::string::String>

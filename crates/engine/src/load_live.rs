@@ -11,7 +11,7 @@ use tokio::sync::mpsc;
 use vc_executor::{Arguments, CancelTree, IterationReport, MatcherRegistry, ProgramIterations};
 use vc_interfaces::{IntervalRow, Random, Row};
 use vc_loadtest::{Breach, Failed, LoadError, LoadOutcome, LoadParts, Second, run_load};
-use vc_model::{ApiId, Event, LoadScenario, Part, Program, TemplateValue, TestId};
+use vc_model::{ActionId, ApiId, Event, Exchange, LoadScenario, Part, Program, TemplateValue, TestId};
 use vc_template::RenderError;
 
 use crate::history::Recording;
@@ -20,6 +20,19 @@ use crate::{ErrorKind, Interrupts};
 /// What failed an iteration: the api its failing action calls, the test, that action's last
 /// status and the failure's code.
 type Kind = (Option<ApiId>, Option<TestId>, Option<u16>, Option<String>);
+
+/// A failed iteration's exchange, unmasked until the run closes, and the action that sent it.
+pub type Sample = (Option<ActionId>, Box<Exchange>);
+
+/// How many exchanges of each error kind the history keeps (D326).
+const SAMPLES: usize = 5;
+
+/// How often a kind of error happened, and its first [`SAMPLES`] exchanges.
+#[derive(Debug, Default)]
+struct Tally {
+    count: u64,
+    samples: Vec<Sample>,
+}
 
 /// Closed seconds the stage loop may queue before it waits for the history.
 const SECONDS_QUEUE: usize = 16;
@@ -30,7 +43,7 @@ pub struct Live {
     /// The history's run, until it is closed.
     pub recording: Option<Recording>,
     ticks: Option<mpsc::Sender<Event>>,
-    kinds: BTreeMap<Kind, u64>,
+    kinds: BTreeMap<Kind, Tally>,
     /// The first rows the history could not take.
     pub problem: Option<String>,
 }
@@ -45,18 +58,17 @@ impl Live {
         self.recording.as_ref().map(|recording| recording.id().get())
     }
 
-    /// The failed iterations by kind, most first.
-    pub fn error_kinds(&self, program: &Program) -> Vec<ErrorKind> {
-        let mut kinds: Vec<ErrorKind> = self
-            .kinds
-            .iter()
-            .map(|((api, test, status, code), &count)| {
+    /// Takes the failed iterations by kind, most first, each with its first few exchanges.
+    pub fn error_kinds(&mut self, program: &Program) -> Vec<(ErrorKind, Vec<Sample>)> {
+        let mut kinds: Vec<(ErrorKind, Vec<Sample>)> = std::mem::take(&mut self.kinds)
+            .into_iter()
+            .map(|((api, test, status, code), tally)| {
                 let api = api.and_then(|api| program.str(api.sym())).map(str::to_owned);
                 let test = test.and_then(|test| program.str(test.sym())).map(str::to_owned);
-                ErrorKind { api, test, status: *status, code: code.clone(), count }
+                (ErrorKind { api, test, status, code, count: tally.count }, tally.samples)
             })
             .collect();
-        kinds.sort_by_key(|kind| std::cmp::Reverse(kind.count));
+        kinds.sort_by_key(|(kind, _)| std::cmp::Reverse(kind.count));
         kinds
     }
 
@@ -74,11 +86,18 @@ impl Live {
         self
     }
 
-    /// Counts by kind the failed iterations the run has kept so far.
+    /// Counts by kind the failed iterations the run has kept so far, keeping the exchanges of
+    /// each kind's first few.
     fn count(&mut self, failed: &mut mpsc::UnboundedReceiver<Failed>) {
-        while let Ok((test, report)) = failed.try_recv() {
-            let count = self.kinds.entry(kind(test, &report)).or_default();
-            *count = count.saturating_add(1);
+        while let Ok((test, mut report)) = failed.try_recv() {
+            let tally = self.kinds.entry(kind(test, &report)).or_default();
+            tally.count = tally.count.saturating_add(1);
+            if tally.samples.len() < SAMPLES
+                && let Some(failure) = report.failure.as_mut()
+                && let Some(exchange) = failure.exchange.take()
+            {
+                tally.samples.push((failure.action, exchange));
+            }
         }
     }
 

@@ -157,6 +157,7 @@ fn finding_row(row: &SqlRow<'_>) -> rusqlite::Result<FindingRow> {
         count: row.get::<_, Option<i64>>(6)?.map(i64::cast_unsigned),
         actual: row.get(7)?,
         shown: row.get(8)?,
+        samples: Vec::new(),
     })
 }
 

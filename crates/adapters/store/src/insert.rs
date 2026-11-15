@@ -4,11 +4,12 @@ use vc_model::Keep;
 
 use crate::codec::{compress, json, run_status_text, test_status_text};
 
-/// The run and test result an exchange belongs to.
+/// The run an exchange belongs to, and the test result or the load run's error kind (D326).
 #[derive(Clone, Copy, Debug)]
 struct Owner {
     run: RunId,
     test: Option<i64>,
+    finding: Option<i64>,
 }
 
 /// Adds a run and gives its ID.
@@ -36,7 +37,7 @@ pub fn rows(transaction: &Transaction<'_>, run: RunId, rows: &[Row]) -> rusqlite
     for row in rows {
         match row {
             Row::Test(test) => self::test(transaction, run, test)?,
-            Row::Exchange(exchange) => self::exchange(transaction, Owner { run, test: None }, exchange)?,
+            Row::Exchange(exchange) => self::exchange(transaction, Owner { run, test: None, finding: None }, exchange)?,
             Row::Interval(interval) => self::interval(transaction, run, interval)?,
             Row::Finding(finding) => self::finding(transaction, run, finding)?,
         }
@@ -97,7 +98,9 @@ fn test(transaction: &Transaction<'_>, run: RunId, test: &TestRow) -> rusqlite::
         ))?;
     let id = transaction.last_insert_rowid();
     test.checks.iter().try_for_each(|check| self::check(transaction, id, check))?;
-    test.exchanges.iter().try_for_each(|exchange| self::exchange(transaction, Owner { run, test: Some(id) }, exchange))
+    test.exchanges
+        .iter()
+        .try_for_each(|exchange| self::exchange(transaction, Owner { run, test: Some(id), finding: None }, exchange))
 }
 
 fn interval(transaction: &Transaction<'_>, run: RunId, interval: &IntervalRow) -> rusqlite::Result<()> {
@@ -134,8 +137,9 @@ fn finding(transaction: &Transaction<'_>, run: RunId, finding: &FindingRow) -> r
             finding.count.map(u64::cast_signed),
             finding.actual,
             &finding.shown,
-        ))
-        .map(drop)
+        ))?;
+    let owner = Owner { run, test: None, finding: Some(transaction.last_insert_rowid()) };
+    finding.samples.iter().try_for_each(|sample| self::exchange(transaction, owner, sample))
 }
 
 fn check(transaction: &Transaction<'_>, test: i64, check: &CheckRow) -> rusqlite::Result<()> {
@@ -166,8 +170,8 @@ fn exchange(transaction: &Transaction<'_>, owner: Owner, exchange: &ExchangeRow)
         .prepare_cached(
             "INSERT INTO exchanges (test_result_id, run_id, action, api_id, method, url, status, dns_ms, connect_ms,
                 tls_ms, first_byte_ms, download_ms, total_ms, request_headers, response_headers, request_body,
-                response_body, body_truncated)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18)",
+                response_body, body_truncated, load_finding_id)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19)",
         )?
         .execute(rusqlite::params![
             owner.test,
@@ -188,6 +192,7 @@ fn exchange(transaction: &Transaction<'_>, owner: Owner, exchange: &ExchangeRow)
             request_body,
             response_body,
             exchange.body_truncated,
+            owner.finding,
         ])
         .map(drop)
 }

@@ -74,6 +74,32 @@ async fn a_failing_iteration_reports_its_failure_and_status() {
 }
 
 #[tokio::test]
+async fn a_failing_iteration_keeps_its_failing_call_s_exchange_unmasked_and_a_passing_one_keeps_none() {
+    const TOKEN: &str = "Kd4R-8wNq-Yb6T-2hVz-Jc5M";
+    let mut fixture = Fixture::new();
+    let (fail, browse) = (fixture.call("/fail"), fixture.call("/browse"));
+    fixture.api_mut(fail).headers = fixture.templates(&[("x-token", TOKEN)]);
+    fixture.api_mut(fail).query = fixture.templates(&[("key", TOKEN)]);
+    let (failing, passing) = (fixture.test(vec![browse, fail], None), fixture.test(vec![browse], None));
+    let plan = fixture.plan(&[], &[(failing, 1), (passing, 1)]);
+    let (server, _sent) = Server::new();
+    let cx = fixture.cx(ActionExecutors::standard(PipelineParts::new(server, HostLimits::spawn(64))));
+    cx.redactor.hide_values([TOKEN]);
+    let setup =
+        IterationSetup { bus: EventBus::spawn(), cancel: CancelTree::new(Duration::from_secs(5)), full_checks: false };
+    let iterations = ProgramIterations::prepare(cx, Arc::new(plan), setup).await.unwrap();
+    let failure = iterations.iterate(failing, 1).await.failure.unwrap_or_default();
+    assert_eq!(failure.action, Some(fail));
+    let exchange = failure.exchange.unwrap();
+    assert_eq!((exchange.request.uri.path(), exchange.response.status.as_u16()), ("/fail", 500), "the failing call's");
+    let header = exchange.request.headers.get("x-token").map(http::HeaderValue::as_bytes);
+    let query = exchange.request.uri.query().unwrap_or_default();
+    assert_eq!(header, Some(TOKEN.as_bytes()), "masked only at close, by the engine: {exchange:?}");
+    assert_eq!(query, format!("key={TOKEN}"));
+    assert_eq!(iterations.iterate(passing, 1).await.failure, None);
+}
+
+#[tokio::test]
 async fn a_failed_check_on_the_second_call_blames_that_call_not_the_cleanup_after_it() {
     let mut fixture = Fixture::new();
     let cleanup = fixture.call("/cleanup");

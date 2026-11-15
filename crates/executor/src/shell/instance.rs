@@ -4,7 +4,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use tokio::time::Instant;
-use vc_model::{ActionId, ApiId, Event, Failure, OwnerKey, TestResult, TestStatus};
+use vc_model::{ActionId, ApiId, Event, Exchange, Failure, OwnerKey, TestResult, TestStatus};
 
 use super::crew::{Crew, Deadline, Job};
 use crate::cancel::{CancelTree, Ran};
@@ -41,6 +41,14 @@ pub async fn iteration(crew: Crew, ticket: Ticket) -> IterationReport {
     IterationReport { passed, calls: shell.calls, failure }
 }
 
+/// The calls an attempt's first failure sent, as a span of the instance's calls, and the last
+/// of its exchanges, unmasked.
+#[derive(Debug)]
+struct Failing {
+    span: Range<usize>,
+    exchange: Option<Exchange>,
+}
+
 struct InstanceShell {
     crew: Crew,
     ticket: Ticket,
@@ -52,10 +60,10 @@ struct InstanceShell {
     deadline: Option<Deadline>,
     /// Each request its actions and cleanups sent, in order.
     calls: Vec<IterationCall>,
-    /// Which of `calls` the current attempt's first failure sent, once an action failed.
-    failing: Option<Range<usize>>,
-    /// Which of `calls` the previous attempt's first failure sent, once the instance retries.
-    earlier_failing: Option<Range<usize>>,
+    /// What the current attempt's first failure sent, once an action failed.
+    failing: Option<Failing>,
+    /// What the previous attempt's first failure sent, once the instance retries.
+    earlier_failing: Option<Failing>,
     /// When the instance got its turn, which its result's duration runs from.
     started: Instant,
 }
@@ -187,10 +195,14 @@ impl InstanceShell {
         self.calls.extend(calls);
     }
 
-    /// Keeps which calls a failed `report` sent, if it is the attempt's first to fail.
+    /// Keeps which calls a failed `report` sent and its last exchange, if it is the attempt's
+    /// first to fail.
     fn note_failing(&mut self, report: &ActionReport) {
         if self.failing.is_none() && report.outcome.failure().is_some() {
-            self.failing = Some(report.failing_after(self.calls.len()));
+            let before = self.calls.len();
+            let span = report.failing_after(before);
+            let sent = report.exchanges.get(span.start.saturating_sub(before)..span.end.saturating_sub(before));
+            self.failing = Some(Failing { span, exchange: sent.and_then(<[Exchange]>::last).cloned() });
         }
     }
 
@@ -202,12 +214,15 @@ impl InstanceShell {
     /// `failure` with the api its action calls and the status of the last call it sent. As in
     /// the workflow, the verdict's failure is the last attempt's first, or the attempt before's
     /// when the last passed or was cut short, so its calls are `failing` or `earlier_failing`.
-    /// A step of a `test:` reuse has its calls recorded under the reusing action.
-    fn blame(&self, failure: Failure) -> IterationFailure {
+    /// A step of a `test:` reuse has its calls recorded under the reusing action. Its last
+    /// exchange is moved on unmasked: the engine masks the few it keeps when the run closes (D326).
+    fn blame(&mut self, failure: Failure) -> IterationFailure {
         let Failure { action, code, message } = failure;
-        let span = self.failing.clone().or_else(|| self.earlier_failing.clone());
+        let failing = self.failing.take().or_else(|| self.earlier_failing.take());
+        let (span, exchange) = failing.map_or((None, None), |failing| (Some(failing.span), failing.exchange));
         let status = span.and_then(|span| self.calls.get(span)?.last()).and_then(|call| call.status);
-        IterationFailure { api: action.and_then(|action| self.api(action)), status, code, message }
+        let api = action.and_then(|action| self.api(action));
+        IterationFailure { api, status, code, message, action, exchange: exchange.map(Box::new) }
     }
 
     /// Waits out the retry delay, unless the frame is cancelled or aborted first.
