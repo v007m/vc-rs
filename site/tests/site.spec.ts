@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
-// Layout checks on the built site: the landing page's window cards, the header's search and tabs,
-// and that no page scrolls sideways on a phone.
+// Layout checks on the built site: the landing page's window cards and their titles, the header's
+// search and tabs, and that no page scrolls sideways on a phone.
 const BASE = '/vc-rs';
 const DESKTOP = { width: 1440, height: 900 };
 const PHONE = { width: 390, height: 844 };
@@ -41,6 +41,29 @@ for (const theme of ['dark', 'light']) {
         expect(boxes.map((b) => b.clipped)).toEqual([0, 0, 0]);
       }
     });
+
+    for (const width of [360, 390]) {
+      test(`window titles show whole at ${width}px, wrapping only after a slash`, async ({ page }) => {
+        await page.setViewportSize({ width, height: 844 });
+        await page.goto(`${BASE}/`);
+        const titles = await page.locator('.lp-window-title').evaluateAll((els) =>
+          els.map((e) => {
+            const range = document.createRange();
+            const lines = [...e.childNodes]
+              .filter((n) => n.nodeType === Node.TEXT_NODE)
+              .map((n) => (range.selectNodeContents(n), range.getClientRects().length));
+            return { text: e.textContent ?? '', clipped: e.scrollWidth - e.clientWidth, lines };
+          }),
+        );
+        expect(titles.map((t) => t.text)).toContain('services/users/users.api.yaml');
+        for (const title of titles) {
+          expect(title.clipped, title.text).toBeLessThanOrEqual(0);
+          expect(title.lines.every((n) => n === 1), `${title.text}: ${title.lines}`).toBe(true);
+        }
+        const wrapped = titles.find((t) => t.text === 'services/users/signup.test.yaml');
+        expect(wrapped?.lines.length, 'a path is cut after each slash').toBe(3);
+      });
+    }
 
     test('content scrolled under the header does not read through it', async ({ page }) => {
       await page.setViewportSize(DESKTOP);
