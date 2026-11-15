@@ -96,6 +96,8 @@ apis:
       status: [204, 404]
 ```
 
+The project comes from `vc init`, and its config adds `usersUrl: http://localhost:7421` under `vars`, the address of `vc demo`.
+
 A test **calls** an api by its ID and adds the checks it cares about. `createsUser` sets the email itself; the name stays a fake one.
 
 ```yaml title="services/users/accounts.test.yaml"

@@ -6,9 +6,9 @@ sidebar: { order: 5 }
 
 import { Aside, Steps, Tabs, TabItem } from '@astrojs/starlight/components';
 
-Each recipe gives a prompt you can hand to an agent, the tool calls or commands the agent makes, and the real output. All of them ran against the demo service (`vc demo start`, port 7531) in a project with this config:
+Each recipe gives a prompt you can hand to an agent, the tool calls or commands the agent makes, and the real output. All of them ran against the demo service (`vc demo start`, port 7531) in a `vc init --no-sample` project whose config sets these keys:
 
-```yaml title="vibranium.config.yaml"
+```yaml title="vibranium.config.yaml (excerpt)"
 syntaxVersion: 2
 project: people
 
@@ -31,6 +31,8 @@ The MCP server has no tool for import, sync or load. For those steps the agent r
 ## 1. Tests for a new endpoint from an OpenAPI spec
 
 > **Prompt:** "Our people service has an OpenAPI spec at `specs/people.yaml`. Import it into Vibranium with starter tests, run them and fix any that fail."
+
+`specs/people.yaml` is written like the spec in [OpenAPI import and sync](/vc-rs/guides/openapi-import-and-sync/), with the server `http://localhost:7531` and three operations: `listPeople` (`GET /users`, 200 with a list of `Person`), `createPerson` (`POST /users`, a body that requires `name` and `email`, 201 with a `Person`) and `getPerson` (`GET /users/{id}`, 200 with a `Person`). A `Person` requires `id` and `name`.
 
 <Steps>
 1. Preview the import. Nothing is written:
@@ -64,6 +66,7 @@ The MCP server has no tool for import, sync or load. For those steps the agent r
    2 passed · 1 failed                                          6ms · profile local
    reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
    next     vc run --failed
+   seed 7693893374991573: pass `--seed 7693893374991573` to run with the same generated data
    ```
 
    The import wrote `services/people/people.api.yaml`. It matched the spec's server to the `peopleUrl` var, so `baseUrl` is `${var.peopleUrl}`. Request bodies and path params get generated data, and `getsPerson` first creates a person, then gets it by the id `createPerson` saved:
@@ -233,7 +236,18 @@ The agent writes the file, runs `vc check`, applies certain fixes, and runs the 
 }
 ```
 
-The agent corrects the text and writes again, then calls `check` and `run_tests`:
+The agent corrects the text and writes this file, then calls `check` and `run_tests`:
+
+```yaml title="services/people/listing.test.yaml"
+tests:
+  - id: listsAdaFirst
+    name: Lists Ada first
+    call: people#listPeople
+    expect:
+      body:
+        match:
+          "[0].name": Ada Lovelace
+```
 
 ```json title="write_definition, then check"
 { "titles": ["Create services/people/listing.test.yaml"], "written": ["services/people/listing.test.yaml"] }
@@ -249,6 +263,22 @@ Pass the tests to run as `ids`: `run_tests {"ids": ["people.listing"]}`. The ser
 ## 3. Triage a failing run
 
 > **Prompt:** "The last run failed. Find out why and fix it."
+
+Run 7 ran every test in the project, this one among them:
+
+```yaml title="services/people/diff.test.yaml"
+tests:
+  - id: getsGraceExactly
+    name: Gets Grace exactly
+    call: people#getPerson
+    vars:
+      id: "2"
+    expect:
+      body:
+        equals:
+          id: "2"
+          name: Grace Brewster Hopper
+```
 
 <Steps>
 1. Find the failed run. `query_history {"limit": 2}` over MCP, or `vc history` in a shell:

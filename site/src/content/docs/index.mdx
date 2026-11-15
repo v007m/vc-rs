@@ -94,7 +94,7 @@ Sign-up
     |               ^^^ expected [200], got 201
 
 0 passed · 1 failed                                          4ms · profile local
-reports  /home/you/shop/.vibranium/reports/2/{ctrf.json,junit.xml}
+reports  /home/you/shop/.vibranium/reports/2/ctrf.json
 next     vc run --failed
 seed 3050924948966528: pass `--seed 3050924948966528` to run with the same generated data
 ```
@@ -102,7 +102,7 @@ seed 3050924948966528: pass `--seed 3050924948966528` to run with the same gener
 </Window>
 </WindowRow>
 
-<p class="lp-note">As written, the test passes: <code>POST /users</code> on the bundled <code>vc demo</code> service answers <code>201</code> with the new user, and the api's <code>cleanup</code> deletes it after the run. The last window is the same test with line 8 changed to <code>status: 200</code>, and the error names that line. The <a href="/vc-rs/start/quickstart/">quickstart</a> builds this with you.</p>
+<p class="lp-note">As written, the test passes: <code>POST /users</code> on the bundled <code>vc demo</code> service answers <code>201</code> with the new user, and the api's <code>cleanup</code> deletes it after the run. The last window is the same test with line 8 changed to <code>status: 200</code>, and the error names that line. The api window is an excerpt of the <a href="/vc-rs/start/cheatsheet/#an-api-file">cheatsheet's api file</a>, and the config sets <code>usersUrl</code> and a default profile <code>local</code>. The <a href="/vc-rs/start/quickstart/">quickstart</a> builds this with you.</p>
 </Section>
 
 <Section id="features" eyebrow="What it does" title="One engine for every kind of API test" lead="Write a test once, then check it, run it, load it or hand it to an agent. Every front end runs the same engine.">
