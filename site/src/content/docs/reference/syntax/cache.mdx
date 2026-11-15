@@ -91,6 +91,9 @@ tests:
 The first run sends the `POST` and stores the result. The user's cleanup is not run at the end of the run: the cache owns it now.
 
 ```console
+$ vc run flow.cache
+plan  1 test in 1 file · lifecycle: beforeAll admin · profile default
+...
 $ vc cache list
 sample#createUser  expires 2026-11-10 18:42Z  profile default
 ```

@@ -103,7 +103,7 @@ tests:
           email: ${example.email}
 ```
 
-`vc plan` lists one instance per row:
+With `createsFromDataset` and `createsFromFile` from the [next](#rows-from-a-dataset) [two](#rows-from-a-file) sections added to the file, `vc plan` lists one instance per row:
 
 ```console
 $ vc plan sample.rows
@@ -149,7 +149,7 @@ ann@example.com,Ann
 bob@example.com,Bob
 ```
 
-```yaml
+```yaml title="services/sample/rows.test.yaml (excerpt)"
   - id: createsFromDataset
     name: Creates a user from each dataset row
     examples: ${dataset.people}
@@ -170,7 +170,7 @@ bob@example.com,Bob
   name: Bob
 ```
 
-```yaml
+```yaml title="services/sample/rows.test.yaml (excerpt)"
   - id: createsFromFile
     name: Creates a user from each row of a file
     examples:

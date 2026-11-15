@@ -65,6 +65,8 @@ apis:
     path: /users
     body:
       email: ${fake.internet.email}
+    save:
+      userId: ${response.body.id}
     cleanup:
       call: deleteUser          # short ID: same file
       vars:
@@ -82,7 +84,14 @@ tests:
 
 ### A file whose ID has two words
 
-`services/prec/clean.api.yaml` is not named like its folder, so its ID is `prec.clean`. Writing just `clean` fails:
+`services/prec/clean.api.yaml` is not named like its folder, so its ID is `prec.clean`. With an api `make` in it, writing just `clean` fails:
+
+```yaml wrong title="services/prec/order.test.yaml"
+tests:
+  - id: makesOne
+    steps:
+      - call: clean#make
+```
 
 ```console
 $ vc check
@@ -92,13 +101,15 @@ error[V2003]: unknown api "clean#make"
 4 |       - call: clean#make
   |               ^^^^^^^^^^ no api has this ID
   = help: check the file ID and the item's `id`; another file's item is `fileId#id`
+
+1 error · 0 warnings · 5 files checked
 ```
 
 The fix is `call: prec.clean#make`.
 
 ### Step IDs name a response
 
-Give a step an `id` and later steps can read its response as `${<stepId>.body...}`. In a `beforeAll` block, the `id` also groups the action's saved values: `${var.shared.userId}`.
+Give a step an `id` and later steps can read its response as `${<stepId>.body...}`. In a `beforeAll` block, the `id` also groups the action's saved values: `${var.shared.userId}`. `prec#show` sends `c` and `d` in a `POST /echo` body.
 
 ```yaml title="services/prec/saves.test.yaml"
 beforeAll:
@@ -118,6 +129,8 @@ tests:
 `vc run prec.saves` passed with these values read back from the echo service.
 
 ### Selecting by ID on the command line
+
+With the flows file from [tags](/vc-rs/reference/syntax/tags/#file-tags-plus-test-tags):
 
 ```console
 $ vc list tests tagged.flows
@@ -151,6 +164,16 @@ tests:
 
 ## Common errors
 
+Each check below runs in a `vc init` project with only the file shown added. For V2001 it is the two `saveon` files from [How it behaves](#how-it-behaves), each starting with the line shown.
+
+```yaml wrong title="services/prec/clean.api.yaml"
+id: clean
+baseUrl: ${var.sampleUrl}
+apis:
+  - id: make
+    path: /users
+```
+
 ```console
 $ vc check
 error[V2007]: the file ID is `prec.clean` from its path, not `clean`
@@ -160,6 +183,8 @@ error[V2007]: the file ID is `prec.clean` from its path, not `clean`
   |     ^^^^^ does not match the path
   = help: remove the `id:` key, or move the file to match it
   = fix: Write prec.clean (certain)
+
+1 error · 0 warnings · 4 files checked
 ```
 
 ```console
@@ -174,6 +199,15 @@ error[V2001]: two files have the ID `prec.saveon`
 1 | baseUrl: ${var.sampleUrl}
   | ------- the other file with that ID
   = help: rename or move one of the files
+
+1 error · 0 warnings · 5 files checked
+```
+
+```yaml wrong title="services/lint/lint.api.yaml"
+baseUrl: ${var.sampleUrl}
+apis:
+  - id: get_user
+    path: /users/${var.userId}
 ```
 
 ```console
@@ -182,6 +216,8 @@ warning[V4002]: api ID `get_user` is not camelCase
 ...
   = help: api IDs are camelCase: `getUser`
   = fix: Rename to getUser (certain)
+
+0 errors · 1 warning · 4 files checked
 ```
 
 | Code | When |

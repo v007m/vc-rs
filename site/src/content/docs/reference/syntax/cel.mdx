@@ -43,7 +43,7 @@ CEL reads like a one-line JavaScript expression. It has no loops, network or fil
 
 ## Examples
 
-The examples call `users#list`, `users#create` and `users#get` from the users api file in the [syntax overview](/vc-rs/reference/syntax/). One also calls `echo#json`, a minimal api for this page that sends `POST /echo` with a small JSON body; the demo answers with the request it got, the body under `body`:
+The examples call `users#list`, `users#create` and `users#get` from the users api file in the [syntax overview](/vc-rs/reference/syntax/#the-project-these-pages-use), which also has the `delete` api that `create`'s cleanup calls. One also calls `echo#json`, the shared echo api that sends `POST /echo` with a small JSON body; the demo answers with the request it got, the body under `body`:
 
 ```yaml title="services/users/users.api.yaml (excerpt)"
 baseUrl: ${var.usersUrl}

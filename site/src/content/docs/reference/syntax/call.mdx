@@ -102,7 +102,7 @@ tests:
 
 ### Overriding the api for one call
 
-`echo#json` is a minimal api for this page. It sends `POST /echo` with a small JSON body, and the demo answers with the request it got, the body under `body`:
+`echo#json` is the [shared echo api](/vc-rs/reference/syntax/#the-project-these-pages-use). It sends `POST /echo` with a small JSON body, and the demo answers with the request it got, the body under `body`:
 
 ```yaml title="services/echo/echo.api.yaml (excerpt)"
 baseUrl: ${var.echoUrl}

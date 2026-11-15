@@ -215,6 +215,18 @@ apis:
 
 ## Common errors
 
+In a `vc init` project, with a cleanup that names an api the file does not have:
+
+```yaml wrong title="services/errs/errs.api.yaml"
+baseUrl: ${var.sampleUrl}
+apis:
+  - id: doIt
+    method: POST
+    path: /users
+    cleanup:
+      call: undoIt
+```
+
 ```console
 $ vc check
 error[V2003]: unknown api "errs#undoIt"
@@ -222,7 +234,10 @@ error[V2003]: unknown api "errs#undoIt"
   |
 7 |       call: undoIt
   |             ^^^^^^ no api has this ID
-  = help: check the file ID and the item's `id`; another file's item is `fileId#id`
+  = help: did you mean `errs#doIt`?
+  = fix: Replace with doIt (certain)
+
+1 error · 0 warnings · 2 files checked
 ```
 
 | Code | When |

@@ -137,14 +137,14 @@ profile  default
 
 ### Point one call somewhere else
 
-Set the var in the test's `vars`. Only this call changes. Here it points at a server that has no `/echo`, so the test expects 404:
+Set the var in the test's `vars`. Only this call changes. Here it points under `/users`, where the demo has no `/echo`, so the test expects 404:
 
 ```yaml title="services/nobase/urls.test.yaml"
 tests:
   - id: pointsElsewhere
     call: req#defaultMethod
     vars:
-      sampleUrl: http://localhost:7442
+      sampleUrl: http://localhost:7421/users
     expect:
       status: 404
 ```
@@ -154,9 +154,9 @@ $ vc explain nobase.urls#pointsElsewhere
 nobase.urls#pointsElsewhere
 profile  default
 call req#defaultMethod
-  GET http://localhost:7442/echo
+  GET http://localhost:7421/users/echo
   vars
-    sampleUrl  http://localhost:7442  (test)
+    sampleUrl  http://localhost:7421/users  (test)
   headers
     accept  application/json  (vibranium.config.yaml)
     user-agent  vibranium/2  (vibranium.config.yaml)
@@ -164,12 +164,11 @@ call req#defaultMethod
     status: 404  (test nobase.urls#pointsElsewhere)
 
 $ vc run nobase.urls
-plan  2 tests in 1 file · profile default
+plan  1 test in 1 file · profile default
 
-✓ nobase.urls#callsFullPath                                       0ms
 ✓ nobase.urls#pointsElsewhere                                     0ms
 
-2 passed                                                     55ms · profile default
+1 passed                                                     55ms · profile default
 reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
 ```
 

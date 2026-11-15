@@ -50,7 +50,7 @@ Anything else is a **literal**, and the value at the path must equal it exactly.
 
 ## Examples
 
-Most examples call `echo#json`, a minimal api for this page that sends `POST /echo` with a small JSON body; the demo answers with the request it got, the body under `body`. Two call `users#list` and `users#get` from the users api file in the [syntax overview](/vc-rs/reference/syntax/):
+Most examples call `echo#json`, the [shared echo api](/vc-rs/reference/syntax/#the-project-these-pages-use) that sends `POST /echo` with a small JSON body; the demo answers with the request it got, the body under `body`. Two call `users#list` and `users#get` from the users api file in the [syntax overview](/vc-rs/reference/syntax/#the-project-these-pages-use):
 
 ```yaml title="services/echo/echo.api.yaml (excerpt)"
 baseUrl: ${var.echoUrl}

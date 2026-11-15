@@ -42,7 +42,7 @@ apis:
 
 The config sets `accept`. The file sets `x-team` and `x-trace`. The api replaces `accept` and `x-trace`:
 
-```yaml title="vibranium.config.yaml"
+```yaml title="vibranium.config.yaml (excerpt)"
 defaults:
   headers:
     accept: application/json
@@ -105,24 +105,31 @@ tests:
 
 ```console
 $ vc run req.shape
-plan  2 tests in 1 file · profile default
+plan  1 test in 1 file · profile default
 
 ✓ req.shape#overridesHeaders                                      3ms
-✓ req.shape#mergesQuery                                           3ms
 
-2 passed                                                     3ms · profile default
+1 passed                                                     3ms · profile default
 reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
 ```
 
 ### Values are text
 
-A number is sent as text:
+A number is sent as text. This is the `qlab` api file from [query](/vc-rs/reference/syntax/query/#numbers-booleans-and-null):
 
 ```yaml title="services/qlab/qlab.api.yaml"
+baseUrl: ${var.sampleUrl}
+apis:
   - id: typed
     path: /echo
+    query:
+      n: 5
+      flag: true
+      gone: ${var.nothing}
     headers:
       x-n: 5
+    vars:
+      nothing: null
 ```
 
 ```console
@@ -158,7 +165,7 @@ apis:
 ```
 
 ```yaml title="services/bodylab/e.test.yaml"
-  - id: unusedDefault
+  - id: setsUnusedDefault
     headers:
       x-a: "1"
     steps:

@@ -190,11 +190,23 @@ apis:
 | [V2003](/vc-rs/reference/diagnostics/v2003/) | A test calls an api ID that does not exist |
 | [V4002](/vc-rs/reference/diagnostics/v4002/) | An api ID is not camelCase |
 
+In a `vc init` project, with an entry that has no `id`:
+
+```yaml wrong title="services/users/users.api.yaml"
+baseUrl: ${var.sampleUrl}
+apis:
+  - name: Create a user
+    method: POST
+    path: /users
+```
+
 ```console
 $ vc check
 error[V1005]: an apiEntry needs `id`
 ...
   = help: add `id: create`: camelCase; `create` is referenced as `users#create`
+
+1 error · 0 warnings · 4 files checked
 ```
 
 ## Related
