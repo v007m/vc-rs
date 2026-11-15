@@ -113,3 +113,24 @@ fn the_dot_graph_has_a_node_per_lifecycle_action_and_edges_for_order_and_needs()
     }
     assert_eq!(edges.iter().filter(|edge| edge.ends_with("(needs)")).count(), 1, "{edges:#?}");
 }
+
+/// A `beforeEach` command and a test run twice, beside a test run once.
+const EACH: &str = "name: Each
+beforeEach:
+  - command: echo each
+tests:
+  - id: listsUsers
+    call: users#list
+  - id: listsTwice
+    call: users#list
+    repeat: 2
+";
+
+#[test]
+fn the_plan_line_counts_before_each_actions_of_any_kind_once_per_instance() {
+    let program = common::project_with(&[("services/users/each.test.yaml", EACH)]);
+    let line = |ids: &[&str]| vc_planner::plan_line(&program, &common::planned(&program, &common::ids(ids)));
+    let lifecycle = "lifecycle: beforeRun warm, cold · beforeEach";
+    assert_eq!(line(&["users.each#listsUsers"]), format!("1 test in 1 file · {lifecycle} ×1 action"));
+    assert_eq!(line(&["users.each"]), format!("2 tests (3 instances) in 1 file · {lifecycle} ×3 actions"));
+}

@@ -18,7 +18,7 @@ pub use self::json::json;
 pub use self::tree::tree;
 
 /// The one-line summary `vc run` prints first:
-/// `4 tests (9 instances) in 3 files · lifecycle: beforeRun admin · beforeAll catalog · beforeEach ×9 calls`.
+/// `4 tests (9 instances) in 3 files · lifecycle: beforeRun admin · beforeAll catalog · beforeEach ×9 actions`.
 ///
 /// It counts tests, then, when example rows or repeats make more, the instances they run.
 /// The engine appends what only it knows, such as the profiles and cache hits.
@@ -58,7 +58,7 @@ fn lifecycle(program: &Program, plan: &Plan) -> Vec<String> {
     }
     let each: usize = plan.files.iter().map(|file| before_each_calls(program, file)).sum();
     if each > 0 {
-        parts.push(format!("beforeEach ×{each} calls"));
+        parts.push(format!("beforeEach ×{}", count(each, "action")));
     }
     parts
 }
