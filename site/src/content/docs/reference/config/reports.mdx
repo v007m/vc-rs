@@ -27,7 +27,7 @@ All three can be changed with `--set`.
 
 ## Examples
 
-With the config above, run 70 writes three files. The last line of the run says where:
+In [the project these pages use](/vc-rs/reference/config/#the-project-these-pages-use), with the config above, run 70 writes three files. The last line of the run says where:
 
 ```console
 $ vc run slow.par
@@ -61,14 +61,23 @@ reports  /…/try-sb-config/.vibranium/reports/72/ctrf.json
 
 An unknown format, in the file and on the command line:
 
+```yaml wrong V2302 title="vibranium.config.yaml"
+syntaxVersion: 2
+profiles:
+  - id: dev
+    default: true
+reports:
+  formats: [ctrf, pdf]
+```
+
 ```console
 $ vc check
 error[V2302]: expected one of ctrf, junit, html or a reporter plugin's ID, found `pdf`
-  --> vibranium.config.yaml:53:19
-   |
-53 |   formats: [ctrf, pdf]
-   |                   ^^^ not a report format or plugin
-   = help: expected one of `ctrf`, `junit`, `html`
+ --> vibranium.config.yaml:6:19
+  |
+6 |   formats: [ctrf, pdf]
+  |                   ^^^ not a report format or plugin
+  = help: expected one of `ctrf`, `junit`, `html`
 
 $ vc run slow.par --set reports.formats=pdf
 error: --set: no report format `pdf`

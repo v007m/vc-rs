@@ -82,9 +82,14 @@ profile = default  (vibranium.config.yaml)
 
 A file that is not YAML stops every command, with exit code 2:
 
+```yaml wrong title="~/.config/vibranium/config.yaml"
+defaults:
+  timeout: [12s
+```
+
 ```console
 $ vc config explain defaults.timeout
-error: /home/ana/.config/vibranium/config.yaml: cannot read it: it is not YAML: while parsing a flow sequence, expected ',' or ']' (line 2)
+error: /home/ana/.config/vibranium/config.yaml: cannot read it: it is not YAML: while parsing a flow sequence, expected ',' or ']' (line 3)
 ```
 
 ## Try it

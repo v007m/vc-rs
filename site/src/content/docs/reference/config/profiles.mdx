@@ -31,6 +31,8 @@ profiles:
 
 ## Examples
 
+These run in [the project these pages use](/vc-rs/reference/config/#the-project-these-pages-use), with `VIB_VAR_region=dotenv` in `.env`.
+
 Which profile is active, and why:
 
 ```console
@@ -64,41 +66,62 @@ error: --profile: no profile `prod`
 
 Two defaults:
 
+```yaml wrong V3102 title="vibranium.config.yaml"
+syntaxVersion: 2
+profiles:
+  - id: default
+    default: true
+  - id: staging
+    default: true
+```
+
 ```console
 $ vc check
 error[V3102]: profile `staging` is a second default profile
-  --> vibranium.config.yaml:31:14
-   |
-29 |     default: true
-   |              ---- `default` is the default
-30 |   - id: staging
-31 |     default: true
-   |              ^^^^ also `default: true`
-   = help: mark one profile `default: true`; pick another for a run with `--profile`
+ --> vibranium.config.yaml:6:14
+  |
+4 |     default: true
+  |              ---- `default` is the default
+5 |   - id: staging
+6 |     default: true
+  |              ^^^^ also `default: true`
+  = help: mark one profile `default: true`; pick another for a run with `--profile`
 ```
 
 No profiles at all:
 
+```yaml wrong V3101 title="vibranium.config.yaml"
+syntaxVersion: 2
+```
+
 ```console
 $ vc check
 error[V3101]: the config defines no profile
- --> vibranium.config.yaml:8:1
+ --> vibranium.config.yaml:1:1
   |
-8 | syntaxVersion: 2
+1 | syntaxVersion: 2
   | ^^^^^^^^^^^^^ in this config
   = help: add `profiles:` with one profile marked `default: true`, such as `- id: dev`
 ```
 
 A profile ID that is not lower case is a warning:
 
+```yaml title="vibranium.config.yaml"
+syntaxVersion: 2
+profiles:
+  - id: default
+    default: true
+  - id: Eu
+```
+
 ```console
 $ vc check
 warning[V4004]: profile `Eu` is not a lower-case word
-  --> vibranium.config.yaml:33:9
-   |
-33 |   - id: Eu
-   |         ^^ rename it
-   = help: profiles are lower-case single words: `eu`, also where it is used
+ --> vibranium.config.yaml:5:9
+  |
+5 |   - id: Eu
+  |         ^^ rename it
+  = help: profiles are lower-case single words: `eu`, also where it is used
 ```
 
 ## Try it

@@ -27,14 +27,26 @@ alerts:
 
 An unknown event:
 
+```yaml wrong V2302 title="vibranium.config.yaml"
+syntaxVersion: 2
+profiles:
+  - id: dev
+    default: true
+alerts:
+  - on: [boom]
+    notify:
+      - slack:
+          webhook: ${secret.SLACK_WEBHOOK}
+```
+
 ```console
 $ vc check
 error[V2302]: expected one of failure, blocked, recovery, flaky, threshold, found `boom`
-  --> vibranium.config.yaml:87:10
-   |
-87 |   - on: [boom]
-   |          ^^^^ not a known value
-   = help: expected one of `failure`, `blocked`, `recovery`, `flaky`, `threshold`
+ --> vibranium.config.yaml:6:10
+  |
+6 |   - on: [boom]
+  |          ^^^^ not a known value
+  = help: expected one of `failure`, `blocked`, `recovery`, `flaky`, `threshold`
 ```
 
 <Aside type="caution">

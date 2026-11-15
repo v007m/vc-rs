@@ -30,27 +30,53 @@ http:
 
 ## Examples
 
-A helper endpoint answers 503 for the first few calls with a given key. With `attempts: 2`, four tests run:
+These tests call the `slow` service in [the project these pages use](/vc-rs/reference/config/#the-project-these-pages-use). `slow#flaky` answers 503 for the first `failTimes` calls with a given key. With `attempts: 2`, four tests run:
+
+```yaml title="services/slow/retry.test.yaml"
+tests:
+  - id: survivesTwo503s
+    call: slow#flaky
+    vars:
+      key: two-${run.id}
+      failTimes: 2
+    expect:
+      status: 200
+  - id: failsAfterThree503s
+    call: slow#flaky
+    vars:
+      key: three-${run.id}
+      failTimes: 3
+    expect:
+      status: 200
+  - id: postIsNotRetried
+    call: slow#post503
+    expect:
+      status: 200
+  - id: fourTwentyNineNotRetried
+    call: slow#get429
+    expect:
+      status: 200
+```
 
 ```console
 $ vc run slow.retry
 ✕ slow.retry#postIsNotRetried                                     6ms
   error[V5101]: expect.status
-    --> services/slow/retry.test.yaml:28:15
+    --> services/slow/retry.test.yaml:19:15
      |
-  28 |       status: 200
+  19 |       status: 200
      |               ^^^ expected [200], got 503
 ✕ slow.retry#fourTwentyNineNotRetried                             6ms
   error[V5101]: expect.status
-    --> services/slow/retry.test.yaml:37:15
+    --> services/slow/retry.test.yaml:23:15
      |
-  37 |       status: 200
+  23 |       status: 200
      |               ^^^ expected [200], got 429
 ✕ slow.retry#failsAfterThree503s                                223ms
   error[V5101]: expect.status
-    --> services/slow/retry.test.yaml:20:15
+    --> services/slow/retry.test.yaml:15:15
      |
-  20 |       status: 200
+  15 |       status: 200
      |               ^^^ expected [200], got 503
 ✓ slow.retry#survivesTwo503s                                    223ms
 
@@ -102,27 +128,47 @@ With that, the test that survived two 503s fails on the first one.
 
 An unknown value in `on`:
 
+```yaml wrong V2302 title="vibranium.config.yaml"
+syntaxVersion: 2
+profiles:
+  - id: dev
+    default: true
+http:
+  retry:
+    attempts: 2
+    on: [timeout, teapot]
+```
+
 ```console
 $ vc check
 error[V2302]: expected an integer or one of connect, timeout, found `teapot`
-  --> vibranium.config.yaml:23:19
-   |
-23 |     on: [timeout, teapot]
-   |                   ^^^^^^ not a known value
+ --> vibranium.config.yaml:8:19
+  |
+8 |     on: [timeout, teapot]
+  |                   ^^^^^^ not a known value
 ```
 
 The integer is a status code, such as `503`.
 
 An unknown key under `http`:
 
+```yaml wrong V1004 title="vibranium.config.yaml"
+syntaxVersion: 2
+profiles:
+  - id: dev
+    default: true
+http:
+  proxy: http://p:8080
+```
+
 ```console
 $ vc check
 error[V1004]: unknown key `proxy` in http
-  --> vibranium.config.yaml:21:3
-   |
-21 |   proxy: http://p:8080
-   |   ^^^^^ not a known key
-   = help: expected one of `retry`
+ --> vibranium.config.yaml:6:3
+  |
+6 |   proxy: http://p:8080
+  |   ^^^^^ not a known key
+  = help: expected one of `retry`
 ```
 
 ## Try it

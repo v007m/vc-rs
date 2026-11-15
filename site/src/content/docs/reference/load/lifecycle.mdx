@@ -69,6 +69,28 @@ A value saved by `beforeAll` is read as `${var.<actionId>.<name>}`, here `${var.
 
 ### A failing shared setup blocks the run
 
+Here `owner` expects a status the demo never sends:
+
+```yaml title="services/sample/blocked.test.yaml"
+beforeAll:
+  - call: sample#listUsers
+    id: owner
+    expect:
+      status: 418
+tests:
+  - id: listsUsers
+    call: sample#listUsers
+```
+
+```yaml title="load/bad/blocked.load.yaml"
+mix:
+  - test: sample.blocked#listsUsers
+    weight: 1
+stages:
+  - duration: 2s
+    users: 2
+```
+
 ```console
 $ vc load bad.blocked; echo "exit $?"
 bad.blocked blocked after 0 s · 0 iterations · 0.0 rps · 0 errors

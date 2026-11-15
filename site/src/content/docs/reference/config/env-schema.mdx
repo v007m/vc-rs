@@ -43,14 +43,24 @@ $ vc check
 
 A name the schema does not declare:
 
+```yaml wrong V2106 title="services/slow/slow.api.yaml"
+id: slow
+baseUrl: http://localhost:18080
+apis:
+  - id: hdr
+    path: /hdr
+    headers:
+      x-token: ${secret.OTHER}
+```
+
 ```console
 $ vc check
 error[V2106]: `${secret.OTHER}` is not declared in `.env.schema`
-  --> services/slow/slow.api.yaml:38:16
-   |
-38 |       x-token: ${secret.OTHER}
-   |                ^^^^^^^^^^^^^^^ OTHER is not in .env.schema
-   = help: add the line `OTHER=` to `.env.schema` at the project root, or fix the name
+ --> services/slow/slow.api.yaml:7:16
+  |
+7 |       x-token: ${secret.OTHER}
+  |                ^^^^^^^^^^^^^^^ OTHER is not in .env.schema
+  = help: add the line `OTHER=` to `.env.schema` at the project root, or fix the name
 ```
 
 A secret only some runs need, marked optional:
@@ -66,16 +76,26 @@ PARTNER_KEY=
 
 Reading a declared secret through `env` would skip the masking, so it is refused:
 
+```yaml wrong V2107 title="services/slow/slow.api.yaml"
+id: slow
+baseUrl: http://localhost:18080
+apis:
+  - id: hdr
+    path: /hdr
+    headers:
+      x-token: ${env.API_TOKEN}
+```
+
 ```console
 $ vc check
 error[V2107]: `${env.API_TOKEN}` reads a secret that `.env.schema` declares
-  --> services/slow/slow.api.yaml:38:16
-   |
-38 |       x-token: ${env.API_TOKEN}
-   |                ^^^^^^^^^^^^^^^^ API_TOKEN is a secret
-   = note: a declared secret is reachable only as `${secret.X}`, so it is masked everywhere
-   = help: write `${secret.API_TOKEN}`
-   = fix: Replace with secret.API_TOKEN (certain)
+ --> services/slow/slow.api.yaml:7:16
+  |
+7 |       x-token: ${env.API_TOKEN}
+  |                ^^^^^^^^^^^^^^^^ API_TOKEN is a secret
+  = note: a declared secret is reachable only as `${secret.X}`, so it is masked everywhere
+  = help: write `${secret.API_TOKEN}`
+  = fix: Replace with secret.API_TOKEN (certain)
 ```
 
 `vc check --fix` offers that fix and asks before it writes.

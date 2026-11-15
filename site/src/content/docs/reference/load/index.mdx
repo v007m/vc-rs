@@ -93,6 +93,16 @@ thresholds:
 - One iteration is one run of one mix test, picked by weight. Each iteration is one sample for the [metrics](/vc-rs/reference/load/metrics/).
 - The exit code is 3 when a threshold is breached. See [`vc load`](/vc-rs/reference/load/vc-load/).
 
+## The project these pages use
+
+The examples on these pages run in a `vc init` project against the demo server, with these files added. Each is shown in full once:
+
+- `load/sample/smoke.load.yaml`: at the top of this page.
+- `load/sample/strict.load.yaml`: [thresholds](/vc-rs/reference/load/thresholds/#a-deliberate-breach-exit-code-3).
+- `services/sample/wrong.test.yaml`, `load/sample/checks.load.yaml` and `load/sample/full.load.yaml`: [checks](/vc-rs/reference/load/checks/#examples).
+- `load/sample/abort.load.yaml`: [abortOn](/vc-rs/reference/load/abort-on/#stop-when-everything-fails).
+- `services/sample/life.test.yaml` and `load/sample/lifecycle.load.yaml`: [Lifecycle in load runs](/vc-rs/reference/load/lifecycle/#create-once-read-many-times).
+
 ## Pages
 
 <CardGrid>

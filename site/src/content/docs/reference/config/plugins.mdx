@@ -31,14 +31,23 @@ acmeAuth  -  path:./plugins/acme-auth  not approved: `vc plugin add` it  may rea
 
 A plugin without an `id`:
 
+```yaml wrong V1005 title="vibranium.config.yaml"
+syntaxVersion: 2
+profiles:
+  - id: dev
+    default: true
+plugins:
+  - source: npm:@acme/vibranium-auth@2
+```
+
 ```console
 $ vc check
 error[V1005]: a plugin needs `id`
-  --> vibranium.config.yaml:87:5
-   |
-87 |   - source: npm:@acme/vibranium-auth@2
-   |     ^^^^^^ `id` is missing
-   = help: add `id: acmeAuth`: Referenced by `plugin:`
+ --> vibranium.config.yaml:6:5
+  |
+6 |   - source: npm:@acme/vibranium-auth@2
+  |     ^^^^^^ `id` is missing
+  = help: add `id: acmeAuth`: Referenced by `plugin:`
 ```
 
 `vc check` does not open the plugin, so a wrong `source` shows up only when you run `vc plugin add`.

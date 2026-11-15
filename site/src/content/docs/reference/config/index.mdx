@@ -63,7 +63,7 @@ A setting can come from several places. From lowest to highest:
 6. [`VIB_*` environment variables](/vc-rs/reference/config/vib-variables/)
 7. `--set key=value` on the command line
 
-[`vc config explain`](/vc-rs/reference/config/config-explain/) shows which layer won:
+[`vc config explain`](/vc-rs/reference/config/config-explain/) shows which layer won. Here it runs in [the project these pages use](#the-project-these-pages-use), with `VIB_VAR_region=dotenv` in `.env`:
 
 ```console
 $ VIB_VAR_region=envvar vc config explain vars.region --profile staging --set vars.region=flag
@@ -75,6 +75,78 @@ vars.region = flag  (--set)
 ```
 
 See [Layering and precedence](/vc-rs/reference/config/layering/) for the full rules.
+
+## The project these pages use
+
+The examples on these pages run in a project made by [`vc init`](/vc-rs/reference/cli/init/), with a `region` var and two more profiles in its config:
+
+```yaml title="vibranium.config.yaml (excerpt)"
+vars:
+  sampleUrl: http://localhost:7421
+  region: local
+
+profiles:
+  - id: default
+    default: true
+  - id: staging
+    vars:
+      region: us
+  - id: eu
+    vars:
+      region: eu
+```
+
+The tests that run call a `slow` service on the repo's mock server (`bench/mock`, started with `mise run mock`):
+
+```yaml title="services/slow/slow.api.yaml"
+id: slow
+baseUrl: http://localhost:18080
+apis:
+  - id: wait
+    path: /slow
+    vars:
+      ms: 500
+    query:
+      ms: ${var.ms}
+  - id: flaky
+    path: /flaky
+    query:
+      key: ${var.key}
+      failTimes: ${var.failTimes}
+  - id: post503
+    method: POST
+    path: /status/503
+  - id: get429
+    path: /status/429
+  - id: echo
+    method: POST
+    path: /echo
+    vars:
+      payload: {}
+    body: ${var.payload}
+```
+
+```yaml title="services/slow/par.test.yaml"
+tests:
+  - id: waits1
+    call: slow#wait
+  - id: waits2
+    call: slow#wait
+  - id: waits3
+    call: slow#wait
+  - id: waits4
+    call: slow#wait
+```
+
+```yaml title="services/slow/timing.test.yaml"
+tests:
+  - id: waitsTwoSeconds
+    call: slow#wait
+    vars:
+      ms: 2000
+```
+
+`GET /slow?ms=n` answers after `n` milliseconds. `GET /flaky?key=k&failTimes=n` answers 503 to the first `n` calls for each key, then 200. `/status/n` answers status `n`. `POST /echo` answers with the request it got.
 
 ## Try it
 

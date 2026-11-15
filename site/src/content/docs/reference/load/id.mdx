@@ -28,7 +28,7 @@ id: sample.smoke      # optional; the path already says this
 
 ### Leave it out
 
-`load/sample/strict.load.yaml` has no `id:` key and runs as `sample.strict`:
+`load/sample/strict.load.yaml`, in [the project these pages use](/vc-rs/reference/load/#the-project-these-pages-use), has no `id:` key and runs as `sample.strict`:
 
 ```console
 $ vc load sample.strict
@@ -37,6 +37,16 @@ sample.strict — Too strict on purpose · finished after 5 s · 4925 iterations
 ```
 
 ### A mismatched `id`
+
+```yaml wrong V2007 title="load/bad/one.load.yaml"
+id: bad.uno
+mix:
+  - test: sample.basics#listsUsers
+    weight: 1
+stages:
+  - duration: 1s
+    users: 1
+```
 
 ```console
 $ vc check

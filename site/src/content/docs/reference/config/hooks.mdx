@@ -41,6 +41,15 @@ profiles:
 
 A value outside the range is an error:
 
+```yaml wrong V2302 title="vibranium.config.yaml"
+syntaxVersion: 2
+profiles:
+  - id: dev
+    default: true
+hooks:
+  threads: 65
+```
+
 ```console
 $ vc check
 error[V2302]: `threads` takes a whole number of at most 64, found 65
