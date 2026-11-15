@@ -1,0 +1,81 @@
+---
+title: Contributing
+description: Report a bug, ask for a feature, report a vulnerability, or set up the repo and send a pull request to Vibranium.
+---
+
+import { LinkCard, CardGrid, Steps, Aside } from '@astrojs/starlight/components';
+
+Vibranium is open source under Apache-2.0, and its code, design docs and this site all live in [one repository](https://github.com/v007m/vc-rs). Everyone who takes part follows the [Code of Conduct](https://github.com/v007m/vc-rs/blob/master/CODE_OF_CONDUCT.md).
+
+## Open an issue
+
+Every issue starts from a form that asks for what a fix needs. Pick one from the [new-issue page](https://github.com/v007m/vc-rs/issues/new/choose):
+
+- **Bug report**: your `vc --version`, OS and install method, the smallest `*.test.yaml`, `*.api.yaml` and config that show the bug, the command you ran, what you expected and what happened, and the same command's `--reporter json` output.
+- **Feature request**: the problem, your proposal, the alternatives, and the surface it touches (CLI, TUI, web UI, MCP, load or contract testing).
+- **Docs issue**: the page, and what is wrong, unclear or missing on it.
+
+<Aside type="caution" title="Redact secrets">
+Before you paste output or files, remove tokens, passwords, API keys, cookies and private hostnames. vc [masks](/vc-rs/reference/auth/redaction/) secrets and auth headers in its own output, but not a token written straight into a YAML file or a value it was never told is secret.
+</Aside>
+
+<LinkCard title="Open an issue" description="Choose the bug, feature or docs form." href="https://github.com/v007m/vc-rs/issues/new/choose" />
+
+## Report a vulnerability
+
+Don't open a public issue for a security problem. Report it privately, as the [security policy](https://github.com/v007m/vc-rs/blob/master/SECURITY.md) describes. It also lists the versions that get fixes (0.1.x) and how soon to expect a reply.
+
+## Send a pull request
+
+For anything bigger than a small fix, open a feature request first, so the design question is settled before you write code.
+
+<Steps>
+
+1. Install [rustup](https://rustup.rs) and [mise](https://mise.jdx.dev), then set up a clone. `rustup toolchain install` reads the pinned Rust from `rust-toolchain.toml`, and `mise install` brings the cargo tools, Node and pnpm.
+
+   ```console
+   git clone https://github.com/v007m/vc-rs && cd vc-rs
+   rustup toolchain install
+   mise trust && mise install
+   pnpm install
+   ```
+
+2. Read the design. Everything is specified in [`docs/design/`](https://github.com/v007m/vc-rs/tree/master/docs/design); start with [`HANDOVER.md`](https://github.com/v007m/vc-rs/blob/master/docs/design/HANDOVER.md), which says which document wins when two disagree.
+
+3. Write the acceptance test first, then the code, on a branch off `master`.
+
+4. Run the gates. They are the same checks CI runs.
+
+   ```console
+   mise run test     # tests and doctests
+   mise run gates    # every quality gate: fmt, clippy, layer rules, licences, tests, ...
+   ```
+
+5. Open a small pull request to `master`, under about 400 changed lines, and answer the review checklist in the PR template.
+
+</Steps>
+
+The rules a pull request follows:
+
+- **Conventional commits**: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`, `perf`, `build` or `ci`, then `: subject`. A `refactor:` commit never changes a test assertion; CI rejects one that does.
+- **Decisions are asked.** Each settled choice is a numbered row in the [decision log](https://github.com/v007m/vc-rs/blob/master/docs/design/decision-log.md) (`D138`). A change that would alter one is raised with the maintainer, not decided in code, and the answer becomes a new row.
+- **A new kind is a registry entry.** A matcher, pipe, auth type, reporter, importer or notifier is one handler plus one registration line, never a new branch of a string `match`.
+- **Docs in the same PR.** A change updates the design docs and site pages it touches. The YAML examples on this site are checked by the test suite, so they can't drift from the code.
+
+## Work on these docs
+
+This site is [Astro Starlight](https://starlight.astro.build), in the repo's `site/` folder. Every page has an **Edit page** link at the bottom. To run it locally:
+
+```console
+pnpm --filter site dev       # http://localhost:4321/vc-rs/, reloads as you edit
+pnpm --filter site build     # the static site, in site/dist/
+```
+
+The [contributing guide](https://github.com/v007m/vc-rs/blob/master/CONTRIBUTING.md) has the rest: every `mise` task, the gates, how to add a kind, and how to build the playground and run the site's tests.
+
+<CardGrid>
+  <LinkCard title="CONTRIBUTING.md" description="Setup, tasks, gates, branches and the review checklist." href="https://github.com/v007m/vc-rs/blob/master/CONTRIBUTING.md" />
+  <LinkCard title="SECURITY.md" description="Private vulnerability reports and supported versions." href="https://github.com/v007m/vc-rs/blob/master/SECURITY.md" />
+  <LinkCard title="Code of Conduct" description="Contributor Covenant 2.1." href="https://github.com/v007m/vc-rs/blob/master/CODE_OF_CONDUCT.md" />
+  <LinkCard title="Design docs" description="The specification: LLD, syntax reference, CLI workflow, decision log." href="https://github.com/v007m/vc-rs/tree/master/docs/design" />
+</CardGrid>
