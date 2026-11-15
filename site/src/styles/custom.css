@@ -35,7 +35,7 @@
 header.header {
   padding-block: 0;
 }
-starlight-menu-button button {
+.sl-menu-button {
   top: calc((var(--vc-bar-height) - var(--sl-menu-button-size)) / 2);
 }
 /* Content scrolling under the header must not read through it: a near-solid tint plus a blur.
@@ -56,8 +56,13 @@ header.header::after {
   pointer-events: none;
 }
 .site-title {
+  gap: 0.625rem;
   font-weight: 700;
   letter-spacing: -0.01em;
+}
+/* Starlight sizes the logo from --sl-nav-height, which here spans both rows: size it to the bar. */
+.site-title img {
+  height: calc(var(--vc-bar-height) - 2 * var(--sl-nav-pad-y));
 }
 
 /* ---------- Sidebar ---------- */
@@ -170,6 +175,29 @@ header.header::after {
 /* ---------- Code blocks ---------- */
 .sl-markdown-content .expressive-code:not(:where(.not-content *)) {
   margin-block: 1.5rem;
+}
+/* One copy-button size everywhere (expressive-code uses 2.5rem without hover, 2rem with it). */
+.expressive-code .copy button {
+  width: 2rem;
+  height: 2rem;
+}
+.expressive-code .copy button::after {
+  margin: 0.45rem;
+}
+/* A titled block gets a full-width file header in the terminal bar's colours, not an editor tab
+ * that stops at the end of its title. (Done here: function values in astro.config's
+ * expressiveCode options break the <Code> component.) */
+.expressive-code .frame.has-title:not(.is-terminal) {
+  --ec-frm-edTabBarBg: var(--ec-frm-trmTtbBg);
+  --ec-frm-edActTabBg: transparent;
+  --ec-frm-edActTabFg: var(--ec-frm-trmTtbFg);
+  --ec-frm-edActTabBrdCol: transparent;
+  --ec-frm-edActTabIndTopCol: transparent;
+  --ec-frm-edActTabIndBtmCol: transparent;
+  --ec-frm-edTabBarBrdBtmCol: var(--ec-frm-trmTtbBrdBtmCol);
+}
+.expressive-code .frame.has-title:not(.is-terminal) .title {
+  font-weight: 500;
 }
 
 /* ---------- Tables ---------- */
@@ -284,6 +312,30 @@ header.header::after {
 .pagination-links a:hover {
   border-color: var(--sl-color-accent);
   background-color: var(--vc-tint);
+}
+/* Prev/next at docs-site size: a small muted label over a base-size title (Starlight's 2xl is heading-sized). */
+.pagination-links a {
+  padding: 0.75rem 1rem;
+  gap: 0.75rem;
+  font-size: var(--sl-text-xs);
+  line-height: 1.4;
+  color: var(--sl-color-gray-3);
+}
+.pagination-links .link-title {
+  font-size: var(--sl-text-base);
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--sl-color-white);
+}
+.pagination-links svg {
+  flex-shrink: 0;
+  width: 1rem;
+  height: 1rem;
+  color: var(--sl-color-gray-3);
+}
+.pagination-links a:hover svg,
+.pagination-links a:focus-visible svg {
+  color: var(--sl-color-accent-high);
 }
 ::selection {
   background-color: var(--vc-tint-strong);
@@ -494,4 +546,11 @@ header.header::after {
   --pg-active: rgba(91, 54, 242, 0.07);
   --pg-selection: rgba(91, 54, 242, 0.2);
   --pg-error: #c8102e;
+}
+
+/* One visible focus ring for keyboard users on every page (WCAG 2.4.7): accent, 3:1 or more on both themes.
+ * Zero specificity, so a component's own :focus-visible style still wins. */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--sl-color-accent);
+  outline-offset: 2px;
 }
