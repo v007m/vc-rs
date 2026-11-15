@@ -27,7 +27,8 @@ defaults:
 
 The tests call `slow#flaky`, a `GET /flaky` on the repo's mock server (`bench/mock`). The first `failTimes` calls for each `key` get 503, and later calls get 200; the body is `{"attempt": n}`:
 
-```yaml title="services/slow/slow.api.yaml (excerpt)"
+```yaml title="services/slow/slow.api.yaml"
+baseUrl: http://127.0.0.1:18080
 apis:
   - id: flaky
     path: /flaky

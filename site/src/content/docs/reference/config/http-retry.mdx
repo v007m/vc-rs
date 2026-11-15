@@ -78,13 +78,13 @@ http:
 
 ```console
 $ vc run slow.retry
-✓ slow.retry#postIsNotRetried                                    57ms
-✓ slow.retry#fourTwentyNineNotRetried                            57ms
-✓ slow.retry#survivesTwo503s                                    160ms
-✕ slow.retry#failsAfterThree503s                                160ms
+✕ slow.retry#fourTwentyNineNotRetried                           158ms
+✕ slow.retry#failsAfterThree503s                                158ms
+✕ slow.retry#postIsNotRetried                                   158ms
+✓ slow.retry#survivesTwo503s                                    158ms
 ```
 
-The POST and the 429 now get a second attempt and pass.
+The POST and the 429 are now re-sent: the server saw three of each. This helper answers them the same way every time, so they still fail.
 
 An api turns it off for itself. Its `http.retry` keys replace the config's:
 
