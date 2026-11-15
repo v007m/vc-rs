@@ -33,6 +33,19 @@ error[V1012]: the dataset file `../sbc-scratch/shared/world-cities.csv` is outsi
    = help: paths are relative to the project root; add a folder outside it to `datasets.allowRoots`
 ```
 
-<Aside type="caution">Adding the folder to `allowRoots` does not work today. `vc check` then reports `error[V1012]: ../sbc-scratch/shared/world-cities.csv: links to a file outside the project`. Copy the file into the project instead.</Aside>
+With its folder in `allowRoots`, the same file loads:
+
+```yaml title="vibranium.config.yaml"
+datasets:
+  allowRoots: [../sbc-scratch/shared]
+  files:
+    - id: worldCities
+      file: ../sbc-scratch/shared/world-cities.csv
+```
+
+```console
+$ vc check
+0 errors · 0 warnings · 5 files checked
+```
 
 <LinkCard title="Datasets" href="/vc-rs/reference/data/datasets/" />

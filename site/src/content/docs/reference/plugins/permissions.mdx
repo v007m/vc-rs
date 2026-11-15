@@ -7,7 +7,7 @@ sidebar: { order: 6 }
 import { Aside } from '@astrojs/starlight/components';
 import Playground from '~/components/Playground.svelte';
 
-A plugin's manifest says what it wants to reach. `vc plugin add` shows that to you, and `vibranium.lock` records what you approved. Some of it `vc` enforces; the rest is a declaration you review.
+A plugin's manifest says what it wants to reach. `vc plugin add` shows that to you, and `vibranium.lock` records what you approved. `vc` enforces the secrets itself, and on macOS and Linux the OS holds the plugin process to its network and files.
 
 ```yaml title="vibranium-plugin.yaml"
 permissions:
@@ -21,11 +21,11 @@ permissions:
 | Field | Type | Default | Enforced by vc? | Notes |
 | --- | --- | --- | --- | --- |
 | `secrets` | list of secret names | `[]` | **Yes** | The only secrets the plugin can get with `secrets/get` |
-| `network` | list of hosts | `[]` | No, declared | Hosts the plugin says it calls. Shown at install and recorded in the lock |
-| `files` | list of project paths | `[]` | No, declared | Paths the plugin says it reads or writes. Shown at install and recorded in the lock |
+| `network` | list of hosts | `[]` | **Yes**, by the OS | Hosts the plugin calls. None means no network. Any host opens every host, since the OS cannot filter by name. Shown at install and recorded in the lock |
+| `files` | list of project paths | `[]` | **Yes**, by the OS | Project paths the plugin reads and writes. The rest of the project is closed to it, but for its install folder (read) and data folder. Shown at install and recorded in the lock |
 
-<Aside type="caution" title="Declared, not sandboxed">
-`vc` does not sandbox a plugin process. A plugin runs with your user's rights, so it can open any host or file the OS lets it. `network` and `files` tell reviewers what to expect; they do not stop anything. Only add plugins you trust, and review `vibranium.lock` changes like code.
+<Aside type="caution" title="Confined where the OS allows it">
+On macOS a plugin runs under `sandbox-exec`, and on Linux under Landlock (best effort: an older kernel enforces what it can, and network rules need 6.7). Windows shows and records the permissions but does not enforce them. Outside the project a plugin can still read any file your user can, and write only the temporary folder. When `sandbox-exec` cannot start on macOS, the plugin is not started ([V5119](/vc-rs/reference/diagnostics/v5119/)). Only add plugins you trust, and review `vibranium.lock` changes like code.
 </Aside>
 
 ## What vc does enforce
@@ -34,6 +34,7 @@ permissions:
 - **No more than approved.** A run refuses a plugin whose manifest asks for anything beyond its lock entry, in any of the three lists.
 - **Unchanged files.** For a `path:` plugin, a run refuses it (V5118) when its installed files no longer match the lock's `blake3-…` hash.
 - **Secrets.** `secrets/get` answers only for a secret the manifest declares, the lock grants and the run has. Anything else gets JSON-RPC error `-32001`.
+- **Network and files.** The OS refuses the plugin any project path outside `files` and its own folders, and the network when `network` is empty. A plugin that runs unconfined (Linux without Landlock, or the user's `plugins.allowUnconfined` opt-out) prints one warning per run.
 - **A small environment.** The process gets only `PATH`, `HOME`, `USER`, `LANG`, `TMPDIR`, `TEMP`, `TMP`, `SYSTEMROOT` and `USERPROFILE` (those that are set), plus `VIB_PLUGIN_DATA`. It never gets the run's secrets through the environment.
 
 ## Examples
@@ -59,6 +60,17 @@ $ vc run
 ...
 warning: plugin `summary`: asks for more: secret reportToken; `vc plugin add` it again; its report is not written
 ```
+
+**What the OS stops.** A reporter with `permissions: {}` tries four things and writes what happened, run on macOS:
+
+```text title=".vibranium/reports/2/probe.txt"
+read vibranium.config.yaml denied (Operation not permitted)
+write notes.txt denied (Operation not permitted)
+write data folder allowed
+connect localhost:7421 denied (Operation not permitted)
+```
+
+With `network: [localhost]` and `files: [notes.txt, vibranium.config.yaml]`, all four are allowed.
 
 **What the process sees.** A reporter that lists its environment variables, run on macOS:
 
@@ -115,6 +127,7 @@ auth:
 | Code | When |
 | --- | --- |
 | [V5118](/vc-rs/reference/diagnostics/v5118/) | A plugin asked for a secret it was not granted, or its files changed since approval |
+| [V5119](/vc-rs/reference/diagnostics/v5119/) | A plugin cannot be confined on macOS, so it is not started |
 
 ## Related
 

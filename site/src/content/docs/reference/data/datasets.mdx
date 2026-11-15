@@ -188,8 +188,8 @@ datasets:
 examples: ${dataset.smokeUsers}
 ```
 
-<Aside type="caution" title="allowRoots doesn't work yet">
-`datasets.allowRoots` is meant to let `datasets.files` read files outside the project. In the current build, `vc check` accepts it but `vc run` refuses the file with [V1012](/vc-rs/reference/diagnostics/v1012/) (`links to a file outside the project`). Keep data files inside the project for now.
+<Aside title="Files outside the project">
+`datasets.allowRoots` lets `datasets.files` read files outside the project. List the outside folder there, and both `vc check` and `vc run` read the file. Without it, the file is refused with [V1012](/vc-rs/reference/diagnostics/v1012/).
 </Aside>
 
 ## Try it

@@ -68,7 +68,7 @@ The request headers stored with it:
 
 `x-team` is masked here by `headers`.
 
-`vc call` applies `fields`, `headers` and secrets, but not `rules` today:
+`vc call` applies the same masks, `rules` included:
 
 ```console
 $ vc call slow#hdr
@@ -81,11 +81,11 @@ $ vc call slow#hdr
     "authorization": "••••",
     "host": "localhost:7469",
     "user-agent": "vibranium/2",
-    "x-team": "dotenv",
+    "x-team": "[team]",
     "x-token": "••••"
   },
   "secret": "••••",
-  "tokenStartsWith": "s3cr"
+  "tokenStartsWith": "••••"
 }
 ```
 
@@ -110,8 +110,6 @@ profiles:
 - Reports and `history.db` are masked before they are written. Bodies are cut at [`history.maxBodySize`](/vc-rs/reference/config/history/) only after masking.
 - A `function` rule gets each piece of output whole, as `{ text }` or `{ json }`, and returns it masked.
 - Rules fail closed. A regex that does not compile, a CEL rule that errors, or a hook that throws masks the whole value. With `regex: "[unclosed"`, every text in the report would become `••••`, so `vc check` reports a regex that does not compile as [V2311](/vc-rs/reference/diagnostics/v2311/).
-
-<Aside type="caution">`redact.rules` do not apply to `vc call` output yet. Check printed output before you paste it somewhere public.</Aside>
 
 ## Related
 
