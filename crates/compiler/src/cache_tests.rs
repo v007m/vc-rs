@@ -66,7 +66,7 @@ fn blob(header: &[u8], units: &[u8]) -> Vec<u8> {
 fn body(strings: &[&str], path: &str, unit: Option<u32>) -> Vec<u8> {
     let stored = Stored { path: path.to_owned(), hash: [0; 32], file: 0, unit };
     let strings = strings.iter().map(|text| (*text).to_owned()).collect();
-    postcard::to_stdvec(&Body { build: BUILD.to_owned(), strings, entries: vec![stored] }).unwrap()
+    postcard::to_stdvec(&Body { build: BUILD.to_owned(), strings, entries: vec![stored], link: None }).unwrap()
 }
 
 #[test]
@@ -118,7 +118,7 @@ fn finds_a_unit_only_for_the_same_path_hash_and_number() {
 
 #[test]
 fn another_version_reads_as_empty() {
-    for version in [1, 2, 3, 4, 5] {
+    for version in [1, 2, 3, 4, 5, 11] {
         let mut bytes = cache().to_bytes();
         bytes[MAGIC.len()] = version;
         assert!(CompileCache::from_bytes(&bytes).is_empty(), "version {version}");
@@ -128,7 +128,7 @@ fn another_version_reads_as_empty() {
 #[test]
 fn a_blob_from_another_release_reads_as_empty() {
     let stored = Stored { path: "a.api.yaml".to_owned(), hash: [0; 32], file: 0, unit: None };
-    let other = Body { build: "0.0.0-other".to_owned(), strings: Vec::new(), entries: vec![stored] };
+    let other = Body { build: "0.0.0-other".to_owned(), strings: Vec::new(), entries: vec![stored], link: None };
     assert!(CompileCache::from_bytes(&blob(&postcard::to_stdvec(&other).unwrap(), &[])).is_empty());
     assert_eq!(CompileCache::from_bytes(&blob(&body(&[], "a.api.yaml", None), &[])).len(), 1);
 }

@@ -4,7 +4,7 @@ use std::sync::Arc;
 use vc_diagnostics::Diagnostics;
 use vc_model::{Date, Program, SourceFile, SourceFileId, SourceFiles, SourcePath, StringTable};
 
-use crate::cache::{CacheEntry, Kept};
+use crate::cache::{CacheEntry, Kept, LinkKey, Memo, Recall, Replay};
 use crate::link::DataWanted;
 use crate::parts::Tools;
 use crate::{CompileCache, link, stage};
@@ -56,13 +56,21 @@ pub struct Compiled {
 /// Compiles `input` into a program, or into the diagnostics that stop one.
 ///
 /// Pure: the same input gives the same output, and nothing outside it is read or written.
-/// A file whose path, hash and number match the previous cache is not parsed again.
+/// A file whose path, hash and number match the previous cache is not parsed again, and when
+/// every file and the rest of the input match the previous clean compile, its output is given
+/// back without linking (D333).
 #[must_use]
 pub fn compile(input: CompileInput) -> Compiled {
     let mut sources = input.files;
     sources.sort_by(|a, b| a.path.cmp(&b.path));
     sources.dedup_by(|later, first| later.path == first.path);
     let files = file_table(sources);
+    let key = LinkKey::of(input.today, input.assets.as_ref(), input.secret_schema.as_ref());
+    let damaged_memo = match input.previous.replay(&files, &key) {
+        Recall::Hit(replay) => return replayed_compile(replay, files, input.previous),
+        Recall::Miss => false,
+        Recall::Damaged => true,
+    };
     let (entries, strings, damaged) = units(&files, &input.previous);
     let mut diagnostics = Diagnostics::new();
     for unit in entries.iter().filter_map(|entry| entry.unit.as_deref()) {
@@ -78,8 +86,19 @@ pub fn compile(input: CompileInput) -> Compiled {
     let linked = link::link(&entries, &files, &world);
     diagnostics.extend(linked.diagnostics);
     let (program, data_wanted, hooks_wanted) = (linked.program, linked.data_wanted, linked.hooks_wanted);
-    let cache = CompileCache::of(entries, strings).repaired(damaged);
-    Compiled { program, diagnostics, files, cache, data_wanted, hooks_wanted }
+    let replay = program.clone().filter(|_| !diagnostics.has_errors()).map(|program| {
+        let diagnostics = diagnostics.clone();
+        Replay { program, diagnostics, data_wanted: data_wanted.clone(), hooks_wanted: hooks_wanted.clone() }
+    });
+    let repaired = damaged || damaged_memo;
+    let cache = CompileCache::of(entries, strings).remembering(replay.map(|replay| Memo::made(key, replay)));
+    Compiled { program, diagnostics, files, cache: cache.repaired(repaired), data_wanted, hooks_wanted }
+}
+
+/// The compile whose output `previous` memoized, of `files`.
+fn replayed_compile(replay: Replay, files: SourceFiles, previous: CompileCache) -> Compiled {
+    let Replay { program, diagnostics, data_wanted, hooks_wanted } = replay;
+    Compiled { program: Some(program), diagnostics, files, cache: previous, data_wanted, hooks_wanted }
 }
 
 /// Runs the per-file stages over every file the previous cache does not hold, and tells

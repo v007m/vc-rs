@@ -1,15 +1,19 @@
 use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
-use vc_model::{ContentHash, SourceFileId, SourcePath, StringTable};
+use vc_model::{ContentHash, SourceFile, SourceFileId, SourceFiles, SourcePath, StringTable};
+
+pub use memo::{LinkKey, Memo, Replay};
 
 use crate::stage::FileUnit;
+
+mod memo;
 
 /// The first bytes of every cache blob.
 const MAGIC: &[u8; 4] = b"VCCC";
 
 /// The layout version; a blob with any other version is ignored.
-const VERSION: u32 = 11;
+const VERSION: u32 = 12;
 
 /// The compiler release that wrote a blob; a blob from another release is ignored, so a check
 /// added or fixed in a new release is not hidden by units an older compiler kept.
@@ -23,12 +27,16 @@ const BUILD: &str = env!("CARGO_PKG_VERSION");
 /// compiled unit and the names they use, so an unchanged file is not parsed again, in memory
 /// (`vc watch`, the editors) and when read back from bytes. A unit with diagnostics is kept only
 /// in memory: the bytes never hold diagnostics, so its file is compiled again after a read.
-/// Units read back from bytes are decoded only when a compile needs them.
+///
+/// It also memoizes the last clean compile's output (D333): a compile of the same files, by
+/// path, hash and number, in the same world gives it back without parsing or linking. Units
+/// read back from bytes are decoded only when a compile needs them.
 #[derive(Clone, Debug, Default)]
 pub struct CompileCache {
     entries: Vec<CacheEntry>,
     strings: StringTable,
-    /// Whether the compile that made it found a unit that did not read back, so the
+    memo: Option<Memo>,
+    /// Whether the compile that made it found a unit or memo that did not read back, so the
     /// cache differs from the one it was given and is saved again.
     repaired: bool,
 }
@@ -67,13 +75,25 @@ pub enum Kept {
     Damaged,
 }
 
-/// Caches are equal when they remember the same files and would store the same units; the
-/// units and names themselves are a memo of those. A compile that found a unit that did not
-/// read back makes a cache that differs from the one it was given, so it is saved again and
-/// heals.
+/// What a cache gives back for a compile's files and key.
+pub enum Recall {
+    /// The output the last clean compile of them made.
+    Hit(Replay),
+    /// Nothing: no memo, or one of other files or another key.
+    Miss,
+    /// A memo of them whose bytes do not read back.
+    Damaged,
+}
+
+/// Caches are equal when they remember the same files, would store the same units and hold a
+/// memo under the same key; the units, names and output are a memo of those. A compile that
+/// found a unit or memo that did not read back makes a cache that differs from the one it was
+/// given, so it is saved again and heals.
 impl PartialEq for CompileCache {
     fn eq(&self, other: &Self) -> bool {
+        let memo = |cache: &Self| cache.memo.as_ref().map(|memo| memo.key.clone());
         self.repaired == other.repaired
+            && memo(self) == memo(other)
             && self.entries.iter().map(CacheEntry::key).eq(other.entries.iter().map(CacheEntry::key))
     }
 }
@@ -89,10 +109,15 @@ impl CompileCache {
 
     /// A cache of `entries`, whose units intern their names in `strings`.
     pub(crate) const fn of(entries: Vec<CacheEntry>, strings: StringTable) -> Self {
-        Self { entries, strings, repaired: false }
+        Self { entries, strings, memo: None, repaired: false }
     }
 
-    /// The cache, marked when the compile that made it found a unit that did not read back.
+    /// The cache, also holding `memo`.
+    pub(crate) fn remembering(self, memo: Option<Memo>) -> Self {
+        Self { memo, ..self }
+    }
+
+    /// The cache, marked when the compile that made it found a unit or memo that did not read back.
     pub(crate) fn repaired(self, repaired: bool) -> Self {
         Self { repaired, ..self }
     }
@@ -120,6 +145,24 @@ impl CompileCache {
         }
     }
 
+    /// The output memoized under `key` when the cache remembers exactly `files`, by path, hash
+    /// and number.
+    pub(crate) fn replay(&self, files: &SourceFiles, key: &LinkKey) -> Recall {
+        let memo = self.memo.as_ref().filter(|memo| memo.key == *key && self.holds_exactly(files));
+        let Some(memo) = memo else { return Recall::Miss };
+        memo.replay(files).map_or(Recall::Damaged, Recall::Hit)
+    }
+
+    /// Whether the cache remembers `files` and no others, each at its path, hash and number.
+    fn holds_exactly(&self, files: &SourceFiles) -> bool {
+        let numbered = (0..).map(SourceFileId::new).map_while(|id| Some((id, files.get(id)?)));
+        let mut pairs = numbered.zip(&self.entries);
+        let same = |((id, source), entry): ((SourceFileId, &SourceFile), &CacheEntry)| {
+            entry.path == source.path && entry.hash == source.hash && entry.file == id
+        };
+        files.len() == self.entries.len() && pairs.all(same)
+    }
+
     /// The names the kept units use; a compile that reuses them interns on top of these.
     pub(crate) const fn strings(&self) -> &StringTable {
         &self.strings
@@ -145,18 +188,22 @@ impl CompileCache {
     }
 
     /// The cache as bytes: a magic number and the layout version, the length of a header and the
-    /// header, then each stored unit, back to back; header and units are `postcard` (D155).
+    /// header, then each stored unit, back to back, then the memo's output; all `postcard` (D155).
     #[must_use]
     pub fn to_bytes(&self) -> Vec<u8> {
         let units: Vec<_> = self.entries.iter().map(unit_bytes).collect();
         let entries = self.entries.iter().zip(&units).map(|(entry, unit)| stored(entry, unit.as_deref())).collect();
+        let output = self.memo.as_ref().and_then(|memo| memo.to_bytes().map(|bytes| (memo.key.clone(), bytes)));
+        let output = output.and_then(|(key, bytes)| Some(((key, u32::try_from(bytes.len()).ok()?), bytes)));
+        let (link, output) = output.unzip();
         let strings = self.strings.texts().map(str::to_owned).collect();
-        let header = postcard::to_stdvec(&Body { build: BUILD.to_owned(), strings, entries }).unwrap_or_default();
+        let header = postcard::to_stdvec(&Body { build: BUILD.to_owned(), strings, entries, link }).unwrap_or_default();
         let mut out = MAGIC.to_vec();
         out.extend(VERSION.to_le_bytes());
         out.extend(u32::try_from(header.len()).unwrap_or(u32::MAX).to_le_bytes());
         out.extend(header);
         units.into_iter().flatten().for_each(|unit| out.extend(unit));
+        out.extend(output.unwrap_or_default());
         out
     }
 
@@ -176,6 +223,8 @@ struct Body {
     strings: Vec<String>,
     /// The files, in the cache's order.
     entries: Vec<Stored>,
+    /// The memo's key and the length of its output, which follows the units.
+    link: Option<(LinkKey, u32)>,
 }
 
 /// One file in the blob.
@@ -223,7 +272,9 @@ fn decode(bytes: &[u8]) -> Option<CompileCache> {
     for stored in &body.entries {
         entries.push(entry(stored, &mut units)?);
     }
-    units.is_empty().then(|| CompileCache::of(entries, strings))
+    let length = body.link.as_ref().map_or(Some(0), |(_, length)| usize::try_from(*length).ok())?;
+    let memo = body.link.map(|(key, _)| Memo::read(key, units));
+    (units.len() == length).then(|| CompileCache::of(entries, strings).remembering(memo))
 }
 
 /// The table `texts` came from: each text interned in order must get the next symbol.
