@@ -649,6 +649,12 @@ Round 60 (15 November 2026; vc-worker1, under the orchestrator's delegation from
 | --- | --- | --- | --- |
 | D328 | `--failed` and tests marked `skip` | `vc run --failed` keeps honouring `skip`: a test the last run failed or blocked that is marked `skip` now stays skipped, unless `--include-skipped`. When some are, the rest run and the skipped ones are listed as skipped; when every test it would rerun is, nothing runs and it exits 2, saying so, with help suggesting `vc run --failed --include-skipped` | D170 (clarified) |
 
+Round 61 (18 November 2026; vc-worker1, as the orchestrator assigned it in Hub #227):
+
+| # | Topic | Decision | Supersedes |
+| --- | --- | --- | --- |
+| D329 | `vc demo` serves test routes | Beside `/users` and `/echo`, the demo answers the mock's test routes, so the retry, timeout, poll and load guides run against `vc demo` alone. `GET /slow?ms=N` waits N ms (0 when not given) and returns `{"sleptMs": N}`; N is at most 10000. `GET /flaky?key=K&failTimes=N` counts attempts per key: attempts up to N get 503, later ones 200, both with `{"attempt": n}`. `GET /poll/{id}?after=N` returns `{"status": "pending"|"done", "attempt": n}`, done from the Nth attempt per id. `/status/{code}`, by any method, returns that status with `{"status": code}` for 200–599. Each is bounded and refuses more with 400 and a JSON `error` naming the limit, never a silent clamp: `ms` over 10000, a key or id over 64 bytes, a 1025th distinct key (`/flaky` and `/poll` keep separate tables of 1024, with the same caps; a restart clears them), a status outside 200–599, or a number that is not whole. The counts are lock-free: a fixed table of slots, each a key set once and an atomic count. In the playground `/slow` waits on the page's clock, through the runtime's timer | — (extends D175) |
+
 ## Open
 
 All decisions needed for the PRD and technical design are settled. The language is decided by the spike (D6, D36, D37, D41).
