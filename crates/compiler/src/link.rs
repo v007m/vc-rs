@@ -17,6 +17,7 @@ mod ids;
 mod layer;
 mod project;
 mod protocol_keys;
+mod protocol_needs;
 mod refs;
 mod reports_dir;
 mod saves;
@@ -38,7 +39,7 @@ pub use assets::folder;
 pub use body_schema::{is_inline as schema_is_inline, key as schema_key, nodes as schema_nodes};
 pub use build::{ProtocolRulesRegistry, body_path, duration, flag, method};
 pub use data::DataWanted;
-pub use project::{Project, Source, TEST_BLOCKS, actions, list, text, whole_lines};
+pub use project::{Project, Source, TEST_BLOCKS, actions, list, protocol, text, whole_lines};
 pub use uses::piece_refs;
 
 use crate::cache::CacheEntry;
@@ -94,6 +95,7 @@ pub fn link(entries: &[CacheEntry], files: &SourceFiles, world: &World<'_>) -> L
     diagnostics.extend(fakes::check(&project));
     diagnostics.extend(auth_keys::check(&project));
     diagnostics.extend(protocol_keys::check(&project, &PROTOCOL_KEYS));
+    diagnostics.extend(protocol_needs::check(&project));
     diagnostics.extend(reports_dir::check(&project));
     diagnostics.extend(shared::profiles(&project));
     diagnostics.extend(world.secrets.map(|names| secrets::check(&project, &names.declared)).unwrap_or_default());

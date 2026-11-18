@@ -57,7 +57,7 @@ fn refers_to_nested_shapes_through_defs() {
     let api = schema(FileKind::Api);
     assert_eq!(api["properties"]["apis"]["items"], json!({ "$ref": "#/$defs/apiEntry" }));
     let entry = &api["$defs"]["apiEntry"];
-    assert_eq!(entry["required"], json!(["id", "path"]));
+    assert_eq!(entry["required"], json!(["id"]), "`path` is required per type, by the linker");
     assert_eq!(entry["properties"]["method"]["enum"][0], "GET");
     assert_eq!(entry["properties"]["expect"]["default"], json!({ "status": "2xx" }));
     assert!(api["$defs"].get("api").is_none(), "the root is not repeated in $defs");

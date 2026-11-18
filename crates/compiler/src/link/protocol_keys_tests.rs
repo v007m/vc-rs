@@ -124,7 +124,7 @@ fn a_misspelt_type_gets_the_close_value_as_its_fix() {
     let apis = "apis:\n  - id: get\n    type: htp\n    path: http://x/users/1\n";
     let compiled = compile(apis, "tests:\n  - id: getsUser\n    call: users#get\n");
     let wrong = compiled.diagnostics.iter().find(|found| found.code == Code::V2302).unwrap();
-    assert_eq!(wrong.message, "expected one of http, found `htp`");
+    assert_eq!(wrong.message, "expected one of http, graphql, found `htp`");
     assert_eq!(wrong.fixes[0].edits[0].new_text, "http");
 }
 
@@ -164,5 +164,31 @@ fn the_type_key_offers_every_protocol() {
     for shape in [shapes::root(FileKind::Api), shapes::api()] {
         let ty = shape.all_keys().find(|key| key.name == "type").map(|key| &key.ty);
         assert!(matches!(ty, Some(shapes::Ty::Enum(words)) if *words == keys.as_slice()), "{}", shape.title);
+    }
+}
+
+#[test]
+fn a_graphql_api_reports_a_method_and_a_call_that_sets_a_body() {
+    let apis = "type: graphql\napis:\n  - id: get\n    method: GET\n    path: http://x/graphql\n    body: {query: '{ me { id } }'}\n";
+    let tests = "tests:\n  - id: getsMe\n    call: users#get\n    body: {query: '{ other }'}\n";
+    let compiled = compile(apis, tests);
+    let stray: Vec<_> = compiled.diagnostics.iter().filter(|found| found.code == Code::V2213).collect();
+    let found: Vec<_> = stray.iter().map(|found| (found.message.as_str(), found.primary.span.start.line)).collect();
+    let expected = [("`body` does not apply to a `graphql` api", 4), ("`method` does not apply to a `graphql` api", 4)];
+    assert_eq!(found, expected, "the test file's first, then the api file's");
+    assert_eq!(&tests[stray[0].fixes[0].edits[0].range.clone()], "    body: {query: '{ other }'}\n");
+    assert_eq!(&apis[stray[1].fixes[0].edits[0].range.clone()], "    method: GET\n");
+    assert_eq!(api_protocols(&compile(&apis.replace("    method: GET\n", ""), "tests: []\n")), [Protocol::Graphql]);
+}
+
+#[test]
+fn every_key_a_type_allows_is_one_its_shape_knows() {
+    for (protocol, keys) in PROTOCOL_KEYS {
+        let ProtocolKeys::Only(keys) = keys else { continue };
+        let places = [(shapes::api(), keys.api), (shapes::expect(), keys.expect), (shapes::request(), keys.call)];
+        for (shape, allowed) in places {
+            let unknown: Vec<_> = allowed.iter().filter(|key| shape.find(key).is_none()).collect();
+            assert_eq!(unknown, [&""; 0], "{protocol:?} allows keys `{}` does not have", shape.title);
+        }
     }
 }

@@ -42,7 +42,7 @@ const UNCHECKABLE = new Set(['V3101']);
  * `crates/engine/tests/explain.rs`: the wrong example is held only to having an error, and the
  * right one is skipped.
  */
-const PENDING = new Set(['V2213']);
+const PENDING = new Set([]);
 
 /** A V1–V3 code is reported by `vc check`, so `explain.rs` holds its wrong example to it. */
 const checked = (code) => '123'.includes(code[1]) && !UNCHECKABLE.has(code) && !PENDING.has(code);

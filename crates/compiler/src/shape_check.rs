@@ -354,13 +354,13 @@ fn unknown_key(entry: &Entry, shape: &'static Shape) -> Diagnostic {
     suggest::hint(diagnostic, &Misspelling { word: &entry.key, span: entry.key_span, known: &known })
 }
 
-fn add_key(key: &Key) -> String {
+pub fn add_key(key: &Key) -> String {
     let written = key.example.map_or_else(|| key.name.to_owned(), |example| format!("{}: {example}", key.name));
     format!("add `{written}`: {}", key.doc)
 }
 
 /// "an api", "a test".
-fn article(title: &str) -> String {
+pub fn article(title: &str) -> String {
     let vowel = title.starts_with(['a', 'e', 'i', 'o', 'u']);
     format!("{} {title}", if vowel { "an" } else { "a" })
 }

@@ -10,8 +10,8 @@ use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use vc_diagnostics::{Code, Diagnostic, Diagnostics};
 use vc_model::{
-    CelProgram, CelSource, Duration, Matcher, Namespace, Part, Reference, ScalarSource, ScalarStyle, Size, SourceSpan,
-    StringTable, Sym, Template, TemplateValue,
+    CelProgram, CelSource, Duration, Matcher, Namespace, Part, Protocol, Reference, ScalarSource, ScalarStyle, Size,
+    SourceSpan, StringTable, Sym, Template, TemplateValue,
 };
 use vc_parser::{Node, Value};
 use vc_template::{CelCompiler, PipeRegistry, ROW_HELP, ROW_ROOTS, Roots, TemplateError, ValueType};
@@ -85,7 +85,9 @@ impl At<'_> {
 pub fn compile(root: &Node, walk: &Walk, cx: &mut Cx<'_>) -> IndexMap<SourceSpan, Piece> {
     let mut pieces = IndexMap::new();
     for leaf in &walk.leaves {
-        let Some(node) = shape_check::at(root, &leaf.path) else { continue };
+        let Some(node) = shape_check::at(root, &leaf.path).and_then(|node| lowered(root, &leaf.path, node)) else {
+            continue;
+        };
         let at = At { node, scope: leaf.scope };
         let timeout = leaf.ty == LeafTy::Duration && is_timeout(root, &leaf.path);
         if let Some(piece) = if timeout { unit(cx, at, &TIMEOUT) } else { piece(cx, at, leaf) } {
@@ -96,6 +98,19 @@ pub fn compile(root: &Node, walk: &Walk, cx: &mut Cx<'_>) -> IndexMap<SourceSpan
         }
     }
     pieces
+}
+
+/// What of `node` compiles: of a `graphql` api's `body`, only its `variables`, since the `query`
+/// is a document sent as written, never a template (D344); of anything else, all of it.
+fn lowered<'n>(root: &'n Node, path: &[usize], node: &'n Node) -> Option<&'n Node> {
+    let [apis, item, key] = path else { return Some(node) };
+    let Value::Map(entries) = &root.value else { return Some(node) };
+    let under = |at: &usize, key: &str| entries.get(*at).is_some_and(|entry| entry.key == key);
+    let Some(api) = shape_check::at(root, &[*apis, *item]) else { return Some(node) };
+    let Value::Map(fields) = &api.value else { return Some(node) };
+    let body = fields.get(*key).is_some_and(|entry| entry.key == "body");
+    let graphql = under(apis, "apis") && body && crate::link::protocol(root, api) == Protocol::Graphql;
+    if graphql { node.get("variables") } else { Some(node) }
 }
 
 /// The key a matcher leaf sits under when it holds `[*]`, so the matcher sees a list.

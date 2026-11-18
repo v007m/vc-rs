@@ -18,6 +18,7 @@ use vc_template::RenderError;
 
 use crate::Render;
 use crate::action::encode::{self, Encoder, Encoding};
+use crate::action::graphql;
 use crate::action::media::{self, OCTETS};
 use crate::action::path;
 
@@ -207,6 +208,10 @@ fn body(render: &Render<'_>, spec: &BodySpec, sending: &Sending<'_>) -> Result<O
             structured(render, value, sending)?
         }
         BodySpec::File(path) => file(render, path, sending.action)?,
+        BodySpec::Graphql(body) => {
+            let payload = graphql::payload(body, render.value(&body.variables).map_err(failed)?);
+            (Bytes::from(payload.to_string()), ContentType::Implied(JSON))
+        }
         BodySpec::Form(_) | BodySpec::Multipart(_) => {
             return Err(rendering("form and multipart bodies are written as a map with a `content-type`"));
         }

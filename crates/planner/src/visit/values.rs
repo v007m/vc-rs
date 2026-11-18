@@ -16,6 +16,7 @@ impl<V: Visit> Walker<'_, V> {
         match body {
             BodySpec::None => {}
             BodySpec::Json(value) => self.value(value),
+            BodySpec::Graphql(graphql) => self.value(&graphql.variables),
             BodySpec::Text(template) | BodySpec::File(template) | BodySpec::Base64(template) => {
                 self.template(template);
             }

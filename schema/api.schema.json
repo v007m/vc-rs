@@ -126,7 +126,8 @@
         "type": {
           "description": "What the api speaks; decides which keys apply",
           "enum": [
-            "http"
+            "http",
+            "graphql"
           ]
         },
         "vars": {
@@ -136,8 +137,7 @@
         }
       },
       "required": [
-        "id",
-        "path"
+        "id"
       ],
       "type": "object"
     },
@@ -332,6 +332,20 @@
       "required": [
         "function"
       ],
+      "type": "object"
+    },
+    "graphql": {
+      "additionalProperties": false,
+      "description": "The defaults of a `type: graphql` api file (D343)",
+      "properties": {
+        "path": {
+          "description": "The `path` of each `graphql` api that sets none",
+          "examples": [
+            "/api/graphql"
+          ],
+          "type": "string"
+        }
+      },
       "type": "object"
     },
     "http": {
@@ -549,6 +563,10 @@
       },
       "type": "array"
     },
+    "graphql": {
+      "$ref": "#/$defs/graphql",
+      "description": "Defaults for the file's `graphql` apis; only on a `type: graphql` file"
+    },
     "headers": {
       "additionalProperties": {
         "type": "string"
@@ -582,7 +600,8 @@
       "default": "http",
       "description": "What the file's apis speak; an api may set its own",
       "enum": [
-        "http"
+        "http",
+        "graphql"
       ]
     },
     "vars": {

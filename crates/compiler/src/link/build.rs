@@ -7,6 +7,7 @@ mod alerts;
 mod alerts_tests;
 mod auth;
 mod expect;
+mod graphql;
 mod http_retry;
 mod items;
 mod load;

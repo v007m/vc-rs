@@ -113,6 +113,7 @@ pub vc_model::BodySpec::Extend::changes: vc_model::TemplateValue
 pub vc_model::BodySpec::Extend::remove: alloc::vec::Vec<vc_model::Path>
 pub vc_model::BodySpec::File(vc_model::Template)
 pub vc_model::BodySpec::Form(indexmap::map::IndexMap<alloc::string::String, vc_model::TemplateValue>)
+pub vc_model::BodySpec::Graphql(vc_model::GraphqlBody)
 pub vc_model::BodySpec::Json(vc_model::TemplateValue)
 pub vc_model::BodySpec::Multipart(indexmap::map::IndexMap<alloc::string::String, vc_model::PartSpec>)
 pub vc_model::BodySpec::None
@@ -529,9 +530,10 @@ pub fn vc_model::PartSpec::serialize<__S>(&self, __S) -> core::result::Result<<_
 impl<'de> serde_core::de::Deserialize<'de> for vc_model::PartSpec
 pub fn vc_model::PartSpec::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub enum vc_model::Protocol
+pub vc_model::Protocol::Graphql
 pub vc_model::Protocol::Http
 impl vc_model::Protocol
-pub const vc_model::Protocol::ALL: [Self; 1]
+pub const vc_model::Protocol::ALL: [Self; 2]
 pub fn vc_model::Protocol::from_key(&str) -> core::option::Option<Self>
 pub const fn vc_model::Protocol::key(self) -> &'static str
 impl core::clone::Clone for vc_model::Protocol
@@ -1401,6 +1403,22 @@ impl serde_core::ser::Serialize for vc_model::GeneratorDef
 pub fn vc_model::GeneratorDef::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
 impl<'de> serde_core::de::Deserialize<'de> for vc_model::GeneratorDef
 pub fn vc_model::GeneratorDef::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub struct vc_model::GraphqlBody
+pub vc_model::GraphqlBody::document: alloc::string::String
+pub vc_model::GraphqlBody::operation_name: core::option::Option<alloc::string::String>
+pub vc_model::GraphqlBody::variables: vc_model::TemplateValue
+impl core::clone::Clone for vc_model::GraphqlBody
+pub fn vc_model::GraphqlBody::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::GraphqlBody
+impl core::cmp::PartialEq for vc_model::GraphqlBody
+pub fn vc_model::GraphqlBody::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::GraphqlBody
+pub fn vc_model::GraphqlBody::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::GraphqlBody
+impl serde_core::ser::Serialize for vc_model::GraphqlBody
+pub fn vc_model::GraphqlBody::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::GraphqlBody
+pub fn vc_model::GraphqlBody::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub struct vc_model::HistoryConfig
 pub vc_model::HistoryConfig::bodies: vc_model::Bodies
 pub vc_model::HistoryConfig::keep: vc_model::Keep
@@ -2582,7 +2600,8 @@ pub const vc_model::DEFAULT_SECRETS_SCHEMA: &str
 pub const vc_model::FILE_KEY: &str
 pub const vc_model::MULTIPART: &str
 pub const vc_model::PROFILE_VARIABLE: &str
-pub const vc_model::PROTOCOL_KEYS: [(vc_model::Protocol, vc_model::ProtocolKeys); 1]
+pub const vc_model::PROTOCOL_KEYS: [(vc_model::Protocol, vc_model::ProtocolKeys); 2]
+pub const vc_model::PROTOCOL_NEEDS: [(vc_model::Protocol, &[&str]); 2]
 pub fn vc_model::auth_needs(&str) -> core::option::Option<&'static [&'static str]>
 pub fn vc_model::basename(&str) -> &str
 pub fn vc_model::check_label(&vc_model::CheckResult) -> alloc::string::String

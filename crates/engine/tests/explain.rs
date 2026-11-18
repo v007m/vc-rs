@@ -39,7 +39,7 @@ fn paged() -> impl Iterator<Item = Code> {
 
 /// The codes whose examples need an api `type` that has not landed (#90): `http` takes every
 /// key, so V2213 is reported once `graphql` is. A code leaves the list when its example reports it.
-const PENDING: [Code; 1] = [Code::V2213];
+const PENDING: [Code; 0] = [];
 
 /// The codes whose examples `check` can confirm.
 fn explained() -> impl Iterator<Item = Code> {

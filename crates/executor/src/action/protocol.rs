@@ -7,6 +7,7 @@ use std::sync::Arc;
 use serde_json::Value;
 use vc_model::{Action, ActionId, Api, Exchange, Failure, Protocol, RenderedRequest};
 
+use super::graphql::GraphqlRuntime;
 use super::request;
 use crate::Render;
 
@@ -48,7 +49,7 @@ impl ProtocolRuntimes {
     /// The runtime of every built-in type.
     #[must_use]
     pub fn standard() -> Self {
-        Self { runtimes: vec![Arc::new(HttpRuntime)] }
+        Self { runtimes: vec![Arc::new(HttpRuntime), Arc::new(GraphqlRuntime)] }
     }
 
     /// The runtime for `protocol`, if it has one.
@@ -56,7 +57,6 @@ impl ProtocolRuntimes {
         self.runtimes.iter().find(|runtime| runtime.protocol() == protocol).cloned()
     }
 
-    /// The types it has a runtime for, in registration order.
     /// The `response` root an api of `protocol` gives for `exchange`: what its checks, saves and
     /// later actions see. `None` for a type without a runtime.
     #[must_use]
@@ -64,6 +64,7 @@ impl ProtocolRuntimes {
         self.get(protocol).map(|runtime| runtime.response(exchange))
     }
 
+    /// The types it has a runtime for, in registration order.
     #[must_use]
     pub fn protocols(&self) -> Vec<Protocol> {
         self.runtimes.iter().map(|runtime| runtime.protocol()).collect()
