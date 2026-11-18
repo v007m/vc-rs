@@ -13,7 +13,7 @@ use hyper_util::client::legacy::Client;
 use hyper_util::client::proxy::matcher::Matcher;
 use hyper_util::rt::{TokioExecutor, TokioTimer};
 use vc_interfaces::{SendContext, Transport, TransportError};
-use vc_model::{ConnectionInfo, Exchange, HttpResponse, Protocol, RenderedRequest, Timing};
+use vc_model::{ConnectionInfo, Exchange, HttpResponse, HttpVersion, RenderedRequest, Timing};
 
 use crate::connector::TimedConnector;
 use crate::stream::ConnectRecord;
@@ -114,7 +114,7 @@ impl Transport for HttpTransport {
 /// The connection a response came over, and its connect record if this response is the first
 /// on a new connection.
 fn connection_of(response: &Response<Incoming>) -> (ConnectionInfo, Option<Arc<ConnectRecord>>) {
-    let protocol = if response.version() == Version::HTTP_2 { Protocol::Http2 } else { Protocol::Http1 };
+    let protocol = if response.version() == Version::HTTP_2 { HttpVersion::Http2 } else { HttpVersion::Http1 };
     let record = response.extensions().get::<Arc<ConnectRecord>>();
     let remote = record.map(|record| record.remote);
     let fresh = record.filter(|record| record.claim()).cloned();

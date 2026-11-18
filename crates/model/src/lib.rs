@@ -62,7 +62,7 @@ pub use defs::{
 };
 pub use error::ModelError;
 pub use event::{Event, Feed, Sequenced};
-pub use exchange::{ConnectionInfo, Exchange, HttpResponse, Protocol, RenderedRequest, Timing};
+pub use exchange::{ConnectionInfo, Exchange, HttpResponse, HttpVersion, RenderedRequest, Timing};
 pub use expect::{Check, CheckKind, CheckResult, Expect, Matcher, MatcherArg, MatcherCall, Origin};
 pub use files::SourceFiles;
 pub use form::{form_pairs, form_text};

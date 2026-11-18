@@ -134,7 +134,7 @@ pub struct Timing {
     clippy::exhaustive_enums,
     reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
 )]
-pub enum Protocol {
+pub enum HttpVersion {
     /// HTTP/1.1 (or 1.0).
     #[default]
     Http1,
@@ -152,7 +152,7 @@ pub struct ConnectionInfo {
     /// `true` when a pooled connection was reused, so no DNS, connect or TLS time was spent.
     pub reused: bool,
     /// The negotiated protocol.
-    pub protocol: Protocol,
+    pub protocol: HttpVersion,
     /// The peer address, when known (a proxy's address when sent through one).
     pub remote: Option<SocketAddr>,
 }
