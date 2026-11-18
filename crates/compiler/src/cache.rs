@@ -317,7 +317,9 @@ impl postcard::ser_flavors::Flavor for Bytes {
         if data.len() > 8 {
             self.0.extend_from_slice(data);
         } else {
-            data.iter().for_each(|&byte| self.0.push(byte));
+            for &byte in data {
+                self.0.push(byte);
+            }
         }
         Ok(())
     }
