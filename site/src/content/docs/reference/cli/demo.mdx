@@ -71,10 +71,16 @@ error: port 7454 is taken by a program that is not the demo
 
 | Request | Answer |
 | --- | --- |
-| `GET /users` | `200` `[{"id":"1","name":"Ada Lovelace"},{"id":"2","name":"Grace Hopper"}]` |
-| `GET /users/{id}` | `200` `{"id":"1","name":"Ada Lovelace"}` for `1` and `2`, `200` `{"id":"3"}` for an ID it handed out, else `404` |
-| `POST /users` | `201` with the name, email and a new `id` (`3`, then `4`, …); `400` `{"error":"a user needs an email"}` without an `email` |
-| `DELETE /users/{id}` | `204` |
+| `GET /users?limit=N` | `200` with Ada Lovelace (`1`), Grace Hopper (`2`) and the users created since, in ID order: `[{"id":"1","name":"Ada Lovelace"},{"id":"2","name":"Grace Hopper"}]` at first; the first N with `limit` |
+| `GET /users/{id}` | `200` with the user, else `404` |
+| `POST /users` | `201` with what was sent and a new `id` (`3`, then `4`, …, never one handed out before); `name` is `someone` when not sent. `400` with a JSON `error` without an `email`, with a `name` that is not text or a `role` other than `admin` or `member` |
+| `PUT /users/{id}` | `200` with the user replaced by the body, checked as for `POST`; `404` for no such user |
+| `PATCH /users/{id}` | `200` with the body's keys merged in (`null` removes a key), checked as for `POST`; `404` for no such user |
+| `DELETE /users/{id}` | `204`; `404` for no such user |
+| `POST /auth/token` | `200` `{"access_token":"demo-token-1","token_type":"Bearer","expires_in":3600}`, whatever the body, with the next number each time |
+| `POST /oauth/token` | The same for the client `vc-client` with the secret `vc-secret` in HTTP Basic and `grant_type=client_credentials`; else `401` `invalid_client`, or `400` `invalid_request` or `unsupported_grant_type` |
+| `GET /auth/me` | `200` `{"user":"demo"}` with `authorization: Bearer <token>` for a token from either; else `401` |
+| `GET /openapi/users.yaml` | The users API as the demo serves it, in OpenAPI 3.0.3, with the server it was asked on; `users-v1.yaml` and `users-v2.yaml` are two older versions, for trying [`vc sync`](/vc-rs/reference/cli/sync/) |
 | any `/echo` | `200` with the method, path, query, headers and body it received, and the demo's pid in the `x-vc-demo-pid` header |
 | `GET /slow?ms=N` | `200` `{"sleptMs":N}` after N milliseconds (0 when `ms` is not given; `ms=` with no value is refused); N is at most `10000` |
 | `GET /flaky?key=K&failTimes=N` | `{"attempt":n}`, counted per key: `503` for the first N attempts, then `200` |
@@ -82,7 +88,20 @@ error: port 7454 is taken by a program that is not the demo
 | any `/status/{code}` | that status, with `{"status":code}`, for any code from `200` to `599`; no body for `204`, `205` and `304` |
 | anything else | `404` |
 
-It stores no users: a created or deleted user does not change `GET /users`.
+It keeps users in memory until it stops. Ada and Grace cannot be changed or deleted (`403`). It holds at most 1024 created users, and a user is at most 4096 bytes; past either it refuses with `400` and an `error` naming the limit. A token is valid until 1024 newer ones are handed out. The demo logs no tokens.
+
+```console
+$ curl -s -w ' %{http_code}\n' -X POST localhost:7421/users -d '{"name":"Alan Turing","email":"alan@example.com"}'
+{"email":"alan@example.com","id":"3","name":"Alan Turing"} 201
+$ curl -s -w ' %{http_code}\n' -X PATCH localhost:7421/users/3 -d '{"role":"admin"}'
+{"email":"alan@example.com","id":"3","name":"Alan Turing","role":"admin"} 200
+$ curl -s -w ' %{http_code}\n' -X PUT localhost:7421/users/1 -d '{"email":"a@example.com"}'
+{"error":"users 1 and 2 are the demo's own; create a user to change"} 403
+$ curl -s -w ' %{http_code}\n' -u vc-client:vc-secret -d grant_type=client_credentials localhost:7421/oauth/token
+{"access_token":"demo-token-2","expires_in":3600,"token_type":"Bearer"} 200
+$ curl -s -w ' %{http_code}\n' localhost:7421/auth/me
+{"error":"a valid bearer token is needed"} 401
+```
 
 The last four are test routes, for trying [`retry`](/vc-rs/reference/syntax/retry/), [`http.retry`](/vc-rs/reference/syntax/http-retry/), [`timeout`](/vc-rs/reference/syntax/timeout/), [`poll`](/vc-rs/reference/syntax/poll/) and [load tests](/vc-rs/reference/load/). Each refuses more than it is built for with `400` and a JSON `error`, never a quiet clamp: `ms` over `10000`, a key or ID over 64 bytes, a status outside `200`–`599`, a number in anything but the digits `0`–`9` (`+5`, `-1`, `1.5` or an empty value), or a request it cannot read, such as a path that is not UTF-8. `/flaky` and `/poll` each count up to 1024 keys; a new key past that is refused while the keys it has keep counting, until the demo restarts.
 

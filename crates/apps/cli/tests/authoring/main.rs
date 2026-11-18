@@ -12,6 +12,7 @@ mod completion;
 mod config;
 mod demo;
 mod demo_routes;
+mod demo_walkthroughs;
 mod explain;
 mod fix;
 mod fmt;

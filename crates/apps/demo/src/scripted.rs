@@ -26,13 +26,13 @@ pub const MAX_KEY_BYTES: usize = 64;
 pub const MAX_KEYS: usize = 1024;
 
 /// A query string, by name.
-type Params = BTreeMap<String, String>;
+pub type Params = BTreeMap<String, String>;
 
 /// A query string, or why it could not be read.
-type Asked = Result<Query<Params>, QueryRejection>;
+pub type Asked = Result<Query<Params>, QueryRejection>;
 
 /// A path segment, or why it could not be read.
-type Segment = Result<Path<String>, PathRejection>;
+pub type Segment = Result<Path<String>, PathRejection>;
 
 /// Attempt counts per key, in a table of [`MAX_KEYS`] slots: a key takes the first free slot from
 /// where its hash points, and keeps it, so the memory held never grows.
@@ -89,7 +89,7 @@ struct Tables {
 }
 
 /// A request the test routes refuse: 400 with `{"error": …}`.
-struct Refused(String);
+pub struct Refused(pub String);
 
 impl IntoResponse for Refused {
     fn into_response(self) -> Response {
@@ -175,7 +175,7 @@ async fn count(counters: &Counters, key: &str, what: &str) -> Result<u64, Refuse
 
 /// The whole number `name` names in `query`, in ASCII digits only (no sign, no point), 0 when it
 /// is not given; an empty value is refused.
-fn number(query: &Params, name: &str) -> Result<u64, Refused> {
+pub fn number(query: &Params, name: &str) -> Result<u64, Refused> {
     let Some(text) = query.get(name) else { return Ok(0) };
     let digits = !text.is_empty() && text.bytes().all(|byte| byte.is_ascii_digit());
     let parsed = digits.then(|| text.parse().ok()).flatten();

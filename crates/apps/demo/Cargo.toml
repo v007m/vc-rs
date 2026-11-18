@@ -25,6 +25,9 @@ clap.workspace = true
 tokio = { workspace = true, features = ["net", "rt-multi-thread"] }
 
 [dev-dependencies]
+# Reads the served specs, and checks the answers against their schemas.
+jsonschema.workspace = true
+saphyr-parser.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "test-util"] }
 tower.workspace = true
 

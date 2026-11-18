@@ -10,39 +10,7 @@ use tower::ServiceExt;
 
 use super::router;
 use crate::scripted::Counters;
-
-/// The status and JSON body (`null` when empty) of `method path` with `body`.
-async fn send(app: &axum::Router, method: Method, path: &str, body: &str) -> (StatusCode, Value) {
-    let request = Request::builder().method(method).uri(path).body(Body::from(body.to_owned())).unwrap();
-    let response = app.clone().oneshot(request).await.unwrap();
-    let status = response.status();
-    let bytes = body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
-    (status, serde_json::from_slice(&bytes).unwrap_or(Value::Null))
-}
-
-#[tokio::test]
-async fn users_are_listed_read_created_and_removed() {
-    let app = router();
-    let (status, all) = send(&app, Method::GET, "/users", "").await;
-    assert_eq!((status, all[1]["name"].clone()), (StatusCode::OK, json!("Grace Hopper")));
-    assert_eq!(send(&app, Method::GET, "/users/1", "").await.1["name"], "Ada Lovelace");
-    assert_eq!(send(&app, Method::GET, "/users/9", "").await.0, StatusCode::NOT_FOUND);
-    let created = send(&app, Method::POST, "/users", r#"{"name": "Alan", "email": "alan@example.com"}"#).await;
-    assert_eq!(created, (StatusCode::CREATED, json!({"id": "3", "name": "Alan", "email": "alan@example.com"})));
-    let unnamed = send(&app, Method::POST, "/users", r#"{"email": "x@example.com"}"#).await.1;
-    assert_eq!(unnamed, json!({"id": "4", "name": "someone", "email": "x@example.com"}));
-    assert_eq!(send(&app, Method::GET, "/users/3", "").await, (StatusCode::OK, json!({"id": "3"})));
-    assert_eq!(send(&app, Method::GET, "/users/5", "").await.0, StatusCode::NOT_FOUND, "not created yet");
-    assert_eq!(send(&app, Method::DELETE, "/users/3", "").await, (StatusCode::NO_CONTENT, Value::Null));
-}
-
-#[tokio::test]
-async fn a_user_without_an_email_is_refused() {
-    let app = router();
-    let refused = send(&app, Method::POST, "/users", r#"{"name": "No Email"}"#).await;
-    assert_eq!((refused.0, refused.1["id"].clone()), (StatusCode::BAD_REQUEST, Value::Null));
-    assert_eq!(send(&app, Method::POST, "/users", "").await.0, StatusCode::BAD_REQUEST);
-}
+use crate::testing::send;
 
 #[tokio::test]
 async fn echo_describes_the_request() {
