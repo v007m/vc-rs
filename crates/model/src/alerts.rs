@@ -40,7 +40,7 @@ impl AlertTrigger {
 }
 
 /// One entry of `alerts`: when to notify, and where.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[expect(
     clippy::exhaustive_structs,
     reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
@@ -57,7 +57,7 @@ pub struct Alert {
 }
 
 /// One channel of an alert's `notify`, such as `slack: {channel, webhook}`.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[expect(
     clippy::exhaustive_structs,
     reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"

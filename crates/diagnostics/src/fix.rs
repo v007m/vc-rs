@@ -1,10 +1,10 @@
 use std::ops::Range;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use vc_model::{SourceFileId, SourceSpan};
 
 /// A change that resolves a diagnostic: byte-range replacements, possibly across several files.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct Fix {
     /// What the fix does: "Replace with orders#place".
@@ -30,7 +30,7 @@ impl Fix {
 }
 
 /// Replaces a byte range of one file with new text.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[expect(
     clippy::exhaustive_structs,

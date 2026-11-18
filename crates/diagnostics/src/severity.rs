@@ -1,12 +1,12 @@
 use std::fmt;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 /// How serious a diagnostic is. Severities order from `Info` up to `Error`, so the worst of
 /// several is their `max()`.
 ///
 /// Run-time results that the code table calls a failure or blocked (V5xxx) are errors here.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 #[expect(clippy::exhaustive_enums, reason = "closed set (D160)")]
 pub enum Severity {

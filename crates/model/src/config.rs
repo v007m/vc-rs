@@ -1,4 +1,5 @@
 use indexmap::IndexMap;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::{
@@ -10,7 +11,7 @@ use crate::{
 const REFRESH_BEFORE: std::time::Duration = std::time::Duration::from_secs(60);
 
 /// `vibranium.config.yaml`: settings that are not tables of their own.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[expect(
     clippy::exhaustive_structs,
     reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
@@ -51,7 +52,7 @@ pub struct Config {
 }
 
 /// `defaults`.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[expect(
     clippy::exhaustive_structs,
     reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
@@ -71,7 +72,7 @@ pub struct Defaults {
 
 /// `http.retry`: retrying one request on a transport failure (D143); off by default, and the
 /// default of every other key is D143's.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[expect(
     clippy::exhaustive_structs,
     reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
@@ -110,7 +111,7 @@ impl Default for HttpRetry {
 }
 
 /// `hooks`: how TypeScript and JavaScript hooks run (D325).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[expect(
     clippy::exhaustive_structs,
     reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
@@ -134,7 +135,7 @@ impl Default for HooksConfig {
 }
 
 /// One entry of `profiles`.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[expect(
     clippy::exhaustive_structs,
     reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
@@ -176,7 +177,7 @@ pub fn auth_needs(kind: &str) -> Option<&'static [&'static str]> {
 }
 
 /// One entry of `auth`.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[expect(
     clippy::exhaustive_structs,
     reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
@@ -225,7 +226,7 @@ impl AuthDef {
 }
 
 /// One load file.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[expect(
     clippy::exhaustive_structs,
     reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
@@ -250,7 +251,7 @@ pub struct LoadScenario {
 }
 
 /// One entry of a load `mix`.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[expect(
     clippy::exhaustive_structs,
     reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
@@ -265,7 +266,7 @@ pub struct MixEntry {
 }
 
 /// One entry of load `stages`.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[expect(
     clippy::exhaustive_structs,
     reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
@@ -278,7 +279,7 @@ pub struct LoadStage {
 }
 
 /// One dataset (D173): a file under `datasets/`, or an entry of `datasets.files`, with its rows.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[expect(
     clippy::exhaustive_structs,
     reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
@@ -289,11 +290,12 @@ pub struct Dataset {
     /// The file, relative to the project root (`../shared/cities.csv` under an allowed root).
     pub file: String,
     /// Every row, in file order; a CSV row is a map of text cells.
+    #[serde(serialize_with = "crate::json_text::out", deserialize_with = "crate::json_text::read")]
     pub rows: Vec<serde_json::Value>,
 }
 
 /// One entry of `generators`, lowered to the built-in `${fake.…}` it calls (D174).
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[expect(
     clippy::exhaustive_structs,
     reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
@@ -304,11 +306,12 @@ pub struct GeneratorDef {
     /// The built-in generator it calls, such as `string.fromRegExp` for a `fromRegExp`.
     pub fake: String,
     /// The built-in's arguments, from the settings.
+    #[serde(serialize_with = "crate::json_text::out", deserialize_with = "crate::json_text::read")]
     pub args: Vec<Value>,
 }
 
 /// One entry of `plugins`: a plugin the project uses, approved in `vibranium.lock`.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[expect(
     clippy::exhaustive_structs,
     reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"

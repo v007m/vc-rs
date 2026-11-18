@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use serde::{Deserialize, Serialize};
+use serde::de::Error as _;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::ModelError;
 
@@ -16,7 +17,8 @@ pub struct Sym(u32);
 /// The interned strings of one program.
 ///
 /// The compiler interns into it while it builds the program. Once the program is frozen and
-/// shared, only the `&self` lookups are reachable, so the table is read-only from then on.
+/// shared, only the `&self` lookups are reachable, so the table is read-only from then on. It
+/// serializes as its texts in symbol order; reading back a list with a text twice fails.
 #[derive(Debug, Clone, Default)]
 pub struct StringTable {
     strings: Vec<Arc<str>>,
@@ -82,6 +84,26 @@ impl StringTable {
     }
 }
 
+impl Serialize for StringTable {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.collect_seq(self.texts())
+    }
+}
+
+impl<'de> Deserialize<'de> for StringTable {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let texts = Vec::<String>::deserialize(deserializer)?;
+        let mut table = Self::new();
+        for (index, text) in texts.iter().enumerate() {
+            table.intern(text).map_err(D::Error::custom)?;
+            if table.len() != index + 1 {
+                return Err(D::Error::custom(format!("`{text}` is in the string table twice")));
+            }
+        }
+        Ok(table)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::StringTable;
@@ -128,6 +150,15 @@ mod tests {
         let sym = table.intern("staging").unwrap();
         assert_eq!(table.get("staging"), Some(sym));
         assert_eq!(table.len(), 1);
+    }
+
+    #[test]
+    fn reads_back_with_the_same_symbols_and_never_a_text_twice() {
+        let mut table = StringTable::new();
+        let syms = ["b", "a"].map(|text| table.intern(text).unwrap());
+        let read: StringTable = serde_json::from_str(&serde_json::to_string(&table).unwrap()).unwrap();
+        assert_eq!(syms.map(|sym| read.resolve(sym)), [Some("b"), Some("a")]);
+        assert!(serde_json::from_str::<StringTable>(r#"["a","b","a"]"#).is_err());
     }
 
     #[test]

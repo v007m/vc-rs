@@ -1,4 +1,4 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::{Diagnostic, Severity};
 
@@ -29,7 +29,7 @@ impl Summary {
 }
 
 /// The diagnostics found by one check or run, in the order they were pushed until sorted.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct Diagnostics(Vec<Diagnostic>);
 
