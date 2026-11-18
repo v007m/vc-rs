@@ -65,19 +65,30 @@ apis:
     path: /users/${var.userId}
 ```
 
-`demo#flaky` calls the demo server's `/flaky`, which answers 503 to the first `failTimes` requests for a key and 200 after that. The demo counts a key for as long as it runs, so the tests build the key from [`${run.startedAt}`](/vc-rs/reference/templates/run/): it is new on every run and the same on every attempt. A `${fake.string.uuid}` would not do here, because each attempt draws a new one.
+`demo#flaky` calls the demo server's `/flaky`, which answers 503 to the first `failTimes` requests for a key and 200 after that. The demo counts a key for as long as it runs, so the tests build the key from [`${run.startedAt}`](/vc-rs/reference/templates/run/): it is new on every run and the same on every attempt. A `${fake.string.uuid}` would not do here, because each attempt draws a new one. `/flaky` and `/poll` each count at most 1024 keys, so a long-running demo that gets a new key on every call eventually answers new keys with 400; see [what the demo serves](/vc-rs/reference/cli/demo/#what-it-serves).
 
-```yaml title="services/demo/demo.api.yaml"
+```yaml title="services/demo/demo.api.yaml (excerpt)"
 baseUrl: ${var.sampleUrl}
 apis:
   - id: flaky
     name: Fails, then passes
     path: /flaky
     vars:
+      flakyKey: flaky-${run.startedAt}
       failTimes: "1"
     query:
       key: ${var.flakyKey}
       failTimes: ${var.failTimes}
+```
+
+The default key lets `vc call demo#flaky` run on its own. Each call is a new run with a new key, so it always gets the first answer:
+
+```console
+$ vc call demo#flaky
+503 Service Unavailable · 2 ms · api expect failed
+{
+  "attempt": 1
+}
 ```
 
 ```console
