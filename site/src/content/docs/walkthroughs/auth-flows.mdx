@@ -17,6 +17,10 @@ By the end you will know how to:
 - confirm that a token is fetched once per run, not once per call
 - override auth for one test, or turn it off with `auth: none`
 
+<Aside type="caution" title="Needs the demo from master">
+This page uses `vc demo` routes that are newer than v0.1.0: `/auth/token`, `/auth/me`, `/auth/logout` and `/oauth/token`. Until the next release, install `vc` and `vc-demo` from `master`: `brew install --HEAD v007m/tap/vibranium` (see [Homebrew](/vc-rs/start/install/#homebrew)), or `cargo install --git https://github.com/v007m/vc-rs vc-cli vc-demo --locked` (see [Cargo](/vc-rs/start/install/#cargo)).
+</Aside>
+
 ## Before you start
 
 - `vc` and `vc-demo` are on your `PATH` (see [Install](/vc-rs/start/install/)).
@@ -342,7 +346,7 @@ By the end you will know how to:
          status: 401
    ```
 
-   The demo numbers its tokens from one counter, so asking it for a token before and after the run shows how many the run took:
+   The demo numbers its tokens from one counter, so asking it for a token before and after the run shows how many the run took. The counter runs for the demo's whole life: a freshly started demo shows the numbers on this page, and one that has run for a while shows higher ones. For matching output, restart it first with `vc demo stop && vc demo start --detach`.
 
    ```console
    $ curl -s -X POST localhost:7421/auth/token
@@ -485,7 +489,25 @@ By the end you will know how to:
    2
    ```
 
-   No test ran, not even the `demo.auth` ones that don't need it. Before it sends anything, vc checks that every declared secret the selected tests read has a value, so a run never fails halfway for want of one. A selection that does not read it, such as `vc run demo.auth`, runs as usual. `vc check` reads no secret values, so it still reports `0 errors`.
+   No test ran, not even the `demo.auth` ones that don't need it. Before it sends anything, vc checks that every declared secret the selected tests read has a value, so a run never fails halfway for want of one. A run stopped this way writes no report. A selection that does not read the secret runs as usual, and takes the next report number, 6 (the stopped run took none):
+
+   ```console
+   $ vc run demo.auth
+   plan  6 tests in 1 file · profile default
+
+   Auth schemes against the demo
+   ✓ demo.auth#sendsBearerToken — Sends the bearer token            15ms
+   ✓ demo.auth#sendsKeyInQuery — Sends the API key in the query string   17ms
+   ✓ demo.auth#rejectsMissingCredentials — Rejects a token request without credentials   20ms
+   ✓ demo.auth#sendsKeyInHeader — Sends the API key in a header     23ms
+   ✓ demo.auth#logsInWithBasicAuth — Logs in with HTTP basic auth   22ms
+   ✓ demo.auth#rejectsWrongUser — Rejects basic auth for another user   30ms
+
+   6 passed                                                     37ms · profile default
+   reports  /home/you/auth-demo/.vibranium/reports/6/ctrf.json
+   ```
+
+   `vc check` reads no secret values, so it still reports `0 errors`.
 
    If some runs can do without a secret, mark it `# @optional` in `.env.schema`, on the line just above its name (see [`.env.schema`](/vc-rs/reference/config/env-schema/)):
 
@@ -514,12 +536,12 @@ By the end you will know how to:
    ✕ account.session#readsProfileWithOauth [repeat 3] — Reads the profile with a client-credentials token    0ms
      error[V5114]: the secret `OAUTH_CLIENT_SECRET` did not load
         = at: call account#meWithOauth
-   ✓ account.session#rejectsAnonymousCaller — Rejects a caller with no token    3ms
-   ✓ account.session#readsProfileAfterLogin [repeat 3] — Reads the profile after a flow login    5ms
-   ✓ account.session#readsProfileAfterLogin [repeat 1] — Reads the profile after a flow login    5ms
-   ✓ account.session#readsProfileAfterLogin [repeat 2] — Reads the profile after a flow login    7ms
+   ✓ account.session#rejectsAnonymousCaller — Rejects a caller with no token    9ms
+   ✓ account.session#readsProfileAfterLogin [repeat 2] — Reads the profile after a flow login   10ms
+   ✓ account.session#readsProfileAfterLogin [repeat 3] — Reads the profile after a flow login   11ms
+   ✓ account.session#readsProfileAfterLogin [repeat 1] — Reads the profile after a flow login   11ms
 
-   4 passed · 3 failed                                          7ms · profile default
+   4 passed · 3 failed                                          16ms · profile default
    reports  /home/you/auth-demo/.vibranium/reports/7/ctrf.json
    next     vc run --failed
    ```

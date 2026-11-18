@@ -247,7 +247,7 @@ A pattern is used where it removes a real coupling or a real `match`/`if` chain:
 | **Interpreter and composite** | Templates and pipes; CEL behind `Expr`; matchers composed with `allOf`, `anyOf`, `not`, `every` | Small languages evaluated without running user code |
 | **Visitor** | Walks over the `Program` for linking, lints and the planner's needs analysis (`Visit` trait with default no-op methods) | New analyses without editing the IR types |
 | **Specification** | Run selection: IDs, globs, paths, tags, grep, changed and failed as composable predicates | Selectors combine freely ("or" for positional, "and" for flags) |
-| **Repository** | `HistoryReader`/`HistoryWriter`, `CacheStore` with SQLite implementations (a Postgres one stays possible behind the same traits, D253) | Storage swappable; queries named by intent |
+| **Repository** | `HistoryReader`/`HistoryWriter`, `CacheStore` with SQLite implementations (another store stays possible behind the same traits) | Storage swappable; queries named by intent |
 | **Null object** | `NoAuth`, `NoopReporter`, `NoHooks` | No `Option` checks scattered through callers |
 | **Singleflight (memoization)** | Shared lifecycle slots and the token cache | Concurrent callers share one execution |
 | **Flyweight** | Interned strings (`Sym`) for every ID and name | Small, cheap-to-copy IDs across a large program |

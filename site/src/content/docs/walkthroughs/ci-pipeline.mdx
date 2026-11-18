@@ -11,13 +11,17 @@ import Playground from '~/components/Playground.svelte';
 
 You first run each command locally, so you know what the job will print and which exit code it returns.
 
+<Aside type="caution" title="Needs the demo from master">
+This page uses `vc demo` routes that are newer than v0.1.0: the users store and the served specs under `/openapi/`. Until the next release, install `vc` and `vc-demo` from `master`: `brew install --HEAD v007m/tap/vibranium` (see [Homebrew](/vc-rs/start/install/#homebrew)), or `cargo install --git https://github.com/v007m/vc-rs vc-cli vc-demo --locked` (see [Cargo](/vc-rs/start/install/#cargo)).
+</Aside>
+
 ## Prerequisites
 
 - `vc` and `vc-demo` on your `PATH` (see [Install](/vc-rs/start/install/)).
 - A project in a git repo with a GitHub remote. This page uses the sample project from `vc init`, because it runs anywhere: its test file starts the demo service in `beforeAll` and stops it in `afterAll`. A project that tests your own service works the same way, with a profile that points at it.
 
 <Aside type="caution" title="No prebuilt binary or setup action yet">
-There is no prebuilt binary, installer or GitHub setup action for `vc` yet. The workflow below builds the v0.1.0 release from the repo with `cargo install`, which needs Rust 1.99 or later. GitHub's hosted runners come with `rustup`.
+There is no prebuilt binary, installer or GitHub setup action for `vc` yet. The workflow below builds `master` from the repo with `cargo install`, which needs Rust 1.99 or later. GitHub's hosted runners come with `rustup`.
 </Aside>
 
 ## Build the pipeline
@@ -243,7 +247,8 @@ jobs:
       - name: Install vc and vc-demo
         run: |
           rustup toolchain install 1.99 --profile minimal
-          cargo +1.99 install --git https://github.com/v007m/vc-rs --tag v0.1.0 vc-cli vc-demo --locked
+          # master until the next release; then pin its tag with --tag instead
+          cargo +1.99 install --git https://github.com/v007m/vc-rs --branch master vc-cli vc-demo --locked
 
       - name: Check the definitions
         run: vc check
@@ -316,7 +321,7 @@ Every `vc` command uses the same codes, so a CI step can branch on them.
 
 ## What you learned
 
-- Install `vc` in CI with `cargo install --git https://github.com/v007m/vc-rs --tag v0.1.0 vc-cli vc-demo --locked`. No prebuilt binary or setup action exists yet.
+- Install `vc` in CI with `cargo install --git https://github.com/v007m/vc-rs --branch master vc-cli vc-demo --locked` (the next release's `--tag` once it is out). No prebuilt binary or setup action exists yet.
 - Order the steps from cheap to expensive: `vc check`, then `vc sync --check`, then `vc run`.
 - `--report junit,ctrf,html --out reports` writes the report files to one folder to upload. `--single-file` makes the HTML one file.
 - `--reporter json` streams NDJSON events on stdout.

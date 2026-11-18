@@ -36,11 +36,14 @@ Units work in `gt`, `gte`, `lt`, `lte` and `between`. A bare number needs its un
 
 **An upper bound.** Catch a response that grew by accident, such as a list that lost its paging. This one calls `users#list` with `query: {limit: 2}`, which the demo answers with its first two users, 67 bytes.
 
-```yaml
-query: {limit: 2}
-expect:
-  size:
-    lt: 50b
+```yaml title="services/sz/size.test.yaml (excerpt)"
+tests:
+  - id: tooBig
+    call: users#list
+    query: {limit: 2}
+    expect:
+      size:
+        lt: 50b
 ```
 
 ```console

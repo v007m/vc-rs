@@ -26,7 +26,7 @@ Every API test starts with an API. Vibranium ships a tiny one, the users service
 
    | Request | What it does |
    | --- | --- |
-   | `GET /users` | Lists the two seed users, Ada Lovelace and Grace Hopper |
+   | `GET /users` | Lists the users: the two seed users, Ada Lovelace and Grace Hopper, then any you create |
    | `GET /users/{id}` | Returns one user |
    | `POST /users` | Creates a user from a JSON body with a `name` and an `email`; answers `201` with the new user, or `400` without an email |
    | `DELETE /users/{id}` | Deletes a user; answers `204` |

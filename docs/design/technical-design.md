@@ -276,6 +276,8 @@ profiles:
 
 ### Self-hosted server
 
+Dropped (D332): the team server is not built. What follows is the plan as it stood.
+
 - `vc serve` runs the Engine service over Connect RPC plus the web UI, with Postgres as its `ResultStore` adapter.
 - CLIs and CI jobs push finished runs (`vc run --publish <server>`), so team history is shared without running tests on the server.
 - Accounts are local or OIDC; a project maps to a git repository, and the server reads definitions from a checkout of it.

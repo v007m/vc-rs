@@ -7,6 +7,10 @@ sidebar: { order: 1 }
 import { Steps, Aside, Tabs, TabItem } from '@astrojs/starlight/components';
 import Playground from '~/components/Playground.svelte';
 
+<Aside type="caution" title="Needs the demo from master">
+This page uses `vc demo` routes that are newer than v0.1.0: the users store with `PUT`, `PATCH` and `DELETE`. Until the next release, install `vc` and `vc-demo` from `master`: `brew install --HEAD v007m/tap/vibranium` (see [Homebrew](/vc-rs/start/install/#homebrew)), or `cargo install --git https://github.com/v007m/vc-rs vc-cli vc-demo --locked` (see [Cargo](/vc-rs/start/install/#cargo)).
+</Aside>
+
 ## Goal
 
 You will test a small `/users` REST API from end to end:
@@ -29,7 +33,7 @@ It takes about 15 minutes.
   demo running on http://localhost:7421 (pid 54456); `vc demo stop` stops it
   ```
 
-  It listens on `http://localhost:7421`. It stores users in memory, so a restart empties it.
+  It listens on `http://localhost:7421`. It keeps users in memory until it stops, so a restart goes back to its two seed users, Ada Lovelace and Grace Hopper.
 
 The demo's `/users` collection behaves like a typical REST API (all of it is in [`vc demo`](/vc-rs/reference/cli/demo/#what-it-serves)):
 

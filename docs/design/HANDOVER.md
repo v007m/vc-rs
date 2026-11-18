@@ -60,7 +60,7 @@ These changed during the conversation. The older wording may still appear in an 
   - Svelte/SvelteKit (D95, Sarath's own edit).
   - One project per UI: no sign-in, no avatar, no project switcher.
   - Run buttons appear only where they act on something.
-  - `vc ui` is the local UI; `vc serve` is the later team server.
+  - `vc ui` is the local UI; the team server (`vc serve`) is dropped (D332).
 - **HTML report:** a small app over JS data files loaded on demand (`VIB.load(...)`, so it works from `file://`), with a virtualized table. It is not one big HTML file; v1's report was very slow.
 
 ## Waiting on Sarath

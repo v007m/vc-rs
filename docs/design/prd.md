@@ -169,7 +169,7 @@ The command is `vibranium`, aliased `vc` (D44). Commands that print data accept 
 | `vc plugin add\|list\|remove` | Manage plugins, showing the permissions each requests |
 | `vc mcp` | Start the MCP server on stdio |
 | `vc tui` | Open the terminal UI |
-| `vc serve` | Start the self-hosted team server (later release); the local web UI for one project is vc ui |
+| `vc serve` | Dropped (D332): the self-hosted team server is not built; the local web UI for one project is vc ui |
 
 ### MCP tools for agents
 

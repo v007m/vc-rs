@@ -9,6 +9,10 @@ import Playground from '~/components/Playground.svelte';
 
 **Goal:** turn an OpenAPI spec into api and test files, check responses against the spec's schemas, then follow the spec as it changes. `vc sync` merges each new version of the spec into your files and keeps your edits. In CI, `vc sync --check` fails the build when the spec has drifted.
 
+<Aside type="caution" title="Needs the demo from master">
+This page uses `vc demo` routes that are newer than v0.1.0: the served specs under `/openapi/` and the users store they describe. Until the next release, install `vc` and `vc-demo` from `master`: `brew install --HEAD v007m/tap/vibranium` (see [Homebrew](/vc-rs/start/install/#homebrew)), or `cargo install --git https://github.com/v007m/vc-rs vc-cli vc-demo --locked` (see [Cargo](/vc-rs/start/install/#cargo)).
+</Aside>
+
 ## Prerequisites
 
 - `vc` and `vc-demo` on your `PATH` (see [Install](/vc-rs/start/install/)).

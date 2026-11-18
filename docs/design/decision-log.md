@@ -666,7 +666,7 @@ Round 63 (18 November 2026; Sarath):
 
 | # | Topic | Decision | Supersedes |
 | --- | --- | --- | --- |
-| D332 | The team server is dropped (Sarath) | Sarath dropped the M10 team server (`vc serve --team`) on 2026-11-18: it is not a priority. LLD milestone M10 and PRD R31 are marked dropped; nothing of it is built, and the server's defaults (D253, D261) lapse with it | D245 (its M10 part), D253, D261 |
+| D332 | The team server is dropped (Sarath) | Sarath dropped the M10 team server (`vc serve`) on 2026-11-18: it is not a priority. LLD milestone M10 and PRD R31 are marked dropped; nothing of it is built, and the server's defaults (D253, D261) lapse with it. D254's unparked work (Bruno `.bru` import, JSON Connect bodies through pbjson, OS-enforced plugin permissions) no longer waits for an M10 batch: it follows M9 directly, on the post-v0.1 roadmap (#102) | D245 (its M10 part), D253, D254 (its timing), D261 |
 
 ## Open
 
