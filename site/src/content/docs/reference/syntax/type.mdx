@@ -69,7 +69,7 @@ apis:
 
 ## How it behaves
 
-- The type is read once, when the file is checked: an api's own `type`, else its file's, else `http`.
+- The type is read once, when the file is checked: an api's own `type`, else its file's, else `http`. A value that is not a known type counts as unset, so it falls back the same way.
 - The type decides which keys apply: on the api, in its `expect`, and on a test or step that calls it (in its `expect` and `poll.until` too, and on a `cache.check` call inside it). A key the type does not use is an error, V2213, whose fix removes the key. `http` uses every key, so no `http` api reports it.
 - A value that is not a known type is V2302, with the close type as its fix.
 

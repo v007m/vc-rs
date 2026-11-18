@@ -173,10 +173,11 @@ pub fn holes(node: &Node, keys: &[&str]) -> Vec<SourceSpan> {
     keys.iter().filter_map(|key| node.get(key)).map(|value| value.span).collect()
 }
 
-/// An api's `type`: its own, else its file's (`root`), else `http` (D342). The shape check
-/// reports any other text.
+/// An api's `type`: its own, else its file's (`root`), else `http` (D342). A value that names no
+/// type counts as unset, so it falls back the same way; the shape check reports it (V2302).
 pub fn protocol(root: &Node, api: &Node) -> Protocol {
-    text(api, "type").or_else(|| text(root, "type")).and_then(Protocol::from_key).unwrap_or_default()
+    let typed = |node: &Node| text(node, "type").and_then(Protocol::from_key);
+    typed(api).or_else(|| typed(root)).unwrap_or_default()
 }
 
 /// The lines `entry` is written on, newline included, when nothing else shares its first line.
