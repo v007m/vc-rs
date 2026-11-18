@@ -1,0 +1,59 @@
+//! The compile rules of each api `type` (D342): the parts of an api that its type decides.
+
+use vc_model::{BodySpec, Method, Protocol};
+use vc_parser::Node;
+
+use super::read;
+use crate::link::project::Source;
+
+/// How an api of one type reads into the program.
+pub trait ProtocolRules {
+    /// The type these rules compile.
+    fn protocol(&self) -> Protocol;
+    /// The method the api sends.
+    fn method(&self, api: &Node) -> Method;
+    /// The body the api sends.
+    fn body(&self, source: &Source<'_>, api: &Node) -> BodySpec;
+}
+
+/// `http`: the api's own `method`, else GET, and its own `body`.
+struct HttpRules;
+
+impl ProtocolRules for HttpRules {
+    fn protocol(&self) -> Protocol {
+        Protocol::Http
+    }
+
+    fn method(&self, api: &Node) -> Method {
+        read::method(api)
+    }
+
+    fn body(&self, source: &Source<'_>, api: &Node) -> BodySpec {
+        api.get("body").and_then(|body| read::body(source, body)).unwrap_or_default()
+    }
+}
+
+/// The compile rules of every api type, one entry per [`Protocol`].
+pub struct ProtocolRulesRegistry {
+    rules: Vec<Box<dyn ProtocolRules>>,
+}
+
+impl ProtocolRulesRegistry {
+    /// The rules of every built-in type.
+    #[must_use]
+    pub fn builtin() -> Self {
+        let rules: Vec<Box<dyn ProtocolRules>> = vec![Box::new(HttpRules)];
+        Self { rules }
+    }
+
+    /// The rules for `protocol`, if it has any.
+    pub(crate) fn get(&self, protocol: Protocol) -> Option<&dyn ProtocolRules> {
+        self.rules.iter().find(|rules| rules.protocol() == protocol).map(AsRef::as_ref)
+    }
+
+    /// The types it has rules for, in registration order.
+    #[must_use]
+    pub fn protocols(&self) -> Vec<Protocol> {
+        self.rules.iter().map(|rules| rules.protocol()).collect()
+    }
+}

@@ -36,7 +36,7 @@ use vc_model::{Date, FileKind, PROTOCOL_KEYS, Program, SchemaNames, SourceFiles,
 
 pub use assets::folder;
 pub use body_schema::{is_inline as schema_is_inline, key as schema_key, nodes as schema_nodes};
-pub use build::{body_path, duration, flag, method};
+pub use build::{ProtocolRulesRegistry, body_path, duration, flag, method};
 pub use data::DataWanted;
 pub use project::{Project, Source, TEST_BLOCKS, actions, list, text, whole_lines};
 pub use uses::piece_refs;

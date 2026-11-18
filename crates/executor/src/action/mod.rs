@@ -15,6 +15,7 @@ mod looping;
 mod media;
 mod multipart;
 mod path;
+mod protocol;
 mod provides;
 mod request;
 mod retrying;
@@ -42,6 +43,7 @@ pub use call::{CallExecutor, called};
 pub use command::{CommandExecutor, CommandShell};
 pub use function::FunctionExecutor;
 pub use inline::InlineExecutor;
+pub use protocol::ProtocolRuntimes;
 pub use reuse::{TestExecutor, body_actions};
 pub use sink::{CleanupCollector, CleanupSink};
 

@@ -126,8 +126,9 @@ impl<'a> Build<'_, 'a> {
     }
 
     fn api(&mut self, source: &Source<'a>, node: &Node, group: FileId) -> Built<Option<Api>> {
-        let (Some(id), Some(path)) =
-            (project::text(node, "id"), node.get("path").and_then(|path| read::template(source, path)))
+        let path = node.get("path").and_then(|path| read::template(source, path));
+        let (Some(id), Some(path), Some(rules)) =
+            (project::text(node, "id"), path, self.rules.get(project::protocol(source.root, node)))
         else {
             return Ok(None);
         };
@@ -142,13 +143,13 @@ impl<'a> Build<'_, 'a> {
             id,
             name: read::owned(node, "name"),
             group,
-            protocol: project::protocol(source.root, node),
-            method: read::method(node),
+            protocol: rules.protocol(),
+            method: rules.method(node),
             path,
             vars: self.vars(source, node)?,
             query: read::templates(source, node, "query"),
             headers: read::templates(source, node, "headers"),
-            body: node.get("body").and_then(|body| read::body(source, body)).unwrap_or_default(),
+            body: rules.body(source, node),
             auth: self.auth(source, node)?.unwrap_or_default(),
             timeout: read::duration(source, node, "timeout"),
             http_retry: http_retry::over(source, node, &self.http_retry),

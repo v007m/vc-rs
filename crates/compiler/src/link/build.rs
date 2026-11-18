@@ -12,6 +12,7 @@ mod items;
 mod load;
 #[cfg(test)]
 mod load_tests;
+mod protocol;
 mod read;
 mod rows;
 #[cfg(test)]
@@ -38,6 +39,7 @@ use super::project::{Project, Source};
 use super::saves::Saves;
 use action::Place;
 pub use expect::path as body_path;
+pub use protocol::ProtocolRulesRegistry;
 pub use read::{duration, flag, method};
 
 /// What a build step gives; it fails only when a table is full.
@@ -52,8 +54,8 @@ pub fn program(
     let mut builder = ProgramBuilder::new(project.strings.clone(), files);
     builder.hooks(hooks);
     let (api_expects, http_retry) = (HashMap::new(), HttpRetry::default());
-    let saves = Saves::new(project);
-    let mut build = Build { project, data, builder, api_expects, http_retry, secrets, saves };
+    let (saves, rules) = (Saves::new(project), ProtocolRulesRegistry::builtin());
+    let mut build = Build { project, data, builder, api_expects, http_retry, secrets, saves, rules: &rules };
     build.all().ok()?;
     Some(build.builder.freeze())
 }
@@ -70,6 +72,7 @@ struct Build<'p, 'a> {
     secrets: &'p SchemaNames,
     /// What reused tests save, worked out once each (D282).
     saves: Saves<'p, 'a>,
+    rules: &'p ProtocolRulesRegistry,
 }
 
 impl<'a> Build<'_, 'a> {

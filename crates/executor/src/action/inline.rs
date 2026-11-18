@@ -7,6 +7,7 @@ use vc_interfaces::SendContext;
 use vc_model::{Action, ActionId, ActionKind, ActionOutcome, Failure, Origin, Program};
 
 use super::call::{bind, expected, judge, saves, send, subject};
+use super::protocol::HttpRuntime;
 use super::request;
 use super::{ActionExecutor, ActionRequest};
 use crate::check::{self, MatcherRegistry};
@@ -46,7 +47,7 @@ impl InlineExecutor {
         let call =
             Call { request: request::inline(&render, (request.action, inline))?, timeout, ctx: SendContext::default() };
         let exchange = send(&crate::pipeline(self.parts.clone()), call).await?;
-        let response = bind(&mut render, &exchange);
+        let response = bind(&mut render, &exchange, &HttpRuntime);
         let checks = expected(action, (Origin::Action(request.action), action.span));
         let checks = judge(&self.matchers, &render, (&checks, subject(&response, &exchange)));
         let mut report = ActionReport { checks, ..ActionReport::passed() };
