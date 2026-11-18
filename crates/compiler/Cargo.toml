@@ -46,6 +46,9 @@ vc-model.workspace = true
 vc-parser.workspace = true
 vc-template.workspace = true
 
+[build-dependencies]
+blake3.workspace = true
+
 [dev-dependencies]
 insta.workspace = true
 

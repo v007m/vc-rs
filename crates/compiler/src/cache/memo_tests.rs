@@ -7,7 +7,7 @@ use std::sync::Arc;
 use vc_model::{ContentHash, Date, FileKind, SourceFile, SourcePath};
 
 use super::LinkKey;
-use crate::cache::{Body, MAGIC, Recall};
+use crate::cache::{BUILD, Body, MAGIC, Recall};
 use crate::{CompileCache, CompileInput, Compiled, compile};
 
 #[path = "../../tests/common/tree.rs"]
@@ -223,20 +223,34 @@ fn another_layout_version_misses() {
     blob_misses(|bytes| bytes[MAGIC.len()..MAGIC.len() + 4].copy_from_slice(&11_u32.to_le_bytes()));
 }
 
+/// `bytes` with its header saying that `build` wrote it.
+fn written_by(bytes: &mut Vec<u8>, build: &str) {
+    let at = MAGIC.len() + 8;
+    let length = usize::try_from(u32::from_le_bytes(bytes[MAGIC.len() + 4..at].try_into().unwrap())).unwrap();
+    let mut body: Body = postcard::from_bytes(&bytes[at..at + length]).unwrap();
+    body.build = build.to_owned();
+    let header = postcard::to_stdvec(&body).unwrap();
+    let mut out = bytes[..MAGIC.len() + 4].to_vec();
+    out.extend(u32::try_from(header.len()).unwrap().to_le_bytes());
+    out.extend(header);
+    out.extend(&bytes[at + length..]);
+    *bytes = out;
+}
+
 #[test]
 fn another_release_misses() {
-    blob_misses(|bytes| {
-        let at = MAGIC.len() + 8;
-        let length = usize::try_from(u32::from_le_bytes(bytes[MAGIC.len() + 4..at].try_into().unwrap())).unwrap();
-        let mut body: Body = postcard::from_bytes(&bytes[at..at + length]).unwrap();
-        body.build = "0.0.0-other".to_owned();
-        let header = postcard::to_stdvec(&body).unwrap();
-        let mut out = bytes[..MAGIC.len() + 4].to_vec();
-        out.extend(u32::try_from(header.len()).unwrap().to_le_bytes());
-        out.extend(header);
-        out.extend(&bytes[at + length..]);
-        *bytes = out;
-    });
+    blob_misses(|bytes| written_by(bytes, "0.0.0-other"));
+}
+
+#[test]
+fn another_build_of_the_same_release_misses() {
+    let id = env!("VC_LINK_BUILD_ID");
+    assert_eq!(BUILD, format!("{}+{id}", env!("CARGO_PKG_VERSION")));
+    assert!(id.len() == 64 && id.bytes().all(|byte| byte.is_ascii_hexdigit()), "a blake3 hash: {id}");
+    blob_misses(|bytes| written_by(bytes, &format!("{}+{}", env!("CARGO_PKG_VERSION"), "0".repeat(64))));
+    let mut same = compile(base()).cache.to_bytes();
+    written_by(&mut same, BUILD);
+    assert!(hits(&CompileCache::from_bytes(&same), &compile(base()), &base()), "the same build still hits");
 }
 
 #[test]
@@ -264,3 +278,4 @@ fn a_hit_in_memory_shares_the_program() {
     let (program, shared) = (first.program.unwrap(), again.program.unwrap());
     assert!(Arc::ptr_eq(&program, &shared));
 }
+

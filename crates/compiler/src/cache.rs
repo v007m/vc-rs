@@ -15,9 +15,11 @@ const MAGIC: &[u8; 4] = b"VCCC";
 /// The layout version; a blob with any other version is ignored.
 const VERSION: u32 = 12;
 
-/// The compiler release that wrote a blob; a blob from another release is ignored, so a check
-/// added or fixed in a new release is not hidden by units an older compiler kept.
-const BUILD: &str = env!("CARGO_PKG_VERSION");
+/// The compiler release and build that wrote a blob; a blob from another one is ignored, so a
+/// check added or fixed in a new release, or in a dev build of the same release, is not hidden by
+/// units or a memo an older compiler kept. The build id is a hash of the sources that decide a
+/// compile's output (`build.rs`, D333).
+const BUILD: &str = concat!(env!("CARGO_PKG_VERSION"), "+", env!("VC_LINK_BUILD_ID"));
 
 /// What the compiler keeps between runs so it can skip files that did not change (D132).
 ///
@@ -217,7 +219,7 @@ impl CompileCache {
 /// The blob after its header.
 #[derive(Serialize, Deserialize)]
 struct Body {
-    /// The compiler release that wrote the blob.
+    /// The compiler release and build that wrote the blob.
     build: String,
     /// The string table, in symbol order.
     strings: Vec<String>,
