@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
@@ -130,6 +131,12 @@ impl CompileCache {
         Self { repaired, ..self }
     }
 
+    /// Whether a compile this cache came from found a unit or memo that did not read back, so it
+    /// is to be saved again.
+    pub(crate) const fn is_repaired(&self) -> bool {
+        self.repaired
+    }
+
     /// What the cache holds for the file at `path` with `hash`, numbered `file`, its unit read
     /// back from its bytes when it has only those. The entries are in path order, as a compile
     /// makes them, so the search is a binary one.
@@ -212,7 +219,7 @@ impl CompileCache {
         out.extend([0; blake3::OUT_LEN]);
         out.extend(u32::try_from(header.len()).unwrap_or(u32::MAX).to_le_bytes());
         out.extend(header);
-        units.into_iter().flatten().for_each(|unit| out.extend(unit));
+        units.into_iter().flatten().for_each(|unit| out.extend_from_slice(&unit));
         out.extend(output.unwrap_or_default());
         seal(&mut out);
         out
@@ -260,13 +267,13 @@ fn stored(entry: &CacheEntry, unit: Option<&[u8]>) -> Stored {
 }
 
 /// The bytes of an entry's unit, when it is kept and has no diagnostics: the ones it was read
-/// from, when it was.
-fn unit_bytes(entry: &CacheEntry) -> Option<Vec<u8>> {
+/// from, borrowed, when it was.
+fn unit_bytes(entry: &CacheEntry) -> Option<Cow<'_, [u8]>> {
     if let Some(bytes) = &entry.bytes {
-        return Some(bytes.to_vec());
+        return Some(Cow::Borrowed(bytes));
     }
     let unit = entry.unit.as_deref().filter(|unit| unit.diagnostics.is_empty())?;
-    encode(unit).filter(|bytes| u32::try_from(bytes.len()).is_ok())
+    encode(unit).filter(|bytes| u32::try_from(bytes.len()).is_ok()).map(Cow::Owned)
 }
 
 /// Writes the checksum of the bytes after it into `blob`, in place.
@@ -325,7 +332,6 @@ fn entry(stored: &Stored, units: &mut &[u8]) -> Option<CacheEntry> {
     Some(CacheEntry { path, hash, file, unit: None, bytes: stored.unit.map(|_| Arc::from(bytes)) })
 }
 
-/// The value `bytes` hold, when they hold exactly one.
 /// `value` as `postcard`, or `None` when it cannot be written.
 fn encode<T: Serialize + ?Sized>(value: &T) -> Option<Vec<u8>> {
     postcard::serialize_with_flavor(value, Bytes(Vec::new())).ok()
@@ -359,6 +365,7 @@ impl postcard::ser_flavors::Flavor for Bytes {
     }
 }
 
+/// The value `bytes` hold, when they hold exactly one.
 fn read_all<'a, T: Deserialize<'a>>(bytes: &'a [u8]) -> Option<T> {
     match postcard::take_from_bytes(bytes) {
         Ok((value, [])) => Some(value),

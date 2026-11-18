@@ -45,7 +45,11 @@ fn a_second_check_reads_the_compiled_files_back_from_the_cache() {
     check(dir.path()).assert().success().stdout(summary).stderr("");
     let blob = fs::read(dir.path().join(".vibranium/cache/compile.bin")).unwrap();
     assert!(blob.starts_with(b"VCCC\x0d\0\0\0"), "layout version 13");
-    let body = String::from_utf8_lossy(&blob[12..]);
+    let release = env!("CARGO_PKG_VERSION");
+    let mut build = vec![u8::try_from(release.len() + 1 + 64).unwrap()];
+    build.extend(format!("{release}+").bytes());
+    assert!(blob[44..].starts_with(&build), "after the checksum and length, the header names the build that wrote it");
+    let body = String::from_utf8_lossy(&blob[44..]);
     assert!(body.contains("services/users/users.api.yaml") && body.contains("getUser"), "{body}");
     check(dir.path()).assert().success().stdout(summary).stderr("");
 }

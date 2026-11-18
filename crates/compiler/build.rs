@@ -1,10 +1,11 @@
 //! Hashes the sources a compile's output depends on into `VC_LINK_BUILD_ID`, so a compile cache
-//! that a build with other compiler, model, parser, template or diagnostics code wrote misses,
-//! even when the release is the same (D333).
+//! that a build with other compiler, model, parser, template or diagnostics code, other
+//! dependency versions (the workspace `Cargo.lock`) or other features wrote misses, even when the
+//! release is the same (D333).
 
 use std::error::Error;
-use std::fs;
 use std::path::Path;
+use std::{env, fs};
 
 /// The crates, by their folder next to this one, whose code decides what a compile gives back.
 const CRATES: [&str; 5] = ["compiler", "model", "parser", "template", "diagnostics"];
@@ -18,6 +19,13 @@ fn main() -> Result<(), Box<dyn Error>> {
         hasher.update(name.as_bytes());
         hash_tree(&src, &src, &mut hasher)?;
     }
+    let lock = crates.join("..").join("Cargo.lock");
+    println!("cargo:rerun-if-changed={}", lock.display());
+    hash_bytes("Cargo.lock", &fs::read(lock)?, &mut hasher);
+    let mut features: Vec<String> =
+        env::vars().map(|(name, _)| name).filter(|name| name.starts_with("CARGO_FEATURE_")).collect();
+    features.sort();
+    hash_bytes("features", features.join("\n").as_bytes(), &mut hasher);
     println!("cargo:rustc-env=VC_LINK_BUILD_ID={}", hasher.finalize().to_hex());
     Ok(())
 }
@@ -33,8 +41,12 @@ fn hash_tree(root: &Path, dir: &Path, hasher: &mut blake3::Hasher) -> Result<(),
             continue;
         }
         let relative = path.strip_prefix(root)?.to_string_lossy().replace('\\', "/");
-        let bytes = fs::read(&path)?;
-        hasher.update(relative.as_bytes()).update(&(bytes.len() as u64).to_le_bytes()).update(&bytes);
+        hash_bytes(&relative, &fs::read(&path)?, hasher);
     }
     Ok(())
+}
+
+/// Adds `bytes` to `hasher` under `name`: the name, the length and the bytes.
+fn hash_bytes(name: &str, bytes: &[u8], hasher: &mut blake3::Hasher) {
+    hasher.update(name.as_bytes()).update(&(bytes.len() as u64).to_le_bytes()).update(bytes);
 }

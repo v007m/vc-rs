@@ -90,9 +90,12 @@ impl Memo {
     }
 
     /// The output again, its program holding `files`; `None` when the bytes do not read back.
+    /// A memo made in this process already holds them: the cache matched each one by path,
+    /// number and content hash, which is the blake3 hash of the file's bytes, so they are not
+    /// compared again.
     pub fn replay(&self, files: &SourceFiles) -> Option<Replay> {
         match &self.output {
-            Output::Made(made) => Some(refiled(made, files)),
+            Output::Made(made) => Some(Replay::clone(made)),
             Output::Bytes(bytes) => decode(bytes, files),
         }
     }
@@ -115,16 +118,6 @@ impl Memo {
         };
         encode(&out)
     }
-}
-
-/// `made` with a program that holds `files`: the same one when it already does.
-fn refiled(made: &Replay, files: &SourceFiles) -> Replay {
-    if made.program.files == *files {
-        return made.clone();
-    }
-    let mut program = Program::clone(&made.program);
-    program.files = files.clone();
-    Replay { program: Arc::new(program), ..made.clone() }
 }
 
 fn decode(bytes: &[u8], files: &SourceFiles) -> Option<Replay> {

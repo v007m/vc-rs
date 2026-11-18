@@ -273,3 +273,31 @@ fn encodes_the_bytes_postcard_writes() {
     let long = (u32::MAX, "longer than eight bytes", vec![7_u8; 20]);
     assert_eq!(encode(&long), postcard::to_stdvec(&long).ok());
 }
+
+/// The cache the rounds of `compile_wanted` leave from `previous`, over an api file and a config
+/// whose dataset sorts after both, so the files keep their numbers from round to round.
+fn rounds(previous: CompileCache) -> CompileCache {
+    let config = "syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\ndatasets:\n  files:\n    - id: users\n      file: work/users.csv\n";
+    let files = vec![source(API, API_TEXT, 1), source("vibranium.config.yaml", config, 2)];
+    let read = |_: &[crate::Wanted]| Ok::<_, ()>((vec![source("work/users.csv", "id\n1\n", 3)], Vec::<()>::new()));
+    crate::compile_wanted(CompileInput { files, previous, ..CompileInput::default() }, read).unwrap().0.cache
+}
+
+#[test]
+fn a_unit_that_did_not_read_back_is_saved_again_after_the_rounds_a_data_file_adds() {
+    let mut bytes = rounds(CompileCache::new()).to_bytes();
+    let loaded = CompileCache::from_bytes(&bytes);
+    assert_eq!(loaded.len(), 3);
+    assert_eq!(rounds(loaded.clone()), loaded, "an intact cache is not saved again");
+    let length = usize::try_from(u32::from_le_bytes(bytes[SUMMED..HEADER].try_into().unwrap())).unwrap();
+    let body: Body = postcard::from_bytes(&bytes[HEADER..HEADER + length]).unwrap();
+    assert_eq!(body.entries[0].path, API);
+    bytes[HEADER + length + usize::try_from(body.entries[0].unit.unwrap()).unwrap() - 1] ^= 0xFF;
+    seal(&mut bytes);
+    let damaged = CompileCache::from_bytes(&bytes);
+    assert_eq!(damaged.len(), 3, "the checksum holds, so only the api unit is damaged");
+    let saved = rounds(damaged.clone());
+    assert_ne!(saved, damaged, "round two keeps the mark round one left, so the check saves it");
+    let reloaded = CompileCache::from_bytes(&saved.to_bytes());
+    assert_eq!(rounds(reloaded.clone()), reloaded, "and the saved cache reads back whole");
+}

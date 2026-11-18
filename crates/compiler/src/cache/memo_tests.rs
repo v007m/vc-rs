@@ -294,12 +294,13 @@ fn a_hit_in_memory_shares_the_program() {
 }
 
 #[test]
-fn a_hit_hands_out_a_program_holding_the_files_it_was_given() {
+fn a_hit_hands_out_the_program_it_made_or_one_holding_the_files_it_was_given() {
     let first = compile(base());
-    let mut input = base();
-    input.files[1].text.push_str("# the same hash\n");
-    let again = compile(CompileInput { previous: first.cache.clone(), ..input.clone() });
-    assert!(hits(&first.cache, &again, &input), "the same paths, hashes and numbers");
-    assert_ne!(again.files, first.files);
-    assert_eq!(again.program.map(|program| program.files.clone()), Some(again.files));
+    let again = compile(CompileInput { previous: first.cache.clone(), ..base() });
+    assert!(hits(&first.cache, &again, &base()), "the same paths, hashes and numbers");
+    let (made, replayed) = (first.program.clone().unwrap(), again.program.unwrap());
+    assert!(Arc::ptr_eq(&made, &replayed), "a memo made in this process hands out its own program");
+    let previous = CompileCache::from_bytes(&first.cache.to_bytes());
+    let read = compile(CompileInput { previous, ..base() });
+    assert_eq!(read.program.map(|program| program.files.clone()), Some(read.files));
 }

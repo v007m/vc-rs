@@ -90,7 +90,7 @@ pub fn compile(input: CompileInput) -> Compiled {
         let diagnostics = diagnostics.clone();
         Replay { program, diagnostics, data_wanted: data_wanted.clone(), hooks_wanted: hooks_wanted.clone() }
     });
-    let repaired = damaged || damaged_memo;
+    let repaired = damaged || damaged_memo || input.previous.is_repaired();
     let cache = CompileCache::of(entries, strings).remembering(replay.map(|replay| Memo::made(key, replay)));
     Compiled { program, diagnostics, files, cache: cache.repaired(repaired), data_wanted, hooks_wanted }
 }
