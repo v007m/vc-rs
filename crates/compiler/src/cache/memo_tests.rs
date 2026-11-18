@@ -7,7 +7,7 @@ use std::sync::Arc;
 use vc_model::{ContentHash, Date, FileKind, SourceFile, SourcePath};
 
 use super::LinkKey;
-use crate::cache::{BUILD, Body, MAGIC, Recall};
+use crate::cache::{BUILD, Body, MAGIC, Recall, SUM_AT, SUMMED, seal};
 use crate::{CompileCache, CompileInput, Compiled, compile};
 
 #[path = "../../tests/common/tree.rs"]
@@ -195,6 +195,7 @@ fn a_damaged_output_is_a_silent_miss_that_is_saved_again() {
     let mut bytes = compile(base()).cache.to_bytes();
     let last = bytes.len() - 1;
     bytes[last] ^= 0xFF;
+    seal(&mut bytes);
     let damaged = CompileCache::from_bytes(&bytes);
     let fresh = compile(base());
     assert!(matches!(damaged.replay(&fresh.files, &key(&base())), Recall::Damaged));
@@ -220,20 +221,21 @@ fn blob_misses(change: impl Fn(&mut Vec<u8>)) {
 
 #[test]
 fn another_layout_version_misses() {
-    blob_misses(|bytes| bytes[MAGIC.len()..MAGIC.len() + 4].copy_from_slice(&11_u32.to_le_bytes()));
+    blob_misses(|bytes| bytes[MAGIC.len()..MAGIC.len() + 4].copy_from_slice(&12_u32.to_le_bytes()));
 }
 
-/// `bytes` with its header saying that `build` wrote it.
+/// `bytes` with its header saying that `build` wrote it, sealed again.
 fn written_by(bytes: &mut Vec<u8>, build: &str) {
-    let at = MAGIC.len() + 8;
-    let length = usize::try_from(u32::from_le_bytes(bytes[MAGIC.len() + 4..at].try_into().unwrap())).unwrap();
+    let at = SUMMED + 4;
+    let length = usize::try_from(u32::from_le_bytes(bytes[SUMMED..at].try_into().unwrap())).unwrap();
     let mut body: Body = postcard::from_bytes(&bytes[at..at + length]).unwrap();
     body.build = build.to_owned();
     let header = postcard::to_stdvec(&body).unwrap();
-    let mut out = bytes[..MAGIC.len() + 4].to_vec();
+    let mut out = bytes[..SUMMED].to_vec();
     out.extend(u32::try_from(header.len()).unwrap().to_le_bytes());
     out.extend(header);
     out.extend(&bytes[at + length..]);
+    seal(&mut out);
     *bytes = out;
 }
 
@@ -261,6 +263,18 @@ fn a_truncated_or_corrupt_blob_is_a_silent_miss() {
     }
     blob_misses(|bytes| bytes[..MAGIC.len()].copy_from_slice(b"XXXX"));
     blob_misses(|bytes| bytes.push(0));
+}
+
+#[test]
+fn a_blob_whose_checksum_does_not_hold_is_a_silent_miss_that_is_rebuilt() {
+    let bytes = compile(base()).cache.to_bytes();
+    assert!(hits(&CompileCache::from_bytes(&bytes), &compile(base()), &base()), "an intact blob hits");
+    for at in [SUM_AT, SUMMED - 1, SUMMED, SUMMED + 4, bytes.len() / 2, bytes.len() - 1] {
+        let mut flipped = bytes.clone();
+        flipped[at] ^= 0x01;
+        assert!(CompileCache::from_bytes(&flipped).is_empty(), "a byte flipped at {at}");
+        blob_misses(|bytes| bytes[at] ^= 0x01);
+    }
 }
 
 #[test]

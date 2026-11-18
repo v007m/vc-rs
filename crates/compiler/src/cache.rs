@@ -13,7 +13,13 @@ mod memo;
 const MAGIC: &[u8; 4] = b"VCCC";
 
 /// The layout version; a blob with any other version is ignored.
-const VERSION: u32 = 12;
+const VERSION: u32 = 13;
+
+/// Where the checksum sits: after the magic and the layout version.
+const SUM_AT: usize = MAGIC.len() + 4;
+
+/// Where the bytes the checksum covers start: right after it, to the end of the blob.
+const SUMMED: usize = SUM_AT + blake3::OUT_LEN;
 
 /// The compiler release and build that wrote a blob; a blob from another one is ignored, so a
 /// check added or fixed in a new release, or in a dev build of the same release, is not hidden by
@@ -189,8 +195,9 @@ impl CompileCache {
         self.entries.iter().filter(|entry| entry.unit.is_some() || entry.bytes.is_some()).count()
     }
 
-    /// The cache as bytes: a magic number and the layout version, the length of a header and the
-    /// header, then each stored unit, back to back, then the memo's output; all `postcard` (D155).
+    /// The cache as bytes: a magic number, the layout version and a blake3 checksum of the rest,
+    /// then the length of a header and the header, each stored unit, back to back, and the memo's
+    /// output; all `postcard` (D155).
     #[must_use]
     pub fn to_bytes(&self) -> Vec<u8> {
         let units: Vec<_> = self.entries.iter().map(unit_bytes).collect();
@@ -202,10 +209,12 @@ impl CompileCache {
         let header = encode(&Body { build: BUILD.to_owned(), strings, entries, link }).unwrap_or_default();
         let mut out = MAGIC.to_vec();
         out.extend(VERSION.to_le_bytes());
+        out.extend([0; blake3::OUT_LEN]);
         out.extend(u32::try_from(header.len()).unwrap_or(u32::MAX).to_le_bytes());
         out.extend(header);
         units.into_iter().flatten().for_each(|unit| out.extend(unit));
         out.extend(output.unwrap_or_default());
+        seal(&mut out);
         out
     }
 
@@ -260,12 +269,26 @@ fn unit_bytes(entry: &CacheEntry) -> Option<Vec<u8>> {
     encode(unit).filter(|bytes| u32::try_from(bytes.len()).is_ok())
 }
 
-fn decode(bytes: &[u8]) -> Option<CompileCache> {
+/// Writes the checksum of the bytes after it into `blob`, in place.
+fn seal(blob: &mut [u8]) {
+    let sum = blake3::hash(blob.get(SUMMED..).unwrap_or_default());
+    if let Some(slot) = blob.get_mut(SUM_AT..SUMMED) {
+        slot.copy_from_slice(sum.as_bytes());
+    }
+}
+
+/// The bytes after the checksum, when `bytes` are a blob of this layout whose checksum holds: a
+/// blob changed after it was written, even by one byte, reads as damaged.
+fn sealed(bytes: &[u8]) -> Option<&[u8]> {
     let rest = bytes.strip_prefix(MAGIC.as_slice())?;
     let (version, rest) = rest.split_first_chunk::<4>()?;
-    if u32::from_le_bytes(*version) != VERSION {
-        return None;
-    }
+    let (sum, rest) = rest.split_first_chunk::<{ blake3::OUT_LEN }>()?;
+    let intact = u32::from_le_bytes(*version) == VERSION && blake3::hash(rest) == blake3::Hash::from_bytes(*sum);
+    intact.then_some(rest)
+}
+
+fn decode(bytes: &[u8]) -> Option<CompileCache> {
+    let rest = sealed(bytes)?;
     let (length, rest) = rest.split_first_chunk::<4>()?;
     let (header, mut units) = rest.split_at_checked(usize::try_from(u32::from_le_bytes(*length)).ok()?)?;
     let body: Body = read_all(header).filter(|body: &Body| body.build == BUILD)?;

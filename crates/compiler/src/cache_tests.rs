@@ -4,7 +4,7 @@ use indexmap::IndexMap;
 use vc_diagnostics::{Code, Diagnostics};
 use vc_model::{ContentHash, SourceFile, SourceFileId, SourcePath, StringTable};
 
-use super::{BUILD, Body, CacheEntry, CompileCache, MAGIC, Stored, VERSION, encode};
+use super::{BUILD, Body, CacheEntry, CompileCache, MAGIC, SUMMED, Stored, VERSION, encode, seal};
 use crate::parts::Tools;
 use crate::stage::{self, FileUnit};
 use crate::{CompileInput, Compiled};
@@ -12,7 +12,7 @@ use crate::{CompileInput, Compiled};
 const API: &str = "services/users/users.api.yaml";
 const API_TEXT: &str = "apis:\n  - id: getUser\n    path: /users/${var.userId}\n";
 const BAD: &str = "services/orders/orders.api.yaml";
-const HEADER: usize = MAGIC.len() + 8;
+const HEADER: usize = SUMMED + 4;
 
 fn entry(path: &str, byte: u8, file: u32) -> CacheEntry {
     let unit =
@@ -52,13 +52,15 @@ fn kept(cache: &CompileCache, path: &str, byte: u8, file: u32) -> Option<Arc<Fil
     cache.unit(&SourcePath::new(path).unwrap(), &ContentHash::new([byte; 32]), SourceFileId::new(file))
 }
 
-/// A blob with this version's magic and version around `header`, then `units`.
+/// A blob with this version's magic, version and checksum around `header`, then `units`.
 fn blob(header: &[u8], units: &[u8]) -> Vec<u8> {
     let mut bytes = MAGIC.to_vec();
     bytes.extend(VERSION.to_le_bytes());
+    bytes.extend([0; blake3::OUT_LEN]);
     bytes.extend(u32::try_from(header.len()).unwrap().to_le_bytes());
     bytes.extend(header);
     bytes.extend(units);
+    seal(&mut bytes);
     bytes
 }
 
@@ -147,6 +149,7 @@ fn a_cache_whose_unit_did_not_read_back_differs_from_a_fresh_compile() {
     let mut bytes = fresh.to_bytes();
     let last = bytes.len() - 1;
     bytes[last] ^= 0xFF;
+    seal(&mut bytes);
     let damaged = CompileCache::from_bytes(&bytes);
     assert_eq!(damaged.len(), 1);
     assert!(kept(&damaged, API, 1, 0).is_none(), "the unit is compiled again");
@@ -171,9 +174,11 @@ fn damaged_bytes_read_as_empty() {
     }
     let mut bad_header = bytes.clone();
     bad_header[HEADER] = 0xFF;
+    seal(&mut bad_header);
     assert!(CompileCache::from_bytes(&bad_header).is_empty());
     let mut long_header = bytes;
-    long_header[MAGIC.len() + 4] += 1;
+    long_header[SUMMED] += 1;
+    seal(&mut long_header);
     assert!(CompileCache::from_bytes(&long_header).is_empty());
     assert!(CompileCache::from_bytes(b"not a cache at all").is_empty());
 }
@@ -254,6 +259,7 @@ fn a_cache_with_errors_is_saved_again_only_when_a_unit_did_not_read_back() {
     assert_eq!(again.cache, read, "the unit it used is the one it read");
     let last = bytes.len() - 1;
     bytes[last] ^= 0xFF;
+    seal(&mut bytes);
     let damaged = CompileCache::from_bytes(&bytes);
     assert!(damaged.len() == 2 && kept(&damaged, API, 1, 1).is_none(), "the unit does not read back");
     let healed = crate::compile(CompileInput { files, previous: damaged.clone(), ..CompileInput::default() });
