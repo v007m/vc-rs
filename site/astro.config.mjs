@@ -13,6 +13,7 @@ export default defineConfig({
   site: 'https://v007m.github.io',
   base,
   trailingSlash: 'always',
+  redirects: { '/reference/data/fromregexp/': `${base}/reference/data/from-reg-exp/` },
   integrations: [
     svelte(),
     starlight({
@@ -29,7 +30,14 @@ export default defineConfig({
         '@fontsource/jetbrains-mono/600.css',
         './src/styles/custom.css',
       ],
-      components: { Header: './src/components/Header.astro', Hero: './src/components/landing/Hero.astro' },
+      components: {
+        Header: './src/components/Header.astro',
+        Hero: './src/components/landing/Hero.astro',
+        PageTitle: './src/components/PageTitle.astro',
+        Sidebar: './src/components/Sidebar.astro',
+        Pagination: './src/components/Pagination.astro',
+      },
+      routeMiddleware: './src/routeData.ts',
       expressiveCode: {
         styleOverrides: {
           borderRadius: '0.625rem',

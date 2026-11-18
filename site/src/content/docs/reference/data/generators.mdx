@@ -171,7 +171,7 @@ Run it with `vc run sample.gen --seed 42`; the demo echoes the values back, and 
 | [V2002](/vc-rs/reference/diagnostics/v2002/) | The generator name is unknown | `${fake.person.fullname}` lists all 25 names in a note |
 | [V2302](/vc-rs/reference/diagnostics/v2302/) | Wrong arguments | `` `fake.lorem.words` takes nothing or one whole number from 0 to 10000 ``; `` `fake.number.int` takes nothing or two whole numbers, min then max ``; `` `fake.lorem.word` takes no arguments `` |
 | [V2305](/vc-rs/reference/diagnostics/v2305/) | Bad argument syntax | `text arguments take single quotes` (with a certain fix: write `'x'`); `` `null` is not an argument `` |
-| [V2309](/vc-rs/reference/diagnostics/v2309/) | `fromRegExp` pattern outside the supported subset | see [fromRegExp patterns](/vc-rs/reference/data/fromregexp/) |
+| [V2309](/vc-rs/reference/diagnostics/v2309/) | `fromRegExp` pattern outside the supported subset | see [fromRegExp patterns](/vc-rs/reference/data/from-reg-exp/) |
 
 A pattern in double quotes:
 
@@ -200,6 +200,6 @@ error[V2305]: invalid template: text arguments take single quotes
 ## Related
 
 - [Named generators](/vc-rs/reference/data/named-generators/): declare your own `fake.*` names in the config.
-- [fromRegExp patterns](/vc-rs/reference/data/fromregexp/): the pattern subset.
+- [fromRegExp patterns](/vc-rs/reference/data/from-reg-exp/): the pattern subset.
 - [Generation and seeds](/vc-rs/reference/data/seeds/): once per instance versus inline, and `--seed`.
 - [Templates](/vc-rs/reference/templates/): where a `${fake.*}` can go.

@@ -1,0 +1,8 @@
+---
+/** Renders its slot with backticked spans in the text shown as code (see `~/lib/titles`). */
+import { codeSpans } from '~/lib/titles';
+
+const html = await Astro.slots.render('default');
+---
+
+<Fragment set:html={codeSpans(html)} />

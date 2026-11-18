@@ -137,3 +137,9 @@ test('docs area tabs resolve and mark the current area', async ({ page }) => {
   }
   await expect(page.locator('.vc-tabs a[aria-current]')).toHaveText('CLI');
 });
+
+test('the keyword index lists each key a page title names', async ({ page }) => {
+  await page.goto(`${BASE}/reference/`);
+  const terms = await page.locator('.ki-list code').allTextContents();
+  for (const key of ['beforeAll', 'afterAll', 'afterResponse', 'call']) expect(terms, key).toContain(key);
+});
