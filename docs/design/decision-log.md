@@ -668,11 +668,11 @@ Round 63 (18 November 2026; Sarath):
 | --- | --- | --- | --- |
 | D332 | The team server is dropped (Sarath) | Sarath dropped the M10 team server (`vc serve`) on 2026-11-18: it is not a priority. LLD milestone M10 and PRD R31 are marked dropped; nothing of it is built, and the server's defaults (D253, D261) lapse with it. D254's unparked work (Bruno `.bru` import, JSON Connect bodies through pbjson, OS-enforced plugin permissions) no longer waits for an M10 batch: it follows M9 directly, on the post-v0.1 roadmap (#102) | D245 (its M10 part), D253, D254 (its timing), D261 |
 
-Round 64 (18 November 2026; the orchestrator, for the warm-compile budget, #10):
+Round 64 (18 November 2026; Sarath, for the warm-compile budget, #10):
 
 | # | Topic | Decision | Supersedes |
 | --- | --- | --- | --- |
-| D333 | `compile.bin` memoizes the link output | `compile.bin` (layout 12) memoizes the link output, the `Program` plus every diagnostic and the data and hook files wanted, under a hash of everything link reads: the files by path, content hash and number (the config and profiles among them), today's date, the asset paths, the `.env.schema` path and hash, the layout version and the release. A full hit skips parse and link; any difference is a miss, and a compile with errors is never stored. Units are decoded from the blob only when a compile needs one. An output that does not read back is a silent miss that is saved again. D132 holds: the compiler stays pure and the cache opaque. `vc-model` and `vc-diagnostics` types derive serde for it | The LLD's note that linking always runs |
+| D333 | `compile.bin` memoizes the link output (Sarath confirmed 2026-11-18) | `compile.bin` (layout 12) memoizes the link output, the `Program` plus every diagnostic and the data and hook files wanted, under a key of everything link reads: the files by path, content hash and number (the config and its profiles among them; the active profile and the config layers above the files, D129, apply after the compile), today's date, the asset paths, the `.env.schema` path and hash, the layout version and the release. A full hit skips parse and link; any difference is a miss, and a compile with errors is never stored. Units are decoded from the blob only when a compile needs one. An output that does not read back is a silent miss that is saved again. D132 holds: the compiler stays pure and the cache opaque. `vc-model` and `vc-diagnostics` types derive serde for it | The LLD's note that linking always runs |
 
 ## Open
 
