@@ -21,7 +21,7 @@ expect:
 
 ## The API
 
-The examples call `sample#listUsers` from the `vc init` sample. It sends `GET /users`, and the demo answers with two users. The body is 67 bytes. [Following along](/vc-rs/reference/matchers/#following-along) shows how to start the demo.
+The examples call `sample#listUsers` from the `vc init` sample. It sends `GET /users`. The demo starts with two users, Ada Lovelace and Grace Hopper, and other tests can add more, so the tests below add `query: {limit: 2}`: the demo then returns the first two users by ID, which are always those two. That body is 67 bytes. [Following along](/vc-rs/reference/matchers/#following-along) shows how to start the demo.
 
 ```yaml title="services/sample/sample.api.yaml (excerpt)"
   - id: listUsers
@@ -32,7 +32,7 @@ The examples call `sample#listUsers` from the `vc init` sample. It sends `GET /u
 
 ```console
 $ vc call sample#listUsers
-200 OK · 1 ms · api expect passed
+200 OK · 8 ms · api expect passed
 [
   {
     "id": "1",
@@ -56,6 +56,7 @@ tests:
   - id: smallList
     name: The list is under 1 KiB
     call: sample#listUsers
+    query: {limit: 2}
     expect:
       size: {lt: 1kb}
 ```
@@ -64,9 +65,9 @@ tests:
 $ vc run sample.size#smallList
 plan  1 test in 1 file · profile default
 
-✓ sample.size#smallList — The list is under 1 KiB                 2ms
+✓ sample.size#smallList — The list is under 1 KiB                 3ms
 
-1 passed                                                     4ms · profile default
+1 passed                                                     5ms · profile default
 reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
 ```
 
@@ -79,6 +80,7 @@ tests:
   - id: notEmptyNotHuge
     name: The list is between 10 bytes and 2 MiB
     call: sample#listUsers
+    query: {limit: 2}
     expect:
       size: {between: [10b, 2mb]}
 ```
@@ -87,9 +89,9 @@ tests:
 $ vc run sample.size#notEmptyNotHuge
 plan  1 test in 1 file · profile default
 
-✓ sample.size#notEmptyNotHuge — The list is between 10 bytes and 2 MiB    0ms
+✓ sample.size#notEmptyNotHuge — The list is between 10 bytes and 2 MiB    8ms
 
-1 passed                                                     24ms · profile default
+1 passed                                                     11ms · profile default
 reports  …/.vibranium/reports/2/{ctrf.json,junit.xml,index.html}
 ```
 
@@ -102,6 +104,7 @@ tests:
   - id: failsOnSize
     name: The list is over 1 KiB
     call: sample#listUsers
+    query: {limit: 2}
     expect:
       size: {gt: 1kb}
 ```
@@ -110,14 +113,14 @@ tests:
 $ vc run sample.size#failsOnSize
 plan  1 test in 1 file · profile default
 
-✕ sample.size#failsOnSize — The list is over 1 KiB                0ms
+✕ sample.size#failsOnSize — The list is over 1 KiB                6ms
   error[V5101]: expect.size
-    --> services/sample/size.test.yaml:16:13
+    --> services/sample/size.test.yaml:19:13
      |
-  16 |       size: {gt: 1kb}
+  19 |       size: {gt: 1kb}
      |             ^^^^^^^^^ expected {"gt":1024}, got 67
 
-0 passed · 1 failed                                          36ms · profile default
+0 passed · 1 failed                                          8ms · profile default
 reports  …/.vibranium/reports/3/{ctrf.json,junit.xml,index.html}
 next     vc run --failed
 ```
@@ -155,6 +158,7 @@ Edit the test below. The editor checks it against the real schema as you type.
   - id: smallList
     name: The list is under 1 KiB
     call: sample#listUsers
+    query: {limit: 2}
     expect:
       size: {lt: 1kb}
 `} />

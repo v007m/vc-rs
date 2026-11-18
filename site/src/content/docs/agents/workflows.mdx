@@ -6,7 +6,7 @@ sidebar: { order: 5 }
 
 import { Aside, Steps, Tabs, TabItem } from '@astrojs/starlight/components';
 
-Each recipe gives a prompt you can hand to an agent, the tool calls or commands the agent makes, and the real output. All of them ran against the demo service (`vc demo start`, port 7531) in a `vc init --no-sample` project whose config sets these keys:
+Each recipe gives a prompt you can hand to an agent, the tool calls or commands the agent makes, and the real output. All of them ran against the demo service (`vc demo start --port 7531`) in a `vc init --no-sample` project whose config sets these keys:
 
 ```yaml title="vibranium.config.yaml (excerpt)"
 syntaxVersion: 2
@@ -30,9 +30,9 @@ The MCP server has no tool for import, sync or load. For those steps the agent r
 
 ## 1. Tests for a new endpoint from an OpenAPI spec
 
-> **Prompt:** "Our people service has an OpenAPI spec at `specs/people.yaml`. Import it into Vibranium with starter tests, run them and fix any that fail."
+> **Prompt:** "Our people service has an OpenAPI spec at `specs/people.yaml`. Import it into Vibranium with starter tests, run them, and fix or report any that fail."
 
-`specs/people.yaml` is written like the spec in [OpenAPI import and sync](/vc-rs/guides/openapi-import-and-sync/), with the server `http://localhost:7531` and three operations: `listPeople` (`GET /users`, 200 with a list of `Person`), `createPerson` (`POST /users`, a body that requires `name` and `email`, 201 with a `Person`) and `getPerson` (`GET /users/{id}`, 200 with a `Person`). A `Person` requires `id` and `name`.
+`specs/people.yaml` is written like the spec in [OpenAPI import and sync](/vc-rs/guides/openapi-import-and-sync/), with the server `http://localhost:7531` and three operations: `listPeople` (`GET /users`, 200 with a list of `Person`), `createPerson` (`POST /users`, a body that requires `name` and `email`, 201 with a `Person`) and `getPerson` (`GET /users/{id}`, 200 with a `Person`). A `Person` requires `id`, `name` and `email`.
 
 <Steps>
 1. Preview the import. Nothing is written:
@@ -54,22 +54,22 @@ The MCP server has no tool for import, sync or load. For those steps the agent r
    $ vc run people.openapi
    plan  3 tests in 1 file · profile local
 
-   ✓ people.openapi#createsPerson — Create a person                  3ms
-   ✓ people.openapi#listsPeople — List people                        3ms
-   ✕ people.openapi#getsPerson — Get a person                        4ms
+   ✕ people.openapi#listsPeople — List people                        9ms
      error[V5101]: expect.body.schema
-       --> services/people/openapi.test.yaml:33:11
+       --> services/people/openapi.test.yaml:13:11
         |
-     33 |           $file: ../../openapi/people.yaml#/components/schemas/Person
-        |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ /: "name" is a required property
+     13 |           $file: ../../openapi/people.yaml#/paths/~1users/get/responses/200/content/application~1json/schema
+        |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ /0: "email" is a required property; /1: "email" is a required property
+   ✓ people.openapi#createsPerson — Create a person                  7ms
+   ✓ people.openapi#getsPerson — Get a person                       10ms
 
-   2 passed · 1 failed                                          6ms · profile local
+   2 passed · 1 failed                                          35ms · profile local
    reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
    next     vc run --failed
-   seed 7693893374991573: pass `--seed 7693893374991573` to run with the same generated data
+   seed 7433070505691286: pass `--seed 7433070505691286` to run with the same generated data
    ```
 
-   The import wrote `services/people/people.api.yaml`. It matched the spec's server to the `peopleUrl` var, so `baseUrl` is `${var.peopleUrl}`. Request bodies and path params get generated data, and `getsPerson` first creates a person, then gets it by the id `createPerson` saved:
+   The import wrote `services/people/people.api.yaml` and added a `peopleUrl` var for the spec's server, so `baseUrl` is `${var.peopleUrl}`. Request bodies and path params get generated data, and `getsPerson` first creates a person, then gets it by the id `createPerson` saved:
 
    ```yaml title="services/people/people.api.yaml (part)"
    - id: getPerson
@@ -80,50 +80,52 @@ The MCP server has no tool for import, sync or load. For those steps the agent r
      operationId: getPerson
    ```
 
-3. Find out why `getsPerson` failed. Over MCP, the agent calls `explain_failure`:
+3. Find out why `listsPeople` failed. Over MCP, the agent calls `explain_failure`:
 
-   ```json title="explain_failure for people.openapi#getsPerson (part)"
+   ```json title="explain_failure for people.openapi#listsPeople (part)"
    {
-     "definition": "people.openapi#getsPerson  Get a person\nprofile  local\nbefore  call people#createPerson\ncall people#getPerson\n  GET http://localhost:7531/users/${var.userId}\n  vars\n    peopleUrl  http://localhost:7531  (vibranium.config.yaml)\n    id  ${var.userId}  (test)\n    userId  ${response.body.id}  (saved by call people#createPerson)\n  headers\n    accept  application/json  (vibranium.config.yaml)\n    user-agent  vibranium/2  (vibranium.config.yaml)\n  expect\n    status: 200  (test people.openapi#getsPerson)\n    schema: openapi/people.yaml#/components/schemas/Person  (test people.openapi#getsPerson)\n",
+     "definition": "people.openapi#listsPeople  List people\nprofile  local\ncall people#listPeople\n  GET http://localhost:7531/users\n  vars\n    peopleUrl  http://localhost:7531  (vibranium.config.yaml)\n  headers\n    accept  application/json  (vibranium.config.yaml)\n    user-agent  vibranium/2  (vibranium.config.yaml)\n  expect\n    status: 200  (test people.openapi#listsPeople)\n    schema: openapi/people.yaml#/paths/~1users/get/responses/200/content/application~1json/schema  (test people.openapi#listsPeople)\n",
      "results": [
-       { "attempts": 1, "blockedBy": null, "durationMs": 4, "id": "people.openapi#getsPerson", "message": "schema: /: \"name\" is a required property", "skipReason": null, "status": "failed" }
+       { "attempts": 1, "blockedBy": null, "durationMs": 9, "id": "people.openapi#listsPeople", "message": "schema: /0: \"email\" is a required property; /1: \"email\" is a required property", "skipReason": null, "status": "failed" }
      ]
    }
    ```
 
-   The created person reads back as its id alone, so the spec's required `name` is missing. The demo service stores nothing it is sent. `call_api` on `people#listPeople` shows which people exist:
+   The first two people in the list have no `email`, and the spec says every `Person` has one. `call_api` on `people#listPeople` shows the people the service has:
 
    ```json title="call_api for people#listPeople (part)"
-   { "exit": 0, "response": { "status": 200, "body": [ { "id": "1", "name": "Ada Lovelace" }, { "id": "2", "name": "Grace Hopper" } ] } }
+   { "exit": 0, "response": { "status": 200, "body": [
+     { "id": "1", "name": "Ada Lovelace" },
+     { "id": "2", "name": "Grace Hopper" },
+     { "email": "rebeca@example.net", "id": "3", "name": "Dorris Oberbrunner" },
+     { "email": "cassandre@example.com", "id": "4", "name": "Ashly Johns" } ] } }
    ```
 
-4. Fix the test with `write_definition`: get an existing person by id and check the name:
+   Reading one of the first two on its own gives no email either:
 
-   ```yaml title="services/people/openapi.test.yaml (part)"
-   - id: getsPerson
-     name: Get a person returns 200
-     call: people#getPerson
-     vars:
-       id: "1"
-     expect:
-       status: 200
-       body:
-         match:
-           name: Ada Lovelace
+   ```json title="call_api for people#getPerson with id 1 (part)"
+   { "exit": 0, "response": { "status": 200, "body": { "id": "1", "name": "Ada Lovelace" } } }
    ```
 
-   ```json title="write_definition result"
-   { "titles": ["Write services/people/openapi.test.yaml"], "written": ["services/people/openapi.test.yaml"] }
+4. Decide whether the spec or the service is wrong. The two people the tests created have an email; the two that were there first do not. The test is right to check the spec, so changing it would only hide the gap. An agent cannot know which side is right, so it reports the mismatch and asks. Here the answer is that older people have no email, so the spec is wrong: the agent drops `email` from `Person`'s `required` in `specs/people.yaml` (`NewPerson` still requires it) and runs `vc sync`, which copies the change into the snapshot in `openapi/people.yaml` that the tests read:
+
+   ```console
+   $ vc sync people
+   fetched specs/people.yaml (3 operations)
+     ~ people the spec changed outside what sync takes into the file: only the snapshot is updated
+   ✓ synced · snapshot openapi/people.yaml updated
    ```
 
 5. Run again with `run_tests {"ids": ["people.openapi"]}`. All three pass:
 
    ```json title="run_tests result (part)"
-   { "exit": 0, "notices": [], "run": 3, "tests": [
+   { "exit": 0, "notices": [], "run": 4, "tests": [
      { "id": "people.openapi#createsPerson", "status": "passed", "message": null },
      { "id": "people.openapi#getsPerson", "status": "passed", "message": null },
      { "id": "people.openapi#listsPeople", "status": "passed", "message": null } ] }
    ```
+
+   Runs 2 and 3 were the two `call_api` calls, which history keeps as `adhoc` runs.
 </Steps>
 
 <Aside type="caution">

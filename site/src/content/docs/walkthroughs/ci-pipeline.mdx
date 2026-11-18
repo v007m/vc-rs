@@ -11,13 +11,17 @@ import Playground from '~/components/Playground.svelte';
 
 You first run each command locally, so you know what the job will print and which exit code it returns.
 
+<Aside type="caution" title="Needs the demo from master">
+This page uses `vc demo` routes that are newer than v0.1.0: the users store and the served specs under `/openapi/`. Until the next release, install `vc` and `vc-demo` from `master`: `brew install --HEAD v007m/tap/vibranium` (see [Homebrew](/vc-rs/start/install/#homebrew)), or `cargo install --git https://github.com/v007m/vc-rs vc-cli vc-demo --locked` (see [Cargo](/vc-rs/start/install/#cargo)).
+</Aside>
+
 ## Prerequisites
 
 - `vc` and `vc-demo` on your `PATH` (see [Install](/vc-rs/start/install/)).
 - A project in a git repo with a GitHub remote. This page uses the sample project from `vc init`, because it runs anywhere: its test file starts the demo service in `beforeAll` and stops it in `afterAll`. A project that tests your own service works the same way, with a profile that points at it.
 
 <Aside type="caution" title="No prebuilt binary or setup action yet">
-There is no prebuilt binary, installer or GitHub setup action for `vc` yet. The workflow below builds the v0.1.0 release from the repo with `cargo install`, which needs Rust 1.99 or later. GitHub's hosted runners come with `rustup`.
+There is no prebuilt binary, installer or GitHub setup action for `vc` yet. The workflow below builds `master` from the repo with `cargo install`, which needs Rust 1.99 or later. GitHub's hosted runners come with `rustup`.
 </Aside>
 
 ## Build the pipeline
@@ -43,7 +47,7 @@ There is no prebuilt binary, installer or GitHub setup action for `vc` yet. The 
        path: /users
    ```
 
-   `GET /users` answers `200` with `[{"id":"1","name":"Ada Lovelace"},{"id":"2","name":"Grace Hopper"}]`. The api file also has `createUser` (`POST /users`, `201`), `getUser` and `deleteUser`.
+   `GET /users` answers `200` with Ada Lovelace (`"1"`), Grace Hopper (`"2"`) and any user created since. The api file also has `createUser` (`POST /users`, `201`), `getUser` and `deleteUser`.
 
 2. **Add a `ci` profile.** A profile overrides vars for one environment. In CI, the demo listens on `127.0.0.1`. For your own service, this is where its CI or staging URL goes.
 
@@ -107,8 +111,8 @@ There is no prebuilt binary, installer or GitHub setup action for `vc` yet. The 
 
    ```console
    $ vc sync --check
-   fetched http://localhost:18080/openapi/users.yaml (4 operations)
-     ↑ users#listUsers query limit none → ${var.limit}
+   fetched http://localhost:7421/openapi/users-v2.yaml (4 operations)
+     ~ users#listUsers optional query limit added to the spec: not sent, add `query.limit` to send it
      + users#updateUser new operation PATCH /users/${var.id}
      - users#deleteUser removed from the spec: kept, marked deprecated
    $ echo $?
@@ -124,12 +128,12 @@ There is no prebuilt binary, installer or GitHub setup action for `vc` yet. The 
    plan  4 tests in 1 file · lifecycle: beforeAll command · profile ci
 
    Sample tests
-   ✓ sample.basics#rejectsMissingEmail — Rejects a user without an email    0ms
-   ✓ sample.basics#listsUsers — Lists users                          0ms
-   ✓ sample.basics#createsUser — Creates a user with the given email    1ms
-   ✓ sample.basics#getsCreatedUser — Returns the user that was just created    1ms
+   ✓ sample.basics#rejectsMissingEmail — Rejects a user without an email    6ms
+   ✓ sample.basics#listsUsers — Lists users                          6ms
+   ✓ sample.basics#createsUser — Creates a user with the given email    8ms
+   ✓ sample.basics#getsCreatedUser — Returns the user that was just created    8ms
 
-   4 passed                                                     359ms · profile ci
+   4 passed                                                     138ms · profile ci
    reports  /home/you/shop/reports/{junit.xml,ctrf.json,index.html}
    ```
 
@@ -142,23 +146,23 @@ There is no prebuilt binary, installer or GitHub setup action for `vc` yet. The 
    plan  4 tests in 1 file · lifecycle: beforeAll command · profile ci
 
    Sample tests
-   ⊘ sample.basics#getsCreatedUser — Returns the user that was just created blocked    0ms
+   ⊘ sample.basics#getsCreatedUser — Returns the user that was just created blocked    1ms
      error[V5105]: cannot connect to 127.0.0.1:18099: Connection refused (os error 61)
         = at: call sample#createUser
-   ✕ sample.basics#rejectsMissingEmail — Rejects a user without an email    0ms
+   ✕ sample.basics#createsUser — Creates a user with the given email    1ms
      error[V5105]: cannot connect to 127.0.0.1:18099: Connection refused (os error 61)
         = at: call sample#createUser
-   ✕ sample.basics#listsUsers — Lists users                          0ms
+   ✕ sample.basics#rejectsMissingEmail — Rejects a user without an email    1ms
+     error[V5105]: cannot connect to 127.0.0.1:18099: Connection refused (os error 61)
+        = at: call sample#createUser
+   ✕ sample.basics#listsUsers — Lists users                          1ms
      error[V5105]: cannot connect to 127.0.0.1:18099: Connection refused (os error 61)
         = at: call sample#listUsers
-   ✕ sample.basics#createsUser — Creates a user with the given email    0ms
-     error[V5105]: cannot connect to 127.0.0.1:18099: Connection refused (os error 61)
-        = at: call sample#createUser
 
-   0 passed · 3 failed · 1 blocked                              76ms · profile ci
+   0 passed · 3 failed · 1 blocked                              201ms · profile ci
    reports  /home/you/shop/.vibranium/reports/2/{ctrf.json,junit.xml,index.html}
    next     vc run --failed
-   seed 5335986152586246: pass `--seed 5335986152586246` to run with the same generated data
+   seed 3651261635861700: pass `--seed 3651261635861700` to run with the same generated data
    $ echo $?
    1
    ```
@@ -170,10 +174,10 @@ There is no prebuilt binary, installer or GitHub setup action for `vc` yet. The 
    ```console
    $ vc run --profile ci --reporter json --report ctrf --out reports > run.ndjson
    $ jq -c 'select(.event=="testFinished") | {test, status, durationMs}' run.ndjson
-   {"test":"sample.basics#rejectsMissingEmail","status":"passed","durationMs":0}
-   {"test":"sample.basics#listsUsers","status":"passed","durationMs":0}
-   {"test":"sample.basics#createsUser","status":"passed","durationMs":0}
-   {"test":"sample.basics#getsCreatedUser","status":"passed","durationMs":0}
+   {"test":"sample.basics#rejectsMissingEmail","status":"passed","durationMs":13}
+   {"test":"sample.basics#listsUsers","status":"passed","durationMs":13}
+   {"test":"sample.basics#createsUser","status":"passed","durationMs":20}
+   {"test":"sample.basics#getsCreatedUser","status":"passed","durationMs":25}
    ```
 
    The stream starts with `runStarted` and ends with `runFinished` and `summary`:
@@ -181,7 +185,7 @@ There is no prebuilt binary, installer or GitHub setup action for `vc` yet. The 
    ```json
    {"event":"runStarted","files":1,"instances":4}
    {"event":"runFinished","status":"passed","totals":{"allowedFailures":0,"blocked":0,"failed":0,"flaky":0,"passed":4,"skipped":0}}
-   {"artifacts":[{"path":"/home/you/shop/reports/ctrf.json","reporter":"ctrf"}],"durationMs":74,"event":"summary","profileNames":{},"profiles":["ci"],"startedMs":1794459652079,"status":"passed","teardownFailures":[],"totals":{"allowedFailures":0,"blocked":0,"failed":0,"flaky":0,"passed":4,"skipped":0}}
+   {"artifacts":[{"path":"/home/you/shop/reports/ctrf.json","reporter":"ctrf"}],"durationMs":235,"event":"summary","profileNames":{},"profiles":["ci"],"startedMs":1794996353920,"status":"passed","teardownFailures":[],"totals":{"allowedFailures":0,"blocked":0,"failed":0,"flaky":0,"passed":4,"skipped":0}}
    ```
 
    A failed test carries its diagnostic code and message:
@@ -211,8 +215,8 @@ There is no prebuilt binary, installer or GitHub setup action for `vc` yet. The 
    plan  0 tests in 0 files · profile ci
 
 
-   0 passed                                                     0ms · profile ci
-   reports  /home/you/shop/.vibranium/reports/6/{ctrf.json,junit.xml,index.html}
+   0 passed                                                     13ms · profile ci
+   reports  /home/you/shop/.vibranium/reports/5/{ctrf.json,junit.xml,index.html}
    $ echo $?
    2
    ```
@@ -243,7 +247,8 @@ jobs:
       - name: Install vc and vc-demo
         run: |
           rustup toolchain install 1.99 --profile minimal
-          cargo +1.99 install --git https://github.com/v007m/vc-rs --tag v0.1.0 vc-cli vc-demo --locked
+          # master until the next release; then pin its tag with --tag instead
+          cargo +1.99 install --git https://github.com/v007m/vc-rs --branch master vc-cli vc-demo --locked
 
       - name: Check the definitions
         run: vc check
@@ -316,7 +321,7 @@ Every `vc` command uses the same codes, so a CI step can branch on them.
 
 ## What you learned
 
-- Install `vc` in CI with `cargo install --git https://github.com/v007m/vc-rs --tag v0.1.0 vc-cli vc-demo --locked`. No prebuilt binary or setup action exists yet.
+- Install `vc` in CI with `cargo install --git https://github.com/v007m/vc-rs --branch master vc-cli vc-demo --locked` (the next release's `--tag` once it is out). No prebuilt binary or setup action exists yet.
 - Order the steps from cheap to expensive: `vc check`, then `vc sync --check`, then `vc run`.
 - `--report junit,ctrf,html --out reports` writes the report files to one folder to upload. `--single-file` makes the HTML one file.
 - `--reporter json` streams NDJSON events on stdout.

@@ -100,11 +100,12 @@ apis:
       tags: [a, b]
 ```
 
-**Every item of a list.**
+**Every item of a list.** `query: {limit: 2}` asks the demo for its first two users, Ada Lovelace and Grace Hopper, even after other tests have added more.
 
 ```yaml
 - id: macros
   call: users#list
+  query: {limit: 2}
   expect:
     cel:
       all have ids: response.body.all(u, has(u.id))
@@ -187,6 +188,7 @@ expect:
 <Playground client:visible kind="test" code={`tests:
   - id: listsUsers
     call: users#list
+    query: {limit: 2}
     expect:
       cel:
         two users: size(response.body) == 2
