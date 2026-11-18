@@ -34,21 +34,22 @@ Units work in `gt`, `gte`, `lt`, `lte` and `between`. A bare number needs its un
 
 ## Examples
 
-**An upper bound.** Catch a response that grew by accident, such as a list that lost its paging.
+**An upper bound.** Catch a response that grew by accident, such as a list that lost its paging. This one calls `users#list` with `query: {limit: 2}`, which the demo answers with its first two users, 67 bytes.
 
 ```yaml
+query: {limit: 2}
 expect:
   size:
     lt: 50b
 ```
 
 ```console
-✕ sz.size#tooBig                                                  3ms
+✕ sz.size#tooBig                                                  5ms
   error[V5101]: expect.size
-    --> services/sz/size.test.yaml:28:9
-     |
-  28 |         lt: 50b
-     |         ^^^^^^^ expected {"lt":50}, got 67
+   --> services/sz/size.test.yaml:7:9
+    |
+  7 |         lt: 50b
+    |         ^^^^^^^ expected {"lt":50}, got 67
 ```
 
 The expected value is shown in bytes.
@@ -61,7 +62,7 @@ expect:
     between: [100b, 2kb]
 ```
 
-**An exact size.** Write the byte count as a plain number. This example calls `users#delete` from the users api file in [the project these pages use](/vc-rs/reference/syntax/#the-project-these-pages-use). It sends `DELETE /users/<userId>`, and the demo answers with no body:
+**An exact size.** Write the byte count as a plain number. This example calls `users#delete` from the users api file in [the project these pages use](/vc-rs/reference/syntax/#the-project-these-pages-use). It sends `DELETE /users/<userId>`. The demo answers `204` when the user existed and `404` when it did not, both with no body. Users 1 and 2 are the demo's own and get a `403`, so the test creates a user to delete:
 
 ```yaml title="services/users/users.api.yaml (excerpt)"
 baseUrl: ${var.usersUrl}
@@ -76,14 +77,15 @@ apis:
 
 ```console
 $ vc call users#delete --var userId=15
-204 No Content · 61 ms · api expect passed
+404 Not Found · 3 ms · api expect passed
 ```
 
 ```yaml
 - id: emptyBody
+  before:
+    - call: users#create
+      keep: true
   call: users#delete
-  vars:
-    userId: "1"
   expect:
     size: 0
 ```
@@ -93,6 +95,7 @@ $ vc call users#delete --var userId=15
 <Playground client:visible kind="test" code={`tests:
   - id: staysSmall
     call: users#list
+    query: {limit: 2}
     expect:
       size:
         lte: 1kb

@@ -22,7 +22,7 @@ expect:
 
 ## The API
 
-The examples call `sample#echoOrder` and `sample#listUsers`. `echoOrder` posts a sample order to the demo's `/echo`, and the demo sends the request back, so the order shows up under `body`. `listUsers` sends `GET /users`, and the demo answers with two users. Here are the fields these examples check; [Following along](/vc-rs/reference/matchers/#following-along) has the whole entry and how to start the demo.
+The examples call `sample#echoOrder` and `sample#listUsers`. `echoOrder` posts a sample order to the demo's `/echo`, and the demo sends the request back, so the order shows up under `body`. `listUsers` sends `GET /users`. The demo starts with two users, Ada Lovelace and Grace Hopper, and other tests can add more, so the list tests add `query: {limit: 2}`: the demo then returns the first two users by ID, which are always those two. Here are the fields these examples check; [Following along](/vc-rs/reference/matchers/#following-along) has the whole entry and how to start the demo.
 
 ```yaml title="services/sample/sample.api.yaml (excerpt)"
   - id: listUsers
@@ -75,6 +75,7 @@ tests:
   - id: twoNamedUsers
     name: Two users, all named
     call: sample#listUsers
+    query: {limit: 2}
     expect:
       cel:
         twoUsers: size(response.body) == 2
@@ -85,9 +86,9 @@ tests:
 $ vc run sample.cel#twoNamedUsers
 plan  1 test in 1 file · profile default
 
-✓ sample.cel#twoNamedUsers — Two users, all named                 8ms
+✓ sample.cel#twoNamedUsers — Two users, all named                 4ms
 
-1 passed                                                     9ms · profile default
+1 passed                                                     6ms · profile default
 reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
 ```
 
@@ -109,9 +110,9 @@ tests:
 $ vc run sample.cel#totalAddsUp
 plan  1 test in 1 file · profile default
 
-✓ sample.cel#totalAddsUp — Total is the sum of item prices        4ms
+✓ sample.cel#totalAddsUp — Total is the sum of item prices       10ms
 
-1 passed                                                     5ms · profile default
+1 passed                                                     12ms · profile default
 reports  …/.vibranium/reports/2/{ctrf.json,junit.xml,index.html}
 ```
 
@@ -124,6 +125,7 @@ tests:
   - id: failsOnCount
     name: Three users
     call: sample#listUsers
+    query: {limit: 2}
     expect:
       cel:
         threeUsers: size(response.body) == 3
@@ -133,14 +135,14 @@ tests:
 $ vc run sample.cel#failsOnCount
 plan  1 test in 1 file · profile default
 
-✕ sample.cel#failsOnCount — Three users                           1ms
+✕ sample.cel#failsOnCount — Three users                          10ms
   error[V5102]: expect.cel.threeUsers
-    --> services/sample/cel.test.yaml:20:21
+    --> services/sample/cel.test.yaml:22:21
      |
-  20 |         threeUsers: size(response.body) == 3
+  22 |         threeUsers: size(response.body) == 3
      |                     ^^^^^^^^^^^^^^^^^^^^^^^^ expected true, got false
 
-0 passed · 1 failed                                          4ms · profile default
+0 passed · 1 failed                                          12ms · profile default
 reports  …/.vibranium/reports/3/{ctrf.json,junit.xml,index.html}
 next     vc run --failed
 ```
@@ -206,6 +208,7 @@ Edit the test below. The editor checks it against the real schema as you type.
   - id: twoNamedUsers
     name: Two users, all named
     call: sample#listUsers
+    query: {limit: 2}
     expect:
       cel:
         twoUsers: size(response.body) == 2

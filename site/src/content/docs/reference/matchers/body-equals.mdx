@@ -24,7 +24,7 @@ expect:
 
 ## The API
 
-The examples call `sample#listUsers` from the `vc init` sample. It sends `GET /users`, and the demo answers with two users. [Following along](/vc-rs/reference/matchers/#following-along) shows how to start the demo.
+The examples call `sample#listUsers` from the `vc init` sample. It sends `GET /users`. The demo starts with two users, Ada Lovelace and Grace Hopper, and other tests can add more, so the tests below add `query: {limit: 2}`: the demo then returns the first two users by ID, which are always those two. [Following along](/vc-rs/reference/matchers/#following-along) shows how to start the demo.
 
 ```yaml title="services/sample/sample.api.yaml (excerpt)"
   - id: listUsers
@@ -35,7 +35,7 @@ The examples call `sample#listUsers` from the `vc init` sample. It sends `GET /u
 
 ```console
 $ vc call sample#listUsers
-200 OK · 221 ms · api expect passed
+200 OK · 8 ms · api expect passed
 [
   {
     "id": "1",
@@ -59,6 +59,7 @@ tests:
   - id: listsBothUsers
     name: Lists exactly two users
     call: sample#listUsers
+    query: {limit: 2}
     expect:
       body:
         equals:
@@ -70,9 +71,9 @@ tests:
 $ vc run sample.bodyequals#listsBothUsers
 plan  1 test in 1 file · profile default
 
-✓ sample.bodyequals#listsBothUsers — Lists exactly two users      0ms
+✓ sample.bodyequals#listsBothUsers — Lists exactly two users      5ms
 
-1 passed                                                     68ms · profile default
+1 passed                                                     7ms · profile default
 reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
 ```
 
@@ -85,6 +86,7 @@ tests:
   - id: failsOnName
     name: Lists Grace Kelly
     call: sample#listUsers
+    query: {limit: 2}
     expect:
       body:
         equals:
@@ -96,13 +98,13 @@ tests:
 $ vc run sample.bodyequals#failsOnName
 plan  1 test in 1 file · profile default
 
-✕ sample.bodyequals#failsOnName — Lists Grace Kelly               0ms
+✕ sample.bodyequals#failsOnName — Lists Grace Kelly               4ms
   error[V5101]: expect.body.equals
-    --> services/sample/bodyequals.test.yaml:16:11
+    --> services/sample/bodyequals.test.yaml:18:11
      |
-  16 |           - {id: "1", name: Ada Lovelace}
+  18 |           - {id: "1", name: Ada Lovelace}
      |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  17 |           - {id: "2", name: Grace Kelly}
+  19 |           - {id: "2", name: Grace Kelly}
      |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected [{"id":"1","name":"Ada Lovelace"},{"id":"2","name":"Grace Kelly"}], got [{"id":"1","name":"Ada Lovelace"},{"id":"2","name":"Grace Hopper"}]
      = diff:
        --- expected
@@ -117,7 +119,7 @@ plan  1 test in 1 file · profile default
         ]
        \ No newline at end of file
 
-0 passed · 1 failed                                          21ms · profile default
+0 passed · 1 failed                                          5ms · profile default
 reports  …/.vibranium/reports/2/{ctrf.json,junit.xml,index.html}
 next     vc run --failed
 ```
@@ -130,6 +132,7 @@ Edit the test below. The editor checks it against the real schema as you type.
   - id: listsBothUsers
     name: Lists exactly two users
     call: sample#listUsers
+    query: {limit: 2}
     expect:
       body:
         equals:

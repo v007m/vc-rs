@@ -128,7 +128,7 @@ Requirements are grouped by area; the release column follows the plan below (v2.
 | R28 | SDKs | Builder APIs and test-framework helpers in order: TypeScript (v2.1), Python (v2.2), Go (v2.3), Java/Kotlin (v2.4) | v2.1–v2.4 |
 | R29 | Plugins | Third-party plugins in any language over JSON-RPC, REST or webhooks with ready-made clients; gRPC for hot-path executors; permissions manifest approved on install | v2.2 |
 | R30 | TUI | Browse tests and history, run selections, view failures, edit tests with write-back to YAML | v2.2 |
-| R31 | Server | Self-hosted server: shared history (Postgres), team dashboards, run ingestion from CLI and CI | v2.3 |
+| R31 | Server | **Dropped** (D332). Was: self-hosted server: shared history (Postgres), team dashboards, run ingestion from CLI and CI | dropped |
 | R32 | Web UI | Browse, run and edit tests (writes YAML), dashboards, history | v2.3 |
 | R33 | Protocols | GraphQL executor | v2.3 |
 | R34 | Protocols | gRPC and WebSocket/SSE executors | v2.4+ |

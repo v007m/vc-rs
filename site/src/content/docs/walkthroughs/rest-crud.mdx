@@ -21,31 +21,28 @@ It takes about 15 minutes.
 
 ## Prerequisites
 
-- `vc` on your `PATH`. See [Install](/vc-rs/start/install/).
-- A clone of the [vc-rs repo](https://github.com/v007m/vc-rs). The repo has a mock server with a real `/users` collection. Start it in its own terminal and leave it running:
+- `vc` and `vc-demo` on your `PATH`. See [Install](/vc-rs/start/install/).
+- The demo service running. It has a real `/users` collection. Start it in the background and leave it running:
 
-  ```sh
-  # inside the vc-rs clone
-  mise run mock
-  # or, without mise:
-  cargo run -p vc-mock-server -- --port 18080
+  ```console
+  $ vc demo start --detach
+  demo running on http://localhost:7421 (pid 54456); `vc demo stop` stops it
   ```
 
-  It listens on `http://localhost:18080`. It stores users in memory, so a restart empties it.
+  It listens on `http://localhost:7421`. It stores users in memory, so a restart empties it.
 
-The mock's `/users` collection behaves like a typical REST API:
+The demo's `/users` collection behaves like a typical REST API (all of it is in [`vc demo`](/vc-rs/reference/cli/demo/#what-it-serves)):
 
 | Request | Answer |
 | --- | --- |
-| `POST /users` with a JSON object | `201` and the object plus a numeric `id` |
+| `GET /users` | `200` and every user: Ada Lovelace (`1`), Grace Hopper (`2`) and those created since |
+| `POST /users` with a JSON object | `201` and the object plus an `id` as text (`"3"`, `"4"`, …) |
 | `GET /users/{id}` | `200` and the user, or `404` |
 | `PUT /users/{id}` | `200`; the body replaces the user |
 | `PATCH /users/{id}` | `200`; the body is merged into the user |
 | `DELETE /users/{id}` | `204`, or `404` when there is no such user |
-| a body that is not `application/json` | `415` |
-| broken JSON | `400` |
-| JSON that is not an object | `422` |
-| an ID that is not a number | `400` |
+| a body that is not a JSON object, or has no `email` | `400` and a JSON `error` |
+| a change to user `1` or `2` | `403`; they are the demo's own |
 
 ## Steps
 
@@ -67,7 +64,7 @@ The mock's `/users` collection behaves like a typical REST API:
 2. **Scaffold the apis.** `vc new api` adds one entry to an api file and creates the file if needed. The first call takes a full `--url`. vc splits it: the host goes into a config var named after the service (`usersUrl`), and the path goes into the api.
 
    ```console
-   $ vc new api users#create --method POST --url http://localhost:18080/users
+   $ vc new api users#create --method POST --url http://localhost:7421/users
    ✓ added users#create to services/users/users.api.yaml:6
    $ vc new api users#get --path '/users/{userId}'
    ✓ added users#get to services/users/users.api.yaml:11
@@ -102,7 +99,7 @@ The mock's `/users` collection behaves like a typical REST API:
 
    ```yaml title="vibranium.config.yaml (excerpt)"
    vars:
-     usersUrl: http://localhost:18080
+     usersUrl: http://localhost:7421
    ```
 
    The file ID comes from the path: `services/users/users.api.yaml` is `users`, so its apis are `users#create`, `users#get` and so on.
@@ -194,7 +191,7 @@ The mock's `/users` collection behaves like a typical REST API:
          body:
            match:
              id:
-               type: integer
+               type: string
              email: ada@example.com
              role: member
 
@@ -290,67 +287,76 @@ The mock's `/users` collection behaves like a typical REST API:
    plan  5 tests in 1 file · profile default
 
    User CRUD
-   ✓ users.crud#deletesUser — A deleted user is gone                 4ms
-   ✓ users.crud#createsUser — Creates a user and returns its ID      4ms
-   ✓ users.crud#readsCreatedUser — Reads back the user that was just created    4ms
-   ✓ users.crud#renamesUser — PATCH changes the name and keeps the other fields    4ms
-   ✓ users.crud#replacesUser — PUT replaces every field of a user    4ms
+   ✓ users.crud#createsUser — Creates a user and returns its ID     11ms
+   ✓ users.crud#deletesUser — A deleted user is gone                11ms
+   ✓ users.crud#replacesUser — PUT replaces every field of a user   15ms
+   ✓ users.crud#renamesUser — PATCH changes the name and keeps the other fields   15ms
+   ✓ users.crud#readsCreatedUser — Reads back the user that was just created   15ms
 
-   5 passed                                                     5ms · profile default
+   5 passed                                                     17ms · profile default
    reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
    ```
 
    Each line ends with the test's `name`. Tests run in parallel, so the order changes from run to run. The report path is shortened here; vc prints the full path.
 
-   Now look at the mock's store:
+   Now look at the demo's store:
 
    ```console
-   $ curl localhost:18080/users
-   []
+   $ curl -s localhost:7421/users
+   [{"id":"1","name":"Ada Lovelace"},{"id":"2","name":"Grace Hopper"}]
    ```
 
-   It is empty. Each successful create registered a delete, and the cleanups ran when their tests ended. `deletesUser` deleted its own user.
+   Only the demo's own two users are left. Each successful create registered a delete, and the cleanups ran when their tests ended. `deletesUser` deleted its own user.
 
 7. **Add examples for bad input.** An `examples` list turns one test into one instance per row. Each row's values are read as `${example.<key>}`. Add these two tests to the end of `crud.test.yaml`:
 
    ```yaml title="services/users/crud.test.yaml (continued)"
      - id: rejectsBadBody
-       name: Rejects a create request whose body is not a JSON object
+       name: Rejects a create request whose body is not a user
        examples:
          - name: plain text
            contentType: text/plain
            body: just some text
-           status: 415
+           error: a user is a JSON object, with an email
          - name: broken JSON
            contentType: application/json
            body: "{bad"
-           status: 400
+           error: a user is a JSON object, with an email
          - name: a list, not an object
            contentType: application/json
            body: "[1, 2]"
-           status: 422
+           error: a user is a JSON object, with an email
+         - name: no email
+           contentType: application/json
+           body: {name: Ada}
+           error: a user needs an email
        call: users#create
        headers:
          content-type: ${example.contentType}
        body: ${example.body}
        expect:
-         status: ${example.status}
+         status: 400
+         body:
+           match:
+             error: ${example.error}
 
-     - id: rejectsUnknownUser
-       name: Answers 400 or 404 for IDs that name no user
+     - id: rejectsBadDelete
+       name: Refuses to delete unknown users and the demo's own
        examples:
          - userId: not-a-number
-           status: 400
+           status: 404
          - userId: 999999
            status: 404
-       call: users#get
+         - userId: 1
+           status: 403
+       call: users#delete
        vars:
          userId: ${example.userId}
        expect:
          status: ${example.status}
    ```
 
-   The test's `body` replaces the api's body, and its `headers` override the content type. Each row sends a different kind of bad body. No cleanup runs for these rows: a cleanup is registered only when the create succeeds.
+   The test's `body` replaces the api's body, and its `headers` override the content type. Each row sends a different kind of bad body, and checks the `error` the demo answers with. A row's `body` can be text, sent as it is, or a map, sent as JSON. No cleanup runs for these rows: a cleanup is registered only when the create succeeds. In `rejectsBadDelete`, the test's `status` replaces the api's `[204, 404]`.
 
    <Aside type="tip" title="A templated status reads like a written one">
    `status: ${example.status}` takes each row's value as a status: a code (`404` or the text `"404"`), a class (`4xx`) or a list (`[400, 404]`). A value that is none of these fails the check. See [status](/vc-rs/reference/matchers/status/).
@@ -360,21 +366,23 @@ The mock's `/users` collection behaves like a typical REST API:
 
    ```console
    $ vc run
-   plan  7 tests (10 instances) in 1 file · profile default
+   plan  7 tests (12 instances) in 1 file · profile default
 
    User CRUD
-   ✓ users.crud#rejectsBadBody › plain text — Rejects a create request whose body is not a JSON object    1ms
-   ✓ users.crud#rejectsBadBody › broken JSON — Rejects a create request whose body is not a JSON object    1ms
-   ✓ users.crud#rejectsBadBody › a list, not an object — Rejects a create request whose body is not a JSON object    2ms
-   ✓ users.crud#rejectsUnknownUser [row 1] — Answers 400 or 404 for IDs that name no user    2ms
-   ✓ users.crud#rejectsUnknownUser [row 2] — Answers 400 or 404 for IDs that name no user    2ms
-   ✓ users.crud#createsUser — Creates a user and returns its ID      2ms
-   ✓ users.crud#readsCreatedUser — Reads back the user that was just created    2ms
-   ✓ users.crud#replacesUser — PUT replaces every field of a user    2ms
-   ✓ users.crud#deletesUser — A deleted user is gone                 2ms
-   ✓ users.crud#renamesUser — PATCH changes the name and keeps the other fields    2ms
+   ✓ users.crud#rejectsBadBody › a list, not an object — Rejects a create request whose body is not a user    6ms
+   ✓ users.crud#rejectsBadBody › broken JSON — Rejects a create request whose body is not a user    6ms
+   ✓ users.crud#rejectsBadBody › plain text — Rejects a create request whose body is not a user    6ms
+   ✓ users.crud#createsUser — Creates a user and returns its ID      9ms
+   ✓ users.crud#rejectsBadDelete [row 2] — Refuses to delete unknown users and the demo's own    8ms
+   ✓ users.crud#rejectsBadDelete [row 1] — Refuses to delete unknown users and the demo's own    8ms
+   ✓ users.crud#rejectsBadBody › no email — Rejects a create request whose body is not a user    8ms
+   ✓ users.crud#rejectsBadDelete [row 3] — Refuses to delete unknown users and the demo's own   10ms
+   ✓ users.crud#deletesUser — A deleted user is gone                11ms
+   ✓ users.crud#replacesUser — PUT replaces every field of a user   13ms
+   ✓ users.crud#readsCreatedUser — Reads back the user that was just created   19ms
+   ✓ users.crud#renamesUser — PATCH changes the name and keeps the other fields   22ms
 
-   10 passed                                                    3ms · profile default
+   12 passed                                                    25ms · profile default
    reports  …/.vibranium/reports/2/{ctrf.json,junit.xml,index.html}
    ```
 
@@ -382,7 +390,7 @@ The mock's `/users` collection behaves like a typical REST API:
 
    ```console
    $ vc plan users.crud
-   plan  7 tests (10 instances) in 1 file · profile default
+   plan  7 tests (12 instances) in 1 file · profile default
    users.crud
      users.crud#createsUser
      users.crud#readsCreatedUser
@@ -392,8 +400,10 @@ The mock's `/users` collection behaves like a typical REST API:
      users.crud#rejectsBadBody › plain text
      users.crud#rejectsBadBody › broken JSON
      users.crud#rejectsBadBody › a list, not an object
-     users.crud#rejectsUnknownUser [row 1]
-     users.crud#rejectsUnknownUser [row 2]
+     users.crud#rejectsBadBody › no email
+     users.crud#rejectsBadDelete [row 1]
+     users.crud#rejectsBadDelete [row 2]
+     users.crud#rejectsBadDelete [row 3]
    ```
 
    To run a single row, add `:n` to the test ID:
@@ -403,9 +413,9 @@ The mock's `/users` collection behaves like a typical REST API:
    plan  1 test in 1 file · profile default
 
    User CRUD
-   ✓ users.crud#rejectsBadBody › broken JSON — Rejects a create request whose body is not a JSON object    2ms
+   ✓ users.crud#rejectsBadBody › broken JSON — Rejects a create request whose body is not a user   16ms
 
-   1 passed                                                     2ms · profile default
+   1 passed                                                     20ms · profile default
    reports  …/.vibranium/reports/3/{ctrf.json,junit.xml,index.html}
    ```
 
@@ -420,7 +430,7 @@ The mock's `/users` collection behaves like a typical REST API:
    plan  1 test in 1 file · profile default
 
    User CRUD
-   ✕ users.crud#replacesUser — PUT replaces every field of a user    7ms
+   ✕ users.crud#replacesUser — PUT replaces every field of a user   14ms
      error[V5101]: expect.body.equals
        --> services/users/crud.test.yaml:52:11
         |
@@ -431,26 +441,26 @@ The mock's `/users` collection behaves like a typical REST API:
      54 |           email: ada@example.com
         |           ^^^^^^^^^^^^^^^^^^^^^^
      55 |           role: owner
-        |           ^^^^^^^^^^^ expected {"email":"ada@example.com","id":6,"name":"Ada Lovelace","role":"owner"}, got {"email":"ada@example.com","id":6,"name":"Ada Lovelace","role":"admin"}
+        |           ^^^^^^^^^^^ expected {"email":"ada@example.com","id":"13","name":"Ada Lovelace","role":"owner"}, got {"email":"ada@example.com","id":"13","name":"Ada Lovelace","role":"admin"}
         = diff:
           --- expected
           +++ actual
           @@ -2,5 +2,5 @@
              "email": "ada@example.com",
-             "id": 6,
+             "id": "13",
              "name": "Ada Lovelace",
           -  "role": "owner"
           +  "role": "admin"
            }
           \ No newline at end of file
 
-   0 passed · 1 failed                                          8ms · profile default
-   reports  …/.vibranium/reports/7/{ctrf.json,junit.xml,index.html}
+   0 passed · 1 failed                                          15ms · profile default
+   reports  …/.vibranium/reports/4/{ctrf.json,junit.xml,index.html}
    next     vc run --failed
-   seed 17766941730403560844: pass `--seed 17766941730403560844` to run with the same generated data
+   seed 291888084915824: pass `--seed 291888084915824` to run with the same generated data
    ```
 
-   The failure points at the lines in your file and shows a diff. The exit code is `1`. The seed lets you replay the same generated names and emails. Change `owner` back to `admin`.
+   The failure points at the lines in your file and shows a diff. The exit code is `1`. The seed lets you replay the same generated names and emails. Change `owner` back to `admin`. When you are done, `vc demo stop` stops the demo.
 
 </Steps>
 
@@ -479,7 +489,7 @@ tests:
       body:
         match:
           id:
-            type: integer
+            type: string
           email: ada@example.com
           role: member
 
@@ -551,35 +561,44 @@ tests:
           status: 404
 
   - id: rejectsBadBody
-    name: Rejects a create request whose body is not a JSON object
+    name: Rejects a create request whose body is not a user
     examples:
       - name: plain text
         contentType: text/plain
         body: just some text
-        status: 415
+        error: a user is a JSON object, with an email
       - name: broken JSON
         contentType: application/json
         body: "{bad"
-        status: 400
+        error: a user is a JSON object, with an email
       - name: a list, not an object
         contentType: application/json
         body: "[1, 2]"
-        status: 422
+        error: a user is a JSON object, with an email
+      - name: no email
+        contentType: application/json
+        body: {name: Ada}
+        error: a user needs an email
     call: users#create
     headers:
       content-type: ${example.contentType}
     body: ${example.body}
     expect:
-      status: ${example.status}
+      status: 400
+      body:
+        match:
+          error: ${example.error}
 
-  - id: rejectsUnknownUser
-    name: Answers 400 or 404 for IDs that name no user
+  - id: rejectsBadDelete
+    name: Refuses to delete unknown users and the demo's own
     examples:
       - userId: not-a-number
-        status: 400
+        status: 404
       - userId: 999999
         status: 404
-    call: users#get
+      - userId: 1
+        status: 403
+    call: users#delete
     vars:
       userId: ${example.userId}
     expect:
@@ -591,7 +610,7 @@ tests:
 
 ```yaml title="vibranium.config.yaml (excerpt)"
 vars:
-  usersUrl: http://localhost:18080
+  usersUrl: http://localhost:7421
 ```
 
 `vc new api … --url` added this block in step 2. `vc init --no-sample` writes no `vars:` of its own.
@@ -601,18 +620,18 @@ vars:
 
 ## Try a variation
 
-Add a row to `rejectsUnknownUser` that uses a negative ID, or change a matcher and watch the editor flag what is wrong:
+Add a row to `rejectsBadDelete` for user `2`, or change a matcher and watch the editor flag what is wrong:
 
 <Playground client:visible kind="test" title="crud.test.yaml" code={`name: User CRUD
 tests:
-  - id: rejectsUnknownUser
-    name: Answers 400 or 404 for IDs that name no user
+  - id: rejectsBadDelete
+    name: Refuses to delete unknown users and the demo's own
     examples:
-      - userId: not-a-number
-        status: 400
       - userId: 999999
         status: 404
-    call: users#get
+      - userId: 1
+        status: 403
+    call: users#delete
     vars:
       userId: \${example.userId}
     expect:

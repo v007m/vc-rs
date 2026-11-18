@@ -60,7 +60,7 @@ A time result that becomes a value is text: `2024-05-01T14:00:00Z` for a timesta
 
 ## Examples
 
-The examples call `sample#listUsers`, the `vc init` sample's `GET /users`. On the demo it returns two users:
+The examples call `sample#listUsers`, the `vc init` sample's `GET /users`. The demo starts with two users, and other tests can add more, so the tests add `query: {limit: 2}`: the demo then returns the first two by ID, which are always these:
 
 ```yaml title="services/sample/sample.api.yaml (excerpt)"
 apis:
@@ -71,7 +71,7 @@ apis:
 
 ```console
 $ vc call sample#listUsers
-200 OK · 60 ms · api expect passed
+200 OK · 8 ms · api expect passed
 [
   {
     "id": "1",
@@ -90,6 +90,7 @@ Checks against that list. All passed:
 tests:
   - id: checksWithCel
     call: sample#listUsers
+    query: {limit: 2}
     expect:
       cel:
         has two users: size(response.body) == 2
@@ -103,11 +104,11 @@ tests:
 A failing check names the expression:
 
 ```console
-✕ tpl.cel#checksWithCel                                           3ms
+✕ tpl.cel#checksWithCel                                           9ms
   error[V5102]: expect.cel.not a fail
-    --> services/tpl/cel.test.yaml:12:21
+    --> services/tpl/cel.test.yaml:13:21
      |
-  12 |         not a fail: response.body.size() == 3
+  13 |         not a fail: response.body.size() == 3
      |                     ^^^^^^^^^^^^^^^^^^^^^^^^^ expected true, got false
 ```
 
@@ -132,6 +133,7 @@ These gave `"2024-05-01T12:00:00Z"`, `"2s"` and `true`. A duration under a secon
 <Playground client:visible kind="test" code={`tests:
   - id: checksWithCel
     call: sample#listUsers
+    query: {limit: 2}
     expect:
       cel:
         has two users: size(response.body) == 2

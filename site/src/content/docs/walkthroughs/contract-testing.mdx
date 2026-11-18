@@ -11,16 +11,14 @@ import Playground from '~/components/Playground.svelte';
 
 ## Prerequisites
 
-- `vc` on your `PATH` (see [Install](/vc-rs/start/install/)).
+- `vc` and `vc-demo` on your `PATH` (see [Install](/vc-rs/start/install/)).
 - `git`. The snapshot that `vc sync` merges against is a file you commit.
-- The mock server from a clone of the repo. It serves a users API, plus that API's spec at `/openapi/users.yaml`. The spec comes in two versions, so you can watch it change. Start it in its own terminal:
+- The demo service running. It serves a users API, and that API's spec in two versions, `/openapi/users-v1.yaml` and `/openapi/users-v2.yaml`, so you can watch the spec change (see [`vc demo`](/vc-rs/reference/cli/demo/#what-it-serves)). Start it in the background:
 
   ```console
-  $ git clone https://github.com/v007m/vc-rs && cd vc-rs
-  $ mise run mock
+  $ vc demo start --detach
+  demo running on http://localhost:7421 (pid 74215); `vc demo stop` stops it
   ```
-
-  Without mise, run `cargo run -p vc-mock-server -- --port 18080`. Either way it listens on `http://localhost:18080` and serves version 1 of the spec.
 
 ## Import, test, follow the spec
 
@@ -39,11 +37,11 @@ import Playground from '~/components/Playground.svelte';
    $ git init
    ```
 
-2. **Import the spec.** `--id users` names the api file. `--tests` writes one happy-path test per operation, which creates the user a `GET` or `DELETE` needs first and checks the response against the snapshot's schema. `--negative` adds a test with a row per body field the schema rejects. `--auth` adds a test per secured operation that expects `401` without credentials.
+2. **Import version 1 of the spec.** `--id users` names the api file. `--tests` writes one happy-path test per operation, which creates the user a `GET` or `DELETE` needs first and checks the response against the snapshot's schema. `--negative` adds a test with a row per body field the schema rejects. `--auth` adds a test per secured operation that expects `401` without credentials.
 
    ```console
-   $ vc import openapi http://localhost:18080/openapi/users.yaml --id users --tests --negative --auth
-   ✓ imported http://localhost:18080/openapi/users.yaml
+   $ vc import openapi http://localhost:7421/openapi/users-v1.yaml --id users --tests --negative --auth
+   ✓ imported http://localhost:7421/openapi/users-v1.yaml
    ```
 
    The import writes three files and adds one var:
@@ -53,7 +51,7 @@ import Playground from '~/components/Playground.svelte';
    | `services/users/users.api.yaml` | One api per operation, with `source.openapi` pointing back at the spec |
    | `services/users/openapi.test.yaml` | The generated tests (file ID `users.openapi`) |
    | `openapi/users.yaml` | A snapshot of the spec, converted to OpenAPI 3.1. `vc sync` merges against it. Commit it, and do not edit it |
-   | `vibranium.config.yaml` | Gains `usersUrl: http://localhost:18080` under `vars` |
+   | `vibranium.config.yaml` | Gains `usersUrl: http://localhost:7421` under `vars` |
 
    Each api keeps its `operationId`. That is how `vc sync` matches an api to its operation later.
 
@@ -64,7 +62,7 @@ import Playground from '~/components/Playground.svelte';
    name: Users
    baseUrl: ${var.usersUrl}
    source:
-     openapi: http://localhost:18080/openapi/users.yaml
+     openapi: http://localhost:7421/openapi/users-v1.yaml
 
    apis:
      - id: listUsers
@@ -77,10 +75,8 @@ import Playground from '~/components/Playground.svelte';
        path: /users
        vars:
          email: ada@example.com
-         name: Ada
        body:
          email: ${var.email}
-         name: ${var.name}
        save:
          userId: ${response.body.id}
        cleanup:
@@ -92,63 +88,39 @@ import Playground from '~/components/Playground.svelte';
        name: Get user
        path: /users/${var.id}
        vars:
-         id: ${fake.number.int(1, 100)}
+         id: ${fake.lorem.word}
        operationId: getUser
      - id: deleteUser
        name: Delete user
        method: DELETE
        path: /users/${var.id}
        vars:
-         id: ${fake.number.int(1, 100)}
+         id: ${fake.lorem.word}
        operationId: deleteUser
    ```
 
-   The body and vars come from the spec's examples. `createUser` is the collection's `POST`, so it saves the new user's ID as `userId` and deletes the user again when the test ends. The users spec has no security schemes, so `--auth` added nothing here. On a secured spec, such as the public Petstore (`vc import openapi https://petstore3.swagger.io/api/v3/openapi.json --id petstore --tests --auth`), it writes tests such as `rejectsFindPetsByStatusWithoutAuth`, which call the api with `auth: none` and expect `401`.
+   The body and vars come from the spec's required fields and examples. `createUser` is the collection's `POST`, so it saves the new user's ID as `userId` and deletes the user again when the test ends. The users spec has no security schemes, so `--auth` added nothing here. On a secured spec, such as the public Petstore (`vc import openapi https://petstore3.swagger.io/api/v3/openapi.json --id petstore --tests --auth`), it writes tests such as `rejectsFindPetsByStatusWithoutAuth`, which call the api with `auth: none` and expect `401`.
 
-3. **Run the generated tests.** Some of them fail, and that is expected.
+3. **Run the generated tests.**
 
    ```console
    $ vc run
-   plan  5 tests (8 instances) in 1 file · profile default
+   plan  5 tests (6 instances) in 1 file · profile default
 
-   ✓ users.openapi#listsUsers — List users                          13ms
-   ✓ users.openapi#createsUser — Create user                        17ms
-   ✕ users.openapi#rejectsInvalidCreateUser › name missing — Create user: rejects an invalid body   17ms
-     error[V5101]: expect.status
-       --> services/users/openapi.test.yaml:42:15
-        |
-     42 |       status: 400
-        |               ^^^ expected [400], got 201
-   ✕ users.openapi#rejectsInvalidCreateUser › name is not a string — Create user: rejects an invalid body   17ms
-     error[V5101]: expect.status
-       --> services/users/openapi.test.yaml:42:15
-        |
-     42 |       status: 400
-        |               ^^^ expected [400], got 201
-   ✓ users.openapi#deletesUser — Delete user                        20ms
-   ✓ users.openapi#getsUser — Get user                              20ms
-   ✕ users.openapi#rejectsInvalidCreateUser › email is not a string — Create user: rejects an invalid body   20ms
-     error[V5101]: expect.status
-       --> services/users/openapi.test.yaml:42:15
-        |
-     42 |       status: 400
-        |               ^^^ expected [400], got 201
-   ✕ users.openapi#rejectsInvalidCreateUser › email missing — Create user: rejects an invalid body   20ms
-     error[V5101]: expect.status
-       --> services/users/openapi.test.yaml:42:15
-        |
-     42 |       status: 400
-        |               ^^^ expected [400], got 201
+   ✓ users.openapi#rejectsInvalidCreateUser › email missing — Create user: rejects an invalid body   62ms
+   ✓ users.openapi#listsUsers — List users                          83ms
+   ✓ users.openapi#rejectsInvalidCreateUser › email is not a string — Create user: rejects an invalid body   84ms
+   ✓ users.openapi#createsUser — Create user                       130ms
+   ✓ users.openapi#getsUser — Get user                             130ms
+   ✓ users.openapi#deletesUser — Delete user                       132ms
 
-   4 passed · 4 failed                                          21ms · profile default
+   6 passed                                                     163ms · profile default
    reports  /home/you/users-api/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
-   next     vc run --failed
-   seed 7708181685141620: pass `--seed 7708181685141620` to run with the same generated data
    ```
 
-   `rejectsInvalidCreateUser` sends four bodies the schema rejects, one per row, and expects a `400` for each. The mock stores any JSON you send it, so every row gets a `201`. Tests run in parallel, so `listsUsers` can fail as well in this run: it may list the users those rows made, which break the schema, before each row's cleanup deletes its user.
+   `rejectsInvalidCreateUser` sends two bodies the schema rejects, one per row, and expects a `400` for each. The demo checks every body it is sent, so it answers both with a `400`.
 
-4. **See how the tests get a user to work on.** `getsUser` and `deletesUser` need a user that exists, so each creates one in `before` and passes its saved ID to the path's `id`:
+4. **See how the tests use the spec.** `getsUser` and `deletesUser` need a user that exists, so each creates one in `before` and passes its saved ID to the path's `id`. `deletesUser` deletes that user itself, so its `before` call has `keep: true` and the cleanup does not try to delete the user a second time.
 
    ```yaml title="services/users/openapi.test.yaml"
      - id: getsUser
@@ -160,89 +132,49 @@ import Playground from '~/components/Playground.svelte';
          id: ${var.userId}
        expect:
          status: 200
-   ```
-
-   `deletesUser` deletes that user itself, so its `before` call has `keep: true` and the cleanup does not try to delete the user a second time.
-
-5. **Skip the test the mock cannot pass.** `vc skip` writes a `skip:` reason into the file, so the test still shows up in every report.
-
-   ```console
-   $ vc skip users.openapi#rejectsInvalidCreateUser --reason "the mock accepts any body; re-enable against the real service"
-   ✓ skipped users.openapi#rejectsInvalidCreateUser: the mock accepts any body; re-enable against the real service
-   ```
-
-6. **Check the response against the spec's schema.** `expect.body.schema` takes a `$file`. A JSON pointer after `#` picks one schema inside the file, and the import points each test straight into the snapshot:
-
-   ```yaml title="services/users/openapi.test.yaml"
-       expect:
-         status: 200
          body:
            schema:
              $file: ../../openapi/users.yaml#/components/schemas/User
    ```
 
-   The path is relative to the test file. When `vc sync` updates the snapshot, this check follows the new schema without any edit from you.
-
-   ```console
-   $ vc run
-   plan  4 tests in 1 file · 1 skipped · profile default
-
-   - users.openapi#rejectsInvalidCreateUser — Create user: rejects an invalid body skipped: the mock accepts any body; re-enable against the real service
-   ✓ users.openapi#listsUsers — List users                          19ms
-   ✓ users.openapi#deletesUser — Delete user                        20ms
-   ✓ users.openapi#getsUser — Get user                              19ms
-   ✓ users.openapi#createsUser — Create user                        20ms
-
-   4 passed · 1 skipped                                         46ms · profile default
-   reports  /home/you/users-api/.vibranium/reports/2/{ctrf.json,junit.xml,index.html}
-   ```
+   `expect.body.schema` takes a `$file`. A JSON pointer after `#` picks one schema inside the file, and the import points each test straight into the snapshot. The path is relative to the test file. When `vc sync` updates the snapshot, this check follows the new schema without any edit from you.
 
    Commit everything, the snapshot included: `git add -A && git commit -m "import users api"`.
 
-7. **Change the spec.** The mock can switch to version 2 of its spec. It adds a `limit` query parameter to `listUsers`, a `PATCH /users/{id}` operation and a `role` field on users. It also drops `DELETE /users/{id}`.
+5. **Change the spec.** Version 2 adds an optional `limit` query parameter to `listUsers`, a `PATCH /users/{id}` operation and a `role` field on users. It also drops `DELETE /users/{id}`. A real service changes its spec at the same URL; the demo serves each version at its own, so point the api file at version 2:
 
-   ```console
-   $ curl -X POST http://localhost:18080/__openapi/users/v2
+   ```yaml title="services/users/users.api.yaml (excerpt)"
+   source:
+     openapi: http://localhost:7421/openapi/users-v2.yaml
    ```
 
-   (`curl -X POST http://localhost:18080/__openapi/users/v1` switches back.)
-
-8. **Detect the drift.** `vc sync --check` fetches the spec, compares it with the snapshot and writes nothing. It exits with code `4` when something changed. That is the check to run in CI.
+6. **Detect the drift.** `vc sync --check` fetches the spec, compares it with the snapshot and writes nothing. It exits with code `4` when something changed. That is the check to run in CI.
 
    ```console
    $ vc sync --check
-   fetched http://localhost:18080/openapi/users.yaml (4 operations)
-     ↑ users#listUsers query limit none → ${var.limit}
+   fetched http://localhost:7421/openapi/users-v2.yaml (4 operations)
+     ~ users#listUsers optional query limit added to the spec: not sent, add `query.limit` to send it
      + users#updateUser new operation PATCH /users/${var.id}
      - users#deleteUser removed from the spec: kept, marked deprecated
    $ echo $?
    4
    ```
 
-9. **Preview the merge.** `vc sync --dry-run` prints the same lines plus a diff of every file it would write.
+   A `~` line is a note, not a change: sync never sends an optional parameter, so it leaves `listUsers` as it is and tells you `limit` exists.
+
+7. **Preview the merge.** `vc sync --dry-run` prints the same lines plus a diff of every file it would write.
 
    ```console
    $ vc sync --dry-run
-   fetched http://localhost:18080/openapi/users.yaml (4 operations)
-     ↑ users#listUsers query limit none → ${var.limit}
+   fetched http://localhost:7421/openapi/users-v2.yaml (4 operations)
+     ~ users#listUsers optional query limit added to the spec: not sent, add `query.limit` to send it
      + users#updateUser new operation PATCH /users/${var.id}
      - users#deleteUser removed from the spec: kept, marked deprecated
    --- a/services/users/users.api.yaml
    +++ b/services/users/users.api.yaml
-   @@ -11,6 +11,10 @@
-        name: List users
-        path: /users
-        operationId: listUsers
-   +    query:
-   +      limit: ${var.limit}
-   +    vars:
-   +      limit: 20
-      - id: createUser
-        name: Create user
-        method: POST
-   @@ -41,3 +45,18 @@
+   @@ -39,3 +39,14 @@
         vars:
-          id: ${fake.number.int(1, 100)}
+          id: ${fake.lorem.word}
         operationId: deleteUser
    +    deprecated: true
    +  - id: updateUser
@@ -250,144 +182,142 @@ import Playground from '~/components/Playground.svelte';
    +    method: PATCH
    +    path: /users/${var.id}
    +    vars:
-   +      email: ada@example.com
-   +      id: ${fake.number.int(1, 100)}
-   +      name: Ada
+   +      id: ${fake.lorem.word}
    +    headers:
    +      content-type: application/merge-patch+json
-   +    body:
-   +      email: ${var.email}
-   +      name: ${var.name}
+   +    body: {}
    +    operationId: updateUser
    --- a/openapi/users.yaml
    +++ b/openapi/users.yaml
+   @@ -1,4 +1,4 @@
+   -# Snapshot of http://localhost:7421/openapi/users-v1.yaml as OpenAPI 3.1, written by `vc import` and `vc sync`.
+   +# Snapshot of http://localhost:7421/openapi/users-v2.yaml as OpenAPI 3.1, written by `vc import` and `vc sync`.
    ...
    ```
 
    The `save` and `cleanup` on `createUser`, and any `expect` you add, are not touched. Sync owns only the parts the spec decides: the method, the path, the query and the content type. It adds apis for new operations. It never deletes an api.
 
-10. **Sync.**
+8. **Sync.**
 
-    ```console
-    $ vc sync
-    fetched http://localhost:18080/openapi/users.yaml (4 operations)
-      ↑ users#listUsers query limit none → ${var.limit}
-      + users#updateUser new operation PATCH /users/${var.id}
-      - users#deleteUser removed from the spec: kept, marked deprecated
-    ✓ synced · snapshot openapi/users.yaml updated
-    ```
+   ```console
+   $ vc sync
+   fetched http://localhost:7421/openapi/users-v2.yaml (4 operations)
+     ~ users#listUsers optional query limit added to the spec: not sent, add `query.limit` to send it
+     + users#updateUser new operation PATCH /users/${var.id}
+     - users#deleteUser removed from the spec: kept, marked deprecated
+   ✓ synced · snapshot openapi/users.yaml updated
+   ```
 
-    `deleteUser` is still in the file, now with `deprecated: true`. `vc check` warns about every call to it, including the `cleanup` in `createUser`:
+   `deleteUser` is still in the file, now with `deprecated: true`. `vc check` warns about every call to it, including the `cleanup` in `createUser`:
 
-    ```console
-    $ vc check
-    warning[V3203]: this api is deprecated
-      --> services/users/openapi.test.yaml:61:11
-       |
-    61 |     call: users#deleteUser
-       |           ^^^^^^^^^^^^^^^^ deprecated api
-      ::: services/users/users.api.yaml:48:5
-       |
-    48 |     deprecated: true
-       |     ---------- marked deprecated here
-       = help: the operation left the spec; call the api that replaces it, or remove the call
+   ```console
+   $ vc check
+   warning[V3203]: this api is deprecated
+     --> services/users/openapi.test.yaml:51:11
+      |
+   51 |     call: users#deleteUser
+      |           ^^^^^^^^^^^^^^^^ deprecated api
+     ::: services/users/users.api.yaml:42:5
+      |
+   42 |     deprecated: true
+      |     ---------- marked deprecated here
+      = help: the operation left the spec; call the api that replaces it, or remove the call
 
-    warning[V3203]: this api is deprecated
-      --> services/users/users.api.yaml:31:13
-       |
-    31 |       call: deleteUser
-       |             ^^^^^^^^^^ deprecated api
-    ...
-    48 |     deprecated: true
-       |     ---------- marked deprecated here
-       = help: the operation left the spec; call the api that replaces it, or remove the call
+   warning[V3203]: this api is deprecated
+     --> services/users/users.api.yaml:25:13
+      |
+   25 |       call: deleteUser
+      |             ^^^^^^^^^^ deprecated api
+   ...
+   42 |     deprecated: true
+      |     ---------- marked deprecated here
+      = help: the operation left the spec; call the api that replaces it, or remove the call
 
-    0 errors · 2 warnings · 4 files checked
-    ```
+   0 errors · 2 warnings · 4 files checked
+   ```
 
-    Warnings do not stop a run. The tests still pass, because the mock still answers `DELETE`. Against a real service, this is your list of calls to move off the old operation.
+   Warnings do not stop a run. `vc run` still passes all 6, because the demo still answers `DELETE`. Against a real service, this is your list of calls to move off the old operation.
 
-11. **Pin down the new field with your own schema.** The spec's `User` schema lists `role` but does not require it. If your clients rely on `role`, write a stricter schema of your own:
+9. **Pin down the new field with your own schema.** The spec's `User` schema lists `role` but does not require it. If your clients rely on `role`, write a stricter schema of your own:
 
-    ```json title="schemas/users/user.json"
-    {
-      "$schema": "https://json-schema.org/draft/2020-12/schema",
-      "type": "object",
-      "required": ["id", "name", "email", "role"],
-      "properties": {
-        "id": { "type": "integer", "exclusiveMinimum": 0 },
-        "name": { "type": "string" },
-        "email": { "type": "string", "format": "email" },
-        "role": { "enum": ["admin", "member"] }
-      }
-    }
-    ```
+   ```json title="schemas/users/user.json"
+   {
+     "$schema": "https://json-schema.org/draft/2020-12/schema",
+     "type": "object",
+     "required": ["id", "name", "email", "role"],
+     "properties": {
+       "id": { "type": "string", "pattern": "^[0-9]+$" },
+       "name": { "type": "string" },
+       "email": { "type": "string", "format": "email" },
+       "role": { "enum": ["admin", "member"] }
+     }
+   }
+   ```
 
-    ```yaml title="services/users/contract.test.yaml"
-    tests:
-      - id: returnsAUserWithARole
-        name: A created user reads back with a role
-        before:
-          - call: users#createUser
-        call: users#getUser
-        vars:
-          id: ${var.userId}
-        expect:
-          body:
-            schema:
-              $file: ../../schemas/users/user.json
-    ```
+   ```yaml title="services/users/contract.test.yaml"
+   tests:
+     - id: returnsAUserWithARole
+       name: A created user reads back with a role
+       before:
+         - call: users#createUser
+       call: users#getUser
+       vars:
+         id: ${var.userId}
+       expect:
+         body:
+           schema:
+             $file: ../../schemas/users/user.json
+   ```
 
-    ```console
-    $ vc run users.contract
-    plan  1 test in 1 file · profile default
+   ```console
+   $ vc run users.contract
+   plan  1 test in 1 file · profile default
 
-    ✕ users.contract#returnsAUserWithARole — A created user reads back with a role    3ms
-      error[V5101]: expect.body.schema
-        --> services/users/contract.test.yaml:12:11
-         |
-      12 |           $file: ../../schemas/users/user.json
-         |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ /: "role" is a required property
+   ✕ users.contract#returnsAUserWithARole — A created user reads back with a role   32ms
+     error[V5101]: expect.body.schema
+       --> services/users/contract.test.yaml:12:11
+        |
+     12 |           $file: ../../schemas/users/user.json
+        |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ /: "role" is a required property
 
-    0 passed · 1 failed                                          3ms · profile default
-    reports  /home/you/users-api/.vibranium/reports/3/{ctrf.json,junit.xml,index.html}
-    next     vc run --failed
-    seed 499890876642558: pass `--seed 499890876642558` to run with the same generated data
-    ```
+   0 passed · 1 failed                                          77ms · profile default
+   reports  /home/you/users-api/.vibranium/reports/3/{ctrf.json,junit.xml,index.html}
+   next     vc run --failed
+   seed 1687080327133313: pass `--seed 1687080327133313` to run with the same generated data
+   ```
 
-    The mock returns what you sent, and `createUser` does not send a role. Sync never touches a request body, so add it yourself:
+   The demo stores the fields it is sent, and `createUser` does not send a role. Sync never touches a request body, so add it yourself:
 
-    ```yaml title="services/users/users.api.yaml"
-      - id: createUser
-        # ...
-        vars:
-          email: ada@example.com
-          name: Ada
-          role: member
-        body:
-          email: ${var.email}
-          name: ${var.name}
-          role: ${var.role}
-    ```
+   ```yaml title="services/users/users.api.yaml"
+     - id: createUser
+       # ...
+       vars:
+         email: ada@example.com
+         role: member
+       body:
+         email: ${var.email}
+         role: ${var.role}
+   ```
 
-    ```console
-    $ vc run
-    plan  5 tests in 2 files · 1 skipped · profile default
+   ```console
+   $ vc run
+   plan  6 tests (7 instances) in 2 files · profile default
 
-    - users.openapi#rejectsInvalidCreateUser — Create user: rejects an invalid body skipped: the mock accepts any body; re-enable against the real service
-    ✓ users.openapi#listsUsers — List users                           2ms
-    ✓ users.openapi#createsUser — Create user                         2ms
-    ✓ users.openapi#deletesUser — Delete user                         2ms
-    ✓ users.openapi#getsUser — Get user                               2ms
-    ✓ users.contract#returnsAUserWithARole — A created user reads back with a role    2ms
+   ✓ users.openapi#rejectsInvalidCreateUser › email is not a string — Create user: rejects an invalid body   11ms
+   ✓ users.openapi#rejectsInvalidCreateUser › email missing — Create user: rejects an invalid body   13ms
+   ✓ users.openapi#listsUsers — List users                          26ms
+   ✓ users.openapi#deletesUser — Delete user                        36ms
+   ✓ users.openapi#getsUser — Get user                              41ms
+   ✓ users.openapi#createsUser — Create user                        42ms
+   ✓ users.contract#returnsAUserWithARole — A created user reads back with a role   42ms
 
-    5 passed · 1 skipped                                         2ms · profile default
-    reports  /home/you/users-api/.vibranium/reports/4/{ctrf.json,junit.xml,index.html}
-    $ vc sync --check
-    fetched http://localhost:18080/openapi/users.yaml (4 operations)
-    $ echo $?
-    0
-    ```
+   7 passed                                                     53ms · profile default
+   reports  /home/you/users-api/.vibranium/reports/4/{ctrf.json,junit.xml,index.html}
+   $ vc sync --check
+   fetched http://localhost:7421/openapi/users-v2.yaml (4 operations)
+   $ echo $?
+   0
+   ```
 </Steps>
 
 <Playground client:visible kind="test" title="services/users/contract.test.yaml" code={`
@@ -412,25 +342,30 @@ tests:
 
 Sync makes a three-way merge between the old snapshot, the new spec and your file. When the spec and your file both changed the same field in different ways, that api is a conflict. Sync leaves the api as it is and tells you how to settle it.
 
-Say you had set a page size on `listUsers` by hand before the spec added its own `limit`:
+Say that, back at version 1, you had written your own api for the `PATCH` the service already took, and sent it plain JSON:
 
 ```yaml title="services/users/users.api.yaml"
-  - id: listUsers
-    name: List users
-    path: /users
-    operationId: listUsers
-    query:
-      limit: 50
+  - id: updateUser
+    name: Update user
+    method: PATCH
+    path: /users/${var.id}
+    operationId: updateUser
+    vars:
+      name: Grace
+    headers:
+      content-type: application/json
+    body:
+      name: ${var.name}
 ```
 
-Then `vc sync` reports a conflict:
+Version 2 adds `updateUser` with `application/merge-patch+json`. The method and path agree with yours, the content type does not, so `vc sync` reports a conflict:
 
 ```console
 $ vc sync
-fetched http://localhost:18080/openapi/users.yaml (4 operations)
-  ! users#listUsers conflict: the spec and the file both changed query limit
-    resolve: vc sync users --take spec users#listUsers | --take mine users#listUsers | edit, then --resolved users#listUsers
-  + users#updateUser new operation PATCH /users/${var.id}
+fetched http://localhost:7421/openapi/users-v2.yaml (4 operations)
+  ~ users#listUsers optional query limit added to the spec: not sent, add `query.limit` to send it
+  ! users#updateUser conflict: the spec and the file both changed content type
+    resolve: vc sync users --take spec users#updateUser | --take mine users#updateUser | edit, then --resolved users#updateUser
   - users#deleteUser removed from the spec: kept, marked deprecated
 ✓ synced · snapshot openapi/users.yaml updated · 1 conflict left
 ```
@@ -439,52 +374,49 @@ The rest of the merge is applied. A plain `vc sync` exits `0` even with a confli
 
 ```console
 $ vc sync --check
-fetched http://localhost:18080/openapi/users.yaml (4 operations)
-  ! users#listUsers conflict: the spec and the file both changed query limit
-    resolve: vc sync users --take spec users#listUsers | --take mine users#listUsers | edit, then --resolved users#listUsers
+fetched http://localhost:7421/openapi/users-v2.yaml (4 operations)
+  ! users#updateUser conflict: the spec and the file both changed content type
+    resolve: vc sync users --take spec users#updateUser | --take mine users#updateUser | edit, then --resolved users#updateUser
 ```
 
 There are three ways to settle it:
 
-- **Take the spec's version.**
+- **Take the spec's version.** The api gets `content-type: application/merge-patch+json`; its vars and body stay yours.
 
   ```console
-  $ vc sync users --take spec users#listUsers
-  fetched http://localhost:18080/openapi/users.yaml (4 operations)
-    ↑ users#listUsers query limit 50 → ${var.limit}
+  $ vc sync users --take spec users#updateUser
+  fetched http://localhost:7421/openapi/users-v2.yaml (4 operations)
+    ↑ users#updateUser content type application/json → application/merge-patch+json
   ✓ synced · snapshot openapi/users.yaml updated
   ```
-
-  The api now has `limit: ${var.limit}` and the spec's default, `vars: { limit: 20 }`.
 
 - **Keep yours.**
 
   ```console
-  $ vc sync users --take mine users#listUsers
-  fetched http://localhost:18080/openapi/users.yaml (4 operations)
-    = users#listUsers kept your query limit
+  $ vc sync users --take mine users#updateUser
+  fetched http://localhost:7421/openapi/users-v2.yaml (4 operations)
+    = users#updateUser kept your content type
   ✓ synced · snapshot openapi/users.yaml updated
   ```
 
-- **Edit the api by hand, then mark it resolved.** For example, move the page size into a var:
+- **Edit the api by hand, then mark it resolved.** For example, read the content type from a var, so a test can send either:
 
   ```yaml title="services/users/users.api.yaml"
-    - id: listUsers
-      name: List users
-      path: /users
-      operationId: listUsers
-      query:
-        limit: ${var.pageSize}
+    - id: updateUser
+      # ...
       vars:
-        pageSize: 50
+        name: Grace
+        patchType: application/json
+      headers:
+        content-type: ${var.patchType}
   ```
 
   Then run:
 
   ```console
-  $ vc sync users --resolved users#listUsers
-  fetched http://localhost:18080/openapi/users.yaml (4 operations)
-    = users#listUsers kept your query limit
+  $ vc sync users --resolved users#updateUser
+  fetched http://localhost:7421/openapi/users-v2.yaml (4 operations)
+    = users#updateUser kept your content type
   ✓ synced · snapshot openapi/users.yaml updated
   ```
 
@@ -499,28 +431,22 @@ id: users
 name: Users
 baseUrl: ${var.usersUrl}
 source:
-  openapi: http://localhost:18080/openapi/users.yaml
+  openapi: http://localhost:7421/openapi/users-v2.yaml
 
 apis:
   - id: listUsers
     name: List users
     path: /users
     operationId: listUsers
-    query:
-      limit: ${var.limit}
-    vars:
-      limit: 20
   - id: createUser
     name: Create user
     method: POST
     path: /users
     vars:
       email: ada@example.com
-      name: Ada
       role: member
     body:
       email: ${var.email}
-      name: ${var.name}
       role: ${var.role}
     save:
       userId: ${response.body.id}
@@ -533,14 +459,14 @@ apis:
     name: Get user
     path: /users/${var.id}
     vars:
-      id: ${fake.number.int(1, 100)}
+      id: ${fake.lorem.word}
     operationId: getUser
   - id: deleteUser
     name: Delete user
     method: DELETE
     path: /users/${var.id}
     vars:
-      id: ${fake.number.int(1, 100)}
+      id: ${fake.lorem.word}
     operationId: deleteUser
     deprecated: true
   - id: updateUser
@@ -548,14 +474,10 @@ apis:
     method: PATCH
     path: /users/${var.id}
     vars:
-      email: ada@example.com
-      id: ${fake.number.int(1, 100)}
-      name: Ada
+      id: ${fake.lorem.word}
     headers:
       content-type: application/merge-patch+json
-    body:
-      email: ${var.email}
-      name: ${var.name}
+    body: {}
     operationId: updateUser
 ```
 
@@ -586,23 +508,13 @@ tests:
     call: users#createUser
     examples:
       - name: email missing
-        body:
-          name: Ada
+        body: {}
       - name: email is not a string
         body:
           email: 123
-          name: Ada
-      - name: name missing
-        body:
-          email: ada@example.com
-      - name: name is not a string
-        body:
-          email: ada@example.com
-          name: 123
     body: ${example.body}
     expect:
       status: 400
-    skip: the mock accepts any body; re-enable against the real service
   - id: getsUser
     name: Get user
     before:
@@ -627,7 +539,7 @@ tests:
       status: 204
 ```
 
-`services/users/contract.test.yaml` and `schemas/users/user.json` are shown in step 11.
+`services/users/contract.test.yaml` and `schemas/users/user.json` are shown in step 9. When you are done, `vc demo stop` stops the demo.
 
 <Aside type="tip" title="What the generator leaves to you">
 The generated tests are a starting point. They create the resource a `GET` or `DELETE` needs through the collection's `POST`, which saves its ID as `<resource>Id` (`userId`), or skip the test when the spec has none, saying which var to set. `--negative` writes one test per operation with a JSON body, a row per field it breaks. Review them as you would any generated code.
