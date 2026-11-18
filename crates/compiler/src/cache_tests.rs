@@ -239,6 +239,27 @@ fn a_cache_read_back_from_bytes_does_not_parse_unchanged_files_again() {
     assert!(codes(&changed).contains(&Code::V1004));
 }
 
+/// With an error in another file, so there is no memo: a compile that used every stored unit
+/// leaves a cache equal to the one it read, so it is not saved, and one that found a unit that
+/// did not read back does not, so it is saved again.
+#[test]
+fn a_cache_with_errors_is_saved_again_only_when_a_unit_did_not_read_back() {
+    let files = vec![source(BAD, "nme: x\n", 2), source(API, API_TEXT, 1)];
+    let first = crate::compile(CompileInput { files: files.clone(), ..CompileInput::default() });
+    assert!(first.program.is_none());
+    let mut bytes = first.cache.to_bytes();
+    let read = CompileCache::from_bytes(&bytes);
+    let again =
+        crate::compile(CompileInput { files: files.clone(), previous: read.clone(), ..CompileInput::default() });
+    assert_eq!(again.cache, read, "the unit it used is the one it read");
+    let last = bytes.len() - 1;
+    bytes[last] ^= 0xFF;
+    let damaged = CompileCache::from_bytes(&bytes);
+    assert!(damaged.len() == 2 && kept(&damaged, API, 1, 1).is_none(), "the unit does not read back");
+    let healed = crate::compile(CompileInput { files, previous: damaged.clone(), ..CompileInput::default() });
+    assert_ne!(healed.cache, damaged, "so the check saves the healed cache");
+}
+
 #[test]
 fn encodes_the_bytes_postcard_writes() {
     let unit = stage::unit(SourceFileId::new(0), &source(API, API_TEXT, 1), (&Tools::new(), &mut StringTable::new()));

@@ -107,7 +107,7 @@ fn a_hit_equals_a_fresh_link_for_every_golden_case_and_the_docs_examples() -> Ou
         warned += usize::from(replays_a_fresh_link(&case.join("project"))?);
     }
     replays_a_fresh_link(&root.join("../../site/src/examples"))?;
-    assert!(warned > 0, "projects with warnings hit too, and replay them: {warned}");
+    assert_eq!(warned, 7, "the golden cases with warnings hit too, and replay them");
     Ok(())
 }
 
@@ -279,3 +279,13 @@ fn a_hit_in_memory_shares_the_program() {
     assert!(Arc::ptr_eq(&program, &shared));
 }
 
+#[test]
+fn a_hit_hands_out_a_program_holding_the_files_it_was_given() {
+    let first = compile(base());
+    let mut input = base();
+    input.files[1].text.push_str("# the same hash\n");
+    let again = compile(CompileInput { previous: first.cache.clone(), ..input.clone() });
+    assert!(hits(&first.cache, &again, &input), "the same paths, hashes and numbers");
+    assert_ne!(again.files, first.files);
+    assert_eq!(again.program.map(|program| program.files.clone()), Some(again.files));
+}
