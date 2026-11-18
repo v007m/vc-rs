@@ -32,6 +32,7 @@ Notes:
 | `mise run gates:selftest` | Checks that each gate still rejects its bad patch in `tests/gate-fixtures/`. It builds in `target/gates-selftest/` (or `GATES_SELFTEST_TARGET_DIR`), apart from your own builds |
 | `mise run public-api` | Regenerates the public API snapshots of `vc-model`, `vc-interfaces` and `vc-engine`; run it after changing a public type (needs rustup's nightly) |
 | `mise run mock` | Runs the mock HTTP server (`bench/mock`) the end-to-end tests use |
+| `mise run screenshots` | Retakes the docs site's pictures of the web UI, TUI, HTML report and `vc run` (`site/src/assets/screenshots/`); run it after changing any of them. `mise run screenshots report` retakes one area |
 | `mise tasks` | Lists every task, benches included |
 
 Each gate prints its ID (`GATE-FMT`, `GATE-CLIPPY`, `GATE-ARCH`, `GATE-DENY`, `GATE-JSLICENSE`, `GATE-PROTO`, `GATE-MACHETE`, `GATE-DUP`, `GATE-TEST`, `GATE-MUTANTS`, `GATE-COMMIT`, `GATE-REFACTOR`) and `FAILED <id>` when it fails. The rules behind them are in the LLD's "Design rules and quality gates". Gate files are owned by the maintainer (`.github/CODEOWNERS`); if a gate looks wrong, ask instead of changing it.

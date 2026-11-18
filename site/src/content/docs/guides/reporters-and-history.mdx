@@ -5,6 +5,7 @@ sidebar: { order: 2 }
 ---
 
 import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Screenshot from '~/components/Screenshot.astro';
 
 Every `vc run` produces three kinds of output:
 
@@ -39,6 +40,12 @@ seed 3637539704535115: pass `--seed 3637539704535115` to run with the same gener
 ```
 
 Colors are on in a terminal and off in a pipe or when `NO_COLOR` is set.
+
+<Screenshot
+  src="cli/run"
+  alt="The spec reporter in a terminal after vc run on the walkthrough project: tests grouped by file with a tick, cross or skip mark and a time each, two failures pointing at the YAML line that set the check, and the summary 15 passed, 2 failed, 1 blocked, 1 skipped, 1 flaky, followed by the reports, next and seed lines."
+  caption="The spec reporter in colour, on the walkthrough project."
+/>
 
 **`json`** prints one JSON event per line (NDJSON) for every test, request and check, for scripts and agents. Hints such as the seed line go to stderr, so stdout stays parseable:
 
@@ -110,6 +117,18 @@ The HTML report lists every test with its status, time, file and tags, and opens
 $ vc run --report html --single-file --out build/share
 reports  /home/ada/shop/build/share/report.html
 ```
+
+<Screenshot
+  src="report/summary"
+  alt="The HTML report of run 3: the run status Failed with its totals, the lifecycle and cleanup results, and the list of tests with their status, time, file and tags."
+  caption="The HTML report: the run summary and its tests."
+/>
+
+<Screenshot
+  src="report/failure"
+  alt="The HTML report with users.profile#getsAdaByName opened: the error excerpt pointing at the check, the checks with the expected name Ada Byron and the actual Ada Lovelace, and the request and response."
+  caption="A failed test opened in the report."
+/>
 
 Report plugins can add more formats. See [Reporter plugins](/vc-rs/reference/plugins/reporter-plugins/).
 

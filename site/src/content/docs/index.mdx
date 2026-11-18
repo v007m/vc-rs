@@ -31,6 +31,7 @@ import Feature from '~/components/landing/Feature.astro';
 import HowStep from '~/components/landing/HowStep.astro';
 import Cta from '~/components/landing/Cta.astro';
 import LandingFooter from '~/components/landing/LandingFooter.astro';
+import Screenshot from '~/components/Screenshot.astro';
 
 <Section id="a-test" eyebrow="API, test, output" title="Say what you expect. Get told exactly what broke." lead="An <strong>api</strong> says how to call an endpoint once. A <strong>test</strong> calls it by ID and states what it expects. When a check fails, the error points at the line of YAML that set it.">
 <WindowRow>
@@ -132,6 +133,12 @@ Reporter and auth plugins in any language. Alerts to webhooks, Slack, Teams or P
 Tests, apis and config are YAML with JSON Schemas for editor completion. Every change is a diff.
 </Feature>
 </Grid>
+
+<Screenshot
+  src="web/run"
+  alt="The vc web UI on the Runs screen showing a stored run: Selectors used and Recent runs on the left; on the right the run header, totals of 15 passed, 2 failed, 1 blocked, 1 flaky and 1 skipped, and the list of tests with their times."
+  caption="The web UI, on a stored run with failed, blocked and flaky tests."
+/>
 </Section>
 
 <Section id="how-it-works" eyebrow="How it works" title="Write, check, run" lead="The same three steps on your laptop and in CI.">

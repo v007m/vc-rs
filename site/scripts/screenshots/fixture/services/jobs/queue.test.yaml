@@ -1,0 +1,54 @@
+name: Job queue
+tags: [jobs]
+
+tests:
+  - id: retriesBusyWorker
+    name: Passes once the worker stops answering 503
+    retry:
+      attempts: 2
+    call: jobs#flaky
+    vars:
+      key: busy-worker
+
+  - id: answersWithinBudget
+    name: Answers a slow job inside its time budget
+    call: jobs#slow
+    vars:
+      ms: 120
+    expect:
+      status: 200
+      body:
+        match:
+          sleptMs: 120
+      timing:
+        total:
+          lt: 1s
+
+  - id: reportsHealthyQueue
+    name: Reports the queue as healthy
+    call: jobs#status
+    vars:
+      code: 503
+    expect:
+      status: 200
+
+  - id: readsJobOwner
+    name: Reads the owner of a new job
+    before:
+      - call: jobs#status
+        vars:
+          code: 500
+        expect:
+          status: 200
+    call: users#get
+    vars:
+      userId: 1
+    expect:
+      status: 200
+
+  - id: archivesOldJobs
+    name: Archives jobs older than a week
+    skip: the endpoint ships in 1.2
+    call: jobs#status
+    vars:
+      code: 204

@@ -1,0 +1,14 @@
+name: User profile
+tags: [users]
+
+tests:
+  - id: getsAdaByName
+    name: Returns Ada with her full name
+    call: users#get
+    vars:
+      userId: 1
+    expect:
+      status: 200
+      body:
+        match:
+          name: Ada Byron

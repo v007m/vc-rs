@@ -1,0 +1,24 @@
+name: Jobs service
+baseUrl: ${var.usersUrl}
+
+apis:
+  - id: flaky
+    name: Fails, then passes
+    path: /flaky
+    query:
+      key: ${var.key}
+      failTimes: ${var.failTimes}
+    vars:
+      failTimes: 1
+    expect:
+      status: 200
+
+  - id: slow
+    name: Answers after a pause
+    path: /slow
+    query:
+      ms: ${var.ms}
+
+  - id: status
+    name: Answers with any status
+    path: /status/${var.code}

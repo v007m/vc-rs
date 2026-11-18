@@ -5,6 +5,7 @@ sidebar: { order: 27 }
 ---
 
 import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Screenshot from '~/components/Screenshot.astro';
 
 Opens a keyboard-driven terminal app on your project, with five tabs: **Run**, **Explore**, **History**, **Load** and **Import**. It uses the same engine, files and run history as the other commands. The [Terminal UI guide](/vc-rs/guides/tui/) covers each tab and its keys.
 
@@ -28,6 +29,12 @@ $ vc tui --project ./api-tests --profile ci,eu
 ```
 
 Press `?` inside for the keys, and `q` to quit.
+
+<Screenshot
+  src="tui/help"
+  alt="The vc tui screen on the History tab with the help panel open. The top line reads vibranium shop, profile default, with the tabs 1 Run to 5 Import on the right; the help panel lists each key; the bottom line lists the keys for the tab."
+  caption="The help panel, opened with ?, over the History tab."
+/>
 
 It needs a real terminal. With stdin or stdout piped, as in CI, it stops before it reads the project:
 
