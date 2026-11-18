@@ -116,7 +116,7 @@ The core depends only on these interfaces; adapters are registered by kind and n
 | Port | Responsibility | First adapters (release) |
 | --- | --- | --- |
 | `SourceLoader` | Find and read definition files; report changes | Filesystem with hash cache (v2.0) |
-| `FormatParser` | Turn a file into raw nodes with source spans | YAML, JSON (v2.0); SDK IR over the plugin protocol (v2.1) |
+| `FormatParser` | Turn a file into raw nodes with source spans | YAML, JSON (v2.0); the SDKs need none of their own, as they send their tests as YAML overlay files to a `vc sdk serve` sidecar over engine.v1 (planned, #100, D334) |
 | `Importer` | Convert external specs to api groups; compute sync diffs | OpenAPI 3.x, v1 (v2.0); Postman, Bruno, `.http` (v2.2) |
 | `Transport` | Send one request; return response with phase timings | HTTP/1.1 and HTTP/2 (v2.0); GraphQL (v2.3); gRPC, WebSocket, SSE (v2.4+) |
 | `AuthProvider` | Produce and refresh credentials for a request | Basic, bearer, API key, OAuth 2.0 client credentials (v2.0); PKCE, refresh, plugins (v2.2) |
@@ -303,7 +303,7 @@ engine/                composes core + adapters; the only thing apps import
 apps/
   cli/  mcp/  tui/  server/  web/
 sdks/
-  typescript/  python/  go/  java/   generated types + builders + plugin clients
+  typescript/  python/  go/  java/   generated types + builders + plugin clients (TS and Python first, D336)
 bench/                 generated projects, mock server, benchmark suite
 docs/
 ```

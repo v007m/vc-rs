@@ -72,7 +72,7 @@ vibranium/
     browser/                 vc-browser: the docs playground's composition root, the WASI command `vc-playground` built for wasm32-wasip1 (D293)
     arch-tests/              dependency and design-rule checks
   web/                       web UI: TypeScript, svelte/sveltekit (built, then embedded)
-  sdks/                      typescript/ python/ go/ java/
+  sdks/                      typescript/ (pnpm, tsup, vitest) and python/ (uv, hatch, pytest), then go/ and java/: planned (#100, D336; see SDKs)
   bench/
     mock/                    vc-mock-server: axum mock server; a library tests start in-process on port 0, plus a bin (D100);
                              CRUD (`/users`, `/orders`, and a user's orders at `/users/{id}/orders`), echo, scripted, `/auth/*`, an OAuth 2.0 server (`/oauth/token`, `/oauth/authorize`) and
@@ -107,7 +107,7 @@ Dependency rules: the crates form a layered graph with no cycles, enforced by `a
 
 Every edge points to a strictly lower layer; adapters never depend on each other or on the core logic crates. `arch-tests` asserts the whole table (crates for later milestones included, so adding them does not touch gate files), rejects unknown crates, and checks dev-dependency edges for cycles. Public items in `vc-model` and `vc-interfaces` may name only types from std, serde/serde_json, indexmap, smol_str, bytes and `http` (D111).
 
-The web UI and the SDKs never link Rust code: they talk to the engine through the `vibranium.engine.v1` protobuf contract (Connect protocol over HTTP for the web UI, JSON-RPC over stdio or HTTP for plugins).
+The web UI and the SDKs never link Rust code: they talk to the engine through the `vibranium.engine.v1` protobuf contract (Connect protocol over HTTP for the web UI, JSON-RPC over stdio or HTTP for plugins, and JSON-RPC over stdio to the `vc sdk serve` sidecar for the SDKs, D334).
 
 Third-party crates:
 
@@ -923,7 +923,7 @@ Hooks, lifecycle `function:` actions and custom checks are TypeScript or JavaScr
 
 ### Loading
 
-1. **Type checking is the user's editor's and CI's job.** `@vibranium/sdk` is a types-only npm package (`BeforeRequestHook`, `AfterResponseHook`, `CustomCheck`, `LifecycleFunction`, the request and response shapes), so `tsc --noEmit` in the project checks hooks. Vibranium itself never type-checks.
+1. **Type checking is the user's editor's and CI's job.** `@vibranium/sdk` is a types-only npm package (`BeforeRequestHook`, `AfterResponseHook`, `CustomCheck`, `LifecycleFunction`, the request and response shapes), so `tsc --noEmit` in the project checks hooks. Vibranium itself never type-checks. It is separate from the TypeScript SDK (`@v007m/vibranium-sdk`, D334; see SDKs), which runs in Node and drives the engine from outside. `@vibranium/sdk` is the import the compiler accepts for hook types today (`link/hooks.rs`); whether the hook types move under `@v007m` is an open question.
 2. **Strip and bundle at compile time.** For each referenced file, `oxc` parses it, strips types (including `import type`), resolves relative imports between hook files into one module per entry, and produces JavaScript plus a source map. The result is cached by content hash in `.vibranium/cache/hooks/`.
 3. **Allowed imports.** Relative hook files, `@vibranium/sdk` (types only, removed by stripping) and a small built-in module `vibranium:std` (crypto HMAC and hashes, base64, URL and query helpers, time formatting). Anything else, including Node built-ins such as `node:crypto`, is a compile error with a suggestion; npm packages can be used by bundling them into the hooks folder with the user's own bundler.
 
@@ -1390,6 +1390,35 @@ Third-party plugins are separate processes speaking JSON-RPC 2.0 over stdio, wit
 - **Port.** `PluginHost` in `vc-interfaces` is one running plugin: `manifest()` and `call(method, params, deadline)`, with `INITIALIZE_DEADLINE` (5 s) and `CALL_DEADLINE` (30 s). A `PluginError` is V5118 and keeps its JSON-RPC code (`PERMISSION_DENIED` −32001, `DEADLINE_PASSED` −32002). `PluginPermissions::beyond` lists what a manifest asks for past what `vibranium.lock` granted. `FakePlugin` in `vc-testkit` answers from scripts and keeps only the declared secrets; every host runs `plugin_host_suite`.
 - **Install and lock.** `PluginStore` in `vc-interfaces` fetches a source into `.vibranium/plugins/.staged/` (`npm pack` and `tar` for `npm:`, a copy for `path:`), installs it to `.vibranium/plugins/<id>/` (a copy keeps each file's permissions, so an executable entry stays executable), hashes an installed folder (`integrity`: BLAKE3 over the sorted files, skipping `.git`, `.vibranium` and `__pycache__`), discards or uninstalls it, and reads `vibranium.lock` and the installed manifests; `FsPluginStore` in `vc-adapter-plugins` is the one implementation; a failed `npm pack` is reported with npm's error code and first line that says why (`npm.rs`: the `error` of its `--json` report, else its `npm error` lines, skipping `syscall`, `errno` and the log pointer). The engine parses the manifest and the lock (`plugin_manifest`, `plugin_lock`) and writes the config item and the lock as `Changes`, the config through the compile guard (`Engine::plugin_fetch`, `plugin_approve`, `plugin_decline`, `plugin_list`, `plugin_remove`). `plugin_list` gives a ready plugin the state a run would find: `Changed` when its installed files no longer hash to a `blake3-` integrity in the lock (`plugin_intact::unchanged`, the V5118 check), `NoEntry` when `vc_adapter_plugins::entry_found` cannot find its `entry.command` (a file in its folder, a path to a file, or a program on `PATH`, as `StdioPluginHost` starts it); `plugin_fetch` puts the same missing-entry reason in `PluginOffer::warnings`.
 
+### SDKs (`sdks/`)
+
+Planned (#100, D334–D339); nothing of it is built yet. The SDKs let tests be written in TypeScript and Python, and later Go and Java/Kotlin (D336), and let code drive the engine. They hold no engine logic: a builder emits the same node tree a `*.test.yaml` or `*.api.yaml` holds, and the engine compiles, plans and runs it as YAML, so lifecycle, auth, redaction, matchers and diagnostics are the YAML ones in every language.
+
+- **Overlays and the sidecar (D334).** The SDK starts `vc sdk serve`, one per test session (one per worker under pytest-xdist), and talks `vibranium.engine.v1` to it over stdio: JSON-RPC 2.0 with LSP `Content-Length` framing, as plugins do. It sends its builders' output as in-memory overlay files, through the overlay path `Check` already takes, each at the conventional path `vc sdk export` would write for its module, so a test's full ID is the same before and after export. The first exchange is `initialize` with the client's contract version; a different major version is refused with a message naming both. Where the stdio service lives is open: the default is a transport in `vc-server` beside its Connect one, as both serve `EngineService`, so no crate or layer row is added.
+- **Contract.** engine.v1 gains `Compile(overlays)`, which returns a program handle (the sidecar keeps that `Arc<Program>` for the session) and the diagnostics; `Run(handle, selection)`, streamed as `Run` streams events; and `Export(handle)`, which returns each overlay as YAML. `Call`, `ListRuns` and `GetRun` are reused. The SDKs' engine.v1 types are generated with buf (D101) and stay internal; the builders are the public API.
+- **Builders.** Immutable (each method returns a new value), lazy (nothing is sent until a run) and typed. They cover every YAML key: apis, tests, steps, examples, loops, lifecycle, auth, cleanups, polling, retries and load. `.raw({...})` takes any YAML node, and `fromYaml(path)` imports a YAML test so code can compose or extend it.
+
+  ```ts
+  export const getsCreatedUser = test('getsCreatedUser', 'Gets a created user')
+    .before(users.createUser({ email: fake.email() }).save({ userId: body('$.id') }))
+    .call(users.getUser({ id: v('userId') }))        // a wrong param name or type is a tsc error
+    .expect(status(200), body('$.email').equals(v('email')))
+  ```
+- **Diagnostics at the call site.** Each builder call records its call site, and the SDK maps an engine diagnostic on an overlay span back to `file.ts:line:col` (or the Python file), with the same code, `help:` and `fix:`. A TypeScript language-service plugin that shows them in the editor comes later.
+- **Driving the engine.** `project({ root, profile })` opens a project; `run({ select, tags })` takes the CLI's selectors and returns the result, or its live events through `.events()`; `call('users#getUser', { id })` is an ad hoc call, typed by the generated apis.
+- **Commands.** `vc sdk serve` is the sidecar; `vc sdk generate [--lang ts|py]` writes typed api functions from the api files (D337); `vc sdk export [--out <dir>] [--check]` writes code tests as `*.test.yaml` and checks drift with exit 4 (D335). Flags and exit codes are in the CLI doc. `vc` never starts a language runtime: code tests (`*.vc.ts`, `test_*.py`) run through the test runner, and `vc run` sees them once exported.
+- **Test-runner plugins (D338).** Each vc test instance is one native test case. `@v007m/vibranium-vitest` and `@v007m/vibranium-jest` collect `*.vc.ts` exports and the project's `*.test.yaml` (an `include` option), give tests `vc` through `inject` or a global setup, map shards to vc selections, and rerun on api or test changes in watch mode. `pytest-vibranium` (an entry-point plugin) collects `test_*.py` builders and `*.test.yaml` as items, with session-scoped `vc` and `vc_project` fixtures and one sidecar per xdist worker. A failure is the framework's own assertion error, with the check diff, the redacted request and response, and the source span.
+- **Packaging.** npm `@v007m/vibranium-sdk`, with the `vc` binary in per-platform `@v007m/vibranium-<os>-<arch>` packages as `optionalDependencies` (as esbuild does); PyPI `vibranium` as per-platform wheels, and `pytest-vibranium`. `VIBRANIUM_BIN`, then `PATH`, override the bundled binary. Build tools are npm or pnpm scripts, and uv or pip; Gradle and Maven come with the Java SDK.
+- **Layout and quality (D339).** `sdks/typescript` (pnpm, tsup, vitest) and `sdks/python` (uv, hatch, pytest, `mypy --strict`, ruff), with lint and format gates, complete tests and every docs example run, as for the Rust code. CI checks that every key of the exported JSON Schema maps onto a builder, and a contract suite runs the same scenarios through YAML, TypeScript and Python, whose CTRF output must be equal (timings and run IDs aside).
+- **Phases.** The SDKs are the last item of the post-v0.1 roadmap (#102):
+  1. the contract: `Compile` with overlays, `Run` by handle, `Export`, and `vc sdk serve`;
+  2. the TypeScript and Python core: builders, the sidecar client, the run and call API, mapped diagnostics;
+  3. `vc sdk generate` for both;
+  4. the Vitest, Jest and pytest plugins;
+  5. `vc sdk export` and its drift check, with docs, guides and walkthroughs;
+  6. packaging the platform binaries for npm and pip, after #97 (release and distribution);
+  7. later, the TypeScript editor plugin, then Go and Java/Kotlin.
+
 ## Diagnostic codes
 
 Codes are stable once released: a code is never reused for a different problem, and each has a `vc explain` page with a wrong and a right example (written in `crates/diagnostics/explain/Vxxxx.md`: a `## Wrong` and a `## Right` section, each a small project with one fenced block per file whose first line is `# file: <path>`; `crates/engine/tests/explain.rs` checks every V1–V3 code has a page, the wrong project reports the code, and the right one reports neither it nor any error). The first release ships these; new ones are added at the end of their range.
@@ -1570,6 +1599,8 @@ Milestones are sized for a coding agent to take one at a time, each ending in so
 
 **How an agent works on a milestone.** It starts from this document, the Syntax Reference and the CLI doc, writes the acceptance tests first, implements in small PRs (each under about 400 changed lines) that pass `gates.sh`, and updates the docs it touched in the same PR. Anything that would change a decision in the Decision Log is raised as a question instead of decided in code.
 
+**After M9.** Feature work follows the post-v0.1 roadmap (#102), one issue at a time, rather than new milestones. Its last item, the SDKs (#100), is planned in seven phases, listed under Interfaces → SDKs; phase 6 waits for release and distribution (#97).
+
 ## Open questions
 
 None of these block M0–M2; each has a default the plan assumes until decided.
@@ -1581,4 +1612,7 @@ None of these block M0–M2; each has a default the plan assumes until decided.
 | Web UI framework | Decided by Sarath: Svelte with SvelteKit (static adapter), built by Vite | M9 kickoff |
 | Where the documentation site and JSON Schemas are hosted | Decided (D255, D258): the docs site on GitHub Pages at `/vc-rs/`, which also publishes `schema/` as each schema's `$id`; SchemaStore entries point there | v2.0 release |
 | Windows file-system enforcement for plugin permissions | Declared and shown only; enforced on Linux (Landlock) and macOS (Seatbelt, D254) | M8 |
-| npm scope `@vibranium` availability | Claim it before v2.0; fall back to `@vibranium-cli` | v2.0 release |
+| npm names outside the SDKs: the hook types (`@vibranium/sdk`, which the compiler accepts) and the CLI package (`@vibranium/cli`); the SDK packages are `@v007m/…` (D334) | Keep both names until Sarath decides whether they move under `@v007m` | SDK phase 2 (#100) |
+| Where `vc sdk serve` lives | A stdio transport in `vc-server` beside its Connect one; a new crate would need a layer-table row, which only Sarath adds | SDK phase 1 (#100) |
+| How `vc sdk export` gets the code tests, since `vc` starts no runtime (D335) | The SDK loads them in its runtime and pipes their overlays to `vc sdk export` on stdin, through an export command of its own (name to choose) | SDK phase 5 (#100) |
+| A code test that has also been exported | Its overlay sits at the exported file's path, so in a test-runner session it replaces that file, as unsaved editor text does; `vc sdk export --check` reports where the two differ | SDK phase 5 (#100) |

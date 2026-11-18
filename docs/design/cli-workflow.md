@@ -372,6 +372,16 @@ Commands are grouped by the job they do. `vc help <command>` shows every flag wi
 | `vc demo start [--port 7421] [--detach]`, `vc demo stop [--port]` | Starts the demo service the sample calls (the `vc-demo` binary installed next to `vc`, else on `PATH`; without it, exit 2 naming where it looked and the install command); `--detach` returns once it answers and keeps a pidfile in a private folder of the user in the temp folder (`vibranium-demo-<uid>`, mode 0700; a folder that is a link or another user's is refused, exit 2), which `stop` uses; either way it prints `demo running on http://localhost:<port> (pid <n>)` and how it stops once it answers. A `start` that finds the demo already answering (its `/echo` replies and names a pid in `x-vc-demo-pid`) joins it, and the `stop` after it leaves the demo running for the one that launched it (`left the demo on port <port> running, as another `vc demo start` uses it`), so two runs of the sample share one demo; a join counts while its calling process lives and for an hour after it joined (the caller may be a shell line that ended first), and is dropped after both. Two `start`s at once leave one demo: they take turns on a lock file in the private folder (D297; the empty `<port>.lock` is kept on purpose for the next `start`, while the joins' folder goes with the demo on a real stop), so the second finds the first's demo answering and joins it; the one whose demo did not get the port joins the other, and only a demo that names its own pid (`x-vc-demo-pid` on `/echo`) is written to the pidfile. Another program on the port, an echo server that names no pid included, is refused, exit 2. Stopping when none runs exits 0 and says so |
 | `vc schema export [--out <dir>]` | Writes the JSON Schema of each file kind (config, api, test, load) for editors: one JSON object keyed by kind on stdout, or one `<kind>.schema.json` per kind in `<dir>`. Needs no project |
 
+**SDKs** (planned, #100; not built yet; see the LLD's SDKs section)
+
+Code tests (`*.vc.ts`, `test_*.py`) run through Vitest, Jest or pytest, never through `vc`, which starts no language runtime; `vc run` sees them once `vc sdk export` has written them out (D335).
+
+| Command | Does |
+| --- | --- |
+| `vc sdk serve [--profile <ids>] [--set k=v]` | The sidecar an SDK starts, one per test session (D334); people do not run it. It speaks `vibranium.engine.v1` as JSON-RPC 2.0 with `Content-Length` framing on stdin and stdout, and writes nothing else to stdout. The first request is `initialize` with the client's contract version; a different major version is refused with a message naming both, and it exits 2. `--profile` and `--set` are the defaults a request may override; a bad `--set` or an unknown profile exits 2 before it serves. A client that closes stdin ends it with exit 0 |
+| `vc sdk generate [--lang ts\|py] [--out <path>] [--watch] [fileId...]` | Writes typed api functions for the api files, or the file IDs named (D337): typed params and bodies, and response paths a type checker can check (`body('$.emial')` is a TypeScript error and a Python lint). Output goes to `vc.gen.ts` or the `vc_gen/` package at the project root unless `--out` says, each file with a generated header; `--watch` writes them again whenever an api file is saved. Without `--lang`, the project's `package.json` means `ts` and its `pyproject.toml` `py`; neither or both exits 2, asking for `--lang`. A spec comes in through `vc import openapi` first. Api files with errors exit 2 and nothing is written |
+| `vc sdk export [--out <dir>] [--check]` | Writes code tests out as conventional `*.test.yaml` files under `<dir>` (default `services/`), each file ID from the SDK module path, through the comment-preserving writer (D335). The code tests reach it from the SDK, which loads them in its runtime and pipes their overlays in. `--check` writes nothing and exits 4 when a file would change, as `vc sync --check` does; code tests with errors exit 2, writing nothing; otherwise 0 |
+
 ## Global flags
 
 | Flag | Does |
@@ -790,7 +800,7 @@ Console formats: `spec` (above, the default in a terminal), `dots` (compact), `j
 | 1 | At least one test failed or was blocked, or an `afterAll` or `afterRun` action failed (D279) |
 | 2 | Nothing ran: `vc check` errors, an empty selection, or no active profile |
 | 3 | A load threshold was breached |
-| 4 | `vc sync --check` found drift or a conflict left unsettled; a plain `vc sync` that leaves conflicts exits 0 |
+| 4 | `vc sync --check` found drift or a conflict left unsettled; a plain `vc sync` that leaves conflicts exits 0. Planned: `vc sdk export --check` found code tests that differ from their exported files (D335) |
 | 70 | Internal error in Vibranium: prints a "please report" hint and the path of a redacted debug bundle to attach (D127) |
 | 130 | Cancelled by a signal (Ctrl-C); cleanups have run (D127) |
 
