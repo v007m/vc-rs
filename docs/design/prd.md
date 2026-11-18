@@ -125,7 +125,7 @@ Requirements are grouped by area; the release column follows the plan below (v2.
 | R25 | Agents | Guardrail policy per environment: allowed methods and writes; human approval for writes where configured | v2.1 |
 | R26 | Agents | A published agent skill that teaches the file formats and workflows | v2.1 |
 | R27 | SDKs | Protobuf-generated types for TypeScript, Python, Go and Java/Kotlin, internal to each SDK; the builders are the public API (D33, D334). Planned (#100) | post-v0.1 (#102) |
-| R28 | SDKs | Builder APIs over every YAML key that send their tests to the engine through a `vc sdk serve` sidecar (D334); typed apis from `vc sdk generate` (D337); each test instance a native test case in Vitest, Jest and pytest (D338); code tests exported to `*.test.yaml` by `vc sdk export` (D335). TypeScript and Python first, together, then Go, then Java/Kotlin (D336). Planned (#100) | post-v0.1 (#102) |
+| R28 | SDKs | Builder APIs over every YAML key that send their tests to the engine through a `vc sdk serve` sidecar (D334); typed apis from `vc sdk generate` (D337); each test instance a native test case in Vitest, Jest and pytest (D338); `vibranium build` writes code tests as gitignored YAML in `.vibranium/build/` for `vc run`, the TUI and the web UI (D335, D341). Custom code in three tiers: declarative everywhere, named `hooks/*.ts` functions everywhere, inline callbacks and package imports only in the test runner (D340). TypeScript and Python first, together, then Go, then Java/Kotlin (D336). Planned (#100) | post-v0.1 (#102) |
 | R29 | Plugins | Third-party plugins in any language over JSON-RPC, REST or webhooks with ready-made clients; gRPC for hot-path executors; permissions manifest approved on install | v2.2 |
 | R30 | TUI | Browse tests and history, run selections, view failures, edit tests with write-back to YAML | v2.2 |
 | R31 | Server | **Dropped** (D332). Was: self-hosted server: shared history (Postgres), team dashboards, run ingestion from CLI and CI | dropped |
@@ -168,7 +168,7 @@ The command is `vibranium`, aliased `vc` (D44). Commands that print data accept 
 | `vc config explain <key>` | Show the effective value and the layer it came from |
 | `vc plugin add\|list\|remove` | Manage plugins, showing the permissions each requests |
 | `vc mcp` | Start the MCP server on stdio |
-| `vc sdk serve\|generate\|export` | Planned (#100): the SDKs' sidecar, typed api functions from api files, and code tests written out as YAML (D334, D335, D337) |
+| `vc sdk serve\|generate` | Planned (#100): the SDKs' sidecar and typed api functions from api files (D334, D337); the SDK's own `vibranium build` writes code tests as YAML (D335) |
 | `vc tui` | Open the terminal UI |
 | `vc serve` | Dropped (D332): the self-hosted team server is not built; the local web UI for one project is vc ui |
 

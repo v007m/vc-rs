@@ -80,7 +80,6 @@ The open questions in the LLD are listed in its last section:
 - the Varlock CLI contract (M3);
 - other `cel` 0.15 gaps (M4; `timestamp()` and `duration()` are now our own functions, D153);
 - Windows plugin enforcement (M8; Linux and macOS enforce since D254);
-- the npm names left outside the SDKs (`@vibranium/sdk` for hook types, `@vibranium/cli`), and three SDK questions (#100; the SDK design is the LLD's SDKs section, D334–D339).
 
 ## How Sarath likes to work
 
