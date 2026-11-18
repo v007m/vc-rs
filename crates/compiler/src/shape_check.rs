@@ -172,11 +172,8 @@ impl Walker {
     }
 
     fn required(&mut self, node: &Node, shape: &'static Shape) {
-        let at = node.entries().first().map_or(node.span, |entry| entry.key_span);
         for key in shape.all_keys().filter(|key| key.required && node.get(key.name).is_none()) {
-            let message = format!("{} needs `{}`", article(shape.title), key.name);
-            let diagnostic = Diagnostic::new(key.missing, at, message).label(format!("`{}` is missing", key.name));
-            self.push(diagnostic.help(add_key(key)));
+            self.push(missing_key(node, shape, (key.name, None)));
         }
     }
 
@@ -354,13 +351,25 @@ fn unknown_key(entry: &Entry, shape: &'static Shape) -> Diagnostic {
     suggest::hint(diagnostic, &Misspelling { word: &entry.key, span: entry.key_span, known: &known })
 }
 
-pub fn add_key(key: &Key) -> String {
+/// The key `name` missing from `node`, at its first key: V1005, or the code `shape` gives the
+/// key. `subject` names what needs it, else `shape`'s title does; a key `shape` does not declare
+/// gets a plain help.
+pub fn missing_key(node: &Node, shape: &'static Shape, (name, subject): (&str, Option<&str>)) -> Diagnostic {
+    let at = node.entries().first().map_or(node.span, |entry| entry.key_span);
+    let key = shape.find(name);
+    let subject = subject.map_or_else(|| article(shape.title), str::to_owned);
+    let help = key.map_or_else(|| format!("add `{name}`: {subject} cannot be sent without it"), add_key);
+    let code = key.map_or(Code::V1005, |key| key.missing);
+    Diagnostic::new(code, at, format!("{subject} needs `{name}`")).label(format!("`{name}` is missing")).help(help)
+}
+
+fn add_key(key: &Key) -> String {
     let written = key.example.map_or_else(|| key.name.to_owned(), |example| format!("{}: {example}", key.name));
     format!("add `{written}`: {}", key.doc)
 }
 
 /// "an api", "a test".
-pub fn article(title: &str) -> String {
+fn article(title: &str) -> String {
     let vowel = title.starts_with(['a', 'e', 'i', 'o', 'u']);
     format!("{} {title}", if vowel { "an" } else { "a" })
 }
