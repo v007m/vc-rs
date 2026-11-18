@@ -33,7 +33,7 @@ Where it can go:
 
 ## Examples
 
-The examples call `sample#listUsers`, `sample#createUser` and `sample#getUser` from the sample api file that [`vc init`](/vc-rs/reference/cli/init/) writes:
+The examples call `sample#listUsers` and `sample#getUser` from the sample api file that [`vc init`](/vc-rs/reference/cli/init/) writes:
 
 ```yaml title="services/sample/sample.api.yaml (excerpt)"
 baseUrl: ${var.sampleUrl}
@@ -65,6 +65,21 @@ apis:
     path: /users/${var.userId}
 ```
 
+`demo#flaky` calls the demo server's `/flaky`, which answers 503 to the first `failTimes` requests for a key and 200 after that. The demo counts a key for as long as it runs, so the tests build the key from [`${run.startedAt}`](/vc-rs/reference/templates/run/): it is new on every run and the same on every attempt. A `${fake.string.uuid}` would not do here, because each attempt draws a new one.
+
+```yaml title="services/demo/demo.api.yaml"
+baseUrl: ${var.sampleUrl}
+apis:
+  - id: flaky
+    name: Fails, then passes
+    path: /flaky
+    vars:
+      failTimes: "1"
+    query:
+      key: ${var.flakyKey}
+      failTimes: ${var.failTimes}
+```
+
 ```console
 $ vc call sample#listUsers
 200 OK · 3 ms · api expect passed
@@ -87,9 +102,9 @@ tests:
     retry:
       attempts: 2
       delay: 200ms
-    steps:
-      - command: mkdir -p tmp; n=$(cat tmp/count 2>/dev/null || echo 0); n=$((n+1)); echo $n > tmp/count; test $n -ge 2
-      - call: sample#listUsers
+    call: demo#flaky
+    vars:
+      flakyKey: retry-${run.startedAt}
 
   - id: neverPasses
     name: Fails on every attempt
@@ -108,14 +123,17 @@ tests:
     call: sample#listUsers
 ```
 
-The command in `passesOnSecondTry` fails on its first run and passes on its second. `neverPasses` gets a 404 on all three attempts. `blockedNotRetried` fails in `before`, so it is blocked and runs only once:
+`passesOnSecondTry` gets a 503 on its first attempt and a 200 on its second. `neverPasses` gets a 404 on all three attempts. `blockedNotRetried` fails in `before`, so it is blocked and runs only once:
 
 ```console
 $ vc run sample.retry
 plan  3 tests in 1 file · profile default
 
 Retry
-✕ sample.retry#neverPasses — Fails on every attempt (3 attempts)   12ms
+⊘ sample.retry#blockedNotRetried — Is blocked by its before, so is not retried blocked   12ms
+  error[V5110]: the command exited with 1
+     = at: command
+✕ sample.retry#neverPasses — Fails on every attempt (3 attempts)   23ms
   attempts 1, 2 and 3 of 3:
   error[V5101]: expect.status
     --> services/sample/sample.api.yaml:43:5
@@ -127,12 +145,9 @@ Retry
   45 |     path: /users/${var.userId}
      |     ^^^^^^^^^^^^^^^^^^^^^^^^^^ expected ["2xx"], got 404
      = note: expected by api sample#getUser
-⊘ sample.retry#blockedNotRetried — Is blocked by its before, so is not retried blocked   12ms
-  error[V5110]: the command exited with 1
-     = at: command
-~ sample.retry#passesOnSecondTry — Passes on the second attempt flaky (2 attempts)  268ms
+~ sample.retry#passesOnSecondTry — Passes on the second attempt flaky (2 attempts)  212ms
 
-0 passed · 1 failed · 1 blocked · 1 flaky                    278ms · profile default
+0 passed · 1 failed · 1 blocked · 1 flaky                    213ms · profile default
 reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
 next     vc run --failed
 ```
@@ -141,7 +156,7 @@ A failed test prints each different failure once, headed by the attempts that hi
 
 ### Flaky counts as passed for the exit code
 
-A run whose only result is flaky exits with 0. With the counter reset first (`rm tmp/count`):
+A run whose only result is flaky exits with 0. A new run means a new key, so the test is flaky again:
 
 ```console
 $ vc run 'sample.retry#passesOnSecondTry'
@@ -156,24 +171,22 @@ reports  …/.vibranium/reports/2/{ctrf.json,junit.xml,index.html}
 
 ### Retry one step
 
-A `retry` on a step re-runs only that step. Here a user appears half a second after it is first read:
+A `retry` on a step re-runs only that step. Here the second step fails twice before it passes:
 
 ```yaml
   - id: stepRetry
     steps:
-      - id: first
-        call: sample#createUser
-      - command: (sleep 0.5 && curl -s -X POST ${var.sampleUrl}/users -d '{"email":"late@example.com"}' > /dev/null) &
-      - call: sample#getUser
+      - call: sample#listUsers
+      - call: demo#flaky
         vars:
-          userId:
-            $cel: string(int(first.body.id) + 1)
+          flakyKey: step-${run.startedAt}
+          failTimes: "2"
         retry:
           attempts: 5
           delay: 300ms
 ```
 
-The step gets a 404 until the user exists, then passes. The test is reported as passed, not flaky. To wait for a state like this, [`poll`](/vc-rs/reference/syntax/poll/) is usually clearer.
+The server sees `GET /users` once and `GET /flaky` three times: two 503s, then a 200. The test is reported as passed, not flaky. To wait for a state like this, [`poll`](/vc-rs/reference/syntax/poll/) is usually clearer.
 
 ### A default for every test
 

@@ -33,12 +33,12 @@ apis:
 
 ## Examples
 
-`localhost:7442` stands for a small test server of your own. `/flaky?key=<key>&failTimes=N` answers 503 to the first `N` requests for a key, then 200; its body reports the attempt. `/status/503` always answers 503.
+The examples call the demo server (`vc demo start`) through `sampleUrl`. Its `/flaky?key=<key>&failTimes=N` answers 503 to the first `N` requests for a key, then 200; its body reports the attempt. The demo keeps counting a key for as long as it runs, so each api draws a new key with `${fake.string.uuid}`. A retry resends the same request with the same key, and the next call gets a new one. `/status/503` always answers 503, and `/slow?ms=N` answers after `N` milliseconds.
 
 ### Off by default
 
 ```yaml title="services/slow/slow.api.yaml"
-baseUrl: http://localhost:7442
+baseUrl: ${var.sampleUrl}
 apis:
   - id: flakyOff
     path: /flaky
@@ -50,7 +50,7 @@ apis:
 ```
 
 ```console
-$ vc call slow#flakyOff --var key=docs-b
+$ vc call slow#flakyOff
 503 Service Unavailable · 2 ms · api expect failed
 {
   "attempt": 1
@@ -79,14 +79,14 @@ With `attempts: 2`, a request that gets 503 twice succeeds on the third try:
 ```
 
 ```console
-$ vc call slow#flaky --var key=docs-a
+$ vc call slow#flaky
 200 OK · 2 ms · api expect passed
 {
   "attempt": 3
 }
 ```
 
-The body shows the 200 came on the third request for `docs-a`.
+The body shows the 200 came on the third request for that key.
 
 `vc call` reports the time of the last attempt. `vc run` reports the whole test, backoff included:
 
@@ -123,6 +123,7 @@ plan  3 tests in 1 file · profile default
 1 passed · 2 failed                                          274ms · profile default
 reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
 next     vc run --failed
+seed 8386810112310141: pass `--seed 8386810112310141` to run with the same generated data
 ```
 
 ### POST is not retried unless you say so
@@ -202,6 +203,7 @@ plan  3 tests in 1 file · profile default
 1 passed · 2 failed                                          705ms · profile default
 reports  …/.vibranium/reports/2/{ctrf.json,junit.xml,index.html}
 next     vc run --failed
+seed 6088530227387890: pass `--seed 6088530227387890` to run with the same generated data
 ```
 
 `flakyOff` now passes, thanks to the config. `postRetried` still fails, after three sends: `/status/503` always answers 503. `timeoutRetried` took about 700 ms: two attempts of 300 ms each, plus the backoff. The api's `attempts: 1` replaced the config's `2`.
@@ -209,7 +211,7 @@ next     vc run --failed
 ## Try it
 
 <Playground client:visible kind="api" code={`id: slow
-baseUrl: http://localhost:7442
+baseUrl: \${var.sampleUrl}
 apis:
   - id: flaky
     path: /flaky

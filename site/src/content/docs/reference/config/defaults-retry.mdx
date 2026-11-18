@@ -25,10 +25,10 @@ defaults:
 
 ## Examples
 
-The tests call `slow#flaky`, a `GET /flaky` on the repo's mock server (`bench/mock`). The first `failTimes` calls for each `key` get 503, and later calls get 200; the body is `{"attempt": n}`:
+The tests call `slow#flaky`, a `GET /flaky` on the demo server (`vc demo start`). The first `failTimes` calls for each `key` get 503, and later calls get 200; the body is `{"attempt": n}`. The demo keeps a key's count for as long as it runs, so each test builds its key from `${run.startedAt}`, which is new on every run and the same on every attempt:
 
 ```yaml title="services/slow/slow.api.yaml"
-baseUrl: http://127.0.0.1:18080
+baseUrl: ${var.sampleUrl}
 apis:
   - id: flaky
     path: /flaky
@@ -44,7 +44,7 @@ tests:
   - id: passesOnSecondTry
     call: slow#flaky
     vars:
-      key: tr-${run.id}
+      key: tr-${run.startedAt}
       failTimes: 1
     expect:
       status: 200
@@ -92,6 +92,9 @@ tests:
   - id: noRetryHere
     name: Opts out of the default retry
     call: slow#flaky
+    vars:
+      key: off-${run.startedAt}
+      failTimes: 1
     retry:
       attempts: 0
     expect:

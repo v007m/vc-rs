@@ -37,14 +37,14 @@ tests:
   - id: survivesTwo503s
     call: slow#flaky
     vars:
-      key: two-${run.id}
+      key: two-${run.startedAt}
       failTimes: 2
     expect:
       status: 200
   - id: failsAfterThree503s
     call: slow#flaky
     vars:
-      key: three-${run.id}
+      key: three-${run.startedAt}
       failTimes: 3
     expect:
       status: 200
@@ -112,7 +112,7 @@ $ vc run slow.retry
 ✓ slow.retry#survivesTwo503s                                    158ms
 ```
 
-The POST and the 429 are now re-sent: the server saw three of each. This helper answers them the same way every time, so they still fail.
+The POST and the 429 are now re-sent: the server saw three of each. The demo answers them the same way every time, so they still fail.
 
 An api turns it off for itself. Its `http.retry` keys replace the config's:
 
