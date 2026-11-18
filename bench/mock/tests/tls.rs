@@ -4,6 +4,7 @@
 use std::error::Error;
 use std::io;
 use std::sync::Arc;
+use std::time::{Duration, SystemTime};
 
 use http_body_util::BodyExt;
 use hyper::{Request, StatusCode};
@@ -16,7 +17,7 @@ use tokio::net::TcpStream;
 use tokio_rustls::TlsConnector;
 use tokio_rustls::client::TlsStream;
 use vc_mock_server::{ClientAuth, MockHandle, MockServer, MockTls};
-use vc_testkit::{Identity, KeyKind, TestPki};
+use vc_testkit::{ClientCert, Identity, KeyKind, TestPki};
 
 type TestResult = Result<(), Box<dyn Error>>;
 
@@ -85,6 +86,7 @@ async fn required_mode_accepts_the_good_cert_and_names_it() -> TestResult {
     assert!(mock.base_url().starts_with("https://127.0.0.1:"), "{}", mock.base_url());
     let (status, body) = whoami(&mock, &client(&pki, Some(pki.good()))?).await?;
     assert_eq!((status, body), (StatusCode::OK, json!({ "client": "good" })));
+    assert_eq!(mock.stats().await?.count("GET /whoami"), 1);
     Ok(())
 }
 
@@ -105,13 +107,29 @@ async fn required_mode_refuses_a_cert_from_another_ca_at_the_handshake() -> Test
 }
 
 #[tokio::test]
+async fn required_mode_accepts_p384_and_refuses_expired_and_not_yet_valid_certs() -> TestResult {
+    let pki = TestPki::new()?;
+    let mock = mock(&pki, ClientAuth::Required).await?;
+    let p384 = pki.client(&ClientCert::new("p384").key(KeyKind::EcP384))?;
+    assert_eq!(whoami(&mock, &client(&pki, Some(&p384))?).await?, (StatusCode::OK, json!({ "client": null })));
+    let (now, day) = (SystemTime::now(), Duration::from_hours(24));
+    let expired = pki.client(&ClientCert::new("expired").valid(now - 2 * day, now - day))?;
+    let early = pki.client(&ClientCert::new("early").valid(now + day, now + 2 * day))?;
+    for cert in [expired, early] {
+        let alert = refusal(&mock, &client(&pki, Some(&cert))?).await;
+        assert_eq!(alert, Some(AlertDescription::CertificateExpired), "{}", cert.name());
+    }
+    Ok(())
+}
+
+#[tokio::test]
 async fn optional_mode_answers_403_without_a_cert_and_names_one_when_sent() -> TestResult {
     let pki = TestPki::new()?;
     let mock = mock(&pki, ClientAuth::Optional).await?;
     let (status, body) = whoami(&mock, &client(&pki, None)?).await?;
     assert_eq!((status, body), (StatusCode::FORBIDDEN, json!({ "error": "no client certificate" })));
     assert_eq!(whoami(&mock, &client(&pki, Some(pki.good()))?).await?.1, json!({ "client": "good" }));
-    let unnamed = pki.client("unnamed", KeyKind::Ed25519)?;
+    let unnamed = pki.client(&ClientCert::new("unnamed").key(KeyKind::Ed25519))?;
     assert_eq!(whoami(&mock, &client(&pki, Some(&unnamed))?).await?.1, json!({ "client": null }));
     assert_eq!(refusal(&mock, &client(&pki, Some(pki.other_ca()))?).await, Some(AlertDescription::UnknownCA));
     Ok(())

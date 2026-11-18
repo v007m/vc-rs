@@ -1,6 +1,3 @@
-use std::collections::BTreeMap;
-use std::sync::Arc;
-
 use axum::extract::{ConnectInfo, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
@@ -8,9 +5,7 @@ use axum::routing;
 use axum::{Json, Router};
 use serde_json::json;
 
-use crate::tls::PeerCert;
-
-type Names = Arc<BTreeMap<Vec<u8>, String>>;
+use crate::tls::{Names, PeerCert};
 
 /// `GET /whoami` (https mode only): the name given to the client certificate the connection
 /// presented (`null` for one without a name), or 403 when it presented none.

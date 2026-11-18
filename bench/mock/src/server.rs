@@ -1,5 +1,6 @@
 use std::net::{Ipv4Addr, SocketAddr};
 
+use axum::Router;
 use tokio::net::TcpListener;
 use tokio::sync::oneshot;
 use tokio::task::JoinHandle;
@@ -30,7 +31,7 @@ impl MockServer {
     pub async fn start_on(addr: SocketAddr) -> Result<MockHandle, MockError> {
         let (listener, addr) = bind(addr).await?;
         let store = Store::spawn();
-        let app = routes::router(&store);
+        let app = routes::router(&store, Router::new());
         let (stop, stopped) = oneshot::channel::<()>();
         let task = tokio::spawn(async move { axum::serve(listener, app).with_graceful_shutdown(until(stopped)).await });
         Ok(MockHandle { addr, scheme: "http", store, stop, task })
@@ -42,10 +43,10 @@ impl MockServer {
     /// # Errors
     /// [`MockError::Bind`] when no port can be bound, [`MockError::Tls`] when rustls refuses `tls`.
     pub async fn start_tls(tls: MockTls) -> Result<MockHandle, MockError> {
-        let config = tls.server_config()?;
+        let (config, names) = tls.into_server()?;
         let (listener, addr) = bind(SocketAddr::from((Ipv4Addr::LOCALHOST, 0))).await?;
         let store = Store::spawn();
-        let app = routes::router(&store).merge(routes::whoami(tls.names()));
+        let app = routes::router(&store, routes::whoami(names));
         let service = app.into_make_service_with_connect_info::<PeerCert>();
         let listener = TlsListener::new(listener, addr, config);
         let (stop, stopped) = oneshot::channel::<()>();

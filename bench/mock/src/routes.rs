@@ -17,10 +17,10 @@ use crate::store::Store;
 
 pub use whoami::routes as whoami;
 
-/// Builds the app. Every route except `/__stats`, `/__reset` and `/__openapi/…` is counted in
+/// Builds the app, with `extra` routes beside the usual ones. Every route except `/__stats`, `/__reset` and `/__openapi/…` is counted in
 /// [`crate::Stats`].
 /// Responses are gzip- or brotli-compressed when the client's `Accept-Encoding` allows it.
-pub fn router(store: &Store) -> Router {
+pub fn router(store: &Store, extra: Router) -> Router {
     let counted = Router::new()
         .merge(crud::routes(store, "users"))
         .merge(crud::routes(store, "orders"))
@@ -30,6 +30,7 @@ pub fn router(store: &Store) -> Router {
         .merge(oauth::routes(store))
         .merge(openapi::routes(store))
         .merge(scripted::routes(store))
+        .merge(extra)
         .route_layer(middleware::from_fn_with_state(store.clone(), track::track));
     counted.merge(admin::routes(store)).merge(openapi::switch(store)).layer(CompressionLayer::new())
 }

@@ -5790,6 +5790,7 @@ dependencies = [
  "http",
  "rcgen",
  "serde_json",
+ "thiserror 2.0.21",
  "tokio",
  "vc-interfaces",
  "vc-model",

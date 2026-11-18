@@ -5,6 +5,7 @@ use std::collections::BTreeMap;
 use std::io;
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::time::Duration;
 
 use axum::extract::connect_info::Connected;
 use axum::serve::{IncomingStream, Listener};
@@ -12,12 +13,27 @@ use rustls::pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer};
 use rustls::server::WebPkiClientVerifier;
 use rustls::server::danger::ClientCertVerifier;
 use rustls::{RootCertStore, ServerConfig};
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::mpsc;
 use tokio_rustls::TlsAcceptor;
 use tokio_rustls::server::TlsStream;
 
 use crate::error::MockError;
+
+/// The names `/whoami` gives client certificates, by certificate DER.
+pub type Names = Arc<BTreeMap<Vec<u8>, String>>;
+
+/// How long a client has to finish the TLS handshake.
+const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(5);
+/// How long, and how many bytes, a refused connection is read after its alert, so the client
+/// gets the alert rather than a reset.
+const LINGER: Duration = Duration::from_millis(500);
+const LINGER_BYTES: usize = 64 * 1024;
+/// The pause after an accept error that is not about one connection (out of file descriptors).
+const ACCEPT_BACKOFF: Duration = Duration::from_secs(1);
+
+type Ready = mpsc::Sender<(TlsStream<TcpStream>, SocketAddr)>;
 
 /// Whether the https mock asks clients for a certificate.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -60,35 +76,31 @@ impl MockTls {
         self
     }
 
-    /// The names `/whoami` gives, by certificate DER.
-    pub(crate) fn names(&self) -> Arc<BTreeMap<Vec<u8>, String>> {
-        Arc::new(self.names.clone())
-    }
-
-    /// The rustls server setup: ring, HTTP/1.1 by ALPN, and the client checks asked for.
-    pub(crate) fn server_config(&self) -> Result<Arc<ServerConfig>, MockError> {
+    /// The rustls server setup (ring, HTTP/1.1 by ALPN, and the client checks asked for) and the
+    /// names `/whoami` gives. Consumes the setup, so the key is never copied.
+    pub(crate) fn into_server(self) -> Result<(Arc<ServerConfig>, Names), MockError> {
         let provider = Arc::new(rustls::crypto::ring::default_provider());
         let builder = ServerConfig::builder_with_provider(provider.clone());
         let builder = builder.with_safe_default_protocol_versions().map_err(tls_error)?;
-        let builder = match &self.clients {
+        let builder = match self.clients {
             None => builder.with_no_client_auth(),
-            Some((auth, roots)) => builder.with_client_cert_verifier(verifier(*auth, roots, provider)?),
+            Some((auth, roots)) => builder.with_client_cert_verifier(verifier(auth, roots, provider)?),
         };
-        let key = PrivateKeyDer::Pkcs8(self.key.clone_key());
-        let mut config = builder.with_single_cert(self.chain.clone(), key).map_err(tls_error)?;
+        let key = PrivateKeyDer::Pkcs8(self.key);
+        let mut config = builder.with_single_cert(self.chain, key).map_err(tls_error)?;
         config.alpn_protocols = vec![b"http/1.1".to_vec()];
-        Ok(Arc::new(config))
+        Ok((Arc::new(config), Arc::new(self.names)))
     }
 }
 
 fn verifier(
     auth: ClientAuth,
-    roots: &[CertificateDer<'static>],
+    roots: Vec<CertificateDer<'static>>,
     provider: Arc<rustls::crypto::CryptoProvider>,
 ) -> Result<Arc<dyn ClientCertVerifier>, MockError> {
     let mut store = RootCertStore::empty();
     for root in roots {
-        store.add(root.clone()).map_err(tls_error)?;
+        store.add(root).map_err(tls_error)?;
     }
     let builder = WebPkiClientVerifier::builder_with_provider(Arc::new(store), provider);
     let builder = if auth == ClientAuth::Optional { builder.allow_unauthenticated() } else { builder };
@@ -115,20 +127,52 @@ impl TlsListener {
     }
 }
 
-async fn accept_all(tcp: TcpListener, acceptor: TlsAcceptor, done: mpsc::Sender<(TlsStream<TcpStream>, SocketAddr)>) {
+async fn accept_all(tcp: TcpListener, acceptor: TlsAcceptor, done: Ready) {
     loop {
         let accepted = tokio::select! {
             () = done.closed() => return,
             accepted = tcp.accept() => accepted,
         };
-        let Ok((stream, remote)) = accepted else { continue };
-        let (acceptor, done) = (acceptor.clone(), done.clone());
-        tokio::spawn(async move {
-            if let Ok(tls) = acceptor.accept(stream).await {
-                let _ = done.send((tls, remote)).await;
-            }
-        });
+        match accepted {
+            Ok(connection) => drop(tokio::spawn(handshake(acceptor.clone(), connection, done.clone()))),
+            Err(error) if is_connection_error(&error) => {}
+            Err(_) => tokio::time::sleep(ACCEPT_BACKOFF).await,
+        }
     }
+}
+
+/// Errors about one connection, after which the next accept can go ahead at once.
+fn is_connection_error(error: &io::Error) -> bool {
+    matches!(
+        error.kind(),
+        io::ErrorKind::ConnectionRefused | io::ErrorKind::ConnectionAborted | io::ErrorKind::ConnectionReset
+    )
+}
+
+/// Hands a connection that finished the handshake to the listener. A refused one lingers so its
+/// alert arrives; one that takes too long is dropped.
+async fn handshake(acceptor: TlsAcceptor, (tcp, remote): (TcpStream, SocketAddr), done: Ready) {
+    match tokio::time::timeout(HANDSHAKE_TIMEOUT, acceptor.accept(tcp).into_fallible()).await {
+        Ok(Ok(tls)) => drop(done.send((tls, remote)).await),
+        Ok(Err((_, tcp))) => linger(tcp).await,
+        Err(_) => {}
+    }
+}
+
+/// Closes the write side after the alert, then reads what the client still sends for a short,
+/// bounded while: closing with unread data would send a reset that can overtake the alert.
+async fn linger(mut tcp: TcpStream) {
+    let _ = tcp.shutdown().await;
+    let drain = async {
+        let (mut buffer, mut left) = ([0_u8; 4096], LINGER_BYTES);
+        while left > 0 {
+            match tcp.read(&mut buffer).await {
+                Ok(0) | Err(_) => break,
+                Ok(read) => left = left.saturating_sub(read),
+            }
+        }
+    };
+    let _ = tokio::time::timeout(LINGER, drain).await;
 }
 
 impl Listener for TlsListener {
