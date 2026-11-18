@@ -62,3 +62,7 @@ impl ProtocolRuntimes {
         self.runtimes.iter().map(|runtime| runtime.protocol()).collect()
     }
 }
+
+#[cfg(test)]
+#[path = "protocol_tests.rs"]
+mod tests;

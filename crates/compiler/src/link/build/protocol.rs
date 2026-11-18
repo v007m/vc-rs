@@ -57,3 +57,7 @@ impl ProtocolRulesRegistry {
         self.rules.iter().map(|rules| rules.protocol()).collect()
     }
 }
+
+#[cfg(test)]
+#[path = "protocol_tests.rs"]
+mod tests;
