@@ -23,10 +23,14 @@ const BUILD: &str = env!("CARGO_PKG_VERSION");
 /// compiled unit and the names they use, so an unchanged file is not parsed again, in memory
 /// (`vc watch`, the editors) and when read back from bytes. A unit with diagnostics is kept only
 /// in memory: the bytes never hold diagnostics, so its file is compiled again after a read.
+/// Units read back from bytes are decoded only when a compile needs them.
 #[derive(Clone, Debug, Default)]
 pub struct CompileCache {
     entries: Vec<CacheEntry>,
     strings: StringTable,
+    /// Whether the compile that made it found a unit that did not read back, so the
+    /// cache differs from the one it was given and is saved again.
+    repaired: bool,
 }
 
 /// One file the cache remembers.
@@ -38,24 +42,39 @@ pub struct CacheEntry {
     pub hash: ContentHash,
     /// Its number in the file table, which every span in its unit points to.
     pub file: SourceFileId,
-    /// What the per-file stages made of it; `None` when it must be compiled again.
+    /// What the per-file stages made of it; `None` when it must be compiled again or is only
+    /// in `bytes`.
     pub unit: Option<Arc<FileUnit>>,
+    /// The unit as a blob holds it, when it was read back from one.
+    pub bytes: Option<Arc<[u8]>>,
 }
 
 impl CacheEntry {
     /// The file and whether its bytes would hold its unit: a unit with diagnostics is not stored.
     fn key(&self) -> (&SourcePath, &ContentHash, SourceFileId, bool) {
-        let stored = self.unit.as_deref().is_some_and(|unit| unit.diagnostics.is_empty());
+        let stored = self.bytes.is_some() || self.unit.as_deref().is_some_and(|unit| unit.diagnostics.is_empty());
         (&self.path, &self.hash, self.file, stored)
     }
 }
 
+/// What a cache holds for one file.
+pub enum Kept {
+    /// Its unit, and the bytes it was read from, if it was.
+    Unit(Arc<FileUnit>, Option<Arc<[u8]>>),
+    /// Nothing: the file is new, changed, or its unit had diagnostics.
+    Missing,
+    /// Bytes that do not read back as a unit.
+    Damaged,
+}
+
 /// Caches are equal when they remember the same files and would store the same units; the
-/// units and names themselves are a memo of those. A cache read back with a unit that did not
-/// decode differs from the one a compile makes, so it is saved again and heals.
+/// units and names themselves are a memo of those. A compile that found a unit that did not
+/// read back makes a cache that differs from the one it was given, so it is saved again and
+/// heals.
 impl PartialEq for CompileCache {
     fn eq(&self, other: &Self) -> bool {
-        self.entries.iter().map(CacheEntry::key).eq(other.entries.iter().map(CacheEntry::key))
+        self.repaired == other.repaired
+            && self.entries.iter().map(CacheEntry::key).eq(other.entries.iter().map(CacheEntry::key))
     }
 }
 
@@ -70,15 +89,35 @@ impl CompileCache {
 
     /// A cache of `entries`, whose units intern their names in `strings`.
     pub(crate) const fn of(entries: Vec<CacheEntry>, strings: StringTable) -> Self {
-        Self { entries, strings }
+        Self { entries, strings, repaired: false }
     }
 
-    /// The unit kept for the file at `path` with `hash`, numbered `file`. The entries are in
-    /// path order, as a compile makes them, so the search is a binary one.
+    /// The cache, marked when the compile that made it found a unit that did not read back.
+    pub(crate) fn repaired(self, repaired: bool) -> Self {
+        Self { repaired, ..self }
+    }
+
+    /// What the cache holds for the file at `path` with `hash`, numbered `file`, its unit read
+    /// back from its bytes when it has only those. The entries are in path order, as a compile
+    /// makes them, so the search is a binary one.
+    pub(crate) fn kept(&self, path: &SourcePath, hash: &ContentHash, file: SourceFileId) -> Kept {
+        let at = self.entries.binary_search_by(|entry| entry.path.cmp(path)).ok();
+        let found = at.and_then(|at| self.entries.get(at)).filter(|entry| entry.hash == *hash && entry.file == file);
+        let Some(entry) = found else { return Kept::Missing };
+        if let Some(unit) = &entry.unit {
+            return Kept::Unit(Arc::clone(unit), entry.bytes.clone());
+        }
+        let Some(bytes) = &entry.bytes else { return Kept::Missing };
+        read_all::<FileUnit>(bytes).map_or(Kept::Damaged, |unit| Kept::Unit(Arc::new(unit), Some(Arc::clone(bytes))))
+    }
+
+    /// The unit [`CompileCache::kept`] finds, if any.
+    #[cfg(test)]
     pub(crate) fn unit(&self, path: &SourcePath, hash: &ContentHash, file: SourceFileId) -> Option<Arc<FileUnit>> {
-        let at = self.entries.binary_search_by(|entry| entry.path.cmp(path)).ok()?;
-        let entry = self.entries.get(at).filter(|entry| entry.hash == *hash && entry.file == file)?;
-        entry.unit.clone()
+        match self.kept(path, hash, file) {
+            Kept::Unit(unit, _) => Some(unit),
+            Kept::Missing | Kept::Damaged => None,
+        }
     }
 
     /// The names the kept units use; a compile that reuses them interns on top of these.
@@ -99,10 +138,10 @@ impl CompileCache {
     }
 
     /// How many of the files it remembers the cache holds a compiled unit for, so the next
-    /// compile does not parse them again.
+    /// compile does not parse them again; a unit read back from bytes counts before it is read.
     #[must_use]
     pub fn units(&self) -> usize {
-        self.entries.iter().filter(|entry| entry.unit.is_some()).count()
+        self.entries.iter().filter(|entry| entry.unit.is_some() || entry.bytes.is_some()).count()
     }
 
     /// The cache as bytes: a magic number and the layout version, the length of a header and the
@@ -111,9 +150,8 @@ impl CompileCache {
     pub fn to_bytes(&self) -> Vec<u8> {
         let units: Vec<_> = self.entries.iter().map(unit_bytes).collect();
         let entries = self.entries.iter().zip(&units).map(|(entry, unit)| stored(entry, unit.as_deref())).collect();
-        let body =
-            Body { build: BUILD.to_owned(), strings: self.strings.texts().map(str::to_owned).collect(), entries };
-        let header = postcard::to_stdvec(&body).unwrap_or_default();
+        let strings = self.strings.texts().map(str::to_owned).collect();
+        let header = postcard::to_stdvec(&Body { build: BUILD.to_owned(), strings, entries }).unwrap_or_default();
         let mut out = MAGIC.to_vec();
         out.extend(VERSION.to_le_bytes());
         out.extend(u32::try_from(header.len()).unwrap_or(u32::MAX).to_le_bytes());
@@ -161,8 +199,12 @@ fn stored(entry: &CacheEntry, unit: Option<&[u8]>) -> Stored {
     }
 }
 
-/// The bytes of an entry's unit, when it is kept and has no diagnostics.
+/// The bytes of an entry's unit, when it is kept and has no diagnostics: the ones it was read
+/// from, when it was.
 fn unit_bytes(entry: &CacheEntry) -> Option<Vec<u8>> {
+    if let Some(bytes) = &entry.bytes {
+        return Some(bytes.to_vec());
+    }
     let unit = entry.unit.as_deref().filter(|unit| unit.diagnostics.is_empty())?;
     postcard::to_stdvec(unit).ok().filter(|bytes| u32::try_from(bytes.len()).is_ok())
 }
@@ -196,15 +238,15 @@ fn table(texts: &[String]) -> Option<StringTable> {
     Some(table)
 }
 
-/// The entry `stored` describes, its unit read off the front of `units`.
+/// The entry `stored` describes, its unit's bytes taken off the front of `units`; they are
+/// read only when a compile needs the unit.
 fn entry(stored: &Stored, units: &mut &[u8]) -> Option<CacheEntry> {
     let path = SourcePath::data(&stored.path).ok()?;
     let length = stored.unit.map(usize::try_from).transpose().ok()?.unwrap_or(0);
     let (bytes, rest) = units.split_at_checked(length)?;
     *units = rest;
-    let unit = stored.unit.and_then(|_| read_all::<FileUnit>(bytes));
     let (hash, file) = (ContentHash::new(stored.hash), SourceFileId::new(stored.file));
-    Some(CacheEntry { path, hash, file, unit: unit.map(Arc::new) })
+    Some(CacheEntry { path, hash, file, unit: None, bytes: stored.unit.map(|_| Arc::from(bytes)) })
 }
 
 /// The value `bytes` hold, when they hold exactly one.

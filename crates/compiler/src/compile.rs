@@ -4,7 +4,7 @@ use std::sync::Arc;
 use vc_diagnostics::Diagnostics;
 use vc_model::{Date, Program, SourceFile, SourceFileId, SourceFiles, SourcePath, StringTable};
 
-use crate::cache::CacheEntry;
+use crate::cache::{CacheEntry, Kept};
 use crate::link::DataWanted;
 use crate::parts::Tools;
 use crate::{CompileCache, link, stage};
@@ -63,7 +63,7 @@ pub fn compile(input: CompileInput) -> Compiled {
     sources.sort_by(|a, b| a.path.cmp(&b.path));
     sources.dedup_by(|later, first| later.path == first.path);
     let files = file_table(sources);
-    let (entries, strings) = units(&files, &input.previous);
+    let (entries, strings, damaged) = units(&files, &input.previous);
     let mut diagnostics = Diagnostics::new();
     for unit in entries.iter().filter_map(|entry| entry.unit.as_deref()) {
         diagnostics.extend(unit.diagnostics.iter().cloned());
@@ -78,21 +78,27 @@ pub fn compile(input: CompileInput) -> Compiled {
     let linked = link::link(&entries, &files, &world);
     diagnostics.extend(linked.diagnostics);
     let (program, data_wanted, hooks_wanted) = (linked.program, linked.data_wanted, linked.hooks_wanted);
-    let cache = CompileCache::of(entries, strings);
+    let cache = CompileCache::of(entries, strings).repaired(damaged);
     Compiled { program, diagnostics, files, cache, data_wanted, hooks_wanted }
 }
 
-/// Runs the per-file stages over every file the previous cache does not hold.
-fn units(files: &SourceFiles, previous: &CompileCache) -> (Vec<CacheEntry>, StringTable) {
+/// Runs the per-file stages over every file the previous cache does not hold, and tells
+/// whether one it held did not read back.
+fn units(files: &SourceFiles, previous: &CompileCache) -> (Vec<CacheEntry>, StringTable, bool) {
     let tools = Tools::new();
     let mut strings = previous.strings().clone();
-    let mut entries = Vec::with_capacity(files.len());
+    let (mut entries, mut damaged) = (Vec::with_capacity(files.len()), false);
     for (file, source) in numbered(files) {
-        let kept = previous.unit(&source.path, &source.hash, file);
-        let unit = kept.unwrap_or_else(|| Arc::new(stage::unit(file, source, (&tools, &mut strings))));
-        entries.push(CacheEntry { path: source.path.clone(), hash: source.hash, file, unit: Some(unit) });
+        let (unit, bytes) = match previous.kept(&source.path, &source.hash, file) {
+            Kept::Unit(unit, bytes) => (unit, bytes),
+            kept => {
+                damaged |= matches!(kept, Kept::Damaged);
+                (Arc::new(stage::unit(file, source, (&tools, &mut strings))), None)
+            }
+        };
+        entries.push(CacheEntry { path: source.path.clone(), hash: source.hash, file, unit: Some(unit), bytes });
     }
-    (entries, strings)
+    (entries, strings, damaged)
 }
 
 /// Each file with its number.

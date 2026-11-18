@@ -18,7 +18,8 @@ fn entry(path: &str, byte: u8, file: u32) -> CacheEntry {
     let unit =
         FileUnit { kind: None, root: None, parts: IndexMap::new(), script: None, diagnostics: Diagnostics::new() };
     let path = SourcePath::new(path).unwrap();
-    CacheEntry { path, hash: ContentHash::new([byte; 32]), file: SourceFileId::new(file), unit: Some(Arc::new(unit)) }
+    let (hash, file) = (ContentHash::new([byte; 32]), SourceFileId::new(file));
+    CacheEntry { path, hash, file, unit: Some(Arc::new(unit)), bytes: None }
 }
 
 fn cache() -> CompileCache {
@@ -41,7 +42,8 @@ fn compiled(sources: &[SourceFile]) -> CompileCache {
     for (source, number) in sources.iter().zip(0..) {
         let file = SourceFileId::new(number);
         let unit = stage::unit(file, source, (&tools, &mut strings));
-        entries.push(CacheEntry { path: source.path.clone(), hash: source.hash, file, unit: Some(Arc::new(unit)) });
+        let unit = Some(Arc::new(unit));
+        entries.push(CacheEntry { path: source.path.clone(), hash: source.hash, file, unit, bytes: None });
     }
     CompileCache::of(entries, strings)
 }
@@ -146,8 +148,11 @@ fn a_cache_whose_unit_did_not_read_back_differs_from_a_fresh_compile() {
     let last = bytes.len() - 1;
     bytes[last] ^= 0xFF;
     let damaged = CompileCache::from_bytes(&bytes);
-    assert_eq!((damaged.len(), damaged.units()), (1, 0));
-    assert_ne!(damaged, fresh, "so the check saves the fresh cache");
+    assert_eq!(damaged.len(), 1);
+    assert!(kept(&damaged, API, 1, 0).is_none(), "the unit is compiled again");
+    let files = vec![source(API, API_TEXT, 1)];
+    let healed = crate::compile(CompileInput { files, previous: damaged.clone(), ..CompileInput::default() });
+    assert_ne!(healed.cache, damaged, "so the check saves the healed cache");
     assert_eq!(CompileCache::from_bytes(&fresh.to_bytes()), fresh);
     let with_errors = compiled(&[source(BAD, "nme: x\n", 2)]);
     assert_eq!(
@@ -189,14 +194,16 @@ fn a_path_or_string_table_that_does_not_read_back_reads_as_empty() {
 fn a_unit_that_does_not_read_back_is_only_compiled_again() {
     let header = body(&[], "a.api.yaml", Some(9));
     let read = CompileCache::from_bytes(&blob(&header, &[0xFF; 9]));
-    assert_eq!((read.len(), read.units()), (1, 0));
+    assert_eq!(read.len(), 1);
+    assert!(kept(&read, "a.api.yaml", 0, 0).is_none());
     let unit = postcard::to_stdvec(&*entry("a.api.yaml", 0, 0).unit.unwrap()).unwrap();
     let mut trailing = unit.clone();
     trailing.push(0);
     let header = body(&[], "a.api.yaml", Some(u32::try_from(trailing.len()).unwrap()));
-    assert_eq!(CompileCache::from_bytes(&blob(&header, &trailing)).units(), 0, "bytes after the unit");
+    let read = CompileCache::from_bytes(&blob(&header, &trailing));
+    assert!(kept(&read, "a.api.yaml", 0, 0).is_none(), "bytes after the unit");
     let header = body(&[], "a.api.yaml", Some(u32::try_from(unit.len()).unwrap()));
-    assert_eq!(CompileCache::from_bytes(&blob(&header, &unit)).units(), 1);
+    assert!(kept(&CompileCache::from_bytes(&blob(&header, &unit)), "a.api.yaml", 0, 0).is_some());
 }
 
 #[test]
