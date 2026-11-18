@@ -1,9 +1,15 @@
+use std::collections::BTreeSet;
+use std::sync::Arc;
+
 use axum::body::{self, Body};
 use axum::http::{Method, Request, StatusCode};
 use serde_json::{Value, json};
+use tokio::sync::Barrier;
+use tokio::task::JoinSet;
 use tower::ServiceExt;
 
 use super::router;
+use crate::scripted::Counters;
 
 /// The status and JSON body (`null` when empty) of `method path` with `body`.
 async fn send(app: &axum::Router, method: Method, path: &str, body: &str) -> (StatusCode, Value) {
@@ -55,4 +61,125 @@ async fn echo_names_the_pid_of_the_demo() {
     let response = router().oneshot(request).await.unwrap();
     let pid = response.headers().get(super::PID_HEADER).and_then(|value| value.to_str().ok());
     assert_eq!(pid, Some(std::process::id().to_string().as_str()));
+}
+
+#[tokio::test(start_paused = true)]
+async fn slow_waits_the_milliseconds_asked_for_up_to_the_cap() {
+    let app = router();
+    let started = tokio::time::Instant::now();
+    assert_eq!(send(&app, Method::GET, "/slow?ms=10000", "").await, (StatusCode::OK, json!({"sleptMs": 10_000})));
+    assert!(started.elapsed() >= std::time::Duration::from_secs(10), "it waits");
+    assert_eq!(send(&app, Method::GET, "/slow", "").await.1, json!({"sleptMs": 0}));
+    let over = send(&app, Method::GET, "/slow?ms=10001", "").await;
+    assert_eq!(over, (StatusCode::BAD_REQUEST, json!({"error": "`ms` is at most 10000"})), "refused, not clamped");
+    for bad in ["/slow?ms=-1", "/slow?ms=soon"] {
+        assert_eq!(
+            send(&app, Method::GET, bad, "").await,
+            (StatusCode::BAD_REQUEST, json!({"error": "`ms` is a whole number"}))
+        );
+    }
+}
+
+#[tokio::test]
+async fn flaky_fails_the_first_attempts_per_key_then_passes() {
+    let app = router();
+    let attempt = |n: u64| json!({"attempt": n});
+    for (n, status) in [(1, StatusCode::SERVICE_UNAVAILABLE), (2, StatusCode::SERVICE_UNAVAILABLE), (3, StatusCode::OK)]
+    {
+        assert_eq!(send(&app, Method::GET, "/flaky?key=a&failTimes=2", "").await, (status, attempt(n)));
+    }
+    assert_eq!(send(&app, Method::GET, "/flaky?key=b&failTimes=2", "").await.1, attempt(1), "keys count apart");
+    assert_eq!(send(&app, Method::GET, "/flaky", "").await, (StatusCode::OK, attempt(1)), "no key and no failures");
+    let bad = send(&app, Method::GET, "/flaky?key=a&failTimes=x", "").await;
+    assert_eq!(bad, (StatusCode::BAD_REQUEST, json!({"error": "`failTimes` is a whole number"})));
+    assert_eq!(send(&app, Method::GET, "/flaky?key=a", "").await.1, attempt(4), "a refused attempt is not counted");
+}
+
+#[tokio::test]
+async fn flaky_and_poll_refuse_a_key_over_64_bytes() {
+    let app = router();
+    let (longest, over) = ("k".repeat(64), "k".repeat(65));
+    assert_eq!(send(&app, Method::GET, &format!("/flaky?key={longest}"), "").await.0, StatusCode::OK);
+    let refused = send(&app, Method::GET, &format!("/flaky?key={over}"), "").await;
+    assert_eq!(refused, (StatusCode::BAD_REQUEST, json!({"error": "the key is at most 64 bytes"})));
+    assert_eq!(send(&app, Method::GET, &format!("/poll/{longest}"), "").await.0, StatusCode::OK);
+    let refused = send(&app, Method::GET, &format!("/poll/{over}"), "").await;
+    assert_eq!(refused, (StatusCode::BAD_REQUEST, json!({"error": "the id is at most 64 bytes"})));
+}
+
+#[tokio::test]
+async fn a_full_table_refuses_a_new_key_and_still_counts_the_ones_it_holds() {
+    let app = router();
+    for key in 0..1024 {
+        assert_eq!(send(&app, Method::GET, &format!("/flaky?key={key}"), "").await.0, StatusCode::OK);
+    }
+    let full = send(&app, Method::GET, "/flaky?key=new", "").await;
+    let error = json!({"error": "the demo counts at most 1024 of these; restart it to count afresh"});
+    assert_eq!(full, (StatusCode::BAD_REQUEST, error.clone()));
+    assert_eq!(send(&app, Method::GET, "/flaky?key=7", "").await.1, json!({"attempt": 2}));
+    assert_eq!(send(&app, Method::GET, "/poll/new", "").await.0, StatusCode::OK, "poll ids are a table of their own");
+    for id in 0..1023 {
+        assert_eq!(send(&app, Method::GET, &format!("/poll/{id}"), "").await.0, StatusCode::OK);
+    }
+    assert_eq!(send(&app, Method::GET, "/poll/last", "").await, (StatusCode::BAD_REQUEST, error));
+}
+
+/// The attempts 32 tasks get bumping one new key at once in `counters`.
+async fn bumped_at_once(counters: &Arc<Counters>) -> BTreeSet<u64> {
+    let (start, mut bumping) = (Arc::new(Barrier::new(32)), JoinSet::new());
+    for _ in 0..32 {
+        let (counters, start) = (Arc::clone(counters), Arc::clone(&start));
+        bumping.spawn(async move {
+            start.wait().await;
+            counters.bump("same").await
+        });
+    }
+    bumping.join_all().await.into_iter().map(Option::unwrap).collect()
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 8)]
+async fn one_new_key_bumped_at_once_by_many_tasks_gets_one_count() {
+    // The race is between tasks taking one free slot, so it is run on many fresh tables.
+    for _ in 0..100 {
+        let counters = Arc::new(Counters::new());
+        assert_eq!(bumped_at_once(&counters).await, (1..=32).collect(), "each attempt has its own number");
+        assert_eq!(counters.bump("same").await, Some(33), "in one slot");
+    }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 8)]
+async fn concurrent_requests_for_one_key_count_each_attempt_once() {
+    let app = router();
+    let mut requests = JoinSet::new();
+    for _ in 0..32 {
+        let app = app.clone();
+        requests.spawn(async move { send(&app, Method::GET, "/flaky?key=race", "").await.1["attempt"].as_u64() });
+    }
+    let attempts: BTreeSet<u64> = requests.join_all().await.into_iter().map(Option::unwrap).collect();
+    assert_eq!(attempts, (1..=32).collect());
+}
+
+#[tokio::test]
+async fn poll_is_pending_until_the_attempt_it_is_done_after() {
+    let app = router();
+    for (n, status) in [(1, "pending"), (2, "pending"), (3, "done"), (4, "done")] {
+        let polled = send(&app, Method::GET, "/poll/job?after=3", "").await;
+        assert_eq!(polled, (StatusCode::OK, json!({"status": status, "attempt": n})));
+    }
+    assert_eq!(send(&app, Method::GET, "/poll/other", "").await.1, json!({"status": "done", "attempt": 1}));
+    let bad = send(&app, Method::GET, "/poll/job?after=later", "").await;
+    assert_eq!(bad, (StatusCode::BAD_REQUEST, json!({"error": "`after` is a whole number"})));
+}
+
+#[tokio::test]
+async fn status_answers_any_code_from_200_to_599_by_any_method() {
+    let app = router();
+    for (method, code) in [(Method::GET, 200), (Method::POST, 201), (Method::DELETE, 418), (Method::PUT, 599)] {
+        let status = StatusCode::from_u16(code).unwrap();
+        assert_eq!(send(&app, method, &format!("/status/{code}"), "").await, (status, json!({"status": code})));
+    }
+    let refused = (StatusCode::BAD_REQUEST, json!({"error": "the status is a number from 200 to 599"}));
+    for bad in ["199", "600", "100", "70000", "-1", "ok"] {
+        assert_eq!(send(&app, Method::GET, &format!("/status/{bad}"), "").await, refused, "{bad}");
+    }
 }
