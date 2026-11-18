@@ -17,6 +17,8 @@ pub trait ProtocolRules {
     fn body(&self, source: &Source<'_>, api: &Node) -> BodySpec;
     /// The path the api sends to; `None` when it has none (V1005 reports it).
     fn path(&self, source: &Source<'_>, api: &Node) -> Option<Template>;
+    /// The keys of the api's `body` that are templates; `None` when all of it is.
+    fn templated_body_keys(&self) -> Option<&'static [&'static str]>;
 }
 
 /// `http`: the api's own `method`, else GET, and its own `body` and `path`.
@@ -37,6 +39,10 @@ impl ProtocolRules for HttpRules {
 
     fn path(&self, source: &Source<'_>, api: &Node) -> Option<Template> {
         api.get("path").and_then(|path| read::template(source, path))
+    }
+
+    fn templated_body_keys(&self) -> Option<&'static [&'static str]> {
+        None
     }
 }
 

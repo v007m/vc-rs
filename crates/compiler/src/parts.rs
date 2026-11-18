@@ -10,12 +10,13 @@ use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use vc_diagnostics::{Code, Diagnostic, Diagnostics};
 use vc_model::{
-    CelProgram, CelSource, Duration, Matcher, Namespace, Part, Protocol, Reference, ScalarSource, ScalarStyle, Size,
-    SourceSpan, StringTable, Sym, Template, TemplateValue,
+    CelProgram, CelSource, Duration, Matcher, Namespace, Part, Reference, ScalarSource, ScalarStyle, Size, SourceSpan,
+    StringTable, Sym, Template, TemplateValue,
 };
 use vc_parser::{Node, Value};
 use vc_template::{CelCompiler, PipeRegistry, ROW_HELP, ROW_ROOTS, Roots, TemplateError, ValueType};
 
+use crate::link::ProtocolRulesRegistry;
 use crate::shape_check;
 use crate::shape_check::{Leaf, LeafTy, Walk};
 use crate::shapes::Scope;
@@ -42,12 +43,22 @@ pub enum Piece {
 pub struct Tools {
     cel: CelCompiler,
     pipes: PipeRegistry,
+    rules: ProtocolRulesRegistry,
 }
 
 impl Tools {
-    /// The CEL compiler and the built-in pipes.
+    /// The CEL compiler, the built-in pipes and the compile rules of every api type.
     pub fn new() -> Self {
-        Self { cel: CelCompiler::new(), pipes: PipeRegistry::builtin() }
+        Self { cel: CelCompiler::new(), pipes: PipeRegistry::builtin(), rules: ProtocolRulesRegistry::builtin() }
+    }
+
+    /// What of `node`, the leaf at `path`, compiles: of an api's `body`, the parts its type's
+    /// rules name as templates; of anything else, all of it.
+    fn lowered<'n>(&self, root: &'n Node, (path, node): (&[usize], &'n Node)) -> Vec<&'n Node> {
+        let Some(api) = body_owner(root, path) else { return vec![node] };
+        let Ok(rules) = self.rules.get(crate::link::protocol(root, api)) else { return vec![node] };
+        let Some(keys) = rules.templated_body_keys() else { return vec![node] };
+        keys.iter().filter_map(|key| node.get(key)).collect()
     }
 }
 
@@ -83,34 +94,38 @@ impl At<'_> {
 
 /// Compiles every leaf of `walk` under `root`.
 pub fn compile(root: &Node, walk: &Walk, cx: &mut Cx<'_>) -> IndexMap<SourceSpan, Piece> {
+    let tools = cx.tools;
     let mut pieces = IndexMap::new();
     for leaf in &walk.leaves {
-        let Some(node) = shape_check::at(root, &leaf.path).and_then(|node| lowered(root, &leaf.path, node)) else {
-            continue;
-        };
-        let at = At { node, scope: leaf.scope };
-        let timeout = leaf.ty == LeafTy::Duration && is_timeout(root, &leaf.path);
-        if let Some(piece) = if timeout { unit(cx, at, &TIMEOUT) } else { piece(cx, at, leaf) } {
-            if let (Piece::Matcher(matcher), Some(key)) = (&piece, list_key(root, leaf)) {
-                matchers::on_list(cx, matcher, key);
+        let Some(node) = shape_check::at(root, &leaf.path) else { continue };
+        for node in tools.lowered(root, (&leaf.path, node)) {
+            if let Some(piece) = lower(cx, (root, leaf), node) {
+                pieces.insert(node.span, piece);
             }
-            pieces.insert(node.span, piece);
         }
     }
     pieces
 }
 
-/// What of `node` compiles: of a `graphql` api's `body`, only its `variables`, since the `query`
-/// is a document sent as written, never a template (D344); of anything else, all of it.
-fn lowered<'n>(root: &'n Node, path: &[usize], node: &'n Node) -> Option<&'n Node> {
-    let [apis, item, key] = path else { return Some(node) };
-    let Value::Map(entries) = &root.value else { return Some(node) };
-    let under = |at: &usize, key: &str| entries.get(*at).is_some_and(|entry| entry.key == key);
-    let Some(api) = shape_check::at(root, &[*apis, *item]) else { return Some(node) };
-    let Value::Map(fields) = &api.value else { return Some(node) };
-    let body = fields.get(*key).is_some_and(|entry| entry.key == "body");
-    let graphql = under(apis, "apis") && body && crate::link::protocol(root, api) == Protocol::Graphql;
-    if graphql { node.get("variables") } else { Some(node) }
+/// The piece `node`, a part of `leaf`, compiles to.
+fn lower(cx: &mut Cx<'_>, (root, leaf): (&Node, &Leaf), node: &Node) -> Option<Piece> {
+    let at = At { node, scope: leaf.scope };
+    let timeout = leaf.ty == LeafTy::Duration && is_timeout(root, &leaf.path);
+    let piece = if timeout { unit(cx, at, &TIMEOUT) } else { piece(cx, at, leaf) }?;
+    if let (Piece::Matcher(matcher), Some(key)) = (&piece, list_key(root, leaf)) {
+        matchers::on_list(cx, matcher, key);
+    }
+    Some(piece)
+}
+
+/// The api whose `body` is the leaf at `path`, when it is one.
+fn body_owner<'n>(root: &'n Node, path: &[usize]) -> Option<&'n Node> {
+    let [apis, item, key] = path else { return None };
+    let Value::Map(entries) = &root.value else { return None };
+    entries.get(*apis).filter(|entry| entry.key == "apis")?;
+    let api = shape_check::at(root, &[*apis, *item])?;
+    let Value::Map(fields) = &api.value else { return None };
+    fields.get(*key).filter(|entry| entry.key == "body").map(|_| api)
 }
 
 /// The key a matcher leaf sits under when it holds `[*]`, so the matcher sees a list.
