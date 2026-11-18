@@ -2,7 +2,8 @@ use std::collections::HashSet;
 
 use vc_diagnostics::{Code, Diagnostic};
 use vc_model::{
-    ContentHash, FileKind, PROTOCOL_KEYS, Protocol, ProtocolKeys, SourceFile, SourceFileId, SourcePath, StringTable,
+    AllowedKeys, ContentHash, FileKind, PROTOCOL_KEYS, Protocol, ProtocolKeys, SourceFile, SourceFileId, SourcePath,
+    StringTable,
 };
 
 use super::Table;
@@ -42,11 +43,11 @@ tests:
 /// http with `method`, `size` and `poll` taken away, as a type that restricts keys would.
 const RESTRICTED: [(Protocol, ProtocolKeys); 1] = [(
     Protocol::Http,
-    ProtocolKeys {
+    ProtocolKeys::Only(AllowedKeys {
         api: &["id", "name", "type", "path", "expect"],
         expect: &["status", "headers", "body"],
         call: &["vars", "expect", "save"],
-    },
+    }),
 )];
 
 fn file(path: &str, text: &str) -> SourceFile {
@@ -127,15 +128,6 @@ fn a_key_the_type_does_not_allow_is_reported_with_a_fix_that_removes_it() {
     assert_eq!((&APIS[edit.range.clone()], edit.new_text.as_str()), ("    method: POST\n", ""));
     assert_eq!(found[2].message, "`poll` does not apply to a `http` api");
     assert_eq!(&TESTS[found[2].fixes[0].edits[0].range.clone()], "    poll:\n      until: ${response.status == 201}\n");
-}
-
-#[test]
-fn http_allows_exactly_the_keys_its_shapes_declare() {
-    let names = |shape: &shapes::Shape| shape.all_keys().map(|key| key.name).collect::<Vec<_>>();
-    let http = &PROTOCOL_KEYS[0].1;
-    assert_eq!(http.api, names(shapes::api()));
-    assert_eq!(http.expect, names(shapes::expect()));
-    assert_eq!(http.call, names(shapes::request()));
 }
 
 #[test]

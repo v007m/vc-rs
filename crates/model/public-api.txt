@@ -554,6 +554,18 @@ impl serde_core::ser::Serialize for vc_model::Protocol
 pub fn vc_model::Protocol::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
 impl<'de> serde_core::de::Deserialize<'de> for vc_model::Protocol
 pub fn vc_model::Protocol::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub enum vc_model::ProtocolKeys
+pub vc_model::ProtocolKeys::All
+pub vc_model::ProtocolKeys::Only(vc_model::AllowedKeys)
+impl core::clone::Clone for vc_model::ProtocolKeys
+pub fn vc_model::ProtocolKeys::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::ProtocolKeys
+impl core::cmp::PartialEq for vc_model::ProtocolKeys
+pub fn vc_model::ProtocolKeys::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::ProtocolKeys
+pub fn vc_model::ProtocolKeys::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for vc_model::ProtocolKeys
+impl core::marker::StructuralPartialEq for vc_model::ProtocolKeys
 pub enum vc_model::RedactRule
 pub vc_model::RedactRule::Cel(vc_model::CelProgram)
 pub vc_model::RedactRule::Function(vc_model::HookRef)
@@ -859,6 +871,19 @@ impl serde_core::ser::Serialize for vc_model::AllowFailure
 pub fn vc_model::AllowFailure::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
 impl<'de> serde_core::de::Deserialize<'de> for vc_model::AllowFailure
 pub fn vc_model::AllowFailure::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub struct vc_model::AllowedKeys
+pub vc_model::AllowedKeys::api: &'static [&'static str]
+pub vc_model::AllowedKeys::call: &'static [&'static str]
+pub vc_model::AllowedKeys::expect: &'static [&'static str]
+impl core::clone::Clone for vc_model::AllowedKeys
+pub fn vc_model::AllowedKeys::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::AllowedKeys
+impl core::cmp::PartialEq for vc_model::AllowedKeys
+pub fn vc_model::AllowedKeys::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::AllowedKeys
+pub fn vc_model::AllowedKeys::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for vc_model::AllowedKeys
+impl core::marker::StructuralPartialEq for vc_model::AllowedKeys
 pub struct vc_model::Api
 pub vc_model::Api::auth: vc_model::AuthRef
 pub vc_model::Api::body: vc_model::BodySpec
@@ -1967,19 +1992,6 @@ impl core::default::Default for vc_model::ProgramBuilder
 pub fn vc_model::ProgramBuilder::default() -> Self
 impl core::fmt::Debug for vc_model::ProgramBuilder
 pub fn vc_model::ProgramBuilder::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
-pub struct vc_model::ProtocolKeys
-pub vc_model::ProtocolKeys::api: &'static [&'static str]
-pub vc_model::ProtocolKeys::call: &'static [&'static str]
-pub vc_model::ProtocolKeys::expect: &'static [&'static str]
-impl core::clone::Clone for vc_model::ProtocolKeys
-pub fn vc_model::ProtocolKeys::clone(&self) -> Self
-impl core::cmp::Eq for vc_model::ProtocolKeys
-impl core::cmp::PartialEq for vc_model::ProtocolKeys
-pub fn vc_model::ProtocolKeys::eq(&self, &Self) -> bool
-impl core::fmt::Debug for vc_model::ProtocolKeys
-pub fn vc_model::ProtocolKeys::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
-impl core::marker::Copy for vc_model::ProtocolKeys
-impl core::marker::StructuralPartialEq for vc_model::ProtocolKeys
 pub struct vc_model::Reference
 pub vc_model::Reference::args: alloc::vec::Vec<serde_json::value::Value>
 pub vc_model::Reference::ns: vc_model::Namespace
@@ -2588,7 +2600,6 @@ pub fn vc_model::is_third_person(&str) -> bool
 pub fn vc_model::one_line(&str) -> alloc::borrow::Cow<'_, str>
 pub fn vc_model::part_pointer(&str, core::option::Option<usize>) -> alloc::string::String
 pub fn vc_model::printable(&str) -> alloc::borrow::Cow<'_, str>
-pub fn vc_model::protocol_keys(vc_model::Protocol) -> core::option::Option<&'static vc_model::ProtocolKeys>
 pub fn vc_model::resolve_path(&[&str], &str) -> core::option::Option<alloc::string::String>
 pub fn vc_model::schema_names(&str) -> vc_model::SchemaNames
 pub fn vc_model::secret_name(&str) -> alloc::string::String

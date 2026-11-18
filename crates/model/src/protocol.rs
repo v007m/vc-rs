@@ -36,16 +36,29 @@ impl Protocol {
     }
 }
 
-/// The keys an api of one type may set; any other key of the same place is V2213.
+/// The keys an api of one type may set.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_enums,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
+pub enum ProtocolKeys {
+    /// Every key its shapes declare, so no api of the type reports V2213.
+    All,
+    /// Only these; any other key of the same place is V2213.
+    Only(AllowedKeys),
+}
+
+/// The keys a type that restricts them allows, at each place they are written.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[expect(
     clippy::exhaustive_structs,
     reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
 )]
-pub struct ProtocolKeys {
+pub struct AllowedKeys {
     /// On the api item.
     pub api: &'static [&'static str],
-    /// In an `expect`, on the api or on a call that reaches it.
+    /// In an `expect` or a `poll.until`, on the api or on a call that reaches it.
     pub expect: &'static [&'static str],
     /// On a test or step that calls the api: the request and check keys.
     pub call: &'static [&'static str],
@@ -53,53 +66,24 @@ pub struct ProtocolKeys {
 
 /// Each type with the keys it allows (see the syntax reference, "Api types"). The compiler's
 /// V2213 comes from this one table.
-pub const PROTOCOL_KEYS: [(Protocol, ProtocolKeys); 1] = [(
-    Protocol::Http,
-    ProtocolKeys {
-        api: &[
-            "id",
-            "name",
-            "method",
-            "path",
-            "type",
-            "vars",
-            "query",
-            "headers",
-            "body",
-            "auth",
-            "timeout",
-            "http",
-            "expect",
-            "save",
-            "saveOn",
-            "cleanup",
-            "operationId",
-            "beforeRequest",
-            "afterResponse",
-            "deprecated",
-        ],
-        expect: &["status", "headers", "body", "size", "timing", "cel", "custom", "replace"],
-        call: &["vars", "auth", "headers", "query", "body", "expect", "save", "poll", "retry", "timeout"],
-    },
-)];
-
-/// The keys `protocol` allows; `None` for a type [`PROTOCOL_KEYS`] does not list.
-#[must_use]
-pub fn protocol_keys(protocol: Protocol) -> Option<&'static ProtocolKeys> {
-    PROTOCOL_KEYS.iter().find(|(listed, _)| *listed == protocol).map(|(_, keys)| keys)
-}
+pub const PROTOCOL_KEYS: [(Protocol, ProtocolKeys); 1] = [(Protocol::Http, ProtocolKeys::All)];
 
 #[cfg(test)]
 mod tests {
-    use super::{PROTOCOL_KEYS, Protocol, protocol_keys};
+    use super::{PROTOCOL_KEYS, Protocol, ProtocolKeys};
 
     #[test]
     fn every_type_reads_back_from_its_key_and_has_its_keys() {
         for protocol in Protocol::ALL {
             assert_eq!(Protocol::from_key(protocol.key()), Some(protocol));
-            assert!(protocol_keys(protocol).is_some(), "{protocol:?}");
         }
-        assert_eq!(PROTOCOL_KEYS.len(), Protocol::ALL.len());
+        let keyed: Vec<_> = PROTOCOL_KEYS.iter().map(|(protocol, _)| *protocol).collect();
+        assert_eq!(keyed, Protocol::ALL);
+    }
+
+    #[test]
+    fn http_allows_every_key() {
+        assert_eq!(PROTOCOL_KEYS[0], (Protocol::Http, ProtocolKeys::All));
     }
 
     #[test]

@@ -2,7 +2,7 @@
 //! apply to the api's type is V2213, on the api, in its `expect`, or on a call that reaches it.
 
 use vc_diagnostics::{Code, Diagnostic, Diagnostics, Fix, TextEdit};
-use vc_model::{FileKind, Protocol, ProtocolKeys};
+use vc_model::{AllowedKeys, FileKind, Protocol, ProtocolKeys};
 use vc_parser::{Entry, Node};
 
 use super::project;
@@ -40,8 +40,13 @@ pub fn check(project: &Project<'_>, table: &Table) -> Diagnostics {
     diagnostics
 }
 
-fn allowed(table: &Table, protocol: Protocol) -> Option<&ProtocolKeys> {
-    table.iter().find(|(listed, _)| *listed == protocol).map(|(_, keys)| keys)
+/// The keys `protocol` restricts itself to; `None` when it allows every key, or is not listed.
+fn allowed(table: &Table, protocol: Protocol) -> Option<&AllowedKeys> {
+    let (_, keys) = table.iter().find(|(listed, _)| *listed == protocol)?;
+    match keys {
+        ProtocolKeys::Only(keys) => Some(keys),
+        ProtocolKeys::All => None,
+    }
 }
 
 /// The tests and actions of `source` that `call` an api, each with that api's type.
@@ -56,7 +61,7 @@ fn calls<'n>(project: &Project<'n>, source: &Source<'n>) -> Vec<(&'n Node, Proto
 }
 
 /// V2213 for each key of `node`'s `expect` that `keys` does not allow.
-fn expect(source: &Source<'_>, (node, protocol): (&Node, Protocol), keys: &ProtocolKeys) -> Vec<Diagnostic> {
+fn expect(source: &Source<'_>, (node, protocol): (&Node, Protocol), keys: &AllowedKeys) -> Vec<Diagnostic> {
     let Some(checks) = node.get("expect") else { return Vec::new() };
     stray(source, (checks, protocol), &Place { shape: shapes::expect(), allowed: keys.expect })
 }
