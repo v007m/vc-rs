@@ -37,9 +37,9 @@ function toItem(id: string, title: string, description: string): Item | null {
   const href = `${base}/${id}/`;
   const code = title.match(/^(V\d{4})\s*[—-]\s*(.*)$/);
   if (code) return { term: code[1], kind, summary: code[2], href };
-  const isTerm = !/\s/.test(title.trim()) || /^vc\s/.test(title);
-  if (!isTerm) return null;
-  return { term: title, kind, summary: firstSentence(description), href };
+  const key = title.match(/^`([^`]+)`$/);
+  if (!key) return null;
+  return { term: key[1], kind, summary: firstSentence(description), href };
 }
 
 const entries = await getCollection('docs');

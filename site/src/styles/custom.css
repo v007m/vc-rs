@@ -172,6 +172,12 @@ header.header::after {
   padding-block: 0.05em;
 }
 
+/* A key title's backticked spans (`CodeSpans`): code font in the H1, sidebar and prev/next links. */
+:is(.content-panel h1, .sidebar-content, .pagination-links) code {
+  font-family: var(--sl-font-mono);
+  font-size: 0.9em;
+}
+
 /* ---------- Code blocks ---------- */
 .sl-markdown-content .expressive-code:not(:where(.not-content *)) {
   margin-block: 1.5rem;

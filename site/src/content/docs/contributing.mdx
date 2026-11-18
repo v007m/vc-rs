@@ -1,5 +1,5 @@
 ---
-title: Contributing
+title: "Contributing"
 description: Report a bug, ask for a feature, report a vulnerability, or set up the repo and send a pull request to Vibranium.
 ---
 
@@ -70,6 +70,8 @@ This site is [Astro Starlight](https://starlight.astro.build), in the repo's `si
 pnpm --filter site dev       # http://localhost:4321/vc-rs/, reloads as you edit
 pnpm --filter site build     # the static site, in site/dist/
 ```
+
+**Docs conventions.** A page about one YAML key, matcher, pipe, template root, auth type, config key or CLI command takes that key as its title, in backticks, exactly as users type it: ``title: "`beforeAll` and `afterAll`"``, ``"`call` action"``, ``"`vc load`"``. The page heading, sidebar and prev/next links show the backticked part in code font. Every other page takes a sentence-case title, such as `"Token cache and refresh"`. Write every `title:` and `sidebar.label` in double quotes, and keep URLs kebab-case (`from-reg-exp.mdx`).
 
 The [contributing guide](https://github.com/v007m/vc-rs/blob/master/CONTRIBUTING.md) has the rest: every `mise` task, the gates, how to add a kind, and how to build the playground and run the site's tests.
 
