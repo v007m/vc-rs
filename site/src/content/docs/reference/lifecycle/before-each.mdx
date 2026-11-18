@@ -84,7 +84,7 @@ afterEach:
   - command: ./scripts/reset-feature-flags.sh
 ```
 
-When a `beforeEach` or `before` action fails, the instance is **blocked**, not failed. Its `after`, `afterEach` and cleanups still run. Here, on the local lab server the [cleanups](/vc-rs/reference/lifecycle/cleanups/) examples use, `before` creates an item and then hits a 500:
+When a `beforeEach` or `before` action fails, the instance is **blocked**, not failed. Its `after`, `afterEach` and cleanups still run. Here, on the demo server through the `lab` api file the [cleanups](/vc-rs/reference/lifecycle/cleanups/) examples use, `before` creates an item and then hits a 500:
 
 ```yaml title="services/lab/blocked.test.yaml"
 tests:
@@ -99,13 +99,13 @@ tests:
 
 ```console
 $ vc run lab.blocked#failsInBefore
-⊘ lab.blocked#failsInBefore blocked                              31ms
+⊘ lab.blocked#failsInBefore blocked                               5ms
   error[V5101]: expect.status
-    --> services/lab/lab.api.yaml:23:5
+    --> services/lab/lab.api.yaml:25:5
      |
-  23 |   - id: status
+  25 |   - id: status
      |     ^^^^^^^^^^
-  24 |     path: /status/${var.code}
+  26 |     path: /status/${var.code}
      |     ^^^^^^^^^^^^^^^^^^^^^^^^^ expected ["2xx"], got 500
      = note: expected by api lab#status
 ```
@@ -113,9 +113,9 @@ $ vc run lab.blocked#failsInBefore
 The server log shows the item's cleanup still ran:
 
 ```console
-POST /items body={"label":"item"}
+POST /users body={"email":"lab@example.com","name":"item"}
 GET /status/500
-DELETE /items/i4
+DELETE /users/13
 ```
 
 <Playground client:visible kind="test" code={`beforeEach:

@@ -13,9 +13,13 @@ An api that creates something declares how to remove it with `cleanup`. Every su
 apis:
   - id: createItem
     method: POST
-    path: /items
+    path: /users
+    vars:
+      label: item
+      email: lab@example.com
     body:
-      label: ${var.label}
+      name: ${var.label}
+      email: ${var.email}
     expect:
       status: 201
     save:
@@ -27,7 +31,7 @@ apis:
 
   - id: deleteItem
     method: DELETE
-    path: /items/${var.itemId}
+    path: /users/${var.itemId}
 ```
 
 ## Syntax
@@ -41,7 +45,7 @@ apis:
 
 ## Examples
 
-The examples call a local lab server, a stand-in for a test server of your own.
+The examples call the demo server (`vc demo start`) through a small api file, `lab`. `lab#createItem` creates a user, `lab#status` is a `GET /status/${var.code}` that answers with that status, and `lab#slow` is a `GET /slow?ms=${var.ms}` that waits that many milliseconds.
 
 Cleanups run newest first. This test makes three items and keeps the last one:
 
@@ -64,11 +68,11 @@ tests:
 The server saw `second` deleted before `first`, and `kept` left alone:
 
 ```console
-POST /items body={"label":"first"}     → i13
-POST /items body={"label":"second"}    → i14
-POST /items body={"label":"kept"}      → i15
-DELETE /items/i14
-DELETE /items/i13
+POST /users body={"email":"lab@example.com","name":"first"}     → 7
+POST /users body={"email":"lab@example.com","name":"second"}    → 8
+POST /users body={"email":"lab@example.com","name":"kept"}      → 9
+DELETE /users/8
+DELETE /users/7
 ```
 
 A failed test still cleans up. Here the second step gets a 500:
@@ -83,12 +87,12 @@ A failed test still cleans up. Here the second step gets a 500:
 ```
 
 ```console
-POST /items body={"label":"item"}
+POST /users body={"email":"lab@example.com","name":"item"}
 GET /status/500
-DELETE /items/i3
+DELETE /users/6
 ```
 
-Ctrl-C cancels the run, and the cleanups still run before vc exits with code 130. This test makes an item, then calls the [timeout](/vc-rs/reference/lifecycle/timeout/) page's slow endpoint:
+Ctrl-C cancels the run, and the cleanups still run before vc exits with code 130. This test makes an item, then calls `lab#slow`, which waits ten seconds:
 
 ```yaml
   - id: cleansUpOnCtrlC
@@ -96,7 +100,7 @@ Ctrl-C cancels the run, and the cleanups still run before vc exits with code 130
       - call: lab#createItem
       - call: lab#slow
         vars:
-          seconds: 10
+          ms: 10000
 ```
 
 ```console
@@ -104,16 +108,16 @@ $ vc run lab.cleanup#cleansUpOnCtrlC
 plan  1 test in 1 file · profile default
 
 ^C
-- lab.cleanup#cleansUpOnCtrlC skipped: cancelled                 6.7s
+- lab.cleanup#cleansUpOnCtrlC skipped: cancelled                 7.4s
 
-0 passed · 1 skipped · cancelled                             6.7s · profile default
+0 passed · 1 skipped · cancelled                             7.4s · profile default
 reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
 ```
 
 ```console
-POST /items body={"label":"item"}
-GET /slow?seconds=10
-DELETE /items/i6
+POST /users body={"email":"lab@example.com","name":"item"}
+GET /slow?ms=10000
+DELETE /users/10
 ```
 
 A second Ctrl-C ends the grace period, and the cleanups still run. A third stops them: vc lists the cleanups that did not finish, the one it stopped first (its request may already have reached the server), then the rest, newest first.
@@ -122,14 +126,15 @@ A second Ctrl-C ends the grace period, and the cleanups still run. A third stops
 
 ```console
 $ vc call lab#createItem --var label=adhoc
-201 Created · 23 ms · api expect passed
+201 Created · 2 ms · api expect passed
 {
-  "id": "i7",
-  "label": "adhoc"
+  "email": "lab@example.com",
+  "id": "11",
+  "name": "adhoc"
 }
 ```
 
-The server saw `POST /items` and then `DELETE /items/i7`. With `vc call lab#createItem --keep`, no `DELETE` is sent.
+The server saw `POST /users` and then `DELETE /users/11`. With `vc call lab#createItem --keep`, no `DELETE` is sent.
 
 A cleanup that fails is a warning. The test keeps its result:
 
@@ -139,14 +144,18 @@ A cleanup that fails is a warning. The test keeps its result:
 ```
 
 <Playground client:visible kind="api" code={`id: lab
-name: Local lab server
-baseUrl: \${var.labUrl}
+name: Demo server
+baseUrl: \${var.sampleUrl}
 apis:
   - id: createItem
     method: POST
-    path: /items
+    path: /users
+    vars:
+      label: item
+      email: lab@example.com
     body:
-      label: \${var.label}
+      name: \${var.label}
+      email: \${var.email}
     expect:
       status: 201
     save:
@@ -157,7 +166,7 @@ apis:
         itemId: \${response.body.id}
   - id: deleteItem
     method: DELETE
-    path: /items/\${var.itemId}
+    path: /users/\${var.itemId}
 `} />
 
 ## How it behaves

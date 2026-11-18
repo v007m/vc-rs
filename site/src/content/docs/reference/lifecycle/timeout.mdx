@@ -28,14 +28,14 @@ A duration is a number and a unit: `500ms`, `5s`, `2m`.
 
 ## Examples
 
-Limit one call. `lab#slow` is a `GET /slow` on a local lab server that waits `seconds` before it answers:
+Limit one call. `lab#slow` is a `GET /slow` on the demo server (`vc demo start`) that waits `ms` milliseconds before it answers:
 
 ```yaml title="services/lab/lab.api.yaml (excerpt)"
 apis:
   - id: slow
     path: /slow
     query:
-      seconds: ${var.seconds}
+      ms: ${var.ms}
 ```
 
 ```yaml
@@ -43,7 +43,7 @@ steps:
   - call: lab#slow
     timeout: 500ms
     vars:
-      seconds: 2
+      ms: 2000
 ```
 
 ```console
@@ -66,12 +66,12 @@ before:
      = at: command
 ```
 
-Limit a reused flow as a whole:
+Limit a reused flow as a whole. Here `lab.slowreuse#slowFlow` is a test whose one step calls `lab#slow` with `ms: 2000`:
 
 ```yaml
 before:
-  - test: lab.loops#makesThreeItems
-    timeout: 5s
+  - test: lab.slowreuse#slowFlow
+    timeout: 1s
 ```
 
 ```console
@@ -95,7 +95,7 @@ A function past its budget:
       - call: lab#slow
         timeout: 500ms
         vars:
-          seconds: 2
+          ms: 2000
 `} />
 
 ## How it behaves

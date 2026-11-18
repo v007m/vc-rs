@@ -9,21 +9,25 @@ import Playground from '~/components/Playground.svelte';
 
 `repeat` and `forEach` run one action several times without writing it several times. They work on every kind: `call`, `test`, `function` and `command`. `parallel` lets iterations overlap. Each name the action saves becomes a list, in iteration order.
 
-The examples call a local lab server. `lab#createItem` is a `POST /items` that answers 201 and saves `itemId`; `lab#whoami` is a `GET /whoami`; `lab#status` is a `GET /status/${var.code}` that answers with that status:
+The examples call the demo server (`vc demo start`) through a small api file, `lab`. `lab#createItem` is a `POST /users` that answers 201 and saves the new user's ID as `itemId`; `lab#whoami` is a `GET /echo`, which sends the request back; `lab#status` is a `GET /status/${var.code}` that answers with that status:
 
 ```yaml title="services/lab/lab.api.yaml (excerpt)"
 apis:
   - id: createItem
     method: POST
-    path: /items
+    path: /users
+    vars:
+      label: item
+      email: lab@example.com
     body:
-      label: ${var.label}
+      name: ${var.label}
+      email: ${var.email}
     expect:
       status: 201
     save:
       itemId: ${response.body.id}
   - id: whoami
-    path: /whoami
+    path: /echo
   - id: status
     path: /status/${var.code}
 ```
@@ -72,21 +76,21 @@ steps:
 ```
 
 ```console
-POST /items body={"label":"item-1-of-3"}
-POST /items body={"label":"item-2-of-3"}
-POST /items body={"label":"item-3-of-3"}
+POST /users body={"email":"lab@example.com","name":"item-1-of-3"}
+POST /users body={"email":"lab@example.com","name":"item-2-of-3"}
+POST /users body={"email":"lab@example.com","name":"item-3-of-3"}
 ```
 
-Run iterations in parallel. The saved list keeps iteration order even when responses arrive out of order. In this run, `green` was created first and got `i10`, yet the list still starts with `red`:
+Run iterations in parallel. The saved list keeps iteration order even when responses arrive out of order. In this run, `blue` was created first and got `19`, yet the list still starts with `red`:
 
 ```console
-POST /items body={"label":"red"}
-POST /items body={"label":"green"}
-POST /items body={"label":"blue"}
-GET /whoami?ids=i11&ids=i10&ids=i12&first=i11
-DELETE /items/i12
-DELETE /items/i11
-DELETE /items/i10
+POST /users body={"email":"lab@example.com","name":"green"}
+POST /users body={"email":"lab@example.com","name":"blue"}
+POST /users body={"email":"lab@example.com","name":"red"}
+GET /echo?ids=21&ids=20&ids=19&first=21
+DELETE /users/20
+DELETE /users/21
+DELETE /users/19
 ```
 
 Loop over a var or a data file. Here `sample#createUser` is the `vc init` sample's `POST /users`, which answers with the new user's `id` and `name`, and `sample#echo` is a `POST /echo` on the demo that sends the request back:
