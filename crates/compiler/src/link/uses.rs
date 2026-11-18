@@ -49,11 +49,12 @@ impl<'p, 'a> Checker<'p, 'a> {
 
     /// Checks every reference in `spot` against `scope`.
     pub fn check(&mut self, spot: &Spot<'_, '_>, scope: &Scope<'_>) {
-        let mut found = Vec::new();
-        for piece in spot.source.pieces(spot.span, spot.holes) {
-            piece_refs(piece, &mut found);
-        }
-        for reference in found {
+        self.check_refs(spot, &spot_refs(spot), scope);
+    }
+
+    /// Checks `found`, the references [`spot_refs`] gave for `spot`, against `scope`.
+    pub fn check_refs(&mut self, spot: &Spot<'_, '_>, found: &[&Reference], scope: &Scope<'_>) {
+        for &reference in found {
             let diagnostic = match reference.ns {
                 Namespace::Var => self.var(spot, reference, scope),
                 Namespace::Step(id) => self.step((spot.source, reference), id, scope),
@@ -112,7 +113,10 @@ impl<'p, 'a> Checker<'p, 'a> {
         if !missing.is_empty() {
             return (!self.takes_missing(reference)).then(|| self.unset(spot, (reference, name), (&missing, scope)));
         }
-        let ty = scope.ty(name).filter(|_| reference.path.segments.len() == 1 && !reference.pipes.is_empty())?;
+        if reference.path.segments.len() != 1 || reference.pipes.is_empty() {
+            return None;
+        }
+        let ty = scope.ty(name)?;
         let problem = self.pipes.check_chain(&reference.pipes, ty).err()?;
         (problem.code == Code::V2304).then_some(*problem)
     }
@@ -200,6 +204,15 @@ pub fn references<'a>(source: &Source<'a>, ns: Namespace) -> Vec<&'a Reference> 
     pieces.for_each(|piece| piece_refs(piece, &mut found));
     let mut seen = HashSet::new();
     found.retain(|reference| reference.ns == ns && seen.insert(reference.span));
+    found
+}
+
+/// Every reference in the pieces of `spot`, in order.
+pub fn spot_refs<'a>(spot: &Spot<'_, 'a>) -> Vec<&'a Reference> {
+    let mut found = Vec::new();
+    for piece in spot.source.pieces(spot.span, spot.holes) {
+        piece_refs(piece, &mut found);
+    }
     found
 }
 
