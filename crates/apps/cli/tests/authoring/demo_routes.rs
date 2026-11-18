@@ -40,7 +40,9 @@ impl Demo {
         let project = Project::new(&[APIS]);
         let base = CONFIG.1.replace("http://x", &format!("http://127.0.0.1:{}", self.port));
         project.write(CONFIG.0, &format!("{base}{config}"));
-        files.iter().for_each(|(path, text)| project.write(path, text));
+        for (path, text) in files {
+            project.write(path, text);
+        }
         project
     }
 }

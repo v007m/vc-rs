@@ -23,7 +23,7 @@ fn get(port: u16, path: &str) -> Option<String> {
 
 /// Polls until the demo on `port` answers (or stops answering, for `up == false`), for up to
 /// 10 s.
-pub(crate) fn wait_until(port: u16, up: bool) -> bool {
+pub fn wait_until(port: u16, up: bool) -> bool {
     let deadline = Instant::now() + Duration::from_secs(10);
     while Instant::now() < deadline {
         if get(port, "/users").is_some() == up {
@@ -37,7 +37,7 @@ pub(crate) fn wait_until(port: u16, up: bool) -> bool {
 /// The exit code of `vc <args>` run with no pipes, or `None` when it runs past 20 s (then it is
 /// killed). On Windows a detached demo inherits `vc`'s handles, so a pipe the test read `vc`'s
 /// output from would stay open until `stop`, and reading it to the end would never finish.
-pub(crate) fn exit_code(project: &Project, args: &[&str]) -> Option<i32> {
+pub fn exit_code(project: &Project, args: &[&str]) -> Option<i32> {
     waited(launched(project.process(args))?)
 }
 
