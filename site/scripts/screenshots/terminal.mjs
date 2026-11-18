@@ -38,7 +38,10 @@ export function openTerminal({ argv, cwd, env = process.env, cols = 120, rows = 
   });
   const term = new Terminal({ cols, rows, allowProposedApi: true, scrollback: 0 });
   let lastOutput = Date.now();
+  // The whole output, kept only when it is rewritten; otherwise just enough to find DONE split across chunks.
   let raw = '';
+  let tail = '';
+  let done = false;
   let finish;
   const exited = new Promise((resolve) => (finish = resolve));
   // The terminal answers the program's queries (cursor position, colours) on its stdin.
@@ -46,9 +49,13 @@ export function openTerminal({ argv, cwd, env = process.env, cols = 120, rows = 
   child.stdout.setEncoding('utf8');
   child.stdout.on('data', (chunk) => {
     lastOutput = Date.now();
-    raw += chunk;
-    if (!rewrite) term.write(chunk);
-    if (!raw.includes(DONE)) return;
+    if (done) return;
+    if (rewrite) raw += chunk;
+    else term.write(chunk);
+    const recent = tail + chunk;
+    tail = recent.slice(-DONE.length);
+    if (!recent.includes(DONE)) return;
+    done = true;
     if (rewrite) term.write(rewrite(raw.slice(0, raw.indexOf(DONE))), finish);
     else term.write('', finish);
   });

@@ -1,6 +1,6 @@
 // The terminal pictures: `vc run` as it prints, and the TUI's five tabs.
 import { realpathSync } from 'node:fs';
-import { TERMINAL_THEMES, openTerminal, renderHtml, sleep, snapshot, trimBottom } from './terminal.mjs';
+import { TERMINAL_THEMES, openTerminal, renderHtml, screenText, sleep, snapshot, trimBottom } from './terminal.mjs';
 import { hash } from './history.mjs';
 import { vcEnv } from './project.mjs';
 
@@ -62,8 +62,11 @@ export async function consoleRun({ vcBin, project }) {
   };
   const terminal = openTerminal({ argv: [vcBin, 'run', '--seed', '42'], cwd: project, env: vcEnv(), cols: 104, rows: 60, rewrite });
   await terminal.exited;
+  const text = screenText(terminal.term);
   const rows = trimBottom(snapshot(terminal.term));
   await terminal.close();
+  // The terminal keeps no scrollback, so output taller than it would lose its first lines.
+  if (!text.startsWith('plan ')) throw new Error(`\`vc run\` no longer fits in its terminal; raise its rows:\n${text}`);
   return rows;
 }
 
@@ -143,7 +146,7 @@ export async function tuiSessions({ vcBin, project, fixHistory, specUrl }) {
     await terminal.waitFor('stored runs');
     await select(terminal, '#3 ');
     terminal.send('\r');
-    await terminal.waitFor(/#3 .*#2|compared|than #/, { quietMs: 600 }).catch(() => {});
+    await terminal.waitFor('Compare #2 → #3', { quietMs: 600 });
     screens.history = shot(terminal);
 
     console.log('  tui: help');

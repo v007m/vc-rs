@@ -121,6 +121,16 @@ function fixSnapshot(db, runId, startedAt, length) {
   db.prepare('UPDATE snapshots SET data = ? WHERE run_id = ?').run(data, runId);
 }
 
+/** The project's stored runs, oldest first: each one's number and kind (`run` or `load`). */
+export function storedRuns(project) {
+  const db = new DatabaseSync(join(project, '.vibranium/history.db'), { readOnly: true });
+  try {
+    return db.prepare('SELECT id, kind FROM runs ORDER BY id').all().map(({ id, kind }) => ({ id, kind }));
+  } finally {
+    db.close();
+  }
+}
+
 /** Rewrites the project's stored runs so the same steps give the same history. */
 export function fixHistory(project) {
   const db = new DatabaseSync(join(project, '.vibranium/history.db'));

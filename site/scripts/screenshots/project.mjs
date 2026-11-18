@@ -1,7 +1,7 @@
 // The scratch project the screenshots are taken in: the walkthrough examples plus a few tests that
 // fail, block, retry and skip, run against `vc demo`.
 import { execFileSync } from 'node:child_process';
-import { cpSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdtempSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { sleep } from './terminal.mjs';
@@ -17,14 +17,14 @@ export function vcEnv() {
 }
 
 /**
- * Copies the walkthrough project and the fixture to a fixed folder outside the site (a `.vibranium`
- * folder inside `site/src/examples` would break the playground tests), points it at the demo's port,
- * runs one test at a time and commits it with a fixed date, so the commit hash is the same each time.
+ * Copies the walkthrough project and the fixture to a new temporary folder outside the site (a
+ * `.vibranium` folder inside `site/src/examples` would break the playground tests), points it at the
+ * demo's port, runs one test at a time and commits it with a fixed date, so the commit hash is the
+ * same each time. The caller deletes `root` when done.
  */
 export function createProject({ examples, fixture }) {
-  const root = join(tmpdir(), 'vc-screenshots');
+  const root = mkdtempSync(join(tmpdir(), 'vc-screenshots-'));
   const project = join(root, 'shop');
-  rmSync(root, { recursive: true, force: true });
   cpSync(examples, project, { recursive: true, filter: (source) => !source.includes('.vibranium') });
   cpSync(fixture, project, { recursive: true });
   for (const file of yamlFiles(project)) {
@@ -95,12 +95,12 @@ export async function startDemo(vcBin) {
   };
 }
 
-/** Runs `vc` in the project and returns its output; a failing run is expected. */
+/** Runs `vc` in the project and returns its output; a run whose tests fail (exit 1) is expected. */
 export function vc(vcBin, project, args) {
   try {
     return execFileSync(vcBin, args, { cwd: project, env: vcEnv(), encoding: 'utf8' });
   } catch (error) {
-    if (typeof error.status !== 'number' || error.status > 4) throw error;
+    if (error.status !== 1) throw error;
     return error.stdout;
   }
 }

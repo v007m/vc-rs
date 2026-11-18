@@ -3,6 +3,7 @@
 import { spawn } from 'node:child_process';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { storedRuns } from './history.mjs';
 import { FIRST_RUN_AT, vc, vcEnv } from './project.mjs';
 
 const THEMES = ['light', 'dark'];
@@ -37,6 +38,9 @@ async function bothThemes(page, save, area, name, prepare = async () => {}, clip
 /** The single-file report of the last test run: its summary, then a failing test opened. */
 export async function captureReport({ browser, save }, { vcBin, project, root }) {
   const out = join(root, 'report');
+  // Runs 1 to 3 are test runs and 4 is the load run; anything else means a step went missing.
+  const runs = storedRuns(project).map(({ id, kind }) => `${id}:${kind}`).join(' ');
+  if (runs !== '1:run 2:run 3:run 4:load') throw new Error(`expected runs 1:run 2:run 3:run 4:load, found ${runs}`);
   vc(vcBin, project, ['report', '3', '--single-file', '--out', out]);
   const page = await newPage(browser);
   try {
