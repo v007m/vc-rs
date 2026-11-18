@@ -15,6 +15,8 @@ path = "src/main.rs"
 [dependencies]
 axum.workspace = true
 serde_json.workspace = true
+# `/slow`'s timer: on WASI the playground's runtime waits on the page's clock.
+tokio.workspace = true
 
 # The binary serves on a socket; the playground's WebAssembly build calls the router in process.
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
@@ -23,6 +25,7 @@ clap.workspace = true
 tokio = { workspace = true, features = ["net", "rt-multi-thread"] }
 
 [dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "test-util"] }
 tower.workspace = true
 
 [lints]

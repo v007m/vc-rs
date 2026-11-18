@@ -1,5 +1,6 @@
 //! The demo's canned routes: `/users` (list, create, read, remove) and `ANY /echo`. Nothing is
-//! stored; a created user gets the next ID, can be read back by it, and needs an email.
+//! stored; a created user gets the next ID, can be read back by it, and needs an email. The test
+//! routes are in [`crate::scripted`].
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -13,6 +14,8 @@ use axum::response::{IntoResponse, Response};
 use axum::routing::{any, get};
 use axum::{Json, Router};
 use serde_json::{Value, json};
+
+use crate::scripted;
 
 /// The largest body `/echo` reads.
 const BODY_LIMIT: usize = 1024 * 1024;
@@ -32,6 +35,7 @@ pub fn router() -> Router {
         .route("/users/{id}", get(read).delete(remove))
         .route("/echo", any(echo))
         .with_state(next)
+        .merge(scripted::routes())
 }
 
 fn users() -> Value {

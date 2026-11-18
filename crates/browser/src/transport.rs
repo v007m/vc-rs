@@ -106,6 +106,8 @@ impl Transport for InProcessTransport {
         let mut headers = parts.headers;
         if sized(parts.status) {
             headers.entry(CONTENT_LENGTH).or_insert(HeaderValue::from(body.len()));
+        } else {
+            headers.remove(CONTENT_LENGTH);
         }
         let wire_size = u64::try_from(body.len()).unwrap_or(u64::MAX);
         let response = HttpResponse { status: parts.status, headers, body, wire_size };
@@ -113,7 +115,8 @@ impl Transport for InProcessTransport {
     }
 }
 
-/// Whether a server sends `content-length` with this status, as hyper's does.
+/// Whether a server sends `content-length` with this status, as hyper's does: never for 1xx, 204
+/// or 304, though the router sets one; 205 gets `0`.
 fn sized(status: StatusCode) -> bool {
     !(status.is_informational() || status == StatusCode::NO_CONTENT || status == StatusCode::NOT_MODIFIED)
 }
@@ -129,9 +132,6 @@ fn body_error(error: axum::Error, limit: Size) -> TransportError {
 
 #[cfg(test)]
 mod tests {
-    use axum::Router;
-    use axum::extract::Path;
-    use axum::routing::get;
     use http::{Method, StatusCode, Uri};
     use vc_interfaces::{SendContext, Transport, TransportError};
     use vc_model::RenderedRequest;
@@ -139,17 +139,23 @@ mod tests {
 
     use super::{DEMO_HOSTS, InProcessTransport};
 
-    /// The demo service with the `/status/{code}` route the transport suite calls.
-    fn suite_router() -> Router {
-        let status =
-            |Path(code): Path<u16>| async move { StatusCode::from_u16(code).unwrap_or(StatusCode::BAD_REQUEST) };
-        vc_demo::router().route("/status/{code}", get(status))
+    #[tokio::test]
+    async fn the_demo_in_process_meets_the_transport_contract() {
+        let transport = InProcessTransport::new(vc_demo::router(), DEMO_HOSTS);
+        transport_suite(&transport, "http://localhost:7421").await;
     }
 
     #[tokio::test]
-    async fn the_demo_in_process_meets_the_transport_contract() {
-        let transport = InProcessTransport::new(suite_router(), DEMO_HOSTS);
-        transport_suite(&transport, "http://localhost:7421").await;
+    async fn statuses_without_a_body_answer_as_over_a_socket() {
+        for (code, length) in [(204, None), (205, Some("0")), (304, None)] {
+            let uri = format!("http://localhost:7421/status/{code}");
+            let request = RenderedRequest::new(Method::GET, Uri::try_from(uri).unwrap());
+            let exchange = InProcessTransport::demo().send(request, &SendContext::default()).await.unwrap();
+            assert_eq!(exchange.response.status.as_u16(), code);
+            let sent = exchange.response.headers.get(http::header::CONTENT_LENGTH);
+            assert_eq!(sent.map(|value| value.to_str().unwrap()), length, "{code}");
+            assert!(exchange.response.body.is_empty(), "{code}");
+        }
     }
 
     #[tokio::test]
