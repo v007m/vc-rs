@@ -36,7 +36,10 @@ apis:
     path: /users/${var.itemId}
   - id: whoami
     path: /echo
+  # …
 ```
+
+`# …` marks the apis this page leaves out. The whole file is at the top of [Cleanups](/vc-rs/reference/lifecycle/cleanups/).
 
 ```yaml title="services/demo/reuse.test.yaml"
 tests:
@@ -89,7 +92,7 @@ DELETE /users/7
 
 Reuse a multi-step flow with a time budget for all of its calls:
 
-```yaml
+```yaml title="services/demo/flow.test.yaml"
 tests:
   - id: makesThreeItems
     standalone: false
@@ -101,7 +104,7 @@ tests:
 
   - id: reusesTheFlow
     before:
-      - test: demo.loops#makesThreeItems
+      - test: demo.flow#makesThreeItems
         timeout: 5s
     call: demo#whoami
     query:

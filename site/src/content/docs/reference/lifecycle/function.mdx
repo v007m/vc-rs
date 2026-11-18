@@ -14,9 +14,13 @@ The test then calls `demo#whoami`, a `GET /echo` on the demo server (`vc demo st
 ```yaml title="services/demo/demo.api.yaml (excerpt)"
 baseUrl: ${var.sampleUrl}
 apis:
+  # …
   - id: whoami
     path: /echo
+  # …
 ```
+
+`# …` marks the apis this page leaves out. The whole file is at the top of [Cleanups](/vc-rs/reference/lifecycle/cleanups/).
 
 ```yaml title="services/demo/actions.test.yaml"
 tests:

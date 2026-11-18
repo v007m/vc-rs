@@ -407,7 +407,7 @@ Real APIs are not always instant or reliable. A report takes a few seconds to bu
    next     vc run --failed
    ```
 
-   Why 1.2 s? `http.retry` lists `timeout` in `on`, so the 600 ms call was tried three times, 300 ms each, with backoff in between. Each attempt gets the full timeout. The test-level timeout is not a request timeout, so `finishesReportInTime` was sent only once: the demo got five requests to `/slow` in all.
+   Why 1.2 s? The first step took 100 ms. `http.retry` lists `timeout` in `on`, so the 600 ms call was tried three times, 300 ms each; each attempt gets the full timeout. Between tries the backoff waits 100 ms, then 200 ms, and `backoff.jitter`, on by default, draws each wait between half of it and all of it. So the test takes between 1.15 s and 1.3 s. The test-level timeout is not a request timeout, so `finishesReportInTime` was sent only once.
 
 </Steps>
 

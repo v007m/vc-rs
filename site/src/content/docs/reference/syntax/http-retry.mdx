@@ -127,7 +127,7 @@ seed 8386810112310141: pass `--seed 8386810112310141` to run with the same gener
 ```
 
 <Aside>
-The counts live in the demo, not in the run. A rerun with the same `--seed` sends keys the demo has already counted, so it does not fail the same way. To reproduce a run exactly, restart the demo first: `vc demo stop`, then `vc demo start`. `/flaky` and `/poll` each count at most 1024 keys, so a long-running demo that gets a new key on every call eventually answers new keys with 400; see [what the demo serves](/vc-rs/reference/cli/demo/#what-it-serves).
+The counts live in the demo, not in the run, and only `/flaky` and `/poll` keep them; `/status/503` answers 503 every time. A rerun with the same `--seed` sends `/flaky` keys the demo has already counted, so `noRetryByDefault` passes on its first request, while `postNotRetried` fails the same way. To reproduce a run exactly, restart the demo first: `vc demo stop`, then `vc demo start --detach`. `stop` ends the demo, and so clears its counts, only once no other project has joined it; see [Share a running demo](/vc-rs/reference/cli/demo/#share-a-running-demo). `/flaky` and `/poll` each count at most 1024 keys, so a long-running demo that gets a new key on every call eventually answers new keys with 400; see [what the demo serves](/vc-rs/reference/cli/demo/#what-it-serves).
 </Aside>
 
 ### POST is not retried unless you say so

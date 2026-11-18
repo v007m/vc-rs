@@ -33,11 +33,15 @@ Limit one call. `demo#slow` is a `GET /slow` on the demo server (`vc demo start`
 ```yaml title="services/demo/demo.api.yaml (excerpt)"
 baseUrl: ${var.sampleUrl}
 apis:
+  # …
   - id: slow
     path: /slow
     query:
       ms: ${var.ms}
+  # …
 ```
+
+`# …` marks the apis this page leaves out. The whole file is at the top of [Cleanups](/vc-rs/reference/lifecycle/cleanups/).
 
 ```yaml
 steps:

@@ -38,9 +38,11 @@ The examples call `sample#getUser` from the sample api file that [`vc init`](/vc
 ```yaml title="services/sample/sample.api.yaml (excerpt)"
 baseUrl: ${var.sampleUrl}
 apis:
+  # …
   - id: getUser
     name: Get a user
     path: /users/${var.userId}
+  # …
 ```
 
 ```console
@@ -55,18 +57,21 @@ $ vc call sample#getUser --var userId=1
 They also call `demo#job`, a `GET /poll/{id}?after=N` on the demo server (`vc demo start`). It always answers 200, with `"status": "pending"` until the `N`th request for that id and `"status": "done"` from then on; `"attempt"` counts the requests. The demo counts an id for as long as it runs, so each test draws a new one with `${fake.string.uuid}`. A poll resends the same request, so every attempt uses the same id.
 
 <Aside>
-The counts live in the demo, not in the run. A rerun with the same `--seed` sends ids the demo has already counted, so `waitsForJob` sees `done` at once and its `attempt: 4` check fails. To reproduce a run exactly, restart the demo first: `vc demo stop`, then `vc demo start`. `/flaky` and `/poll` each count at most 1024 keys, so a long-running demo that gets a new key on every call eventually answers new keys with 400; see [what the demo serves](/vc-rs/reference/cli/demo/#what-it-serves).
+The counts live in the demo, not in the run. A rerun with the same `--seed` sends ids the demo has already counted, so `waitsForJob` sees `done` at once and its `attempt: 4` check fails. To reproduce a run exactly, restart the demo first: `vc demo stop`, then `vc demo start --detach`. `stop` ends the demo, and so clears its counts, only once no other project has joined it; see [Share a running demo](/vc-rs/reference/cli/demo/#share-a-running-demo). `/flaky` and `/poll` each count at most 1024 keys, so a long-running demo that gets a new key on every call eventually answers new keys with 400; see [what the demo serves](/vc-rs/reference/cli/demo/#what-it-serves).
 </Aside>
 
 ```yaml title="services/demo/demo.api.yaml (excerpt)"
 baseUrl: ${var.sampleUrl}
 apis:
+  # …
   - id: job
     name: Read a job
     path: /poll/${var.jobId}
     query:
       after: "4"
 ```
+
+`# …` marks the apis this page leaves out. The whole file is at the top of [Cleanups](/vc-rs/reference/lifecycle/cleanups/).
 
 ### Wait for a job to finish
 

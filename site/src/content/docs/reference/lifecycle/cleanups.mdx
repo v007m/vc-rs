@@ -9,7 +9,9 @@ import Playground from '~/components/Playground.svelte';
 
 An api that creates something declares how to remove it with `cleanup`. Every successful call of that api registers the cleanup, and vc runs it when the test, file or run that made the call ends.
 
-```yaml title="services/demo/demo.api.yaml (excerpt)"
+The lifecycle pages call the demo server through one api file, `demo`, shown here in full. `demo#createItem` declares a cleanup that deletes the user it made:
+
+```yaml title="services/demo/demo.api.yaml"
 baseUrl: ${var.sampleUrl}
 apis:
   - id: createItem
@@ -32,12 +34,35 @@ apis:
   - id: deleteItem
     method: DELETE
     path: /users/${var.itemId}
+  - id: whoami
+    path: /echo
   - id: status
     path: /status/${var.code}
   - id: slow
     path: /slow
     query:
       ms: ${var.ms}
+  - id: makeBroken
+    method: POST
+    path: /echo
+    cleanup:
+      call: status
+      vars:
+        code: 500
+  - id: flaky
+    name: Fails, then passes
+    path: /flaky
+    vars:
+      flakyKey: flaky-${run.startedAt}
+      failTimes: "1"
+    query:
+      key: ${var.flakyKey}
+      failTimes: ${var.failTimes}
+  - id: job
+    name: Read a job
+    path: /poll/${var.jobId}
+    query:
+      after: "4"
 ```
 
 ## Syntax
@@ -51,7 +76,7 @@ apis:
 
 ## Examples
 
-The examples call the demo server (`vc demo start`) through a small api file, `demo`. `demo#createItem` creates a user, `demo#status` is a `GET /status/${var.code}` that answers with that status, and `demo#slow` is a `GET /slow?ms=${var.ms}` that waits that many milliseconds.
+The examples call the demo server (`vc demo start`) through the `demo` api file shown in full above. `demo#createItem` creates a user, `demo#status` is a `GET /status/${var.code}` that answers with that status, and `demo#slow` is a `GET /slow?ms=${var.ms}` that waits that many milliseconds.
 
 Cleanups run newest first. This test makes three items and keeps the last one:
 

@@ -86,7 +86,7 @@ afterEach:
 
 When a `beforeEach` or `before` action fails, the instance is **blocked**, not failed. Its `after`, `afterEach` and cleanups still run. Here, on the demo server through the `demo` api file the [cleanups](/vc-rs/reference/lifecycle/cleanups/) examples use, `before` creates an item and then hits a 500:
 
-```yaml title="services/demo/blocked.test.yaml"
+```yaml title="services/demo/setup.test.yaml"
 tests:
   - id: failsInBefore
     before:
@@ -98,8 +98,8 @@ tests:
 ```
 
 ```console
-$ vc run demo.blocked#failsInBefore
-⊘ demo.blocked#failsInBefore blocked                              5ms
+$ vc run demo.setup#failsInBefore
+⊘ demo.setup#failsInBefore blocked                                5ms
   error[V5101]: expect.status
     --> services/demo/demo.api.yaml:25:5
      |
