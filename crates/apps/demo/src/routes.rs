@@ -1,21 +1,18 @@
-//! The demo's canned routes: `/users` (list, create, read, remove) and `ANY /echo`. Nothing is
-//! stored; a created user gets the next ID, can be read back by it, and needs an email. The test
-//! routes are in [`crate::scripted`].
+//! The demo's router: `/users`, kept in [`crate::users`], and `ANY /echo` here; the test routes
+//! in [`crate::scripted`], sign-in in [`crate::auth`] and the users specs in [`crate::openapi`].
 
 use std::collections::BTreeMap;
-use std::sync::Arc;
-use std::sync::atomic::{AtomicU64, Ordering};
 
 use axum::body::{self, Body, Bytes};
-use axum::extract::{Path, Query, Request, State};
+use axum::extract::{Query, Request};
 use axum::http::StatusCode;
 use axum::http::request::Parts;
 use axum::response::{IntoResponse, Response};
-use axum::routing::{any, get};
+use axum::routing::any;
 use axum::{Json, Router};
 use serde_json::{Value, json};
 
-use crate::scripted;
+use crate::{auth, openapi, scripted, users};
 
 /// The largest body `/echo` reads.
 const BODY_LIMIT: usize = 1024 * 1024;
@@ -24,53 +21,14 @@ const BODY_LIMIT: usize = 1024 * 1024;
 /// one that answers.
 pub const PID_HEADER: &str = "x-vc-demo-pid";
 
-/// The ID the first created user gets, after the two canned ones.
-const FIRST_ID: u64 = 3;
-
 /// The demo app.
 pub fn router() -> Router {
-    let next = Arc::new(AtomicU64::new(FIRST_ID));
     Router::new()
-        .route("/users", get(list).post(create))
-        .route("/users/{id}", get(read).delete(remove))
         .route("/echo", any(echo))
-        .with_state(next)
+        .merge(users::routes())
         .merge(scripted::routes())
-}
-
-fn users() -> Value {
-    json!([{"id": "1", "name": "Ada Lovelace"}, {"id": "2", "name": "Grace Hopper"}])
-}
-
-async fn list() -> Json<Value> {
-    Json(users())
-}
-
-/// `POST /users`: 201 with the next ID, as text, and the posted name and email. Without an email,
-/// 400 with only the error: the sample's `createUser` saves `response.body.id` on a 201 alone (D191).
-async fn create(State(next): State<Arc<AtomicU64>>, body: Bytes) -> Response {
-    let posted: Value = serde_json::from_slice(&body).unwrap_or(Value::Null);
-    let Some(email) = posted.get("email").filter(|email| email.is_string()).cloned() else {
-        return (StatusCode::BAD_REQUEST, Json(json!({"error": "a user needs an email"}))).into_response();
-    };
-    let name = posted.get("name").cloned().unwrap_or_else(|| json!("someone"));
-    let id = next.fetch_add(1, Ordering::Relaxed).to_string();
-    (StatusCode::CREATED, Json(json!({"id": id, "name": name, "email": email}))).into_response()
-}
-
-/// `GET /users/{id}`: a canned user, a created one by its ID alone (nothing is stored), or 404.
-async fn read(State(next): State<Arc<AtomicU64>>, Path(id): Path<String>) -> Response {
-    let canned = users().as_array().and_then(|all| all.iter().find(|user| user["id"] == id.as_str()).cloned());
-    let created = id.parse::<u64>().is_ok_and(|n| (FIRST_ID..next.load(Ordering::Relaxed)).contains(&n));
-    match canned {
-        Some(user) => Json(user).into_response(),
-        None if created => Json(json!({"id": id})).into_response(),
-        None => StatusCode::NOT_FOUND.into_response(),
-    }
-}
-
-async fn remove(Path(_id): Path<String>) -> StatusCode {
-    StatusCode::NO_CONTENT
+        .merge(auth::routes())
+        .merge(openapi::routes())
 }
 
 /// `ANY /echo`: the request's method, path, query, headers and body as JSON, with this process's

@@ -1,0 +1,138 @@
+openapi: 3.0.3
+info:
+  title: Users
+  version: 3.0.0
+  description: The users `vc demo` serves. Users 1 and 2 cannot be changed or deleted.
+servers:
+  - url: http://localhost:7421
+paths:
+  /users:
+    get:
+      operationId: listUsers
+      summary: List users
+      tags: [users]
+      parameters:
+        - {name: limit, in: query, schema: {type: integer, minimum: 0}}
+      responses:
+        '200':
+          description: The users, by ID
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: '#/components/schemas/User'}
+        '400': {$ref: '#/components/responses/Refused'}
+    post:
+      operationId: createUser
+      summary: Create user
+      tags: [users]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/NewUser'}
+      responses:
+        '201':
+          description: The new user
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/User'}
+        '400': {$ref: '#/components/responses/Refused'}
+  /users/{id}:
+    parameters:
+      - {name: id, in: path, required: true, schema: {type: string, pattern: '^[0-9]+$'}}
+    get:
+      operationId: getUser
+      summary: Get user
+      tags: [users]
+      responses:
+        '200':
+          description: The user
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/User'}
+        '404': {description: No such user}
+    put:
+      operationId: replaceUser
+      summary: Replace user
+      tags: [users]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/NewUser'}
+      responses:
+        '200':
+          description: The replaced user
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/User'}
+        '400': {$ref: '#/components/responses/Refused'}
+        '403': {$ref: '#/components/responses/Fixed'}
+        '404': {description: No such user}
+    patch:
+      operationId: updateUser
+      summary: Update user
+      tags: [users]
+      requestBody:
+        required: true
+        content:
+          application/merge-patch+json:
+            schema: {$ref: '#/components/schemas/UserPatch'}
+      responses:
+        '200':
+          description: The updated user
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/User'}
+        '400': {$ref: '#/components/responses/Refused'}
+        '403': {$ref: '#/components/responses/Fixed'}
+        '404': {description: No such user}
+    delete:
+      operationId: deleteUser
+      summary: Delete user
+      tags: [users]
+      responses:
+        '204': {description: Deleted}
+        '403': {$ref: '#/components/responses/Fixed'}
+        '404': {description: No such user}
+components:
+  responses:
+    Refused:
+      description: A request the demo refuses
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+    Fixed:
+      description: Users 1 and 2 cannot be changed
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+  schemas:
+    NewUser:
+      type: object
+      required: [email]
+      properties:
+        name: {type: string, example: Ada Lovelace}
+        email: {type: string, format: email, example: ada@example.com}
+        role: {type: string, enum: [admin, member]}
+    UserPatch:
+      type: object
+      description: The keys to change; a key sent as null is removed
+      properties:
+        name: {type: string, nullable: true}
+        email: {type: string, format: email, nullable: true}
+        role: {type: string, enum: [admin, member], nullable: true}
+    User:
+      type: object
+      required: [id, name]
+      properties:
+        id: {type: string, pattern: '^[0-9]+$', example: '3'}
+        name: {type: string}
+        email: {type: string, format: email}
+        role: {type: string, enum: [admin, member]}
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error: {type: string}

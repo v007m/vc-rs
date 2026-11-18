@@ -123,7 +123,7 @@ This walkthrough keeps the load tiny: five users for ten seconds against the dem
        call: shop#getReport
    ```
 
-   The demo stores no users. It answers `GET /users/{id}` for an ID it handed out with just `{"id": …}`, so `readsCreatedUser` checks the ID it saved.
+   The demo keeps the users it creates until the cleanup deletes them, so `readsCreatedUser` reads back the user with the ID it saved.
 
    ```console
    $ vc run

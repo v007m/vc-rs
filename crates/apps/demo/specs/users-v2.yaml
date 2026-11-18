@@ -1,0 +1,89 @@
+openapi: 3.0.3
+info:
+  title: Users
+  version: 2.0.0
+servers:
+  - url: http://localhost:7421
+paths:
+  /users:
+    get:
+      operationId: listUsers
+      summary: List users
+      tags: [users]
+      parameters:
+        - {name: limit, in: query, schema: {type: integer, minimum: 0}}
+      responses:
+        '200':
+          description: The users
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: '#/components/schemas/User'}
+    post:
+      operationId: createUser
+      summary: Create user
+      tags: [users]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/NewUser'}
+      responses:
+        '201':
+          description: The new user
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/User'}
+        '400': {description: A user without an email}
+  /users/{id}:
+    parameters:
+      - {name: id, in: path, required: true, schema: {type: string}}
+    get:
+      operationId: getUser
+      summary: Get user
+      tags: [users]
+      responses:
+        '200':
+          description: The user
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/User'}
+    patch:
+      operationId: updateUser
+      summary: Update user
+      tags: [users]
+      requestBody:
+        content:
+          application/merge-patch+json:
+            schema: {$ref: '#/components/schemas/UserPatch'}
+      responses:
+        '200':
+          description: The updated user
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/User'}
+components:
+  schemas:
+    NewUser:
+      type: object
+      required: [email]
+      properties:
+        name: {type: string, example: Ada Lovelace}
+        email: {type: string, format: email, example: ada@example.com}
+        role: {type: string, enum: [admin, member]}
+    UserPatch:
+      type: object
+      description: The keys to change; a key sent as null is removed
+      properties:
+        name: {type: string, nullable: true}
+        email: {type: string, format: email, nullable: true}
+        role: {type: string, enum: [admin, member], nullable: true}
+    User:
+      type: object
+      required: [id, name]
+      properties:
+        id: {type: string}
+        name: {type: string}
+        email: {type: string, format: email}
+        role: {type: string, enum: [admin, member]}

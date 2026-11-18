@@ -21,13 +21,13 @@ const APIS: (&str, &str) = (
 );
 
 /// A demo on a free port, started for one test and stopped when it ends, passed or failed.
-struct Demo {
+pub struct Demo {
     control: Project,
-    port: u16,
+    pub port: u16,
 }
 
 impl Demo {
-    fn start() -> Self {
+    pub fn start() -> Self {
         let demo = Self { control: Project::empty(), port: free_port() };
         let started = exit_code(&demo.control, &["demo", "start", "--port", &demo.port.to_string(), "--detach"]);
         assert_eq!(started, Some(0), "`vc demo start --detach` exits 0");
@@ -36,7 +36,7 @@ impl Demo {
     }
 
     /// A project of [`APIS`] and `files`, with `config` added to the config, calling this demo.
-    fn project(&self, config: &str, files: &[(&str, &str)]) -> Project {
+    pub fn project(&self, config: &str, files: &[(&str, &str)]) -> Project {
         let project = Project::new(&[APIS]);
         let base = CONFIG.1.replace("http://x", &format!("http://127.0.0.1:{}", self.port));
         project.write(CONFIG.0, &format!("{base}{config}"));
@@ -54,7 +54,7 @@ impl Drop for Demo {
 }
 
 /// The exit code of `vc run --reporter json` in `project`, and its `testFinished` events.
-fn run(project: &Project) -> (Option<i32>, Vec<Value>) {
+pub fn run(project: &Project) -> (Option<i32>, Vec<Value>) {
     let output = project.vc(&["run", "--reporter", "json"]).output().unwrap();
     let text = String::from_utf8_lossy(&output.stdout);
     let events = text.lines().filter_map(|line| serde_json::from_str::<Value>(line).ok());
