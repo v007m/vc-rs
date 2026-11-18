@@ -17,7 +17,7 @@ fn totals_and_statuses_take_their_wire_form() {
     assert_eq!(allowed, wire::TestStatus::AllowedFailure);
     assert_eq!(wire::RunStatus::from(vc_model::RunStatus::Cancelled), wire::RunStatus::Cancelled);
     assert_eq!(wire::CheckKind::from(vc_model::CheckKind::Cel), wire::CheckKind::Cel);
-    assert_eq!(wire::Protocol::from(vc_model::Protocol::Http2), wire::Protocol::Http2);
+    assert_eq!(wire::Protocol::from(vc_model::HttpVersion::Http2), wire::Protocol::Http2);
 }
 
 #[test]

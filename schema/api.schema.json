@@ -123,6 +123,12 @@
           "pattern": "^[0-9]+(ms|s|m|h)$",
           "type": "string"
         },
+        "type": {
+          "description": "What the api speaks; decides which keys apply",
+          "enum": [
+            "http"
+          ]
+        },
         "vars": {
           "additionalProperties": {},
           "description": "Defaults for this api; callers override them",
@@ -571,6 +577,13 @@
     "source": {
       "$ref": "#/$defs/source",
       "description": "The OpenAPI spec this file syncs from"
+    },
+    "type": {
+      "default": "http",
+      "description": "What the file's apis speak; an api may set its own",
+      "enum": [
+        "http"
+      ]
     },
     "vars": {
       "additionalProperties": {},

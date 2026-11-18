@@ -27,7 +27,7 @@ pub use types::key;
 pub use types::{Key, Scope, Shape, ShapeFn, Ty, Unit};
 
 pub use api::api;
-pub use common::{action, expect};
+pub use common::{action, expect, request};
 pub use config::{agents, auth, generator, profile};
 pub use test::test;
 

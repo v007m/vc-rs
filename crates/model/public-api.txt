@@ -274,6 +274,22 @@ impl serde_core::ser::Serialize for vc_model::FileKind
 pub fn vc_model::FileKind::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
 impl<'de> serde_core::de::Deserialize<'de> for vc_model::FileKind
 pub fn vc_model::FileKind::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub enum vc_model::HttpVersion
+pub vc_model::HttpVersion::Http1
+pub vc_model::HttpVersion::Http2
+impl core::clone::Clone for vc_model::HttpVersion
+pub fn vc_model::HttpVersion::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::HttpVersion
+impl core::cmp::PartialEq for vc_model::HttpVersion
+pub fn vc_model::HttpVersion::eq(&self, &Self) -> bool
+impl core::default::Default for vc_model::HttpVersion
+pub fn vc_model::HttpVersion::default() -> Self
+impl core::fmt::Debug for vc_model::HttpVersion
+pub fn vc_model::HttpVersion::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for vc_model::HttpVersion
+pub fn vc_model::HttpVersion::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for vc_model::HttpVersion
+impl core::marker::StructuralPartialEq for vc_model::HttpVersion
 pub enum vc_model::Keep
 pub vc_model::Keep::All
 pub vc_model::Keep::Runs(u32)
@@ -380,6 +396,7 @@ pub fn vc_model::Method::deserialize<__D>(__D) -> core::result::Result<Self, <__
 pub vc_model::ModelError::ActionTableFull(usize)
 pub vc_model::ModelError::FileTableFull(usize)
 pub vc_model::ModelError::InvalidSourcePath(alloc::string::String)
+pub vc_model::ModelError::NoProtocolRules(vc_model::Protocol)
 pub vc_model::ModelError::StringTableFull(usize)
 impl core::clone::Clone for vc_model::ModelError
 pub fn vc_model::ModelError::clone(&self) -> Self
@@ -512,13 +529,20 @@ pub fn vc_model::PartSpec::serialize<__S>(&self, __S) -> core::result::Result<<_
 impl<'de> serde_core::de::Deserialize<'de> for vc_model::PartSpec
 pub fn vc_model::PartSpec::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub enum vc_model::Protocol
-pub vc_model::Protocol::Http1
-pub vc_model::Protocol::Http2
+pub vc_model::Protocol::Http
+impl vc_model::Protocol
+pub const vc_model::Protocol::ALL: [Self; 1]
+pub fn vc_model::Protocol::from_key(&str) -> core::option::Option<Self>
+pub const fn vc_model::Protocol::key(self) -> &'static str
 impl core::clone::Clone for vc_model::Protocol
 pub fn vc_model::Protocol::clone(&self) -> Self
 impl core::cmp::Eq for vc_model::Protocol
+impl core::cmp::Ord for vc_model::Protocol
+pub fn vc_model::Protocol::cmp(&self, &Self) -> core::cmp::Ordering
 impl core::cmp::PartialEq for vc_model::Protocol
 pub fn vc_model::Protocol::eq(&self, &Self) -> bool
+impl core::cmp::PartialOrd for vc_model::Protocol
+pub fn vc_model::Protocol::partial_cmp(&self, &Self) -> core::option::Option<core::cmp::Ordering>
 impl core::default::Default for vc_model::Protocol
 pub fn vc_model::Protocol::default() -> Self
 impl core::fmt::Debug for vc_model::Protocol
@@ -527,6 +551,22 @@ impl core::hash::Hash for vc_model::Protocol
 pub fn vc_model::Protocol::hash<__H: core::hash::Hasher>(&self, &mut __H)
 impl core::marker::Copy for vc_model::Protocol
 impl core::marker::StructuralPartialEq for vc_model::Protocol
+impl serde_core::ser::Serialize for vc_model::Protocol
+pub fn vc_model::Protocol::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::Protocol
+pub fn vc_model::Protocol::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub enum vc_model::ProtocolKeys
+pub vc_model::ProtocolKeys::All
+pub vc_model::ProtocolKeys::Only(vc_model::AllowedKeys)
+impl core::clone::Clone for vc_model::ProtocolKeys
+pub fn vc_model::ProtocolKeys::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::ProtocolKeys
+impl core::cmp::PartialEq for vc_model::ProtocolKeys
+pub fn vc_model::ProtocolKeys::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::ProtocolKeys
+pub fn vc_model::ProtocolKeys::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for vc_model::ProtocolKeys
+impl core::marker::StructuralPartialEq for vc_model::ProtocolKeys
 pub enum vc_model::RedactRule
 pub vc_model::RedactRule::Cel(vc_model::CelProgram)
 pub vc_model::RedactRule::Function(vc_model::HookRef)
@@ -832,6 +872,19 @@ impl serde_core::ser::Serialize for vc_model::AllowFailure
 pub fn vc_model::AllowFailure::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
 impl<'de> serde_core::de::Deserialize<'de> for vc_model::AllowFailure
 pub fn vc_model::AllowFailure::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub struct vc_model::AllowedKeys
+pub vc_model::AllowedKeys::api: &'static [&'static str]
+pub vc_model::AllowedKeys::call: &'static [&'static str]
+pub vc_model::AllowedKeys::expect: &'static [&'static str]
+impl core::clone::Clone for vc_model::AllowedKeys
+pub fn vc_model::AllowedKeys::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::AllowedKeys
+impl core::cmp::PartialEq for vc_model::AllowedKeys
+pub fn vc_model::AllowedKeys::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::AllowedKeys
+pub fn vc_model::AllowedKeys::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for vc_model::AllowedKeys
+impl core::marker::StructuralPartialEq for vc_model::AllowedKeys
 pub struct vc_model::Api
 pub vc_model::Api::auth: vc_model::AuthRef
 pub vc_model::Api::body: vc_model::BodySpec
@@ -847,6 +900,7 @@ pub vc_model::Api::method: vc_model::Method
 pub vc_model::Api::name: core::option::Option<alloc::string::String>
 pub vc_model::Api::operation_id: core::option::Option<alloc::string::String>
 pub vc_model::Api::path: vc_model::Template
+pub vc_model::Api::protocol: vc_model::Protocol
 pub vc_model::Api::query: indexmap::map::IndexMap<alloc::string::String, vc_model::Template>
 pub vc_model::Api::save: vc_model::SaveSpec
 pub vc_model::Api::save_on: vc_model::Matcher
@@ -1111,7 +1165,7 @@ pub fn vc_model::Config::serialize<__S>(&self, __S) -> core::result::Result<<__S
 impl<'de> serde_core::de::Deserialize<'de> for vc_model::Config
 pub fn vc_model::Config::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub struct vc_model::ConnectionInfo
-pub vc_model::ConnectionInfo::protocol: vc_model::Protocol
+pub vc_model::ConnectionInfo::protocol: vc_model::HttpVersion
 pub vc_model::ConnectionInfo::remote: core::option::Option<core::net::socket_addr::SocketAddr>
 pub vc_model::ConnectionInfo::reused: bool
 impl core::clone::Clone for vc_model::ConnectionInfo
@@ -2528,6 +2582,7 @@ pub const vc_model::DEFAULT_SECRETS_SCHEMA: &str
 pub const vc_model::FILE_KEY: &str
 pub const vc_model::MULTIPART: &str
 pub const vc_model::PROFILE_VARIABLE: &str
+pub const vc_model::PROTOCOL_KEYS: [(vc_model::Protocol, vc_model::ProtocolKeys); 1]
 pub fn vc_model::auth_needs(&str) -> core::option::Option<&'static [&'static str]>
 pub fn vc_model::basename(&str) -> &str
 pub fn vc_model::check_label(&vc_model::CheckResult) -> alloc::string::String

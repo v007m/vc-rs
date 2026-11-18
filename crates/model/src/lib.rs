@@ -36,6 +36,7 @@ mod outcome;
 mod plan;
 mod printable;
 mod program;
+mod protocol;
 mod secrets;
 mod source;
 mod span;
@@ -62,7 +63,7 @@ pub use defs::{
 };
 pub use error::ModelError;
 pub use event::{Event, Feed, Sequenced};
-pub use exchange::{ConnectionInfo, Exchange, HttpResponse, Protocol, RenderedRequest, Timing};
+pub use exchange::{ConnectionInfo, Exchange, HttpResponse, HttpVersion, RenderedRequest, Timing};
 pub use expect::{Check, CheckKind, CheckResult, Expect, Matcher, MatcherArg, MatcherCall, Origin};
 pub use files::SourceFiles;
 pub use form::{form_pairs, form_text};
@@ -75,6 +76,7 @@ pub use outcome::{ActionOutcome, CleanupRecord, Failure, OwnerKey, RunStatus, Te
 pub use plan::{Instance, InstanceId, Needs, Plan, PlannedAction, PlannedFile, SkippedTest};
 pub use printable::{one_line, printable};
 pub use program::Program;
+pub use protocol::{AllowedKeys, PROTOCOL_KEYS, Protocol, ProtocolKeys};
 pub use secrets::{
     DEFAULT_SECRETS_PROVIDER, DEFAULT_SECRETS_SCHEMA, PROFILE_VARIABLE, RedactRule, SchemaNames, SecretsConfig,
     schema_names, secret_name,

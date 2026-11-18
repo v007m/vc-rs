@@ -37,15 +37,25 @@ const CATEGORIES = {
  */
 const UNCHECKABLE = new Set(['V3101']);
 
+/**
+ * The codes whose examples need an api `type` that has not landed yet (#90), as `PENDING` in
+ * `crates/engine/tests/explain.rs`: the wrong example is held only to having an error, and the
+ * right one is skipped.
+ */
+const PENDING = new Set(['V2213']);
+
 /** A V1–V3 code is reported by `vc check`, so `explain.rs` holds its wrong example to it. */
-const checked = (code) => '123'.includes(code[1]) && !UNCHECKABLE.has(code);
+const checked = (code) => '123'.includes(code[1]) && !UNCHECKABLE.has(code) && !PENDING.has(code);
 
 /**
  * The info words that mark a block of a V1–V3 wrong example for the docs check
  * (`crates/engine/tests/docs_examples.rs`): `wrong <code>` keeps it out of the page's project
  * and makes the example report that code.
  */
-const wrongTag = (code) => (checked(code) ? ` wrong ${code}` : '');
+const wrongTag = (code) => (checked(code) ? ` wrong ${code}` : PENDING.has(code) ? ' wrong' : '');
+
+/** The info word for a block of a right example: a pending code's is left out of the check. */
+const rightTag = (code) => (PENDING.has(code) ? ' skip' : '');
 
 const readIf = (file) => (existsSync(file) ? readFileSync(file, 'utf8') : '');
 
@@ -126,7 +136,7 @@ function parsePage(source) {
     const line = lines[i];
     if (line.startsWith('```')) {
       flush();
-      const fence = convertFence(lines, i, section === 'Wrong' ? wrongTag(head[1]) : '');
+      const fence = convertFence(lines, i, section === 'Wrong' ? wrongTag(head[1]) : rightTag(head[1]));
       body.push(fence.text);
       i = fence.next;
       continue;

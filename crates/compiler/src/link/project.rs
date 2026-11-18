@@ -3,8 +3,8 @@
 use std::collections::{HashMap, HashSet};
 use std::ops::Range;
 
-use vc_model::{FileKind, SourceFile, SourceFileId, SourceSpan, StringTable};
-use vc_parser::Node;
+use vc_model::{FileKind, Protocol, SourceFile, SourceFileId, SourceSpan, StringTable};
+use vc_parser::{Entry, Node};
 
 use crate::parts::Piece;
 use crate::stage::FileUnit;
@@ -171,4 +171,23 @@ pub fn list<'n>(node: &'n Node, key: &str) -> &'n [Node] {
 /// The spans of the given keys' values, as holes for [`Source::pieces`].
 pub fn holes(node: &Node, keys: &[&str]) -> Vec<SourceSpan> {
     keys.iter().filter_map(|key| node.get(key)).map(|value| value.span).collect()
+}
+
+/// An api's `type`: its own, else its file's (`root`), else `http` (D342). A value that names no
+/// type counts as unset, so it falls back the same way; the shape check reports it (V2302).
+pub fn protocol(root: &Node, api: &Node) -> Protocol {
+    let typed = |node: &Node| text(node, "type").and_then(Protocol::from_key);
+    typed(api).or_else(|| typed(root)).unwrap_or_default()
+}
+
+/// The lines `entry` is written on, newline included, when nothing else shares its first line.
+pub fn whole_lines(text: &str, entry: &Entry) -> Option<Range<usize>> {
+    let start = entry.key_span.start.offset;
+    let line = text.get(..start)?.rfind('\n').map_or(0, |at| at + 1);
+    if !text.get(line..start)?.trim().is_empty() {
+        return None;
+    }
+    let end = entry.value.span.end.offset;
+    let after = text.get(end..)?.find('\n').map_or(text.len(), |at| end + at + 1);
+    Some(line..after)
 }

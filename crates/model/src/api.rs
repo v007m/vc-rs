@@ -2,8 +2,8 @@ use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    ActionId, ApiId, AuthRef, Duration, Expect, FileId, HttpRetry, Matcher, Method, Path, RequestHooks, SaveSpec,
-    SourceSpan, Template, TemplateValue, VarDefs,
+    ActionId, ApiId, AuthRef, Duration, Expect, FileId, HttpRetry, Matcher, Method, Path, Protocol, RequestHooks,
+    SaveSpec, SourceSpan, Template, TemplateValue, VarDefs,
 };
 
 /// One api file: what its apis share.
@@ -64,6 +64,8 @@ pub struct Api {
     pub name: Option<String>,
     /// Its api file: base URL, auth and headers come from there.
     pub group: FileId,
+    /// `type`: its own, else its file's, else `http` (D342).
+    pub protocol: Protocol,
     /// `method`.
     pub method: Method,
     /// `path`.

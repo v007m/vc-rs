@@ -3,7 +3,7 @@
 
 use std::sync::Arc;
 
-use serde_json::json;
+use serde_json::{Value, json};
 use tokio::sync::watch;
 use tokio::time::{self, Instant};
 use tower::ServiceExt;
@@ -13,17 +13,20 @@ use vc_model::{Check, CheckKind, CheckResult, Exchange, Failure, HookRef, Poll, 
 
 use super::call::{bind, subject};
 use super::hooks::{self, HookBridge, HookStage};
+use super::protocol::ProtocolRuntime;
 use super::request;
 use crate::check::{self, Judge, MatcherRegistry, Subject};
 use crate::{ActionReport, Call, Pipeline, PipelineParts, Render};
 
-/// A call's pipeline, with its api's hooks set, and the matchers that judge it.
+/// A call's pipeline, with its api's hooks set, the matchers that judge it, and its api type's
+/// runtime, which reads its response.
 pub struct Flight {
     pipeline: Pipeline,
     bridge: HookBridge,
     after: Vec<HookRef>,
     refused: watch::Receiver<Option<Failure>>,
     matchers: Arc<MatcherRegistry>,
+    runtime: Arc<dyn ProtocolRuntime>,
 }
 
 /// Why a call stopped before its checks: the failure, and the exchanges it got until then,
@@ -52,7 +55,7 @@ impl Flight {
     pub fn new(
         parts: PipelineParts,
         (hooks, bridge): (RequestHooks, HookBridge),
-        matchers: Arc<MatcherRegistry>,
+        (matchers, runtime): (Arc<MatcherRegistry>, Arc<dyn ProtocolRuntime>),
     ) -> Self {
         let (refusals, refused) = watch::channel(None);
         let parts = if hooks.before_request.is_empty() {
@@ -61,7 +64,7 @@ impl Flight {
             let stage = HookStage::new(bridge.clone(), hooks.before_request, refusals);
             PipelineParts { hooks: Arc::new(stage), ..parts }
         };
-        Self { pipeline: crate::pipeline(parts), bridge, after: hooks.after_response, refused, matchers }
+        Self { pipeline: crate::pipeline(parts), bridge, after: hooks.after_response, refused, matchers, runtime }
     }
 
     /// Sends `call`, then runs the `afterResponse` hooks on the exchange; what they return is
@@ -79,7 +82,7 @@ impl Flight {
         let exchange = delivery.result.map_err(|error| self.failed(&error))?;
         if !self.after.is_empty() {
             let input =
-                json!({ "request": request::sent(&exchange.request), "response": request::received(&exchange) });
+                json!({ "request": request::sent(&exchange.request), "response": self.runtime.response(&exchange) });
             for hook in &self.after {
                 self.bridge.call(hook, input.clone()).await.map_err(|error| hooks::failure(hook, &error))?;
             }
@@ -98,7 +101,7 @@ impl Flight {
         let deadline = Instant::now() + poll.timeout.get();
         loop {
             let exchange = self.send(call.clone()).await?;
-            let response = bind(render, &exchange);
+            let response = self.bind(render, &exchange);
             let results = self.judge(render, (poll.until.checks.as_slice(), subject(&response, &exchange))).await;
             let Some(failure) = check::verdict(&results) else { return Ok(exchange) };
             if Instant::now() + poll.every.get() > deadline {
@@ -108,6 +111,11 @@ impl Flight {
             }
             time::sleep(poll.every.get()).await;
         }
+    }
+
+    /// Binds `response` and `request` for `exchange`, read by the api type's runtime.
+    pub fn bind(&self, render: &mut Render<'_>, exchange: &Exchange) -> Arc<Value> {
+        bind(render, exchange, &*self.runtime)
     }
 
     /// Evaluates `checks` against `subject`, running the custom ones with `{response, vars}`,

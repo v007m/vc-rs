@@ -19,7 +19,7 @@ use tokio::sync::mpsc;
 use tokio_rustls::TlsAcceptor;
 use vc_adapter_http::{HttpOptions, HttpTransport, ProxyConfig};
 use vc_interfaces::{SendContext, Transport, TransportError};
-use vc_model::{Exchange, Protocol, RenderedRequest};
+use vc_model::{Exchange, HttpVersion, RenderedRequest};
 
 type TestResult = Result<(), Box<dyn Error>>;
 
@@ -83,7 +83,7 @@ async fn speaks_h2_to_a_trusted_server_and_times_the_handshake() -> TestResult {
     let transport = trusting(ProxyConfig::default())?;
     let first = get(&transport, &format!("https://{address}/")).await?;
     assert_eq!((first.response.status, &first.response.body[..]), (StatusCode::OK, &b"hello over tls"[..]));
-    assert_eq!(first.connection.protocol, Protocol::Http2);
+    assert_eq!(first.connection.protocol, HttpVersion::Http2);
     assert!(first.timing.tls.is_some() && first.timing.connect.is_some(), "{:?}", first.timing);
     let second = get(&transport, &format!("https://{address}/")).await?;
     assert!(second.connection.reused && second.timing.tls.is_none(), "{:?}", second.connection);
@@ -94,7 +94,7 @@ async fn speaks_h2_to_a_trusted_server_and_times_the_handshake() -> TestResult {
 async fn falls_back_to_http1_when_the_server_offers_only_that() -> TestResult {
     let address = tls_server(&[b"http/1.1"]).await?;
     let exchange = get(&trusting(ProxyConfig::default())?, &format!("https://localhost:{}/", address.port())).await?;
-    assert_eq!(exchange.connection.protocol, Protocol::Http1);
+    assert_eq!(exchange.connection.protocol, HttpVersion::Http1);
     assert!(exchange.timing.dns.is_some(), "a name is looked up");
     Ok(())
 }
@@ -140,7 +140,7 @@ async fn tunnels_https_through_a_connect_proxy() -> TestResult {
     let (proxy, mut seen) = connect_proxy().await?;
     let config = ProxyConfig { https: Some(format!("http://u:p@{proxy}")), ..ProxyConfig::default() };
     let exchange = get(&trusting(config)?, &format!("https://{address}/")).await?;
-    assert_eq!((exchange.response.status, exchange.connection.protocol), (StatusCode::OK, Protocol::Http2));
+    assert_eq!((exchange.response.status, exchange.connection.protocol), (StatusCode::OK, HttpVersion::Http2));
     assert_eq!(exchange.connection.remote, Some(proxy), "the TCP peer is the proxy");
     let head = seen.recv().await.unwrap_or_default();
     assert!(head.starts_with(&format!("CONNECT {address} HTTP/1.1\r\n")), "{head}");

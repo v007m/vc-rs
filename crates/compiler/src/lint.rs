@@ -26,14 +26,12 @@ mod tests;
 mod unused_defaults;
 mod urls;
 
-use std::ops::Range;
-
 use vc_diagnostics::{Code, Diagnostic, Diagnostics};
 use vc_model::{Date, FileKind, Program};
-use vc_parser::{Entry, Node};
+use vc_parser::Node;
 
 use crate::link;
-use crate::link::{Project, Source};
+use crate::link::{Project, Source, whole_lines};
 
 /// What a lint reads: the project's trees and the program built from them.
 pub struct LintCx<'p, 'a> {
@@ -118,16 +116,4 @@ impl<'a> LintCx<'_, 'a> {
         let call = link::text(node, "call")?;
         self.project.apis.get(&source.resolve(call)).map(|item| item.node)
     }
-}
-
-/// The lines `entry` is written on, newline included, when nothing else shares its first line.
-fn whole_lines(text: &str, entry: &Entry) -> Option<Range<usize>> {
-    let start = entry.key_span.start.offset;
-    let line = text.get(..start)?.rfind('\n').map_or(0, |at| at + 1);
-    if !text.get(line..start)?.trim().is_empty() {
-        return None;
-    }
-    let end = entry.value.span.end.offset;
-    let after = text.get(end..)?.find('\n').map_or(text.len(), |at| end + at + 1);
-    Some(line..after)
 }

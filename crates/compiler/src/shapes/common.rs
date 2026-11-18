@@ -1,12 +1,15 @@
 //! Shapes shared by several file kinds: checks, actions, retries, hooks.
 
 use vc_diagnostics::Code;
+use vc_model::Protocol;
 
 use super::types;
 use super::types::{Scope, Shape, Ty, Unit};
 
 /// The HTTP methods.
 pub const METHODS: &[&str] = &["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"];
+/// The api types (D342), in [`Protocol::ALL`] order.
+pub const PROTOCOLS: &[&str] = &[Protocol::Http.key()];
 
 /// `vars`: any values, templates allowed.
 pub const VARS: Ty = Ty::MapOf(&Ty::Value);

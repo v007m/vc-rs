@@ -1,7 +1,7 @@
 //! `*.api.yaml`.
 
 use super::common;
-use super::common::{AUTH, HOOKS, METHODS, PROFILES, TEMPLATES, TEXTS, VARS};
+use super::common::{AUTH, HOOKS, METHODS, PROFILES, PROTOCOLS, TEMPLATES, TEXTS, VARS};
 use super::types;
 use super::types::{Scope, Shape, Ty};
 
@@ -9,6 +9,7 @@ shape! {
     api_file = Shape::new("api", "An api file, `services/<service>/<service>.api.yaml`", &[
         types::key("id", Ty::Text).default("path-derived").doc("File ID; must match the path").example("users"),
         types::key("name", Ty::Text).doc("Shown in listings"),
+        types::key("type", Ty::Enum(PROTOCOLS)).default("http").doc("What the file's apis speak; an api may set its own"),
         types::key("baseUrl", Ty::Template).doc("Prefixed to every `path`").example("${var.baseUrl}"),
         types::key("auth", AUTH).doc("Default auth for the file"),
         types::key("headers", TEMPLATES).doc("Default headers"),
@@ -36,6 +37,7 @@ shape! {
         types::key("name", Ty::Text).doc("Shown in listings"),
         types::key("method", Ty::Enum(METHODS)).default("GET").doc("HTTP method"),
         types::key("path", Ty::Template).required().doc("Appended to `baseUrl`").example("/users/${var.userId}"),
+        types::key("type", Ty::Enum(PROTOCOLS)).default("the file's, else http").doc("What the api speaks; decides which keys apply"),
         types::key("vars", VARS).doc("Defaults for this api; callers override them"),
         types::key("query", TEMPLATES).doc("Query string"),
         types::key("headers", TEMPLATES).doc("Merged over the file's headers"),

@@ -1,0 +1,99 @@
+---
+title: "`type`"
+description: What an api speaks, which decides the keys it takes; http when left out.
+sidebar: { order: 105, badge: { text: 'api', variant: 'note' } }
+---
+
+import Playground from '~/components/Playground.svelte';
+
+`type` says what an api speaks. Set it on an api file as the default for every api in it, or on one api, whose own value wins. Leave it out and the api is `http`, so a file that sets none keeps its meaning.
+
+```yaml title="services/users/users.api.yaml"
+type: http
+baseUrl: ${var.baseUrl}
+apis:
+  - id: getUser
+    path: /users/${var.userId}
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `type` | `http` | `http` | no | On the api file, the default for its apis |
+| `type` | `http` | the file's, else `http` | no | On an `apis` entry; wins over the file's |
+
+`type` belongs to the api. A test or step that calls it uses the api's type and can't set its own.
+
+`http` is the only type today, and it takes every api key. GraphQL comes next ([#90](https://github.com/v007m/vc-rs/issues/90)); the other types follow in their own issues.
+
+## Examples
+
+### Set once for the file
+
+Every api in the file takes the file's `type`, and writing `type: http` changes nothing: the file compiles exactly as it would without it.
+
+```yaml title="services/orders/orders.api.yaml"
+type: http
+baseUrl: ${var.baseUrl}
+apis:
+  - id: listOrders
+    path: /orders
+  - id: placeOrder
+    method: POST
+    path: /orders
+    body: {sku: A-1, quantity: 1}
+```
+
+### Set on one api
+
+An api's own `type` wins over its file's.
+
+```yaml title="services/health/health.api.yaml"
+baseUrl: ${var.baseUrl}
+apis:
+  - id: ping
+    type: http
+    path: /health
+```
+
+## Try it
+
+<Playground client:visible kind="api" code={`
+type: http
+baseUrl: \${var.sampleUrl}
+apis:
+  - id: listUsers
+    path: /users
+`} />
+
+## How it behaves
+
+- The type is read once, when the file is checked: an api's own `type`, else its file's, else `http`. A value that is not a known type counts as unset, so it falls back the same way.
+- The type decides which keys apply: on the api, in its `expect`, and on a test or step that calls it (in its `expect` and `poll.until` too, and on a `cache.check` call inside it). A key the type does not use is an error, V2213, whose fix removes the key. `http` uses every key, so no `http` api reports it.
+- A value that is not a known type is V2302, with the close type as its fix.
+
+```yaml wrong V2302 title="services/billing/billing.api.yaml"
+baseUrl: ${var.baseUrl}
+apis:
+  - id: listInvoices
+    type: htp
+    path: /invoices
+```
+
+```console
+$ vc check services/billing
+error[V2302]: expected one of http, found `htp`
+```
+
+## Common errors
+
+| Code | When |
+| --- | --- |
+| [V2302](/vc-rs/reference/diagnostics/v2302/) | `type` is not a known type |
+| [V2213](/vc-rs/reference/diagnostics/v2213/) | A key that does not apply to the api's type |
+
+## Related
+
+- [`method`](/vc-rs/reference/syntax/method/), [`apis`](/vc-rs/reference/syntax/apis/)
+- [All diagnostic codes](/vc-rs/reference/diagnostics/)

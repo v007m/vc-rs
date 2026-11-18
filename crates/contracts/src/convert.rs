@@ -44,11 +44,11 @@ impl From<vc_model::CheckKind> for wire::CheckKind {
     }
 }
 
-impl From<vc_model::Protocol> for wire::Protocol {
-    fn from(protocol: vc_model::Protocol) -> Self {
+impl From<vc_model::HttpVersion> for wire::Protocol {
+    fn from(protocol: vc_model::HttpVersion) -> Self {
         match protocol {
-            vc_model::Protocol::Http1 => Self::Http1,
-            vc_model::Protocol::Http2 => Self::Http2,
+            vc_model::HttpVersion::Http1 => Self::Http1,
+            vc_model::HttpVersion::Http2 => Self::Http2,
         }
     }
 }

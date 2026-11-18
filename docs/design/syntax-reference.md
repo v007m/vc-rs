@@ -38,7 +38,7 @@ A project is one `vibranium.config.yaml` at the root plus api, test and load fil
 | File | Holds | Top-level keys | Item IDs |
 | --- | --- | --- | --- |
 | `vibranium.config.yaml` | Project settings, vars, profiles (at least one), auth, secrets, generators, datasets, reports, history, alerts, plugins, run-level lifecycle blocks | `syntaxVersion`, `project`, `paths`, `defaults`, `vars`, `profiles`, `auth`, `secrets`, `generators`, `datasets`, `reports`, `history`, `hooks`, `alerts`, `plugins`, `redact`, `beforeRun`, `afterRun` | auth: `partnerLogin` |
-| `*.api.yaml` | How to call endpoints, and how to undo them | `id`, `name`, `baseUrl`, `auth`, `headers`, `vars`, `profiles`, `source`, `beforeRequest`, `afterResponse`, `apis` | `users#create` |
+| `*.api.yaml` | How to call endpoints, and how to undo them | `id`, `name`, `type`, `baseUrl`, `auth`, `headers`, `vars`, `profiles`, `source`, `beforeRequest`, `afterResponse`, `apis` | `users#create` |
 | `*.test.yaml` | Tests and the lifecycle blocks around them | `id`, `name`, `tags`, `vars`, `profiles`, `beforeAll`, `afterAll`, `beforeEach`, `afterEach`, `tests` | `users.crud#getsCreatedUser` |
 | `*.load.yaml` | A load scenario built from tests | `id`, `name`, `mix`, `stages`, `thinkTime`, `checks`, `thresholds`, `abortOn` | `checkout.peak` |
 | `schemas/*.json` | JSON Schemas, loaded with `$file` | — | — |
@@ -306,6 +306,7 @@ File-level keys:
 | --- | --- | --- |
 | `id` | file ID, optional; must match the path (D139) | Prefix of every api in the file |
 | `name` | text | Shown in listings |
+| `type` | `http` | What the file's apis speak, the default for each api (see Api types); `http` when left out (D342) |
 | `baseUrl` | template | Prefixed to every `path`; written without a trailing `/` (V4005) |
 | `auth` | auth ID, or `none` | Default auth for the file |
 | `headers` | map | Default headers |
@@ -321,6 +322,7 @@ Each item in `apis`:
 | --- | --- | --- | --- |
 | `id` | camelCase, required | — | Reference, e.g. `create` → `users#create` |
 | `name` | text | — | Shown in listings |
+| `type` | `http` | the file's, else `http` | What the api speaks; decides which keys apply to it (see Api types, D342) |
 | `method` | `GET` `POST` `PUT` `PATCH` `DELETE` `HEAD` `OPTIONS` | `GET` | HTTP method |
 | `path` | template | required | Appended to `baseUrl`, e.g. `/users/${var.id}`; starts with `/` unless it is a full URL or starts with a template (V4005); a path parameter is `${var.name}`, never `{name}` (V4006). Literal text is sent as written; each `${…}` value is percent-encoded as one segment, so a `/`, `?`, `#`, `%` or space in it stays data and `.` or `..` names no other path (D278). A value before the first `/` is sent as written only when it is an absolute `http(s)://` URL (`${var.usersUrl}/users`), and one after a literal `?` is encoded as a query value. The `urlEncode` pipe is not needed, and is not applied twice (V4007) |
 | `vars` | map | — | Defaults for this api; callers override them |
@@ -337,6 +339,12 @@ Each item in `apis`:
 | `operationId` | text | — | Link to the OpenAPI operation, kept by sync |
 | `beforeRequest`, `afterResponse` | lists of functions | — | Run around this api's requests, after the file's |
 | `deprecated` | boolean | false | Set by sync when the operation leaves the spec, or by hand; vc check warns (V3203) where tests still call it, saying the operation left the spec only for an api with an `operationId` or in a file with a `source` |
+
+### Api types
+
+An api's `type` says what it speaks: its own `type`, else its file's, else `http`, so a file that sets none keeps its meaning (D342). A value that is not a known type counts as unset, so it falls back the same way. The type decides which keys apply: on the api, in its `expect`, and on a test or step that calls it (in its `expect` and `poll.until` too, and on a `cache.check` call inside it). A key that does not apply is an error with a certain fix that removes it (V2213); a type that is not known is V2302, with the close value as its fix.
+
+`http`, the only type today, takes every key above, so no `http` api reports V2213. GraphQL lands as the second type (#90); `jsonrpc`, `sse`, `websocket` and `grpc` follow in their own issues.
 
 ### Request body
 

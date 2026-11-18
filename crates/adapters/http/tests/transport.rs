@@ -12,7 +12,7 @@ use tokio::net::TcpListener;
 use vc_adapter_http::{HttpOptions, HttpTransport, ProxyConfig};
 use vc_interfaces::{SendContext, Transport, TransportError};
 use vc_mock_server::MockServer;
-use vc_model::{Exchange, Protocol, RenderedRequest, Size};
+use vc_model::{Exchange, HttpVersion, RenderedRequest, Size};
 
 type TestResult = Result<(), Box<dyn Error>>;
 
@@ -97,7 +97,7 @@ async fn times_a_new_connection_and_marks_the_next_request_as_reused() -> TestRe
     assert_eq!((second.timing.connect, second.timing.dns), (None, None));
     assert_eq!(first.connection.remote, Some(mock.addr()));
     assert_eq!(second.connection.remote, Some(mock.addr()));
-    assert_eq!((first.connection.protocol, second.connection.protocol), (Protocol::Http1, Protocol::Http1));
+    assert_eq!((first.connection.protocol, second.connection.protocol), (HttpVersion::Http1, HttpVersion::Http1));
     assert!(first.timing.total >= first.timing.first_byte);
     Ok(())
 }

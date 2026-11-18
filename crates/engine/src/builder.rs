@@ -358,3 +358,7 @@ impl fmt::Debug for Engine {
         f.debug_struct("Engine").field("root", &self.root).finish_non_exhaustive()
     }
 }
+
+#[cfg(test)]
+#[path = "protocols_tests.rs"]
+mod protocols_tests;

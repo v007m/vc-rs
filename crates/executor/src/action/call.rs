@@ -13,6 +13,7 @@ use vc_model::{
 
 use super::flight::{Flight, Halted};
 use super::hooks::{self, HookBridge};
+use super::protocol::{ProtocolRuntime, ProtocolRuntimes};
 use super::request;
 use super::{ActionExecutor, ActionRequest};
 use super::{auth, http_retry};
@@ -35,11 +36,16 @@ const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
 pub struct CallExecutor {
     parts: PipelineParts,
     matchers: Arc<MatcherRegistry>,
+    runtimes: Arc<ProtocolRuntimes>,
 }
 
 impl std::fmt::Debug for CallExecutor {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("CallExecutor").field("matchers", &self.matchers).finish_non_exhaustive()
+        let runtimes = &self.runtimes;
+        f.debug_struct("CallExecutor")
+            .field("matchers", &self.matchers)
+            .field("runtimes", runtimes)
+            .finish_non_exhaustive()
     }
 }
 
@@ -49,7 +55,14 @@ impl CallExecutor {
     /// standard matchers.
     #[must_use]
     pub fn new(parts: PipelineParts) -> Self {
-        Self { parts, matchers: Arc::new(MatcherRegistry::standard()) }
+        let runtimes = Arc::new(ProtocolRuntimes::standard());
+        Self { parts, matchers: Arc::new(MatcherRegistry::standard()), runtimes }
+    }
+
+    /// The runtime of `api`'s type; one the registry lacks fails the call.
+    fn runtime(&self, api: &Api) -> Result<Arc<dyn ProtocolRuntime>, Failure> {
+        let missing = || Failure::new(format!("no runtime for a `{}` api", api.protocol.key()));
+        self.runtimes.get(api.protocol).ok_or_else(missing)
     }
 
     async fn call(&self, request: &ActionRequest) -> Result<ActionReport, Halted> {
@@ -59,17 +72,18 @@ impl CallExecutor {
             .ok_or_else(|| Failure::new("the action calls no api in the program"))?;
         let mut render = Render::new(request).map_err(request::failed)?;
         let timeout = timeout(render.program(), api, action);
+        let runtime = self.runtime(api)?;
         let call = Call {
-            request: request::rendered(&render, api, (request.action, action))?,
+            request: runtime.request(&render, api, (request.action, action))?,
             timeout,
             ctx: SendContext::default(),
         };
-        let trip = self.flight(request, &mut render, (api, action))?;
+        let trip = self.flight(request, &mut render, (api, action, runtime))?;
         let exchange = match &action.poll {
             Some(poll) => trip.poll(&mut render, (call, poll)).await?,
             None => trip.send(call).await?,
         };
-        let response = bind(&mut render, &exchange);
+        let response = trip.bind(&mut render, &exchange);
         let expected = judged(request, action, api);
         let checks = trip.judge(&render, (&*expected, subject(&response, &exchange))).await;
         let registers = !action.keep && request.frame.given.is_none() && exchange.response.status.is_success();
@@ -99,20 +113,21 @@ impl CallExecutor {
     }
 
     /// The call's flight: the pipeline from these parts with the api's retry (D143), auth and
-    /// request hooks, judged with these matchers.
+    /// request hooks, judged with these matchers and read back through the api's `runtime`.
     fn flight(
         &self,
         request: &ActionRequest,
         render: &mut Render<'_>,
-        call: (&Api, &Action),
+        (api, action, runtime): (&Api, &Action, Arc<dyn ProtocolRuntime>),
     ) -> Result<Flight, Failure> {
         let program = render.program();
-        let retry = http_retry::policy(program, call.0, &request.cx.values.inputs().random);
-        let prepared = auth::prepare(request, render, call)?;
+        let retry = http_retry::policy(program, api, &request.cx.values.inputs().random);
+        let prepared = auth::prepare(request, render, (api, action))?;
         let parts = auth::added(PipelineParts { retry, ..self.parts.clone() }, &request.cx, prepared);
         let bridge = HookBridge::new(self.parts.hook_runner.clone(), program)
             .with_secrets(request.cx.values.inputs().secrets.clone());
-        Ok(Flight::new(parts, (hooks::request_hooks(program, call.0), bridge), Arc::clone(&self.matchers)))
+        let read = (Arc::clone(&self.matchers), runtime);
+        Ok(Flight::new(parts, (hooks::request_hooks(program, api), bridge), read))
     }
 }
 
@@ -165,9 +180,10 @@ fn timeout(program: &Program, api: &Api, action: &Action) -> Duration {
     limit.map_or(DEFAULT_TIMEOUT, vc_model::Duration::get)
 }
 
-/// Binds `response` and `request` for the checks, saves and cleanup vars; returns the response.
-pub fn bind(render: &mut Render<'_>, exchange: &Exchange) -> Arc<Value> {
-    let response = Arc::new(request::received(exchange));
+/// Binds `response` (as `runtime` reads it) and `request` for the checks, saves and cleanup vars;
+/// returns the response.
+pub fn bind(render: &mut Render<'_>, exchange: &Exchange, runtime: &dyn ProtocolRuntime) -> Arc<Value> {
+    let response = Arc::new(runtime.response(exchange));
     render.bind(Namespace::Response, Value::clone(&response));
     render.bind(Namespace::Request, request::sent(&exchange.request));
     response

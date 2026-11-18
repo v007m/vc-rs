@@ -15,6 +15,7 @@ mod looping;
 mod media;
 mod multipart;
 mod path;
+mod protocol;
 mod provides;
 mod request;
 mod retrying;
@@ -42,11 +43,12 @@ pub use call::{CallExecutor, called};
 pub use command::{CommandExecutor, CommandShell};
 pub use function::FunctionExecutor;
 pub use inline::InlineExecutor;
+pub use protocol::ProtocolRuntimes;
 pub use reuse::{TestExecutor, body_actions};
 pub use sink::{CleanupCollector, CleanupSink};
 
 pub use hooks::RuleHooks;
-pub use request::{encode, received};
+pub use request::encode;
 
 /// How long an action may run when neither it nor the config's `defaults` sets a `timeout`.
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);

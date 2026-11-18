@@ -53,6 +53,7 @@ code_table! {
     V2205 = 2205, Error, "Cycle through `test:` reuse";
     V2210 = 2210, Error, "Shared action saves values but has no `id`";
     V2211 = 2211, Error, "A key that works only beside another one that is missing";
+    V2213 = 2213, Error, "A key that does not apply to the api's `type`";
     V2301 = 2301, Error, "Invalid duration or size";
     V2302 = 2302, Error, "Wrong value type";
     V2303 = 2303, Error, "Invalid status code or class, or an empty status map or list";

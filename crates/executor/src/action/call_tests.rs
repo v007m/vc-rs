@@ -478,3 +478,12 @@ async fn the_request_timeout_is_the_action_s_else_the_api_s_else_the_config_defa
         assert_eq!((code(&report), start.elapsed()), (Some(Code::V5104.to_string()), StdDuration::from_secs(waited)));
     }
 }
+
+#[tokio::test]
+async fn its_debug_names_the_matchers_and_the_protocol_runtimes() {
+    let transport = Arc::new(FakeTransport::scripted(Vec::new()));
+    let executor = crate::CallExecutor::new(PipelineParts::new(transport, HostLimits::spawn(8)));
+    let shown = format!("{executor:?}");
+    assert!(shown.starts_with("CallExecutor { matchers: "), "{shown}");
+    assert!(shown.contains("runtimes: ProtocolRuntimes { runtimes: [HttpRuntime] }"), "{shown}");
+}
