@@ -1,5 +1,6 @@
 //! The keys each api `type` allows ([`vc_model::PROTOCOL_KEYS`], D342): a key that does not
-//! apply to the api's type is V2213, on the api, in its `expect`, or on a call that reaches it.
+//! apply to the api's type is V2213, on the api, in its `expect`, or on a call that reaches it
+//! (its `expect` and `poll.until` too, and a `cache.check` call nested in it).
 
 use vc_diagnostics::{Code, Diagnostic, Diagnostics, Fix, TextEdit};
 use vc_model::{AllowedKeys, FileKind, Protocol, ProtocolKeys};
@@ -49,10 +50,11 @@ fn allowed(table: &Table, protocol: Protocol) -> Option<&AllowedKeys> {
     }
 }
 
-/// The tests and actions of `source` that `call` an api, each with that api's type.
+/// The tests and actions of `source` that `call` an api, each with that api's type, nested
+/// `cache.check` actions included.
 fn calls<'n>(project: &Project<'n>, source: &Source<'n>) -> Vec<(&'n Node, Protocol)> {
     let tests = project::list(source.root, "tests").iter().filter(|_| source.kind == FileKind::Test);
-    let callers = tests.chain(project::actions(source));
+    let callers = tests.chain(project::actions(source)).flat_map(nested);
     let reached = |node: &'n Node| {
         let item = project.apis.get(&source.resolve(project::text(node, "call")?))?;
         Some((node, project::protocol(project.source(*item).root, item.node)))
@@ -60,10 +62,16 @@ fn calls<'n>(project: &Project<'n>, source: &Source<'n>) -> Vec<(&'n Node, Proto
     callers.filter_map(reached).collect()
 }
 
-/// V2213 for each key of `node`'s `expect` that `keys` does not allow.
+/// `action`, then each `cache.check` action nested in it, the innermost last.
+fn nested(action: &Node) -> impl Iterator<Item = &Node> {
+    std::iter::successors(Some(action), |node| node.get("cache")?.get("check"))
+}
+
+/// V2213 for each key of `node`'s `expect` and `poll.until` that `keys` does not allow.
 fn expect(source: &Source<'_>, (node, protocol): (&Node, Protocol), keys: &AllowedKeys) -> Vec<Diagnostic> {
-    let Some(checks) = node.get("expect") else { return Vec::new() };
-    stray(source, (checks, protocol), &Place { shape: shapes::expect(), allowed: keys.expect })
+    let until = node.get("poll").and_then(|poll| poll.get("until"));
+    let place = Place { shape: shapes::expect(), allowed: keys.expect };
+    node.get("expect").into_iter().chain(until).flat_map(|checks| stray(source, (checks, protocol), &place)).collect()
 }
 
 /// V2213 for each key of `node` the shape knows at `place` but the type does not allow.

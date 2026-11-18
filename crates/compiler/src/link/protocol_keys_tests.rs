@@ -40,6 +40,24 @@ tests:
           size: {lt: 1kb}
 ";
 
+/// A shared action whose `poll.until` and nested `cache.check` call set keys RESTRICTED takes away.
+const NESTED: &str = "\
+beforeAll:
+  - id: seed
+    call: users#make
+    poll:
+      until:
+        size: {lt: 1kb}
+    cache:
+      for: 1h
+      check:
+        call: users#get
+        timeout: 5s
+tests:
+  - id: getsUser
+    call: users#get
+";
+
 /// http with `method`, `size` and `poll` taken away, as a type that restricts keys would.
 const RESTRICTED: [(Protocol, ProtocolKeys); 1] = [(
     Protocol::Http,
@@ -63,9 +81,9 @@ fn compile(apis: &str, tests: &str) -> Compiled {
     crate::compile(CompileInput { files, ..CompileInput::default() })
 }
 
-/// V2213 over the users apis and tests, checked against `table`.
-fn checked(table: &Table) -> Vec<Diagnostic> {
-    let files = [file("services/users/users.api.yaml", APIS), file("services/users/crud.test.yaml", TESTS)];
+/// V2213 over the users apis and `tests`, checked against `table`.
+fn checked(table: &Table, tests: &str) -> Vec<Diagnostic> {
+    let files = [file("services/users/users.api.yaml", APIS), file("services/users/crud.test.yaml", tests)];
     let (tools, mut strings) = (Tools::new(), StringTable::new());
     let numbered = files.iter().zip(0..).map(|(source, at)| (SourceFileId::new(at), source));
     let units: Vec<_> =
@@ -112,13 +130,14 @@ fn a_misspelt_type_gets_the_close_value_as_its_fix() {
 
 #[test]
 fn http_allows_every_key_so_nothing_is_reported() {
-    assert_eq!(checked(&PROTOCOL_KEYS), []);
+    assert_eq!(checked(&PROTOCOL_KEYS, TESTS), []);
+    assert_eq!(checked(&PROTOCOL_KEYS, NESTED), []);
     assert!(compile(APIS, TESTS).diagnostics.iter().all(|found| found.code != Code::V2213));
 }
 
 #[test]
 fn a_key_the_type_does_not_allow_is_reported_with_a_fix_that_removes_it() {
-    let found = checked(&RESTRICTED);
+    let found = checked(&RESTRICTED, TESTS);
     let keys: Vec<_> = found.iter().map(|found| (found.code, found.primary.span.start.line)).collect();
     assert_eq!(keys, [(Code::V2213, 6), (Code::V2213, 10), (Code::V2213, 4), (Code::V2213, 10)]);
     let method = &found[0];
@@ -128,6 +147,15 @@ fn a_key_the_type_does_not_allow_is_reported_with_a_fix_that_removes_it() {
     assert_eq!((&APIS[edit.range.clone()], edit.new_text.as_str()), ("    method: POST\n", ""));
     assert_eq!(found[2].message, "`poll` does not apply to a `http` api");
     assert_eq!(&TESTS[found[2].fixes[0].edits[0].range.clone()], "    poll:\n      until: ${response.status == 201}\n");
+}
+
+#[test]
+fn a_poll_until_and_a_nested_cache_check_call_are_checked_too() {
+    let found = checked(&RESTRICTED, NESTED);
+    let in_tests = found.iter().filter(|found| found.primary.span.file == SourceFileId::new(1));
+    let keys: Vec<_> = in_tests.map(|found| (found.message.as_str(), found.primary.span.start.line)).collect();
+    let stray = |key: &str| format!("`{key}` does not apply to a `http` api");
+    assert_eq!(keys, [(stray("poll").as_str(), 4), (stray("size").as_str(), 6), (stray("timeout").as_str(), 11)]);
 }
 
 #[test]
