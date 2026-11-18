@@ -4,7 +4,7 @@
 use std::fmt::Write as _;
 
 use serde_json::Value;
-use vc_executor::{ActionCx, ActionReport, MASKED, Redactor};
+use vc_executor::{ActionCx, ActionReport, MASKED, ProtocolRuntimes, Redactor};
 use vc_model::{
     ActionId, ActionKind, ActionOutcome, Api, CheckResult, Exchange, Names, Namespace, Program, TemplateValue,
 };
@@ -63,12 +63,16 @@ impl CallReport {
         for check in report.checks.iter().cloned() {
             checks.push(redactor.checked(check).await);
         }
-        let response = match (exchange.as_ref(), report.response.as_deref()) {
-            (Some(exchange), _) => Some(vc_executor::received(exchange)),
+        let api = called_api(names.program(), action).map(|api| (names.program(), api));
+        let viewed = exchange
+            .as_ref()
+            .zip(api)
+            .and_then(|(exchange, (_, api))| ProtocolRuntimes::standard().response(api.protocol, exchange));
+        let response = match (viewed, report.response.as_deref()) {
+            (Some(viewed), _) => Some(viewed),
             (None, Some(response)) => Some(redactor.masked(response.clone()).await),
             (None, None) => None,
         };
-        let api = called_api(names.program(), action).map(|api| (names.program(), api));
         let saved = saved(redactor, api, (&report, response.as_ref().unwrap_or(&Value::Null))).await;
         let passed = matches!(report.outcome, ActionOutcome::Passed);
         let text = shown(cx, exchange.as_ref(), &report.outcome).await;

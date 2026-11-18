@@ -57,6 +57,13 @@ impl ProtocolRuntimes {
     }
 
     /// The types it has a runtime for, in registration order.
+    /// The `response` root an api of `protocol` gives for `exchange`: what its checks, saves and
+    /// later actions see. `None` for a type without a runtime.
+    #[must_use]
+    pub fn response(&self, protocol: Protocol, exchange: &Exchange) -> Option<Value> {
+        self.get(protocol).map(|runtime| runtime.response(exchange))
+    }
+
     #[must_use]
     pub fn protocols(&self) -> Vec<Protocol> {
         self.runtimes.iter().map(|runtime| runtime.protocol()).collect()
