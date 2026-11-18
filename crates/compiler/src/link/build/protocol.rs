@@ -1,6 +1,6 @@
 //! The compile rules of each api `type` (D342): the parts of an api that its type decides.
 
-use vc_model::{BodySpec, Method, Protocol};
+use vc_model::{BodySpec, Method, ModelError, Protocol};
 use vc_parser::Node;
 
 use super::read;
@@ -46,9 +46,10 @@ impl ProtocolRulesRegistry {
         Self { rules }
     }
 
-    /// The rules for `protocol`, if it has any.
-    pub(crate) fn get(&self, protocol: Protocol) -> Option<&dyn ProtocolRules> {
-        self.rules.iter().find(|rules| rules.protocol() == protocol).map(AsRef::as_ref)
+    /// The rules for `protocol`; a type without them fails the build (`NoProtocolRules`).
+    pub(crate) fn get(&self, protocol: Protocol) -> Result<&dyn ProtocolRules, ModelError> {
+        let found = self.rules.iter().find(|rules| rules.protocol() == protocol);
+        found.map(AsRef::as_ref).ok_or(ModelError::NoProtocolRules(protocol))
     }
 
     /// The types it has rules for, in registration order.

@@ -127,11 +127,8 @@ impl<'a> Build<'_, 'a> {
 
     fn api(&mut self, source: &Source<'a>, node: &Node, group: FileId) -> Built<Option<Api>> {
         let path = node.get("path").and_then(|path| read::template(source, path));
-        let (Some(id), Some(path), Some(rules)) =
-            (project::text(node, "id"), path, self.rules.get(project::protocol(source.root, node)))
-        else {
-            return Ok(None);
-        };
+        let rules = self.rules.get(project::protocol(source.root, node))?;
+        let (Some(id), Some(path)) = (project::text(node, "id"), path) else { return Ok(None) };
         let id = ApiId::new(self.sym(&source.full(id))?);
         let cleanup = match node.get("cleanup") {
             Some(cleanup) => self.block(source, (std::slice::from_ref(cleanup), Owner::Instance))?.first().copied(),

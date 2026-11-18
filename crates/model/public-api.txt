@@ -396,6 +396,7 @@ pub fn vc_model::Method::deserialize<__D>(__D) -> core::result::Result<Self, <__
 pub vc_model::ModelError::ActionTableFull(usize)
 pub vc_model::ModelError::FileTableFull(usize)
 pub vc_model::ModelError::InvalidSourcePath(alloc::string::String)
+pub vc_model::ModelError::NoProtocolRules(vc_model::Protocol)
 pub vc_model::ModelError::StringTableFull(usize)
 impl core::clone::Clone for vc_model::ModelError
 pub fn vc_model::ModelError::clone(&self) -> Self
