@@ -700,6 +700,16 @@ Round 66 (19 November 2026; Sarath, approving the protocol model and GraphQL des
 | D348 | `vc import graphql` | It reads SDL or introspection JSON, and writes one api per `Query` and `Mutation` root field, with a selection to depth 2 and a var per argument with a typed sample. Subscriptions are skipped with a note, and the schema is copied beside the api file. `vc-adapter-importers` may depend on `vc-parser`. | — |
 | D349 | `/graphql` on `vc demo` | A small GraphQL endpoint over the users store: `user`, `users`, `createUser`, and a `secretNote` that always errors `FORBIDDEN`. The SDL is at `/graphql/schema.graphql`. | — |
 
+Round 67 (19 November 2026; Sarath, approving the mTLS design in #105):
+
+| # | Topic | Decision | Supersedes |
+| --- | --- | --- | --- |
+| D350 | Client certificate syntax | Identities live in `http.tls.clients` in the project config (`id`, `name`, `hosts`, `profiles`, and `cert`+`key` or `pkcs12`+`passphrase`). `http.tls.ca` adds trusted roots on top of the OS store. Any auth can name one with `clientCert` (`none` sends none). `type: mtls` selects a cert and adds no headers. A request uses its auth's `clientCert`, else the first entry whose `hosts` match under an active profile, else none; an auth's cert also covers its token posts. Values render once per run from config and profile vars, secrets and env. A value starting `-----BEGIN` is inline PEM, otherwise a path (relative to the project root, or absolute; no `allowRoots`). `pkcs12` is a path only | LLD "client certificates and per-profile CA bundles come later" |
+| D351 | Connection isolation | `HttpTransport` holds one pooled client per identity, each with its own `ClientConfig` (so separate pools and session caches), built at run start in an immutable table. `SendContext::client_cert` carries the call's choice. `ConnectionInfo` records the identity ID. `TlsIdentities` is shared by future WebSocket and gRPC connectors | — |
+| D352 | Formats and crates | PEM through `rustls-pki-types` `PemObject` (not the archived `rustls-pemfile`). PKCS#1, SEC1 and PKCS#8 keys: RSA, ECDSA P-256/P-384, Ed25519. Encrypted PEM keys are refused. PKCS#12 through `p12-keystore`, with the legacy 3DES/RC2 features. Expiry is read with `x509-parser`. `rcgen` (ring, pem; no aws-lc-rs) only in `vc-testkit` | Extends D136, D152 |
+| D353 | mTLS security | Verification stays on: no `insecure`. `serverName` is deferred. Key bytes are zeroized and never appear in errors, `Debug`, reports, history or the debug bundle. Warnings: a key readable by others (Unix, V4012), a literal key or passphrase (V4013), a cert expiring within 30 days (V3107), and one expired or not yet valid (V3108) | — |
+| D354 | mTLS failures | Material that won't load, or that doesn't fit together (V5125, V5126), stops the run before any request, like a missing secret (D280); only identities active for the run's profiles are loaded. A handshake that rejects the cert fails that call with V5127, detected during the handshake (TLS 1.2) and on the first read (TLS 1.3) | V5105 for those TLS alerts |
+
 ## Open
 
 All decisions needed for the PRD and technical design are settled. The language is decided by the spike (D6, D36, D37, D41).

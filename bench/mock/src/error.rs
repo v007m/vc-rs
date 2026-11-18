@@ -19,6 +19,9 @@ pub enum MockError {
     /// Serving or waiting for a signal failed.
     #[error("mock server I/O error: {0}")]
     Io(#[from] io::Error),
+    /// The https mode's certificate, key or client roots were refused.
+    #[error("cannot set up TLS for the mock server: {0}")]
+    Tls(String),
     /// The state actor or the server task has stopped.
     #[error("the mock server has stopped")]
     Stopped,

@@ -1,5 +1,6 @@
 use std::net::{Ipv4Addr, SocketAddr};
 
+use axum::Router;
 use tokio::net::TcpListener;
 use tokio::sync::oneshot;
 use tokio::task::JoinHandle;
@@ -8,6 +9,7 @@ use crate::error::MockError;
 use crate::routes;
 use crate::stats::Stats;
 use crate::store::Store;
+use crate::tls::{MockTls, PeerCert, TlsListener};
 
 /// Entry point: starts a mock server on the current tokio runtime.
 #[non_exhaustive]
@@ -27,27 +29,49 @@ impl MockServer {
     /// # Errors
     /// [`MockError::Bind`] when `addr` cannot be bound.
     pub async fn start_on(addr: SocketAddr) -> Result<MockHandle, MockError> {
-        let bind = |source| MockError::Bind { addr, source };
-        let listener = TcpListener::bind(addr).await.map_err(bind)?;
-        let addr = listener.local_addr().map_err(bind)?;
+        let (listener, addr) = bind(addr).await?;
         let store = Store::spawn();
-        let app = routes::router(&store);
+        let app = routes::router(&store, Router::new());
         let (stop, stopped) = oneshot::channel::<()>();
-        let task = tokio::spawn(async move {
-            axum::serve(listener, app)
-                .with_graceful_shutdown(async move {
-                    let _ = stopped.await;
-                })
-                .await
-        });
-        Ok(MockHandle { addr, store, stop, task })
+        let task = tokio::spawn(async move { axum::serve(listener, app).with_graceful_shutdown(until(stopped)).await });
+        Ok(MockHandle { addr, scheme: "http", store, stop, task })
     }
+
+    /// Starts an https server on `127.0.0.1` with a free port: the same routes behind a rustls
+    /// acceptor set up by `tls`, plus `GET /whoami`.
+    ///
+    /// # Errors
+    /// [`MockError::Bind`] when no port can be bound, [`MockError::Tls`] when rustls refuses `tls`.
+    pub async fn start_tls(tls: MockTls) -> Result<MockHandle, MockError> {
+        let (config, names) = tls.into_server()?;
+        let (listener, addr) = bind(SocketAddr::from((Ipv4Addr::LOCALHOST, 0))).await?;
+        let store = Store::spawn();
+        let app = routes::router(&store, routes::whoami(names));
+        let service = app.into_make_service_with_connect_info::<PeerCert>();
+        let listener = TlsListener::new(listener, addr, config);
+        let (stop, stopped) = oneshot::channel::<()>();
+        let task =
+            tokio::spawn(async move { axum::serve(listener, service).with_graceful_shutdown(until(stopped)).await });
+        Ok(MockHandle { addr, scheme: "https", store, stop, task })
+    }
+}
+
+async fn bind(addr: SocketAddr) -> Result<(TcpListener, SocketAddr), MockError> {
+    let bind = |source| MockError::Bind { addr, source };
+    let listener = TcpListener::bind(addr).await.map_err(bind)?;
+    let addr = listener.local_addr().map_err(bind)?;
+    Ok((listener, addr))
+}
+
+async fn until(stopped: oneshot::Receiver<()>) {
+    let _ = stopped.await;
 }
 
 /// A running mock server. Dropping it starts a graceful shutdown; [`MockHandle::shutdown`]
 /// also waits for it to finish.
 pub struct MockHandle {
     addr: SocketAddr,
+    scheme: &'static str,
     store: Store,
     stop: oneshot::Sender<()>,
     task: JoinHandle<std::io::Result<()>>,
@@ -60,10 +84,10 @@ impl MockHandle {
         self.addr
     }
 
-    /// `http://<addr>`, without a trailing slash.
+    /// `http://<addr>`, or `https://<addr>` for [`MockServer::start_tls`], without a trailing slash.
     #[must_use]
     pub fn base_url(&self) -> String {
-        format!("http://{}", self.addr)
+        format!("{}://{}", self.scheme, self.addr)
     }
 
     /// The current counters, as served by `GET /__stats`.
