@@ -1,6 +1,6 @@
 // The terminal pictures: `vc run` as it prints, and the TUI's five tabs.
 import { realpathSync } from 'node:fs';
-import { TERMINAL_THEMES, normalise, openTerminal, renderHtml, sleep, snapshot, trimBottom } from './terminal.mjs';
+import { TERMINAL_THEMES, openTerminal, renderHtml, sleep, snapshot, trimBottom } from './terminal.mjs';
 import { hash } from './history.mjs';
 import { vcEnv } from './project.mjs';
 
@@ -67,13 +67,6 @@ export async function consoleRun({ vcBin, project }) {
   return rows;
 }
 
-/** Steadies each measured `<n>ms` on a screen row, keyed by the row's other text and its place. */
-const DURATIONS = [[/\b(\d+)(?:\.(\d+))?( ?ms)\b/g, (match, row) => {
-  const [, whole, fraction, unit] = match;
-  const key = `${row.replace(/\d+(?:\.\d+)? ?ms\b/g, '')}#${match.index}`;
-  return fraction === undefined ? `${steadyWhole(whole, key)}${unit}` : `${steadyWhole(whole, key)}.${steadyDigits(fraction, `${key}.`)}${unit}`;
-}]];
-
 /** Moves the cursor down until the screen's selected line (`▸`, or the highlighted row) shows `text`. */
 async function select(terminal, text, { step = 'j', limit = 40 } = {}) {
   for (let i = 0; i < limit; i++) {
@@ -85,13 +78,13 @@ async function select(terminal, text, { step = 'j', limit = 40 } = {}) {
   throw new Error(`could not select ${text}:\n${terminal.text()}`);
 }
 
-const shot = (terminal, rules = []) => normalise(snapshot(terminal.term), rules);
+const shot = (terminal) => snapshot(terminal.term);
 
 /**
- * Drives the TUI: Run (run 3, failures only, a failing test chosen), Explore (a test explained),
- * Load (the smoke scenario, run 4, once done) and Import (an OpenAPI spec from the demo, drafted).
- * Then `fixHistory` makes the stored times fixed and a second session shows History with a compare,
- * then the help panel over it.
+ * Drives the TUI: Run (run 3), Explore (a test explained), Load (the smoke scenario, run 4) and
+ * Import (an OpenAPI spec from the demo, drafted). Then `fixHistory` makes the stored times fixed and
+ * a second session shows History with a compare, then the help panel over it. Run and Load are not
+ * taken: the requests a parallel run lists last and a live load test's figures change every time.
  */
 export async function tuiSessions({ vcBin, project, fixHistory, specUrl }) {
   const open = () => openTerminal({ argv: [vcBin, 'tui'], cwd: project, env: vcEnv(), cols: 120, rows: 34 });
@@ -102,10 +95,6 @@ export async function tuiSessions({ vcBin, project, fixHistory, specUrl }) {
     await terminal.waitFor('no run yet');
     terminal.send('a');
     await terminal.waitFor(/(passed|failed) 19\/19/, { quietMs: 800 });
-    terminal.send('f');
-    await terminal.waitFor('failures only');
-    await selectTreeRow(terminal, 'getsAdaByName');
-    screens.run = shot(terminal, DURATIONS);
 
     console.log('  tui: explore');
     terminal.send('2');
@@ -121,7 +110,6 @@ export async function tuiSessions({ vcBin, project, fixHistory, specUrl }) {
     await terminal.waitFor('1 scenario');
     terminal.send('\r');
     await terminal.waitFor(/finished after/, { timeoutMs: 60_000, quietMs: 1000 });
-    screens.load = shot(terminal);
 
     console.log('  tui: import');
     terminal.send('5');
@@ -169,17 +157,6 @@ export async function tuiSessions({ vcBin, project, fixHistory, specUrl }) {
     await terminal.close();
   }
   return screens;
-}
-
-/** Moves the Run tab's cursor to the tree row naming `text`; the Test pane's title then names it. */
-async function selectTreeRow(terminal, text) {
-  for (let i = 0; i < 20; i++) {
-    const title = terminal.text().split('\n')[2] ?? '';
-    if (title.includes(`┌ ${text} `)) return;
-    terminal.send('j');
-    await sleep(150);
-  }
-  throw new Error(`could not select ${text}:\n${terminal.text()}`);
 }
 
 /** Draws each screen as HTML and takes its picture: `vc run` in both themes, the TUI in its own. */

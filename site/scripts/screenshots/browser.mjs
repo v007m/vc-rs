@@ -8,6 +8,11 @@ import { FIRST_RUN_AT, vc, vcEnv } from './project.mjs';
 const THEMES = ['light', 'dark'];
 const VIEWPORT = { width: 1280, height: 800 };
 const WIDE = { width: 1440, height: 800 };
+/**
+ * The report's failure picture: tall enough that the test list (`100dvh - 260px`) holds all its rows
+ * unscrolled, and wide enough that the detail pane keeps the error excerpt's underline on one line.
+ */
+const REPORT_FAILURE = { width: 1520, height: 1060 };
 /** "Now" for relative dates: the morning the stored runs happened. */
 const NOW = FIRST_RUN_AT + 4 * 3_600_000;
 
@@ -38,13 +43,19 @@ export async function captureReport({ browser, save }, { vcBin, project, root })
     await page.goto(pathToFileURL(join(out, 'report.html')).href);
     await page.getByText('passed').first().waitFor();
     await bothThemes(page, save, 'report', 'summary');
+    await page.setViewportSize(REPORT_FAILURE);
     await page.getByText('users.profile#getsAdaByName').first().click();
     await page.getByText('Ada Lovelace').first().waitFor();
-    await page.evaluate(() => window.scrollTo(0, document.scrollingElement.scrollHeight));
+    await page.mouse.move(0, 0);
+    await page.evaluate(() => {
+      for (const element of document.querySelectorAll('*')) if (element.scrollTop) element.scrollTop = 0;
+      window.scrollTo(0, document.scrollingElement.scrollHeight);
+    });
     // Only the test list and the opened test: the summary above is the other picture.
     const filter = await page.getByPlaceholder(/^Filter/).boundingBox();
     const top = Math.max(0, Math.round(filter.y) - 22);
-    await bothThemes(page, save, 'report', 'failure', undefined, { x: 0, y: top, width: VIEWPORT.width, height: VIEWPORT.height - top });
+    const clip = { x: 0, y: top, width: REPORT_FAILURE.width, height: REPORT_FAILURE.height - top };
+    await bothThemes(page, save, 'report', 'failure', undefined, clip);
   } finally {
     await page.context().close();
   }

@@ -132,26 +132,6 @@ export function snapshot(term) {
   return rows;
 }
 
-/**
- * Rewrites text that changes from run to run, such as durations, in place. Each rule is a global
- * regex and a function from the match to its replacement; a replacement keeps the match's width, so
- * columns stay where they were. A shorter one is padded on the left, a longer one is dropped.
- */
-export function normalise(rows, rules) {
-  for (const cells of rows) {
-    const text = cells.map((cell) => (cell.width === 1 ? cell.ch : '\u0000')).join('');
-    for (const [pattern, replace] of rules) {
-      for (const match of text.matchAll(pattern)) {
-        const next = replace(match, text);
-        if (next.length > match[0].length) continue;
-        const padded = next.padStart(match[0].length, ' ');
-        for (let i = 0; i < padded.length; i++) cells[match.index + i].ch = padded[i];
-      }
-    }
-  }
-  return rows;
-}
-
 /** Drops the blank rows at the bottom of a screen, keeping at least one. */
 export function trimBottom(rows) {
   let end = rows.length;
