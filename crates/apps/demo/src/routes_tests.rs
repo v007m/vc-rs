@@ -72,12 +72,35 @@ async fn slow_waits_the_milliseconds_asked_for_up_to_the_cap() {
     assert_eq!(send(&app, Method::GET, "/slow", "").await.1, json!({"sleptMs": 0}));
     let over = send(&app, Method::GET, "/slow?ms=10001", "").await;
     assert_eq!(over, (StatusCode::BAD_REQUEST, json!({"error": "`ms` is at most 10000"})), "refused, not clamped");
-    for bad in ["/slow?ms=-1", "/slow?ms=soon"] {
+    for bad in ["/slow?ms=-1", "/slow?ms=soon", "/slow?ms=%2B5", "/slow?ms=+5", "/slow?ms=1.5", "/slow?ms="] {
         assert_eq!(
             send(&app, Method::GET, bad, "").await,
-            (StatusCode::BAD_REQUEST, json!({"error": "`ms` is a whole number"}))
+            (StatusCode::BAD_REQUEST, json!({"error": "`ms` is a whole number"})),
+            "{bad}"
         );
     }
+}
+
+#[tokio::test]
+async fn every_count_takes_ascii_digits_only() {
+    let app = router();
+    for (path, name) in [("/flaky?key=k&failTimes=", "failTimes"), ("/poll/p?after=", "after")] {
+        for bad in ["%2B1", "-1", "1.5", ""] {
+            let error = json!({"error": format!("`{name}` is a whole number")});
+            assert_eq!(send(&app, Method::GET, &format!("{path}{bad}"), "").await, (StatusCode::BAD_REQUEST, error));
+        }
+    }
+}
+
+#[tokio::test]
+async fn a_request_the_routes_cannot_read_gets_a_json_error() {
+    let app = router();
+    for (path, name) in [("/poll/%FF", "id"), ("/status/%FF", "code")] {
+        let error = json!({"error": format!("Invalid URL: Invalid UTF-8 in `{name}`")});
+        assert_eq!(send(&app, Method::GET, path, "").await, (StatusCode::BAD_REQUEST, error), "{path}");
+    }
+    let lossy = send(&app, Method::GET, "/slow?ms=%FF", "").await;
+    assert_eq!(lossy, (StatusCode::BAD_REQUEST, json!({"error": "`ms` is a whole number"})), "a query reads lossily");
 }
 
 #[tokio::test]
@@ -178,8 +201,43 @@ async fn status_answers_any_code_from_200_to_599_by_any_method() {
         let status = StatusCode::from_u16(code).unwrap();
         assert_eq!(send(&app, method, &format!("/status/{code}"), "").await, (status, json!({"status": code})));
     }
+    for code in [204, 205, 304] {
+        let path = format!("/status/{code}");
+        let request = Request::builder().uri(&path).body(Body::empty()).unwrap();
+        let response = app.clone().oneshot(request).await.unwrap();
+        assert_eq!(response.status().as_u16(), code);
+        assert!(body::to_bytes(response.into_body(), usize::MAX).await.unwrap().is_empty(), "{path} has no body");
+    }
     let refused = (StatusCode::BAD_REQUEST, json!({"error": "the status is a number from 200 to 599"}));
     for bad in ["199", "600", "100", "70000", "-1", "ok"] {
         assert_eq!(send(&app, Method::GET, &format!("/status/{bad}"), "").await, refused, "{bad}");
+    }
+}
+
+/// The raw response to `GET path` from `app` served on a socket, as hyper writes it.
+async fn over_a_socket(app: axum::Router, path: &str) -> String {
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = listener.local_addr().unwrap();
+    tokio::spawn(async move { axum::serve(listener, app).await });
+    let request = format!("GET {path} HTTP/1.1\r\nhost: demo\r\nconnection: close\r\n\r\n");
+    let read = move || {
+        use std::io::{Read, Write};
+        let mut stream = std::net::TcpStream::connect(address).unwrap();
+        stream.write_all(request.as_bytes()).unwrap();
+        let mut response = String::new();
+        stream.read_to_string(&mut response).unwrap();
+        response.to_ascii_lowercase()
+    };
+    tokio::task::spawn_blocking(read).await.unwrap()
+}
+
+#[tokio::test]
+async fn statuses_without_a_body_send_none_over_a_socket() {
+    for (code, length) in [(204, None), (205, Some("content-length: 0")), (304, None)] {
+        let response = over_a_socket(router(), &format!("/status/{code}")).await;
+        let (head, body) = response.split_once("\r\n\r\n").unwrap();
+        assert!(head.starts_with(&format!("http/1.1 {code}")), "{head}");
+        assert_eq!(head.lines().find(|line| line.starts_with("content-length")), length, "{head}");
+        assert_eq!(body, "", "{code}");
     }
 }

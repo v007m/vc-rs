@@ -1,11 +1,13 @@
-//! The demo's test routes, as the mock serves them: `/slow`, `/flaky`, `/status/{code}` and
-//! `/poll/{id}`. Each bounds what it waits for or keeps, and refuses more with 400 (D329).
+//! The demo's test routes, `/slow`, `/flaky`, `/status/{code}` and `/poll/{id}`: the mock's
+//! semantics, with caps (D329). Each bounds what it waits for or keeps, and refuses more, or a
+//! request it cannot read, with 400 and a JSON error.
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
+use axum::extract::rejection::{PathRejection, QueryRejection};
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
@@ -25,6 +27,12 @@ pub const MAX_KEYS: usize = 1024;
 
 /// A query string, by name.
 type Params = BTreeMap<String, String>;
+
+/// A query string, or why it could not be read.
+type Asked = Result<Query<Params>, QueryRejection>;
+
+/// A path segment, or why it could not be read.
+type Segment = Result<Path<String>, PathRejection>;
 
 /// Attempt counts per key, in a table of [`MAX_KEYS`] slots: a key takes the first free slot from
 /// where its hash points, and keeps it, so the memory held never grows.
@@ -89,6 +97,18 @@ impl IntoResponse for Refused {
     }
 }
 
+impl From<QueryRejection> for Refused {
+    fn from(rejection: QueryRejection) -> Self {
+        Self(rejection.body_text())
+    }
+}
+
+impl From<PathRejection> for Refused {
+    fn from(rejection: PathRejection) -> Self {
+        Self(rejection.body_text())
+    }
+}
+
 /// The test routes, each with its own state.
 pub fn routes() -> Router {
     let tables = Arc::new(Tables { flaky: Counters::new(), polls: Counters::new() });
@@ -102,7 +122,8 @@ pub fn routes() -> Router {
 
 /// `GET /slow?ms=n`: `{"sleptMs": n}` after `n` milliseconds (0 when not given), at most
 /// [`MAX_SLEEP_MS`].
-async fn slow(Query(query): Query<Params>) -> Result<Json<Value>, Refused> {
+async fn slow(query: Asked) -> Result<Json<Value>, Refused> {
+    let Query(query) = query?;
     let ms = number(&query, "ms")?;
     if ms > MAX_SLEEP_MS {
         return Err(Refused(format!("`ms` is at most {MAX_SLEEP_MS}")));
@@ -113,7 +134,8 @@ async fn slow(Query(query): Query<Params>) -> Result<Json<Value>, Refused> {
 
 /// `GET /flaky?key=k&failTimes=n`: the first `n` attempts per key get 503 and later ones 200, each
 /// with `{"attempt": a}`.
-async fn flaky(State(tables): State<Arc<Tables>>, Query(query): Query<Params>) -> Result<Response, Refused> {
+async fn flaky(State(tables): State<Arc<Tables>>, query: Asked) -> Result<Response, Refused> {
+    let Query(query) = query?;
     let fail_times = number(&query, "failTimes")?;
     let key = query.get("key").map_or("", String::as_str);
     let attempt = count(&tables.flaky, key, "key").await?;
@@ -123,23 +145,23 @@ async fn flaky(State(tables): State<Arc<Tables>>, Query(query): Query<Params>) -
 
 /// `GET /poll/{id}?after=n`: `pending` until the `n`th attempt for that id, `done` from then on,
 /// each with `{"status": s, "attempt": a}`.
-async fn poll(
-    State(tables): State<Arc<Tables>>,
-    Path(id): Path<String>,
-    Query(query): Query<Params>,
-) -> Result<Json<Value>, Refused> {
+async fn poll(State(tables): State<Arc<Tables>>, id: Segment, query: Asked) -> Result<Json<Value>, Refused> {
+    let (Path(id), Query(query)) = (id?, query?);
     let after = number(&query, "after")?;
     let attempt = count(&tables.polls, &id, "id").await?;
     let status = if attempt >= after { "done" } else { "pending" };
     Ok(Json(json!({"status": status, "attempt": attempt})))
 }
 
-/// `/status/{code}`, by any method: that status with `{"status": code}`, for 200 to 599.
-async fn status(Path(code): Path<String>) -> Result<Response, Refused> {
+/// `/status/{code}`, by any method: that status with `{"status": code}`, for 200 to 599; 204, 205
+/// and 304 carry no body, as HTTP has them, so a socket and the playground answer alike.
+async fn status(code: Segment) -> Result<Response, Refused> {
+    let Path(code) = code?;
     let wanted = code.parse::<u16>().ok().filter(|code| (200..=599).contains(code));
     let status = wanted.and_then(|code| StatusCode::from_u16(code).ok());
     let status = status.ok_or_else(|| Refused("the status is a number from 200 to 599".to_owned()))?;
-    Ok((status, Json(json!({"status": status.as_u16()}))).into_response())
+    let empty = matches!(status, StatusCode::NO_CONTENT | StatusCode::RESET_CONTENT | StatusCode::NOT_MODIFIED);
+    Ok(if empty { status.into_response() } else { (status, Json(json!({"status": status.as_u16()}))).into_response() })
 }
 
 /// The attempt for `key` in `counters`, refused when the key is too long or the table is full.
@@ -151,8 +173,35 @@ async fn count(counters: &Counters, key: &str, what: &str) -> Result<u64, Refuse
     counters.bump(key).await.ok_or_else(full)
 }
 
-/// The whole number `name` names in `query`, 0 when it is not given.
+/// The whole number `name` names in `query`, in ASCII digits only (no sign, no point), 0 when it
+/// is not given; an empty value is refused.
 fn number(query: &Params, name: &str) -> Result<u64, Refused> {
-    let parse = |text: &String| text.parse().map_err(|_| Refused(format!("`{name}` is a whole number")));
-    query.get(name).map_or(Ok(0), parse)
+    let Some(text) = query.get(name) else { return Ok(0) };
+    let digits = !text.is_empty() && text.bytes().all(|byte| byte.is_ascii_digit());
+    let parsed = digits.then(|| text.parse().ok()).flatten();
+    parsed.ok_or_else(|| Refused(format!("`{name}` is a whole number")))
+}
+
+#[cfg(test)]
+mod tests {
+    use axum::body;
+    use axum::extract::Query;
+    use axum::http::{StatusCode, Uri};
+    use axum::response::IntoResponse;
+    use serde_json::{Value, json};
+
+    use super::Refused;
+
+    #[tokio::test]
+    async fn a_query_rejection_is_refused_as_json() {
+        let uri = Uri::from_static("/slow?ms=soon");
+        let rejection = Query::<std::collections::BTreeMap<String, u64>>::try_from_uri(&uri).unwrap_err();
+        let response = Refused::from(rejection).into_response();
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+        let bytes = body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let body: Value = serde_json::from_slice(&bytes).unwrap();
+        let error = body["error"].as_str().unwrap();
+        assert!(error.starts_with("Failed to deserialize query string"), "{error}");
+        assert_eq!(body, json!({"error": error}));
+    }
 }

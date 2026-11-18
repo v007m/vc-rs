@@ -76,15 +76,15 @@ error: port 7454 is taken by a program that is not the demo
 | `POST /users` | `201` with the name, email and a new `id` (`3`, then `4`, …); `400` `{"error":"a user needs an email"}` without an `email` |
 | `DELETE /users/{id}` | `204` |
 | any `/echo` | `200` with the method, path, query, headers and body it received, and the demo's pid in the `x-vc-demo-pid` header |
-| `GET /slow?ms=N` | `200` `{"sleptMs":N}` after N milliseconds (0 when not given); N is at most `10000` |
+| `GET /slow?ms=N` | `200` `{"sleptMs":N}` after N milliseconds (0 when `ms` is not given; `ms=` with no value is refused); N is at most `10000` |
 | `GET /flaky?key=K&failTimes=N` | `{"attempt":n}`, counted per key: `503` for the first N attempts, then `200` |
 | `GET /poll/{id}?after=N` | `200` `{"attempt":n,"status":"pending"}`, counted per ID, until attempt N, which and later ones are `"done"` |
-| any `/status/{code}` | that status, with `{"status":code}`, for any code from `200` to `599` |
+| any `/status/{code}` | that status, with `{"status":code}`, for any code from `200` to `599`; no body for `204`, `205` and `304` |
 | anything else | `404` |
 
 It stores no users: a created or deleted user does not change `GET /users`.
 
-The last four are test routes, for trying [`retry`](/vc-rs/reference/syntax/retry/), [`http.retry`](/vc-rs/reference/syntax/http-retry/), [`timeout`](/vc-rs/reference/syntax/timeout/), [`poll`](/vc-rs/reference/syntax/poll/) and [load tests](/vc-rs/reference/load/). Each refuses more than it is built for with `400` and a JSON `error`, never a quiet clamp: `ms` over `10000`, a key or ID over 64 bytes, a status outside `200`–`599`, or a number that is not whole. `/flaky` and `/poll` each count up to 1024 keys; a new key past that is refused while the keys it has keep counting, until the demo restarts.
+The last four are test routes, for trying [`retry`](/vc-rs/reference/syntax/retry/), [`http.retry`](/vc-rs/reference/syntax/http-retry/), [`timeout`](/vc-rs/reference/syntax/timeout/), [`poll`](/vc-rs/reference/syntax/poll/) and [load tests](/vc-rs/reference/load/). Each refuses more than it is built for with `400` and a JSON `error`, never a quiet clamp: `ms` over `10000`, a key or ID over 64 bytes, a status outside `200`–`599`, a number in anything but the digits `0`–`9` (`+5`, `-1`, `1.5` or an empty value), or a request it cannot read, such as a path that is not UTF-8. `/flaky` and `/poll` each count up to 1024 keys; a new key past that is refused while the keys it has keep counting, until the demo restarts.
 
 ```console
 $ curl -s -w ' %{http_code}\n' 'localhost:7421/flaky?key=pay&failTimes=1'

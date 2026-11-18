@@ -76,7 +76,7 @@ fn http_retry_recovers_from_flaky() {
 #[test]
 fn a_timeout_trips_on_slow() {
     let demo = Demo::start();
-    let test = "tests:\n  - id: givesUp\n    call: demo#slow\n    vars: {ms: 5000}\n    timeout: 200ms\n";
+    let test = "tests:\n  - id: givesUp\n    call: demo#slow\n    vars: {ms: 1000}\n    timeout: 200ms\n";
     let project = demo.project("", &[("services/demo/timeout.test.yaml", test)]);
     let output = project.vc(&["run"]).output().unwrap();
     assert_eq!(output.status.code(), Some(1));
