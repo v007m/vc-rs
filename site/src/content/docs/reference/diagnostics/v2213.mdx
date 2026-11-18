@@ -1,0 +1,58 @@
+---
+title: "V2213 — A key that does not apply to the api's type"
+description: "An api's type decides which keys it takes: on the api item, in an expect, and on a test or step that calls it."
+sidebar:
+  label: "V2213 A key that does not apply to the api's type"
+  order: 2213
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="error" variant="danger" /> <Badge text="References and types" variant="note" />
+
+| | |
+| --- | --- |
+| Code | `V2213` |
+| Category | V2xxx: References and types |
+| Severity | error |
+
+An api's `type` decides which keys it takes: on the api item, in an `expect`, and on a test or step that calls it.
+A key that the type does not use is an error, since it would be ignored. The fix removes it.
+
+`http`, the default type, takes every key, so no `http` api reports this code. It applies once an api sets a
+type that leaves keys out, such as `graphql`, where every request is a `POST` and `method` has no meaning.
+
+## Wrong
+
+```yaml wrong title="services/catalog/catalog.api.yaml"
+type: graphql
+apis:
+  - id: listProducts
+    method: POST
+    path: /graphql
+```
+
+## Right
+
+```yaml skip title="services/catalog/catalog.api.yaml"
+type: graphql
+apis:
+  - id: listProducts
+    path: /graphql
+```
+
+
+## Explain it in your terminal
+
+The same page is built into the binary, so this works anywhere, even outside a project:
+
+```console
+$ vc explain V2213
+```
+
+## Related
+
+- [All diagnostic codes](/vc-rs/reference/diagnostics/)
+- [`vc explain`](/vc-rs/reference/cli/explain/)
+- [`vc check`](/vc-rs/reference/cli/check/)
+- [Errors and fixes](/vc-rs/guides/errors-and-fixes/)

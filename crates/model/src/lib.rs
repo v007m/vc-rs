@@ -36,6 +36,7 @@ mod outcome;
 mod plan;
 mod printable;
 mod program;
+mod protocol;
 mod secrets;
 mod source;
 mod span;
@@ -75,6 +76,7 @@ pub use outcome::{ActionOutcome, CleanupRecord, Failure, OwnerKey, RunStatus, Te
 pub use plan::{Instance, InstanceId, Needs, Plan, PlannedAction, PlannedFile, SkippedTest};
 pub use printable::{one_line, printable};
 pub use program::Program;
+pub use protocol::{PROTOCOL_KEYS, Protocol, ProtocolKeys, protocol_keys};
 pub use secrets::{
     DEFAULT_SECRETS_PROVIDER, DEFAULT_SECRETS_SCHEMA, PROFILE_VARIABLE, RedactRule, SchemaNames, SecretsConfig,
     schema_names, secret_name,

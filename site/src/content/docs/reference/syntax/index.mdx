@@ -226,6 +226,7 @@ Top level of an `*.api.yaml` file:
 | --- | --- | --- |
 | `id` | File ID; optional, must match the path | [id](/vc-rs/reference/syntax/id/) |
 | `name` | Free text for reports | [name](/vc-rs/reference/syntax/name/) |
+| `type` | What the file's apis speak, default `http` | [type](/vc-rs/reference/syntax/type/) |
 | `source` | The OpenAPI document the file was imported from | [source](/vc-rs/reference/syntax/source/) |
 | `baseUrl` | Prefix for every path | [baseUrl](/vc-rs/reference/syntax/base-url/) |
 | `headers` | Headers for every request in the file | [headers](/vc-rs/reference/syntax/headers/) |
@@ -240,6 +241,7 @@ Each entry in `apis`:
 | Key | Purpose | Page |
 | --- | --- | --- |
 | `id`, `name` | Reference and label | [id](/vc-rs/reference/syntax/id/), [name](/vc-rs/reference/syntax/name/) |
+| `type` | What the api speaks, default the file's, else `http` | [type](/vc-rs/reference/syntax/type/) |
 | `method` | HTTP method, default `GET` | [method](/vc-rs/reference/syntax/method/) |
 | `path` | Path after `baseUrl`, with `${…}` templates | [path](/vc-rs/reference/syntax/path/) |
 | `query` | Query parameters | [query](/vc-rs/reference/syntax/query/) |

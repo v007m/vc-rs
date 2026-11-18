@@ -12,7 +12,7 @@ use vc_interfaces::{SendContext, Transport, TransportError};
 use vc_model::{
     Action, ActionId, ActionKind, Api, ApiGroup, ApiId, BodySpec, CelSource, ConnectionInfo, Exchange, FileId,
     Instance, InstanceId, Lifecycle, Matcher, Method, Needs, Part, Plan, PlannedAction, PlannedFile, Pos, Program,
-    RenderedRequest, Retry, ScalarSource, ScalarStyle, SourceFileId, SourceFiles, SourceSpan, StatusPattern,
+    Protocol, RenderedRequest, Retry, ScalarSource, ScalarStyle, SourceFileId, SourceFiles, SourceSpan, StatusPattern,
     StringTable, Sym, Template, TemplateValue, Test, TestBody, TestFile, TestId, Timing, VarName,
 };
 use vc_template::{CelCompiler, Roots};
@@ -118,6 +118,7 @@ impl Fixture {
             id,
             name: None,
             group: self.group,
+            protocol: Protocol::Http,
             method: Method::Get,
             path: literal(path),
             vars,

@@ -9,6 +9,9 @@
 //! profile. The wrong project must report the code; the right one must report neither the code
 //! nor any error. Both are checked through the engine on 2026-11-03, so V1012 (a file discovery
 //! cannot read) and V3104 (an expired skip) can be shown too.
+//!
+//! A [`PENDING`] code's examples need an api `type` that has not landed yet, so its wrong
+//! example is held to having an error until it reports the code.
 
 mod support;
 
@@ -34,9 +37,13 @@ fn paged() -> impl Iterator<Item = Code> {
     Code::ALL.iter().copied()
 }
 
+/// The codes whose examples need an api `type` that has not landed (#90): `http` takes every
+/// key, so V2213 is reported once `graphql` is. A code leaves the list when its example reports it.
+const PENDING: [Code; 1] = [Code::V2213];
+
 /// The codes whose examples `check` can confirm.
 fn explained() -> impl Iterator<Item = Code> {
-    paged().filter(|code| code.number() < 4000)
+    paged().filter(|code| code.number() < 4000 && !PENDING.contains(code))
 }
 
 /// The files of the section headed `## <section>`.
@@ -95,5 +102,15 @@ fn misfit(code: Code) -> Outcome<Option<String>> {
 fn each_wrong_example_reports_its_code_and_each_right_example_does_not() -> Outcome<()> {
     let misfits: Vec<String> = explained().map(misfit).collect::<Outcome<Vec<_>>>()?.into_iter().flatten().collect();
     assert!(misfits.is_empty(), "{misfits:#?}");
+    Ok(())
+}
+
+#[test]
+fn a_pending_wrong_example_has_an_error_but_not_yet_its_code() -> Outcome<()> {
+    for code in PENDING {
+        let wrong = support::check(&project(&page(code)?, "Wrong")?)?.diagnostics;
+        assert!(!codes(&wrong).contains(&code), "{code} is reported now; take it off PENDING");
+        assert!(wrong.has_errors(), "{code}: the wrong example reports {:?}", codes(&wrong));
+    }
     Ok(())
 }

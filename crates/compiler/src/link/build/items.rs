@@ -142,6 +142,7 @@ impl<'a> Build<'_, 'a> {
             id,
             name: read::owned(node, "name"),
             group,
+            protocol: project::protocol(source.root, node),
             method: read::method(node),
             path,
             vars: self.vars(source, node)?,
