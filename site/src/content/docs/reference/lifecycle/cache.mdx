@@ -9,21 +9,24 @@ import Playground from '~/components/Playground.svelte';
 
 `cache` keeps what a slow or rate-limited action saved, so later runs reuse it instead of calling again. It belongs on actions in `beforeRun` and `beforeAll`.
 
-The example calls a local lab server. `lab#createItem` is a `POST /items` that answers 201 and saves `itemId`; `lab#whoami` is a `GET /whoami`:
+The example calls the demo server (`vc demo start`) through a small api file, `lab`. `lab#createItem` is a `POST /users` that answers 201 and saves the new user's ID as `itemId`; `lab#whoami` is a `GET /echo`, which sends the request back:
 
 ```yaml title="services/lab/lab.api.yaml (excerpt)"
 apis:
   - id: createItem
     method: POST
-    path: /items
+    path: /users
+    vars:
+      email: lab@example.com
     body:
-      label: ${var.label}
+      name: ${var.label}
+      email: ${var.email}
     expect:
       status: 201
     save:
       itemId: ${response.body.id}
   - id: whoami
-    path: /whoami
+    path: /echo
 ```
 
 ```yaml title="services/lab/cached.test.yaml"
@@ -61,12 +64,12 @@ The first run creates the item. The second run only runs the check, then the tes
 
 ```console
 # run 1
-POST /items body={"label":"slow-to-make"}
-GET /whoami?item=i13
+POST /users body={"email":"lab@example.com","name":"slow-to-make"}
+GET /echo?item=8
 
 # run 2
-GET /whoami?item=i13          ← cache.check
-GET /whoami?item=i13          ← the test
+GET /echo?item=8          ← cache.check
+GET /echo?item=8          ← the test
 ```
 
 After those two `vc run lab.cached` runs (with a cache key, see below), list the entries:
@@ -97,7 +100,7 @@ $ vc cache clear lab#createItem
 cleared 1 entry
 ```
 
-The server then saw `DELETE /items/i13`. A later `vc cache list` prints `the cache is empty`.
+The server then saw `DELETE /users/8`. A later `vc cache list` prints `the cache is empty`.
 
 Skip the cache for one run. Nothing is read or written:
 

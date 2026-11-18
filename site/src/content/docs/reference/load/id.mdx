@@ -61,9 +61,9 @@ error[V2007]: the file ID is `bad.one` from its path, not `bad.uno`
 
 ## Try it
 
-<Playground client:visible kind="load" code={`id: checkout.peak
+<Playground client:visible kind="load" code={`id: sample.peak
 mix:
-  - test: orders.checkout#placesOrder
+  - test: sample.basics#listsUsers
     weight: 1
 stages:
   - duration: 30s

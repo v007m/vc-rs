@@ -65,11 +65,11 @@ test sample.basics#getsCreatedUser · 51 iterations · 5.1 rps · 0 errors · p5
 
 ## Try it
 
-<Playground client:visible kind="load" code={`name: Checkout peak
+<Playground client:visible kind="load" code={`name: Users peak
 mix:
   - test: users.crud#getsCreatedUser
     weight: 3
-  - test: orders.checkout#placesOrder
+  - test: users.crud#listsUsers
     weight: 1
 stages:
   - duration: 1m

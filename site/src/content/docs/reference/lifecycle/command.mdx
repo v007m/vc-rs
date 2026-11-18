@@ -39,7 +39,7 @@ afterRun:
   - command: docker compose down
 ```
 
-Pass a var. The value is quoted as one word, so it cannot add a second command. With `word` set to `it's; touch pwned`, this prints the text and creates no file. The test's call, `lab#whoami`, is a `GET /whoami` on a local lab server:
+Pass a var. The value is quoted as one word, so it cannot add a second command. With `word` set to `it's; touch pwned`, this prints the text and creates no file. The test's call, `lab#whoami`, is a `GET /echo` on the demo server (`vc demo start`):
 
 ```yaml
 tests:
@@ -83,7 +83,7 @@ Read config vars and `.env` values from the environment. Each config var is ther
 
 ```yaml
 before:
-  - command: ./scripts/wait-for.sh "$VIB_VAR_labUrl/health"
+  - command: ./scripts/wait-for.sh "$VIB_VAR_sampleUrl/users"
 ```
 
 <Playground client:visible kind="test" code={`tests:

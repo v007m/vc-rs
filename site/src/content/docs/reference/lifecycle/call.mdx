@@ -9,15 +9,18 @@ import Playground from '~/components/Playground.svelte';
 
 `call: <api>` sends an api you already defined. The api brings its URL, auth, body, checks, saved values and cleanup, so the action only says which api and which values.
 
-The example calls `lab#createItem` on a local lab server, a `POST /items` that answers 201 and saves `itemId`:
+The example calls `lab#createItem` from a small api file for the demo server (`vc demo start`). It is a `POST /users` that answers 201 and saves the new user's ID as `itemId`:
 
 ```yaml title="services/lab/lab.api.yaml (excerpt)"
 apis:
   - id: createItem
     method: POST
-    path: /items
+    path: /users
+    vars:
+      email: lab@example.com
     body:
-      label: ${var.label}
+      name: ${var.label}
+      email: ${var.email}
     expect:
       status: 201
     save:

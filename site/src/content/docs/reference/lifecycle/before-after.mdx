@@ -90,7 +90,7 @@ before:
       note: ${response.body.body}
 ```
 
-Run a hook to seed data, then use its return value. `lab#whoami` is a `GET /whoami` on a local lab server:
+Run a hook to seed data, then use its return value. `lab#whoami` is a `GET /echo` on the demo server (`vc demo start`):
 
 ```yaml
 before:

@@ -9,21 +9,24 @@ import Playground from '~/components/Playground.svelte';
 
 `test: <test ID>` runs another test's calls in order, as if you had written them in place. Use it when a multi-step setup already exists as a test.
 
-The example calls a local lab server, a stand-in for a test server of your own. `lab#createItem` is a `POST /items` that answers 201 and saves `itemId`; `lab#whoami` is a `GET /whoami`:
+The example calls the demo server (`vc demo start`) through a small api file, `lab`. `lab#createItem` is a `POST /users` that answers 201 and saves the new user's ID as `itemId`; `lab#whoami` is a `GET /echo`, which sends the request back:
 
 ```yaml title="services/lab/lab.api.yaml (excerpt)"
 apis:
   - id: createItem
     method: POST
-    path: /items
+    path: /users
+    vars:
+      email: lab@example.com
     body:
-      label: ${var.label}
+      name: ${var.label}
+      email: ${var.email}
     expect:
       status: 201
     save:
       itemId: ${response.body.id}
   - id: whoami
-    path: /whoami
+    path: /echo
 ```
 
 ```yaml title="services/lab/reuse.test.yaml"
@@ -70,9 +73,9 @@ plan  1 test in 1 file · profile default
 The reused calls registered their cleanup as usual. The server saw:
 
 ```console
-POST /items body={"label":"reused"}
-GET /whoami?item=i8
-DELETE /items/i8
+POST /users body={"email":"lab@example.com","name":"reused"}
+GET /echo?item=7
+DELETE /users/7
 ```
 
 Reuse a multi-step flow with a time budget for all of its calls:

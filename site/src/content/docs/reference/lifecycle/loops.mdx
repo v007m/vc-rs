@@ -89,30 +89,31 @@ DELETE /items/i11
 DELETE /items/i10
 ```
 
-Loop over a var or a data file. Here `geo#createCity` is a `POST /cities` that answers with the new city's `id` and `name`, and `geo#createLocationGroup` is a `POST /location-groups`:
+Loop over a var or a data file. Here `sample#createUser` is the `vc init` sample's `POST /users`, which answers with the new user's `id` and `name`, and `sample#echo` is a `POST /echo` on the demo that sends the request back:
 
 ```yaml
-- call: geo#createCity
-  forEach: ${dataset.capitals}
+- call: sample#createUser
+  forEach: ${dataset.people}
   vars:
-    cityName: ${item.name}
-    country: ${item.country}
+    name: ${item.name}
+    email: ${item.email}
 ```
 
 Collect objects and read one field from every entry with `[*]`:
 
 ```yaml
 steps:
-  - call: geo#createCity
+  - call: sample#createUser
     repeat: 10
     parallel: 5
     save:
-      cities:
+      users:
         id: ${response.body.id}
         name: ${response.body.name}
-  - call: geo#createLocationGroup
+  - call: sample#echo
     vars:
-      cityIds: ${var.cities[*].id}
+      payload:
+        userIds: ${var.users[*].id}
 ```
 
 A failed iteration fails the action. Run one at a time, the loop stops there; here the third code, `204`, is never sent:

@@ -9,12 +9,12 @@ import Playground from '~/components/Playground.svelte';
 
 `function: <path>#<export>` runs one exported function from a TypeScript or JavaScript file. When it returns an object, each field is saved as a var. Use it for work no api does, such as seeding a database or computing a signature.
 
-The test then calls `lab#whoami`, a `GET /whoami` on a local lab server, with the function's values in the query:
+The test then calls `lab#whoami`, a `GET /echo` on the demo server (`vc demo start`), with the function's values in the query:
 
 ```yaml title="services/lab/lab.api.yaml (excerpt)"
 apis:
   - id: whoami
-    path: /whoami
+    path: /echo
 ```
 
 ```yaml title="services/lab/actions.test.yaml"
@@ -39,7 +39,7 @@ export function seedTenant({ vars, run }: { vars: Record<string, unknown>; run: 
 }
 ```
 
-The server received `GET /whoami?tenant=t-822b33ad&profiles=default`.
+The server received `GET /echo?tenant=t-822b33ad&profiles=default`.
 
 ## Syntax
 
