@@ -4,7 +4,7 @@ use indexmap::IndexMap;
 use vc_diagnostics::{Code, Diagnostics};
 use vc_model::{ContentHash, SourceFile, SourceFileId, SourcePath, StringTable};
 
-use super::{BUILD, Body, CacheEntry, CompileCache, MAGIC, Stored, VERSION};
+use super::{BUILD, Body, CacheEntry, CompileCache, MAGIC, Stored, VERSION, encode};
 use crate::parts::Tools;
 use crate::stage::{self, FileUnit};
 use crate::{CompileInput, Compiled};
@@ -237,4 +237,12 @@ fn a_cache_read_back_from_bytes_does_not_parse_unchanged_files_again() {
         ..CompileInput::default()
     });
     assert!(codes(&changed).contains(&Code::V1004));
+}
+
+#[test]
+fn encodes_the_bytes_postcard_writes() {
+    let unit = stage::unit(SourceFileId::new(0), &source(API, API_TEXT, 1), (&Tools::new(), &mut StringTable::new()));
+    assert_eq!(encode(&unit), postcard::to_stdvec(&unit).ok());
+    let long = (u32::MAX, "longer than eight bytes", vec![7_u8; 20]);
+    assert_eq!(encode(&long), postcard::to_stdvec(&long).ok());
 }

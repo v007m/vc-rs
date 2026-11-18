@@ -197,7 +197,7 @@ impl CompileCache {
         let output = output.and_then(|(key, bytes)| Some(((key, u32::try_from(bytes.len()).ok()?), bytes)));
         let (link, output) = output.unzip();
         let strings = self.strings.texts().map(str::to_owned).collect();
-        let header = postcard::to_stdvec(&Body { build: BUILD.to_owned(), strings, entries, link }).unwrap_or_default();
+        let header = encode(&Body { build: BUILD.to_owned(), strings, entries, link }).unwrap_or_default();
         let mut out = MAGIC.to_vec();
         out.extend(VERSION.to_le_bytes());
         out.extend(u32::try_from(header.len()).unwrap_or(u32::MAX).to_le_bytes());
@@ -255,7 +255,7 @@ fn unit_bytes(entry: &CacheEntry) -> Option<Vec<u8>> {
         return Some(bytes.to_vec());
     }
     let unit = entry.unit.as_deref().filter(|unit| unit.diagnostics.is_empty())?;
-    postcard::to_stdvec(unit).ok().filter(|bytes| u32::try_from(bytes.len()).is_ok())
+    encode(unit).filter(|bytes| u32::try_from(bytes.len()).is_ok())
 }
 
 fn decode(bytes: &[u8]) -> Option<CompileCache> {
@@ -301,6 +301,37 @@ fn entry(stored: &Stored, units: &mut &[u8]) -> Option<CacheEntry> {
 }
 
 /// The value `bytes` hold, when they hold exactly one.
+/// `value` as `postcard`, or `None` when it cannot be written.
+fn encode<T: Serialize + ?Sized>(value: &T) -> Option<Vec<u8>> {
+    postcard::serialize_with_flavor(value, Bytes(Vec::new())).ok()
+}
+
+/// A `postcard` output that copies a short write (a varint, a tag) byte by byte: through
+/// `memcpy` such a write costs more than the bytes themselves, and most writes are short.
+struct Bytes(Vec<u8>);
+
+impl postcard::ser_flavors::Flavor for Bytes {
+    type Output = Vec<u8>;
+
+    fn try_extend(&mut self, data: &[u8]) -> postcard::Result<()> {
+        if data.len() > 8 {
+            self.0.extend_from_slice(data);
+        } else {
+            data.iter().for_each(|&byte| self.0.push(byte));
+        }
+        Ok(())
+    }
+
+    fn try_push(&mut self, data: u8) -> postcard::Result<()> {
+        self.0.push(data);
+        Ok(())
+    }
+
+    fn finalize(self) -> postcard::Result<Vec<u8>> {
+        Ok(self.0)
+    }
+}
+
 fn read_all<'a, T: Deserialize<'a>>(bytes: &'a [u8]) -> Option<T> {
     match postcard::take_from_bytes(bytes) {
         Ok((value, [])) => Some(value),

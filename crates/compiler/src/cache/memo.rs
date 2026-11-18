@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use vc_diagnostics::Diagnostics;
 use vc_model::{Date, Program, SourceFile, SourceFiles, SourcePath};
 
-use super::read_all;
+use super::{encode, read_all};
 use crate::link::DataWanted;
 
 /// What a compile reads besides its files: today's date, the asset paths and the secret
@@ -113,7 +113,7 @@ impl Memo {
                 .collect(),
             hooks_wanted: made.hooks_wanted.iter().map(SourcePath::as_str).collect(),
         };
-        postcard::to_stdvec(&out).ok()
+        encode(&out)
     }
 }
 
