@@ -43,7 +43,7 @@ Vibranium serves four kinds of user equally (D3); each job below must work witho
 
 | User | Where tests live | Main jobs | Primary interface |
 | --- | --- | --- | --- |
-| Service developer | Next to the service code | Check own endpoints in PR CI; catch contract drift from OpenAPI | CLI, TypeScript or Go SDK |
+| Service developer | Next to the service code | Check own endpoints in PR CI; catch contract drift from OpenAPI | CLI, TypeScript or Python SDK |
 | QA engineer | A standalone test repo covering many services | Regression suites across environments; data-driven cases; dashboards | CLI, TUI, web UI |
 | Performance engineer | Same repo as functional tests | Reuse functional tests as load scenarios with thresholds | CLI with `*.load.yaml` |
 | AI agent | Either | Generate tests from specs, run them, explain failures, call apis ad hoc | MCP server and skill |
@@ -124,8 +124,8 @@ Requirements are grouped by area; the release column follows the plan below (v2.
 | R24 | Agents | MCP server: list, search, read history, run, explain failures, create and edit tests, call apis ad hoc | v2.1 |
 | R25 | Agents | Guardrail policy per environment: allowed methods and writes; human approval for writes where configured | v2.1 |
 | R26 | Agents | A published agent skill that teaches the file formats and workflows | v2.1 |
-| R27 | SDKs | Protobuf-generated types for TypeScript, Python, Go and Java/Kotlin | v2.1 |
-| R28 | SDKs | Builder APIs and test-framework helpers in order: TypeScript (v2.1), Python (v2.2), Go (v2.3), Java/Kotlin (v2.4) | v2.1–v2.4 |
+| R27 | SDKs | Protobuf-generated types for TypeScript, Python, Go and Java/Kotlin, internal to each SDK; the builders are the public API (D33, D334). Planned (#100) | post-v0.1 (#102) |
+| R28 | SDKs | Builder APIs over every YAML key that send their tests to the engine through a `vc sdk serve` sidecar (D334); typed apis from `vc sdk generate` (D337); each test instance a native test case in Vitest, Jest and pytest (D338); `vc build` hands off to the project's own SDK, which writes code tests as gitignored YAML in `.vibranium/build/` for `vc run`, the TUI and the web UI (D335, D341). `vc build` is the one `vc` command that starts a language runtime. Custom code in three tiers: declarative everywhere, named `hooks/*.ts` functions everywhere, inline callbacks and package imports only in the test runner (D340). TypeScript and Python first, together, then Go, then Java/Kotlin (D336). Planned (#100) | post-v0.1 (#102) |
 | R29 | Plugins | Third-party plugins in any language over JSON-RPC, REST or webhooks with ready-made clients; gRPC for hot-path executors; permissions manifest approved on install | v2.2 |
 | R30 | TUI | Browse tests and history, run selections, view failures, edit tests with write-back to YAML | v2.2 |
 | R31 | Server | **Dropped** (D332). Was: self-hosted server: shared history (Postgres), team dashboards, run ingestion from CLI and CI | dropped |
@@ -168,6 +168,7 @@ The command is `vibranium`, aliased `vc` (D44). Commands that print data accept 
 | `vc config explain <key>` | Show the effective value and the layer it came from |
 | `vc plugin add\|list\|remove` | Manage plugins, showing the permissions each requests |
 | `vc mcp` | Start the MCP server on stdio |
+| `vc sdk serve\|generate`, `vc build` | Planned (#100): the SDKs' sidecar and typed api functions from api files (D334, D337); `vc build` hands off to the project's SDK, which writes code tests as YAML (D335) |
 | `vc tui` | Open the terminal UI |
 | `vc serve` | Dropped (D332): the self-hosted team server is not built; the local web UI for one project is vc ui |
 
@@ -224,4 +225,4 @@ The biggest risk is scope: the full platform is the equivalent of Postman plus k
 | `vc` collides with Vercel's CLI | Wrong tool runs | Installer warns; `vibranium` always works (D44) |
 | OpenAPI sync conflicts confuse users | Lost edits | Three-way merge with an explicit conflict report; dry-run mode (D14) |
 
-Dependencies: the language spike (decides runtime), Varlock (secrets), the CTRF specification (results), the MCP specification (agents) and the npm `@vibranium` organisation (package names, D45).
+Dependencies: the language spike (decides runtime), Varlock (secrets), the CTRF specification (results), the MCP specification (agents) and the npm `@v007m` scope (package names, D45, D334).

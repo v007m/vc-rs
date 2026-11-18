@@ -9,7 +9,6 @@ The design was worked out between Sarath and Claude in one long claude.ai conver
 - **Not yet written:**
   - the `.proto` contracts (`vibranium.{ir,engine,plugin,results}.v1`);
   - the plugin protocol spec (JSON-RPC method mapping and handshake);
-  - SDK builder designs (TypeScript first);
   - the v1 → v2 migrator mapping.
 
   Each one is written when its milestone needs it, as part of that milestone.
@@ -81,7 +80,6 @@ The open questions in the LLD are listed in its last section:
 - the Varlock CLI contract (M3);
 - other `cel` 0.15 gaps (M4; `timestamp()` and `duration()` are now our own functions, D153);
 - Windows plugin enforcement (M8; Linux and macOS enforce since D254);
-- the `@vibranium` npm scope.
 
 ## How Sarath likes to work
 
