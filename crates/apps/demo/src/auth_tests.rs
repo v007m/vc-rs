@@ -1,3 +1,4 @@
+use axum::http::request::Builder;
 use axum::http::{Method, Request, StatusCode, header};
 use serde_json::{Value, json};
 
@@ -7,24 +8,34 @@ use crate::testing::{send, sent};
 
 const FORM: &str = "application/x-www-form-urlencoded";
 
-/// `GET /auth/me` with `authorization`, if any.
-async fn me(app: &axum::Router, authorization: Option<&str>) -> (StatusCode, Value) {
-    let request = Request::builder().uri("/auth/me");
-    let request = match authorization {
+/// `request` with the `authorization` header, if any.
+fn authorized(request: Builder, authorization: Option<&str>) -> Builder {
+    match authorization {
         Some(value) => request.header(header::AUTHORIZATION, value),
         None => request,
-    };
-    sent(app, request, "").await
+    }
+}
+
+/// `GET /auth/me` with `authorization`, if any.
+async fn me(app: &axum::Router, authorization: Option<&str>) -> (StatusCode, Value) {
+    sent(app, authorized(Request::builder().uri("/auth/me"), authorization), "").await
+}
+
+/// `POST /auth/logout` with `authorization`, if any.
+async fn logout(app: &axum::Router, authorization: Option<&str>) -> (StatusCode, Value) {
+    let request = Request::builder().method(Method::POST).uri("/auth/logout");
+    sent(app, authorized(request, authorization), "").await
+}
+
+/// What `/auth/me` and `/auth/logout` answer without a valid token.
+fn refused() -> (StatusCode, Value) {
+    (StatusCode::UNAUTHORIZED, json!({"error": "a valid bearer token is needed"}))
 }
 
 /// `POST /oauth/token` with `authorization`, if any, and `form`.
 async fn grant(app: &axum::Router, authorization: Option<&str>, form: &str) -> (StatusCode, Value) {
     let request = Request::builder().method(Method::POST).uri("/oauth/token").header(header::CONTENT_TYPE, FORM);
-    let request = match authorization {
-        Some(value) => request.header(header::AUTHORIZATION, value),
-        None => request,
-    };
-    sent(app, request, form).await
+    sent(app, authorized(request, authorization), form).await
 }
 
 #[tokio::test]
@@ -43,7 +54,7 @@ async fn a_login_token_opens_auth_me() {
 async fn auth_me_refuses_a_missing_or_unknown_token() {
     let app = router();
     send(&app, Method::POST, "/auth/token", "").await;
-    let refused = (StatusCode::UNAUTHORIZED, json!({"error": "a valid bearer token is needed"}));
+    let refused = refused();
     for authorization in [None, Some("Bearer demo-token-2"), Some("Bearer demo-token-01"), Some("bearer demo-token-1")]
     {
         assert_eq!(me(&app, authorization).await, refused, "{authorization:?}");
@@ -60,15 +71,15 @@ async fn auth_me_refuses_a_missing_or_unknown_token() {
 async fn only_the_newest_tokens_are_valid() {
     let tokens = Tokens::default();
     let first = tokens.issue();
-    assert!(tokens.valid(&first));
+    assert_eq!(tokens.valid(&first), Some(1));
     for _ in 1..TOKEN_WINDOW {
         tokens.issue();
     }
-    assert!(tokens.valid(&first), "the oldest of the window");
+    assert_eq!(tokens.valid(&first), Some(1), "the oldest of the window");
     let newest = tokens.issue();
-    assert!(!tokens.valid(&first), "pushed out of the window");
-    assert!(tokens.valid("demo-token-2") && tokens.valid(&newest));
-    assert!(!tokens.valid(&format!("demo-token-{}", TOKEN_WINDOW + 2)), "not handed out yet");
+    assert_eq!(tokens.valid(&first), None, "pushed out of the window");
+    assert!(tokens.valid("demo-token-2").is_some() && tokens.valid(&newest).is_some());
+    assert_eq!(tokens.valid(&format!("demo-token-{}", TOKEN_WINDOW + 2)), None, "not handed out yet");
 }
 
 #[tokio::test]
@@ -105,4 +116,57 @@ async fn the_token_url_refuses_other_clients_and_grants() {
     let not_a_form = sent(&app, request.header(header::CONTENT_TYPE, "application/json"), "{}").await;
     assert_eq!(not_a_form, (StatusCode::BAD_REQUEST, json!({"error": "invalid_request"})));
     assert_eq!(send(&app, Method::POST, "/auth/token", "").await.1["access_token"], "demo-token-1", "none handed out");
+}
+
+#[tokio::test]
+async fn a_logout_revokes_only_its_token_and_a_new_login_works() {
+    let app = router();
+    send(&app, Method::POST, "/auth/token", "").await;
+    send(&app, Method::POST, "/auth/token", "").await;
+    assert_eq!(logout(&app, Some("Bearer demo-token-1")).await, (StatusCode::NO_CONTENT, Value::Null));
+    assert_eq!(me(&app, Some("Bearer demo-token-1")).await, refused(), "revoked");
+    assert_eq!(logout(&app, Some("Bearer demo-token-1")).await, refused(), "and it cannot log out again");
+    assert_eq!(me(&app, Some("Bearer demo-token-2")).await.0, StatusCode::OK, "the other token is untouched");
+    let fresh = send(&app, Method::POST, "/auth/token", "").await.1;
+    assert_eq!(fresh["access_token"], "demo-token-3");
+    assert_eq!(me(&app, Some("Bearer demo-token-3")).await.0, StatusCode::OK, "a new login works");
+}
+
+#[tokio::test]
+async fn a_logout_refuses_a_missing_unknown_or_old_token() {
+    let app = router();
+    send(&app, Method::POST, "/auth/token", "").await;
+    for authorization in [None, Some("Bearer demo-token-2"), Some("Bearer demo-token-01"), Some("Basic demo-token-1")] {
+        assert_eq!(logout(&app, authorization).await, refused(), "{authorization:?}");
+    }
+    for _ in 0..TOKEN_WINDOW {
+        send(&app, Method::POST, "/auth/token", "").await;
+    }
+    assert_eq!(logout(&app, Some("Bearer demo-token-1")).await, refused(), "out of the window");
+    assert_eq!(me(&app, Some("Bearer demo-token-2")).await.0, StatusCode::OK, "no refusal revoked anything");
+}
+
+#[test]
+fn a_revoke_never_reaches_a_newer_token_in_the_same_slot() {
+    let tokens = Tokens::default();
+    tokens.issue();
+    tokens.revoke(1);
+    for _ in 0..TOKEN_WINDOW {
+        tokens.issue();
+    }
+    let reused = format!("demo-token-{}", TOKEN_WINDOW + 1);
+    assert_eq!(tokens.valid(&reused), Some(TOKEN_WINDOW + 1), "the slot of a revoked token, reused");
+    tokens.revoke(TOKEN_WINDOW + 1);
+    assert_eq!(tokens.valid(&reused), None);
+    assert_eq!(tokens.valid("demo-token-2"), Some(2), "its neighbours are untouched");
+
+    let late = Tokens::default();
+    for _ in 0..=TOKEN_WINDOW {
+        late.issue();
+    }
+    late.revoke(1);
+    assert_eq!(late.valid(&reused), Some(TOKEN_WINDOW + 1), "an old token's revoke, arriving late");
+    late.revoke(TOKEN_WINDOW + 1);
+    late.revoke(1);
+    assert_eq!(late.valid(&reused), None, "an older revoke does not undo a newer one");
 }

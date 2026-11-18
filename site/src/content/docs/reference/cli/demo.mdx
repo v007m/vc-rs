@@ -80,6 +80,7 @@ error: port 7454 is taken by a program that is not the demo
 | `POST /auth/token` | `200` `{"access_token":"demo-token-1","token_type":"Bearer","expires_in":3600}`, whatever the body, with the next number each time |
 | `POST /oauth/token` | The same for the client `vc-client` with the secret `vc-secret` in HTTP Basic and `grant_type=client_credentials`; else `401` `invalid_client`, or `400` `invalid_request` or `unsupported_grant_type` |
 | `GET /auth/me` | `200` `{"user":"demo"}` with `authorization: Bearer <token>` for a token from either; else `401` |
+| `POST /auth/logout` | `204` with `authorization: Bearer <token>` for a valid token, which is then revoked, so a [`refreshOn`](/vc-rs/reference/auth/token-cache-refresh/) flow has to sign in again; else `401` as for `/auth/me` |
 | `GET /openapi/users.yaml` | The users API as the demo serves it, in OpenAPI 3.0.3, with the server it was asked on; `users-v1.yaml` and `users-v2.yaml` are two older versions, for trying [`vc sync`](/vc-rs/reference/cli/sync/) |
 | any `/echo` | `200` with the method, path, query, headers and body it received, and the demo's pid in the `x-vc-demo-pid` header |
 | `GET /slow?ms=N` | `200` `{"sleptMs":N}` after N milliseconds (0 when `ms` is not given; `ms=` with no value is refused); N is at most `10000` |
@@ -88,7 +89,7 @@ error: port 7454 is taken by a program that is not the demo
 | any `/status/{code}` | that status, with `{"status":code}`, for any code from `200` to `599`; no body for `204`, `205` and `304` |
 | anything else | `404` |
 
-It keeps users in memory until it stops. Ada and Grace cannot be changed or deleted (`403`). It holds at most 1024 created users, and a user is at most 4096 bytes; past either it refuses with `400` and an `error` naming the limit. A token is valid until 1024 newer ones are handed out. The demo logs no tokens.
+It keeps users in memory until it stops. Ada and Grace cannot be changed or deleted (`403`). It holds at most 1024 created users, and a user is at most 4096 bytes; past either it refuses with `400` and an `error` naming the limit. A token is valid until it is logged out or 1024 newer ones are handed out. The demo logs no tokens.
 
 ```console
 $ curl -s -w ' %{http_code}\n' -X POST localhost:7421/users -d '{"name":"Alan Turing","email":"alan@example.com"}'

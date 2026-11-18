@@ -1,7 +1,8 @@
 //! The demo's users store, sign-in routes and specs (D331), called by the real `vc` on the real
 //! `vc demo`: a user goes round create, read, replace, patch and delete; a flow login and a
 //! client-credentials grant each get one token that every test reuses; `/auth/me` refuses a
-//! call without one; and the tests `vc import openapi` drafts from the served spec all pass.
+//! call without one; after `/auth/logout` a `refreshOn: [401]` flow signs in again, and with
+//! `refreshOn: []` the next call fails; and the tests `vc import openapi` drafts from the served spec all pass.
 
 use serde_json::Value;
 
@@ -50,15 +51,38 @@ fn calling(count: usize) -> String {
     format!("tests:\n{}", me.chain(echo).collect::<String>())
 }
 
-/// `svc#me` and `svc#echo`, signed in with `svc`, the config's one auth definition.
+/// `svc#me`, `svc#echo` and `svc#logout`, signed in with `svc`, the config's one auth definition.
 const SIGNED_IN: (&str, &str) = (
     "services/svc/svc.api.yaml",
     concat!(
         "baseUrl: ${var.baseUrl}\napis:\n",
         "  - id: me\n    path: /auth/me\n    auth: svc\n    expect: {status: 200, body: {match: {user: demo}}}\n",
         "  - id: echo\n    path: /echo\n    auth: svc\n",
+        "  - id: logout\n    method: POST\n    path: /auth/logout\n    auth: svc\n    expect: {status: 204}\n",
     ),
 );
+
+/// `svc`, a flow that logs in to `POST /auth/token` and sends the token it saves.
+const FLOW_LOGIN: &str = "  - id: svc\n    type: flow\n    steps:\n      - id: login\n        method: POST\n\
+                          \x20       url: ${var.baseUrl}/auth/token\n        body: {username: ada, password: lovelace}\n\
+                          \x20       expect: {status: 200}\n        save: {accessToken: '${response.body.access_token}'}\n\
+                          \x20   apply:\n      headers: {authorization: 'Bearer ${var.accessToken}'}\n";
+
+/// One test that calls `/auth/me`, logs out, calls it again and then echoes the token it sends.
+const LOGS_OUT: (&str, &str) = (
+    "services/svc/logout.test.yaml",
+    concat!(
+        "tests:\n  - id: signsInAgainAfterLogout\n",
+        "    before: [{call: svc#me}, {call: svc#logout}, {call: svc#me}]\n    call: svc#echo\n",
+        "    expect: {body: {match: {headers.authorization: 'Bearer demo-token-2'}}}\n",
+    ),
+);
+
+/// A run of [`LOGS_OUT`] signed in with `auth`.
+fn logs_out_with(auth: &str) -> (Option<i32>, Vec<Value>) {
+    let demo = Demo::start();
+    run(&demo.project(&format!("auth:\n{auth}"), &[SIGNED_IN, LOGS_OUT]))
+}
 
 /// A run of [`calling`] three times each, signed in with `auth`: every test passes.
 fn passes_with(auth: &str) {
@@ -82,12 +106,20 @@ fn a_user_goes_round_create_read_replace_patch_and_delete() {
 
 #[test]
 fn a_bearer_login_is_made_once_and_its_token_reused() {
-    passes_with(
-        "  - id: svc\n    type: flow\n    steps:\n      - id: login\n        method: POST\n\
-         \x20       url: ${var.baseUrl}/auth/token\n        body: {username: ada, password: lovelace}\n\
-         \x20       expect: {status: 200}\n        save: {accessToken: '${response.body.access_token}'}\n\
-         \x20   apply:\n      headers: {authorization: 'Bearer ${var.accessToken}'}\n",
-    );
+    passes_with(FLOW_LOGIN);
+}
+
+#[test]
+fn a_call_after_a_logout_signs_in_again_through_refresh_on() {
+    let (code, finished) = logs_out_with(&format!("{FLOW_LOGIN}    refreshOn: [401]\n"));
+    assert_eq!((code, &finished[0]["status"]), (Some(0), &Value::from("passed")), "{finished:#?}");
+}
+
+#[test]
+fn a_call_after_a_logout_fails_with_refresh_on_turned_off() {
+    let (code, finished) = logs_out_with(&format!("{FLOW_LOGIN}    refreshOn: []\n"));
+    assert_eq!(code, Some(1), "{finished:#?}");
+    assert_ne!(finished[0]["status"], "passed", "{finished:#?}");
 }
 
 #[test]

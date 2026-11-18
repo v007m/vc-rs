@@ -66,8 +66,8 @@ vibranium/
       server/                axum: Connect-protocol API, embedded web UI, MCP over HTTP
       demo/                  vc-demo: the `/users` and `/echo` service the `vc init` sample calls, and the mock's test routes `/slow`, `/flaky`,
                              `/status/{code}` and `/poll/{id}`, each capped (D329); `/users` is a bounded in-memory store owned by one task
-                             that handlers send jobs to, beside the sign-in routes `/auth/token`, `/oauth/token` and `/auth/me` (counter
-                             tokens) and the static specs under `/openapi/` (D331); its own binary, shipped next to vc (D175, D188),
+                             that handlers send jobs to, beside the sign-in routes `/auth/token`, `/oauth/token`, `/auth/me` and `/auth/logout`
+                             (counter tokens, revoked in atomic slots) and the static specs under `/openapi/` (D331); its own binary, shipped next to vc (D175, D188),
                              and a library (`router()`) the playground calls in process
     browser/                 vc-browser: the docs playground's composition root, the WASI command `vc-playground` built for wasm32-wasip1 (D293)
     arch-tests/              dependency and design-rule checks
