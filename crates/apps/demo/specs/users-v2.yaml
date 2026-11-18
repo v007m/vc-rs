@@ -74,10 +74,11 @@ components:
         role: {type: string, enum: [admin, member]}
     UserPatch:
       type: object
+      description: The keys to change; a key sent as null is removed
       properties:
-        name: {type: string}
-        email: {type: string, format: email}
-        role: {type: string, enum: [admin, member]}
+        name: {type: string, nullable: true}
+        email: {type: string, format: email, nullable: true}
+        role: {type: string, enum: [admin, member], nullable: true}
     User:
       type: object
       required: [id, name]

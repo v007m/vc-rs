@@ -2,11 +2,14 @@ use axum::http::request::Builder;
 use axum::http::{Method, Request, StatusCode, header};
 use serde_json::{Value, json};
 
-use super::{CLIENT, TOKEN_WINDOW, Tokens};
+use super::{TOKEN_WINDOW, Tokens};
 use crate::router;
 use crate::testing::{send, sent};
 
 const FORM: &str = "application/x-www-form-urlencoded";
+
+/// The `Authorization` header of the one OAuth client: Basic `vc-client:vc-secret`.
+const CLIENT: &str = "Basic dmMtY2xpZW50OnZjLXNlY3JldA==";
 
 /// `request` with the `authorization` header, if any.
 fn authorized(request: Builder, authorization: Option<&str>) -> Builder {
@@ -55,11 +58,13 @@ async fn auth_me_refuses_a_missing_or_unknown_token() {
     let app = router();
     send(&app, Method::POST, "/auth/token", "").await;
     let refused = refused();
-    for authorization in [None, Some("Bearer demo-token-2"), Some("Bearer demo-token-01"), Some("bearer demo-token-1")]
+    for authorization in [None, Some("Bearer demo-token-2"), Some("Bearer demo-token-01"), Some("Bearer DEMO-TOKEN-1")]
     {
         assert_eq!(me(&app, authorization).await, refused, "{authorization:?}");
     }
-    for authorization in ["Bearer demo-token-0", "Bearer token-1", "Basic demo-token-1", "Bearer "] {
+    for authorization in
+        ["Bearer demo-token-0", "Bearer token-1", "Basic demo-token-1", "Bearer ", "Bearerdemo-token-1"]
+    {
         assert_eq!(me(&app, Some(authorization)).await, refused, "{authorization}");
     }
     let request = Request::builder().uri("/auth/me");
@@ -169,4 +174,17 @@ fn a_revoke_never_reaches_a_newer_token_in_the_same_slot() {
     late.revoke(TOKEN_WINDOW + 1);
     late.revoke(1);
     assert_eq!(late.valid(&reused), None, "an older revoke does not undo a newer one");
+}
+
+#[tokio::test]
+async fn the_scheme_names_are_matched_in_any_case() {
+    let app = router();
+    let issued = grant(&app, Some("basic dmMtY2xpZW50OnZjLXNlY3JldA=="), "grant_type=client_credentials").await;
+    assert_eq!((issued.0, &issued.1["access_token"]), (StatusCode::OK, &json!("demo-token-1")));
+    for authorization in ["bearer demo-token-1", "BEARER demo-token-1", "bEaReR demo-token-1"] {
+        assert_eq!(me(&app, Some(authorization)).await.0, StatusCode::OK, "{authorization}");
+    }
+    let wrong_case = grant(&app, Some("BASIC DMMTY2XPZW50ONZJLXNLY3JLDA=="), "grant_type=client_credentials").await;
+    assert_eq!(wrong_case.0, StatusCode::UNAUTHORIZED, "the credentials stay exact");
+    assert_eq!(logout(&app, Some("bearer demo-token-1")).await.0, StatusCode::NO_CONTENT);
 }

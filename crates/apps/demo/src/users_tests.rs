@@ -95,11 +95,27 @@ async fn a_user_over_the_size_cap_is_refused() {
     let too_long = json!({"email": "a@example.com", "bio": "x".repeat(MAX_USER_BYTES)}).to_string();
     let error = json!({"error": format!("a user is at most {MAX_USER_BYTES} bytes")});
     assert_eq!(send(&app, Method::POST, "/users", &too_long).await, (StatusCode::BAD_REQUEST, error.clone()));
+    let huge = format!("{{{}}}", " ".repeat(2 * MAX_USER_BYTES));
+    assert_eq!(send(&app, Method::POST, "/users", &huge).await, (StatusCode::BAD_REQUEST, error.clone()), "unread");
     let near = json!({"email": "a@example.com", "bio": "x".repeat(MAX_USER_BYTES - 100)}).to_string();
     let id = made(&app, &near).await;
     let more = json!({"more": "y".repeat(100)}).to_string();
     let grown = send(&app, Method::PATCH, &format!("/users/{id}"), &more).await;
     assert_eq!(grown, (StatusCode::BAD_REQUEST, error), "the merged user is checked too");
+}
+
+#[tokio::test]
+async fn a_user_at_the_size_cap_can_be_patched_and_replaced() {
+    let app = router();
+    let short = json!({"email": "a@example.com", "name": ""}).to_string().len();
+    let body = json!({"email": "a@example.com", "name": "x".repeat(MAX_USER_BYTES - short)}).to_string();
+    assert_eq!(body.len(), MAX_USER_BYTES);
+    let id = made(&app, &body).await;
+    let path = format!("/users/{id}");
+    let (status, user) = send(&app, Method::PATCH, &path, "{}").await;
+    assert_eq!(status, StatusCode::OK, "the id it was given does not count: {user}");
+    assert_eq!(send(&app, Method::PUT, &path, &user.to_string()).await.0, StatusCode::OK, "nor one sent back");
+    assert_eq!(send(&app, Method::POST, "/users", &body).await.0, StatusCode::CREATED);
 }
 
 #[tokio::test]

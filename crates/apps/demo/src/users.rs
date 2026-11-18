@@ -12,7 +12,7 @@ use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::routing::get;
 use axum::{Json, Router};
-use serde_json::{Map, Value, json};
+use serde_json::{Map, Value};
 use tokio::sync::{OnceCell, mpsc, oneshot};
 
 use crate::scripted::{Asked, Refused, Segment, number};
@@ -20,8 +20,12 @@ use crate::scripted::{Asked, Refused, Segment, number};
 /// The most created users the demo holds at once; deleting one makes room.
 pub const MAX_USERS: usize = 1024;
 
-/// The largest user, as JSON, in bytes.
+/// The largest user, as compact JSON without its `id`, in bytes.
 pub const MAX_USER_BYTES: usize = 4096;
+
+/// The largest body read as a user: room for spacing and for an `id` sent back, as the user
+/// itself is measured once it is read.
+const MAX_BODY_BYTES: usize = 2 * MAX_USER_BYTES;
 
 /// The ID the first created user gets, after Ada and Grace.
 const FIRST_ID: u64 = 3;
@@ -202,10 +206,10 @@ fn numbered(id: Segment) -> Result<u64, Refusal> {
     id.parse::<u64>().ok().filter(|number| number.to_string() == id).ok_or(Refusal::Missing)
 }
 
-/// The body as a JSON object, at most [`MAX_USER_BYTES`].
+/// The body as a JSON object, at most [`MAX_BODY_BYTES`].
 fn posted(body: &Bytes) -> Result<User, Refusal> {
     let refused = |reason: String| Refusal::Bad(Refused(reason));
-    if body.len() > MAX_USER_BYTES {
+    if body.len() > MAX_BODY_BYTES {
         return Err(refused(format!("a user is at most {MAX_USER_BYTES} bytes")));
     }
     match serde_json::from_slice(body) {
@@ -228,8 +232,10 @@ fn merged(user: &User, changes: User) -> User {
 }
 
 /// `user` once it is a valid one: a text `email`, a text `name` (`someone` when not given), a
-/// `role` of [`ROLES`] when given, and at most [`MAX_USER_BYTES`] in all.
+/// `role` of [`ROLES`] when given, and at most [`MAX_USER_BYTES`] in all. Its `id` is dropped
+/// first, as the store sets it, so the size is measured the same way on every route.
 fn valid(mut user: User) -> Result<User, Refused> {
+    user.remove("id");
     let text = |key: &str, user: &User| user.get(key).is_none_or(Value::is_string);
     if !user.get("email").is_some_and(Value::is_string) {
         return Err(Refused("a user needs an email".to_owned()));
@@ -250,7 +256,7 @@ fn valid(mut user: User) -> Result<User, Refused> {
 
 impl IntoResponse for Refusal {
     fn into_response(self) -> Response {
-        let error = |status: StatusCode, error: &str| (status, Json(json!({"error": error}))).into_response();
+        let error = |status: StatusCode, error: &str| Refused(error.to_owned()).with_status(status);
         match self {
             Self::Bad(refused) => refused.into_response(),
             Self::Fixed => error(StatusCode::FORBIDDEN, "users 1 and 2 are the demo's own; create a user to change"),

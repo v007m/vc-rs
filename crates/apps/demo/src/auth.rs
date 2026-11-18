@@ -16,7 +16,7 @@ use axum::routing::{get, post};
 use axum::{Json, Router};
 use serde_json::{Value, json};
 
-use crate::scripted::Params;
+use crate::scripted::{Params, Refused};
 
 /// How many of the newest tokens are valid; an older one gets 401.
 pub const TOKEN_WINDOW: u64 = 1024;
@@ -24,8 +24,8 @@ pub const TOKEN_WINDOW: u64 = 1024;
 /// What every token starts with, before its number.
 const PREFIX: &str = "demo-token-";
 
-/// The `Authorization` header of the one OAuth client: Basic `vc-client:vc-secret`.
-const CLIENT: &str = "Basic dmMtY2xpZW50OnZjLXNlY3JldA==";
+/// The credentials of the one OAuth client, sent with the `Basic` scheme: `vc-client:vc-secret`.
+const CLIENT: &str = "dmMtY2xpZW50OnZjLXNlY3JldA==";
 
 /// How long a token says it lasts, in seconds.
 const EXPIRES_IN: u64 = 3600;
@@ -109,14 +109,22 @@ async fn logout(State(tokens): State<Arc<Tokens>>, headers: HeaderMap) -> Respon
 
 /// The number of the valid `Bearer` token in `headers`, if there is one.
 fn bearer(tokens: &Tokens, headers: &HeaderMap) -> Option<u64> {
-    let presented = headers.get(header::AUTHORIZATION).and_then(|value| value.to_str().ok());
-    presented.and_then(|value| value.strip_prefix("Bearer ")).and_then(|token| tokens.valid(token))
+    credentials(headers, "Bearer").and_then(|token| tokens.valid(token))
+}
+
+/// What the `Authorization` header in `headers` sends with `scheme`, whose name is matched in
+/// any case (RFC 7235); what follows it is kept exactly.
+fn credentials<'a>(headers: &'a HeaderMap, scheme: &str) -> Option<&'a str> {
+    let value = headers.get(header::AUTHORIZATION)?.to_str().ok()?;
+    let (named, rest) = value.split_once(' ')?;
+    named.eq_ignore_ascii_case(scheme).then_some(rest)
 }
 
 /// The 401 for a missing, unknown, old or revoked token.
 fn unauthorized() -> Response {
     let challenge = [(header::WWW_AUTHENTICATE, "Bearer")];
-    (StatusCode::UNAUTHORIZED, challenge, Json(json!({"error": "a valid bearer token is needed"}))).into_response()
+    let refused = Refused("a valid bearer token is needed".to_owned());
+    (challenge, refused.with_status(StatusCode::UNAUTHORIZED)).into_response()
 }
 
 /// `POST /oauth/token`: a new token for `vc-client`'s `client_credentials` grant, else the
@@ -126,19 +134,16 @@ async fn grant(
     headers: HeaderMap,
     form: Result<Form<Params>, FormRejection>,
 ) -> Response {
-    if headers.get(header::AUTHORIZATION).is_none_or(|value| value != CLIENT) {
+    if credentials(&headers, "Basic") != Some(CLIENT) {
         let challenge = [(header::WWW_AUTHENTICATE, "Basic")];
-        return (StatusCode::UNAUTHORIZED, challenge, Json(json!({"error": "invalid_client"}))).into_response();
+        let refused = Refused("invalid_client".to_owned());
+        return (challenge, refused.with_status(StatusCode::UNAUTHORIZED)).into_response();
     }
-    let Ok(Form(form)) = form else { return refused("invalid_request") };
+    let Ok(Form(form)) = form else { return Refused("invalid_request".to_owned()).into_response() };
     if form.get("grant_type").is_none_or(|grant| grant != "client_credentials") {
-        return refused("unsupported_grant_type");
+        return Refused("unsupported_grant_type".to_owned()).into_response();
     }
     issued(&tokens).into_response()
-}
-
-fn refused(error: &str) -> Response {
-    (StatusCode::BAD_REQUEST, Json(json!({"error": error}))).into_response()
 }
 
 #[cfg(test)]

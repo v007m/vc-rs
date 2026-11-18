@@ -88,12 +88,20 @@ struct Tables {
     polls: Counters,
 }
 
-/// A request the test routes refuse: 400 with `{"error": …}`.
+/// A request the demo refuses: 400 with `{"error": …}`, or another status with
+/// [`Refused::with_status`].
 pub struct Refused(pub String);
+
+impl Refused {
+    /// The refusal as `status` with `{"error": …}`.
+    pub fn with_status(self, status: StatusCode) -> Response {
+        (status, Json(json!({"error": self.0}))).into_response()
+    }
+}
 
 impl IntoResponse for Refused {
     fn into_response(self) -> Response {
-        (StatusCode::BAD_REQUEST, Json(json!({"error": self.0}))).into_response()
+        self.with_status(StatusCode::BAD_REQUEST)
     }
 }
 

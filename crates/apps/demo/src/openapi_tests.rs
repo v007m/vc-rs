@@ -12,11 +12,11 @@ use crate::testing::send;
 /// The methods the checks try on every path.
 const METHODS: [Method; 5] = [Method::GET, Method::POST, Method::PUT, Method::PATCH, Method::DELETE];
 
-/// The body each method that takes one sends: a valid one.
+/// The body each method that takes one sends: a valid one, and for `PATCH` one that removes a key.
 const BODIES: [(&str, &str); 3] = [
     ("POST", r#"{"email": "c@example.com"}"#),
     ("PUT", r#"{"email": "d@example.com"}"#),
-    ("PATCH", r#"{"role": "member"}"#),
+    ("PATCH", r#"{"role": "member", "name": null}"#),
 ];
 
 /// A container being read, and the key its next value goes under.
@@ -83,14 +83,41 @@ async fn call(app: &axum::Router, method: &Method, path: &str) -> (StatusCode, V
         let made = send(app, Method::POST, "/users", r#"{"email": "e@example.com"}"#).await.1;
         path = path.replace("{id}", made["id"].as_str().unwrap());
     }
-    let body = BODIES.iter().find(|(name, _)| *name == method.as_str()).map_or("", |(_, body)| body);
-    send(app, method.clone(), &path, body).await
+    send(app, method.clone(), &path, body_for(method)).await
 }
 
-/// Whether `body` holds to `schema`, its `$ref`s read in `spec`.
+/// The body the checks send with `method`, or none.
+fn body_for(method: &Method) -> &'static str {
+    BODIES.iter().find(|(name, _)| *name == method.as_str()).map_or("", |(_, body)| body)
+}
+
+/// Whether `body` holds to `schema`, its `$ref`s read in `spec`; `OpenAPI` 3.0's `nullable: true`
+/// lets `null` through, as JSON Schema alone would not.
 fn holds(spec: &Value, schema: &Value, body: &Value) -> bool {
-    let root = json!({"allOf": [schema], "components": spec["components"]});
+    let mut root = json!({"allOf": [schema], "components": spec["components"]});
+    let mut open = vec![&mut root];
+    while let Some(next) = open.pop() {
+        match next {
+            Value::Object(map) => {
+                if map.remove("nullable") == Some(Value::Bool(true)) {
+                    allow_null(map);
+                }
+                open.extend(map.values_mut());
+            }
+            Value::Array(items) => open.extend(items.iter_mut()),
+            _ => {}
+        }
+    }
     jsonschema::validator_for(&root).unwrap().is_valid(body)
+}
+
+/// `schema`, a typed one, taking `null` too.
+fn allow_null(schema: &mut serde_json::Map<String, Value>) {
+    if let Some(Value::Array(choices)) = schema.get_mut("enum") {
+        choices.push(Value::Null);
+    }
+    let ty = schema.remove("type").unwrap();
+    schema.insert("type".to_owned(), json!([ty, "null"]));
 }
 
 #[test]
@@ -118,6 +145,11 @@ async fn every_operation_answers_as_its_spec_says() {
         for (path, item) in spec["paths"].as_object().unwrap() {
             for method in &METHODS {
                 let Some(op) = item.get(method.as_str().to_ascii_lowercase()) else { continue };
+                let taken = op.pointer("/requestBody/content").and_then(Value::as_object);
+                if let Some(schema) = taken.and_then(|kinds| kinds.values().next()).map(|kind| &kind["schema"]) {
+                    let sent = serde_json::from_str(body_for(method)).unwrap();
+                    assert!(holds(&spec, schema, &sent), "{name}: {method} {path} does not take {sent}");
+                }
                 let (status, body) = call(&app, method, path).await;
                 let response = &op["responses"][status.as_str()];
                 assert!(response.is_object(), "{name}: {method} {path} answered {status}, which it does not list");

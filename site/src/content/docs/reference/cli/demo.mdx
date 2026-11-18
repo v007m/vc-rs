@@ -89,7 +89,7 @@ error: port 7454 is taken by a program that is not the demo
 | any `/status/{code}` | that status, with `{"status":code}`, for any code from `200` to `599`; no body for `204`, `205` and `304` |
 | anything else | `404` |
 
-It keeps users in memory until it stops. Ada and Grace cannot be changed or deleted (`403`). It holds at most 1024 created users, and a user is at most 4096 bytes; past either it refuses with `400` and an `error` naming the limit. A token is valid until it is logged out or 1024 newer ones are handed out. The demo logs no tokens.
+It keeps users in memory until it stops. Ada and Grace cannot be changed or deleted (`403`). It holds at most 1024 created users, and a user is at most 4096 bytes without its `id`; past either it refuses with `400` and an `error` naming the limit. A token is valid until it is logged out or 1024 newer ones are handed out. The demo logs no tokens.
 
 ```console
 $ curl -s -w ' %{http_code}\n' -X POST localhost:7421/users -d '{"name":"Alan Turing","email":"alan@example.com"}'
@@ -99,8 +99,12 @@ $ curl -s -w ' %{http_code}\n' -X PATCH localhost:7421/users/3 -d '{"role":"admi
 $ curl -s -w ' %{http_code}\n' -X PUT localhost:7421/users/1 -d '{"email":"a@example.com"}'
 {"error":"users 1 and 2 are the demo's own; create a user to change"} 403
 $ curl -s -w ' %{http_code}\n' -u vc-client:vc-secret -d grant_type=client_credentials localhost:7421/oauth/token
-{"access_token":"demo-token-2","expires_in":3600,"token_type":"Bearer"} 200
-$ curl -s -w ' %{http_code}\n' localhost:7421/auth/me
+{"access_token":"demo-token-1","expires_in":3600,"token_type":"Bearer"} 200
+$ curl -s -w ' %{http_code}\n' -H 'authorization: Bearer demo-token-1' localhost:7421/auth/me
+{"user":"demo"} 200
+$ curl -s -w ' %{http_code}\n' -X POST -H 'authorization: Bearer demo-token-1' localhost:7421/auth/logout
+ 204
+$ curl -s -w ' %{http_code}\n' -H 'authorization: Bearer demo-token-1' localhost:7421/auth/me
 {"error":"a valid bearer token is needed"} 401
 ```
 
