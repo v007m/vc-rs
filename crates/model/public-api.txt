@@ -13,6 +13,10 @@ pub fn vc_model::ActionKind::eq(&self, &Self) -> bool
 impl core::fmt::Debug for vc_model::ActionKind
 pub fn vc_model::ActionKind::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_model::ActionKind
+impl serde_core::ser::Serialize for vc_model::ActionKind
+pub fn vc_model::ActionKind::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::ActionKind
+pub fn vc_model::ActionKind::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub enum vc_model::ActionOutcome
 pub vc_model::ActionOutcome::Failed(vc_model::Failure)
 pub vc_model::ActionOutcome::Passed
@@ -74,6 +78,10 @@ pub fn vc_model::AuthRef::default() -> Self
 impl core::fmt::Debug for vc_model::AuthRef
 pub fn vc_model::AuthRef::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_model::AuthRef
+impl serde_core::ser::Serialize for vc_model::AuthRef
+pub fn vc_model::AuthRef::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::AuthRef
+pub fn vc_model::AuthRef::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub enum vc_model::Bodies
 pub vc_model::Bodies::All
 pub vc_model::Bodies::Failures
@@ -119,6 +127,10 @@ pub fn vc_model::BodySpec::default() -> Self
 impl core::fmt::Debug for vc_model::BodySpec
 pub fn vc_model::BodySpec::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_model::BodySpec
+impl serde_core::ser::Serialize for vc_model::BodySpec
+pub fn vc_model::BodySpec::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::BodySpec
+pub fn vc_model::BodySpec::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub enum vc_model::CheckKind
 pub vc_model::CheckKind::Cel
 pub vc_model::CheckKind::Custom
@@ -217,6 +229,10 @@ pub fn vc_model::Examples::eq(&self, &Self) -> bool
 impl core::fmt::Debug for vc_model::Examples
 pub fn vc_model::Examples::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_model::Examples
+impl serde_core::ser::Serialize for vc_model::Examples
+pub fn vc_model::Examples::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::Examples
+pub fn vc_model::Examples::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub enum vc_model::Feed
 pub vc_model::Feed::Event(vc_model::Sequenced)
 pub vc_model::Feed::Missed
@@ -291,6 +307,10 @@ pub fn vc_model::Loop::eq(&self, &Self) -> bool
 impl core::fmt::Debug for vc_model::Loop
 pub fn vc_model::Loop::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_model::Loop
+impl serde_core::ser::Serialize for vc_model::Loop
+pub fn vc_model::Loop::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::Loop
+pub fn vc_model::Loop::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub enum vc_model::Matcher
 pub vc_model::Matcher::All(alloc::vec::Vec<vc_model::MatcherCall>)
 pub vc_model::Matcher::Equals(vc_model::TemplateValue)
@@ -352,6 +372,10 @@ impl core::hash::Hash for vc_model::Method
 pub fn vc_model::Method::hash<__H: core::hash::Hasher>(&self, &mut __H)
 impl core::marker::Copy for vc_model::Method
 impl core::marker::StructuralPartialEq for vc_model::Method
+impl serde_core::ser::Serialize for vc_model::Method
+pub fn vc_model::Method::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::Method
+pub fn vc_model::Method::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 #[non_exhaustive] pub enum vc_model::ModelError
 pub vc_model::ModelError::ActionTableFull(usize)
 pub vc_model::ModelError::FileTableFull(usize)
@@ -430,6 +454,10 @@ impl core::hash::Hash for vc_model::Owner
 pub fn vc_model::Owner::hash<__H: core::hash::Hasher>(&self, &mut __H)
 impl core::marker::Copy for vc_model::Owner
 impl core::marker::StructuralPartialEq for vc_model::Owner
+impl serde_core::ser::Serialize for vc_model::Owner
+pub fn vc_model::Owner::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::Owner
+pub fn vc_model::Owner::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub enum vc_model::OwnerKey
 pub vc_model::OwnerKey::File(vc_model::FileId)
 pub vc_model::OwnerKey::Instance(vc_model::InstanceId)
@@ -479,6 +507,10 @@ pub fn vc_model::PartSpec::eq(&self, &Self) -> bool
 impl core::fmt::Debug for vc_model::PartSpec
 pub fn vc_model::PartSpec::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_model::PartSpec
+impl serde_core::ser::Serialize for vc_model::PartSpec
+pub fn vc_model::PartSpec::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::PartSpec
+pub fn vc_model::PartSpec::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub enum vc_model::Protocol
 pub vc_model::Protocol::Http1
 pub vc_model::Protocol::Http2
@@ -507,6 +539,10 @@ pub fn vc_model::RedactRule::eq(&self, &Self) -> bool
 impl core::fmt::Debug for vc_model::RedactRule
 pub fn vc_model::RedactRule::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_model::RedactRule
+impl serde_core::ser::Serialize for vc_model::RedactRule
+pub fn vc_model::RedactRule::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::RedactRule
+pub fn vc_model::RedactRule::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub enum vc_model::RunStatus
 pub vc_model::RunStatus::Cancelled
 pub vc_model::RunStatus::Failed
@@ -623,6 +659,10 @@ pub fn vc_model::TestBody::eq(&self, &Self) -> bool
 impl core::fmt::Debug for vc_model::TestBody
 pub fn vc_model::TestBody::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_model::TestBody
+impl serde_core::ser::Serialize for vc_model::TestBody
+pub fn vc_model::TestBody::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::TestBody
+pub fn vc_model::TestBody::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub enum vc_model::TestStatus
 pub vc_model::TestStatus::AllowedFailure
 pub vc_model::TestStatus::Blocked
@@ -660,6 +700,10 @@ impl core::fmt::Debug for vc_model::WriteDefinitions
 pub fn vc_model::WriteDefinitions::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Copy for vc_model::WriteDefinitions
 impl core::marker::StructuralPartialEq for vc_model::WriteDefinitions
+impl serde_core::ser::Serialize for vc_model::WriteDefinitions
+pub fn vc_model::WriteDefinitions::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::WriteDefinitions
+pub fn vc_model::WriteDefinitions::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub struct vc_model::Action
 pub vc_model::Action::auth: core::option::Option<vc_model::AuthRef>
 pub vc_model::Action::body: core::option::Option<vc_model::BodySpec>
@@ -690,6 +734,10 @@ pub fn vc_model::Action::eq(&self, &Self) -> bool
 impl core::fmt::Debug for vc_model::Action
 pub fn vc_model::Action::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_model::Action
+impl serde_core::ser::Serialize for vc_model::Action
+pub fn vc_model::Action::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::Action
+pub fn vc_model::Action::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub struct vc_model::ActionId(_)
 impl vc_model::ActionId
 pub const fn vc_model::ActionId::index(self) -> u32
@@ -730,6 +778,10 @@ pub fn vc_model::AgentPolicy::default() -> Self
 impl core::fmt::Debug for vc_model::AgentPolicy
 pub fn vc_model::AgentPolicy::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_model::AgentPolicy
+impl serde_core::ser::Serialize for vc_model::AgentPolicy
+pub fn vc_model::AgentPolicy::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::AgentPolicy
+pub fn vc_model::AgentPolicy::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub struct vc_model::Alert
 pub vc_model::Alert::notify: alloc::vec::Vec<vc_model::AlertChannel>
 pub vc_model::Alert::on: alloc::vec::Vec<vc_model::AlertTrigger>
@@ -743,6 +795,10 @@ pub fn vc_model::Alert::eq(&self, &Self) -> bool
 impl core::fmt::Debug for vc_model::Alert
 pub fn vc_model::Alert::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_model::Alert
+impl serde_core::ser::Serialize for vc_model::Alert
+pub fn vc_model::Alert::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::Alert
+pub fn vc_model::Alert::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub struct vc_model::AlertChannel
 pub vc_model::AlertChannel::kind: alloc::string::String
 pub vc_model::AlertChannel::settings: vc_model::TemplateValue
@@ -754,6 +810,10 @@ pub fn vc_model::AlertChannel::eq(&self, &Self) -> bool
 impl core::fmt::Debug for vc_model::AlertChannel
 pub fn vc_model::AlertChannel::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_model::AlertChannel
+impl serde_core::ser::Serialize for vc_model::AlertChannel
+pub fn vc_model::AlertChannel::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::AlertChannel
+pub fn vc_model::AlertChannel::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub struct vc_model::AllowFailure
 pub vc_model::AllowFailure::off: bool
 pub vc_model::AllowFailure::reason: core::option::Option<alloc::string::String>
@@ -768,6 +828,10 @@ pub fn vc_model::AllowFailure::default() -> Self
 impl core::fmt::Debug for vc_model::AllowFailure
 pub fn vc_model::AllowFailure::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_model::AllowFailure
+impl serde_core::ser::Serialize for vc_model::AllowFailure
+pub fn vc_model::AllowFailure::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::AllowFailure
+pub fn vc_model::AllowFailure::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub struct vc_model::Api
 pub vc_model::Api::auth: vc_model::AuthRef
 pub vc_model::Api::body: vc_model::BodySpec
@@ -797,6 +861,10 @@ pub fn vc_model::Api::eq(&self, &Self) -> bool
 impl core::fmt::Debug for vc_model::Api
 pub fn vc_model::Api::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_model::Api
+impl serde_core::ser::Serialize for vc_model::Api
+pub fn vc_model::Api::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::Api
+pub fn vc_model::Api::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub struct vc_model::ApiGroup
 pub vc_model::ApiGroup::apis: alloc::vec::Vec<vc_model::ApiId>
 pub vc_model::ApiGroup::auth: vc_model::AuthRef
@@ -815,6 +883,10 @@ pub fn vc_model::ApiGroup::eq(&self, &Self) -> bool
 impl core::fmt::Debug for vc_model::ApiGroup
 pub fn vc_model::ApiGroup::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_model::ApiGroup
+impl serde_core::ser::Serialize for vc_model::ApiGroup
+pub fn vc_model::ApiGroup::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::ApiGroup
+pub fn vc_model::ApiGroup::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub struct vc_model::ApiId(_)
 impl vc_model::ApiId
 pub const fn vc_model::ApiId::new(vc_model::Sym) -> Self
@@ -851,6 +923,10 @@ pub fn vc_model::ApiSource::eq(&self, &Self) -> bool
 impl core::fmt::Debug for vc_model::ApiSource
 pub fn vc_model::ApiSource::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_model::ApiSource
+impl serde_core::ser::Serialize for vc_model::ApiSource
+pub fn vc_model::ApiSource::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::ApiSource
+pub fn vc_model::ApiSource::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub struct vc_model::AuthDef
 pub vc_model::AuthDef::cache: bool
 pub vc_model::AuthDef::expires_in: core::option::Option<vc_model::Template>
@@ -872,6 +948,10 @@ pub fn vc_model::AuthDef::eq(&self, &Self) -> bool
 impl core::fmt::Debug for vc_model::AuthDef
 pub fn vc_model::AuthDef::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_model::AuthDef
+impl serde_core::ser::Serialize for vc_model::AuthDef
+pub fn vc_model::AuthDef::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::AuthDef
+pub fn vc_model::AuthDef::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub struct vc_model::AuthId(_)
 impl vc_model::AuthId
 pub const fn vc_model::AuthId::new(vc_model::Sym) -> Self
@@ -907,6 +987,10 @@ impl core::fmt::Debug for vc_model::CacheSpec
 pub fn vc_model::CacheSpec::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Copy for vc_model::CacheSpec
 impl core::marker::StructuralPartialEq for vc_model::CacheSpec
+impl serde_core::ser::Serialize for vc_model::CacheSpec
+pub fn vc_model::CacheSpec::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::CacheSpec
+pub fn vc_model::CacheSpec::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub struct vc_model::CelProgram
 pub vc_model::CelProgram::refs: alloc::vec::Vec<vc_model::Reference>
 pub vc_model::CelProgram::source: vc_model::CelSource
@@ -952,6 +1036,10 @@ pub fn vc_model::Check::eq(&self, &Self) -> bool
 impl core::fmt::Debug for vc_model::Check
 pub fn vc_model::Check::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_model::Check
+impl serde_core::ser::Serialize for vc_model::Check
+pub fn vc_model::Check::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::Check
+pub fn vc_model::Check::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub struct vc_model::CheckResult
 pub vc_model::CheckResult::actual: core::option::Option<serde_json::value::Value>
 pub vc_model::CheckResult::code: core::option::Option<alloc::string::String>
@@ -1018,6 +1106,10 @@ pub fn vc_model::Config::default() -> Self
 impl core::fmt::Debug for vc_model::Config
 pub fn vc_model::Config::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_model::Config
+impl serde_core::ser::Serialize for vc_model::Config
+pub fn vc_model::Config::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::Config
+pub fn vc_model::Config::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub struct vc_model::ConnectionInfo
 pub vc_model::ConnectionInfo::protocol: vc_model::Protocol
 pub vc_model::ConnectionInfo::remote: core::option::Option<core::net::socket_addr::SocketAddr>
@@ -1064,6 +1156,10 @@ pub fn vc_model::Dataset::eq(&self, &Self) -> bool
 impl core::fmt::Debug for vc_model::Dataset
 pub fn vc_model::Dataset::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_model::Dataset
+impl serde_core::ser::Serialize for vc_model::Dataset
+pub fn vc_model::Dataset::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::Dataset
+pub fn vc_model::Dataset::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub struct vc_model::DatasetId(_)
 impl vc_model::DatasetId
 pub const fn vc_model::DatasetId::new(vc_model::Sym) -> Self
@@ -1133,6 +1229,10 @@ pub fn vc_model::Defaults::default() -> Self
 impl core::fmt::Debug for vc_model::Defaults
 pub fn vc_model::Defaults::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_model::Defaults
+impl serde_core::ser::Serialize for vc_model::Defaults
+pub fn vc_model::Defaults::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::Defaults
+pub fn vc_model::Defaults::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub struct vc_model::Duration(_)
 impl vc_model::Duration
 pub const fn vc_model::Duration::get(self) -> core::time::Duration
@@ -1184,6 +1284,10 @@ pub fn vc_model::Expect::default() -> Self
 impl core::fmt::Debug for vc_model::Expect
 pub fn vc_model::Expect::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_model::Expect
+impl serde_core::ser::Serialize for vc_model::Expect
+pub fn vc_model::Expect::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::Expect
+pub fn vc_model::Expect::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub struct vc_model::Failure
 pub vc_model::Failure::action: core::option::Option<vc_model::ActionId>
 pub vc_model::Failure::code: core::option::Option<alloc::string::String>
@@ -1239,6 +1343,10 @@ pub fn vc_model::GeneratorDef::eq(&self, &Self) -> bool
 impl core::fmt::Debug for vc_model::GeneratorDef
 pub fn vc_model::GeneratorDef::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_model::GeneratorDef
+impl serde_core::ser::Serialize for vc_model::GeneratorDef
+pub fn vc_model::GeneratorDef::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::GeneratorDef
+pub fn vc_model::GeneratorDef::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub struct vc_model::HistoryConfig
 pub vc_model::HistoryConfig::bodies: vc_model::Bodies
 pub vc_model::HistoryConfig::keep: vc_model::Keep
@@ -1291,11 +1399,19 @@ pub fn vc_model::HookModules::clone(&self) -> Self
 impl core::cmp::Eq for vc_model::HookModules
 impl core::cmp::PartialEq for vc_model::HookModules
 pub fn vc_model::HookModules::eq(&self, &Self) -> bool
+impl core::convert::From<alloc::collections::btree::map::BTreeMap<alloc::string::String, vc_model::HookModule>> for vc_model::HookModules
+pub fn vc_model::HookModules::from(alloc::collections::btree::map::BTreeMap<alloc::string::String, vc_model::HookModule>) -> Self
+impl core::convert::From<vc_model::HookModules> for alloc::collections::btree::map::BTreeMap<alloc::string::String, vc_model::HookModule>
+pub fn alloc::collections::btree::map::BTreeMap<alloc::string::String, vc_model::HookModule>::from(vc_model::HookModules) -> Self
 impl core::default::Default for vc_model::HookModules
 pub fn vc_model::HookModules::default() -> Self
 impl core::fmt::Debug for vc_model::HookModules
 pub fn vc_model::HookModules::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_model::HookModules
+impl serde_core::ser::Serialize for vc_model::HookModules
+pub fn vc_model::HookModules::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::HookModules
+pub fn vc_model::HookModules::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub struct vc_model::HookRef
 pub vc_model::HookRef::export: alloc::string::String
 pub vc_model::HookRef::file: alloc::string::String
@@ -1309,6 +1425,10 @@ pub fn vc_model::HookRef::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt
 impl core::hash::Hash for vc_model::HookRef
 pub fn vc_model::HookRef::hash<__H: core::hash::Hasher>(&self, &mut __H)
 impl core::marker::StructuralPartialEq for vc_model::HookRef
+impl serde_core::ser::Serialize for vc_model::HookRef
+pub fn vc_model::HookRef::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::HookRef
+pub fn vc_model::HookRef::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub struct vc_model::HooksConfig
 pub vc_model::HooksConfig::threads: u32
 impl vc_model::HooksConfig
@@ -1324,6 +1444,10 @@ impl core::fmt::Debug for vc_model::HooksConfig
 pub fn vc_model::HooksConfig::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Copy for vc_model::HooksConfig
 impl core::marker::StructuralPartialEq for vc_model::HooksConfig
+impl serde_core::ser::Serialize for vc_model::HooksConfig
+pub fn vc_model::HooksConfig::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::HooksConfig
+pub fn vc_model::HooksConfig::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub struct vc_model::HttpResponse
 pub vc_model::HttpResponse::body: bytes::bytes::Bytes
 pub vc_model::HttpResponse::headers: http::header::map::HeaderMap
@@ -1355,6 +1479,10 @@ pub fn vc_model::HttpRetry::default() -> Self
 impl core::fmt::Debug for vc_model::HttpRetry
 pub fn vc_model::HttpRetry::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_model::HttpRetry
+impl serde_core::ser::Serialize for vc_model::HttpRetry
+pub fn vc_model::HttpRetry::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::HttpRetry
+pub fn vc_model::HttpRetry::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub struct vc_model::InlineRequest
 pub vc_model::InlineRequest::body: vc_model::BodySpec
 pub vc_model::InlineRequest::headers: indexmap::map::IndexMap<alloc::string::String, vc_model::Template>
@@ -1369,6 +1497,10 @@ pub fn vc_model::InlineRequest::eq(&self, &Self) -> bool
 impl core::fmt::Debug for vc_model::InlineRequest
 pub fn vc_model::InlineRequest::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_model::InlineRequest
+impl serde_core::ser::Serialize for vc_model::InlineRequest
+pub fn vc_model::InlineRequest::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::InlineRequest
+pub fn vc_model::InlineRequest::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub struct vc_model::Instance
 pub vc_model::Instance::example_row: core::option::Option<u32>
 pub vc_model::Instance::id: vc_model::InstanceId
@@ -1432,6 +1564,10 @@ pub fn vc_model::Lifecycle::default() -> Self
 impl core::fmt::Debug for vc_model::Lifecycle
 pub fn vc_model::Lifecycle::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_model::Lifecycle
+impl serde_core::ser::Serialize for vc_model::Lifecycle
+pub fn vc_model::Lifecycle::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::Lifecycle
+pub fn vc_model::Lifecycle::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub struct vc_model::LoadScenario
 pub vc_model::LoadScenario::abort_on: alloc::vec::Vec<alloc::string::String>
 pub vc_model::LoadScenario::full_checks: bool
@@ -1449,6 +1585,10 @@ pub fn vc_model::LoadScenario::eq(&self, &Self) -> bool
 impl core::fmt::Debug for vc_model::LoadScenario
 pub fn vc_model::LoadScenario::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_model::LoadScenario
+impl serde_core::ser::Serialize for vc_model::LoadScenario
+pub fn vc_model::LoadScenario::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::LoadScenario
+pub fn vc_model::LoadScenario::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub struct vc_model::LoadStage
 pub vc_model::LoadStage::duration: vc_model::Duration
 pub vc_model::LoadStage::users: u32
@@ -1461,6 +1601,10 @@ impl core::fmt::Debug for vc_model::LoadStage
 pub fn vc_model::LoadStage::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Copy for vc_model::LoadStage
 impl core::marker::StructuralPartialEq for vc_model::LoadStage
+impl serde_core::ser::Serialize for vc_model::LoadStage
+pub fn vc_model::LoadStage::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::LoadStage
+pub fn vc_model::LoadStage::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub struct vc_model::Location
 pub vc_model::Location::column: u32
 pub vc_model::Location::line: u32
@@ -1505,6 +1649,10 @@ pub fn vc_model::MixEntry::eq(&self, &Self) -> bool
 impl core::fmt::Debug for vc_model::MixEntry
 pub fn vc_model::MixEntry::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_model::MixEntry
+impl serde_core::ser::Serialize for vc_model::MixEntry
+pub fn vc_model::MixEntry::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::MixEntry
+pub fn vc_model::MixEntry::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub struct vc_model::Names
 impl vc_model::Names
 pub fn vc_model::Names::action(&self, vc_model::ActionId) -> alloc::string::String
@@ -1651,6 +1799,10 @@ pub fn vc_model::PluginRef::eq(&self, &Self) -> bool
 impl core::fmt::Debug for vc_model::PluginRef
 pub fn vc_model::PluginRef::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_model::PluginRef
+impl serde_core::ser::Serialize for vc_model::PluginRef
+pub fn vc_model::PluginRef::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::PluginRef
+pub fn vc_model::PluginRef::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub struct vc_model::Poll
 pub vc_model::Poll::every: vc_model::Duration
 pub vc_model::Poll::timeout: vc_model::Duration
@@ -1663,6 +1815,10 @@ pub fn vc_model::Poll::eq(&self, &Self) -> bool
 impl core::fmt::Debug for vc_model::Poll
 pub fn vc_model::Poll::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_model::Poll
+impl serde_core::ser::Serialize for vc_model::Poll
+pub fn vc_model::Poll::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::Poll
+pub fn vc_model::Poll::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub struct vc_model::Pos
 pub vc_model::Pos::column: u32
 pub vc_model::Pos::line: u32
@@ -1703,6 +1859,10 @@ pub fn vc_model::Profile::eq(&self, &Self) -> bool
 impl core::fmt::Debug for vc_model::Profile
 pub fn vc_model::Profile::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_model::Profile
+impl serde_core::ser::Serialize for vc_model::Profile
+pub fn vc_model::Profile::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::Profile
+pub fn vc_model::Profile::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub struct vc_model::ProfileId(_)
 impl vc_model::ProfileId
 pub const fn vc_model::ProfileId::new(vc_model::Sym) -> Self
@@ -1751,6 +1911,10 @@ impl core::default::Default for vc_model::Program
 pub fn vc_model::Program::default() -> Self
 impl core::fmt::Debug for vc_model::Program
 pub fn vc_model::Program::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl serde_core::ser::Serialize for vc_model::Program
+pub fn vc_model::Program::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::Program
+pub fn vc_model::Program::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub struct vc_model::ProgramBuilder
 impl vc_model::ProgramBuilder
 pub fn vc_model::ProgramBuilder::action(&mut self, vc_model::Action) -> core::result::Result<vc_model::ActionId, vc_model::ModelError>
@@ -1822,6 +1986,10 @@ pub fn vc_model::RequestHooks::default() -> Self
 impl core::fmt::Debug for vc_model::RequestHooks
 pub fn vc_model::RequestHooks::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_model::RequestHooks
+impl serde_core::ser::Serialize for vc_model::RequestHooks
+pub fn vc_model::RequestHooks::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::RequestHooks
+pub fn vc_model::RequestHooks::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub struct vc_model::Retry
 pub vc_model::Retry::attempts: u32
 pub vc_model::Retry::delay: vc_model::Duration
@@ -1834,6 +2002,10 @@ impl core::fmt::Debug for vc_model::Retry
 pub fn vc_model::Retry::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Copy for vc_model::Retry
 impl core::marker::StructuralPartialEq for vc_model::Retry
+impl serde_core::ser::Serialize for vc_model::Retry
+pub fn vc_model::Retry::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::Retry
+pub fn vc_model::Retry::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub struct vc_model::RunBlocks
 pub vc_model::RunBlocks::after_run: alloc::vec::Vec<vc_model::ActionId>
 pub vc_model::RunBlocks::before_run: alloc::vec::Vec<vc_model::ActionId>
@@ -1847,6 +2019,10 @@ pub fn vc_model::RunBlocks::default() -> Self
 impl core::fmt::Debug for vc_model::RunBlocks
 pub fn vc_model::RunBlocks::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_model::RunBlocks
+impl serde_core::ser::Serialize for vc_model::RunBlocks
+pub fn vc_model::RunBlocks::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::RunBlocks
+pub fn vc_model::RunBlocks::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub struct vc_model::SaveSpec
 pub vc_model::SaveSpec::values: indexmap::map::IndexMap<vc_model::VarName, vc_model::TemplateValue>
 impl core::clone::Clone for vc_model::SaveSpec
@@ -1859,6 +2035,10 @@ pub fn vc_model::SaveSpec::default() -> Self
 impl core::fmt::Debug for vc_model::SaveSpec
 pub fn vc_model::SaveSpec::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_model::SaveSpec
+impl serde_core::ser::Serialize for vc_model::SaveSpec
+pub fn vc_model::SaveSpec::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::SaveSpec
+pub fn vc_model::SaveSpec::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub struct vc_model::ScalarSource
 pub vc_model::ScalarSource::span: vc_model::SourceSpan
 pub vc_model::ScalarSource::style: vc_model::ScalarStyle
@@ -1908,6 +2088,10 @@ pub fn vc_model::SecretsConfig::default() -> Self
 impl core::fmt::Debug for vc_model::SecretsConfig
 pub fn vc_model::SecretsConfig::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_model::SecretsConfig
+impl serde_core::ser::Serialize for vc_model::SecretsConfig
+pub fn vc_model::SecretsConfig::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::SecretsConfig
+pub fn vc_model::SecretsConfig::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub struct vc_model::Sequenced
 pub vc_model::Sequenced::event: vc_model::Event
 pub vc_model::Sequenced::seq: u64
@@ -1955,6 +2139,10 @@ pub fn vc_model::Skip::eq(&self, &Self) -> bool
 impl core::fmt::Debug for vc_model::Skip
 pub fn vc_model::Skip::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_model::Skip
+impl serde_core::ser::Serialize for vc_model::Skip
+pub fn vc_model::Skip::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::Skip
+pub fn vc_model::Skip::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub struct vc_model::SkippedTest
 pub vc_model::SkippedTest::reason: alloc::string::String
 pub vc_model::SkippedTest::test: vc_model::TestId
@@ -2093,6 +2281,10 @@ impl core::default::Default for vc_model::StringTable
 pub fn vc_model::StringTable::default() -> Self
 impl core::fmt::Debug for vc_model::StringTable
 pub fn vc_model::StringTable::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl serde_core::ser::Serialize for vc_model::StringTable
+pub fn vc_model::StringTable::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::StringTable
+pub fn vc_model::StringTable::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
 pub struct vc_model::Sym(_)
 impl core::clone::Clone for vc_model::Sym
 pub fn vc_model::Sym::clone(&self) -> Self
@@ -2124,6 +2316,10 @@ pub fn vc_model::Tag::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Re
 impl core::hash::Hash for vc_model::Tag
 pub fn vc_model::Tag::hash<__H: core::hash::Hasher>(&self, &mut __H)
 impl core::marker::StructuralPartialEq for vc_model::Tag
+impl serde_core::ser::Serialize for vc_model::Tag
+pub fn vc_model::Tag::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::Tag
+pub fn vc_model::Tag::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub struct vc_model::Template
 pub vc_model::Template::parts: alloc::vec::Vec<vc_model::Part>
 impl vc_model::Template
@@ -2171,6 +2367,10 @@ pub fn vc_model::Test::eq(&self, &Self) -> bool
 impl core::fmt::Debug for vc_model::Test
 pub fn vc_model::Test::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_model::Test
+impl serde_core::ser::Serialize for vc_model::Test
+pub fn vc_model::Test::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::Test
+pub fn vc_model::Test::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub struct vc_model::TestFile
 pub vc_model::TestFile::allow_failure: core::option::Option<vc_model::AllowFailure>
 pub vc_model::TestFile::id: vc_model::FileId
@@ -2188,6 +2388,10 @@ pub fn vc_model::TestFile::eq(&self, &Self) -> bool
 impl core::fmt::Debug for vc_model::TestFile
 pub fn vc_model::TestFile::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_model::TestFile
+impl serde_core::ser::Serialize for vc_model::TestFile
+pub fn vc_model::TestFile::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::TestFile
+pub fn vc_model::TestFile::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub struct vc_model::TestId(_)
 impl vc_model::TestId
 pub const fn vc_model::TestId::new(vc_model::Sym) -> Self
@@ -2289,6 +2493,10 @@ pub fn vc_model::VarDefs::default() -> Self
 impl core::fmt::Debug for vc_model::VarDefs
 pub fn vc_model::VarDefs::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_model::VarDefs
+impl serde_core::ser::Serialize for vc_model::VarDefs
+pub fn vc_model::VarDefs::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::VarDefs
+pub fn vc_model::VarDefs::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub struct vc_model::VarName(_)
 impl vc_model::VarName
 pub const fn vc_model::VarName::new(vc_model::Sym) -> Self

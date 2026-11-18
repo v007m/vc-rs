@@ -5,7 +5,7 @@ use crate::{ActionId, ApiId, Duration, Path, Size, SourceSpan, StatusPattern, Te
 
 /// The merged checks for one call: api, then test, then step, the more specific replacing a
 /// check with the same key; `cel` and `custom` checks are added instead (D123).
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[expect(
     clippy::exhaustive_structs,
     reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
@@ -18,7 +18,7 @@ pub struct Expect {
 }
 
 /// One check, reported on its own with its source line.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[expect(
     clippy::exhaustive_structs,
     reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"

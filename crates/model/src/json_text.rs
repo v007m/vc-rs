@@ -5,6 +5,7 @@
 use serde::de::{DeserializeOwned, Error as _};
 use serde::ser::Error as _;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde_json::Value;
 
 /// Writes `value` as itself, or as its JSON text for a binary format.
 pub fn out<T: Serialize, S: Serializer>(value: &T, serializer: S) -> Result<S::Ok, S::Error> {
@@ -13,6 +14,15 @@ pub fn out<T: Serialize, S: Serializer>(value: &T, serializer: S) -> Result<S::O
     }
     let text = serde_json::to_string(value).map_err(S::Error::custom)?;
     serializer.serialize_str(&text)
+}
+
+/// [`out`] for a list of literal arguments, which is most often empty: an empty one is written
+/// as `[]` without going through JSON, the same text at a fraction of the cost.
+pub fn list_out<S: Serializer>(values: &[Value], serializer: S) -> Result<S::Ok, S::Error> {
+    if values.is_empty() && !serializer.is_human_readable() {
+        return serializer.serialize_str("[]");
+    }
+    out(&values, serializer)
 }
 
 /// Reads back what [`out`] wrote.

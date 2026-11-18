@@ -2,8 +2,11 @@
 //! check vars per profile (V2101, V2304), step ids against what ran before (V2105) and the vars
 //! an `examples:` template reads before the run (V2105).
 
+use std::collections::HashMap;
+use std::rc::Rc;
+
 use vc_diagnostics::Diagnostics;
-use vc_model::{FileKind, SourceSpan};
+use vc_model::{FileKind, Reference, SourceSpan};
 use vc_parser::Node;
 
 use super::layer::{Layer, Scope};
@@ -11,14 +14,14 @@ use super::project;
 use super::project::{FILE_BLOCKS, Item, Project, RUN_BLOCKS, Source, TEST_BLOCKS};
 use super::saves;
 use super::saves::Saves;
-use super::uses::{Checker, Spot};
+use super::uses::{Checker, Spot, spot_refs};
 
 /// Checks what every spot reads.
 pub fn check(project: &Project<'_>) -> Diagnostics {
     let config = project.config();
     let profiles = config.map(|config| project::list(config.root, "profiles")).unwrap_or_default();
     let profiles = profiles.iter().filter_map(|profile| project::text(profile, "id")).map(str::to_owned).collect();
-    let mut flow = Flow { checker: Checker::new(project, profiles), saves: Saves::new(project) };
+    let mut flow = Flow { checker: Checker::new(project, profiles), saves: Saves::new(project), apis: HashMap::new() };
     let run = config.map_or_else(Scope::default, |config| flow.config(config));
     for source in project.sources.iter().filter(|source| source.kind == FileKind::Test) {
         flow.test_file(source, &run);
@@ -43,6 +46,15 @@ enum Saved {
 struct Flow<'p, 'a> {
     checker: Checker<'p, 'a>,
     saves: Saves<'p, 'a>,
+    /// What each api called so far gives every call site, by the api's span.
+    apis: HashMap<SourceSpan, Rc<Called<'a>>>,
+}
+
+/// What an api gives each of its call sites: the vars it and its file set, and the references
+/// in its entry (without `cleanup`) and in its file's values.
+struct Called<'a> {
+    layer: Rc<Layer>,
+    refs: Vec<&'a Reference>,
 }
 
 impl<'p, 'a> Flow<'p, 'a> {
@@ -130,7 +142,7 @@ impl<'p, 'a> Flow<'p, 'a> {
     fn action(&mut self, source: &'p Source<'a>, node: &'a Node, scope: &Scope<'a>) -> Vec<String> {
         let own = scope.with(Layer::vars(source, node));
         let api = saves::called(self.checker.project, (source, node));
-        let inner = api.map_or_else(|| own.clone(), |api| own.with(self.api_layer(api)));
+        let inner = api.map_or_else(|| own.clone(), |api| own.with_shared(self.called(api).layer.clone()));
         self.spot(source, (node, &project::holes(node, &ACTION_PARTS)), &inner);
         if let Some(api) = api {
             self.api(api, &inner, call_site(node));
@@ -155,25 +167,33 @@ impl<'p, 'a> Flow<'p, 'a> {
         let after = inner.with(Layer::names(saves::keys(api.node.get("save")))).with(Layer::vars(source, cleanup));
         self.checker.check(&Spot { source, span: cleanup.span, holes: &[], site: Some(site) }, &after);
         if let Some(target) = saves::called(project, (source, cleanup)) {
-            self.api_templates(target, &after.with(self.api_layer(target)), call_site(cleanup));
+            let layer = self.called(target).layer.clone();
+            self.api_templates(target, &after.with_shared(layer), call_site(cleanup));
         }
     }
 
     /// An api entry, without its cleanup, and the values of its file.
     fn api_templates(&mut self, api: Item<'a>, scope: &Scope<'a>, site: SourceSpan) {
+        let called = self.called(api);
         let source = self.checker.project.source(api);
-        let entry = project::holes(api.node, &["cleanup"]);
-        self.checker.check(&Spot { source, span: api.node.span, holes: &entry, site: Some(site) }, scope);
-        let file = project::holes(source.root, &["apis"]);
-        self.checker.check(&Spot { source, span: source.root.span, holes: &file, site: Some(site) }, scope);
+        let spot = Spot { source, span: api.node.span, holes: &[], site: Some(site) };
+        self.checker.check_refs(&spot, &called.refs, scope);
     }
 
-    /// The vars an api and its file set.
-    fn api_layer(&self, api: Item<'a>) -> Layer {
-        let source = self.checker.project.source(api);
-        let mut layer = Layer::vars(source, source.root);
-        layer.absorb(&Layer::vars(source, api.node));
-        layer
+    /// What `api` gives its call sites, worked out on its first call.
+    fn called(&mut self, api: Item<'a>) -> Rc<Called<'a>> {
+        let project = self.checker.project;
+        let found = self.apis.entry(api.node.span).or_insert_with(|| {
+            let source = project.source(api);
+            let mut layer = Layer::vars(source, source.root);
+            layer.absorb(&Layer::vars(source, api.node));
+            let entry = project::holes(api.node, &["cleanup"]);
+            let mut refs = spot_refs(&Spot { source, span: api.node.span, holes: &entry, site: None });
+            let file = project::holes(source.root, &["apis"]);
+            refs.extend(spot_refs(&Spot { source, span: source.root.span, holes: &file, site: None }));
+            Rc::new(Called { layer: Rc::new(layer), refs })
+        });
+        Rc::clone(found)
     }
 
     fn spot(&mut self, source: &Source<'a>, (node, holes): (&Node, &[SourceSpan]), scope: &Scope<'a>) {

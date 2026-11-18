@@ -34,8 +34,21 @@ impl HookModule {
 }
 
 /// Every hook file a program uses, by project-relative path. Cloning shares the files.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(from = "BTreeMap<String, HookModule>", into = "BTreeMap<String, HookModule>")]
 pub struct HookModules(Arc<BTreeMap<String, HookModule>>);
+
+impl From<BTreeMap<String, HookModule>> for HookModules {
+    fn from(modules: BTreeMap<String, HookModule>) -> Self {
+        Self::new(modules)
+    }
+}
+
+impl From<HookModules> for BTreeMap<String, HookModule> {
+    fn from(modules: HookModules) -> Self {
+        Arc::unwrap_or_clone(modules.0)
+    }
+}
 
 impl HookModules {
     /// The modules given, by path.

@@ -5381,6 +5381,7 @@ dependencies = [
 name = "vc-compiler"
 version = "0.1.0"
 dependencies = [
+ "blake3",
  "indexmap 2.14.2",
  "insta",
  "oxc_allocator",

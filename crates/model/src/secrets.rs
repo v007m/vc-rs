@@ -1,6 +1,7 @@
 //! `secrets` and `redact`: where `${secret.*}` values come from and what else the redactor masks.
 
 use crate::{CelProgram, HookRef};
+use serde::{Deserialize, Serialize};
 
 /// The provider `secrets.provider` names when the config does not say (D163).
 pub const DEFAULT_SECRETS_PROVIDER: &str = "env";
@@ -13,7 +14,7 @@ pub const DEFAULT_SECRETS_SCHEMA: &str = ".env.schema";
 pub const PROFILE_VARIABLE: &str = "VC_PROFILE";
 
 /// `secrets`: the provider that resolves `${secret.*}` and the names `.env.schema` declares.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[expect(
     clippy::exhaustive_structs,
     reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
@@ -56,7 +57,7 @@ impl SecretsConfig {
 }
 
 /// One user rule under `redact.rules` (D171), applied after the built-in secret masking.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[expect(
     clippy::exhaustive_enums,
     reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"

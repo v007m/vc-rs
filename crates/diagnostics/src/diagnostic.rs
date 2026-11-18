@@ -1,10 +1,10 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use vc_model::SourceSpan;
 
 use crate::{Code, Fix, Severity};
 
 /// A place in a source file with a short text shown under it.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct Label {
     /// The place.
@@ -27,7 +27,7 @@ impl Label {
 ///
 /// The serde form is a base for reporters, not the `vc check --json` output: spans hold a
 /// `SourceFileId` index, which the JSON reporter replaces with the file path.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[expect(
     clippy::exhaustive_structs,
     reason = "built or matched in other crates, shared across the workspace; every user is in this repo (D160)"
@@ -50,7 +50,7 @@ pub struct Diagnostic {
     /// Changes that resolve the problem.
     pub fixes: Vec<Fix>,
     /// Places whose text excerpts never print, shown as `•••`: a literal token (D314).
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub masked: Vec<SourceSpan>,
 }
 

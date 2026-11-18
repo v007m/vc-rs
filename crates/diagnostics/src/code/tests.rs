@@ -71,6 +71,12 @@ fn serializes_as_its_text() {
 }
 
 #[test]
+fn reads_back_from_its_text_and_only_a_known_code() {
+    assert_eq!(serde_json::from_str::<Code>(r#""V1004""#).unwrap(), Code::V1004);
+    assert!(serde_json::from_str::<Code>(r#""V0000""#).is_err());
+}
+
+#[test]
 fn a_page_is_its_markdown_and_its_text_drops_the_marks() {
     let page = Code::V2003.explanation().unwrap();
     assert!(page.starts_with("# V2003: Unknown api or test\n"));

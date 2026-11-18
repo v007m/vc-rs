@@ -4,7 +4,7 @@ use std::sync::Arc;
 use vc_diagnostics::Diagnostics;
 use vc_model::{Date, Program, SourceFile, SourceFileId, SourceFiles, SourcePath, StringTable};
 
-use crate::cache::CacheEntry;
+use crate::cache::{CacheEntry, Kept, LinkKey, Memo, Recall, Replay};
 use crate::link::DataWanted;
 use crate::parts::Tools;
 use crate::{CompileCache, link, stage};
@@ -56,14 +56,22 @@ pub struct Compiled {
 /// Compiles `input` into a program, or into the diagnostics that stop one.
 ///
 /// Pure: the same input gives the same output, and nothing outside it is read or written.
-/// A file whose path, hash and number match the previous cache is not parsed again.
+/// A file whose path, hash and number match the previous cache is not parsed again, and when
+/// every file and the rest of the input match the previous clean compile, its output is given
+/// back without linking (D333).
 #[must_use]
 pub fn compile(input: CompileInput) -> Compiled {
     let mut sources = input.files;
     sources.sort_by(|a, b| a.path.cmp(&b.path));
     sources.dedup_by(|later, first| later.path == first.path);
     let files = file_table(sources);
-    let (entries, strings) = units(&files, &input.previous);
+    let key = LinkKey::of(input.today, input.assets.as_ref(), input.secret_schema.as_ref());
+    let damaged_memo = match input.previous.replay(&files, &key) {
+        Recall::Hit(replay) => return replayed_compile(replay, files, input.previous),
+        Recall::Miss => false,
+        Recall::Damaged => true,
+    };
+    let (entries, strings, damaged) = units(&files, &input.previous);
     let mut diagnostics = Diagnostics::new();
     for unit in entries.iter().filter_map(|entry| entry.unit.as_deref()) {
         diagnostics.extend(unit.diagnostics.iter().cloned());
@@ -78,21 +86,38 @@ pub fn compile(input: CompileInput) -> Compiled {
     let linked = link::link(&entries, &files, &world);
     diagnostics.extend(linked.diagnostics);
     let (program, data_wanted, hooks_wanted) = (linked.program, linked.data_wanted, linked.hooks_wanted);
-    let cache = CompileCache::of(entries, strings);
-    Compiled { program, diagnostics, files, cache, data_wanted, hooks_wanted }
+    let replay = program.clone().filter(|_| !diagnostics.has_errors()).map(|program| {
+        let diagnostics = diagnostics.clone();
+        Replay { program, diagnostics, data_wanted: data_wanted.clone(), hooks_wanted: hooks_wanted.clone() }
+    });
+    let repaired = damaged || damaged_memo || input.previous.is_repaired();
+    let cache = CompileCache::of(entries, strings).remembering(replay.map(|replay| Memo::made(key, replay)));
+    Compiled { program, diagnostics, files, cache: cache.repaired(repaired), data_wanted, hooks_wanted }
 }
 
-/// Runs the per-file stages over every file the previous cache does not hold.
-fn units(files: &SourceFiles, previous: &CompileCache) -> (Vec<CacheEntry>, StringTable) {
+/// The compile whose output `previous` memoized, of `files`.
+fn replayed_compile(replay: Replay, files: SourceFiles, previous: CompileCache) -> Compiled {
+    let Replay { program, diagnostics, data_wanted, hooks_wanted } = replay;
+    Compiled { program: Some(program), diagnostics, files, cache: previous, data_wanted, hooks_wanted }
+}
+
+/// Runs the per-file stages over every file the previous cache does not hold, and tells
+/// whether one it held did not read back.
+fn units(files: &SourceFiles, previous: &CompileCache) -> (Vec<CacheEntry>, StringTable, bool) {
     let tools = Tools::new();
     let mut strings = previous.strings().clone();
-    let mut entries = Vec::with_capacity(files.len());
+    let (mut entries, mut damaged) = (Vec::with_capacity(files.len()), false);
     for (file, source) in numbered(files) {
-        let kept = previous.unit(&source.path, &source.hash, file);
-        let unit = kept.unwrap_or_else(|| Arc::new(stage::unit(file, source, (&tools, &mut strings))));
-        entries.push(CacheEntry { path: source.path.clone(), hash: source.hash, file, unit: Some(unit) });
+        let (unit, bytes) = match previous.kept(&source.path, &source.hash, file) {
+            Kept::Unit(unit, bytes) => (unit, bytes),
+            kept => {
+                damaged |= matches!(kept, Kept::Damaged);
+                (Arc::new(stage::unit(file, source, (&tools, &mut strings))), None)
+            }
+        };
+        entries.push(CacheEntry { path: source.path.clone(), hash: source.hash, file, unit: Some(unit), bytes });
     }
-    (entries, strings)
+    (entries, strings, damaged)
 }
 
 /// Each file with its number.

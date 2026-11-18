@@ -138,6 +138,14 @@ impl<'a> Scope<'a> {
         scope
     }
 
+    /// This scope with one more level, shared with other scopes.
+    #[must_use]
+    pub fn with_shared(&self, layer: Rc<Layer>) -> Self {
+        let mut scope = self.clone();
+        scope.layers.push(layer);
+        scope
+    }
+
     /// Adds a level.
     pub fn push(&mut self, layer: Layer) {
         self.layers.push(Rc::new(layer));

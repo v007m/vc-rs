@@ -4,7 +4,7 @@ use indexmap::IndexMap;
 use vc_diagnostics::{Code, Diagnostics};
 use vc_model::{ContentHash, SourceFile, SourceFileId, SourcePath, StringTable};
 
-use super::{BUILD, Body, CacheEntry, CompileCache, MAGIC, Stored, VERSION};
+use super::{BUILD, Body, CacheEntry, CompileCache, MAGIC, SUMMED, Stored, VERSION, encode, seal};
 use crate::parts::Tools;
 use crate::stage::{self, FileUnit};
 use crate::{CompileInput, Compiled};
@@ -12,13 +12,14 @@ use crate::{CompileInput, Compiled};
 const API: &str = "services/users/users.api.yaml";
 const API_TEXT: &str = "apis:\n  - id: getUser\n    path: /users/${var.userId}\n";
 const BAD: &str = "services/orders/orders.api.yaml";
-const HEADER: usize = MAGIC.len() + 8;
+const HEADER: usize = SUMMED + 4;
 
 fn entry(path: &str, byte: u8, file: u32) -> CacheEntry {
     let unit =
         FileUnit { kind: None, root: None, parts: IndexMap::new(), script: None, diagnostics: Diagnostics::new() };
     let path = SourcePath::new(path).unwrap();
-    CacheEntry { path, hash: ContentHash::new([byte; 32]), file: SourceFileId::new(file), unit: Some(Arc::new(unit)) }
+    let (hash, file) = (ContentHash::new([byte; 32]), SourceFileId::new(file));
+    CacheEntry { path, hash, file, unit: Some(Arc::new(unit)), bytes: None }
 }
 
 fn cache() -> CompileCache {
@@ -41,7 +42,8 @@ fn compiled(sources: &[SourceFile]) -> CompileCache {
     for (source, number) in sources.iter().zip(0..) {
         let file = SourceFileId::new(number);
         let unit = stage::unit(file, source, (&tools, &mut strings));
-        entries.push(CacheEntry { path: source.path.clone(), hash: source.hash, file, unit: Some(Arc::new(unit)) });
+        let unit = Some(Arc::new(unit));
+        entries.push(CacheEntry { path: source.path.clone(), hash: source.hash, file, unit, bytes: None });
     }
     CompileCache::of(entries, strings)
 }
@@ -50,13 +52,15 @@ fn kept(cache: &CompileCache, path: &str, byte: u8, file: u32) -> Option<Arc<Fil
     cache.unit(&SourcePath::new(path).unwrap(), &ContentHash::new([byte; 32]), SourceFileId::new(file))
 }
 
-/// A blob with this version's magic and version around `header`, then `units`.
+/// A blob with this version's magic, version and checksum around `header`, then `units`.
 fn blob(header: &[u8], units: &[u8]) -> Vec<u8> {
     let mut bytes = MAGIC.to_vec();
     bytes.extend(VERSION.to_le_bytes());
+    bytes.extend([0; blake3::OUT_LEN]);
     bytes.extend(u32::try_from(header.len()).unwrap().to_le_bytes());
     bytes.extend(header);
     bytes.extend(units);
+    seal(&mut bytes);
     bytes
 }
 
@@ -64,7 +68,7 @@ fn blob(header: &[u8], units: &[u8]) -> Vec<u8> {
 fn body(strings: &[&str], path: &str, unit: Option<u32>) -> Vec<u8> {
     let stored = Stored { path: path.to_owned(), hash: [0; 32], file: 0, unit };
     let strings = strings.iter().map(|text| (*text).to_owned()).collect();
-    postcard::to_stdvec(&Body { build: BUILD.to_owned(), strings, entries: vec![stored] }).unwrap()
+    postcard::to_stdvec(&Body { build: BUILD.to_owned(), strings, entries: vec![stored], link: None }).unwrap()
 }
 
 #[test]
@@ -116,7 +120,7 @@ fn finds_a_unit_only_for_the_same_path_hash_and_number() {
 
 #[test]
 fn another_version_reads_as_empty() {
-    for version in [1, 2, 3, 4, 5] {
+    for version in [1, 2, 3, 4, 5, 11] {
         let mut bytes = cache().to_bytes();
         bytes[MAGIC.len()] = version;
         assert!(CompileCache::from_bytes(&bytes).is_empty(), "version {version}");
@@ -126,7 +130,7 @@ fn another_version_reads_as_empty() {
 #[test]
 fn a_blob_from_another_release_reads_as_empty() {
     let stored = Stored { path: "a.api.yaml".to_owned(), hash: [0; 32], file: 0, unit: None };
-    let other = Body { build: "0.0.0-other".to_owned(), strings: Vec::new(), entries: vec![stored] };
+    let other = Body { build: "0.0.0-other".to_owned(), strings: Vec::new(), entries: vec![stored], link: None };
     assert!(CompileCache::from_bytes(&blob(&postcard::to_stdvec(&other).unwrap(), &[])).is_empty());
     assert_eq!(CompileCache::from_bytes(&blob(&body(&[], "a.api.yaml", None), &[])).len(), 1);
 }
@@ -145,9 +149,13 @@ fn a_cache_whose_unit_did_not_read_back_differs_from_a_fresh_compile() {
     let mut bytes = fresh.to_bytes();
     let last = bytes.len() - 1;
     bytes[last] ^= 0xFF;
+    seal(&mut bytes);
     let damaged = CompileCache::from_bytes(&bytes);
-    assert_eq!((damaged.len(), damaged.units()), (1, 0));
-    assert_ne!(damaged, fresh, "so the check saves the fresh cache");
+    assert_eq!(damaged.len(), 1);
+    assert!(kept(&damaged, API, 1, 0).is_none(), "the unit is compiled again");
+    let files = vec![source(API, API_TEXT, 1)];
+    let healed = crate::compile(CompileInput { files, previous: damaged.clone(), ..CompileInput::default() });
+    assert_ne!(healed.cache, damaged, "so the check saves the healed cache");
     assert_eq!(CompileCache::from_bytes(&fresh.to_bytes()), fresh);
     let with_errors = compiled(&[source(BAD, "nme: x\n", 2)]);
     assert_eq!(
@@ -166,9 +174,11 @@ fn damaged_bytes_read_as_empty() {
     }
     let mut bad_header = bytes.clone();
     bad_header[HEADER] = 0xFF;
+    seal(&mut bad_header);
     assert!(CompileCache::from_bytes(&bad_header).is_empty());
     let mut long_header = bytes;
-    long_header[MAGIC.len() + 4] += 1;
+    long_header[SUMMED] += 1;
+    seal(&mut long_header);
     assert!(CompileCache::from_bytes(&long_header).is_empty());
     assert!(CompileCache::from_bytes(b"not a cache at all").is_empty());
 }
@@ -189,14 +199,16 @@ fn a_path_or_string_table_that_does_not_read_back_reads_as_empty() {
 fn a_unit_that_does_not_read_back_is_only_compiled_again() {
     let header = body(&[], "a.api.yaml", Some(9));
     let read = CompileCache::from_bytes(&blob(&header, &[0xFF; 9]));
-    assert_eq!((read.len(), read.units()), (1, 0));
+    assert_eq!(read.len(), 1);
+    assert!(kept(&read, "a.api.yaml", 0, 0).is_none());
     let unit = postcard::to_stdvec(&*entry("a.api.yaml", 0, 0).unit.unwrap()).unwrap();
     let mut trailing = unit.clone();
     trailing.push(0);
     let header = body(&[], "a.api.yaml", Some(u32::try_from(trailing.len()).unwrap()));
-    assert_eq!(CompileCache::from_bytes(&blob(&header, &trailing)).units(), 0, "bytes after the unit");
+    let read = CompileCache::from_bytes(&blob(&header, &trailing));
+    assert!(kept(&read, "a.api.yaml", 0, 0).is_none(), "bytes after the unit");
     let header = body(&[], "a.api.yaml", Some(u32::try_from(unit.len()).unwrap()));
-    assert_eq!(CompileCache::from_bytes(&blob(&header, &unit)).units(), 1);
+    assert!(kept(&CompileCache::from_bytes(&blob(&header, &unit)), "a.api.yaml", 0, 0).is_some());
 }
 
 #[test]
@@ -230,4 +242,62 @@ fn a_cache_read_back_from_bytes_does_not_parse_unchanged_files_again() {
         ..CompileInput::default()
     });
     assert!(codes(&changed).contains(&Code::V1004));
+}
+
+/// With an error in another file, so there is no memo: a compile that used every stored unit
+/// leaves a cache equal to the one it read, so it is not saved, and one that found a unit that
+/// did not read back does not, so it is saved again.
+#[test]
+fn a_cache_with_errors_is_saved_again_only_when_a_unit_did_not_read_back() {
+    let files = vec![source(BAD, "nme: x\n", 2), source(API, API_TEXT, 1)];
+    let first = crate::compile(CompileInput { files: files.clone(), ..CompileInput::default() });
+    assert!(first.program.is_none());
+    let mut bytes = first.cache.to_bytes();
+    let read = CompileCache::from_bytes(&bytes);
+    let again =
+        crate::compile(CompileInput { files: files.clone(), previous: read.clone(), ..CompileInput::default() });
+    assert_eq!(again.cache, read, "the unit it used is the one it read");
+    let last = bytes.len() - 1;
+    bytes[last] ^= 0xFF;
+    seal(&mut bytes);
+    let damaged = CompileCache::from_bytes(&bytes);
+    assert!(damaged.len() == 2 && kept(&damaged, API, 1, 1).is_none(), "the unit does not read back");
+    let healed = crate::compile(CompileInput { files, previous: damaged.clone(), ..CompileInput::default() });
+    assert_ne!(healed.cache, damaged, "so the check saves the healed cache");
+}
+
+#[test]
+fn encodes_the_bytes_postcard_writes() {
+    let unit = stage::unit(SourceFileId::new(0), &source(API, API_TEXT, 1), (&Tools::new(), &mut StringTable::new()));
+    assert_eq!(encode(&unit), postcard::to_stdvec(&unit).ok());
+    let long = (u32::MAX, "longer than eight bytes", vec![7_u8; 20]);
+    assert_eq!(encode(&long), postcard::to_stdvec(&long).ok());
+}
+
+/// The cache the rounds of `compile_wanted` leave from `previous`, over an api file and a config
+/// whose dataset sorts after both, so the files keep their numbers from round to round.
+fn rounds(previous: CompileCache) -> CompileCache {
+    let config = "syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\ndatasets:\n  files:\n    - id: users\n      file: work/users.csv\n";
+    let files = vec![source(API, API_TEXT, 1), source("vibranium.config.yaml", config, 2)];
+    let read = |_: &[crate::Wanted]| Ok::<_, ()>((vec![source("work/users.csv", "id\n1\n", 3)], Vec::<()>::new()));
+    crate::compile_wanted(CompileInput { files, previous, ..CompileInput::default() }, read).unwrap().0.cache
+}
+
+#[test]
+fn a_unit_that_did_not_read_back_is_saved_again_after_the_rounds_a_data_file_adds() {
+    let mut bytes = rounds(CompileCache::new()).to_bytes();
+    let loaded = CompileCache::from_bytes(&bytes);
+    assert_eq!(loaded.len(), 3);
+    assert_eq!(rounds(loaded.clone()), loaded, "an intact cache is not saved again");
+    let length = usize::try_from(u32::from_le_bytes(bytes[SUMMED..HEADER].try_into().unwrap())).unwrap();
+    let body: Body = postcard::from_bytes(&bytes[HEADER..HEADER + length]).unwrap();
+    assert_eq!(body.entries[0].path, API);
+    bytes[HEADER + length + usize::try_from(body.entries[0].unit.unwrap()).unwrap() - 1] ^= 0xFF;
+    seal(&mut bytes);
+    let damaged = CompileCache::from_bytes(&bytes);
+    assert_eq!(damaged.len(), 3, "the checksum holds, so only the api unit is damaged");
+    let saved = rounds(damaged.clone());
+    assert_ne!(saved, damaged, "round two keeps the mark round one left, so the check saves it");
+    let reloaded = CompileCache::from_bytes(&saved.to_bytes());
+    assert_eq!(rounds(reloaded.clone()), reloaded, "and the saved cache reads back whole");
 }

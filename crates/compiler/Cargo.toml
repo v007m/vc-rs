@@ -25,6 +25,7 @@ hooks = [
 ]
 
 [dependencies]
+blake3.workspace = true
 indexmap.workspace = true
 oxc_allocator = { workspace = true, optional = true }
 oxc_ast = { workspace = true, optional = true }
@@ -45,6 +46,9 @@ vc-diagnostics.workspace = true
 vc-model.workspace = true
 vc-parser.workspace = true
 vc-template.workspace = true
+
+[build-dependencies]
+blake3.workspace = true
 
 [dev-dependencies]
 insta.workspace = true

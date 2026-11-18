@@ -1,4 +1,5 @@
 use indexmap::IndexMap;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::{
@@ -10,10 +11,14 @@ use crate::{
 ///
 /// The compiler builds it and hands it out once there are no errors; nothing changes it after
 /// that. The linker fills one table per kind of definition; see the LLD, "The program".
-#[derive(Clone, Debug, Default)]
+///
+/// It serializes for the compile cache (D333) without its files, which the compile that reads
+/// it back puts in again.
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct Program {
     strings: StringTable,
     /// Path, text and hash of every source file, by [`crate::SourceFileId`].
+    #[serde(skip)]
     pub files: SourceFiles,
     /// Defaults, reports, history and the other config settings.
     pub config: Config,
@@ -44,6 +49,7 @@ pub struct Program {
     /// The JSON Schemas `body.schema` checks name (D201): a schema file's whole document by its
     /// project path, or one written inline by `<file>:<line>:<column>`. A check's key may add a
     /// `#/pointer` into the document; a file the compile was not given is missing.
+    #[serde(serialize_with = "crate::json_text::out", deserialize_with = "crate::json_text::read")]
     pub schemas: IndexMap<String, Value>,
 }
 

@@ -1,19 +1,32 @@
+use std::borrow::Cow;
 use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
-use vc_model::{ContentHash, SourceFileId, SourcePath, StringTable};
+use vc_model::{ContentHash, SourceFile, SourceFileId, SourceFiles, SourcePath, StringTable};
+
+pub use memo::{LinkKey, Memo, Replay};
 
 use crate::stage::FileUnit;
+
+mod memo;
 
 /// The first bytes of every cache blob.
 const MAGIC: &[u8; 4] = b"VCCC";
 
 /// The layout version; a blob with any other version is ignored.
-const VERSION: u32 = 11;
+const VERSION: u32 = 13;
 
-/// The compiler release that wrote a blob; a blob from another release is ignored, so a check
-/// added or fixed in a new release is not hidden by units an older compiler kept.
-const BUILD: &str = env!("CARGO_PKG_VERSION");
+/// Where the checksum sits: after the magic and the layout version.
+const SUM_AT: usize = MAGIC.len() + 4;
+
+/// Where the bytes the checksum covers start: right after it, to the end of the blob.
+const SUMMED: usize = SUM_AT + blake3::OUT_LEN;
+
+/// The compiler release and build that wrote a blob; a blob from another one is ignored, so a
+/// check added or fixed in a new release, or in a dev build of the same release, is not hidden by
+/// units or a memo an older compiler kept. The build id is a hash of the sources that decide a
+/// compile's output (`build.rs`, D333).
+const BUILD: &str = concat!(env!("CARGO_PKG_VERSION"), "+", env!("VC_LINK_BUILD_ID"));
 
 /// What the compiler keeps between runs so it can skip files that did not change (D132).
 ///
@@ -23,10 +36,18 @@ const BUILD: &str = env!("CARGO_PKG_VERSION");
 /// compiled unit and the names they use, so an unchanged file is not parsed again, in memory
 /// (`vc watch`, the editors) and when read back from bytes. A unit with diagnostics is kept only
 /// in memory: the bytes never hold diagnostics, so its file is compiled again after a read.
+///
+/// It also memoizes the last clean compile's output (D333): a compile of the same files, by
+/// path, hash and number, in the same world gives it back without parsing or linking. Units
+/// read back from bytes are decoded only when a compile needs them.
 #[derive(Clone, Debug, Default)]
 pub struct CompileCache {
     entries: Vec<CacheEntry>,
     strings: StringTable,
+    memo: Option<Memo>,
+    /// Whether the compile that made it found a unit or memo that did not read back, so the
+    /// cache differs from the one it was given and is saved again.
+    repaired: bool,
 }
 
 /// One file the cache remembers.
@@ -38,24 +59,51 @@ pub struct CacheEntry {
     pub hash: ContentHash,
     /// Its number in the file table, which every span in its unit points to.
     pub file: SourceFileId,
-    /// What the per-file stages made of it; `None` when it must be compiled again.
+    /// What the per-file stages made of it; `None` when it must be compiled again or is only
+    /// in `bytes`.
     pub unit: Option<Arc<FileUnit>>,
+    /// The unit as a blob holds it, when it was read back from one.
+    pub bytes: Option<Arc<[u8]>>,
 }
 
 impl CacheEntry {
     /// The file and whether its bytes would hold its unit: a unit with diagnostics is not stored.
     fn key(&self) -> (&SourcePath, &ContentHash, SourceFileId, bool) {
-        let stored = self.unit.as_deref().is_some_and(|unit| unit.diagnostics.is_empty());
+        let stored = self.bytes.is_some() || self.unit.as_deref().is_some_and(|unit| unit.diagnostics.is_empty());
         (&self.path, &self.hash, self.file, stored)
     }
 }
 
-/// Caches are equal when they remember the same files and would store the same units; the
-/// units and names themselves are a memo of those. A cache read back with a unit that did not
-/// decode differs from the one a compile makes, so it is saved again and heals.
+/// What a cache holds for one file.
+pub enum Kept {
+    /// Its unit, and the bytes it was read from, if it was.
+    Unit(Arc<FileUnit>, Option<Arc<[u8]>>),
+    /// Nothing: the file is new, changed, or its unit had diagnostics.
+    Missing,
+    /// Bytes that do not read back as a unit.
+    Damaged,
+}
+
+/// What a cache gives back for a compile's files and key.
+pub enum Recall {
+    /// The output the last clean compile of them made.
+    Hit(Replay),
+    /// Nothing: no memo, or one of other files or another key.
+    Miss,
+    /// A memo of them whose bytes do not read back.
+    Damaged,
+}
+
+/// Caches are equal when they remember the same files, would store the same units and hold a
+/// memo under the same key; the units, names and output are a memo of those. A compile that
+/// found a unit or memo that did not read back makes a cache that differs from the one it was
+/// given, so it is saved again and heals.
 impl PartialEq for CompileCache {
     fn eq(&self, other: &Self) -> bool {
-        self.entries.iter().map(CacheEntry::key).eq(other.entries.iter().map(CacheEntry::key))
+        let memo = |cache: &Self| cache.memo.as_ref().map(|memo| memo.key.clone());
+        self.repaired == other.repaired
+            && memo(self) == memo(other)
+            && self.entries.iter().map(CacheEntry::key).eq(other.entries.iter().map(CacheEntry::key))
     }
 }
 
@@ -70,15 +118,64 @@ impl CompileCache {
 
     /// A cache of `entries`, whose units intern their names in `strings`.
     pub(crate) const fn of(entries: Vec<CacheEntry>, strings: StringTable) -> Self {
-        Self { entries, strings }
+        Self { entries, strings, memo: None, repaired: false }
     }
 
-    /// The unit kept for the file at `path` with `hash`, numbered `file`. The entries are in
-    /// path order, as a compile makes them, so the search is a binary one.
+    /// The cache, also holding `memo`.
+    pub(crate) fn remembering(self, memo: Option<Memo>) -> Self {
+        Self { memo, ..self }
+    }
+
+    /// The cache, marked when the compile that made it found a unit or memo that did not read back.
+    pub(crate) fn repaired(self, repaired: bool) -> Self {
+        Self { repaired, ..self }
+    }
+
+    /// Whether a compile this cache came from found a unit or memo that did not read back, so it
+    /// is to be saved again.
+    pub(crate) const fn is_repaired(&self) -> bool {
+        self.repaired
+    }
+
+    /// What the cache holds for the file at `path` with `hash`, numbered `file`, its unit read
+    /// back from its bytes when it has only those. The entries are in path order, as a compile
+    /// makes them, so the search is a binary one.
+    pub(crate) fn kept(&self, path: &SourcePath, hash: &ContentHash, file: SourceFileId) -> Kept {
+        let at = self.entries.binary_search_by(|entry| entry.path.cmp(path)).ok();
+        let found = at.and_then(|at| self.entries.get(at)).filter(|entry| entry.hash == *hash && entry.file == file);
+        let Some(entry) = found else { return Kept::Missing };
+        if let Some(unit) = &entry.unit {
+            return Kept::Unit(Arc::clone(unit), entry.bytes.clone());
+        }
+        let Some(bytes) = &entry.bytes else { return Kept::Missing };
+        read_all::<FileUnit>(bytes).map_or(Kept::Damaged, |unit| Kept::Unit(Arc::new(unit), Some(Arc::clone(bytes))))
+    }
+
+    /// The unit [`CompileCache::kept`] finds, if any.
+    #[cfg(test)]
     pub(crate) fn unit(&self, path: &SourcePath, hash: &ContentHash, file: SourceFileId) -> Option<Arc<FileUnit>> {
-        let at = self.entries.binary_search_by(|entry| entry.path.cmp(path)).ok()?;
-        let entry = self.entries.get(at).filter(|entry| entry.hash == *hash && entry.file == file)?;
-        entry.unit.clone()
+        match self.kept(path, hash, file) {
+            Kept::Unit(unit, _) => Some(unit),
+            Kept::Missing | Kept::Damaged => None,
+        }
+    }
+
+    /// The output memoized under `key` when the cache remembers exactly `files`, by path, hash
+    /// and number.
+    pub(crate) fn replay(&self, files: &SourceFiles, key: &LinkKey) -> Recall {
+        let memo = self.memo.as_ref().filter(|memo| memo.key == *key && self.holds_exactly(files));
+        let Some(memo) = memo else { return Recall::Miss };
+        memo.replay(files).map_or(Recall::Damaged, Recall::Hit)
+    }
+
+    /// Whether the cache remembers `files` and no others, each at its path, hash and number.
+    fn holds_exactly(&self, files: &SourceFiles) -> bool {
+        let numbered = (0..).map(SourceFileId::new).map_while(|id| Some((id, files.get(id)?)));
+        let mut pairs = numbered.zip(&self.entries);
+        let same = |((id, source), entry): ((SourceFileId, &SourceFile), &CacheEntry)| {
+            entry.path == source.path && entry.hash == source.hash && entry.file == id
+        };
+        files.len() == self.entries.len() && pairs.all(same)
     }
 
     /// The names the kept units use; a compile that reuses them interns on top of these.
@@ -99,26 +196,32 @@ impl CompileCache {
     }
 
     /// How many of the files it remembers the cache holds a compiled unit for, so the next
-    /// compile does not parse them again.
+    /// compile does not parse them again; a unit read back from bytes counts before it is read.
     #[must_use]
     pub fn units(&self) -> usize {
-        self.entries.iter().filter(|entry| entry.unit.is_some()).count()
+        self.entries.iter().filter(|entry| entry.unit.is_some() || entry.bytes.is_some()).count()
     }
 
-    /// The cache as bytes: a magic number and the layout version, the length of a header and the
-    /// header, then each stored unit, back to back; header and units are `postcard` (D155).
+    /// The cache as bytes: a magic number, the layout version and a blake3 checksum of the rest,
+    /// then the length of a header and the header, each stored unit, back to back, and the memo's
+    /// output; all `postcard` (D155).
     #[must_use]
     pub fn to_bytes(&self) -> Vec<u8> {
         let units: Vec<_> = self.entries.iter().map(unit_bytes).collect();
         let entries = self.entries.iter().zip(&units).map(|(entry, unit)| stored(entry, unit.as_deref())).collect();
-        let body =
-            Body { build: BUILD.to_owned(), strings: self.strings.texts().map(str::to_owned).collect(), entries };
-        let header = postcard::to_stdvec(&body).unwrap_or_default();
+        let output = self.memo.as_ref().and_then(|memo| memo.to_bytes().map(|bytes| (memo.key.clone(), bytes)));
+        let output = output.and_then(|(key, bytes)| Some(((key, u32::try_from(bytes.len()).ok()?), bytes)));
+        let (link, output) = output.unzip();
+        let strings = self.strings.texts().map(str::to_owned).collect();
+        let header = encode(&Body { build: BUILD.to_owned(), strings, entries, link }).unwrap_or_default();
         let mut out = MAGIC.to_vec();
         out.extend(VERSION.to_le_bytes());
+        out.extend([0; blake3::OUT_LEN]);
         out.extend(u32::try_from(header.len()).unwrap_or(u32::MAX).to_le_bytes());
         out.extend(header);
-        units.into_iter().flatten().for_each(|unit| out.extend(unit));
+        units.into_iter().flatten().for_each(|unit| out.extend_from_slice(&unit));
+        out.extend(output.unwrap_or_default());
+        seal(&mut out);
         out
     }
 
@@ -132,12 +235,14 @@ impl CompileCache {
 /// The blob after its header.
 #[derive(Serialize, Deserialize)]
 struct Body {
-    /// The compiler release that wrote the blob.
+    /// The compiler release and build that wrote the blob.
     build: String,
     /// The string table, in symbol order.
     strings: Vec<String>,
     /// The files, in the cache's order.
     entries: Vec<Stored>,
+    /// The memo's key and the length of its output, which follows the units.
+    link: Option<(LinkKey, u32)>,
 }
 
 /// One file in the blob.
@@ -161,18 +266,36 @@ fn stored(entry: &CacheEntry, unit: Option<&[u8]>) -> Stored {
     }
 }
 
-/// The bytes of an entry's unit, when it is kept and has no diagnostics.
-fn unit_bytes(entry: &CacheEntry) -> Option<Vec<u8>> {
+/// The bytes of an entry's unit, when it is kept and has no diagnostics: the ones it was read
+/// from, borrowed, when it was.
+fn unit_bytes(entry: &CacheEntry) -> Option<Cow<'_, [u8]>> {
+    if let Some(bytes) = &entry.bytes {
+        return Some(Cow::Borrowed(bytes));
+    }
     let unit = entry.unit.as_deref().filter(|unit| unit.diagnostics.is_empty())?;
-    postcard::to_stdvec(unit).ok().filter(|bytes| u32::try_from(bytes.len()).is_ok())
+    encode(unit).filter(|bytes| u32::try_from(bytes.len()).is_ok()).map(Cow::Owned)
+}
+
+/// Writes the checksum of the bytes after it into `blob`, in place.
+fn seal(blob: &mut [u8]) {
+    let sum = blake3::hash(blob.get(SUMMED..).unwrap_or_default());
+    if let Some(slot) = blob.get_mut(SUM_AT..SUMMED) {
+        slot.copy_from_slice(sum.as_bytes());
+    }
+}
+
+/// The bytes after the checksum, when `bytes` are a blob of this layout whose checksum holds: a
+/// blob changed after it was written, even by one byte, reads as damaged.
+fn sealed(bytes: &[u8]) -> Option<&[u8]> {
+    let rest = bytes.strip_prefix(MAGIC.as_slice())?;
+    let (version, rest) = rest.split_first_chunk::<4>()?;
+    let (sum, rest) = rest.split_first_chunk::<{ blake3::OUT_LEN }>()?;
+    let intact = u32::from_le_bytes(*version) == VERSION && blake3::hash(rest) == blake3::Hash::from_bytes(*sum);
+    intact.then_some(rest)
 }
 
 fn decode(bytes: &[u8]) -> Option<CompileCache> {
-    let rest = bytes.strip_prefix(MAGIC.as_slice())?;
-    let (version, rest) = rest.split_first_chunk::<4>()?;
-    if u32::from_le_bytes(*version) != VERSION {
-        return None;
-    }
+    let rest = sealed(bytes)?;
     let (length, rest) = rest.split_first_chunk::<4>()?;
     let (header, mut units) = rest.split_at_checked(usize::try_from(u32::from_le_bytes(*length)).ok()?)?;
     let body: Body = read_all(header).filter(|body: &Body| body.build == BUILD)?;
@@ -181,7 +304,9 @@ fn decode(bytes: &[u8]) -> Option<CompileCache> {
     for stored in &body.entries {
         entries.push(entry(stored, &mut units)?);
     }
-    units.is_empty().then(|| CompileCache::of(entries, strings))
+    let length = body.link.as_ref().map_or(Some(0), |(_, length)| usize::try_from(*length).ok())?;
+    let memo = body.link.map(|(key, _)| Memo::read(key, units));
+    (units.len() == length).then(|| CompileCache::of(entries, strings).remembering(memo))
 }
 
 /// The table `texts` came from: each text interned in order must get the next symbol.
@@ -196,15 +321,48 @@ fn table(texts: &[String]) -> Option<StringTable> {
     Some(table)
 }
 
-/// The entry `stored` describes, its unit read off the front of `units`.
+/// The entry `stored` describes, its unit's bytes taken off the front of `units`; they are
+/// read only when a compile needs the unit.
 fn entry(stored: &Stored, units: &mut &[u8]) -> Option<CacheEntry> {
     let path = SourcePath::data(&stored.path).ok()?;
     let length = stored.unit.map(usize::try_from).transpose().ok()?.unwrap_or(0);
     let (bytes, rest) = units.split_at_checked(length)?;
     *units = rest;
-    let unit = stored.unit.and_then(|_| read_all::<FileUnit>(bytes));
     let (hash, file) = (ContentHash::new(stored.hash), SourceFileId::new(stored.file));
-    Some(CacheEntry { path, hash, file, unit: unit.map(Arc::new) })
+    Some(CacheEntry { path, hash, file, unit: None, bytes: stored.unit.map(|_| Arc::from(bytes)) })
+}
+
+/// `value` as `postcard`, or `None` when it cannot be written.
+fn encode<T: Serialize + ?Sized>(value: &T) -> Option<Vec<u8>> {
+    postcard::serialize_with_flavor(value, Bytes(Vec::new())).ok()
+}
+
+/// A `postcard` output that copies a short write (a varint, a tag) byte by byte: through
+/// `memcpy` such a write costs more than the bytes themselves, and most writes are short.
+struct Bytes(Vec<u8>);
+
+impl postcard::ser_flavors::Flavor for Bytes {
+    type Output = Vec<u8>;
+
+    fn try_extend(&mut self, data: &[u8]) -> postcard::Result<()> {
+        if data.len() > 8 {
+            self.0.extend_from_slice(data);
+        } else {
+            for &byte in data {
+                self.0.push(byte);
+            }
+        }
+        Ok(())
+    }
+
+    fn try_push(&mut self, data: u8) -> postcard::Result<()> {
+        self.0.push(data);
+        Ok(())
+    }
+
+    fn finalize(self) -> postcard::Result<Vec<u8>> {
+        Ok(self.0)
+    }
 }
 
 /// The value `bytes` hold, when they hold exactly one.
