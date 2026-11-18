@@ -7,12 +7,15 @@ mod openapi;
 mod owned;
 mod scripted;
 mod track;
+mod whoami;
 
 use axum::Router;
 use axum::middleware;
 use tower_http::compression::CompressionLayer;
 
 use crate::store::Store;
+
+pub use whoami::routes as whoami;
 
 /// Builds the app. Every route except `/__stats`, `/__reset` and `/__openapi/…` is counted in
 /// [`crate::Stats`].

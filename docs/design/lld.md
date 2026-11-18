@@ -46,7 +46,8 @@ vibranium/
     executor/                runs a Plan through the interfaces; frames, lifecycle, events, redactor (D106)
     loadtest/                load engine on top of the executor
     engine/                  facade: compile, plan, run, call, sync, query; the only crate apps import
-    testkit/                 fakes, fixture builders, one contract suite per interface trait; dev-dependency only (D112)
+    testkit/                 fakes, fixture builders, one contract suite per interface trait, and `TestPki` (an in-memory CA, server and
+                             client certificates from rcgen on ring, D352); dev-dependency only (D112)
     adapters/
       system/                discovery and file system, clock, environment, command runner, git (`Vcs`), config sources (D133); only the clock without its default `host` feature
       http/                  hyper + rustls transport with phase timings
@@ -79,6 +80,8 @@ vibranium/
                              a users OpenAPI spec in two versions (`/openapi/users-v1.yaml`, `-v2`, and `/openapi/users.yaml`,
                              switched by `POST /__openapi/users/v2`, and `/openapi/private/users.yaml`, served only
                              with `authorization: Bearer spec-reader`; files in `bench/mock/specs/`)
+                             `MockServer::start_tls` serves the same routes over https (rustls, ring) with client certificates
+                             required or optional, plus `/whoami` (the name given to the client's certificate, or 403 without one; D352)
                              (generated projects come from vc-testkit's generate_project; the benches live in
                              crates/engine/benches and crates/apps/cli/benches)
   docs/                      reference docs, JSON Schemas for the file formats

@@ -43,6 +43,7 @@ mod memory_history;
 #[cfg(test)]
 mod memory_sources;
 mod notifier_suite;
+mod pki;
 mod plugin_host_suite;
 mod plugin_store_suite;
 mod random_suite;
@@ -83,6 +84,7 @@ pub use memory_approvals::MemoryApprovals;
 pub use memory_cache::MemoryCompileCache;
 pub use memory_history::MemoryHistory;
 pub use notifier_suite::{ChannelCase, MakeNotifier, notifier_factory_suite, notifier_suite};
+pub use pki::{Identity, KeyKind, PkiError, TestPki};
 pub use plugin_host_suite::{MakePluginHost, plugin_host_suite, suite_plugin_manifest};
 pub use plugin_store_suite::{MakePluginStore, plugin_store_suite};
 pub use random_suite::{MakeEnvironment, MakeRandom, environment_suite, random_suite};

@@ -15,14 +15,20 @@ path = "src/main.rs"
 [dependencies]
 axum = { workspace = true, features = ["http1", "tokio"] }
 clap.workspace = true
+rustls.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["net", "rt-multi-thread", "signal"] }
+tokio-rustls.workspace = true
 tower-http.workspace = true
 
 [dev-dependencies]
+http-body-util.workspace = true
+hyper.workspace = true
+hyper-util.workspace = true
 reqwest.workspace = true
+vc-testkit.workspace = true
 
 [lints]
 workspace = true
