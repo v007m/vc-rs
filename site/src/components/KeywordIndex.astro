@@ -30,22 +30,22 @@ function firstSentence(text: string): string {
   return (m ? m[0] : text).trim();
 }
 
-function toItem(id: string, title: string, description: string): Item | null {
+/** The index entries for one page: its diagnostic code, or each distinct key its title names in backticks. */
+function toItems(id: string, title: string, description: string): Item[] {
   const [root, folder, ...rest] = id.split('/');
   const kind = KINDS[folder ?? ''];
-  if (root !== 'reference' || !kind || rest.length === 0) return null;
+  if (root !== 'reference' || !kind || rest.length === 0) return [];
   const href = `${base}/${id}/`;
   const code = title.match(/^(V\d{4})\s*[—-]\s*(.*)$/);
-  if (code) return { term: code[1], kind, summary: code[2], href };
-  const key = title.match(/^`([^`]+)`$/);
-  if (!key) return null;
-  return { term: key[1], kind, summary: firstSentence(description), href };
+  if (code) return [{ term: code[1], kind, summary: code[2], href }];
+  const keys = new Set([...title.matchAll(/`([^`]+)`/g)].map((m) => m[1]));
+  const summary = firstSentence(description);
+  return [...keys].map((term) => ({ term, kind, summary, href }));
 }
 
 const entries = await getCollection('docs');
 const items = entries
-  .map((e) => toItem(e.id.replace(/\/index$/, ''), e.data.title, e.data.description ?? ''))
-  .filter((i): i is Item => i !== null)
+  .flatMap((e) => toItems(e.id.replace(/\/index$/, ''), e.data.title, e.data.description ?? ''))
   .sort((a, b) => a.term.localeCompare(b.term, 'en', { sensitivity: 'base' }));
 
 const groups = new Map<string, Item[]>();
