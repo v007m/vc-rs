@@ -5,6 +5,7 @@ sidebar: { order: 28 }
 ---
 
 import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Screenshot from '~/components/Screenshot.astro';
 
 Starts a web server on `127.0.0.1` and opens the web UI in your browser. The UI works on the same files and run history as the CLI. The same server answers MCP at `/mcp`, so an agent can work next to you. The [Web UI guide](/vc-rs/guides/web-ui/) covers the screens.
 
@@ -34,6 +35,12 @@ vc ui: mcp http://127.0.0.1:7420/mcp token Xk9…
 - The second line is where an MCP client connects, and the agent token it sends as `Authorization: Bearer <token>`. The `agents` block of the active profile decides what the agent may do, and calls that need a person show up under **AI agents** and in [`vc approvals`](/vc-rs/reference/cli/approvals/).
 
 Each start makes new tokens. Press Ctrl-C to stop the server.
+
+<Screenshot
+  src="web/run"
+  alt="The web UI Runs screen showing stored run 3: Selectors used and Recent runs on the left; on the right the run header, totals of 15 passed, 2 failed, 1 blocked, 1 flaky and 1 skipped, and the list of tests with their times."
+  caption="The web UI that vc ui serves, on the Runs screen."
+/>
 
 The server answers only to `127.0.0.1` and `localhost`. A request that names another host gets `403`, and `/mcp` without the agent token gets `401`.
 

@@ -5,6 +5,7 @@ sidebar: { order: 4 }
 ---
 
 import { Tabs, TabItem, Aside, Steps, Card, CardGrid, LinkCard, Badge } from '@astrojs/starlight/components';
+import Screenshot from '~/components/Screenshot.astro';
 
 `vc ui` starts a local web app for your project and opens it in your browser. It runs on your machine only, on `127.0.0.1`, and works on the same files and run history as the CLI. The same server also offers MCP at `/mcp`, so an AI agent can work alongside you.
 
@@ -75,6 +76,12 @@ Filters combine with AND. Quote a value with spaces: `tag:"slow path"`.
 Keyboard: `↑` `↓` `Home` `End` move, `←` `→` close and open files, `Enter` opens a test, `Space` selects it. Selected tests get a bar with **Run selected** and **Clear selection**.
 
 The detail panel shows the test's name, ID, `path:line`, its steps, tags and the apis it calls, with **Run this test** and **Open in editor**.
+
+<Screenshot
+  src="web/tests"
+  alt="The Tests screen: Services and Tags facets with counts on the left, the query box and the tests grouped by file in the middle, and the detail panel for users.profile#getsAdaByName on the right with Run this test, Open in editor and Skip buttons."
+  caption="Tests, with a test opened in the detail panel."
+/>
 
 **Skip…** parks the test, as [`vc skip`](/vc-rs/reference/cli/skip/) does: type a reason, optionally pick an **Until** date, then **Preview** shows the change to the test file and **Write skip** writes it. A skipped test has **Unskip…**, which previews and removes the `skip` block. Either is refused if the result would not compile.
 
@@ -168,7 +175,19 @@ When the run wrote an HTML report (`--report html`, or `html` in `reports.format
 - its totals, and each test with its status and time; it opens at the first test that didn't pass;
 - for the selected test: why it failed, how many attempts it took, the action that blocked it or why it was skipped, its checks, and each request and response.
 
+<Screenshot
+  src="web/run"
+  alt="The Runs screen showing stored run 3: Selectors used and Recent runs on the left; on the right the run header with Re-run failed and Back to the current run, a progress bar, totals of 15 passed, 2 failed, 1 blocked, 1 flaky and 1 skipped, and the list of tests with their times."
+  caption="A stored run opened from Recent runs."
+/>
+
 Secret values are masked, as the history keeps them. **Re-run failed** runs that run's failed and blocked tests again. **Back to the current run** returns to the live view.
+
+<Screenshot
+  src="web/failure"
+  alt="A failing test selected in a stored run: users.profile#getsAdaByName with the message that it expected the name Ada Byron and got Ada Lovelace, its passing status check and its failing body.match.name check."
+  caption="A failed test in a stored run, with the check that failed."
+/>
 
 When the recent runs used more than one selector, **Selectors used** lists each one with how many runs used it (a run of everything shows as `all tests`). Click a selector to list only its runs, and click it again to list them all. The history keeps a selector as one line, so it filters the list only; start a run with that selector from **Tests** or `vc run`.
 
@@ -180,6 +199,12 @@ Trends across stored test runs. Choose **Last 10**, **30** or **100 runs**. **Pr
 - **Pass rate per run**: passed tests (flaky included) out of the tests that ran. Runs with blocked tests are marked.
 - **Run duration**: wall-clock time of the whole suite.
 - A table of the latest runs, and **Flakiest tests**: the top ten by flaky and failed results.
+
+<Screenshot
+  src="web/insights"
+  alt="The Insights screen for the last 30 runs: summary figures, a pass rate bar chart per run, a run duration bar chart, a table of the latest runs, and the flakiest tests with Skip until buttons."
+  caption="Insights across three stored test runs."
+/>
 
 Each flakiest test has **Skip until…**: give a reason and a date, preview the change, and write it. The test is then reported as skipped with its reason, and runs again after the date. **Undo** removes the skip the same way.
 

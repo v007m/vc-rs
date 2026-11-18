@@ -7,6 +7,7 @@ sidebar: { order: 2 }
 import { Aside, Steps, LinkCard, CardGrid } from '@astrojs/starlight/components';
 import Playground from '~/components/Playground.svelte';
 import RequestFlow from '~/components/diagrams/RequestFlow.astro';
+import Screenshot from '~/components/Screenshot.astro';
 
 This page takes you from an empty folder to passing tests, first against a small demo API on your machine, then against a real public one. You need `vc` and `vc-demo` on your `PATH` (see [Install](/vc-rs/start/install/)). If your shell already uses `vc` for something else, type `vibranium` wherever this page says `vc`.
 
@@ -302,6 +303,14 @@ Mistakes are easier to fix when you have seen what they look like. Make two.
    reports  /home/you/shop/.vibranium/reports/3/{ctrf.json,junit.xml,index.html}
    ```
 </Steps>
+
+In a terminal the output is in colour. On a larger project it looks like this, with failed, blocked, skipped and flaky tests:
+
+<Screenshot
+  src="cli/run"
+  alt="vc run in a terminal on a larger project: tests grouped by file with a tick, cross or skip mark and a time each, two failures pointing at the YAML line that set the check, and the summary 15 passed, 2 failed, 1 blocked, 1 skipped, 1 flaky, followed by the reports, next and seed lines."
+  caption="vc run on the walkthrough project from the guides."
+/>
 
 ## Point it at a public API
 

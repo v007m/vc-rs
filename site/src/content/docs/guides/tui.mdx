@@ -5,6 +5,7 @@ sidebar: { order: 3 }
 ---
 
 import { Tabs, TabItem, Aside, Steps, Card, CardGrid, LinkCard, Badge } from '@astrojs/starlight/components';
+import Screenshot from '~/components/Screenshot.astro';
 
 `vc tui` opens a full-screen terminal app on your project. It has five tabs: **Run**, **Explore**, **History**, **Load** and **Import**. Everything is driven from the keyboard, and it runs on the same engine as `vc run`, `vc explain`, `vc history`, `vc load` and `vc import`.
 
@@ -35,13 +36,15 @@ Output that plugins write to stderr goes to a log file under `.vibranium/plugin-
 
 ## The screen
 
-The top line shows the project folder name and the active profiles (`default` when you set none). The tab bar sits on the right:
-
-```
-◆ vibranium shop  profile staging                 1 Run  2 Explore  3 History  4 Load  5 Import
-```
+The top line shows the project folder name and the active profiles (`default` when you set none). The tab bar sits on the right.
 
 The bottom line lists the keys for the tab you're on, followed by `? help` and `q quit`. Press `?` for a help panel with the same keys, written out.
+
+<Screenshot
+  src="tui/help"
+  alt="The vc tui screen on the History tab with the help panel open. The top line reads vibranium shop, profile default, with the tabs 1 Run to 5 Import on the right; the help panel lists each key; the bottom line lists the keys for the tab."
+  caption="The help panel, opened with ?, over the History tab."
+/>
 
 ### Keys that work everywhere
 
@@ -63,6 +66,12 @@ A test run and a load run can't overlap. If you start one while the other is goi
 ## Run
 
 Runs tests and shows results as they arrive.
+
+<Screenshot
+  src="tui/run"
+  alt="The Run tab after a run of 19 tests showing failures only: the test tree on the left, the failing test users.profile#getsAdaByName with its checks on the right, and the requests the run sent below it."
+  caption="The Run tab after a run, filtered to failures, with a failing test selected."
+/>
 
 | Key | Action |
 | --- | --- |
@@ -97,6 +106,12 @@ The status line tracks progress (`running 12/40` with counts and the number of r
 
 Browses every api and test in the project, and shows how a run sees each one.
 
+<Screenshot
+  src="tui/explore"
+  alt="The Explore tab: the project tree of api and test files on the left, and for users.crud#getsCreatedUser its details and an explanation of the call, its vars, headers and expectations on the right."
+  caption="Explore with a test explained: each value shows where it comes from."
+/>
+
 | Key | Action |
 | --- | --- |
 | `↑` `↓` | Move between items |
@@ -118,6 +133,12 @@ Press `c` to list only the apis and tests in files changed in the last 7 days, c
 
 Lists the last 30 stored runs, newest first, and compares them.
 
+<Screenshot
+  src="tui/history"
+  alt="The History tab: four stored runs, one of them a load run, with pass rates, counts and durations; below them trend sparklines, the flaky and failing tests, and a comparison of run 3 with run 2."
+  caption="History comparing run 3 with run 2."
+/>
+
 | Key | Action |
 | --- | --- |
 | `↑` `↓` | Move between runs |
@@ -135,6 +156,12 @@ When a run finishes while you're on another tab, History reloads the next time y
 
 Runs the load scenarios in your `*.load.yaml` files and shows them second by second.
 
+<Screenshot
+  src="tui/load"
+  alt="The Load tab after the smoke scenario finished after 20 seconds: the live line with users, requests per second and p50, p95 and p99 latency, sparklines for requests per second and p95, and the summary per test."
+  caption="A finished load run with its summary."
+/>
+
 | Key | Action |
 | --- | --- |
 | `↑` `↓` | Move between scenarios |
@@ -151,6 +178,12 @@ The status line ends with the exit code and run number. Exit code 3 means a thre
 ## Import
 
 Drafts api and test files from an existing source, shows you the diffs, and writes them only when you say so.
+
+<Screenshot
+  src="tui/import"
+  alt="The Import tab drafting an OpenAPI spec as a new people service: the importer options on the left, the three drafted files at the top right, and the diff of the new test file below them."
+  caption="Three files drafted from an OpenAPI spec, before they are written."
+/>
 
 | Key | Action |
 | --- | --- |

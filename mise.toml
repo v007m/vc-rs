@@ -62,3 +62,13 @@ run = "scripts/bench-budgets.sh"
 [tasks."bench:instructions"]
 description = "Run the instruction-count benches (gungraun; Linux with valgrind and gungraun-runner)"
 run = "cargo bench -p vc-engine --bench compile_instructions"
+
+[tasks.screenshots]
+description = "Retake the docs screenshots of vc run, the TUI, the HTML report and the web UI (site/scripts/screenshots.mjs); pass areas (cli tui report web) to retake only those"
+run = [
+  "pnpm install --frozen-lockfile",
+  "pnpm --dir web build",
+  "cargo build -p vc-cli --features web-ui --locked",
+  "cargo build -p vc-demo --locked",
+  "cd site && node scripts/screenshots.mjs",
+]

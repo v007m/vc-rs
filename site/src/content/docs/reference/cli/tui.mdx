@@ -5,6 +5,7 @@ sidebar: { order: 27 }
 ---
 
 import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Screenshot from '~/components/Screenshot.astro';
 
 Opens a keyboard-driven terminal app on your project, with five tabs: **Run**, **Explore**, **History**, **Load** and **Import**. It uses the same engine, files and run history as the other commands. The [Terminal UI guide](/vc-rs/guides/tui/) covers each tab and its keys.
 
@@ -28,6 +29,12 @@ $ vc tui --project ./api-tests --profile ci,eu
 ```
 
 Press `?` inside for the keys, and `q` to quit.
+
+<Screenshot
+  src="tui/run"
+  alt="The vc tui Run tab after a run of 19 tests showing failures only: the test tree on the left, the failing test users.profile#getsAdaByName with its checks on the right, and the requests the run sent below it."
+  caption="The Run tab after a run, filtered to failures."
+/>
 
 It needs a real terminal. With stdin or stdout piped, as in CI, it stops before it reads the project:
 

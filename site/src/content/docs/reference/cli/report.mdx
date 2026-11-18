@@ -5,6 +5,7 @@ sidebar: { order: 8 }
 ---
 
 import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Screenshot from '~/components/Screenshot.astro';
 
 Writes the report files for a run stored in [history](/vc-rs/reference/cli/history/), without running anything again. Use it to get an HTML report for a run that only wrote JUnit, or to copy a report somewhere to share.
 
@@ -34,6 +35,12 @@ $ vc report
 ```
 
 It prints the path of each file it wrote.
+
+<Screenshot
+  src="report/summary"
+  alt="The HTML report of a stored run: the run status Failed with its totals, the lifecycle and cleanup results, and the list of tests with their status, time, file and tags."
+  caption="The HTML report that vc report writes."
+/>
 
 ### JUnit and CTRF for an older run, into a folder
 
