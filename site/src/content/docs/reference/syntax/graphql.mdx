@@ -1,0 +1,141 @@
+---
+title: "`graphql`"
+description: A GraphQL api file, its default path, and the query, variables and operation name each api sends.
+sidebar: { order: 106, badge: { text: 'api', variant: 'note' } }
+---
+
+import Playground from '~/components/Playground.svelte';
+
+A file with [`type: graphql`](/vc-rs/reference/syntax/type/) holds GraphQL apis. Each one sends its `body.query` as a JSON `POST`, and the response is read as any HTTP response is. The file's `graphql` block sets the defaults for its apis.
+
+```yaml title="services/accounts/accounts.api.yaml"
+type: graphql
+baseUrl: ${var.baseUrl}
+graphql:
+  path: /api/graphql
+apis:
+  - id: getUser
+    body:
+      query: 'query GetUser($id: ID!) { user(id: $id) { id name } }'
+      variables:
+        id: ${var.userId}
+```
+
+## Syntax
+
+On the api file:
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `graphql.path` | template | `/graphql` | no | The `path` of each api in the file that sets none. Only on a `type: graphql` file |
+
+In the `body` of a `graphql` api:
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `query` | text | — | yes | The GraphQL document, a query or a mutation, sent as written |
+| `variables` | map of templates | `{}` | no | Sent as `variables`; this is where `${…}` values go |
+| `operationName` | text | — | no | Sent as `operationName`, only when set |
+
+A `graphql` api is always a `POST`, so it takes no `method`. A test or step that calls it takes no `body`; it changes the operation through `vars`.
+
+## Examples
+
+### A query with variables
+
+The api's vars fill its `variables`, and a test sets the vars.
+
+```yaml title="services/accounts/accounts.api.yaml"
+type: graphql
+baseUrl: ${var.baseUrl}
+apis:
+  - id: getUser
+    vars:
+      userId: "1"
+    body:
+      query: |
+        query GetUser($id: ID!) {
+          user(id: $id) { id name }
+        }
+      variables:
+        id: ${var.userId}
+    expect:
+      body:
+        match:
+          data.user.id: ${var.userId}
+```
+
+```yaml title="services/accounts/users.test.yaml"
+tests:
+  - id: getsSecondUser
+    call: accounts#getUser
+    vars:
+      userId: "2"
+```
+
+The request body is:
+
+```json
+{"query": "query GetUser($id: ID!) {\n  user(id: $id) { id name }\n}\n", "variables": {"id": "2"}}
+```
+
+### One api on its own path
+
+An api's own `path` wins over the file's `graphql.path`.
+
+```yaml title="services/admin/admin.api.yaml"
+type: graphql
+baseUrl: ${var.baseUrl}
+apis:
+  - id: listAuditEvents
+    path: /admin/graphql
+    body:
+      query: '{ auditEvents { id at } }'
+```
+
+## Try it
+
+<Playground client:visible kind="api" code={`
+type: graphql
+baseUrl: \${var.sampleUrl}
+apis:
+  - id: listUsers
+    body:
+      query: '{ users { id name } }'
+`} />
+
+## How it behaves
+
+- The path is the api's own `path`, else the file's `graphql.path`, else `/graphql`, after `baseUrl` as for any api.
+- The `query` is literal text, never a template: a `${…}` in it is sent as written, and `vc check` reports nothing about it. Values reach the document only through `variables`, so a var's value can never change the query itself.
+- `variables` is always sent, `{}` when unset. Its values are templates, so an unset var in it is V2101.
+- `content-type: application/json` and `accept: application/graphql-response+json, application/json;q=0.9` are added only when no level (config, api file, api, test or step) sets that header. A header you set is sent as written, so a test can send a wrong `content-type` on purpose to see how the server answers.
+- Auth, `headers`, `query`, `http.retry`, `timeout`, `expect`, `save`, `saveOn`, `cleanup` and request hooks work as they do on an `http` api.
+
+```yaml wrong V2213 title="services/catalog/catalog.api.yaml"
+type: graphql
+baseUrl: ${var.baseUrl}
+apis:
+  - id: listProducts
+    method: POST
+    body:
+      query: '{ products { id name } }'
+```
+
+```console
+$ vc check services/catalog
+error[V2213]: `method` does not apply to a `graphql` api
+```
+
+## Common errors
+
+| Code | When |
+| --- | --- |
+| [V1005](/vc-rs/reference/diagnostics/v1005/) | A `graphql` api has no `body.query` |
+| [V2213](/vc-rs/reference/diagnostics/v2213/) | `method` on a `graphql` api, or `body` on a test or step that calls one |
+| [V2101](/vc-rs/reference/diagnostics/v2101/) | A var in `variables` that nothing sets |
+
+## Related
+
+- [`type`](/vc-rs/reference/syntax/type/), [`path`](/vc-rs/reference/syntax/path/), [`body`](/vc-rs/reference/syntax/body/)
+- [All diagnostic codes](/vc-rs/reference/diagnostics/)

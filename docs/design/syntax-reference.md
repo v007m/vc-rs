@@ -306,7 +306,8 @@ File-level keys:
 | --- | --- | --- |
 | `id` | file ID, optional; must match the path (D139) | Prefix of every api in the file |
 | `name` | text | Shown in listings |
-| `type` | `http` | What the file's apis speak, the default for each api (see Api types); `http` when left out (D342) |
+| `type` | `http`, `graphql` | What the file's apis speak, the default for each api (see Api types); `http` when left out (D342) |
+| `graphql.path` | template | The `path` of each `graphql` api in the file that sets none; `/graphql` when left out. Only on a `type: graphql` file (D343) |
 | `baseUrl` | template | Prefixed to every `path`; written without a trailing `/` (V4005) |
 | `auth` | auth ID, or `none` | Default auth for the file |
 | `headers` | map | Default headers |
@@ -322,9 +323,9 @@ Each item in `apis`:
 | --- | --- | --- | --- |
 | `id` | camelCase, required | — | Reference, e.g. `create` → `users#create` |
 | `name` | text | — | Shown in listings |
-| `type` | `http` | the file's, else `http` | What the api speaks; decides which keys apply to it (see Api types, D342) |
+| `type` | `http`, `graphql` | the file's, else `http` | What the api speaks; decides which keys apply to it (see Api types, D342) |
 | `method` | `GET` `POST` `PUT` `PATCH` `DELETE` `HEAD` `OPTIONS` | `GET` | HTTP method |
-| `path` | template | required | Appended to `baseUrl`, e.g. `/users/${var.id}`; starts with `/` unless it is a full URL or starts with a template (V4005); a path parameter is `${var.name}`, never `{name}` (V4006). Literal text is sent as written; each `${…}` value is percent-encoded as one segment, so a `/`, `?`, `#`, `%` or space in it stays data and `.` or `..` names no other path (D278). A value before the first `/` is sent as written only when it is an absolute `http(s)://` URL (`${var.usersUrl}/users`), and one after a literal `?` is encoded as a query value. The `urlEncode` pipe is not needed, and is not applied twice (V4007) |
+| `path` | template | required on `http`; on `graphql`, the file's `graphql.path`, else `/graphql` | Appended to `baseUrl`, e.g. `/users/${var.id}`; starts with `/` unless it is a full URL or starts with a template (V4005); a path parameter is `${var.name}`, never `{name}` (V4006). Literal text is sent as written; each `${…}` value is percent-encoded as one segment, so a `/`, `?`, `#`, `%` or space in it stays data and `.` or `..` names no other path (D278). A value before the first `/` is sent as written only when it is an absolute `http(s)://` URL (`${var.usersUrl}/users`), and one after a literal `?` is encoded as a query value. The `urlEncode` pipe is not needed, and is not applied twice (V4007) |
 | `vars` | map | — | Defaults for this api; callers override them |
 | `query` | map of templates | — | Query string |
 | `headers` | map of templates | — | Merged over the file's headers |
@@ -344,7 +345,41 @@ Each item in `apis`:
 
 An api's `type` says what it speaks: its own `type`, else its file's, else `http`, so a file that sets none keeps its meaning (D342). A value that is not a known type counts as unset, so it falls back the same way. The type decides which keys apply: on the api, in its `expect`, and on a test or step that calls it (in its `expect` and `poll.until` too, and on a `cache.check` call inside it). A key that does not apply is an error with a certain fix that removes it (V2213); a type that is not known is V2302, with the close value as its fix.
 
-`http`, the only type today, takes every key above, so no `http` api reports V2213. GraphQL lands as the second type (#90); `jsonrpc`, `sse`, `websocket` and `grpc` follow in their own issues.
+Each type needs some keys: an `http` api needs `path`, a `graphql` api needs `body.query`. One that leaves its key out is V1005.
+
+`http` takes every key above, so no `http` api reports V2213. `jsonrpc`, `sse`, `websocket` and `grpc` follow in their own issues.
+
+`graphql` (D343) sends one GraphQL operation as a JSON `POST` and reads the response as HTTP:
+
+- `method` does not apply (V2213): the request is always `POST`. Nor does `body` on a test or step that calls a `graphql` api (V2213); a test changes the operation through `vars`.
+- `path` is the api's own, else its file's `graphql.path`, else `/graphql`.
+- `body` takes `query` (required; the GraphQL document, a query or a mutation), `variables` (a map of templates, default `{}`) and `operationName` (text). The request body is `{"query": …, "variables": …, "operationName": …}`; `variables` is always sent, `operationName` only when set.
+- The `query` is literal text, never a template (D344): a `${…}` in it is sent as written and checked by nothing. Values reach the document only through `variables`.
+- `content-type: application/json` and `accept: application/graphql-response+json, application/json;q=0.9` are added only when no level (config, api file, api, test or step) sets that header, and a header you set is never overwritten, so a test can send a deliberately wrong `content-type` to see how the server answers.
+- Auth, `headers`, `query`, `http.retry`, `timeout`, `expect`, `save`, `saveOn`, `cleanup`, hooks and `deprecated` keep their meaning.
+
+```yaml
+# services/accounts/accounts.api.yaml
+type: graphql
+baseUrl: ${var.accountsUrl}
+graphql:
+  path: /api/graphql
+apis:
+  - id: getUser
+    vars:
+      userId: "1"
+    body:
+      query: |
+        query GetUser($id: ID!) {
+          user(id: $id) { id name }
+        }
+      variables:
+        id: ${var.userId}
+    expect:
+      body:
+        match:
+          data.user.id: ${var.userId}
+```
 
 ### Request body
 
