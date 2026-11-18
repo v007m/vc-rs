@@ -10,6 +10,11 @@ use super::LinkKey;
 use crate::cache::{Body, MAGIC, Recall};
 use crate::{CompileCache, CompileInput, Compiled, compile};
 
+#[path = "../../tests/common/tree.rs"]
+mod tree;
+
+use tree::read_tree;
+
 type Outcome = Result<(), Box<dyn Error>>;
 /// A compile in serialized form: the program without its files, the files, the diagnostics as
 /// JSON, and the files wanted.
@@ -45,22 +50,6 @@ fn serialized(compiled: &Compiled) -> Serialized {
     let files = format!("{:?} {:?}", compiled.files, compiled.program.as_ref().map(|program| &program.files));
     let diagnostics = serde_json::to_string(&compiled.diagnostics).unwrap();
     (program, files, diagnostics, format!("{:?} {:?}", compiled.data_wanted, compiled.hooks_wanted))
-}
-
-/// Every file under `dir`, with its path relative to `root`.
-fn read_tree(root: &Path, dir: &Path, files: &mut Vec<SourceFile>) -> Outcome {
-    let mut entries = fs::read_dir(dir)?.map(|entry| entry.map(|entry| entry.path())).collect::<Result<Vec<_>, _>>()?;
-    entries.sort();
-    for path in entries {
-        if path.is_dir() {
-            read_tree(root, &path, files)?;
-            continue;
-        }
-        let relative = path.strip_prefix(root)?.to_string_lossy().replace('\\', "/");
-        let text = fs::read_to_string(&path)?;
-        files.push(SourceFile { path: SourcePath::new(&relative)?, text, hash: ContentHash::new([0; 32]) });
-    }
-    Ok(())
 }
 
 /// The project at `dir` compiled as the golden harness does, again with the data and hook

@@ -5,33 +5,21 @@
 //! `cargo insta review` updates them after a deliberate change.
 
 use std::error::Error;
-use std::fs;
 use std::path::Path;
 
 use vc_compiler::{CompileCache, CompileInput, Compiled};
 use vc_diagnostics::{JsonRenderer, Render, TextRenderer};
-use vc_model::{ContentHash, Date, FileKind, SourceFile, SourcePath};
+use vc_model::{Date, FileKind, SourceFile, SourcePath};
+
+#[path = "common/tree.rs"]
+mod tree;
+
+use tree::read_tree;
 
 type Outcome = Result<(), Box<dyn Error>>;
 
 /// The day every case is compiled on, so expired skips (V3104) do not depend on the calendar.
 const TODAY: &str = "2026-11-03";
-
-/// Every file under `dir`, with its path relative to `root`.
-fn read_tree(root: &Path, dir: &Path, files: &mut Vec<SourceFile>) -> Outcome {
-    let mut entries = fs::read_dir(dir)?.map(|entry| entry.map(|entry| entry.path())).collect::<Result<Vec<_>, _>>()?;
-    entries.sort();
-    for path in entries {
-        if path.is_dir() {
-            read_tree(root, &path, files)?;
-            continue;
-        }
-        let relative = path.strip_prefix(root)?.to_string_lossy().replace('\\', "/");
-        let text = fs::read_to_string(&path)?;
-        files.push(SourceFile { path: SourcePath::new(&relative)?, text, hash: ContentHash::new([0; 32]) });
-    }
-    Ok(())
-}
 
 /// The file at a case's project root that declares its secret names (D165).
 const SECRET_SCHEMA: &str = ".env.schema";
