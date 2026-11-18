@@ -27,11 +27,11 @@ mod unused_defaults;
 mod urls;
 
 use vc_diagnostics::{Code, Diagnostic, Diagnostics};
-use vc_model::{Date, FileKind, Program};
+use vc_model::{Date, FileKind, Method, Program};
 use vc_parser::Node;
 
 use crate::link;
-use crate::link::{Project, Source, whole_lines};
+use crate::link::{Project, ProtocolRulesRegistry, Source, whole_lines};
 
 /// What a lint reads: the project's trees and the program built from them.
 pub struct LintCx<'p, 'a> {
@@ -39,6 +39,8 @@ pub struct LintCx<'p, 'a> {
     pub project: &'p Project<'a>,
     /// The program built from them.
     pub program: &'p Program,
+    /// The compile rules of each api type, which decide an api's method.
+    pub rules: &'p ProtocolRulesRegistry,
     /// Today's date in UTC, when the caller knows it.
     pub today: Option<Date>,
 }
@@ -111,9 +113,12 @@ impl<'a> LintCx<'_, 'a> {
         self.test_files().flat_map(|source| link::list(source.root, "tests").iter().map(move |test| (source, test)))
     }
 
-    /// The api `node`'s `call` names, written in `source`.
-    fn api(&self, source: &Source<'_>, node: &Node) -> Option<&'a Node> {
+    /// The method the `call` at `node` sends, as its api's type decides: a `graphql` api's is
+    /// `POST` (D343).
+    fn method(&self, source: &Source<'_>, node: &Node) -> Option<Method> {
         let call = link::text(node, "call")?;
-        self.project.apis.get(&source.resolve(call)).map(|item| item.node)
+        let item = *self.project.apis.get(&source.resolve(call))?;
+        let protocol = link::protocol(self.project.source(item).root, item.node);
+        Some(self.rules.get(protocol).ok()?.method(item.node))
     }
 }
