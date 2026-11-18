@@ -9,16 +9,17 @@ import Playground from '~/components/Playground.svelte';
 
 `cache` keeps what a slow or rate-limited action saved, so later runs reuse it instead of calling again. It belongs on actions in `beforeRun` and `beforeAll`.
 
-The example calls the demo server (`vc demo start`) through a small api file, `lab`. `lab#createItem` is a `POST /users` that answers 201 and saves the new user's ID as `itemId`; `lab#whoami` is a `GET /echo`, which sends the request back:
+The example calls the demo server (`vc demo start`) through a small api file, `demo`. `demo#createItem` is a `POST /users` that answers 201 and saves the new user's ID as `itemId`; `demo#whoami` is a `GET /echo`, which sends the request back:
 
-```yaml title="services/lab/lab.api.yaml (excerpt)"
+```yaml title="services/demo/demo.api.yaml (excerpt)"
+baseUrl: ${var.sampleUrl}
 apis:
   - id: createItem
     method: POST
     path: /users
     vars:
       label: item
-      email: lab@example.com
+      email: demo@example.com
     body:
       name: ${var.label}
       email: ${var.email}
@@ -26,26 +27,33 @@ apis:
       status: 201
     save:
       itemId: ${response.body.id}
+    cleanup:
+      call: deleteItem
+      vars:
+        itemId: ${response.body.id}
+  - id: deleteItem
+    method: DELETE
+    path: /users/${var.itemId}
   - id: whoami
     path: /echo
 ```
 
-```yaml title="services/lab/cached.test.yaml"
+```yaml title="services/demo/cached.test.yaml"
 beforeAll:
   - id: fixture
-    call: lab#createItem
+    call: demo#createItem
     vars:
       label: slow-to-make
     cache:
       for: 12h
       check:
-        call: lab#whoami
+        call: demo#whoami
         query:
           item: ${var.fixture.itemId}
 
 tests:
   - id: usesCachedItem
-    call: lab#whoami
+    call: demo#whoami
     query:
       item: ${var.fixture.itemId}
 ```
@@ -65,7 +73,7 @@ The first run creates the item. The second run only runs the check, then the tes
 
 ```console
 # run 1
-POST /users body={"email":"lab@example.com","name":"slow-to-make"}
+POST /users body={"email":"demo@example.com","name":"slow-to-make"}
 GET /echo?item=8
 
 # run 2
@@ -73,11 +81,11 @@ GET /echo?item=8          ← cache.check
 GET /echo?item=8          ← the test
 ```
 
-After those two `vc run lab.cached` runs (with a cache key, see below), list the entries:
+After those two `vc run demo.cached` runs (with a cache key, see below), list the entries:
 
 ```console
 $ vc cache list
-lab#createItem  expires 2026-11-11 05:56Z  profile default
+demo#createItem  expires 2026-11-11 05:56Z  profile default
 ```
 
 ```console
@@ -86,7 +94,7 @@ $ vc cache list --json
   {
     "createdMs": 1794333389355,
     "expiresMs": 1794376589355,
-    "label": "lab#createItem",
+    "label": "demo#createItem",
     "profiles": [
       "default"
     ]
@@ -97,7 +105,7 @@ $ vc cache list --json
 Clear one action's entries, or all of them. Clearing runs each entry's cleanup:
 
 ```console
-$ vc cache clear lab#createItem
+$ vc cache clear demo#createItem
 cleared 1 entry
 ```
 
@@ -124,20 +132,20 @@ env:
 
 <Playground client:visible kind="test" code={`beforeAll:
   - id: fixture
-    call: lab#createItem
+    call: demo#createItem
     vars:
       label: slow-to-make
     cache:
       for: 12h
       check:
-        call: lab#whoami
+        call: demo#whoami
         query:
           item: \${var.fixture.itemId}
 
 tests:
   - id: usesCachedItem
     name: Uses the cached item
-    call: lab#whoami
+    call: demo#whoami
     query:
       item: \${var.fixture.itemId}
 `} />
@@ -158,14 +166,14 @@ tests:
   warning: cache: 1 entry sealed under another key was removed; its cleanups did not run
   cleared 1 entry
   ```
-- **A failing cache.** The cache never fails a run. When the store cannot be read or written, the action runs as if uncached and the run ends with a warning naming it, such as `` warning: cache: the cache failed: disk I/O error; `lab#createItem` was not cached `` or `` warning: cache: could not read the entry: …; `lab#createItem` ran again ``. A result that was not cached keeps its cleanup, which runs at the end of the run.
+- **A failing cache.** The cache never fails a run. When the store cannot be read or written, the action runs as if uncached and the run ends with a warning naming it, such as `` warning: cache: the cache failed: disk I/O error; `demo#createItem` was not cached `` or `` warning: cache: could not read the entry: …; `demo#createItem` ran again ``. A result that was not cached keeps its cleanup, which runs at the end of the run.
 
 <Aside type="caution">
 `cache` on a per-test action (`beforeEach`, `before`, steps) makes every test instance share one cached object. `vc check` warns:
 
 ```console
 warning[V3202]: `cache` on an action that runs for every test
-  --> services/lab/shared.test.yaml:13:9
+  --> services/demo/shared.test.yaml:13:9
    |
 13 |         cache:
    |         ^^^^^ cached per test

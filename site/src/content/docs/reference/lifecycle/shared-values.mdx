@@ -9,30 +9,51 @@ import Playground from '~/components/Playground.svelte';
 
 Tests run in parallel, up to `defaults.concurrency`. Values saved in `beforeRun` and `beforeAll` are computed once and shared by every test, so treat them as read-only. When a shared action fails, only the tests that read its values are blocked.
 
-The example calls the demo server (`vc demo start`) through a small api file, `lab`. `lab#status` is a `GET /status/${var.code}` that answers with that status, so `code: 503` makes it fail; `lab#whoami` is a `GET /echo`, which sends the request back:
+The example calls the demo server (`vc demo start`) through a small api file, `demo`. `demo#createItem` is a `POST /users` that saves the new user's ID as `itemId`, and `demo#deleteItem` deletes it; `demo#status` is a `GET /status/${var.code}` that answers with that status, so `code: 503` makes it fail; `demo#whoami` is a `GET /echo`, which sends the request back:
 
-```yaml title="services/lab/lab.api.yaml (excerpt)"
+```yaml title="services/demo/demo.api.yaml (excerpt)"
+baseUrl: ${var.sampleUrl}
 apis:
-  - id: status
-    path: /status/${var.code}
+  - id: createItem
+    method: POST
+    path: /users
+    vars:
+      label: item
+      email: demo@example.com
+    body:
+      name: ${var.label}
+      email: ${var.email}
+    expect:
+      status: 201
+    save:
+      itemId: ${response.body.id}
+    cleanup:
+      call: deleteItem
+      vars:
+        itemId: ${response.body.id}
+  - id: deleteItem
+    method: DELETE
+    path: /users/${var.itemId}
   - id: whoami
     path: /echo
+  - id: status
+    path: /status/${var.code}
 ```
 
-```yaml title="services/lab/blocked.test.yaml"
+```yaml title="services/demo/blocked.test.yaml"
 beforeAll:
   - id: seed
-    call: lab#status
+    call: demo#status
     vars:
       code: 503
 
 tests:
   - id: needsSeed
-    call: lab#whoami
+    call: demo#whoami
     query:
       seed: ${var.seed.code}     # reads the shared value: blocked if seed fails
   - id: ignoresSeed
-    call: lab#whoami             # reads nothing from seed: still runs
+    call: demo#whoami             # reads nothing from seed: still runs
 ```
 
 ## The rules
@@ -50,14 +71,14 @@ Within one test, actions and steps run in order. Different tests run at the same
 A failing `beforeAll` blocks only the test that reads it:
 
 ```console
-$ vc run lab.blocked
-✕ seed (file lab.blocked) failed
+$ vc run demo.blocked
+✕ seed (file demo.blocked) failed
   error[V5101]: status: expected ["2xx"], got 503
      = at: seed
-⊘ lab.blocked#needsSeed blocked
+⊘ demo.blocked#needsSeed blocked
   error[V5101]: status: expected ["2xx"], got 503
      = at: seed
-✓ lab.blocked#ignoresSeed                                         0ms
+✓ demo.blocked#ignoresSeed                                        0ms
 ```
 
 A failing `beforeRun` works the same way across the whole run:
@@ -66,32 +87,32 @@ A failing `beforeRun` works the same way across the whole run:
 ✕ admin (run) failed
   error[V5101]: status: expected ["2xx"], got 503
      = at: admin
-⊘ lab.needsadmin#readsAdmin blocked
+⊘ demo.needsadmin#readsAdmin blocked
   error[V5101]: status: expected ["2xx"], got 503
      = at: admin
-✓ lab.needsadmin#ignoresAdmin                                     1ms
+✓ demo.needsadmin#ignoresAdmin                                    1ms
 
 1 passed · 1 blocked
 reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
 next     vc run --failed
 ```
 
-A test that changes data makes its own copy. This one deletes an item (`lab#deleteItem` is a `DELETE /users/${var.itemId}`), so it creates the item in `before`, not in `beforeAll`:
+A test that changes data makes its own copy. This one deletes an item (`demo#deleteItem` is a `DELETE /users/${var.itemId}`), so it creates the item in `before`, not in `beforeAll`:
 
 ```yaml
 tests:
   - id: deletesItem
     before:
-      - call: lab#createItem
+      - call: demo#createItem
         keep: true             # the test deletes it itself
-    call: lab#deleteItem
+    call: demo#deleteItem
 ```
 
 `vc check` warns when a `PUT`, `PATCH` or `DELETE` call uses a shared value:
 
 ```console
-warning[V3201]: the call to `lab#deleteItem` changes a value shared from `beforeAll`
- --> services/lab/shared.test.yaml:8:15
+warning[V3201]: the call to `demo#deleteItem` changes a value shared from `beforeAll`
+ --> services/demo/shared.test.yaml:8:15
   |
 2 |   - id: shared
   |         ------ shared from `beforeAll`
@@ -103,19 +124,19 @@ warning[V3201]: the call to `lab#deleteItem` changes a value shared from `before
 
 <Playground client:visible kind="test" code={`beforeAll:
   - id: seed
-    call: lab#createItem
+    call: demo#createItem
     vars:
       label: shared
 
 tests:
   - id: readsSeed
     name: Reads the shared item
-    call: lab#whoami
+    call: demo#whoami
     query:
       item: \${var.seed.itemId}
   - id: ignoresSeed
     name: Does not need the shared item
-    call: lab#whoami
+    call: demo#whoami
 `} />
 
 ## How it behaves

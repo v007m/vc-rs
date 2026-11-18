@@ -21,6 +21,14 @@ apis:
       email: ${var.email}
 ```
 
+It loops over this dataset:
+
+```text title="datasets/people.csv"
+email,name
+ann@example.com,Ann
+bob@example.com,Bob
+```
+
 ```yaml
       - call: sample#createUser
         forEach: ${dataset.people}

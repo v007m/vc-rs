@@ -9,15 +9,16 @@ import Playground from '~/components/Playground.svelte';
 
 `function: <path>#<export>` runs one exported function from a TypeScript or JavaScript file. When it returns an object, each field is saved as a var. Use it for work no api does, such as seeding a database or computing a signature.
 
-The test then calls `lab#whoami`, a `GET /echo` on the demo server (`vc demo start`), with the function's values in the query:
+The test then calls `demo#whoami`, a `GET /echo` on the demo server (`vc demo start`), with the function's values in the query:
 
-```yaml title="services/lab/lab.api.yaml (excerpt)"
+```yaml title="services/demo/demo.api.yaml (excerpt)"
+baseUrl: ${var.sampleUrl}
 apis:
   - id: whoami
     path: /echo
 ```
 
-```yaml title="services/lab/actions.test.yaml"
+```yaml title="services/demo/actions.test.yaml"
 tests:
   - id: runsAFunction
     before:
@@ -25,7 +26,7 @@ tests:
         vars:
           name: acme
         provides: [tenantId, profiles]
-    call: lab#whoami
+    call: demo#whoami
     query:
       tenant: ${var.tenantId}
       profiles: ${var.profiles}
@@ -79,7 +80,7 @@ before:
     vars:
       name: acme
     provides: [tenantId]
-call: lab#whoami
+call: demo#whoami
 query:
   tenant: ${var.tenantId}
 ```
@@ -106,7 +107,7 @@ before:
 A function that throws blocks the test. The message and the line come from the hook:
 
 ```console
-⊘ lab.fails#functionThrows blocked                              241ms
+⊘ demo.fails#functionThrows blocked                             241ms
   error[V5115]: `hooks/seed.ts#throws`: the hook threw: Error: mailbox is empty (line 16)
      = at: function hooks/seed.ts#throws
 ```
@@ -114,7 +115,7 @@ A function that throws blocks the test. The message and the line come from the h
 A function that runs past its budget is stopped:
 
 ```console
-⊘ lab.fails#timesOutAFunction blocked                           204ms
+⊘ demo.fails#timesOutAFunction blocked                          204ms
   error[V5116]: `hooks/seed.ts#spins`: the hook ran past its time budget and was stopped (line 11)
      = at: function hooks/seed.ts#spins
 ```
@@ -128,7 +129,7 @@ A function that runs past its budget is stopped:
           name: acme
         provides: [tenantId]
         timeout: 500ms
-    call: lab#whoami
+    call: demo#whoami
     query:
       tenant: \${var.tenantId}
 `} />

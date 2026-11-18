@@ -104,38 +104,38 @@ error[V2210]: this beforeRun action saves values but has no `id`
    = fix: Add id: createUser (certain)
 ```
 
-When a `beforeRun` action fails, it is reported once, and only the tests that read its values are blocked. Here, on the demo server through the `lab` api file the [cleanups](/vc-rs/reference/lifecycle/cleanups/) examples use, `admin` gets a 503, `readsAdmin` reads `${var.admin.code}` and `ignoresAdmin` reads nothing from it:
+When a `beforeRun` action fails, it is reported once, and only the tests that read its values are blocked. Here, on the demo server through the `demo` api file the [cleanups](/vc-rs/reference/lifecycle/cleanups/) examples use, `admin` gets a 503, `readsAdmin` reads `${var.admin.code}` and `ignoresAdmin` reads nothing from it:
 
 ```yaml title="vibranium.config.yaml (excerpt)"
 beforeRun:
   - command: echo starting run
   - id: admin
-    call: lab#status
+    call: demo#status
     vars:
       code: 503
 ```
 
-```yaml title="services/lab/needsadmin.test.yaml"
+```yaml title="services/demo/needsadmin.test.yaml"
 tests:
   - id: readsAdmin
-    call: lab#whoami
+    call: demo#whoami
     query:
       code: ${var.admin.code}
   - id: ignoresAdmin
-    call: lab#whoami
+    call: demo#whoami
 ```
 
 ```console
-$ vc run lab.needsadmin
+$ vc run demo.needsadmin
 plan  2 tests in 1 file · lifecycle: beforeRun command, admin · profile default
 
 ✕ admin (run) failed
   error[V5101]: status: expected ["2xx"], got 503
      = at: admin
-⊘ lab.needsadmin#readsAdmin blocked
+⊘ demo.needsadmin#readsAdmin blocked
   error[V5101]: status: expected ["2xx"], got 503
      = at: admin
-✓ lab.needsadmin#ignoresAdmin                                     1ms
+✓ demo.needsadmin#ignoresAdmin                                    1ms
 
 1 passed · 1 blocked                                         74ms · profile default
 reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}

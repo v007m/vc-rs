@@ -100,6 +100,8 @@ Use a step id in a CEL check:
 
 ```yaml
       - call: sample#getUser
+        vars:
+          userId: ${created.body.id}
         expect:
           cel:
             same id: response.body.id == created.body.id
