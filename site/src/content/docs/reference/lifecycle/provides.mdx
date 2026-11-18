@@ -25,14 +25,14 @@ before:
 
 ## Examples
 
-Without `provides`, `vc check` reports the var as never set. The call, `lab#whoami`, is a `GET /whoami` on a local lab server:
+Without `provides`, `vc check` reports the var as never set. The call, `demo#whoami`, is a `GET /echo` on the demo server (`vc demo start`):
 
 ```yaml
 before:
   - function: ../../hooks/seed.ts#seedTenant
     vars:
       name: acme
-call: lab#whoami
+call: demo#whoami
 query:
   tenant: ${var.tenantId}
   profiles: ${var.profiles}
@@ -48,7 +48,7 @@ A reused test needs `provides` only for a name `vc check` can't see it save, one
 
 ```yaml
 before:
-  - test: lab.reuse#makesAnItem
+  - test: demo.reuse#makesAnItem
     provides: [sessionId]
 ```
 
@@ -67,7 +67,7 @@ before:
 ```
 
 ```console
-⊘ lab.fails#missesAProvidedName blocked                         238ms
+⊘ demo.fails#missesAProvidedName blocked                        238ms
   error[V5109]: declared in `provides` but not saved: `tenantId`
      = at: function hooks/seed.ts#returnsNothing
 ```
@@ -80,7 +80,7 @@ before:
         vars:
           name: acme
         provides: [tenantId, profiles]
-    call: lab#whoami
+    call: demo#whoami
     query:
       tenant: \${var.tenantId}
       profiles: \${var.profiles}

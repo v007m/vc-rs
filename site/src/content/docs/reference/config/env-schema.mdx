@@ -45,7 +45,7 @@ A name the schema does not declare:
 
 ```yaml wrong V2106 title="services/slow/slow.api.yaml"
 id: slow
-baseUrl: http://localhost:18080
+baseUrl: ${var.sampleUrl}
 apis:
   - id: hdr
     path: /hdr
@@ -78,7 +78,7 @@ Reading a declared secret through `env` would skip the masking, so it is refused
 
 ```yaml wrong V2107 title="services/slow/slow.api.yaml"
 id: slow
-baseUrl: http://localhost:18080
+baseUrl: ${var.sampleUrl}
 apis:
   - id: hdr
     path: /hdr

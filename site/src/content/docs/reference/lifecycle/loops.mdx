@@ -9,35 +9,50 @@ import Playground from '~/components/Playground.svelte';
 
 `repeat` and `forEach` run one action several times without writing it several times. They work on every kind: `call`, `test`, `function` and `command`. `parallel` lets iterations overlap. Each name the action saves becomes a list, in iteration order.
 
-The examples call a local lab server. `lab#createItem` is a `POST /items` that answers 201 and saves `itemId`; `lab#whoami` is a `GET /whoami`; `lab#status` is a `GET /status/${var.code}` that answers with that status:
+The examples call the demo server (`vc demo start`) through a small api file, `demo`. `demo#createItem` is a `POST /users` that answers 201 and saves the new user's ID as `itemId`; `demo#whoami` is a `GET /echo`, which sends the request back; `demo#status` is a `GET /status/${var.code}` that answers with that status:
 
-```yaml title="services/lab/lab.api.yaml (excerpt)"
+```yaml title="services/demo/demo.api.yaml (excerpt)"
+baseUrl: ${var.sampleUrl}
 apis:
   - id: createItem
     method: POST
-    path: /items
+    path: /users
+    vars:
+      label: item
+      email: demo@example.com
     body:
-      label: ${var.label}
+      name: ${var.label}
+      email: ${var.email}
     expect:
       status: 201
     save:
       itemId: ${response.body.id}
+    cleanup:
+      call: deleteItem
+      vars:
+        itemId: ${response.body.id}
+  - id: deleteItem
+    method: DELETE
+    path: /users/${var.itemId}
   - id: whoami
-    path: /whoami
+    path: /echo
   - id: status
     path: /status/${var.code}
+  # …
 ```
 
-```yaml title="services/lab/loops.test.yaml"
+`# …` marks the apis this page leaves out. The whole file is at the top of [Cleanups](/vc-rs/reference/lifecycle/cleanups/).
+
+```yaml title="services/demo/loops.test.yaml"
 tests:
   - id: collectsSavedIds
     before:
-      - call: lab#createItem
+      - call: demo#createItem
         forEach: [red, green, blue]
         parallel: 3
         vars:
           label: ${item}
-    call: lab#whoami
+    call: demo#whoami
     query:
       ids: ${var.itemId}
       first: ${var.itemId[0]}
@@ -65,61 +80,68 @@ Make three items with numbered labels:
 
 ```yaml
 steps:
-  - call: lab#createItem
+  - call: demo#createItem
     repeat: 3
     vars:
       label: item-${iteration.index}-of-${iteration.count}
 ```
 
 ```console
-POST /items body={"label":"item-1-of-3"}
-POST /items body={"label":"item-2-of-3"}
-POST /items body={"label":"item-3-of-3"}
+POST /users body={"email":"demo@example.com","name":"item-1-of-3"}
+POST /users body={"email":"demo@example.com","name":"item-2-of-3"}
+POST /users body={"email":"demo@example.com","name":"item-3-of-3"}
 ```
 
-Run iterations in parallel. The saved list keeps iteration order even when responses arrive out of order. In this run, `green` was created first and got `i10`, yet the list still starts with `red`:
+Run iterations in parallel. The saved list keeps iteration order even when the requests reach the server in another order. The log shows requests in the order they reached the server. In this run, `green` reached it first and got `19`, then `red` got `20` and `blue` got `21`, yet the list still starts with `red`. Cleanups run newest first, so `blue`'s item, whose iteration finished last, is deleted first:
 
 ```console
-POST /items body={"label":"red"}
-POST /items body={"label":"green"}
-POST /items body={"label":"blue"}
-GET /whoami?ids=i11&ids=i10&ids=i12&first=i11
-DELETE /items/i12
-DELETE /items/i11
-DELETE /items/i10
+POST /users body={"email":"demo@example.com","name":"green"}
+POST /users body={"email":"demo@example.com","name":"red"}
+POST /users body={"email":"demo@example.com","name":"blue"}
+GET /echo?ids=20&ids=19&ids=21&first=20
+DELETE /users/21
+DELETE /users/20
+DELETE /users/19
 ```
 
-Loop over a var or a data file. Here `geo#createCity` is a `POST /cities` that answers with the new city's `id` and `name`, and `geo#createLocationGroup` is a `POST /location-groups`:
+Loop over a var or a data file. Here `sample#createUser` is the `vc init` sample's `POST /users`, which answers with the new user's `id` and `name`, and `sample#echo` is a `POST /echo` on the demo that sends the request back:
+
+```text title="datasets/people.csv"
+email,name
+ann@example.com,Ann
+bob@example.com,Bob
+```
 
 ```yaml
-- call: geo#createCity
-  forEach: ${dataset.capitals}
+- call: sample#createUser
+  forEach: ${dataset.people}
   vars:
-    cityName: ${item.name}
-    country: ${item.country}
+    name: ${item.name}
+    email: ${item.email}
 ```
 
 Collect objects and read one field from every entry with `[*]`:
 
 ```yaml
 steps:
-  - call: geo#createCity
+  - call: sample#createUser
     repeat: 10
     parallel: 5
     save:
-      cities:
+      users:
         id: ${response.body.id}
         name: ${response.body.name}
-  - call: geo#createLocationGroup
+  - call: sample#echo
     vars:
-      cityIds: ${var.cities[*].id}
+      payload:
+        userIds: ${var.users[*].id}
 ```
 
 A failed iteration fails the action. Run one at a time, the loop stops there; here the third code, `204`, is never sent:
 
 ```yaml
 steps:
-  - call: lab#status
+  - call: demo#status
     forEach: [200, 500, 204]
     vars:
       code: ${item}
@@ -134,12 +156,12 @@ GET /status/500
   - id: collectsSavedIds
     name: Makes three items and reads their IDs
     before:
-      - call: lab#createItem
+      - call: demo#createItem
         forEach: [red, green, blue]
         parallel: 3
         vars:
           label: \${item}
-    call: lab#whoami
+    call: demo#whoami
     query:
       ids: \${var.itemId}
       first: \${var.itemId[0]}
@@ -149,7 +171,7 @@ GET /status/500
 
 - Loops work on `call` and `test` actions, in any lifecycle block or in `steps`.
 - Every saved name collects a list with one entry per iteration, in iteration order. A `forEach` over an empty list runs nothing and saves each name as `[]`; `repeat` is at least 1.
-- Each successful iteration registers its own cleanup. All of them run when the owner ends, newest first.
+- Each successful iteration registers its own cleanup. All of them run when the owner ends, newest first: the iteration that finished last is cleaned up first.
 - When an iteration fails, the action fails once the iterations in flight finish. The cleanups of the iterations that passed still run.
 - `repeat` on a test is different: it runs the whole test that many times and reports each instance.
 

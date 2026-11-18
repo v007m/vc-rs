@@ -33,12 +33,12 @@ apis:
 
 ## Examples
 
-`localhost:7442` stands for a slow test server of your own; its `/slow?ms=N` answers after `N` milliseconds.
+The examples call the demo server (`vc demo start`) through `sampleUrl`. Its `/slow?ms=N` answers after `N` milliseconds, and `/echo` answers at once.
 
 ### An api's limit
 
 ```yaml title="services/slow/slow.api.yaml"
-baseUrl: http://localhost:7442
+baseUrl: ${var.sampleUrl}
 apis:
   - id: wait
     path: /slow

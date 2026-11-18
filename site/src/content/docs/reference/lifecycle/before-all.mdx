@@ -91,39 +91,39 @@ afterAll:
   - command: ./scripts/print-order-stats.sh
 ```
 
-A failing `beforeAll` blocks only the tests that read its values. `beforeAll` runs even when you select one test of the file. On the local lab server (a stand-in for a test server of your own), `lab#status` is a `GET /status/${var.code}` that answers with that status, and `lab#whoami` is a `GET /whoami`:
+A failing `beforeAll` blocks only the tests that read its values. `beforeAll` runs even when you select one test of the file. On the demo server (`vc demo start`), `demo#status` is a `GET /status/${var.code}` that answers with that status, and `demo#whoami` is a `GET /echo`:
 
-```yaml title="services/lab/blocked.test.yaml"
+```yaml title="services/demo/blocked.test.yaml"
 beforeAll:
   - id: seed
-    call: lab#status
+    call: demo#status
     vars:
       code: 503
 
 tests:
   - id: needsSeed
-    call: lab#whoami
+    call: demo#whoami
     query:
       seed: ${var.seed.code}
   - id: ignoresSeed
-    call: lab#whoami
+    call: demo#whoami
 ```
 
 ```console
-$ vc run lab.blocked
-✕ seed (file lab.blocked) failed
+$ vc run demo.blocked
+✕ seed (file demo.blocked) failed
   error[V5101]: status: expected ["2xx"], got 503
      = at: seed
-⊘ lab.blocked#needsSeed blocked
+⊘ demo.blocked#needsSeed blocked
   error[V5101]: status: expected ["2xx"], got 503
      = at: seed
-✓ lab.blocked#ignoresSeed                                         0ms
+✓ demo.blocked#ignoresSeed                                        0ms
 ```
 
 `vc check` warns when a test changes a value that `beforeAll` shares, because every test running at the same moment sees that change:
 
 ```console
-warning[V3201]: the call to `lab#deleteItem` changes a value shared from `beforeAll`
+warning[V3201]: the call to `demo#deleteItem` changes a value shared from `beforeAll`
   ...
   = help: one test's change is seen by every test that reads it; make the resource in `before` or `beforeEach`
 ```

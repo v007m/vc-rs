@@ -39,7 +39,7 @@ afterRun:
   - command: docker compose down
 ```
 
-Pass a var. The value is quoted as one word, so it cannot add a second command. With `word` set to `it's; touch pwned`, this prints the text and creates no file. The test's call, `lab#whoami`, is a `GET /whoami` on a local lab server:
+Pass a var. The value is quoted as one word, so it cannot add a second command. With `word` set to `it's; touch pwned`, this prints the text and creates no file. The test's call, `demo#whoami`, is a `GET /echo` on the demo server (`vc demo start`):
 
 ```yaml
 tests:
@@ -48,7 +48,7 @@ tests:
       word: "it's; touch pwned"
     before:
       - command: echo ${var.word}
-    call: lab#whoami
+    call: demo#whoami
 ```
 
 A non-zero exit fails the action and shows the exit code and the last lines of output. Here the command writes to stderr and exits with 3:
@@ -59,7 +59,7 @@ before:
 ```
 
 ```console
-⊘ lab.fails#showsCommandOutput blocked                            7ms
+⊘ demo.fails#showsCommandOutput blocked                           7ms
   error[V5110]: the command exited with 3:
   token=it's; touch pwned
      = at: command
@@ -74,7 +74,7 @@ before:
 ```
 
 ```console
-⊘ lab.fails#timesOutACommand blocked                             1.0s
+⊘ demo.fails#timesOutACommand blocked                            1.0s
   error[V5104]: `sh` did not finish within 1000ms
      = at: command
 ```
@@ -83,7 +83,7 @@ Read config vars and `.env` values from the environment. Each config var is ther
 
 ```yaml
 before:
-  - command: ./scripts/wait-for.sh "$VIB_VAR_labUrl/health"
+  - command: ./scripts/wait-for.sh "$VIB_VAR_sampleUrl/users"
 ```
 
 <Playground client:visible kind="test" code={`tests:
@@ -94,7 +94,7 @@ before:
     before:
       - command: echo \${var.word}
         timeout: 5s
-    call: lab#whoami
+    call: demo#whoami
 `} />
 
 ## How it behaves

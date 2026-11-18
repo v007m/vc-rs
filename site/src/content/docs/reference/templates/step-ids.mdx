@@ -9,24 +9,24 @@ import Playground from '~/components/Playground.svelte';
 
 Give an action or step an `id`, and later actions in the same test or block can read its last response as `${<id>.…}`.
 
-In this sketch, `shop#placeOrder` is a `POST /orders` that answers with the new order's `id`, and `shop#getOrder` is a `GET /orders/${var.orderId}`:
+Here `sample#createUser` is the `vc init` sample's `POST /users`, which answers with the new user's `id`, and `sample#getUser` is a `GET /users/${var.userId}`:
 
-```yaml title="services/shop/shop.api.yaml (excerpt)"
+```yaml title="services/sample/sample.api.yaml (excerpt)"
 apis:
-  - id: placeOrder
+  - id: createUser
     method: POST
-    path: /orders
-  - id: getOrder
-    path: /orders/${var.orderId}
+    path: /users
+  - id: getUser
+    path: /users/${var.userId}
 ```
 
 ```yaml
     steps:
-      - id: place
-        call: shop#placeOrder
-      - call: shop#getOrder
+      - id: created
+        call: sample#createUser
+      - call: sample#getUser
         vars:
-          orderId: ${place.body.id}
+          userId: ${created.body.id}
 ```
 
 ## Syntax
@@ -99,10 +99,12 @@ The second step sent:
 Use a step id in a CEL check:
 
 ```yaml
-      - call: shop#getOrder
+      - call: sample#getUser
+        vars:
+          userId: ${created.body.id}
         expect:
           cel:
-            same total: response.body.total == place.body.total
+            same id: response.body.id == created.body.id
 ```
 
 Step ids versus `save`. A step id gives you the whole last response, but only inside the same test or block. `save` names one value and keeps it for every later action in the test, and it is what other files see from `beforeAll` and `beforeRun`.

@@ -33,32 +33,16 @@ A poll reports one exchange, its last: the response that held, or the one it gav
 
 ## Examples
 
-The examples call `sample#createUser` and `sample#getUser` from the sample api file that [`vc init`](/vc-rs/reference/cli/init/) writes:
+The examples call `sample#getUser` from the sample api file that [`vc init`](/vc-rs/reference/cli/init/) writes:
 
 ```yaml title="services/sample/sample.api.yaml (excerpt)"
 baseUrl: ${var.sampleUrl}
 apis:
-  - id: createUser
-    name: Create a user
-    method: POST
-    path: /users
-    vars:
-      name: ${fake.person.fullName}
-      email: ${fake.internet.email}
-    body:
-      name: ${var.name}
-      email: ${var.email}
-    expect:
-      status: 201
-    save:
-      userId: ${response.body.id}
-    cleanup:
-      call: deleteUser
-      vars:
-        userId: ${response.body.id}
+  # …
   - id: getUser
     name: Get a user
     path: /users/${var.userId}
+  # …
 ```
 
 ```console
@@ -70,35 +54,50 @@ $ vc call sample#getUser --var userId=1
 }
 ```
 
-### Wait for a resource to appear
+They also call `demo#job`, a `GET /poll/{id}?after=N` on the demo server (`vc demo start`). It always answers 200, with `"status": "pending"` until the `N`th request for that id and `"status": "done"` from then on; `"attempt"` counts the requests. The demo counts an id for as long as it runs, so each test draws a new one with `${fake.string.uuid}`. A poll resends the same request, so every attempt uses the same id.
 
-The first step creates a user. A background command creates a second user one second later. The third step polls for that second user:
+<Aside>
+The counts live in the demo, not in the run. A rerun with the same `--seed` sends ids the demo has already counted, so `waitsForJob` sees `done` at once and its `attempt: 4` check fails. To reproduce a run exactly, restart the demo first: `vc demo stop`, then `vc demo start --detach`. `stop` ends the demo, and so clears its counts, only once no other project has joined it; see [Share a running demo](/vc-rs/reference/cli/demo/#share-a-running-demo). `/flaky` and `/poll` each count at most 1024 keys, so a long-running demo that gets a new key on every call eventually answers new keys with 400; see [what the demo serves](/vc-rs/reference/cli/demo/#what-it-serves).
+</Aside>
+
+```yaml title="services/demo/demo.api.yaml (excerpt)"
+baseUrl: ${var.sampleUrl}
+apis:
+  # …
+  - id: job
+    name: Read a job
+    path: /poll/${var.jobId}
+    query:
+      after: "4"
+```
+
+`# …` marks the apis this page leaves out. The whole file is at the top of [Cleanups](/vc-rs/reference/lifecycle/cleanups/).
+
+### Wait for a job to finish
+
+`waitsForJob` polls until the body says `done`, then checks that it took four requests:
 
 ```yaml title="services/sample/poll.test.yaml"
 id: sample.poll
 name: Poll
 
 tests:
-  - id: waitsForLateUser
-    name: Reads a user created a moment later
-    steps:
-      - id: first
-        call: sample#createUser
-      - command: (sleep 1 && curl -s -X POST ${var.sampleUrl}/users -d '{"email":"late@example.com"}' > /dev/null) &
-      - call: sample#getUser
-        vars:
-          userId:
-            $cel: string(int(first.body.id) + 1)
-        poll:
-          until:
-            status: 200
-          every: 250ms
-          timeout: 5s
-        expect:
-          body:
-            match:
-              id:
-                type: string
+  - id: waitsForJob
+    name: Waits for a job to finish
+    call: demo#job
+    vars:
+      jobId: ${fake.string.uuid}
+    poll:
+      until:
+        body:
+          match:
+            status: done
+      every: 250ms
+      timeout: 5s
+    expect:
+      body:
+        match:
+          attempt: 4
 
   - id: givesUp
     name: Gives up on a user that never appears
@@ -112,19 +111,19 @@ tests:
       timeout: 1s
 ```
 
-The getUser call returns 404 until the background user exists. The test passes after about a second. No user has the ID `nobody`, so `givesUp` never sees a 200 and stops at its timeout. With `--reporter json`, its last response is still an `exchanged` event, so you can see what the server answered:
+The first three responses are `pending`, so `waitsForJob` passes after three waits of 250ms. No user has the ID `nobody`, so `givesUp` never sees a 200 and stops at its timeout. With `--reporter json`, its last response is still an `exchanged` event, so you can see what the server answered:
 
 ```console
 $ vc run sample.poll
 plan  2 tests in 1 file · profile default
 
 Poll
-✕ sample.poll#givesUp                                           815ms
+✓ sample.poll#waitsForJob — Waits for a job to finish           777ms
+✕ sample.poll#givesUp — Gives up on a user that never appears   829ms
   error[V5104]: `poll.until` did not hold within 1s: status: expected [200], got 404
      = at: call sample#getUser
-✓ sample.poll#waitsForLateUser — Reads a user created a moment later   1.2s
 
-1 passed · 1 failed                                          1.2s · profile default
+1 passed · 1 failed                                          831ms · profile default
 reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
 ```
 

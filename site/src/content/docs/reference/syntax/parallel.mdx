@@ -157,7 +157,13 @@ reports  …/.vibranium/reports/2/{ctrf.json,junit.xml,index.html}
 
 ### Seed data faster
 
-`parallel` also works on actions in lifecycle blocks:
+`parallel` also works on actions in lifecycle blocks. This one reads the dataset from [forEach](/vc-rs/reference/syntax/for-each/#examples):
+
+```text title="datasets/people.csv"
+email,name
+ann@example.com,Ann
+bob@example.com,Bob
+```
 
 ```yaml
 beforeAll:

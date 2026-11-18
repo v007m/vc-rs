@@ -28,28 +28,33 @@ A duration is a number and a unit: `500ms`, `5s`, `2m`.
 
 ## Examples
 
-Limit one call. `lab#slow` is a `GET /slow` on a local lab server that waits `seconds` before it answers:
+Limit one call. `demo#slow` is a `GET /slow` on the demo server (`vc demo start`) that waits `ms` milliseconds before it answers:
 
-```yaml title="services/lab/lab.api.yaml (excerpt)"
+```yaml title="services/demo/demo.api.yaml (excerpt)"
+baseUrl: ${var.sampleUrl}
 apis:
+  # …
   - id: slow
     path: /slow
     query:
-      seconds: ${var.seconds}
+      ms: ${var.ms}
+  # …
 ```
+
+`# …` marks the apis this page leaves out. The whole file is at the top of [Cleanups](/vc-rs/reference/lifecycle/cleanups/).
 
 ```yaml
 steps:
-  - call: lab#slow
+  - call: demo#slow
     timeout: 500ms
     vars:
-      seconds: 2
+      ms: 2000
 ```
 
 ```console
-✕ lab.fails#timesOutACall                                       502ms
+✕ demo.fails#timesOutACall                                      502ms
   error[V5104]: no response within 500ms
-     = at: call lab#slow
+     = at: call demo#slow
 ```
 
 Limit a command:
@@ -61,29 +66,29 @@ before:
 ```
 
 ```console
-⊘ lab.fails#timesOutACommand blocked                             1.0s
+⊘ demo.fails#timesOutACommand blocked                            1.0s
   error[V5104]: `sh` did not finish within 1000ms
      = at: command
 ```
 
-Limit a reused flow as a whole:
+Limit a reused flow as a whole. Here `demo.slowreuse#slowFlow` is a test whose one step calls `demo#slow` with `ms: 2000`:
 
 ```yaml
 before:
-  - test: lab.loops#makesThreeItems
-    timeout: 5s
+  - test: demo.slowreuse#slowFlow
+    timeout: 1s
 ```
 
 ```console
-⊘ lab.slowreuse#budgetsTheFlow blocked                           1.0s
+⊘ demo.slowreuse#budgetsTheFlow blocked                          1.0s
   error[V5104]: the reused test ran past its `timeout`
-     = at: test lab.slowreuse#slowFlow
+     = at: test demo.slowreuse#slowFlow
 ```
 
 A function past its budget:
 
 ```console
-⊘ lab.fails#timesOutAFunction blocked                           204ms
+⊘ demo.fails#timesOutAFunction blocked                          204ms
   error[V5116]: `hooks/seed.ts#spins`: the hook ran past its time budget and was stopped (line 11)
      = at: function hooks/seed.ts#spins
 ```
@@ -92,10 +97,10 @@ A function past its budget:
   - id: waitsBriefly
     name: Gives a slow call half a second
     steps:
-      - call: lab#slow
+      - call: demo#slow
         timeout: 500ms
         vars:
-          seconds: 2
+          ms: 2000
 `} />
 
 ## How it behaves

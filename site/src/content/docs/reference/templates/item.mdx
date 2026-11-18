@@ -9,22 +9,31 @@ import Playground from '~/components/Playground.svelte';
 
 Inside a `forEach`, `${item}` is the current element of the list, and `${item.field}` reads a field of a row.
 
-In this sketch, `geo#createCity` is a `POST /cities` on a geo service that takes the city's name:
+Here `sample#createUser` is the `vc init` sample's `POST /users`, which sends `var.name` as the user's name:
 
-```yaml title="services/geo/geo.api.yaml (excerpt)"
+```yaml title="services/sample/sample.api.yaml (excerpt)"
 apis:
-  - id: createCity
+  - id: createUser
     method: POST
-    path: /cities
+    path: /users
     body:
-      name: ${var.cityName}
+      name: ${var.name}
+      email: ${var.email}
+```
+
+It loops over this dataset:
+
+```text title="datasets/people.csv"
+email,name
+ann@example.com,Ann
+bob@example.com,Bob
 ```
 
 ```yaml
-      - call: geo#createCity
-        forEach: ${dataset.capitals}
+      - call: sample#createUser
+        forEach: ${dataset.people}
         vars:
-          cityName: ${item.name}
+          name: ${item.name}
 ```
 
 ## Syntax

@@ -88,9 +88,9 @@ error[V2003]: unknown test "sample.basics#listUser"
 <Playground client:visible kind="load" code={`mix:
   - test: users.crud#getsCreatedUser
     weight: 6
-  - test: catalog.browse#searchesProducts
+  - test: users.crud#listsUsers
     weight: 3
-  - test: orders.checkout#placesOrder
+  - test: users.crud#createsUser
     weight: 1
     thresholds:
       p95:

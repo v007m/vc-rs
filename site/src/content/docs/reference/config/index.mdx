@@ -96,11 +96,11 @@ profiles:
       region: eu
 ```
 
-The tests that run call a `slow` service on the repo's mock server (`bench/mock`, started with `mise run mock`):
+The tests that run call a `slow` service on the demo server (`vc demo start`):
 
 ```yaml title="services/slow/slow.api.yaml"
 id: slow
-baseUrl: http://localhost:18080
+baseUrl: ${var.sampleUrl}
 apis:
   - id: wait
     path: /slow
@@ -146,7 +146,7 @@ tests:
       ms: 2000
 ```
 
-`GET /slow?ms=n` answers after `n` milliseconds. `GET /flaky?key=k&failTimes=n` answers 503 to the first `n` calls for each key, then 200. `/status/n` answers status `n`. `POST /echo` answers with the request it got.
+`GET /slow?ms=n` answers after `n` milliseconds. `GET /flaky?key=k&failTimes=n` answers 503 to the first `n` calls for each key, then 200; the demo keeps a key's count for as long as it runs, so the tests build their keys from `${run.startedAt}`. `/status/n` answers status `n`. `POST /echo` answers with the request it got.
 
 ## Try it
 

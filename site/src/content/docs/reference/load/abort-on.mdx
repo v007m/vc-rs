@@ -68,7 +68,7 @@ The same breach without `abortOn` runs every stage and still exits 3 at the end 
 ## Try it
 
 <Playground client:visible kind="load" code={`mix:
-  - test: orders.checkout#placesOrder
+  - test: sample.basics#getsCreatedUser
     weight: 1
 stages:
   - duration: 10m

@@ -136,11 +136,11 @@ warning[V4008]: this allowFailure expired after 2026-01-31
 
 ### Allow a whole file to fail
 
-An `allowFailure` at the top of a file covers every test in it. This example calls `payments#listRefunds`, a minimal api for this page that sends `GET /refunds` and gets `200` back. Here `paymentsUrl` points at the echo endpoint of `bench/mock`, which answers any path with `200`:
+An `allowFailure` at the top of a file covers every test in it. This example calls `payments#listRefunds`, a minimal api for this page that gets `200` back. Here `paymentsUrl` reuses `sampleUrl`, the demo server (`vc demo start`), and the api calls its `/echo` endpoint, which answers any request with `200`:
 
 ```yaml title="vibranium.config.yaml (excerpt)"
 vars:
-  paymentsUrl: http://localhost:18080/echo
+  paymentsUrl: ${var.sampleUrl}
 ```
 
 ```yaml title="services/payments/payments.api.yaml (excerpt)"
@@ -148,7 +148,7 @@ baseUrl: ${var.paymentsUrl}
 apis:
   - id: listRefunds
     name: List refunds
-    path: /refunds
+    path: /echo
 ```
 
 ```yaml title="services/payments/refunds.test.yaml"
