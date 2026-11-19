@@ -145,7 +145,7 @@ impl<'a> Build<'_, 'a> {
             vars: self.vars(source, node)?,
             query: read::templates(source, node, "query"),
             headers: read::templates(source, node, "headers"),
-            body: rules.body(source, node),
+            body: rules.body((source, self.data), node),
             auth: self.auth(source, node)?.unwrap_or_default(),
             timeout: read::duration(source, node, "timeout"),
             http_retry: http_retry::over(source, node, &self.http_retry),

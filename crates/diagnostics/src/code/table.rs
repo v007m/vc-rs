@@ -34,6 +34,7 @@ code_table! {
     V1011 = 1011, Error, "Nesting deeper than 128 levels";
     V1012 = 1012, Error, "File cannot be read (permissions, not UTF-8, outside the project, bad name)";
     V1013 = 1013, Error, "Hook file is not valid TypeScript or JavaScript";
+    V1014 = 1014, Error, "GraphQL document does not parse";
     // V2xxx: references and types
     V2001 = 2001, Error, "Duplicate ID";
     V2002 = 2002, Error, "Unknown auth, profile, dataset or generator";
@@ -43,12 +44,15 @@ code_table! {
     V2006 = 2006, Error, "Reserved ID";
     V2007 = 2007, Error, "File ID doesn't match its path";
     V2008 = 2008, Error, "Hook import not allowed";
+    V2009 = 2009, Error, "`operationName` does not pick one query or mutation";
     V2101 = 2101, Error, "Var used but never set for some profile";
     V2102 = 2102, Error, "`${item}`, `${example}` or `${iteration}` used outside its block";
     V2103 = 2103, Error, "Unknown example or dataset column";
     V2105 = 2105, Error, "Template or CEL root not available at that spot";
     V2106 = 2106, Error, "`${secret.X}` names a secret `.env.schema` does not declare";
     V2107 = 2107, Error, "`${env.X}` names a secret declared in `.env.schema`";
+    V2108 = 2108, Error, "GraphQL variable missing from `variables`";
+    V2109 = 2109, Warning, "Variable the operation does not declare";
     V2201 = 2201, Error, "Exactly one of `call` or `steps` needed";
     V2205 = 2205, Error, "Cycle through `test:` reuse";
     V2210 = 2210, Error, "Shared action saves values but has no `id`";
@@ -89,6 +93,7 @@ code_table! {
     V4007 = 4007, Warning, "A value in a `path` ends in the `urlEncode` pipe, which a run applies already";
     V4008 = 4008, Warning, "`allowFailure` expired; a failure fails the run again";
     V4009 = 4009, Warning, "A sensitive header in `source.headers` has a literal value";
+    V4010 = 4010, Warning, "GraphQL operation has no name";
     // V5xxx: run time
     V5101 = 5101, Error, "Expectation failed";
     V5102 = 5102, Error, "CEL check false";

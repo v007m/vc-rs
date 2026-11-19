@@ -25,6 +25,7 @@ mod body_files;
 mod cache;
 mod compile;
 mod docs;
+mod graphql;
 mod link;
 mod lint;
 mod matchers;

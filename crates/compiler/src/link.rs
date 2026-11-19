@@ -44,6 +44,7 @@ pub use project::{Project, Source, TEST_BLOCKS, actions, list, protocol, text, w
 pub use uses::piece_refs;
 
 use crate::cache::CacheEntry;
+use crate::graphql::Documents;
 use crate::lint::{LintCx, LintRegistry};
 use data::Data;
 
@@ -97,7 +98,7 @@ pub fn link(entries: &[CacheEntry], files: &SourceFiles, world: &World<'_>) -> L
     diagnostics.extend(auth_keys::check(&project));
     diagnostics.extend(protocol_keys::check(&project, &PROTOCOL_KEYS));
     diagnostics.extend(protocol_needs::check(&project));
-    diagnostics.extend(protocol_checks::check(&project));
+    diagnostics.extend(protocol_checks::check(&project, data.documents()));
     diagnostics.extend(reports_dir::check(&project));
     diagnostics.extend(shared::profiles(&project));
     diagnostics.extend(world.secrets.map(|names| secrets::check(&project, &names.declared)).unwrap_or_default());
@@ -114,16 +115,16 @@ pub fn link(entries: &[CacheEntry], files: &SourceFiles, world: &World<'_>) -> L
         build::program((&project, &data), (files.clone(), hooks.modules), world.secrets.unwrap_or(&none))
     };
     if let Some(program) = &program {
-        diagnostics.extend(lints(&project, program, world.today));
+        diagnostics.extend(lints((&project, data.documents()), program, world.today));
     }
     let program = program.filter(|_| !diagnostics.has_errors());
     Linked { diagnostics, program, data_wanted, hooks_wanted }
 }
 
 /// The lifecycle and convention lints over a project whose program was built.
-fn lints(project: &Project<'_>, program: &Program, today: Option<Date>) -> Diagnostics {
+fn lints((project, documents): (&Project<'_>, &Documents<'_>), program: &Program, today: Option<Date>) -> Diagnostics {
     let rules = ProtocolRulesRegistry::builtin();
-    let cx = LintCx { project, program, rules: &rules, today };
+    let cx = LintCx { project, program, rules: &rules, documents, today };
     let mut diagnostics = LintRegistry::builtin().run(&cx);
     diagnostics.extend(LintRegistry::conventions().run(&cx));
     diagnostics
