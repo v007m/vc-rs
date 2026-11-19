@@ -1,0 +1,260 @@
+//! GraphQL schemas (D347, D367): SDL type definitions validated with `apollo-compiler`, and the
+//! documents and literal variable values checked against one. No other crate names its types.
+
+use std::ops::Range;
+use std::path::Path;
+
+use apollo_compiler::diagnostic::{Diagnostic, ToCliReport};
+use apollo_compiler::executable::{Operation, Selection, SelectionSet};
+use apollo_compiler::parser::SourceSpan;
+use apollo_compiler::request::coerce_variable_values;
+use apollo_compiler::response::serde_json_bytes::serde_json::Number;
+use apollo_compiler::response::{JsonMap, JsonValue};
+use apollo_compiler::schema::{DirectiveDefinition, DirectiveLocation, ExtendedType};
+use apollo_compiler::validation::{DiagnosticData, DiagnosticList, Valid};
+use apollo_compiler::{ExecutableDocument, Schema, name};
+use serde::de::Error as _;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+use crate::graphql::GraphqlProblem;
+use crate::node::{Node, Value};
+use crate::scalar::{Scalar, ScalarKind};
+
+/// The name `apollo-compiler` is given for a schema's text, which tells its spots from others.
+const SCHEMA_PATH: &str = "schema.graphql";
+
+/// The name `apollo-compiler` is given for a document's text.
+const DOCUMENT_PATH: &str = "document.graphql";
+
+/// How deep selections are searched for the type an unknown field was asked of; past it, no
+/// close name is given.
+pub const MAX_DEPTH: usize = 64;
+
+/// What `apollo-compiler` calls a field its type does not have.
+const UNDEFINED_FIELD: &str = "UndefinedField";
+
+/// What `apollo-compiler` calls two operations of one name, which V2009 reports.
+const NAME_COLLISION: &str = "OperationNameCollision";
+
+/// What `apollo-compiler` calls a field of an object type with no selections.
+const NO_SUBSELECTION: &str = "MissingSubselection";
+
+/// A schema that reads and validates: SDL type definitions, or an introspection result written
+/// out as SDL ([`schema_from_introspection`](crate::schema_from_introspection)).
+#[derive(Clone, Debug)]
+pub struct GraphqlSchema {
+    sdl: String,
+    valid: Valid<Schema>,
+}
+
+impl PartialEq for GraphqlSchema {
+    fn eq(&self, other: &Self) -> bool {
+        self.sdl == other.sdl
+    }
+}
+
+impl Eq for GraphqlSchema {}
+
+/// Written as its SDL, which is read and validated again when it is read back.
+impl Serialize for GraphqlSchema {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(&self.sdl)
+    }
+}
+
+impl<'de> Deserialize<'de> for GraphqlSchema {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let sdl = String::deserialize(deserializer)?;
+        parse_schema(&sdl).map_err(|_| D::Error::custom("the SDL is not a schema"))
+    }
+}
+
+/// Where a document does not fit a schema, and why.
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct GraphqlMismatch {
+    /// What `apollo-compiler` says.
+    pub message: String,
+    /// The bytes of the document at fault; empty when the problem has no place in it.
+    pub at: Range<usize>,
+    /// For a field its type does not have, the fields the type has; else empty.
+    pub fields: Vec<String>,
+}
+
+/// Reads `text` as a schema, in one parse: type system definitions only, which validate.
+///
+/// # Errors
+///
+/// Each spot where the text does not parse, holds an operation or fragment, or does not
+/// validate; a spot is the first line of the part at fault.
+pub fn parse_schema(text: &str) -> Result<GraphqlSchema, Vec<GraphqlProblem>> {
+    let built = Schema::builder().parse(text, SCHEMA_PATH).build();
+    let mut schema = built.map_err(|invalid| problems(&invalid.errors, text))?;
+    schema.directive_definitions.entry(name!("oneOf")).or_insert_with(one_of);
+    let valid = schema.validate().map_err(|invalid| problems(&invalid.errors, text))?;
+    Ok(GraphqlSchema { sdl: text.to_owned(), valid })
+}
+
+/// The `@oneOf` directive (GraphQL spec, 2025): built into servers, so SDL printers leave it
+/// out, but not into `apollo-compiler` 1.33.
+fn one_of() -> apollo_compiler::Node<DirectiveDefinition> {
+    let locations = vec![DirectiveLocation::InputObject];
+    let definition = DirectiveDefinition {
+        description: None,
+        name: name!("oneOf"),
+        arguments: Vec::new(),
+        repeatable: false,
+        locations,
+    };
+    apollo_compiler::Node::new(definition)
+}
+
+/// Each of `errors` as a problem in the schema `text`, at the first line of its spot.
+fn problems(errors: &DiagnosticList, text: &str) -> Vec<GraphqlProblem> {
+    let problem = |found: Diagnostic<'_, DiagnosticData>| {
+        let at = spot(&found, SCHEMA_PATH);
+        let line = text.get(at.clone()).and_then(|part| part.find('\n')).map_or(at.end, |newline| at.start + newline);
+        GraphqlProblem { message: found.error.to_string(), at: at.start..line }
+    };
+    errors.iter().map(problem).collect()
+}
+
+impl GraphqlSchema {
+    /// Its SDL.
+    #[must_use]
+    pub fn sdl(&self) -> &str {
+        &self.sdl
+    }
+
+    /// Where the document `text`, which parses, does not fit the schema, by the GraphQL spec's
+    /// validation rules. Two operations of one name are left to V2009, and a selection left empty
+    /// because each field in it is unknown is reported only at those fields.
+    #[must_use]
+    pub fn check_document(&self, text: &str) -> Vec<GraphqlMismatch> {
+        let Err(invalid) = ExecutableDocument::parse_and_validate(&self.valid, text, DOCUMENT_PATH) else {
+            return Vec::new();
+        };
+        let found: Vec<Diagnostic<'_, DiagnosticData>> =
+            invalid.errors.iter().filter(|found| !named(found, NAME_COLLISION)).collect();
+        let unknown: Vec<Range<usize>> = found
+            .iter()
+            .filter(|found| named(found, UNDEFINED_FIELD))
+            .map(|found| spot(found, DOCUMENT_PATH))
+            .collect();
+        let emptied = |found: &Diagnostic<'_, DiagnosticData>| {
+            let at = spot(found, DOCUMENT_PATH);
+            named(found, NO_SUBSELECTION) && unknown.iter().any(|field| at.start <= field.start && field.end <= at.end)
+        };
+        found.iter().filter(|found| !emptied(found)).map(|found| self.mismatch(&invalid.partial, found)).collect()
+    }
+
+    /// The message for each value of `given`, by its index, that does not fit the type the
+    /// operation `name` of the document `text` declares for its variable. A variable the
+    /// operation does not declare or declares of a type the schema lacks (V2314), and a value
+    /// with no JSON form (`.inf`), are left alone.
+    #[must_use]
+    pub fn check_variables(&self, (text, name): (&str, Option<&str>), given: &[(&str, &Node)]) -> Vec<(usize, String)> {
+        let document =
+            ExecutableDocument::parse(&self.valid, text, DOCUMENT_PATH).unwrap_or_else(|built| built.partial);
+        let Ok(operation) = document.operations.get(name) else { return Vec::new() };
+        let misfits = given.iter().enumerate().map(|(index, value)| Some((index, self.misfit(operation, *value)?)));
+        misfits.flatten().collect()
+    }
+
+    /// The mismatch `found` in `document`, with the fields of the type an unknown field was asked of.
+    fn mismatch(&self, document: &ExecutableDocument, found: &Diagnostic<'_, DiagnosticData>) -> GraphqlMismatch {
+        let at = spot(found, DOCUMENT_PATH);
+        let fields =
+            if named(found, UNDEFINED_FIELD) { self.fields(enclosing(document, at.start)) } else { Vec::new() };
+        GraphqlMismatch { message: found.error.to_string(), at, fields }
+    }
+
+    /// The fields of the type `set` selects from, when it has fields.
+    fn fields(&self, set: Option<&SelectionSet>) -> Vec<String> {
+        let fields = match set.and_then(|set| self.valid.types.get(&set.ty)) {
+            Some(ExtendedType::Object(object)) => object.fields.keys(),
+            Some(ExtendedType::Interface(interface)) => interface.fields.keys(),
+            _ => return Vec::new(),
+        };
+        fields.map(ToString::to_string).collect()
+    }
+
+    /// Why `value` does not fit the type `operation` declares for the variable `name`.
+    fn misfit(&self, operation: &Operation, (name, value): (&str, &Node)) -> Option<String> {
+        let declared = operation.variables.iter().find(|variable| variable.name == name)?;
+        self.valid.types.get(declared.ty.inner_named_type())?;
+        let mut values = JsonMap::new();
+        values.insert(name, json(value)?);
+        let alone = Operation { variables: vec![declared.clone()], ..operation.clone() };
+        coerce_variable_values(&self.valid, &alone, &values).err().map(|error| error.message().to_string())
+    }
+}
+
+/// Whether `apollo-compiler` calls `found` `name`.
+fn named(found: &Diagnostic<'_, DiagnosticData>, name: &str) -> bool {
+    found.error.unstable_error_name() == Some(name)
+}
+
+/// The bytes `found` points at in the text apollo was given as `path`; empty when it points
+/// elsewhere, or nowhere.
+fn spot(found: &Diagnostic<'_, DiagnosticData>, path: &str) -> Range<usize> {
+    let ours =
+        |span: &SourceSpan| found.sources.get(&span.file_id()).is_some_and(|file| file.path() == Path::new(path));
+    found.error.location().filter(ours).map_or(0..0, |span| span.offset()..span.end_offset())
+}
+
+/// The selections of `document` that hold byte `at`: the innermost operation, fragment, field
+/// or inline fragment around it.
+fn enclosing(document: &ExecutableDocument, at: usize) -> Option<&SelectionSet> {
+    let operations = document.operations.iter().map(|operation| (operation.location(), &operation.selection_set));
+    let fragments = document.fragments.values().map(|fragment| (fragment.location(), &fragment.selection_set));
+    let mut set = operations.chain(fragments).find(|(span, _)| covers(*span, at))?.1;
+    for _ in 0..MAX_DEPTH {
+        let Some(inner) = set.selections.iter().find_map(|selection| inside(selection, at)) else { return Some(set) };
+        set = inner;
+    }
+    None
+}
+
+/// The selections of `selection` when it holds byte `at`.
+fn inside(selection: &Selection, at: usize) -> Option<&SelectionSet> {
+    let (span, set) = match selection {
+        Selection::Field(field) => (field.location(), &field.selection_set),
+        Selection::InlineFragment(fragment) => (fragment.location(), &fragment.selection_set),
+        Selection::FragmentSpread(_) => return None,
+    };
+    covers(span, at).then_some(set)
+}
+
+/// Whether `span` holds byte `at`.
+fn covers(span: Option<SourceSpan>, at: usize) -> bool {
+    span.is_some_and(|span| span.offset() <= at && at < span.end_offset())
+}
+
+/// `node` as JSON; `None` when part of it has no JSON form.
+fn json(node: &Node) -> Option<JsonValue> {
+    match &node.value {
+        Value::Scalar(scalar) => scalar_json(scalar),
+        Value::Seq(items) => items.iter().map(json).collect::<Option<Vec<_>>>().map(JsonValue::Array),
+        Value::Map(entries) => {
+            let fields = entries.iter().map(|entry| Some((entry.key.as_str().into(), json(&entry.value)?)));
+            fields.collect::<Option<JsonMap>>().map(JsonValue::Object)
+        }
+    }
+}
+
+/// `scalar` as JSON, by the kind YAML reads it as.
+fn scalar_json(scalar: &Scalar) -> Option<JsonValue> {
+    let text = scalar.text.as_str();
+    match scalar.kind {
+        ScalarKind::Null => Some(JsonValue::Null),
+        ScalarKind::Bool => Some(JsonValue::Bool(text.eq_ignore_ascii_case("true"))),
+        ScalarKind::Int => text.parse::<i64>().ok().map(JsonValue::from),
+        ScalarKind::Float => text.parse::<f64>().ok().and_then(Number::from_f64).map(JsonValue::Number),
+        ScalarKind::String => Some(JsonValue::from(text)),
+    }
+}
+
+#[cfg(test)]
+#[path = "graphql_schema_tests.rs"]
+mod tests;

@@ -71,6 +71,8 @@ code_table! {
     V2311 = 2311, Error, "Redact pattern does not compile";
     V2312 = 2312, Error, "`body.schema` is not a valid JSON Schema";
     V2313 = 2313, Error, "`reports.dir` in the project config leaves the project";
+    V2314 = 2314, Error, "GraphQL document does not fit the schema";
+    V2315 = 2315, Error, "GraphQL variable value does not fit its type";
     // V3xxx: lifecycle
     V3101 = 3101, Error, "No profile defined, or no active profile for this run";
     V3102 = 3102, Error, "More than one default profile";

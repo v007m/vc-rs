@@ -1,0 +1,93 @@
+---
+title: "V2315 — GraphQL variable value does not fit its type"
+description: "When a type: graphql api file names its schema in graphql.schema, each literal value in an api's body.variables is checked against the type its operation declares for the variable, as a server reads the JSON it is sent."
+sidebar:
+  label: "V2315 GraphQL variable value does not fit its type"
+  order: 2315
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="error" variant="danger" /> <Badge text="References and types" variant="note" />
+
+| | |
+| --- | --- |
+| Code | `V2315` |
+| Category | V2xxx: References and types |
+| Severity | error |
+| Certain fix | none; `vc check --fix` leaves this one to you |
+
+When a `type: graphql` api file names its schema in `graphql.schema`, each literal value in an api's
+`body.variables` is checked against the type its operation declares for the variable, as a server reads the JSON
+it is sent. V2315 is a value of another type: a quoted `"3"` for an `Int`, `"yes"` for a `Boolean`, a name an
+enum does not have, a key an input type does not have, or `null` for a non-null type. Write a number or `true` and
+`false` unquoted. A value with a template in it, such as `${var.limit}`, is known only at run time and is not
+checked; a variable the operation does not declare is V2109.
+
+## Wrong
+
+```yaml wrong V2315 title="services/catalog/catalog.api.yaml"
+type: graphql
+graphql:
+  schema: {$file: schema.graphql}
+apis:
+  - id: listProducts
+    body:
+      query: "query ListProducts($limit: Int) { products(limit: $limit) { id name } }"
+      variables: {limit: "3"}
+```
+
+```graphql wrong V2315 title="services/catalog/schema.graphql"
+type Query {
+  product(id: ID!): Product
+  products(limit: Int): [Product!]
+}
+
+type Product {
+  id: ID!
+  name: String
+  price: Int
+}
+```
+
+## Right
+
+```yaml title="services/catalog/catalog.api.yaml"
+type: graphql
+graphql:
+  schema: {$file: schema.graphql}
+apis:
+  - id: listProducts
+    body:
+      query: "query ListProducts($limit: Int) { products(limit: $limit) { id name } }"
+      variables: {limit: 3}
+```
+
+```graphql title="services/catalog/schema.graphql"
+type Query {
+  product(id: ID!): Product
+  products(limit: Int): [Product!]
+}
+
+type Product {
+  id: ID!
+  name: String
+  price: Int
+}
+```
+
+
+## Explain it in your terminal
+
+The same page is built into the binary, so this works anywhere, even outside a project:
+
+```console
+$ vc explain V2315
+```
+
+## Related
+
+- [All diagnostic codes](/vc-rs/reference/diagnostics/)
+- [`vc explain`](/vc-rs/reference/cli/explain/)
+- [`vc check`](/vc-rs/reference/cli/check/)
+- [Errors and fixes](/vc-rs/guides/errors-and-fixes/)

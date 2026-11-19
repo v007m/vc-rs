@@ -1,6 +1,5 @@
 //! GraphQL documents (D346, D356): read with `apollo-parser` for their syntax and operations only.
-//! No other crate names its types. A schema (D347) is SDL, or an introspection result written out
-//! as SDL; validation against it comes later.
+//! No other crate names its types. Schemas (D347) are in [`crate::graphql_schema`].
 
 use std::ops::Range;
 
@@ -53,7 +52,7 @@ pub struct GraphqlDocument {
 }
 
 /// Where a document does not parse, and why.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct GraphqlProblem {
     /// What the parser expected, as it says it.
@@ -77,40 +76,6 @@ pub fn parse_document(text: &str) -> Result<GraphqlDocument, Vec<GraphqlProblem>
     Ok(GraphqlDocument { operations: operations.collect() })
 }
 
-/// A schema that reads: SDL type definitions, or an introspection result written out as SDL
-/// ([`schema_from_introspection`](crate::schema_from_introspection)).
-#[derive(Clone, Debug, PartialEq, Eq)]
-#[non_exhaustive]
-pub struct GraphqlSchema {
-    sdl: String,
-}
-
-impl GraphqlSchema {
-    /// Its SDL.
-    #[must_use]
-    pub fn sdl(&self) -> &str {
-        &self.sdl
-    }
-}
-
-/// Reads `text` as a schema: type system definitions only. Text with no definition does not parse.
-///
-/// # Errors
-///
-/// Every spot the text does not parse, else each operation or fragment it holds.
-pub fn parse_schema(text: &str) -> Result<GraphqlSchema, Vec<GraphqlProblem>> {
-    let tree = Parser::new(text).parse();
-    syntax(&tree, text)?;
-    let executable = tree.document().definitions().filter(|definition| {
-        matches!(definition, Definition::OperationDefinition(_) | Definition::FragmentDefinition(_))
-    });
-    let message = "a schema holds type definitions, not operations or fragments";
-    let problems: Vec<GraphqlProblem> = executable
-        .map(|definition| GraphqlProblem { message: message.to_owned(), at: first_line(text, definition.syntax()) })
-        .collect();
-    if problems.is_empty() { Ok(GraphqlSchema { sdl: text.to_owned() }) } else { Err(problems) }
-}
-
 /// Every spot of `text` that `tree` does not parse.
 fn syntax(tree: &SyntaxTree, text: &str) -> Result<(), Vec<GraphqlProblem>> {
     let problems: Vec<GraphqlProblem> = tree
@@ -121,13 +86,6 @@ fn syntax(tree: &SyntaxTree, text: &str) -> Result<(), Vec<GraphqlProblem>> {
         })
         .collect();
     if problems.is_empty() { Ok(()) } else { Err(problems) }
-}
-
-/// The bytes `node` spans on its first line of `text`.
-fn first_line(text: &str, node: &SyntaxNode) -> Range<usize> {
-    let whole = bytes(node);
-    let line = text.get(whole.clone()).and_then(|written| written.find('\n'));
-    whole.start..line.map_or(whole.end, |newline| whole.start + newline)
 }
 
 /// The name, kind, variables and head of `operation`.
@@ -167,7 +125,7 @@ fn bytes(node: &SyntaxNode) -> Range<usize> {
 
 #[cfg(test)]
 mod tests {
-    use super::{OperationKind, parse_document, parse_schema};
+    use super::{OperationKind, parse_document};
 
     #[test]
     fn lists_each_operation_with_its_name_and_kind() {
@@ -201,18 +159,5 @@ mod tests {
         let problems = parse_document("query { user(id: ) { id } }").unwrap_err();
         assert_eq!(problems[0].at, 17..18);
         assert!(problems[0].message.contains("expected"), "{}", problems[0].message);
-    }
-
-    #[test]
-    fn a_schema_holds_type_definitions_only() {
-        let sdl = "type Query { me: User }\ntype User { id: ID! }\n";
-        assert_eq!(parse_schema(sdl).unwrap().sdl(), sdl);
-        let text = "type Query { me: ID }\nquery Me {\n  me\n}\nfragment F on Query { me }\n";
-        let problems = parse_schema(text).unwrap_err();
-        let found: Vec<&str> = problems.iter().map(|problem| &text[problem.at.clone()]).collect();
-        assert_eq!(found, ["query Me {", "fragment F on Query { me }"]);
-        assert_eq!(problems[0].message, "a schema holds type definitions, not operations or fragments");
-        assert_eq!(parse_schema("# nothing yet\n").unwrap_err()[0].at, 14..14);
-        assert_eq!(parse_schema("type Query {").unwrap_err()[0].at, 12..12);
     }
 }

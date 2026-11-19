@@ -768,6 +768,13 @@ Round 76 (19 November 2026; Sarath, on GraphQL schema files and the validation l
 | D366 | A schema file's syntax error is V1014 | Any GraphQL text file that does not parse, a `.graphql`, `.gql` or `.graphqls` schema file among them, is V1014 at the spot where the parser stopped, from its per-file stage. V1015 is a `graphql.schema` file that reads but is not a schema: SDL that holds an operation or a fragment, or JSON that is not an introspection result (and, with schema validation, SDL that does not validate). | D347 (refines: which code) |
 | D367 | apollo-compiler for schema validation, with 12 deny skips | Schema validation (V2314 full, V2315, and SDL that does not validate as V1015) uses apollo-compiler 1.33.1, wrapped by `vc-parser` so no other crate names it. `deny.toml` gains the duplicate-version skips it needs (ariadne → concolor pulls in older bitflags, windows-sys and windows_* crates), applied by the orchestrator. It must build for `wasm32-wasip1` (`vc-browser`). | — |
 
+Round 77 (20 November 2026; GraphQL PR 5, small choices made under Sarath's delegation, closest to existing behaviour):
+
+| # | Topic | Decision | Supersedes |
+| --- | --- | --- | --- |
+| D368 | What schema validation leaves to other codes | V2314 reports what apollo-compiler's validation of a document finds, except two operations of one name (left to V2009) and an object selection left empty only because each field in it is unknown (reported once, at those fields). An unknown field's help lists its type's fields, with the one close field as the fix. V2315 checks a literal value only when the schema has its variable's type; a variable of an unknown type is V2314. A value with a template anywhere in it is not checked. | — |
+| D369 | A schema file is not a dataset | A `.json` file that an api file names as its `graphql.schema` is not read as a dataset, even under `datasets/`, unless the config's `datasets.files` lists it. | D173 (refines: what `datasets/` holds) |
+
 ## Open
 
 All decisions needed for the PRD and technical design are settled. The language is decided by the spike (D6, D36, D37, D41).

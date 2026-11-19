@@ -6,12 +6,12 @@ use indexmap::IndexMap;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use vc_diagnostics::{Diagnostic, Diagnostics};
 use vc_model::{FileKind, Pos, SourceFile, SourceFileId, SourceSpan, StringTable};
-use vc_parser::{GraphqlDocument, Node, ScalarKind, Syntax, Value};
+use vc_parser::{GraphqlDocument, GraphqlProblem, GraphqlSchema, Node, ScalarKind, Syntax, Value};
 
-use crate::graphql;
 use crate::parts::{self, Cx, Piece, Tools};
 use crate::script::{self, Script};
 use crate::shape_check::{self, Walk};
+use crate::{graphql, graphql_schema};
 use crate::{shapes, version};
 
 /// One file after the per-file stages.
@@ -32,6 +32,10 @@ pub struct FileUnit {
     /// A GraphQL document file's operations (D356); `None` for any other file, or one that does not parse.
     #[serde(default)]
     pub document: Option<GraphqlDocument>,
+    /// What a file that may be a GraphQL schema holds as one (D347): SDL with no operation, or
+    /// JSON with a `__schema`; `None` for any other file.
+    #[serde(default)]
+    pub schema: Option<Result<GraphqlSchema, Vec<GraphqlProblem>>>,
     /// Every problem the per-file stages found.
     #[serde(skip)]
     pub diagnostics: Diagnostics,
@@ -51,20 +55,20 @@ fn pairs_in<'de, D: Deserializer<'de>>(deserializer: D) -> Result<IndexMap<Sourc
 pub fn unit(id: SourceFileId, source: &SourceFile, (tools, strings): (&Tools, &mut StringTable)) -> FileUnit {
     if script::is_script(source.path.as_str()) {
         let (script, diagnostics) = script::strip(id, source);
-        return FileUnit { kind: None, root: None, parts: IndexMap::new(), script, document: None, diagnostics };
+        return FileUnit { script, ..FileUnit::bare(None, diagnostics) };
     }
     if graphql::is_text(source.path.as_str()) {
         let (document, diagnostics) = graphql::read_file(id, source);
-        return FileUnit { kind: None, root: None, parts: IndexMap::new(), script: None, document, diagnostics };
+        let schema = graphql_schema::from_text(source, document.as_ref());
+        return FileUnit { document, schema, ..FileUnit::bare(None, diagnostics) };
     }
     let (root, mut diagnostics) = parse(id, source);
     let kind = source.kind();
     let Some(file_kind) = kind else {
-        return FileUnit { kind, root, parts: IndexMap::new(), script: None, document: None, diagnostics };
+        let schema = root.as_ref().and_then(graphql_schema::from_tree);
+        return FileUnit { root, schema, ..FileUnit::bare(kind, diagnostics) };
     };
-    let Some(root) = root.map(empty_as_map) else {
-        return FileUnit { kind, root: None, parts: IndexMap::new(), script: None, document: None, diagnostics };
-    };
+    let Some(root) = root.map(empty_as_map) else { return FileUnit::bare(kind, diagnostics) };
     let walk = shape(&root, file_kind);
     let steps = walk.steps.iter().filter_map(|step| strings.intern(step).ok()).collect();
     let mut cx = Cx { text: &source.text, strings, tools, steps, diagnostics: Diagnostics::new() };
@@ -72,7 +76,15 @@ pub fn unit(id: SourceFileId, source: &SourceFile, (tools, strings): (&Tools, &m
     let later = walk.diagnostics.into_iter().chain(cx.diagnostics);
     let fresh: Vec<Diagnostic> = later.filter(|later| !reported(&diagnostics, later)).collect();
     diagnostics.extend(fresh);
-    FileUnit { kind, root: Some(root), parts, script: None, document: None, diagnostics }
+    FileUnit { root: Some(root), parts, ..FileUnit::bare(kind, diagnostics) }
+}
+
+impl FileUnit {
+    /// A unit of the kind `kind` with only `diagnostics`: no tree, parts, script, document or schema.
+    fn bare(kind: Option<FileKind>, diagnostics: Diagnostics) -> Self {
+        let parts = IndexMap::new();
+        Self { kind, root: None, parts, script: None, document: None, schema: None, diagnostics }
+    }
 }
 
 /// The parse stage: the one place the compiler calls the parser.

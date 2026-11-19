@@ -14,7 +14,7 @@ mod memo;
 const MAGIC: &[u8; 4] = b"VCCC";
 
 /// The layout version; a blob with any other version is ignored.
-const VERSION: u32 = 14;
+const VERSION: u32 = 15;
 
 /// Where the checksum sits: after the magic and the layout version.
 const SUM_AT: usize = MAGIC.len() + 4;
