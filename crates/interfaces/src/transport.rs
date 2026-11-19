@@ -64,6 +64,36 @@ pub enum CertChoice {
     Off,
 }
 
+/// Which client certificate a request sent, as a refusal (V5127) reports it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_enums,
+    reason = "built or matched in other crates, shared across the workspace; every user is in this repo (D160)"
+)]
+pub enum SentCert {
+    /// None: no identity's hosts match the URL's host.
+    Missing,
+    /// None: the call turned client certificates off (`clientCert: none`).
+    Off,
+    /// The identity with this ID.
+    Named(String),
+}
+
+impl SentCert {
+    /// What a handshake with `host` that failed over this certificate adds: the identity the
+    /// server rejected, that the call turned certificates off, or how to send one.
+    #[must_use]
+    pub fn advice(&self, host: &str) -> String {
+        match self {
+            Self::Named(id) => format!("the server rejected `{id}`"),
+            Self::Off => "client certificates are off for this call (`clientCert: none`)".to_owned(),
+            Self::Missing => format!(
+                "no client certificate was sent: if the server requires one, add an `http.tls.clients` entry for `{host}`"
+            ),
+        }
+    }
+}
+
 /// A client identity, as its position in the transport's list of identities.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct CertId(u32);
@@ -145,16 +175,29 @@ pub enum TransportError {
     /// The auth layer could not obtain credentials for the request (V5114).
     #[error("credentials could not be obtained: {0}")]
     Credentials(AuthError),
+    /// The server refused the client certificate, or the lack of one, with a TLS alert (V5127).
+    #[error("TLS handshake with {host} failed with {alert} ({reason}); {}", sent.advice(host))]
+    ClientCertRejected {
+        /// The host name.
+        host: String,
+        /// The alert's name, such as `unknown_ca`.
+        alert: String,
+        /// What the alert means.
+        reason: String,
+        /// The certificate that was sent, if any.
+        sent: SentCert,
+    },
 }
 
 impl TransportError {
-    /// The diagnostic code a failed step reports: V5104 for a timeout, V5114 for credentials
-    /// and V5105 for the rest.
+    /// The diagnostic code a failed step reports: V5104 for a timeout, V5114 for credentials,
+    /// V5127 for a refused client certificate and V5105 for the rest.
     #[must_use]
     pub const fn code(&self) -> Code {
         match self {
             Self::Timeout { .. } => Code::V5104,
             Self::Credentials(_) => Code::V5114,
+            Self::ClientCertRejected { .. } => Code::V5127,
             _ => Code::V5105,
         }
     }
@@ -167,7 +210,7 @@ mod tests {
     use vc_diagnostics::Code;
     use vc_model::Size;
 
-    use super::{CertChoice, CertId, SendContext, TransportError};
+    use super::{CertChoice, CertId, SendContext, SentCert, TransportError};
     use crate::AuthError;
 
     #[test]
@@ -190,6 +233,33 @@ mod tests {
         let error = TransportError::Credentials(AuthError::Rejected { auth: "svc".into(), status: 401 });
         assert_eq!(error.code(), Code::V5114);
         assert_eq!(error.to_string(), "credentials could not be obtained: the token endpoint for `svc` answered 401");
+    }
+
+    #[test]
+    fn a_refused_certificate_is_v5127_and_says_what_was_sent() {
+        let rejected = |sent: SentCert| TransportError::ClientCertRejected {
+            host: "pay.test".into(),
+            alert: "unknown_ca".into(),
+            reason: "it doesn't trust the issuer".into(),
+            sent,
+        };
+        assert_eq!(rejected(SentCert::Missing).code(), Code::V5127);
+        let failed = "TLS handshake with pay.test failed with unknown_ca (it doesn't trust the issuer); ";
+        assert_eq!(
+            rejected(SentCert::Named("payments".into())).to_string(),
+            format!("{failed}the server rejected `payments`")
+        );
+        assert_eq!(
+            rejected(SentCert::Missing).to_string(),
+            format!(
+                "{failed}no client certificate was sent: if the server requires one, add an `http.tls.clients` entry \
+                 for `pay.test`"
+            )
+        );
+        assert_eq!(
+            rejected(SentCert::Off).to_string(),
+            format!("{failed}client certificates are off for this call (`clientCert: none`)")
+        );
     }
 
     #[test]

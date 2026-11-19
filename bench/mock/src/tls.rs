@@ -53,6 +53,7 @@ pub struct MockTls {
     clients: Option<(ClientAuth, Vec<CertificateDer<'static>>)>,
     names: BTreeMap<Vec<u8>, String>,
     h2: bool,
+    tls12: bool,
 }
 
 impl MockTls {
@@ -60,7 +61,14 @@ impl MockTls {
     #[must_use]
     pub fn new(chain: Vec<Vec<u8>>, key: Vec<u8>) -> Self {
         let chain = chain.into_iter().map(CertificateDer::from).collect();
-        Self { chain, key: PrivatePkcs8KeyDer::from(key), clients: None, names: BTreeMap::new(), h2: false }
+        Self {
+            chain,
+            key: PrivatePkcs8KeyDer::from(key),
+            clients: None,
+            names: BTreeMap::new(),
+            h2: false,
+            tls12: false,
+        }
     }
 
     /// Checks client certificates against `roots` (DER).
@@ -84,12 +92,21 @@ impl MockTls {
         self
     }
 
+    /// Speaks TLS 1.2 only, so a refused client certificate is reported during the handshake
+    /// rather than on the client's first read, as under TLS 1.3.
+    #[must_use]
+    pub const fn tls12(mut self) -> Self {
+        self.tls12 = true;
+        self
+    }
+
     /// The rustls server setup (ring, HTTP/1.1 and, if asked, HTTP/2 by ALPN, and the client checks asked for) and the
     /// names `/whoami` gives. Consumes the setup, so the key is never copied.
     pub(crate) fn into_server(self) -> Result<(Arc<ServerConfig>, Names), MockError> {
         let provider = Arc::new(rustls::crypto::ring::default_provider());
         let builder = ServerConfig::builder_with_provider(provider.clone());
-        let builder = builder.with_safe_default_protocol_versions().map_err(tls_error)?;
+        let versions: &[_] = if self.tls12 { &[&rustls::version::TLS12] } else { rustls::DEFAULT_VERSIONS };
+        let builder = builder.with_protocol_versions(versions).map_err(tls_error)?;
         let builder = match self.clients {
             None => builder.with_no_client_auth(),
             Some((auth, roots)) => builder.with_client_cert_verifier(verifier(auth, roots, provider)?),

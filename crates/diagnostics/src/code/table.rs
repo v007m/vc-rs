@@ -115,4 +115,5 @@ code_table! {
     V5119 = 5119, Error, "A plugin cannot be confined to its permissions";
     V5120 = 5120, Warning, "A run cannot use a plugin in the config";
     V5121 = 5121, Warning, "The project's report folder leads outside the project";
+    V5127 = 5127, Error, "The server refused the client certificate";
 }
