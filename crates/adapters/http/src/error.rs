@@ -51,6 +51,16 @@ pub enum HttpAdapterError {
         reason: String,
     },
     /// The TLS handshake failed.
+    /// The server refused the client certificate, or the lack of one, with a TLS alert.
+    #[error("{host} refused the client certificate with {alert} ({reason})")]
+    ClientCertRejected {
+        /// The host name.
+        host: String,
+        /// The alert's name, such as `unknown_ca`.
+        alert: String,
+        /// What the alert means for the certificate.
+        reason: String,
+    },
     #[error("TLS handshake with {host} failed: {reason}")]
     Tls {
         /// The host name.
@@ -71,6 +81,9 @@ impl From<HttpAdapterError> for TransportError {
                 Self::Connect { host, reason }
             }
             HttpAdapterError::Tls { host, reason } => Self::Tls { host, reason },
+            HttpAdapterError::ClientCertRejected { host, alert, reason } => {
+                Self::ClientCertRejected { host, alert, reason, cert: None }
+            }
         }
     }
 }
@@ -99,6 +112,16 @@ mod tests {
         );
         let connect = HttpAdapterError::Connect { host: host.clone(), reason: reason.clone() };
         assert_eq!(TransportError::from(connect), TransportError::Connect { host, reason });
+    }
+
+    #[test]
+    fn a_refused_certificate_keeps_its_alert_and_is_v5127() {
+        let (host, reason) = pair("h");
+        let refused = HttpAdapterError::ClientCertRejected { host: host.clone(), alert: "unknown_ca".into(), reason };
+        assert_eq!(refused.to_string(), "h refused the client certificate with unknown_ca (why)");
+        let expected =
+            TransportError::ClientCertRejected { host, alert: "unknown_ca".into(), reason: "why".into(), cert: None };
+        assert_eq!(TransportError::from(refused), expected);
     }
 
     #[test]

@@ -7,9 +7,9 @@ use http::{Method, StatusCode, Uri};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::mpsc;
-use vc_adapter_http::{HttpOptions, HttpTransport, ProxyConfig, TlsOptions};
-use vc_interfaces::{SendContext, Transport, TransportError};
-use vc_mock_server::{MockHandle, MockServer, MockTls};
+use vc_adapter_http::{ClientIdentity, HttpOptions, HttpTransport, ProxyConfig, TlsOptions};
+use vc_interfaces::{CertChoice, CertId, SendContext, Transport, TransportError};
+use vc_mock_server::{ClientAuth, MockHandle, MockServer, MockTls};
 use vc_model::{Exchange, HttpVersion, RenderedRequest};
 use vc_testkit::TestPki;
 
@@ -104,6 +104,29 @@ async fn tunnels_https_through_a_connect_proxy() -> TestResult {
     let head = seen.recv().await.unwrap_or_default();
     assert!(head.starts_with(&format!("CONNECT {} HTTP/1.1\r\n", mock.addr())), "{head}");
     assert!(head.contains("Proxy-Authorization: Basic dTpw\r\n"), "{head}");
+    Ok(())
+}
+
+#[tokio::test]
+async fn sends_the_client_certificate_through_the_tunnel_only() -> TestResult {
+    let pki = TestPki::new()?;
+    let (server, good) = (pki.server(), pki.good());
+    let tls = MockTls::new(vec![server.cert_der().to_vec()], server.key_der().to_vec())
+        .client_auth(ClientAuth::Required, vec![pki.ca_der().to_vec()])
+        .name_client(good.name(), good.cert_der().to_vec());
+    let mock = MockServer::start_tls(tls).await?;
+    let (proxy, mut seen) = connect_proxy().await?;
+    let identity = ClientIdentity::pem("good", good.cert_pem().as_bytes().to_vec(), good.key_pem().as_bytes().to_vec());
+    let tls = TlsOptions { ca: vec![pki.ca_pem().into_bytes()], clients: vec![identity] };
+    let proxy_config = ProxyConfig { https: Some(format!("http://{proxy}")), ..ProxyConfig::default() };
+    let transport = HttpTransport::new(&HttpOptions { proxy: proxy_config, tls, ..HttpOptions::default() })?;
+    let request = RenderedRequest::new(Method::GET, Uri::try_from(format!("{}/whoami", mock.base_url()))?);
+    let ctx = SendContext { client_cert: CertChoice::Named(CertId::new(0)), ..SendContext::default() };
+    let exchange = transport.send(request, &ctx).await?;
+    let body: serde_json::Value = serde_json::from_slice(&exchange.response.body)?;
+    assert_eq!((body["client"].as_str(), exchange.connection.remote), (Some("good"), Some(proxy)));
+    let head = seen.recv().await.unwrap_or_default();
+    assert!(head.starts_with("CONNECT ") && !head.contains("BEGIN"), "the proxy sees only the tunnel request: {head}");
     Ok(())
 }
 

@@ -1,5 +1,6 @@
 //! Client certificates: PEM identities, refusals at construction, the per-identity pools and host
-//! matching, against the https mock asking for an optional certificate.
+//! matching, against the https mock asking for an optional certificate; and refusals by a server
+//! that requires one (V5127), on TLS 1.2 and 1.3.
 
 use std::error::Error;
 
@@ -7,7 +8,7 @@ use http::{Method, StatusCode, Uri};
 use vc_adapter_http::{ClientIdentity, HttpAdapterError, HttpOptions, HttpTransport, TlsOptions};
 use vc_interfaces::{CertChoice, CertId, SendContext, Transport, TransportError};
 use vc_mock_server::{ClientAuth, MockHandle, MockServer, MockTls};
-use vc_model::{Exchange, RenderedRequest};
+use vc_model::{Exchange, HttpVersion, RenderedRequest};
 use vc_testkit::{ClientCert, Identity, KeyKind, TestPki};
 
 type TestResult = Result<(), Box<dyn Error>>;
@@ -21,11 +22,17 @@ fn transport(pki: &TestPki, clients: Vec<ClientIdentity>) -> Result<HttpTranspor
     HttpTransport::new(&HttpOptions { tls, ..HttpOptions::default() })
 }
 
+/// The https mock's TLS setup: the test PKI's server certificate, asking for a client
+/// certificate from its CA as `auth` says.
+fn server_tls(pki: &TestPki, auth: ClientAuth) -> MockTls {
+    let server = pki.server();
+    MockTls::new(vec![server.cert_der().to_vec()], server.key_der().to_vec())
+        .client_auth(auth, vec![pki.ca_der().to_vec()])
+}
+
 /// The https mock asking for an optional certificate, naming each of `clients` on `/whoami`.
 async fn mock(pki: &TestPki, clients: &[&Identity]) -> Result<MockHandle, Box<dyn Error>> {
-    let server = pki.server();
-    let tls = MockTls::new(vec![server.cert_der().to_vec()], server.key_der().to_vec())
-        .client_auth(ClientAuth::Optional, vec![pki.ca_der().to_vec()]);
+    let tls = server_tls(pki, ClientAuth::Optional);
     let tls = clients.iter().fold(tls, |tls, client| tls.name_client(client.name(), client.cert_der().to_vec()));
     Ok(MockServer::start_tls(tls).await?)
 }
@@ -128,5 +135,80 @@ async fn by_host_sends_the_identity_only_to_the_matching_port() -> TestResult {
     assert_eq!((client(&exchange)?, exchange.connection.client_cert.as_deref()), ("good".into(), Some("here")));
     let exchange = whoami(&transport(&pki, vec![elsewhere])?, &mock.base_url(), CertChoice::Host).await?;
     assert_eq!((exchange.response.status, exchange.connection.client_cert), (StatusCode::FORBIDDEN, None));
+    Ok(())
+}
+
+/// A change to the mock's TLS setup.
+type Setup = fn(MockTls) -> MockTls;
+
+/// The servers that require a certificate: TLS 1.2 only, and TLS 1.3 over HTTP/1.1 and HTTP/2,
+/// where the refusal arrives on the first read.
+const SETUPS: [(&str, Setup); 3] =
+    [("TLS 1.2", MockTls::tls12), ("TLS 1.3", std::convert::identity), ("TLS 1.3 and h2", MockTls::h2)];
+
+/// How a server that requires a certificate, set up by `setup`, answers a call that sends `sent`
+/// (as identity `sent`), or no certificate.
+async fn refused(pki: &TestPki, setup: Setup, sent: Option<&Identity>) -> Result<TransportError, Box<dyn Error>> {
+    let mock = MockServer::start_tls(setup(server_tls(pki, ClientAuth::Required))).await?;
+    let choice = if sent.is_some() { CertChoice::Named(CertId::new(0)) } else { CertChoice::Off };
+    let transport = transport(pki, sent.map(|cert| identity("sent", cert)).into_iter().collect())?;
+    let request = RenderedRequest::new(Method::GET, Uri::try_from(format!("{}/whoami", mock.base_url()))?);
+    let outcome = transport.send(request, &SendContext { client_cert: choice, ..SendContext::default() }).await;
+    outcome.err().ok_or_else(|| "the server let the call in".into())
+}
+
+#[tokio::test]
+async fn a_certificate_from_another_ca_is_refused_as_unknown_ca_on_tls_1_2_and_1_3() -> TestResult {
+    let pki = TestPki::new()?;
+    for (name, setup) in SETUPS {
+        let error = refused(&pki, setup, Some(pki.other_ca())).await?;
+        let expected = TransportError::ClientCertRejected {
+            host: "127.0.0.1".into(),
+            alert: "unknown_ca".into(),
+            reason: "it doesn't trust the issuer".into(),
+            cert: Some("sent".into()),
+        };
+        assert_eq!(error, expected, "{name}");
+    }
+    Ok(())
+}
+
+#[tokio::test]
+async fn no_certificate_is_refused_as_required_with_help_on_tls_1_2_and_1_3() -> TestResult {
+    let pki = TestPki::new()?;
+    for (name, setup) in SETUPS {
+        let error = refused(&pki, setup, None).await?;
+        assert!(
+            matches!(&error, TransportError::ClientCertRejected { alert, cert: None, .. } if alert == "certificate_required"),
+            "{name}: {error:?}"
+        );
+        assert!(error.to_string().contains("add an `http.tls.clients` entry for `127.0.0.1`"), "{error}");
+    }
+    Ok(())
+}
+
+#[tokio::test]
+async fn an_expired_certificate_is_refused_as_expired() -> TestResult {
+    let pki = TestPki::new()?;
+    let day = std::time::Duration::from_hours(24);
+    let ended = std::time::SystemTime::now() - day;
+    let old = pki.client(&ClientCert::new("old").valid(ended - day, ended))?;
+    let error = refused(&pki, std::convert::identity, Some(&old)).await?;
+    assert!(
+        matches!(&error, TransportError::ClientCertRejected { alert, .. } if alert == "certificate_expired"),
+        "{error:?}"
+    );
+    Ok(())
+}
+
+#[tokio::test]
+async fn sends_the_certificate_over_h2() -> TestResult {
+    let pki = TestPki::new()?;
+    let good = pki.good();
+    let tls = server_tls(&pki, ClientAuth::Required).name_client(good.name(), good.cert_der().to_vec()).h2();
+    let mock = MockServer::start_tls(tls).await?;
+    let transport = transport(&pki, vec![identity("good", good)])?;
+    let exchange = whoami(&transport, &mock.base_url(), CertChoice::Named(CertId::new(0))).await?;
+    assert_eq!((client(&exchange)?, exchange.connection.protocol), ("good".into(), HttpVersion::Http2));
     Ok(())
 }

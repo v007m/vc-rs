@@ -513,6 +513,11 @@ impl core::marker::StructuralPartialEq for vc_interfaces::SourceError
 #[non_exhaustive] pub enum vc_interfaces::TransportError
 pub vc_interfaces::TransportError::BodyTooLarge
 pub vc_interfaces::TransportError::BodyTooLarge::limit: vc_model::units::Size
+pub vc_interfaces::TransportError::ClientCertRejected
+pub vc_interfaces::TransportError::ClientCertRejected::alert: alloc::string::String
+pub vc_interfaces::TransportError::ClientCertRejected::cert: core::option::Option<alloc::string::String>
+pub vc_interfaces::TransportError::ClientCertRejected::host: alloc::string::String
+pub vc_interfaces::TransportError::ClientCertRejected::reason: alloc::string::String
 pub vc_interfaces::TransportError::Connect
 pub vc_interfaces::TransportError::Connect::host: alloc::string::String
 pub vc_interfaces::TransportError::Connect::reason: alloc::string::String

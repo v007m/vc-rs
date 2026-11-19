@@ -145,16 +145,37 @@ pub enum TransportError {
     /// The auth layer could not obtain credentials for the request (V5114).
     #[error("credentials could not be obtained: {0}")]
     Credentials(AuthError),
+    /// The server refused the client certificate, or the lack of one, with a TLS alert (V5127).
+    #[error("TLS handshake with {host} failed with {alert} ({reason}): {}", advice(host, cert.as_deref()))]
+    ClientCertRejected {
+        /// The host name.
+        host: String,
+        /// The alert's name, such as `unknown_ca`.
+        alert: String,
+        /// What the alert means for the certificate.
+        reason: String,
+        /// The ID of the identity that was sent, if any.
+        cert: Option<String>,
+    },
+}
+
+/// What to do about a refused certificate: name the one sent, or say how to send one.
+fn advice(host: &str, cert: Option<&str>) -> String {
+    cert.map_or_else(
+        || format!("the server asks for a client certificate; add an `http.tls.clients` entry for `{host}` or a `clientCert` on the auth"),
+        |id| format!("the server rejected `{id}`"),
+    )
 }
 
 impl TransportError {
-    /// The diagnostic code a failed step reports: V5104 for a timeout, V5114 for credentials
-    /// and V5105 for the rest.
+    /// The diagnostic code a failed step reports: V5104 for a timeout, V5114 for credentials,
+    /// V5127 for a refused client certificate and V5105 for the rest.
     #[must_use]
     pub const fn code(&self) -> Code {
         match self {
             Self::Timeout { .. } => Code::V5104,
             Self::Credentials(_) => Code::V5114,
+            Self::ClientCertRejected { .. } => Code::V5127,
             _ => Code::V5105,
         }
     }
@@ -190,6 +211,26 @@ mod tests {
         let error = TransportError::Credentials(AuthError::Rejected { auth: "svc".into(), status: 401 });
         assert_eq!(error.code(), Code::V5114);
         assert_eq!(error.to_string(), "credentials could not be obtained: the token endpoint for `svc` answered 401");
+    }
+
+    #[test]
+    fn a_refused_certificate_is_v5127_and_names_the_identity_or_how_to_send_one() {
+        let rejected = |cert: Option<&str>| TransportError::ClientCertRejected {
+            host: "pay.test".into(),
+            alert: "unknown_ca".into(),
+            reason: "it doesn't trust the issuer".into(),
+            cert: cert.map(str::to_owned),
+        };
+        assert_eq!(rejected(None).code(), Code::V5127);
+        assert_eq!(
+            rejected(Some("payments")).to_string(),
+            "TLS handshake with pay.test failed with unknown_ca (it doesn't trust the issuer): the server rejected `payments`"
+        );
+        assert_eq!(
+            rejected(None).to_string(),
+            "TLS handshake with pay.test failed with unknown_ca (it doesn't trust the issuer): the server asks for a client \
+             certificate; add an `http.tls.clients` entry for `pay.test` or a `clientCert` on the auth"
+        );
     }
 
     #[test]

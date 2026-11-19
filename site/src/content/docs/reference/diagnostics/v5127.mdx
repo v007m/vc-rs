@@ -1,0 +1,80 @@
+---
+title: "V5127 — The server refused the client certificate"
+description: "The server ended the TLS handshake with an alert about the client certificate: certificate_required (none was sent), bad_certificate, unknown_ca (it doesn't trust the issuer), certificate_expired, certificate_revoked, unsupported_certificate or access_denied."
+sidebar:
+  label: "V5127 The server refused the client certificate"
+  order: 5127
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="error" variant="danger" /> <Badge text="Run time" variant="note" />
+
+| | |
+| --- | --- |
+| Code | `V5127` |
+| Category | V5xxx: Run time |
+| Severity | error |
+| Test outcome | failure |
+| Certain fix | none; `vc check --fix` leaves this one to you |
+
+The server ended the TLS handshake with an alert about the client certificate: `certificate_required` (none was
+sent), `bad_certificate`, `unknown_ca` (it doesn't trust the issuer), `certificate_expired`, `certificate_revoked`,
+`unsupported_certificate` or `access_denied`. Only that call fails. The message names the alert and the identity
+that was sent, never its key. Here the server asks for a certificate and the project sends none; give the host an
+`http.tls.clients` entry, or put a `clientCert` on the auth the call uses.
+
+## Wrong
+
+```yaml title="vibranium.config.yaml"
+syntaxVersion: 2
+profiles:
+  - id: dev
+    default: true
+```
+
+```yaml title="services/payments/payments.api.yaml"
+baseUrl: https://payments.internal.example
+apis:
+  - id: listPayments
+    path: /payments
+```
+
+## Right
+
+```yaml skip title="vibranium.config.yaml"
+syntaxVersion: 2
+profiles:
+  - id: dev
+    default: true
+http:
+  tls:
+    clients:
+      - id: paymentsClient
+        hosts: [payments.internal.example]
+        cert: certs/payments-client.pem
+        key: certs/payments-client.key
+```
+
+```yaml skip title="services/payments/payments.api.yaml"
+baseUrl: https://payments.internal.example
+apis:
+  - id: listPayments
+    path: /payments
+```
+
+
+## Explain it in your terminal
+
+The same page is built into the binary, so this works anywhere, even outside a project:
+
+```console
+$ vc explain V5127
+```
+
+## Related
+
+- [All diagnostic codes](/vc-rs/reference/diagnostics/)
+- [`vc explain`](/vc-rs/reference/cli/explain/)
+- [`vc check`](/vc-rs/reference/cli/check/)
+- [Errors and fixes](/vc-rs/guides/errors-and-fixes/)
