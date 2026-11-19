@@ -24,13 +24,31 @@ pub struct ClientIdentity {
 }
 
 /// Where the chain and key come from.
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone)]
 enum Material {
     /// PEM text, parsed when the transport is built.
     Pem { cert: Vec<u8>, key: Zeroizing<Vec<u8>> },
-    /// A decoded PKCS#12 bundle: the DER chain, leaf first, and the PKCS#8 key.
-    Der { chain: Vec<CertificateDer<'static>>, key: Zeroizing<Vec<u8>> },
+    /// A decoded PKCS#12 bundle: the DER chain, leaf first, with the signer built from the key,
+    /// and the PKCS#8 key.
+    Der { certified: CertifiedKey, key: Zeroizing<Vec<u8>> },
 }
+
+impl PartialEq for Material {
+    /// Same text, or the same chain and key: the signer is built from the key.
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Pem { cert, key }, Self::Pem { cert: other_cert, key: other_key }) => {
+                (cert, key) == (other_cert, other_key)
+            }
+            (Self::Der { certified, key }, Self::Der { certified: other, key: other_key }) => {
+                (&certified.cert, key) == (&other.cert, other_key)
+            }
+            _ => false,
+        }
+    }
+}
+
+impl Eq for Material {}
 
 impl ClientIdentity {
     /// An identity from a PEM certificate chain (leaf first) and a PEM private key: RSA (PKCS#1
@@ -50,23 +68,28 @@ impl ClientIdentity {
     /// An identity from a PKCS#12 bundle (`.p12`, `.pfx`) and its passphrase, encrypted with PBES2
     /// and AES or with the legacy 3DES and RC2 ciphers. It must hold one private key and its
     /// certificate. The certificate whose public key is the key's leads the chain, followed by its
-    /// issuers from the bundle; trusted entries and unrelated certificates are left out.
+    /// issuers from the bundle, matched by the DER of their names, trusted entries included; when
+    /// several share a name, the one whose key verifies the signature wins, then the one that
+    /// expires last. Certificates off that path are left out.
     ///
-    /// The bundle is decoded here, once, and the key kept in memory wiped on drop. Decoding runs
-    /// the bundle's key derivation, up to `p12-keystore`'s limit of 1,000,000 iterations, so call
-    /// it off the async runtime (`spawn_blocking`).
+    /// The bundle is decoded here, once: ring parses the key into the signer the transport uses,
+    /// and vc's copy of the key is kept in memory wiped on drop. Decoding runs the bundle's key
+    /// derivation for the MAC and again for each encrypted bag, each up to `p12-keystore`'s limit
+    /// of 1,000,000 iterations, and scrypt may use up to 1 GiB of memory, so call it off the async
+    /// runtime (`spawn_blocking`).
     ///
     /// # Errors
     ///
     /// [`HttpAdapterError::Identity`] for a passphrase PKCS#12 cannot encode, a wrong passphrase,
-    /// an unsupported cipher or MAC, key-derivation parameters over the limits, a bundle with no
-    /// key, more than one key or no certificate, or a file that is not PKCS#12.
+    /// a bag that does not decrypt, an unsupported cipher or MAC, key-derivation parameters over
+    /// the limits, a bundle with no key, more than one key, a key of an unsupported type, no
+    /// certificate or none that matches the key, or a file that is not PKCS#12.
     pub fn pkcs12(id: impl Into<String>, bundle: &[u8], passphrase: &str) -> Result<Self, HttpAdapterError> {
         let id = id.into();
         match pkcs12::decode(bundle, passphrase) {
-            Ok(Decoded { chain, key }) => {
-                let leaf_sha256 = chain.first().map(|leaf| Fingerprint::of(leaf));
-                Ok(Self { id, hosts: Vec::new(), leaf_sha256, material: Material::Der { chain, key } })
+            Ok(Decoded { certified, key }) => {
+                let leaf_sha256 = certified.cert.first().map(|leaf| Fingerprint::of(leaf));
+                Ok(Self { id, hosts: Vec::new(), leaf_sha256, material: Material::Der { certified, key } })
             }
             Err(reason) => Err(HttpAdapterError::Identity { id, reason: reason.to_string() }),
         }
@@ -98,7 +121,8 @@ impl ClientIdentity {
 
     /// The certificate chain and its signing key, for rustls, checked to belong together.
     ///
-    /// The decoded key stays in memory that is wiped on drop; ring parses it by reference.
+    /// A PEM key is decoded into memory that is wiped on drop, and ring parses it by reference;
+    /// a PKCS#12 identity reuses the signer it built when decoded.
     /// Errors name the identity and the cause, never PEM text: pki-types quotes the bad line.
     pub(crate) fn certified(&self) -> Result<CertifiedKey, HttpAdapterError> {
         match &self.material {
@@ -106,7 +130,7 @@ impl ClientIdentity {
                 let (chain, key) = self.parse_pem(cert, key)?;
                 self.sign(chain, &key)
             }
-            Material::Der { chain, key } => self.sign(chain.clone(), &PrivateKeyDer::Pkcs8(key.as_slice().into())),
+            Material::Der { certified, .. } => Ok(certified.clone()),
         }
     }
 
@@ -237,6 +261,20 @@ mod tests {
         assert!(!shown.contains("KEY-BYTES"), "{shown}");
         let hex = shown.split("Some(").nth(1).and_then(|rest| rest.split(')').next()).unwrap_or_default();
         assert!(hex.len() == 64 && hex.bytes().all(|byte| byte.is_ascii_hexdigit()), "{hex}");
+    }
+
+    #[test]
+    fn identities_are_equal_when_their_chain_and_key_are() -> Result<(), HttpAdapterError> {
+        let p12 = |bundle: &[u8]| ClientIdentity::pkcs12("ec", bundle, "fixture");
+        let aes = p12(include_bytes!("../tests/fixtures/ec.p12"))?;
+        assert_eq!(aes, p12(include_bytes!("../tests/fixtures/ec.legacy.p12"))?, "the cipher does not count");
+        let cert = include_bytes!("../tests/fixtures/ec.pem");
+        let pem = |key: &[u8]| ClientIdentity::pem("ec", cert.to_vec(), key.to_vec());
+        let sec1 = pem(include_bytes!("../tests/fixtures/ec.sec1.key"));
+        assert_ne!(aes, sec1);
+        assert_eq!(sec1, pem(include_bytes!("../tests/fixtures/ec.sec1.key")));
+        assert_ne!(sec1, pem(b"other"));
+        Ok(())
     }
 
     #[test]

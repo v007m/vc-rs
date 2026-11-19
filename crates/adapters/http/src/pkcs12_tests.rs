@@ -9,7 +9,8 @@ use rustls::pki_types::pem::PemObject;
 use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use vc_testkit::TestPki;
 
-use super::{Reason, decode, from_archive, has_mac};
+use super::{Reason, decode, from_archive};
+use crate::pkcs12_reason::Layout;
 
 type TestResult<T = ()> = Result<T, Box<dyn std::error::Error>>;
 
@@ -38,16 +39,16 @@ fn bundle(entries: Vec<KeyStoreEntry>) -> TestResult<Vec<u8>> {
     Ok(store.writer("pw").write()?)
 }
 
-fn cert_bag(cert: &Certificate, local_key_id: Option<&[u8]>, trusted: bool) -> CertificateBag {
+pub fn cert_bag(cert: &Certificate, local_key_id: Option<&[u8]>, trusted: bool) -> CertificateBag {
     CertificateBag { friendly_name: None, local_key_id: local_key_id.map(<[u8]>::to_vec), trusted, cert: cert.clone() }
 }
 
 /// The chain `from_archive` sends for `key` (with `key_id`) and `certs`, as DER.
-fn chain_for(key: PrivateKey, key_id: Option<&[u8]>, certs: Vec<CertificateBag>) -> Result<Vec<Vec<u8>>, Reason> {
+pub fn chain_for(key: PrivateKey, key_id: Option<&[u8]>, certs: Vec<CertificateBag>) -> Result<Vec<Vec<u8>>, Reason> {
     let local_key_id = key_id.map(|id| LocalKeyId(id.to_vec()));
     let keys = vec![PrivateKeyBag { friendly_name: None, local_key_id, key }];
     let decoded = from_archive(&Pkcs12Archive { keys, certs, secrets: Vec::new() })?;
-    Ok(decoded.chain.iter().map(|der| der.to_vec()).collect())
+    Ok(decoded.certified.cert.iter().map(|der| der.to_vec()).collect())
 }
 
 #[test]
@@ -58,7 +59,7 @@ fn decodes_openssl_bundles_with_aes_3des_and_rc2_and_without_a_mac() -> Result<(
         include_bytes!("../tests/fixtures/ec.nomac.p12"),
     ] {
         let decoded = decode(bytes, "fixture")?;
-        assert_eq!(decoded.chain.len(), 1);
+        assert_eq!(decoded.certified.cert.len(), 1);
         assert!(!decoded.key.is_empty());
     }
     Ok(())
@@ -74,11 +75,29 @@ fn says_what_is_wrong_without_quoting_the_bundle() {
 }
 
 #[test]
-fn tells_a_bundle_without_a_mac() {
-    assert!(has_mac(include_bytes!("../tests/fixtures/ec.p12")));
-    assert!(!has_mac(include_bytes!("../tests/fixtures/ec.nomac.p12")));
-    assert!(has_mac(&[0x31, 0x06, 0x02, 0x01, 0x03, 0x02, 0x01, 0x00]), "a SET is not a PFX");
-    assert!(has_mac(b"fixture"));
+fn tells_a_bag_that_does_not_decrypt_from_a_bad_bag_that_was_never_encrypted() {
+    let twopass = include_bytes!("../tests/fixtures/ec.twopass.p12");
+    assert_eq!(reason_for(twopass, "fixture"), Some(Reason::BagUndecryptable));
+    assert_eq!(reason_for(twopass, "encrypt"), Some(Reason::WrongPassphrase));
+    let bad_cert = include_bytes!("../tests/fixtures/ec.badcert.p12");
+    assert_eq!(reason_for(bad_cert, "fixture"), Some(Reason::NotX509));
+    assert_eq!(reason_for(bad_cert, "wrong"), Some(Reason::NotX509));
+}
+
+#[test]
+fn reads_what_a_bundle_holds() {
+    let layout = |mac, encrypted_safe, shrouded_key| Layout { mac, encrypted_safe, shrouded_key };
+    let cases: [(&[u8], Layout); 6] = [
+        (include_bytes!("../tests/fixtures/ec.p12"), layout(true, true, true)),
+        (include_bytes!("../tests/fixtures/ec.legacy.p12"), layout(true, true, true)),
+        (include_bytes!("../tests/fixtures/ec.nomac.p12"), layout(false, false, true)),
+        (include_bytes!("../tests/fixtures/ec.badcert.p12"), layout(false, false, false)),
+        (&[0x31, 0x06, 0x02, 0x01, 0x03, 0x02, 0x01, 0x00], layout(true, false, false)),
+        (b"fixture", layout(true, false, false)),
+    ];
+    for (index, (bytes, expected)) in cases.into_iter().enumerate() {
+        assert_eq!(Layout::of(bytes), expected, "case {index}");
+    }
 }
 
 #[test]
@@ -130,25 +149,26 @@ fn breaks_a_public_key_tie_by_local_key_id_then_bag_order() -> TestResult {
 }
 
 #[test]
-fn falls_back_to_the_local_key_id_then_the_first_bag_when_no_public_key_matches() -> TestResult {
+fn says_so_when_no_certificate_matches_the_key_or_ring_cannot_sign_with_it() -> TestResult {
     let (ec, rsa) = (pem_cert(EC_CERT)?, pem_cert(RSA_CERT)?);
     let certs = || vec![cert_bag(&ec, None, false), cert_bag(&rsa, Some(b"k"), false)];
     let pki = TestPki::new()?;
-    let key = || PrivateKey::from_der(pki.good().key_der());
-    assert_eq!(chain_for(key()?, Some(b"k"), certs())?, [rsa.as_der()]);
-    assert_eq!(chain_for(key()?, None, certs())?, [ec.as_der()]);
+    let key = PrivateKey::from_der(pki.good().key_der())?;
+    assert_eq!(chain_for(key, Some(b"k"), certs()), Err(Reason::NoMatchingCertificate));
+    let p521 = PrivateKeyDer::from_pem_slice(include_bytes!("../tests/fixtures/p521.pkcs8.key"))?;
+    assert_eq!(chain_for(PrivateKey::from_der(p521.secret_der())?, None, certs()), Err(Reason::KeyType));
     Ok(())
 }
 
 #[test]
-fn sends_only_the_leafs_issuers_and_never_a_trusted_entry() -> TestResult {
+fn sends_the_leafs_issuers_trusted_or_not_and_nothing_else() -> TestResult {
     let pki = TestPki::new()?;
     let (ca, leaf) = (Certificate::from_der(pki.ca_der())?, Certificate::from_der(pki.good().cert_der())?);
     let unrelated = pem_cert(RSA_CERT)?;
     let key = || PrivateKey::from_der(pki.good().key_der());
     let certs =
         |trusted| vec![cert_bag(&unrelated, None, false), cert_bag(&ca, None, trusted), cert_bag(&leaf, None, false)];
-    assert_eq!(chain_for(key()?, None, certs(true))?, [leaf.as_der()]);
+    assert_eq!(chain_for(key()?, None, certs(true))?, [leaf.as_der(), ca.as_der()]);
     assert_eq!(chain_for(key()?, None, certs(false))?, [leaf.as_der(), ca.as_der()]);
     Ok(())
 }
@@ -169,24 +189,28 @@ fn stops_a_chain_that_comes_back_round() -> TestResult {
 
 #[test]
 fn names_each_other_failure() {
+    let layout = |mac, encrypted_safe, shrouded_key| Layout { mac, encrypted_safe, shrouded_key };
+    let (plain, plain_nomac) = (layout(true, false, false), layout(false, false, false));
+    let (safe, key) = (layout(true, true, false), layout(false, false, true));
     let cases = [
-        (P12Error::UnpadError, true, Reason::Unsupported),
-        (P12Error::Pkcs5Error("x".into()), true, Reason::Unsupported),
-        (P12Error::UnsupportedMacAlgorithm, true, Reason::Unsupported),
-        (P12Error::UnsupportedMacAlgorithm, false, Reason::Unsupported),
-        (P12Error::InvalidParameters, false, Reason::OverLimit),
-        (P12Error::InvalidPrivateKey, true, Reason::NotPkcs8),
-        (P12Error::UnsupportedCertificateType, true, Reason::NotX509),
-        (P12Error::InvalidData, true, Reason::NotPkcs12),
-        (P12Error::InvalidVersion, true, Reason::NotPkcs12),
-        (P12Error::UnpadError, false, Reason::Undecryptable),
-        (P12Error::InvalidData, false, Reason::Undecryptable),
-        (P12Error::InvalidPrivateKey, false, Reason::Undecryptable),
-        (P12Error::UnsupportedCertificateType, false, Reason::Undecryptable),
-        (P12Error::InvalidVersion, false, Reason::NotPkcs12),
+        (P12Error::UnpadError, plain, Reason::BagUndecryptable),
+        (P12Error::Pkcs5Error("x".into()), plain_nomac, Reason::Undecryptable),
+        (P12Error::UnsupportedMacAlgorithm, plain_nomac, Reason::Unsupported),
+        (P12Error::UnsupportedEncryptionScheme, safe, Reason::Unsupported),
+        (P12Error::InvalidParameters, key, Reason::OverLimit),
+        (P12Error::InvalidPrivateKey, plain, Reason::NotPkcs8),
+        (P12Error::InvalidPrivateKey, safe, Reason::BagUndecryptable),
+        (P12Error::InvalidPrivateKey, key, Reason::Undecryptable),
+        (P12Error::UnsupportedCertificateType, plain_nomac, Reason::NotX509),
+        (P12Error::UnsupportedCertificateType, key, Reason::NotX509),
+        (P12Error::UnsupportedCertificateType, safe, Reason::BagUndecryptable),
+        (P12Error::InvalidData, plain_nomac, Reason::NotPkcs12),
+        (P12Error::InvalidData, safe, Reason::BagUndecryptable),
+        (P12Error::InvalidData, key, Reason::Undecryptable),
+        (P12Error::InvalidVersion, key, Reason::NotPkcs12),
     ];
-    for (error, has_mac, reason) in cases {
-        assert_eq!(Reason::of(&error, has_mac), reason, "{error:?} with a MAC: {has_mac}");
+    for (error, layout, reason) in cases {
+        assert_eq!(Reason::of(&error, layout), reason, "{error:?} in {layout:?}");
     }
 }
 
@@ -199,17 +223,22 @@ fn gives_each_reason_one_message() {
         ),
         (Reason::WrongPassphrase, "the passphrase is wrong"),
         (Reason::Undecryptable, "could not decrypt the bundle: check the passphrase"),
+        (Reason::BagUndecryptable, "could not decrypt a bag: the bundle may use a separate encryption password"),
         (Reason::Unsupported, "the bundle uses a cipher or MAC that is not supported; export it again with AES"),
         (Reason::OverLimit, "unsupported or over-limit key-derivation parameters (iterations, scrypt cost or missing"),
         (Reason::NotPkcs8, "the bundle's private key is not valid PKCS#8"),
+        (Reason::KeyType, "the bundle's private key is of a type that is not supported (use RSA, ECDSA P-256"),
         (Reason::NotX509, "the bundle holds a certificate that is not valid X.509"),
         (Reason::NotPkcs12, "the file is not a valid PKCS#12 bundle"),
         (Reason::NoKey, "the bundle has no private key"),
         (Reason::Keys(3), "the bundle holds 3 private keys; export only the one to send"),
         (Reason::NoCertificate, "the bundle has no certificate"),
+        (Reason::NoMatchingCertificate, "no certificate in the bundle matches its private key"),
     ];
     for (reason, start) in starts {
         assert!(reason.to_string().starts_with(start), "{reason}");
     }
-    assert!(Reason::OverLimit.to_string().ends_with("-macalg sha256`)"));
+    for reason in [Reason::OverLimit, Reason::BagUndecryptable] {
+        assert!(reason.to_string().ends_with("-macalg sha256`)"), "{reason}");
+    }
 }

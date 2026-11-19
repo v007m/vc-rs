@@ -1,109 +1,20 @@
-//! PKCS#12 bundles (D352), decoded with `p12-keystore` into a DER chain and a PKCS#8 key.
+//! PKCS#12 bundles (D352), decoded with `p12-keystore` into a DER chain and a signer for the key.
 
-use std::fmt;
-
-use der::asn1::AnyRef;
-use der::{Decode, Reader, SliceReader, Tag, Tagged};
-use p12_keystore::error::Error as P12Error;
 use p12_keystore::{CertificateBag, LocalKeyId, Pkcs12Archive};
 use rustls::crypto::ring::sign::any_supported_type;
 use rustls::pki_types::{CertificateDer, PrivateKeyDer};
-use rustls::server::ParsedCertificate;
+use rustls::sign::CertifiedKey;
+use x509_parser::certificate::X509Certificate;
 use zeroize::Zeroizing;
 
-/// A decoded bundle: the chain, leaf first, and the PKCS#8 key in memory wiped on drop.
+use crate::pkcs12_reason::Layout;
+pub use crate::pkcs12_reason::Reason;
+
+/// A decoded bundle: the chain, leaf first, with the signer ring built from the key, and vc's
+/// copy of the PKCS#8 key, in memory wiped on drop.
 pub struct Decoded {
-    pub chain: Vec<CertificateDer<'static>>,
+    pub certified: CertifiedKey,
     pub key: Zeroizing<Vec<u8>>,
-}
-
-/// Why a bundle was refused. [`fmt::Display`] gives the message, which never quotes the bundle,
-/// the passphrase or `p12-keystore`'s text.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Reason {
-    /// The passphrase has a character PKCS#12's `BMPString` cannot hold: U+FFFF or above.
-    NonBmpPassphrase,
-    /// The MAC does not match.
-    WrongPassphrase,
-    /// A bundle without a MAC did not decrypt or parse once decrypted.
-    Undecryptable,
-    /// A cipher, MAC or PBES2 scheme `p12-keystore` does not support.
-    Unsupported,
-    /// Key-derivation parameters over `p12-keystore`'s limits, or missing.
-    OverLimit,
-    /// The private key is not PKCS#8.
-    NotPkcs8,
-    /// A certificate is not X.509.
-    NotX509,
-    /// The file is not PKCS#12.
-    NotPkcs12,
-    /// The bundle has no private key.
-    NoKey,
-    /// The bundle has this many private keys, more than one.
-    Keys(usize),
-    /// The bundle has no certificate.
-    NoCertificate,
-}
-
-const EXPORT_AGAIN: &str = "export it again with AES \
-                            (`openssl pkcs12 -export -keypbe AES-256-CBC -certpbe AES-256-CBC -macalg sha256`)";
-
-impl fmt::Display for Reason {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::NonBmpPassphrase => f.write_str(
-                "the passphrase has a character PKCS#12 cannot encode (one outside the Basic Multilingual \
-                 Plane, such as an emoji, or U+FFFF)",
-            ),
-            Self::WrongPassphrase => {
-                f.write_str("the passphrase is wrong, or the bundle is damaged (its MAC does not match)")
-            }
-            Self::Undecryptable => f.write_str("could not decrypt the bundle: check the passphrase"),
-            Self::Unsupported => write!(f, "the bundle uses a cipher or MAC that is not supported; {EXPORT_AGAIN}"),
-            Self::OverLimit => write!(
-                f,
-                "unsupported or over-limit key-derivation parameters (iterations, scrypt cost or missing \
-                 parameters); {EXPORT_AGAIN}"
-            ),
-            Self::NotPkcs8 => f.write_str("the bundle's private key is not valid PKCS#8"),
-            Self::NotX509 => f.write_str("the bundle holds a certificate that is not valid X.509"),
-            Self::NotPkcs12 => f.write_str("the file is not a valid PKCS#12 bundle"),
-            Self::NoKey => f.write_str("the bundle has no private key"),
-            Self::Keys(count) => write!(f, "the bundle holds {count} private keys; export only the one to send"),
-            Self::NoCertificate => f.write_str("the bundle has no certificate"),
-        }
-    }
-}
-
-impl std::error::Error for Reason {}
-
-impl Reason {
-    /// The reason for `p12-keystore`'s error. Without a MAC a wrong passphrase only shows as
-    /// decrypted bytes that do not unpad or parse, so those failures say to check it.
-    const fn of(error: &P12Error, has_mac: bool) -> Self {
-        match error {
-            P12Error::MacError(_) => Self::WrongPassphrase,
-            P12Error::InvalidParameters => Self::OverLimit,
-            P12Error::Pkcs5Error(_)
-            | P12Error::UnpadError
-            | P12Error::DerError(_)
-            | P12Error::InvalidData
-            | P12Error::InvalidPrivateKey
-            | P12Error::X509Error(_)
-            | P12Error::UnsupportedCertificateType
-                if !has_mac =>
-            {
-                Self::Undecryptable
-            }
-            P12Error::UnsupportedEncryptionScheme
-            | P12Error::UnsupportedMacAlgorithm
-            | P12Error::Pkcs5Error(_)
-            | P12Error::UnpadError => Self::Unsupported,
-            P12Error::InvalidPrivateKey => Self::NotPkcs8,
-            P12Error::X509Error(_) | P12Error::UnsupportedCertificateType => Self::NotX509,
-            _ => Self::NotPkcs12,
-        }
-    }
 }
 
 /// Decodes a bundle that holds one private key and its certificate.
@@ -111,80 +22,96 @@ pub fn decode(bytes: &[u8], password: &str) -> Result<Decoded, Reason> {
     if password.chars().any(|c| u32::from(c) >= 0xFFFF) {
         return Err(Reason::NonBmpPassphrase);
     }
-    let archive = Pkcs12Archive::from_pkcs12(bytes, password).map_err(|error| Reason::of(&error, has_mac(bytes)))?;
+    let archive = Pkcs12Archive::from_pkcs12(bytes, password).map_err(|error| Reason::of(&error, Layout::of(bytes)))?;
     from_archive(&archive)
 }
 
-/// Whether the outer `PFX` sequence has a third field, the MAC (RFC 7292 §4). A file that is
-/// not such a sequence counts as having one, so its failure stays "not PKCS#12".
-fn has_mac(bytes: &[u8]) -> bool {
-    let fields = || -> der::Result<bool> {
-        let outer = AnyRef::from_der(bytes)?;
-        let mut reader = SliceReader::new(outer.value())?;
-        let _version: AnyRef<'_> = reader.decode()?;
-        let _auth_safe: AnyRef<'_> = reader.decode()?;
-        Ok(outer.tag() != Tag::Sequence || !reader.is_finished())
-    };
-    fields().unwrap_or(true)
-}
-
-/// The key and its chain from a decrypted bundle.
+/// The key, parsed once into a signer, and its chain from a decrypted bundle.
 fn from_archive(archive: &Pkcs12Archive) -> Result<Decoded, Reason> {
     let [bag] = archive.keys.as_slice() else {
         return Err(if archive.keys.is_empty() { Reason::NoKey } else { Reason::Keys(archive.keys.len()) });
     };
+    if archive.certs.is_empty() {
+        return Err(Reason::NoCertificate);
+    }
     let key = Zeroizing::new(bag.key.as_der().to_vec());
-    let leaf = leaf(&archive.certs, &key, bag.local_key_id.as_ref()).ok_or(Reason::NoCertificate)?;
-    Ok(Decoded { chain: chain(&archive.certs, leaf), key })
+    let signer = any_supported_type(&PrivateKeyDer::Pkcs8(key.as_slice().into())).map_err(|_| Reason::KeyType)?;
+    let certs: Vec<Cert<'_>> = archive.certs.iter().filter_map(Cert::parse).collect();
+    let public = signer.public_key();
+    let leaf = leaf(&certs, public.as_deref(), bag.local_key_id.as_ref()).ok_or(Reason::NoMatchingCertificate)?;
+    Ok(Decoded { certified: CertifiedKey::new(chain(&certs, leaf), signer), key })
+}
+
+/// A bundle's certificate, parsed once with x509-parser, which also reads v1 certificates.
+struct Cert<'a> {
+    bag: &'a CertificateBag,
+    x509: X509Certificate<'a>,
+}
+
+impl<'a> Cert<'a> {
+    fn parse(bag: &'a CertificateBag) -> Option<Self> {
+        let (_, x509) = x509_parser::parse_x509_certificate(bag.cert.as_der()).ok()?;
+        Some(Self { bag, x509 })
+    }
+
+    /// The DER of the subject name.
+    fn subject(&self) -> &[u8] {
+        self.x509.subject().as_raw()
+    }
+
+    /// The DER of the issuer name.
+    fn issuer(&self) -> &[u8] {
+        self.x509.issuer().as_raw()
+    }
+
+    /// The DER of the `SubjectPublicKeyInfo`.
+    fn public_key(&self) -> &[u8] {
+        self.x509.public_key().raw
+    }
+
+    /// How well this certificate fits as `child`'s issuer: whether its key verifies `child`'s
+    /// signature, then how late it expires.
+    fn fit(&self, child: &Cert<'_>) -> (bool, i64) {
+        let signs = child.x509.verify_signature(Some(self.x509.public_key())).is_ok();
+        (signs, self.x509.validity().not_after.timestamp())
+    }
 }
 
 /// The key's certificate: one whose public key is the key's, the one with the key's local key ID
-/// if several are; when none is, the one with the key's local key ID, else the first.
-fn leaf<'a>(certs: &'a [CertificateBag], key: &[u8], key_id: Option<&LocalKeyId>) -> Option<&'a CertificateBag> {
-    let owns = |bag: &&CertificateBag| key_id.is_some_and(|id| bag.local_key_id.as_deref() == Some(id.as_ref()));
-    let public = public_key(key);
-    let matching: Vec<&CertificateBag> =
-        certs.iter().filter(|bag| public.is_some() && public_key_of(bag) == public).collect();
-    matching
-        .iter()
-        .copied()
-        .find(owns)
-        .or_else(|| matching.first().copied())
-        .or_else(|| certs.iter().find(owns))
-        .or_else(|| certs.first())
+/// if several are, else the first.
+fn leaf<'c, 'a>(certs: &'c [Cert<'a>], public: Option<&[u8]>, key_id: Option<&LocalKeyId>) -> Option<&'c Cert<'a>> {
+    let owns = |cert: &&Cert<'_>| key_id.is_some_and(|id| cert.bag.local_key_id.as_deref() == Some(id.as_ref()));
+    let matching = || certs.iter().filter(|cert| Some(cert.public_key()) == public);
+    matching().find(owns).or_else(|| matching().next())
 }
 
-/// The PKCS#8 key's `SubjectPublicKeyInfo`, as rustls's `keys_match` compares it.
-fn public_key(key: &[u8]) -> Option<Vec<u8>> {
-    let signer = any_supported_type(&PrivateKeyDer::Pkcs8(key.into())).ok()?;
-    signer.public_key().map(|spki| spki.to_vec())
-}
-
-/// A certificate's `SubjectPublicKeyInfo`.
-fn public_key_of(bag: &CertificateBag) -> Option<Vec<u8>> {
-    let der = CertificateDer::from(bag.cert.as_der());
-    ParsedCertificate::try_from(&der).ok().map(|cert| cert.subject_public_key_info().to_vec())
-}
-
-/// The leaf, then its issuer, that one's issuer and so on, matched by subject name up to a
-/// self-signed certificate. Bags marked trusted (trust anchors, not ours to send) and
-/// certificates outside the chain are left out.
-fn chain(certs: &[CertificateBag], leaf: &CertificateBag) -> Vec<CertificateDer<'static>> {
+/// The leaf, then its issuer, that one's issuer and so on, up to a self-issued certificate. An
+/// issuer's subject has the same DER as its child's issuer name; trusted bags count, since a
+/// keystore may store a real intermediate as one. Among several such, the one whose key verifies
+/// the child's signature wins, then the one that expires last, then the first. Certificates off
+/// this path are left out.
+fn chain<'c, 'a>(certs: &'c [Cert<'a>], leaf: &'c Cert<'a>) -> Vec<CertificateDer<'static>> {
     let mut chain = vec![leaf];
     let mut current = leaf;
-    while current.cert.issuer() != current.cert.subject() {
-        let issuer = certs.iter().find(|bag| {
-            !bag.trusted
-                && bag.cert.subject() == current.cert.issuer()
-                && !chain.iter().any(|in_chain| in_chain.cert == bag.cert)
-        });
+    while current.issuer() != current.subject() {
+        let issuer = certs
+            .iter()
+            .rev()
+            .filter(|cert| {
+                cert.subject() == current.issuer() && !chain.iter().any(|link| link.bag.cert == cert.bag.cert)
+            })
+            .max_by_key(|cert| cert.fit(current));
         let Some(issuer) = issuer else { break };
         chain.push(issuer);
         current = issuer;
     }
-    chain.into_iter().map(|bag| CertificateDer::from(bag.cert.as_der().to_vec())).collect()
+    chain.into_iter().map(|cert| CertificateDer::from(cert.bag.cert.as_der().to_vec())).collect()
 }
 
 #[cfg(test)]
 #[path = "pkcs12_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "pkcs12_chain_tests.rs"]
+mod chain_tests;

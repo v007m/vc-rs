@@ -17,6 +17,7 @@ mod error;
 mod hosts;
 mod identity;
 mod pkcs12;
+mod pkcs12_reason;
 mod proxy;
 mod stream;
 mod tls;

@@ -5564,6 +5564,7 @@ dependencies = [
  "hyper",
  "hyper-util",
  "p12-keystore",
+ "rcgen",
  "rustls",
  "rustls-native-certs",
  "serde_json",
@@ -5576,6 +5577,7 @@ dependencies = [
  "vc-mock-server",
  "vc-model",
  "vc-testkit",
+ "x509-parser",
  "zeroize",
  "zstd",
 ]

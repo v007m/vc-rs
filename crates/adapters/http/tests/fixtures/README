@@ -8,8 +8,15 @@ The PKCS#12 bundles hold ec.pem and ec.sec1.key, with the passphrase `fixture`, 
         -keypbe PBE-SHA1-RC4-128 -certpbe PBE-SHA1-RC4-128 -out ec.rc4.p12
     openssl pkcs12 -export -in ec.pem -inkey ec.sec1.key -passout pass:fixture -nomac -out ec.nomac.p12
     openssl pkcs12 -export -in ec.pem -inkey ec.sec1.key -passout pass:fixture -iter 2000000 -out ec.slow.p12
+    openssl pkcs12 -export -twopass -in ec.pem -inkey ec.sec1.key -out ec.twopass.p12
+    openssl pkcs12 -export -in ec.pem -inkey ec.sec1.key -passout pass:fixture -nomac -keypbe NONE -certpbe NONE \
+        -out plain.p12
 
-ec.p12 is PBES2 with AES-256-CBC and an HMAC-SHA256 MAC; ec.legacy.p12 is 3DES for the key, RC2-40 for the certificate and an HMAC-SHA1 MAC; ec.rc4.p12 uses RC4, which is not supported. ec.nomac.p12 has no MAC; ec.slow.p12 uses 2,000,000 iterations, over p12-keystore's limit of 1,000,000.
+ec.p12 is PBES2 with AES-256-CBC and an HMAC-SHA256 MAC; ec.legacy.p12 is 3DES for the key, RC2-40 for the certificate and an HMAC-SHA1 MAC; ec.rc4.p12 uses RC4, which is not supported. ec.nomac.p12 has no MAC; ec.slow.p12 uses 2,000,000 iterations, over p12-keystore's limit of 1,000,000. ec.twopass.p12 has the MAC password `fixture` and the encryption password `encrypt`, typed at the prompts. ec.badcert.p12 is plain.p12, with no MAC and nothing encrypted, with the first byte of its certificate changed from 0x30 (SEQUENCE) to 0x31 (SET), so the certificate is not X.509.
+
+p521.pkcs8.key is an ECDSA P-521 key, a type ring cannot sign with:
+
+    openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-521 -out p521.pkcs8.key
 
 rsa.alt.pem is a second self-signed certificate for rsa.pkcs8.key, so two certificates share one public key:
 
