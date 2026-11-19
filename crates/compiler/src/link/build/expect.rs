@@ -281,4 +281,15 @@ mod tests {
         assert_eq!(segments("[\"x\" ]"), [key("\"x\" ")], "a quote not closed before `]` is the old reading");
         assert_eq!(segments("[\"a\"b\"]"), [key("a\"b")]);
     }
+
+    #[test]
+    fn an_error_path_as_dotted_reads_back_as_the_same_body_path() {
+        let key = |name: &str| Segment::Key(name.to_owned());
+        let keys = ["users", "first name", "*", "", "d]", "a.b", "c[1]", "say \"hi\"", "it's", "1", "-1", "_x9"];
+        for name in keys {
+            let written = [key(name), Segment::Index(2), key(name), Segment::Index(-1), Segment::All, key("z")];
+            let text = vc_template::dotted(&written);
+            assert_eq!(path(&text).segments, written, "{name:?} as {text}");
+        }
+    }
 }
