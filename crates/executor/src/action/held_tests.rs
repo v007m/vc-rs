@@ -312,13 +312,19 @@ async fn v5124_is_the_first_failed_check_and_shows_with_the_others() {
 #[tokio::test]
 async fn a_judged_errors_check_becomes_v5124_so_it_is_reported_once() {
     let (mut fixture, create, _) = creating(Protocol::Graphql);
-    fixture.action_mut(create).expect.checks = vec![status(create, 200), no_errors(create)];
+    let checks = vec![status(create, 200), no_errors(create)];
+    fixture.action_mut(create).expect.checks = checks.clone();
     let report = run((fixture, create), answer(200, "<html/>")).await;
     let errors: Vec<_> = report.checks.iter().filter(|check| check.kind == CheckKind::Errors).collect();
     assert_eq!(errors.len(), 1, "one result per cause");
     assert_eq!((errors[0].code.clone(), errors[0].passed), (Some(Code::V5124.to_string()), false));
     assert_eq!(report.checks[0].kind, CheckKind::Errors, "first");
     assert_eq!(failed_code(&report), Some(Code::V5124.to_string()));
+    let (mut fixture, create, _) = creating(Protocol::Graphql);
+    fixture.action_mut(create).expect.checks = checks;
+    let report = run((fixture, create), answer(200, "{\"errors\": null}")).await;
+    let failed = (report.checks[0].passed, failed_code(&report));
+    assert_eq!(failed, (false, Some(Code::V5124.to_string())), "errors: none holds on it, V5124 still fails");
 }
 
 #[tokio::test]
