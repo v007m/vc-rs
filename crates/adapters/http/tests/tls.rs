@@ -67,8 +67,11 @@ async fn refuses_a_server_the_store_does_not_trust() -> TestResult {
     Ok(())
 }
 
-/// A CONNECT proxy that reports each request head and then relays bytes both ways.
-async fn connect_proxy() -> Result<(SocketAddr, mpsc::UnboundedReceiver<String>), Box<dyn Error>> {
+/// What a CONNECT proxy saw: the request head, then the first bytes it relayed to the origin.
+type Seen = (String, [u8; 6]);
+
+/// A CONNECT proxy that reports what it saw of each tunnel and then relays bytes both ways.
+async fn connect_proxy() -> Result<(SocketAddr, mpsc::UnboundedReceiver<Seen>), Box<dyn Error>> {
     let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await?;
     let address = listener.local_addr()?;
     let (heads, seen) = mpsc::unbounded_channel();
@@ -80,16 +83,25 @@ async fn connect_proxy() -> Result<(SocketAddr, mpsc::UnboundedReceiver<String>)
     Ok((address, seen))
 }
 
-async fn relay(mut client: TcpStream, heads: mpsc::UnboundedSender<String>) -> Option<()> {
+async fn relay(mut client: TcpStream, heads: mpsc::UnboundedSender<Seen>) -> Option<()> {
+    let (head, mut upstream) = open_tunnel(&mut client).await?;
+    client.write_all(b"HTTP/1.1 200 Connection established\r\n\r\n").await.ok()?;
+    let mut first = [0_u8; 6];
+    client.read_exact(&mut first).await.ok()?;
+    upstream.write_all(&first).await.ok()?;
+    heads.send((head, first)).ok()?;
+    tokio::io::copy_bidirectional(&mut client, &mut upstream).await.ok()?;
+    Some(())
+}
+
+/// Reads a CONNECT request head from `client` and connects to its target.
+async fn open_tunnel(client: &mut TcpStream) -> Option<(String, TcpStream)> {
     let mut head = vec![0_u8; 1024];
     let read = client.read(&mut head).await.ok()?;
     let head = String::from_utf8_lossy(&head[..read]).into_owned();
     let target = head.strip_prefix("CONNECT ")?.split(' ').next()?.to_owned();
-    heads.send(head).ok()?;
-    let mut upstream = TcpStream::connect(target).await.ok()?;
-    client.write_all(b"HTTP/1.1 200 Connection established\r\n\r\n").await.ok()?;
-    tokio::io::copy_bidirectional(&mut client, &mut upstream).await.ok()?;
-    Some(())
+    let upstream = TcpStream::connect(target).await.ok()?;
+    Some((head, upstream))
 }
 
 #[tokio::test]
@@ -101,7 +113,7 @@ async fn tunnels_https_through_a_connect_proxy() -> TestResult {
     let exchange = get(&trusting(&pki, config)?, &format!("{}/echo", mock.base_url())).await?;
     assert_eq!((exchange.response.status, exchange.connection.protocol), (StatusCode::OK, HttpVersion::Http2));
     assert_eq!(exchange.connection.remote, Some(proxy), "the TCP peer is the proxy");
-    let head = seen.recv().await.unwrap_or_default();
+    let (head, _) = seen.recv().await.unwrap_or_default();
     assert!(head.starts_with(&format!("CONNECT {} HTTP/1.1\r\n", mock.addr())), "{head}");
     assert!(head.contains("Proxy-Authorization: Basic dTpw\r\n"), "{head}");
     Ok(())
@@ -125,8 +137,10 @@ async fn sends_the_client_certificate_through_the_tunnel_only() -> TestResult {
     let exchange = transport.send(request, &ctx).await?;
     let body: serde_json::Value = serde_json::from_slice(&exchange.response.body)?;
     assert_eq!((body["client"].as_str(), exchange.connection.remote), (Some("good"), Some(proxy)));
-    let head = seen.recv().await.unwrap_or_default();
-    assert!(head.starts_with("CONNECT ") && !head.contains("BEGIN"), "the proxy sees only the tunnel request: {head}");
+    let (head, first) = seen.recv().await.unwrap_or_default();
+    let authority = mock.addr();
+    assert_eq!(head, format!("CONNECT {authority} HTTP/1.1\r\nHost: {authority}\r\n\r\n"), "only the tunnel request");
+    assert_eq!((first[0], first[1], first[5]), (0x16, 0x03, 0x01), "then a TLS ClientHello, relayed: {first:?}");
     Ok(())
 }
 

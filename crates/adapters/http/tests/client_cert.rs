@@ -6,7 +6,7 @@ use std::error::Error;
 
 use http::{Method, StatusCode, Uri};
 use vc_adapter_http::{ClientIdentity, HttpAdapterError, HttpOptions, HttpTransport, TlsOptions};
-use vc_interfaces::{CertChoice, CertId, SendContext, Transport, TransportError};
+use vc_interfaces::{CertChoice, CertId, SendContext, SentCert, Transport, TransportError};
 use vc_mock_server::{ClientAuth, MockHandle, MockServer, MockTls};
 use vc_model::{Exchange, HttpVersion, RenderedRequest};
 use vc_testkit::{ClientCert, Identity, KeyKind, TestPki};
@@ -146,12 +146,17 @@ type Setup = fn(MockTls) -> MockTls;
 const SETUPS: [(&str, Setup); 3] =
     [("TLS 1.2", MockTls::tls12), ("TLS 1.3", std::convert::identity), ("TLS 1.3 and h2", MockTls::h2)];
 
-/// How a server that requires a certificate, set up by `setup`, answers a call that sends `sent`
-/// (as identity `sent`), or no certificate.
-async fn refused(pki: &TestPki, setup: Setup, sent: Option<&Identity>) -> Result<TransportError, Box<dyn Error>> {
+/// A call's certificate choice, and the certificate configured as identity `sent`, if any.
+type Call<'a> = (CertChoice, Option<&'a Identity>);
+
+/// Sends identity `sent`, the only one configured.
+const SENT: CertChoice = CertChoice::Named(CertId::new(0));
+
+/// How a server that requires a certificate, set up by `setup`, answers `call`.
+async fn refused(pki: &TestPki, setup: Setup, call: Call<'_>) -> Result<TransportError, Box<dyn Error>> {
     let mock = MockServer::start_tls(setup(server_tls(pki, ClientAuth::Required))).await?;
-    let choice = if sent.is_some() { CertChoice::Named(CertId::new(0)) } else { CertChoice::Off };
-    let transport = transport(pki, sent.map(|cert| identity("sent", cert)).into_iter().collect())?;
+    let (choice, cert) = call;
+    let transport = transport(pki, cert.map(|cert| identity("sent", cert)).into_iter().collect())?;
     let request = RenderedRequest::new(Method::GET, Uri::try_from(format!("{}/whoami", mock.base_url()))?);
     let outcome = transport.send(request, &SendContext { client_cert: choice, ..SendContext::default() }).await;
     outcome.err().ok_or_else(|| "the server let the call in".into())
@@ -161,12 +166,12 @@ async fn refused(pki: &TestPki, setup: Setup, sent: Option<&Identity>) -> Result
 async fn a_certificate_from_another_ca_is_refused_as_unknown_ca_on_tls_1_2_and_1_3() -> TestResult {
     let pki = TestPki::new()?;
     for (name, setup) in SETUPS {
-        let error = refused(&pki, setup, Some(pki.other_ca())).await?;
+        let error = refused(&pki, setup, (SENT, Some(pki.other_ca()))).await?;
         let expected = TransportError::ClientCertRejected {
             host: "127.0.0.1".into(),
             alert: "unknown_ca".into(),
             reason: "it doesn't trust the issuer".into(),
-            cert: Some("sent".into()),
+            sent: SentCert::Named("sent".into()),
         };
         assert_eq!(error, expected, "{name}");
     }
@@ -177,12 +182,27 @@ async fn a_certificate_from_another_ca_is_refused_as_unknown_ca_on_tls_1_2_and_1
 async fn no_certificate_is_refused_as_required_with_help_on_tls_1_2_and_1_3() -> TestResult {
     let pki = TestPki::new()?;
     for (name, setup) in SETUPS {
-        let error = refused(&pki, setup, None).await?;
-        assert!(
-            matches!(&error, TransportError::ClientCertRejected { alert, cert: None, .. } if alert == "certificate_required"),
-            "{name}: {error:?}"
-        );
+        let error = refused(&pki, setup, (CertChoice::Host, None)).await?;
+        let expected = TransportError::ClientCertRejected {
+            host: "127.0.0.1".into(),
+            alert: "certificate_required".into(),
+            reason: "the server asks for a client certificate".into(),
+            sent: SentCert::Missing,
+        };
+        assert_eq!(error, expected, "{name}");
         assert!(error.to_string().contains("add an `http.tls.clients` entry for `127.0.0.1`"), "{error}");
+    }
+    Ok(())
+}
+
+#[tokio::test]
+async fn certificates_turned_off_are_named_as_the_cause_of_a_refusal() -> TestResult {
+    let pki = TestPki::new()?;
+    for (name, setup) in SETUPS {
+        let error = refused(&pki, setup, (CertChoice::Off, Some(pki.good()))).await?;
+        assert!(matches!(&error, TransportError::ClientCertRejected { sent: SentCert::Off, .. }), "{name}: {error:?}");
+        let text = error.to_string();
+        assert!(text.ends_with("client certificates are off for this call (`clientCert: none`)"), "{text}");
     }
     Ok(())
 }
@@ -193,7 +213,7 @@ async fn an_expired_certificate_is_refused_as_expired() -> TestResult {
     let day = std::time::Duration::from_hours(24);
     let ended = std::time::SystemTime::now() - day;
     let old = pki.client(&ClientCert::new("old").valid(ended - day, ended))?;
-    let error = refused(&pki, std::convert::identity, Some(&old)).await?;
+    let error = refused(&pki, std::convert::identity, (SENT, Some(&old))).await?;
     assert!(
         matches!(&error, TransportError::ClientCertRejected { alert, .. } if alert == "certificate_expired"),
         "{error:?}"
