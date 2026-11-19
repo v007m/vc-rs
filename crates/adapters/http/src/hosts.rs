@@ -41,37 +41,54 @@ impl HostRule {
     }
 }
 
-/// Picks the client slot for a request: slot 0 sends no certificate, slot `i + 1` is identity `i`.
+/// One identity's host rules and its client.
 #[derive(Debug)]
-pub struct HostTable(Vec<Vec<HostRule>>);
+struct Entry<C> {
+    rules: Vec<HostRule>,
+    client: C,
+}
 
-impl HostTable {
-    /// The rules of each identity, in order.
-    pub fn new(identities: &[ClientIdentity]) -> Result<Self, HttpAdapterError> {
-        let parse = |identity: &ClientIdentity| {
+/// The client for each identity, with its host rules, and the client that sends no certificate.
+#[derive(Debug)]
+pub struct ClientTable<C> {
+    none: C,
+    identities: Vec<Entry<C>>,
+}
+
+impl<C> ClientTable<C> {
+    /// `none` sends no certificate; `client` builds the client for each identity, in order.
+    pub fn new(
+        identities: &[ClientIdentity],
+        none: C,
+        mut client: impl FnMut(&ClientIdentity) -> Result<C, HttpAdapterError>,
+    ) -> Result<Self, HttpAdapterError> {
+        let mut entry = |identity: &ClientIdentity| {
             let rules = identity.host_rules().iter().map(|rule| HostRule::parse(rule));
-            rules.collect::<Result<Vec<_>, _>>().map_err(|reason| identity.error(reason))
+            let rules = rules.collect::<Result<Vec<_>, _>>().map_err(|reason| identity.error(reason))?;
+            Ok(Entry { rules, client: client(identity)? })
         };
-        Ok(Self(identities.iter().map(parse).collect::<Result<_, _>>()?))
+        Ok(Self { none, identities: identities.iter().map(&mut entry).collect::<Result<_, _>>()? })
     }
 
-    /// The slot for `choice` on `uri`, matching the URL's own host; `None` for an unknown identity.
-    pub fn slot(&self, uri: &Uri, choice: CertChoice) -> Option<usize> {
+    /// The client for `choice` on `uri`, matching the URL's own host; `None` for an unknown identity.
+    pub fn pick(&self, uri: &Uri, choice: CertChoice) -> Option<&C> {
         match choice {
-            CertChoice::Host => Some(self.by_host(uri).map_or(0, |index| index + 1)),
+            CertChoice::Host => Some(self.by_host(uri).unwrap_or(&self.none)),
             CertChoice::Named(id) => {
-                usize::try_from(id.index()).ok().filter(|&index| index < self.0.len()).map(|index| index + 1)
+                let entry = usize::try_from(id.index()).ok().and_then(|index| self.identities.get(index));
+                entry.map(|entry| &entry.client)
             }
-            CertChoice::Off => Some(0),
+            CertChoice::Off => Some(&self.none),
         }
     }
 
-    /// The first identity with a rule matching `uri`'s host and port.
-    fn by_host(&self, uri: &Uri) -> Option<usize> {
+    /// The client of the first identity with a rule matching `uri`'s host and port.
+    fn by_host(&self, uri: &Uri) -> Option<&C> {
         let host = uri.host()?.to_ascii_lowercase();
         let default = if uri.scheme_str() == Some("https") { 443 } else { 80 };
         let port = uri.port_u16().unwrap_or(default);
-        self.0.iter().position(|rules| rules.iter().any(|rule| rule.matches(&host, port)))
+        let entry = self.identities.iter().find(|entry| entry.rules.iter().any(|rule| rule.matches(&host, port)));
+        entry.map(|entry| &entry.client)
     }
 }
 
@@ -80,19 +97,25 @@ mod tests {
     use http::Uri;
     use vc_interfaces::{CertChoice, CertId};
 
-    use super::{HostRule, HostTable};
+    use super::{ClientTable, HostRule};
     use crate::{ClientIdentity, HttpAdapterError};
 
-    fn table(hosts: &[&[&str]]) -> Result<HostTable, HttpAdapterError> {
+    /// The table with client `i + 1` for identity `i`, and client 0 sending no certificate.
+    fn table(hosts: &[&[&str]]) -> Result<ClientTable<usize>, HttpAdapterError> {
         let identity = |(index, rules): (usize, &&[&str])| {
             let rules = rules.iter().map(|rule| (*rule).to_owned()).collect();
             ClientIdentity::pem(format!("id{index}"), Vec::new(), Vec::new()).hosts(rules)
         };
-        HostTable::new(&hosts.iter().enumerate().map(identity).collect::<Vec<_>>())
+        let mut next = 0;
+        let client = |_: &ClientIdentity| {
+            next += 1;
+            Ok(next)
+        };
+        ClientTable::new(&hosts.iter().enumerate().map(identity).collect::<Vec<_>>(), 0, client)
     }
 
-    fn slot(table: &HostTable, url: &str) -> Option<usize> {
-        table.slot(&Uri::try_from(url).ok()?, CertChoice::Host)
+    fn slot(table: &ClientTable<usize>, url: &str) -> Option<usize> {
+        table.pick(&Uri::try_from(url).ok()?, CertChoice::Host).copied()
     }
 
     #[test]
@@ -129,9 +152,9 @@ mod tests {
     fn named_and_off_ignore_the_host() -> Result<(), HttpAdapterError> {
         let table = table(&[&["api.test"], &[]])?;
         let uri = Uri::from_static("https://api.test/");
-        assert_eq!(table.slot(&uri, CertChoice::Named(CertId::new(1))), Some(2));
-        assert_eq!(table.slot(&uri, CertChoice::Named(CertId::new(2))), None);
-        assert_eq!(table.slot(&uri, CertChoice::Off), Some(0));
+        assert_eq!(table.pick(&uri, CertChoice::Named(CertId::new(1))).copied(), Some(2));
+        assert_eq!(table.pick(&uri, CertChoice::Named(CertId::new(2))).copied(), None);
+        assert_eq!(table.pick(&uri, CertChoice::Off).copied(), Some(0));
         Ok(())
     }
 

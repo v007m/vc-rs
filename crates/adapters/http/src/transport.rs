@@ -16,7 +16,7 @@ use vc_interfaces::{CertChoice, SendContext, Transport, TransportError};
 use vc_model::{ConnectionInfo, Exchange, HttpResponse, HttpVersion, RenderedRequest, Timing};
 
 use crate::connector::TimedConnector;
-use crate::hosts::HostTable;
+use crate::hosts::ClientTable;
 use crate::stream::ConnectRecord;
 use crate::{ClientIdentity, HttpAdapterError, ProxyConfig, body, tls};
 
@@ -59,8 +59,7 @@ type Pooled = Client<TimedConnector, Full<Bytes>>;
 /// are never errors; the body is decoded and capped.
 #[derive(Clone)]
 pub struct HttpTransport {
-    clients: Arc<[Pooled]>,
-    hosts: Arc<HostTable>,
+    clients: Arc<ClientTable<Pooled>>,
     proxy: Arc<Matcher>,
 }
 
@@ -80,22 +79,20 @@ impl HttpTransport {
     /// encrypted key, a key that does not match the certificate, or a bad host rule.
     pub fn new(options: &HttpOptions) -> Result<Self, HttpAdapterError> {
         let roots = tls::roots(&options.tls.ca)?;
-        let hosts = Arc::new(HostTable::new(&options.tls.clients)?);
         let proxy = Arc::new(options.proxy.matcher());
-        let identities = std::iter::once(None).chain(options.tls.clients.iter().map(Some));
-        let pooled = |identity| {
+        let pooled = |identity: Option<&ClientIdentity>| -> Result<Pooled, HttpAdapterError> {
             let connector = TimedConnector::new(tls::client_config(&roots, identity)?, Arc::clone(&proxy));
             let mut builder = Client::builder(TokioExecutor::new());
             Ok(builder.pool_idle_timeout(options.pool_idle).pool_timer(TokioTimer::new()).build(connector))
         };
-        let clients = identities.map(pooled).collect::<Result<_, HttpAdapterError>>()?;
-        Ok(Self { clients, hosts, proxy })
+        let clients = ClientTable::new(&options.tls.clients, pooled(None)?, |identity| pooled(Some(identity)))?;
+        Ok(Self { clients: Arc::new(clients), proxy })
     }
 
     /// The pooled client for the identity `choice` picks for `request`.
     fn client(&self, request: &RenderedRequest, choice: CertChoice) -> Result<&Pooled, TransportError> {
-        let slot = self.hosts.slot(&request.uri, choice).and_then(|slot| self.clients.get(slot));
-        slot.ok_or_else(|| TransportError::InvalidRequest { reason: format!("no client identity for {choice:?}") })
+        let client = self.clients.pick(&request.uri, choice);
+        client.ok_or_else(|| TransportError::InvalidRequest { reason: format!("no client identity for {choice:?}") })
     }
 
     /// The request hyper sends: the rendered one plus `accept-encoding` and, for plain HTTP
