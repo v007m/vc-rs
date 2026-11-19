@@ -1,24 +1,13 @@
 use std::sync::Arc;
 
-use vc_model::{ClientCert, ClientMaterial, ContentHash, Part, Program, SourceFile, SourcePath, Template, TlsClient};
-
-use crate::CompileInput;
+use vc_model::{ClientCert, ClientMaterial, Part, Program, Template, TlsClient};
 
 const CONFIG: &str = "syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\n  - id: staging\nvars: {certDir: certs}\nhttp:\n  retry: {attempts: 1}\n  tls:\n    ca: certs/ca.pem\n    clients:\n      - id: partnerClient\n        name: Partner\n        hosts: [api.partner.example, '*.partner.example:8443']\n        profiles: [staging]\n        cert: ${var.certDir}/partner.crt\n        key: ${secret.PARTNER_KEY}\n      - id: tenantA\n        pkcs12: certs/a.p12\n        passphrase: ${secret.A_PASS}\n      - id: tenantB\n        pkcs12: certs/b.p12\nauth:\n  - id: token\n    type: bearer\n    token: t\n    clientCert: tenantA\n  - id: cert\n    type: mtls\n    clientCert: tenantB\n  - id: off\n    type: mtls\n    clientCert: none\n  - id: plain\n    type: bearer\n    token: t\n";
 
 const SCHEMA: &str = "# @sensitive\nPARTNER_KEY=\n# @sensitive\nA_PASS=\n";
 
 fn program(config: &str) -> Arc<Program> {
-    let file = |path: &str, text: &str| SourceFile {
-        path: SourcePath::new(path).unwrap(),
-        text: text.to_owned(),
-        hash: ContentHash::new([0; 32]),
-    };
-    let files = vec![file("vibranium.config.yaml", config)];
-    let secret_schema = Some(file(".env.schema", SCHEMA));
-    let compiled = crate::compile(CompileInput { files, secret_schema, ..CompileInput::default() });
-    assert!(!compiled.diagnostics.has_errors(), "{:?}", compiled.diagnostics);
-    compiled.program.unwrap()
+    super::config_tests::program(config, SCHEMA)
 }
 
 fn text(template: &Template) -> String {
@@ -89,13 +78,7 @@ fn a_config_without_tls_has_none() {
 #[test]
 fn a_clients_profiles_written_as_one_word_is_a_shape_error() {
     let config = CONFIG.replace("profiles: [staging]", "profiles: staging");
-    let files = vec![SourceFile {
-        path: SourcePath::new("vibranium.config.yaml").unwrap(),
-        text: config,
-        hash: ContentHash::new([0; 32]),
-    }];
-    let secret_schema = Some(SourceFile { path: SourcePath::new(".env.schema").unwrap(), ..files[0].clone() });
-    let compiled = crate::compile(CompileInput { files, secret_schema, ..CompileInput::default() });
+    let compiled = super::config_tests::compiled(&config, SCHEMA);
     let found: Vec<_> = compiled.diagnostics.iter().map(|found| (found.code, found.primary.span.start.line)).collect();
     assert!(found.contains(&(vc_diagnostics::Code::V2302, 15)), "a list of profiles, not a word: {found:?}");
 }

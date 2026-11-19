@@ -1,24 +1,13 @@
 use std::sync::Arc;
 
-use vc_model::{Alert, AlertChannel, AlertTrigger, ContentHash, Program, SourceFile, SourcePath, Tag, TemplateValue};
-
-use crate::CompileInput;
+use vc_model::{Alert, AlertChannel, AlertTrigger, Program, Tag, TemplateValue};
 
 const CONFIG: &str = "syntaxVersion: 2\nproject: shop\nprofiles:\n  - id: staging\n    default: true\nplugins:\n  - id: acmeAuth\n    source: npm:@acme/vibranium-auth@2\n    config: {realm: partners, retries: 2}\n  - id: localReport\n    source: path:plugins/report\nalerts:\n  - on: [failure, recovery]\n    profiles: [staging, prod]\n    tags: [smoke]\n    notify:\n      - webhook: {url: https://hooks.example/vibranium}\n      - pagerduty: {routingKey: '${secret.PD_KEY}'}\n  - notify:\n      - slack: {channel: '#qa', webhook: '${secret.SLACK_HOOK}'}\n";
 
 const SCHEMA: &str = "# @sensitive\nPD_KEY=\nSLACK_HOOK=\n";
 
 fn program(config: &str) -> Arc<Program> {
-    let file = |path: &str, text: &str| SourceFile {
-        path: SourcePath::new(path).unwrap(),
-        text: text.to_owned(),
-        hash: ContentHash::new([0; 32]),
-    };
-    let files = vec![file("vibranium.config.yaml", config)];
-    let secret_schema = Some(file(".env.schema", SCHEMA));
-    let compiled = crate::compile(CompileInput { files, secret_schema, ..CompileInput::default() });
-    assert!(!compiled.diagnostics.has_errors(), "{:?}", compiled.diagnostics);
-    compiled.program.unwrap()
+    super::config_tests::program(config, SCHEMA)
 }
 
 fn text(value: &TemplateValue) -> String {

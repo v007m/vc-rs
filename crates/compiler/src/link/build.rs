@@ -6,6 +6,8 @@ mod alerts;
 #[cfg(test)]
 mod alerts_tests;
 mod auth;
+#[cfg(test)]
+mod config_tests;
 mod expect;
 mod graphql;
 mod http_retry;
