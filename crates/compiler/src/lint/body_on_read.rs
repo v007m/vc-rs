@@ -23,7 +23,7 @@ impl Lint for BodyOnRead {
         for (source, test) in cx.tests() {
             let Some(body) = test.entry("body") else { continue };
             let bare = link::list(test, "steps").iter().filter(|step| step.get("body").is_none());
-            let reads = bare.filter(|step| cx.api(source, step).is_some_and(|api| READS.contains(&link::method(api))));
+            let reads = bare.filter(|step| cx.method(source, step).is_some_and(|method| READS.contains(&method)));
             found.extend(reads.filter_map(|step| self.reaches(step, body.key_span)));
         }
         found

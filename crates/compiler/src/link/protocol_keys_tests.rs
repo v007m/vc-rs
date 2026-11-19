@@ -124,7 +124,7 @@ fn a_misspelt_type_gets_the_close_value_as_its_fix() {
     let apis = "apis:\n  - id: get\n    type: htp\n    path: http://x/users/1\n";
     let compiled = compile(apis, "tests:\n  - id: getsUser\n    call: users#get\n");
     let wrong = compiled.diagnostics.iter().find(|found| found.code == Code::V2302).unwrap();
-    assert_eq!(wrong.message, "expected one of http, found `htp`");
+    assert_eq!(wrong.message, "expected one of http, graphql, found `htp`");
     assert_eq!(wrong.fixes[0].edits[0].new_text, "http");
 }
 
@@ -165,4 +165,98 @@ fn the_type_key_offers_every_protocol() {
         let ty = shape.all_keys().find(|key| key.name == "type").map(|key| &key.ty);
         assert!(matches!(ty, Some(shapes::Ty::Enum(words)) if *words == keys.as_slice()), "{}", shape.title);
     }
+}
+
+#[test]
+fn a_graphql_api_reports_a_method_and_a_call_that_sets_a_body() {
+    let apis = "type: graphql\napis:\n  - id: get\n    method: GET\n    path: http://x/graphql\n    body: {query: '{ me { id } }'}\n";
+    let tests = "tests:\n  - id: getsMe\n    call: users#get\n    body: {query: '{ other }'}\n";
+    let compiled = compile(apis, tests);
+    let stray: Vec<_> = compiled.diagnostics.iter().filter(|found| found.code == Code::V2213).collect();
+    let found: Vec<_> = stray.iter().map(|found| (found.message.as_str(), found.primary.span.start.line)).collect();
+    let expected = [("`body` does not apply to a `graphql` api", 4), ("`method` does not apply to a `graphql` api", 4)];
+    assert_eq!(found, expected, "the test file's first, then the api file's");
+    assert_eq!(&tests[stray[0].fixes[0].edits[0].range.clone()], "    body: {query: '{ other }'}\n");
+    assert_eq!(&apis[stray[1].fixes[0].edits[0].range.clone()], "    method: GET\n");
+    assert_eq!(api_protocols(&compile(&apis.replace("    method: GET\n", ""), "tests: []\n")), [Protocol::Graphql]);
+}
+
+#[test]
+fn every_key_a_type_allows_is_one_its_shape_knows() {
+    for (protocol, keys) in PROTOCOL_KEYS {
+        let ProtocolKeys::Only(keys) = keys else { continue };
+        let places = [(shapes::api(), keys.api), (shapes::expect(), keys.expect), (shapes::request(), keys.call)];
+        for (shape, allowed) in places {
+            let unknown: Vec<_> = allowed.iter().filter(|key| shape.find(key).is_none()).collect();
+            assert_eq!(unknown, [&""; 0], "{protocol:?} allows keys `{}` does not have", shape.title);
+        }
+    }
+}
+
+#[test]
+fn a_test_level_body_that_reaches_a_graphql_step_is_reported_without_a_fix() {
+    let apis = "type: graphql\nbaseUrl: http://x\napis:\n  - id: me\n    body: {query: '{ me { id } }'}\n  - id: make\n    type: http\n    method: POST\n    path: /users\n";
+    let steps = "    steps:\n      - call: users#make\n      - test: users.crud#other\n      - call: users#me\n";
+    let tests = format!(
+        "tests:\n  - id: makesUser\n    headers: {{x-a: '1'}}\n    body: {{name: a}}\n{steps}  - id: other\n    call: users#make\n"
+    );
+    let compiled = compile(apis, &tests);
+    let found: Vec<_> = compiled.diagnostics.iter().filter(|found| found.code == Code::V2213).collect();
+    let [body] = found.as_slice() else { panic!("{:?}", compiled.diagnostics) };
+    assert_eq!((body.message.as_str(), body.primary.span.start.line), ("`body` does not apply to a `graphql` api", 4));
+    assert_eq!(body.secondary[0].span.start.line, 8);
+    assert_eq!(body.secondary[0].text, "a `graphql` call without its own `body`");
+    assert_eq!(body.help, ["move `body` onto the steps that send one; a `graphql` call does not take it"]);
+    assert!(body.fixes.is_empty(), "the http step may send it");
+    assert!(compiled.program.is_none());
+    let http_only = tests.replace("      - call: users#me\n", "");
+    assert!(compile(apis, &http_only).diagnostics.iter().all(|found| found.code != Code::V2213));
+    let own = tests.replace("      - call: users#me\n", "      - call: users#me\n        vars: {}\n        body: x\n");
+    let lines: Vec<_> = compile(apis, &own)
+        .diagnostics
+        .iter()
+        .filter(|found| found.code == Code::V2213)
+        .map(|found| found.primary.span.start.line)
+        .collect();
+    assert_eq!(lines, [10], "a step with its own body reports that body, not the test's");
+}
+
+#[test]
+fn a_call_takes_a_key_unless_the_type_it_reaches_leaves_it_out() {
+    let apis = "baseUrl: http://x\napis:\n  - id: me\n    type: graphql\n    body: {query: '{ me { id } }'}\n  - id: get\n    path: /users\n";
+    let tests =
+        "tests:\n  - id: a\n    call: users#me\n  - id: b\n    call: users#get\n  - id: c\n    call: users#nope\n";
+    let files = [file("services/users/users.api.yaml", apis), file("services/users/crud.test.yaml", tests)];
+    let (tools, mut strings) = (Tools::new(), StringTable::new());
+    let numbered = files.iter().zip(0..).map(|(source, at)| (SourceFileId::new(at), source));
+    let units: Vec<_> =
+        numbered.map(|(id, source)| (id, source, stage::unit(id, source, (&tools, &mut strings)))).collect();
+    let sources = units.iter().filter_map(|(id, source, unit)| Source::new(*id, source, unit)).collect();
+    let project = Project::new(sources, &strings, HashSet::new());
+    let source = &project.sources[1];
+    let takes = |key: &str| -> Vec<bool> {
+        crate::link::list(source.root, "tests")
+            .iter()
+            .map(|test| super::call_takes(&project, (source, test), (&PROTOCOL_KEYS, key)))
+            .collect()
+    };
+    assert_eq!(takes("body"), [false, true, true]);
+    assert_eq!(takes("headers"), [true, true, true]);
+}
+
+#[test]
+fn a_graphql_block_on_a_file_of_another_type_is_v2213_with_its_removal_as_the_fix() {
+    let apis = "baseUrl: http://x\ngraphql:\n  path: /api/graphql\napis:\n  - id: me\n    type: graphql\n    body: {query: '{ me { id } }'}\n";
+    let tests = "tests:\n  - id: getsMe\n    call: users#me\n";
+    let compiled = compile(apis, tests);
+    let found: Vec<_> = compiled.diagnostics.iter().collect();
+    let [block] = found.as_slice() else { panic!("{:?}", compiled.diagnostics) };
+    assert_eq!((block.code, block.message.as_str()), (Code::V2213, "`graphql` does not apply to a `http` file"));
+    assert_eq!(block.primary.span.start.line, 2);
+    assert_eq!(block.help, ["remove `graphql`, or set the file's `type: graphql`; only a `graphql` file reads it"]);
+    let [fix] = block.fixes.as_slice() else { panic!("{:?}", block.fixes) };
+    assert_eq!((fix.title.as_str(), fix.certain), ("Remove `graphql`", true));
+    assert_eq!(&apis[fix.edits[0].range.clone()], "graphql:\n  path: /api/graphql\n");
+    let typed = apis.replace("baseUrl: http://x\n", "baseUrl: http://x\ntype: graphql\n");
+    assert!(compile(&typed, tests).diagnostics.is_empty());
 }

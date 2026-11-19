@@ -1,8 +1,9 @@
 //! End-to-end runs of the real `vc` binary against an in-process mock server: auth, lifecycle
 //! blocks and cleanups, retries and backoff, polls, loops, the per-host limit, timing checks, load
 //! thresholds, the config layers, `--changed`, `command:` actions, hooks, computed bodies, file,
-//! form and multipart bodies, the report files, `vc call`, `vc explain`, the completion scripts,
-//! `vc ui`, `vc sync` with `source.headers`, and the docs playground printing what `vc run` prints.
+//! form and multipart bodies, `graphql` apis, the report files, `vc call`, `vc explain`, the
+//! completion scripts, `vc ui`, `vc sync` with `source.headers`, and the docs playground printing
+//! what `vc run` prints.
 //! Each test gets its own project, home folder and server.
 
 #![cfg(test)]
@@ -21,6 +22,7 @@ mod demo;
 mod examples;
 mod explain;
 mod generated;
+mod graphql;
 mod history;
 mod hooks;
 mod import;

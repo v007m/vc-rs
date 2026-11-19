@@ -7,6 +7,7 @@ mod alerts;
 mod alerts_tests;
 mod auth;
 mod expect;
+mod graphql;
 mod http_retry;
 mod items;
 mod load;
@@ -40,7 +41,7 @@ use super::saves::Saves;
 use action::Place;
 pub use expect::path as body_path;
 pub use protocol::ProtocolRulesRegistry;
-pub use read::{duration, flag, method};
+pub use read::{duration, flag};
 
 /// What a build step gives; it fails only when a table is full.
 type Built<T> = Result<T, ModelError>;

@@ -18,6 +18,7 @@ use vc_template::RenderError;
 
 use crate::Render;
 use crate::action::encode::{self, Encoder, Encoding};
+use crate::action::graphql;
 use crate::action::media::{self, OCTETS};
 use crate::action::path;
 
@@ -133,10 +134,24 @@ pub fn encode(text: &str) -> String {
 /// The config's default headers, then the api file's, the api's and the action's; a later one
 /// replaces an earlier one, and a null value removes it.
 fn headers(render: &Render<'_>, api: &Api, action: &Action) -> Result<HeaderMap, Failure> {
+    header_levels(render, levels(render, api, action))
+}
+
+/// Whether any level of headers [`rendered`] sends writes `name`, a null that removes it included.
+pub fn mentions(render: &Render<'_>, (api, action): (&Api, &Action), name: &HeaderName) -> bool {
+    levels(render, api, action).any(|(written, _)| written.eq_ignore_ascii_case(name.as_str()))
+}
+
+/// The headers written for `action`, in the order [`headers`] applies them.
+fn levels<'p>(
+    render: &Render<'p>,
+    api: &'p Api,
+    action: &'p Action,
+) -> impl Iterator<Item = (&'p String, &'p Template)> {
     let program = render.program();
     let group = program.api_groups.get(&api.group).map(|group| &group.headers);
     let levels = [Some(&program.config.defaults.headers), group, Some(&api.headers), Some(&action.headers)];
-    header_levels(render, levels.into_iter().flatten().flatten())
+    levels.into_iter().flatten().flatten()
 }
 
 /// `templates` rendered in order into one map; a later one replaces an earlier one, and a
@@ -207,6 +222,10 @@ fn body(render: &Render<'_>, spec: &BodySpec, sending: &Sending<'_>) -> Result<O
             structured(render, value, sending)?
         }
         BodySpec::File(path) => file(render, path, sending.action)?,
+        BodySpec::Graphql(body) => {
+            let payload = graphql::payload(body, render.value(&body.variables).map_err(failed)?);
+            (Bytes::from(payload.to_string()), ContentType::Implied(JSON))
+        }
         BodySpec::Form(_) | BodySpec::Multipart(_) => {
             return Err(rendering("form and multipart bodies are written as a map with a `content-type`"));
         }

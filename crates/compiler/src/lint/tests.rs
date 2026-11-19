@@ -3,8 +3,12 @@ use std::collections::HashSet;
 use vc_diagnostics::{Category, Code};
 use vc_model::{ContentHash, SourceFile, SourcePath};
 
-use super::LintRegistry;
+use vc_model::Method;
+
+use super::{LintCx, LintRegistry};
 use crate::CompileInput;
+use crate::link;
+use crate::link::{Project, ProtocolRulesRegistry, Source};
 
 const CONFIG: &str =
     "syntaxVersion: 2\nproject: shop\nvars: {baseUrl: 'http://x'}\nprofiles:\n  - id: dev\n    default: true\n";
@@ -263,4 +267,23 @@ fn a_lint_error_drops_the_program_and_a_warning_keeps_it() {
     assert!(error.diagnostics.has_errors() && error.program.is_none());
     let warning = compiled(CONFIG, &tests("  - id: a\n    call: users#old\n"));
     assert!(!warning.diagnostics.is_empty() && warning.program.is_some());
+}
+
+#[test]
+fn a_calls_method_is_the_one_its_api_type_decides() {
+    let apis = "baseUrl: http://x\napis:\n  - id: get\n    path: /users/1\n  - id: me\n    type: graphql\n    body: {query: '{ me { id } }'}\n";
+    let tests =
+        "tests:\n  - id: a\n    call: users#get\n  - id: b\n    call: users#me\n  - id: c\n    call: users#nope\n";
+    let files = [file("services/users/users.api.yaml", apis), file("services/users/crud.test.yaml", tests)];
+    let (tools, mut strings) = (crate::parts::Tools::new(), vc_model::StringTable::new());
+    let numbered = files.iter().zip(0..).map(|(source, at)| (vc_model::SourceFileId::new(at), source));
+    let units: Vec<_> =
+        numbered.map(|(id, source)| (id, source, crate::stage::unit(id, source, (&tools, &mut strings)))).collect();
+    let sources = units.iter().filter_map(|(id, source, unit)| Source::new(*id, source, unit)).collect();
+    let project = Project::new(sources, &strings, HashSet::new());
+    let (program, rules) = (vc_model::Program::default(), ProtocolRulesRegistry::builtin());
+    let cx = LintCx { project: &project, program: &program, rules: &rules, today: None };
+    let source = &project.sources[1];
+    let methods: Vec<_> = link::list(source.root, "tests").iter().map(|test| cx.method(source, test)).collect();
+    assert_eq!(methods, [Some(Method::Get), Some(Method::Post), None]);
 }

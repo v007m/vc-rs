@@ -20,7 +20,7 @@ apis:
 
 | Field | Type | Default | Required | Notes |
 | --- | --- | --- | --- | --- |
-| `path` | template | — | yes | Start it with `/`. Joined to `baseUrl` as plain text. Each `${…}` value is percent-encoded as one segment. |
+| `path` | template | on `graphql`: the file's `graphql.path`, else `/graphql` | on `http` | Start it with `/`. Joined to `baseUrl` as plain text. Each `${…}` value is percent-encoded as one segment. A [`graphql`](/vc-rs/reference/syntax/graphql/) api may leave it out. |
 
 The query string does not go in `path`. Put it in [`query`](/vc-rs/reference/syntax/query/), which encodes each value for you.
 

@@ -134,6 +134,23 @@ pub enum BodySpec {
     Form(IndexMap<String, TemplateValue>),
     /// Multipart parts, chosen by `content-type`.
     Multipart(IndexMap<String, PartSpec>),
+    /// A `graphql` api's request: sent as the JSON `{query, variables, operationName}` (D343).
+    Graphql(GraphqlBody),
+}
+
+/// A `graphql` api's `body` (D343).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
+pub struct GraphqlBody {
+    /// `query`: the document as written, never a template (D344).
+    pub document: String,
+    /// `variables`: templates, `{}` when unset.
+    pub variables: TemplateValue,
+    /// `operationName`, when set.
+    pub operation_name: Option<String>,
 }
 
 /// One part of a multipart body.

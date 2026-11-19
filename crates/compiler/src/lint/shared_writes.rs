@@ -48,7 +48,7 @@ fn writes<'a>(cx: &LintCx<'_, 'a>, source: &Source<'a>) -> Vec<&'a Node> {
     let all: Vec<SourceSpan> = link::list(source.root, "beforeAll").iter().map(|action| action.span).collect();
     let per_test = link::actions(source).into_iter().filter(|action| !all.contains(&action.span));
     let tests = link::list(source.root, "tests").iter().filter(|test| test.get("call").is_some());
-    let writes = |call: &&Node| cx.api(source, call).is_some_and(|api| WRITES.contains(&link::method(api)));
+    let writes = |call: &&Node| cx.method(source, call).is_some_and(|method| WRITES.contains(&method));
     per_test.chain(tests).filter(writes).collect()
 }
 

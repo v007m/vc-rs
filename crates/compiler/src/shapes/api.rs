@@ -18,6 +18,7 @@ shape! {
         types::key("source", Ty::Obj(source)).doc("The OpenAPI spec this file syncs from"),
         types::key("beforeRequest", HOOKS).doc("Functions run before every request in the file"),
         types::key("afterResponse", HOOKS).doc("Functions run after every response in the file"),
+        types::key("graphql", Ty::Obj(graphql)).doc("Defaults for the file's `graphql` apis; only on a `type: graphql` file"),
         types::key("apis", Ty::List(&Ty::Obj(api))).doc("The apis"),
     ])
 }
@@ -32,11 +33,17 @@ shape! {
 }
 
 shape! {
+    graphql = Shape::new("graphql", "The defaults of a `type: graphql` api file (D343)", &[
+        types::key("path", Ty::Template).default("/graphql").doc("The `path` of each `graphql` api that sets none").example("/api/graphql"),
+    ])
+}
+
+shape! {
     api = Shape::new("apiEntry", "One api: a request and the checks that always hold for it", &[
         types::key("id", Ty::Id).required().doc("camelCase; `create` is referenced as `users#create`").example("create"),
         types::key("name", Ty::Text).doc("Shown in listings"),
         types::key("method", Ty::Enum(METHODS)).default("GET").doc("HTTP method"),
-        types::key("path", Ty::Template).required().doc("Appended to `baseUrl`").example("/users/${var.userId}"),
+        types::key("path", Ty::Template).default("required on `http`; on `graphql`, the file's `graphql.path`").doc("Appended to `baseUrl`").example("/users/${var.userId}"),
         types::key("type", Ty::Enum(PROTOCOLS)).default("the file's, else http").doc("What the api speaks; decides which keys apply"),
         types::key("vars", VARS).doc("Defaults for this api; callers override them"),
         types::key("query", TEMPLATES).doc("Query string"),

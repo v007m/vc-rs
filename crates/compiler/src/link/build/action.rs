@@ -2,14 +2,14 @@
 //! merged over the api's (D123).
 
 use vc_model::{
-    Action, ActionKind, ApiId, AuthRef, BodySpec, CacheSpec, Expect, Origin, Owner, Poll, SaveSpec, TestId, VarDefs,
-    VarName,
+    Action, ActionKind, ApiId, AuthRef, BodySpec, CacheSpec, Expect, Origin, Owner, PROTOCOL_KEYS, Poll, SaveSpec,
+    TestId, VarDefs, VarName,
 };
 use vc_parser::Node;
 
 use super::{Build, Built, auth, expect, read};
-use crate::link::project;
 use crate::link::project::Source;
+use crate::link::{project, protocol_keys};
 use crate::shapes;
 
 /// What a step sends, checks and polls for.
@@ -132,7 +132,9 @@ impl<'a> Build<'_, 'a> {
             map.extend(read::templates(source, node, key));
             map
         };
-        let body = node.get("body").or_else(|| defaults.and_then(|test| test.get("body")));
+        let inherited =
+            defaults.filter(|_| protocol_keys::call_takes(self.project, (source, node), (&PROTOCOL_KEYS, "body")));
+        let body = node.get("body").or_else(|| inherited.and_then(|test| test.get("body")));
         let body = body.and_then(|body| read::body(source, body));
         Ok(Request { auth, headers: merged("headers"), query: merged("query"), body })
     }
