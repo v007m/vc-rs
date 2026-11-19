@@ -12,6 +12,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tower_service::Service;
 
+use crate::error::ConnectError;
 use crate::stream::{Conn, ConnectRecord, Stream};
 use crate::{HttpAdapterError, tls};
 
@@ -31,7 +32,7 @@ impl TimedConnector {
         Self { tls, proxy }
     }
 
-    async fn connect(self, dst: Uri) -> Result<Conn, HttpAdapterError> {
+    async fn connect(self, dst: Uri) -> Result<Conn, ConnectError> {
         let target = Target::from_uri(&dst)?;
         let proxy = self.proxy.intercept(&dst);
         let hop = match &proxy {
@@ -56,8 +57,8 @@ impl TimedConnector {
 
 impl Service<Uri> for TimedConnector {
     type Response = Conn;
-    type Error = HttpAdapterError;
-    type Future = Pin<Box<dyn Future<Output = Result<Conn, HttpAdapterError>> + Send>>;
+    type Error = ConnectError;
+    type Future = Pin<Box<dyn Future<Output = Result<Conn, ConnectError>> + Send>>;
 
     fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         Poll::Ready(Ok(()))
@@ -79,7 +80,7 @@ struct Target {
 impl Target {
     fn from_uri(uri: &Uri) -> Result<Self, HttpAdapterError> {
         let host = uri.host().ok_or_else(|| HttpAdapterError::NoHost(uri.to_string()))?;
-        let host = host.trim_start_matches('[').trim_end_matches(']').to_owned();
+        let host = bare_host(host).to_owned();
         let tls = uri.scheme_str() == Some("https");
         let port = uri.port_u16().unwrap_or(if tls { 443 } else { 80 });
         Ok(Self { host, port, tls })
@@ -102,6 +103,11 @@ impl Target {
             format!("{}:{}", self.host, self.port)
         }
     }
+}
+
+/// `host` as a URI gives it, without the brackets of an IPv6 literal: the form TLS and errors use.
+pub fn bare_host(host: &str) -> &str {
+    host.trim_start_matches('[').trim_end_matches(']')
 }
 
 /// Resolves and connects, timing both phases.
