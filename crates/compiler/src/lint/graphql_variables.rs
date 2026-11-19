@@ -1,17 +1,16 @@
 //! V2108: the `body.variables` of a `graphql` api leave out a variable its operation needs (non-null,
-//! with no default), or give one the operation does not declare (D346, D356). `variables` written
-//! as one template is left alone, since its keys are known only at run time.
+//! with no default), an error; or give one the operation does not declare, a warning, since a
+//! GraphQL server ignores it (D346, D356, D357). `variables` written as one template is left
+//! alone, since its keys are known only at run time.
 
-use vc_diagnostics::{Code, Diagnostic};
+use vc_diagnostics::{Code, Diagnostic, Severity};
 use vc_model::SourceSpan;
 use vc_parser::{Entry, GraphqlOperation, Node, Value};
 
 use super::graphql::{self, Document};
 use super::{Lint, LintCx};
+use crate::graphql::VARIABLES;
 use crate::suggest::{self, Misspelling};
-
-/// The `body` key that holds the variables' values.
-const VARIABLES: &str = "variables";
 
 pub struct GraphqlVariables;
 
@@ -55,15 +54,18 @@ fn unset(at: SourceSpan, name: &str) -> Diagnostic {
     diagnostic.help(format!("add `{name}: …` under `body.variables`, or give `${name}` a default in the document"))
 }
 
-/// V2108 at a value given for a variable `operation` does not declare, with the close name as
-/// its fix.
+/// V2108, a warning, at a value given for a variable `operation` does not declare, with the close
+/// name as its fix (D357).
 fn undeclared(operation: &GraphqlOperation, entry: &Entry) -> Option<Diagnostic> {
     let declared: Vec<&str> = operation.variables.iter().map(|variable| variable.name.as_str()).collect();
     if declared.contains(&entry.key.as_str()) {
         return None;
     }
     let message = format!("the operation declares no variable `${}`", entry.key);
-    let diagnostic = Diagnostic::new(Code::V2108, entry.key_span, message).label("not a variable of the operation");
+    let mut diagnostic = Diagnostic::new(Code::V2108, entry.key_span, message)
+        .label("not a variable of the operation")
+        .note("a GraphQL server ignores a variable the operation does not declare");
+    diagnostic.severity = Severity::Warning;
     if declared.is_empty() {
         return Some(diagnostic.help("remove it, or declare it in the operation, such as `query Q($id: ID!)`"));
     }

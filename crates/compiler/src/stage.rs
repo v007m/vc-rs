@@ -51,7 +51,7 @@ pub fn unit(id: SourceFileId, source: &SourceFile, (tools, strings): (&Tools, &m
         return FileUnit { kind: None, root: None, parts: IndexMap::new(), script, diagnostics };
     }
     if graphql::is_document(source.path.as_str()) {
-        let diagnostics = graphql::file_problem(id, source);
+        let diagnostics = Diagnostics::new();
         return FileUnit { kind: None, root: None, parts: IndexMap::new(), script: None, diagnostics };
     }
     let (root, mut diagnostics) = parse(id, source);

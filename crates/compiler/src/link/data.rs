@@ -21,7 +21,7 @@ use super::project;
 use super::project::{Project, Source};
 use super::uses;
 use crate::cache::CacheEntry;
-use crate::graphql;
+use crate::graphql::{self, Documents};
 use crate::suggest;
 
 /// Where the datasets named by their path live.
@@ -52,6 +52,7 @@ pub struct Data<'a> {
     given: HashMap<&'a str, &'a Node>,
     sets: BTreeMap<String, Set>,
     files: &'a SourceFiles,
+    documents: Documents<'a>,
     /// Whether the project's other files were listed, so every dataset is known.
     pub complete: bool,
 }
@@ -79,7 +80,8 @@ impl<'a> Data<'a> {
                 Err(diagnostic) => diagnostics.push(*diagnostic),
             }
         }
-        let data = Self { given, sets, files, complete: assets.is_some() };
+        let documents = Documents::new(project, files);
+        let data = Self { given, sets, files, documents, complete: assets.is_some() };
         diagnostics.extend(data.sets.values().filter_map(|set| data.not_rows(set)));
         (data, diagnostics)
     }
@@ -109,7 +111,12 @@ impl<'a> Data<'a> {
 
     /// The text of the GraphQL document file at `path`, when the compile was given it.
     pub fn document(&self, path: &str) -> Option<&'a str> {
-        graphql::text(self.files, path)
+        self.documents.text(path)
+    }
+
+    /// The GraphQL documents of the compile, each parsed once.
+    pub const fn documents(&self) -> &Documents<'a> {
+        &self.documents
     }
 
     /// The data files the project names and the compile was not given.

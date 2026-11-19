@@ -1,4 +1,4 @@
-use vc_diagnostics::{Code, Diagnostic};
+use vc_diagnostics::{Code, Diagnostic, Severity};
 use vc_model::{BodySpec, ContentHash, SourceFile, SourcePath};
 
 use crate::{CompileInput, Compiled};
@@ -17,12 +17,23 @@ type Files<'f> = (&'f [(&'f str, &'f str)], &'f [&'f str]);
 
 /// The users apis with one `graphql` api whose `body` is `body`, the files `given`, and the
 /// project's other files `listed` next to them.
-fn compile(body: &str, (given, listed): Files<'_>) -> Compiled {
-    let apis = format!("type: graphql\nbaseUrl: ${{var.baseUrl}}\napis:\n  - id: me\n    body:\n{body}");
+fn compile(body: &str, files: Files<'_>) -> Compiled {
+    project(&format!("  - id: me\n    body:\n{body}"), files)
+}
+
+/// The users apis `apis`, each called by a test, the files `given`, and the project's other files
+/// `listed` next to them.
+fn project(apis: &str, (given, listed): Files<'_>) -> Compiled {
+    let ids = apis.lines().filter_map(|line| line.strip_prefix("  - id: "));
+    let call = |id: &str| {
+        let (head, tail) = id.split_at(1);
+        format!("  - id: gets{}{tail}\n    call: users#{id}\n", head.to_uppercase())
+    };
+    let calls: String = ids.map(call).collect();
     let mut files = vec![
         file("vibranium.config.yaml", CONFIG),
-        file("services/users/users.api.yaml", &apis),
-        file("services/users/crud.test.yaml", "tests:\n  - id: getsMe\n    call: users#me\n"),
+        file("services/users/users.api.yaml", &format!("type: graphql\nbaseUrl: ${{var.baseUrl}}\napis:\n{apis}")),
+        file("services/users/crud.test.yaml", &format!("tests:\n{calls}")),
     ];
     files.extend(given.iter().map(|(path, text)| file(path, text)));
     let paths = given.iter().map(|(path, _)| *path).chain(listed.iter().copied());
@@ -125,6 +136,8 @@ fn each_needed_variable_has_a_value_and_each_value_a_variable() {
     let misspelt = given("{ids: '1', limit: 2}");
     assert_eq!(spots(&misspelt), [(Code::V2108, 7, 7, 9), (Code::V2108, 7, 19, 3)]);
     let unknown = misspelt.diagnostics.iter().nth(1).unwrap();
+    let severities: Vec<Severity> = misspelt.diagnostics.iter().map(|found| found.severity).collect();
+    assert_eq!(severities, [Severity::Error, Severity::Warning], "a server ignores an undeclared variable (D357)");
     assert!(fixed(&misspelt, unknown).contains("{id: '1', limit: 2}"));
     let defaulted = compile("      query: 'query Q($id: ID! = 1, $tag: String) { a }'\n", (&[], &[]));
     assert!(defaulted.diagnostics.is_empty(), "{:?}", defaulted.diagnostics);
@@ -156,4 +169,95 @@ fn an_anonymous_operation_is_named_after_its_api() {
         two.diagnostics.iter().map(|found| (found.code, found.fixes.len())).collect::<Vec<_>>(),
         [(Code::V4010, 0)]
     );
+}
+
+#[test]
+fn a_file_query_map_takes_only_its_file() {
+    let flow = compile("      query: {$file: me.graphql, note: x}\n", (&[(DOCUMENT, "query Me { me }\n")], &[]));
+    assert_eq!(spots(&flow), [(Code::V2302, 6, 34, 4)]);
+    assert!(flow.diagnostics.iter().next().unwrap().fixes.is_empty(), "a key that shares its line keeps it");
+    let block = compile(
+        "      query:\n        $file: me.graphql\n        note: x\n",
+        (&[(DOCUMENT, "query Me { me }\n")], &[]),
+    );
+    let found = block.diagnostics.iter().next().unwrap();
+    assert_eq!(
+        (found.code, &found.message[..]),
+        (Code::V2302, "a `query` `$file` map takes only `$file`, found `note`")
+    );
+    assert!(fixed(&block, found).ends_with("    body:\n      query:\n        $file: me.graphql\n"));
+    let renamed = compile("      query: {path: me.graphql}\n", (&[], &[DOCUMENT]));
+    assert!(renamed.data_wanted.is_empty(), "only `$file` names a document file");
+    let templated = "services/users/${var.doc}.graphql";
+    let wanted = compile("      query: {$file: '${var.doc}.graphql'}\n", (&[], &[templated]));
+    assert!(wanted.data_wanted.is_empty(), "a templated path is never read");
+}
+
+#[test]
+fn two_operations_of_one_name_are_v2009() {
+    let twice = "      query: 'query A { a } query A { b }'\n";
+    let named = compile(&format!("{twice}      operationName: A\n"), (&[], &[]));
+    let found = named.diagnostics.iter().next().unwrap();
+    assert_eq!(spots(&named), [(Code::V2009, 6, 29, 5)]);
+    assert_eq!(found.message, "the document holds more than one operation named `A`");
+    let codes: Vec<Code> = spots(&compile(twice, (&[], &[]))).iter().map(|spot| spot.0).collect();
+    assert_eq!(codes, [Code::V2009, Code::V2009], "the name twice, and no `operationName`");
+    let shared = "  - id: me\n    body: {query: {$file: me.graphql}, operationName: A}\n  - id: you\n    body: {query: {$file: me.graphql}, operationName: B}\n";
+    let once = project(shared, (&[(DOCUMENT, "query A { a }\nquery A { b }\nquery B { c }\n")], &[]));
+    assert_eq!(spots(&once).iter().map(|spot| (spot.0, spot.1)).collect::<Vec<_>>(), [(Code::V2009, 2)]);
+}
+
+#[test]
+fn a_document_with_no_operation_is_v2009() {
+    let found = one("      query: {$file: me.graphql}\n", "fragment Fields on User { id }\n");
+    assert_eq!((found.code, &found.message[..]), (Code::V2009, "the document holds no operation (query or mutation)"));
+    assert!(!found.help.iter().any(|help| help.contains("operationName")), "{:?}", found.help);
+}
+
+#[test]
+fn several_operations_are_picked_by_name_or_named_first() {
+    let help = |query: &str| compile(query, (&[], &[])).diagnostics.iter().next().unwrap().help.clone();
+    assert_eq!(
+        help("      query: 'query A { a } query B { b }'\n"),
+        ["name the one to run under `body`, such as `operationName: A`"]
+    );
+    let anonymous = help("      query: '{ a } mutation { b }'\n");
+    assert_eq!(anonymous, ["name the operations, such as `query GetUser`, and pick one with `operationName`"]);
+}
+
+#[test]
+fn a_shared_document_is_named_once_and_left_to_its_author() {
+    let shared =
+        "  - id: me\n    body: {query: {$file: me.graphql}}\n  - id: you\n    body: {query: {$file: me.graphql}}\n";
+    let compiled = project(shared, (&[(DOCUMENT, "{ me }\n")], &[]));
+    let named: Vec<_> = compiled.diagnostics.iter().filter(|found| found.code == Code::V4010).collect();
+    let [found] = named[..] else { panic!("{:?}", compiled.diagnostics) };
+    assert!(found.fixes.is_empty() && found.help == ["name the operation, such as `query GetUser`"], "{found:?}");
+}
+
+#[test]
+fn the_name_an_api_gives_its_operation_keeps_the_keyword() {
+    let help = |apis: &str, text: &str| {
+        let compiled = project(apis, (&[(DOCUMENT, text)], &[]));
+        let found = compiled.diagnostics.iter().find(|found| found.code == Code::V4010).unwrap().clone();
+        (found.help, found.fixes.first().map(|fix| fix.title.clone()))
+    };
+    let me = "  - id: me\n    body: {query: {$file: me.graphql}}\n";
+    assert_eq!(
+        help(me, "mutation { me }\n"),
+        (vec!["name it after the api: `mutation Me`".to_owned()], Some("Name it Me".to_owned()))
+    );
+    assert_eq!(help(me, "{ me }\n").0, ["name it after the api: `query Me`"]);
+    let snake = "  - id: get_me\n    body: {query: {$file: me.graphql}}\n";
+    assert_eq!(help(snake, "{ me }\n").1.as_deref(), Some("Name it Get_me"));
+    let dashed = "  - id: get-me\n    body: {query: {$file: me.graphql}}\n";
+    assert_eq!(help(dashed, "{ me }\n").1, None, "`get-me` is no GraphQL name");
+}
+
+#[test]
+fn a_document_placed_only_roughly_is_underlined_whole() {
+    let folded = compile("      query: >-\n        query { user(id: ) }\n", (&[], &[]));
+    assert_eq!(spots(&folded), [(Code::V1014, 7, 9, 21)], "a folded document is never placed exactly");
+    let escaped = compile("      query: '''{ a( }'''\n", (&[], &[]));
+    assert_eq!(spots(&escaped), [(Code::V1014, 6, 14, 12)], "an escaped one is not either");
 }
