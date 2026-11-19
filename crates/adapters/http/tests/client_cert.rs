@@ -186,11 +186,13 @@ async fn no_certificate_is_refused_as_required_with_help_on_tls_1_2_and_1_3() ->
         let expected = TransportError::ClientCertRejected {
             host: "127.0.0.1".into(),
             alert: "certificate_required".into(),
-            reason: "the server asks for a client certificate".into(),
+            reason: "it requires a client certificate".into(),
             sent: SentCert::Missing,
         };
         assert_eq!(error, expected, "{name}");
-        assert!(error.to_string().contains("add an `http.tls.clients` entry for `127.0.0.1`"), "{error}");
+        let hint = "; no client certificate was sent: if the server requires one, add an `http.tls.clients` entry \
+                    for `127.0.0.1`";
+        assert!(error.to_string().ends_with(hint), "{error}");
     }
     Ok(())
 }
@@ -202,7 +204,7 @@ async fn certificates_turned_off_are_named_as_the_cause_of_a_refusal() -> TestRe
         let error = refused(&pki, setup, (CertChoice::Off, Some(pki.good()))).await?;
         assert!(matches!(&error, TransportError::ClientCertRejected { sent: SentCert::Off, .. }), "{name}: {error:?}");
         let text = error.to_string();
-        assert!(text.ends_with("client certificates are off for this call (`clientCert: none`)"), "{text}");
+        assert!(text.ends_with("; client certificates are off for this call (`clientCert: none`)"), "{text}");
     }
     Ok(())
 }

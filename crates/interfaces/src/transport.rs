@@ -79,6 +79,21 @@ pub enum SentCert {
     Named(String),
 }
 
+impl SentCert {
+    /// What a handshake with `host` that failed over this certificate adds: the identity the
+    /// server rejected, that the call turned certificates off, or how to send one.
+    #[must_use]
+    pub fn advice(&self, host: &str) -> String {
+        match self {
+            Self::Named(id) => format!("the server rejected `{id}`"),
+            Self::Off => "client certificates are off for this call (`clientCert: none`)".to_owned(),
+            Self::Missing => format!(
+                "no client certificate was sent: if the server requires one, add an `http.tls.clients` entry for `{host}`"
+            ),
+        }
+    }
+}
+
 /// A client identity, as its position in the transport's list of identities.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct CertId(u32);
@@ -161,27 +176,17 @@ pub enum TransportError {
     #[error("credentials could not be obtained: {0}")]
     Credentials(AuthError),
     /// The server refused the client certificate, or the lack of one, with a TLS alert (V5127).
-    #[error("TLS handshake with {host} failed with {alert} ({reason}): {}", advice(host, sent))]
+    #[error("TLS handshake with {host} failed with {alert} ({reason}); {}", sent.advice(host))]
     ClientCertRejected {
         /// The host name.
         host: String,
         /// The alert's name, such as `unknown_ca`.
         alert: String,
-        /// What the alert means; when no certificate was sent, that the server asks for one.
+        /// What the alert means.
         reason: String,
         /// The certificate that was sent, if any.
         sent: SentCert,
     },
-}
-
-/// What to do about a refused certificate: name the one sent, say they are off for the call, or
-/// say how to send one.
-fn advice(host: &str, sent: &SentCert) -> String {
-    match sent {
-        SentCert::Named(id) => format!("the server rejected `{id}`"),
-        SentCert::Off => "client certificates are off for this call (`clientCert: none`)".to_owned(),
-        SentCert::Missing => format!("add an `http.tls.clients` entry for `{host}` or a `clientCert` on the auth"),
-    }
 }
 
 impl TransportError {
@@ -231,28 +236,29 @@ mod tests {
     }
 
     #[test]
-    fn a_refused_certificate_is_v5127_and_names_the_identity_or_how_to_send_one() {
-        let rejected = |reason: &str, sent: SentCert| TransportError::ClientCertRejected {
+    fn a_refused_certificate_is_v5127_and_says_what_was_sent() {
+        let rejected = |sent: SentCert| TransportError::ClientCertRejected {
             host: "pay.test".into(),
             alert: "unknown_ca".into(),
-            reason: reason.into(),
+            reason: "it doesn't trust the issuer".into(),
             sent,
         };
-        let asks = "the server asks for a client certificate";
-        assert_eq!(rejected(asks, SentCert::Missing).code(), Code::V5127);
+        assert_eq!(rejected(SentCert::Missing).code(), Code::V5127);
+        let failed = "TLS handshake with pay.test failed with unknown_ca (it doesn't trust the issuer); ";
         assert_eq!(
-            rejected("it doesn't trust the issuer", SentCert::Named("payments".into())).to_string(),
-            "TLS handshake with pay.test failed with unknown_ca (it doesn't trust the issuer): the server rejected `payments`"
+            rejected(SentCert::Named("payments".into())).to_string(),
+            format!("{failed}the server rejected `payments`")
         );
         assert_eq!(
-            rejected(asks, SentCert::Missing).to_string(),
-            "TLS handshake with pay.test failed with unknown_ca (the server asks for a client certificate): add an \
-             `http.tls.clients` entry for `pay.test` or a `clientCert` on the auth"
+            rejected(SentCert::Missing).to_string(),
+            format!(
+                "{failed}no client certificate was sent: if the server requires one, add an `http.tls.clients` entry \
+                 for `pay.test`"
+            )
         );
         assert_eq!(
-            rejected(asks, SentCert::Off).to_string(),
-            "TLS handshake with pay.test failed with unknown_ca (the server asks for a client certificate): client \
-             certificates are off for this call (`clientCert: none`)"
+            rejected(SentCert::Off).to_string(),
+            format!("{failed}client certificates are off for this call (`clientCert: none`)")
         );
     }
 

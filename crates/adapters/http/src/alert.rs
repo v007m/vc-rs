@@ -1,11 +1,13 @@
-//! The TLS alerts a server sends to refuse a client certificate (V5127), and the hint a failed
-//! handshake gets when no certificate was sent.
+//! The TLS alerts a server sends to refuse a client certificate (V5127), and the TLS errors
+//! (V5105) the other alerts make, with a hint when no certificate was sent.
 
 use std::error::Error;
 use std::io;
 
 use rustls::AlertDescription;
 use vc_interfaces::{SentCert, TransportError};
+
+use crate::error::causes;
 
 /// Each alert that refuses a client certificate: its name in the TLS spec and what it means.
 const REFUSALS: [(AlertDescription, &str, &str); 7] = [
@@ -22,50 +24,56 @@ const REFUSALS: [(AlertDescription, &str, &str); 7] = [
     ),
 ];
 
-/// The reason of every refusal when no certificate was sent, whatever the alert: a server
-/// that gets none answers `bad_certificate` (Go) or another alert as readily as
-/// `certificate_required`.
-const ASKS: &str = "the server asks for a client certificate";
-
 /// A refused client certificate: the alert's name and what it means.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Refusal {
+struct Refusal {
     alert: &'static str,
     reason: &'static str,
 }
 
 impl Refusal {
-    /// The refusal `error` or one of its causes carries.
-    pub fn find(error: &(dyn Error + 'static)) -> Option<Self> {
-        let alert = received(error)?;
+    /// The refusal `alert` means, if it refuses a client certificate.
+    fn of(alert: AlertDescription) -> Option<Self> {
         let known = REFUSALS.iter().find(|(refusing, ..)| *refusing == alert);
         known.map(|&(_, alert, reason)| Self { alert, reason })
     }
-
-    /// The error for this refusal by `host` of the certificate `sent`.
-    pub fn at(self, host: &str, sent: SentCert) -> TransportError {
-        let reason = if matches!(sent, SentCert::Named(_)) { self.reason } else { ASKS };
-        let (host, alert, reason) = (host.to_owned(), self.alert.to_owned(), reason.to_owned());
-        TransportError::ClientCertRejected { host, alert, reason, sent }
-    }
 }
 
-/// The TLS handshake with `host` that failed with `error` (V5105). When the server answered
-/// `handshake_failure` and no certificate matched the host, the reason adds how to send one:
-/// OpenSSL answers a missing certificate so on TLS 1.2, though the alert has many other causes.
-pub fn failed_handshake(error: &io::Error, host: &str, sent: &SentCert) -> TransportError {
-    let mut reason = error.to_string();
-    if *sent == SentCert::Missing && received(error) == Some(AlertDescription::HandshakeFailure) {
-        reason = format!(
-            "{reason}; if the server requires a client certificate, add an `http.tls.clients` entry for `{host}`"
-        );
-    }
-    TransportError::Tls { host: host.to_owned(), reason }
+/// A failed request to `host` that sent the certificate `sent`, and the alert its error carries.
+#[derive(Debug)]
+pub struct Failure<'a> {
+    alert: Option<AlertDescription>,
+    host: &'a str,
+    sent: SentCert,
 }
 
-/// `error` and its causes, outermost first.
-pub fn causes<'a>(error: &'a (dyn Error + 'static)) -> impl Iterator<Item = &'a (dyn Error + 'static)> {
-    std::iter::successors(Some(error), |&cause| cause.source())
+impl<'a> Failure<'a> {
+    /// The failure `error` tells of: the alert it or one of its causes carries.
+    pub fn of(error: &(dyn Error + 'static), host: &'a str, sent: SentCert) -> Self {
+        Self { alert: received(error), host, sent }
+    }
+
+    /// The refused client certificate (V5127), when the alert refuses one.
+    pub fn refused(&self) -> Option<TransportError> {
+        let Refusal { alert, reason } = Refusal::of(self.alert?)?;
+        let (host, alert, reason) = (self.host.to_owned(), alert.to_owned(), reason.to_owned());
+        Some(TransportError::ClientCertRejected { host, alert, reason, sent: self.sent.clone() })
+    }
+
+    /// The handshake that failed for `reason` (V5105). When the server answered
+    /// `handshake_failure` and no certificate matched the host, the reason adds how to send one:
+    /// OpenSSL answers a missing certificate so, though the alert has many other causes.
+    pub fn failed(&self, reason: String) -> TransportError {
+        let hint = self.sent == SentCert::Missing && self.alert == Some(AlertDescription::HandshakeFailure);
+        let reason = if hint { format!("{reason}; {}", self.sent.advice(self.host)) } else { reason };
+        TransportError::Tls { host: self.host.to_owned(), reason }
+    }
+
+    /// The handshake that failed for the alert alone, when it came after the handshake seemed
+    /// done: TLS 1.3 sends the server's verdict on the client on the first read.
+    pub fn alerted(&self) -> Option<TransportError> {
+        self.alert.map(|alert| self.failed(rustls::Error::AlertReceived(alert).to_string()))
+    }
 }
 
 /// The alert the server sent, told by the first rustls error among `error` and its causes. Only

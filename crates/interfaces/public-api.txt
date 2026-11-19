@@ -478,6 +478,8 @@ pub enum vc_interfaces::SentCert
 pub vc_interfaces::SentCert::Missing
 pub vc_interfaces::SentCert::Named(alloc::string::String)
 pub vc_interfaces::SentCert::Off
+impl vc_interfaces::SentCert
+pub fn vc_interfaces::SentCert::advice(&self, &str) -> alloc::string::String
 impl core::clone::Clone for vc_interfaces::SentCert
 pub fn vc_interfaces::SentCert::clone(&self) -> Self
 impl core::cmp::Eq for vc_interfaces::SentCert

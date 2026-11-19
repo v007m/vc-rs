@@ -3,7 +3,7 @@ use std::{fmt, io};
 use rustls::AlertDescription;
 use vc_interfaces::{SentCert, TransportError};
 
-use super::{ASKS, REFUSALS, Refusal, failed_handshake};
+use super::{Failure, REFUSALS, Refusal};
 
 /// An error that says `text` and whose cause is `source`, as hyper wraps one.
 #[derive(Debug)]
@@ -32,17 +32,28 @@ fn received(alert: AlertDescription) -> io::Error {
     io::Error::new(io::ErrorKind::InvalidData, rustls::Error::AlertReceived(alert))
 }
 
+fn found(error: &(dyn std::error::Error + 'static)) -> Option<&'static str> {
+    Refusal::of(Failure::of(error, "h", SentCert::Missing).alert?).map(|refusal| refusal.alert)
+}
+
 fn refused(alert: AlertDescription, sent: SentCert) -> Option<TransportError> {
-    Refusal::find(&wrapped(received(alert))).map(|refusal| refusal.at("h", sent))
+    Failure::of(&wrapped(received(alert)), "h", sent).refused()
 }
 
 fn rejected(alert: &str, reason: &str, sent: SentCert) -> TransportError {
     TransportError::ClientCertRejected { host: "h".into(), alert: alert.into(), reason: reason.into(), sent }
 }
 
+fn tls(reason: &str) -> TransportError {
+    TransportError::Tls { host: "h".into(), reason: reason.into() }
+}
+
+const HINT: &str =
+    "no client certificate was sent: if the server requires one, add an `http.tls.clients` entry for `h`";
+
 #[test]
 fn each_refusing_alert_is_found_under_its_spec_name() {
-    let names = REFUSALS.map(|(alert, ..)| Refusal::find(&wrapped(received(alert))).map(|found| found.alert));
+    let names = REFUSALS.map(|(alert, ..)| found(&wrapped(received(alert))));
     let expected = [
         "certificate_required",
         "bad_certificate",
@@ -57,63 +68,77 @@ fn each_refusing_alert_is_found_under_its_spec_name() {
 
 #[test]
 fn finds_a_bare_rustls_alert_and_its_meaning() {
-    let found = Refusal::find(&rustls::Error::AlertReceived(AlertDescription::UnknownCA));
+    let failure = Failure::of(&rustls::Error::AlertReceived(AlertDescription::UnknownCA), "h", SentCert::Missing);
+    let found = failure.alert.and_then(Refusal::of);
     assert_eq!(found, Some(Refusal { alert: "unknown_ca", reason: "it doesn't trust the issuer" }));
 }
 
 #[test]
 fn finds_the_text_h2_keeps_of_an_alert() {
     let copied = io::Error::new(io::ErrorKind::InvalidData, "received fatal alert: CertificateRequired".to_owned());
-    assert_eq!(Refusal::find(&wrapped(copied)).map(|found| found.alert), Some("certificate_required"));
+    assert_eq!(found(&wrapped(copied)), Some("certificate_required"));
 }
 
 #[test]
 fn a_rustls_error_in_the_chain_wins_over_alert_text() {
     let said = Wrapper { text: "received fatal alert: UnknownCA", source: rustls::Error::NoCertificatesPresented };
-    assert_eq!(Refusal::find(&said), None);
+    assert_eq!(found(&said), None);
 }
 
 #[test]
 fn other_alerts_and_errors_are_not_refusals() {
-    assert_eq!(Refusal::find(&wrapped(received(AlertDescription::HandshakeFailure))), None);
-    assert_eq!(Refusal::find(&rustls::Error::NoCertificatesPresented), None);
-    assert_eq!(Refusal::find(&io::Error::other("reset")), None);
+    assert_eq!(refused(AlertDescription::HandshakeFailure, SentCert::Missing), None);
+    assert_eq!(found(&rustls::Error::NoCertificatesPresented), None);
+    assert_eq!(found(&io::Error::other("reset")), None);
 }
 
 #[test]
-fn a_sent_certificate_is_refused_for_what_the_alert_means() {
-    let named = || SentCert::Named("good".into());
+fn a_refusal_keeps_what_the_alert_means_whatever_was_sent() {
     let corrupt = "the certificate is corrupt or its signature fails";
-    assert_eq!(refused(AlertDescription::BadCertificate, named()), Some(rejected("bad_certificate", corrupt, named())));
     let denied = "the server denied access (often: the certificate is valid but not allowed)";
-    assert_eq!(refused(AlertDescription::AccessDenied, named()), Some(rejected("access_denied", denied, named())));
+    for sent in [SentCert::Named("good".into()), SentCert::Missing, SentCert::Off] {
+        let bad = refused(AlertDescription::BadCertificate, sent.clone());
+        assert_eq!(bad, Some(rejected("bad_certificate", corrupt, sent.clone())));
+        let access = refused(AlertDescription::AccessDenied, sent.clone());
+        assert_eq!(access, Some(rejected("access_denied", denied, sent)));
+    }
 }
 
 #[test]
-fn without_a_certificate_every_refusal_says_the_server_asks_for_one() {
-    for sent in [SentCert::Missing, SentCert::Off] {
-        for (alert, name, _) in REFUSALS {
-            assert_eq!(refused(alert, sent.clone()), Some(rejected(name, ASKS, sent.clone())));
-        }
-    }
+fn a_refusal_without_a_certificate_adds_how_to_send_one() {
+    let text = refused(AlertDescription::AccessDenied, SentCert::Missing).map(|error| error.to_string());
+    let denied = "the server denied access (often: the certificate is valid but not allowed)";
+    assert_eq!(text, Some(format!("TLS handshake with h failed with access_denied ({denied}); {HINT}")));
 }
 
 #[test]
 fn a_handshake_failure_without_a_certificate_hints_at_adding_one() {
     let failure = received(AlertDescription::HandshakeFailure);
-    let reason = "received fatal alert: HandshakeFailure; if the server requires a client certificate, add an \
-                  `http.tls.clients` entry for `h`";
-    let expected = TransportError::Tls { host: "h".into(), reason: reason.into() };
-    assert_eq!(failed_handshake(&failure, "h", &SentCert::Missing), expected);
+    let failed = Failure::of(&wrapped(failure), "h", SentCert::Missing).failed("why".into());
+    assert_eq!(failed, tls(&format!("why; {HINT}")));
 }
 
 #[test]
 fn other_failed_handshakes_keep_their_reason() {
-    let plain = |error: &io::Error| TransportError::Tls { host: "h".into(), reason: error.to_string() };
-    let failure = received(AlertDescription::HandshakeFailure);
+    let failure = || wrapped(received(AlertDescription::HandshakeFailure));
     for sent in [SentCert::Off, SentCert::Named("good".into())] {
-        assert_eq!(failed_handshake(&failure, "h", &sent), plain(&failure));
+        assert_eq!(Failure::of(&failure(), "h", sent).failed("why".into()), tls("why"));
     }
-    let other = received(AlertDescription::ProtocolVersion);
-    assert_eq!(failed_handshake(&other, "h", &SentCert::Missing), plain(&other));
+    let other = wrapped(received(AlertDescription::ProtocolVersion));
+    assert_eq!(Failure::of(&other, "h", SentCert::Missing).failed("why".into()), tls("why"));
+    assert_eq!(Failure::of(&io::Error::other("reset"), "h", SentCert::Missing).failed("why".into()), tls("why"));
+}
+
+#[test]
+fn an_alert_on_the_first_read_fails_the_handshake_with_the_same_hint() {
+    let alerted = |alert, sent| Failure::of(&wrapped(received(alert)), "h", sent).alerted();
+    let failure = "received fatal alert: HandshakeFailure";
+    assert_eq!(
+        alerted(AlertDescription::HandshakeFailure, SentCert::Missing),
+        Some(tls(&format!("{failure}; {HINT}")))
+    );
+    assert_eq!(alerted(AlertDescription::HandshakeFailure, SentCert::Off), Some(tls(failure)));
+    let version = alerted(AlertDescription::ProtocolVersion, SentCert::Missing);
+    assert_eq!(version, Some(tls("received fatal alert: ProtocolVersion")));
+    assert_eq!(Failure::of(&io::Error::other("reset"), "h", SentCert::Missing).alerted(), None);
 }
