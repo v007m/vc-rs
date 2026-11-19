@@ -18,13 +18,11 @@ const RESERVED: [&str; 11] =
 /// The config's top-level lists whose items have IDs.
 const CONFIG_ITEMS: [&str; 4] = ["profiles", "auth", "generators", "plugins"];
 
-/// The config lists below the top level whose items have IDs, each as its path of keys.
-const NESTED_ITEMS: [&[&str]; 2] = [&["datasets", "files"], &["http", "tls", "clients"]];
-
-/// The items of the list at `path` under `root`.
-fn nested<'a>(root: &'a Node, path: &[&str]) -> &'a [Node] {
-    let Some((key, parents)) = path.split_last() else { return &[] };
-    parents.iter().try_fold(root, |node, parent| node.get(parent)).map_or(&[], |parent| project::list(parent, key))
+/// The items of the config `root`'s lists below the top level that have IDs: `datasets.files`
+/// and `http.tls.clients`.
+fn nested(root: &Node) -> impl Iterator<Item = &Node> {
+    let files = root.get("datasets").map(|datasets| project::list(datasets, "files")).unwrap_or_default();
+    files.iter().chain(project::tls_clients(root))
 }
 
 /// Every `id` value node a file declares, in file order.
@@ -36,7 +34,7 @@ pub fn declared<'a>(source: &Source<'a>) -> Vec<&'a Node> {
         FileKind::Load => &[],
     };
     let config = (source.kind == FileKind::Config).then_some(source.root);
-    let nested = NESTED_ITEMS.iter().flat_map(|path| config.map(|root| nested(root, path)).unwrap_or_default());
+    let nested = config.into_iter().flat_map(nested);
     let nodes = items.iter().flat_map(|key| project::list(source.root, key)).chain(nested);
     let nodes = nodes.chain(project::actions(source));
     let mut ids: Vec<&Node> = nodes.filter_map(|node| node.get("id")).collect();
