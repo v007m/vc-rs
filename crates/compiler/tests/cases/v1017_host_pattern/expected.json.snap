@@ -1,11 +1,10 @@
 ---
 source: crates/compiler/tests/golden.rs
-assertion_line: 44
 input_file: crates/compiler/tests/cases/v1017_host_pattern/project
 ---
 {
   "summary": {
-    "errors": 8,
+    "errors": 9,
     "warnings": 0,
     "infos": 0
   },
@@ -237,6 +236,42 @@ input_file: crates/compiler/tests/cases/v1017_host_pattern/project
         "write `host`, `host:port` or `*.domain`, such as `api.partner.example:8443`"
       ],
       "fixes": []
+    },
+    {
+      "code": "V1017",
+      "severity": "error",
+      "message": "`https://[::1]:8443/` is not a host pattern",
+      "primary": {
+        "span": {
+          "path": "vibranium.config.yaml",
+          "line": 21,
+          "column": 13,
+          "endLine": 21,
+          "endColumn": 32
+        },
+        "text": "a URL; write only its host"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "write `host`, `host:port` or `*.domain`, such as `api.partner.example:8443`"
+      ],
+      "fixes": [
+        {
+          "title": "Write [::1]:8443",
+          "certain": true,
+          "edits": [
+            {
+              "path": "vibranium.config.yaml",
+              "range": {
+                "start": 493,
+                "end": 512
+              },
+              "newText": "'[::1]:8443'"
+            }
+          ]
+        }
+      ]
     }
   ]
 }

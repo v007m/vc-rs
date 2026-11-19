@@ -85,6 +85,7 @@ pub fn compile(input: CompileInput) -> Compiled {
     };
     let linked = link::link(&entries, &files, &world);
     diagnostics.extend(linked.diagnostics);
+    let diagnostics = link::masked(diagnostics, &linked.secrets);
     let (program, data_wanted, hooks_wanted) = (linked.program, linked.data_wanted, linked.hooks_wanted);
     let replay = program.clone().filter(|_| !diagnostics.has_errors()).map(|program| {
         let diagnostics = diagnostics.clone();

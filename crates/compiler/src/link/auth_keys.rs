@@ -1,16 +1,16 @@
-//! The keys each built-in auth type needs ([`vc_model::AUTH_NEEDS`]): a definition that leaves
-//! one out is V1005 when checked, not V5114 on its first call. `mtls` needs `clientCert` (D350).
+//! The keys each built-in auth type needs ([`vc_model::AUTH_NEEDS`] and
+//! [`vc_model::AUTH_OWN_NEEDS`]): a definition that leaves one out is V1005 when checked, not
+//! V5114 on its first call. `mtls` needs `clientCert` (D350).
 
 use vc_diagnostics::{Code, Diagnostic, Diagnostics};
-use vc_model::auth_needs;
+use vc_model::{auth_needs, auth_own_needs};
 use vc_parser::Node;
 
 use super::project;
 use super::project::Project;
 
-/// The keys an auth type needs besides the settings its provider reads, each with its help.
-const OWN_NEEDS: [(&str, &str, &str); 1] =
-    [("mtls", "clientCert", "add `clientCert:` with the ID of an `http.tls.clients` entry")];
+/// The help for each key in [`vc_model::AUTH_OWN_NEEDS`]: these are not credentials.
+const OWN_HELP: [(&str, &str); 1] = [("clientCert", "add `clientCert:` with the ID of an `http.tls.clients` entry")];
 
 /// The help for a credential the provider reads.
 const CREDENTIAL_HELP: &str = "a credential is written as a template such as `${secret.PARTNER_TOKEN}`";
@@ -23,12 +23,17 @@ pub fn check(project: &Project<'_>) -> Diagnostics {
         let Some(kind) = entry.get("type") else { continue };
         let Some(name) = kind.as_str() else { continue };
         let settings = auth_needs(name).unwrap_or_default().iter().map(|key| (*key, None));
-        let own = OWN_NEEDS.iter().filter(|(of, _, _)| *of == name).map(|(_, key, help)| (*key, Some(*help)));
+        let own = auth_own_needs(name).iter().map(|key| (*key, own_help(key)));
         for (key, help) in settings.chain(own).filter(|(key, _)| entry.get(key).is_none()) {
             diagnostics.push(missing(kind, (name, key), help));
         }
     }
     diagnostics
+}
+
+/// The help for the own key `key`.
+fn own_help(key: &str) -> Option<&'static str> {
+    OWN_HELP.iter().find(|(own, _)| *own == key).map(|(_, help)| *help)
 }
 
 /// V1005 at the entry's `type`, naming the key it needs.

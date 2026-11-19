@@ -8,12 +8,15 @@ http:
     clients:
       - id: bothWays
         cert: certs/partner.crt
-        key: certs/partner.key
+        key: |
+          -----BEGIN PRIVATE KEY-----
+          MC4CAQAwBQYDK2VwBCIEIBNPUm4yBPU2X6pnB4Gw0z0bJqh5TdLmA1n1Rk8o2CNn
+          -----END PRIVATE KEY-----
         pkcs12: certs/partner.p12
       - id: bundleAndKey
         key: certs/partner.key
+        passphrase: hunter2
         pkcs12: certs/partner.p12
-        passphrase: ${secret.P12_PASSPHRASE}
       - id: noWay
         name: Forgot the certificate
         hosts: [api.partner.example]

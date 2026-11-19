@@ -13,7 +13,7 @@ http:
       - id: pemWithPassphrase
         cert: certs/partner.crt
         key: certs/partner.key
-        passphrase: ${secret.P12_PASSPHRASE}
+        passphrase: hunter2
       - id: bundle
         pkcs12: certs/partner.p12
         passphrase: ${secret.P12_PASSPHRASE}

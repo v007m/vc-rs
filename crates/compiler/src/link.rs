@@ -35,13 +35,14 @@ use std::collections::{BTreeSet, HashSet};
 use std::sync::Arc;
 
 use vc_diagnostics::Diagnostics;
-use vc_model::{Date, FileKind, PROTOCOL_KEYS, Program, SchemaNames, SourceFiles, SourcePath, StringTable};
+use vc_model::{Date, FileKind, PROTOCOL_KEYS, Program, SchemaNames, SourceFiles, SourcePath, SourceSpan, StringTable};
 
 pub use assets::folder;
 pub use body_schema::{is_inline as schema_is_inline, key as schema_key, nodes as schema_nodes};
 pub use build::{ProtocolRulesRegistry, body_path, duration, flag};
 pub use data::DataWanted;
-pub use project::{Project, Source, TEST_BLOCKS, actions, list, protocol, text, whole_lines};
+pub use project::{Project, Source, TEST_BLOCKS, actions, list, protocol, text, tls_clients, whole_lines};
+pub use tls::{literals as tls_literals, masked};
 pub use uses::piece_refs;
 
 use crate::cache::CacheEntry;
@@ -58,6 +59,8 @@ pub struct Linked {
     /// The data files the project names that were not given (D173).
     pub data_wanted: Vec<DataWanted>,
     pub hooks_wanted: Vec<SourcePath>,
+    /// Where the config writes a client key or passphrase as text, for [`masked`] (D353).
+    pub secrets: Vec<SourceSpan>,
 }
 
 /// What linking is told besides the units: the names they share, and what the files cannot say.
@@ -105,7 +108,7 @@ pub fn link(entries: &[CacheEntry], files: &SourceFiles, world: &World<'_>) -> L
     diagnostics.extend(shared::profiles(&project));
     diagnostics.extend(world.secrets.map(|names| secrets::check(&project, &names.declared)).unwrap_or_default());
     if !clean {
-        return Linked { diagnostics, program: None, data_wanted, hooks_wanted };
+        return Linked { diagnostics, program: None, data_wanted, hooks_wanted, secrets: tls::secrets(&project) };
     }
     diagnostics.extend(flow::check(&project));
     cycles::check(&project, &mut diagnostics);
@@ -120,7 +123,7 @@ pub fn link(entries: &[CacheEntry], files: &SourceFiles, world: &World<'_>) -> L
         diagnostics.extend(lints((&project, data.documents()), program, world.today));
     }
     let program = program.filter(|_| !diagnostics.has_errors());
-    Linked { diagnostics, program, data_wanted, hooks_wanted }
+    Linked { diagnostics, program, data_wanted, hooks_wanted, secrets: tls::secrets(&project) }
 }
 
 /// The lifecycle and convention lints over a project whose program was built.

@@ -15,9 +15,9 @@ pub const NO_CLIENT_CERT: &str = "none";
 impl<'a> Build<'_, 'a> {
     /// `config` with `http.tls`.
     pub fn tls(&mut self, source: &Source<'a>, config: Config) -> Built<Config> {
-        let Some(tls) = source.root.get("http").and_then(|http| http.get("tls")) else { return Ok(config) };
+        let Some(tls) = project::tls(source.root) else { return Ok(config) };
         let mut clients = IndexMap::new();
-        for node in project::list(tls, "clients") {
+        for node in project::tls_clients(source.root) {
             let Some(client) = self.tls_client(source, node)? else { continue };
             clients.entry(client.id).or_insert(client);
         }

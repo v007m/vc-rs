@@ -1,5 +1,6 @@
 //! The types whose credentials are written in the definition: `basic`, `bearer`, `apiKey`,
-//! and `flow`, whose steps the executor runs.
+//! `flow`, whose steps the executor runs, and `mtls`, whose client certificate the HTTP client
+//! presents.
 
 use async_trait::async_trait;
 use base64::Engine as _;
@@ -28,6 +29,12 @@ pub struct ApiKey;
 #[derive(Clone, Copy, Debug, Default)]
 #[non_exhaustive]
 pub struct Flow;
+
+/// `mtls`: no headers or query. The definition's `clientCert` selects the certificate the HTTP
+/// client presents, which is the whole of the auth (D350).
+#[derive(Clone, Copy, Debug, Default)]
+#[non_exhaustive]
+pub struct Mtls;
 
 #[async_trait]
 impl AuthProvider for Basic {
@@ -64,5 +71,12 @@ impl AuthProvider for Flow {
     async fn credentials(&self, request: &AuthRequest) -> Result<Credentials, AuthError> {
         let missing = || AuthError::Missing { auth: request.auth.clone(), key: "steps".to_owned() };
         request.flow.as_ref().ok_or_else(missing)?.run().await
+    }
+}
+
+#[async_trait]
+impl AuthProvider for Mtls {
+    async fn credentials(&self, _request: &AuthRequest) -> Result<Credentials, AuthError> {
+        Ok(Credentials::default())
     }
 }

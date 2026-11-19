@@ -8,7 +8,7 @@ use std::ops::Range;
 
 use vc_compiler::{camel_id, is_camel_id};
 use vc_diagnostics::{Code, Diagnostic};
-use vc_model::{AUTH_NEEDS, DEFAULT_SECRETS_SCHEMA, FileKind, auth_needs, secret_name};
+use vc_model::{AUTH_NEEDS, DEFAULT_SECRETS_SCHEMA, FileKind, auth_needs, auth_own_needs, secret_name};
 use vc_parser::write_text;
 
 use crate::authoring::{Authoring, item, refused};
@@ -41,12 +41,15 @@ pub struct NewAuth {
     pub fields: Vec<(String, String)>,
 }
 
-/// The fields `vc new auth` asks for, for `auth_type`, in order: every key the type needs
-/// ([`vc_model::AUTH_NEEDS`]) but a flow's `steps`, then the optional ones worth asking for;
-/// none for an unknown type.
+/// The fields `vc new auth` asks for, for `auth_type`, in order; none for an unknown type.
+///
+/// They are every key the type needs ([`vc_model::AUTH_NEEDS`] and [`vc_model::AUTH_OWN_NEEDS`],
+/// such as an `mtls` auth's `clientCert`) but a flow's `steps`, then the optional ones worth
+/// asking for.
 #[must_use]
 pub fn auth_fields(auth_type: &str) -> Vec<&'static str> {
-    let needs = auth_needs(auth_type).unwrap_or_default().iter().filter(|key| **key != UNASKED);
+    let needs = auth_needs(auth_type).unwrap_or_default().iter().chain(auth_own_needs(auth_type));
+    let needs = needs.filter(|key| **key != UNASKED);
     let optional = OPTIONAL.iter().filter(|(name, _)| *name == auth_type).flat_map(|(_, keys)| keys.iter());
     needs.chain(optional).copied().collect()
 }
@@ -181,6 +184,7 @@ mod tests {
         assert_eq!(auth_fields("apiKey"), ["name", "value", "in"]);
         assert_eq!(auth_fields("oauth2ClientCredentials"), ["tokenUrl", "clientId", "clientSecret", "audience"]);
         assert_eq!(auth_fields("flow"), [""; 0]);
+        assert_eq!(auth_fields("mtls"), ["clientCert"]);
         assert_eq!(auth_fields("nope"), [""; 0]);
     }
 
@@ -204,11 +208,13 @@ mod tests {
             ))
         );
         assert_eq!(yaml(&request("oauth2ClientCredentials", &[])).map(|(_, missing)| missing), Some(0));
+        let mtls = yaml(&request("mtls", &[("clientCert", "partnerCert")]));
+        assert_eq!(mtls, Some(("id: partnerToken\ntype: mtls\nclientCert: partnerCert".into(), 0)));
     }
 
     #[test]
     fn each_type_asks_for_every_key_it_needs_but_a_flow_s_steps() {
-        for (name, needs) in vc_model::AUTH_NEEDS {
+        for (name, needs) in vc_model::AUTH_NEEDS.into_iter().chain(vc_model::AUTH_OWN_NEEDS) {
             let asked = auth_fields(name);
             let left: Vec<&&str> = needs.iter().filter(|key| !asked.contains(key)).collect();
             assert_eq!(left, if name == "flow" { vec![&"steps"] } else { vec![] }, "{name}");

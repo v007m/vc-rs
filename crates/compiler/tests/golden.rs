@@ -24,8 +24,15 @@ const TODAY: &str = "2026-11-03";
 /// The file at a case's project root that declares its secret names (D165).
 const SECRET_SCHEMA: &str = ".env.schema";
 
-fn golden(case: &str) -> Outcome {
-    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/cases").join(case);
+/// The secrets the TLS cases write in their configs, which no output may print (D353).
+const TLS_SECRETS: [&str; 3] =
+    ["hunter2", "MC4CAQAwBQYDK2VwBCIEIBNPUm4yBPU2X6pnB4Gw0z0bJqh5TdLmA1n1Rk8o2CNn", "BEGIN PRIVATE KEY"];
+
+/// The text and JSON a case renders, or why it could not be read.
+type Rendered = Result<(String, String), Box<dyn Error>>;
+
+/// A case's diagnostics rendered as text and as JSON.
+fn rendered(dir: &Path) -> Rendered {
     let project = dir.join("project");
     let mut read = Vec::new();
     read_tree(&project, &project, &mut read)?;
@@ -34,6 +41,13 @@ fn golden(case: &str) -> Outcome {
     let text = TextRenderer::default().render(&compiled.diagnostics, &compiled.files)?;
     let json = JsonRenderer.render(&compiled.diagnostics, &compiled.files)?;
     assert_eq!(compiled.program.is_some(), !compiled.diagnostics.has_errors());
+    Ok((text, json))
+}
+
+fn golden(case: &str) -> Outcome {
+    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/cases").join(case);
+    let project = dir.join("project");
+    let (text, json) = rendered(&dir)?;
     let mut settings = insta::Settings::clone_current();
     settings.set_snapshot_path(dir);
     settings.set_prepend_module_to_snapshot(false);
@@ -176,3 +190,17 @@ cases!(
     #[cfg(feature = "hooks")]
     v2008_hook_import,
 );
+
+/// A client key or passphrase written in the config prints in no diagnostic, text or JSON,
+/// whichever code reports a line near it (D353).
+#[test]
+fn tls_secrets_print_nowhere() -> Outcome {
+    for case in ["v1016_cert_two_ways", "v2211_tls_lone_keys", "v4013_literal_key"] {
+        let (text, json) = rendered(&Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/cases").join(case))?;
+        assert!(text.contains("•••"), "{case} masks nothing:\n{text}");
+        for secret in TLS_SECRETS {
+            assert!(!text.contains(secret) && !json.contains(secret), "{case} prints `{secret}`:\n{text}");
+        }
+    }
+    Ok(())
+}

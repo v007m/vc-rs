@@ -1,6 +1,5 @@
 ---
 source: crates/compiler/tests/golden.rs
-assertion_line: 43
 input_file: crates/compiler/tests/cases/v1017_host_pattern/project
 ---
 error[V1017]: `https://api.partner.example/v1` is not a host pattern
@@ -62,3 +61,11 @@ error[V1017]: `api partner` is not a host pattern
 20 |           - api partner
    |             ^^^^^^^^^^^ not a host name or IP address
    = help: write `host`, `host:port` or `*.domain`, such as `api.partner.example:8443`
+
+error[V1017]: `https://[::1]:8443/` is not a host pattern
+  --> vibranium.config.yaml:21:13
+   |
+21 |           - https://[::1]:8443/
+   |             ^^^^^^^^^^^^^^^^^^^ a URL; write only its host
+   = help: write `host`, `host:port` or `*.domain`, such as `api.partner.example:8443`
+   = fix: Write [::1]:8443 (certain)

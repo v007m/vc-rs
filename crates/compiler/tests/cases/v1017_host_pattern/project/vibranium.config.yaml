@@ -18,4 +18,5 @@ http:
           - '*'
           - api.partner.example:99999
           - api partner
+          - https://[::1]:8443/
           - api.partner.example

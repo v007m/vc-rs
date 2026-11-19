@@ -1,6 +1,5 @@
 ---
 source: crates/compiler/tests/golden.rs
-assertion_line: 44
 input_file: crates/compiler/tests/cases/v1016_cert_two_ways/project
 ---
 {
@@ -17,9 +16,9 @@ input_file: crates/compiler/tests/cases/v1016_cert_two_ways/project
       "primary": {
         "span": {
           "path": "vibranium.config.yaml",
-          "line": 12,
+          "line": 15,
           "column": 9,
-          "endLine": 12,
+          "endLine": 15,
           "endColumn": 15
         },
         "text": "a PKCS#12 bundle here"
@@ -49,9 +48,9 @@ input_file: crates/compiler/tests/cases/v1016_cert_two_ways/project
       "primary": {
         "span": {
           "path": "vibranium.config.yaml",
-          "line": 15,
+          "line": 19,
           "column": 9,
-          "endLine": 15,
+          "endLine": 19,
           "endColumn": 15
         },
         "text": "a PKCS#12 bundle here"
@@ -60,9 +59,9 @@ input_file: crates/compiler/tests/cases/v1016_cert_two_ways/project
         {
           "span": {
             "path": "vibranium.config.yaml",
-            "line": 14,
+            "line": 17,
             "column": 9,
-            "endLine": 14,
+            "endLine": 17,
             "endColumn": 12
           },
           "text": "and PEM here"
@@ -81,9 +80,9 @@ input_file: crates/compiler/tests/cases/v1016_cert_two_ways/project
       "primary": {
         "span": {
           "path": "vibranium.config.yaml",
-          "line": 17,
+          "line": 20,
           "column": 9,
-          "endLine": 17,
+          "endLine": 20,
           "endColumn": 11
         },
         "text": "no `cert` or `pkcs12`"

@@ -1,12 +1,11 @@
 ---
 source: crates/compiler/tests/golden.rs
-assertion_line: 44
 input_file: crates/compiler/tests/cases/v2211_tls_lone_keys/project
 ---
 {
   "summary": {
     "errors": 3,
-    "warnings": 0,
+    "warnings": 1,
     "infos": 0
   },
   "diagnostics": [
@@ -70,6 +69,27 @@ input_file: crates/compiler/tests/cases/v2211_tls_lone_keys/project
       "notes": [],
       "help": [
         "`passphrase` unlocks a `pkcs12` bundle: add `pkcs12`, or remove `passphrase`"
+      ],
+      "fixes": []
+    },
+    {
+      "code": "V4013",
+      "severity": "warning",
+      "message": "`passphrase` is a passphrase written in the config",
+      "primary": {
+        "span": {
+          "path": "vibranium.config.yaml",
+          "line": 16,
+          "column": 9,
+          "endLine": 16,
+          "endColumn": 19
+        },
+        "text": "its value is kept in git with the file"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "read it from `.env`: `passphrase: ${secret.NAME}`, with `NAME=` declared in `.env.schema`"
       ],
       "fixes": []
     }
