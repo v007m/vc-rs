@@ -1,9 +1,10 @@
 //! PKCS#12 bundles (D352), decoded with `p12-keystore` into a DER chain and a signer for the key.
 
 use p12_keystore::{CertificateBag, LocalKeyId, Pkcs12Archive};
+use rustls::crypto::ring::default_provider;
 use rustls::crypto::ring::sign::any_supported_type;
 use rustls::pki_types::{CertificateDer, PrivateKeyDer};
-use rustls::sign::CertifiedKey;
+use rustls::sign::{CertifiedKey, SigningKey};
 use x509_parser::certificate::X509Certificate;
 use zeroize::Zeroizing;
 
@@ -36,13 +37,14 @@ fn from_archive(archive: &Pkcs12Archive) -> Result<Decoded, Reason> {
     }
     let key = Zeroizing::new(bag.key.as_der().to_vec());
     let signer = any_supported_type(&PrivateKeyDer::Pkcs8(key.as_slice().into())).map_err(|_| Reason::KeyType)?;
-    let certs: Vec<Cert<'_>> = archive.certs.iter().filter_map(Cert::parse).collect();
-    let public = signer.public_key();
-    let leaf = leaf(&certs, public.as_deref(), bag.local_key_id.as_ref()).ok_or(Reason::NoMatchingCertificate)?;
+    let certs = archive.certs.iter().map(Cert::parse).collect::<Option<Vec<_>>>().ok_or(Reason::NotX509)?;
+    let leaf = leaf(&certs, signer.as_ref(), bag.local_key_id.as_ref()).ok_or(Reason::NoMatchingCertificate)?;
     Ok(Decoded { certified: CertifiedKey::new(chain(&certs, leaf), signer), key })
 }
 
-/// A bundle's certificate, parsed once with x509-parser, which also reads v1 certificates.
+/// A bundle's certificate, parsed once with x509-parser, which also reads v1 certificates. A
+/// certificate it cannot parse refuses the bundle, as `p12-keystore`, which parses with it too,
+/// already does.
 struct Cert<'a> {
     bag: &'a CertificateBag,
     x509: X509Certificate<'a>,
@@ -69,6 +71,16 @@ impl<'a> Cert<'a> {
         self.x509.public_key().raw
     }
 
+    /// Whether the certificate names itself as its issuer, as a root does.
+    fn self_issued(&self) -> bool {
+        self.issuer() == self.subject()
+    }
+
+    /// Whether `chain` already holds this certificate.
+    fn is_in(&self, chain: &[&Self]) -> bool {
+        chain.iter().any(|link| link.bag.cert == self.bag.cert)
+    }
+
     /// How well this certificate fits as `child`'s issuer: whether its key verifies `child`'s
     /// signature, then how late it expires.
     fn fit(&self, child: &Cert<'_>) -> (bool, i64) {
@@ -77,35 +89,62 @@ impl<'a> Cert<'a> {
     }
 }
 
-/// The key's certificate: one whose public key is the key's, the one with the key's local key ID
-/// if several are, else the first.
-fn leaf<'c, 'a>(certs: &'c [Cert<'a>], public: Option<&[u8]>, key_id: Option<&LocalKeyId>) -> Option<&'c Cert<'a>> {
-    let owns = |cert: &&Cert<'_>| key_id.is_some_and(|id| cert.bag.local_key_id.as_deref() == Some(id.as_ref()));
-    let matching = || certs.iter().filter(|cert| Some(cert.public_key()) == public);
-    matching().find(owns).or_else(|| matching().next())
+/// The key's certificate, checked to hold the key: one whose `SubjectPublicKeyInfo` has the same
+/// DER as the key's (the one with the key's local key ID if several do, else the first), else the
+/// one with the key's local key ID, else the first.
+fn leaf<'c, 'a>(certs: &'c [Cert<'a>], signer: &dyn SigningKey, key_id: Option<&LocalKeyId>) -> Option<&'c Cert<'a>> {
+    let public = signer.public_key();
+    let tagged = |cert: &&Cert<'_>| key_id.is_some_and(|id| cert.bag.local_key_id.as_deref() == Some(id.as_ref()));
+    let same = || certs.iter().filter(|cert| Some(cert.public_key()) == public.as_deref());
+    let leaf = same().find(tagged).or_else(|| same().next());
+    let leaf = leaf.or_else(|| certs.iter().find(tagged)).or_else(|| certs.first())?;
+    holds(leaf, signer, public.as_deref()).then_some(leaf)
 }
 
-/// The leaf, then its issuer, that one's issuer and so on, up to a self-issued certificate. An
-/// issuer's subject has the same DER as its child's issuer name; trusted bags count, since a
-/// keystore may store a real intermediate as one. Among several such, the one whose key verifies
-/// the child's signature wins, then the one that expires last, then the first. Certificates off
-/// this path are left out.
+/// Whether `cert` holds `signer`'s key, whose `SubjectPublicKeyInfo` is `public`: it has the same
+/// DER, or, encoded another way (explicit EC parameters, say), its key verifies a signature
+/// `signer` makes. ring cannot verify with a compressed EC point, so a certificate with one never
+/// holds the key unless its DER is the key's.
+fn holds(cert: &Cert<'_>, signer: &dyn SigningKey, public: Option<&[u8]>) -> bool {
+    if public == Some(cert.public_key()) {
+        return true;
+    }
+    let algorithms = default_provider().signature_verification_algorithms;
+    let Some(probe) = signer.choose_scheme(&algorithms.supported_schemes()) else { return false };
+    let Ok(signature) = probe.sign(PROBE) else { return false };
+    let key = &cert.x509.public_key().subject_public_key.data;
+    let verifiers = algorithms.mapping.iter().filter(|(scheme, _)| *scheme == probe.scheme());
+    verifiers
+        .flat_map(|(_, verifiers)| verifiers.iter())
+        .any(|verifier| verifier.verify_signature(key, PROBE, &signature).is_ok())
+}
+
+/// What [`holds`] signs.
+const PROBE: &[u8] = b"vc: does this certificate hold the PKCS#12 bundle's key";
+
+/// The leaf, then its issuer, that one's issuer and so on, stopping before a self-issued
+/// certificate: the server holds its roots, so none is sent. An issuer's subject has the same DER
+/// as its child's issuer name; trusted bags count, since a keystore may store a real intermediate
+/// as one. Among several such, the one whose key verifies the child's signature wins, then the one
+/// that expires last, then the first. Certificates off this path are left out.
 fn chain<'c, 'a>(certs: &'c [Cert<'a>], leaf: &'c Cert<'a>) -> Vec<CertificateDer<'static>> {
     let mut chain = vec![leaf];
-    let mut current = leaf;
-    while current.issuer() != current.subject() {
-        let issuer = certs
-            .iter()
-            .rev()
-            .filter(|cert| {
-                cert.subject() == current.issuer() && !chain.iter().any(|link| link.bag.cert == cert.bag.cert)
-            })
-            .max_by_key(|cert| cert.fit(current));
-        let Some(issuer) = issuer else { break };
+    while let Some(issuer) = issuer(certs, &chain) {
         chain.push(issuer);
-        current = issuer;
     }
     chain.into_iter().map(|cert| CertificateDer::from(cert.bag.cert.as_der().to_vec())).collect()
+}
+
+/// The issuer of the chain's last certificate: one in `certs`, not yet in the chain and not
+/// self-issued. Signatures are checked only when several certificates qualify.
+fn issuer<'c, 'a>(certs: &'c [Cert<'a>], chain: &[&'c Cert<'a>]) -> Option<&'c Cert<'a>> {
+    let child = chain.last().filter(|child| !child.self_issued())?;
+    let named = certs.iter().rev().filter(|cert| cert.subject() == child.issuer());
+    let mut candidates: Vec<&Cert<'a>> = named.filter(|cert| !cert.self_issued() && !cert.is_in(chain)).collect();
+    if candidates.len() < 2 {
+        return candidates.pop();
+    }
+    candidates.into_iter().max_by_key(|cert| cert.fit(child))
 }
 
 #[cfg(test)]

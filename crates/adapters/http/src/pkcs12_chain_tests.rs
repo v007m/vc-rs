@@ -58,7 +58,7 @@ fn walks_through_an_intermediate_stored_as_a_trusted_bag() -> TestResult {
     let (leaf, key) = intermediate.leaf()?;
     let certs =
         vec![cert_bag(&root_cert, None, true), cert_bag(&leaf, None, false), cert_bag(&intermediate_cert, None, true)];
-    assert_eq!(chain_for(key, None, certs)?, [leaf.as_der(), intermediate_cert.as_der(), root_cert.as_der()]);
+    assert_eq!(chain_for(key, None, certs)?, [leaf.as_der(), intermediate_cert.as_der()], "the root is left out");
     Ok(())
 }
 
@@ -77,9 +77,7 @@ fn picks_the_renewed_intermediate_that_signed_the_child_then_the_one_that_expire
         bags.push(cert_bag(&root_cert, None, false));
         bags
     };
-    let to = |intermediate: &Certificate| {
-        vec![leaf.as_der().to_vec(), intermediate.as_der().to_vec(), root_cert.as_der().to_vec()]
-    };
+    let to = |intermediate: &Certificate| vec![leaf.as_der().to_vec(), intermediate.as_der().to_vec()];
     assert_eq!(chain_for(key.clone(), None, bags([&rekeyed_cert, &old_cert]))?, to(&old_cert));
     assert_eq!(chain_for(key.clone(), None, bags([&old_cert, &rekeyed_cert]))?, to(&old_cert));
     assert_eq!(chain_for(key.clone(), None, bags([&old_cert, &renewed_cert]))?, to(&renewed_cert));
@@ -89,16 +87,17 @@ fn picks_the_renewed_intermediate_that_signed_the_child_then_the_one_that_expire
 
 #[test]
 fn matches_names_by_their_der_not_by_how_they_render() -> TestResult {
-    let printable = DnValue::PrintableString(PrintableString::try_from("shared name")?);
-    let root = Ca::new(printable, 2090)?;
-    let intermediate = Ca::new(DnValue::Utf8String("shared name".to_owned()), 2080)?;
-    let (root_cert, intermediate_cert) = (root.root()?, intermediate.signed_by(&root)?);
-    assert_eq!(root_cert.subject(), intermediate_cert.subject(), "both render as {}", root_cert.subject());
-    assert_eq!(intermediate_cert.issuer(), intermediate_cert.subject(), "and look self-issued");
-    let (leaf, key) = intermediate.leaf()?;
+    let top = Ca::new("top".into(), 2095)?;
+    let printable = Ca::new(DnValue::PrintableString(PrintableString::try_from("shared name")?), 2090)?;
+    let utf8 = Ca::new(DnValue::Utf8String("shared name".to_owned()), 2080)?;
+    let (printable_cert, utf8_cert) = (printable.signed_by(&top)?, utf8.signed_by(&printable)?);
+    assert_eq!(printable_cert.subject(), utf8_cert.subject(), "both render as {}", utf8_cert.subject());
+    assert_eq!(utf8_cert.issuer(), utf8_cert.subject(), "and the lower one looks self-issued");
+    let (leaf, key) = utf8.leaf()?;
     let bag = |cert| cert_bag(cert, None, false);
-    let all = vec![bag(&leaf), bag(&root_cert), bag(&intermediate_cert)];
-    assert_eq!(chain_for(key.clone(), None, all)?, [leaf.as_der(), intermediate_cert.as_der(), root_cert.as_der()]);
-    assert_eq!(chain_for(key, None, vec![bag(&leaf), bag(&root_cert)])?, [leaf.as_der()]);
+    let top_cert = top.root()?;
+    let all = vec![bag(&leaf), bag(&printable_cert), bag(&utf8_cert), bag(&top_cert)];
+    assert_eq!(chain_for(key.clone(), None, all)?, [leaf.as_der(), utf8_cert.as_der(), printable_cert.as_der()]);
+    assert_eq!(chain_for(key, None, vec![bag(&leaf), bag(&printable_cert)])?, [leaf.as_der()]);
     Ok(())
 }

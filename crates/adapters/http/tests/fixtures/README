@@ -14,6 +14,15 @@ The PKCS#12 bundles hold ec.pem and ec.sec1.key, with the passphrase `fixture`, 
 
 ec.p12 is PBES2 with AES-256-CBC and an HMAC-SHA256 MAC; ec.legacy.p12 is 3DES for the key, RC2-40 for the certificate and an HMAC-SHA1 MAC; ec.rc4.p12 uses RC4, which is not supported. ec.nomac.p12 has no MAC; ec.slow.p12 uses 2,000,000 iterations, over p12-keystore's limit of 1,000,000. ec.twopass.p12 has the MAC password `fixture` and the encryption password `encrypt`, typed at the prompts. ec.badcert.p12 is plain.p12, with no MAC and nothing encrypted, with the first byte of its certificate changed from 0x30 (SEQUENCE) to 0x31 (SET), so the certificate is not X.509.
 
+ec.explicit.p12 and ec.compressed.p12 hold ec.sec1.key with a self-signed certificate whose public key is encoded another way: with explicit curve parameters, and as a compressed point. Each certificate is made from a re-encoded copy of the key, and the bundle from the original key:
+
+    openssl ec -in ec.sec1.key -param_enc explicit -out explicit.key
+    openssl ec -in ec.sec1.key -conv_form compressed -out compressed.key
+    openssl req -new -x509 -key explicit.key -subj /CN=explicit -days 36500 -out explicit.pem
+    openssl req -new -x509 -key compressed.key -subj /CN=compressed -days 36500 -out compressed.pem
+    openssl pkcs12 -export -in explicit.pem -inkey ec.sec1.key -passout pass:fixture -out ec.explicit.p12
+    openssl pkcs12 -export -in compressed.pem -inkey ec.sec1.key -passout pass:fixture -out ec.compressed.p12
+
 p521.pkcs8.key is an ECDSA P-521 key, a type ring cannot sign with:
 
     openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-521 -out p521.pkcs8.key

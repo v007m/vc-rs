@@ -67,10 +67,12 @@ impl ClientIdentity {
 
     /// An identity from a PKCS#12 bundle (`.p12`, `.pfx`) and its passphrase, encrypted with PBES2
     /// and AES or with the legacy 3DES and RC2 ciphers. It must hold one private key and its
-    /// certificate. The certificate whose public key is the key's leads the chain, followed by its
-    /// issuers from the bundle, matched by the DER of their names, trusted entries included; when
-    /// several share a name, the one whose key verifies the signature wins, then the one that
-    /// expires last. Certificates off that path are left out.
+    /// certificate. The leaf is the certificate whose public key has the same DER as the key's,
+    /// else the one with the key's local key ID, else the first, and it must verify a signature
+    /// the key makes. Its issuers from the bundle follow, matched by the DER of their names,
+    /// trusted entries included; when several share a name, the one whose key verifies the
+    /// signature wins, then the one that expires last. Self-issued roots and certificates off that
+    /// path are left out.
     ///
     /// The bundle is decoded here, once: ring parses the key into the signer the transport uses,
     /// and vc's copy of the key is kept in memory wiped on drop. Decoding runs the bundle's key
@@ -81,8 +83,9 @@ impl ClientIdentity {
     /// # Errors
     ///
     /// [`HttpAdapterError::Identity`] for a passphrase PKCS#12 cannot encode, a wrong passphrase,
-    /// a bag that does not decrypt, an unsupported cipher or MAC, key-derivation parameters over
-    /// the limits, a bundle with no key, more than one key, a key of an unsupported type, no
+    /// a bag that does not decrypt, a bundle that is not DER and fails to decrypt or parse, an
+    /// unsupported cipher or MAC, key-derivation parameters over the limits, a bundle with no key,
+    /// more than one key, a key of an unsupported type, a certificate that is not X.509, no
     /// certificate or none that matches the key, or a file that is not PKCS#12.
     pub fn pkcs12(id: impl Into<String>, bundle: &[u8], passphrase: &str) -> Result<Self, HttpAdapterError> {
         let id = id.into();

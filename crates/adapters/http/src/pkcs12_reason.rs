@@ -18,6 +18,9 @@ pub enum Reason {
     Undecryptable,
     /// The MAC matched, but an encrypted part failed.
     BagUndecryptable,
+    /// A bundle whose layout could not be read (BER, say) failed in a part that decrypting may
+    /// have garbled.
+    Unreadable,
     /// A cipher, MAC or PBES2 scheme `p12-keystore` does not support.
     Unsupported,
     /// Key-derivation parameters over `p12-keystore`'s limits, or missing.
@@ -59,6 +62,7 @@ impl fmt::Display for Reason {
                 "could not decrypt a bag: the bundle may use a separate encryption password (`-twopass`), be \
                  damaged, or use an unsupported cipher; {EXPORT_AGAIN}"
             ),
+            Self::Unreadable => write!(f, "could not read the bundle: check the passphrase, or {EXPORT_AGAIN}"),
             Self::Unsupported => write!(f, "the bundle uses a cipher or MAC that is not supported; {EXPORT_AGAIN}"),
             Self::OverLimit => write!(
                 f,
@@ -85,28 +89,32 @@ impl std::error::Error for Reason {}
 impl Reason {
     /// The reason for `p12-keystore`'s error. A failure that decrypting may have caused gets
     /// [`Self::Undecryptable`] (check the passphrase) without a MAC, [`Self::BagUndecryptable`]
-    /// with one; any other failure names what is wrong.
-    pub const fn of(error: &P12Error, layout: Layout) -> Self {
+    /// with one, and [`Self::Unreadable`] when the layout is unknown (`None`); any other failure
+    /// names what is wrong.
+    pub const fn of(error: &P12Error, layout: Option<Layout>) -> Self {
         match error {
             P12Error::MacError(_) => Self::WrongPassphrase,
             P12Error::InvalidParameters => Self::OverLimit,
             P12Error::UnsupportedEncryptionScheme | P12Error::UnsupportedMacAlgorithm => Self::Unsupported,
-            _ if layout.may_have_garbled(error) => {
-                if layout.mac {
-                    Self::BagUndecryptable
-                } else {
-                    Self::Undecryptable
-                }
-            }
+            _ if Layout::may_have_garbled(layout, error) => Self::garbled(layout),
             P12Error::InvalidPrivateKey => Self::NotPkcs8,
             P12Error::X509Error(_) | P12Error::UnsupportedCertificateType => Self::NotX509,
             _ => Self::NotPkcs12,
         }
     }
+
+    /// The reason for a failure decrypting may have caused.
+    const fn garbled(layout: Option<Layout>) -> Self {
+        match layout {
+            None => Self::Unreadable,
+            Some(Layout { mac: true, .. }) => Self::BagUndecryptable,
+            Some(Layout { mac: false, .. }) => Self::Undecryptable,
+        }
+    }
 }
 
-/// What a bundle holds, read from its DER as far as it goes: whether it has a MAC (assumed when
-/// the outer `PFX` cannot be read), an `EncryptedData` safe, or a shrouded key bag (RFC 7292).
+/// What a bundle holds, read from its DER: whether it has a MAC, an `EncryptedData` safe, or a
+/// shrouded key bag (RFC 7292).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Layout {
     pub mac: bool,
@@ -119,21 +127,37 @@ const ENCRYPTED_DATA: &[u8] = &[0x2A, 0x86, 0x48, 0x86, 0xF7, 0x0D, 0x01, 0x07, 
 const SHROUDED_KEY_BAG: &[u8] = &[0x2A, 0x86, 0x48, 0x86, 0xF7, 0x0D, 0x01, 0x0C, 0x0A, 0x01, 0x02];
 
 impl Layout {
-    /// The layout of `bytes`. What could not be read counts as absent, except the MAC.
-    pub fn of(bytes: &[u8]) -> Self {
-        let mut layout = Self { mac: true, encrypted_safe: false, shrouded_key: false };
-        let _partial = layout.read(bytes);
-        layout
+    /// Nothing found, and a MAC assumed.
+    const NOTHING: Self = Self { mac: true, encrypted_safe: false, shrouded_key: false };
+
+    /// The layout of `bytes`, or `None` for a `SEQUENCE` that is not DER all through (BER, say).
+    /// A file that is not a `SEQUENCE` holds nothing, with a MAC assumed.
+    pub fn of(bytes: &[u8]) -> Option<Self> {
+        let mut layout = Self::NOTHING;
+        match layout.read(bytes) {
+            Ok(()) => Some(layout),
+            Err(_) if bytes.first() == Some(&0x30) => None,
+            Err(_) => Some(Self::NOTHING),
+        }
     }
 
     /// Whether `error` may come from decrypting with the wrong key: always for a failed unpad or
-    /// PBES2 decryption, and for a key or certificate that does not parse when it was encrypted.
-    const fn may_have_garbled(self, error: &P12Error) -> bool {
-        match error {
-            P12Error::Pkcs5Error(_) | P12Error::UnpadError => true,
-            P12Error::X509Error(_) | P12Error::UnsupportedCertificateType => self.encrypted_safe,
-            P12Error::InvalidPrivateKey | P12Error::DerError(_) | P12Error::InvalidData => {
-                self.encrypted_safe || self.shrouded_key
+    /// PBES2 decryption, and for a key or certificate that does not parse when it was encrypted
+    /// or, in an unknown layout, may have been.
+    const fn may_have_garbled(layout: Option<Self>, error: &P12Error) -> bool {
+        match (layout, error) {
+            (_, P12Error::Pkcs5Error(_) | P12Error::UnpadError)
+            | (
+                None,
+                P12Error::X509Error(_)
+                | P12Error::UnsupportedCertificateType
+                | P12Error::InvalidPrivateKey
+                | P12Error::DerError(_)
+                | P12Error::InvalidData,
+            ) => true,
+            (Some(layout), P12Error::X509Error(_) | P12Error::UnsupportedCertificateType) => layout.encrypted_safe,
+            (Some(layout), P12Error::InvalidPrivateKey | P12Error::DerError(_) | P12Error::InvalidData) => {
+                layout.encrypted_safe || layout.shrouded_key
             }
             _ => false,
         }
