@@ -9,8 +9,9 @@ use sha2::{Digest, Sha256};
 use zeroize::Zeroizing;
 
 use crate::HttpAdapterError;
+use crate::pkcs12::{self, Decoded};
 
-/// A client certificate chain and its private key, from PEM, and the hosts that get it.
+/// A client certificate chain and its private key, from PEM or PKCS#12, and the hosts that get it.
 ///
 /// The key is held in memory that is wiped when dropped. `Debug` shows the `id`, the hosts and
 /// the SHA-256 fingerprint of the leaf certificate, never the key.
@@ -18,8 +19,17 @@ use crate::HttpAdapterError;
 pub struct ClientIdentity {
     id: String,
     hosts: Vec<String>,
-    cert: Vec<u8>,
-    key: Zeroizing<Vec<u8>>,
+    leaf_sha256: Option<Fingerprint>,
+    material: Material,
+}
+
+/// Where the chain and key come from.
+#[derive(Clone, PartialEq, Eq)]
+enum Material {
+    /// PEM text, parsed when the transport is built.
+    Pem { cert: Vec<u8>, key: Zeroizing<Vec<u8>> },
+    /// A decoded PKCS#12 bundle: the DER chain, leaf first, and the PKCS#8 key.
+    Der { chain: Vec<CertificateDer<'static>>, key: Zeroizing<Vec<u8>> },
 }
 
 impl ClientIdentity {
@@ -27,7 +37,35 @@ impl ClientIdentity {
     /// or PKCS#8), ECDSA P-256 or P-384 (SEC1 or PKCS#8), or Ed25519 (PKCS#8).
     #[must_use]
     pub fn pem(id: impl Into<String>, cert: Vec<u8>, key: Vec<u8>) -> Self {
-        Self { id: id.into(), hosts: Vec::new(), cert, key: Zeroizing::new(key) }
+        let leaf = CertificateDer::pem_slice_iter(&cert).next().and_then(Result::ok);
+        let leaf_sha256 = leaf.as_deref().map(Fingerprint::of);
+        Self {
+            id: id.into(),
+            hosts: Vec::new(),
+            leaf_sha256,
+            material: Material::Pem { cert, key: Zeroizing::new(key) },
+        }
+    }
+
+    /// An identity from a PKCS#12 bundle (`.p12`, `.pfx`) and its passphrase, encrypted with PBES2
+    /// and AES or with the legacy 3DES and RC2 ciphers. It must hold one private key and its
+    /// certificate; other certificates go after it in the chain.
+    ///
+    /// The bundle is decoded here, once, and the key kept in memory wiped on drop.
+    ///
+    /// # Errors
+    ///
+    /// [`HttpAdapterError::Identity`] for a wrong passphrase, an unsupported cipher or MAC, a
+    /// bundle with no key, more than one key or no certificate, or a file that is not PKCS#12.
+    pub fn pkcs12(id: impl Into<String>, bundle: &[u8], passphrase: &str) -> Result<Self, HttpAdapterError> {
+        let id = id.into();
+        match pkcs12::decode(bundle, passphrase) {
+            Ok(Decoded { chain, key }) => {
+                let leaf_sha256 = chain.first().map(|leaf| Fingerprint::of(leaf));
+                Ok(Self { id, hosts: Vec::new(), leaf_sha256, material: Material::Der { chain, key } })
+            }
+            Err(reason) => Err(HttpAdapterError::Identity { id, reason }),
+        }
     }
 
     /// Sends this identity on requests to these hosts: `host`, `host:port` or `*.domain`, where
@@ -59,18 +97,38 @@ impl ClientIdentity {
     /// The decoded key stays in memory that is wiped on drop; ring parses it by reference.
     /// Errors name the identity and the cause, never PEM text: pki-types quotes the bad line.
     pub(crate) fn certified(&self) -> Result<CertifiedKey, HttpAdapterError> {
-        let chain = CertificateDer::pem_slice_iter(&self.cert).collect::<Result<Vec<_>, _>>();
+        match &self.material {
+            Material::Pem { cert, key } => {
+                let (chain, key) = self.parse_pem(cert, key)?;
+                self.sign(chain, &key)
+            }
+            Material::Der { chain, key } => self.sign(chain.clone(), &PrivateKeyDer::Pkcs8(key.as_slice().into())),
+        }
+    }
+
+    /// The PEM chain and key, the key decoded into memory wiped on drop.
+    fn parse_pem(&self, cert: &[u8], key: &[u8]) -> Result<PemParts, HttpAdapterError> {
+        let chain = CertificateDer::pem_slice_iter(cert).collect::<Result<Vec<_>, _>>();
         let chain = chain.map_err(|error| self.error(format!("the certificate {}", pem_reason(&error))))?;
         if chain.is_empty() {
             return Err(self.error("the certificate has no CERTIFICATE block"));
         }
-        if encrypted(&self.key) {
+        if encrypted(key) {
             return Err(self.error(ENCRYPTED));
         }
-        let key = PrivateKeyDer::from_pem_slice(&self.key).map(Zeroizing::new);
+        let key = PrivateKeyDer::from_pem_slice(key).map(Zeroizing::new);
         let key = key.map_err(|error| self.error(format!("the private key {}", pem_reason(&error))))?;
+        Ok((chain, key))
+    }
+
+    /// The chain with a signer made from the key, checked to belong together.
+    fn sign(
+        &self,
+        chain: Vec<CertificateDer<'static>>,
+        key: &PrivateKeyDer<'_>,
+    ) -> Result<CertifiedKey, HttpAdapterError> {
         let certified =
-            CertifiedKey::new(chain, any_supported_type(&key).map_err(|error| self.error(error.to_string()))?);
+            CertifiedKey::new(chain, any_supported_type(key).map_err(|error| self.error(error.to_string()))?);
         match certified.keys_match() {
             Ok(()) | Err(TlsError::InconsistentKeys(InconsistentKeys::Unknown)) => Ok(certified),
             Err(error) => Err(self.error(error.to_string())),
@@ -78,19 +136,28 @@ impl ClientIdentity {
     }
 }
 
+/// A PEM identity's chain and decoded key.
+type PemParts = (Vec<CertificateDer<'static>>, Zeroizing<PrivateKeyDer<'static>>);
+
 impl fmt::Debug for ClientIdentity {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let leaf = CertificateDer::pem_slice_iter(&self.cert).next().and_then(Result::ok);
         f.debug_struct("ClientIdentity")
             .field("id", &self.id)
             .field("hosts", &self.hosts)
-            .field("leaf_sha256", &leaf.map(|leaf| Fingerprint(Sha256::digest(leaf).into())))
+            .field("leaf_sha256", &self.leaf_sha256)
             .finish_non_exhaustive()
     }
 }
 
 /// A SHA-256 fingerprint, shown as lowercase hex.
+#[derive(Clone, Copy, PartialEq, Eq)]
 struct Fingerprint([u8; 32]);
+
+impl Fingerprint {
+    fn of(der: &[u8]) -> Self {
+        Self(Sha256::digest(der).into())
+    }
+}
 
 impl fmt::Debug for Fingerprint {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -166,5 +233,15 @@ mod tests {
         assert!(!shown.contains("KEY-BYTES"), "{shown}");
         let hex = shown.split("Some(").nth(1).and_then(|rest| rest.split(')').next()).unwrap_or_default();
         assert!(hex.len() == 64 && hex.bytes().all(|byte| byte.is_ascii_hexdigit()), "{hex}");
+    }
+
+    #[test]
+    fn a_pkcs12_identity_shows_its_leaf_and_signs_with_its_key() -> Result<(), HttpAdapterError> {
+        let bundle = ClientIdentity::pkcs12("ec", include_bytes!("../tests/fixtures/ec.p12"), "fixture")?;
+        let pem = include_bytes!("../tests/fixtures/ec.pem").to_vec();
+        let pem = ClientIdentity::pem("ec", pem, include_bytes!("../tests/fixtures/ec.sec1.key").to_vec());
+        assert_eq!(format!("{bundle:?}"), format!("{pem:?}"));
+        assert_eq!(bundle.certified()?.cert, pem.certified()?.cert);
+        Ok(())
     }
 }

@@ -1,1 +1,10 @@
-Self-signed, test-only certificates and keys, made with the openssl CLI. They are never trusted anywhere and protect nothing; tests only read them to check PEM parsing.
+Self-signed, test-only certificates and keys, made with the openssl CLI. They are never trusted anywhere and protect nothing; tests only read them to check PEM and PKCS#12 parsing.
+
+The PKCS#12 bundles hold ec.pem and ec.sec1.key, with the passphrase `fixture`, made with OpenSSL 3.5:
+
+    openssl pkcs12 -export -in ec.pem -inkey ec.sec1.key -passout pass:fixture -out ec.p12
+    openssl pkcs12 -export -legacy -in ec.pem -inkey ec.sec1.key -passout pass:fixture -out ec.legacy.p12
+    openssl pkcs12 -export -legacy -in ec.pem -inkey ec.sec1.key -passout pass:fixture \
+        -keypbe PBE-SHA1-RC4-128 -certpbe PBE-SHA1-RC4-128 -out ec.rc4.p12
+
+ec.p12 is PBES2 with AES-256-CBC and an HMAC-SHA256 MAC; ec.legacy.p12 is 3DES for the key, RC2-40 for the certificate and an HMAC-SHA1 MAC; ec.rc4.p12 uses RC4, which is not supported.
