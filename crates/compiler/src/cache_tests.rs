@@ -15,8 +15,14 @@ const BAD: &str = "services/orders/orders.api.yaml";
 const HEADER: usize = SUMMED + 4;
 
 fn entry(path: &str, byte: u8, file: u32) -> CacheEntry {
-    let unit =
-        FileUnit { kind: None, root: None, parts: IndexMap::new(), script: None, diagnostics: Diagnostics::new() };
+    let unit = FileUnit {
+        kind: None,
+        root: None,
+        parts: IndexMap::new(),
+        script: None,
+        document: None,
+        diagnostics: Diagnostics::new(),
+    };
     let path = SourcePath::new(path).unwrap();
     let (hash, file) = (ContentHash::new([byte; 32]), SourceFileId::new(file));
     CacheEntry { path, hash, file, unit: Some(Arc::new(unit)), bytes: None }

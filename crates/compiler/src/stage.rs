@@ -5,8 +5,8 @@
 use indexmap::IndexMap;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use vc_diagnostics::{Diagnostic, Diagnostics};
-use vc_model::{FileKind, SourceFile, SourceFileId, SourceSpan, StringTable};
-use vc_parser::{Node, ScalarKind, Syntax, Value};
+use vc_model::{FileKind, Pos, SourceFile, SourceFileId, SourceSpan, StringTable};
+use vc_parser::{GraphqlDocument, Node, ScalarKind, Syntax, Value};
 
 use crate::graphql;
 use crate::parts::{self, Cx, Piece, Tools};
@@ -29,6 +29,9 @@ pub struct FileUnit {
     pub parts: IndexMap<SourceSpan, Piece>,
     /// A hook file, stripped (D172); `None` for any other file.
     pub script: Option<Script>,
+    /// A GraphQL document file's operations (D356); `None` for any other file, or one that does not parse.
+    #[serde(default)]
+    pub document: Option<GraphqlDocument>,
     /// Every problem the per-file stages found.
     #[serde(skip)]
     pub diagnostics: Diagnostics,
@@ -48,19 +51,19 @@ fn pairs_in<'de, D: Deserializer<'de>>(deserializer: D) -> Result<IndexMap<Sourc
 pub fn unit(id: SourceFileId, source: &SourceFile, (tools, strings): (&Tools, &mut StringTable)) -> FileUnit {
     if script::is_script(source.path.as_str()) {
         let (script, diagnostics) = script::strip(id, source);
-        return FileUnit { kind: None, root: None, parts: IndexMap::new(), script, diagnostics };
+        return FileUnit { kind: None, root: None, parts: IndexMap::new(), script, document: None, diagnostics };
     }
     if graphql::is_document(source.path.as_str()) {
-        let diagnostics = Diagnostics::new();
-        return FileUnit { kind: None, root: None, parts: IndexMap::new(), script: None, diagnostics };
+        let (document, diagnostics) = graphql::read_file(id, source);
+        return FileUnit { kind: None, root: None, parts: IndexMap::new(), script: None, document, diagnostics };
     }
     let (root, mut diagnostics) = parse(id, source);
     let kind = source.kind();
     let Some(file_kind) = kind else {
-        return FileUnit { kind, root, parts: IndexMap::new(), script: None, diagnostics };
+        return FileUnit { kind, root, parts: IndexMap::new(), script: None, document: None, diagnostics };
     };
     let Some(root) = root.map(empty_as_map) else {
-        return FileUnit { kind, root: None, parts: IndexMap::new(), script: None, diagnostics };
+        return FileUnit { kind, root: None, parts: IndexMap::new(), script: None, document: None, diagnostics };
     };
     let walk = shape(&root, file_kind);
     let steps = walk.steps.iter().filter_map(|step| strings.intern(step).ok()).collect();
@@ -69,12 +72,22 @@ pub fn unit(id: SourceFileId, source: &SourceFile, (tools, strings): (&Tools, &m
     let later = walk.diagnostics.into_iter().chain(cx.diagnostics);
     let fresh: Vec<Diagnostic> = later.filter(|later| !reported(&diagnostics, later)).collect();
     diagnostics.extend(fresh);
-    FileUnit { kind, root: Some(root), parts, script: None, diagnostics }
+    FileUnit { kind, root: Some(root), parts, script: None, document: None, diagnostics }
 }
 
 /// The parse stage: the one place the compiler calls the parser.
 pub fn parse(id: SourceFileId, source: &SourceFile) -> (Option<Node>, Diagnostics) {
     vc_parser::parse(id, Syntax::of(&source.path), &source.text)
+}
+
+/// The line and column of byte `offset` in `text`: past the text, its end; inside a character,
+/// the start of that character.
+pub fn position(text: &str, offset: usize) -> Pos {
+    let offset = (0..=offset.min(text.len())).rev().find(|at| text.is_char_boundary(*at)).unwrap_or(0);
+    let before = text.get(..offset).unwrap_or_default();
+    let line = before.matches('\n').count() + 1;
+    let column = before.rsplit('\n').next().unwrap_or_default().chars().count() + 1;
+    Pos::new(u32::try_from(line).unwrap_or(u32::MAX), u32::try_from(column).unwrap_or(u32::MAX), offset)
 }
 
 /// Whether the parser already reported the spot `later` points at, as for an alias it read as
@@ -152,6 +165,15 @@ mod tests {
         assert_eq!(hook.script.map(|script| script.exports), Some(vec!["sign".to_owned()]));
         assert_eq!(codes(&run("hooks/bad.js", "export const = 1;\n")), [Code::V1013]);
         assert!(run("datasets/notes.yaml", "- a\n").script.is_none());
+    }
+
+    #[test]
+    fn reads_a_graphql_document_into_its_unit() {
+        let read = run("services/users/me.graphql", "query Me { me }\n");
+        assert!(read.diagnostics.is_empty() && read.root.is_none());
+        assert_eq!(read.document.map(|document| document.operations.len()), Some(1));
+        let broken = run("services/users/me.gql", "query Me {\n");
+        assert!(broken.document.is_none() && codes(&broken) == [Code::V1014]);
     }
 
     #[test]

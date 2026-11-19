@@ -1,8 +1,8 @@
 ---
-title: "V2108 — GraphQL variable missing from variables, or not declared"
+title: "V2108 — GraphQL variable missing from variables"
 description: "An operation declares its variables, such as query GetProduct($id: ID!)."
 sidebar:
-  label: "V2108 GraphQL variable missing from variables, or not declared"
+  label: "V2108 GraphQL variable missing from variables"
   order: 2108
 ---
 
@@ -15,13 +15,13 @@ import { Badge } from '@astrojs/starlight/components';
 | Code | `V2108` |
 | Category | V2xxx: References and types |
 | Severity | error |
-| Certain fix | the one close declared name |
+| Certain fix | none; `vc check --fix` leaves this one to you |
 
 An operation declares its variables, such as `query GetProduct($id: ID!)`. A variable whose type ends in `!` and that
-has no default must get a value, so `body.variables` must give it one; the server refuses the request otherwise, so
-this is an error. A value for a variable the operation does not declare is a warning: the server ignores it, but it is
-most often a misspelt name, and the fix is the declared name when one is close. `variables` written as one template, such as `${var.filters}`, is not checked, since
-its keys are known only when the test runs.
+has no default must get a value, so `body.variables` must give it one; the server refuses the request otherwise. Give
+it a value, or a default in the document (`$limit: Int! = 10`). `variables` written as one template, such as
+`${var.filters}`, is not checked, since its keys are known only when the test runs. A value for a variable the
+operation does not declare is V2109.
 
 ## Wrong
 
@@ -31,7 +31,6 @@ apis:
   - id: getProduct
     body:
       query: 'query GetProduct($id: ID!) { product(id: $id) { id name } }'
-      variables: {productId: p1}
 ```
 
 ## Right

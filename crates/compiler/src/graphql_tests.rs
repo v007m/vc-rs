@@ -23,7 +23,12 @@ fn compile(body: &str, files: Files<'_>) -> Compiled {
 
 /// The users apis `apis`, each called by a test, the files `given`, and the project's other files
 /// `listed` next to them.
-fn project(apis: &str, (given, listed): Files<'_>) -> Compiled {
+fn project(apis: &str, files: Files<'_>) -> Compiled {
+    crate::compile(input(apis, files))
+}
+
+/// The input [`project`] compiles.
+fn input(apis: &str, (given, listed): Files<'_>) -> CompileInput {
     let ids = apis.lines().filter_map(|line| line.strip_prefix("  - id: "));
     let call = |id: &str| {
         let (head, tail) = id.split_at(1);
@@ -38,7 +43,7 @@ fn project(apis: &str, (given, listed): Files<'_>) -> Compiled {
     files.extend(given.iter().map(|(path, text)| file(path, text)));
     let paths = given.iter().map(|(path, _)| *path).chain(listed.iter().copied());
     let assets = Some(paths.map(|path| SourcePath::new(path).unwrap()).collect());
-    crate::compile(CompileInput { files, assets, ..CompileInput::default() })
+    CompileInput { files, assets, ..CompileInput::default() }
 }
 
 /// The one diagnostic `body` gives with a document file `text`.
@@ -134,10 +139,10 @@ fn each_needed_variable_has_a_value_and_each_value_a_variable() {
     let given = |variables: &str| compile(&format!("{query}      variables: {variables}\n"), (&[], &[]));
     assert!(given("{id: '1', limit: 2}").diagnostics.is_empty());
     let misspelt = given("{ids: '1', limit: 2}");
-    assert_eq!(spots(&misspelt), [(Code::V2108, 7, 7, 9), (Code::V2108, 7, 19, 3)]);
+    assert_eq!(spots(&misspelt), [(Code::V2108, 7, 7, 9), (Code::V2109, 7, 19, 3)]);
     let unknown = misspelt.diagnostics.iter().nth(1).unwrap();
     let severities: Vec<Severity> = misspelt.diagnostics.iter().map(|found| found.severity).collect();
-    assert_eq!(severities, [Severity::Error, Severity::Warning], "a server ignores an undeclared variable (D357)");
+    assert_eq!(severities, [Severity::Error, Severity::Warning], "a server ignores an undeclared variable (D358)");
     assert!(fixed(&misspelt, unknown).contains("{id: '1', limit: 2}"));
     let defaulted = compile("      query: 'query Q($id: ID! = 1, $tag: String) { a }'\n", (&[], &[]));
     assert!(defaulted.diagnostics.is_empty(), "{:?}", defaulted.diagnostics);
@@ -205,6 +210,11 @@ fn two_operations_of_one_name_are_v2009() {
     let shared = "  - id: me\n    body: {query: {$file: me.graphql}, operationName: A}\n  - id: you\n    body: {query: {$file: me.graphql}, operationName: B}\n";
     let once = project(shared, (&[(DOCUMENT, "query A { a }\nquery A { b }\nquery B { c }\n")], &[]));
     assert_eq!(spots(&once).iter().map(|spot| (spot.0, spot.1)).collect::<Vec<_>>(), [(Code::V2009, 2)]);
+    let pairs =
+        compile("      query: 'query A{a} query A{b} query B{c} query B{d}'\n      operationName: A\n", (&[], &[]));
+    let messages: Vec<&str> = pairs.diagnostics.iter().map(|found| &found.message[..]).collect();
+    assert_eq!(messages.len(), 2, "each name once: {messages:?}");
+    assert!(messages[0].ends_with("`A`") && messages[1].ends_with("`B`"), "{messages:?}");
 }
 
 #[test]
@@ -212,6 +222,34 @@ fn a_document_with_no_operation_is_v2009() {
     let found = one("      query: {$file: me.graphql}\n", "fragment Fields on User { id }\n");
     assert_eq!((found.code, &found.message[..]), (Code::V2009, "the document holds no operation (query or mutation)"));
     assert!(!found.help.iter().any(|help| help.contains("operationName")), "{:?}", found.help);
+    let named =
+        one("      query: {$file: me.graphql}\n      operationName: Fields\n", "fragment Fields on User { id }\n");
+    assert_eq!(named.message, "the document holds no operation (query or mutation)", "even with `operationName`");
+}
+
+#[test]
+fn a_document_file_offset_is_clamped_to_a_character_boundary() {
+    let (id, text) = (vc_model::SourceFileId::new(3), "a\nZo\u{eb}");
+    let at = |range: std::ops::Range<usize>| {
+        let span = super::file_span(id, text, &range);
+        (span.start.line, span.start.column, span.start.offset, span.end.column, span.end.offset)
+    };
+    assert_eq!(at(2..3), (2, 1, 2, 2, 3));
+    assert_eq!(at(5..99), (2, 3, 4, 4, 6), "inside `\u{eb}` moves back to its start; past the text, to its end");
+}
+
+#[test]
+fn a_document_file_is_read_once_by_its_cached_stage() {
+    let (api, given) =
+        ("  - id: me\n    body: {query: {$file: me.graphql}}\n", [(DOCUMENT, "query A { a }\nquery A { b }\n")]);
+    let first = project(api, (&given, &[]));
+    let cache = crate::CompileCache::from_bytes(&first.cache.to_bytes());
+    let id = vc_model::SourceFileId::new(1);
+    let unit = cache.unit(&SourcePath::new(DOCUMENT).unwrap(), &ContentHash::new([0; 32]), id).unwrap();
+    assert_eq!(unit.document.as_ref().map(|document| document.operations.len()), Some(2), "stored in the bytes");
+    let again = crate::compile(CompileInput { previous: cache, ..input(api, (&given, &[])) });
+    assert_eq!(spots(&again), spots(&first), "the cached unit holds the operations");
+    assert_eq!(spots(&first)[0].0, Code::V2009);
 }
 
 #[test]

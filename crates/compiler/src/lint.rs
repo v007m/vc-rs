@@ -11,6 +11,7 @@ mod expired;
 mod graphql;
 mod graphql_names;
 mod graphql_operations;
+mod graphql_undeclared;
 mod graphql_variables;
 mod header_names;
 mod item_ids;
@@ -85,6 +86,7 @@ impl LintRegistry {
             Box::new(body_schemas::BodySchemas),
             Box::new(graphql_operations::GraphqlOperations),
             Box::new(graphql_variables::GraphqlVariables),
+            Box::new(graphql_undeclared::GraphqlUndeclared),
         ];
         Self { lints }
     }

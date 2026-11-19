@@ -21,22 +21,27 @@ impl Lint for GraphqlOperations {
     fn check(&self, cx: &LintCx<'_, '_>) -> Vec<Diagnostic> {
         let documents = graphql::documents(cx);
         let distinct = graphql::distinct(&documents);
-        let mut found: Vec<Diagnostic> = distinct.into_iter().filter_map(|(document, _)| repeated(document)).collect();
+        let mut found: Vec<Diagnostic> = distinct.into_iter().flat_map(|(document, _)| repeated(document)).collect();
         found.extend(documents.iter().filter_map(unpicked));
         found
     }
 }
 
-/// V2009 at the second operation of a name the document gives two operations.
-fn repeated(document: &Document<'_>) -> Option<Diagnostic> {
-    let mut seen = HashSet::new();
-    let operations = &document.written.parsed.operations;
-    let again = operations.iter().find(|operation| operation.name.as_deref().is_some_and(|name| !seen.insert(name)))?;
-    let name = again.name.as_deref().unwrap_or_default();
-    let span = document.spot(&again.head).unwrap_or(document.query.span);
+/// V2009 at the second operation of each name the document gives more than one operation.
+fn repeated(document: &Document<'_>) -> Vec<Diagnostic> {
+    let (mut seen, mut reported) = (HashSet::new(), HashSet::new());
+    let operations = document.written.parsed.operations.iter();
+    let named = operations.filter_map(|operation| Some((operation, operation.name.as_deref()?)));
+    let again: Vec<_> = named.filter(|(_, name)| !seen.insert(*name) && reported.insert(*name)).collect();
+    again.into_iter().map(|(operation, name)| twice(document, operation, name)).collect()
+}
+
+/// V2009 at `operation`, the second of the document named `name`.
+fn twice(document: &Document<'_>, operation: &GraphqlOperation, name: &str) -> Diagnostic {
+    let span = document.spot(&operation.head).unwrap_or(document.query.span);
     let message = format!("the document holds more than one operation named `{name}`");
     let diagnostic = Diagnostic::new(Code::V2009, span, message).label("a second operation of that name");
-    Some(diagnostic.help("give each operation its own name; `operationName` picks one by it"))
+    diagnostic.help("give each operation its own name; `operationName` picks one by it")
 }
 
 /// V2009 when the `operationName` of the api does not pick a query or mutation of its document.

@@ -5,9 +5,10 @@ use std::ops::Range;
 
 use apollo_parser::cst::{CstNode, Definition, OperationDefinition, Type, VariableDefinition};
 use apollo_parser::{Parser, SyntaxNode};
+use serde::{Deserialize, Serialize};
 
 /// What an operation does.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
 pub enum OperationKind {
     /// `query`, or a `{ … }` shorthand.
@@ -19,7 +20,7 @@ pub enum OperationKind {
 }
 
 /// One operation a document defines.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct GraphqlOperation {
     /// Its name; `None` for an anonymous one.
@@ -33,7 +34,7 @@ pub struct GraphqlOperation {
 }
 
 /// One variable an operation declares.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct GraphqlVariable {
     /// Its name, without the `$`.
@@ -43,7 +44,7 @@ pub struct GraphqlVariable {
 }
 
 /// A document that parses.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct GraphqlDocument {
     /// Its operations, in order.

@@ -45,7 +45,7 @@ fn tests(body: &str) -> String {
 #[test]
 fn the_registry_holds_one_lint_per_lifecycle_or_check_time_value_code() {
     let codes: Vec<Code> = LintRegistry::builtin().lints.iter().map(|lint| lint.code()).collect();
-    assert_eq!(codes.len(), 16);
+    assert_eq!(codes.len(), 17);
     assert_eq!(codes.iter().collect::<HashSet<_>>().len(), codes.len());
     assert!(codes.iter().all(|code| matches!(code.category(), Category::Lifecycle | Category::Reference)));
 }
@@ -283,7 +283,7 @@ fn a_calls_method_is_the_one_its_api_type_decides() {
     let project = Project::new(sources, &strings, HashSet::new());
     let (program, rules) = (vc_model::Program::default(), ProtocolRulesRegistry::builtin());
     let table = vc_model::SourceFiles::new();
-    let documents = crate::graphql::Documents::new(&project, &table);
+    let documents = crate::graphql::Documents::new(&project, (&[], &table));
     let cx = LintCx { project: &project, program: &program, rules: &rules, documents: &documents, today: None };
     let source = &project.sources[1];
     let methods: Vec<_> = link::list(source.root, "tests").iter().map(|test| cx.method(source, test)).collect();

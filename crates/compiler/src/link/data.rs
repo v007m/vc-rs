@@ -80,7 +80,7 @@ impl<'a> Data<'a> {
                 Err(diagnostic) => diagnostics.push(*diagnostic),
             }
         }
-        let documents = Documents::new(project, files);
+        let documents = Documents::new(project, (entries, files));
         let data = Self { given, sets, files, documents, complete: assets.is_some() };
         diagnostics.extend(data.sets.values().filter_map(|set| data.not_rows(set)));
         (data, diagnostics)

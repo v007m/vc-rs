@@ -1,17 +1,20 @@
 //! A `graphql` api's document (D343, D346, D356): its `body.query`, inline or a `$file` the engine
-//! reads for the compile (D132). [`Documents`] parses each document of a compile once, and
-//! reports V1014 at the spot where one does not parse, in the document file or in the YAML text
-//! of an inline one.
+//! reads for the compile (D132). A document file is parsed at its per-file stage ([`read_file`]),
+//! which the compile cache keeps; [`Documents`] holds those and parses each inline document once.
+//! V1014 is reported at the spot where a document does not parse, in the document file or in the
+//! YAML text of an inline one.
 
 use std::collections::HashMap;
 use std::ops::Range;
 
 use vc_diagnostics::{Code, Diagnostic, Diagnostics};
-use vc_model::{FILE_KEY, FileKind, Pos, Protocol, SourceFileId, SourceFiles, SourceSpan, resolve_path};
+use vc_model::{FILE_KEY, FileKind, Protocol, SourceFile, SourceFileId, SourceFiles, SourceSpan, resolve_path};
 use vc_parser::{GraphqlDocument, GraphqlOperation, GraphqlProblem, Node, ScalarStyle, Value};
 
+use crate::cache::CacheEntry;
 use crate::compile::numbered;
 use crate::link::{self, Project, Source};
+use crate::stage::position;
 
 /// The `body` key that holds the document.
 pub const QUERY: &str = "query";
@@ -39,12 +42,13 @@ pub enum Origin {
     Inline(SourceSpan),
 }
 
-/// Each document of a compile, parsed once: every document file the compile was given, and the
-/// inline `query` of every `graphql` api.
+/// Each document of a compile, parsed once: every document file the compile was given, as its
+/// cached per-file stage read it, and the inline `query` of every `graphql` api.
 pub struct Documents<'a> {
     files: &'a SourceFiles,
     paths: HashMap<&'a str, SourceFileId>,
-    parsed: HashMap<Origin, Option<GraphqlDocument>>,
+    given: HashMap<SourceFileId, &'a GraphqlDocument>,
+    inline: HashMap<SourceSpan, Option<GraphqlDocument>>,
     problems: Diagnostics,
 }
 
@@ -73,35 +77,31 @@ pub enum Unpicked {
 }
 
 impl<'a> Documents<'a> {
-    /// The documents of `project`, from the files the compile was given.
-    pub fn new(project: &Project<'a>, files: &'a SourceFiles) -> Self {
-        let given: Vec<_> = numbered(files).filter(|(_, file)| is_document(file.path.as_str())).collect();
-        let paths = given.iter().map(|(id, file)| (file.path.as_str(), *id)).collect();
-        let mut documents = Self { files, paths, parsed: HashMap::new(), problems: Diagnostics::new() };
-        for (id, file) in given {
-            let problem = documents.read(Origin::File(id), &file.text);
-            documents.problems.extend(problem.map(|problem| broken(file_span(files, id, &problem.at), &problem)));
+    /// The documents of `project`: its document files as their units hold them, and its inline ones.
+    pub fn new(project: &Project<'a>, (entries, files): (&'a [CacheEntry], &'a SourceFiles)) -> Self {
+        let mut paths = HashMap::new();
+        for (id, file) in numbered(files).filter(|(_, file)| is_document(file.path.as_str())) {
+            paths.entry(file.path.as_str()).or_insert(id);
         }
+        let units = entries.iter().filter_map(|entry| Some((entry.file, entry.unit.as_deref()?.document.as_ref()?)));
+        let given = units.collect();
+        let mut documents = Self { files, paths, given, inline: HashMap::new(), problems: Diagnostics::new() };
         let sources = project.sources.iter();
         let inline = sources.flat_map(|source| queries(source).into_iter().map(move |(_, _, query)| (source, query)));
         for (source, query) in inline {
             let Some(text) = query.as_str() else { continue };
-            let Some(problem) = documents.read(Origin::Inline(query.span), text) else { continue };
-            let span = exact_span(files, (source, query), &problem.at).unwrap_or(query.span);
-            documents.problems.push(broken(span, &problem));
+            let parsed = vc_parser::parse_document(text);
+            if let Err(problem) = parsed.as_ref().map_err(|problems| problems.first()) {
+                let at = problem.map_or(0..0, |problem| problem.at.clone());
+                let span = exact_span(files, (source, query), &at).unwrap_or(query.span);
+                documents.problems.extend(problem.map(|problem| broken(span, problem)));
+            }
+            documents.inline.insert(query.span, parsed.ok());
         }
         documents
     }
 
-    /// Parses the document `text` written at `origin`; gives where it first does not parse, and why.
-    fn read(&mut self, origin: Origin, text: &str) -> Option<GraphqlProblem> {
-        let parsed = vc_parser::parse_document(text);
-        let problem = parsed.as_ref().err().and_then(|problems| problems.first().cloned());
-        self.parsed.insert(origin, parsed.ok());
-        problem
-    }
-
-    /// V1014 for each document that does not parse.
+    /// V1014 for each inline document that does not parse.
     pub const fn problems(&self) -> &Diagnostics {
         &self.problems
     }
@@ -115,11 +115,10 @@ impl<'a> Documents<'a> {
     /// The document the `query` of `source` holds, when it parses.
     pub fn get<'d>(&'d self, source: &Source<'_>, query: &'d Node) -> Option<Written<'d>> {
         let origin = self.origin(source, query)?;
-        let text = match origin {
-            Origin::Inline(_) => query.as_str()?,
-            Origin::File(id) => self.files.get(id)?.text.as_str(),
+        let (text, parsed) = match origin {
+            Origin::Inline(span) => (query.as_str()?, self.inline.get(&span)?.as_ref()?),
+            Origin::File(id) => (self.files.get(id)?.text.as_str(), *self.given.get(&id)?),
         };
-        let parsed = self.parsed.get(&origin)?.as_ref()?;
         Some(Written { origin, text, parsed, files: self.files })
     }
 
@@ -138,7 +137,7 @@ impl Written<'_> {
     pub fn spot(&self, (source, query): (&Source<'_>, &Node), at: &Range<usize>) -> Option<SourceSpan> {
         match self.origin {
             Origin::Inline(_) => exact_span(self.files, (source, query), at),
-            Origin::File(id) => Some(file_span(self.files, id, at)),
+            Origin::File(id) => self.files.get(id).map(|file| file_span(id, &file.text, at)),
         }
     }
 
@@ -149,9 +148,11 @@ impl Written<'_> {
     /// Why it picks none.
     pub fn pick(&self, name: Option<&str>) -> Result<&GraphqlOperation, Unpicked> {
         let operations = &self.parsed.operations;
+        if operations.is_empty() {
+            return Err(Unpicked::Empty);
+        }
         let Some(name) = name else {
             return match operations.as_slice() {
-                [] => Err(Unpicked::Empty),
                 [one] => Ok(one),
                 _ => Err(Unpicked::Several),
             };
@@ -177,6 +178,17 @@ pub fn file(source: &Source<'_>, query: &Node) -> Option<String> {
     resolve_path(&link::folder(source.path), written).filter(|path| is_document(path))
 }
 
+/// The per-file stage of a document file: what it holds, else V1014 where it first does not parse.
+pub fn read_file(id: SourceFileId, source: &SourceFile) -> (Option<GraphqlDocument>, Diagnostics) {
+    match vc_parser::parse_document(&source.text) {
+        Ok(document) => (Some(document), Diagnostics::new()),
+        Err(problems) => {
+            let first = problems.first();
+            (None, first.map(|problem| broken(file_span(id, &source.text, &problem.at), problem)).into_iter().collect())
+        }
+    }
+}
+
 /// V1014 for `problem`, at `span`.
 fn broken(span: SourceSpan, problem: &GraphqlProblem) -> Diagnostic {
     let message = format!("the GraphQL document does not parse: {}", problem.message);
@@ -184,10 +196,10 @@ fn broken(span: SourceSpan, problem: &GraphqlProblem) -> Diagnostic {
     diagnostic.help("fix the document's syntax here; check the braces, parentheses and quotes before this spot")
 }
 
-/// Where bytes `at` of the document file `id` are.
-fn file_span(files: &SourceFiles, id: SourceFileId, at: &Range<usize>) -> SourceSpan {
-    let place = |offset: usize| files.position(id, offset).unwrap_or_else(|| Pos::new(1, 1, 0));
-    SourceSpan::new(id, place(at.start), place(at.end))
+/// Where bytes `at` of the document file `id`, of `text`, are; an offset past the text, or inside
+/// a character, is moved back to the nearest character boundary.
+fn file_span(id: SourceFileId, text: &str, at: &Range<usize>) -> SourceSpan {
+    SourceSpan::new(id, position(text, at.start), position(text, at.end))
 }
 
 /// Where bytes `at` of an inline document are in the YAML, when they can be placed exactly: for a
