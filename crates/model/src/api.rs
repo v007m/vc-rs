@@ -91,6 +91,9 @@ pub struct Api {
     /// `saveOn`: the statuses on which `save` runs; the api's `expect.status`, else `2xx`, when
     /// none is written (D191).
     pub save_on: Matcher,
+    /// Whether `saveOn` is written. On a `graphql` api the default one also needs the response's
+    /// `errors` absent or empty, and an api's `cleanup` always does (D345).
+    pub save_on_written: bool,
     /// `cleanup`: a call action with vars templated over the response.
     pub cleanup: Option<ActionId>,
     /// `beforeRequest` and `afterResponse`.

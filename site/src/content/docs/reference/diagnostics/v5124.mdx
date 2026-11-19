@@ -1,0 +1,65 @@
+---
+title: "V5124 — The response is not a GraphQL response"
+description: "A call to a graphql api got a 2xx response whose body is not a GraphQL response: not a JSON object with data or errors, or one whose errors is not a list."
+sidebar:
+  label: "V5124 The response is not a GraphQL response"
+  order: 5124
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="error" variant="danger" /> <Badge text="Run time" variant="note" />
+
+| | |
+| --- | --- |
+| Code | `V5124` |
+| Category | V5xxx: Run time |
+| Severity | error |
+| Test outcome | failure |
+| Certain fix | none; `vc check --fix` leaves this one to you |
+
+A call to a `graphql` api got a 2xx response whose body is not a GraphQL response: not a JSON object with `data` or
+`errors`, or one whose `errors` is not a list. This usually means a wrong endpoint, such as a web page or a REST route
+answering where the GraphQL server should be, so the step fails even without `expect.errors`. A response with a status
+other than 2xx is left to the status check, since GraphQL servers answer 400 to a document they cannot run. Here
+`graphql.path` points at the web app's home page instead of its `/graphql` endpoint.
+
+## Wrong
+
+```yaml title="services/accounts/accounts.api.yaml"
+type: graphql
+graphql:
+  path: /
+apis:
+  - id: getMe
+    body:
+      query: '{ me { id name } }'
+```
+
+## Right
+
+```yaml title="services/accounts/accounts.api.yaml"
+type: graphql
+graphql:
+  path: /graphql
+apis:
+  - id: getMe
+    body:
+      query: '{ me { id name } }'
+```
+
+
+## Explain it in your terminal
+
+The same page is built into the binary, so this works anywhere, even outside a project:
+
+```console
+$ vc explain V5124
+```
+
+## Related
+
+- [All diagnostic codes](/vc-rs/reference/diagnostics/)
+- [`vc explain`](/vc-rs/reference/cli/explain/)
+- [`vc check`](/vc-rs/reference/cli/check/)
+- [Errors and fixes](/vc-rs/guides/errors-and-fixes/)

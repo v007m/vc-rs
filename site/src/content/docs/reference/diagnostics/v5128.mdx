@@ -1,0 +1,86 @@
+---
+title: "V5128 — The response has GraphQL errors"
+description: "A call to a graphql api got a response with errors, and no expect.errors check failed on them."
+sidebar:
+  label: "V5128 The response has GraphQL errors"
+  order: 5128
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="warning" variant="caution" /> <Badge text="Run time" variant="note" />
+
+| | |
+| --- | --- |
+| Code | `V5128` |
+| Category | V5xxx: Run time |
+| Severity | warning |
+| Certain fix | none; `vc check --fix` leaves this one to you |
+
+A call to a `graphql` api got a response with `errors`, and no `expect.errors` check failed on them. GraphQL errors
+pass by default, so the step keeps its verdict, and this warning lists each error as `CODE at path: message` so that a
+tolerated error stays visible. The warning is a note, not a failure: when the errors are part of the behaviour under
+test, pin them with `expect.errors`, so that a different error fails the step; when they should not happen,
+`errors: none` fails the step on them. Here the server hides `secretNote` with a `FORBIDDEN` error that the test does
+not check.
+
+## Wrong
+
+```yaml title="services/accounts/accounts.api.yaml"
+type: graphql
+apis:
+  - id: getSecretNote
+    body:
+      query: 'query GetSecretNote($id: ID!) { user(id: $id) { name secretNote } }'
+      variables:
+        id: "2"
+```
+
+```yaml title="services/accounts/privacy.test.yaml"
+tests:
+  - id: hidesSecretNote
+    call: accounts#getSecretNote
+    expect:
+      body:
+        match:
+          data.user.secretNote: null
+```
+
+## Right
+
+```yaml title="services/accounts/accounts.api.yaml"
+type: graphql
+apis:
+  - id: getSecretNote
+    body:
+      query: 'query GetSecretNote($id: ID!) { user(id: $id) { name secretNote } }'
+      variables:
+        id: "2"
+```
+
+```yaml title="services/accounts/privacy.test.yaml"
+tests:
+  - id: hidesSecretNote
+    call: accounts#getSecretNote
+    expect:
+      errors: [{code: FORBIDDEN, path: user.secretNote}]
+      body:
+        match:
+          data.user.secretNote: null
+```
+
+
+## Explain it in your terminal
+
+The same page is built into the binary, so this works anywhere, even outside a project:
+
+```console
+$ vc explain V5128
+```
+
+## Related
+
+- [All diagnostic codes](/vc-rs/reference/diagnostics/)
+- [`vc explain`](/vc-rs/reference/cli/explain/)
+- [`vc check`](/vc-rs/reference/cli/check/)
+- [Errors and fixes](/vc-rs/guides/errors-and-fixes/)

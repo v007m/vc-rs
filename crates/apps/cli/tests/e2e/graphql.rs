@@ -1,5 +1,5 @@
-//! `graphql` apis (D343, D344) sent to the mock's `/echo`, which answers with the method, path,
-//! headers and body it received: the file's `graphql.path`, an api's own `path` over it, the JSON
+//! `graphql` apis (D343, D344) sent to the mock's `/graphql/echo`, which answers with the method,
+//! path, headers and body it received, as a GraphQL response: the file's `graphql.path`, an api's own `path` over it, the JSON
 //! body with its variables rendered and its query sent as written, the implied headers, and a
 //! `content-type` a step sets sent as written.
 
@@ -13,28 +13,28 @@ use crate::{CONFIG, Project, said};
 const API: (&str, &str) = (
     "services/lab/lab.api.yaml",
     concat!(
-        "type: graphql\nbaseUrl: ${var.baseUrl}\ngraphql:\n  path: /echo\napis:\n",
+        "type: graphql\nbaseUrl: ${var.baseUrl}\ngraphql:\n  path: /graphql/echo\napis:\n",
         "  - id: getUser\n    vars: {userId: '1'}\n    body:\n",
         "      query: 'query GetUser($id: ID!) { user(id: $id) { id note(text: \"${x}\") } }'\n",
         "      variables: {id: '${var.userId}', limit: 2}\n      operationName: GetUser\n",
-        "  - id: ownPath\n    path: /echo/own\n    body:\n      query: '{ me { id } }'\n",
+        "  - id: ownPath\n    path: /graphql/echo/own\n    body:\n      query: '{ me { id } }'\n",
     ),
 );
 
-/// Runs `tests` (a test file's text) calling `lab`; gives the output and the requests `/echo` saw.
+/// Runs `tests` (a test file's text) calling `lab`; gives the output and the requests `/graphql/echo` saw.
 async fn run(tests: &str) -> (Output, u64) {
     let server = MockServer::start().await.unwrap();
     let files = [CONFIG, API, ("services/lab/graphql.test.yaml", tests)];
     let output = Project::new(&files).run(&server.base_url(), &[]).output().unwrap();
     let stats = server.stats().await.unwrap();
-    (output, stats.count("POST /echo") + stats.count("POST /echo/{*rest}"))
+    (output, stats.count("POST /graphql/echo") + stats.count("POST /graphql/echo/{*rest}"))
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn a_graphql_api_posts_its_query_and_rendered_variables_as_json_to_the_files_path() {
     let tests = concat!(
         "tests:\n  - id: sendsTheOperation\n    call: lab#getUser\n    vars: {userId: '42'}\n    expect:\n",
-        "      body:\n        match:\n          method: POST\n          path: /echo\n",
+        "      body:\n        match:\n          method: POST\n          path: /graphql/echo\n",
         "          body.query: 'query GetUser($id: ID!) { user(id: $id) { id note(text: \"$${x}\") } }'\n",
         "          body.variables: {id: '42', limit: 2}\n          body.operationName: GetUser\n",
         "          \"headers['content-type']\": application/json\n",
@@ -48,7 +48,7 @@ async fn a_graphql_api_posts_its_query_and_rendered_variables_as_json_to_the_fil
 async fn an_apis_own_path_wins_and_unset_variables_are_sent_empty_without_an_operation_name() {
     let tests = concat!(
         "tests:\n  - id: sendsToItsOwnPath\n    call: lab#ownPath\n    expect:\n",
-        "      body:\n        match:\n          path: /echo/own\n          body.variables: {}\n",
+        "      body:\n        match:\n          path: /graphql/echo/own\n          body.variables: {}\n",
         "      cel:\n        sends no operation name: '!has(response.body.body.operationName)'\n",
     );
     let (output, sent) = run(tests).await;

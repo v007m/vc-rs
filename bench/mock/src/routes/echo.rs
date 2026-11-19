@@ -19,9 +19,15 @@ pub fn routes() -> Router {
 }
 
 async fn echo(request: Request) -> Response {
+    described(request, |echo| echo).await
+}
+
+/// `request` described as [`describe`] does and passed through `answer`; a body too large to
+/// read is a 400.
+pub async fn described(request: Request, answer: impl FnOnce(Value) -> Value) -> Response {
     let (parts, body) = request.into_parts();
     match body::to_bytes(body, BODY_LIMIT).await {
-        Ok(bytes) => Json(describe(&parts, &bytes)).into_response(),
+        Ok(bytes) => Json(answer(describe(&parts, &bytes))).into_response(),
         Err(error) => (StatusCode::BAD_REQUEST, error.to_string()).into_response(),
     }
 }

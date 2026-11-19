@@ -152,6 +152,7 @@ impl<'a> Build<'_, 'a> {
             expect,
             save: SaveSpec { values: self.values(source, node.get("save"))? },
             save_on,
+            save_on_written: node.get("saveOn").is_some(),
             cleanup,
             hooks: hooks(source, node),
             deprecated: read::flag(shapes::api(), node, "deprecated"),

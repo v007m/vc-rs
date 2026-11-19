@@ -22,7 +22,9 @@ fn graphql(body: GraphqlBody) -> (Fixture, ActionId) {
 
 /// What the call sent.
 async fn sent((fixture, call): (Fixture, ActionId)) -> RenderedRequest {
-    let fake = FakeTransport::scripted(vec![Ok(vc_testkit::status(200))]);
+    let data = bytes::Bytes::from_static(br#"{"data": {}}"#);
+    let answer = vc_model::HttpResponse { body: data, ..vc_testkit::status(200) };
+    let fake = FakeTransport::scripted(vec![Ok(answer)]);
     let (transport, recordings) = RecordingTransport::new(Arc::new(fake));
     let executors = ActionExecutors::standard(PipelineParts::new(Arc::new(transport), HostLimits::spawn(8)));
     let cx = fixture.cx(executors);
