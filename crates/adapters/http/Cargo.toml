@@ -12,6 +12,7 @@ publish.workspace = true
 async-trait.workspace = true
 brotli-decompressor.workspace = true
 bytes.workspace = true
+der.workspace = true
 flate2.workspace = true
 http.workspace = true
 http-body-util.workspace = true

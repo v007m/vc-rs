@@ -49,14 +49,18 @@ impl ClientIdentity {
 
     /// An identity from a PKCS#12 bundle (`.p12`, `.pfx`) and its passphrase, encrypted with PBES2
     /// and AES or with the legacy 3DES and RC2 ciphers. It must hold one private key and its
-    /// certificate; other certificates go after it in the chain.
+    /// certificate. The certificate whose public key is the key's leads the chain, followed by its
+    /// issuers from the bundle; trusted entries and unrelated certificates are left out.
     ///
-    /// The bundle is decoded here, once, and the key kept in memory wiped on drop.
+    /// The bundle is decoded here, once, and the key kept in memory wiped on drop. Decoding runs
+    /// the bundle's key derivation, up to `p12-keystore`'s limit of 1,000,000 iterations, so call
+    /// it off the async runtime (`spawn_blocking`).
     ///
     /// # Errors
     ///
-    /// [`HttpAdapterError::Identity`] for a wrong passphrase, an unsupported cipher or MAC, a
-    /// bundle with no key, more than one key or no certificate, or a file that is not PKCS#12.
+    /// [`HttpAdapterError::Identity`] for a passphrase PKCS#12 cannot encode, a wrong passphrase,
+    /// an unsupported cipher or MAC, key-derivation parameters over the limits, a bundle with no
+    /// key, more than one key or no certificate, or a file that is not PKCS#12.
     pub fn pkcs12(id: impl Into<String>, bundle: &[u8], passphrase: &str) -> Result<Self, HttpAdapterError> {
         let id = id.into();
         match pkcs12::decode(bundle, passphrase) {
@@ -64,7 +68,7 @@ impl ClientIdentity {
                 let leaf_sha256 = chain.first().map(|leaf| Fingerprint::of(leaf));
                 Ok(Self { id, hosts: Vec::new(), leaf_sha256, material: Material::Der { chain, key } })
             }
-            Err(reason) => Err(HttpAdapterError::Identity { id, reason }),
+            Err(reason) => Err(HttpAdapterError::Identity { id, reason: reason.to_string() }),
         }
     }
 

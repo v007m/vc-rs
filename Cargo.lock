@@ -5557,6 +5557,7 @@ dependencies = [
  "async-trait",
  "brotli-decompressor",
  "bytes",
+ "der",
  "flate2",
  "http",
  "http-body-util",

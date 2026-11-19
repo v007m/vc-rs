@@ -90,6 +90,7 @@ clap_complete = "4.6.11"
 criterion = { version = "0.8.2", default-features = false }
 crossterm = "0.29.0"
 csv = "1.4.0"
+der = "0.8.3"
 fake = { version = "5.1.0", default-features = false }
 flate2 = "1.1.10"
 futures-util = { version = "0.3.34", default-features = false, features = ["std"] }
