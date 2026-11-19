@@ -12,11 +12,13 @@ publish.workspace = true
 async-trait.workspace = true
 brotli-decompressor.workspace = true
 bytes.workspace = true
+der.workspace = true
 flate2.workspace = true
 http.workspace = true
 http-body-util.workspace = true
 hyper.workspace = true
 hyper-util.workspace = true
+p12-keystore.workspace = true
 rustls.workspace = true
 rustls-native-certs.workspace = true
 sha2.workspace = true
@@ -26,11 +28,13 @@ tokio-rustls.workspace = true
 tower-service.workspace = true
 vc-interfaces.workspace = true
 vc-model.workspace = true
+x509-parser.workspace = true
 zeroize.workspace = true
 zstd.workspace = true
 
 [dev-dependencies]
 hyper = { workspace = true, features = ["server"] }
+rcgen.workspace = true
 serde_json.workspace = true
 vc-mock-server.workspace = true
 vc-testkit.workspace = true

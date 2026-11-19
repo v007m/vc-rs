@@ -1,1 +1,42 @@
-Self-signed, test-only certificates and keys, made with the openssl CLI. They are never trusted anywhere and protect nothing; tests only read them to check PEM parsing.
+Self-signed, test-only certificates and keys, made with the openssl CLI. They are never trusted anywhere and protect nothing; tests only read them to check PEM and PKCS#12 parsing.
+
+The PKCS#12 bundles hold ec.pem and ec.sec1.key, with the passphrase `fixture`, made with OpenSSL 3.5:
+
+    openssl pkcs12 -export -in ec.pem -inkey ec.sec1.key -passout pass:fixture -out ec.p12
+    openssl pkcs12 -export -legacy -in ec.pem -inkey ec.sec1.key -passout pass:fixture -out ec.legacy.p12
+    openssl pkcs12 -export -legacy -in ec.pem -inkey ec.sec1.key -passout pass:fixture \
+        -keypbe PBE-SHA1-RC4-128 -certpbe PBE-SHA1-RC4-128 -out ec.rc4.p12
+    openssl pkcs12 -export -in ec.pem -inkey ec.sec1.key -passout pass:fixture -nomac -out ec.nomac.p12
+    openssl pkcs12 -export -in ec.pem -inkey ec.sec1.key -passout pass:fixture -iter 2000000 -out ec.slow.p12
+    openssl pkcs12 -export -twopass -in ec.pem -inkey ec.sec1.key -out ec.twopass.p12
+    openssl pkcs12 -export -in ec.pem -inkey ec.sec1.key -passout pass:fixture -nomac -keypbe NONE -certpbe NONE \
+        -out plain.p12
+
+ec.p12 is PBES2 with AES-256-CBC and an HMAC-SHA256 MAC; ec.legacy.p12 is 3DES for the key, RC2-40 for the certificate and an HMAC-SHA1 MAC; ec.rc4.p12 uses RC4, which is not supported. ec.nomac.p12 has no MAC; ec.slow.p12 uses 2,000,000 iterations, over p12-keystore's limit of 1,000,000. ec.twopass.p12 has the MAC password `fixture` and the encryption password `encrypt`, typed at the prompts. ec.badcert.p12 is plain.p12, with no MAC and nothing encrypted, with the first byte of its certificate changed from 0x30 (SEQUENCE) to 0x31 (SET), so the certificate is not X.509.
+
+ec.explicit.p12 and ec.compressed.p12 hold ec.sec1.key with a self-signed certificate whose public key is encoded another way: with explicit curve parameters, and as a compressed point. Each certificate is made from a re-encoded copy of the key, and the bundle from the original key:
+
+    openssl ec -in ec.sec1.key -param_enc explicit -out explicit.key
+    openssl ec -in ec.sec1.key -conv_form compressed -out compressed.key
+    openssl req -new -x509 -key explicit.key -subj /CN=explicit -days 36500 -out explicit.pem
+    openssl req -new -x509 -key compressed.key -subj /CN=compressed -days 36500 -out compressed.pem
+    openssl pkcs12 -export -in explicit.pem -inkey ec.sec1.key -passout pass:fixture -out ec.explicit.p12
+    openssl pkcs12 -export -in compressed.pem -inkey ec.sec1.key -passout pass:fixture -out ec.compressed.p12
+
+p521.pkcs8.key is an ECDSA P-521 key, a type ring cannot sign with:
+
+    openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-521 -out p521.pkcs8.key
+
+rsa.alt.pem is a second self-signed certificate for rsa.pkcs8.key, so two certificates share one public key:
+
+    openssl req -x509 -new -key rsa.pkcs8.key -subj /CN=rsa-alt -days 36500 -out rsa.alt.pem
+
+cycle.a.pem (key cycle.key) and cycle.b.pem name each other as issuer, so a chain walk by issuer name must stop when it comes back round. cycle.a.pem was signed by cycle.b.pem, which was signed by a throwaway self-signed cycle-a certificate:
+
+    openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-256 -out cycle.key
+    openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-256 -out b.key
+    openssl req -x509 -new -key cycle.key -subj /CN=cycle-a -days 36500 -out tmp-a.pem
+    openssl req -new -key b.key -subj /CN=cycle-b -out b.csr
+    openssl x509 -req -in b.csr -CA tmp-a.pem -CAkey cycle.key -days 36500 -out cycle.b.pem
+    openssl req -new -key cycle.key -subj /CN=cycle-a -out a.csr
+    openssl x509 -req -in a.csr -CA cycle.b.pem -CAkey b.key -days 36500 -out cycle.a.pem
