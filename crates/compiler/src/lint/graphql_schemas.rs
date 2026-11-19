@@ -1,16 +1,16 @@
 //! V2314: the document of a `graphql` api does not fit the schema its file's `graphql.schema`
 //! names, by the GraphQL spec's validation rules (D347): an unknown field, with the type's close
 //! field as its fix, a missing required argument, a value of the wrong type, a selection on a
-//! leaf. Each document is checked once against each schema; a schema file that is not one is
-//! V1015, and one the compile was not given is left alone.
+//! leaf, an unused fragment beside an operation. Each document is checked once against each
+//! schema; what V2009 reports of it is left out. A schema file that is not one is V1015, and one
+//! the compile was not given is left alone.
 
-use indexmap::IndexSet;
+use indexmap::IndexMap;
 use vc_diagnostics::{Code, Diagnostic};
-use vc_parser::{GraphqlMismatch, GraphqlSchema};
+use vc_parser::{GraphqlMismatch, GraphqlOperations, GraphqlSchema};
 
 use super::graphql::{self, Document};
 use super::{Lint, LintCx};
-use crate::graphql::Origin;
 use crate::suggest::{self, Misspelling};
 
 pub struct GraphqlSchemas;
@@ -22,22 +22,36 @@ impl Lint for GraphqlSchemas {
 
     fn check(&self, cx: &LintCx<'_, '_>) -> Vec<Diagnostic> {
         let documents = graphql::documents(cx);
-        let mut seen: IndexSet<(Origin, &str)> = IndexSet::new();
-        let mut found = Vec::new();
+        let mut checked = IndexMap::new();
         for document in &documents {
-            let Some((path, schema)) = schema(cx, document) else { continue };
-            if seen.insert((document.written.origin, path)) {
-                found.extend(schema.check_document(document.written.text).iter().map(|at| unfit(document, at)));
-            }
+            let Some(at) = schema(cx, document) else { continue };
+            let reported = matches!(document.pick(), Some(Err(_)));
+            checked.entry((document.written.origin, at.path)).or_insert((document, at)).1.reported |= reported;
         }
-        found
+        let unfits = |(document, at): (&Document<'_>, Checked<'_>)| {
+            let found = at.schema.check_document(at.operations, at.reported);
+            found.iter().map(|mismatch| unfit(document, mismatch)).collect::<Vec<_>>()
+        };
+        checked.into_values().flat_map(unfits).collect()
     }
 }
 
-/// The schema the file of `document` names, with its path, when it is one.
-pub fn schema<'c>(cx: &'c LintCx<'_, '_>, document: &Document<'_>) -> Option<(&'c str, &'c GraphqlSchema)> {
+/// A document's schema: its path, the schema, the document parsed against it, and whether V2009
+/// reports the document for an api that uses it.
+#[derive(Clone, Copy)]
+pub struct Checked<'c> {
+    pub path: &'c str,
+    pub schema: &'c GraphqlSchema,
+    pub operations: &'c GraphqlOperations,
+    pub reported: bool,
+}
+
+/// The schema the file of `document` names, when it is one, with the document parsed against it.
+pub fn schema<'c>(cx: &'c LintCx<'_, '_>, document: &Document<'_>) -> Option<Checked<'c>> {
     let path = cx.documents.named(document.source.path)?;
-    Some((path, cx.documents.schema(path)?.ok()?))
+    let schema = cx.documents.schema(path)?.ok()?;
+    let operations = cx.documents.operations(document.written.origin, path)?;
+    Some(Checked { path, schema, operations, reported: false })
 }
 
 /// V2314 where `mismatch` is in `document`: at the part at fault, else at its `query`.

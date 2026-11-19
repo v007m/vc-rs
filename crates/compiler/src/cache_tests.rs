@@ -93,8 +93,9 @@ fn bytes_round_trip_with_the_units_and_names() {
     assert_eq!(CompileCache::from_bytes(&CompileCache::new().to_bytes()), CompileCache::new());
 }
 
-/// The GraphQL schema a `.graphqls` file holds is kept in its unit; a `.graphql` file is read only
-/// when it is named, and what is not a schema is not kept.
+/// The GraphQL schema a GraphQL text file that defines types holds, or a data file with a
+/// `__schema`, is kept in its unit, and so is the V1015 of one that is not a schema; a file of
+/// operations is read only when it is named.
 #[test]
 fn bytes_round_trip_with_the_schema_a_file_holds() {
     let sdl = "type Query {\n  me: Int\n}\n";
@@ -105,17 +106,21 @@ fn bytes_round_trip_with_the_schema_a_file_holds() {
         source("c.graphqls", "type T { a: Int }\n", 3),
         source("d.json", introspection, 4),
         source("e.json", include_str!("../../parser/tests/graphql/accounts.json"), 5),
+        source("f.gql", "query Q { me }\n", 6),
     ];
     let cache = compiled(&sources);
     let read = CompileCache::from_bytes(&cache.to_bytes());
     assert_eq!(read, cache);
     let schema = |path, byte, file| kept(&read, path, byte, file).and_then(|unit| unit.schema.clone());
-    assert_eq!(schema("a.graphqls", 1, 0).unwrap().sdl(), sdl);
-    assert!(kept(&read, "b.graphql", 2, 1).is_some());
-    assert!(schema("b.graphql", 2, 1).is_none());
-    assert!(schema("c.graphqls", 3, 2).is_none());
-    assert!(schema("d.json", 4, 3).is_none());
-    assert!(schema("e.json", 5, 4).is_some_and(|schema| schema.sdl().contains("type User implements Node")));
+    let why =
+        |path, byte, file| schema(path, byte, file).and_then(Result::err).map(|problems| problems[0].message.clone());
+    assert_eq!(schema("a.graphqls", 1, 0).and_then(Result::ok).unwrap().sdl(), sdl);
+    assert_eq!(schema("b.graphql", 2, 1).and_then(Result::ok).unwrap().sdl(), sdl);
+    assert_eq!(why("c.graphqls", 3, 2).unwrap(), "missing query root operation type in schema definition");
+    assert!(why("d.json", 4, 3).is_some());
+    let accounts = schema("e.json", 5, 4).and_then(Result::ok);
+    assert!(accounts.is_some_and(|schema| schema.sdl().contains("type User implements Node")));
+    assert!(kept(&read, "f.gql", 6, 5).is_some_and(|unit| unit.document.is_some() && unit.schema.is_none()));
 }
 
 #[test]

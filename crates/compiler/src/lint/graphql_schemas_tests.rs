@@ -180,3 +180,42 @@ fn a_value_with_a_cel_or_an_extend_in_it_is_not_checked() {
         }
     }
 }
+
+#[test]
+fn a_cel_beside_other_keys_is_a_key_and_is_checked() {
+    let query = "      query: 'mutation Me($in: NewUser!) { createUser(input: $in) { id } }'\n";
+    for schema in SCHEMAS {
+        let variables = "{in: {$cel: x, name: y}}";
+        let compiled = compile(&me(&format!("{query}      variables: {variables}\n")), Some(schema), &[]);
+        assert_eq!(spots(&compiled), [(Code::V2315, 9, 23, 18)], "{}", schema.0);
+    }
+}
+
+#[test]
+fn an_unused_fragment_beside_an_operation_is_v2314_at_the_fragment() {
+    let body = "      query: 'query Me { user(id: 1) { id } } fragment F on User { id }'\n";
+    for schema in SCHEMAS {
+        let compiled = compile(&me(body), Some(schema), &[]);
+        assert_eq!(spots(&compiled), [(Code::V2314, 8, 47, "fragment F on User { id }".len())], "{}", schema.0);
+        assert_eq!(
+            one(&compiled).message,
+            "the document does not fit the schema: fragment `F` must be used in an operation"
+        );
+    }
+}
+
+#[test]
+fn an_anonymous_operation_beside_a_named_one_is_one_problem_with_one_code() {
+    let query = "      query: '{ user(id: 1) { id } } query Me { user(id: 2) { id } }'\n";
+    for schema in SCHEMAS {
+        let errors = |compiled: &Compiled| {
+            let unnamed = |(code, ..): &(Code, u32, u32, usize)| *code == Code::V4010;
+            spots(compiled).into_iter().filter(|spot| !unnamed(spot)).collect::<Vec<_>>()
+        };
+        let picked = compile(&me(&format!("{query}      operationName: Me\n")), Some(schema), &[]);
+        assert_eq!(errors(&picked), [(Code::V2314, 8, 15, "{ user(id: 1) { id } }".len())], "{}", schema.0);
+        let unpicked = compile(&me(query), Some(schema), &[]);
+        let codes: Vec<Code> = errors(&unpicked).into_iter().map(|(code, ..)| code).collect();
+        assert_eq!(codes, [Code::V2009], "{}", schema.0);
+    }
+}

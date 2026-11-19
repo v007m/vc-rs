@@ -169,3 +169,32 @@ fn a_schema_is_read_once_and_kept_with_its_file() {
         assert!(kept.diagnostics.is_empty(), "{path}: the stored schema was used: {:?}", kept.diagnostics);
     }
 }
+
+#[test]
+fn a_file_that_is_not_a_schema_is_kept_as_its_v1015() {
+    for (name, bad, good) in [
+        ("schema.graphql", "type T", SDL),
+        ("schema.gql", "type T", SDL),
+        ("schema.json", "{\"__schema\": {}}", INTROSPECTION),
+    ] {
+        let (path, schema) = (format!("services/users/{name}"), format!("{{$file: {name}}}"));
+        let first = compile(&schema, &[(&path, bad)], &[]);
+        let codes: Vec<Code> = spots(&first).into_iter().map(|(code, ..)| code).collect();
+        assert_eq!(codes, [Code::V1015], "{name}");
+        let reported = spots(&first);
+        let mut input = with(vec![file("vibranium.config.yaml", CONFIG)], &[(&path, good)], &[]);
+        input.files.extend(service("users", &schema));
+        input.previous = first.cache;
+        assert_eq!(spots(&crate::compile(input)), reported, "{name}: the stored V1015 was used");
+    }
+}
+
+#[test]
+fn the_first_file_of_a_path_is_the_schema() {
+    let path = "services/users/schema.graphqls";
+    let broken_first = compile("{$file: schema.graphqls}", &[(path, "type T"), (path, SDL)], &[]);
+    let files: Vec<_> = broken_first.diagnostics.iter().map(|found| (found.code, found.primary.span.file)).collect();
+    assert_eq!(files, [(Code::V1015, vc_model::SourceFileId::new(1))], "files are numbered in path order");
+    let broken_last = compile("{$file: schema.graphqls}", &[(path, SDL), (path, "type T")], &[]);
+    assert!(broken_last.diagnostics.is_empty(), "{:?}", broken_last.diagnostics);
+}

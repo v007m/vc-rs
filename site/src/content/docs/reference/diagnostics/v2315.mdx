@@ -22,8 +22,8 @@ When a `type: graphql` api file names its schema in `graphql.schema`, each liter
 it is sent. V2315 is a value of another type: a quoted `"3"` for an `Int`, `"yes"` for a `Boolean`, a name an
 enum does not have, a key an input type does not have, or `null` for a non-null type. Write a number or `true` and
 `false` unquoted; a whole number written as a float, such as `3.0`, is an `Int`. A value with a template, a
-`$cel` or an `$extend` in it, such as `${var.limit}`, is known only at run time and is not checked; a variable the
-operation does not declare is V2109.
+`{$cel: …}` or an `$extend` in it, such as `${var.limit}`, is known only at run time and is not checked (a `$cel` key
+beside other keys is a key like any other); a variable the operation does not declare is V2109.
 
 ## Wrong
 

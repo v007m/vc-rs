@@ -49,6 +49,9 @@ pub struct GraphqlVariable {
 pub struct GraphqlDocument {
     /// Its operations, in order.
     pub operations: Vec<GraphqlOperation>,
+    /// Whether it holds a type system definition or extension, so it may be a schema (D347).
+    #[serde(default)]
+    pub defines_types: bool,
 }
 
 /// Where a document does not parse, and why.
@@ -69,11 +72,15 @@ pub struct GraphqlProblem {
 pub fn parse_document(text: &str) -> Result<GraphqlDocument, Vec<GraphqlProblem>> {
     let tree = Parser::new(text).parse();
     syntax(&tree, text)?;
-    let operations = tree.document().definitions().filter_map(|definition| match definition {
-        Definition::OperationDefinition(operation) => Some(read(&operation)),
+    let definitions: Vec<Definition> = tree.document().definitions().collect();
+    let defines_types = definitions.iter().any(|definition| {
+        !matches!(definition, Definition::OperationDefinition(_) | Definition::FragmentDefinition(_))
+    });
+    let operations = definitions.iter().filter_map(|definition| match definition {
+        Definition::OperationDefinition(operation) => Some(read(operation)),
         _ => None,
     });
-    Ok(GraphqlDocument { operations: operations.collect() })
+    Ok(GraphqlDocument { operations: operations.collect(), defines_types })
 }
 
 /// Every spot of `text` that `tree` does not parse.
@@ -126,6 +133,18 @@ fn bytes(node: &SyntaxNode) -> Range<usize> {
 #[cfg(test)]
 mod tests {
     use super::{OperationKind, parse_document};
+
+    #[test]
+    fn tells_a_document_that_defines_types() {
+        for text in
+            ["type T { a: Int }", "query Q { a }\nextend type T { b: Int }", "schema { query: Q }", "scalar Date"]
+        {
+            assert!(parse_document(text).unwrap().defines_types, "{text}");
+        }
+        for text in ["query Q { a }", "fragment F on T { a }", "{ a }\nfragment F on T { a }"] {
+            assert!(!parse_document(text).unwrap().defines_types, "{text}");
+        }
+    }
 
     #[test]
     fn lists_each_operation_with_its_name_and_kind() {

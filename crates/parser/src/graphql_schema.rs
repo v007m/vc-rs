@@ -33,10 +33,19 @@ pub const MAX_DEPTH: usize = 64;
 /// What `apollo-compiler` calls a field its type does not have.
 const UNDEFINED_FIELD: &str = "UndefinedField";
 
-/// What `apollo-compiler` calls the problems of a document that V2009 reports or leaves to the
-/// rules without a schema: two operations of one name, an anonymous operation beside others, and
-/// a fragment no operation uses.
-const LEFT_OUT: [&str; 3] = ["OperationNameCollision", "AmbiguousAnonymousOperation", "UnusedFragment"];
+/// What `apollo-compiler` calls two operations of one name, which V2009 always reports.
+const NAME_COLLISION: &str = "OperationNameCollision";
+
+/// What `apollo-compiler` calls an anonymous operation beside others, which V2009 reports when
+/// no api's `operationName` picks an operation of the document.
+const ANONYMOUS: &str = "AmbiguousAnonymousOperation";
+
+/// What `apollo-compiler` calls a fragment no operation uses, which V2009 reports as a document
+/// with no operation.
+const UNUSED_FRAGMENT: &str = "UnusedFragment";
+
+/// The largest magnitude past which a float is not an `i64`: 2^63.
+const I64_BOUND: f64 = 9_223_372_036_854_775_808.0;
 
 /// What `apollo-compiler` calls a field of an object type with no selections.
 const NO_SUBSELECTION: &str = "MissingSubselection";
@@ -57,7 +66,8 @@ impl PartialEq for GraphqlSchema {
 
 impl Eq for GraphqlSchema {}
 
-/// Written as its SDL, which is read and validated again when it is read back.
+/// Written as its SDL, which is built again when it is read back, and trusted: the compile cache
+/// that stores it is sealed and keyed by the build id.
 impl Serialize for GraphqlSchema {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         serializer.serialize_str(&self.sdl)
@@ -74,10 +84,11 @@ impl<'de> Deserialize<'de> for GraphqlSchema {
     }
 }
 
-/// A document's operations, read once against a schema, to check the values of their variables.
+/// A document read once against a schema: its operations, and where it does not validate.
 #[derive(Debug)]
 pub struct GraphqlOperations {
     document: ExecutableDocument,
+    errors: Option<DiagnosticList>,
 }
 
 /// Where a document does not fit a schema, and why.
@@ -142,16 +153,21 @@ impl GraphqlSchema {
         &self.sdl
     }
 
-    /// Where the document `text`, which parses, does not fit the schema, by the GraphQL spec's
-    /// validation rules. What [`LEFT_OUT`] names is left to V2009, and a selection left empty
-    /// because each field in it is unknown is reported only at those fields.
+    /// Where the document of `operations` does not fit the schema, by the GraphQL spec's
+    /// validation rules, less what V2009 reports (D368): two operations of one name; an
+    /// anonymous operation beside others when V2009 has `reported` the document; a fragment no
+    /// operation uses when the document has no operation. A selection left empty because each
+    /// field in it is unknown is reported only at those fields.
     #[must_use]
-    pub fn check_document(&self, text: &str) -> Vec<GraphqlMismatch> {
-        let Err(invalid) = ExecutableDocument::parse_and_validate(&self.valid, text, DOCUMENT_PATH) else {
-            return Vec::new();
+    pub fn check_document(&self, operations: &GraphqlOperations, reported: bool) -> Vec<GraphqlMismatch> {
+        let Some(errors) = &operations.errors else { return Vec::new() };
+        let empty = operations.document.operations.is_empty();
+        let left_out = |found: &Diagnostic<'_, DiagnosticData>| {
+            named(found, NAME_COLLISION)
+                || (reported && named(found, ANONYMOUS))
+                || (empty && named(found, UNUSED_FRAGMENT))
         };
-        let found: Vec<Diagnostic<'_, DiagnosticData>> =
-            invalid.errors.iter().filter(|found| !LEFT_OUT.iter().any(|name| named(found, name))).collect();
+        let found: Vec<Diagnostic<'_, DiagnosticData>> = errors.iter().filter(|found| !left_out(found)).collect();
         let unknown: Vec<Range<usize>> = found
             .iter()
             .filter(|found| named(found, UNDEFINED_FIELD))
@@ -161,15 +177,17 @@ impl GraphqlSchema {
             let at = spot(found, DOCUMENT_PATH);
             named(found, NO_SUBSELECTION) && unknown.iter().any(|field| at.start <= field.start && field.end <= at.end)
         };
-        found.iter().filter(|found| !emptied(found)).map(|found| self.mismatch(&invalid.partial, found)).collect()
+        found.iter().filter(|found| !emptied(found)).map(|found| self.mismatch(&operations.document, found)).collect()
     }
 
-    /// The operations of the document `text`, which parses, read against the schema.
+    /// The document `text`, which parses, read and validated against the schema once, for
+    /// [`check_document`](Self::check_document) and [`check_variables`](Self::check_variables).
     #[must_use]
     pub fn operations(&self, text: &str) -> GraphqlOperations {
-        let document =
-            ExecutableDocument::parse(&self.valid, text, DOCUMENT_PATH).unwrap_or_else(|built| built.partial);
-        GraphqlOperations { document }
+        match ExecutableDocument::parse_and_validate(&self.valid, text, DOCUMENT_PATH) {
+            Ok(valid) => GraphqlOperations { document: valid.into_inner(), errors: None },
+            Err(invalid) => GraphqlOperations { document: invalid.partial, errors: Some(invalid.errors) },
+        }
     }
 
     /// The message for each value of `given`, by its index, that does not fit the type the
@@ -303,11 +321,17 @@ fn scalar_json(scalar: &Scalar) -> Option<JsonValue> {
     }
 }
 
-/// `value` as JSON: an integral one as an integer, as a JSON reader gives `10.0` to an `Int`
-/// (D370); `None` for one with no JSON form.
+/// `value` as JSON: an integral one an `i64` holds as an integer, as a JSON reader gives `10.0`
+/// to an `Int` (D370); `None` for one with no JSON form.
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "the float is integral and inside the i64 range, so the cast is exact"
+)]
 fn float_json(value: f64) -> Option<JsonValue> {
-    let integer = value.to_string().parse::<i64>().ok().map(JsonValue::from);
-    integer.or_else(|| Number::from_f64(value).map(JsonValue::Number))
+    if value.fract() == 0.0 && (-I64_BOUND..I64_BOUND).contains(&value) {
+        return Some(JsonValue::from(value as i64));
+    }
+    Number::from_f64(value).map(JsonValue::Number)
 }
 
 #[cfg(test)]

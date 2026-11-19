@@ -6,12 +6,13 @@ use indexmap::IndexMap;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use vc_diagnostics::{Diagnostic, Diagnostics};
 use vc_model::{FileKind, Pos, SourceFile, SourceFileId, SourceSpan, StringTable};
-use vc_parser::{GraphqlDocument, GraphqlSchema, Node, ScalarKind, Syntax, Value};
+use vc_parser::{GraphqlDocument, Node, ScalarKind, Syntax, Value};
 
+use crate::graphql;
+use crate::graphql_schema::{self, Loaded};
 use crate::parts::{self, Cx, Piece, Tools};
 use crate::script::{self, Script};
 use crate::shape_check::{self, Walk};
-use crate::{graphql, graphql_schema};
 use crate::{shapes, version};
 
 /// One file after the per-file stages.
@@ -32,10 +33,11 @@ pub struct FileUnit {
     /// A GraphQL document file's operations (D356); `None` for any other file, or one that does not parse.
     #[serde(default)]
     pub document: Option<GraphqlDocument>,
-    /// The GraphQL schema a `.graphqls` file, or a data file with a `__schema`, holds (D347);
-    /// `None` for any other file, or one that is not a schema.
+    /// The GraphQL schema a GraphQL text file that defines types, or a data file with a
+    /// `__schema`, holds, else the first problem that keeps it from being one (D347); `None`
+    /// for any other file.
     #[serde(default)]
-    pub schema: Option<GraphqlSchema>,
+    pub schema: Option<Loaded>,
     /// Every problem the per-file stages found.
     #[serde(skip)]
     pub diagnostics: Diagnostics,
@@ -59,13 +61,13 @@ pub fn unit(id: SourceFileId, source: &SourceFile, (tools, strings): (&Tools, &m
     }
     if graphql::is_text(source.path.as_str()) {
         let (document, diagnostics) = graphql::read_file(id, source);
-        let schema = graphql_schema::from_text(source, document.as_ref());
+        let schema = graphql_schema::from_text(id, source, document.as_ref());
         return FileUnit { document, schema, ..FileUnit::bare(None, diagnostics) };
     }
     let (root, mut diagnostics) = parse(id, source);
     let kind = source.kind();
     let Some(file_kind) = kind else {
-        let schema = root.as_ref().and_then(graphql_schema::from_tree);
+        let schema = root.as_ref().and_then(|root| graphql_schema::from_tree(root, &source.text));
         return FileUnit { root, schema, ..FileUnit::bare(kind, diagnostics) };
     };
     let Some(root) = root.map(empty_as_map) else { return FileUnit::bare(kind, diagnostics) };

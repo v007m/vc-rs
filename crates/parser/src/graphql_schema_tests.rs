@@ -22,9 +22,14 @@ fn problems(sdl: &str) -> Vec<(String, &str)> {
     problems.into_iter().map(|problem| (problem.message, &sdl[problem.at])).collect()
 }
 
+/// Where `document` does not fit `schema`, when V2009 reports nothing of it.
+fn check(schema: &GraphqlSchema, document: &str) -> Vec<GraphqlMismatch> {
+    schema.check_document(&schema.operations(document), false)
+}
+
 /// The one mismatch of `document`, with the text it points at.
 fn mismatch<'d>(schema: &GraphqlSchema, document: &'d str) -> (GraphqlMismatch, &'d str) {
-    let found = schema.check_document(document);
+    let found = check(schema, document);
     assert_eq!(found.len(), 1, "{document}: {found:?}");
     let at = &document[found[0].at.clone()];
     (found[0].clone(), at)
@@ -104,9 +109,9 @@ fn the_same_schema_from_sdl_and_from_introspection_checks_documents_alike() {
         "mutation { createUser(input: {name: \"a\", age: 3}) { id } }",
     ];
     for document in documents {
-        assert_eq!(introspected.check_document(document), accounts().check_document(document), "{document}");
+        assert_eq!(check(&introspected, document), check(&accounts(), document), "{document}");
     }
-    assert_eq!(accounts().check_document(documents[0]), []);
+    assert_eq!(check(&accounts(), documents[0]), []);
 }
 
 #[test]
@@ -162,15 +167,30 @@ fn a_document_that_does_not_fit_the_schema_is_reported_where_it_is_wrong() {
 }
 
 #[test]
-fn what_v2009_or_the_rules_without_a_schema_cover_is_left_out() {
-    let documents = [
-        "query A { user(id: 1) { id } }\nquery A { user(id: 2) { id } }",
-        "query { user(id: 1) { id } }\nquery B { user(id: 2) { id } }",
-        "query A { user(id: 1) { id } }\nfragment F on User { id }",
-    ];
-    for document in documents {
-        assert_eq!(accounts().check_document(document), [], "{document}");
-    }
+fn what_v2009_reports_is_left_out_and_nothing_else() {
+    let schema = accounts();
+    let reported = |document: &str| schema.check_document(&schema.operations(document), true);
+    let twice = "query A { user(id: 1) { id } }\nquery A { user(id: 2) { id } }";
+    assert_eq!((check(&schema, twice), reported(twice)), (vec![], vec![]));
+    let anonymous = "query { user(id: 1) { id } }\nquery B { user(id: 2) { id } }";
+    let (found, at) = mismatch(&schema, anonymous);
+    assert_eq!(
+        (found.message.as_str(), at),
+        (
+            "anonymous operation cannot be selected when the document contains other operations",
+            "query { user(id: 1) { id } }"
+        )
+    );
+    assert_eq!(reported(anonymous), []);
+    let unused = "query A { user(id: 1) { id } }\nfragment F on User { id }";
+    let (found, at) = mismatch(&schema, unused);
+    assert_eq!(
+        (found.message.as_str(), at),
+        ("fragment `F` must be used in an operation", "fragment F on User { id }")
+    );
+    assert_eq!(reported(unused).len(), 1, "an operation is picked, so V2009 says nothing of the fragment");
+    let fragments = "fragment F on User { id }";
+    assert_eq!((check(&schema, fragments), reported(fragments)), (vec![], vec![]));
 }
 
 #[test]

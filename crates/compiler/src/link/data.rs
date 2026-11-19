@@ -65,7 +65,7 @@ impl<'a> Data<'a> {
         assets: Option<&BTreeSet<SourcePath>>,
     ) -> (Self, Diagnostics) {
         let given = given(entries, files);
-        let documents = Documents::new(project, (entries, files), &given);
+        let documents = Documents::new(project, (entries, files));
         let listed = assets.into_iter().flatten().map(SourcePath::as_str).chain(given.keys().copied());
         let listed = listed.filter(|path| !documents.schema_paths().contains(*path));
         let mut sets: BTreeMap<String, Set> =
