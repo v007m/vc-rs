@@ -92,23 +92,10 @@ pub fn link(entries: &[CacheEntry], files: &SourceFiles, world: &World<'_>) -> L
     let hooks = hooks::link(&project, (entries, files), world.assets);
     let hooks_wanted = hooks.wanted;
     diagnostics.extend(hooks.diagnostics);
-    ids::check(&project, &mut diagnostics);
-    refs::check(&project, &mut diagnostics);
-    diagnostics.extend(world.assets.map(|assets| assets::check(&project, files, assets)).unwrap_or_default());
-    diagnostics.extend(world.assets.map(|assets| spec_files::check(&project, files, assets)).unwrap_or_default());
-    diagnostics.extend(columns::check(&project, &data));
-    diagnostics.extend(data::unknown(&project, &data));
-    diagnostics.extend(fakes::check(&project));
-    diagnostics.extend(auth_keys::check(&project));
-    diagnostics.extend(tls::check(&project));
-    diagnostics.extend(protocol_keys::check(&project, &PROTOCOL_KEYS));
-    diagnostics.extend(protocol_needs::check(&project));
-    diagnostics.extend(protocol_checks::check(&project, data.documents()));
-    diagnostics.extend(reports_dir::check(&project));
-    diagnostics.extend(shared::profiles(&project));
-    diagnostics.extend(world.secrets.map(|names| secrets::check(&project, &names.declared)).unwrap_or_default());
+    always(&project, (&data, files, world), &mut diagnostics);
+    let secrets = tls::secrets(&project, (entries, files));
     if !clean {
-        return Linked { diagnostics, program: None, data_wanted, hooks_wanted, secrets: tls::secrets(&project) };
+        return Linked { diagnostics, program: None, data_wanted, hooks_wanted, secrets };
     }
     diagnostics.extend(flow::check(&project));
     cycles::check(&project, &mut diagnostics);
@@ -123,7 +110,31 @@ pub fn link(entries: &[CacheEntry], files: &SourceFiles, world: &World<'_>) -> L
         diagnostics.extend(lints((&project, data.documents()), program, world.today));
     }
     let program = program.filter(|_| !diagnostics.has_errors());
-    Linked { diagnostics, program, data_wanted, hooks_wanted, secrets: tls::secrets(&project) }
+    Linked { diagnostics, program, data_wanted, hooks_wanted, secrets }
+}
+
+/// The ID, reference, asset, data, key and profile checks, which run whether or not a file has
+/// an error of its own.
+fn always(
+    project: &Project<'_>,
+    (data, files, world): (&Data<'_>, &SourceFiles, &World<'_>),
+    diagnostics: &mut Diagnostics,
+) {
+    ids::check(project, diagnostics);
+    refs::check(project, diagnostics);
+    diagnostics.extend(world.assets.map(|assets| assets::check(project, files, assets)).unwrap_or_default());
+    diagnostics.extend(world.assets.map(|assets| spec_files::check(project, files, assets)).unwrap_or_default());
+    diagnostics.extend(columns::check(project, data));
+    diagnostics.extend(data::unknown(project, data));
+    diagnostics.extend(fakes::check(project));
+    diagnostics.extend(auth_keys::check(project));
+    diagnostics.extend(tls::check(project));
+    diagnostics.extend(protocol_keys::check(project, &PROTOCOL_KEYS));
+    diagnostics.extend(protocol_needs::check(project));
+    diagnostics.extend(protocol_checks::check(project, data.documents()));
+    diagnostics.extend(reports_dir::check(project));
+    diagnostics.extend(shared::profiles(project));
+    diagnostics.extend(world.secrets.map(|names| secrets::check(project, &names.declared)).unwrap_or_default());
 }
 
 /// The lifecycle and convention lints over a project whose program was built.

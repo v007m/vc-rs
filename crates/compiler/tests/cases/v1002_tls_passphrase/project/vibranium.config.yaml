@@ -1,0 +1,9 @@
+syntaxVersion: 2
+project: partner
+http:
+  tls:
+    clients:
+      - id: bundle
+        pkcs12: certs/partner.p12
+        passphrase: hunter2: oops
+        hosts: [api.partner.example]

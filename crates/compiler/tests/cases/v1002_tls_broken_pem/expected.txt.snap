@@ -1,0 +1,11 @@
+---
+source: crates/compiler/tests/golden.rs
+assertion_line: 57
+input_file: crates/compiler/tests/cases/v1002_tls_broken_pem/project
+---
+error[V1002]: tabs disallowed within this context (block indentation)
+  --> vibranium.config.yaml:10:2
+   |
+10 | •••
+   |  ^ the structure breaks here
+   = help: check the indentation: a nested key needs more spaces than its parent, and siblings line up

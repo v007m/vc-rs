@@ -1,0 +1,35 @@
+---
+source: crates/compiler/tests/golden.rs
+assertion_line: 58
+input_file: crates/compiler/tests/cases/v1002_tls_broken_pem/project
+---
+{
+  "summary": {
+    "errors": 1,
+    "warnings": 0,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "code": "V1002",
+      "severity": "error",
+      "message": "tabs disallowed within this context (block indentation)",
+      "primary": {
+        "span": {
+          "path": "vibranium.config.yaml",
+          "line": 10,
+          "column": 2,
+          "endLine": 10,
+          "endColumn": 3
+        },
+        "text": "the structure breaks here"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "check the indentation: a nested key needs more spaces than its parent, and siblings line up"
+      ],
+      "fixes": []
+    }
+  ]
+}

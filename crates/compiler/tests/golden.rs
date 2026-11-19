@@ -99,6 +99,8 @@ cases!(
     clean_sample,
     v1001_invalid_yaml,
     v1002_structure,
+    v1002_tls_broken_pem,
+    v1002_tls_passphrase,
     v1003_missing_version,
     v1003_newer_version,
     v1003_older_version,
@@ -196,7 +198,8 @@ cases!(
 /// whichever code reports a line near it (D353).
 #[test]
 fn tls_secrets_print_nowhere() -> Outcome {
-    for case in ["v1016_cert_two_ways", "v2211_tls_lone_keys", "v4013_literal_key"] {
+    let cases = ["v1002_tls_broken_pem", "v1002_tls_passphrase", "v1016_cert_two_ways", "v2211_tls_lone_keys"];
+    for case in cases.into_iter().chain(["v4013_literal_key"]) {
         let (text, json) = rendered(&Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/cases").join(case))?;
         assert!(text.contains("•••"), "{case} masks nothing:\n{text}");
         for secret in TLS_SECRETS {

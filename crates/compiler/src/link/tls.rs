@@ -2,14 +2,17 @@
 //! `hosts` is a host pattern (V1017). The patterns follow the HTTP adapter's host rules, so a
 //! pattern that compiles is one the run can match.
 
+mod written;
+
 use std::net::Ipv6Addr;
 
 use vc_diagnostics::{Code, Diagnostic, Diagnostics, Fix, TextEdit};
-use vc_model::{Pos, SourceSpan};
+use vc_model::{FileKind, Pos, SourceFiles, SourceSpan};
 use vc_parser::{Entry, Node, ScalarKind};
 
 use super::project;
 use super::project::Project;
+use crate::cache::CacheEntry;
 
 /// The help shared by every V1017.
 const PATTERN_HELP: &str = "write `host`, `host:port` or `*.domain`, such as `api.partner.example:8443`";
@@ -25,10 +28,20 @@ pub fn literals(root: &Node) -> Vec<&Entry> {
     entries.flatten().filter(|entry| literal(entry)).collect()
 }
 
-/// Where the config writes a client key or passphrase as text (D353).
-pub fn secrets(project: &Project<'_>) -> Vec<SourceSpan> {
-    let Some(config) = project.config() else { return Vec::new() };
+/// Where the config writes a client key or passphrase as text (D353). A config that does not
+/// parse has no tree to find them in, so the text fallback masks every `key` and `passphrase`
+/// value in its `files` text instead.
+pub fn secrets(project: &Project<'_>, (entries, files): (&[CacheEntry], &SourceFiles)) -> Vec<SourceSpan> {
+    let Some(config) = project.config() else { return unparsed(entries, files) };
     literals(config.root).into_iter().map(|entry| unindented(config.text, entry.value.span)).collect()
+}
+
+/// The text fallback's spans over the config, when there is one; it has no tree here.
+fn unparsed(entries: &[CacheEntry], files: &SourceFiles) -> Vec<SourceSpan> {
+    let config =
+        entries.iter().find(|entry| entry.unit.as_deref().is_some_and(|unit| unit.kind == Some(FileKind::Config)));
+    let file = config.and_then(|entry| Some((entry.file, files.get(entry.file)?)));
+    file.map(|(id, file)| written::spans(id, &file.text)).unwrap_or_default()
 }
 
 /// `span` without the indentation it ends in: a block scalar runs up to the next key, and a mask
@@ -58,14 +71,21 @@ pub fn masked(diagnostics: Diagnostics, secrets: &[SourceSpan]) -> Diagnostics {
     diagnostics.into_iter().map(mask).collect()
 }
 
-/// Whether `entry` holds text with no `${…}`: for `key`, inline PEM; for `passphrase`, any text.
+/// Whether `entry` holds text with no `${…}`: for `key`, inline PEM, which starts with
+/// `-----BEGIN`, says `PRIVATE KEY` or runs over more than one line; for `passphrase`, any text.
+/// A one-line key that is none of these is a path; the run's file check reports one that is not.
 fn literal(entry: &Entry) -> bool {
     let Some(scalar) = entry.value.as_scalar().filter(|scalar| scalar.kind != ScalarKind::Null) else {
         return false;
     };
     let text = scalar.text.replace("$${", "");
-    let secret = if entry.key == "key" { text.trim_start().starts_with("-----BEGIN") } else { !text.is_empty() };
+    let secret = if entry.key == "key" { inline_pem(text.trim()) } else { !text.is_empty() };
     secret && !text.contains("${")
+}
+
+/// Whether the `key` value `text` is PEM written inline rather than a path.
+fn inline_pem(text: &str) -> bool {
+    text.starts_with("-----BEGIN") || text.contains("PRIVATE KEY") || text.contains('\n')
 }
 
 /// Every `http.tls.clients` entry of the config.
@@ -173,7 +193,16 @@ fn is_label(label: &str) -> bool {
 mod tests {
     use vc_model::{Pos, SourceFileId, SourceSpan};
 
-    use super::{host_of, problem, unindented, yaml_text};
+    use super::{host_of, inline_pem, problem, unindented, yaml_text};
+
+    #[test]
+    fn a_key_is_inline_pem_when_it_begins_says_private_key_or_runs_over_lines() {
+        assert!(inline_pem("-----BEGIN EC PARAMETERS-----"), "a one-line PEM header");
+        assert!(inline_pem("MIIB PRIVATE KEY"), "`PRIVATE KEY` without `-----BEGIN`");
+        assert!(inline_pem("MIIBVgIBADANBgkqhkiG9w0BAQEFAASC\nAUAwggE8AgEAAkEA"), "base64 over two lines");
+        assert!(!inline_pem("MIIBVgIBADANBgkqhkiG9w0BAQEFAASC"), "one line of bare base64 is a path");
+        assert!(!inline_pem("certs/partner.key"), "a path");
+    }
 
     #[test]
     fn a_mask_stops_before_the_next_keys_indent() {
