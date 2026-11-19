@@ -1,5 +1,6 @@
 use std::fmt;
 use std::net::SocketAddr;
+use std::sync::Arc;
 
 use bytes::Bytes;
 use http::{HeaderMap, Method, StatusCode, Uri};
@@ -143,7 +144,7 @@ pub enum HttpVersion {
 }
 
 /// The connection an exchange went over.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 #[expect(
     clippy::exhaustive_structs,
     reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
@@ -155,6 +156,9 @@ pub struct ConnectionInfo {
     pub protocol: HttpVersion,
     /// The peer address, when known (a proxy's address when sent through one).
     pub remote: Option<SocketAddr>,
+    /// The `id` of the client identity whose connection pool sent the exchange (D351); `None`
+    /// when no client certificate was offered.
+    pub client_cert: Option<Arc<str>>,
 }
 
 /// One request and its response, with timings: what a `Transport` returns.

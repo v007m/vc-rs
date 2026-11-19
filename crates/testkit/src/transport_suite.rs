@@ -71,7 +71,7 @@ async fn returns_error_statuses_as_responses(transport: &dyn Transport, base: &s
 
 async fn refuses_a_body_over_the_limit(transport: &dyn Transport, base: &str) {
     let limit = Size::from_bytes(8);
-    let ctx = SendContext { body_limit: limit };
+    let ctx = SendContext { body_limit: limit, ..SendContext::default() };
     let result = transport.send(request(Method::GET, base, "/echo?pad=0123456789"), &ctx).await;
     assert_eq!(result.err(), Some(TransportError::BodyTooLarge { limit }));
 }

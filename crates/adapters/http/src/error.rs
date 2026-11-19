@@ -15,6 +15,14 @@ pub enum HttpAdapterError {
         /// What rustls said.
         reason: String,
     },
+    /// A client identity cannot be used. The reason never quotes the PEM text.
+    #[error("client identity {id}: {reason}")]
+    Identity {
+        /// The identity's ID.
+        id: String,
+        /// What is wrong with it.
+        reason: String,
+    },
     /// The URL has no host.
     #[error("the URL {0} has no host")]
     NoHost(String),
@@ -55,7 +63,7 @@ pub enum HttpAdapterError {
 impl From<HttpAdapterError> for TransportError {
     fn from(error: HttpAdapterError) -> Self {
         match error {
-            HttpAdapterError::Certificate { .. } | HttpAdapterError::NoHost(_) => {
+            HttpAdapterError::Certificate { .. } | HttpAdapterError::Identity { .. } | HttpAdapterError::NoHost(_) => {
                 Self::InvalidRequest { reason: error.to_string() }
             }
             HttpAdapterError::Dns { host, reason } => Self::Dns { host, reason },

@@ -12,12 +12,13 @@ use hyper::body::Incoming;
 use hyper_util::client::legacy::Client;
 use hyper_util::client::proxy::matcher::Matcher;
 use hyper_util::rt::{TokioExecutor, TokioTimer};
-use vc_interfaces::{SendContext, Transport, TransportError};
+use vc_interfaces::{CertChoice, SendContext, Transport, TransportError};
 use vc_model::{ConnectionInfo, Exchange, HttpResponse, HttpVersion, RenderedRequest, Timing};
 
 use crate::connector::TimedConnector;
+use crate::hosts::ClientTable;
 use crate::stream::ConnectRecord;
-use crate::{HttpAdapterError, ProxyConfig, body, tls};
+use crate::{ClientIdentity, HttpAdapterError, ProxyConfig, body, tls};
 
 /// How the HTTP transport is set up. The engine builds it from config and the environment.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -25,24 +26,43 @@ use crate::{HttpAdapterError, ProxyConfig, body, tls};
 pub struct HttpOptions {
     /// Which proxy to use, if any.
     pub proxy: ProxyConfig,
-    /// Extra trusted root certificates (DER), on top of the OS store.
-    pub extra_roots: Vec<Vec<u8>>,
+    /// Extra trusted roots and the client identities.
+    pub tls: TlsOptions,
     /// How long an idle pooled connection is kept.
     pub pool_idle: Duration,
 }
 
 impl Default for HttpOptions {
     fn default() -> Self {
-        Self { proxy: ProxyConfig::default(), extra_roots: Vec::new(), pool_idle: Duration::from_secs(90) }
+        Self { proxy: ProxyConfig::default(), tls: TlsOptions::default(), pool_idle: Duration::from_secs(90) }
     }
 }
 
+/// The TLS setup shared by every request: extra trusted roots and the client identities.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[expect(clippy::exhaustive_structs, reason = "options struct filled with `..Default::default()` (D160)")]
+pub struct TlsOptions {
+    /// Extra trusted roots on top of the OS store: each entry is a PEM bundle of one or more
+    /// certificates, or one DER certificate.
+    pub ca: Vec<Vec<u8>>,
+    /// The client identities; `CertId::new(i)` names entry `i`.
+    pub clients: Vec<ClientIdentity>,
+}
+
+/// A pooled hyper client over the timed connector.
+type Pooled = Client<TimedConnector, Full<Bytes>>;
+
+/// A pooled client and the `id` of the identity it presents, if any.
+type Pool = (Pooled, Option<Arc<str>>);
+
 /// The HTTP/1.1 and HTTP/2 transport: hyper's pooled client over the timed connector.
 ///
-/// Clones share the pool. Status codes are never errors; the body is decoded and capped.
+/// It keeps one pooled client per client identity, plus one with none, so two identities never
+/// share a connection, an HTTP/2 stream or a TLS session. Clones share the pools. Status codes
+/// are never errors; the body is decoded and capped.
 #[derive(Clone)]
 pub struct HttpTransport {
-    client: Client<TimedConnector, Full<Bytes>>,
+    clients: Arc<ClientTable<Pool>>,
     proxy: Arc<Matcher>,
 }
 
@@ -57,16 +77,26 @@ impl HttpTransport {
     ///
     /// # Errors
     ///
-    /// [`HttpAdapterError::Certificate`] when an extra root is not a valid certificate.
+    /// [`HttpAdapterError::Certificate`] when a `ca` entry is not a valid certificate, and
+    /// [`HttpAdapterError::Identity`] when a client identity cannot be used: a bad PEM text, an
+    /// encrypted key, a key that does not match the certificate, or a bad host rule.
     pub fn new(options: &HttpOptions) -> Result<Self, HttpAdapterError> {
-        let tls = tls::client_config(&options.extra_roots)?;
+        let roots = tls::roots(&options.tls.ca)?;
         let proxy = Arc::new(options.proxy.matcher());
-        let connector = TimedConnector::new(tls, Arc::clone(&proxy));
-        let client = Client::builder(TokioExecutor::new())
-            .pool_idle_timeout(options.pool_idle)
-            .pool_timer(TokioTimer::new())
-            .build(connector);
-        Ok(Self { client, proxy })
+        let pooled = |identity: Option<&ClientIdentity>| -> Result<Pool, HttpAdapterError> {
+            let connector = TimedConnector::new(tls::client_config(&roots, identity)?, Arc::clone(&proxy));
+            let mut builder = Client::builder(TokioExecutor::new());
+            let client = builder.pool_idle_timeout(options.pool_idle).pool_timer(TokioTimer::new()).build(connector);
+            Ok((client, identity.map(|identity| Arc::from(identity.id()))))
+        };
+        let clients = ClientTable::new(&options.tls.clients, pooled(None)?, |identity| pooled(Some(identity)))?;
+        Ok(Self { clients: Arc::new(clients), proxy })
+    }
+
+    /// The pooled client for the identity `choice` picks for `request`, with that identity's `id`.
+    fn client(&self, request: &RenderedRequest, choice: CertChoice) -> Result<&Pool, TransportError> {
+        let client = self.clients.pick(&request.uri, choice);
+        client.ok_or_else(|| TransportError::InvalidRequest { reason: format!("no client identity for {choice:?}") })
     }
 
     /// The request hyper sends: the rendered one plus `accept-encoding` and, for plain HTTP
@@ -93,10 +123,12 @@ impl HttpTransport {
 impl Transport for HttpTransport {
     async fn send(&self, request: RenderedRequest, ctx: &SendContext) -> Result<Exchange, TransportError> {
         let wire = self.wire_request(&request)?;
+        let (client, client_cert) = self.client(&request, ctx.client_cert)?;
         let started = Instant::now();
-        let response = self.client.request(wire).await.map_err(|error| transport_error(&error))?;
+        let response = client.request(wire).await.map_err(|error| transport_error(&error))?;
         let first_byte = started.elapsed();
-        let (connection, record) = connection_of(&response);
+        let (mut connection, record) = connection_of(&response);
+        connection.client_cert.clone_from(client_cert);
         let (parts, incoming) = response.into_parts();
         let wire_body = body::read(incoming, ctx.body_limit).await?;
         let wire_size = wire_body.len() as u64;
@@ -118,7 +150,7 @@ fn connection_of(response: &Response<Incoming>) -> (ConnectionInfo, Option<Arc<C
     let record = response.extensions().get::<Arc<ConnectRecord>>();
     let remote = record.map(|record| record.remote);
     let fresh = record.filter(|record| record.claim()).cloned();
-    (ConnectionInfo { reused: fresh.is_none(), protocol, remote }, fresh)
+    (ConnectionInfo { reused: fresh.is_none(), protocol, remote, client_cert: None }, fresh)
 }
 
 /// Maps a client error: a connect failure keeps its meaning; the rest is a protocol error.

@@ -5294,6 +5294,7 @@ dependencies = [
  "rustls",
  "rustls-native-certs",
  "serde_json",
+ "sha2 0.11.1",
  "thiserror 2.0.21",
  "tokio",
  "tokio-rustls",
@@ -5302,6 +5303,7 @@ dependencies = [
  "vc-mock-server",
  "vc-model",
  "vc-testkit",
+ "zeroize",
  "zstd",
 ]
 

@@ -13,7 +13,7 @@ name = "vc-mock-server"
 path = "src/main.rs"
 
 [dependencies]
-axum = { workspace = true, features = ["http1", "tokio"] }
+axum = { workspace = true, features = ["http1", "http2", "tokio"] }
 clap.workspace = true
 rustls.workspace = true
 serde.workspace = true
