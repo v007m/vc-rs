@@ -246,7 +246,7 @@ fn a_call_takes_a_key_unless_the_type_it_reaches_leaves_it_out() {
 
 #[test]
 fn a_graphql_block_on_a_file_of_another_type_is_v2213_with_its_removal_as_the_fix() {
-    let apis = "baseUrl: http://x\ngraphql:\n  path: /api/graphql\napis:\n  - id: me\n    type: graphql\n    body: {query: '{ me { id } }'}\n";
+    let apis = "baseUrl: http://x\ngraphql:\n  path: /api/graphql\napis:\n  - id: me\n    type: graphql\n    body: {query: 'query Me { me { id } }'}\n";
     let tests = "tests:\n  - id: getsMe\n    call: users#me\n";
     let compiled = compile(apis, tests);
     let found: Vec<_> = compiled.diagnostics.iter().collect();

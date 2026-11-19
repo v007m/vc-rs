@@ -10,6 +10,7 @@ use vc_diagnostics::Diagnostics;
 use vc_model::{HookModule, SourceFile, SourceFileId, SourceSpan};
 #[cfg(feature = "hooks")]
 use {
+    crate::stage::position,
     oxc_allocator::{Allocator, ArenaVec, TakeIn},
     oxc_ast::ast::{Expression, Program, Statement},
     oxc_ast::builder::AstBuilder,
@@ -23,7 +24,6 @@ use {
     oxc_transformer::{TransformOptions, Transformer},
     std::path::Path,
     vc_diagnostics::{Code, Diagnostic},
-    vc_model::Pos,
 };
 
 /// The suffixes of a hook file: ES modules in TypeScript or JavaScript.
@@ -242,16 +242,6 @@ impl Spot<'_> {
 fn slice(text: &str, span: Span) -> &str {
     let at = |offset: u32| usize::try_from(offset).unwrap_or(usize::MAX);
     text.get(at(span.start)..at(span.end)).unwrap_or_default()
-}
-
-/// The line and column of byte `offset` in `text`; the end of the text when it is past it.
-#[cfg(feature = "hooks")]
-fn position(text: &str, offset: usize) -> Pos {
-    let offset = (0..=offset.min(text.len())).rev().find(|at| text.is_char_boundary(*at)).unwrap_or(0);
-    let before = text.get(..offset).unwrap_or_default();
-    let line = before.matches('\n').count() + 1;
-    let column = before.rsplit('\n').next().unwrap_or_default().chars().count() + 1;
-    Pos::new(u32::try_from(line).unwrap_or(u32::MAX), u32::try_from(column).unwrap_or(u32::MAX), offset)
 }
 
 #[cfg(test)]

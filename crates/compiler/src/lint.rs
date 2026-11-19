@@ -8,6 +8,11 @@ mod convention_tests;
 mod default_profiles;
 mod deprecated_calls;
 mod expired;
+mod graphql;
+mod graphql_names;
+mod graphql_operations;
+mod graphql_undeclared;
+mod graphql_variables;
 mod header_names;
 mod item_ids;
 mod load_ranges;
@@ -30,6 +35,7 @@ use vc_diagnostics::{Code, Diagnostic, Diagnostics};
 use vc_model::{Date, FileKind, Method, Program};
 use vc_parser::Node;
 
+use crate::graphql::Documents;
 use crate::link;
 use crate::link::{Project, ProtocolRulesRegistry, Source, whole_lines};
 
@@ -41,6 +47,8 @@ pub struct LintCx<'p, 'a> {
     pub program: &'p Program,
     /// The compile rules of each api type, which decide an api's method.
     pub rules: &'p ProtocolRulesRegistry,
+    /// The GraphQL documents of the compile, each parsed once.
+    pub documents: &'p Documents<'a>,
     /// Today's date in UTC, when the caller knows it.
     pub today: Option<Date>,
 }
@@ -76,6 +84,9 @@ impl LintRegistry {
             Box::new(header_names::HeaderNames),
             Box::new(redact_rules::RedactRules),
             Box::new(body_schemas::BodySchemas),
+            Box::new(graphql_operations::GraphqlOperations),
+            Box::new(graphql_variables::GraphqlVariables),
+            Box::new(graphql_undeclared::GraphqlUndeclared),
         ];
         Self { lints }
     }
@@ -92,6 +103,7 @@ impl LintRegistry {
             Box::new(path_encode::PathEncode),
             Box::new(expired::ALLOWED_FAILURES),
             Box::new(source_headers::SourceHeaders),
+            Box::new(graphql_names::GraphqlNames),
         ];
         Self { lints }
     }

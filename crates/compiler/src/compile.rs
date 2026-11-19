@@ -121,7 +121,7 @@ fn units(files: &SourceFiles, previous: &CompileCache) -> (Vec<CacheEntry>, Stri
 }
 
 /// Each file with its number.
-fn numbered(files: &SourceFiles) -> impl Iterator<Item = (SourceFileId, &SourceFile)> {
+pub fn numbered(files: &SourceFiles) -> impl Iterator<Item = (SourceFileId, &SourceFile)> {
     (0..).map(SourceFileId::new).map_while(|id| Some((id, files.get(id)?)))
 }
 

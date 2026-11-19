@@ -716,6 +716,19 @@ Round 68 (19 November 2026; Sarath, on how far key zeroizing reaches):
 | --- | --- | --- | --- |
 | D355 | Zeroizing client keys | vc zeroizes its own copies of client-key material (the PEM text and the decoded DER). Copies held inside dependencies are a known limit, named in the LLD: pki-types' base64 scratch buffer during PEM decoding, rustls's SEC1→PKCS#8 temporary, and ring's parsed key pair, which lives as long as the transport. | D353 (in part: its wording "key bytes are zeroized") |
 
+Round 69 (19 November 2026; Sarath, choosing the GraphQL parser for #90 PR 3, and V2108's severity):
+
+| # | Topic | Decision | Supersedes |
+| --- | --- | --- | --- |
+| D356 | GraphQL parser for PR 3 | GraphQL PR 3 parses documents with apollo-parser (syntax and spans only). apollo-compiler, with its duplicate-version skips (ariadne → concolor pulls in bitflags 1.3, windows-sys 0.45 and the windows_* 0.42 crates), is deferred to PR 5, together with the standalone V2314 rules, when schema validation (D347) needs it. deny.toml gains two duplicate-version skips, hashbrown@0.14 and rustc-hash@1 (rowan 0.16). Approved by Sarath 2026-11-19. | D346 (amends) |
+| D357 | V2108 severity by case | V2108 is split by case: a non-null variable without a default missing from `body.variables` is an error; a value for a variable the operation does not declare is a warning (with the close-name fix), because GraphQL servers ignore extra variables. Amends the V2108 row of the LLD codes table. Decided by Sarath 2026-11-19. | — |
+
+Round 70 (19 November 2026; Sarath, on how the V2108 split is carried):
+
+| # | Topic | Decision | Supersedes |
+| --- | --- | --- | --- |
+| D358 | V2109 for an undeclared variable | The undeclared-variable case of D357 gets its own warning code, V2109; V2108 stays an error for a missing non-null variable without a default. Every code keeps one severity. | D357 (code assignment only) |
+
 ## Open
 
 All decisions needed for the PRD and technical design are settled. The language is decided by the spike (D6, D36, D37, D41).
