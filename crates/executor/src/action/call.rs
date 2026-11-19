@@ -34,7 +34,7 @@ const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
 /// check holds does it save the api's `save` values, when the status matches the api's `saveOn`
 /// (D191), and then the action's. A response with GraphQL errors registers no cleanup and, under
 /// the default `saveOn`, runs no api `save` (V5129); its errors are listed as V5128 when the
-/// call has no `expect.errors` check (D364), and a 2xx one its runtime cannot read fails (V5124, D345).
+/// call judged no `expect.errors` check (D364, D365), and a 2xx one its runtime cannot read fails (V5124, D345).
 #[derive(Clone)]
 pub struct CallExecutor {
     parts: PipelineParts,
@@ -104,27 +104,27 @@ impl CallExecutor {
 
     /// The report of an `answered` call judged by `checks`: its cleanup and saves, each held back
     /// by the response's errors as `held` says (D345), and the warnings that gives (D361). A
-    /// response its runtime could not read fails the call and is reported with the failed checks
-    /// (V5124); a save held back while a check failed was not going to run (no V5129).
+    /// response its runtime could not read is the first failed check (V5124); a save held back
+    /// while a check failed was not going to run (no V5129).
     fn settle(
         &self,
         render: &Render<'_>,
         answered: &Answered<'_>,
-        (mut checks, held): (Vec<CheckResult>, &Held),
+        (checks, held): (Vec<CheckResult>, &Held),
     ) -> Result<ActionReport, Failure> {
         let Answered { request, action, api, exchange } = *answered;
         let registers = !action.keep && request.frame.given.is_none() && exchange.response.status.is_success();
         let cleanups = if registers && held.clean() { cleanup(render, api)? } else { None };
-        checks.extend(held.check(api));
-        let failure = held.failure().or_else(|| check::verdict(&checks));
+        let checks = held.reported(checks, (Origin::Action(request.action), action.span));
+        let failure = check::verdict(&checks);
         let on_status = failure.is_none() && self.on_status(render, api, exchange);
         let api_saves = on_status && held.saves(api);
         let withheld = (registers && api.cleanup.is_some() && !held.clean())
             || (on_status && !api_saves && !api.save.values.is_empty());
         let specs: Vec<_> = api_saves.then_some(&api.save).into_iter().chain([&action.save]).collect();
         let saved = failure.map_or_else(|| saves(render, &specs), Err);
-        let warnings = held.warnings(&action.expect, withheld).into_iter();
-        let warnings = warnings.map(|warning| warning.at(request.action)).collect();
+        let warnings = held.warnings(&checks, withheld).into_iter();
+        let warnings = warnings.map(|warning| redacted(render, warning).at(request.action)).collect();
         let mut report =
             ActionReport { cleanups: cleanups.into_iter().collect(), checks, warnings, ..ActionReport::passed() };
         match saved {
@@ -167,6 +167,12 @@ struct Answered<'a> {
     action: &'a Action,
     api: &'a Api,
     exchange: &'a Exchange,
+}
+
+/// `warning` with the run's masked values hidden from its message, at the source; the event bus
+/// masks it again on the way out (`RedactingSink`), which is harmless.
+fn redacted(render: &Render<'_>, warning: Failure) -> Failure {
+    Failure { message: render.redactor().text(&warning.message), ..warning }
 }
 
 /// Evaluates `checks` against `subject`, masked by the run's redactor so neither the results

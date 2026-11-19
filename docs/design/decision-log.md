@@ -749,6 +749,12 @@ Round 74 (19 November 2026; Sarath, on when V5128 fires):
 | --- | --- | --- | --- |
 | D364 | V5128 only for unasserted errors | Warning V5128 fires only when a GraphQL response has errors and the step has no `expect.errors` check. A passing check means the errors were asserted, and a failing one already reports V5123, so neither warns. | D361 (refines: which tolerated errors are listed) |
 
+Round 75 (19 November 2026; Sarath, on which `expect.errors` check silences V5128):
+
+| # | Topic | Decision | Supersedes |
+| --- | --- | --- | --- |
+| D365 | V5128 is silenced only by an errors check that ran | Only an `expect.errors` check that was judged silences V5128. In a load iteration with `checks: api`, the step's own check is skipped, so the response's errors are listed as V5128. | D364 (refines: a check that ran) |
+
 ## Open
 
 All decisions needed for the PRD and technical design are settled. The language is decided by the spike (D6, D36, D37, D41).

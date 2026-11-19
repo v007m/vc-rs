@@ -1,11 +1,11 @@
 //! What a response's GraphQL errors hold back (D345, D361): an api's default `save` and its
 //! `cleanup` wait for a response without errors, a response its runtime cannot read fails the
-//! call (V5124), and the errors of a call with no `expect.errors` check are listed as a warning
-//! (V5128, D364), with one more when a save or cleanup was held back (V5129).
+//! call (V5124), and the errors of a call that judged no `expect.errors` check are listed as a
+//! warning (V5128, D364, D365), with one more when a save or cleanup was held back (V5129).
 
 use serde_json::Value;
 use vc_diagnostics::Code;
-use vc_model::{Api, CheckKind, CheckResult, Expect, Failure, Origin};
+use vc_model::{Api, CheckKind, CheckResult, Failure, Origin, SourceSpan};
 
 /// A response's errors as its runtime read them.
 #[derive(Debug)]
@@ -34,37 +34,42 @@ impl Held {
         api.save_on_written || self.errors.is_empty()
     }
 
-    /// The failure of a response its runtime could not read (V5124).
-    pub fn failure(&self) -> Option<Failure> {
-        self.unread.clone()
-    }
-
-    /// That failure as a failed `errors` check of `api`'s, so it is reported along with the
-    /// checks that failed too, not instead of them.
-    pub fn check(&self, api: &Api) -> Option<CheckResult> {
-        self.unread.as_ref().map(|failure| CheckResult {
-            kind: CheckKind::Errors,
-            target: None,
-            origin: Origin::Api(api.id),
-            span: api.span,
+    /// `checks` with a response its runtime could not read reported first, so the call's verdict
+    /// is V5124 and it shows with any check that failed too. One result per cause: a judged
+    /// `expect.errors` check, which failed on that body, becomes it; else it is the call's, at
+    /// `at`, the call's origin and span.
+    pub fn reported(&self, checks: Vec<CheckResult>, at: (Origin, SourceSpan)) -> Vec<CheckResult> {
+        let Some(failure) = &self.unread else { return checks };
+        let (mut own, rest): (Vec<_>, Vec<_>) = checks.into_iter().partition(|check| check.kind == CheckKind::Errors);
+        let unread = CheckResult {
             passed: false,
-            expected: Value::String("a GraphQL response".to_owned()),
-            actual: None,
-            diff: None,
             error: Some(failure.message.clone()),
             code: failure.code.clone(),
-        })
+            ..own.pop().unwrap_or_else(|| CheckResult {
+                kind: CheckKind::Errors,
+                target: None,
+                origin: at.0,
+                span: at.1,
+                passed: false,
+                expected: Value::String("a GraphQL response".to_owned()),
+                actual: None,
+                diff: None,
+                error: None,
+                code: None,
+            })
+        };
+        std::iter::once(unread).chain(own).chain(rest).collect()
     }
 
-    /// V5128 listing the errors when `expect`, the call's checks as written, has no `expect.errors`
-    /// check (a passing one asserted them, a failing one is V5123; D364), also in a load iteration
-    /// that judges only the api's; and V5129 when they `withheld` a save or cleanup; none for a
-    /// response without errors. Both go out masked, with every event (`RedactingSink`).
-    pub fn warnings(&self, expect: &Expect, withheld: bool) -> Vec<Failure> {
+    /// V5128 listing the errors when `checks`, the ones judged, hold no `expect.errors` check (a
+    /// passing one asserted them, a failing one is V5123; D364); a step's check that a load
+    /// iteration with `checks: api` skipped did not run, so it lists them (D365). V5129 when
+    /// they `withheld` a save or cleanup. None for a response without errors.
+    pub fn warnings(&self, checks: &[CheckResult], withheld: bool) -> Vec<Failure> {
         if self.errors.is_empty() {
             return Vec::new();
         }
-        let asserted = expect.checks.iter().any(|check| check.kind == CheckKind::Errors);
+        let asserted = checks.iter().any(|check| check.kind == CheckKind::Errors);
         let listed = (!asserted).then(|| listed(&self.errors));
         let skipped = withheld.then(|| {
             let message = "Save skipped: the response has GraphQL errors, which hold back the api's default `save` \
