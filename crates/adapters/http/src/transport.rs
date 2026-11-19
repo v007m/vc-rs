@@ -12,12 +12,12 @@ use hyper::body::Incoming;
 use hyper_util::client::legacy::Client;
 use hyper_util::client::proxy::matcher::Matcher;
 use hyper_util::rt::{TokioExecutor, TokioTimer};
-use vc_interfaces::{SendContext, Transport, TransportError};
+use vc_interfaces::{CertChoice, SendContext, Transport, TransportError};
 use vc_model::{ConnectionInfo, Exchange, HttpResponse, HttpVersion, RenderedRequest, Timing};
 
 use crate::connector::TimedConnector;
 use crate::stream::ConnectRecord;
-use crate::{HttpAdapterError, ProxyConfig, body, tls};
+use crate::{ClientIdentity, HttpAdapterError, ProxyConfig, body, tls};
 
 /// How the HTTP transport is set up. The engine builds it from config and the environment.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -25,7 +25,7 @@ use crate::{HttpAdapterError, ProxyConfig, body, tls};
 pub struct HttpOptions {
     /// Which proxy to use, if any.
     pub proxy: ProxyConfig,
-    /// Extra trusted roots.
+    /// Extra trusted roots and the client identities.
     pub tls: TlsOptions,
     /// How long an idle pooled connection is kept.
     pub pool_idle: Duration,
@@ -37,21 +37,28 @@ impl Default for HttpOptions {
     }
 }
 
-/// The TLS setup shared by every request: extra trusted roots.
+/// The TLS setup shared by every request: extra trusted roots and the client identities.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 #[expect(clippy::exhaustive_structs, reason = "options struct filled with `..Default::default()` (D160)")]
 pub struct TlsOptions {
     /// Extra trusted roots on top of the OS store: each entry is a PEM bundle of one or more
     /// certificates, or one DER certificate.
     pub ca: Vec<Vec<u8>>,
+    /// The client identities; `CertId::new(i)` names entry `i`.
+    pub clients: Vec<ClientIdentity>,
 }
+
+/// A pooled hyper client over the timed connector.
+type Pooled = Client<TimedConnector, Full<Bytes>>;
 
 /// The HTTP/1.1 and HTTP/2 transport: hyper's pooled client over the timed connector.
 ///
-/// Clones share the pool. Status codes are never errors; the body is decoded and capped.
+/// It keeps one pooled client per client identity, plus one with none, so two identities never
+/// share a connection, an HTTP/2 stream or a TLS session. Clones share the pools. Status codes
+/// are never errors; the body is decoded and capped.
 #[derive(Clone)]
 pub struct HttpTransport {
-    client: Client<TimedConnector, Full<Bytes>>,
+    clients: Arc<[Pooled]>,
     proxy: Arc<Matcher>,
 }
 
@@ -66,16 +73,31 @@ impl HttpTransport {
     ///
     /// # Errors
     ///
-    /// [`HttpAdapterError::Certificate`] when a `ca` entry is not a valid certificate.
+    /// [`HttpAdapterError::Certificate`] when a `ca` entry is not a valid certificate, and
+    /// [`HttpAdapterError::Identity`] when a client identity cannot be used: a bad PEM text, an
+    /// encrypted key, or a key that does not match the certificate.
     pub fn new(options: &HttpOptions) -> Result<Self, HttpAdapterError> {
-        let tls = tls::client_config(&tls::roots(&options.tls.ca)?)?;
+        let roots = tls::roots(&options.tls.ca)?;
         let proxy = Arc::new(options.proxy.matcher());
-        let connector = TimedConnector::new(tls, Arc::clone(&proxy));
-        let client = Client::builder(TokioExecutor::new())
-            .pool_idle_timeout(options.pool_idle)
-            .pool_timer(TokioTimer::new())
-            .build(connector);
-        Ok(Self { client, proxy })
+        let identities = std::iter::once(None).chain(options.tls.clients.iter().map(Some));
+        let pooled = |identity| {
+            let connector = TimedConnector::new(tls::client_config(&roots, identity)?, Arc::clone(&proxy));
+            let mut builder = Client::builder(TokioExecutor::new());
+            Ok(builder.pool_idle_timeout(options.pool_idle).pool_timer(TokioTimer::new()).build(connector))
+        };
+        let clients = identities.map(pooled).collect::<Result<_, HttpAdapterError>>()?;
+        Ok(Self { clients, proxy })
+    }
+
+    /// The pooled client for the identity `choice` picks: slot 0 has none, slot `i + 1` is
+    /// identity `i`.
+    fn client(&self, choice: CertChoice) -> Result<&Pooled, TransportError> {
+        let index = match choice {
+            CertChoice::Host | CertChoice::Off => Some(0),
+            CertChoice::Named(id) => usize::try_from(id.index()).ok().and_then(|index| index.checked_add(1)),
+        };
+        let slot = index.and_then(|slot| self.clients.get(slot));
+        slot.ok_or_else(|| TransportError::InvalidRequest { reason: format!("no client identity for {choice:?}") })
     }
 
     /// The request hyper sends: the rendered one plus `accept-encoding` and, for plain HTTP
@@ -102,8 +124,9 @@ impl HttpTransport {
 impl Transport for HttpTransport {
     async fn send(&self, request: RenderedRequest, ctx: &SendContext) -> Result<Exchange, TransportError> {
         let wire = self.wire_request(&request)?;
+        let client = self.client(ctx.client_cert)?;
         let started = Instant::now();
-        let response = self.client.request(wire).await.map_err(|error| transport_error(&error))?;
+        let response = client.request(wire).await.map_err(|error| transport_error(&error))?;
         let first_byte = started.elapsed();
         let (connection, record) = connection_of(&response);
         let (parts, incoming) = response.into_parts();

@@ -8,7 +8,7 @@ use tokio::net::TcpStream;
 use tokio_rustls::TlsConnector;
 use tokio_rustls::client::TlsStream;
 
-use crate::HttpAdapterError;
+use crate::{ClientIdentity, HttpAdapterError};
 
 /// The ALPN protocols offered, best first: HTTP/2, then HTTP/1.1.
 const ALPN: [&[u8]; 2] = [b"h2", b"http/1.1"];
@@ -37,12 +37,22 @@ pub fn roots(ca: &[Vec<u8>]) -> Result<Arc<RootCertStore>, HttpAdapterError> {
 }
 
 /// The client TLS setup: ring as the crypto provider, `roots` with the webpki verifier, ALPN for
-/// h2 and HTTP/1.1. Verification is always on.
-pub fn client_config(roots: &Arc<RootCertStore>) -> Result<Arc<ClientConfig>, HttpAdapterError> {
+/// h2 and HTTP/1.1, and `identity` as the client certificate if given. Verification is always on.
+pub fn client_config(
+    roots: &Arc<RootCertStore>,
+    identity: Option<&ClientIdentity>,
+) -> Result<Arc<ClientConfig>, HttpAdapterError> {
     let provider = Arc::new(rustls::crypto::ring::default_provider());
     let builder = ClientConfig::builder_with_provider(provider).with_safe_default_protocol_versions();
     let builder = builder.map_err(|error| HttpAdapterError::Certificate { index: 0, reason: error.to_string() })?;
-    let mut config = builder.with_root_certificates(Arc::clone(roots)).with_no_client_auth();
+    let builder = builder.with_root_certificates(Arc::clone(roots));
+    let mut config = match identity {
+        None => builder.with_no_client_auth(),
+        Some(identity) => {
+            let (chain, key) = identity.parse()?;
+            builder.with_client_auth_cert(chain, key).map_err(|error| identity.error(error.to_string()))?
+        }
+    };
     config.alpn_protocols = ALPN.iter().map(|protocol| protocol.to_vec()).collect();
     Ok(Arc::new(config))
 }
@@ -74,7 +84,7 @@ mod tests {
     fn offers_h2_then_http1_and_loads_the_os_roots() -> Result<(), HttpAdapterError> {
         let native = roots(&[])?;
         assert!(!native.is_empty());
-        assert_eq!(client_config(&native)?.alpn_protocols, ALPN.map(<[u8]>::to_vec));
+        assert_eq!(client_config(&native, None)?.alpn_protocols, ALPN.map(<[u8]>::to_vec));
         Ok(())
     }
 

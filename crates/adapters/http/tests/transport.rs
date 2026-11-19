@@ -74,7 +74,7 @@ async fn refuses_a_body_over_the_limit_on_the_wire_and_after_decoding() -> TestR
     let mock = MockServer::start().await?;
     let transport = HttpTransport::new(&HttpOptions::default())?;
     let limit = Size::from_bytes(10 * 1024);
-    let ctx = SendContext { body_limit: limit };
+    let ctx = SendContext { body_limit: limit, ..SendContext::default() };
     for encoding in ["identity", "gzip"] {
         let mut request = get(&format!("{}/large?kb=50", mock.base_url()))?;
         request.headers.insert(ACCEPT_ENCODING, HeaderValue::from_static(encoding));
@@ -162,7 +162,7 @@ async fn reports_connect_dns_and_invalid_url_errors_with_their_codes() -> TestRe
 
 #[tokio::test]
 async fn an_invalid_ca_entry_is_refused_at_construction() {
-    let tls = TlsOptions { ca: vec![b"not a certificate".to_vec()] };
+    let tls = TlsOptions { ca: vec![b"not a certificate".to_vec()], ..TlsOptions::default() };
     let options = HttpOptions { tls, ..HttpOptions::default() };
     assert!(HttpTransport::new(&options).is_err());
 }

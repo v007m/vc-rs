@@ -90,6 +90,21 @@ pub fn vc_interfaces::CacheStoreError::fmt(&self, &mut core::fmt::Formatter<'_>)
 impl core::fmt::Display for vc_interfaces::CacheStoreError
 pub fn vc_interfaces::CacheStoreError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_interfaces::CacheStoreError
+pub enum vc_interfaces::CertChoice
+pub vc_interfaces::CertChoice::Host
+pub vc_interfaces::CertChoice::Named(vc_interfaces::CertId)
+pub vc_interfaces::CertChoice::Off
+impl core::clone::Clone for vc_interfaces::CertChoice
+pub fn vc_interfaces::CertChoice::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::CertChoice
+impl core::cmp::PartialEq for vc_interfaces::CertChoice
+pub fn vc_interfaces::CertChoice::eq(&self, &Self) -> bool
+impl core::default::Default for vc_interfaces::CertChoice
+pub fn vc_interfaces::CertChoice::default() -> Self
+impl core::fmt::Debug for vc_interfaces::CertChoice
+pub fn vc_interfaces::CertChoice::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for vc_interfaces::CertChoice
+impl core::marker::StructuralPartialEq for vc_interfaces::CertChoice
 #[non_exhaustive] pub enum vc_interfaces::CommandError
 pub vc_interfaces::CommandError::Failed
 pub vc_interfaces::CommandError::Failed::program: alloc::string::String
@@ -758,6 +773,25 @@ pub fn vc_interfaces::CachedCleanup::eq(&self, &Self) -> bool
 impl core::fmt::Debug for vc_interfaces::CachedCleanup
 pub fn vc_interfaces::CachedCleanup::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_interfaces::CachedCleanup
+pub struct vc_interfaces::CertId(_)
+impl vc_interfaces::CertId
+pub const fn vc_interfaces::CertId::index(self) -> u32
+pub const fn vc_interfaces::CertId::new(u32) -> Self
+impl core::clone::Clone for vc_interfaces::CertId
+pub fn vc_interfaces::CertId::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::CertId
+impl core::cmp::Ord for vc_interfaces::CertId
+pub fn vc_interfaces::CertId::cmp(&self, &Self) -> core::cmp::Ordering
+impl core::cmp::PartialEq for vc_interfaces::CertId
+pub fn vc_interfaces::CertId::eq(&self, &Self) -> bool
+impl core::cmp::PartialOrd for vc_interfaces::CertId
+pub fn vc_interfaces::CertId::partial_cmp(&self, &Self) -> core::option::Option<core::cmp::Ordering>
+impl core::fmt::Debug for vc_interfaces::CertId
+pub fn vc_interfaces::CertId::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for vc_interfaces::CertId
+pub fn vc_interfaces::CertId::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for vc_interfaces::CertId
+impl core::marker::StructuralPartialEq for vc_interfaces::CertId
 pub struct vc_interfaces::CheckRow
 pub vc_interfaces::CheckRow::actual: core::option::Option<alloc::string::String>
 pub vc_interfaces::CheckRow::expected: alloc::string::String
@@ -1467,6 +1501,7 @@ pub fn vc_interfaces::Secrets::fmt(&self, &mut core::fmt::Formatter<'_>) -> core
 impl core::marker::StructuralPartialEq for vc_interfaces::Secrets
 pub struct vc_interfaces::SendContext
 pub vc_interfaces::SendContext::body_limit: vc_model::units::Size
+pub vc_interfaces::SendContext::client_cert: vc_interfaces::CertChoice
 impl vc_interfaces::SendContext
 pub const vc_interfaces::SendContext::DEFAULT_BODY_LIMIT: vc_model::units::Size
 impl core::clone::Clone for vc_interfaces::SendContext

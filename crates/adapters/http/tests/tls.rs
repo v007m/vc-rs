@@ -23,7 +23,7 @@ async fn mock(pki: &TestPki, h2: bool) -> Result<MockHandle, Box<dyn Error>> {
 }
 
 fn trusting(pki: &TestPki, proxy: ProxyConfig) -> Result<HttpTransport, Box<dyn Error>> {
-    let tls = TlsOptions { ca: vec![pki.ca_pem().into_bytes()] };
+    let tls = TlsOptions { ca: vec![pki.ca_pem().into_bytes()], ..TlsOptions::default() };
     Ok(HttpTransport::new(&HttpOptions { proxy, tls, ..HttpOptions::default() })?)
 }
 
