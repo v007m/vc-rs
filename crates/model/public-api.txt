@@ -136,6 +136,7 @@ pub enum vc_model::CheckKind
 pub vc_model::CheckKind::Cel
 pub vc_model::CheckKind::Custom
 pub vc_model::CheckKind::Equals
+pub vc_model::CheckKind::Errors
 pub vc_model::CheckKind::Header
 pub vc_model::CheckKind::Match
 pub vc_model::CheckKind::Schema
@@ -143,7 +144,7 @@ pub vc_model::CheckKind::Size
 pub vc_model::CheckKind::Status
 pub vc_model::CheckKind::Timing
 impl vc_model::CheckKind
-pub const vc_model::CheckKind::ALL: [Self; 9]
+pub const vc_model::CheckKind::ALL: [Self; 10]
 pub fn vc_model::CheckKind::from_key(&str) -> core::option::Option<Self>
 pub const fn vc_model::CheckKind::key(self) -> &'static str
 impl core::clone::Clone for vc_model::CheckKind
@@ -347,6 +348,7 @@ impl<'de> serde_core::de::Deserialize<'de> for vc_model::Matcher
 pub fn vc_model::Matcher::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub enum vc_model::MatcherArg
 pub vc_model::MatcherArg::Duration(vc_model::Duration)
+pub vc_model::MatcherArg::Fields(alloc::vec::Vec<(alloc::string::String, vc_model::Matcher)>)
 pub vc_model::MatcherArg::Matcher(alloc::boxed::Box<vc_model::Matcher>)
 pub vc_model::MatcherArg::Matchers(alloc::vec::Vec<vc_model::Matcher>)
 pub vc_model::MatcherArg::Range(alloc::boxed::Box<[Self; 2]>)
@@ -558,8 +560,10 @@ pub fn vc_model::Protocol::serialize<__S>(&self, __S) -> core::result::Result<<_
 impl<'de> serde_core::de::Deserialize<'de> for vc_model::Protocol
 pub fn vc_model::Protocol::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub enum vc_model::ProtocolKeys
-pub vc_model::ProtocolKeys::All
+pub vc_model::ProtocolKeys::Except(vc_model::AllowedKeys)
 pub vc_model::ProtocolKeys::Only(vc_model::AllowedKeys)
+impl vc_model::ProtocolKeys
+pub fn vc_model::ProtocolKeys::takes(&self, fn(&vc_model::AllowedKeys) -> &'static [&'static str], &str) -> bool
 impl core::clone::Clone for vc_model::ProtocolKeys
 pub fn vc_model::ProtocolKeys::clone(&self) -> Self
 impl core::cmp::Eq for vc_model::ProtocolKeys

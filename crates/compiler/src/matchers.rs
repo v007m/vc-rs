@@ -12,6 +12,8 @@ use crate::shapes::Unit;
 use crate::suggest::{self, Misspelling};
 use crate::value;
 
+mod errors;
+
 /// What a matcher takes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Arg {
@@ -106,6 +108,9 @@ struct Spot<'n> {
 /// The matcher or literal at `at`, comparing in `unit`. A map with no matcher's name as a key is
 /// a literal object; one lone key close to a matcher's name is V3208.
 pub fn matcher(cx: &mut Cx<'_>, at: At<'_>, unit: Unit) -> Option<Matcher> {
+    if unit == Unit::Errors {
+        return errors::expected(cx, at);
+    }
     let Value::Map(entries) = &at.node.value else { return literal(cx, at, unit) };
     if !entries.iter().any(|entry| find(&entry.key).is_some()) {
         if let Some(lint) = near_matcher(entries) {

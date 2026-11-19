@@ -729,6 +729,13 @@ Round 70 (19 November 2026; Sarath, on how the V2108 split is carried):
 | --- | --- | --- | --- |
 | D358 | V2109 for an undeclared variable | The undeclared-variable case of D357 gets its own warning code, V2109; V2108 stays an error for a missing non-null variable without a default. Every code keeps one severity. | D357 (code assignment only) |
 
+Round 72 (19 November 2026; Sarath, on GraphQL error matching and run-time warning codes):
+
+| # | Topic | Decision | Supersedes |
+| --- | --- | --- | --- |
+| D360 | Error entries match field by field | Inside `expect.errors`, an error entry (a list item, or the map given to `some`/`every`/`none`) matches field by field: each written key (`message`, `path`, `code`, `extensions`) is a literal or a matcher on that field, and unwritten keys are ignored; an unknown entry key is V1004 with a close-name fix. The compiler lowers entries to an internal `fields` matcher users cannot write. | D345 (how list entries lower) |
+| D361 | Two V5 warning codes | Tolerated GraphQL errors are reported as warning V5128 "The response has GraphQL errors" (listing each as `CODE at path: message`), and a skipped default save or cleanup as warning V5129 "Save skipped: the response has GraphQL errors". Both go through `ActionReport.warnings`. | — |
+
 ## Open
 
 All decisions needed for the PRD and technical design are settled. The language is decided by the spike (D6, D36, D37, D41).

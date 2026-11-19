@@ -43,6 +43,11 @@ fn arg(arg: &MatcherArg, show: &dyn Fn(&TemplateValue) -> String) -> String {
             let inner: Vec<String> = inner.iter().map(|inner| format!("{{{}}}", matcher(inner, Some(show)))).collect();
             format!("[{}]", inner.join(", "))
         }
+        MatcherArg::Fields(fields) => {
+            let fields: Vec<String> =
+                fields.iter().map(|(name, inner)| format!("{name}: {{{}}}", matcher(inner, Some(show)))).collect();
+            format!("{{{}}}", fields.join(", "))
+        }
     }
 }
 
@@ -73,8 +78,8 @@ fn status(pattern: StatusPattern) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{duration, size};
-    use vc_model::{Duration, Size};
+    use super::{arg, duration, size};
+    use vc_model::{Duration, Matcher, MatcherArg, Size, TemplateValue};
 
     #[test]
     fn units_are_written_out_as_a_file_writes_them() {
@@ -88,5 +93,18 @@ mod tests {
             (sized(4096), sized(1 << 20), sized(32), sized(0)),
             ("4kb".into(), "1mb".into(), "32b".into(), "0b".into())
         );
+    }
+
+    #[test]
+    fn an_error_entry_shows_each_field_with_what_it_expects() {
+        let show = |value: &TemplateValue| match value {
+            TemplateValue::Bool(flag) => flag.to_string(),
+            _ => "?".to_owned(),
+        };
+        let fields = vec![
+            ("code".to_owned(), Matcher::Equals(TemplateValue::Bool(true))),
+            ("path".to_owned(), Matcher::Equals(TemplateValue::Bool(false))),
+        ];
+        assert_eq!(arg(&MatcherArg::Fields(fields), &show), "{code: {true}, path: {false}}");
     }
 }

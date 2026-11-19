@@ -1,6 +1,7 @@
 use vc_diagnostics::{Code, Diagnostic};
 use vc_model::{
-    Api, BodySpec, ContentHash, GraphqlBody, Method, Part, Program, Protocol, SourceFile, SourcePath, TemplateValue,
+    Api, BodySpec, CheckKind, ContentHash, GraphqlBody, Matcher, MatcherArg, Method, Part, Program, Protocol,
+    SourceFile, SourcePath, TemplateValue,
 };
 
 use crate::{CompileInput, Compiled};
@@ -123,4 +124,24 @@ fn an_unset_var_in_variables_is_v2101() {
     let unset: Vec<&Diagnostic> = compiled.diagnostics.iter().filter(|found| found.code == Code::V2101).collect();
     let [unset] = unset.as_slice() else { panic!("{:?}", compiled.diagnostics) };
     assert_eq!(&APIS[unset.primary.span.start.offset..unset.primary.span.end.offset], "${var.userId}");
+}
+
+#[test]
+fn errors_none_and_any_are_an_errors_check_that_the_list_is_empty_or_not() {
+    for (word, empty) in [("none", true), ("any", false)] {
+        let apis = APIS.replace(
+            "      operationName: GetUser\n",
+            &format!("      operationName: GetUser\n    expect:\n      errors: {word}\n"),
+        );
+        let program = compiled(&apis);
+        let [check] = api(&program, "getUser").expect.checks.as_slice() else { panic!("{word}") };
+        assert_eq!((check.kind, check.target.as_ref()), (CheckKind::Errors, None), "{word}");
+        let Matcher::All(calls) = &check.matcher else { panic!("{:?}", check.matcher) };
+        let [call] = calls.as_slice() else { panic!("{calls:?}") };
+        assert_eq!(
+            (call.name.as_str(), &call.arg),
+            ("empty", &MatcherArg::Value(TemplateValue::Bool(empty))),
+            "{word}"
+        );
+    }
 }

@@ -8,7 +8,7 @@ use serde_json::{Map, Value, json};
 use vc_model::{Matcher, MatcherArg, MatcherCall, StatusPattern, TemplateValue};
 use vc_template::RenderError;
 
-use super::{compare, compose, shape, text};
+use super::{compare, compose, errors, shape, text};
 use crate::Render;
 
 /// Renders the templates in a check's expected values: the call's [`Render`] in a run.
@@ -64,7 +64,7 @@ impl MatcherRegistry {
     #[must_use]
     pub fn standard() -> Self {
         let registry = Self::default();
-        compose::register(text::register(shape::register(compare::register(registry))))
+        errors::register(compose::register(text::register(shape::register(compare::register(registry)))))
     }
 
     /// The registry with `matcher` under `name`.
@@ -159,6 +159,12 @@ impl<'j> Judge<'j> {
             MatcherArg::Matchers(matchers) => {
                 Value::Array(matchers.iter().map(|matcher| self.expected(matcher)).collect::<Result<_, _>>()?)
             }
+            MatcherArg::Fields(fields) => Value::Object(
+                fields
+                    .iter()
+                    .map(|(name, matcher)| Ok((name.clone(), self.expected(matcher)?)))
+                    .collect::<Result<_, String>>()?,
+            ),
         })
     }
 

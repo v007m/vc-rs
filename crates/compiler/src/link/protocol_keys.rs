@@ -5,6 +5,9 @@
 
 use vc_diagnostics::{Code, Diagnostic, Diagnostics, Fix, TextEdit};
 use vc_model::{AllowedKeys, FileKind, Protocol, ProtocolKeys};
+
+/// The place [`AllowedKeys`] lists keys for.
+type At = fn(&AllowedKeys) -> &'static [&'static str];
 use vc_parser::{Entry, Node};
 
 use super::project;
@@ -20,10 +23,11 @@ const INHERITED: [&str; 5] = ["auth", "headers", "query", "body", "poll"];
 /// The types with a block of their own on an api file, named after the type (D343).
 const FILE_BLOCKS: [Protocol; 1] = [Protocol::Graphql];
 
-/// One place keys are written: the keys the shape knows there, and those the type allows.
+/// One place keys are written: the keys the shape knows there, and those the type takes.
 struct Place<'k> {
     shape: &'static Shape,
-    allowed: &'k [&'k str],
+    keys: &'k ProtocolKeys,
+    at: At,
 }
 
 /// Every api, its `expect`, and every call that reaches an api, against the keys of its type.
@@ -35,13 +39,13 @@ pub fn check(project: &Project<'_>, table: &Table) -> Diagnostics {
         for api in project::list(source.root, "apis").iter().filter(|_| source.kind == FileKind::Api) {
             let protocol = project::protocol(source.root, api);
             let Some(keys) = allowed(table, protocol) else { continue };
-            let api_keys = Place { shape: shapes::api(), allowed: keys.api };
+            let api_keys = Place { shape: shapes::api(), keys, at: |keys| keys.api };
             diagnostics.extend(stray(source, (api, protocol), &api_keys));
             diagnostics.extend(expect(source, (api, protocol), keys));
         }
         for (call, protocol) in calls(project, source) {
             let Some(keys) = allowed(table, protocol) else { continue };
-            let call_keys = Place { shape: shapes::request(), allowed: keys.call };
+            let call_keys = Place { shape: shapes::request(), keys, at: |keys| keys.call };
             diagnostics.extend(stray(source, (call, protocol), &call_keys));
             diagnostics.extend(expect(source, (call, protocol), keys));
         }
@@ -50,13 +54,9 @@ pub fn check(project: &Project<'_>, table: &Table) -> Diagnostics {
     diagnostics
 }
 
-/// The keys `protocol` restricts itself to; `None` when it allows every key, or is not listed.
-fn allowed(table: &Table, protocol: Protocol) -> Option<&AllowedKeys> {
-    let (_, keys) = table.iter().find(|(listed, _)| *listed == protocol)?;
-    match keys {
-        ProtocolKeys::Only(keys) => Some(keys),
-        ProtocolKeys::All => None,
-    }
+/// The keys `protocol` takes; `None` when it is not listed.
+fn allowed(table: &Table, protocol: Protocol) -> Option<&ProtocolKeys> {
+    table.iter().find(|(listed, _)| *listed == protocol).map(|(_, keys)| keys)
 }
 
 /// The type of the api the `call` at `node`, written in `source`, reaches.
@@ -70,7 +70,7 @@ fn reached(project: &Project<'_>, source: &Source<'_>, node: &Node) -> Option<Pr
 /// inherits a test's key, so a `graphql` call never sends a test-level `body` (D343).
 pub fn call_takes(project: &Project<'_>, (source, node): (&Source<'_>, &Node), (table, key): (&Table, &str)) -> bool {
     let keys = reached(project, source, node).and_then(|protocol| allowed(table, protocol));
-    keys.is_none_or(|keys| keys.call.contains(&key))
+    keys.is_none_or(|keys| keys.takes(|keys| keys.call, key))
 }
 
 /// V2213 at each key a test with `steps` hands its `call` steps (D124) that reaches a step whose
@@ -121,16 +121,16 @@ fn nested(action: &Node) -> impl Iterator<Item = &Node> {
 }
 
 /// V2213 for each key of `node`'s `expect` and `poll.until` that `keys` does not allow.
-fn expect(source: &Source<'_>, (node, protocol): (&Node, Protocol), keys: &AllowedKeys) -> Vec<Diagnostic> {
+fn expect(source: &Source<'_>, (node, protocol): (&Node, Protocol), keys: &ProtocolKeys) -> Vec<Diagnostic> {
     let until = node.get("poll").and_then(|poll| poll.get("until"));
-    let place = Place { shape: shapes::expect(), allowed: keys.expect };
+    let place = Place { shape: shapes::expect(), keys, at: |keys| keys.expect };
     node.get("expect").into_iter().chain(until).flat_map(|checks| stray(source, (checks, protocol), &place)).collect()
 }
 
 /// V2213 for each key of `node` the shape knows at `place` but the type does not allow.
 fn stray(source: &Source<'_>, (node, protocol): (&Node, Protocol), place: &Place<'_>) -> Vec<Diagnostic> {
     let known = |entry: &&Entry| place.shape.all_keys().any(|key| key.name == entry.key);
-    let stray = |entry: &&Entry| !place.allowed.contains(&entry.key.as_str());
+    let stray = |entry: &&Entry| !place.keys.takes(place.at, &entry.key);
     node.entries().iter().filter(known).filter(stray).map(|entry| removed(source, entry, protocol)).collect()
 }
 

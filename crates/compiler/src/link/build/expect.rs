@@ -1,7 +1,8 @@
 //! `expect` blocks as checks, and the merge of the levels a call inherits (D123).
 
 use vc_model::{
-    Check, CheckKind, Expect, Matcher, Origin, Part, Path, Segment, SourceSpan, StatusPattern, Template, TemplateValue,
+    Check, CheckKind, Expect, Matcher, MatcherArg, MatcherCall, Origin, Part, Path, Segment, SourceSpan, StatusPattern,
+    Template, TemplateValue,
 };
 use vc_parser::Node;
 
@@ -26,6 +27,7 @@ pub fn read(source: &Source<'_>, node: Option<&Node>, origin: Origin) -> Expect 
     reader.keyed(CheckKind::Timing, node.get("timing"), |phase| Path { segments: vec![key(phase)] });
     reader.cel(node.get("cel"));
     reader.custom(node.get("custom"));
+    reader.errors(node.get("errors"));
     Expect { checks: reader.checks, replace: read::flag(shapes::expect(), node, "replace") }
 }
 
@@ -95,6 +97,16 @@ impl Reader<'_, '_> {
                 self.push((CheckKind::Cel, target), Matcher::Equals(TemplateValue::Cel(cel.clone())), entry.value.span);
             }
         }
+    }
+
+    /// A `graphql` response's errors (D345): `none` and `any` as `empty`, anything else the
+    /// matcher it compiled to.
+    fn errors(&mut self, node: Option<&Node>) {
+        let Some(node) = node else { return };
+        let Some(word) = node.as_str() else { return self.matcher(CheckKind::Errors, Some(node), None) };
+        let empty = MatcherArg::Value(TemplateValue::Bool(word == "none"));
+        let call = MatcherCall { name: "empty".to_owned(), arg: empty, span: node.span };
+        self.push((CheckKind::Errors, None), Matcher::All(vec![call]), node.span);
     }
 
     /// A function check, by `path#export`; it holds when the function passes.

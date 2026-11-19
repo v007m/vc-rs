@@ -40,6 +40,7 @@ impl From<vc_model::CheckKind> for wire::CheckKind {
             vc_model::CheckKind::Timing => Self::Timing,
             vc_model::CheckKind::Cel => Self::Cel,
             vc_model::CheckKind::Custom => Self::Custom,
+            vc_model::CheckKind::Errors => Self::Errors,
         }
     }
 }

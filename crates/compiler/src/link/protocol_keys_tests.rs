@@ -136,6 +136,21 @@ fn http_allows_every_key_so_nothing_is_reported() {
 }
 
 #[test]
+fn errors_on_an_http_api_or_a_call_that_reaches_one_is_reported_and_a_graphql_api_takes_it() {
+    let apis = "apis:\n  - id: get\n    path: http://x/users/1\n    expect:\n      errors: none\n";
+    let tests = "tests:\n  - id: getsUser\n    call: users#get\n    expect:\n      errors: [{code: FORBIDDEN}]\n";
+    let compiled = compile(apis, tests);
+    let stray: Vec<_> = compiled.diagnostics.iter().filter(|found| found.code == Code::V2213).collect();
+    let found: Vec<_> = stray.iter().map(|found| (found.message.as_str(), found.primary.span.start.line)).collect();
+    let expected = [("`errors` does not apply to a `http` api", 5), ("`errors` does not apply to a `http` api", 5)];
+    assert_eq!(found, expected, "the test file's first, then the api file's");
+    assert_eq!(&tests[stray[0].fixes[0].edits[0].range.clone()], "      errors: [{code: FORBIDDEN}]\n");
+    let graphql =
+        format!("type: graphql\n{}", apis.replace("users/1\n", "graphql\n    body: {query: '{ me { id } }'}\n"));
+    assert!(compile(&graphql, tests).diagnostics.iter().all(|found| found.code != Code::V2213));
+}
+
+#[test]
 fn a_key_the_type_does_not_allow_is_reported_with_a_fix_that_removes_it() {
     let found = checked(&RESTRICTED, TESTS);
     let keys: Vec<_> = found.iter().map(|found| (found.code, found.primary.span.start.line)).collect();
@@ -182,13 +197,13 @@ fn a_graphql_api_reports_a_method_and_a_call_that_sets_a_body() {
 }
 
 #[test]
-fn every_key_a_type_allows_is_one_its_shape_knows() {
+fn every_key_a_type_lists_is_one_its_shape_knows() {
     for (protocol, keys) in PROTOCOL_KEYS {
-        let ProtocolKeys::Only(keys) = keys else { continue };
+        let (ProtocolKeys::Only(keys) | ProtocolKeys::Except(keys)) = keys;
         let places = [(shapes::api(), keys.api), (shapes::expect(), keys.expect), (shapes::request(), keys.call)];
         for (shape, allowed) in places {
             let unknown: Vec<_> = allowed.iter().filter(|key| shape.find(key).is_none()).collect();
-            assert_eq!(unknown, [&""; 0], "{protocol:?} allows keys `{}` does not have", shape.title);
+            assert_eq!(unknown, [&""; 0], "{protocol:?} lists keys `{}` does not have", shape.title);
         }
     }
 }

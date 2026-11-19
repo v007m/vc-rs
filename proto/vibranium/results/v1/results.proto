@@ -39,6 +39,7 @@ enum CheckKind {
   CHECK_KIND_TIMING = 7;
   CHECK_KIND_CEL = 8;
   CHECK_KIND_CUSTOM = 9;
+  CHECK_KIND_ERRORS = 10;
 }
 
 // The HTTP version a call used.

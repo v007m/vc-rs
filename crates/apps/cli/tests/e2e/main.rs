@@ -23,6 +23,7 @@ mod examples;
 mod explain;
 mod generated;
 mod graphql;
+mod graphql_errors;
 mod history;
 mod hooks;
 mod import;

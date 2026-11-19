@@ -64,6 +64,7 @@ const fn kind(kind: CheckKind) -> &'static str {
         CheckKind::Timing => "timing",
         CheckKind::Cel => "cel",
         CheckKind::Custom => "custom",
+        CheckKind::Errors => "errors",
     }
 }
 

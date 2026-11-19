@@ -5,7 +5,7 @@ use similar::TextDiff;
 use vc_diagnostics::Code;
 use vc_model::{Check, CheckKind, CheckResult, Failure, Matcher};
 
-use super::{Judge, schema};
+use super::{Judge, errors, schema};
 
 /// How many of the ways a body breaks its schema a failed `body.schema` check reports.
 const SHOWN: usize = 5;
@@ -79,6 +79,10 @@ fn outcome(judge: &Judge<'_>, check: &Check, subject: Subject<'_>) -> Outcome {
         CheckKind::Cel => cel(judge, &check.matcher),
         CheckKind::Schema => schema_check(judge, check, subject.response.get("body")),
         CheckKind::Custom => pending("the custom check's function did not run", Code::V5103),
+        CheckKind::Errors => Outcome {
+            code: Code::V5123,
+            ..matched(judge, check, Some(errors::normalised(subject.response.get("body"))))
+        },
     }
 }
 
