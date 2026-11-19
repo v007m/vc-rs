@@ -736,6 +736,13 @@ Round 72 (19 November 2026; Sarath, on GraphQL error matching and run-time warni
 | D360 | Error entries match field by field | Inside `expect.errors`, an error entry (a list item, or the map given to `some`/`every`/`none`) matches field by field: each written key (`message`, `path`, `code`, `extensions`) is a literal or a matcher on that field, and unwritten keys are ignored; an unknown entry key is V1004 with a close-name fix. The compiler lowers entries to an internal `fields` matcher users cannot write. | D345 (how list entries lower) |
 | D361 | Two V5 warning codes | Tolerated GraphQL errors are reported as warning V5128 "The response has GraphQL errors" (listing each as `CODE at path: message`), and a skipped default save or cleanup as warning V5129 "Save skipped: the response has GraphQL errors". Both go through `ActionReport.warnings`. | — |
 
+Round 73 (19 November 2026; Sarath, on the GraphQL errors list and a null `errors`):
+
+| # | Topic | Decision | Supersedes |
+| --- | --- | --- | --- |
+| D362 | An errors list matches one to one | An `expect.errors` list holds when the response has as many errors as the list has entries and each entry is paired with its own distinct error; order does not matter. A list can therefore pin the exact errors, and one error never satisfies two entries. `some`/`every`/`none` stay the way to match loosely. | D345 (the list form's "each entry matches some error and each error matches some entry") |
+| D363 | A null `errors` is no errors | `"errors": null` in a GraphQL response is read as no errors, the same as a missing `errors` key. Any other value that is not a list fails the errors check (V5123, "`errors` is not a list"). | none |
+
 ## Open
 
 All decisions needed for the PRD and technical design are settled. The language is decided by the spike (D6, D36, D37, D41).
