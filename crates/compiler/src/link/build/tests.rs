@@ -111,6 +111,7 @@ fn an_apis_cleanup_calls_another_api_with_its_vars() {
     let remove = &program.apis[&group.apis[2]];
     assert_eq!(remove.save_on, Matcher::Status(vec![StatusPattern::Code(200), StatusPattern::Code(404)]), "saveOn");
     assert_eq!(create.save_on, Matcher::Status(vec![StatusPattern::Code(201)]), "D191: its expect.status");
+    assert_eq!((remove.save_on_written, create.save_on_written), (true, false), "D345: whether saveOn is written");
 }
 
 #[test]

@@ -174,15 +174,17 @@ fn quoted(text: &str) -> Option<(&str, &str)> {
 }
 
 /// When an api's `save` runs (D191): its `saveOn` at `node`, else the status its `expect`
-/// checks, else `2xx`.
-pub fn save_on(source: &Source<'_>, node: Option<&Node>, expect: &Expect) -> Matcher {
+/// checks, else `2xx`; and whether it is the written `saveOn`, which is status only on a
+/// `graphql` api (D345). A `saveOn` that did not compile to a matcher is not written.
+pub fn save_on(source: &Source<'_>, node: Option<&Node>, expect: &Expect) -> (Matcher, bool) {
     let written = node.and_then(|node| match source.piece(node) {
         Some(Piece::Matcher(matcher)) => Some(matcher.clone()),
         _ => None,
     });
     let status = expect.checks.iter().find(|check| check.kind == CheckKind::Status);
-    let expected = status.map(|check| check.matcher.clone());
-    written.or(expected).unwrap_or_else(|| Matcher::Status(vec![StatusPattern::Class(2)]))
+    let expected =
+        || status.map_or_else(|| Matcher::Status(vec![StatusPattern::Class(2)]), |check| check.matcher.clone());
+    written.map_or_else(|| (expected(), false), |matcher| (matcher, true))
 }
 
 /// The checks under `until`, for `poll`.
@@ -196,8 +198,9 @@ mod tests {
         Check, CheckKind, Expect, Matcher, Origin, Path, Pos, Segment, SourceFileId, SourceSpan, TemplateValue, TestId,
     };
 
-    use super::{merge, path, read};
+    use super::{merge, path, read, save_on};
     use crate::link::project::{self, Source};
+    use vc_parser::Node;
 
     fn check(kind: CheckKind, target: &str, line: u32) -> Check {
         let at = Pos::new(line, 1, 0);
@@ -239,8 +242,8 @@ mod tests {
         assert!(!merged.replace);
     }
 
-    /// The checks the first api's `expect` in `apis` reads, with the file's diagnostic codes.
-    fn api_checks(apis: &str) -> (Vec<CheckKind>, Vec<vc_diagnostics::Code>) {
+    /// What `built` makes of the first api's `expect` in `apis`, with the file's diagnostic codes.
+    fn first_api<T>(apis: &str, built: impl FnOnce(&Source<'_>, &Node, Expect) -> T) -> (T, Vec<vc_diagnostics::Code>) {
         let path = vc_model::SourcePath::new("services/users/users.api.yaml").unwrap();
         let file = vc_model::SourceFile { path, text: apis.to_owned(), hash: vc_model::ContentHash::new([0; 32]) };
         let (tools, mut strings) = (crate::parts::Tools::new(), vc_model::StringTable::new());
@@ -248,8 +251,28 @@ mod tests {
         let source = Source::new(SourceFileId::new(0), &file, &unit).unwrap();
         let api = &project::list(source.root, "apis")[0];
         let origin = Origin::Test(TestId::new(strings.intern("t").unwrap()));
-        let checks = read(&source, api.get("expect"), origin).checks.iter().map(|check| check.kind).collect();
-        (checks, unit.diagnostics.iter().map(|found| found.code).collect())
+        let expect = read(&source, api.get("expect"), origin);
+        (built(&source, api, expect), unit.diagnostics.iter().map(|found| found.code).collect())
+    }
+
+    /// The checks the first api's `expect` in `apis` reads, with the file's diagnostic codes.
+    fn api_checks(apis: &str) -> (Vec<CheckKind>, Vec<vc_diagnostics::Code>) {
+        first_api(apis, |_, _, expect| expect.checks.iter().map(|check| check.kind).collect())
+    }
+
+    #[test]
+    fn only_a_save_on_that_compiled_is_written_so_null_or_junk_is_v2303_and_not_written() {
+        let apis = |written: &str| {
+            format!("type: graphql\napis:\n  - id: get\n    saveOn: {written}\n    expect: {{status: 201}}\n")
+        };
+        let saved = |written: &str| {
+            first_api(&apis(written), |source, api, expect| save_on(source, api.get("saveOn"), &expect))
+        };
+        let status = |code| Matcher::Status(vec![vc_model::StatusPattern::Code(code)]);
+        assert_eq!(saved("200"), ((status(200), true), vec![]));
+        for junk in ["null", "junk"] {
+            assert_eq!(saved(junk), ((status(201), false), vec![vc_diagnostics::Code::V2303]), "{junk}: D345");
+        }
     }
 
     #[test]

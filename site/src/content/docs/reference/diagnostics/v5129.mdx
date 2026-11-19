@@ -1,0 +1,69 @@
+---
+title: "V5129 — Save skipped: the response has GraphQL errors"
+description: "A call to a graphql api with no saveOn got a response with errors, so its save did not run and its cleanup was not registered."
+sidebar:
+  label: "V5129 Save skipped: the response has GraphQL errors"
+  order: 5129
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="warning" variant="caution" /> <Badge text="Run time" variant="note" />
+
+| | |
+| --- | --- |
+| Code | `V5129` |
+| Category | V5xxx: Run time |
+| Severity | warning |
+| Certain fix | none; `vc check --fix` leaves this one to you |
+
+A call to a `graphql` api with no `saveOn` got a response with `errors`, so its `save` did not run and its `cleanup` was
+not registered. An error usually nulls the field it is on: saving `${response.body.data.createUser.id}` would fail at
+run time, and a cleanup would fire with a null id. The default `saveOn` therefore needs the status to match and
+`errors` to be absent or empty. An explicit `saveOn` is status only, for an api whose saved fields survive its errors.
+Here `createUser` returns the new user's id even when sending the welcome email fails.
+
+## Wrong
+
+```yaml title="services/accounts/accounts.api.yaml"
+type: graphql
+apis:
+  - id: createUser
+    body:
+      query: 'mutation CreateUser($name: String!) { createUser(name: $name) { id welcomeSent } }'
+      variables:
+        name: Ada
+    save:
+      userId: ${response.body.data.createUser.id}
+```
+
+## Right
+
+```yaml title="services/accounts/accounts.api.yaml"
+type: graphql
+apis:
+  - id: createUser
+    body:
+      query: 'mutation CreateUser($name: String!) { createUser(name: $name) { id welcomeSent } }'
+      variables:
+        name: Ada
+    save:
+      userId: ${response.body.data.createUser.id}
+    saveOn: 200
+```
+
+
+## Explain it in your terminal
+
+The same page is built into the binary, so this works anywhere, even outside a project:
+
+```console
+$ vc explain V5129
+```
+
+## Related
+
+- [All diagnostic codes](/vc-rs/reference/diagnostics/)
+- [`vc explain`](/vc-rs/reference/cli/explain/)
+- [`vc check`](/vc-rs/reference/cli/check/)
+- [Errors and fixes](/vc-rs/guides/errors-and-fixes/)

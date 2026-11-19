@@ -10,6 +10,7 @@ mod schema;
 mod shape;
 mod text;
 
+pub use errors::normalised;
 pub use evaluate::{Subject, diff, evaluate, verdict};
 pub use registry::{Arguments, Judge, MatcherFn, MatcherRegistry};
 pub use schema::Schemas;

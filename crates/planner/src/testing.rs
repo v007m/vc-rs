@@ -184,6 +184,7 @@ fn list(group: FileId, id: ApiId) -> Api {
         expect,
         save,
         save_on: Matcher::Status(vec![StatusPattern::Class(2)]),
+        save_on_written: false,
         hooks,
         timeout: None,
         http_retry: None,

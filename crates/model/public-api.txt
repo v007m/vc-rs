@@ -910,6 +910,7 @@ pub vc_model::Api::protocol: vc_model::Protocol
 pub vc_model::Api::query: indexmap::map::IndexMap<alloc::string::String, vc_model::Template>
 pub vc_model::Api::save: vc_model::SaveSpec
 pub vc_model::Api::save_on: vc_model::Matcher
+pub vc_model::Api::save_on_written: bool
 pub vc_model::Api::span: vc_model::SourceSpan
 pub vc_model::Api::timeout: core::option::Option<vc_model::Duration>
 pub vc_model::Api::vars: vc_model::VarDefs

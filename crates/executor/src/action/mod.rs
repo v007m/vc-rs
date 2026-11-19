@@ -9,6 +9,7 @@ mod encode;
 mod flight;
 mod function;
 mod graphql;
+mod held;
 mod hooks;
 mod http_retry;
 mod inline;
