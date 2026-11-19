@@ -1,7 +1,8 @@
 //! The keys each api `type` allows ([`vc_model::PROTOCOL_KEYS`], D342): a key that does not
 //! apply to the api's type is V2213, on the api, in its `expect`, or on a call that reaches it
-//! (its `expect` and `poll.until` too, and a `cache.check` call nested in it); and a type's own
-//! block on an api file whose `type` is another.
+//! (its `expect` and `poll.until` too, and a `cache.check` call nested in it), or in the
+//! `expect` of a request written in place (a `flow` auth's steps), which is always `http`; and a
+//! type's own block on an api file whose `type` is another.
 
 use vc_diagnostics::{Code, Diagnostic, Diagnostics, Fix, TextEdit};
 use vc_model::{AllowedKeys, FileKind, Protocol, ProtocolKeys};
@@ -19,6 +20,25 @@ pub type Table = [(Protocol, ProtocolKeys)];
 
 /// The keys a test with `steps` hands each `call` step that does not write its own (D124).
 const INHERITED: [&str; 5] = ["auth", "headers", "query", "body", "poll"];
+
+/// Where a test-level default sits: whether a step writes its own, the keys its type takes
+/// there, and where the help says to move it.
+struct Inherited {
+    own: fn(&Node, &str) -> bool,
+    at: At,
+    onto: &'static str,
+}
+
+/// A key of the test itself, such as `body`.
+const ON_THE_TEST: Inherited =
+    Inherited { own: |step, key| step.get(key).is_some(), at: |keys| keys.call, onto: "onto the steps that send one" };
+
+/// A key of the test's `expect`, such as `errors`, which merges into each step's (D123).
+const IN_EXPECT: Inherited = Inherited {
+    own: |step, key| step.get("expect").and_then(|expect| expect.get(key)).is_some(),
+    at: |keys| keys.expect,
+    onto: "into the `expect` of the steps that check one",
+};
 
 /// The types with a block of their own on an api file, named after the type (D343).
 const FILE_BLOCKS: [Protocol; 1] = [Protocol::Graphql];
@@ -50,8 +70,18 @@ pub fn check(project: &Project<'_>, table: &Table) -> Diagnostics {
             diagnostics.extend(expect(source, (call, protocol), keys));
         }
         diagnostics.extend(defaults(project, source, table));
+        if let Some(keys) = allowed(table, Protocol::Http) {
+            let inline = in_place(source).flat_map(|node| expect(source, (node, Protocol::Http), keys));
+            diagnostics.extend(inline);
+        }
     }
     diagnostics
+}
+
+/// The requests `source` writes in place, by `url`: the steps of its `flow` auths.
+fn in_place<'n>(source: &Source<'n>) -> impl Iterator<Item = &'n Node> {
+    let flows = project::list(source.root, "auth").iter().filter(|_| source.kind == FileKind::Config);
+    flows.flat_map(|auth| project::list(auth, "steps"))
 }
 
 /// The keys `protocol` takes; `None` when it is not listed.
@@ -69,40 +99,48 @@ fn reached(project: &Project<'_>, source: &Source<'_>, node: &Node) -> Option<Pr
 /// reaches no api takes every key, since V2003 reports it. The build asks this too before a step
 /// inherits a test's key, so a `graphql` call never sends a test-level `body` (D343).
 pub fn call_takes(project: &Project<'_>, (source, node): (&Source<'_>, &Node), (table, key): (&Table, &str)) -> bool {
-    let keys = reached(project, source, node).and_then(|protocol| allowed(table, protocol));
-    keys.is_none_or(|keys| keys.takes(|keys| keys.call, key))
+    takes(project, (source, node), (table, |keys| keys.call, key))
 }
 
-/// V2213 at each key a test with `steps` hands its `call` steps (D124) that reaches a step whose
-/// api's type does not take it.
+/// Whether the `call` at `node` takes `key` at `at` under the type of the api it reaches.
+fn takes(project: &Project<'_>, (source, node): (&Source<'_>, &Node), (table, at, key): (&Table, At, &str)) -> bool {
+    let keys = reached(project, source, node).and_then(|protocol| allowed(table, protocol));
+    keys.is_none_or(|keys| keys.takes(at, key))
+}
+
+/// V2213 at each key a test with `steps` hands its `call` steps (D124), or merges into their
+/// `expect` (D123), that reaches a step whose api's type does not take it.
 fn defaults(project: &Project<'_>, source: &Source<'_>, table: &Table) -> Vec<Diagnostic> {
     let tests = project::list(source.root, "tests").iter().filter(|_| source.kind == FileKind::Test);
     let mut found = Vec::new();
     for test in tests.filter(|test| test.get("call").is_none()) {
         let keys = test.entries().iter().filter(|entry| INHERITED.contains(&entry.key.as_str()));
-        found.extend(keys.filter_map(|entry| refused(project, (source, test), (table, entry))));
+        found.extend(keys.filter_map(|entry| refused(project, (source, test), (table, entry, &ON_THE_TEST))));
+        let known = |entry: &&Entry| shapes::expect().all_keys().any(|key| key.name == entry.key);
+        let checks = test.get("expect").map(Node::entries).unwrap_or_default().iter().filter(known);
+        found.extend(checks.filter_map(|entry| refused(project, (source, test), (table, entry, &IN_EXPECT))));
     }
     found
 }
 
-/// V2213 at `entry`, a key of `test`, when a `call` step that does not write its own reaches an
-/// api whose type does not take it. Other steps may send it, so there is no fix.
+/// V2213 at `entry`, a default of `test` at `place`, when a `call` step that does not write its
+/// own reaches an api whose type does not take it. Other steps may use it, so there is no fix.
 fn refused(
     project: &Project<'_>,
     (source, test): (&Source<'_>, &Node),
-    (table, entry): (&Table, &Entry),
+    (table, entry, place): (&Table, &Entry, &Inherited),
 ) -> Option<Diagnostic> {
     let key = entry.key.as_str();
     let calls = project::list(test, "steps").iter().filter(|step| step.get("call").is_some());
-    let step =
-        calls.filter(|step| step.get(key).is_none()).find(|step| !call_takes(project, (source, step), (table, key)))?;
+    let mut inheriting = calls.filter(|step| !(place.own)(step, key));
+    let step = inheriting.find(|step| !takes(project, (source, step), (table, place.at, key)))?;
     let (call, kind) = (step.entry("call")?, reached(project, source, step)?.key());
     let message = format!("`{key}` does not apply to a `{kind}` api");
     Some(
         Diagnostic::new(Code::V2213, entry.key_span, message)
             .label("a test-level default")
             .secondary(call.value.span, format!("a `{kind}` call without its own `{key}`"))
-            .help(format!("move `{key}` onto the steps that send one; a `{kind}` call does not take it")),
+            .help(format!("move `{key}` {}; a `{kind}` call does not take it", place.onto)),
     )
 }
 

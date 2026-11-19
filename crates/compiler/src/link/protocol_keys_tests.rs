@@ -73,8 +73,12 @@ fn file(path: &str, text: &str) -> SourceFile {
 }
 
 fn compile(apis: &str, tests: &str) -> Compiled {
+    compile_with(CONFIG, apis, tests)
+}
+
+fn compile_with(config: &str, apis: &str, tests: &str) -> Compiled {
     let files = vec![
-        file("vibranium.config.yaml", CONFIG),
+        file("vibranium.config.yaml", config),
         file("services/users/users.api.yaml", apis),
         file("services/users/crud.test.yaml", tests),
     ];
@@ -148,6 +152,42 @@ fn errors_on_an_http_api_or_a_call_that_reaches_one_is_reported_and_a_graphql_ap
     let graphql =
         format!("type: graphql\n{}", apis.replace("users/1\n", "graphql\n    body: {query: '{ me { id } }'}\n"));
     assert!(compile(&graphql, tests).diagnostics.iter().all(|found| found.code != Code::V2213));
+}
+
+#[test]
+fn a_test_level_errors_check_that_reaches_an_http_step_is_reported_once_at_the_test() {
+    let apis = "apis:\n  - id: get\n    path: http://x/users/1\n";
+    let steps = "    steps:\n      - call: users#get\n      - call: users#get\n";
+    let tests = format!("tests:\n  - id: getsUser\n    expect:\n      errors: any\n{steps}");
+    let compiled = compile(apis, &tests);
+    let stray: Vec<_> = compiled.diagnostics.iter().filter(|found| found.code == Code::V2213).collect();
+    let [found] = stray.as_slice() else { panic!("{stray:?}") };
+    assert_eq!((found.message.as_str(), found.primary.span.start.line), ("`errors` does not apply to a `http` api", 4));
+    assert_eq!(found.primary.text, "a test-level default");
+    assert!(found.help.iter().any(|help| help.contains("into the `expect` of the steps")), "{found:?}");
+    assert_eq!(found.fixes, []);
+    let own = tests.replace("call: users#get\n", "call: users#get\n        expect: {errors: none}\n");
+    let lines: Vec<_> = compile(apis, &own)
+        .diagnostics
+        .iter()
+        .filter(|found| found.code == Code::V2213)
+        .map(|found| found.primary.span.start.line)
+        .collect();
+    assert_eq!(lines, [7, 9], "each step's own, and not the default no step inherits");
+    let graphql = "type: graphql\napis:\n  - id: get\n    path: http://x/graphql\n    body: {query: '{ me { id } }'}\n";
+    assert!(compile(graphql, &tests).diagnostics.iter().all(|found| found.code != Code::V2213));
+}
+
+#[test]
+fn errors_on_a_flow_auth_step_is_reported_with_its_removal_since_the_step_is_http() {
+    let step = "      - id: token\n        method: POST\n        url: http://x/token\n        expect:\n          errors: none\n";
+    let auth = format!("auth:\n  - id: login\n    type: flow\n    steps:\n{step}    apply: {{headers: {{a: b}}}}\n");
+    let config = format!("{CONFIG}{auth}");
+    let compiled = compile_with(&config, APIS, "tests:\n  - id: getsUser\n    call: users#get\n");
+    let stray: Vec<_> = compiled.diagnostics.iter().filter(|found| found.code == Code::V2213).collect();
+    let [found] = stray.as_slice() else { panic!("{:?}", compiled.diagnostics) };
+    assert_eq!(found.message, "`errors` does not apply to a `http` api");
+    assert_eq!(&config[found.fixes[0].edits[0].range.clone()], "          errors: none\n");
 }
 
 #[test]
