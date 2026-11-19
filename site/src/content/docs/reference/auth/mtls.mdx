@@ -1,0 +1,126 @@
+---
+title: "`mtls` and client certificates"
+description: "Client certificates for mutual TLS live in http.tls.clients; an auth names one with clientCert, and type: mtls sends only the certificate."
+sidebar: { order: 9.5 }
+---
+
+import { Aside, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+A server that wants mutual TLS asks for a client certificate during the handshake. You list your certificates once under `http.tls.clients` in `vibranium.config.yaml`. A host listed in `hosts` gets its certificate without anything else; an auth definition can name one with `clientCert`, and `type: mtls` sends a certificate and nothing more.
+
+```yaml title="vibranium.config.yaml (excerpt)"
+http:
+  tls:
+    ca: certs/internal-ca.pem
+    clients:
+      - id: paymentsClient
+        hosts: [payments.internal.example, '*.payments.internal.example']
+        cert: certs/payments-client.pem
+        key: ${secret.PAYMENTS_CLIENT_KEY}
+      - id: tenantB
+        pkcs12: certs/tenant-b.p12
+        passphrase: ${secret.TENANT_B_PASSPHRASE}
+
+auth:
+  - id: tenantBCert
+    type: mtls
+    clientCert: tenantB
+  - id: partnerLogin
+    type: oauth2ClientCredentials
+    tokenUrl: ${var.partnerUrl}/token
+    clientId: ci-runner
+    clientCert: tenantB
+```
+
+<Aside type="caution">Not built yet: `vc check` checks these keys, but a run does not load or send a client certificate until [#105](https://github.com/v007m/vc-rs/issues/105) lands in full.</Aside>
+
+## Syntax
+
+`http.tls` is config only; an api's `http` takes only `retry`.
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `ca` | path or PEM, or a list of them | — | no | Extra trusted roots for every host, on top of the OS store |
+| `clients[].id` | camelCase text | — | yes | What `clientCert` names |
+| `clients[].name` | text | — | no | Shown in output |
+| `clients[].hosts` | list of `host`, `host:port` or `*.domain` | — | no | Hosts that get this certificate. `*` covers exactly one leftmost label. With none, only `clientCert` uses it |
+| `clients[].profiles` | list of profile IDs | every profile | no | Only under these profiles |
+| `clients[].cert` | path or PEM | — | with `key` | The certificate chain, leaf first |
+| `clients[].key` | path or PEM | — | with `cert` | Its private key. Use `${secret.X}` for inline PEM |
+| `clients[].pkcs12` | path | — | instead of `cert` and `key` | A `.p12` or `.pfx` bundle |
+| `clients[].passphrase` | text | empty | no | The bundle's passphrase |
+
+Every value except `id`, `name`, `hosts` and `profiles` is a template, rendered once when the run starts. A value that starts with `-----BEGIN` is inline PEM; anything else is a path from the project root.
+
+On an auth definition:
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `type` | `mtls` | — | yes | Adds no headers |
+| `clientCert` | a `clients` ID, or `none` | — | yes for `mtls` | Any type may have it. `none` sends no certificate, even to a host that has one |
+
+## Examples
+
+Give a certificate one way. Both ways is an error:
+
+```yaml wrong V1016 title="vibranium.config.yaml"
+syntaxVersion: 2
+profiles:
+  - id: dev
+    default: true
+http:
+  tls:
+    clients:
+      - id: partnerCert
+        cert: certs/partner.pem
+        key: certs/partner-key.pem
+        pkcs12: certs/partner.p12
+```
+
+```console
+$ vc check
+error[V1016]: `partnerCert` gives its certificate two ways
+  --> vibranium.config.yaml:11:9
+   |
+ 9 |         cert: certs/partner.pem
+   |         ---- and PEM here
+10 |         key: certs/partner-key.pem
+11 |         pkcs12: certs/partner.p12
+   |         ^^^^^^ a PKCS#12 bundle here
+   = help: give `cert` and `key` (PEM) or `pkcs12`
+```
+
+A host is a host, not a URL. `vc check --fix` keeps only the host:
+
+```yaml wrong V1017 title="vibranium.config.yaml"
+syntaxVersion: 2
+profiles:
+  - id: dev
+    default: true
+http:
+  tls:
+    clients:
+      - id: partnerCert
+        hosts: [https://api.partner.example/v1]
+        pkcs12: certs/partner.p12
+```
+
+## How it behaves
+
+- A request presents the `clientCert` of its auth when it has one. Otherwise it presents the first entry whose `hosts` match the URL's host and whose `profiles` include an active profile. Otherwise it presents none.
+- The `oauth2*` types present their `clientCert` on the token request too, for certificate-bound tokens.
+- Certificates are always verified. `ca` adds roots; nothing turns verification off.
+
+## Common errors
+
+- [V1005](/vc-rs/reference/diagnostics/v1005/): an `mtls` auth has no `clientCert`.
+- [V1016](/vc-rs/reference/diagnostics/v1016/): an entry gives `pkcs12` beside `cert` or `key`, or none of them.
+- [V1017](/vc-rs/reference/diagnostics/v1017/): a `hosts` item is not a host pattern.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="Proxy and TLS" href="/vc-rs/reference/config/proxy-and-tls/" />
+  <LinkCard title="Using auth" href="/vc-rs/reference/auth/using-auth/" />
+  <LinkCard title="Secrets" href="/vc-rs/reference/auth/secrets/" />
+</CardGrid>

@@ -3,8 +3,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::{
-    ActionId, AgentPolicy, Alert, AuthId, Duration, FileId, HistoryConfig, Matcher, Method, ProfileId, RedactRule,
-    Retry, SecretsConfig, StatusPattern, Sym, Template, TemplateValue, TestId, VarDefs,
+    ActionId, AgentPolicy, Alert, AuthId, ClientCert, Duration, FileId, HistoryConfig, Matcher, Method, ProfileId,
+    RedactRule, Retry, SecretsConfig, StatusPattern, Sym, Template, TemplateValue, TestId, TlsConfig, VarDefs,
 };
 
 /// How long before expiry credentials are fetched again when `refreshBefore` is not written.
@@ -25,6 +25,8 @@ pub struct Config {
     pub defaults: Defaults,
     /// `http.retry` (D143).
     pub http_retry: HttpRetry,
+    /// `http.tls` (D350).
+    pub http_tls: TlsConfig,
     /// `vars` and `profiles.<id>.vars` at project level.
     pub vars: VarDefs,
     /// `reports.dir`.
@@ -204,6 +206,8 @@ pub struct AuthDef {
     pub refresh_on: Vec<u16>,
     /// `cache`: keep the credentials across runs, encrypted (not in M3).
     pub cache: bool,
+    /// `clientCert` (D350): the identity every request under this auth presents.
+    pub client_cert: Option<ClientCert>,
 }
 
 impl AuthDef {
@@ -221,6 +225,7 @@ impl AuthDef {
             refresh_before: Duration::new(REFRESH_BEFORE),
             refresh_on: vec![401],
             cache: false,
+            client_cert: None,
         }
     }
 }

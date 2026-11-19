@@ -35,6 +35,8 @@ code_table! {
     V1012 = 1012, Error, "File cannot be read (permissions, not UTF-8, outside the project, bad name)";
     V1013 = 1013, Error, "Hook file is not valid TypeScript or JavaScript";
     V1014 = 1014, Error, "GraphQL document does not parse";
+    V1016 = 1016, Error, "Client certificate given two ways, or not at all";
+    V1017 = 1017, Error, "Not a host pattern";
     // V2xxx: references and types
     V2001 = 2001, Error, "Duplicate ID";
     V2002 = 2002, Error, "Unknown auth, profile, dataset or generator";

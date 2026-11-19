@@ -132,6 +132,7 @@ Settings are layered, lowest to highest: built-in defaults < user config (`~/.co
 | `defaults.retry` | `attempts`, `delay` | none | Applied to every test unless overridden; re-runs the whole test instance (D126) |
 | `defaults.headers` | map | none | Sent with every request; each name an HTTP token, never a template (V2310) |
 | `http.retry` | `attempts`, `on`, `methods`, `backoff` | `attempts: 0` (off) | Transport retry of one request (D143). `on` defaults to `[connect, timeout, 502, 503, 504]`, `methods` to `[GET, HEAD, OPTIONS, PUT, DELETE]`, `backoff` to `{ base: 100ms, max: 2s, jitter: true }` (exponential). Each attempt gets the full `timeout` |
+| `http.tls` | `ca`, `clients` | none | Trusted roots and client certificates (mTLS, D350); see Client certificates under Authentication. Config only: an api's `http` has only `retry` |
 | `vars` | map | — | Project-wide values |
 | `profiles` | list | required, at least one; `vc init` creates `default` | Each: `id`, `name`, `default`, `vars`, `agents` (see Vars and profiles). A profile's `name` follows its ID in the run summary (`profile dev "Local dev"`), in the json summary's `profileNames` and in CTRF's `results.extra.profileNames` |
 | `auth` | list | — | Auth definitions (see Authentication) |
@@ -1076,12 +1077,15 @@ Auth definitions live in `vibranium.config.yaml` under `auth`, are written once,
 | `oauth2Password` | `tokenUrl`, `clientId`, `clientSecret`, `username`, `password`, `scopes`, `audience` | The resource-owner password grant, for test users |
 | `oauth2AuthorizationCode` | `authorizeUrl`, `tokenUrl`, `clientId`, `clientSecret`, `scopes`, `audience`, `pkce`, `redirectPort` | Opens a browser once; refresh token kept in the OS keychain |
 | `oauth2Refresh` | `tokenUrl`, `clientId`, `clientSecret`, `refreshToken`, `scopes`, `audience` | For CI with a long-lived refresh token |
-
-The `oauth2*` types post to `tokenUrl` with the client in HTTP Basic when `clientSecret` is set, and as a `client_id` form field when it is not (a public client). A refused token request fails the call with V5114, naming the endpoint's status but never its body.
 | `flow` | `steps`, `apply`, `expiresIn`, `refreshBefore`, `refreshOn`, `cache` | Any sequence of requests that ends in credentials (below) |
 | `plugin` | `plugin`, `config` | Custom schemes through an auth plugin: `plugin` is the ID of an `auth` plugin in `plugins:`, and `config` is passed to its `auth/credentials` call. `config` is rendered like other auth settings, so a `${secret.x}` in it is sent to the plugin whatever the lock grants (writing it there is the grant), and stays masked in output. A plugin that is not ready or answers with no values fails the call with V5114 |
+| `mtls` | `clientCert` | Only presents a client certificate, and adds no headers (D350) |
 
-`vc check` reports a definition that leaves out a key its type needs as V1005 at its `type` (`a \`bearer\` auth needs \`token\``): `username` and `password` for `basic`, `token` for `bearer`, `name` and `value` for `apiKey`, `tokenUrl` and `clientId` for every `oauth2*` type (plus `username` and `password` for `oauth2Password`, `authorizeUrl` for `oauth2AuthorizationCode` and `refreshToken` for `oauth2Refresh`), `steps` for `flow` and `plugin` for `plugin`.
+Any definition can also name a client certificate with `clientCert: <id>`, the ID of an `http.tls.clients` entry (see Client certificates). Every request made under the definition presents it, and so do the token posts of the `oauth2*` types, for certificate-bound tokens (RFC 8705). `clientCert: none` presents no certificate, even to a host that has one, for negative tests. `clientCert` is a literal ID, never a template.
+
+The `oauth2*` types post to `tokenUrl` with the client in HTTP Basic when `clientSecret` is set, and as a `client_id` form field when it is not (a public client). A refused token request fails the call with V5114, naming the endpoint's status but never its body.
+
+`vc check` reports a definition that leaves out a key its type needs as V1005 at its `type` (`a \`bearer\` auth needs \`token\``): `username` and `password` for `basic`, `token` for `bearer`, `name` and `value` for `apiKey`, `tokenUrl` and `clientId` for every `oauth2*` type (plus `username` and `password` for `oauth2Password`, `authorizeUrl` for `oauth2AuthorizationCode` and `refreshToken` for `oauth2Refresh`), `steps` for `flow`, `plugin` for `plugin` and `clientCert` for `mtls`.
 
 Every definition can also have `vars` (its defaults), which can read each other and the use site's vars. A definition var the use site does not pass keeps the definition's value, even when the caller has a var of that name. A use site's var reads its sibling use-site vars first, then the caller's vars, then the definition's as the last fallback, so `token: ${var.token}-v2` builds on the default. A use-site var that reads its own name follows the same order: it finds the caller's `token` when the caller has one, and the definition's otherwise. Use one by ID on an api file, an api, a test, a step or an action: `auth: shopOauth`, `auth: none`, or with values:
 
@@ -1157,6 +1161,43 @@ auth:
 ```
 
 The same definition serves every profile: under `--profile prod` it logs in to `id.shop.example` as tenant `acme`. Within a run the flow runs once for each set of `vars`, before the first request that needs it, and again when it expires or a response matches `refreshOn`; tests that need it at the same moment wait for that one login. If a step fails, every call that uses it fails with V5114, naming the step and its code but not its request or response. A failed flow login is kept for the run, so tests don't each retry it and lock the account. Only the built-in token types (`oauth2*`) drop a failure that may pass (network, timeout, 429, 5xx), so the next request tries again; a refusal (400, 401, 403) is kept there too. Credentials, and the token after a scheme such as `Bearer`, are redacted in all output from the moment they arrive.
+
+### Client certificates
+
+`http.tls` in `vibranium.config.yaml` holds the roots trusted on top of the OS store and the client certificates sent for mutual TLS (D350). It is config only.
+
+| Key under `http.tls` | Type | Default | Purpose |
+| --- | --- | --- | --- |
+| `ca` | path or PEM, or a list of them | none | Extra trusted roots for every host, on top of the OS store |
+| `clients[].id` | camelCase, required | — | Named by `clientCert:` and shown in reports |
+| `clients[].name` | text | — | Display name |
+| `clients[].hosts` | list of `host`, `host:port` or `*.domain` | none (used only through `clientCert`) | Hosts that get this certificate without asking. `*` covers exactly one leftmost label; anything else is V1017, and a URL gets its host as a certain fix |
+| `clients[].profiles` | list of profile IDs | every profile | Only under these profiles, like `alerts[].profiles` |
+| `clients[].cert`, `clients[].key` | path or inline PEM | — | The PEM certificate chain (leaf first) and its private key |
+| `clients[].pkcs12`, `clients[].passphrase` | path; text | —; empty | A PKCS#12 bundle (`.p12`, `.pfx`) instead of `cert` and `key` |
+
+Each entry gives its certificate one way: `cert` and `key`, or `pkcs12`. Both, or neither, is V1016. `cert`, `key`, `pkcs12`, `passphrase` and `ca` are templates, rendered once when the run starts; a rendered value that starts with `-----BEGIN` is inline PEM, and anything else is a path from the project root. A request presents the `clientCert` of its auth definition when it has one (`none` presents nothing); otherwise the first entry whose `hosts` match the URL's host and whose `profiles` include an active profile; otherwise none.
+
+Not built yet: `vc check` checks these keys and the program holds them, but a run does not load or send a certificate until #105 lands in full.
+
+```yaml
+# vibranium.config.yaml (excerpt)
+http:
+  tls:
+    ca: certs/internal-ca.pem
+    clients:
+      - id: paymentsClient
+        hosts: [payments.internal.example, '*.payments.internal.example']
+        cert: certs/payments-client.pem
+        key: ${secret.PAYMENTS_CLIENT_KEY}
+      - id: tenantB
+        pkcs12: certs/tenant-b.p12
+        passphrase: ${secret.TENANT_B_PASSPHRASE}
+auth:
+  - id: tenantBCert
+    type: mtls
+    clientCert: tenantB
+```
 
 ## Secrets
 

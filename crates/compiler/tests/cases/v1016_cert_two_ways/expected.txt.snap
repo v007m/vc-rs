@@ -1,0 +1,30 @@
+---
+source: crates/compiler/tests/golden.rs
+assertion_line: 43
+input_file: crates/compiler/tests/cases/v1016_cert_two_ways/project
+---
+error[V1016]: `bothWays` gives its certificate two ways
+  --> vibranium.config.yaml:12:9
+   |
+10 |         cert: certs/partner.crt
+   |         ---- and PEM here
+11 |         key: certs/partner.key
+12 |         pkcs12: certs/partner.p12
+   |         ^^^^^^ a PKCS#12 bundle here
+   = help: give `cert` and `key` (PEM) or `pkcs12`
+
+error[V1016]: `bundleAndKey` gives its certificate two ways
+  --> vibranium.config.yaml:15:9
+   |
+14 |         key: certs/partner.key
+   |         --- and PEM here
+15 |         pkcs12: certs/partner.p12
+   |         ^^^^^^ a PKCS#12 bundle here
+   = help: give `cert` and `key` (PEM) or `pkcs12`
+
+error[V1016]: `noWay` gives no certificate
+  --> vibranium.config.yaml:17:9
+   |
+17 |       - id: noWay
+   |         ^^ no `cert` or `pkcs12`
+   = help: give `cert` and `key` (PEM) or `pkcs12`

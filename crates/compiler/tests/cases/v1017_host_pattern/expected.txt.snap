@@ -1,0 +1,64 @@
+---
+source: crates/compiler/tests/golden.rs
+assertion_line: 43
+input_file: crates/compiler/tests/cases/v1017_host_pattern/project
+---
+error[V1017]: `https://api.partner.example/v1` is not a host pattern
+  --> vibranium.config.yaml:13:13
+   |
+13 |           - https://api.partner.example/v1
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ a URL; write only its host
+   = help: write `host`, `host:port` or `*.domain`, such as `api.partner.example:8443`
+   = fix: Write api.partner.example (certain)
+
+error[V1017]: `https://ada@api.partner.example:8443/v1?x=1` is not a host pattern
+  --> vibranium.config.yaml:14:13
+   |
+14 |           - https://ada@api.partner.example:8443/v1?x=1
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ a URL; write only its host
+   = help: write `host`, `host:port` or `*.domain`, such as `api.partner.example:8443`
+   = fix: Write api.partner.example:8443 (certain)
+
+error[V1017]: `https://*.partner.example/` is not a host pattern
+  --> vibranium.config.yaml:15:13
+   |
+15 |           - https://*.partner.example/
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^^ a URL; write only its host
+   = help: write `host`, `host:port` or `*.domain`, such as `api.partner.example:8443`
+   = fix: Write *.partner.example (certain)
+
+error[V1017]: `api.partner.example/v1` is not a host pattern
+  --> vibranium.config.yaml:16:13
+   |
+16 |           - api.partner.example/v1
+   |             ^^^^^^^^^^^^^^^^^^^^^^ only a host and a port go here
+   = help: write `host`, `host:port` or `*.domain`, such as `api.partner.example:8443`
+   = fix: Write api.partner.example (certain)
+
+error[V1017]: `api.*.example` is not a host pattern
+  --> vibranium.config.yaml:17:13
+   |
+17 |           - api.*.example
+   |             ^^^^^^^^^^^^^ `*` stands only for a whole leftmost label, as in `*.partner.example`
+   = help: write `host`, `host:port` or `*.domain`, such as `api.partner.example:8443`
+
+error[V1017]: `*` is not a host pattern
+  --> vibranium.config.yaml:18:13
+   |
+18 |           - '*'
+   |             ^^^ `*` stands only for a whole leftmost label, as in `*.partner.example`
+   = help: write `host`, `host:port` or `*.domain`, such as `api.partner.example:8443`
+
+error[V1017]: `api.partner.example:99999` is not a host pattern
+  --> vibranium.config.yaml:19:13
+   |
+19 |           - api.partner.example:99999
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^ the port is not a number up to 65535
+   = help: write `host`, `host:port` or `*.domain`, such as `api.partner.example:8443`
+
+error[V1017]: `api partner` is not a host pattern
+  --> vibranium.config.yaml:20:13
+   |
+20 |           - api partner
+   |             ^^^^^^^^^^^ not a host name or IP address
+   = help: write `host`, `host:port` or `*.domain`, such as `api.partner.example:8443`

@@ -18,6 +18,7 @@ const AUTH_TYPES: &[&str] = &[
     "oauth2Refresh",
     "flow",
     "plugin",
+    "mtls",
 ];
 
 shape! {
@@ -26,7 +27,7 @@ shape! {
         types::key("project", Ty::Text).default("folder name").doc("Display name in reports and on the server"),
         types::key("paths", Ty::Obj(paths)).doc("Where definition files are found"),
         types::key("defaults", Ty::Obj(defaults)).doc("Defaults for every request and test"),
-        types::key("http", Ty::Obj(common::http)).doc("Transport settings"),
+        types::key("http", Ty::Obj(config_http)).doc("Transport settings"),
         types::key("vars", VARS).doc("Project-wide values"),
         types::key("profiles", Ty::List(&Ty::Obj(profile))).default("required, at least one (V3101)")
             .doc("Named sets of var overrides"),
@@ -42,6 +43,35 @@ shape! {
         types::key("redact", Ty::Obj(redact)).default("auth headers and secrets").doc("Extra values to mask"),
         types::key("beforeRun", ACTIONS).doc("Actions run once before any test starts"),
         types::key("afterRun", ACTIONS).doc("Actions run once after the last test"),
+    ])
+}
+
+shape! {
+    config_http = Shape::new("configHttp", "Transport settings: retries and TLS", &[
+        types::key("tls", Ty::Obj(tls)).doc("Trusted roots and client certificates"),
+    ])
+    .mixins(&[common::http])
+}
+
+shape! {
+    tls = Shape::new("tls", "Trusted roots and client certificates", &[
+        types::key("ca", Ty::Either(&[Ty::Template, Ty::List(&Ty::Template)]))
+            .doc("Roots trusted on top of the OS store: a path or inline PEM, or a list").example("certs/internal-ca.pem"),
+        types::key("clients", Ty::List(&Ty::Obj(tls_client))).doc("Client certificates, for mTLS"),
+    ])
+}
+
+shape! {
+    tls_client = Shape::new("tlsClient", "A client certificate; give `cert` and `key`, or `pkcs12`", &[
+        types::key("id", Ty::Id).required().doc("Named by an auth's `clientCert`").example("partnerCert"),
+        types::key("name", Ty::Text).doc("Shown in reports"),
+        types::key("hosts", TEXTS).doc("Sent to these: `host`, `host:port` or `*.domain`").example("[api.partner.example]"),
+        types::key("profiles", TEXTS).default("every profile").doc("Only under these profiles"),
+        types::key("cert", Ty::Template).doc("The certificate chain, leaf first: a path or inline PEM")
+            .example("certs/partner.crt"),
+        types::key("key", Ty::Template).doc("Its private key: a path or inline PEM").example("${secret.PARTNER_KEY}"),
+        types::key("pkcs12", Ty::Template).doc("A PKCS#12 bundle (`.p12`, `.pfx`): a path").example("certs/partner.p12"),
+        types::key("passphrase", Ty::Template).default("empty").doc("`pkcs12`: its passphrase"),
     ])
 }
 
@@ -110,6 +140,8 @@ shape! {
         types::key("refreshOn", Ty::List(&Ty::Int)).default("[401]").doc("`flow`: statuses that re-run the flow"),
         types::key("plugin", Ty::Ref).doc("`plugin`: the auth plugin"),
         types::key("config", Ty::Value).doc("`plugin`: its settings"),
+        types::key("clientCert", Ty::Ref).doc("An `http.tls.clients` ID sent with every request; `none` sends none")
+            .example("partnerCert"),
     ])
 }
 

@@ -1,0 +1,16 @@
+name: Tenant isolation
+tests:
+  - id: readsOwnAccount
+    call: partner#getAccount
+    auth: tenantAToken
+    vars: {accountId: a-1}
+  - id: rejectsOtherTenantsAccount
+    call: partner#getAccount
+    auth: tenantBCert
+    vars: {accountId: a-1}
+    expect: {status: 403}
+  - id: rejectsMissingCertificate
+    call: partner#getAccount
+    auth: noCert
+    vars: {accountId: a-1}
+    expect: {status: 401}

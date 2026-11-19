@@ -1,0 +1,21 @@
+syntaxVersion: 2
+project: partner
+profiles:
+  - id: dev
+    default: true
+http:
+  tls:
+    clients:
+      - id: partnerClient
+        cert: certs/partner.crt
+        key: certs/partner.key
+        hosts:
+          - https://api.partner.example/v1
+          - https://ada@api.partner.example:8443/v1?x=1
+          - https://*.partner.example/
+          - api.partner.example/v1
+          - api.*.example
+          - '*'
+          - api.partner.example:99999
+          - api partner
+          - api.partner.example

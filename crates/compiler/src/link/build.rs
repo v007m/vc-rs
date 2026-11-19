@@ -23,6 +23,9 @@ mod schema_tests;
 mod schemas;
 #[cfg(test)]
 mod tests;
+mod tls;
+#[cfg(test)]
+mod tls_tests;
 
 use std::collections::HashMap;
 use std::sync::Arc;

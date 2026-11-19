@@ -1,0 +1,99 @@
+---
+source: crates/compiler/tests/golden.rs
+assertion_line: 44
+input_file: crates/compiler/tests/cases/v1016_cert_two_ways/project
+---
+{
+  "summary": {
+    "errors": 3,
+    "warnings": 0,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "code": "V1016",
+      "severity": "error",
+      "message": "`bothWays` gives its certificate two ways",
+      "primary": {
+        "span": {
+          "path": "vibranium.config.yaml",
+          "line": 12,
+          "column": 9,
+          "endLine": 12,
+          "endColumn": 15
+        },
+        "text": "a PKCS#12 bundle here"
+      },
+      "secondary": [
+        {
+          "span": {
+            "path": "vibranium.config.yaml",
+            "line": 10,
+            "column": 9,
+            "endLine": 10,
+            "endColumn": 13
+          },
+          "text": "and PEM here"
+        }
+      ],
+      "notes": [],
+      "help": [
+        "give `cert` and `key` (PEM) or `pkcs12`"
+      ],
+      "fixes": []
+    },
+    {
+      "code": "V1016",
+      "severity": "error",
+      "message": "`bundleAndKey` gives its certificate two ways",
+      "primary": {
+        "span": {
+          "path": "vibranium.config.yaml",
+          "line": 15,
+          "column": 9,
+          "endLine": 15,
+          "endColumn": 15
+        },
+        "text": "a PKCS#12 bundle here"
+      },
+      "secondary": [
+        {
+          "span": {
+            "path": "vibranium.config.yaml",
+            "line": 14,
+            "column": 9,
+            "endLine": 14,
+            "endColumn": 12
+          },
+          "text": "and PEM here"
+        }
+      ],
+      "notes": [],
+      "help": [
+        "give `cert` and `key` (PEM) or `pkcs12`"
+      ],
+      "fixes": []
+    },
+    {
+      "code": "V1016",
+      "severity": "error",
+      "message": "`noWay` gives no certificate",
+      "primary": {
+        "span": {
+          "path": "vibranium.config.yaml",
+          "line": 17,
+          "column": 9,
+          "endLine": 17,
+          "endColumn": 11
+        },
+        "text": "no `cert` or `pkcs12`"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "give `cert` and `key` (PEM) or `pkcs12`"
+      ],
+      "fixes": []
+    }
+  ]
+}

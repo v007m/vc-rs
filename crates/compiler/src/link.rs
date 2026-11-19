@@ -25,6 +25,7 @@ mod saves;
 mod secrets;
 mod shared;
 mod spec_files;
+mod tls;
 mod uses;
 
 #[cfg(test)]
@@ -96,6 +97,7 @@ pub fn link(entries: &[CacheEntry], files: &SourceFiles, world: &World<'_>) -> L
     diagnostics.extend(data::unknown(&project, &data));
     diagnostics.extend(fakes::check(&project));
     diagnostics.extend(auth_keys::check(&project));
+    diagnostics.extend(tls::check(&project));
     diagnostics.extend(protocol_keys::check(&project, &PROTOCOL_KEYS));
     diagnostics.extend(protocol_needs::check(&project));
     diagnostics.extend(protocol_checks::check(&project, data.documents()));

@@ -1,0 +1,242 @@
+---
+source: crates/compiler/tests/golden.rs
+assertion_line: 44
+input_file: crates/compiler/tests/cases/v1017_host_pattern/project
+---
+{
+  "summary": {
+    "errors": 8,
+    "warnings": 0,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "code": "V1017",
+      "severity": "error",
+      "message": "`https://api.partner.example/v1` is not a host pattern",
+      "primary": {
+        "span": {
+          "path": "vibranium.config.yaml",
+          "line": 13,
+          "column": 13,
+          "endLine": 13,
+          "endColumn": 43
+        },
+        "text": "a URL; write only its host"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "write `host`, `host:port` or `*.domain`, such as `api.partner.example:8443`"
+      ],
+      "fixes": [
+        {
+          "title": "Write api.partner.example",
+          "certain": true,
+          "edits": [
+            {
+              "path": "vibranium.config.yaml",
+              "range": {
+                "start": 216,
+                "end": 246
+              },
+              "newText": "api.partner.example"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "V1017",
+      "severity": "error",
+      "message": "`https://ada@api.partner.example:8443/v1?x=1` is not a host pattern",
+      "primary": {
+        "span": {
+          "path": "vibranium.config.yaml",
+          "line": 14,
+          "column": 13,
+          "endLine": 14,
+          "endColumn": 56
+        },
+        "text": "a URL; write only its host"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "write `host`, `host:port` or `*.domain`, such as `api.partner.example:8443`"
+      ],
+      "fixes": [
+        {
+          "title": "Write api.partner.example:8443",
+          "certain": true,
+          "edits": [
+            {
+              "path": "vibranium.config.yaml",
+              "range": {
+                "start": 259,
+                "end": 302
+              },
+              "newText": "api.partner.example:8443"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "V1017",
+      "severity": "error",
+      "message": "`https://*.partner.example/` is not a host pattern",
+      "primary": {
+        "span": {
+          "path": "vibranium.config.yaml",
+          "line": 15,
+          "column": 13,
+          "endLine": 15,
+          "endColumn": 39
+        },
+        "text": "a URL; write only its host"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "write `host`, `host:port` or `*.domain`, such as `api.partner.example:8443`"
+      ],
+      "fixes": [
+        {
+          "title": "Write *.partner.example",
+          "certain": true,
+          "edits": [
+            {
+              "path": "vibranium.config.yaml",
+              "range": {
+                "start": 315,
+                "end": 341
+              },
+              "newText": "'*.partner.example'"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "V1017",
+      "severity": "error",
+      "message": "`api.partner.example/v1` is not a host pattern",
+      "primary": {
+        "span": {
+          "path": "vibranium.config.yaml",
+          "line": 16,
+          "column": 13,
+          "endLine": 16,
+          "endColumn": 35
+        },
+        "text": "only a host and a port go here"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "write `host`, `host:port` or `*.domain`, such as `api.partner.example:8443`"
+      ],
+      "fixes": [
+        {
+          "title": "Write api.partner.example",
+          "certain": true,
+          "edits": [
+            {
+              "path": "vibranium.config.yaml",
+              "range": {
+                "start": 354,
+                "end": 376
+              },
+              "newText": "api.partner.example"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "V1017",
+      "severity": "error",
+      "message": "`api.*.example` is not a host pattern",
+      "primary": {
+        "span": {
+          "path": "vibranium.config.yaml",
+          "line": 17,
+          "column": 13,
+          "endLine": 17,
+          "endColumn": 26
+        },
+        "text": "`*` stands only for a whole leftmost label, as in `*.partner.example`"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "write `host`, `host:port` or `*.domain`, such as `api.partner.example:8443`"
+      ],
+      "fixes": []
+    },
+    {
+      "code": "V1017",
+      "severity": "error",
+      "message": "`*` is not a host pattern",
+      "primary": {
+        "span": {
+          "path": "vibranium.config.yaml",
+          "line": 18,
+          "column": 13,
+          "endLine": 18,
+          "endColumn": 16
+        },
+        "text": "`*` stands only for a whole leftmost label, as in `*.partner.example`"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "write `host`, `host:port` or `*.domain`, such as `api.partner.example:8443`"
+      ],
+      "fixes": []
+    },
+    {
+      "code": "V1017",
+      "severity": "error",
+      "message": "`api.partner.example:99999` is not a host pattern",
+      "primary": {
+        "span": {
+          "path": "vibranium.config.yaml",
+          "line": 19,
+          "column": 13,
+          "endLine": 19,
+          "endColumn": 38
+        },
+        "text": "the port is not a number up to 65535"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "write `host`, `host:port` or `*.domain`, such as `api.partner.example:8443`"
+      ],
+      "fixes": []
+    },
+    {
+      "code": "V1017",
+      "severity": "error",
+      "message": "`api partner` is not a host pattern",
+      "primary": {
+        "span": {
+          "path": "vibranium.config.yaml",
+          "line": 20,
+          "column": 13,
+          "endLine": 20,
+          "endColumn": 24
+        },
+        "text": "not a host name or IP address"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "write `host`, `host:port` or `*.domain`, such as `api.partner.example:8443`"
+      ],
+      "fixes": []
+    }
+  ]
+}

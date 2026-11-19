@@ -43,6 +43,7 @@ mod span;
 mod strings;
 mod template;
 mod test;
+mod tls;
 mod units;
 mod verbs;
 
@@ -69,7 +70,7 @@ pub use files::SourceFiles;
 pub use form::{form_pairs, form_text};
 pub use history::{Bodies, DEFAULT_KEEP, DEFAULT_MAX_BODY, HistoryConfig, Keep, cut_body};
 pub use hooks::{HookModule, HookModules, import_paths};
-pub use ids::{ActionId, ApiId, AuthId, DatasetId, FileId, ProfileId, SourceFileId, TestId, VarName};
+pub use ids::{ActionId, ApiId, AuthId, DatasetId, FileId, ProfileId, SourceFileId, TestId, TlsClientId, VarName};
 pub use labels::{InstanceLabels, instance_marks};
 pub use names::{Location, Names, Planned, check_label, check_parts};
 pub use outcome::{ActionOutcome, CleanupRecord, Failure, OwnerKey, RunStatus, TestResult, TestStatus, Totals};
@@ -89,5 +90,6 @@ pub use template::{
     StatusPattern, Template, TemplateValue,
 };
 pub use test::{Action, ActionKind, InlineRequest, Test, TestBody, TestFile};
+pub use tls::{ClientCert, ClientMaterial, TlsClient, TlsConfig};
 pub use units::{Duration, Size};
 pub use verbs::{is_third_person, third_person};

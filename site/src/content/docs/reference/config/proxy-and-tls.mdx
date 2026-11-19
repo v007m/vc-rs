@@ -1,12 +1,12 @@
 ---
 title: "Proxy and TLS"
-description: "vc reads proxies from HTTP_PROXY, HTTPS_PROXY and NO_PROXY, and trusts the certificates your OS trusts."
+description: "vc reads proxies from HTTP_PROXY, HTTPS_PROXY and NO_PROXY, trusts the certificates your OS trusts, and takes extra roots and client certificates from http.tls."
 sidebar: { order: 31 }
 ---
 
 import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
 
-There are no proxy or TLS keys in `vibranium.config.yaml`. A proxy comes from the usual environment variables, and HTTPS uses your system's certificate store.
+There are no proxy keys in `vibranium.config.yaml`: a proxy comes from the usual environment variables. HTTPS uses your system's certificate store, plus any roots in `http.tls.ca`, and `http.tls.clients` holds client certificates for mutual TLS (see [client certificates](/vc-rs/reference/auth/mtls/)).
 
 ```sh
 export HTTPS_PROXY=http://proxy.corp.example:3128
@@ -62,25 +62,26 @@ http:
 
 ```console
 $ vc check
-error[V1004]: unknown key `proxy` in http
+error[V1004]: unknown key `proxy` in configHttp
  --> vibranium.config.yaml:6:3
   |
 6 |   proxy: http://p:8080
   |   ^^^^^ not a known key
-  = help: expected one of `retry`
+  = help: expected one of `tls`, `retry`
 ```
 
 ## How it behaves
 
 - Only `http://` proxy URLs are supported.
 - Certificates are always verified. The trusted roots are your OS certificate store, so a company CA that your OS trusts works.
-- There is no setting to skip verification or to add a CA file.
+- `http.tls.ca` adds roots on top of the OS store: a path or inline PEM, or a list of them. There is no setting to skip verification.
 
-<Aside>To trust a private CA, add it to your OS certificate store.</Aside>
+<Aside>Not built yet: `vc check` checks `http.tls`, but a run does not load its roots or certificates until [#105](https://github.com/v007m/vc-rs/issues/105) lands in full. Until then, add a private CA to your OS certificate store.</Aside>
 
 ## Related
 
 <CardGrid>
   <LinkCard title="http.retry" href="/vc-rs/reference/config/http-retry/" />
+  <LinkCard title="Client certificates" href="/vc-rs/reference/auth/mtls/" />
   <LinkCard title="VIB_* variables" href="/vc-rs/reference/config/vib-variables/" />
 </CardGrid>
