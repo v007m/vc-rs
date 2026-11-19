@@ -126,10 +126,14 @@ const PROBE: &[u8] = b"vc: does this certificate hold the PKCS#12 bundle's key";
 /// certificate: the server holds its roots, so none is sent. An issuer's subject has the same DER
 /// as its child's issuer name; trusted bags count, since a keystore may store a real intermediate
 /// as one. Among several such, the one whose key verifies the child's signature wins, then the one
-/// that expires last, then the first. Certificates off this path are left out.
+/// that expires last, then the first. Certificates off this path are left out. A chain never
+/// repeats a certificate, so it is capped at the bundle's size, which bounds it even if a cycle
+/// check goes wrong.
 fn chain<'c, 'a>(certs: &'c [Cert<'a>], leaf: &'c Cert<'a>) -> Vec<CertificateDer<'static>> {
     let mut chain = vec![leaf];
-    while let Some(issuer) = issuer(certs, &chain) {
+    while chain.len() != certs.len()
+        && let Some(issuer) = issuer(certs, &chain)
+    {
         chain.push(issuer);
     }
     chain.into_iter().map(|cert| CertificateDer::from(cert.bag.cert.as_der().to_vec())).collect()

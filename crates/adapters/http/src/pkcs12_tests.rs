@@ -212,7 +212,9 @@ fn stops_a_chain_that_comes_back_round() -> TestResult {
     let key = PrivateKey::from_der(
         PrivateKeyDer::from_pem_slice(include_bytes!("../tests/fixtures/cycle.key"))?.secret_der(),
     )?;
-    let chain = chain_for(key, None, vec![cert_bag(&b, None, false), cert_bag(&a, None, false)])?;
+    let unrelated = pem_cert(RSA_CERT)?;
+    let bags = vec![cert_bag(&b, None, false), cert_bag(&unrelated, None, false), cert_bag(&a, None, false)];
+    let chain = chain_for(key, None, bags)?;
     assert_eq!(chain, [a.as_der(), b.as_der()]);
     Ok(())
 }
