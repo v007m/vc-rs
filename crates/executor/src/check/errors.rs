@@ -287,6 +287,10 @@ mod tests {
         assert_eq!(failure, Some(format!(r#"errors: expected [{{"code":"A"}},{{"code":"B"}}], got {got}"#)));
         let more = judged(&[listed(&[&[("code", "A")]])], &body);
         assert_eq!(more[0].actual, Some(json!({"count": 2, "errors": errors})));
+        let some_b = call("some", MatcherArg::Matcher(Box::new(entry(&[("code", "B")]))));
+        let all = judged(&[errors_check(call("allOf", MatcherArg::Matchers(vec![some_b.clone(), some_b])))], &body);
+        assert_eq!(passed(&all), [failed()]);
+        assert_eq!(all[0].actual, Some(errors), "another matcher shows the errors");
     }
 
     #[test]
