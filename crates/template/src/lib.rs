@@ -59,7 +59,7 @@ pub use expr::{Activation, DEFAULT_STEP_LIMIT, Expr, ExprError};
 pub use fakes::{ArgCheck, FakeCall, FakeCx, FakeDef, FakeError, FakeFn, FakeRegistry};
 pub use json_schema::{SchemaError, SchemaValidator, compile_schema};
 pub use merge::extend;
-pub use parse::{parse, root_name};
+pub use parse::{is_literal, parse, root_name};
 pub use pipe_fns::{Chance, PipeArgs, PipeFn};
 pub use pipes::{ArgType, PipeDef, PipeRegistry, PipeSignature, ValueType};
 pub use render::{Renderer, Resolve, to_text};

@@ -284,7 +284,15 @@ fn a_calls_method_is_the_one_its_api_type_decides() {
     let (program, rules) = (vc_model::Program::default(), ProtocolRulesRegistry::builtin());
     let table = vc_model::SourceFiles::new();
     let documents = crate::graphql::Documents::new(&project, (&[], &table));
-    let cx = LintCx { project: &project, program: &program, rules: &rules, documents: &documents, today: None };
+    let operations = documents.operations(&project);
+    let cx = LintCx {
+        project: &project,
+        program: &program,
+        rules: &rules,
+        documents: &documents,
+        operations: &operations,
+        today: None,
+    };
     let source = &project.sources[1];
     let methods: Vec<_> = link::list(source.root, "tests").iter().map(|test| cx.method(source, test)).collect();
     assert_eq!(methods, [Some(Method::Get), Some(Method::Post), None]);

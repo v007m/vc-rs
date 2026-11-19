@@ -53,9 +53,9 @@ pub enum Origin {
 }
 
 /// Each document of a compile, parsed once: every document file the compile was given, as its
-/// cached per-file stage read it, and the inline `query` of every `graphql` api; each schema
-/// file its api files name, by path, read once; and each document parsed once against each
-/// schema it is checked by.
+/// cached per-file stage read it, and the inline `query` of every `graphql` api; and each schema
+/// file its api files name, by path, read once. The first file of a path is its document and its
+/// schema.
 pub struct Documents<'a> {
     files: &'a SourceFiles,
     paths: HashMap<&'a str, SourceFileId>,
@@ -64,8 +64,19 @@ pub struct Documents<'a> {
     named: HashMap<&'a str, usize>,
     schema_paths: IndexSet<String>,
     schemas: HashMap<usize, Schema<'a>>,
-    operations: HashMap<(Origin, usize), GraphqlOperations>,
     problems: Diagnostics,
+}
+
+/// Each document parsed once against each schema an api file that uses it names, by where it is
+/// written and the schema's index in [`Documents::schema_paths`]; built for the lint stage only.
+pub struct Operations(HashMap<(Origin, usize), GraphqlOperations>);
+
+impl Operations {
+    /// The document written at `origin`, parsed against schema `index`, when that is a schema and
+    /// an api file that names it uses the document.
+    pub fn get(&self, key: (Origin, usize)) -> Option<&GraphqlOperations> {
+        self.0.get(&key)
+    }
 }
 
 /// A schema file's schema, else its V1015: borrowed from the unit that cached it, or read now.
@@ -97,11 +108,11 @@ pub enum Unpicked {
 
 impl<'a> Documents<'a> {
     /// The documents of `project`, with the units of the files the compile was given among
-    /// `entries`: its document files as their units hold them, and its inline ones; its schema
-    /// files; and each document parsed against the schema its api file names.
+    /// `entries`: its document files as their units hold them, and its inline ones; and its
+    /// schema files.
     pub fn new(project: &Project<'a>, (entries, files): (&'a [CacheEntry], &'a SourceFiles)) -> Self {
         let mut paths = HashMap::new();
-        for (id, file) in numbered(files).filter(|(_, file)| is_text(file.path.as_str())) {
+        for (id, file) in numbered(files).filter(|(_, file)| graphql_schema::is_schema(file.path.as_str())) {
             paths.entry(file.path.as_str()).or_insert(id);
         }
         let units = entries.iter().filter_map(|entry| Some((entry.file, entry.unit.as_deref()?.document.as_ref()?)));
@@ -112,12 +123,10 @@ impl<'a> Documents<'a> {
                 named.insert(source.path, schema_paths.insert_full(path).0);
             }
         }
-        let (inline, schemas, operations) = (HashMap::new(), HashMap::new(), HashMap::new());
-        let problems = Diagnostics::new();
-        let mut documents = Self { files, paths, given, inline, named, schema_paths, schemas, operations, problems };
+        let (inline, schemas, problems) = (HashMap::new(), HashMap::new(), Diagnostics::new());
+        let mut documents = Self { files, paths, given, inline, named, schema_paths, schemas, problems };
         documents.parse_inline(project);
         documents.schemas = documents.read_schemas(entries);
-        documents.operations = documents.parse_operations(project);
         documents
     }
 
@@ -138,7 +147,7 @@ impl<'a> Documents<'a> {
     }
 
     /// Each document of `project` parsed once against each schema an api file that uses it names.
-    fn parse_operations(&self, project: &Project<'a>) -> HashMap<(Origin, usize), GraphqlOperations> {
+    pub fn operations(&self, project: &Project<'a>) -> Operations {
         let mut operations = HashMap::new();
         for source in &project.sources {
             let Some(&index) = self.named.get(source.path) else { continue };
@@ -148,7 +157,7 @@ impl<'a> Documents<'a> {
                 operations.entry((written.origin, index)).or_insert_with(|| schema.operations(written.text));
             }
         }
-        operations
+        Operations(operations)
     }
 
     /// V1014 for each inline document that does not parse.
@@ -158,7 +167,7 @@ impl<'a> Documents<'a> {
 
     /// The text of the document file at `path`, when the compile was given it.
     pub fn text(&self, path: &str) -> Option<&'a str> {
-        let id = self.paths.get(path)?;
+        let id = self.paths.get(path).filter(|_| is_text(path))?;
         self.files.get(*id).map(|file| file.text.as_str())
     }
 
@@ -179,26 +188,18 @@ impl<'a> Documents<'a> {
         Some(schema.as_ref().map(|schema| &**schema).map_err(|diagnostic| &**diagnostic))
     }
 
-    /// The document written at `origin`, parsed against the schema in the file at `path`, when
-    /// that is a schema and an api file that names it uses the document.
-    pub fn operations(&self, origin: Origin, path: &str) -> Option<&GraphqlOperations> {
-        self.operations.get(&(origin, self.schema_paths.get_index_of(path)?))
-    }
-
-    /// Each schema file the api files name, as the unit among `entries` of the first file of its
-    /// path cached it, else read now.
+    /// Each schema file the api files name, the first file of its path as `paths` has it, read as
+    /// its unit among `entries` cached it, else now.
     fn read_schemas(&self, entries: &'a [CacheEntry]) -> HashMap<usize, Schema<'a>> {
-        let mut first: HashMap<&str, (SourceFileId, &'a FileUnit)> = HashMap::new();
-        for entry in entries {
-            let (Some(file), Some(unit)) = (self.files.get(entry.file), entry.unit.as_deref()) else { continue };
-            first.entry(file.path.as_str()).or_insert((entry.file, unit));
-        }
-        let read = |(index, path): (usize, &String)| {
-            let &(id, unit) = first.get(path.as_str())?;
-            let file = self.schema_file(id, unit)?;
+        let named = self.schema_paths.iter().enumerate();
+        let wanted: HashMap<SourceFileId, usize> =
+            named.filter_map(|(index, path)| Some((*self.paths.get(path.as_str())?, index))).collect();
+        let read = |entry: &'a CacheEntry| {
+            let (index, unit) = (*wanted.get(&entry.file)?, entry.unit.as_deref()?);
+            let file = self.schema_file(entry.file, unit)?;
             Some((index, graphql_schema::read(&*file, unit.schema.as_ref())))
         };
-        self.schema_paths.iter().enumerate().filter_map(read).collect()
+        entries.iter().filter_map(read).collect()
     }
 
     /// The schema file `id`, whose unit is `unit`: a data file, else GraphQL text that parses. A
@@ -309,7 +310,7 @@ fn broken(span: SourceSpan, problem: &GraphqlProblem) -> Diagnostic {
 
 /// The first of `problems` in the file `id` of `text`, and where it is: at the file's start when
 /// there is none.
-pub fn first_spot<'p>(
+fn first_spot<'p>(
     id: SourceFileId,
     text: &str,
     problems: &'p [GraphqlProblem],
@@ -320,7 +321,7 @@ pub fn first_spot<'p>(
 
 /// Where bytes `at` of the document file `id`, of `text`, are; an offset past the text, or inside
 /// a character, is moved back to the nearest character boundary.
-fn file_span(id: SourceFileId, text: &str, at: &Range<usize>) -> SourceSpan {
+pub fn file_span(id: SourceFileId, text: &str, at: &Range<usize>) -> SourceSpan {
     SourceSpan::new(id, position(text, at.start), position(text, at.end))
 }
 

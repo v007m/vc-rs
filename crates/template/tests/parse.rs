@@ -292,6 +292,22 @@ fn a_full_string_table_is_internal_not_syntax() {
     assert_eq!(syntax.to_string(), err("${").message);
 }
 
+#[test]
+fn literal_text_has_no_template_and_an_escape_is_literal() {
+    for (text, literal) in [
+        ("plain", true),
+        ("", true),
+        ("$${var.id}", true),
+        ("costs $5", true),
+        ("${var.id}", false),
+        ("id-${var.id}", false),
+        ("$${a}${var.id}", false),
+        ("${", false),
+    ] {
+        assert_eq!(vc_template::is_literal(text), literal, "{text}");
+    }
+}
+
 proptest! {
     #[test]
     fn parse_never_panics(text in "\\PC{0,60}", quotes in 0usize..3) {

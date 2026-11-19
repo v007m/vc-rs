@@ -1,8 +1,8 @@
 //! V2315: a literal value in the `body.variables` of a `graphql` api does not fit the type its
 //! operation declares for the variable, by the schema its file's `graphql.schema` names (D347):
 //! `limit: "3"` for an `Int`. A value with a template, a `$cel` value or an `$extend` in it is
-//! known only at run time, and is left alone. Each document is parsed once against each schema
-//! ([`crate::graphql::Documents`]).
+//! known only at run time, and is left alone, as is a `$remove` without `$extend`, which is
+//! V2211. Each document is parsed once against each schema ([`crate::graphql::Operations`]).
 
 use vc_diagnostics::{Code, Diagnostic};
 use vc_parser::{Entry, Node, Value};
@@ -11,7 +11,7 @@ use super::graphql::{self, Document};
 use super::graphql_schemas::{Checked, schema};
 use super::graphql_variables::given;
 use super::{Lint, LintCx};
-use crate::value::{CEL_KEY, EXTEND_KEY};
+use crate::value::{CEL_KEY, EXTEND_KEY, REMOVE_KEY};
 
 pub struct GraphqlValues;
 
@@ -37,18 +37,18 @@ fn misfits(cx: &LintCx<'_, '_>, document: &Document<'_>) -> Vec<Diagnostic> {
     found.into_iter().filter_map(|(index, why)| Some(misfit(literal.get(index)?, &why))).collect()
 }
 
-/// Whether `node` is known only at run time, as the value lowering reads it: a template, a map
-/// whose only key is `$cel`, or a map with an `$extend` key, anywhere in it. A `$cel` beside
-/// other keys is a key like any other.
+/// Whether `node` is not a literal value, as the value lowering (`value::lower`) reads it,
+/// anywhere in it: a template (`$${` is a literal `${`), a map whose only key is `$cel`, or a map
+/// with an `$extend` key; or a `$remove` without `$extend`, which is V2211. A map key is never a
+/// template, and a `$cel` beside other keys is a key like any other.
 fn dynamic(node: &Node) -> bool {
     match &node.value {
-        Value::Scalar(scalar) => scalar.text.contains("${"),
+        Value::Scalar(scalar) => !vc_template::is_literal(&scalar.text),
         Value::Seq(items) => items.iter().any(dynamic),
         Value::Map(entries) => {
             let cel = matches!(entries.as_slice(), [only] if only.key == CEL_KEY);
-            cel || entries
-                .iter()
-                .any(|entry| entry.key.contains("${") || entry.key == EXTEND_KEY || dynamic(&entry.value))
+            let keyed = |key: &str| entries.iter().any(|entry| entry.key == key);
+            cel || keyed(EXTEND_KEY) || keyed(REMOVE_KEY) || entries.iter().any(|entry| dynamic(&entry.value))
         }
     }
 }

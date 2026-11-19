@@ -112,8 +112,7 @@ fn bytes_round_trip_with_the_schema_a_file_holds() {
     let read = CompileCache::from_bytes(&cache.to_bytes());
     assert_eq!(read, cache);
     let schema = |path, byte, file| kept(&read, path, byte, file).and_then(|unit| unit.schema.clone());
-    let why =
-        |path, byte, file| schema(path, byte, file).and_then(Result::err).map(|problems| problems[0].message.clone());
+    let why = |path, byte, file| schema(path, byte, file).and_then(Result::err).map(|problem| problem.message);
     assert_eq!(schema("a.graphqls", 1, 0).and_then(Result::ok).unwrap().sdl(), sdl);
     assert_eq!(schema("b.graphql", 2, 1).and_then(Result::ok).unwrap().sdl(), sdl);
     assert_eq!(why("c.graphqls", 3, 2).unwrap(), "missing query root operation type in schema definition");

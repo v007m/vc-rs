@@ -37,7 +37,7 @@ use vc_diagnostics::{Code, Diagnostic, Diagnostics};
 use vc_model::{Date, FileKind, Method, Program};
 use vc_parser::Node;
 
-use crate::graphql::Documents;
+use crate::graphql::{Documents, Operations};
 use crate::link;
 use crate::link::{Project, ProtocolRulesRegistry, Source, whole_lines};
 
@@ -51,6 +51,8 @@ pub struct LintCx<'p, 'a> {
     pub rules: &'p ProtocolRulesRegistry,
     /// The GraphQL documents of the compile, each parsed once.
     pub documents: &'p Documents<'a>,
+    /// Each GraphQL document parsed once against each schema it is checked by.
+    pub operations: &'p Operations,
     /// Today's date in UTC, when the caller knows it.
     pub today: Option<Date>,
 }

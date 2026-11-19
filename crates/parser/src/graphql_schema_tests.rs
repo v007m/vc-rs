@@ -16,10 +16,10 @@ fn accounts() -> GraphqlSchema {
     parse_schema(SDL).unwrap()
 }
 
-/// The problems of `sdl`, each with the text it points at.
-fn problems(sdl: &str) -> Vec<(String, &str)> {
-    let problems = parse_schema(sdl).unwrap_err();
-    problems.into_iter().map(|problem| (problem.message, &sdl[problem.at])).collect()
+/// The first problem of `sdl`, with the text it points at.
+fn problem(sdl: &str) -> (String, &str) {
+    let problem = parse_schema(sdl).unwrap_err();
+    (problem.message, &sdl[problem.at])
 }
 
 /// Where `document` does not fit `schema`, when V2009 reports nothing of it.
@@ -59,27 +59,28 @@ fn misfits_in(schema: &GraphqlSchema, operation: (&str, Option<&str>), yaml: &st
 fn a_schema_holds_type_definitions_only() {
     let sdl = "type Query { me: String }\n";
     assert_eq!(parse_schema(sdl).unwrap().sdl(), sdl);
-    let found = problems("type Query { me: String }\nquery Me {\n  me\n}\nfragment F on Query { me }");
-    let expected = [
-        ("a schema document must not contain an operation definition".to_owned(), "query Me {"),
-        ("a schema document must not contain a fragment definition".to_owned(), "fragment F on Query { me }"),
-    ];
-    assert_eq!(found, expected);
-    assert_eq!(parse_schema("# nothing yet\n").unwrap_err()[0].at, 14..14);
-    assert_eq!(parse_schema("type Query {").unwrap_err()[0].at, 12..12);
+    let operation = problem("type Query { me: String }\nquery Me {\n  me\n}\nfragment F on Query { me }");
+    assert_eq!(operation, ("a schema document must not contain an operation definition".to_owned(), "query Me {"));
+    let fragment = problem("type Query { me: String }\nfragment F on Query { me }");
+    assert_eq!(
+        fragment,
+        ("a schema document must not contain a fragment definition".to_owned(), "fragment F on Query { me }")
+    );
+    assert_eq!(parse_schema("# nothing yet\n").unwrap_err().at, 14..14);
+    assert_eq!(parse_schema("type Query {").unwrap_err().at, 12..12);
 }
 
 #[test]
 fn a_schema_that_does_not_validate_is_reported_where_it_is_wrong() {
-    let missing = problems("type Query { me: Missing }");
-    assert_eq!(missing, [("cannot find type `Missing` in this document".to_owned(), "Missing")]);
-    let twice = problems("type Query { a: Int }\ntype Query { b: Int }");
-    assert_eq!(twice, [("the type `Query` is defined multiple times in the schema".to_owned(), "Query")]);
-    let empty = problems("type Query { a: Int }\nenum Role");
-    assert_eq!(empty, [("`Role` has no enum values".to_owned(), "enum Role")]);
+    let missing = problem("type Query { me: Missing }");
+    assert_eq!(missing, ("cannot find type `Missing` in this document".to_owned(), "Missing"));
+    let twice = problem("type Query { a: Int }\ntype Query { b: Int }");
+    assert_eq!(twice, ("the type `Query` is defined multiple times in the schema".to_owned(), "Query"));
+    let empty = problem("type Query { a: Int }\nenum Role");
+    assert_eq!(empty, ("`Role` has no enum values".to_owned(), "enum Role"));
     let no_query = parse_schema("type T { a: Int }").unwrap_err();
     assert_eq!(
-        (no_query[0].message.as_str(), no_query[0].at.clone()),
+        (no_query.message.as_str(), no_query.at.clone()),
         ("missing query root operation type in schema definition", 0..0)
     );
 }
@@ -189,8 +190,9 @@ fn what_v2009_reports_is_left_out_and_nothing_else() {
         ("fragment `F` must be used in an operation", "fragment F on User { id }")
     );
     assert_eq!(reported(unused).len(), 1, "an operation is picked, so V2009 says nothing of the fragment");
-    let fragments = "fragment F on User { id }";
-    assert_eq!((check(&schema, fragments), reported(fragments)), (vec![], vec![]));
+    for fragments in ["fragment F on User { id }", "fragment F on Nobody { id }", "fragment F on User { nope }"] {
+        assert_eq!((check(&schema, fragments), reported(fragments)), (vec![], vec![]), "{fragments}");
+    }
 }
 
 #[test]

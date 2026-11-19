@@ -31,6 +31,13 @@ pub fn root_name(ns: Namespace) -> Option<&'static str> {
     ROOTS.iter().find(|(_, root)| *root == ns).map(|(name, _)| *name)
 }
 
+/// Whether `text` is literal text, as the template grammar reads it: no `${…}` in it, where a
+/// `$${` is a literal `${`. Text that is not a template, which V2305 reports, is not literal.
+#[must_use]
+pub fn is_literal(text: &str) -> bool {
+    grammar::template(text).is_ok_and(|parts| parts.iter().all(|part| matches!(part, RawPart::Text(_))))
+}
+
 /// Parses the text of a YAML scalar into a [`Template`].
 ///
 /// `source` is where and how the scalar is written; spans of references, pipes and errors are

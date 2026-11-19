@@ -56,10 +56,7 @@ pub fn schema_from_introspection(root: &Node) -> Result<GraphqlSchema, GraphqlPr
     for directive in schema.get("directives").map(Node::items).unwrap_or_default() {
         self::directive(directive, &mut sdl)?;
     }
-    parse_schema(&sdl).map_err(|problems| {
-        let first = problems.first().map_or("", |problem| problem.message.as_str());
-        problem(schema, &format!("its types do not make a schema: {first}"))
-    })
+    parse_schema(&sdl).map_err(|first| problem(schema, &format!("its types do not make a schema: {}", first.message)))
 }
 
 /// The `schema { … }` block naming the root operation types, with its description, when any

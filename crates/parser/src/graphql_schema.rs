@@ -40,10 +40,6 @@ const NAME_COLLISION: &str = "OperationNameCollision";
 /// no api's `operationName` picks an operation of the document.
 const ANONYMOUS: &str = "AmbiguousAnonymousOperation";
 
-/// What `apollo-compiler` calls a fragment no operation uses, which V2009 reports as a document
-/// with no operation.
-const UNUSED_FRAGMENT: &str = "UnusedFragment";
-
 /// The largest magnitude past which a float is not an `i64`: 2^63.
 const I64_BOUND: f64 = 9_223_372_036_854_775_808.0;
 
@@ -107,17 +103,17 @@ pub struct GraphqlMismatch {
 ///
 /// # Errors
 ///
-/// Each spot where the text does not parse, holds an operation or fragment, or does not
+/// The first spot where the text does not parse, holds an operation or fragment, or does not
 /// validate; a spot is the first line of the part at fault.
-pub fn parse_schema(text: &str) -> Result<GraphqlSchema, Vec<GraphqlProblem>> {
-    let valid = build(text)?.validate().map_err(|invalid| problems(&invalid.errors, text))?;
+pub fn parse_schema(text: &str) -> Result<GraphqlSchema, GraphqlProblem> {
+    let valid = build(text)?.validate().map_err(|invalid| first(&invalid.errors, text))?;
     Ok(GraphqlSchema { sdl: text.to_owned(), valid })
 }
 
 /// The schema `text` holds, with `@oneOf`, not yet validated.
-fn build(text: &str) -> Result<Schema, Vec<GraphqlProblem>> {
+fn build(text: &str) -> Result<Schema, GraphqlProblem> {
     let built = Schema::builder().parse(text, SCHEMA_PATH).build();
-    let mut schema = built.map_err(|invalid| problems(&invalid.errors, text))?;
+    let mut schema = built.map_err(|invalid| first(&invalid.errors, text))?;
     schema.directive_definitions.entry(name!("oneOf")).or_insert_with(one_of);
     Ok(schema)
 }
@@ -136,14 +132,15 @@ fn one_of() -> apollo_compiler::Node<DirectiveDefinition> {
     apollo_compiler::Node::new(definition)
 }
 
-/// Each of `errors` as a problem in the schema `text`, at the first line of its spot.
-fn problems(errors: &DiagnosticList, text: &str) -> Vec<GraphqlProblem> {
+/// The first of `errors` as a problem in the schema `text`, at the first line of its spot.
+fn first(errors: &DiagnosticList, text: &str) -> GraphqlProblem {
     let problem = |found: Diagnostic<'_, DiagnosticData>| {
         let at = spot(&found, SCHEMA_PATH);
         let line = text.get(at.clone()).and_then(|part| part.find('\n')).map_or(at.end, |newline| at.start + newline);
         GraphqlProblem { message: found.error.to_string(), at: at.start..line }
     };
-    errors.iter().map(problem).collect()
+    let none = || GraphqlProblem { message: "it is not a GraphQL schema".to_owned(), at: 0..0 };
+    errors.iter().next().map_or_else(none, problem)
 }
 
 impl GraphqlSchema {
@@ -155,17 +152,15 @@ impl GraphqlSchema {
 
     /// Where the document of `operations` does not fit the schema, by the GraphQL spec's
     /// validation rules, less what V2009 reports (D368): two operations of one name; an
-    /// anonymous operation beside others when V2009 has `reported` the document; a fragment no
-    /// operation uses when the document has no operation. A selection left empty because each
-    /// field in it is unknown is reported only at those fields.
+    /// anonymous operation beside others when V2009 has `reported` the document; anything in a
+    /// document with no operation, which V2009 reports as nothing to run. A selection left empty
+    /// because each field in it is unknown is reported only at those fields.
     #[must_use]
     pub fn check_document(&self, operations: &GraphqlOperations, reported: bool) -> Vec<GraphqlMismatch> {
-        let Some(errors) = &operations.errors else { return Vec::new() };
-        let empty = operations.document.operations.is_empty();
+        let runs = !operations.document.operations.is_empty();
+        let Some(errors) = operations.errors.as_ref().filter(|_| runs) else { return Vec::new() };
         let left_out = |found: &Diagnostic<'_, DiagnosticData>| {
-            named(found, NAME_COLLISION)
-                || (reported && named(found, ANONYMOUS))
-                || (empty && named(found, UNUSED_FRAGMENT))
+            named(found, NAME_COLLISION) || (reported && named(found, ANONYMOUS))
         };
         let found: Vec<Diagnostic<'_, DiagnosticData>> = errors.iter().filter(|found| !left_out(found)).collect();
         let unknown: Vec<Range<usize>> = found

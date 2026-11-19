@@ -137,6 +137,8 @@ fn a_literal_value_of_another_type_is_v2315_at_the_value() {
             "the value of `$limit` does not fit the type the operation declares: could not coerce variable limit: \"3\" to type Int"
         );
         assert_eq!(spots(&given("{limit: 3, roles: [ADMIN, BOSS]}")), [(Code::V2315, 9, 36, 13)]);
+        let escaped = given("{limit: '$${var.limit}'}");
+        assert_eq!(spots(&escaped), [(Code::V2315, 9, 26, 15)], "an escape is literal: {}", schema.0);
         for fits in ["{limit: 3}", "{limit: '${var.limit}'}", "{roles: ['${var.role}']}", "{limit: 3, roles: [ADMIN]}"]
         {
             assert!(given(fits).diagnostics.is_empty(), "{fits}: {:?}", given(fits).diagnostics);
@@ -151,14 +153,14 @@ fn a_value_is_checked_only_against_a_schema() {
 }
 
 #[test]
-fn an_input_object_with_a_templated_key_is_not_checked() {
+fn a_key_is_literal_text_as_lowered_and_is_checked() {
     let query = "      query: 'mutation Me($in: NewUser!) { createUser(input: $in) { id } }'\n";
     for schema in SCHEMAS {
         let given =
             |variables: &str| compile(&me(&format!("{query}      variables: {variables}\n")), Some(schema), &[]);
         assert_eq!(spots(&given("{in: {name: x, nick: ADMIN}}")), [(Code::V2315, 9, 23, 22)], "{}", schema.0);
-        let templated = given("{in: {name: x, '${var.role}': ADMIN}}");
-        assert!(templated.diagnostics.is_empty(), "{}: {:?}", schema.0, templated.diagnostics);
+        let keyed = given("{in: {name: x, '${var.role}': ADMIN}}");
+        assert_eq!(spots(&keyed), [(Code::V2315, 9, 23, 31)], "{}", schema.0);
     }
 }
 
@@ -173,6 +175,7 @@ fn a_value_with_a_cel_or_an_extend_in_it_is_not_checked() {
             "{in: {name: {$cel: '\"x\"'}}}",
             "{in: {$extend: {name: x}, nick: ADMIN}}",
             "{in: [{$extend: {name: x}}]}",
+            "{in: {$remove: [role]}}",
         ] {
             let found = given(variables);
             let found: Vec<_> = found.diagnostics.iter().filter(|found| found.code == Code::V2315).collect();
@@ -214,8 +217,20 @@ fn an_anonymous_operation_beside_a_named_one_is_one_problem_with_one_code() {
         };
         let picked = compile(&me(&format!("{query}      operationName: Me\n")), Some(schema), &[]);
         assert_eq!(errors(&picked), [(Code::V2314, 8, 15, "{ user(id: 1) { id } }".len())], "{}", schema.0);
-        let unpicked = compile(&me(query), Some(schema), &[]);
-        let codes: Vec<Code> = errors(&unpicked).into_iter().map(|(code, ..)| code).collect();
-        assert_eq!(codes, [Code::V2009], "{}", schema.0);
+        let codes = |compiled: &Compiled| errors(compiled).into_iter().map(|(code, ..)| code).collect::<Vec<_>>();
+        assert_eq!(codes(&compile(&me(query), Some(schema), &[])), [Code::V2009], "{}", schema.0);
+        let listed = compile(&me(&format!("{query}      operationName: [Me]\n")), Some(schema), &[]);
+        assert_eq!(codes(&listed), [Code::V2302], "{}", schema.0);
+    }
+}
+
+#[test]
+fn a_document_with_no_operation_is_v2009_alone() {
+    for fragments in ["fragment F on User { id }", "fragment F on Nobody { id }", "fragment F on User { nope }"] {
+        for schema in SCHEMAS {
+            let compiled = compile(&me(&format!("      query: '{fragments}'\n")), Some(schema), &[]);
+            let codes: Vec<Code> = compiled.diagnostics.iter().map(|found| found.code).collect();
+            assert_eq!(codes, [Code::V2009], "{fragments}: {}", schema.0);
+        }
     }
 }

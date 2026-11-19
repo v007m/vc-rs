@@ -19,7 +19,7 @@ pub const CEL_KEY: &str = "$cel";
 pub const EXTEND_KEY: &str = "$extend";
 
 /// The key of the paths an extended map drops: `$remove: [id, shipping.geo]`.
-const REMOVE_KEY: &str = "$remove";
+pub const REMOVE_KEY: &str = "$remove";
 
 /// The value at `at`, or `None` when part of it does not compile (the reasons are recorded).
 pub fn lower(cx: &mut Cx<'_>, at: At<'_>) -> Option<TemplateValue> {
