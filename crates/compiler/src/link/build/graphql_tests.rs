@@ -145,3 +145,65 @@ fn errors_none_and_any_are_an_errors_check_that_the_list_is_empty_or_not() {
         );
     }
 }
+
+/// The `getUser` api with `expect: {errors: <errors>}`, compiled.
+fn with_errors(errors: &str) -> Compiled {
+    let apis = APIS.replace(
+        "      operationName: GetUser\n",
+        &format!("      operationName: GetUser\n    expect:\n      errors: {errors}\n"),
+    );
+    compile(&apis, &format!("{CONFIG}    vars: {{userId: u1}}\n"))
+}
+
+fn codes(compiled: &Compiled) -> Vec<(Code, &str)> {
+    compiled.diagnostics.iter().map(|found| (found.code, found.message.as_str())).collect()
+}
+
+/// The names of the calls `matcher` makes, outermost first, down its first nested matcher.
+fn names(matcher: &Matcher) -> Vec<&str> {
+    let Matcher::All(calls) = matcher else { return vec![] };
+    let mut found: Vec<&str> = calls.iter().map(|call| call.name.as_str()).collect();
+    let nested = calls.iter().find_map(|call| match &call.arg {
+        MatcherArg::Matcher(inner) => Some(inner.as_ref()),
+        MatcherArg::Matchers(all) => all.first(),
+        _ => None,
+    });
+    found.extend(nested.map(names).unwrap_or_default());
+    found
+}
+
+fn lowered(errors: &str) -> Vec<String> {
+    let compiled = with_errors(errors);
+    let program = compiled.program.unwrap_or_else(|| panic!("{errors}: {:?}", compiled.diagnostics));
+    let [check] = api(&program, "getUser").expect.checks.as_slice() else { panic!("{errors}") };
+    names(&check.matcher).into_iter().map(str::to_owned).collect()
+}
+
+const ON_THE_LIST: &str = "an expected error here would be matched against the whole list of errors";
+
+#[test]
+fn a_bare_error_on_the_list_is_v2306_without_a_fix_and_some_every_and_none_take_one() {
+    for bare in ["{code: FORBIDDEN}", "{not: {code: FORBIDDEN}}", "{anyOf: [{code: A}, {length: 2}]}"] {
+        let compiled = with_errors(bare);
+        assert_eq!(codes(&compiled), [(Code::V2306, ON_THE_LIST)], "{bare}");
+        assert!(compiled.diagnostics.iter().all(|found| found.fixes.is_empty()), "{bare}");
+    }
+    assert_eq!(lowered("{some: {code: FORBIDDEN}}"), ["some", "fields"]);
+    assert_eq!(lowered("{not: {some: {code: FORBIDDEN}}}"), ["not", "some", "fields"]);
+    assert_eq!(lowered("{allOf: [{none: {code: A}}, {length: 1}]}"), ["allOf", "none", "fields"]);
+    assert_eq!(lowered("{every: {not: {code: A}}}"), ["every", "not", "fields"]);
+    assert_eq!(lowered("[{code: A}, {message: {startsWith: x}}]"), ["entries", "fields"]);
+}
+
+#[test]
+fn a_listed_path_is_v2306_with_the_dotted_path_as_its_certain_fix() {
+    let compiled = with_errors("[{path: [user, notes, 0, 'a.b']}]");
+    let [found] = compiled.diagnostics.iter().collect::<Vec<_>>()[..] else { panic!("{:?}", compiled.diagnostics) };
+    assert_eq!((found.code, found.message.as_str()), (Code::V2306, "an expected error's `path` is dotted, not a list"));
+    let [fix] = found.fixes.as_slice() else { panic!("{found:?}") };
+    assert_eq!((fix.title.as_str(), fix.certain), ("Write the path as `user.notes[0][\"a.b\"]`", true));
+    assert_eq!(fix.edits[0].new_text, "'user.notes[0][\"a.b\"]'");
+    let templated = with_errors("[{path: [user, '${var.userId}']}]");
+    assert!(templated.diagnostics.iter().all(|found| found.code == Code::V2306 && found.fixes.is_empty()));
+    assert_eq!(lowered("[{path: 'user.notes[0]'}]"), ["entries", "fields"]);
+}

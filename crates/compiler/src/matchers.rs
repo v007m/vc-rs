@@ -108,8 +108,8 @@ struct Spot<'n> {
 /// The matcher or literal at `at`, comparing in `unit`. A map with no matcher's name as a key is
 /// a literal object; one lone key close to a matcher's name is V3208.
 pub fn matcher(cx: &mut Cx<'_>, at: At<'_>, unit: Unit) -> Option<Matcher> {
-    if unit == Unit::Errors {
-        return errors::expected(cx, at);
+    if matches!(unit, Unit::Errors | Unit::Error) {
+        return errors::expected(cx, at, unit);
     }
     let Value::Map(entries) = &at.node.value else { return literal(cx, at, unit) };
     if !entries.iter().any(|entry| find(&entry.key).is_some()) {
@@ -208,13 +208,20 @@ fn call(cx: &mut Cx<'_>, at: At<'_>, (entry, unit): (&Entry, Unit)) -> Option<Ma
         cx.push(suggest::hint(diagnostic, &Misspelling { word: &entry.key, span: entry.key_span, known: &names }));
         return None;
     };
-    let spot = Spot { at: at.child(&entry.value), unit, name: &entry.key };
+    let spot = Spot { at: at.child(&entry.value), unit: inner(unit, kind), name: &entry.key };
     let arg = argument(cx, spot, kind.arg)?;
     Some(MatcherCall {
         name: entry.key.clone(),
         arg,
         span: SourceSpan::new(entry.key_span.file, entry.key_span.start, entry.value.span.end),
     })
+}
+
+/// The unit `kind`'s argument compares in: under `expect.errors`, `every`, `some` and `none`
+/// see each error, while `not`, `allOf` and `anyOf` see the list.
+fn inner(unit: Unit, kind: &Kind) -> Unit {
+    let each = kind.arg == Arg::Nested && kind.list == OnList::Whole;
+    if unit == Unit::Errors && each { Unit::Error } else { unit }
 }
 
 fn argument(cx: &mut Cx<'_>, spot: Spot<'_>, kind: Arg) -> Option<MatcherArg> {

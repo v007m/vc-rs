@@ -57,9 +57,12 @@ pub enum Unit {
     Size,
     /// Rates, as a share from 0 to 1: `{ lt: 1% }` or `{ lt: 0.01 }`.
     Rate,
-    /// A `graphql` response's errors, as plain values; there a list, or a map that names no
-    /// matcher, is the errors expected rather than a literal (D345).
+    /// A `graphql` response's errors, as plain values; there a list is the errors expected
+    /// rather than a literal, and a map that names no matcher is V2306 (D345).
     Errors,
+    /// One of those errors, under `every`, `some` or `none`: there a map that names no matcher
+    /// is an expected error (D360).
+    Error,
 }
 
 /// Roots a key makes available to the templates under it (D125).

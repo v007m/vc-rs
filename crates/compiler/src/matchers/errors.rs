@@ -1,11 +1,13 @@
 //! What `expect.errors` expects of a `graphql` response's errors (D345), as matchers on the
-//! normalised list: a list of entries, where each entry matches some error and each error
-//! matches some entry, or matchers whose literal maps are entries (`{ some: { code: TIMEOUT } }`).
-//! An entry lowers to the internal `fields` matcher, a literal or matcher per key it writes (D360).
+//! normalised list: a list of expected errors, where each matches some error and each error
+//! matches some expected one, or matchers on the list. Under `every`, `some` and `none` a map
+//! that names no matcher is an expected error (`{ some: { code: TIMEOUT } }`); on the list itself
+//! it is V2306, since the list is no error. An expected error lowers to the internal `fields`
+//! matcher (D360), and the list form to the internal `entries` matcher, which holds it once.
 
-use vc_diagnostics::{Code, Diagnostic};
-use vc_model::{Matcher, MatcherArg, MatcherCall, SourceSpan};
-use vc_parser::{Entry, Node, Value};
+use vc_diagnostics::{Code, Diagnostic, Fix, TextEdit};
+use vc_model::{Matcher, MatcherArg, MatcherCall, Segment, SourceSpan};
+use vc_parser::{Entry, Node, ScalarKind, Value};
 
 use super::{Unit, calls, find, literal};
 use crate::parts::{At, Cx};
@@ -14,27 +16,36 @@ use crate::suggest::{self, Misspelling};
 /// The keys an entry may write: `code` is short for `extensions.code`.
 const KEYS: [&str; 4] = ["message", "path", "code", "extensions"];
 
-/// The matcher `at` holds under `expect.errors`.
-pub fn expected(cx: &mut Cx<'_>, at: At<'_>) -> Option<Matcher> {
-    match &at.node.value {
-        Value::Seq(items) => listed(cx, at, items),
-        Value::Map(entries) if entries.iter().any(|entry| find(&entry.key).is_some()) => {
-            calls(cx, at, (entries, Unit::Errors))
+/// The matcher `at` holds under `expect.errors`: on the list (`Unit::Errors`) or on one error.
+pub fn expected(cx: &mut Cx<'_>, at: At<'_>, unit: Unit) -> Option<Matcher> {
+    match (&at.node.value, unit) {
+        (Value::Map(entries), _) if entries.iter().any(|entry| find(&entry.key).is_some()) => {
+            calls(cx, at, (entries, unit))
         }
-        Value::Map(entries) => entry(cx, at, entries),
-        Value::Scalar(_) => literal(cx, at, Unit::Plain),
+        (Value::Seq(items), Unit::Errors) => listed(cx, at, items),
+        (Value::Map(_), Unit::Errors) => on_the_list(cx, at),
+        (Value::Map(entries), _) => entry(cx, at, entries),
+        _ => literal(cx, at, Unit::Plain),
     }
 }
 
-/// The list form: `allOf: [every: {anyOf: [e1, e2]}, some: e1, some: e2]`.
+/// The list form, as the internal `entries` matcher.
 fn listed(cx: &mut Cx<'_>, at: At<'_>, items: &[Node]) -> Option<Matcher> {
     let found: Vec<_> = items.iter().map(|item| item_entry(cx, at.child(item))).collect();
     let entries = found.into_iter().collect::<Option<Vec<_>>>()?;
-    let span = at.node.span;
-    let any = one(call(("anyOf", MatcherArg::Matchers(entries.clone())), span));
-    let every = one(call(("every", MatcherArg::Matcher(Box::new(any))), span));
-    let some = entries.into_iter().map(|entry| one(call(("some", MatcherArg::Matcher(Box::new(entry))), span)));
-    Some(one(call(("allOf", MatcherArg::Matchers(std::iter::once(every).chain(some).collect())), span)))
+    Some(one(call(("entries", MatcherArg::Matchers(entries)), at.node.span)))
+}
+
+/// V2306 for an expected error written where the whole list is matched. Whether one error or
+/// exactly these was meant is not certain, so there is no fix.
+fn on_the_list(cx: &mut Cx<'_>, at: At<'_>) -> Option<Matcher> {
+    let message = "an expected error here would be matched against the whole list of errors";
+    let diagnostic = Diagnostic::new(Code::V2306, at.node.span, message).label("names no matcher").help(
+        "write `some:` to expect it among the errors (`{some: {code: FORBIDDEN}}`), or a list to expect exactly \
+         these (`[{code: FORBIDDEN}]`)",
+    );
+    cx.push(diagnostic);
+    None
 }
 
 /// One item of the list form, which must be an entry.
@@ -63,7 +74,32 @@ fn field(cx: &mut Cx<'_>, at: At<'_>, entry: &Entry) -> Option<(String, Matcher)
         cx.push(suggest::hint(diagnostic, &Misspelling { word: &entry.key, span: entry.key_span, known: &KEYS }));
         return None;
     }
+    if let (true, Value::Seq(items)) = (entry.key == "path", &entry.value.value) {
+        cx.push(listed_path(&entry.value, items));
+        return None;
+    }
     Some((entry.key.clone(), super::matcher(cx, at.child(&entry.value), Unit::Plain)?))
+}
+
+/// V2306 for a `path` written as a list: errors are compared with it dotted, so a list never
+/// matches. When each segment is a plain key or index, the dotted text is the certain fix.
+fn listed_path(node: &Node, items: &[Node]) -> Diagnostic {
+    let diagnostic = Diagnostic::new(Code::V2306, node.span, "an expected error's `path` is dotted, not a list")
+        .label("never matches")
+        .help("errors are compared with `path` dotted as body paths are: `user.notes[0]`");
+    let Some(segments) = items.iter().map(segment).collect::<Option<Vec<_>>>() else { return diagnostic };
+    let text = vc_template::dotted(&segments);
+    let edit = TextEdit::replace(node.span, format!("'{}'", text.replace('\'', "''")));
+    diagnostic.fix(Fix::certain(format!("Write the path as `{text}`"), vec![edit]))
+}
+
+/// A literal path segment: a whole number is an index, other text a key.
+fn segment(item: &Node) -> Option<Segment> {
+    let scalar = item.as_scalar().filter(|scalar| !scalar.text.contains("${"))?;
+    match scalar.kind {
+        ScalarKind::Int => scalar.text.parse().ok().map(Segment::Index),
+        _ => Some(Segment::Key(scalar.text.clone())),
+    }
 }
 
 fn call((name, arg): (&str, MatcherArg), span: SourceSpan) -> MatcherCall {

@@ -99,13 +99,21 @@ impl Reader<'_, '_> {
         }
     }
 
-    /// A `graphql` response's errors (D345): `none` and `any` as `empty`, anything else the
-    /// matcher it compiled to.
+    /// A `graphql` response's errors (D345): `none` and `any` as `empty`, a list or map the
+    /// matcher it compiled to. Another word is no check: the shape check reported it.
     fn errors(&mut self, node: Option<&Node>) {
         let Some(node) = node else { return };
         let Some(word) = node.as_str() else { return self.matcher(CheckKind::Errors, Some(node), None) };
-        let empty = MatcherArg::Value(TemplateValue::Bool(word == "none"));
-        let call = MatcherCall { name: "empty".to_owned(), arg: empty, span: node.span };
+        let empty = match word {
+            "none" => true,
+            "any" => false,
+            _ => return,
+        };
+        let call = MatcherCall {
+            name: "empty".to_owned(),
+            arg: MatcherArg::Value(TemplateValue::Bool(empty)),
+            span: node.span,
+        };
         self.push((CheckKind::Errors, None), Matcher::All(vec![call]), node.span);
     }
 
@@ -177,7 +185,8 @@ mod tests {
         Check, CheckKind, Expect, Matcher, Origin, Path, Pos, Segment, SourceFileId, SourceSpan, TemplateValue, TestId,
     };
 
-    use super::{merge, path};
+    use super::{merge, path, read};
+    use crate::link::project::{self, Source};
 
     fn check(kind: CheckKind, target: &str, line: u32) -> Check {
         let at = Pos::new(line, 1, 0);
@@ -217,6 +226,27 @@ mod tests {
         let merged = merge(&[&api, &step]);
         assert_eq!(lines(&merged), [2]);
         assert!(!merged.replace);
+    }
+
+    /// The checks the first api's `expect` in `apis` reads, with the file's diagnostic codes.
+    fn api_checks(apis: &str) -> (Vec<CheckKind>, Vec<vc_diagnostics::Code>) {
+        let path = vc_model::SourcePath::new("services/users/users.api.yaml").unwrap();
+        let file = vc_model::SourceFile { path, text: apis.to_owned(), hash: vc_model::ContentHash::new([0; 32]) };
+        let (tools, mut strings) = (crate::parts::Tools::new(), vc_model::StringTable::new());
+        let unit = crate::stage::unit(SourceFileId::new(0), &file, (&tools, &mut strings));
+        let source = Source::new(SourceFileId::new(0), &file, &unit).unwrap();
+        let api = &project::list(source.root, "apis")[0];
+        let origin = Origin::Test(TestId::new(strings.intern("t").unwrap()));
+        let checks = read(&source, api.get("expect"), origin).checks.iter().map(|check| check.kind).collect();
+        (checks, unit.diagnostics.iter().map(|found| found.code).collect())
+    }
+
+    #[test]
+    fn errors_none_and_any_are_checks_and_another_word_is_none_since_the_shape_reported_it() {
+        let apis = |word: &str| format!("type: graphql\napis:\n  - id: get\n    expect:\n      errors: {word}\n");
+        assert_eq!(api_checks(&apis("none")), (vec![CheckKind::Errors], vec![]));
+        assert_eq!(api_checks(&apis("any")), (vec![CheckKind::Errors], vec![]));
+        assert_eq!(api_checks(&apis("FORBIDDEN")), (vec![], vec![vc_diagnostics::Code::V2302]));
     }
 
     #[test]
