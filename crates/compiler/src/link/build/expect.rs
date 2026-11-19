@@ -151,6 +151,9 @@ fn plain(text: &str) -> (Option<Segment>, &str) {
 }
 
 fn bracket(text: &str) -> (Option<Segment>, &str) {
+    if let Some((name, rest)) = quoted(text) {
+        return (Some(key(name)), rest);
+    }
     let Some(end) = text.find(']') else { return (Some(key(text)), "") };
     let inner = &text[..end];
     let quoted = ['\'', '"'].iter().find_map(|quote| inner.strip_prefix(*quote)?.strip_suffix(*quote));
@@ -160,6 +163,14 @@ fn bracket(text: &str) -> (Option<Segment>, &str) {
         _ => inner.parse().map_or_else(|_| key(inner), Segment::Index),
     };
     (Some(segment), &text[end + 1..])
+}
+
+/// A quoted key and the text after its `]`: the key ends at its closing quote, so it may hold `]`.
+fn quoted(text: &str) -> Option<(&str, &str)> {
+    let quote = text.chars().next().filter(|first| matches!(first, '\'' | '"'))?;
+    let inner = &text[1..];
+    let end = inner.find(quote)?;
+    Some((&inner[..end], inner[end + 1..].strip_prefix(']')?))
 }
 
 /// When an api's `save` runs (D191): its `saveOn` at `node`, else the status its `expect`
@@ -258,5 +269,16 @@ mod tests {
         assert_eq!(segments("a[b].c"), [key("a"), key("b"), key("c")]);
         assert_eq!(segments("a..b[open"), [key("a"), key("b"), key("open")]);
         assert_eq!(path(""), Path { segments: vec![] });
+    }
+
+    #[test]
+    fn a_quoted_key_ends_at_its_closing_quote_so_it_may_hold_a_bracket() {
+        let segments = |text: &str| path(text).segments;
+        let key = |name: &str| Segment::Key(name.to_owned());
+        assert_eq!(segments("a[\"b\"].c"), [key("a"), key("b"), key("c")]);
+        assert_eq!(segments("[\"d]\"]['e]]'].f"), [key("d]"), key("e]]"), key("f")]);
+        assert_eq!(segments("['say \"hi\"'][\"\"]"), [key("say \"hi\""), key("")]);
+        assert_eq!(segments("[\"x\" ]"), [key("\"x\" ")], "a quote not closed before `]` is the old reading");
+        assert_eq!(segments("[\"a\"b\"]"), [key("a\"b")]);
     }
 }
