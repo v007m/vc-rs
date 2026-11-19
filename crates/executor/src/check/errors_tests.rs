@@ -215,3 +215,28 @@ fn thousands_of_entries_pair_with_as_many_errors_in_reverse_and_report_the_one_l
     assert_eq!(passed(&results), [failed()]);
     assert_eq!(results[0].actual.as_ref().and_then(|actual| actual.get("unpaired")), Some(&json!([{"code": "C1999"}])));
 }
+
+#[test]
+fn an_entry_paired_along_a_path_keeps_its_error_from_the_entries_after_it() {
+    let fits = vec![vec![0, 1], vec![0], vec![0]];
+    assert_eq!(Pairing::new(fits, 3).unpaired(), [2], "the first two share errors 0 and 1, the third has none left");
+}
+
+#[test]
+fn the_greedy_pass_takes_the_first_free_error_an_entry_fits() {
+    let mut pairing = Pairing::new(vec![vec![1, 0], vec![1]], 2);
+    assert!(pairing.free(0));
+    assert_eq!(pairing.owner, [None, Some(0)]);
+    assert!(!pairing.free(1), "error 1 is taken");
+}
+
+#[test]
+fn a_search_tries_each_fit_once_and_resumes_after_the_last_one_tried() {
+    let mut pairing = Pairing::new(vec![vec![0, 1, 2]], 3);
+    pairing.search = 1;
+    pairing.seen[1] = 1;
+    let mut step = super::Step { entry: 0, next: 0, taken: 0 };
+    assert_eq!((pairing.untried(&mut step), step.next), (Some(0), 1));
+    assert_eq!((pairing.untried(&mut step), step.next), (Some(2), 3), "error 1 was tried already");
+    assert_eq!(pairing.untried(&mut step), None);
+}
