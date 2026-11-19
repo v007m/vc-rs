@@ -46,13 +46,24 @@ impl Protocol {
     reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
 )]
 pub enum ProtocolKeys {
-    /// Every key its shapes declare, so no api of the type reports V2213.
-    All,
+    /// Every key its shapes declare but these, which belong to other types.
+    Except(AllowedKeys),
     /// Only these; any other key of the same place is V2213.
     Only(AllowedKeys),
 }
 
-/// The keys a type that restricts them allows, at each place they are written.
+impl ProtocolKeys {
+    /// Whether `key`, written at the place `at` picks from [`AllowedKeys`], applies.
+    #[must_use]
+    pub fn takes(&self, at: fn(&AllowedKeys) -> &'static [&'static str], key: &str) -> bool {
+        match self {
+            Self::Except(keys) => !at(keys).contains(&key),
+            Self::Only(keys) => at(keys).contains(&key),
+        }
+    }
+}
+
+/// The keys a type lists, at each place they are written.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[expect(
     clippy::exhaustive_structs,
@@ -70,11 +81,14 @@ pub struct AllowedKeys {
 /// Each type with the keys it allows (see the syntax reference, "Api types"). The compiler's
 /// V2213 comes from this one table.
 pub const PROTOCOL_KEYS: [(Protocol, ProtocolKeys); 2] =
-    [(Protocol::Http, ProtocolKeys::All), (Protocol::Graphql, ProtocolKeys::Only(GRAPHQL_KEYS))];
+    [(Protocol::Http, ProtocolKeys::Except(HTTP_NOT)), (Protocol::Graphql, ProtocolKeys::Only(GRAPHQL_KEYS))];
 
 /// The keys an api of each type cannot do without, as dotted paths; a missing one is V1005.
 pub const PROTOCOL_NEEDS: [(Protocol, &[&str]); 2] =
     [(Protocol::Http, &["path"]), (Protocol::Graphql, &["body.query"])];
+
+/// An `http` api takes every key but `expect.errors`, a `graphql` response's (D345).
+const HTTP_NOT: AllowedKeys = AllowedKeys { api: &[], expect: &["errors"], call: &[] };
 
 /// A `graphql` api always sends `POST` with its `body` (D343): no `method`, and no `body` on a
 /// call.
@@ -100,13 +114,13 @@ const GRAPHQL_KEYS: AllowedKeys = AllowedKeys {
         "afterResponse",
         "deprecated",
     ],
-    expect: &["status", "headers", "body", "size", "timing", "cel", "custom", "replace"],
+    expect: &["status", "headers", "body", "size", "timing", "cel", "custom", "errors", "replace"],
     call: &["vars", "auth", "headers", "query", "expect", "save", "poll", "retry", "timeout"],
 };
 
 #[cfg(test)]
 mod tests {
-    use super::{PROTOCOL_KEYS, PROTOCOL_NEEDS, Protocol, ProtocolKeys};
+    use super::{AllowedKeys, PROTOCOL_KEYS, PROTOCOL_NEEDS, Protocol};
 
     #[test]
     fn every_type_reads_back_from_its_key_and_has_its_keys() {
@@ -120,14 +134,17 @@ mod tests {
     }
 
     #[test]
-    fn http_allows_every_key_and_graphql_takes_away_method_and_a_call_body() {
-        assert_eq!(PROTOCOL_KEYS[0], (Protocol::Http, ProtocolKeys::All));
-        let (graphql, ProtocolKeys::Only(keys)) = PROTOCOL_KEYS[1] else { panic!("graphql restricts its keys") };
+    fn http_takes_all_but_errors_and_graphql_takes_away_method_and_a_call_body() {
+        let [(_, http), (graphql, keys)] = PROTOCOL_KEYS;
+        let (expect, call, api) =
+            (|keys: &AllowedKeys| keys.expect, |keys: &AllowedKeys| keys.call, |keys: &AllowedKeys| keys.api);
         assert_eq!(
-            (graphql, keys.api.contains(&"method"), keys.call.contains(&"body")),
-            (Protocol::Graphql, false, false)
+            (http.takes(api, "method"), http.takes(expect, "status"), http.takes(expect, "errors")),
+            (true, true, false)
         );
-        assert!(keys.api.contains(&"body") && keys.expect.contains(&"status"));
+        assert_eq!(graphql, Protocol::Graphql);
+        assert_eq!((keys.takes(api, "method"), keys.takes(call, "body")), (false, false));
+        assert!(keys.takes(api, "body") && keys.takes(expect, "status") && keys.takes(expect, "errors"));
     }
 
     #[test]

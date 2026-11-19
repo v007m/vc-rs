@@ -1,6 +1,7 @@
 use vc_diagnostics::{Code, Diagnostic};
 use vc_model::{
-    Api, BodySpec, ContentHash, GraphqlBody, Method, Part, Program, Protocol, SourceFile, SourcePath, TemplateValue,
+    Api, BodySpec, CheckKind, ContentHash, GraphqlBody, Matcher, MatcherArg, Method, Part, Program, Protocol,
+    SourceFile, SourcePath, TemplateValue,
 };
 
 use crate::{CompileInput, Compiled};
@@ -123,4 +124,125 @@ fn an_unset_var_in_variables_is_v2101() {
     let unset: Vec<&Diagnostic> = compiled.diagnostics.iter().filter(|found| found.code == Code::V2101).collect();
     let [unset] = unset.as_slice() else { panic!("{:?}", compiled.diagnostics) };
     assert_eq!(&APIS[unset.primary.span.start.offset..unset.primary.span.end.offset], "${var.userId}");
+}
+
+#[test]
+fn errors_none_and_any_are_an_errors_check_that_the_list_is_empty_or_not() {
+    for (word, empty) in [("none", true), ("any", false)] {
+        let apis = APIS.replace(
+            "      operationName: GetUser\n",
+            &format!("      operationName: GetUser\n    expect:\n      errors: {word}\n"),
+        );
+        let program = compiled(&apis);
+        let [check] = api(&program, "getUser").expect.checks.as_slice() else { panic!("{word}") };
+        assert_eq!((check.kind, check.target.as_ref()), (CheckKind::Errors, None), "{word}");
+        let Matcher::All(calls) = &check.matcher else { panic!("{:?}", check.matcher) };
+        let [call] = calls.as_slice() else { panic!("{calls:?}") };
+        assert_eq!(
+            (call.name.as_str(), &call.arg),
+            ("empty", &MatcherArg::Value(TemplateValue::Bool(empty))),
+            "{word}"
+        );
+    }
+}
+
+/// The `getUser` api with `expect: {errors: <errors>}`, compiled.
+fn with_errors(errors: &str) -> Compiled {
+    let apis = APIS.replace(
+        "      operationName: GetUser\n",
+        &format!("      operationName: GetUser\n    expect:\n      errors: {errors}\n"),
+    );
+    compile(&apis, &format!("{CONFIG}    vars: {{userId: u1}}\n"))
+}
+
+fn codes(compiled: &Compiled) -> Vec<(Code, &str)> {
+    compiled.diagnostics.iter().map(|found| (found.code, found.message.as_str())).collect()
+}
+
+/// The names of the calls `matcher` makes, outermost first, down its first nested matcher.
+fn names(matcher: &Matcher) -> Vec<&str> {
+    let Matcher::All(calls) = matcher else { return vec![] };
+    let mut found: Vec<&str> = calls.iter().map(|call| call.name.as_str()).collect();
+    let nested = calls.iter().find_map(|call| match &call.arg {
+        MatcherArg::Matcher(inner) => Some(inner.as_ref()),
+        MatcherArg::Matchers(all) => all.first(),
+        _ => None,
+    });
+    found.extend(nested.map(names).unwrap_or_default());
+    found
+}
+
+fn lowered(errors: &str) -> Vec<String> {
+    let compiled = with_errors(errors);
+    let program = compiled.program.unwrap_or_else(|| panic!("{errors}: {:?}", compiled.diagnostics));
+    let [check] = api(&program, "getUser").expect.checks.as_slice() else { panic!("{errors}") };
+    names(&check.matcher).into_iter().map(str::to_owned).collect()
+}
+
+const ON_THE_LIST: &str = "an expected error here would be matched against the whole list of errors";
+
+#[test]
+fn a_bare_error_on_the_list_is_v2306_without_a_fix_and_some_every_and_none_take_one() {
+    for bare in ["{code: FORBIDDEN}", "{not: {code: FORBIDDEN}}", "{anyOf: [{code: A}, {length: 2}]}"] {
+        let compiled = with_errors(bare);
+        assert_eq!(codes(&compiled), [(Code::V2306, ON_THE_LIST)], "{bare}");
+        assert!(compiled.diagnostics.iter().all(|found| found.fixes.is_empty()), "{bare}");
+    }
+    assert_eq!(lowered("{some: {code: FORBIDDEN}}"), ["some", "fields"]);
+    assert_eq!(lowered("{not: {some: {code: FORBIDDEN}}}"), ["not", "some", "fields"]);
+    assert_eq!(lowered("{allOf: [{none: {code: A}}, {length: 1}]}"), ["allOf", "none", "fields"]);
+    assert_eq!(lowered("{every: {not: {code: A}}}"), ["every", "not", "fields"]);
+    assert_eq!(lowered("[{code: A}, {message: {startsWith: x}}]"), ["entries", "fields"]);
+}
+
+#[test]
+fn a_listed_path_is_v2306_with_the_dotted_path_as_its_certain_fix() {
+    let compiled = with_errors("[{path: [user, notes, 0, 'a.b']}]");
+    let [found] = compiled.diagnostics.iter().collect::<Vec<_>>()[..] else { panic!("{:?}", compiled.diagnostics) };
+    assert_eq!((found.code, found.message.as_str()), (Code::V2306, "an expected error's `path` is dotted, not a list"));
+    let [fix] = found.fixes.as_slice() else { panic!("{found:?}") };
+    assert_eq!((fix.title.as_str(), fix.certain), ("Write the path as `user.notes[0][\"a.b\"]`", true));
+    assert_eq!(fix.edits[0].new_text, "'user.notes[0][\"a.b\"]'");
+    let templated = with_errors("[{path: [user, '${var.userId}']}]");
+    assert!(templated.diagnostics.iter().all(|found| found.code == Code::V2306 && found.fixes.is_empty()));
+    assert_eq!(lowered("[{path: 'user.notes[0]'}]"), ["entries", "fields"]);
+}
+
+const NO_CHECK: &str = "`errors` takes `none`, `any`, a list of expected errors or a matcher on the list";
+const NO_ENTRY: &str = "an expected error is a map of `message`, `path`, `code` and `extensions`";
+
+#[test]
+fn a_value_that_is_no_check_on_the_list_or_no_entry_under_some_every_or_none_is_v2306() {
+    for (errors, message) in [
+        ("null", NO_CHECK),
+        ("false", NO_CHECK),
+        ("0", NO_CHECK),
+        ("1.5", NO_CHECK),
+        ("{not: null}", NO_CHECK),
+        ("{some: [{code: FORBIDDEN}]}", NO_ENTRY),
+        ("{some: FORBIDDEN}", NO_ENTRY),
+        ("{every: null}", NO_ENTRY),
+        ("{none: 3}", NO_ENTRY),
+        ("{some: {not: true}}", NO_ENTRY),
+    ] {
+        let compiled = with_errors(errors);
+        assert_eq!(codes(&compiled), [(Code::V2306, message)], "{errors}");
+    }
+    for word in ["none", "any"] {
+        assert_eq!(codes(&with_errors(word)), [], "{word}");
+    }
+}
+
+#[test]
+fn a_listed_path_gets_its_fix_only_when_every_part_is_text_or_a_whole_number() {
+    let compiled = with_errors("[{path: [user, 'first name', 0, '1', \"it's\"]}]");
+    let [found] = compiled.diagnostics.iter().collect::<Vec<_>>()[..] else { panic!("{:?}", compiled.diagnostics) };
+    let [fix] = found.fixes.as_slice() else { panic!("{found:?}") };
+    assert_eq!(fix.title, "Write the path as `user[\"first name\"][0][\"1\"][\"it's\"]`");
+    assert_eq!(fix.edits[0].new_text, "'user[\"first name\"][0][\"1\"][\"it''s\"]'");
+    for part in ["null", "true", "1.5", "~"] {
+        let compiled = with_errors(&format!("[{{path: [user, {part}]}}]"));
+        let fixes: Vec<_> = compiled.diagnostics.iter().map(|found| (found.code, found.fixes.len())).collect();
+        assert_eq!(fixes, [(Code::V2306, 0)], "{part}");
+    }
 }

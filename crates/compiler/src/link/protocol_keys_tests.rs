@@ -73,8 +73,12 @@ fn file(path: &str, text: &str) -> SourceFile {
 }
 
 fn compile(apis: &str, tests: &str) -> Compiled {
+    compile_with(CONFIG, apis, tests)
+}
+
+fn compile_with(config: &str, apis: &str, tests: &str) -> Compiled {
     let files = vec![
-        file("vibranium.config.yaml", CONFIG),
+        file("vibranium.config.yaml", config),
         file("services/users/users.api.yaml", apis),
         file("services/users/crud.test.yaml", tests),
     ];
@@ -136,6 +140,70 @@ fn http_allows_every_key_so_nothing_is_reported() {
 }
 
 #[test]
+fn errors_on_an_http_api_or_a_call_that_reaches_one_is_reported_and_a_graphql_api_takes_it() {
+    let apis = "apis:\n  - id: get\n    path: http://x/users/1\n    expect:\n      errors: none\n";
+    let tests = "tests:\n  - id: getsUser\n    call: users#get\n    expect:\n      errors: [{code: FORBIDDEN}]\n";
+    let compiled = compile(apis, tests);
+    let stray: Vec<_> = compiled.diagnostics.iter().filter(|found| found.code == Code::V2213).collect();
+    let found: Vec<_> = stray.iter().map(|found| (found.message.as_str(), found.primary.span.start.line)).collect();
+    let expected = [("`errors` does not apply to a `http` api", 5), ("`errors` does not apply to a `http` api", 5)];
+    assert_eq!(found, expected, "the test file's first, then the api file's");
+    assert_eq!(&tests[stray[0].fixes[0].edits[0].range.clone()], "      errors: [{code: FORBIDDEN}]\n");
+    let graphql =
+        format!("type: graphql\n{}", apis.replace("users/1\n", "graphql\n    body: {query: '{ me { id } }'}\n"));
+    assert!(compile(&graphql, tests).diagnostics.iter().all(|found| found.code != Code::V2213));
+}
+
+#[test]
+fn a_test_level_errors_check_that_reaches_an_http_step_is_reported_once_at_the_test() {
+    let apis = "apis:\n  - id: get\n    path: http://x/users/1\n";
+    let steps = "    steps:\n      - call: users#get\n      - call: users#get\n";
+    let tests = format!("tests:\n  - id: getsUser\n    expect:\n      errors: any\n{steps}");
+    let compiled = compile(apis, &tests);
+    let stray: Vec<_> = compiled.diagnostics.iter().filter(|found| found.code == Code::V2213).collect();
+    let [found] = stray.as_slice() else { panic!("{stray:?}") };
+    assert_eq!((found.message.as_str(), found.primary.span.start.line), ("`errors` does not apply to a `http` api", 4));
+    assert_eq!(found.primary.text, "a test-level default");
+    assert!(found.help.iter().any(|help| help.contains("into the `expect` of the steps")), "{found:?}");
+    assert_eq!(found.fixes, []);
+    let own = tests.replace("call: users#get\n", "call: users#get\n        expect: {errors: none}\n");
+    let lines: Vec<_> = compile(apis, &own)
+        .diagnostics
+        .iter()
+        .filter(|found| found.code == Code::V2213)
+        .map(|found| found.primary.span.start.line)
+        .collect();
+    assert_eq!(lines, [7, 9], "each step's own, and not the default no step inherits");
+    let graphql = "type: graphql\napis:\n  - id: get\n    path: http://x/graphql\n    body: {query: '{ me { id } }'}\n";
+    let typo = tests.replace("      errors: any\n", "      errors: any\n      statsu: 200\n");
+    let codes: Vec<_> = compile(graphql, &typo).diagnostics.iter().map(|found| found.code).collect();
+    assert_eq!(codes, [Code::V1004], "a key no type knows is V1004 alone");
+}
+
+#[test]
+fn a_step_whose_expect_replaces_inherits_no_errors_so_it_is_not_reported() {
+    let apis = "type: graphql\napis:\n  - id: get\n    path: http://x/graphql\n    body: {query: 'query Me { me { id } }'}\n  \
+                - id: health\n    type: http\n    path: http://x/health\n";
+    let steps = "    steps:\n      - call: users#get\n      - call: users#health\n        expect: {replace: true, status: 200}\n";
+    let tests = format!("tests:\n  - id: getsUser\n    expect:\n      errors: any\n{steps}");
+    let codes = |tests: &str| compile(apis, tests).diagnostics.iter().map(|found| found.code).collect::<Vec<_>>();
+    assert_eq!(codes(&tests), []);
+    assert_eq!(codes(&tests.replace("replace: true", "replace: false")), [Code::V2213]);
+}
+
+#[test]
+fn errors_on_a_flow_auth_step_is_reported_with_its_removal_since_the_step_is_http() {
+    let step = "      - id: token\n        method: POST\n        url: http://x/token\n        expect:\n          errors: none\n";
+    let auth = format!("auth:\n  - id: login\n    type: flow\n    steps:\n{step}    apply: {{headers: {{a: b}}}}\n");
+    let config = format!("{CONFIG}{auth}");
+    let compiled = compile_with(&config, APIS, "tests:\n  - id: getsUser\n    call: users#get\n");
+    let stray: Vec<_> = compiled.diagnostics.iter().filter(|found| found.code == Code::V2213).collect();
+    let [found] = stray.as_slice() else { panic!("{:?}", compiled.diagnostics) };
+    assert_eq!(found.message, "`errors` does not apply to a `http` api");
+    assert_eq!(&config[found.fixes[0].edits[0].range.clone()], "          errors: none\n");
+}
+
+#[test]
 fn a_key_the_type_does_not_allow_is_reported_with_a_fix_that_removes_it() {
     let found = checked(&RESTRICTED, TESTS);
     let keys: Vec<_> = found.iter().map(|found| (found.code, found.primary.span.start.line)).collect();
@@ -182,13 +250,13 @@ fn a_graphql_api_reports_a_method_and_a_call_that_sets_a_body() {
 }
 
 #[test]
-fn every_key_a_type_allows_is_one_its_shape_knows() {
+fn every_key_a_type_lists_is_one_its_shape_knows() {
     for (protocol, keys) in PROTOCOL_KEYS {
-        let ProtocolKeys::Only(keys) = keys else { continue };
+        let (ProtocolKeys::Only(keys) | ProtocolKeys::Except(keys)) = keys;
         let places = [(shapes::api(), keys.api), (shapes::expect(), keys.expect), (shapes::request(), keys.call)];
         for (shape, allowed) in places {
             let unknown: Vec<_> = allowed.iter().filter(|key| shape.find(key).is_none()).collect();
-            assert_eq!(unknown, [&""; 0], "{protocol:?} allows keys `{}` does not have", shape.title);
+            assert_eq!(unknown, [&""; 0], "{protocol:?} lists keys `{}` does not have", shape.title);
         }
     }
 }

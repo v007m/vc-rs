@@ -3,6 +3,7 @@
 
 mod compare;
 mod compose;
+mod errors;
 mod evaluate;
 mod registry;
 mod schema;

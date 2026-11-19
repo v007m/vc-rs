@@ -55,17 +55,32 @@ pub fn position(index: i64, len: usize) -> Option<usize> {
 }
 
 /// A path as written after its root: `.items[0]["first name"][*]`.
+///
+/// A key that is not a name is quoted, in single quotes when it holds `"`; quoted keys have no
+/// escapes, so a key holding both quotes is written in double quotes and does not read back.
 #[must_use]
 pub fn path_text(path: &[Segment]) -> String {
     path.iter().fold(String::new(), |mut text, segment| {
         let _ = match segment {
             Segment::Key(key) if is_ident(key) => write!(text, ".{key}"),
+            Segment::Key(key) if key.contains('"') && !key.contains('\'') => write!(text, "['{key}']"),
             Segment::Key(key) => write!(text, "[\"{key}\"]"),
             Segment::Index(index) => write!(text, "[{index}]"),
             Segment::All => write!(text, "[*]"),
         };
         text
     })
+}
+
+/// A path as an `expect.errors` entry writes it, without a root: `users[2].email`; the same text
+/// as [`path_text`] without its leading `.`.
+#[must_use]
+pub fn dotted(path: &[Segment]) -> String {
+    let mut text = path_text(path);
+    if text.starts_with('.') {
+        text.remove(0);
+    }
+    text
 }
 
 fn is_ident(key: &str) -> bool {
@@ -81,5 +96,28 @@ pub fn preview(value: &Value) -> String {
     match text.char_indices().nth(PREVIEW) {
         Some((end, _)) => format!("{}…", &text[..end]),
         None => text,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use vc_model::Segment;
+
+    use super::{dotted, path_text};
+
+    fn key(name: &str) -> Segment {
+        Segment::Key(name.to_owned())
+    }
+
+    #[test]
+    fn dots_names_and_quotes_any_other_key_in_single_quotes_when_it_holds_a_double_one() {
+        assert_eq!(dotted(&[key("users"), Segment::Index(2), key("email")]), "users[2].email");
+        assert_eq!(dotted(&[Segment::Index(0), key("a"), Segment::All]), "[0].a[*]");
+        assert_eq!(dotted(&[key("a.b"), key("c[1]"), key("d]")]), "[\"a.b\"][\"c[1]\"][\"d]\"]");
+        assert_eq!(dotted(&[key("x"), key("say \"hi\"")]), "x['say \"hi\"']");
+        assert_eq!(dotted(&[key("first name"), key("*"), key(""), key("1")]), "[\"first name\"][\"*\"][\"\"][\"1\"]");
+        assert_eq!(dotted(&[key("it's \"x\"")]), "[\"it's \"x\"\"]", "no escapes: both quotes do not read back");
+        assert_eq!(dotted(&[]), "");
+        assert_eq!(path_text(&[key("say \"hi\""), key("ok")]), "['say \"hi\"'].ok");
     }
 }

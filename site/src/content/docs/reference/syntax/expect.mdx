@@ -36,6 +36,7 @@ apis:
 | `timing` | map of phase to matcher | none | no | `dns`, `connect`, `tls`, `firstByte`, `download`, `total`. See [timing](/vc-rs/reference/syntax/timing/). |
 | `cel` | map of label to CEL expression | none | no | Each must be true. See [cel](/vc-rs/reference/syntax/cel/). |
 | `custom` | list of `function: path#export` | none | no | A hook function decides. See [custom](/vc-rs/reference/syntax/custom/). |
+| `errors` | `none`, `any`, list or matcher | not checked | no | A `graphql` api's GraphQL errors; V2213 on an `http` one. See [graphql](/vc-rs/reference/syntax/graphql/#checking-the-errors). |
 | `replace` | boolean | `false` | no | Drop every inherited check. See [replace](/vc-rs/reference/syntax/replace/). |
 
 Any other key is error [V1004](/vc-rs/reference/diagnostics/v1004/).

@@ -1,14 +1,14 @@
 //! The matcher registry and the judge that applies matchers (syntax reference "Checks and
 //! matchers").
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt;
 
 use serde_json::{Map, Value, json};
 use vc_model::{Matcher, MatcherArg, MatcherCall, StatusPattern, TemplateValue};
 use vc_template::RenderError;
 
-use super::{compare, compose, shape, text};
+use super::{compare, compose, errors, shape, text};
 use crate::Render;
 
 /// Renders the templates in a check's expected values: the call's [`Render`] in a run.
@@ -45,10 +45,43 @@ impl Arguments for Render<'_> {
 /// It fails with a message when `arg` cannot be used, such as a template that does not render.
 pub type MatcherFn = fn(&Judge<'_>, Option<&Value>, &MatcherArg) -> Result<bool, String>;
 
+/// A matcher that says, when it fails, what to report as the actual value.
+pub type ReportingFn = fn(&Judge<'_>, Option<&Value>, &MatcherArg) -> Result<Judged, String>;
+
+/// Whether a matcher held and, when it did not, what it reports as the actual value (`None`
+/// to report the value it was given).
+#[derive(Debug, PartialEq, Eq)]
+pub struct Judged {
+    pub holds: bool,
+    pub detail: Option<Value>,
+}
+
+impl Judged {
+    /// A failure that reports `detail` as the actual value.
+    pub const fn failed(detail: Value) -> Self {
+        Self { holds: false, detail: Some(detail) }
+    }
+}
+
+impl From<bool> for Judged {
+    fn from(holds: bool) -> Self {
+        Self { holds, detail: None }
+    }
+}
+
+/// A registered matcher: plain, or one that reports its own actual value.
+#[derive(Clone, Copy)]
+enum Entry {
+    Plain(MatcherFn),
+    Reporting(ReportingFn),
+}
+
 /// The matchers by name (a registry filled at start-up).
 #[derive(Clone, Default)]
 pub struct MatcherRegistry {
-    by_name: HashMap<&'static str, MatcherFn>,
+    by_name: HashMap<&'static str, Entry>,
+    /// The matchers a written form lowers to, which a report shows as their argument.
+    internal: HashSet<&'static str>,
 }
 
 impl fmt::Debug for MatcherRegistry {
@@ -64,17 +97,34 @@ impl MatcherRegistry {
     #[must_use]
     pub fn standard() -> Self {
         let registry = Self::default();
-        compose::register(text::register(shape::register(compare::register(registry))))
+        errors::register(compose::register(text::register(shape::register(compare::register(registry)))))
     }
 
     /// The registry with `matcher` under `name`.
     #[must_use]
     pub fn with(mut self, name: &'static str, matcher: MatcherFn) -> Self {
-        self.by_name.insert(name, matcher);
+        self.by_name.insert(name, Entry::Plain(matcher));
         self
     }
 
-    fn get(&self, name: &str) -> Option<MatcherFn> {
+    /// The registry with `matcher` under `name`, as a matcher users cannot write: the compiler
+    /// lowers a written form to it, and a report shows its argument, as written, not its name.
+    #[must_use]
+    pub fn internal(mut self, name: &'static str, matcher: MatcherFn) -> Self {
+        self.internal.insert(name);
+        self.with(name, matcher)
+    }
+
+    /// The registry with `matcher` under `name`, internal as [`Self::internal`], reporting its
+    /// own actual value when it fails.
+    #[must_use]
+    pub(crate) fn internal_reporting(mut self, name: &'static str, matcher: ReportingFn) -> Self {
+        self.internal.insert(name);
+        self.by_name.insert(name, Entry::Reporting(matcher));
+        self
+    }
+
+    fn get(&self, name: &str) -> Option<Entry> {
         self.by_name.get(name).copied()
     }
 }
@@ -104,22 +154,34 @@ impl<'j> Judge<'j> {
                 let expected = self.render(value)?;
                 Ok(actual.is_some_and(|actual| compare::same(actual, &expected)))
             }
-            Matcher::All(calls) => {
-                for call in calls {
-                    if !self.call(call, actual)? {
-                        return Ok(false);
-                    }
-                }
-                Ok(true)
-            }
+            Matcher::All(_) => self.judged(matcher, actual).map(|judged| judged.holds),
             Matcher::Status(patterns) => Ok(status_in(patterns, actual)),
             Matcher::StatusOf(value) => Ok(status_in(&statuses(&self.render(value)?)?, actual)),
         }
     }
 
-    fn call(&self, call: &MatcherCall, actual: Option<&Value>) -> Result<bool, String> {
-        let matcher = self.registry.get(&call.name).ok_or_else(|| format!("no matcher is named `{}`", call.name))?;
-        matcher(self, actual, &call.arg)
+    /// Whether `actual` passes `matcher`, with what the first call that fails reports.
+    ///
+    /// # Errors
+    ///
+    /// As [`Self::matches`].
+    pub(crate) fn judged(&self, matcher: &Matcher, actual: Option<&Value>) -> Result<Judged, String> {
+        let Matcher::All(calls) = matcher else { return self.matches(matcher, actual).map(Judged::from) };
+        for call in calls {
+            let judged = self.call(call, actual)?;
+            if !judged.holds {
+                return Ok(judged);
+            }
+        }
+        Ok(Judged::from(true))
+    }
+
+    fn call(&self, call: &MatcherCall, actual: Option<&Value>) -> Result<Judged, String> {
+        let entry = self.registry.get(&call.name).ok_or_else(|| format!("no matcher is named `{}`", call.name))?;
+        match entry {
+            Entry::Plain(matcher) => matcher(self, actual, &call.arg).map(Judged::from),
+            Entry::Reporting(matcher) => matcher(self, actual, &call.arg),
+        }
     }
 
     /// What `body` breaks the JSON Schema named `key` with (D201); none when it matches.
@@ -159,6 +221,12 @@ impl<'j> Judge<'j> {
             MatcherArg::Matchers(matchers) => {
                 Value::Array(matchers.iter().map(|matcher| self.expected(matcher)).collect::<Result<_, _>>()?)
             }
+            MatcherArg::Fields(fields) => Value::Object(
+                fields
+                    .iter()
+                    .map(|(name, matcher)| Ok((name.clone(), self.expected(matcher)?)))
+                    .collect::<Result<_, String>>()?,
+            ),
         })
     }
 
@@ -171,13 +239,16 @@ impl<'j> Judge<'j> {
     pub fn expected(&self, matcher: &Matcher) -> Result<Value, String> {
         Ok(match matcher {
             Matcher::Equals(value) => self.render(value)?,
-            Matcher::All(calls) => {
-                let mut described = Map::new();
-                for call in calls {
-                    described.insert(call.name.clone(), self.value(&call.arg)?);
+            Matcher::All(calls) => match calls.as_slice() {
+                [call] if self.registry.internal.contains(call.name.as_str()) => self.value(&call.arg)?,
+                _ => {
+                    let mut described = Map::new();
+                    for call in calls {
+                        described.insert(call.name.clone(), self.value(&call.arg)?);
+                    }
+                    Value::Object(described)
                 }
-                Value::Object(described)
-            }
+            },
             Matcher::Status(patterns) => Value::Array(patterns.iter().map(|pattern| status(*pattern)).collect()),
             Matcher::StatusOf(value) => {
                 let rendered = self.render(value)?;
