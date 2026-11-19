@@ -19,8 +19,10 @@ import { Badge } from '@astrojs/starlight/components';
 
 A GraphQL document may hold several operations; the server runs the one `operationName` names. So a document with
 more than one operation needs `operationName`, and the name must be one the document defines; the fix for a close
-misspelling is the name itself. A document with one operation needs no name. The operation it picks must be a
-`query` or a `mutation`: a `subscription` keeps a connection open, which a `graphql` api does not do yet.
+misspelling is the name itself. A document with one operation needs no name. Two operations of one name leave the
+server unable to tell them apart, and a document of only fragments or type definitions has nothing to run. The
+operation it picks must be a `query` or a `mutation`: a `subscription` keeps a connection open, which a `graphql` api
+does not do yet.
 
 ## Wrong
 
