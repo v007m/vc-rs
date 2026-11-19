@@ -15,7 +15,7 @@ const API: (&str, &str) = (
     concat!(
         "type: graphql\nbaseUrl: ${var.baseUrl}\ngraphql:\n  path: /echo\napis:\n",
         "  - id: getUser\n    vars: {userId: '1'}\n    body:\n",
-        "      query: 'query GetUser($id: ID!) { user(id: $id) { id note(text: \"${x}\") } }'\n",
+        "      query: 'query GetUser($id: ID!, $limit: Int) { user(id: $id) { id note(text: \"${x}\") } }'\n",
         "      variables: {id: '${var.userId}', limit: 2}\n      operationName: GetUser\n",
         "  - id: ownPath\n    path: /echo/own\n    body:\n      query: '{ me { id } }'\n",
     ),
@@ -35,7 +35,7 @@ async fn a_graphql_api_posts_its_query_and_rendered_variables_as_json_to_the_fil
     let tests = concat!(
         "tests:\n  - id: sendsTheOperation\n    call: lab#getUser\n    vars: {userId: '42'}\n    expect:\n",
         "      body:\n        match:\n          method: POST\n          path: /echo\n",
-        "          body.query: 'query GetUser($id: ID!) { user(id: $id) { id note(text: \"$${x}\") } }'\n",
+        "          body.query: 'query GetUser($id: ID!, $limit: Int) { user(id: $id) { id note(text: \"$${x}\") } }'\n",
         "          body.variables: {id: '42', limit: 2}\n          body.operationName: GetUser\n",
         "          \"headers['content-type']\": application/json\n",
         "          \"headers['accept']\": 'application/graphql-response+json, application/json;q=0.9'\n",

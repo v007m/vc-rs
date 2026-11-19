@@ -107,3 +107,53 @@ fn operation_name_picks_one_query_or_mutation_of_the_document() {
     let named = compile(&format!("{filed}      operationName: B\n"), (&[(DOCUMENT, text)], &[]));
     assert!(named.diagnostics.is_empty(), "{:?}", named.diagnostics);
 }
+
+/// The text of each file a diagnostic's first fix edits, once edited.
+fn fixed(compiled: &Compiled, found: &Diagnostic) -> String {
+    let [edit] = &found.fixes[0].edits[..] else { panic!("{:?}", found.fixes) };
+    let mut text = compiled.files.get(edit.file).unwrap().text.clone();
+    text.replace_range(edit.range.clone(), &edit.new_text);
+    text
+}
+
+#[test]
+fn each_needed_variable_has_a_value_and_each_value_a_variable() {
+    let query = "      query: 'query Q($id: ID!, $limit: Int!) { a }'\n";
+    assert_eq!(spots(&compile(query, (&[], &[]))), [(Code::V2108, 5, 5, 4), (Code::V2108, 5, 5, 4)]);
+    let given = |variables: &str| compile(&format!("{query}      variables: {variables}\n"), (&[], &[]));
+    assert!(given("{id: '1', limit: 2}").diagnostics.is_empty());
+    let misspelt = given("{ids: '1', limit: 2}");
+    assert_eq!(spots(&misspelt), [(Code::V2108, 7, 7, 9), (Code::V2108, 7, 19, 3)]);
+    let unknown = misspelt.diagnostics.iter().nth(1).unwrap();
+    assert!(fixed(&misspelt, unknown).contains("{id: '1', limit: 2}"));
+    let defaulted = compile("      query: 'query Q($id: ID! = 1, $tag: String) { a }'\n", (&[], &[]));
+    assert!(defaulted.diagnostics.is_empty(), "{:?}", defaulted.diagnostics);
+    let picked = "      query: 'query A { a } query B($id: ID!) { b }'\n      operationName: A\n";
+    assert!(compile(picked, (&[], &[])).diagnostics.is_empty());
+    assert_eq!(spots(&compile(&picked.replace(": A", ": B"), (&[], &[])))[0].0, Code::V2108);
+}
+
+#[test]
+fn variables_written_as_one_template_are_not_checked() {
+    let whole = compile("      query: 'query Q($id: ID!) { a }'\n      variables: ${var.filters}\n", (&[], &[]));
+    assert!(!whole.diagnostics.iter().any(|found| found.code == Code::V2108), "{:?}", whole.diagnostics);
+}
+
+#[test]
+fn an_anonymous_operation_is_named_after_its_api() {
+    let shorthand = compile("      query: '{ me { id } }'\n", (&[], &[]));
+    let found = shorthand.diagnostics.iter().next().unwrap();
+    assert_eq!(spots(&shorthand), [(Code::V4010, 6, 15, 1)]);
+    assert!(fixed(&shorthand, found).contains("query: 'query Me { me { id } }'"));
+    let keyword = compile("      query: |\n        query {\n          me { id }\n        }\n", (&[], &[]));
+    let found = keyword.diagnostics.iter().next().unwrap();
+    assert!(fixed(&keyword, found).contains("\n        query Me {\n"), "{}", fixed(&keyword, found));
+    let filed = compile("      query: {$file: me.graphql}\n", (&[(DOCUMENT, "mutation { me }\n")], &[]));
+    let found = filed.diagnostics.iter().next().unwrap();
+    assert_eq!(fixed(&filed, found), "mutation Me { me }\n");
+    let two = compile("      query: 'query { a } query B { b }'\n      operationName: B\n", (&[], &[]));
+    assert_eq!(
+        two.diagnostics.iter().map(|found| (found.code, found.fixes.len())).collect::<Vec<_>>(),
+        [(Code::V4010, 0)]
+    );
+}

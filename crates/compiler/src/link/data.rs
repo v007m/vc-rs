@@ -120,7 +120,8 @@ impl<'a> Data<'a> {
             let rows = loops(source).into_iter().filter_map(|node| self.path_at(source, node));
             let schemas =
                 body_schema::nodes(source.root).into_iter().filter_map(|node| body_schema::path(source, node));
-            let documents = graphql::queries(source).into_iter().filter_map(|(_, query)| graphql::file(source, query));
+            let documents =
+                graphql::queries(source).into_iter().filter_map(|(_, _, query)| graphql::file(source, query));
             let known =
                 rows.chain(schemas).chain(documents).filter(|path| assets.is_some_and(|assets| listed(assets, path)));
             wanted.extend(known.map(|path| (path, None)));

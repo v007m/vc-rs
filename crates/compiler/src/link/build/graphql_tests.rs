@@ -17,13 +17,13 @@ graphql:
 apis:
   - id: getUser
     body:
-      query: 'query GetUser($id: ID!) { user(id: $id) { id name } }'
+      query: 'query GetUser($id: ID!, $limit: Int) { user(id: $id) { id name } }'
       variables: {id: '${var.userId}', limit: 2}
       operationName: GetUser
   - id: admin
     path: /admin/graphql
     body:
-      query: '{ me { id } }'
+      query: 'query Admin { me { id } }'
   - id: health
     type: http
     path: /health
@@ -71,7 +71,7 @@ fn a_graphql_api_posts_its_query_variables_and_operation_name() {
     let get = api(&program, "getUser");
     assert_eq!((get.protocol, get.method), (Protocol::Graphql, Method::Post));
     let body = body(get);
-    assert_eq!(body.document, "query GetUser($id: ID!) { user(id: $id) { id name } }");
+    assert_eq!(body.document, "query GetUser($id: ID!, $limit: Int) { user(id: $id) { id name } }");
     assert_eq!(body.operation_name.as_deref(), Some("GetUser"));
 }
 
@@ -111,10 +111,10 @@ fn an_http_api_in_a_graphql_file_stays_http() {
 
 #[test]
 fn the_query_is_a_document_so_a_dollar_brace_in_it_is_kept_and_never_checked() {
-    let query = "'{ search(text: \"${x} and ${var.nope}\") { id } }'";
-    let apis = APIS.replace("'{ me { id } }'", query);
+    let query = "'query Search { search(text: \"${x} and ${var.nope}\") { id } }'";
+    let apis = APIS.replace("'query Admin { me { id } }'", query);
     let program = compiled(&apis);
-    assert_eq!(body(api(&program, "admin")).document, "{ search(text: \"${x} and ${var.nope}\") { id } }");
+    assert_eq!(body(api(&program, "admin")).document, "query Search { search(text: \"${x} and ${var.nope}\") { id } }");
 }
 
 #[test]

@@ -1,17 +1,12 @@
 //! V2009: the `operationName` of a `graphql` api does not pick one query or mutation of its
-//! document (D346, D356). A document that does not parse is V1014 before the build, and a
-//! document file the compile was not given is left alone.
+//! document (D346, D356).
 
 use vc_diagnostics::{Code, Diagnostic};
 use vc_parser::{GraphqlDocument, GraphqlOperation, Node, OperationKind};
 
+use super::graphql::{self, Document, OPERATION_NAME, by_name, only};
 use super::{Lint, LintCx};
-use crate::graphql;
-use crate::link::Source;
 use crate::suggest::{self, Misspelling};
-
-/// The `body` key that names the operation.
-const OPERATION_NAME: &str = "operationName";
 
 pub struct GraphqlOperations;
 
@@ -21,41 +16,25 @@ impl Lint for GraphqlOperations {
     }
 
     fn check(&self, cx: &LintCx<'_, '_>) -> Vec<Diagnostic> {
-        let queries =
-            cx.project.sources.iter().flat_map(|source| {
-                graphql::queries(source).into_iter().map(move |(body, query)| (source, body, query))
-            });
-        queries.filter_map(|(source, body, query)| unpicked(cx, source, (body, query))).collect()
+        graphql::documents(cx).iter().filter_map(unpicked).collect()
     }
 }
 
-/// V2009 when the `operationName` of `body` does not pick a query or mutation of its `query`.
-fn unpicked(cx: &LintCx<'_, '_>, source: &Source<'_>, (body, query): (&Node, &Node)) -> Option<Diagnostic> {
-    let filed = || graphql::file(source, query).and_then(|path| graphql::text(&cx.program.files, &path));
-    let document = vc_parser::parse_document(query.as_str().or_else(filed)?).ok()?;
-    let named = body.get(OPERATION_NAME).and_then(|at| Some((at, at.as_str()?)));
+/// V2009 when the `operationName` of the api does not pick a query or mutation of its document.
+fn unpicked(document: &Document<'_>) -> Option<Diagnostic> {
+    let (query, parsed) = (document.query, &document.parsed);
+    let named = document.body.get(OPERATION_NAME).and_then(|at| Some((at, at.as_str()?)));
     let Some((at, name)) = named else {
-        let Some(one) = only(&document) else { return Some(several(query, &document)) };
+        let Some(one) = only(parsed) else { return Some(several(query, parsed)) };
         return subscribes(one, query);
     };
-    let Some(picked) = by_name(&document, name) else { return Some(unknown(at, name, &document)) };
+    let Some(picked) = by_name(parsed, name) else { return Some(unknown(at, name, parsed)) };
     subscribes(picked, at)
 }
 
 /// V2009 at `at` when `operation` is a subscription.
 fn subscribes(operation: &GraphqlOperation, at: &Node) -> Option<Diagnostic> {
     (operation.kind == OperationKind::Subscription).then(|| subscription(at))
-}
-
-/// The operation named `name`.
-fn by_name<'d>(document: &'d GraphqlDocument, name: &str) -> Option<&'d GraphqlOperation> {
-    document.operations.iter().find(|operation| operation.name.as_deref() == Some(name))
-}
-
-/// The document's one operation.
-const fn only(document: &GraphqlDocument) -> Option<&GraphqlOperation> {
-    let [one] = document.operations.as_slice() else { return None };
-    Some(one)
 }
 
 /// The names the document gives its operations.

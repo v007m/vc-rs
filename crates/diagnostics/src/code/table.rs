@@ -51,6 +51,7 @@ code_table! {
     V2105 = 2105, Error, "Template or CEL root not available at that spot";
     V2106 = 2106, Error, "`${secret.X}` names a secret `.env.schema` does not declare";
     V2107 = 2107, Error, "`${env.X}` names a secret declared in `.env.schema`";
+    V2108 = 2108, Error, "GraphQL variable missing from `variables`, or not declared";
     V2201 = 2201, Error, "Exactly one of `call` or `steps` needed";
     V2205 = 2205, Error, "Cycle through `test:` reuse";
     V2210 = 2210, Error, "Shared action saves values but has no `id`";
@@ -91,6 +92,7 @@ code_table! {
     V4007 = 4007, Warning, "A value in a `path` ends in the `urlEncode` pipe, which a run applies already";
     V4008 = 4008, Warning, "`allowFailure` expired; a failure fails the run again";
     V4009 = 4009, Warning, "A sensitive header in `source.headers` has a literal value";
+    V4010 = 4010, Warning, "GraphQL operation has no name";
     // V5xxx: run time
     V5101 = 5101, Error, "Expectation failed";
     V5102 = 5102, Error, "CEL check false";

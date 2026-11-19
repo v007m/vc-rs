@@ -34,8 +34,9 @@ fn found(body: &str) -> Vec<(Code, String, u32)> {
 
 #[test]
 fn a_graphql_body_takes_its_three_keys() {
-    let compiled =
-        compile("      query: 'query GetMe { me { id } }'\n      variables: {id: 1}\n      operationName: GetMe\n");
+    let compiled = compile(
+        "      query: 'query GetMe($id: Int) { me { id } }'\n      variables: {id: 1}\n      operationName: GetMe\n",
+    );
     assert!(compiled.diagnostics.is_empty(), "{:?}", compiled.diagnostics);
     assert!(compiled.program.is_some());
 }

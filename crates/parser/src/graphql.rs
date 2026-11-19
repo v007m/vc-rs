@@ -3,8 +3,8 @@
 
 use std::ops::Range;
 
-use apollo_parser::Parser;
-use apollo_parser::cst::{Definition, OperationDefinition};
+use apollo_parser::cst::{CstNode, Definition, OperationDefinition, Type, VariableDefinition};
+use apollo_parser::{Parser, SyntaxNode};
 
 /// What an operation does.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -26,6 +26,20 @@ pub struct GraphqlOperation {
     pub name: Option<String>,
     /// What it does.
     pub kind: OperationKind,
+    /// The variables it declares, in order.
+    pub variables: Vec<GraphqlVariable>,
+    /// The bytes of its keyword (`query`), or of the `{` that opens a shorthand query.
+    pub head: Range<usize>,
+}
+
+/// One variable an operation declares.
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct GraphqlVariable {
+    /// Its name, without the `$`.
+    pub name: String,
+    /// Whether a value must be given: its type is non-null and it has no default.
+    pub required: bool,
 }
 
 /// A document that parses.
@@ -70,9 +84,10 @@ pub fn parse_document(text: &str) -> Result<GraphqlDocument, Vec<GraphqlProblem>
     Ok(GraphqlDocument { operations: operations.collect() })
 }
 
-/// The name and kind of `operation`.
+/// The name, kind, variables and head of `operation`.
 fn read(operation: &OperationDefinition) -> GraphqlOperation {
-    let kind = operation.operation_type().map_or(OperationKind::Query, |kind| {
+    let keyword = operation.operation_type();
+    let kind = keyword.as_ref().map_or(OperationKind::Query, |kind| {
         if kind.mutation_token().is_some() {
             OperationKind::Mutation
         } else if kind.subscription_token().is_some() {
@@ -81,29 +96,55 @@ fn read(operation: &OperationDefinition) -> GraphqlOperation {
             OperationKind::Query
         }
     });
-    GraphqlOperation { name: operation.name().map(|name| name.text().to_string()), kind }
+    let head = match (&keyword, operation.selection_set()) {
+        (Some(keyword), _) => bytes(keyword.syntax()),
+        (None, Some(selections)) => bytes(selections.syntax()).start..bytes(selections.syntax()).start + 1,
+        (None, None) => bytes(operation.syntax()),
+    };
+    let declared = operation.variable_definitions().into_iter().flat_map(|list| list.variable_definitions());
+    let variables = declared.filter_map(|definition| variable(&definition)).collect();
+    GraphqlOperation { name: operation.name().map(|name| name.text().to_string()), kind, variables, head }
+}
+
+/// The name of the variable `definition` declares, and whether it needs a value.
+fn variable(definition: &VariableDefinition) -> Option<GraphqlVariable> {
+    let name = definition.variable()?.name()?.text().to_string();
+    let required = matches!(definition.ty(), Some(Type::NonNullType(_))) && definition.default_value().is_none();
+    Some(GraphqlVariable { name, required })
+}
+
+/// The bytes `node` spans.
+fn bytes(node: &SyntaxNode) -> Range<usize> {
+    let range = node.text_range();
+    usize::from(range.start())..usize::from(range.end())
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{GraphqlOperation, OperationKind, parse_document};
-
-    fn operation(name: Option<&str>, kind: OperationKind) -> GraphqlOperation {
-        GraphqlOperation { name: name.map(str::to_owned), kind }
-    }
+    use super::{OperationKind, parse_document};
 
     #[test]
     fn lists_each_operation_with_its_name_and_kind() {
         let text = "query GetUser { me { id } }\nmutation Rename { rename }\nsubscription OnUser { user }\n{ me }\n\
                     fragment F on User { id }";
         let document = parse_document(text).unwrap();
+        let found: Vec<_> =
+            document.operations.iter().map(|op| (op.name.as_deref(), op.kind, &text[op.head.clone()])).collect();
         let expected = [
-            operation(Some("GetUser"), OperationKind::Query),
-            operation(Some("Rename"), OperationKind::Mutation),
-            operation(Some("OnUser"), OperationKind::Subscription),
-            operation(None, OperationKind::Query),
+            (Some("GetUser"), OperationKind::Query, "query"),
+            (Some("Rename"), OperationKind::Mutation, "mutation"),
+            (Some("OnUser"), OperationKind::Subscription, "subscription"),
+            (None, OperationKind::Query, "{"),
         ];
-        assert_eq!(document.operations, expected);
+        assert_eq!(found, expected);
+    }
+
+    #[test]
+    fn a_variable_needs_a_value_when_it_is_non_null_without_a_default() {
+        let text = "query Q($id: ID!, $limit: Int! = 10, $after: String, $tags: [String!]!) { a }";
+        let document = parse_document(text).unwrap();
+        let found: Vec<_> = document.operations[0].variables.iter().map(|v| (v.name.as_str(), v.required)).collect();
+        assert_eq!(found, [("id", true), ("limit", false), ("after", false), ("tags", true)]);
     }
 
     #[test]

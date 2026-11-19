@@ -26,7 +26,7 @@ mod yaml;
 
 pub use edit::{Document, EditCommand, FormatRules, references};
 pub use error::ParserError;
-pub use graphql::{GraphqlDocument, GraphqlOperation, GraphqlProblem, OperationKind, parse_document};
+pub use graphql::{GraphqlDocument, GraphqlOperation, GraphqlProblem, GraphqlVariable, OperationKind, parse_document};
 pub use node::{Entry, Node, Value};
 pub use parse::parse;
 pub use scalar::{Scalar, ScalarKind, ScalarStyle, write_text};

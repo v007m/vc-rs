@@ -1,0 +1,58 @@
+---
+title: "V4010 — GraphQL operation has no name"
+description: "A server logs and traces each operation by its name, and operationName picks an operation by it, so every operation should have one."
+sidebar:
+  label: "V4010 GraphQL operation has no name"
+  order: 4010
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="warning" variant="caution" /> <Badge text="Conventions" variant="note" />
+
+| | |
+| --- | --- |
+| Code | `V4010` |
+| Category | V4xxx: Conventions |
+| Severity | warning |
+| Certain fix | name it after the api, `getUser` → `query GetUser` (certain fix, when the document holds that one operation) |
+
+A server logs and traces each operation by its name, and `operationName` picks an operation by it, so every
+operation should have one. `query { … }` and the shorthand `{ … }` have none. The fix names the operation after its
+api: `getProduct` becomes `query GetProduct`.
+
+## Wrong
+
+```yaml title="services/catalog/catalog.api.yaml"
+type: graphql
+apis:
+  - id: getProduct
+    body:
+      query: '{ product(id: "p1") { id name } }'
+```
+
+## Right
+
+```yaml title="services/catalog/catalog.api.yaml"
+type: graphql
+apis:
+  - id: getProduct
+    body:
+      query: 'query GetProduct { product(id: "p1") { id name } }'
+```
+
+
+## Explain it in your terminal
+
+The same page is built into the binary, so this works anywhere, even outside a project:
+
+```console
+$ vc explain V4010
+```
+
+## Related
+
+- [All diagnostic codes](/vc-rs/reference/diagnostics/)
+- [`vc explain`](/vc-rs/reference/cli/explain/)
+- [`vc check`](/vc-rs/reference/cli/check/)
+- [Errors and fixes](/vc-rs/guides/errors-and-fixes/)

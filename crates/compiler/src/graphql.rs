@@ -19,11 +19,47 @@ pub fn is_document(path: &str) -> bool {
     SUFFIXES.iter().any(|suffix| path.ends_with(suffix))
 }
 
-/// The `body` and its `query` of each `graphql` api in `source`.
-pub fn queries<'n>(source: &Source<'n>) -> Vec<(&'n Node, &'n Node)> {
+/// Where a document is written: inline in its api, or in a document file the compile was given.
+pub enum Written<'f> {
+    /// The text of an inline `query`.
+    Inline(&'f str),
+    /// A document file and its text.
+    File(SourceFileId, &'f str),
+}
+
+impl<'f> Written<'f> {
+    /// The document `query` of `source` holds, inline or from a file in `files`.
+    pub fn of(files: &'f SourceFiles, (source, query): (&Source<'_>, &'f Node)) -> Option<Self> {
+        if let Some(text) = query.as_str() {
+            return Some(Self::Inline(text));
+        }
+        file(source, query).and_then(|path| find(files, &path)).map(|(id, text)| Self::File(id, text))
+    }
+
+    /// Its text.
+    pub const fn text(&self) -> &'f str {
+        match self {
+            Self::Inline(text) | Self::File(_, text) => text,
+        }
+    }
+
+    /// Where its bytes `at` are, exactly: in its file, or in the YAML of the inline `query` of
+    /// `source` when they can be placed there.
+    pub fn spot(&self, (source, query): (&Source<'_>, &Node), at: &Range<usize>) -> Option<SourceSpan> {
+        match self {
+            Self::Inline(_) => exact_span(source, query, at),
+            Self::File(id, text) => {
+                Some(SourceSpan::new(*id, script::position(text, at.start), script::position(text, at.end)))
+            }
+        }
+    }
+}
+
+/// The api, its `body` and the body's `query` of each `graphql` api in `source`.
+pub fn queries<'n>(source: &Source<'n>) -> Vec<(&'n Node, &'n Node, &'n Node)> {
     let apis = link::list(source.root, "apis").iter().filter(|_| source.kind == FileKind::Api);
     let graphql = apis.filter(|api| link::protocol(source.root, api) == Protocol::Graphql);
-    graphql.filter_map(|api| api.get("body").and_then(|body| Some((body, body.get("query")?)))).collect()
+    graphql.filter_map(|api| api.get("body").and_then(|body| Some((api, body, body.get("query")?)))).collect()
 }
 
 /// The document file a `query: {$file: …}` names, from the project root; `None` for an inline
@@ -36,8 +72,13 @@ pub fn file(source: &Source<'_>, query: &Node) -> Option<String> {
 
 /// The text of the document file at `path`, when the compile was given it.
 pub fn text<'f>(files: &'f SourceFiles, path: &str) -> Option<&'f str> {
-    let given = (0..).map(SourceFileId::new).map_while(|id| files.get(id));
-    given.into_iter().find(|file| file.path.as_str() == path).map(|file| file.text.as_str())
+    find(files, path).map(|(_, text)| text)
+}
+
+/// The number and text of the file at `path`, when the compile was given it.
+fn find<'f>(files: &'f SourceFiles, path: &str) -> Option<(SourceFileId, &'f str)> {
+    let given = (0..).map(SourceFileId::new).map_while(|id| Some((id, files.get(id)?)));
+    given.into_iter().find(|(_, file)| file.path.as_str() == path).map(|(id, file)| (id, file.text.as_str()))
 }
 
 /// V1014 at the first spot the document file `file` does not parse.
@@ -66,18 +107,23 @@ fn broken(span: SourceSpan, problem: &GraphqlProblem) -> Diagnostic {
 }
 
 /// Where bytes `at` of an inline document are in the YAML: exact for a one-line scalar written
-/// without escapes and for a literal block; else the whole value.
+/// without escapes and for a literal block (see [`exact_span`]); else the whole value.
 fn inline_span(source: &Source<'_>, query: &Node, at: &Range<usize>) -> SourceSpan {
-    let Value::Scalar(scalar) = &query.value else { return query.span };
+    exact_span(source, query, at).unwrap_or(query.span)
+}
+
+/// Where bytes `at` of an inline document are in the YAML, when they can be placed exactly.
+fn exact_span(source: &Source<'_>, query: &Node, at: &Range<usize>) -> Option<SourceSpan> {
+    let Value::Scalar(scalar) = &query.value else { return None };
     let offset = |at: usize| match scalar.style {
         ScalarStyle::Literal => block_offset((source.text, query), &scalar.text, at),
         ScalarStyle::Folded => None,
         _ => line_offset((source.text, query), &scalar.text, at),
     };
-    let (Some(from), Some(to)) = (offset(at.start), offset(at.end)) else { return query.span };
+    let (from, to) = (offset(at.start)?, offset(at.end)?);
     let end = source.text.get(..query.span.end.offset).map_or(query.span.end.offset, |before| before.trim_end().len());
     let place = |offset: usize| script::position(source.text, offset.min(end));
-    SourceSpan::new(query.span.file, place(from), place(to.max(from)))
+    Some(SourceSpan::new(query.span.file, place(from), place(to.max(from))))
 }
 
 /// The YAML offset of document offset `at` in a one-line plain or quoted scalar with no escapes.

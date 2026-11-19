@@ -1,0 +1,62 @@
+---
+title: "V2108 — GraphQL variable missing from variables, or not declared"
+description: "An operation declares its variables, such as query GetProduct($id: ID!)."
+sidebar:
+  label: "V2108 GraphQL variable missing from variables, or not declared"
+  order: 2108
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="error" variant="danger" /> <Badge text="References and types" variant="note" />
+
+| | |
+| --- | --- |
+| Code | `V2108` |
+| Category | V2xxx: References and types |
+| Severity | error |
+| Certain fix | the one close declared name |
+
+An operation declares its variables, such as `query GetProduct($id: ID!)`. A variable whose type ends in `!` and that
+has no default must get a value, so `body.variables` must give it one; the server refuses the request otherwise. A
+value for a variable the operation does not declare is a mistake too, most often a misspelt name, and the fix is the
+declared name when one is close. `variables` written as one template, such as `${var.filters}`, is not checked, since
+its keys are known only when the test runs.
+
+## Wrong
+
+```yaml wrong V2108 title="services/catalog/catalog.api.yaml"
+type: graphql
+apis:
+  - id: getProduct
+    body:
+      query: 'query GetProduct($id: ID!) { product(id: $id) { id name } }'
+      variables: {productId: p1}
+```
+
+## Right
+
+```yaml title="services/catalog/catalog.api.yaml"
+type: graphql
+apis:
+  - id: getProduct
+    body:
+      query: 'query GetProduct($id: ID!) { product(id: $id) { id name } }'
+      variables: {id: p1}
+```
+
+
+## Explain it in your terminal
+
+The same page is built into the binary, so this works anywhere, even outside a project:
+
+```console
+$ vc explain V2108
+```
+
+## Related
+
+- [All diagnostic codes](/vc-rs/reference/diagnostics/)
+- [`vc explain`](/vc-rs/reference/cli/explain/)
+- [`vc check`](/vc-rs/reference/cli/check/)
+- [Errors and fixes](/vc-rs/guides/errors-and-fixes/)

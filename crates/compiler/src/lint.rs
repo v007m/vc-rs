@@ -8,7 +8,10 @@ mod convention_tests;
 mod default_profiles;
 mod deprecated_calls;
 mod expired;
+mod graphql;
+mod graphql_names;
 mod graphql_operations;
+mod graphql_variables;
 mod header_names;
 mod item_ids;
 mod load_ranges;
@@ -78,6 +81,7 @@ impl LintRegistry {
             Box::new(redact_rules::RedactRules),
             Box::new(body_schemas::BodySchemas),
             Box::new(graphql_operations::GraphqlOperations),
+            Box::new(graphql_variables::GraphqlVariables),
         ];
         Self { lints }
     }
@@ -94,6 +98,7 @@ impl LintRegistry {
             Box::new(path_encode::PathEncode),
             Box::new(expired::ALLOWED_FAILURES),
             Box::new(source_headers::SourceHeaders),
+            Box::new(graphql_names::GraphqlNames),
         ];
         Self { lints }
     }
