@@ -26,7 +26,7 @@ use crate::authoring::{Authoring, refused};
 use crate::explain::Explainer;
 use crate::plan::{self, profile_flag};
 use crate::ports::{Layered, SecretSource};
-use crate::project::{Compiled, Valid, invalid};
+use crate::project::{Valid, invalid};
 use crate::restricted::{Restricted, env_value, secret_value};
 use crate::shown::Var;
 use crate::{Engine, EngineError, ImportRequest};
@@ -116,10 +116,12 @@ impl Engine {
             refused("`--header` is sent only with a spec fetched from a URL".to_owned(), "give the spec's URL")
         })?;
         let headers = given(&request.headers)?;
-        let Compiled { program, diagnostics, files, notices } = self.compiled_apis(&[])?;
-        let Some(program) = program.filter(|_| !diagnostics.has_errors()) else {
+        let compiled = self.compiled_apis(&[])?;
+        let Some(program) = compiled.program.clone().filter(|_| !compiled.diagnostics.has_errors()) else {
+            let (diagnostics, files, notices) = compiled.shown();
             return Err(invalid(diagnostics, files, notices));
         };
+        let notices = compiled.notices;
         let wanted = Wanted::Given { origin, headers: &headers };
         let rendered = self.rendered(((program, notices), &request.profiles), &wanted).await?;
         Ok(rendered.into_iter().next().map(|(_, headers)| headers).unwrap_or_default())

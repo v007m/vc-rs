@@ -50,7 +50,7 @@ auth:
 | `clients[].pkcs12` | path | — | instead of `cert` and `key` | A `.p12` or `.pfx` bundle |
 | `clients[].passphrase` | text | empty | no | The bundle's passphrase |
 
-Every value except `id`, `name`, `hosts` and `profiles` is a template, rendered once when the run starts, so it reads only `var`, `secret` and `env`. The vars it reads are held to the same roots: with `runDir: ${run.id}`, `cert: ${var.runDir}/client.pem` is an error. A value that starts with `-----BEGIN` is inline PEM; anything else is a path from the project root. Keep keys and passphrases in `${secret.X}`: a key written as inline PEM, or a passphrase written as text, gets a warning, and shows as `•••` in every error's excerpt.
+Every value except `id`, `name`, `hosts` and `profiles` is a template, rendered once when the run starts, so it reads only `var`, `secret` and `env`. The vars it reads are held to the same roots, under every profile: with `runDir: ${run.id}`, `cert: ${var.runDir}/client.pem` is an error, and so is a var only a `beforeRun` save sets. A value that starts with `-----BEGIN` is inline PEM; anything else is a path from the project root. Keep keys and passphrases in `${secret.X}`: a key written as inline PEM (it starts with `-----BEGIN`, says `PRIVATE KEY` or runs over more than one line), or a passphrase written as text, gets a warning, and shows as `•••` in every error's excerpt, even one about a config that does not parse.
 
 On an auth definition:
 

@@ -31,8 +31,8 @@ pub struct Named<'t> {
 impl Engine {
     /// The project now, for an authoring command.
     pub(crate) fn authoring(&self) -> Result<Authoring, EngineError> {
-        let compiled = self.compiled()?;
-        Ok(Authoring { diagnostics: compiled.diagnostics, files: compiled.files })
+        let (diagnostics, files, _) = self.compiled()?.shown();
+        Ok(Authoring { diagnostics, files })
     }
 
     /// `changes` once the compile guard passes them against `project`.

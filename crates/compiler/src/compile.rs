@@ -2,7 +2,7 @@ use std::collections::BTreeSet;
 use std::sync::Arc;
 
 use vc_diagnostics::Diagnostics;
-use vc_model::{Date, Program, SourceFile, SourceFileId, SourceFiles, SourcePath, StringTable};
+use vc_model::{Date, Program, SourceFile, SourceFileId, SourceFiles, SourcePath, SourceSpan, StringTable};
 
 use crate::cache::{CacheEntry, Kept, LinkKey, Memo, Recall, Replay};
 use crate::link::DataWanted;
@@ -51,6 +51,10 @@ pub struct Compiled {
     /// compiles again with them, until none is wanted; until then their exports are unchecked
     /// and [`Program::hooks`] lacks them.
     pub hooks_wanted: Vec<SourcePath>,
+    /// Where the config writes a client key or passphrase as text (D353). [`Compiled::diagnostics`]
+    /// already mask them; whoever adds a diagnostic after the compile masks it with
+    /// [`masked`](crate::masked) before it is shown.
+    pub secrets: Vec<SourceSpan>,
 }
 
 /// Compiles `input` into a program, or into the diagnostics that stop one.
@@ -86,20 +90,24 @@ pub fn compile(input: CompileInput) -> Compiled {
     let linked = link::link(&entries, &files, &world);
     diagnostics.extend(linked.diagnostics);
     let diagnostics = link::masked(diagnostics, &linked.secrets);
-    let (program, data_wanted, hooks_wanted) = (linked.program, linked.data_wanted, linked.hooks_wanted);
-    let replay = program.clone().filter(|_| !diagnostics.has_errors()).map(|program| {
-        let diagnostics = diagnostics.clone();
-        Replay { program, diagnostics, data_wanted: data_wanted.clone(), hooks_wanted: hooks_wanted.clone() }
+    let (program, data_wanted, hooks_wanted, secrets) =
+        (linked.program, linked.data_wanted, linked.hooks_wanted, linked.secrets);
+    let replay = program.clone().filter(|_| !diagnostics.has_errors()).map(|program| Replay {
+        program,
+        diagnostics: diagnostics.clone(),
+        data_wanted: data_wanted.clone(),
+        hooks_wanted: hooks_wanted.clone(),
+        secrets: secrets.clone(),
     });
     let repaired = damaged || damaged_memo || input.previous.is_repaired();
     let cache = CompileCache::of(entries, strings).remembering(replay.map(|replay| Memo::made(key, replay)));
-    Compiled { program, diagnostics, files, cache: cache.repaired(repaired), data_wanted, hooks_wanted }
+    Compiled { program, diagnostics, files, cache: cache.repaired(repaired), data_wanted, hooks_wanted, secrets }
 }
 
 /// The compile whose output `previous` memoized, of `files`.
 fn replayed_compile(replay: Replay, files: SourceFiles, previous: CompileCache) -> Compiled {
-    let Replay { program, diagnostics, data_wanted, hooks_wanted } = replay;
-    Compiled { program: Some(program), diagnostics, files, cache: previous, data_wanted, hooks_wanted }
+    let Replay { program, diagnostics, data_wanted, hooks_wanted, secrets } = replay;
+    Compiled { program: Some(program), diagnostics, files, cache: previous, data_wanted, hooks_wanted, secrets }
 }
 
 /// Runs the per-file stages over every file the previous cache does not hold, and tells
