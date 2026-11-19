@@ -15,17 +15,20 @@ pub enum Protocol {
     /// `http`: a request and its response.
     #[default]
     Http,
+    /// `graphql`: a GraphQL operation sent as a JSON `POST` (D343).
+    Graphql,
 }
 
 impl Protocol {
     /// Every type, in the order the docs list them.
-    pub const ALL: [Self; 1] = [Self::Http];
+    pub const ALL: [Self; 2] = [Self::Http, Self::Graphql];
 
     /// The `type` value it is written as: `http`.
     #[must_use]
     pub const fn key(self) -> &'static str {
         match self {
             Self::Http => "http",
+            Self::Graphql => "graphql",
         }
     }
 
@@ -66,11 +69,44 @@ pub struct AllowedKeys {
 
 /// Each type with the keys it allows (see the syntax reference, "Api types"). The compiler's
 /// V2213 comes from this one table.
-pub const PROTOCOL_KEYS: [(Protocol, ProtocolKeys); 1] = [(Protocol::Http, ProtocolKeys::All)];
+pub const PROTOCOL_KEYS: [(Protocol, ProtocolKeys); 2] =
+    [(Protocol::Http, ProtocolKeys::All), (Protocol::Graphql, ProtocolKeys::Only(GRAPHQL_KEYS))];
+
+/// The keys an api of each type cannot do without, as dotted paths; a missing one is V1005.
+pub const PROTOCOL_NEEDS: [(Protocol, &[&str]); 2] =
+    [(Protocol::Http, &["path"]), (Protocol::Graphql, &["body.query"])];
+
+/// A `graphql` api always sends `POST` with its `body` (D343): no `method`, and no `body` on a
+/// call.
+const GRAPHQL_KEYS: AllowedKeys = AllowedKeys {
+    api: &[
+        "id",
+        "name",
+        "path",
+        "type",
+        "vars",
+        "query",
+        "headers",
+        "body",
+        "auth",
+        "timeout",
+        "http",
+        "expect",
+        "save",
+        "saveOn",
+        "cleanup",
+        "operationId",
+        "beforeRequest",
+        "afterResponse",
+        "deprecated",
+    ],
+    expect: &["status", "headers", "body", "size", "timing", "cel", "custom", "replace"],
+    call: &["vars", "auth", "headers", "query", "expect", "save", "poll", "retry", "timeout"],
+};
 
 #[cfg(test)]
 mod tests {
-    use super::{PROTOCOL_KEYS, Protocol, ProtocolKeys};
+    use super::{PROTOCOL_KEYS, PROTOCOL_NEEDS, Protocol, ProtocolKeys};
 
     #[test]
     fn every_type_reads_back_from_its_key_and_has_its_keys() {
@@ -79,17 +115,25 @@ mod tests {
         }
         let keyed: Vec<_> = PROTOCOL_KEYS.iter().map(|(protocol, _)| *protocol).collect();
         assert_eq!(keyed, Protocol::ALL);
+        let needing: Vec<_> = PROTOCOL_NEEDS.iter().map(|(protocol, _)| *protocol).collect();
+        assert_eq!(needing, Protocol::ALL);
     }
 
     #[test]
-    fn http_allows_every_key() {
+    fn http_allows_every_key_and_graphql_takes_away_method_and_a_call_body() {
         assert_eq!(PROTOCOL_KEYS[0], (Protocol::Http, ProtocolKeys::All));
+        let (graphql, ProtocolKeys::Only(keys)) = PROTOCOL_KEYS[1] else { panic!("graphql restricts its keys") };
+        assert_eq!(
+            (graphql, keys.api.contains(&"method"), keys.call.contains(&"body")),
+            (Protocol::Graphql, false, false)
+        );
+        assert!(keys.api.contains(&"body") && keys.expect.contains(&"status"));
     }
 
     #[test]
     fn http_is_the_default_and_an_unknown_key_is_no_type() {
         assert_eq!(Protocol::default(), Protocol::Http);
-        assert_eq!(Protocol::Http.key(), "http");
+        assert_eq!((Protocol::Http.key(), Protocol::Graphql.key()), ("http", "graphql"));
         assert_eq!(Protocol::from_key("htp"), None);
         assert_eq!(Protocol::from_key("HTTP"), None);
     }

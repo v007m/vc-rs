@@ -39,12 +39,12 @@ fn lists_the_keys_when_nothing_is_close() {
 
 #[test]
 fn reports_missing_required_keys_at_the_first_key() {
-    let walk = walk(FileKind::Api, "apis:\n  - id: get\n");
+    let walk = walk(FileKind::Api, "apis:\n  - path: /users\n");
     let missing = only(&walk);
     assert_eq!(missing.code, Code::V1005);
-    assert_eq!(missing.message, "an apiEntry needs `path`");
+    assert_eq!(missing.message, "an apiEntry needs `id`");
     assert_eq!(missing.primary.span.start.line, 2);
-    assert!(missing.help[0].starts_with("add `path: /users/${var.userId}`"));
+    assert!(missing.help[0].starts_with("add `id: create`"));
     let config = walk_config("project: x\n");
     assert_eq!(only(&config).code, Code::V1003);
 }

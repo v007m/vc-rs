@@ -25,7 +25,7 @@ An api file lives at `services/<service>/<name>.api.yaml`. `apis` is a top-level
 | Field | Type | Default | Required | Notes |
 | --- | --- | --- | --- | --- |
 | [`id`](/vc-rs/reference/syntax/id/) | camelCase string | — | yes | Unique within the file. Called as `<fileId>#<id>` |
-| [`path`](/vc-rs/reference/syntax/path/) | template string | — | yes | Joined to the file's `baseUrl` |
+| [`path`](/vc-rs/reference/syntax/path/) | template string | on `graphql`: the file's `graphql.path`, else `/graphql` | on `http` | Joined to the file's `baseUrl` |
 | [`name`](/vc-rs/reference/syntax/name/) | string | — | no | Free text for people |
 | [`method`](/vc-rs/reference/syntax/method/) | `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS` | `GET` | no | |
 | [`vars`](/vc-rs/reference/syntax/vars/) | map | — | no | The api's inputs, with defaults any caller can override |

@@ -16,7 +16,9 @@ mod hooks;
 mod ids;
 mod layer;
 mod project;
+mod protocol_checks;
 mod protocol_keys;
+mod protocol_needs;
 mod refs;
 mod reports_dir;
 mod saves;
@@ -36,9 +38,9 @@ use vc_model::{Date, FileKind, PROTOCOL_KEYS, Program, SchemaNames, SourceFiles,
 
 pub use assets::folder;
 pub use body_schema::{is_inline as schema_is_inline, key as schema_key, nodes as schema_nodes};
-pub use build::{ProtocolRulesRegistry, body_path, duration, flag, method};
+pub use build::{ProtocolRulesRegistry, body_path, duration, flag};
 pub use data::DataWanted;
-pub use project::{Project, Source, TEST_BLOCKS, actions, list, text, whole_lines};
+pub use project::{Project, Source, TEST_BLOCKS, actions, list, protocol, text, whole_lines};
 pub use uses::piece_refs;
 
 use crate::cache::CacheEntry;
@@ -94,6 +96,8 @@ pub fn link(entries: &[CacheEntry], files: &SourceFiles, world: &World<'_>) -> L
     diagnostics.extend(fakes::check(&project));
     diagnostics.extend(auth_keys::check(&project));
     diagnostics.extend(protocol_keys::check(&project, &PROTOCOL_KEYS));
+    diagnostics.extend(protocol_needs::check(&project));
+    diagnostics.extend(protocol_checks::check(&project));
     diagnostics.extend(reports_dir::check(&project));
     diagnostics.extend(shared::profiles(&project));
     diagnostics.extend(world.secrets.map(|names| secrets::check(&project, &names.declared)).unwrap_or_default());
@@ -110,12 +114,19 @@ pub fn link(entries: &[CacheEntry], files: &SourceFiles, world: &World<'_>) -> L
         build::program((&project, &data), (files.clone(), hooks.modules), world.secrets.unwrap_or(&none))
     };
     if let Some(program) = &program {
-        let cx = LintCx { project: &project, program, today: world.today };
-        diagnostics.extend(LintRegistry::builtin().run(&cx));
-        diagnostics.extend(LintRegistry::conventions().run(&cx));
+        diagnostics.extend(lints(&project, program, world.today));
     }
     let program = program.filter(|_| !diagnostics.has_errors());
     Linked { diagnostics, program, data_wanted, hooks_wanted }
+}
+
+/// The lifecycle and convention lints over a project whose program was built.
+fn lints(project: &Project<'_>, program: &Program, today: Option<Date>) -> Diagnostics {
+    let rules = ProtocolRulesRegistry::builtin();
+    let cx = LintCx { project, program, rules: &rules, today };
+    let mut diagnostics = LintRegistry::builtin().run(&cx);
+    diagnostics.extend(LintRegistry::conventions().run(&cx));
+    diagnostics
 }
 
 /// The files with a tree, and the IDs of those the per-file stages could not read cleanly.

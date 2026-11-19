@@ -161,6 +161,7 @@ fn body_references<'b>(body: &'b BodySpec, found: &mut Vec<&'b Reference>) {
     match body {
         BodySpec::None => {}
         BodySpec::Json(value) => value.collect_references(found),
+        BodySpec::Graphql(graphql) => graphql.variables.collect_references(found),
         BodySpec::Text(template) | BodySpec::File(template) | BodySpec::Base64(template) => {
             found.extend(template.references());
         }

@@ -172,11 +172,8 @@ impl Walker {
     }
 
     fn required(&mut self, node: &Node, shape: &'static Shape) {
-        let at = node.entries().first().map_or(node.span, |entry| entry.key_span);
         for key in shape.all_keys().filter(|key| key.required && node.get(key.name).is_none()) {
-            let message = format!("{} needs `{}`", article(shape.title), key.name);
-            let diagnostic = Diagnostic::new(key.missing, at, message).label(format!("`{}` is missing", key.name));
-            self.push(diagnostic.help(add_key(key)));
+            self.push(missing_key(node, shape, (key.name, None)));
         }
     }
 
@@ -275,7 +272,8 @@ const fn leaf_ty(ty: Ty) -> Option<LeafTy> {
     }
 }
 
-const fn found(node: &Node) -> &'static str {
+/// What a written `node` is, in a message's words: "an integer", "a list".
+pub const fn found(node: &Node) -> &'static str {
     match &node.value {
         Value::Scalar(scalar) => scalar.kind.name(),
         _ => node.kind_name(),
@@ -352,6 +350,18 @@ fn unknown_key(entry: &Entry, shape: &'static Shape) -> Diagnostic {
     let diagnostic = Diagnostic::new(Code::V1004, entry.key_span, message).label("not a known key");
     let known: Vec<&str> = shape.all_keys().map(|key| key.name).collect();
     suggest::hint(diagnostic, &Misspelling { word: &entry.key, span: entry.key_span, known: &known })
+}
+
+/// The key `name` missing from `node`, at its first key: V1005, or the code `shape` gives the
+/// key. `subject` names what needs it, else `shape`'s title does; a key `shape` does not declare
+/// gets a plain help.
+pub fn missing_key(node: &Node, shape: &'static Shape, (name, subject): (&str, Option<&str>)) -> Diagnostic {
+    let at = node.entries().first().map_or(node.span, |entry| entry.key_span);
+    let key = shape.find(name);
+    let subject = subject.map_or_else(|| article(shape.title), str::to_owned);
+    let help = key.map_or_else(|| format!("add `{name}`: {subject} cannot be sent without it"), add_key);
+    let code = key.map_or(Code::V1005, |key| key.missing);
+    Diagnostic::new(code, at, format!("{subject} needs `{name}`")).label(format!("`{name}` is missing")).help(help)
 }
 
 fn add_key(key: &Key) -> String {

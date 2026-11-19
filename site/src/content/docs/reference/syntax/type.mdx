@@ -20,12 +20,17 @@ apis:
 
 | Field | Type | Default | Required | Notes |
 | --- | --- | --- | --- | --- |
-| `type` | `http` | `http` | no | On the api file, the default for its apis |
-| `type` | `http` | the file's, else `http` | no | On an `apis` entry; wins over the file's |
+| `type` | `http`, `graphql` | `http` | no | On the api file, the default for its apis |
+| `type` | `http`, `graphql` | the file's, else `http` | no | On an `apis` entry; wins over the file's |
 
 `type` belongs to the api. A test or step that calls it uses the api's type and can't set its own.
 
-`http` is the only type today, and it takes every api key. GraphQL comes next ([#90](https://github.com/v007m/vc-rs/issues/90)); the other types follow in their own issues.
+| Type | Speaks | Needs | Keys it does not take |
+| --- | --- | --- | --- |
+| `http` | HTTP requests as written | `path` | none |
+| `graphql` | one GraphQL operation as a JSON `POST`; see [`graphql`](/vc-rs/reference/syntax/graphql/) | `body.query` | `method` on the api; `body` on a test or step that calls it |
+
+The other types (JSON-RPC, server-sent events, WebSocket, gRPC) follow in their own issues.
 
 ## Examples
 
@@ -43,6 +48,21 @@ apis:
     method: POST
     path: /orders
     body: {sku: A-1, quantity: 1}
+```
+
+### A GraphQL file
+
+A `type: graphql` file's apis send their `body.query` to `/graphql` (or the file's [`graphql.path`](/vc-rs/reference/syntax/graphql/)) as a `POST`.
+
+```yaml title="services/accounts/accounts.api.yaml"
+type: graphql
+baseUrl: ${var.baseUrl}
+apis:
+  - id: getUser
+    body:
+      query: 'query GetUser($id: ID!) { user(id: $id) { id name } }'
+      variables:
+        id: ${var.userId}
 ```
 
 ### Set on one api
@@ -71,6 +91,7 @@ apis:
 
 - The type is read once, when the file is checked: an api's own `type`, else its file's, else `http`. A value that is not a known type counts as unset, so it falls back the same way.
 - The type decides which keys apply: on the api, in its `expect`, and on a test or step that calls it (in its `expect` and `poll.until` too, and on a `cache.check` call inside it). A key the type does not use is an error, V2213, whose fix removes the key. `http` uses every key, so no `http` api reports it.
+- Each type needs its own keys: an `http` api without `path`, or a `graphql` api without `body.query`, is V1005.
 - A value that is not a known type is V2302, with the close type as its fix.
 
 ```yaml wrong V2302 title="services/billing/billing.api.yaml"
@@ -83,7 +104,7 @@ apis:
 
 ```console
 $ vc check services/billing
-error[V2302]: expected one of http, found `htp`
+error[V2302]: expected one of http, graphql, found `htp`
 ```
 
 ## Common errors
@@ -92,8 +113,9 @@ error[V2302]: expected one of http, found `htp`
 | --- | --- |
 | [V2302](/vc-rs/reference/diagnostics/v2302/) | `type` is not a known type |
 | [V2213](/vc-rs/reference/diagnostics/v2213/) | A key that does not apply to the api's type |
+| [V1005](/vc-rs/reference/diagnostics/v1005/) | A key the api's type needs is missing |
 
 ## Related
 
-- [`method`](/vc-rs/reference/syntax/method/), [`apis`](/vc-rs/reference/syntax/apis/)
+- [`graphql`](/vc-rs/reference/syntax/graphql/), [`method`](/vc-rs/reference/syntax/method/), [`apis`](/vc-rs/reference/syntax/apis/)
 - [All diagnostic codes](/vc-rs/reference/diagnostics/)
