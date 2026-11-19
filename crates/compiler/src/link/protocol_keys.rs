@@ -11,6 +11,7 @@ use vc_model::{AllowedKeys, FileKind, Protocol, ProtocolKeys};
 type At = fn(&AllowedKeys) -> &'static [&'static str];
 use vc_parser::{Entry, Node};
 
+use super::build;
 use super::project;
 use super::project::{Project, Source};
 use crate::shapes::{self, Shape};
@@ -33,9 +34,13 @@ struct Inherited {
 const ON_THE_TEST: Inherited =
     Inherited { own: |step, key| step.get(key).is_some(), at: |keys| keys.call, onto: "onto the steps that send one" };
 
-/// A key of the test's `expect`, such as `errors`, which merges into each step's (D123).
+/// A key of the test's `expect`, such as `errors`, which merges into each step's (D123); a step
+/// whose `expect` has `replace: true` inherits none.
 const IN_EXPECT: Inherited = Inherited {
-    own: |step, key| step.get("expect").and_then(|expect| expect.get(key)).is_some(),
+    own: |step, key| {
+        let expect = step.get("expect");
+        expect.is_some_and(|expect| expect.get(key).is_some() || build::flag(shapes::expect(), expect, "replace"))
+    },
     at: |keys| keys.expect,
     onto: "into the `expect` of the steps that check one",
 };
@@ -116,8 +121,7 @@ fn defaults(project: &Project<'_>, source: &Source<'_>, table: &Table) -> Vec<Di
     for test in tests.filter(|test| test.get("call").is_none()) {
         let keys = test.entries().iter().filter(|entry| INHERITED.contains(&entry.key.as_str()));
         found.extend(keys.filter_map(|entry| refused(project, (source, test), (table, entry, &ON_THE_TEST))));
-        let known = |entry: &&Entry| shapes::expect().all_keys().any(|key| key.name == entry.key);
-        let checks = test.get("expect").map(Node::entries).unwrap_or_default().iter().filter(known);
+        let checks = test.get("expect").map(Node::entries).unwrap_or_default().iter().filter(known(shapes::expect()));
         found.extend(checks.filter_map(|entry| refused(project, (source, test), (table, entry, &IN_EXPECT))));
     }
     found
@@ -167,9 +171,18 @@ fn expect(source: &Source<'_>, (node, protocol): (&Node, Protocol), keys: &Proto
 
 /// V2213 for each key of `node` the shape knows at `place` but the type does not allow.
 fn stray(source: &Source<'_>, (node, protocol): (&Node, Protocol), place: &Place<'_>) -> Vec<Diagnostic> {
-    let known = |entry: &&Entry| place.shape.all_keys().any(|key| key.name == entry.key);
     let stray = |entry: &&Entry| !place.keys.takes(place.at, &entry.key);
-    node.entries().iter().filter(known).filter(stray).map(|entry| removed(source, entry, protocol)).collect()
+    node.entries()
+        .iter()
+        .filter(known(place.shape))
+        .filter(stray)
+        .map(|entry| removed(source, entry, protocol))
+        .collect()
+}
+
+/// Whether an entry's key is one `shape` knows; one it does not is the shape check's error.
+fn known(shape: &'static Shape) -> impl Fn(&&Entry) -> bool {
+    move |entry| shape.all_keys().any(|key| key.name == entry.key)
 }
 
 /// V2213 at `entry`'s key, with the certain fix that removes its lines.

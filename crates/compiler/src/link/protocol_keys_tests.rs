@@ -181,6 +181,17 @@ fn a_test_level_errors_check_that_reaches_an_http_step_is_reported_once_at_the_t
 }
 
 #[test]
+fn a_step_whose_expect_replaces_inherits_no_errors_so_it_is_not_reported() {
+    let apis = "type: graphql\napis:\n  - id: get\n    path: http://x/graphql\n    body: {query: 'query Me { me { id } }'}\n  \
+                - id: health\n    type: http\n    path: http://x/health\n";
+    let steps = "    steps:\n      - call: users#get\n      - call: users#health\n        expect: {replace: true, status: 200}\n";
+    let tests = format!("tests:\n  - id: getsUser\n    expect:\n      errors: any\n{steps}");
+    let codes = |tests: &str| compile(apis, tests).diagnostics.iter().map(|found| found.code).collect::<Vec<_>>();
+    assert_eq!(codes(&tests), []);
+    assert_eq!(codes(&tests.replace("replace: true", "replace: false")), [Code::V2213]);
+}
+
+#[test]
 fn errors_on_a_flow_auth_step_is_reported_with_its_removal_since_the_step_is_http() {
     let step = "      - id: token\n        method: POST\n        url: http://x/token\n        expect:\n          errors: none\n";
     let auth = format!("auth:\n  - id: login\n    type: flow\n    steps:\n{step}    apply: {{headers: {{a: b}}}}\n");
