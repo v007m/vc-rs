@@ -1,0 +1,19 @@
+syntaxVersion: 2
+project: partner
+profiles:
+  - id: dev
+    default: true
+http:
+  tls:
+    clients:
+      - id: certOnly
+        cert: certs/partner.crt
+      - id: keyOnly
+        key: certs/partner.key
+      - id: pemWithPassphrase
+        cert: certs/partner.crt
+        key: certs/partner.key
+        passphrase: ${secret.P12_PASSPHRASE}
+      - id: bundle
+        pkcs12: certs/partner.p12
+        passphrase: ${secret.P12_PASSPHRASE}

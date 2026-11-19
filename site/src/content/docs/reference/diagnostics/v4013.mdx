@@ -1,0 +1,74 @@
+---
+title: "V4013 — A client key or passphrase is written in the config"
+description: "An http.tls.clients entry holds its private key as inline PEM, or its PKCS#12 passphrase as text, so the secret is committed to git with vibranium.config.yaml."
+sidebar:
+  label: "V4013 A client key or passphrase is written in the config"
+  order: 4013
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="warning" variant="caution" /> <Badge text="Conventions" variant="note" />
+
+| | |
+| --- | --- |
+| Code | `V4013` |
+| Category | V4xxx: Conventions |
+| Severity | warning |
+| Certain fix | read it with `${secret.NAME}` declared in `.env.schema` |
+
+An `http.tls.clients` entry holds its private key as inline PEM, or its PKCS#12 `passphrase` as text, so the
+secret is committed to git with `vibranium.config.yaml`. Read it with `${secret.NAME}` instead and declare the name
+in `.env.schema`: the value then comes from `.env` (or the secrets provider) and is masked in every output. A path
+to a key file is fine; keep the file out of git.
+
+## Wrong
+
+```yaml title="vibranium.config.yaml"
+syntaxVersion: 2
+profiles:
+  - id: dev
+    default: true
+http:
+  tls:
+    clients:
+      - id: partnerCert
+        pkcs12: certs/partner.p12
+        passphrase: hunter2
+```
+
+## Right
+
+```dotenv title=".env.schema"
+# @sensitive
+PARTNER_P12_PASSPHRASE=
+```
+
+```yaml title="vibranium.config.yaml"
+syntaxVersion: 2
+profiles:
+  - id: dev
+    default: true
+http:
+  tls:
+    clients:
+      - id: partnerCert
+        pkcs12: certs/partner.p12
+        passphrase: ${secret.PARTNER_P12_PASSPHRASE}
+```
+
+
+## Explain it in your terminal
+
+The same page is built into the binary, so this works anywhere, even outside a project:
+
+```console
+$ vc explain V4013
+```
+
+## Related
+
+- [All diagnostic codes](/vc-rs/reference/diagnostics/)
+- [`vc explain`](/vc-rs/reference/cli/explain/)
+- [`vc check`](/vc-rs/reference/cli/check/)
+- [Errors and fixes](/vc-rs/guides/errors-and-fixes/)

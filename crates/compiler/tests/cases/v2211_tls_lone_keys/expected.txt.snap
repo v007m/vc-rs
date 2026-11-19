@@ -1,0 +1,25 @@
+---
+source: crates/compiler/tests/golden.rs
+assertion_line: 43
+input_file: crates/compiler/tests/cases/v2211_tls_lone_keys/project
+---
+error[V2211]: `cert` without `key`
+  --> vibranium.config.yaml:10:9
+   |
+10 |         cert: certs/partner.crt
+   |         ^^^^ needs `key`
+   = help: a PEM client certificate needs `cert` and `key`: add `key`, or give `pkcs12` instead
+
+error[V2211]: `key` without `cert`
+  --> vibranium.config.yaml:12:9
+   |
+12 |         key: certs/partner.key
+   |         ^^^ needs `cert`
+   = help: a PEM client certificate needs `cert` and `key`: add `cert`, or give `pkcs12` instead
+
+error[V2211]: `passphrase` without `pkcs12`
+  --> vibranium.config.yaml:16:9
+   |
+16 |         passphrase: ${secret.P12_PASSPHRASE}
+   |         ^^^^^^^^^^ needs `pkcs12`
+   = help: `passphrase` unlocks a `pkcs12` bundle: add `pkcs12`, or remove `passphrase`

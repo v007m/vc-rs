@@ -48,7 +48,7 @@ shape! {
 
 shape! {
     config_http = Shape::new("configHttp", "Transport settings: retries and TLS", &[
-        types::key("tls", Ty::Obj(tls)).doc("Trusted roots and client certificates"),
+        types::key("tls", Ty::Obj(tls)).scope(Scope::RUN_START).doc("Trusted roots and client certificates"),
     ])
     .mixins(&[common::http])
 }

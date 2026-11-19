@@ -45,6 +45,7 @@ use action::Place;
 pub use expect::path as body_path;
 pub use protocol::ProtocolRulesRegistry;
 pub use read::{duration, flag};
+pub use tls::NO_CLIENT_CERT;
 
 /// What a build step gives; it fails only when a table is full.
 type Built<T> = Result<T, ModelError>;

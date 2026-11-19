@@ -1,0 +1,21 @@
+syntaxVersion: 2
+project: partner
+profiles:
+  - id: dev
+    default: true
+http:
+  tls:
+    clients:
+      - id: partnerCert
+        pkcs12: certs/partner.p12
+auth:
+  - id: misspelt
+    type: mtls
+    clientCert: partnerCrt
+  - id: offForNegativeTests
+    type: mtls
+    clientCert: none
+  - id: tokenWithCert
+    type: bearer
+    token: abc
+    clientCert: partnerCert

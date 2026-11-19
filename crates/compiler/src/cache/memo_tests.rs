@@ -107,7 +107,7 @@ fn a_hit_equals_a_fresh_link_for_every_golden_case_and_the_docs_examples() -> Ou
         warned += usize::from(replays_a_fresh_link(&case.join("project"))?);
     }
     replays_a_fresh_link(&root.join("../../site/src/examples"))?;
-    assert_eq!(warned, 7, "the golden cases with warnings hit too, and replay them");
+    assert_eq!(warned, 8, "the golden cases with warnings hit too, and replay them");
     Ok(())
 }
 

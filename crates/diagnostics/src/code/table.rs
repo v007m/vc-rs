@@ -96,6 +96,7 @@ code_table! {
     V4008 = 4008, Warning, "`allowFailure` expired; a failure fails the run again";
     V4009 = 4009, Warning, "A sensitive header in `source.headers` has a literal value";
     V4010 = 4010, Warning, "GraphQL operation has no name";
+    V4013 = 4013, Warning, "A client key or passphrase is written in the config";
     // V5xxx: run time
     V5101 = 5101, Error, "Expectation failed";
     V5102 = 5102, Error, "CEL check false";

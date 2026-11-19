@@ -83,6 +83,8 @@ impl Scope {
     /// Only the roots a row source reads before the run starts: `examples` written as one
     /// template or a `$file` map, not inline rows.
     pub const ROWS: Self = Self(1 << 4);
+    /// Only the roots a setting rendered once when the run starts reads: `http.tls` (D350).
+    pub const RUN_START: Self = Self(1 << 5);
 
     /// Both scopes.
     #[must_use]

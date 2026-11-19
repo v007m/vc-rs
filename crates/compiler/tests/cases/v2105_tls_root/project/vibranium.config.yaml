@@ -1,0 +1,22 @@
+syntaxVersion: 2
+project: partner
+profiles:
+  - id: dev
+    default: true
+vars:
+  certDir: certs
+http:
+  tls:
+    ca:
+      - certs/root.pem
+      - ${response.body.ca}
+    clients:
+      - id: partnerCert
+        cert: ${var.certDir}/partner.crt
+        key: ${env.PARTNER_KEY_FILE}
+      - id: perRun
+        cert: ${run.id}.crt
+        key: ${secret.PARTNER_KEY}
+      - id: bundle
+        pkcs12: ${fake.lorem.word}.p12
+        passphrase: ${secret.P12_PASSPHRASE}

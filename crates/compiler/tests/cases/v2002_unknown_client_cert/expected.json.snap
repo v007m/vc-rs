@@ -1,0 +1,50 @@
+---
+source: crates/compiler/tests/golden.rs
+assertion_line: 44
+input_file: crates/compiler/tests/cases/v2002_unknown_client_cert/project
+---
+{
+  "summary": {
+    "errors": 1,
+    "warnings": 0,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "code": "V2002",
+      "severity": "error",
+      "message": "unknown client certificate `partnerCrt`",
+      "primary": {
+        "span": {
+          "path": "vibranium.config.yaml",
+          "line": 14,
+          "column": 17,
+          "endLine": 14,
+          "endColumn": 27
+        },
+        "text": "the config has no such client certificate"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "did you mean `partnerCert`?"
+      ],
+      "fixes": [
+        {
+          "title": "Replace with partnerCert",
+          "certain": true,
+          "edits": [
+            {
+              "path": "vibranium.config.yaml",
+              "range": {
+                "start": 212,
+                "end": 222
+              },
+              "newText": "partnerCert"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
