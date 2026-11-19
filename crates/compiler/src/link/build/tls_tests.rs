@@ -85,3 +85,17 @@ fn a_config_without_tls_has_none() {
     let program = program("syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\n");
     assert_eq!(program.config.http_tls, vc_model::TlsConfig::default());
 }
+
+#[test]
+fn a_clients_profiles_written_as_one_word_is_a_shape_error() {
+    let config = CONFIG.replace("profiles: [staging]", "profiles: staging");
+    let files = vec![SourceFile {
+        path: SourcePath::new("vibranium.config.yaml").unwrap(),
+        text: config,
+        hash: ContentHash::new([0; 32]),
+    }];
+    let secret_schema = Some(SourceFile { path: SourcePath::new(".env.schema").unwrap(), ..files[0].clone() });
+    let compiled = crate::compile(CompileInput { files, secret_schema, ..CompileInput::default() });
+    let found: Vec<_> = compiled.diagnostics.iter().map(|found| (found.code, found.primary.span.start.line)).collect();
+    assert!(found.contains(&(vc_diagnostics::Code::V2302, 15)), "a list of profiles, not a word: {found:?}");
+}
