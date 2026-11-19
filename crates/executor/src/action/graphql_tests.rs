@@ -74,3 +74,26 @@ async fn a_written_content_type_and_accept_are_sent_as_written() {
     assert_eq!((header(&request, CONTENT_TYPE), header(&request, ACCEPT)), ("text/plain", "application/json"));
     assert_eq!(body(&request), json!({ "query": "{ me { id } }", "variables": {} }), "the body stays the GraphQL JSON");
 }
+
+#[tokio::test]
+async fn an_accept_that_renders_null_removes_it_and_the_default_stays_out() {
+    let empty = TemplateValue::Map(indexmap::IndexMap::new());
+    let (mut fixture, call) =
+        graphql(GraphqlBody { document: "{ me { id } }".to_owned(), variables: empty, operation_name: None });
+    fixture.program.config.defaults.headers = fixture.templates(&[("Accept", "application/json")]);
+    let none = fixture.var("region");
+    drop(fixture.program.config.vars.values.insert(none, TemplateValue::Null));
+    fixture.action_mut(call).headers = fixture.templates(&[("accept", "${var.region}")]);
+    let request = sent((fixture, call)).await;
+    assert_eq!(request.headers.get(ACCEPT), None, "a null removes the config's accept, and no default comes back");
+}
+
+#[tokio::test]
+async fn an_accept_written_on_any_level_in_any_case_is_kept() {
+    let empty = TemplateValue::Map(indexmap::IndexMap::new());
+    let (mut fixture, call) =
+        graphql(GraphqlBody { document: "{ me { id } }".to_owned(), variables: empty, operation_name: None });
+    fixture.program.config.defaults.headers = fixture.templates(&[("ACCEPT", "application/json")]);
+    let request = sent((fixture, call)).await;
+    assert_eq!(header(&request, ACCEPT), "application/json");
+}
