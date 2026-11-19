@@ -16,6 +16,7 @@ mod hooks;
 mod ids;
 mod layer;
 mod project;
+mod protocol_checks;
 mod protocol_keys;
 mod protocol_needs;
 mod refs;
@@ -96,6 +97,7 @@ pub fn link(entries: &[CacheEntry], files: &SourceFiles, world: &World<'_>) -> L
     diagnostics.extend(auth_keys::check(&project));
     diagnostics.extend(protocol_keys::check(&project, &PROTOCOL_KEYS));
     diagnostics.extend(protocol_needs::check(&project));
+    diagnostics.extend(protocol_checks::check(&project));
     diagnostics.extend(reports_dir::check(&project));
     diagnostics.extend(shared::profiles(&project));
     diagnostics.extend(world.secrets.map(|names| secrets::check(&project, &names.declared)).unwrap_or_default());

@@ -1,5 +1,6 @@
 //! The compile rules of each api `type` (D342): the parts of an api that its type decides.
 
+use vc_diagnostics::Diagnostic;
 use vc_model::{BodySpec, Method, ModelError, Protocol, Template};
 use vc_parser::Node;
 
@@ -19,6 +20,10 @@ pub trait ProtocolRules {
     fn path(&self, source: &Source<'_>, api: &Node) -> Option<Template>;
     /// The keys of the api's `body` that are templates; `None` when all of it is.
     fn templated_body_keys(&self) -> Option<&'static [&'static str]>;
+    /// The problems in what the type reads of the api, beyond its keys and its shape.
+    fn check(&self, _api: &Node) -> Vec<Diagnostic> {
+        Vec::new()
+    }
 }
 
 /// `http`: the api's own `method`, else GET, and its own `body` and `path`.

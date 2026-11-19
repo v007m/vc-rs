@@ -272,7 +272,8 @@ const fn leaf_ty(ty: Ty) -> Option<LeafTy> {
     }
 }
 
-const fn found(node: &Node) -> &'static str {
+/// What a written `node` is, in a message's words: "an integer", "a list".
+pub const fn found(node: &Node) -> &'static str {
     match &node.value {
         Value::Scalar(scalar) => scalar.kind.name(),
         _ => node.kind_name(),
