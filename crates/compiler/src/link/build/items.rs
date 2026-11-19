@@ -134,7 +134,7 @@ impl<'a> Build<'_, 'a> {
             None => None,
         };
         let expect = self.api_expects.get(&id).cloned().unwrap_or_default();
-        let save_on = expect::save_on(source, node.get("saveOn"), &expect);
+        let (save_on, save_on_written) = expect::save_on(source, node.get("saveOn"), &expect);
         Ok(Some(Api {
             id,
             name: read::owned(node, "name"),
@@ -152,7 +152,7 @@ impl<'a> Build<'_, 'a> {
             expect,
             save: SaveSpec { values: self.values(source, node.get("save"))? },
             save_on,
-            save_on_written: node.get("saveOn").is_some(),
+            save_on_written,
             cleanup,
             hooks: hooks(source, node),
             deprecated: read::flag(shapes::api(), node, "deprecated"),
