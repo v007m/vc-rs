@@ -132,7 +132,7 @@ apis:
 - `query: {$file: getUser.graphql}` reads the document from a file, relative to the api file. The path is literal and must end in `.graphql` or `.gql`, and the map takes no other key (else V2302); a file that does not exist is V2004.
 - `vc check` parses the document, inline or from its file. A syntax error is V1014, underlined at the token where the parser stopped. Checking the document against a schema comes later.
 - `operationName` must name an operation of the document, and is needed when it holds more than one (V2009). The operation must be a query or a mutation; subscriptions are not supported yet. A document with no operation (only fragments or type definitions), or with two operations of one name, is V2009 too.
-- `variables` must give a value for each variable the operation declares as non-null with no default (`$id: ID!`), an error (V2108). A value for a variable the operation does not declare is a V2108 warning, since the server ignores it; the fix is the close declared name. A `variables` written as one template, such as `variables: ${var.filters}`, is not checked.
+- `variables` must give a value for each variable the operation declares as non-null with no default (`$id: ID!`), an error (V2108). A value for a variable the operation does not declare is a warning (V2109), since the server ignores it; the fix is the close declared name. A `variables` written as one template, such as `variables: ${var.filters}`, is not checked.
 - An operation without a name is a warning (V4010): the name shows in the server's logs and traces. The fix names it after the api, so `getUser` gets `query GetUser`, when the document holds that one operation and no other api uses it. A `.graphql` file shared by several apis is reported once.
 - `variables` is always sent, `{}` when unset. Its values are templates, so an unset var in it is V2101.
 - `content-type: application/json` and `accept: application/graphql-response+json, application/json;q=0.9` are added only when no level (config, api file, api, test or step) sets that header. A header you set is sent as written, so a test can send a wrong `content-type` on purpose to see how the server answers.
@@ -161,7 +161,8 @@ error[V2213]: `method` does not apply to a `graphql` api
 | [V2213](/vc-rs/reference/diagnostics/v2213/) | `method` on a `graphql` api; a `body` key other than `query`, `variables` and `operationName`; `body` on a test or step that calls one, or on a test whose steps call one; a `graphql` block on a file that is not `type: graphql` |
 | [V1014](/vc-rs/reference/diagnostics/v1014/) | The document does not parse |
 | [V2009](/vc-rs/reference/diagnostics/v2009/) | `operationName` names no operation of the document; several operations and no `operationName`; no operation; two operations of one name; a subscription |
-| [V2108](/vc-rs/reference/diagnostics/v2108/) | A non-null variable with no default is missing from `variables`; a value is given for a variable the operation does not declare (a warning) |
+| [V2108](/vc-rs/reference/diagnostics/v2108/) | A non-null variable with no default is missing from `variables` |
+| [V2109](/vc-rs/reference/diagnostics/v2109/) | A value is given for a variable the operation does not declare (a warning) |
 | [V4010](/vc-rs/reference/diagnostics/v4010/) | The operation has no name (a warning) |
 | [V2302](/vc-rs/reference/diagnostics/v2302/) | A `query` that is neither text nor exactly a `$file` of a literal `.graphql` or `.gql` path; an `operationName` that is not text or holds a `${…}` |
 | [V2101](/vc-rs/reference/diagnostics/v2101/) | A var in `variables` that nothing sets |
