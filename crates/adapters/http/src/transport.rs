@@ -178,6 +178,13 @@ fn transport_error(error: &hyper_util::client::legacy::Error, host: &str, sent: 
 }
 
 /// The error and its causes, joined with `: `.
-fn chain(error: &(dyn std::error::Error + 'static)) -> String {
-    alert::causes(error).map(ToString::to_string).collect::<Vec<_>>().join(": ")
+fn chain(error: &dyn std::error::Error) -> String {
+    let mut text = error.to_string();
+    let mut source = error.source();
+    while let Some(cause) = source {
+        text.push_str(": ");
+        text.push_str(&cause.to_string());
+        source = cause.source();
+    }
+    text
 }
