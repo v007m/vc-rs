@@ -1,6 +1,6 @@
 ---
 title: "V5128 — The response has GraphQL errors"
-description: "A call to a graphql api got a response with errors, and no expect.errors check failed on them."
+description: "A call to a graphql api got a response with errors, and the step has no expect.errors check."
 sidebar:
   label: "V5128 The response has GraphQL errors"
   order: 5128
@@ -17,10 +17,10 @@ import { Badge } from '@astrojs/starlight/components';
 | Severity | warning |
 | Certain fix | none; `vc check --fix` leaves this one to you |
 
-A call to a `graphql` api got a response with `errors`, and no `expect.errors` check failed on them. GraphQL errors
-pass by default, so the step keeps its verdict, and this warning lists each error as `CODE at path: message` so that a
-tolerated error stays visible. The warning is a note, not a failure: when the errors are part of the behaviour under
-test, pin them with `expect.errors`, so that a different error fails the step; when they should not happen,
+A call to a `graphql` api got a response with `errors`, and the step has no `expect.errors` check. GraphQL errors
+pass by default, so the step keeps its verdict, and this warning lists each error as `CODE at path: message` so that an
+error nobody asserted stays visible. When the errors are part of the behaviour under test, pin them with
+`expect.errors`: a passing check is silent, and a different error fails the step (V5123). When they should not happen,
 `errors: none` fails the step on them. Here the server hides `secretNote` with a `FORBIDDEN` error that the test does
 not check.
 

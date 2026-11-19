@@ -7,7 +7,7 @@ use serde_json::{Value, json};
 use vc_diagnostics::Code;
 use vc_model::{
     ActionId, BodySpec, Check, CheckKind, CheckResult, Failure, HttpResponse, Matcher, MatcherArg, MatcherCall, Method,
-    Origin, OwnerKey, Protocol, StatusPattern,
+    Origin, OwnerKey, Protocol, StatusPattern, TemplateValue,
 };
 use vc_testkit::FakeTransport;
 
@@ -203,25 +203,26 @@ fn each_error_is_listed_as_code_at_path_message_leaving_out_what_it_lacks() {
 }
 
 #[test]
-fn the_listing_joins_the_errors_and_a_passed_errors_check_still_lists_them() {
+fn the_listing_joins_the_errors_and_any_errors_check_silences_it() {
     let held = Held::new(Ok(vec![json!({"message": "a"}), json!({"code": "B", "message": "b"})]));
-    let passed = CheckResult {
-        kind: CheckKind::Errors,
+    let status = CheckResult {
+        kind: CheckKind::Status,
         target: None,
         origin: Origin::Action(ActionId::new(0)),
         span: fixture::span(),
-        passed: true,
+        passed: false,
         expected: Value::Null,
         actual: None,
         diff: None,
         error: None,
         code: None,
     };
-    let warnings = held.warnings(std::slice::from_ref(&passed), false);
     let listed = Failure::new("The response has GraphQL errors: a; B: b").with_code(Code::V5128.to_string());
-    assert_eq!(warnings, [listed]);
-    let other = CheckResult { kind: CheckKind::Status, passed: false, ..passed };
-    assert_eq!(held.warnings(&[other], true).len(), 2, "only a failed errors check stops the listing");
+    assert_eq!(held.warnings(std::slice::from_ref(&status), false), [listed], "a status check is no errors check");
+    for passed in [true, false] {
+        let errors = CheckResult { kind: CheckKind::Errors, passed, ..status.clone() };
+        assert_eq!(held.warnings(&[errors], true).len(), 1, "D364: only V5129 once errors are checked ({passed})");
+    }
 }
 
 #[test]
@@ -252,4 +253,19 @@ async fn a_masked_value_in_an_error_is_hidden_from_the_listing() {
     let report = run((fixture, call), answer(200, &body.to_string())).await;
     let message = &warned(&report)[0].1;
     assert!(message.starts_with("The response has GraphQL errors: bad key ") && !message.contains(SECRET), "{message}");
+}
+
+#[tokio::test]
+async fn a_passing_errors_any_asserts_the_errors_so_they_are_not_listed() {
+    let (mut fixture, create, _) = creating(Protocol::Graphql);
+    let any = MatcherCall {
+        name: "empty".to_owned(),
+        arg: MatcherArg::Value(TemplateValue::Bool(false)),
+        span: fixture::span(),
+    };
+    let check = Check { matcher: Matcher::All(vec![any]), ..no_errors(create) };
+    fixture.action_mut(create).expect.checks = vec![check];
+    let report = run((fixture, create), answer(200, &forbidden().to_string())).await;
+    assert_eq!(report.outcome.failure(), None, "errors: any holds");
+    assert_eq!(codes(&report), [Code::V5129.to_string()], "D364: asserted errors are not listed");
 }

@@ -33,8 +33,8 @@ const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
 /// whatever the checks say, unless the action is `keep` or is itself a cleanup. Only when every
 /// check holds does it save the api's `save` values, when the status matches the api's `saveOn`
 /// (D191), and then the action's. A response with GraphQL errors registers no cleanup and, under
-/// the default `saveOn`, runs no api `save` (V5129); its errors are listed as V5128 unless an
-/// `expect.errors` check failed on them, and a 2xx one its runtime cannot read fails (V5124, D345).
+/// the default `saveOn`, runs no api `save` (V5129); its errors are listed as V5128 when the
+/// call has no `expect.errors` check (D364), and a 2xx one its runtime cannot read fails (V5124, D345).
 #[derive(Clone)]
 pub struct CallExecutor {
     parts: PipelineParts,

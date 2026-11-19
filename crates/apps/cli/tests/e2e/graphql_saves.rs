@@ -1,5 +1,5 @@
 //! What a `graphql` response's errors hold back (D345, D361), against the mock's `/graphql/reply`:
-//! a 200 with errors passes and lists them (V5128); the default `save` and the `cleanup` wait for
+//! a 200 with errors passes and lists them (V5128) unless `expect.errors` asserts them (D364); the default `save` and the `cleanup` wait for
 //! a response without errors (V5129), while an explicit `saveOn` still saves; a 2xx body that is
 //! not GraphQL fails (V5124), and any other status is left to the status check.
 
@@ -114,4 +114,13 @@ async fn a_2xx_body_that_is_not_graphql_is_v5124_and_a_400_is_left_to_the_status
     let expected = "      - call: accounts#createRejected\n        expect:\n          status: 400\n";
     let (output, _) = run(expected).await;
     assert_eq!(output.status.code(), Some(0), "a 400 it expects passes: {}", said(&output));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn errors_a_passing_expect_errors_asserts_are_not_listed() {
+    let steps = "      - call: accounts#createWithErrors\n        expect:\n          errors: any\n";
+    let (output, _) = run(steps).await;
+    let text = said(&output);
+    assert_eq!(output.status.code(), Some(0), "{text}");
+    assert!(!text.contains("V5128") && text.contains("V5129"), "D364: asserted, but the save is still held: {text}");
 }

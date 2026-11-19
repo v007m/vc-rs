@@ -1,7 +1,7 @@
 //! What a response's GraphQL errors hold back (D345, D361): an api's default `save` and its
 //! `cleanup` wait for a response without errors, a response its runtime cannot read fails the
-//! call (V5124), and the errors no `expect.errors` check failed on are listed as a warning
-//! (V5128), with one more when a save or cleanup was held back (V5129).
+//! call (V5124), and the errors of a call with no `expect.errors` check are listed as a warning
+//! (V5128, D364), with one more when a save or cleanup was held back (V5129).
 
 use serde_json::Value;
 use vc_diagnostics::Code;
@@ -39,14 +39,15 @@ impl Held {
         self.unread.clone()
     }
 
-    /// V5128 listing the errors unless an `expect.errors` check failed on them, and V5129 when
-    /// they `withheld` a save or cleanup; none for a response without errors.
+    /// V5128 listing the errors when `checks` hold no `expect.errors` check (a passing one asserted
+    /// them, a failing one is V5123; D364), and V5129 when they `withheld` a save or cleanup; none
+    /// for a response without errors.
     pub fn warnings(&self, checks: &[CheckResult], withheld: bool) -> Vec<Failure> {
         if self.errors.is_empty() {
             return Vec::new();
         }
-        let failed = checks.iter().any(|check| check.kind == CheckKind::Errors && !check.passed);
-        let listed = (!failed).then(|| listed(&self.errors));
+        let asserted = checks.iter().any(|check| check.kind == CheckKind::Errors);
+        let listed = (!asserted).then(|| listed(&self.errors));
         let skipped = withheld.then(|| {
             let message = "Save skipped: the response has GraphQL errors, which hold back the api's default `save` \
                            and its `cleanup` (an explicit `saveOn` is status only)";

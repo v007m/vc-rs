@@ -743,6 +743,12 @@ Round 73 (19 November 2026; Sarath, on the GraphQL errors list and a null `error
 | D362 | An errors list matches one to one | An `expect.errors` list holds when the response has as many errors as the list has entries and each entry is paired with its own distinct error; order does not matter. A list can therefore pin the exact errors, and one error never satisfies two entries. `some`/`every`/`none` stay the way to match loosely. | D345 (the list form's "each entry matches some error and each error matches some entry") |
 | D363 | A null `errors` is no errors | `"errors": null` in a GraphQL response is read as no errors, the same as a missing `errors` key. Any other value that is not a list fails the errors check (V5123, "`errors` is not a list"). | none |
 
+Round 74 (19 November 2026; Sarath, on when V5128 fires):
+
+| # | Topic | Decision | Supersedes |
+| --- | --- | --- | --- |
+| D364 | V5128 only for unasserted errors | Warning V5128 fires only when a GraphQL response has errors and the step has no `expect.errors` check. A passing check means the errors were asserted, and a failing one already reports V5123, so neither warns. | D361 (refines: which tolerated errors are listed) |
+
 ## Open
 
 All decisions needed for the PRD and technical design are settled. The language is decided by the spike (D6, D36, D37, D41).
