@@ -79,9 +79,20 @@ fn outcome(judge: &Judge<'_>, check: &Check, subject: Subject<'_>) -> Outcome {
         CheckKind::Cel => cel(judge, &check.matcher),
         CheckKind::Schema => schema_check(judge, check, subject.response.get("body")),
         CheckKind::Custom => pending("the custom check's function did not run", Code::V5103),
-        CheckKind::Errors => Outcome {
+        CheckKind::Errors => errors_check(judge, check, subject.response.get("body")),
+    }
+}
+
+/// An `expect.errors` check on the body's normalised errors; a body that is not a GraphQL
+/// response, or whose `errors` is not a list, fails with what it is (D345).
+fn errors_check(judge: &Judge<'_>, check: &Check, body: Option<&Value>) -> Outcome {
+    match errors::normalised(body) {
+        Ok(errors) => Outcome { code: Code::V5123, ..matched(judge, check, Some(errors)) },
+        Err(what) => Outcome {
+            actual: Some(Value::String(what.to_owned())),
+            expected: judge.expected(&check.matcher),
+            verdict: Ok(false),
             code: Code::V5123,
-            ..matched(judge, check, Some(errors::normalised(subject.response.get("body"))))
         },
     }
 }

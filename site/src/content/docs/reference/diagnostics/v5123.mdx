@@ -22,7 +22,8 @@ A `graphql` api's response did not carry the errors its `expect.errors` asks for
 `expect.errors` says otherwise; it takes `none`, `any`, the list of errors expected (each entry matches some error,
 and each error matches some entry) or a matcher such as `{ some: { code: TIMEOUT } }`. An entry writes `message`,
 `path` (dotted, like `user.secretNote`), `code` (the error's `extensions.code`) or `extensions`, each a literal or a
-matcher. Here the server also reports a `TIMEOUT` error that the list leaves out.
+matcher. A body that is not a JSON object, or whose `errors` is not a list, fails it too. Here the server also
+reports a `TIMEOUT` error that the list leaves out.
 
 ## Wrong
 

@@ -1,7 +1,7 @@
 //! The matcher registry and the judge that applies matchers (syntax reference "Checks and
 //! matchers").
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt;
 
 use serde_json::{Map, Value, json};
@@ -49,6 +49,8 @@ pub type MatcherFn = fn(&Judge<'_>, Option<&Value>, &MatcherArg) -> Result<bool,
 #[derive(Clone, Default)]
 pub struct MatcherRegistry {
     by_name: HashMap<&'static str, MatcherFn>,
+    /// The matchers a written form lowers to, which a report shows as their argument.
+    internal: HashSet<&'static str>,
 }
 
 impl fmt::Debug for MatcherRegistry {
@@ -72,6 +74,14 @@ impl MatcherRegistry {
     pub fn with(mut self, name: &'static str, matcher: MatcherFn) -> Self {
         self.by_name.insert(name, matcher);
         self
+    }
+
+    /// The registry with `matcher` under `name`, as a matcher users cannot write: the compiler
+    /// lowers a written form to it, and a report shows its argument, as written, not its name.
+    #[must_use]
+    pub fn internal(mut self, name: &'static str, matcher: MatcherFn) -> Self {
+        self.internal.insert(name);
+        self.with(name, matcher)
     }
 
     fn get(&self, name: &str) -> Option<MatcherFn> {
@@ -177,13 +187,16 @@ impl<'j> Judge<'j> {
     pub fn expected(&self, matcher: &Matcher) -> Result<Value, String> {
         Ok(match matcher {
             Matcher::Equals(value) => self.render(value)?,
-            Matcher::All(calls) => {
-                let mut described = Map::new();
-                for call in calls {
-                    described.insert(call.name.clone(), self.value(&call.arg)?);
+            Matcher::All(calls) => match calls.as_slice() {
+                [call] if self.registry.internal.contains(call.name.as_str()) => self.value(&call.arg)?,
+                _ => {
+                    let mut described = Map::new();
+                    for call in calls {
+                        described.insert(call.name.clone(), self.value(&call.arg)?);
+                    }
+                    Value::Object(described)
                 }
-                Value::Object(described)
-            }
+            },
             Matcher::Status(patterns) => Value::Array(patterns.iter().map(|pattern| status(*pattern)).collect()),
             Matcher::StatusOf(value) => {
                 let rendered = self.render(value)?;

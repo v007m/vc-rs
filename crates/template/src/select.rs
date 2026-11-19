@@ -68,6 +68,23 @@ pub fn path_text(path: &[Segment]) -> String {
     })
 }
 
+/// A path as an `expect.errors` entry writes it, without a root: `users[2].email`. A key that
+/// holds `.`, `[`, `]` or `"` is quoted as body paths quote keys (`["a.b"]`, `['say "hi"']`).
+#[must_use]
+pub fn dotted(path: &[Segment]) -> String {
+    path.iter().fold(String::new(), |mut text, segment| {
+        let _ = match segment {
+            Segment::Key(key) if key.contains('"') => write!(text, "['{key}']"),
+            Segment::Key(key) if key.contains(['.', '[', ']']) => write!(text, "[\"{key}\"]"),
+            Segment::Key(key) if text.is_empty() => write!(text, "{key}"),
+            Segment::Key(key) => write!(text, ".{key}"),
+            Segment::Index(index) => write!(text, "[{index}]"),
+            Segment::All => write!(text, "[*]"),
+        };
+        text
+    })
+}
+
 fn is_ident(key: &str) -> bool {
     let mut chars = key.chars();
     chars.next().is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
@@ -81,5 +98,22 @@ pub fn preview(value: &Value) -> String {
     match text.char_indices().nth(PREVIEW) {
         Some((end, _)) => format!("{}…", &text[..end]),
         None => text,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use vc_model::Segment;
+
+    use super::dotted;
+
+    #[test]
+    fn dots_keys_brackets_indexes_and_quotes_a_key_a_dot_or_bracket_would_split() {
+        let key = |name: &str| Segment::Key(name.to_owned());
+        assert_eq!(dotted(&[key("users"), Segment::Index(2), key("email")]), "users[2].email");
+        assert_eq!(dotted(&[Segment::Index(0), key("a"), Segment::All]), "[0].a[*]");
+        assert_eq!(dotted(&[key("a.b"), key("c[1]"), key("d]")]), "[\"a.b\"][\"c[1]\"][\"d]\"]");
+        assert_eq!(dotted(&[key("x"), key("say \"hi\"")]), "x['say \"hi\"']");
+        assert_eq!(dotted(&[]), "");
     }
 }
