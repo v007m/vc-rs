@@ -1,7 +1,10 @@
 use std::fmt;
 
+use rustls::crypto::ring::sign::any_supported_type;
 use rustls::pki_types::pem::{self, PemObject};
 use rustls::pki_types::{CertificateDer, PrivateKeyDer};
+use rustls::sign::CertifiedKey;
+use rustls::{Error as TlsError, InconsistentKeys};
 use sha2::{Digest, Sha256};
 use zeroize::Zeroizing;
 
@@ -51,10 +54,11 @@ impl ClientIdentity {
         HttpAdapterError::Identity { id: self.id.clone(), reason: reason.into() }
     }
 
-    /// The certificate chain and the private key, for rustls.
+    /// The certificate chain and its signing key, for rustls, checked to belong together.
     ///
+    /// The decoded key stays in memory that is wiped on drop; ring parses it by reference.
     /// Errors name the identity and the cause, never PEM text: pki-types quotes the bad line.
-    pub(crate) fn parse(&self) -> Result<(Vec<CertificateDer<'static>>, PrivateKeyDer<'static>), HttpAdapterError> {
+    pub(crate) fn certified(&self) -> Result<CertifiedKey, HttpAdapterError> {
         let chain = CertificateDer::pem_slice_iter(&self.cert).collect::<Result<Vec<_>, _>>();
         let chain = chain.map_err(|error| self.error(format!("the certificate {}", pem_reason(&error))))?;
         if chain.is_empty() {
@@ -63,8 +67,14 @@ impl ClientIdentity {
         if encrypted(&self.key) {
             return Err(self.error(ENCRYPTED));
         }
-        let key = PrivateKeyDer::from_pem_slice(&self.key);
-        Ok((chain, key.map_err(|error| self.error(format!("the private key {}", pem_reason(&error))))?))
+        let key = PrivateKeyDer::from_pem_slice(&self.key).map(Zeroizing::new);
+        let key = key.map_err(|error| self.error(format!("the private key {}", pem_reason(&error))))?;
+        let certified =
+            CertifiedKey::new(chain, any_supported_type(&key).map_err(|error| self.error(error.to_string()))?);
+        match certified.keys_match() {
+            Ok(()) | Err(TlsError::InconsistentKeys(InconsistentKeys::Unknown)) => Ok(certified),
+            Err(error) => Err(self.error(error.to_string())),
+        }
     }
 }
 
@@ -115,7 +125,7 @@ mod tests {
     use crate::HttpAdapterError;
 
     fn reason(cert: &[u8], key: &[u8]) -> String {
-        match ClientIdentity::pem("tenantA", cert.to_vec(), key.to_vec()).parse() {
+        match ClientIdentity::pem("tenantA", cert.to_vec(), key.to_vec()).certified() {
             Err(HttpAdapterError::Identity { id, reason }) if id == "tenantA" => reason,
             other => format!("unexpected {other:?}"),
         }
@@ -150,6 +160,7 @@ mod tests {
     fn debug_shows_the_fingerprint_but_not_the_key() {
         let cert = include_bytes!("../tests/fixtures/ec.pem").to_vec();
         let identity = ClientIdentity::pem("ec", cert, b"KEY-BYTES".to_vec()).hosts(vec!["a.test".into()]);
+        assert_eq!(identity.id(), "ec");
         let shown = format!("{identity:?}");
         assert!(shown.starts_with(r#"ClientIdentity { id: "ec", hosts: ["a.test"], leaf_sha256: Some("#), "{shown}");
         assert!(!shown.contains("KEY-BYTES"), "{shown}");

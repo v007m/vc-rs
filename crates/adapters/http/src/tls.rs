@@ -3,6 +3,7 @@ use std::sync::Arc;
 use rustls::pki_types::CertificateDer;
 use rustls::pki_types::ServerName;
 use rustls::pki_types::pem::PemObject;
+use rustls::sign::SingleCertAndKey;
 use rustls::{ClientConfig, RootCertStore};
 use tokio::net::TcpStream;
 use tokio_rustls::TlsConnector;
@@ -50,10 +51,7 @@ pub fn client_config(
     let builder = builder.with_root_certificates(Arc::clone(roots));
     let mut config = match identity {
         None => builder.with_no_client_auth(),
-        Some(identity) => {
-            let (chain, key) = identity.parse()?;
-            builder.with_client_auth_cert(chain, key).map_err(|error| identity.error(error.to_string()))?
-        }
+        Some(identity) => builder.with_client_cert_resolver(Arc::new(SingleCertAndKey::from(identity.certified()?))),
     };
     config.alpn_protocols = ALPN.iter().map(|protocol| protocol.to_vec()).collect();
     Ok(Arc::new(config))
