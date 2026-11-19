@@ -103,25 +103,28 @@ impl CallExecutor {
     }
 
     /// The report of an `answered` call judged by `checks`: its cleanup and saves, each held back
-    /// by the response's errors as `held` says (D345), and the warnings that gives (D361).
+    /// by the response's errors as `held` says (D345), and the warnings that gives (D361). A
+    /// response its runtime could not read fails the call and is reported with the failed checks
+    /// (V5124); a save held back while a check failed was not going to run (no V5129).
     fn settle(
         &self,
         render: &Render<'_>,
         answered: &Answered<'_>,
-        (checks, held): (Vec<CheckResult>, &Held),
+        (mut checks, held): (Vec<CheckResult>, &Held),
     ) -> Result<ActionReport, Failure> {
         let Answered { request, action, api, exchange } = *answered;
         let registers = !action.keep && request.frame.given.is_none() && exchange.response.status.is_success();
         let cleanups = if registers && held.clean() { cleanup(render, api)? } else { None };
-        let on_status = self.on_status(render, api, exchange);
+        checks.extend(held.check(api));
+        let failure = held.failure().or_else(|| check::verdict(&checks));
+        let on_status = failure.is_none() && self.on_status(render, api, exchange);
         let api_saves = on_status && held.saves(api);
         let withheld = (registers && api.cleanup.is_some() && !held.clean())
             || (on_status && !api_saves && !api.save.values.is_empty());
         let specs: Vec<_> = api_saves.then_some(&api.save).into_iter().chain([&action.save]).collect();
-        let failure = held.failure().or_else(|| check::verdict(&checks));
         let saved = failure.map_or_else(|| saves(render, &specs), Err);
-        let warnings = held.warnings(&checks, withheld).into_iter();
-        let warnings = warnings.map(|warning| redacted(render, warning).at(request.action)).collect();
+        let warnings = held.warnings(&action.expect, withheld).into_iter();
+        let warnings = warnings.map(|warning| warning.at(request.action)).collect();
         let mut report =
             ActionReport { cleanups: cleanups.into_iter().collect(), checks, warnings, ..ActionReport::passed() };
         match saved {
@@ -164,11 +167,6 @@ struct Answered<'a> {
     action: &'a Action,
     api: &'a Api,
     exchange: &'a Exchange,
-}
-
-/// `warning` with the run's masked values hidden from its message.
-fn redacted(render: &Render<'_>, warning: Failure) -> Failure {
-    Failure { message: render.redactor().text(&warning.message), ..warning }
 }
 
 /// Evaluates `checks` against `subject`, masked by the run's redactor so neither the results

@@ -51,10 +51,12 @@ impl ProtocolRuntime for GraphqlRuntime {
     }
 }
 
-/// The errors of a GraphQL response `body`, normalised.
+/// The errors of a GraphQL response `body`, normalised. A null `errors` is none (D363), so a
+/// body whose only key is that is not a GraphQL response either.
 fn read(body: Option<&Value>) -> Result<Vec<Value>, &'static str> {
     let object = body.and_then(Value::as_object);
-    if !object.is_some_and(|object| object.contains_key("data") || object.contains_key("errors")) {
+    let has = |key| object.and_then(|object| object.get(key)).is_some_and(|value: &Value| !value.is_null());
+    if !(object.is_some_and(|object| object.contains_key("data")) || has("errors")) {
         return Err("the body is not a JSON object with `data` or `errors`");
     }
     check::normalised(body)

@@ -6,14 +6,14 @@ use http::{HeaderMap, HeaderValue, StatusCode};
 use serde_json::{Value, json};
 use vc_diagnostics::Code;
 use vc_model::{
-    ActionId, BodySpec, Check, CheckKind, CheckResult, Failure, HttpResponse, Matcher, MatcherArg, MatcherCall, Method,
-    Origin, OwnerKey, Protocol, StatusPattern, TemplateValue,
+    ActionId, BodySpec, Check, CheckKind, Event, Expect, Failure, HttpResponse, Matcher, MatcherArg, MatcherCall,
+    Method, Origin, OwnerKey, Protocol, StatusPattern, TemplateValue,
 };
 use vc_testkit::FakeTransport;
 
 use super::{Held, line};
 use crate::fixture::{self, Fixture};
-use crate::{ActionExecutors, ActionReport, ActionRequest, Frame, HostLimits, PendingCleanup, PipelineParts};
+use crate::{ActionCx, ActionExecutors, ActionReport, ActionRequest, Frame, HostLimits, PendingCleanup, PipelineParts};
 
 const FORBIDDEN: &str = "FORBIDDEN at user.secretNote: secretNote is not allowed";
 
@@ -47,13 +47,33 @@ fn creating(protocol: Protocol) -> (Fixture, ActionId, ActionId) {
     (fixture, create, delete)
 }
 
-async fn run((fixture, call): (Fixture, ActionId), answer: HttpResponse) -> ActionReport {
+async fn run(call: (Fixture, ActionId), answer: HttpResponse) -> ActionReport {
+    ran(call, Frame::default(), answer).await.0
+}
+
+/// The report of `call` run in `frame` on `answer`, and the run's context.
+async fn ran(
+    (fixture, call): (Fixture, ActionId),
+    frame: Frame,
+    answer: HttpResponse,
+) -> (ActionReport, Arc<ActionCx>) {
     let fake = FakeTransport::scripted(vec![Ok(answer)]);
     let executors = ActionExecutors::standard(PipelineParts::new(Arc::new(fake), HostLimits::spawn(8)));
     let cx = fixture.cx(executors);
     cx.redactor.hide_values([SECRET]);
-    let request = ActionRequest { action: call, owner: OwnerKey::Run, cx: Arc::clone(&cx), frame: Frame::default() };
-    cx.executors.execute(request).await
+    let request = ActionRequest { action: call, owner: OwnerKey::Run, cx: Arc::clone(&cx), frame };
+    (cx.executors.execute(request).await, cx)
+}
+
+/// The step's own `status: code`.
+fn status(call: ActionId, code: u16) -> Check {
+    let matcher = Matcher::Status(vec![StatusPattern::Code(code)]);
+    Check { kind: CheckKind::Status, target: None, matcher, origin: Origin::Action(call), span: fixture::span() }
+}
+
+/// Each failed check's kind and code.
+fn failed_checks(report: &ActionReport) -> Vec<(CheckKind, Option<String>)> {
+    report.checks.iter().filter(|check| !check.passed).map(|check| (check.kind, check.code.clone())).collect()
 }
 
 /// Each warning's code and message.
@@ -141,7 +161,12 @@ async fn a_failed_errors_check_is_the_failure_and_the_errors_are_not_listed_agai
 
 #[tokio::test]
 async fn a_2xx_body_that_is_not_graphql_fails_with_v5124_and_registers_no_cleanup() {
-    let bodies = [("<html>home</html>", "a web page"), ("{\"ok\": true}", "an object"), ("{\"errors\": {}}", "errors")];
+    let bodies = [
+        ("<html>home</html>", "a web page"),
+        ("{\"ok\": true}", "an object"),
+        ("{\"errors\": {}}", "errors"),
+        ("{\"errors\": null}", "a null errors (D363)"),
+    ];
     for (body, what) in bodies {
         let (fixture, create, _) = creating(Protocol::Graphql);
         let report = run((fixture, create), answer(200, body)).await;
@@ -163,15 +188,7 @@ async fn a_non_2xx_body_that_is_not_graphql_is_left_to_the_status_check() {
     let report = run((fixture, create), answer(400, "<html>bad</html>")).await;
     assert_eq!(failed_code(&report), Some(Code::V5101.to_string()), "the status check fails, not V5124");
     let (mut fixture, create, _) = creating(Protocol::Graphql);
-    let expected = Matcher::Status(vec![StatusPattern::Code(400)]);
-    let status = Check {
-        kind: CheckKind::Status,
-        target: None,
-        matcher: expected,
-        origin: Origin::Action(create),
-        span: fixture::span(),
-    };
-    fixture.action_mut(create).expect.checks = vec![status];
+    fixture.action_mut(create).expect.checks = vec![status(create, 400)];
     let report = run((fixture, create), answer(400, "<html>bad</html>")).await;
     assert_eq!((report.outcome.failure(), report.warnings.len()), (None, 0), "a 400 it expects passes");
 }
@@ -196,6 +213,8 @@ fn each_error_is_listed_as_code_at_path_message_leaving_out_what_it_lacks() {
         (json!({"message": "no"}), "no"),
         (json!({"code": "TIMEOUT"}), "TIMEOUT"),
         (json!({}), "an error with no message"),
+        (json!({"message": "no", "path": null, "code": null}), "no"),
+        (json!({"message": null, "code": "TIMEOUT"}), "TIMEOUT"),
     ];
     for (error, said) in cases {
         assert_eq!(line(&error), said, "{error}");
@@ -205,24 +224,12 @@ fn each_error_is_listed_as_code_at_path_message_leaving_out_what_it_lacks() {
 #[test]
 fn the_listing_joins_the_errors_and_any_errors_check_silences_it() {
     let held = Held::new(Ok(vec![json!({"message": "a"}), json!({"code": "B", "message": "b"})]));
-    let status = CheckResult {
-        kind: CheckKind::Status,
-        target: None,
-        origin: Origin::Action(ActionId::new(0)),
-        span: fixture::span(),
-        passed: false,
-        expected: Value::Null,
-        actual: None,
-        diff: None,
-        error: None,
-        code: None,
-    };
+    let expect = |checks| Expect { checks, replace: false };
+    let call = ActionId::new(0);
     let listed = Failure::new("The response has GraphQL errors: a; B: b").with_code(Code::V5128.to_string());
-    assert_eq!(held.warnings(std::slice::from_ref(&status), false), [listed], "a status check is no errors check");
-    for passed in [true, false] {
-        let errors = CheckResult { kind: CheckKind::Errors, passed, ..status.clone() };
-        assert_eq!(held.warnings(&[errors], true).len(), 1, "D364: only V5129 once errors are checked ({passed})");
-    }
+    assert_eq!(held.warnings(&expect(vec![status(call, 200)]), false), [listed], "a status check is no errors check");
+    let checked = expect(vec![status(call, 200), no_errors(call)]);
+    assert_eq!(held.warnings(&checked, true).len(), 1, "D364: only V5129 once the errors are checked");
 }
 
 #[test]
@@ -230,7 +237,7 @@ fn an_unread_response_fails_holds_everything_back_and_warns_nothing() {
     let unread = Held::new(Err(Failure::new("not GraphQL")));
     assert_eq!(unread.failure(), Some(Failure::new("not GraphQL")));
     assert!(!unread.clean());
-    assert_eq!(unread.warnings(&[], true), []);
+    assert_eq!(unread.warnings(&Expect::default(), true), []);
     let clean = Held::new(Ok(Vec::new()));
     assert_eq!((clean.failure(), clean.clean()), (None, true));
 }
@@ -245,14 +252,59 @@ async fn an_explicit_save_on_with_no_cleanup_holds_nothing_back() {
 }
 
 #[tokio::test]
-async fn a_masked_value_in_an_error_is_hidden_from_the_listing() {
+async fn a_masked_value_in_an_error_is_hidden_from_the_listing_on_its_way_out() {
     let mut fixture = Fixture::new();
     let call = fixture.call("/graphql");
     fixture.api_mut(call).protocol = Protocol::Graphql;
     let body = json!({ "data": null, "errors": [{ "message": format!("bad key {SECRET}") }] });
-    let report = run((fixture, call), answer(200, &body.to_string())).await;
-    let message = &warned(&report)[0].1;
+    let (mut report, cx) = ran((fixture, call), Frame::default(), answer(200, &body.to_string())).await;
+    let warning = report.warnings.remove(0);
+    let Event::Warned { warning, .. } =
+        cx.redactor.event(Event::Warned { action: call, owner: OwnerKey::Run, warning }).await
+    else {
+        panic!("a warning stays one")
+    };
+    let message = warning.message;
     assert!(message.starts_with("The response has GraphQL errors: bad key ") && !message.contains(SECRET), "{message}");
+}
+
+#[tokio::test]
+async fn a_failed_check_already_holds_the_save_back_so_no_v5129_for_it() {
+    let (mut fixture, create, _) = creating(Protocol::Graphql);
+    fixture.api_mut(create).cleanup = None;
+    fixture.action_mut(create).expect.checks = vec![status(create, 201)];
+    let report = run((fixture, create), answer(200, &forbidden().to_string())).await;
+    assert_eq!(failed_code(&report), Some(Code::V5101.to_string()), "status: 201 fails");
+    assert_eq!(codes(&report), [Code::V5128.to_string()], "the save was not going to run");
+}
+
+#[tokio::test]
+async fn v5124_is_reported_with_the_checks_that_failed_too() {
+    let (mut fixture, create, _) = creating(Protocol::Graphql);
+    fixture.action_mut(create).expect.checks = vec![status(create, 201)];
+    let report = run((fixture, create), answer(200, "<html/>")).await;
+    let failed = failed_checks(&report);
+    assert_eq!(
+        failed,
+        [(CheckKind::Status, Some(Code::V5101.to_string())), (CheckKind::Errors, Some(Code::V5124.to_string()))]
+    );
+    let unread = report.checks.last().unwrap();
+    assert!(
+        matches!(unread.origin, Origin::Api(_)) && unread.error.as_deref().unwrap().starts_with("The response is not")
+    );
+    assert_eq!(failed_code(&report), Some(Code::V5124.to_string()), "the call fails with V5124");
+}
+
+#[tokio::test]
+async fn a_load_iteration_judging_only_the_apis_checks_still_counts_the_steps_errors_check() {
+    let mut fixture = Fixture::new();
+    let call = fixture.call("/graphql");
+    fixture.api_mut(call).protocol = Protocol::Graphql;
+    fixture.action_mut(call).expect.checks = vec![no_errors(call)];
+    let frame = Frame { api_checks_only: true, ..Frame::default() };
+    let (report, _) = ran((fixture, call), frame, answer(200, &forbidden().to_string())).await;
+    assert_eq!((report.outcome.failure(), failed_checks(&report)), (None, vec![]), "checks: api skips it");
+    assert_eq!(codes(&report), Vec::<String>::new(), "D364: the step asserts the errors");
 }
 
 #[tokio::test]
