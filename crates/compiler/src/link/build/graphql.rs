@@ -91,7 +91,7 @@ fn document(source: &Source<'_>, query: &Node) -> Vec<Diagnostic> {
     };
     let extra = query.entries().iter().filter(|entry| entry.key != FILE_KEY);
     let mut found: Vec<Diagnostic> = extra.map(|entry| extra_key(source, entry)).collect();
-    let path = file.as_str().filter(|path| !path.contains("${") && graphql::is_document(path));
+    let path = graphql::literal_path(file).filter(|path| graphql::is_document(path));
     let message = "a `query` `$file` takes the literal path of a `.graphql` or `.gql` file";
     let diagnostic = Diagnostic::new(Code::V2302, file.span, message).label("not a document file");
     found.extend(path.is_none().then(|| diagnostic.help("name the file as written, such as `$file: getUser.graphql`")));

@@ -18,7 +18,7 @@ fn file(path: &str, text: &str) -> SourceFile {
 /// that calls it.
 fn service(service: &str, schema: &str) -> [SourceFile; 2] {
     let api = format!(
-        "type: graphql\nbaseUrl: ${{var.baseUrl}}\ngraphql:\n  schema: {schema}\napis:\n  - id: me\n    body:\n      query: 'query Me {{ me }}'\n"
+        "type: graphql\nbaseUrl: ${{var.baseUrl}}\ngraphql:\n  schema: {schema}\napis:\n  - id: me\n    body:\n      query: 'query Me {{ users {{ id }} }}'\n"
     );
     let test = format!("tests:\n  - id: getsMe\n    call: {service}#me\n");
     [
@@ -54,7 +54,9 @@ fn spots(compiled: &Compiled) -> Vec<(Code, u32, u32, usize)> {
 
 #[test]
 fn a_schema_file_is_wanted_then_read_as_sdl_or_as_an_introspection_result() {
-    for (name, text) in [("schema.graphql", SDL), ("schema.graphqls", SDL), ("schema.json", INTROSPECTION)] {
+    for (name, text) in
+        [("schema.graphql", SDL), ("schema.gql", SDL), ("schema.graphqls", SDL), ("schema.json", INTROSPECTION)]
+    {
         let (schema, path) = (format!("{{$file: {name}}}"), format!("services/users/{name}"));
         let wanted = compile(&schema, &[], &[&path]);
         let paths: Vec<&str> = wanted.data_wanted.iter().map(|data| data.path.as_str()).collect();
@@ -73,7 +75,7 @@ fn sdl_that_holds_an_operation_is_v1015_at_it() {
     let found = compiled.diagnostics.iter().next().unwrap();
     assert_eq!(
         found.message,
-        "the `graphql.schema` file is not a GraphQL schema: a schema holds type definitions, not operations or fragments"
+        "the `graphql.schema` file is not a GraphQL schema: a schema document must not contain an operation definition"
     );
     assert!(found.help.iter().any(|help| help.contains("only type definitions")), "{found:?}");
 }
@@ -114,5 +116,48 @@ fn a_schema_that_is_not_the_literal_file_of_a_schema_is_v2302() {
         let [found] = found[..] else { panic!("{schema}: {:?}", compiled.diagnostics) };
         assert!(found.message.starts_with("`graphql.schema` takes the literal `$file` path"), "{schema}");
         assert!(compiled.data_wanted.is_empty(), "{schema}");
+    }
+}
+
+#[test]
+fn sdl_that_does_not_validate_is_v1015_at_the_part_at_fault() {
+    let text = "type Query {\n  me: Person\n}\n";
+    let compiled = compile("{$file: schema.gql}", &[("services/users/schema.gql", text)], &[]);
+    assert_eq!(spots(&compiled), [(Code::V1015, 2, 7, "Person".len())]);
+    let message = &compiled.diagnostics.iter().next().unwrap().message;
+    assert!(message.ends_with("cannot find type `Person` in this document"), "{message}");
+}
+
+#[test]
+fn an_introspected_type_with_nothing_in_it_is_v1015_at_the_type() {
+    let text = "{\"data\": {\"__schema\": {\"queryType\": {\"name\": \"Query\"}, \"types\": [\n  {\"kind\": \"OBJECT\", \"name\": \"Query\", \"fields\": null}]}}}\n";
+    let compiled = compile("{$file: schema.json}", &[("services/users/schema.json", text)], &[]);
+    let line = "  {\"kind\": \"OBJECT\", \"name\": \"Query\", \"fields\": null}";
+    assert_eq!(spots(&compiled), [(Code::V1015, 2, 3, line.len() - 2)]);
+}
+
+#[test]
+fn a_schema_under_datasets_is_no_dataset() {
+    let schema = "{$file: ../../datasets/schema.json}";
+    let compiled = compile(schema, &[("datasets/schema.json", INTROSPECTION)], &[]);
+    assert!(compiled.diagnostics.is_empty(), "{:?}", compiled.diagnostics);
+    let rows = compile(schema, &[("datasets/schema.json", INTROSPECTION), ("datasets/rows.json", "{}\n")], &[]);
+    assert_eq!(spots(&rows).into_iter().map(|(code, ..)| code).collect::<Vec<_>>(), [Code::V1002]);
+}
+
+#[test]
+fn a_schema_is_read_once_and_kept_with_its_file() {
+    for (path, good, bad) in [("schema.graphqls", SDL, "type T"), ("schema.json", INTROSPECTION, "{\"__schema\": {}}")]
+    {
+        let path = format!("services/users/{path}");
+        let schema = format!("{{$file: {}}}", &path["services/users/".len()..]);
+        let first = compile(&schema, &[(&path, good)], &[]);
+        assert!(first.diagnostics.is_empty(), "{path}: {:?}", first.diagnostics);
+        let mut input = with(vec![file("vibranium.config.yaml", CONFIG)], &[(&path, bad)], &[]);
+        input.files.extend(service("users", &schema));
+        input.files.push(file("services/users/views.test.yaml", "tests:\n  - id: getsMeAgain\n    call: users#me\n"));
+        input.previous = first.cache;
+        let kept = crate::compile(input);
+        assert!(kept.diagnostics.is_empty(), "{path}: the stored schema was used: {:?}", kept.diagnostics);
     }
 }

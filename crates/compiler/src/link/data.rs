@@ -66,7 +66,9 @@ impl<'a> Data<'a> {
         assets: Option<&BTreeSet<SourcePath>>,
     ) -> (Self, Diagnostics) {
         let given = given(entries, files);
+        let schemas: BTreeSet<String> = project.sources.iter().filter_map(graphql_schema::path).collect();
         let listed = assets.into_iter().flatten().map(SourcePath::as_str).chain(given.keys().copied());
+        let listed = listed.filter(|path| !schemas.contains(*path));
         let mut sets: BTreeMap<String, Set> =
             listed.filter_map(|path| Some((folder_id(path)?, Set { path: path.to_owned(), root: None }))).collect();
         let mut diagnostics = Diagnostics::new();
@@ -81,7 +83,7 @@ impl<'a> Data<'a> {
                 Err(diagnostic) => diagnostics.push(*diagnostic),
             }
         }
-        let documents = Documents::new(project, (entries, files), given.clone());
+        let documents = Documents::new(project, (entries, files), &given);
         let data = Self { given, sets, files, documents, complete: assets.is_some() };
         diagnostics.extend(data.sets.values().filter_map(|set| data.not_rows(set)));
         (data, diagnostics)

@@ -113,7 +113,57 @@ fn types_that_do_not_make_a_schema_are_reported_at_the_schema() {
 fn leaves_out_what_every_schema_has() {
     let text = r#"{"__schema": {"types": [
         {"kind": "SCALAR", "name": "Boolean"}, {"kind": "OBJECT", "name": "__Type", "fields": []},
-        {"kind": "SCALAR", "name": "Url"}],
+        {"kind": "SCALAR", "name": "Url"}, {"kind": "OBJECT", "name": "Query", "fields": [{"name": "u", "args": [], "type": {"kind": "SCALAR", "name": "Url"}}]}],
         "directives": [{"name": "include", "locations": ["FIELD"], "args": []}, {"name": "specifiedBy", "locations": ["SCALAR"]}]}}"#;
-    assert_eq!(schema_from_introspection(&json(text)).unwrap().sdl(), "\nscalar Url\n");
+    assert_eq!(schema_from_introspection(&json(text)).unwrap().sdl(), "\nscalar Url\n\ntype Query {\n  u: Url\n}\n");
+}
+
+#[test]
+fn keeps_the_schema_description() {
+    let text = one_field(r#"{"kind": "SCALAR", "name": "Int"}"#).replacen(
+        r#"{"queryType""#,
+        r#"{"description": "The shop", "queryType""#,
+        1,
+    );
+    let sdl = schema_from_introspection(&json(&text)).unwrap().sdl().to_owned();
+    assert!(sdl.starts_with("\"The shop\"\nschema {\n  query: Query\n}\n"), "{sdl}");
+}
+
+#[test]
+fn a_type_with_nothing_in_it_is_reported_at_the_type() {
+    let cases = [
+        (r#"{"kind": "OBJECT", "name": "T", "fields": null}"#, "fields"),
+        (r#"{"kind": "INTERFACE", "name": "T", "fields": []}"#, "fields"),
+        (r#"{"kind": "UNION", "name": "T", "possibleTypes": []}"#, "possibleTypes"),
+        (r#"{"kind": "ENUM", "name": "T", "enumValues": null}"#, "enumValues"),
+        (r#"{"kind": "INPUT_OBJECT", "name": "T", "inputFields": []}"#, "inputFields"),
+    ];
+    for (ty, key) in cases {
+        let text = one_field(r#"{"kind": "SCALAR", "name": "Int"}"#).replacen(
+            r#""types": ["#,
+            &format!(r#""types": [{ty}, "#),
+            1,
+        );
+        let message = format!("`{key}` lists nothing here; a schema needs at least one");
+        assert_eq!(problem(&text), (message, ty.to_owned()), "{ty}");
+    }
+    let directive = r#"{"name": "d", "locations": [], "args": []}"#;
+    let text = one_field(r#"{"kind": "SCALAR", "name": "Int"}"#).replacen(
+        "]}}",
+        &format!(r#"], "directives": [{directive}]}}}}"#),
+        1,
+    );
+    let (message, at) = problem(&text);
+    assert_eq!(
+        (message.as_str(), at.as_str()),
+        ("`locations` lists nothing here; a schema needs at least one", directive)
+    );
+}
+
+#[test]
+fn a_type_reference_must_be_of_a_type_kind() {
+    let (message, at) = problem(&one_field(r#"{"kind": "TABLE", "name": "Int"}"#));
+    assert_eq!((message.as_str(), at.as_str()), ("`TABLE` is not a type kind", r#""TABLE""#));
+    let (message, at) = problem(&one_field(r#"{"kind": "LIST", "ofType": {"kind": "ROW", "name": "Int"}}"#));
+    assert_eq!((message.as_str(), at.as_str()), ("`ROW` is not a type kind", r#""ROW""#));
 }

@@ -5,7 +5,8 @@
 use std::fmt::Write as _;
 use std::ops::Range;
 
-use crate::graphql::{GraphqlProblem, GraphqlSchema, parse_schema};
+use crate::graphql::GraphqlProblem;
+use crate::graphql_schema::{GraphqlSchema, parse_schema};
 use crate::node::{Node, Value};
 use crate::scalar::{ScalarKind, double_quote};
 
@@ -61,14 +62,21 @@ pub fn schema_from_introspection(root: &Node) -> Result<GraphqlSchema, GraphqlPr
     })
 }
 
-/// The `schema { … }` block naming the root operation types, when any is named.
+/// The `schema { … }` block naming the root operation types, with its description, when any
+/// is named.
 fn roots(schema: &Node) -> Result<String, GraphqlProblem> {
     let mut block = String::new();
     for (key, operation) in ROOTS {
         let Some(root) = present(schema, key) else { continue };
         let _ = writeln!(block, "  {operation}: {}", name(root)?);
     }
-    Ok(if block.is_empty() { block } else { format!("schema {{\n{block}}}\n") })
+    if block.is_empty() {
+        return Ok(block);
+    }
+    let mut sdl = String::new();
+    description(schema, "", &mut sdl);
+    let _ = write!(sdl, "schema {{\n{block}}}\n");
+    Ok(sdl)
 }
 
 /// Writes one named type, unless every schema has it.
@@ -104,7 +112,7 @@ fn object(ty: &Node, sdl: &mut String) -> Result<(), GraphqlProblem> {
         let _ = write!(sdl, " implements {}", interfaces.join(" & "));
     }
     sdl.push_str(" {\n");
-    for field in ty.get("fields").map(Node::items).unwrap_or_default() {
+    for field in members(ty, "fields")? {
         description(field, "  ", sdl);
         let _ = writeln!(sdl, "  {}{}: {}{}", name(field)?, arguments(field)?, type_ref(field)?, deprecated(field));
     }
@@ -114,14 +122,15 @@ fn object(ty: &Node, sdl: &mut String) -> Result<(), GraphqlProblem> {
 
 /// A union's members.
 fn union(ty: &Node, sdl: &mut String) -> Result<(), GraphqlProblem> {
-    let _ = write!(sdl, " = {}", names(ty, "possibleTypes")?.join(" | "));
+    let possible: Result<Vec<&str>, _> = members(ty, "possibleTypes")?.iter().map(name).collect();
+    let _ = write!(sdl, " = {}", possible?.join(" | "));
     Ok(())
 }
 
 /// An enum's values.
 fn enumeration(ty: &Node, sdl: &mut String) -> Result<(), GraphqlProblem> {
     sdl.push_str(" {\n");
-    for value in ty.get("enumValues").map(Node::items).unwrap_or_default() {
+    for value in members(ty, "enumValues")? {
         description(value, "  ", sdl);
         let _ = writeln!(sdl, "  {}{}", name(value)?, deprecated(value));
     }
@@ -132,7 +141,7 @@ fn enumeration(ty: &Node, sdl: &mut String) -> Result<(), GraphqlProblem> {
 /// An input object's `@oneOf` and fields.
 fn input(ty: &Node, sdl: &mut String) -> Result<(), GraphqlProblem> {
     sdl.push_str(if flag(ty, "isOneOf") { " @oneOf {\n" } else { " {\n" });
-    for field in ty.get("inputFields").map(Node::items).unwrap_or_default() {
+    for field in members(ty, "inputFields")? {
         description(field, "  ", sdl);
         let _ = writeln!(sdl, "  {}", input_value(field)?);
     }
@@ -146,8 +155,7 @@ fn directive(directive: &Node, sdl: &mut String) -> Result<(), GraphqlProblem> {
     if BUILT_IN_DIRECTIVES.contains(&directive_name) {
         return Ok(());
     }
-    let locations: Result<Vec<&str>, _> =
-        directive.get("locations").map(Node::items).unwrap_or_default().iter().map(graphql_name).collect();
+    let locations: Result<Vec<&str>, _> = members(directive, "locations")?.iter().map(graphql_name).collect();
     sdl.push('\n');
     description(directive, "", sdl);
     let repeatable = if flag(directive, "isRepeatable") { " repeatable" } else { "" };
@@ -185,6 +193,9 @@ fn type_ref(holder: &Node) -> Result<String, GraphqlProblem> {
     for _ in 0..=MAX_WRAPPERS {
         let kind = text(at, "kind")?;
         let Some(wrapper) = WRAPPERS.iter().find(|(name, _, _)| *name == kind) else {
+            if !KINDS.iter().any(|(name, _, _)| *name == kind) {
+                return Err(problem(field(at, "kind")?, &format!("`{kind}` is not a type kind")));
+            }
             let inner = name(at)?.to_owned();
             return Ok(wrappers.iter().rev().fold(inner, |inner, &(_, open, close)| format!("{open}{inner}{close}")));
         };
@@ -222,6 +233,16 @@ fn present<'n>(node: &'n Node, key: &str) -> Option<&'n Node> {
 /// Whether `key` of `node` is `true`.
 fn flag(node: &Node, key: &str) -> bool {
     node.get(key).and_then(Node::as_scalar).is_some_and(|flag| flag.kind == ScalarKind::Bool && flag.text == "true")
+}
+
+/// The items listed under `key` of `node`, which a schema needs at least one of: an object's
+/// fields, a union's members, an enum's values, an input's fields or a directive's locations.
+fn members<'n>(node: &'n Node, key: &str) -> Result<&'n [Node], GraphqlProblem> {
+    let items = node.get(key).map(Node::items).unwrap_or_default();
+    if items.is_empty() {
+        return Err(problem(node, &format!("`{key}` lists nothing here; a schema needs at least one")));
+    }
+    Ok(items)
 }
 
 /// The names of the types listed under `key`, such as an object's `interfaces`.
