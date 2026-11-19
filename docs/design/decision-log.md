@@ -761,6 +761,20 @@ Round 75 (19 November 2026; Sarath, on which `expect.errors` check silences V512
 | --- | --- | --- | --- |
 | D365 | V5128 is silenced only by an errors check that ran | Only an `expect.errors` check that was judged silences V5128. In a load iteration with `checks: api`, the step's own check is skipped, so the response's errors are listed as V5128. | D364 (refines: a check that ran) |
 
+Round 76 (19 November 2026; Sarath, on GraphQL schema files and the validation library):
+
+| # | Topic | Decision | Supersedes |
+| --- | --- | --- | --- |
+| D366 | A schema file's syntax error is V1014 | Any GraphQL text file that does not parse, a `.graphql`, `.gql` or `.graphqls` schema file among them, is V1014 at the spot where the parser stopped, from its per-file stage. V1015 is a `graphql.schema` file that reads but is not a schema: SDL that holds an operation or a fragment, or JSON that is not an introspection result (and, with schema validation, SDL that does not validate). | D347 (refines: which code) |
+| D367 | apollo-compiler for schema validation, with 12 deny skips | Schema validation (V2314 full, V2315, and SDL that does not validate as V1015) uses apollo-compiler 1.33.1, wrapped by `vc-parser` so no other crate names it. `deny.toml` gains the duplicate-version skips it needs (ariadne → concolor pulls in older bitflags, windows-sys and windows_* crates), applied by the orchestrator. It must build for `wasm32-wasip1` (`vc-browser`). | — |
+
+Round 77 (20 November 2026; GraphQL PR 5, small choices made under Sarath's delegation, closest to existing behaviour):
+
+| # | Topic | Decision | Supersedes |
+| --- | --- | --- | --- |
+| D368 | What schema validation leaves to other codes | V2314 reports what apollo-compiler's validation of a document finds, except what V2009 already reports of that document, so each problem gets exactly one code: two operations of one name (always V2009), an anonymous operation beside others when an api that uses the document picks no operation by its `operationName` (V2009 reports that api) or writes an `operationName` that is not text (V2302), and anything in a document that holds no operation at all (V2009: nothing to run). An anonymous operation beside a named one that `operationName` picks, and an unused fragment beside an operation, are V2314. Also left out is an object selection left empty only because each field in it is unknown (reported once, at those fields). An unknown field's help lists its type's fields, with the one close field as the fix. V2315 checks a literal value only when the schema has its variable's type and that type is an input type (a scalar, an enum or an input object); a variable of an unknown or an output type is V2314. A value with a template, a `$cel` value, an `$extend` or a `$remove` anywhere in it is not checked, as the value lowering reads them: text the template grammar reads a `${…}` in (a `$${` is a literal `${`), a map whose only key is `$cel`, a map with an `$extend` key, or one with a `$remove` key (without `$extend`, already V2211); a `$cel` beside other keys is a key like any other and is checked, and a map key is literal text, a `${` in it included. | — |
+| D369 | A schema file is not a dataset | A `.json` file that an api file names as its `graphql.schema` is not read as a dataset, even under `datasets/`, unless the config's `datasets.files` lists it. | D173 (refines: what `datasets/` holds) |
+| D370 | An integral float is an `Int` | V2315 reads a literal number with no fraction, written as a float (`10.0`, `1e3`), as an `Int`, as graphql-js and graphql-java coerce a JSON variable value; `10.5`, or a number past the 64-bit range, is still not an `Int`, and a float is still not a `String`. | D368 (refines: what V2315 accepts) |
 Round 78 (20 November 2026; mTLS PR 5 review, small choices made under Sarath's delegation, closest to existing behaviour; Round 77 is GraphQL's):
 
 | # | Topic | Decision | Supersedes |

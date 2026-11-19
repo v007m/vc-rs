@@ -81,7 +81,7 @@ const WRONG: &str = "wrong";
 const SCHEMA: &str = ".env.schema";
 
 /// The languages other than YAML whose blocks are whole files when titled with their path.
-const ATTACHED: [&str; 4] = ["dotenv", "ts", "js", "json"];
+const ATTACHED: [&str; 5] = ["dotenv", "ts", "js", "json", "graphql"];
 
 /// The keys a config must write, which a page's config gets when it leaves them out.
 const REQUIRED: [&str; 2] = ["syntaxVersion", "profiles"];

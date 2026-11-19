@@ -1,6 +1,7 @@
 use vc_diagnostics::{Code, Diagnostic, Severity};
 use vc_model::{BodySpec, ContentHash, SourceFile, SourcePath};
 
+use crate::testing::spots;
 use crate::{CompileInput, Compiled};
 
 const CONFIG: &str =
@@ -51,15 +52,6 @@ fn one(body: &str, text: &str) -> Diagnostic {
     let compiled = compile(body, (&[(DOCUMENT, text)], &[]));
     let [found] = compiled.diagnostics.iter().collect::<Vec<_>>()[..] else { panic!("{:?}", compiled.diagnostics) };
     found.clone()
-}
-
-/// The code, line, column and length of each diagnostic.
-fn spots(compiled: &Compiled) -> Vec<(Code, u32, u32, usize)> {
-    let spot = |found: &Diagnostic| {
-        let span = found.primary.span;
-        (found.code, span.start.line, span.start.column, span.byte_range().len())
-    };
-    compiled.diagnostics.iter().map(spot).collect()
 }
 
 #[test]

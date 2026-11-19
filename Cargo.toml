@@ -73,6 +73,7 @@ vc-demo = { path = "crates/apps/demo" }
 vc-browser = { path = "crates/browser" }
 aho-corasick = "1.1.5"
 anyhow = "1.0.104"
+apollo-compiler = "1.33.1"
 apollo-parser = "0.8.7"
 apple-native-keyring-store = { version = "1.0.2", features = ["keychain"] }
 arc-swap = "1.7.1"

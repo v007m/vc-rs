@@ -140,7 +140,8 @@ fn always(
 /// The lifecycle and convention lints over a project whose program was built.
 fn lints((project, documents): (&Project<'_>, &Documents<'_>), program: &Program, today: Option<Date>) -> Diagnostics {
     let rules = ProtocolRulesRegistry::builtin();
-    let cx = LintCx { project, program, rules: &rules, documents, today };
+    let operations = documents.operations(project);
+    let cx = LintCx { project, program, rules: &rules, documents, operations: &operations, today };
     let mut diagnostics = LintRegistry::builtin().run(&cx);
     diagnostics.extend(LintRegistry::conventions().run(&cx));
     diagnostics

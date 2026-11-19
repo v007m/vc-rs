@@ -35,6 +35,7 @@ shape! {
 shape! {
     graphql = Shape::new("graphql", "The defaults of a `type: graphql` api file (D343)", &[
         types::key("path", Ty::Template).default("/graphql").doc("The `path` of each `graphql` api that sets none").example("/api/graphql"),
+        types::key("schema", Ty::Value).doc("The schema the documents are checked against: `$file` of SDL (`.graphql`, `.graphqls`) or an introspection result (`.json`)").example("{$file: schema.graphql}"),
     ])
 }
 

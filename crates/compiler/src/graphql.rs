@@ -4,17 +4,22 @@
 //! V1014 is reported at the spot where a document does not parse, in the document file or in the
 //! YAML text of an inline one.
 
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::ops::Range;
 
+use indexmap::IndexSet;
 use vc_diagnostics::{Code, Diagnostic, Diagnostics};
 use vc_model::{FILE_KEY, FileKind, Protocol, SourceFile, SourceFileId, SourceFiles, SourceSpan, resolve_path};
-use vc_parser::{GraphqlDocument, GraphqlOperation, GraphqlProblem, Node, ScalarStyle, Value};
+use vc_parser::{
+    GraphqlDocument, GraphqlOperation, GraphqlOperations, GraphqlProblem, GraphqlSchema, Node, ScalarStyle, Value,
+};
 
 use crate::cache::CacheEntry;
 use crate::compile::numbered;
+use crate::graphql_schema::{self, Introspection, SchemaFile, Sdl};
 use crate::link::{self, Project, Source};
-use crate::stage::position;
+use crate::stage::{FileUnit, position};
 
 /// The `body` key that holds the document.
 pub const QUERY: &str = "query";
@@ -33,6 +38,11 @@ pub fn is_document(path: &str) -> bool {
     SUFFIXES.iter().any(|suffix| path.ends_with(suffix))
 }
 
+/// Whether `path` names a file of GraphQL text: a document file, or a schema's SDL file.
+pub fn is_text(path: &str) -> bool {
+    is_document(path) || path.ends_with(graphql_schema::SDL_SUFFIX)
+}
+
 /// Where a document is written.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Origin {
@@ -43,14 +53,34 @@ pub enum Origin {
 }
 
 /// Each document of a compile, parsed once: every document file the compile was given, as its
-/// cached per-file stage read it, and the inline `query` of every `graphql` api.
+/// cached per-file stage read it, and the inline `query` of every `graphql` api; and each schema
+/// file its api files name, by path, read once. The first file of a path is its document and its
+/// schema.
 pub struct Documents<'a> {
     files: &'a SourceFiles,
     paths: HashMap<&'a str, SourceFileId>,
     given: HashMap<SourceFileId, &'a GraphqlDocument>,
     inline: HashMap<SourceSpan, Option<GraphqlDocument>>,
+    named: HashMap<&'a str, usize>,
+    schema_paths: IndexSet<String>,
+    schemas: HashMap<usize, Schema<'a>>,
     problems: Diagnostics,
 }
+
+/// Each document parsed once against each schema an api file that uses it names, by where it is
+/// written and the schema's index in [`Documents::schema_paths`]; built for the lint stage only.
+pub struct Operations(HashMap<(Origin, usize), GraphqlOperations>);
+
+impl Operations {
+    /// The document written at `origin`, parsed against schema `index`, when that is a schema and
+    /// an api file that names it uses the document.
+    pub fn get(&self, key: (Origin, usize)) -> Option<&GraphqlOperations> {
+        self.0.get(&key)
+    }
+}
+
+/// A schema file's schema, else its V1015: borrowed from the unit that cached it, or read now.
+type Schema<'a> = Result<Cow<'a, GraphqlSchema>, Box<Diagnostic>>;
 
 /// A document that parses, and where it is written.
 pub struct Written<'d> {
@@ -77,15 +107,31 @@ pub enum Unpicked {
 }
 
 impl<'a> Documents<'a> {
-    /// The documents of `project`: its document files as their units hold them, and its inline ones.
+    /// The documents of `project`, with the units of the files the compile was given among
+    /// `entries`: its document files as their units hold them, and its inline ones; and its
+    /// schema files.
     pub fn new(project: &Project<'a>, (entries, files): (&'a [CacheEntry], &'a SourceFiles)) -> Self {
         let mut paths = HashMap::new();
-        for (id, file) in numbered(files).filter(|(_, file)| is_document(file.path.as_str())) {
+        for (id, file) in numbered(files).filter(|(_, file)| graphql_schema::is_schema(file.path.as_str())) {
             paths.entry(file.path.as_str()).or_insert(id);
         }
         let units = entries.iter().filter_map(|entry| Some((entry.file, entry.unit.as_deref()?.document.as_ref()?)));
         let given = units.collect();
-        let mut documents = Self { files, paths, given, inline: HashMap::new(), problems: Diagnostics::new() };
+        let (mut named, mut schema_paths) = (HashMap::new(), IndexSet::new());
+        for source in &project.sources {
+            if let Some(path) = graphql_schema::path(source) {
+                named.insert(source.path, schema_paths.insert_full(path).0);
+            }
+        }
+        let (inline, schemas, problems) = (HashMap::new(), HashMap::new(), Diagnostics::new());
+        let mut documents = Self { files, paths, given, inline, named, schema_paths, schemas, problems };
+        documents.parse_inline(project);
+        documents.schemas = documents.read_schemas(entries);
+        documents
+    }
+
+    /// Parses each inline document of `project` once; V1014 where one does not parse.
+    fn parse_inline(&mut self, project: &Project<'a>) {
         let sources = project.sources.iter();
         let inline = sources.flat_map(|source| queries(source).into_iter().map(move |(_, _, query)| (source, query)));
         for (source, query) in inline {
@@ -93,12 +139,25 @@ impl<'a> Documents<'a> {
             let parsed = vc_parser::parse_document(text);
             if let Err(problem) = parsed.as_ref().map_err(|problems| problems.first()) {
                 let at = problem.map_or(0..0, |problem| problem.at.clone());
-                let span = exact_span(files, (source, query), &at).unwrap_or(query.span);
-                documents.problems.extend(problem.map(|problem| broken(span, problem)));
+                let span = exact_span(self.files, (source, query), &at).unwrap_or(query.span);
+                self.problems.extend(problem.map(|problem| broken(span, problem)));
             }
-            documents.inline.insert(query.span, parsed.ok());
+            self.inline.insert(query.span, parsed.ok());
         }
-        documents
+    }
+
+    /// Each document of `project` parsed once against each schema an api file that uses it names.
+    pub fn operations(&self, project: &Project<'a>) -> Operations {
+        let mut operations = HashMap::new();
+        for source in &project.sources {
+            let Some(&index) = self.named.get(source.path) else { continue };
+            let Some(Ok(schema)) = self.schemas.get(&index) else { continue };
+            for (_, _, query) in queries(source) {
+                let Some(written) = self.get(source, query) else { continue };
+                operations.entry((written.origin, index)).or_insert_with(|| schema.operations(written.text));
+            }
+        }
+        Operations(operations)
     }
 
     /// V1014 for each inline document that does not parse.
@@ -108,8 +167,50 @@ impl<'a> Documents<'a> {
 
     /// The text of the document file at `path`, when the compile was given it.
     pub fn text(&self, path: &str) -> Option<&'a str> {
-        let id = self.paths.get(path)?;
+        let id = self.paths.get(path).filter(|_| is_text(path))?;
         self.files.get(*id).map(|file| file.text.as_str())
+    }
+
+    /// The path of the schema file the api file at `path` names in its `graphql.schema`.
+    pub fn named(&self, path: &str) -> Option<&str> {
+        self.schema_paths.get_index(*self.named.get(path)?).map(String::as_str)
+    }
+
+    /// Each schema file the api files name, once, in the order they are first named.
+    pub const fn schema_paths(&self) -> &IndexSet<String> {
+        &self.schema_paths
+    }
+
+    /// The schema in the file at `path`, which an api file names, else V1015; `None` when the
+    /// compile was not given it, or it is SDL that does not parse, which is V1014 at its per-file stage.
+    pub fn schema(&self, path: &str) -> Option<Result<&GraphqlSchema, &Diagnostic>> {
+        let schema = self.schemas.get(&self.schema_paths.get_index_of(path)?)?;
+        Some(schema.as_ref().map(|schema| &**schema).map_err(|diagnostic| &**diagnostic))
+    }
+
+    /// Each schema file the api files name, the first file of its path as `paths` has it, read as
+    /// its unit among `entries` cached it, else now.
+    fn read_schemas(&self, entries: &'a [CacheEntry]) -> HashMap<usize, Schema<'a>> {
+        let named = self.schema_paths.iter().enumerate();
+        let wanted: HashMap<SourceFileId, usize> =
+            named.filter_map(|(index, path)| Some((*self.paths.get(path.as_str())?, index))).collect();
+        let read = |entry: &'a CacheEntry| {
+            let (index, unit) = (*wanted.get(&entry.file)?, entry.unit.as_deref()?);
+            let file = self.schema_file(entry.file, unit)?;
+            Some((index, graphql_schema::read(&*file, unit.schema.as_ref())))
+        };
+        entries.iter().filter_map(read).collect()
+    }
+
+    /// The schema file `id`, whose unit is `unit`: a data file, else GraphQL text that parses. A
+    /// schema path ends in a schema suffix, so a unit with a tree is a data file, never one of a kind.
+    fn schema_file(&self, id: SourceFileId, unit: &'a FileUnit) -> Option<Box<dyn SchemaFile + 'a>> {
+        let text = self.files.get(id)?.text.as_str();
+        match (&unit.root, &unit.document) {
+            (Some(root), _) => Some(Box::new(Introspection(root, text))),
+            (_, Some(_)) => Some(Box::new(Sdl(id, text))),
+            _ => None,
+        }
     }
 
     /// The document the `query` of `source` holds, when it parses.
@@ -173,9 +274,20 @@ pub fn queries<'n>(source: &Source<'n>) -> Vec<(&'n Node, &'n Node, &'n Node)> {
 /// The document file a `query: {$file: …}` names, from the project root; `None` for an inline
 /// document, a templated path or another suffix.
 pub fn file(source: &Source<'_>, query: &Node) -> Option<String> {
-    let [only] = query.entries() else { return None };
-    let written = only.value.as_str().filter(|path| only.key == FILE_KEY && !path.contains("${"))?;
-    resolve_path(&link::folder(source.path), written).filter(|path| is_document(path))
+    resolve_path(&link::folder(source.path), literal_file(query, is_document)?)
+}
+
+/// The path `node` names when it is exactly `{$file: <path>}` and the path is literal, with a
+/// suffix `suffix` takes ([`literal_path`]).
+pub fn literal_file(node: &Node, suffix: fn(&str) -> bool) -> Option<&str> {
+    let [only] = node.entries() else { return None };
+    literal_path(&only.value).filter(|path| only.key == FILE_KEY && suffix(path))
+}
+
+/// The text of the `$file` value `value` when it is a literal path: no template, and no `#`
+/// part, as a dataset's `$file` takes none.
+pub fn literal_path(value: &Node) -> Option<&str> {
+    value.as_str().filter(|path| !path.contains("${") && !path.contains('#'))
 }
 
 /// The per-file stage of a document file: what it holds, else V1014 where it first does not parse.
@@ -183,8 +295,8 @@ pub fn read_file(id: SourceFileId, source: &SourceFile) -> (Option<GraphqlDocume
     match vc_parser::parse_document(&source.text) {
         Ok(document) => (Some(document), Diagnostics::new()),
         Err(problems) => {
-            let first = problems.first();
-            (None, first.map(|problem| broken(file_span(id, &source.text, &problem.at), problem)).into_iter().collect())
+            let (span, first) = first_spot(id, &source.text, &problems);
+            (None, first.map(|problem| broken(span, problem)).into_iter().collect())
         }
     }
 }
@@ -196,9 +308,20 @@ fn broken(span: SourceSpan, problem: &GraphqlProblem) -> Diagnostic {
     diagnostic.help("fix the document's syntax here; check the braces, parentheses and quotes before this spot")
 }
 
+/// The first of `problems` in the file `id` of `text`, and where it is: at the file's start when
+/// there is none.
+fn first_spot<'p>(
+    id: SourceFileId,
+    text: &str,
+    problems: &'p [GraphqlProblem],
+) -> (SourceSpan, Option<&'p GraphqlProblem>) {
+    let first = problems.first();
+    (file_span(id, text, &first.map_or(0..0, |problem| problem.at.clone())), first)
+}
+
 /// Where bytes `at` of the document file `id`, of `text`, are; an offset past the text, or inside
 /// a character, is moved back to the nearest character boundary.
-fn file_span(id: SourceFileId, text: &str, at: &Range<usize>) -> SourceSpan {
+pub fn file_span(id: SourceFileId, text: &str, at: &Range<usize>) -> SourceSpan {
     SourceSpan::new(id, position(text, at.start), position(text, at.end))
 }
 

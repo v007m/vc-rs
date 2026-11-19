@@ -1,0 +1,84 @@
+---
+title: "V1015 — GraphQL schema file is neither SDL nor an introspection result"
+description: "A type: graphql api file's graphql.schema names the schema its documents are checked against: an SDL file (.graphql, .gql or .graphqls) that holds only type definitions, or a .json file that holds the answer to an introspection query, {\"data\": {\"__schema\": …}} or {\"__schema\": …}."
+sidebar:
+  label: "V1015 GraphQL schema file is neither SDL nor an introspection result"
+  order: 1015
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="error" variant="danger" /> <Badge text="Syntax" variant="note" />
+
+| | |
+| --- | --- |
+| Code | `V1015` |
+| Category | V1xxx: Syntax |
+| Severity | error |
+| Certain fix | none; `vc check --fix` leaves this one to you |
+
+A `type: graphql` api file's `graphql.schema` names the schema its documents are checked against: an SDL file
+(`.graphql`, `.gql` or `.graphqls`) that holds only type definitions, or a `.json` file that holds the answer to an
+introspection query, `{"data": {"__schema": …}}` or `{"__schema": …}`. V1015 is a file that reads but is not a
+schema: SDL that holds an operation or a fragment, or that does not validate (a type it uses but never defines, a
+type with nothing in it, no `Query` type); or JSON without `__schema`, without its `types` list, or with a type that
+is not what an introspection result holds there, such as a type kind that is not one or an object with no fields.
+The diagnostic points at the definition or the JSON value that is wrong. A syntax error in an SDL file is V1014, as
+in any GraphQL file.
+
+## Wrong
+
+```yaml wrong V1015 title="services/catalog/catalog.api.yaml"
+type: graphql
+graphql:
+  schema: {$file: schema.json}
+apis:
+  - id: getProduct
+    body:
+      query: "query GetProduct($id: ID!) { product(id: $id) { id name } }"
+      variables: {id: p1}
+```
+
+```json wrong V1015 title="services/catalog/schema.json"
+{"openapi": "3.1.0", "paths": {}}
+```
+
+## Right
+
+```yaml title="services/catalog/catalog.api.yaml"
+type: graphql
+graphql:
+  schema: {$file: schema.graphql}
+apis:
+  - id: getProduct
+    body:
+      query: "query GetProduct($id: ID!) { product(id: $id) { id name } }"
+      variables: {id: p1}
+```
+
+```graphql title="services/catalog/schema.graphql"
+type Query {
+  product(id: ID!): Product
+}
+
+type Product {
+  id: ID!
+  name: String
+}
+```
+
+
+## Explain it in your terminal
+
+The same page is built into the binary, so this works anywhere, even outside a project:
+
+```console
+$ vc explain V1015
+```
+
+## Related
+
+- [All diagnostic codes](/vc-rs/reference/diagnostics/)
+- [`vc explain`](/vc-rs/reference/cli/explain/)
+- [`vc check`](/vc-rs/reference/cli/check/)
+- [Errors and fixes](/vc-rs/guides/errors-and-fixes/)
