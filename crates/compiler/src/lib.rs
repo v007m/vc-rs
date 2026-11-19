@@ -26,6 +26,7 @@ mod cache;
 mod compile;
 mod docs;
 mod graphql;
+mod graphql_schema;
 mod link;
 mod lint;
 mod matchers;
@@ -38,6 +39,8 @@ mod shape_check;
 mod shapes;
 mod stage;
 mod suggest;
+#[cfg(test)]
+mod testing;
 mod value;
 mod version;
 mod wanted;

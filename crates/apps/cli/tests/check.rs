@@ -44,7 +44,7 @@ fn a_second_check_reads_the_compiled_files_back_from_the_cache() {
     let summary = "0 errors · 0 warnings · 2 files checked\n";
     check(dir.path()).assert().success().stdout(summary).stderr("");
     let blob = fs::read(dir.path().join(".vibranium/cache/compile.bin")).unwrap();
-    assert!(blob.starts_with(b"VCCC\x0e\0\0\0"), "layout version 14");
+    assert!(blob.starts_with(b"VCCC\x10\0\0\0"), "layout version 16");
     let release = env!("CARGO_PKG_VERSION");
     let mut build = vec![u8::try_from(release.len() + 1 + 64).unwrap()];
     build.extend(format!("{release}+").bytes());

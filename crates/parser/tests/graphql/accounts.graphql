@@ -1,0 +1,50 @@
+schema {
+  query: Query
+  mutation: Mutation
+}
+
+type Query {
+  user(id: ID!): User
+  users(limit: Int = 10, "Only these roles" roles: [Role!]): [User!]!
+  search(text: String!): [SearchResult!]!
+}
+
+type Mutation {
+  createUser(input: NewUser!): User!
+}
+
+"A user of the shop"
+type User implements Node {
+  id: ID!
+  name: String!
+  "Where to write to them"
+  email: String @deprecated(reason: "Use \"contact\" instead")
+  role: Role!
+  createdAt: DateTime
+}
+
+interface Node {
+  id: ID!
+}
+
+enum Role {
+  ADMIN
+  MEMBER @deprecated
+}
+
+union SearchResult = User
+
+input NewUser {
+  name: String!
+  role: Role = MEMBER
+}
+
+input UserKey @oneOf {
+  id: ID
+  email: String
+}
+
+scalar DateTime @specifiedBy(url: "https://scalars.graphql.org/andimarek/date-time")
+
+"Cache the field's value"
+directive @cached(seconds: Int!) repeatable on FIELD_DEFINITION | OBJECT
