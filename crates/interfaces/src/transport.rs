@@ -33,6 +33,8 @@ pub struct SendContext {
     /// The largest decoded body kept in memory; a larger one is [`TransportError::BodyTooLarge`].
     /// The cap applies after decoding, so a small compressed body cannot expand without bound.
     pub body_limit: Size,
+    /// Which client certificate the TLS handshake presents.
+    pub client_cert: CertChoice,
 }
 
 impl SendContext {
@@ -42,7 +44,41 @@ impl SendContext {
 
 impl Default for SendContext {
     fn default() -> Self {
-        Self { body_limit: Self::DEFAULT_BODY_LIMIT }
+        Self { body_limit: Self::DEFAULT_BODY_LIMIT, client_cert: CertChoice::Host }
+    }
+}
+
+/// Which client certificate a request presents, if the server asks for one.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_enums,
+    reason = "built or matched in other crates, shared across the workspace; every user is in this repo (D160)"
+)]
+pub enum CertChoice {
+    /// The first client identity whose hosts match the URL's host (never the proxy's), or none.
+    #[default]
+    Host,
+    /// This identity, whatever the host.
+    Named(CertId),
+    /// No certificate.
+    Off,
+}
+
+/// A client identity, as its position in the transport's list of identities.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct CertId(u32);
+
+impl CertId {
+    /// The identity at `index` in the transport's list.
+    #[must_use]
+    pub const fn new(index: u32) -> Self {
+        Self(index)
+    }
+
+    /// Its position in the transport's list.
+    #[must_use]
+    pub const fn index(self) -> u32 {
+        self.0
     }
 }
 
@@ -131,7 +167,7 @@ mod tests {
     use vc_diagnostics::Code;
     use vc_model::Size;
 
-    use super::{SendContext, TransportError};
+    use super::{CertChoice, CertId, SendContext, TransportError};
     use crate::AuthError;
 
     #[test]
@@ -169,5 +205,11 @@ mod tests {
     #[test]
     fn the_default_body_limit_is_64_mib() {
         assert_eq!(SendContext::default().body_limit.bytes(), 64 * 1024 * 1024);
+    }
+
+    #[test]
+    fn the_default_certificate_is_chosen_by_host() {
+        assert_eq!(SendContext::default().client_cert, CertChoice::Host);
+        assert_eq!(CertId::new(3).index(), 3);
     }
 }
