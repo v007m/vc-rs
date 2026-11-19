@@ -5,6 +5,7 @@ use similar::TextDiff;
 use vc_diagnostics::Code;
 use vc_model::{Check, CheckKind, CheckResult, Failure, Matcher};
 
+use super::registry::Judged;
 use super::{Judge, errors, schema};
 
 /// How many of the ways a body breaks its schema a failed `body.schema` check reports.
@@ -87,14 +88,7 @@ fn outcome(judge: &Judge<'_>, check: &Check, subject: Subject<'_>) -> Outcome {
 /// response, or whose `errors` is not a list, fails with what it is (D345).
 fn errors_check(judge: &Judge<'_>, check: &Check, body: Option<&Value>) -> Outcome {
     match errors::normalised(body) {
-        Ok(errors) => {
-            let outcome = matched(judge, check, Some(errors));
-            let missed = match (&outcome.verdict, &outcome.actual) {
-                (Ok(false), Some(errors)) => errors::missed(judge, &check.matcher, errors),
-                _ => None,
-            };
-            Outcome { code: Code::V5123, actual: missed.or(outcome.actual), ..outcome }
-        }
+        Ok(errors) => Outcome { code: Code::V5123, ..matched(judge, check, Some(errors)) },
         Err(what) => Outcome {
             actual: Some(Value::String(what.to_owned())),
             expected: judge.expected(&check.matcher),
@@ -104,9 +98,13 @@ fn errors_check(judge: &Judge<'_>, check: &Check, body: Option<&Value>) -> Outco
     }
 }
 
+/// `check` on `actual`; a failure shows what its matcher reports, else `actual`.
 fn matched(judge: &Judge<'_>, check: &Check, actual: Option<Value>) -> Outcome {
-    let verdict = judge.matches(&check.matcher, actual.as_ref());
-    Outcome { actual, expected: judge.expected(&check.matcher), verdict, code: Code::V5101 }
+    let (verdict, detail) = match judge.judged(&check.matcher, actual.as_ref()) {
+        Ok(Judged { holds, detail }) => (Ok(holds), detail),
+        Err(error) => (Err(error), None),
+    };
+    Outcome { actual: detail.or(actual), expected: judge.expected(&check.matcher), verdict, code: Code::V5101 }
 }
 
 /// A CEL check: the expression must evaluate to `true`.
