@@ -772,8 +772,9 @@ Round 77 (20 November 2026; GraphQL PR 5, small choices made under Sarath's dele
 
 | # | Topic | Decision | Supersedes |
 | --- | --- | --- | --- |
-| D368 | What schema validation leaves to other codes | V2314 reports what apollo-compiler's validation of a document finds, except two operations of one name (left to V2009) and an object selection left empty only because each field in it is unknown (reported once, at those fields). An unknown field's help lists its type's fields, with the one close field as the fix. V2315 checks a literal value only when the schema has its variable's type; a variable of an unknown type is V2314. A value with a template anywhere in it is not checked. | — |
+| D368 | What schema validation leaves to other codes | V2314 reports what apollo-compiler's validation of a document finds, except what V2009 or the rules without a schema cover (two operations of one name, an anonymous operation beside others, a fragment no operation uses) and an object selection left empty only because each field in it is unknown (reported once, at those fields). An unknown field's help lists its type's fields, with the one close field as the fix. V2315 checks a literal value only when the schema has its variable's type and that type is an input type (a scalar, an enum or an input object); a variable of an unknown or an output type is V2314. A value with a template, a `$cel` or an `$extend` anywhere in it is not checked. | — |
 | D369 | A schema file is not a dataset | A `.json` file that an api file names as its `graphql.schema` is not read as a dataset, even under `datasets/`, unless the config's `datasets.files` lists it. | D173 (refines: what `datasets/` holds) |
+| D370 | An integral float is an `Int` | V2315 reads a literal number with no fraction, written as a float (`10.0`, `1e3`), as an `Int`, as graphql-js and graphql-java coerce a JSON variable value; `10.5`, or a number past the 64-bit range, is still not an `Int`, and a float is still not a `String`. | D368 (refines: what V2315 accepts) |
 
 ## Open
 

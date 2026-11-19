@@ -6,7 +6,7 @@ use indexmap::IndexMap;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use vc_diagnostics::{Diagnostic, Diagnostics};
 use vc_model::{FileKind, Pos, SourceFile, SourceFileId, SourceSpan, StringTable};
-use vc_parser::{GraphqlDocument, GraphqlProblem, GraphqlSchema, Node, ScalarKind, Syntax, Value};
+use vc_parser::{GraphqlDocument, GraphqlSchema, Node, ScalarKind, Syntax, Value};
 
 use crate::parts::{self, Cx, Piece, Tools};
 use crate::script::{self, Script};
@@ -32,10 +32,10 @@ pub struct FileUnit {
     /// A GraphQL document file's operations (D356); `None` for any other file, or one that does not parse.
     #[serde(default)]
     pub document: Option<GraphqlDocument>,
-    /// What a file that may be a GraphQL schema holds as one (D347): SDL with no operation, or
-    /// JSON with a `__schema`; `None` for any other file.
+    /// The GraphQL schema a `.graphqls` file, or a data file with a `__schema`, holds (D347);
+    /// `None` for any other file, or one that is not a schema.
     #[serde(default)]
-    pub schema: Option<Result<GraphqlSchema, Vec<GraphqlProblem>>>,
+    pub schema: Option<GraphqlSchema>,
     /// Every problem the per-file stages found.
     #[serde(skip)]
     pub diagnostics: Diagnostics,

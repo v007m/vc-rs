@@ -15,7 +15,7 @@ use vc_parser::{GraphqlDocument, GraphqlOperation, GraphqlProblem, GraphqlSchema
 
 use crate::cache::CacheEntry;
 use crate::compile::numbered;
-use crate::graphql_schema::{self, Read, SchemaFile};
+use crate::graphql_schema::{self, Introspection, SchemaFile, Sdl};
 use crate::link::{self, Project, Source};
 use crate::stage::position;
 
@@ -52,12 +52,14 @@ pub enum Origin {
 
 /// Each document of a compile, parsed once: every document file the compile was given, as its
 /// cached per-file stage read it, and the inline `query` of every `graphql` api; and each schema
-/// file its api files name, by path, as its per-file stage read it.
+/// file its api files name, by path, read once.
 pub struct Documents<'a> {
     files: &'a SourceFiles,
     paths: HashMap<&'a str, SourceFileId>,
     given: HashMap<SourceFileId, &'a GraphqlDocument>,
     inline: HashMap<SourceSpan, Option<GraphqlDocument>>,
+    named: HashMap<&'a str, String>,
+    schema_paths: IndexSet<String>,
     schemas: HashMap<String, Schema<'a>>,
     problems: Diagnostics,
 }
@@ -103,8 +105,11 @@ impl<'a> Documents<'a> {
         }
         let units = entries.iter().filter_map(|entry| Some((entry.file, entry.unit.as_deref()?.document.as_ref()?)));
         let given = units.collect();
+        let named: HashMap<&'a str, String> =
+            project.sources.iter().filter_map(|source| Some((source.path, graphql_schema::path(source)?))).collect();
+        let schema_paths = project.sources.iter().filter_map(|source| named.get(source.path)).cloned().collect();
         let (inline, schemas, problems) = (HashMap::new(), HashMap::new(), Diagnostics::new());
-        let mut documents = Self { files, paths, given, inline, schemas, problems };
+        let mut documents = Self { files, paths, given, inline, named, schema_paths, schemas, problems };
         let sources = project.sources.iter();
         let inline = sources.flat_map(|source| queries(source).into_iter().map(move |(_, _, query)| (source, query)));
         for (source, query) in inline {
@@ -117,7 +122,7 @@ impl<'a> Documents<'a> {
             }
             documents.inline.insert(query.span, parsed.ok());
         }
-        documents.schemas = documents.read_schemas(project, (entries, trees));
+        documents.schemas = documents.read_schemas(entries, trees);
         documents
     }
 
@@ -132,39 +137,46 @@ impl<'a> Documents<'a> {
         self.files.get(*id).map(|file| file.text.as_str())
     }
 
+    /// The path of the schema file the api file at `path` names in its `graphql.schema`.
+    pub fn named(&self, path: &str) -> Option<&str> {
+        self.named.get(path).map(String::as_str)
+    }
+
+    /// Each schema file the api files name, once, in the order they are first named.
+    pub const fn schema_paths(&self) -> &IndexSet<String> {
+        &self.schema_paths
+    }
+
     /// The schema in the file at `path`, which an api file names, else V1015; `None` when the
     /// compile was not given it, or it is SDL that does not parse, which is V1014 at its per-file stage.
     pub fn schema(&self, path: &str) -> Option<Result<&GraphqlSchema, &Diagnostic>> {
         Some(self.schemas.get(path)?.as_ref().map(|schema| &**schema).map_err(|diagnostic| &**diagnostic))
     }
 
-    /// Each schema file the api files of `project` name, as its unit among `entries` read it.
+    /// Each schema file the api files name, as its unit among `entries` cached it, else read now.
     fn read_schemas(
         &self,
-        project: &Project<'_>,
-        (entries, trees): (&'a [CacheEntry], &HashMap<&'a str, &'a Node>),
+        entries: &'a [CacheEntry],
+        trees: &HashMap<&'a str, &'a Node>,
     ) -> HashMap<String, Schema<'a>> {
         let unit = |entry: &'a CacheEntry| Some((self.files.get(entry.file)?.path.as_str(), entry.unit.as_deref()?));
-        let cached: HashMap<&str, &'a Read> =
+        let cached: HashMap<&str, &'a GraphqlSchema> =
             entries.iter().filter_map(unit).filter_map(|(path, unit)| Some((path, unit.schema.as_ref()?))).collect();
-        let paths: IndexSet<String> = project.sources.iter().filter_map(graphql_schema::path).collect();
-        let read = |path: String| {
-            let file = self.schema_file(&path, trees)?;
-            let read = graphql_schema::read(&file, cached.get(path.as_str()).copied(), self.files);
-            Some((path, read))
+        let read = |path: &String| {
+            let file = self.schema_file(path, trees)?;
+            let read = graphql_schema::read(&*file, cached.get(path.as_str()).copied(), self.files);
+            Some((path.clone(), read))
         };
-        paths.into_iter().filter_map(read).collect()
+        self.schema_paths.iter().filter_map(read).collect()
     }
 
     /// The schema file at `path`: a data file among `trees`, else SDL that parses.
-    fn schema_file(&self, path: &str, trees: &HashMap<&'a str, &'a Node>) -> Option<SchemaFile<'a>> {
-        match (trees.get(path), self.paths.get(path)) {
-            (Some(tree), _) => Some(SchemaFile::Introspection(tree)),
-            (None, Some(id)) if self.given.contains_key(id) => {
-                Some(SchemaFile::Sdl(*id, self.files.get(*id)?.text.as_str()))
-            }
-            (None, _) => None,
+    fn schema_file(&self, path: &str, trees: &HashMap<&'a str, &'a Node>) -> Option<Box<dyn SchemaFile + 'a>> {
+        if let Some(tree) = trees.get(path) {
+            return Some(Box::new(Introspection(tree)));
         }
+        let id = self.paths.get(path).filter(|id| self.given.contains_key(id))?;
+        Some(Box::new(Sdl(*id, self.files.get(*id)?.text.as_str())))
     }
 
     /// The document the `query` of `source` holds, when it parses.

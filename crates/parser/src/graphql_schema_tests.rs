@@ -46,7 +46,8 @@ fn misfits(document: &str, name: Option<&str>, yaml: &str) -> Vec<(usize, String
 fn misfits_in(schema: &GraphqlSchema, operation: (&str, Option<&str>), yaml: &str) -> Vec<(usize, String)> {
     let node = values(yaml);
     let given: Vec<(&str, &Node)> = node.entries().iter().map(|entry| (entry.key.as_str(), &entry.value)).collect();
-    schema.check_variables(operation, &given)
+    let (text, name) = operation;
+    schema.check_variables((&schema.operations(text), name), &given)
 }
 
 #[test]
@@ -161,9 +162,15 @@ fn a_document_that_does_not_fit_the_schema_is_reported_where_it_is_wrong() {
 }
 
 #[test]
-fn two_operations_of_one_name_are_left_to_v2009() {
-    let document = "query A { user(id: 1) { id } }\nquery A { user(id: 2) { id } }";
-    assert_eq!(accounts().check_document(document), []);
+fn what_v2009_or_the_rules_without_a_schema_cover_is_left_out() {
+    let documents = [
+        "query A { user(id: 1) { id } }\nquery A { user(id: 2) { id } }",
+        "query { user(id: 1) { id } }\nquery B { user(id: 2) { id } }",
+        "query A { user(id: 1) { id } }\nfragment F on User { id }",
+    ];
+    for document in documents {
+        assert_eq!(accounts().check_document(document), [], "{document}");
+    }
 }
 
 #[test]
@@ -214,6 +221,30 @@ fn a_variable_of_a_type_the_schema_lacks_is_left_to_v2314() {
 }
 
 #[test]
+fn a_variable_of_an_output_type_is_left_to_v2314() {
+    for ty in ["User", "Node", "SearchResult"] {
+        let document = format!("query Q($at: {ty}) {{ users {{ id }} }}");
+        assert_eq!(misfits(&document, None, "at: x\n"), [], "{ty}");
+    }
+    let document = "query Q($key: UserKey) { users { id } }";
+    assert_eq!(misfits(document, None, "key: x\n").len(), 1, "an input object is checked");
+}
+
+#[test]
+fn an_integral_float_is_an_int_as_a_json_reader_reads_it() {
+    let document = "query Q($limit: Int, $text: String) { users(limit: $limit) { id } search(text: $text) { ... on User { id } } }";
+    assert_eq!(misfits(document, None, "limit: 10.0\n"), []);
+    assert_eq!(misfits(document, None, "limit: 1e3\n"), []);
+    assert_eq!(misfits(document, None, "limit: -0.0\n"), []);
+    let expected = [
+        (0, "could not coerce variable limit: 10.5 to type Int".to_owned()),
+        (1, "could not coerce variable text: 10 to type String".to_owned()),
+    ];
+    assert_eq!(misfits(document, None, "limit: 10.5\ntext: 10.0\n"), expected);
+    assert_eq!(misfits(document, None, "limit: 1e30\n").len(), 1, "past an i64 it stays a float");
+}
+
+#[test]
 fn a_value_with_no_json_form_is_left_alone() {
     let document = "query Q($at: Float, $limit: Int, $roles: [Role!]) { users(limit: $limit, roles: $roles) { id } }";
     assert_eq!(misfits(document, None, "at: .inf\nlimit: 0x1F\nroles: [.nan]\n"), []);
@@ -236,6 +267,14 @@ fn a_schema_is_read_back_from_its_sdl() {
     let read = GraphqlSchema::deserialize(SDL.into_deserializer());
     let read: Result<GraphqlSchema, Error> = read;
     assert_eq!(read.unwrap(), accounts());
-    let broken: Result<GraphqlSchema, Error> = GraphqlSchema::deserialize("type T".into_deserializer());
+    let broken: Result<GraphqlSchema, Error> = GraphqlSchema::deserialize("type T {".into_deserializer());
     assert_eq!(broken.unwrap_err().to_string(), "the SDL is not a schema");
+}
+
+#[test]
+fn a_schema_read_back_is_not_validated_again() {
+    let unvalidated = "type T { a: Int }";
+    assert!(parse_schema(unvalidated).is_err(), "it has no Query type");
+    let read: Result<GraphqlSchema, Error> = GraphqlSchema::deserialize(unvalidated.into_deserializer());
+    assert_eq!(read.unwrap().sdl(), unvalidated);
 }

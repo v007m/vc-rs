@@ -13,10 +13,10 @@ use crate::parts;
 use crate::parts::{At, Cx};
 
 /// The key of a computed value: `{ $cel: var.price * 2 }`.
-const CEL_KEY: &str = "$cel";
+pub const CEL_KEY: &str = "$cel";
 
 /// The key of the value a map extends: `{ $extend: ${original.body}, city: Pune }`.
-const EXTEND_KEY: &str = "$extend";
+pub const EXTEND_KEY: &str = "$extend";
 
 /// The key of the paths an extended map drops: `$remove: [id, shipping.geo]`.
 const REMOVE_KEY: &str = "$remove";

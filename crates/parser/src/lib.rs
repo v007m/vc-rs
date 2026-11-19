@@ -29,7 +29,7 @@ mod yaml;
 pub use edit::{Document, EditCommand, FormatRules, references};
 pub use error::ParserError;
 pub use graphql::{GraphqlDocument, GraphqlOperation, GraphqlProblem, GraphqlVariable, OperationKind, parse_document};
-pub use graphql_schema::{GraphqlMismatch, GraphqlSchema, parse_schema};
+pub use graphql_schema::{GraphqlMismatch, GraphqlOperations, GraphqlSchema, parse_schema};
 pub use introspection::schema_from_introspection;
 pub use node::{Entry, Node, Value};
 pub use parse::parse;

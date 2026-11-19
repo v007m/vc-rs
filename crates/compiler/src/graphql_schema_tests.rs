@@ -110,7 +110,14 @@ fn a_schema_file_named_by_several_api_files_is_reported_once() {
 
 #[test]
 fn a_schema_that_is_not_the_literal_file_of_a_schema_is_v2302() {
-    for schema in ["schema.graphql", "{$file: schema.yaml}", "{$file: '${var.name}.json'}", "{$file: s.json, x: 1}"] {
+    let schemas = [
+        "schema.graphql",
+        "{$file: schema.yaml}",
+        "{$file: '${var.name}.json'}",
+        "{$file: s.json, x: 1}",
+        "{$file: 's#1.json'}",
+    ];
+    for schema in schemas {
         let compiled = compile(schema, &[], &[]);
         let found: Vec<_> = compiled.diagnostics.iter().filter(|found| found.code == Code::V2302).collect();
         let [found] = found[..] else { panic!("{schema}: {:?}", compiled.diagnostics) };

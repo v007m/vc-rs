@@ -1,18 +1,18 @@
 //! A `type: graphql` api file's schema (D347): its `graphql.schema` names an SDL file (`.graphql`,
 //! `.gql`, `.graphqls`) or an introspection result (`.json`), which the engine reads for the
-//! compile (D132). Each file's per-file stage reads what it holds as a schema once, which the
-//! compile cache keeps ([`from_text`], [`from_tree`]); an SDL file that does not parse is V1014
-//! there, and V1015 is a file that reads but is not a schema.
+//! compile (D132). The per-file stage of a `.graphqls` file and of a data file with a `__schema`
+//! reads it as a schema once, which the compile cache keeps ([`from_text`], [`from_tree`]); any
+//! other file an api file names is read when it is named ([`read`]). An SDL file that does not
+//! parse is V1014 at its per-file stage, and V1015 is a file that reads but is not a schema.
 
 use std::borrow::Cow;
 
-use indexmap::IndexSet;
 use vc_diagnostics::{Code, Diagnostic};
 use vc_model::{FileKind, SourceFile, SourceFileId, SourceFiles, SourceSpan, resolve_path};
 use vc_parser::{GraphqlDocument, GraphqlProblem, GraphqlSchema, Node};
 
 use crate::graphql::{self, Documents};
-use crate::link::{self, Project, Source};
+use crate::link::{self, Source};
 
 /// The `graphql` key that names the schema.
 const SCHEMA: &str = "schema";
@@ -26,12 +26,59 @@ const SUFFIXES: [&str; 4] = [".graphql", ".gql", SDL_SUFFIX, ".json"];
 /// What a file holds as a schema, else where it is not one.
 pub type Read = Result<GraphqlSchema, Vec<GraphqlProblem>>;
 
-/// A schema file the compile was given.
-pub enum SchemaFile<'a> {
-    /// SDL: the file, and its text.
-    Sdl(SourceFileId, &'a str),
-    /// An introspection result, as its JSON tree.
-    Introspection(&'a Node),
+/// A schema file the compile was given, by how its kind is read and reported.
+pub trait SchemaFile {
+    /// What the file holds as a schema.
+    fn read(&self) -> Read;
+
+    /// Where the first of `problems` is in the file, and that problem.
+    fn place<'p>(
+        &self,
+        problems: &'p [GraphqlProblem],
+        files: &SourceFiles,
+    ) -> (SourceSpan, Option<&'p GraphqlProblem>);
+
+    /// How to fix a file of its kind that is not a schema.
+    fn help(&self) -> &'static str;
+}
+
+/// A schema file of SDL: the file, and its text.
+pub struct Sdl<'a>(pub SourceFileId, pub &'a str);
+
+/// A schema file that is an introspection result, as its JSON tree.
+pub struct Introspection<'a>(pub &'a Node);
+
+impl SchemaFile for Sdl<'_> {
+    fn read(&self) -> Read {
+        vc_parser::parse_schema(self.1)
+    }
+
+    fn place<'p>(&self, problems: &'p [GraphqlProblem], _: &SourceFiles) -> (SourceSpan, Option<&'p GraphqlProblem>) {
+        graphql::first_spot(self.0, self.1, problems)
+    }
+
+    fn help(&self) -> &'static str {
+        "fix the schema here; it holds only type definitions (`type`, `input`, `enum`, …), and operations go in an api's `query`"
+    }
+}
+
+impl SchemaFile for Introspection<'_> {
+    fn read(&self) -> Read {
+        vc_parser::schema_from_introspection(self.0).map_err(|problem| vec![problem])
+    }
+
+    fn place<'p>(
+        &self,
+        problems: &'p [GraphqlProblem],
+        files: &SourceFiles,
+    ) -> (SourceSpan, Option<&'p GraphqlProblem>) {
+        let first = problems.first();
+        (json_span(self.0, first, files), first)
+    }
+
+    fn help(&self) -> &'static str {
+        "save the whole answer to an introspection query, `{\"data\": {\"__schema\": …}}`, or write the schema as SDL"
+    }
 }
 
 /// The schema file the api file `source` names, from the project root; `None` when it names
@@ -43,43 +90,39 @@ pub fn path(source: &Source<'_>) -> Option<String> {
 /// V2302 when the `graphql.schema` of `source` is not a literal `$file` of a schema file.
 pub fn check(source: &Source<'_>) -> Option<Diagnostic> {
     let node = node(source).filter(|node| graphql::literal_file(node, is_schema).is_none())?;
-    let message =
-        "`graphql.schema` takes the literal `$file` path of a `.graphql`, `.gql`, `.graphqls` or `.json` file";
+    let message = "`graphql.schema` takes the literal `$file` path of a `.graphql`, `.gql`, `.graphqls` or `.json` file, with no `${…}` or `#` in it";
     let diagnostic = Diagnostic::new(Code::V2302, node.span, message).label("not a schema file");
     Some(diagnostic.help("name the schema file as written, such as `schema: {$file: schema.graphql}`"))
 }
 
-/// V1015 for each schema file the api files of `project` name that is not a schema: each file once,
-/// however many name it; a file the compile was not given is left alone.
-pub fn problems(project: &Project<'_>, documents: &Documents<'_>) -> Vec<Diagnostic> {
-    let paths: IndexSet<String> = project.sources.iter().filter_map(path).collect();
-    paths.iter().filter_map(|path| documents.schema(path)?.err()).cloned().collect()
+/// V1015 for each schema file the api files name that is not a schema: each file once, however
+/// many name it; a file the compile was not given is left alone.
+pub fn problems(documents: &Documents<'_>) -> Vec<Diagnostic> {
+    let paths = documents.schema_paths().iter();
+    paths.filter_map(|path| documents.schema(path)?.err()).cloned().collect()
 }
 
-/// The per-file stage of a GraphQL text file: what it holds as a schema, when it parses as
-/// `document` and holds no operation.
-pub fn from_text(source: &SourceFile, document: Option<&GraphqlDocument>) -> Option<Read> {
-    document?.operations.is_empty().then(|| vc_parser::parse_schema(&source.text))
+/// The per-file stage of a GraphQL text file: the schema a `.graphqls` file that parses as
+/// `document` holds, when it is one. A `.graphql` or `.gql` file is read only when it is named.
+pub fn from_text(source: &SourceFile, document: Option<&GraphqlDocument>) -> Option<GraphqlSchema> {
+    document.filter(|_| source.path.as_str().ends_with(SDL_SUFFIX))?;
+    vc_parser::parse_schema(&source.text).ok()
 }
 
-/// The per-file stage of a data file: what it holds as a schema, when it holds a `__schema`.
-pub fn from_tree(root: &Node) -> Option<Read> {
+/// The per-file stage of a data file: the schema it holds, when it holds a `__schema` that is one.
+pub fn from_tree(root: &Node) -> Option<GraphqlSchema> {
     root.get("data").unwrap_or(root).get("__schema")?;
-    Some(introspection(root))
+    vc_parser::schema_from_introspection(root).ok()
 }
 
-/// The schema in `file`, from what its per-file stage `cached` when it read it as one; else
-/// V1015 where it is not one.
+/// The schema in `file`, as its per-file stage `cached` it, else read now; V1015 where it is not one.
 pub fn read<'a>(
-    file: &SchemaFile<'_>,
-    cached: Option<&'a Read>,
+    file: &dyn SchemaFile,
+    cached: Option<&'a GraphqlSchema>,
     files: &SourceFiles,
 ) -> Result<Cow<'a, GraphqlSchema>, Box<Diagnostic>> {
-    match cached {
-        Some(Ok(schema)) => Ok(Cow::Borrowed(schema)),
-        Some(Err(problems)) => Err(not_a_schema(file, problems, files)),
-        None => fresh(file).map(Cow::Owned).map_err(|problems| not_a_schema(file, &problems, files)),
-    }
+    let fresh = || file.read().map(Cow::Owned).map_err(|problems| not_a_schema(file, &problems, files));
+    cached.map_or_else(fresh, |schema| Ok(Cow::Borrowed(schema)))
 }
 
 /// Whether `path` names a schema file.
@@ -87,42 +130,12 @@ fn is_schema(path: &str) -> bool {
     SUFFIXES.iter().any(|suffix| path.ends_with(suffix))
 }
 
-/// What `file` holds as a schema, read now: a file its per-file stage did not read as one.
-fn fresh(file: &SchemaFile<'_>) -> Read {
-    match *file {
-        SchemaFile::Sdl(_, text) => vc_parser::parse_schema(text),
-        SchemaFile::Introspection(root) => introspection(root),
-    }
-}
-
-/// The introspection result `root` as a schema.
-fn introspection(root: &Node) -> Read {
-    vc_parser::schema_from_introspection(root).map_err(|problem| vec![problem])
-}
-
 /// V1015 at the first of `problems`, which keep `file` from being a schema.
-fn not_a_schema(file: &SchemaFile<'_>, problems: &[GraphqlProblem], files: &SourceFiles) -> Box<Diagnostic> {
-    let (span, first, help) = match *file {
-        SchemaFile::Sdl(id, text) => {
-            let (span, first) = graphql::first_spot(id, text, problems);
-            (
-                span,
-                first,
-                "fix the schema here; it holds only type definitions (`type`, `input`, `enum`, …), and operations go in an api's `query`",
-            )
-        }
-        SchemaFile::Introspection(root) => {
-            let first = problems.first();
-            (
-                json_span(root, first, files),
-                first,
-                "save the whole answer to an introspection query, `{\"data\": {\"__schema\": …}}`, or write the schema as SDL",
-            )
-        }
-    };
+fn not_a_schema(file: &dyn SchemaFile, problems: &[GraphqlProblem], files: &SourceFiles) -> Box<Diagnostic> {
+    let (span, first) = file.place(problems, files);
     let why = first.map_or("", |problem| problem.message.as_str());
     let message = format!("the `graphql.schema` file is not a GraphQL schema: {why}");
-    Box::new(Diagnostic::new(Code::V1015, span, message).label("not part of a schema").help(help))
+    Box::new(Diagnostic::new(Code::V1015, span, message).label("not part of a schema").help(file.help()))
 }
 
 /// Where `problem` is in the JSON file of `root`; the whole file when it cannot be placed.

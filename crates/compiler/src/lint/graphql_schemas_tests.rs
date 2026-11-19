@@ -161,3 +161,22 @@ fn an_input_object_with_a_templated_key_is_not_checked() {
         assert!(templated.diagnostics.is_empty(), "{}: {:?}", schema.0, templated.diagnostics);
     }
 }
+
+#[test]
+fn a_value_with_a_cel_or_an_extend_in_it_is_not_checked() {
+    let query = "      query: 'mutation Me($in: NewUser!) { createUser(input: $in) { id } }'\n";
+    for schema in SCHEMAS {
+        let given =
+            |variables: &str| compile(&me(&format!("{query}      variables: {variables}\n")), Some(schema), &[]);
+        for variables in [
+            "{in: {$cel: '{\"name\": \"x\"}'}}",
+            "{in: {name: {$cel: '\"x\"'}}}",
+            "{in: {$extend: {name: x}, nick: ADMIN}}",
+            "{in: [{$extend: {name: x}}]}",
+        ] {
+            let found = given(variables);
+            let found: Vec<_> = found.diagnostics.iter().filter(|found| found.code == Code::V2315).collect();
+            assert!(found.is_empty(), "{}: {variables}: {found:?}", schema.0);
+        }
+    }
+}

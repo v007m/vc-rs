@@ -93,23 +93,27 @@ fn bytes_round_trip_with_the_units_and_names() {
     assert_eq!(CompileCache::from_bytes(&CompileCache::new().to_bytes()), CompileCache::new());
 }
 
-/// A GraphQL schema a file holds, and one that is not a schema, are kept in its unit.
+/// The GraphQL schema a `.graphqls` file holds is kept in its unit; a `.graphql` file is read only
+/// when it is named, and what is not a schema is not kept.
 #[test]
 fn bytes_round_trip_with_the_schema_a_file_holds() {
     let sdl = "type Query {\n  me: Int\n}\n";
     let introspection = "{\"__schema\": {\"queryType\": {\"name\": \"Q\"}, \"types\": []}}\n";
     let sources = [
-        source("a.graphql", sdl, 1),
-        source("b.graphqls", "type T { a: Int }\n", 2),
-        source("c.json", introspection, 3),
+        source("a.graphqls", sdl, 1),
+        source("b.graphql", sdl, 2),
+        source("c.graphqls", "type T { a: Int }\n", 3),
+        source("d.json", introspection, 4),
     ];
     let cache = compiled(&sources);
     let read = CompileCache::from_bytes(&cache.to_bytes());
     assert_eq!(read, cache);
     let schema = |path, byte, file| kept(&read, path, byte, file).and_then(|unit| unit.schema.clone());
-    assert_eq!(schema("a.graphql", 1, 0).unwrap().unwrap().sdl(), sdl);
-    assert!(schema("b.graphqls", 2, 1).unwrap().is_err());
-    assert!(schema("c.json", 3, 2).unwrap().is_err());
+    assert_eq!(schema("a.graphqls", 1, 0).unwrap().sdl(), sdl);
+    assert!(kept(&read, "b.graphql", 2, 1).is_some());
+    assert!(schema("b.graphql", 2, 1).is_none());
+    assert!(schema("c.graphqls", 3, 2).is_none());
+    assert!(schema("d.json", 4, 3).is_none());
 }
 
 #[test]

@@ -5,7 +5,7 @@ use std::ops::Range;
 use std::path::Path;
 
 use apollo_compiler::diagnostic::{Diagnostic, ToCliReport};
-use apollo_compiler::executable::{Operation, Selection, SelectionSet};
+use apollo_compiler::executable::{DirectiveList, Operation, Selection, SelectionSet, VariableDefinition};
 use apollo_compiler::parser::SourceSpan;
 use apollo_compiler::request::coerce_variable_values;
 use apollo_compiler::response::serde_json_bytes::serde_json::Number;
@@ -33,8 +33,10 @@ pub const MAX_DEPTH: usize = 64;
 /// What `apollo-compiler` calls a field its type does not have.
 const UNDEFINED_FIELD: &str = "UndefinedField";
 
-/// What `apollo-compiler` calls two operations of one name, which V2009 reports.
-const NAME_COLLISION: &str = "OperationNameCollision";
+/// What `apollo-compiler` calls the problems of a document that V2009 reports or leaves to the
+/// rules without a schema: two operations of one name, an anonymous operation beside others, and
+/// a fragment no operation uses.
+const LEFT_OUT: [&str; 3] = ["OperationNameCollision", "AmbiguousAnonymousOperation", "UnusedFragment"];
 
 /// What `apollo-compiler` calls a field of an object type with no selections.
 const NO_SUBSELECTION: &str = "MissingSubselection";
@@ -62,11 +64,20 @@ impl Serialize for GraphqlSchema {
     }
 }
 
+/// Read back without validating it again: only a schema that validated is written, and a cache
+/// another build wrote is not read (D333).
 impl<'de> Deserialize<'de> for GraphqlSchema {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         let sdl = String::deserialize(deserializer)?;
-        parse_schema(&sdl).map_err(|_| D::Error::custom("the SDL is not a schema"))
+        let schema = build(&sdl).map_err(|_| D::Error::custom("the SDL is not a schema"))?;
+        Ok(Self { sdl, valid: Valid::assume_valid(schema) })
     }
+}
+
+/// A document's operations, read once against a schema, to check the values of their variables.
+#[derive(Debug)]
+pub struct GraphqlOperations {
+    document: ExecutableDocument,
 }
 
 /// Where a document does not fit a schema, and why.
@@ -88,11 +99,16 @@ pub struct GraphqlMismatch {
 /// Each spot where the text does not parse, holds an operation or fragment, or does not
 /// validate; a spot is the first line of the part at fault.
 pub fn parse_schema(text: &str) -> Result<GraphqlSchema, Vec<GraphqlProblem>> {
+    let valid = build(text)?.validate().map_err(|invalid| problems(&invalid.errors, text))?;
+    Ok(GraphqlSchema { sdl: text.to_owned(), valid })
+}
+
+/// The schema `text` holds, with `@oneOf`, not yet validated.
+fn build(text: &str) -> Result<Schema, Vec<GraphqlProblem>> {
     let built = Schema::builder().parse(text, SCHEMA_PATH).build();
     let mut schema = built.map_err(|invalid| problems(&invalid.errors, text))?;
     schema.directive_definitions.entry(name!("oneOf")).or_insert_with(one_of);
-    let valid = schema.validate().map_err(|invalid| problems(&invalid.errors, text))?;
-    Ok(GraphqlSchema { sdl: text.to_owned(), valid })
+    Ok(schema)
 }
 
 /// The `@oneOf` directive (GraphQL spec, 2025): built into servers, so SDL printers leave it
@@ -127,7 +143,7 @@ impl GraphqlSchema {
     }
 
     /// Where the document `text`, which parses, does not fit the schema, by the GraphQL spec's
-    /// validation rules. Two operations of one name are left to V2009, and a selection left empty
+    /// validation rules. What [`LEFT_OUT`] names is left to V2009, and a selection left empty
     /// because each field in it is unknown is reported only at those fields.
     #[must_use]
     pub fn check_document(&self, text: &str) -> Vec<GraphqlMismatch> {
@@ -135,7 +151,7 @@ impl GraphqlSchema {
             return Vec::new();
         };
         let found: Vec<Diagnostic<'_, DiagnosticData>> =
-            invalid.errors.iter().filter(|found| !named(found, NAME_COLLISION)).collect();
+            invalid.errors.iter().filter(|found| !LEFT_OUT.iter().any(|name| named(found, name))).collect();
         let unknown: Vec<Range<usize>> = found
             .iter()
             .filter(|found| named(found, UNDEFINED_FIELD))
@@ -148,17 +164,34 @@ impl GraphqlSchema {
         found.iter().filter(|found| !emptied(found)).map(|found| self.mismatch(&invalid.partial, found)).collect()
     }
 
-    /// The message for each value of `given`, by its index, that does not fit the type the
-    /// operation `name` of the document `text` declares for its variable. A variable the
-    /// operation does not declare or declares of a type the schema lacks (V2314), and a value
-    /// with no JSON form (`.inf`), are left alone.
+    /// The operations of the document `text`, which parses, read against the schema.
     #[must_use]
-    pub fn check_variables(&self, (text, name): (&str, Option<&str>), given: &[(&str, &Node)]) -> Vec<(usize, String)> {
+    pub fn operations(&self, text: &str) -> GraphqlOperations {
         let document =
             ExecutableDocument::parse(&self.valid, text, DOCUMENT_PATH).unwrap_or_else(|built| built.partial);
-        let Ok(operation) = document.operations.get(name) else { return Vec::new() };
-        let misfits = given.iter().enumerate().map(|(index, value)| Some((index, self.misfit(operation, *value)?)));
-        misfits.flatten().collect()
+        GraphqlOperations { document }
+    }
+
+    /// The message for each value of `given`, by its index, that does not fit the type the
+    /// operation `name` of `operations` declares for its variable. A variable the operation does
+    /// not declare, or declares of a type that is no input type of the schema (V2314), and a
+    /// value with no JSON form (`.inf`), are left alone.
+    #[must_use]
+    pub fn check_variables(
+        &self,
+        (operations, name): (&GraphqlOperations, Option<&str>),
+        given: &[(&str, &Node)],
+    ) -> Vec<(usize, String)> {
+        let Ok(operation) = operations.document.operations.get(name) else { return Vec::new() };
+        let mut alone = bare(operation);
+        let mut misfits = Vec::new();
+        for (index, (key, value)) in given.iter().enumerate() {
+            let declared = operation.variables.iter().find(|variable| variable.name == *key);
+            misfits.extend(
+                declared.and_then(|declared| self.misfit(&mut alone, (declared, value))).map(|why| (index, why)),
+            );
+        }
+        misfits
     }
 
     /// The mismatch `found` in `document`, with the fields of the type an unknown field was asked of.
@@ -179,14 +212,29 @@ impl GraphqlSchema {
         fields.map(ToString::to_string).collect()
     }
 
-    /// Why `value` does not fit the type `operation` declares for the variable `name`.
-    fn misfit(&self, operation: &Operation, (name, value): (&str, &Node)) -> Option<String> {
-        let declared = operation.variables.iter().find(|variable| variable.name == name)?;
-        self.valid.types.get(declared.ty.inner_named_type())?;
+    /// Why `value` does not fit the type `declared` gives its variable, coerced as the only
+    /// variable of `alone`.
+    fn misfit(
+        &self,
+        alone: &mut Operation,
+        (declared, value): (&apollo_compiler::Node<VariableDefinition>, &Node),
+    ) -> Option<String> {
+        self.valid.types.get(declared.ty.inner_named_type()).filter(|ty| ty.is_input_type())?;
         let mut values = JsonMap::new();
-        values.insert(name, json(value)?);
-        let alone = Operation { variables: vec![declared.clone()], ..operation.clone() };
-        coerce_variable_values(&self.valid, &alone, &values).err().map(|error| error.message().to_string())
+        values.insert(declared.name.as_str(), json(value)?);
+        alone.variables = vec![declared.clone()];
+        coerce_variable_values(&self.valid, alone, &values).err().map(|error| error.message().to_string())
+    }
+}
+
+/// `operation` with no variables, directives or selections, to coerce one variable against.
+fn bare(operation: &Operation) -> Operation {
+    Operation {
+        operation_type: operation.operation_type,
+        name: None,
+        variables: Vec::new(),
+        directives: DirectiveList::new(),
+        selection_set: SelectionSet::new(operation.selection_set.ty.clone()),
     }
 }
 
@@ -250,9 +298,16 @@ fn scalar_json(scalar: &Scalar) -> Option<JsonValue> {
         ScalarKind::Null => Some(JsonValue::Null),
         ScalarKind::Bool => Some(JsonValue::Bool(text.eq_ignore_ascii_case("true"))),
         ScalarKind::Int => text.parse::<i64>().ok().map(JsonValue::from),
-        ScalarKind::Float => text.parse::<f64>().ok().and_then(Number::from_f64).map(JsonValue::Number),
+        ScalarKind::Float => text.parse::<f64>().ok().and_then(float_json),
         ScalarKind::String => Some(JsonValue::from(text)),
     }
+}
+
+/// `value` as JSON: an integral one as an integer, as a JSON reader gives `10.0` to an `Int`
+/// (D370); `None` for one with no JSON form.
+fn float_json(value: f64) -> Option<JsonValue> {
+    let integer = value.to_string().parse::<i64>().ok().map(JsonValue::from);
+    integer.or_else(|| Number::from_f64(value).map(JsonValue::Number))
 }
 
 #[cfg(test)]

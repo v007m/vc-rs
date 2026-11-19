@@ -24,7 +24,7 @@ pub fn check(project: &Project<'_>, documents: &Documents<'_>) -> Diagnostics {
         }
         diagnostics.extend(graphql_schema::check(source));
     }
-    diagnostics.extend(graphql_schema::problems(project, documents));
+    diagnostics.extend(graphql_schema::problems(documents));
     diagnostics
 }
 

@@ -11,7 +11,6 @@ use vc_parser::{GraphqlMismatch, GraphqlSchema};
 use super::graphql::{self, Document};
 use super::{Lint, LintCx};
 use crate::graphql::Origin;
-use crate::graphql_schema;
 use crate::suggest::{self, Misspelling};
 
 pub struct GraphqlSchemas;
@@ -23,7 +22,7 @@ impl Lint for GraphqlSchemas {
 
     fn check(&self, cx: &LintCx<'_, '_>) -> Vec<Diagnostic> {
         let documents = graphql::documents(cx);
-        let mut seen: IndexSet<(Origin, String)> = IndexSet::new();
+        let mut seen: IndexSet<(Origin, &str)> = IndexSet::new();
         let mut found = Vec::new();
         for document in &documents {
             let Some((path, schema)) = schema(cx, document) else { continue };
@@ -36,10 +35,9 @@ impl Lint for GraphqlSchemas {
 }
 
 /// The schema the file of `document` names, with its path, when it is one.
-pub fn schema<'c>(cx: &'c LintCx<'_, '_>, document: &Document<'_>) -> Option<(String, &'c GraphqlSchema)> {
-    let path = graphql_schema::path(document.source)?;
-    let schema = cx.documents.schema(&path)?.ok()?;
-    Some((path, schema))
+pub fn schema<'c>(cx: &'c LintCx<'_, '_>, document: &Document<'_>) -> Option<(&'c str, &'c GraphqlSchema)> {
+    let path = cx.documents.named(document.source.path)?;
+    Some((path, cx.documents.schema(path)?.ok()?))
 }
 
 /// V2314 where `mismatch` is in `document`: at the part at fault, else at its `query`.
