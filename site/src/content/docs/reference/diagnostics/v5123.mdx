@@ -1,0 +1,87 @@
+---
+title: "V5123 — An expect.errors check failed"
+description: "A graphql api's response did not carry the errors its expect.errors asks for."
+sidebar:
+  label: "V5123 An expect.errors check failed"
+  order: 5123
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="error" variant="danger" /> <Badge text="Run time" variant="note" />
+
+| | |
+| --- | --- |
+| Code | `V5123` |
+| Category | V5xxx: Run time |
+| Severity | error |
+| Test outcome | failure |
+| Certain fix | none; `vc check --fix` leaves this one to you |
+
+A `graphql` api's response did not carry the errors its `expect.errors` asks for. A 200 with `errors` passes unless
+`expect.errors` says otherwise; it takes `none`, `any`, the list of errors expected (as many errors as entries, each
+entry paired with its own error, in any order) or a matcher such as `{ some: { code: TIMEOUT } }`. An entry writes
+`message`, `path` (dotted, like `user.secretNote`), `code` (the error's `extensions.code`) or `extensions`, each a
+literal or a matcher. A body that is not a JSON object, or whose `errors` is not a list (`null` is none), fails it too.
+Here the server also reports a `TIMEOUT` error that the list leaves out.
+
+## Wrong
+
+```yaml title="services/accounts/accounts.api.yaml"
+type: graphql
+apis:
+  - id: getSecretNote
+    body:
+      query: 'query GetSecretNote($id: ID!) { user(id: $id) { name secretNote notes } }'
+      variables:
+        id: "2"
+```
+
+```yaml title="services/accounts/privacy.test.yaml"
+tests:
+  - id: hidesSecretNote
+    call: accounts#getSecretNote
+    expect:
+      errors:
+        - code: FORBIDDEN
+          path: user.secretNote
+```
+
+## Right
+
+```yaml title="services/accounts/accounts.api.yaml"
+type: graphql
+apis:
+  - id: getSecretNote
+    body:
+      query: 'query GetSecretNote($id: ID!) { user(id: $id) { name secretNote notes } }'
+      variables:
+        id: "2"
+```
+
+```yaml title="services/accounts/privacy.test.yaml"
+tests:
+  - id: hidesSecretNote
+    call: accounts#getSecretNote
+    expect:
+      errors:
+        - code: FORBIDDEN
+          path: user.secretNote
+        - code: TIMEOUT
+```
+
+
+## Explain it in your terminal
+
+The same page is built into the binary, so this works anywhere, even outside a project:
+
+```console
+$ vc explain V5123
+```
+
+## Related
+
+- [All diagnostic codes](/vc-rs/reference/diagnostics/)
+- [`vc explain`](/vc-rs/reference/cli/explain/)
+- [`vc check`](/vc-rs/reference/cli/check/)
+- [Errors and fixes](/vc-rs/guides/errors-and-fixes/)

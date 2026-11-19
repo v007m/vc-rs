@@ -62,11 +62,13 @@ pub enum CheckKind {
     Cel,
     /// `custom`: a function.
     Custom,
+    /// `errors`: a `graphql` response's errors, normalised (D345).
+    Errors,
 }
 
 impl CheckKind {
     /// Every kind, in `expect` key order.
-    pub const ALL: [Self; 9] = [
+    pub const ALL: [Self; 10] = [
         Self::Status,
         Self::Header,
         Self::Schema,
@@ -76,6 +78,7 @@ impl CheckKind {
         Self::Timing,
         Self::Cel,
         Self::Custom,
+        Self::Errors,
     ];
 
     /// The `expect` key it is written under, which the history stores: `body.match`.
@@ -91,6 +94,7 @@ impl CheckKind {
             Self::Timing => "timing",
             Self::Cel => "cel",
             Self::Custom => "custom",
+            Self::Errors => "errors",
         }
     }
 
@@ -168,6 +172,9 @@ pub enum MatcherArg {
     Matcher(Box<Matcher>),
     /// Several nested matchers (`allOf`, `anyOf`).
     Matchers(Vec<Matcher>),
+    /// A matcher per named field of an object: the internal `fields` matcher an `expect.errors`
+    /// entry lowers to, which users cannot write (D360).
+    Fields(Vec<(String, Matcher)>),
 }
 
 /// One evaluated check, reported on its own: where it was written, what it expected, what came
@@ -224,7 +231,8 @@ mod tests {
             | CheckKind::Size
             | CheckKind::Timing
             | CheckKind::Cel
-            | CheckKind::Custom => CheckKind::ALL.iter().filter(|other| **other == kind).count(),
+            | CheckKind::Custom
+            | CheckKind::Errors => CheckKind::ALL.iter().filter(|other| **other == kind).count(),
         };
         for kind in CheckKind::ALL {
             assert_eq!((listed(kind), CheckKind::from_key(kind.key())), (1, Some(kind)), "{kind:?}");

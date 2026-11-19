@@ -42,9 +42,14 @@ shape! {
         types::key("cel", Ty::MapOf(&Ty::Cel)).doc("CEL expressions that must be true, by label")
             .example("{has items: size(response.body.items) > 0}"),
         types::key("custom", Ty::List(&Ty::Obj(function_ref))).doc("Functions that check the response"),
+        types::key("errors", ERRORS).doc("A `graphql` response's errors: `none`, `any`, entries or a matcher (D345)")
+            .example("[{code: FORBIDDEN, path: user.secretNote}]"),
         types::key("replace", Ty::Bool).default("false").doc("Drop every inherited check and keep only these"),
     ])
 }
+
+/// `expect.errors`: `none`, `any`, the list of errors expected, or a matcher on them (D345).
+const ERRORS: Ty = Ty::Either(&[Ty::Enum(&["none", "any"]), Ty::Matcher(Unit::Errors)]);
 
 shape! {
     body_expect = Shape::new("bodyExpect", "Checks on the response body", &[

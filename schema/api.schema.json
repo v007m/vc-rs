@@ -263,6 +263,26 @@
           },
           "type": "array"
         },
+        "errors": {
+          "anyOf": [
+            {
+              "enum": [
+                "none",
+                "any"
+              ]
+            },
+            {}
+          ],
+          "description": "A `graphql` response's errors: `none`, `any`, entries or a matcher (D345)",
+          "examples": [
+            [
+              {
+                "code": "FORBIDDEN",
+                "path": "user.secretNote"
+              }
+            ]
+          ]
+        },
         "headers": {
           "additionalProperties": {},
           "description": "Matcher per header; names are case-insensitive",

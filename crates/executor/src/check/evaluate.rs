@@ -5,7 +5,8 @@ use similar::TextDiff;
 use vc_diagnostics::Code;
 use vc_model::{Check, CheckKind, CheckResult, Failure, Matcher};
 
-use super::{Judge, schema};
+use super::registry::Judged;
+use super::{Judge, errors, schema};
 
 /// How many of the ways a body breaks its schema a failed `body.schema` check reports.
 const SHOWN: usize = 5;
@@ -79,12 +80,31 @@ fn outcome(judge: &Judge<'_>, check: &Check, subject: Subject<'_>) -> Outcome {
         CheckKind::Cel => cel(judge, &check.matcher),
         CheckKind::Schema => schema_check(judge, check, subject.response.get("body")),
         CheckKind::Custom => pending("the custom check's function did not run", Code::V5103),
+        CheckKind::Errors => errors_check(judge, check, subject.response.get("body")),
     }
 }
 
+/// An `expect.errors` check on the body's normalised errors; a body that is not a GraphQL
+/// response, or whose `errors` is not a list, fails with what it is (D345).
+fn errors_check(judge: &Judge<'_>, check: &Check, body: Option<&Value>) -> Outcome {
+    match errors::normalised(body) {
+        Ok(errors) => Outcome { code: Code::V5123, ..matched(judge, check, Some(errors)) },
+        Err(what) => Outcome {
+            actual: Some(Value::String(what.to_owned())),
+            expected: judge.expected(&check.matcher),
+            verdict: Ok(false),
+            code: Code::V5123,
+        },
+    }
+}
+
+/// `check` on `actual`; a failure shows what its matcher reports, else `actual`.
 fn matched(judge: &Judge<'_>, check: &Check, actual: Option<Value>) -> Outcome {
-    let verdict = judge.matches(&check.matcher, actual.as_ref());
-    Outcome { actual, expected: judge.expected(&check.matcher), verdict, code: Code::V5101 }
+    let (verdict, detail) = match judge.judged(&check.matcher, actual.as_ref()) {
+        Ok(Judged { holds, detail }) => (Ok(holds), detail),
+        Err(error) => (Err(error), None),
+    };
+    Outcome { actual: detail.or(actual), expected: judge.expected(&check.matcher), verdict, code: Code::V5101 }
 }
 
 /// A CEL check: the expression must evaluate to `true`.

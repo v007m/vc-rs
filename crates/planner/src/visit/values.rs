@@ -63,6 +63,7 @@ impl<V: Visit> Walker<'_, V> {
             MatcherArg::Range(bounds) => bounds.iter().for_each(|bound| self.matcher_arg(bound)),
             MatcherArg::Matcher(matcher) => self.matcher(matcher),
             MatcherArg::Matchers(matchers) => matchers.iter().for_each(|matcher| self.matcher(matcher)),
+            MatcherArg::Fields(fields) => fields.iter().for_each(|(_, matcher)| self.matcher(matcher)),
             MatcherArg::Duration(_) | MatcherArg::Size(_) => {}
         }
     }

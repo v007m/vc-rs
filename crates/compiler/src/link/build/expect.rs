@@ -1,7 +1,8 @@
 //! `expect` blocks as checks, and the merge of the levels a call inherits (D123).
 
 use vc_model::{
-    Check, CheckKind, Expect, Matcher, Origin, Part, Path, Segment, SourceSpan, StatusPattern, Template, TemplateValue,
+    Check, CheckKind, Expect, Matcher, MatcherArg, MatcherCall, Origin, Part, Path, Segment, SourceSpan, StatusPattern,
+    Template, TemplateValue,
 };
 use vc_parser::Node;
 
@@ -26,6 +27,7 @@ pub fn read(source: &Source<'_>, node: Option<&Node>, origin: Origin) -> Expect 
     reader.keyed(CheckKind::Timing, node.get("timing"), |phase| Path { segments: vec![key(phase)] });
     reader.cel(node.get("cel"));
     reader.custom(node.get("custom"));
+    reader.errors(node.get("errors"));
     Expect { checks: reader.checks, replace: read::flag(shapes::expect(), node, "replace") }
 }
 
@@ -97,6 +99,24 @@ impl Reader<'_, '_> {
         }
     }
 
+    /// A `graphql` response's errors (D345): `none` and `any` as `empty`, a list or map the
+    /// matcher it compiled to. Another word is no check: the shape check reported it.
+    fn errors(&mut self, node: Option<&Node>) {
+        let Some(node) = node else { return };
+        let Some(word) = node.as_str() else { return self.matcher(CheckKind::Errors, Some(node), None) };
+        let empty = match word {
+            "none" => true,
+            "any" => false,
+            _ => return,
+        };
+        let call = MatcherCall {
+            name: "empty".to_owned(),
+            arg: MatcherArg::Value(TemplateValue::Bool(empty)),
+            span: node.span,
+        };
+        self.push((CheckKind::Errors, None), Matcher::All(vec![call]), node.span);
+    }
+
     /// A function check, by `path#export`; it holds when the function passes.
     fn custom(&mut self, node: Option<&Node>) {
         for item in node.map(Node::items).unwrap_or_default() {
@@ -131,6 +151,9 @@ fn plain(text: &str) -> (Option<Segment>, &str) {
 }
 
 fn bracket(text: &str) -> (Option<Segment>, &str) {
+    if let Some((name, rest)) = quoted(text) {
+        return (Some(key(name)), rest);
+    }
     let Some(end) = text.find(']') else { return (Some(key(text)), "") };
     let inner = &text[..end];
     let quoted = ['\'', '"'].iter().find_map(|quote| inner.strip_prefix(*quote)?.strip_suffix(*quote));
@@ -140,6 +163,14 @@ fn bracket(text: &str) -> (Option<Segment>, &str) {
         _ => inner.parse().map_or_else(|_| key(inner), Segment::Index),
     };
     (Some(segment), &text[end + 1..])
+}
+
+/// A quoted key and the text after its `]`: the key ends at its closing quote, so it may hold `]`.
+fn quoted(text: &str) -> Option<(&str, &str)> {
+    let quote = text.chars().next().filter(|first| matches!(first, '\'' | '"'))?;
+    let inner = &text[1..];
+    let end = inner.find(quote)?;
+    Some((&inner[..end], inner[end + 1..].strip_prefix(']')?))
 }
 
 /// When an api's `save` runs (D191): its `saveOn` at `node`, else the status its `expect`
@@ -165,7 +196,8 @@ mod tests {
         Check, CheckKind, Expect, Matcher, Origin, Path, Pos, Segment, SourceFileId, SourceSpan, TemplateValue, TestId,
     };
 
-    use super::{merge, path};
+    use super::{merge, path, read};
+    use crate::link::project::{self, Source};
 
     fn check(kind: CheckKind, target: &str, line: u32) -> Check {
         let at = Pos::new(line, 1, 0);
@@ -207,6 +239,27 @@ mod tests {
         assert!(!merged.replace);
     }
 
+    /// The checks the first api's `expect` in `apis` reads, with the file's diagnostic codes.
+    fn api_checks(apis: &str) -> (Vec<CheckKind>, Vec<vc_diagnostics::Code>) {
+        let path = vc_model::SourcePath::new("services/users/users.api.yaml").unwrap();
+        let file = vc_model::SourceFile { path, text: apis.to_owned(), hash: vc_model::ContentHash::new([0; 32]) };
+        let (tools, mut strings) = (crate::parts::Tools::new(), vc_model::StringTable::new());
+        let unit = crate::stage::unit(SourceFileId::new(0), &file, (&tools, &mut strings));
+        let source = Source::new(SourceFileId::new(0), &file, &unit).unwrap();
+        let api = &project::list(source.root, "apis")[0];
+        let origin = Origin::Test(TestId::new(strings.intern("t").unwrap()));
+        let checks = read(&source, api.get("expect"), origin).checks.iter().map(|check| check.kind).collect();
+        (checks, unit.diagnostics.iter().map(|found| found.code).collect())
+    }
+
+    #[test]
+    fn errors_none_and_any_are_checks_and_another_word_is_none_since_the_shape_reported_it() {
+        let apis = |word: &str| format!("type: graphql\napis:\n  - id: get\n    expect:\n      errors: {word}\n");
+        assert_eq!(api_checks(&apis("none")), (vec![CheckKind::Errors], vec![]));
+        assert_eq!(api_checks(&apis("any")), (vec![CheckKind::Errors], vec![]));
+        assert_eq!(api_checks(&apis("FORBIDDEN")), (vec![], vec![vc_diagnostics::Code::V2302]));
+    }
+
     #[test]
     fn reads_body_paths() {
         let segments = |text: &str| path(text).segments;
@@ -216,5 +269,27 @@ mod tests {
         assert_eq!(segments("a[b].c"), [key("a"), key("b"), key("c")]);
         assert_eq!(segments("a..b[open"), [key("a"), key("b"), key("open")]);
         assert_eq!(path(""), Path { segments: vec![] });
+    }
+
+    #[test]
+    fn a_quoted_key_ends_at_its_closing_quote_so_it_may_hold_a_bracket() {
+        let segments = |text: &str| path(text).segments;
+        let key = |name: &str| Segment::Key(name.to_owned());
+        assert_eq!(segments("a[\"b\"].c"), [key("a"), key("b"), key("c")]);
+        assert_eq!(segments("[\"d]\"]['e]]'].f"), [key("d]"), key("e]]"), key("f")]);
+        assert_eq!(segments("['say \"hi\"'][\"\"]"), [key("say \"hi\""), key("")]);
+        assert_eq!(segments("[\"x\" ]"), [key("\"x\" ")], "a quote not closed before `]` is the old reading");
+        assert_eq!(segments("[\"a\"b\"]"), [key("a\"b")]);
+    }
+
+    #[test]
+    fn an_error_path_as_dotted_reads_back_as_the_same_body_path() {
+        let key = |name: &str| Segment::Key(name.to_owned());
+        let keys = ["users", "first name", "*", "", "d]", "a.b", "c[1]", "say \"hi\"", "it's", "1", "-1", "_x9"];
+        for name in keys {
+            let written = [key(name), Segment::Index(2), key(name), Segment::Index(-1), Segment::All, key("z")];
+            let text = vc_template::dotted(&written);
+            assert_eq!(path(&text).segments, written, "{name:?} as {text}");
+        }
     }
 }
