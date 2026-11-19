@@ -106,3 +106,13 @@ async fn tunnels_https_through_a_connect_proxy() -> TestResult {
     assert!(head.contains("Proxy-Authorization: Basic dTpw\r\n"), "{head}");
     Ok(())
 }
+
+#[tokio::test]
+async fn trusts_a_ca_given_as_one_der_certificate() -> TestResult {
+    let pki = TestPki::new()?;
+    let mock = mock(&pki, true).await?;
+    let tls = TlsOptions { ca: vec![pki.ca_der().to_vec()], ..TlsOptions::default() };
+    let transport = HttpTransport::new(&HttpOptions { tls, ..HttpOptions::default() })?;
+    assert_eq!(get(&transport, &format!("{}/echo", mock.base_url())).await?.response.status, StatusCode::OK);
+    Ok(())
+}

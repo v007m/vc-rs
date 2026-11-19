@@ -13,24 +13,26 @@ use crate::{ClientIdentity, HttpAdapterError};
 /// The ALPN protocols offered, best first: HTTP/2, then HTTP/1.1.
 const ALPN: [&[u8]; 2] = [b"h2", b"http/1.1"];
 
+/// Marks a `ca` entry as PEM, wherever it starts: bundles may open with comments (curl's
+/// `cacert.pem`) or `Bag Attributes` (`openssl pkcs12 -nokeys`).
+const PEM_CERTIFICATE: &[u8] = b"-----BEGIN CERTIFICATE-----";
+
 /// The trusted roots: the OS certificate store (so corporate CAs work) plus each `ca` entry, a
-/// PEM bundle or one DER certificate.
+/// PEM bundle or one DER certificate. Like the OS store, a bundle skips certificates that do
+/// not parse; an entry fails only when none of its certificates do.
 pub fn roots(ca: &[Vec<u8>]) -> Result<Arc<RootCertStore>, HttpAdapterError> {
     let mut roots = RootCertStore::empty();
     roots.add_parsable_certificates(rustls_native_certs::load_native_certs().certs);
     for (index, entry) in ca.iter().enumerate() {
-        let fail = |reason: String| HttpAdapterError::Certificate { index, reason };
-        let certs = if entry.trim_ascii_start().starts_with(b"-----BEGIN") {
+        let fail = |reason: &str| HttpAdapterError::Certificate { index, reason: reason.to_owned() };
+        let certs = if entry.windows(PEM_CERTIFICATE.len()).any(|window| window == PEM_CERTIFICATE) {
             let certs = CertificateDer::pem_slice_iter(entry).collect::<Result<Vec<_>, _>>();
-            certs.map_err(|_| fail("the PEM bundle is not valid PEM".to_owned()))?
+            certs.map_err(|_| fail("the PEM bundle is not valid PEM"))?
         } else {
             vec![CertificateDer::from(entry.clone())]
         };
-        if certs.is_empty() {
-            return Err(fail("the PEM bundle has no CERTIFICATE block".to_owned()));
-        }
-        for cert in certs {
-            roots.add(cert).map_err(|error| fail(error.to_string()))?;
+        if roots.add_parsable_certificates(certs).0 == 0 {
+            return Err(fail("no certificate in it parses"));
         }
     }
     Ok(Arc::new(roots))
@@ -97,18 +99,29 @@ mod tests {
     }
 
     #[test]
+    fn reads_bundles_with_comments_and_bag_attributes_and_skips_bad_certificates() -> Result<(), HttpAdapterError> {
+        let native = roots(&[])?.len();
+        let curl = b"##\n## Bundle of CA Root Certificates\n##\n\nEC client\n==========\n";
+        let bag = b"Bag Attributes\n    friendlyName: rsa-client\nsubject=CN=rsa-client\nissuer=CN=rsa-client\n";
+        let junk = b"-----BEGIN CERTIFICATE-----\nAAAA\n-----END CERTIFICATE-----\n";
+        let bundle = [curl.as_slice(), EC, junk, bag, include_bytes!("../tests/fixtures/rsa.pem")].concat();
+        assert_eq!(roots(&[bundle])?.len(), native + 2);
+        Ok(())
+    }
+
+    #[test]
     fn rejects_a_ca_entry_that_is_not_a_certificate() {
-        let cases: [&[u8]; 3] = [
+        let cases: [&[u8]; 4] = [
             b"not a certificate",
             b"-----BEGIN PRIVATE KEY-----\n-----END PRIVATE KEY-----\n",
+            b"-----BEGIN CERTIFICATE-----\nAAAA\n-----END CERTIFICATE-----\n",
             b"-----BEGIN CERTIFICATE-----\n",
         ];
-        for (case, reason) in
-            cases.into_iter().zip(["", "the PEM bundle has no CERTIFICATE block", "the PEM bundle is not valid PEM"])
-        {
+        let parses = "no certificate in it parses";
+        for (case, reason) in cases.into_iter().zip([parses, parses, parses, "the PEM bundle is not valid PEM"]) {
             let error = roots(&[EC.to_vec(), case.to_vec()]).err();
             let Some(HttpAdapterError::Certificate { index: 1, reason: found }) = error else { panic!("{error:?}") };
-            assert!(found.starts_with(reason), "{found}");
+            assert_eq!(found, reason);
         }
     }
 }
