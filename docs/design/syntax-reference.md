@@ -307,7 +307,7 @@ File-level keys:
 | `id` | file ID, optional; must match the path (D139) | Prefix of every api in the file |
 | `name` | text | Shown in listings |
 | `type` | `http`, `graphql` | What the file's apis speak, the default for each api (see Api types); `http` when left out (D342) |
-| `graphql.path` | template | The `path` of each `graphql` api in the file that sets none; `/graphql` when left out. Only on a `type: graphql` file (D343) |
+| `graphql.path` | template | The `path` of each `graphql` api in the file that sets none; `/graphql` when left out. Only on a `type: graphql` file: on a file of another type it is V2213, with a certain fix that removes it (D343) |
 | `baseUrl` | template | Prefixed to every `path`; written without a trailing `/` (V4005) |
 | `auth` | auth ID, or `none` | Default auth for the file |
 | `headers` | map | Default headers |
@@ -351,10 +351,10 @@ Each type needs some keys: an `http` api needs `path`, a `graphql` api needs `bo
 
 `graphql` (D343) sends one GraphQL operation as a JSON `POST` and reads the response as HTTP:
 
-- `method` does not apply (V2213): the request is always `POST`. Nor does `body` on a test or step that calls a `graphql` api (V2213); a test changes the operation through `vars`.
+- `method` does not apply (V2213): the request is always `POST`. Nor does `body` on a test or step that calls a `graphql` api (V2213); a test changes the operation through `vars`. A test-level `body` that a `call` step without its own would inherit, when that step calls a `graphql` api, is V2213 too, with no fix, since its other steps may send it; it is never sent to the `graphql` api.
 - `path` is the api's own, else its file's `graphql.path`, else `/graphql`.
-- `body` takes `query` (required; the GraphQL document, a query or a mutation), `variables` (a map of templates, default `{}`) and `operationName` (text). The request body is `{"query": …, "variables": …, "operationName": …}`; `variables` is always sent, `operationName` only when set.
-- The `query` is literal text, never a template (D344): a `${…}` in it is sent as written and checked by nothing. Values reach the document only through `variables`.
+- `body` takes `query` (required; the GraphQL document, a query or a mutation), `variables` (a map of templates, default `{}`) and `operationName` (text). The request body is `{"query": …, "variables": …, "operationName": …}`; `variables` is always sent, `operationName` only when set. Any other `body` key is V2213, with the close key as its certain fix (`varibles` → `variables`). A `query` that is not text is V2302; so is a `$file` document, which is not read yet.
+- The `query` is literal text, never a template (D344): a `${…}` in it is sent as written and checked by nothing. Values reach the document only through `variables`. `operationName` names an operation in that document, so it is literal too: a `${…}` in it, or a value that is not text, is V2302.
 - `content-type: application/json` and `accept: application/graphql-response+json, application/json;q=0.9` are added only when no level (config, api file, api, test or step) sets that header, and a header you set is never overwritten, so a test can send a deliberately wrong `content-type` to see how the server answers.
 - Auth, `headers`, `query`, `http.retry`, `timeout`, `expect`, `save`, `saveOn`, `cleanup`, hooks and `deprecated` keep their meaning.
 
