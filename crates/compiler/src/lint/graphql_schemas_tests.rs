@@ -149,3 +149,15 @@ fn a_value_is_checked_only_against_a_schema() {
     let body = "      query: 'query Me($limit: Int) { users(limit: $limit) { id } }'\n      variables: {limit: '3'}\n";
     assert!(compile(&me(body), None, &[]).diagnostics.is_empty());
 }
+
+#[test]
+fn an_input_object_with_a_templated_key_is_not_checked() {
+    let query = "      query: 'mutation Me($in: NewUser!) { createUser(input: $in) { id } }'\n";
+    for schema in SCHEMAS {
+        let given =
+            |variables: &str| compile(&me(&format!("{query}      variables: {variables}\n")), Some(schema), &[]);
+        assert_eq!(spots(&given("{in: {name: x, nick: ADMIN}}")), [(Code::V2315, 9, 23, 22)], "{}", schema.0);
+        let templated = given("{in: {name: x, '${var.role}': ADMIN}}");
+        assert!(templated.diagnostics.is_empty(), "{}: {:?}", schema.0, templated.diagnostics);
+    }
+}
