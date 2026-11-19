@@ -113,3 +113,17 @@ async fn two_identities_on_one_host_get_a_handshake_and_a_pool_each() -> TestRes
     assert!(matches!(unknown.as_deref(), Some(TransportError::InvalidRequest { .. })), "{unknown:?}");
     Ok(())
 }
+
+#[tokio::test]
+async fn by_host_sends_the_identity_only_to_the_matching_port() -> TestResult {
+    let pki = TestPki::new()?;
+    let mock = mock(&pki, &[pki.good()]).await?;
+    let port = mock.addr().port();
+    let elsewhere = identity("elsewhere", pki.good()).hosts(vec![format!("127.0.0.1:{}", port.wrapping_add(1))]);
+    let here = identity("here", pki.good()).hosts(vec![format!("127.0.0.1:{port}")]);
+    let exchange = whoami(&transport(&pki, vec![elsewhere.clone(), here])?, &mock.base_url(), CertChoice::Host).await?;
+    assert_eq!(client(&exchange)?, "good");
+    let exchange = whoami(&transport(&pki, vec![elsewhere])?, &mock.base_url(), CertChoice::Host).await?;
+    assert_eq!(exchange.response.status, StatusCode::FORBIDDEN);
+    Ok(())
+}

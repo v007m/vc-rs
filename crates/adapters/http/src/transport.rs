@@ -16,6 +16,7 @@ use vc_interfaces::{CertChoice, SendContext, Transport, TransportError};
 use vc_model::{ConnectionInfo, Exchange, HttpResponse, HttpVersion, RenderedRequest, Timing};
 
 use crate::connector::TimedConnector;
+use crate::hosts::HostTable;
 use crate::stream::ConnectRecord;
 use crate::{ClientIdentity, HttpAdapterError, ProxyConfig, body, tls};
 
@@ -59,6 +60,7 @@ type Pooled = Client<TimedConnector, Full<Bytes>>;
 #[derive(Clone)]
 pub struct HttpTransport {
     clients: Arc<[Pooled]>,
+    hosts: Arc<HostTable>,
     proxy: Arc<Matcher>,
 }
 
@@ -75,9 +77,10 @@ impl HttpTransport {
     ///
     /// [`HttpAdapterError::Certificate`] when a `ca` entry is not a valid certificate, and
     /// [`HttpAdapterError::Identity`] when a client identity cannot be used: a bad PEM text, an
-    /// encrypted key, or a key that does not match the certificate.
+    /// encrypted key, a key that does not match the certificate, or a bad host rule.
     pub fn new(options: &HttpOptions) -> Result<Self, HttpAdapterError> {
         let roots = tls::roots(&options.tls.ca)?;
+        let hosts = Arc::new(HostTable::new(&options.tls.clients)?);
         let proxy = Arc::new(options.proxy.matcher());
         let identities = std::iter::once(None).chain(options.tls.clients.iter().map(Some));
         let pooled = |identity| {
@@ -86,17 +89,12 @@ impl HttpTransport {
             Ok(builder.pool_idle_timeout(options.pool_idle).pool_timer(TokioTimer::new()).build(connector))
         };
         let clients = identities.map(pooled).collect::<Result<_, HttpAdapterError>>()?;
-        Ok(Self { clients, proxy })
+        Ok(Self { clients, hosts, proxy })
     }
 
-    /// The pooled client for the identity `choice` picks: slot 0 has none, slot `i + 1` is
-    /// identity `i`.
-    fn client(&self, choice: CertChoice) -> Result<&Pooled, TransportError> {
-        let index = match choice {
-            CertChoice::Host | CertChoice::Off => Some(0),
-            CertChoice::Named(id) => usize::try_from(id.index()).ok().and_then(|index| index.checked_add(1)),
-        };
-        let slot = index.and_then(|slot| self.clients.get(slot));
+    /// The pooled client for the identity `choice` picks for `request`.
+    fn client(&self, request: &RenderedRequest, choice: CertChoice) -> Result<&Pooled, TransportError> {
+        let slot = self.hosts.slot(&request.uri, choice).and_then(|slot| self.clients.get(slot));
         slot.ok_or_else(|| TransportError::InvalidRequest { reason: format!("no client identity for {choice:?}") })
     }
 
@@ -124,7 +122,7 @@ impl HttpTransport {
 impl Transport for HttpTransport {
     async fn send(&self, request: RenderedRequest, ctx: &SendContext) -> Result<Exchange, TransportError> {
         let wire = self.wire_request(&request)?;
-        let client = self.client(ctx.client_cert)?;
+        let client = self.client(&request, ctx.client_cert)?;
         let started = Instant::now();
         let response = client.request(wire).await.map_err(|error| transport_error(&error))?;
         let first_byte = started.elapsed();

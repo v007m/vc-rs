@@ -7,13 +7,14 @@ use zeroize::Zeroizing;
 
 use crate::HttpAdapterError;
 
-/// A client certificate chain and its private key, from PEM.
+/// A client certificate chain and its private key, from PEM, and the hosts that get it.
 ///
-/// The key is held in memory that is wiped when dropped. `Debug` shows the `id` and the
-/// SHA-256 fingerprint of the leaf certificate, never the key.
+/// The key is held in memory that is wiped when dropped. `Debug` shows the `id`, the hosts and
+/// the SHA-256 fingerprint of the leaf certificate, never the key.
 #[derive(Clone, PartialEq, Eq)]
 pub struct ClientIdentity {
     id: String,
+    hosts: Vec<String>,
     cert: Vec<u8>,
     key: Zeroizing<Vec<u8>>,
 }
@@ -23,13 +24,26 @@ impl ClientIdentity {
     /// or PKCS#8), ECDSA P-256 or P-384 (SEC1 or PKCS#8), or Ed25519 (PKCS#8).
     #[must_use]
     pub fn pem(id: impl Into<String>, cert: Vec<u8>, key: Vec<u8>) -> Self {
-        Self { id: id.into(), cert, key: Zeroizing::new(key) }
+        Self { id: id.into(), hosts: Vec::new(), cert, key: Zeroizing::new(key) }
+    }
+
+    /// Sends this identity on requests to these hosts: `host`, `host:port` or `*.domain`, where
+    /// `*` covers exactly one leftmost label. Without hosts it is used only when named.
+    #[must_use]
+    pub fn hosts(mut self, hosts: Vec<String>) -> Self {
+        self.hosts = hosts;
+        self
     }
 
     /// Its ID, as errors and reports name it.
     #[must_use]
     pub fn id(&self) -> &str {
         &self.id
+    }
+
+    /// Its host rules, as given.
+    pub(crate) fn host_rules(&self) -> &[String] {
+        &self.hosts
     }
 
     /// An error about this identity.
@@ -59,6 +73,7 @@ impl fmt::Debug for ClientIdentity {
         let leaf = CertificateDer::pem_slice_iter(&self.cert).next().and_then(Result::ok);
         f.debug_struct("ClientIdentity")
             .field("id", &self.id)
+            .field("hosts", &self.hosts)
             .field("leaf_sha256", &leaf.map(|leaf| Fingerprint(Sha256::digest(leaf).into())))
             .finish_non_exhaustive()
     }
@@ -134,9 +149,9 @@ mod tests {
     #[test]
     fn debug_shows_the_fingerprint_but_not_the_key() {
         let cert = include_bytes!("../tests/fixtures/ec.pem").to_vec();
-        let identity = ClientIdentity::pem("ec", cert, b"KEY-BYTES".to_vec());
+        let identity = ClientIdentity::pem("ec", cert, b"KEY-BYTES".to_vec()).hosts(vec!["a.test".into()]);
         let shown = format!("{identity:?}");
-        assert!(shown.starts_with(r#"ClientIdentity { id: "ec", leaf_sha256: Some("#), "{shown}");
+        assert!(shown.starts_with(r#"ClientIdentity { id: "ec", hosts: ["a.test"], leaf_sha256: Some("#), "{shown}");
         assert!(!shown.contains("KEY-BYTES"), "{shown}");
         let hex = shown.split("Some(").nth(1).and_then(|rest| rest.split(')').next()).unwrap_or_default();
         assert!(hex.len() == 64 && hex.bytes().all(|byte| byte.is_ascii_hexdigit()), "{hex}");
