@@ -13,6 +13,7 @@ mod cut;
 mod edit;
 mod error;
 mod graphql;
+mod introspection;
 mod json;
 mod json_string;
 mod node;
@@ -26,7 +27,11 @@ mod yaml;
 
 pub use edit::{Document, EditCommand, FormatRules, references};
 pub use error::ParserError;
-pub use graphql::{GraphqlDocument, GraphqlOperation, GraphqlProblem, GraphqlVariable, OperationKind, parse_document};
+pub use graphql::{
+    GraphqlDocument, GraphqlOperation, GraphqlProblem, GraphqlSchema, GraphqlVariable, OperationKind, parse_document,
+    parse_schema,
+};
+pub use introspection::schema_from_introspection;
 pub use node::{Entry, Node, Value};
 pub use parse::parse;
 pub use scalar::{Scalar, ScalarKind, ScalarStyle, write_text};
