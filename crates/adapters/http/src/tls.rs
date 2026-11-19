@@ -9,6 +9,7 @@ use tokio::net::TcpStream;
 use tokio_rustls::TlsConnector;
 use tokio_rustls::client::TlsStream;
 
+use crate::error::ConnectError;
 use crate::{ClientIdentity, HttpAdapterError};
 
 /// The ALPN protocols offered, best first: HTTP/2, then HTTP/1.1.
@@ -62,10 +63,10 @@ pub async fn handshake(
     config: Arc<ClientConfig>,
     stream: TcpStream,
     host: &str,
-) -> Result<TlsStream<TcpStream>, HttpAdapterError> {
-    let fail = |reason: String| HttpAdapterError::Tls { host: host.to_owned(), reason };
-    let name = ServerName::try_from(host.to_owned()).map_err(|error| fail(error.to_string()))?;
-    TlsConnector::from(config).connect(name, stream).await.map_err(|error| fail(error.to_string()))
+) -> Result<TlsStream<TcpStream>, ConnectError> {
+    let name = ServerName::try_from(host.to_owned())
+        .map_err(|error| HttpAdapterError::Tls { host: host.to_owned(), reason: error.to_string() })?;
+    TlsConnector::from(config).connect(name, stream).await.map_err(ConnectError::Handshake)
 }
 
 /// `true` when the server picked HTTP/2 by ALPN.

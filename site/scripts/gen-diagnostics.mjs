@@ -54,8 +54,14 @@ const checked = (code) => '123'.includes(code[1]) && !UNCHECKABLE.has(code) && !
  */
 const wrongTag = (code) => (checked(code) ? ` wrong ${code}` : PENDING.has(code) ? ' wrong' : '');
 
-/** The info word for a block of a right example: a pending code's is left out of the check. */
-const rightTag = (code) => (PENDING.has(code) ? ' skip' : '');
+/**
+ * The codes whose right example uses config keys the parser does not read yet (`http.tls`,
+ * #105 PR 5); a code leaves the set when they land.
+ */
+const UNPARSED = new Set(['V5127']);
+
+/** The info word for a block of a right example: a pending or unparsed code's is left out of the check. */
+const rightTag = (code) => (PENDING.has(code) || UNPARSED.has(code) ? ' skip' : '');
 
 const readIf = (file) => (existsSync(file) ? readFileSync(file, 'utf8') : '');
 

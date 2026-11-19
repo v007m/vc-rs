@@ -710,6 +710,12 @@ Round 67 (19 November 2026; Sarath, approving the mTLS design in #105):
 | D353 | mTLS security | Verification stays on: no `insecure`. `serverName` is deferred. Key bytes are zeroized and never appear in errors, `Debug`, reports, history or the debug bundle. Warnings: a key readable by others (Unix, V4012), a literal key or passphrase (V4013), a cert expiring within 30 days (V3107), and one expired or not yet valid (V3108) | — |
 | D354 | mTLS failures | Material that won't load, or that doesn't fit together (V5125, V5126), stops the run before any request, like a missing secret (D280); only identities active for the run's profiles are loaded. A handshake that rejects the cert fails that call with V5127, detected during the handshake (TLS 1.2) and on the first read (TLS 1.3) | V5105 for those TLS alerts |
 
+Round 68 (19 November 2026; Sarath, on how far key zeroizing reaches):
+
+| # | Topic | Decision | Supersedes |
+| --- | --- | --- | --- |
+| D355 | Zeroizing client keys | vc zeroizes its own copies of client-key material (the PEM text and the decoded DER). Copies held inside dependencies are a known limit, named in the LLD: pki-types' base64 scratch buffer during PEM decoding, rustls's SEC1→PKCS#8 temporary, and ring's parsed key pair, which lives as long as the transport. | D353 (in part: its wording "key bytes are zeroized") |
+
 ## Open
 
 All decisions needed for the PRD and technical design are settled. The language is decided by the spike (D6, D36, D37, D41).

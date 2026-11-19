@@ -1,4 +1,3 @@
-use std::error::Error as _;
 use std::fmt;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -12,10 +11,12 @@ use hyper::body::Incoming;
 use hyper_util::client::legacy::Client;
 use hyper_util::client::proxy::matcher::Matcher;
 use hyper_util::rt::{TokioExecutor, TokioTimer};
-use vc_interfaces::{CertChoice, SendContext, Transport, TransportError};
+use vc_interfaces::{CertChoice, SendContext, SentCert, Transport, TransportError};
 use vc_model::{ConnectionInfo, Exchange, HttpResponse, HttpVersion, RenderedRequest, Timing};
 
-use crate::connector::TimedConnector;
+use crate::alert::Failure;
+use crate::connector::{TimedConnector, bare_host};
+use crate::error::{ConnectError, causes, chain};
 use crate::hosts::ClientTable;
 use crate::stream::ConnectRecord;
 use crate::{ClientIdentity, HttpAdapterError, ProxyConfig, body, tls};
@@ -125,7 +126,11 @@ impl Transport for HttpTransport {
         let wire = self.wire_request(&request)?;
         let (client, client_cert) = self.client(&request, ctx.client_cert)?;
         let started = Instant::now();
-        let response = client.request(wire).await.map_err(|error| transport_error(&error))?;
+        let host = bare_host(request.uri.host().unwrap_or_default());
+        let response = client
+            .request(wire)
+            .await
+            .map_err(|error| transport_error(&error, host, sent_cert(client_cert.as_deref(), ctx.client_cert)))?;
         let first_byte = started.elapsed();
         let (mut connection, record) = connection_of(&response);
         connection.client_cert.clone_from(client_cert);
@@ -153,26 +158,25 @@ fn connection_of(response: &Response<Incoming>) -> (ConnectionInfo, Option<Arc<C
     (ConnectionInfo { reused: fresh.is_none(), protocol, remote, client_cert: None }, fresh)
 }
 
-/// Maps a client error: a connect failure keeps its meaning; the rest is a protocol error.
-fn transport_error(error: &hyper_util::client::legacy::Error) -> TransportError {
-    let mut source = error.source();
-    while let Some(cause) = source {
-        if let Some(adapter) = cause.downcast_ref::<HttpAdapterError>() {
-            return adapter.clone().into();
-        }
-        source = cause.source();
-    }
-    TransportError::Protocol { reason: chain(error) }
+/// The certificate a request sent: the identity `id` of its pool, else none, because `choice`
+/// turned them off or no identity matched the host.
+fn sent_cert(id: Option<&str>, choice: CertChoice) -> SentCert {
+    let none = || if choice == CertChoice::Off { SentCert::Off } else { SentCert::Missing };
+    id.map_or_else(none, |id| SentCert::Named(id.to_owned()))
 }
 
-/// The error and its causes, joined with `: `.
-fn chain(error: &dyn std::error::Error) -> String {
-    let mut text = error.to_string();
-    let mut source = error.source();
-    while let Some(cause) = source {
-        text.push_str(": ");
-        text.push_str(&cause.to_string());
-        source = cause.source();
+/// Maps a client error: a client certificate refused in the handshake or on the first read
+/// (TLS 1.3 checks it after the client's handshake is done) names the certificate `sent`, a
+/// connect failure keeps its meaning, any other alert fails the handshake, and the rest is a
+/// protocol error.
+fn transport_error(error: &hyper_util::client::legacy::Error, host: &str, sent: SentCert) -> TransportError {
+    let failure = Failure::of(error, host, sent);
+    if let Some(refused) = failure.refused() {
+        return refused;
     }
-    text
+    match causes(error).find_map(|cause| cause.downcast_ref::<ConnectError>()) {
+        Some(ConnectError::Adapter(adapter)) => adapter.clone().into(),
+        Some(ConnectError::Handshake(failed)) => failure.failed(failed.to_string()),
+        None => failure.alerted().unwrap_or_else(|| TransportError::Protocol { reason: chain(error) }),
+    }
 }

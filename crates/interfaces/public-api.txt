@@ -474,6 +474,20 @@ pub fn vc_interfaces::SecretError::fmt(&self, &mut core::fmt::Formatter<'_>) -> 
 impl core::fmt::Display for vc_interfaces::SecretError
 pub fn vc_interfaces::SecretError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_interfaces::SecretError
+pub enum vc_interfaces::SentCert
+pub vc_interfaces::SentCert::Missing
+pub vc_interfaces::SentCert::Named(alloc::string::String)
+pub vc_interfaces::SentCert::Off
+impl vc_interfaces::SentCert
+pub fn vc_interfaces::SentCert::advice(&self, &str) -> alloc::string::String
+impl core::clone::Clone for vc_interfaces::SentCert
+pub fn vc_interfaces::SentCert::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::SentCert
+impl core::cmp::PartialEq for vc_interfaces::SentCert
+pub fn vc_interfaces::SentCert::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_interfaces::SentCert
+pub fn vc_interfaces::SentCert::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::SentCert
 #[non_exhaustive] pub enum vc_interfaces::SourceError
 pub vc_interfaces::SourceError::Changed
 pub vc_interfaces::SourceError::Changed::path: alloc::string::String
@@ -513,6 +527,11 @@ impl core::marker::StructuralPartialEq for vc_interfaces::SourceError
 #[non_exhaustive] pub enum vc_interfaces::TransportError
 pub vc_interfaces::TransportError::BodyTooLarge
 pub vc_interfaces::TransportError::BodyTooLarge::limit: vc_model::units::Size
+pub vc_interfaces::TransportError::ClientCertRejected
+pub vc_interfaces::TransportError::ClientCertRejected::alert: alloc::string::String
+pub vc_interfaces::TransportError::ClientCertRejected::host: alloc::string::String
+pub vc_interfaces::TransportError::ClientCertRejected::reason: alloc::string::String
+pub vc_interfaces::TransportError::ClientCertRejected::sent: vc_interfaces::SentCert
 pub vc_interfaces::TransportError::Connect
 pub vc_interfaces::TransportError::Connect::host: alloc::string::String
 pub vc_interfaces::TransportError::Connect::reason: alloc::string::String

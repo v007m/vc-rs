@@ -10,6 +10,7 @@
 //! [`ProxyConfig`], which the engine reads from `HTTP_PROXY`, `HTTPS_PROXY` and `NO_PROXY`
 //! through its environment source. Header values never appear in errors or `Debug` output.
 
+mod alert;
 mod body;
 mod connector;
 mod error;

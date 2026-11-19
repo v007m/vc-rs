@@ -1,9 +1,12 @@
+use std::error::Error;
+use std::io;
+
 use vc_interfaces::TransportError;
 
 /// Why the HTTP transport could not be built or a connection could not be opened.
 ///
-/// The connect variants travel through hyper as its connector error and come back out as a
-/// [`TransportError`] with the same meaning.
+/// The connect variants travel through hyper wrapped in a [`ConnectError`], the connector's
+/// error, and come back out as a [`TransportError`] with the same meaning.
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
 #[non_exhaustive]
 pub enum HttpAdapterError {
@@ -75,11 +78,35 @@ impl From<HttpAdapterError> for TransportError {
     }
 }
 
+/// Why the connector could not open a connection. A failed TLS handshake keeps the I/O error
+/// tokio-rustls returns, so the rustls error inside still tells which alert the server sent.
+#[derive(Debug, thiserror::Error)]
+pub enum ConnectError {
+    /// Every failure but the handshake's own.
+    #[error(transparent)]
+    Adapter(#[from] HttpAdapterError),
+    /// The TLS handshake failed.
+    #[error("TLS handshake failed: {0}")]
+    Handshake(#[source] io::Error),
+}
+
+/// `error` and its causes, outermost first.
+pub fn causes<'a>(error: &'a (dyn Error + 'static)) -> impl Iterator<Item = &'a (dyn Error + 'static)> {
+    std::iter::successors(Some(error), |&cause| cause.source())
+}
+
+/// `error` and its causes, joined with `: `.
+pub fn chain(error: &(dyn Error + 'static)) -> String {
+    causes(error).map(ToString::to_string).collect::<Vec<_>>().join(": ")
+}
+
 #[cfg(test)]
 mod tests {
+    use std::io;
+
     use vc_interfaces::TransportError;
 
-    use super::HttpAdapterError;
+    use super::{ConnectError, HttpAdapterError, chain};
 
     fn pair(host: &str) -> (String, String) {
         (host.to_owned(), "why".to_owned())
@@ -105,5 +132,12 @@ mod tests {
     fn a_missing_host_is_an_invalid_request() {
         let error = TransportError::from(HttpAdapterError::NoHost("/x".into()));
         assert_eq!(error, TransportError::InvalidRequest { reason: "the URL /x has no host".into() });
+    }
+
+    #[test]
+    fn a_chain_joins_the_error_and_each_cause_outermost_first() {
+        let failed = ConnectError::Handshake(io::Error::other("reset"));
+        assert_eq!(chain(&failed), "TLS handshake failed: reset: reset");
+        assert_eq!(chain(&io::Error::other("alone")), "alone");
     }
 }

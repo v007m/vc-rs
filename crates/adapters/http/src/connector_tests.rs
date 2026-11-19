@@ -4,7 +4,7 @@ use http::{HeaderValue, Uri};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 
-use super::Target;
+use super::{Target, bare_host};
 use crate::HttpAdapterError;
 
 fn target(uri: &'static str) -> Target {
@@ -19,6 +19,11 @@ fn targets_take_default_ports_by_scheme_and_unbracket_ipv6() {
     assert_eq!((v6.host.as_str(), v6.port), ("::1", 8443));
     assert_eq!(v6.authority(), "[::1]:8443");
     assert_eq!(target("http://h:81").authority(), "h:81");
+}
+
+#[test]
+fn a_bare_host_drops_only_ipv6_brackets() {
+    assert_eq!([bare_host("[::1]"), bare_host("::1"), bare_host("pay.test")], ["::1", "::1", "pay.test"]);
 }
 
 #[test]
