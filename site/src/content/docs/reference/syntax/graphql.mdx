@@ -150,7 +150,7 @@ tests:
           data.user.secretNote: null
 ```
 
-`errors: none` expects no errors and `errors: any` at least one. A matcher checks the list as a whole: `{some: {code: TIMEOUT}}` passes when one error has that code, and `{length: 2}` when there are two.
+`errors: none` expects no errors and `errors: any` at least one. A matcher checks the list as a whole: `{some: {code: TIMEOUT}}` passes when one error has that code, and `{length: 2}` when there are two. Only `every`, `some` and `none` look at each error, so an expected error goes under one of them or in a list; `not`, `allOf` and `anyOf` still see the whole list, as in `{not: {some: {code: TIMEOUT}}}`. An expected error written straight on the list, such as `errors: {code: FORBIDDEN}`, is V2306.
 
 ## Try it
 
@@ -175,8 +175,8 @@ apis:
 - `variables` is always sent, `{}` when unset. Its values are templates, so an unset var in it is V2101.
 - `content-type: application/json` and `accept: application/graphql-response+json, application/json;q=0.9` are added only when no level (config, api file, api, test or step) sets that header. A header you set is sent as written, so a test can send a wrong `content-type` on purpose to see how the server answers.
 - Auth, `headers`, `query`, `http.retry`, `timeout`, `expect`, `save`, `saveOn`, `cleanup` and request hooks work as they do on an `http` api.
-- A `200` with `errors` passes unless `expect.errors` says otherwise. In the list form, each expected error must match some error in the response, and each error some expected one; the keys an expected error leaves out are not compared. Errors are compared with `path` dotted (`["user", "notes", 0]` reads `user.notes[0]`) and `code` read from `extensions.code`. A key other than `message`, `path`, `code` and `extensions` is V1004, and a failed check is V5123.
-- `errors` is one check, so a test's `errors` replaces its api's, as `status` does.
+- A `200` with `errors` passes unless `expect.errors` says otherwise. In the list form, each expected error must match some error in the response, and each error some expected one; the keys an expected error leaves out are not compared. Errors are compared with `path` dotted (`["user", "notes", 0]` reads `user.notes[0]`; a key holding `.`, `[`, `]` or `"` is quoted, `["a.b"]`) and `code` read from `extensions.code`. Write an expected `path` dotted too: a list is V2306, and `vc check --fix` rewrites it. A key other than `message`, `path`, `code` and `extensions` is V1004, and a failed check is V5123. A body that is not a JSON object, or whose `errors` is not a list, fails the check; a body without `errors` has none.
+- `errors` is one check, so a test's `errors` replaces its api's, as `status` does. A test-level `errors` reaches each step, so it is V2213 when a step without its own calls an `http` api; so is `errors` in a `flow` auth step.
 
 ```yaml wrong V2213 title="services/catalog/catalog.api.yaml"
 type: graphql
@@ -198,16 +198,17 @@ error[V2213]: `method` does not apply to a `graphql` api
 | Code | When |
 | --- | --- |
 | [V1005](/vc-rs/reference/diagnostics/v1005/) | A `graphql` api has no `body.query` |
-| [V2213](/vc-rs/reference/diagnostics/v2213/) | `method` on a `graphql` api; a `body` key other than `query`, `variables` and `operationName`; `body` on a test or step that calls one, or on a test whose steps call one; a `graphql` block on a file that is not `type: graphql`; `expect.errors` on an `http` api |
+| [V2213](/vc-rs/reference/diagnostics/v2213/) | `method` on a `graphql` api; a `body` key other than `query`, `variables` and `operationName`; `body` on a test or step that calls one, or on a test whose steps call one; a `graphql` block on a file that is not `type: graphql`; `expect.errors` on an `http` api, a test-level one that reaches an `http` step, or in a `flow` auth step |
 | [V1014](/vc-rs/reference/diagnostics/v1014/) | The document does not parse |
 | [V2009](/vc-rs/reference/diagnostics/v2009/) | `operationName` names no operation of the document; several operations and no `operationName`; no operation; two operations of one name; a subscription |
 | [V2108](/vc-rs/reference/diagnostics/v2108/) | A non-null variable with no default is missing from `variables` |
 | [V2109](/vc-rs/reference/diagnostics/v2109/) | A value is given for a variable the operation does not declare (a warning) |
 | [V4010](/vc-rs/reference/diagnostics/v4010/) | The operation has no name (a warning) |
-| [V2302](/vc-rs/reference/diagnostics/v2302/) | A `query` that is neither text nor exactly a `$file` of a literal `.graphql` or `.gql` path; an `operationName` that is not text or holds a `${…}` |
+| [V2302](/vc-rs/reference/diagnostics/v2302/) | A `query` that is neither text nor exactly a `$file` of a literal `.graphql` or `.gql` path; an `operationName` that is not text or holds a `${…}`; `errors` set to a word other than `none` and `any` |
 | [V2101](/vc-rs/reference/diagnostics/v2101/) | A var in `variables` that nothing sets |
 | [V1004](/vc-rs/reference/diagnostics/v1004/) | An expected error writes a key other than `message`, `path`, `code` and `extensions` |
-| [V5123](/vc-rs/reference/diagnostics/v5123/) | The response's errors do not match `expect.errors` |
+| [V2306](/vc-rs/reference/diagnostics/v2306/) | An expected error written straight on the list instead of under `every`, `some`, `none` or in a list; an expected `path` written as a list |
+| [V5123](/vc-rs/reference/diagnostics/v5123/) | The response's errors do not match `expect.errors`, or the body is not a GraphQL response |
 
 ## Related
 
