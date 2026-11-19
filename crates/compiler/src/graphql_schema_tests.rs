@@ -1,6 +1,7 @@
 use vc_diagnostics::Code;
 use vc_model::{ContentHash, SourceFile, SourcePath};
 
+use crate::testing::spots;
 use crate::{CompileInput, Compiled};
 
 const CONFIG: &str =
@@ -41,15 +42,6 @@ fn with(mut files: Vec<SourceFile>, given: &[(&str, &str)], listed: &[&str]) -> 
     let paths = given.iter().map(|(path, _)| *path).chain(listed.iter().copied());
     let assets = Some(paths.map(|path| SourcePath::new(path).unwrap()).collect());
     CompileInput { files, assets, ..CompileInput::default() }
-}
-
-/// The code, line, column and length of each diagnostic.
-fn spots(compiled: &Compiled) -> Vec<(Code, u32, u32, usize)> {
-    let spot = |found: &vc_diagnostics::Diagnostic| {
-        let span = found.primary.span;
-        (found.code, span.start.line, span.start.column, span.byte_range().len())
-    };
-    compiled.diagnostics.iter().map(spot).collect()
 }
 
 #[test]

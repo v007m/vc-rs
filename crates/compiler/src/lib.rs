@@ -39,6 +39,8 @@ mod shape_check;
 mod shapes;
 mod stage;
 mod suggest;
+#[cfg(test)]
+mod testing;
 mod value;
 mod version;
 mod wanted;

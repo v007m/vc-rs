@@ -1,6 +1,7 @@
 use vc_diagnostics::{Code, Diagnostic};
 use vc_model::{ContentHash, SourceFile, SourcePath};
 
+use crate::testing::spots;
 use crate::{CompileInput, Compiled};
 
 const CONFIG: &str = "syntaxVersion: 2\nproject: shop\nvars: {baseUrl: 'http://x', limit: 3, role: ADMIN}\nprofiles:\n  - id: dev\n    default: true\n";
@@ -43,15 +44,6 @@ fn compile(apis: &str, schema: Option<(&str, &str)>, given: &[(&str, &str)]) -> 
 /// One api `me` with the body `body`.
 fn me(body: &str) -> String {
     format!("  - id: me\n    body:\n{body}")
-}
-
-/// The code, line, column and length of each diagnostic.
-fn spots(compiled: &Compiled) -> Vec<(Code, u32, u32, usize)> {
-    let spot = |found: &Diagnostic| {
-        let span = found.primary.span;
-        (found.code, span.start.line, span.start.column, span.byte_range().len())
-    };
-    compiled.diagnostics.iter().map(spot).collect()
 }
 
 /// The one diagnostic of `compiled`.
