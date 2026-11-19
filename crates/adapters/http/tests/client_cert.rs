@@ -105,9 +105,12 @@ async fn two_identities_on_one_host_get_a_handshake_and_a_pool_each() -> TestRes
     for (index, name, reused) in calls {
         let exchange = whoami(&transport, &url, CertChoice::Named(CertId::new(index))).await?;
         assert_eq!((client(&exchange)?, exchange.connection.reused), (name.into(), reused), "{name}");
+        let id = if index == 0 { "tenantA" } else { "tenantB" };
+        assert_eq!(exchange.connection.client_cert.as_deref(), Some(id));
     }
     let none = whoami(&transport, &url, CertChoice::Off).await?;
     assert_eq!((none.response.status, none.connection.reused), (StatusCode::FORBIDDEN, false));
+    assert_eq!(none.connection.client_cert, None);
     let unknown = whoami(&transport, &url, CertChoice::Named(CertId::new(2))).await.err();
     let unknown = unknown.and_then(|error| error.downcast::<TransportError>().ok());
     assert!(matches!(unknown.as_deref(), Some(TransportError::InvalidRequest { .. })), "{unknown:?}");
@@ -122,8 +125,8 @@ async fn by_host_sends_the_identity_only_to_the_matching_port() -> TestResult {
     let elsewhere = identity("elsewhere", pki.good()).hosts(vec![format!("127.0.0.1:{}", port.wrapping_add(1))]);
     let here = identity("here", pki.good()).hosts(vec![format!("127.0.0.1:{port}")]);
     let exchange = whoami(&transport(&pki, vec![elsewhere.clone(), here])?, &mock.base_url(), CertChoice::Host).await?;
-    assert_eq!(client(&exchange)?, "good");
+    assert_eq!((client(&exchange)?, exchange.connection.client_cert.as_deref()), ("good".into(), Some("here")));
     let exchange = whoami(&transport(&pki, vec![elsewhere])?, &mock.base_url(), CertChoice::Host).await?;
-    assert_eq!(exchange.response.status, StatusCode::FORBIDDEN);
+    assert_eq!((exchange.response.status, exchange.connection.client_cert), (StatusCode::FORBIDDEN, None));
     Ok(())
 }

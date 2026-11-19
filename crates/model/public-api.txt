@@ -1165,6 +1165,7 @@ pub fn vc_model::Config::serialize<__S>(&self, __S) -> core::result::Result<<__S
 impl<'de> serde_core::de::Deserialize<'de> for vc_model::Config
 pub fn vc_model::Config::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub struct vc_model::ConnectionInfo
+pub vc_model::ConnectionInfo::client_cert: core::option::Option<alloc::rcs::arc::Arc<str>>
 pub vc_model::ConnectionInfo::protocol: vc_model::HttpVersion
 pub vc_model::ConnectionInfo::remote: core::option::Option<core::net::socket_addr::SocketAddr>
 pub vc_model::ConnectionInfo::reused: bool
@@ -1177,7 +1178,6 @@ impl core::default::Default for vc_model::ConnectionInfo
 pub fn vc_model::ConnectionInfo::default() -> Self
 impl core::fmt::Debug for vc_model::ConnectionInfo
 pub fn vc_model::ConnectionInfo::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
-impl core::marker::Copy for vc_model::ConnectionInfo
 impl core::marker::StructuralPartialEq for vc_model::ConnectionInfo
 pub struct vc_model::ContentHash(_)
 impl vc_model::ContentHash

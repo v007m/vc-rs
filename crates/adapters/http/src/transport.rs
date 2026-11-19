@@ -52,6 +52,9 @@ pub struct TlsOptions {
 /// A pooled hyper client over the timed connector.
 type Pooled = Client<TimedConnector, Full<Bytes>>;
 
+/// A pooled client and the `id` of the identity it presents, if any.
+type Pool = (Pooled, Option<Arc<str>>);
+
 /// The HTTP/1.1 and HTTP/2 transport: hyper's pooled client over the timed connector.
 ///
 /// It keeps one pooled client per client identity, plus one with none, so two identities never
@@ -59,7 +62,7 @@ type Pooled = Client<TimedConnector, Full<Bytes>>;
 /// are never errors; the body is decoded and capped.
 #[derive(Clone)]
 pub struct HttpTransport {
-    clients: Arc<ClientTable<Pooled>>,
+    clients: Arc<ClientTable<Pool>>,
     proxy: Arc<Matcher>,
 }
 
@@ -80,17 +83,18 @@ impl HttpTransport {
     pub fn new(options: &HttpOptions) -> Result<Self, HttpAdapterError> {
         let roots = tls::roots(&options.tls.ca)?;
         let proxy = Arc::new(options.proxy.matcher());
-        let pooled = |identity: Option<&ClientIdentity>| -> Result<Pooled, HttpAdapterError> {
+        let pooled = |identity: Option<&ClientIdentity>| -> Result<Pool, HttpAdapterError> {
             let connector = TimedConnector::new(tls::client_config(&roots, identity)?, Arc::clone(&proxy));
             let mut builder = Client::builder(TokioExecutor::new());
-            Ok(builder.pool_idle_timeout(options.pool_idle).pool_timer(TokioTimer::new()).build(connector))
+            let client = builder.pool_idle_timeout(options.pool_idle).pool_timer(TokioTimer::new()).build(connector);
+            Ok((client, identity.map(|identity| Arc::from(identity.id()))))
         };
         let clients = ClientTable::new(&options.tls.clients, pooled(None)?, |identity| pooled(Some(identity)))?;
         Ok(Self { clients: Arc::new(clients), proxy })
     }
 
-    /// The pooled client for the identity `choice` picks for `request`.
-    fn client(&self, request: &RenderedRequest, choice: CertChoice) -> Result<&Pooled, TransportError> {
+    /// The pooled client for the identity `choice` picks for `request`, with that identity's `id`.
+    fn client(&self, request: &RenderedRequest, choice: CertChoice) -> Result<&Pool, TransportError> {
         let client = self.clients.pick(&request.uri, choice);
         client.ok_or_else(|| TransportError::InvalidRequest { reason: format!("no client identity for {choice:?}") })
     }
@@ -119,11 +123,12 @@ impl HttpTransport {
 impl Transport for HttpTransport {
     async fn send(&self, request: RenderedRequest, ctx: &SendContext) -> Result<Exchange, TransportError> {
         let wire = self.wire_request(&request)?;
-        let client = self.client(&request, ctx.client_cert)?;
+        let (client, client_cert) = self.client(&request, ctx.client_cert)?;
         let started = Instant::now();
         let response = client.request(wire).await.map_err(|error| transport_error(&error))?;
         let first_byte = started.elapsed();
-        let (connection, record) = connection_of(&response);
+        let (mut connection, record) = connection_of(&response);
+        connection.client_cert.clone_from(client_cert);
         let (parts, incoming) = response.into_parts();
         let wire_body = body::read(incoming, ctx.body_limit).await?;
         let wire_size = wire_body.len() as u64;
@@ -145,7 +150,7 @@ fn connection_of(response: &Response<Incoming>) -> (ConnectionInfo, Option<Arc<C
     let record = response.extensions().get::<Arc<ConnectRecord>>();
     let remote = record.map(|record| record.remote);
     let fresh = record.filter(|record| record.claim()).cloned();
-    (ConnectionInfo { reused: fresh.is_none(), protocol, remote }, fresh)
+    (ConnectionInfo { reused: fresh.is_none(), protocol, remote, client_cert: None }, fresh)
 }
 
 /// Maps a client error: a connect failure keeps its meaning; the rest is a protocol error.
