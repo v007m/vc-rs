@@ -1,15 +1,16 @@
 //! A `graphql` response's errors as `expect.errors` reads them (D345): each error normalised to
 //! `{message, path, code, extensions}`, with `path` dotted as body paths are written and `code`
 //! its `extensions.code`; and the internal matchers the written forms lower to: `fields` for an
-//! expected error (D360) and `entries` for the list form. A report shows each as written.
+//! expected error (D360) and `entries` for the list form, which pairs each entry with its own
+//! error (D362). A report shows each as written.
 
 use serde_json::{Map, Value};
-use vc_model::{MatcherArg, Segment};
+use vc_model::{Matcher, MatcherArg, Segment};
 
 use super::{Judge, MatcherRegistry};
 
 /// `registry` with `fields`, which holds when each field's matcher holds on that field, and
-/// `entries`, which holds when each error matches some entry and each entry some error.
+/// `entries`, which holds when the errors pair one to one with the entries.
 pub fn register(registry: MatcherRegistry) -> MatcherRegistry {
     registry.internal("fields", fields).internal("entries", entries)
 }
@@ -26,28 +27,89 @@ fn fields(judge: &Judge<'_>, actual: Option<&Value>, arg: &MatcherArg) -> Result
 
 fn entries(judge: &Judge<'_>, actual: Option<&Value>, arg: &MatcherArg) -> Result<bool, String> {
     let MatcherArg::Matchers(entries) = arg else { return Err("expected a list of expected errors".to_owned()) };
-    let errors = actual.and_then(Value::as_array).map_or(&[][..], Vec::as_slice);
-    for error in errors {
-        if !any(entries, |entry| judge.matches(entry, Some(error)))? {
-            return Ok(false);
-        }
-    }
-    for entry in entries {
-        if !any(errors, |error| judge.matches(entry, Some(error)))? {
-            return Ok(false);
-        }
-    }
-    Ok(true)
+    let errors = listed(actual);
+    Ok(errors.len() == entries.len() && unpaired(judge, entries, errors)?.is_empty())
 }
 
-/// Whether `holds` is true of one of `items`; the first error stops the search.
-fn any<T>(items: &[T], holds: impl Fn(&T) -> Result<bool, String>) -> Result<bool, String> {
-    for item in items {
-        if holds(item)? {
-            return Ok(true);
+fn listed(actual: Option<&Value>) -> &[Value] {
+    actual.and_then(Value::as_array).map_or(&[][..], Vec::as_slice)
+}
+
+/// The entries left without an error of their own once each is paired with a distinct error
+/// it matches, as many as can be (Kuhn's augmenting paths).
+fn unpaired(judge: &Judge<'_>, entries: &[Matcher], errors: &[Value]) -> Result<Vec<usize>, String> {
+    let fits = entries.iter().map(|entry| fits(judge, entry, errors)).collect::<Result<_, _>>()?;
+    let mut pairing = Pairing { fits, owner: vec![None; errors.len()], seen: Vec::new() };
+    Ok((0..entries.len()).filter(|&entry| !pairing.paired(entry)).collect())
+}
+
+/// The indexes of the errors `entry` matches.
+fn fits(judge: &Judge<'_>, entry: &Matcher, errors: &[Value]) -> Result<Vec<usize>, String> {
+    let mut fits = Vec::new();
+    for (index, error) in errors.iter().enumerate() {
+        if judge.matches(entry, Some(error))? {
+            fits.push(index);
         }
     }
-    Ok(false)
+    Ok(fits)
+}
+
+/// Each entry's fitting errors, the entry each error is paired with, and the errors one search
+/// has tried.
+struct Pairing {
+    fits: Vec<Vec<usize>>,
+    owner: Vec<Option<usize>>,
+    seen: Vec<bool>,
+}
+
+impl Pairing {
+    /// Pairs `entry` with an error, moving earlier entries to other errors where that frees one.
+    fn paired(&mut self, entry: usize) -> bool {
+        self.seen = vec![false; self.owner.len()];
+        self.augment(entry)
+    }
+
+    fn augment(&mut self, entry: usize) -> bool {
+        for index in 0..self.fits[entry].len() {
+            let error = self.fits[entry][index];
+            if std::mem::replace(&mut self.seen[error], true) {
+                continue;
+            }
+            if self.owner[error].is_none_or(|other| self.augment(other)) {
+                self.owner[error] = Some(entry);
+                return true;
+            }
+        }
+        false
+    }
+}
+
+/// What a failed list-form check reports as its actual value: the errors with their `count`
+/// when it is not the number of entries, or else with the entries, as written, that no error
+/// was left for (`unpaired`). `None` for any other matcher.
+pub fn missed(judge: &Judge<'_>, matcher: &Matcher, errors: &Value) -> Option<Value> {
+    let entries = list_form(matcher)?;
+    let listed = listed(Some(errors));
+    let shown = if listed.len() == entries.len() {
+        let unpaired = unpaired(judge, entries, listed).ok()?;
+        let written = unpaired.iter().map(|&entry| judge.expected(&entries[entry])).collect::<Result<_, _>>();
+        ("unpaired", Value::Array(written.ok()?))
+    } else {
+        ("count", Value::from(listed.len()))
+    };
+    Some(Value::Object(Map::from_iter([("errors".to_owned(), errors.clone()), (shown.0.to_owned(), shown.1)])))
+}
+
+/// The entries of the list form, when `matcher` is one.
+fn list_form(matcher: &Matcher) -> Option<&[Matcher]> {
+    let Matcher::All(calls) = matcher else { return None };
+    match calls.as_slice() {
+        [call] if call.name == "entries" => match &call.arg {
+            MatcherArg::Matchers(entries) => Some(entries),
+            _ => None,
+        },
+        _ => None,
+    }
 }
 
 /// The errors of a response `body`, normalised; an empty list when it has none.
@@ -59,7 +121,7 @@ fn any<T>(items: &[T], holds: impl Fn(&T) -> Result<bool, String>) -> Result<boo
 pub fn normalised(body: Option<&Value>) -> Result<Value, &'static str> {
     let Some(body) = body.and_then(Value::as_object) else { return Err("the body is not a GraphQL response") };
     match body.get("errors") {
-        None => Ok(Value::Array(Vec::new())),
+        None | Some(Value::Null) => Ok(Value::Array(Vec::new())),
         Some(Value::Array(errors)) => Ok(Value::Array(errors.iter().map(error).collect())),
         Some(_) => Err("`errors` is not a list"),
     }
@@ -179,21 +241,52 @@ mod tests {
         );
     }
 
+    fn code(code: &str) -> Value {
+        json!({"extensions": {"code": code}})
+    }
+
     #[test]
-    fn the_list_form_needs_each_error_listed_and_each_entry_matched_and_fails_as_written() {
-        let body = json!({"errors": [{"extensions": {"code": "A"}}, {"extensions": {"code": "B"}}]});
+    fn the_list_form_pairs_each_entry_with_its_own_error_in_any_order() {
+        let body = json!({"errors": [{"message": "m", "extensions": {"code": "A"}}, code("A")]});
         let checks = [
-            listed(&[&[("code", "B")], &[("code", "A")]]),
-            listed(&[&[("code", "A")]]),
-            listed(&[&[("code", "A")], &[("code", "B")], &[("code", "C")]]),
-            listed(&[]),
+            listed(&[&[("code", "A")], &[("code", "A"), ("message", "m")]]),
+            listed(&[&[("code", "A"), ("message", "m")], &[("code", "A")]]),
+            listed(&[&[("code", "A")], &[("code", "A")]]),
+            listed(&[&[("code", "A"), ("message", "m")], &[("message", "m")]]),
         ];
         let results = judged(&checks, &body);
-        assert_eq!(passed(&results), [(true, None), failed(), failed(), failed()]);
-        assert_eq!(passed(&judged(&checks[3..], &json!({"data": {}}))), [(true, None)]);
-        let failure = verdict(&results[1..2]).map(|failure| failure.message);
-        let got = r#"[{"code":"A","extensions":{"code":"A"}},{"code":"B","extensions":{"code":"B"}}]"#;
-        assert_eq!(failure, Some(format!(r#"errors: expected [{{"code":"A"}}], got {got}"#)));
+        assert_eq!(passed(&results), [(true, None), (true, None), (true, None), failed()]);
+        let errors = json!([{"message": "m", "code": "A", "extensions": {"code": "A"}}, {"code": "A", "extensions": {"code": "A"}}]);
+        assert_eq!(results[3].actual, Some(json!({"errors": errors, "unpaired": [{"message": "m"}]})));
+        assert_eq!(passed(&judged(&[listed(&[])], &json!({"data": {}}))), [(true, None)]);
+    }
+
+    #[test]
+    fn an_entry_written_twice_needs_two_errors_and_one_error_never_fills_two_entries() {
+        let twice = [listed(&[&[("code", "FORBIDDEN")], &[("code", "FORBIDDEN")]])];
+        let results = judged(&twice, &json!({"errors": [code("FORBIDDEN")]}));
+        assert_eq!(passed(&results), [failed()]);
+        let errors = json!([{"code": "FORBIDDEN", "extensions": {"code": "FORBIDDEN"}}]);
+        assert_eq!(results[0].actual, Some(json!({"count": 1, "errors": errors})));
+        assert_eq!(passed(&judged(&twice, &json!({"errors": [code("FORBIDDEN"), code("FORBIDDEN")]}))), [(true, None)]);
+        let both = [listed(&[&[("code", "FORBIDDEN")], &[("message", "no")]])];
+        let one = json!({"errors": [{"message": "no", "extensions": {"code": "FORBIDDEN"}}]});
+        assert_eq!(passed(&judged(&both, &one)), [failed()]);
+    }
+
+    #[test]
+    fn an_error_no_entry_matches_fails_naming_the_entry_left_without_one_as_written() {
+        let body = json!({"errors": [code("A"), code("C")]});
+        let results = judged(&[listed(&[&[("code", "A")], &[("code", "B")]])], &body);
+        assert_eq!(passed(&results), [failed()]);
+        assert_eq!(results[0].expected, json!([{"code": "A"}, {"code": "B"}]));
+        let errors = json!([{"code": "A", "extensions": {"code": "A"}}, {"code": "C", "extensions": {"code": "C"}}]);
+        assert_eq!(results[0].actual, Some(json!({"errors": errors, "unpaired": [{"code": "B"}]})));
+        let failure = verdict(&results).map(|failure| failure.message);
+        let got = r#"{"errors":[{"code":"A","extensions":{"code":"A"}},{"code":"C","extensions":{"code":"C"}}],"unpaired":[{"code":"B"}]}"#;
+        assert_eq!(failure, Some(format!(r#"errors: expected [{{"code":"A"}},{{"code":"B"}}], got {got}"#)));
+        let more = judged(&[listed(&[&[("code", "A")]])], &body);
+        assert_eq!(more[0].actual, Some(json!({"count": 2, "errors": errors})));
     }
 
     #[test]
@@ -201,7 +294,9 @@ mod tests {
         let checks = [listed(&[])];
         for (body, actual) in [
             (json!({"errors": "boom"}), "`errors` is not a list"),
-            (json!({"errors": null}), "`errors` is not a list"),
+            (json!({"errors": 1}), "`errors` is not a list"),
+            (json!({"errors": true}), "`errors` is not a list"),
+            (json!({"errors": {"message": "no"}}), "`errors` is not a list"),
             (json!("<html>"), "the body is not a GraphQL response"),
             (json!([1]), "the body is not a GraphQL response"),
         ] {
@@ -236,9 +331,11 @@ mod tests {
     }
 
     #[test]
-    fn a_response_without_errors_has_an_empty_list_and_anything_else_is_no_graphql_response() {
+    fn a_response_without_errors_or_with_null_has_an_empty_list_and_anything_else_is_no_graphql_response() {
         assert_eq!(normalised(Some(&json!({"data": {}}))), Ok(json!([])));
         assert_eq!(normalised(Some(&json!({"errors": []}))), Ok(json!([])));
+        assert_eq!(normalised(Some(&json!({"errors": null}))), Ok(json!([])), "null is no errors (D363)");
+        assert_eq!(passed(&judged(&[listed(&[])], &json!({"data": null, "errors": null}))), [(true, None)]);
         assert_eq!(normalised(Some(&json!({"errors": {}}))), Err("`errors` is not a list"));
         assert_eq!(normalised(Some(&json!(1))), Err("the body is not a GraphQL response"));
         assert_eq!(normalised(None), Err("the body is not a GraphQL response"));

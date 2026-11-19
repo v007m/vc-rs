@@ -1,6 +1,6 @@
 //! What `expect.errors` expects of a `graphql` response's errors (D345), as matchers on the
-//! normalised list: a list of expected errors, where each matches some error and each error
-//! matches some expected one, or matchers on the list. Under `every`, `some` and `none` a map
+//! normalised list: a list of expected errors, each paired with its own error (D362), or
+//! matchers on the list. Under `every`, `some` and `none` a map
 //! that names no matcher is an expected error (`{ some: { code: TIMEOUT } }`); on the list itself
 //! it is V2306, since the list is no error. An expected error lowers to the internal `fields`
 //! matcher (D360), and the list form to the internal `entries` matcher, which holds it once.

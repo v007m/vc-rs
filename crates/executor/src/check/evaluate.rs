@@ -87,7 +87,14 @@ fn outcome(judge: &Judge<'_>, check: &Check, subject: Subject<'_>) -> Outcome {
 /// response, or whose `errors` is not a list, fails with what it is (D345).
 fn errors_check(judge: &Judge<'_>, check: &Check, body: Option<&Value>) -> Outcome {
     match errors::normalised(body) {
-        Ok(errors) => Outcome { code: Code::V5123, ..matched(judge, check, Some(errors)) },
+        Ok(errors) => {
+            let outcome = matched(judge, check, Some(errors));
+            let missed = match (&outcome.verdict, &outcome.actual) {
+                (Ok(false), Some(errors)) => errors::missed(judge, &check.matcher, errors),
+                _ => None,
+            };
+            Outcome { code: Code::V5123, actual: missed.or(outcome.actual), ..outcome }
+        }
         Err(what) => Outcome {
             actual: Some(Value::String(what.to_owned())),
             expected: judge.expected(&check.matcher),
