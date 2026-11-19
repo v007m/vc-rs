@@ -19,7 +19,7 @@ use super::request;
 use super::{ActionExecutor, ActionRequest};
 use super::{auth, http_retry};
 use crate::check::{self, Judge, MatcherRegistry, Subject};
-use crate::{ActionReport, Call, PendingCleanup, Pipeline, PipelineParts, Render, Saved};
+use crate::{ActionReport, Call, PendingCleanup, Pipeline, PipelineParts, Redactor, Render, Saved};
 
 /// The per-attempt limit when neither the api nor the config's `defaults` sets a `timeout`.
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
@@ -33,8 +33,9 @@ const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
 /// whatever the checks say, unless the action is `keep` or is itself a cleanup. Only when every
 /// check holds does it save the api's `save` values, when the status matches the api's `saveOn`
 /// (D191), and then the action's. A response with GraphQL errors registers no cleanup and, under
-/// the default `saveOn`, runs no api `save` (V5129); its errors are listed as V5128 when the
-/// call judged no `expect.errors` check (D364, D365), and a 2xx one its runtime cannot read fails (V5124, D345).
+/// the default `saveOn`, runs no api `save` (V5129); its errors are listed as V5128 when no
+/// errors check ran, the step's own or one it inherits from its api (D123, D365), and a 2xx one
+/// its runtime cannot read fails (V5124, D345). Every warning is masked by the run's redactor.
 #[derive(Clone)]
 pub struct CallExecutor {
     parts: PipelineParts,
@@ -92,7 +93,7 @@ impl CallExecutor {
         let held = Held::new(runtime.errors(&response));
         let answered = Answered { request, action, api, exchange: &exchange };
         let report = self.settle(&render, &answered, (checks, &held))?;
-        let warnings = render.warnings().into_iter().chain(report.warnings).collect();
+        let warnings = masked(&request.cx.redactor, render.warnings().into_iter().chain(report.warnings)).await;
         Ok(ActionReport {
             response: Some(response),
             fakes: render.into_memo(),
@@ -124,7 +125,7 @@ impl CallExecutor {
         let specs: Vec<_> = api_saves.then_some(&api.save).into_iter().chain([&action.save]).collect();
         let saved = failure.map_or_else(|| saves(render, &specs), Err);
         let warnings = held.warnings(&checks, withheld).into_iter();
-        let warnings = warnings.map(|warning| redacted(render, warning).at(request.action)).collect();
+        let warnings = warnings.map(|warning| warning.at(request.action)).collect();
         let mut report =
             ActionReport { cleanups: cleanups.into_iter().collect(), checks, warnings, ..ActionReport::passed() };
         match saved {
@@ -169,10 +170,15 @@ struct Answered<'a> {
     exchange: &'a Exchange,
 }
 
-/// `warning` with the run's masked values hidden from its message, at the source; the event bus
-/// masks it again on the way out (`RedactingSink`), which is harmless.
-fn redacted(render: &Render<'_>, warning: Failure) -> Failure {
-    Failure { message: render.redactor().text(&warning.message), ..warning }
+/// `warnings` with the run's masked values hidden from their messages, by the built-in masking
+/// and the rules, so the report holds none; the event bus masks them again on the way out
+/// (`RedactingSink`), which is harmless.
+async fn masked(redactor: &Redactor, warnings: impl Iterator<Item = Failure>) -> Vec<Failure> {
+    let mut masked = Vec::new();
+    for warning in warnings {
+        masked.push(Failure { message: redactor.masked_text(&warning.message).await, ..warning });
+    }
+    masked
 }
 
 /// Evaluates `checks` against `subject`, masked by the run's redactor so neither the results

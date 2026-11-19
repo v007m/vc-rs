@@ -6,14 +6,16 @@ use http::{HeaderMap, HeaderValue, StatusCode};
 use serde_json::{Value, json};
 use vc_diagnostics::Code;
 use vc_model::{
-    ActionId, BodySpec, Check, CheckKind, CheckResult, Event, Failure, HttpResponse, Matcher, MatcherArg, MatcherCall,
-    Method, Origin, OwnerKey, Protocol, StatusPattern, TemplateValue,
+    ActionId, ActionKind, BodySpec, Check, CheckKind, CheckResult, Event, Failure, HookRef, HttpResponse, Matcher,
+    MatcherArg, MatcherCall, Method, Origin, OwnerKey, Protocol, RedactRule, StatusPattern, TemplateValue,
 };
 use vc_testkit::FakeTransport;
 
 use super::{Held, line};
 use crate::fixture::{self, Fixture};
-use crate::{ActionCx, ActionExecutors, ActionReport, ActionRequest, Frame, HostLimits, PendingCleanup, PipelineParts};
+use crate::{
+    ActionCx, ActionExecutors, ActionReport, ActionRequest, Frame, HostLimits, PendingCleanup, PipelineParts, Saved,
+};
 
 const FORBIDDEN: &str = "FORBIDDEN at user.secretNote: secretNote is not allowed";
 
@@ -94,6 +96,32 @@ fn no_errors(call: ActionId) -> Check {
     let none = MatcherCall { name: "entries".to_owned(), arg: MatcherArg::Matchers(Vec::new()), span: fixture::span() };
     let matcher = Matcher::All(vec![none]);
     Check { kind: CheckKind::Errors, target: None, matcher, origin: Origin::Action(call), span: fixture::span() }
+}
+
+/// `errors: any`, written at `origin`.
+fn any_errors(origin: Origin) -> Check {
+    let any = MatcherCall {
+        name: "empty".to_owned(),
+        arg: MatcherArg::Value(TemplateValue::Bool(false)),
+        span: fixture::span(),
+    };
+    Check { kind: CheckKind::Errors, target: None, matcher: Matcher::All(vec![any]), origin, span: fixture::span() }
+}
+
+/// A judged check of `kind` on the step, as `passed`.
+fn judged(kind: CheckKind, passed: bool) -> CheckResult {
+    CheckResult {
+        kind,
+        target: None,
+        origin: Origin::Action(ActionId::new(0)),
+        span: fixture::span(),
+        passed,
+        expected: Value::Null,
+        actual: None,
+        diff: None,
+        error: None,
+        code: None,
+    }
 }
 
 #[tokio::test]
@@ -224,22 +252,14 @@ fn each_error_is_listed_as_code_at_path_message_leaving_out_what_it_lacks() {
 #[test]
 fn the_listing_joins_the_errors_and_any_errors_check_silences_it() {
     let held = Held::new(Ok(vec![json!({"message": "a"}), json!({"code": "B", "message": "b"})]));
-    let status = CheckResult {
-        kind: CheckKind::Status,
-        target: None,
-        origin: Origin::Action(ActionId::new(0)),
-        span: fixture::span(),
-        passed: false,
-        expected: Value::Null,
-        actual: None,
-        diff: None,
-        error: None,
-        code: None,
-    };
     let listed = Failure::new("The response has GraphQL errors: a; B: b").with_code(Code::V5128.to_string());
-    assert_eq!(held.warnings(std::slice::from_ref(&status), false), [listed], "a status check is no errors check");
+    assert_eq!(
+        held.warnings(&[judged(CheckKind::Status, false)], false),
+        [listed],
+        "a status check is no errors check"
+    );
     for passed in [true, false] {
-        let errors = CheckResult { kind: CheckKind::Errors, passed, ..status.clone() };
+        let errors = judged(CheckKind::Errors, passed);
         assert_eq!(held.warnings(&[errors], true).len(), 1, "D364: only V5129 once errors are checked ({passed})");
     }
 }
@@ -268,14 +288,24 @@ async fn an_explicit_save_on_with_no_cleanup_holds_nothing_back() {
 }
 
 #[tokio::test]
-async fn a_masked_value_in_an_error_is_hidden_from_the_listing_at_the_source_and_on_its_way_out() {
+async fn every_warning_in_the_report_is_masked_by_the_redactor_and_its_rules_and_again_on_its_way_out() {
     let mut fixture = Fixture::new();
+    fixture.program.config.redact_rules = vec![RedactRule::Regex(r"tok\d+".to_owned())];
+    let seed = fixture.action(ActionKind::Function(HookRef { file: "hooks.ts".into(), export: "seed".into() }));
     let call = fixture.call("/graphql");
     fixture.api_mut(call).protocol = Protocol::Graphql;
-    let body = json!({ "data": null, "errors": [{ "message": format!("bad key {SECRET}") }] });
-    let (mut report, cx) = ran((fixture, call), Frame::default(), answer(200, &body.to_string())).await;
-    let warning = report.warnings.remove(0);
-    assert!(!warning.message.contains(SECRET), "masked at the source: {}", warning.message);
+    fixture.api_mut(call).headers = fixture.templates(&[("x-key", "${var.tok42}")]);
+    let mut frame = Frame::default();
+    let left: Saved = std::iter::once(("tok42".to_owned(), json!("k"))).collect();
+    frame.absorb(&fixture.program, seed, &ActionReport { saved: left, ..ActionReport::passed() });
+    let body = json!({ "data": null, "errors": [{ "message": format!("bad key {SECRET} for tok42") }] });
+    let (report, cx) = ran((fixture, call), frame, answer(200, &body.to_string())).await;
+    assert_eq!(codes(&report), [Code::V5108.to_string(), Code::V5128.to_string()], "a render warning and the listing");
+    for warning in &report.warnings {
+        let message = &warning.message;
+        assert!(!message.contains(SECRET) && !message.contains("tok42"), "masked in the report: {message}");
+    }
+    let warning = report.warnings[1].clone();
     let Event::Warned { warning, .. } =
         cx.redactor.event(Event::Warned { action: call, owner: OwnerKey::Run, warning }).await
     else {
@@ -310,21 +340,30 @@ async fn v5124_is_the_first_failed_check_and_shows_with_the_others() {
 }
 
 #[tokio::test]
-async fn a_judged_errors_check_becomes_v5124_so_it_is_reported_once() {
+async fn every_judged_errors_check_gives_way_to_one_v5124_first_and_the_rest_keep_their_order() {
     let (mut fixture, create, _) = creating(Protocol::Graphql);
-    let checks = vec![status(create, 200), no_errors(create)];
-    fixture.action_mut(create).expect.checks = checks.clone();
-    let report = run((fixture, create), answer(200, "<html/>")).await;
-    let errors: Vec<_> = report.checks.iter().filter(|check| check.kind == CheckKind::Errors).collect();
-    assert_eq!(errors.len(), 1, "one result per cause");
-    assert_eq!((errors[0].code.clone(), errors[0].passed), (Some(Code::V5124.to_string()), false));
-    assert_eq!(report.checks[0].kind, CheckKind::Errors, "first");
-    assert_eq!(failed_code(&report), Some(Code::V5124.to_string()));
-    let (mut fixture, create, _) = creating(Protocol::Graphql);
+    let body = Check { kind: CheckKind::Equals, matcher: Matcher::Equals(TemplateValue::Null), ..status(create, 200) };
+    let checks = vec![no_errors(create), status(create, 200), any_errors(Origin::Action(create)), body];
     fixture.action_mut(create).expect.checks = checks;
+    let report = run((fixture, create), answer(200, "<html/>")).await;
+    let kinds: Vec<_> = report.checks.iter().map(|check| check.kind).collect();
+    assert_eq!(kinds, [CheckKind::Errors, CheckKind::Status, CheckKind::Equals], "one result per cause, in order");
+    assert_eq!((report.checks[0].code.clone(), report.checks[0].passed), (Some(Code::V5124.to_string()), false));
+    assert_eq!(failed_code(&report), Some(Code::V5124.to_string()));
+}
+
+#[tokio::test]
+async fn an_errors_check_that_holds_on_a_null_errors_body_gives_way_to_a_fresh_failed_v5124() {
+    let (mut fixture, create, _) = creating(Protocol::Graphql);
+    fixture.action_mut(create).expect.checks = vec![no_errors(create)];
     let report = run((fixture, create), answer(200, "{\"errors\": null}")).await;
-    let failed = (report.checks[0].passed, failed_code(&report));
-    assert_eq!(failed, (false, Some(Code::V5124.to_string())), "errors: none holds on it, V5124 still fails");
+    let [unread, implied] = &report.checks[..] else { panic!("V5124 and the api's 2xx: {:?}", report.checks) };
+    assert_eq!((implied.kind, implied.passed), (CheckKind::Status, true));
+    let reason = "The response is not a GraphQL response: the body is not a JSON object with `data` or `errors`";
+    let fresh = (unread.passed, unread.code.clone(), &unread.expected, unread.actual.clone(), unread.diff.clone());
+    let expected = json!("a GraphQL response");
+    assert_eq!(fresh, (false, Some(Code::V5124.to_string()), &expected, Some(json!(reason)), None));
+    assert_eq!((unread.origin, failed_code(&report)), (Origin::Action(create), Some(Code::V5124.to_string())));
 }
 
 #[tokio::test]
@@ -342,14 +381,24 @@ async fn a_load_iteration_judging_only_the_apis_checks_lists_the_errors_the_skip
 #[tokio::test]
 async fn a_passing_errors_any_asserts_the_errors_so_they_are_not_listed() {
     let (mut fixture, create, _) = creating(Protocol::Graphql);
-    let any = MatcherCall {
-        name: "empty".to_owned(),
-        arg: MatcherArg::Value(TemplateValue::Bool(false)),
-        span: fixture::span(),
-    };
-    let check = Check { matcher: Matcher::All(vec![any]), ..no_errors(create) };
-    fixture.action_mut(create).expect.checks = vec![check];
+    fixture.action_mut(create).expect.checks = vec![any_errors(Origin::Action(create))];
     let report = run((fixture, create), answer(200, &forbidden().to_string())).await;
     assert_eq!(report.outcome.failure(), None, "errors: any holds");
     assert_eq!(codes(&report), [Code::V5129.to_string()], "D364: asserted errors are not listed");
+}
+
+#[tokio::test]
+async fn an_errors_check_the_step_inherits_from_its_api_ran_so_it_asserts_the_errors() {
+    for api_checks_only in [false, true] {
+        let mut fixture = Fixture::new();
+        let call = fixture.call("/graphql");
+        fixture.api_mut(call).protocol = Protocol::Graphql;
+        let api = fixture.api_mut(call).id;
+        fixture.action_mut(call).expect.checks = vec![any_errors(Origin::Api(api))];
+        let frame = Frame { api_checks_only, ..Frame::default() };
+        let (report, _) = ran((fixture, call), frame, answer(200, &forbidden().to_string())).await;
+        let judged: Vec<_> = report.checks.iter().map(|check| (check.kind, check.passed)).collect();
+        assert_eq!(judged, [(CheckKind::Status, true), (CheckKind::Errors, true)], "{api_checks_only}");
+        assert_eq!(codes(&report), Vec::<String>::new(), "D123, D365: an inherited check that ran ({api_checks_only})");
+    }
 }

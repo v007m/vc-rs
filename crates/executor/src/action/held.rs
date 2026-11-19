@@ -34,37 +34,33 @@ impl Held {
         api.save_on_written || self.errors.is_empty()
     }
 
-    /// `checks` with a response its runtime could not read reported first, so the call's verdict
-    /// is V5124 and it shows with any check that failed too. One result per cause: a judged
-    /// `expect.errors` check, which failed on that body, becomes it; else it is the call's, at
-    /// `at`, the call's origin and span.
+    /// `checks` for a response its runtime could not read: no judged `expect.errors` check can
+    /// be judged on that body, so they all give way to one failed V5124 result, first, at `at`,
+    /// the call's origin and span; the call's verdict is V5124 and it shows with any other check
+    /// that failed, in written order.
     pub fn reported(&self, checks: Vec<CheckResult>, at: (Origin, SourceSpan)) -> Vec<CheckResult> {
         let Some(failure) = &self.unread else { return checks };
-        let (mut own, rest): (Vec<_>, Vec<_>) = checks.into_iter().partition(|check| check.kind == CheckKind::Errors);
         let unread = CheckResult {
+            kind: CheckKind::Errors,
+            target: None,
+            origin: at.0,
+            span: at.1,
             passed: false,
+            expected: Value::String("a GraphQL response".to_owned()),
+            actual: Some(Value::String(failure.message.clone())),
+            diff: None,
             error: Some(failure.message.clone()),
             code: failure.code.clone(),
-            ..own.pop().unwrap_or_else(|| CheckResult {
-                kind: CheckKind::Errors,
-                target: None,
-                origin: at.0,
-                span: at.1,
-                passed: false,
-                expected: Value::String("a GraphQL response".to_owned()),
-                actual: None,
-                diff: None,
-                error: None,
-                code: None,
-            })
         };
-        std::iter::once(unread).chain(own).chain(rest).collect()
+        let rest = checks.into_iter().filter(|check| check.kind != CheckKind::Errors);
+        std::iter::once(unread).chain(rest).collect()
     }
 
-    /// V5128 listing the errors when `checks`, the ones judged, hold no `expect.errors` check (a
-    /// passing one asserted them, a failing one is V5123; D364); a step's check that a load
-    /// iteration with `checks: api` skipped did not run, so it lists them (D365). V5129 when
-    /// they `withheld` a save or cleanup. None for a response without errors.
+    /// V5128 listing the errors when `checks`, the ones judged, hold no errors check that ran,
+    /// the step's own or one it inherits from its api (D123, D365): a passing one asserted them,
+    /// a failing one is V5123 (D364); a step's check that a load iteration with `checks: api`
+    /// skipped did not run, so it lists them. V5129 when they `withheld` a save or cleanup. None
+    /// for a response without errors.
     pub fn warnings(&self, checks: &[CheckResult], withheld: bool) -> Vec<Failure> {
         if self.errors.is_empty() {
             return Vec::new();
