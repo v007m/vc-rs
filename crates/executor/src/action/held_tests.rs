@@ -17,6 +17,9 @@ use crate::{ActionExecutors, ActionReport, ActionRequest, Frame, HostLimits, Pen
 
 const FORBIDDEN: &str = "FORBIDDEN at user.secretNote: secretNote is not allowed";
 
+/// A value the run masks.
+const SECRET: &str = "s3cr3t-key";
+
 /// A body with partial data and one `FORBIDDEN` error on `user.secretNote`.
 fn forbidden() -> Value {
     json!({
@@ -48,6 +51,7 @@ async fn run((fixture, call): (Fixture, ActionId), answer: HttpResponse) -> Acti
     let fake = FakeTransport::scripted(vec![Ok(answer)]);
     let executors = ActionExecutors::standard(PipelineParts::new(Arc::new(fake), HostLimits::spawn(8)));
     let cx = fixture.cx(executors);
+    cx.redactor.hide_values([SECRET]);
     let request = ActionRequest { action: call, owner: OwnerKey::Run, cx: Arc::clone(&cx), frame: Frame::default() };
     cx.executors.execute(request).await
 }
@@ -228,4 +232,24 @@ fn an_unread_response_fails_holds_everything_back_and_warns_nothing() {
     assert_eq!(unread.warnings(&[], true), []);
     let clean = Held::new(Ok(Vec::new()));
     assert_eq!((clean.failure(), clean.clean()), (None, true));
+}
+
+#[tokio::test]
+async fn an_explicit_save_on_with_no_cleanup_holds_nothing_back() {
+    let (mut fixture, create, _) = creating(Protocol::Graphql);
+    (fixture.api_mut(create).save_on_written, fixture.api_mut(create).cleanup) = (true, None);
+    let report = run((fixture, create), answer(200, &forbidden().to_string())).await;
+    assert_eq!(report.saved.get("userId"), Some(&json!("u-7")));
+    assert_eq!(codes(&report), [Code::V5128.to_string()], "the save ran, so no V5129");
+}
+
+#[tokio::test]
+async fn a_masked_value_in_an_error_is_hidden_from_the_listing() {
+    let mut fixture = Fixture::new();
+    let call = fixture.call("/graphql");
+    fixture.api_mut(call).protocol = Protocol::Graphql;
+    let body = json!({ "data": null, "errors": [{ "message": format!("bad key {SECRET}") }] });
+    let report = run((fixture, call), answer(200, &body.to_string())).await;
+    let message = &warned(&report)[0].1;
+    assert!(message.starts_with("The response has GraphQL errors: bad key ") && !message.contains(SECRET), "{message}");
 }
