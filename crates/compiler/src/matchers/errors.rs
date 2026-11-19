@@ -9,7 +9,7 @@ use vc_diagnostics::{Code, Diagnostic, Fix, TextEdit};
 use vc_model::{Matcher, MatcherArg, MatcherCall, Segment, SourceSpan};
 use vc_parser::{Entry, Node, ScalarKind, Value};
 
-use super::{Unit, calls, find, literal};
+use super::{Unit, calls, find};
 use crate::parts::{At, Cx};
 use crate::suggest::{self, Misspelling};
 
@@ -25,7 +25,8 @@ pub fn expected(cx: &mut Cx<'_>, at: At<'_>, unit: Unit) -> Option<Matcher> {
         (Value::Seq(items), Unit::Errors) => listed(cx, at, items),
         (Value::Map(_), Unit::Errors) => on_the_list(cx, at),
         (Value::Map(entries), _) => entry(cx, at, entries),
-        _ => literal(cx, at, Unit::Plain),
+        (_, Unit::Errors) => not_a_check(cx, at),
+        _ => not_an_entry(cx, at),
     }
 }
 
@@ -48,11 +49,27 @@ fn on_the_list(cx: &mut Cx<'_>, at: At<'_>) -> Option<Matcher> {
     None
 }
 
+/// V2306 for a value on the list that is none of `none`, `any`, a list or a matcher: `null`,
+/// `false` or `0` would be compared with the list and never hold.
+fn not_a_check(cx: &mut Cx<'_>, at: At<'_>) -> Option<Matcher> {
+    let message = "`errors` takes `none`, `any`, a list of expected errors or a matcher on the list";
+    let diagnostic = Diagnostic::new(Code::V2306, at.node.span, message)
+        .label("never matches")
+        .help("write `none` to expect no errors, `any` for at least one, or a list (`[{code: FORBIDDEN}]`)");
+    cx.push(diagnostic);
+    None
+}
+
 /// One item of the list form, which must be an entry.
 fn item_entry(cx: &mut Cx<'_>, at: At<'_>) -> Option<Matcher> {
     if let Value::Map(entries) = &at.node.value {
         return entry(cx, at, entries);
     }
+    not_an_entry(cx, at)
+}
+
+/// V2306 for what stands where one expected error goes but is not a map.
+fn not_an_entry(cx: &mut Cx<'_>, at: At<'_>) -> Option<Matcher> {
     let message = "an expected error is a map of `message`, `path`, `code` and `extensions`";
     cx.push(Diagnostic::new(Code::V2306, at.node.span, message).label("not an error entry"));
     None
@@ -82,7 +99,7 @@ fn field(cx: &mut Cx<'_>, at: At<'_>, entry: &Entry) -> Option<(String, Matcher)
 }
 
 /// V2306 for a `path` written as a list: errors are compared with it dotted, so a list never
-/// matches. When each segment is a plain key or index, the dotted text is the certain fix.
+/// matches. When each segment is text or a whole number, the dotted text is the certain fix.
 fn listed_path(node: &Node, items: &[Node]) -> Diagnostic {
     let diagnostic = Diagnostic::new(Code::V2306, node.span, "an expected error's `path` is dotted, not a list")
         .label("never matches")
@@ -93,12 +110,14 @@ fn listed_path(node: &Node, items: &[Node]) -> Diagnostic {
     diagnostic.fix(Fix::certain(format!("Write the path as `{text}`"), vec![edit]))
 }
 
-/// A literal path segment: a whole number is an index, other text a key.
+/// A literal path segment: a whole number is an index and text a key; `null`, a boolean, a
+/// decimal or a template is none, since what the error's path holds there is not certain.
 fn segment(item: &Node) -> Option<Segment> {
     let scalar = item.as_scalar().filter(|scalar| !scalar.text.contains("${"))?;
     match scalar.kind {
         ScalarKind::Int => scalar.text.parse().ok().map(Segment::Index),
-        _ => Some(Segment::Key(scalar.text.clone())),
+        ScalarKind::String => Some(Segment::Key(scalar.text.clone())),
+        ScalarKind::Null | ScalarKind::Bool | ScalarKind::Float => None,
     }
 }
 

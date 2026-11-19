@@ -207,3 +207,42 @@ fn a_listed_path_is_v2306_with_the_dotted_path_as_its_certain_fix() {
     assert!(templated.diagnostics.iter().all(|found| found.code == Code::V2306 && found.fixes.is_empty()));
     assert_eq!(lowered("[{path: 'user.notes[0]'}]"), ["entries", "fields"]);
 }
+
+const NO_CHECK: &str = "`errors` takes `none`, `any`, a list of expected errors or a matcher on the list";
+const NO_ENTRY: &str = "an expected error is a map of `message`, `path`, `code` and `extensions`";
+
+#[test]
+fn a_value_that_is_no_check_on_the_list_or_no_entry_under_some_every_or_none_is_v2306() {
+    for (errors, message) in [
+        ("null", NO_CHECK),
+        ("false", NO_CHECK),
+        ("0", NO_CHECK),
+        ("1.5", NO_CHECK),
+        ("{not: null}", NO_CHECK),
+        ("{some: [{code: FORBIDDEN}]}", NO_ENTRY),
+        ("{some: FORBIDDEN}", NO_ENTRY),
+        ("{every: null}", NO_ENTRY),
+        ("{none: 3}", NO_ENTRY),
+        ("{some: {not: true}}", NO_ENTRY),
+    ] {
+        let compiled = with_errors(errors);
+        assert_eq!(codes(&compiled), [(Code::V2306, message)], "{errors}");
+    }
+    for word in ["none", "any"] {
+        assert_eq!(codes(&with_errors(word)), [], "{word}");
+    }
+}
+
+#[test]
+fn a_listed_path_gets_its_fix_only_when_every_part_is_text_or_a_whole_number() {
+    let compiled = with_errors("[{path: [user, 'first name', 0, '1', \"it's\"]}]");
+    let [found] = compiled.diagnostics.iter().collect::<Vec<_>>()[..] else { panic!("{:?}", compiled.diagnostics) };
+    let [fix] = found.fixes.as_slice() else { panic!("{found:?}") };
+    assert_eq!(fix.title, "Write the path as `user[\"first name\"][0][\"1\"][\"it's\"]`");
+    assert_eq!(fix.edits[0].new_text, "'user[\"first name\"][0][\"1\"][\"it''s\"]'");
+    for part in ["null", "true", "1.5", "~"] {
+        let compiled = with_errors(&format!("[{{path: [user, {part}]}}]"));
+        let fixes: Vec<_> = compiled.diagnostics.iter().map(|found| (found.code, found.fixes.len())).collect();
+        assert_eq!(fixes, [(Code::V2306, 0)], "{part}");
+    }
+}
