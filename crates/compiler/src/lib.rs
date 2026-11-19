@@ -26,6 +26,7 @@ mod cache;
 mod compile;
 mod docs;
 mod graphql;
+mod graphql_schema;
 mod link;
 mod lint;
 mod matchers;

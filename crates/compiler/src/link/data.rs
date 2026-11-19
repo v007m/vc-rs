@@ -22,6 +22,7 @@ use super::project::{Project, Source};
 use super::uses;
 use crate::cache::CacheEntry;
 use crate::graphql::{self, Documents};
+use crate::graphql_schema;
 use crate::suggest;
 
 /// Where the datasets named by their path live.
@@ -80,7 +81,7 @@ impl<'a> Data<'a> {
                 Err(diagnostic) => diagnostics.push(*diagnostic),
             }
         }
-        let documents = Documents::new(project, (entries, files));
+        let documents = Documents::new(project, (entries, files), given.clone());
         let data = Self { given, sets, files, documents, complete: assets.is_some() };
         diagnostics.extend(data.sets.values().filter_map(|set| data.not_rows(set)));
         (data, diagnostics)
@@ -129,8 +130,9 @@ impl<'a> Data<'a> {
                 body_schema::nodes(source.root).into_iter().filter_map(|node| body_schema::path(source, node));
             let documents =
                 graphql::queries(source).into_iter().filter_map(|(_, _, query)| graphql::file(source, query));
-            let known =
-                rows.chain(schemas).chain(documents).filter(|path| assets.is_some_and(|assets| listed(assets, path)));
+            let graphql = graphql_schema::path(source);
+            let known = rows.chain(schemas).chain(documents).chain(graphql);
+            let known = known.filter(|path| assets.is_some_and(|assets| listed(assets, path)));
             wanted.extend(known.map(|path| (path, None)));
         }
         let given = |path: &str| self.given.contains_key(path) || self.document(path).is_some();

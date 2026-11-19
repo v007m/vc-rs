@@ -35,6 +35,7 @@ code_table! {
     V1012 = 1012, Error, "File cannot be read (permissions, not UTF-8, outside the project, bad name)";
     V1013 = 1013, Error, "Hook file is not valid TypeScript or JavaScript";
     V1014 = 1014, Error, "GraphQL document does not parse";
+    V1015 = 1015, Error, "GraphQL schema file is neither SDL nor an introspection result";
     // V2xxx: references and types
     V2001 = 2001, Error, "Duplicate ID";
     V2002 = 2002, Error, "Unknown auth, profile, dataset or generator";

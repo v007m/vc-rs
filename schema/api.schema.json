@@ -364,6 +364,14 @@
             "/api/graphql"
           ],
           "type": "string"
+        },
+        "schema": {
+          "description": "The schema the documents are checked against: `$file` of SDL (`.graphql`, `.graphqls`) or an introspection result (`.json`)",
+          "examples": [
+            {
+              "$file": "schema.graphql"
+            }
+          ]
         }
       },
       "type": "object"

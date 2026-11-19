@@ -21,8 +21,9 @@ use std::path::PathBuf;
 use support::Outcome;
 use vc_diagnostics::{Code, Diagnostics, Severity};
 
-/// The languages an example block may be written in: `ts` is a hook's, `dotenv` is `.env.schema`'s.
-const LANGUAGES: [&str; 4] = ["yaml", "json", "ts", "dotenv"];
+/// The languages an example block may be written in: `ts` is a hook's, `dotenv` is `.env.schema`'s,
+/// `graphql` is a GraphQL document's or schema's.
+const LANGUAGES: [&str; 5] = ["yaml", "json", "ts", "dotenv", "graphql"];
 
 fn page_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../diagnostics/explain")

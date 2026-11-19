@@ -9,10 +9,11 @@ use std::ops::Range;
 
 use vc_diagnostics::{Code, Diagnostic, Diagnostics};
 use vc_model::{FILE_KEY, FileKind, Protocol, SourceFile, SourceFileId, SourceFiles, SourceSpan, resolve_path};
-use vc_parser::{GraphqlDocument, GraphqlOperation, GraphqlProblem, Node, ScalarStyle, Value};
+use vc_parser::{GraphqlDocument, GraphqlOperation, GraphqlProblem, GraphqlSchema, Node, ScalarStyle, Value};
 
 use crate::cache::CacheEntry;
 use crate::compile::numbered;
+use crate::graphql_schema::{self, SchemaFile};
 use crate::link::{self, Project, Source};
 use crate::stage::position;
 
@@ -33,6 +34,11 @@ pub fn is_document(path: &str) -> bool {
     SUFFIXES.iter().any(|suffix| path.ends_with(suffix))
 }
 
+/// Whether `path` names a file of GraphQL text: a document file, or a schema's SDL file.
+pub fn is_text(path: &str) -> bool {
+    is_document(path) || path.ends_with(graphql_schema::SDL_SUFFIX)
+}
+
 /// Where a document is written.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Origin {
@@ -43,10 +49,12 @@ pub enum Origin {
 }
 
 /// Each document of a compile, parsed once: every document file the compile was given, as its
-/// cached per-file stage read it, and the inline `query` of every `graphql` api.
+/// cached per-file stage read it, and the inline `query` of every `graphql` api; and the schema
+/// files it was given.
 pub struct Documents<'a> {
     files: &'a SourceFiles,
     paths: HashMap<&'a str, SourceFileId>,
+    trees: HashMap<&'a str, &'a Node>,
     given: HashMap<SourceFileId, &'a GraphqlDocument>,
     inline: HashMap<SourceSpan, Option<GraphqlDocument>>,
     problems: Diagnostics,
@@ -77,15 +85,20 @@ pub enum Unpicked {
 }
 
 impl<'a> Documents<'a> {
-    /// The documents of `project`: its document files as their units hold them, and its inline ones.
-    pub fn new(project: &Project<'a>, (entries, files): (&'a [CacheEntry], &'a SourceFiles)) -> Self {
+    /// The documents of `project`: its document files as their units hold them, and its inline
+    /// ones; and the data files `trees` the compile was given, by path, for the introspection results.
+    pub fn new(
+        project: &Project<'a>,
+        (entries, files): (&'a [CacheEntry], &'a SourceFiles),
+        trees: HashMap<&'a str, &'a Node>,
+    ) -> Self {
         let mut paths = HashMap::new();
-        for (id, file) in numbered(files).filter(|(_, file)| is_document(file.path.as_str())) {
+        for (id, file) in numbered(files).filter(|(_, file)| is_text(file.path.as_str())) {
             paths.entry(file.path.as_str()).or_insert(id);
         }
         let units = entries.iter().filter_map(|entry| Some((entry.file, entry.unit.as_deref()?.document.as_ref()?)));
         let given = units.collect();
-        let mut documents = Self { files, paths, given, inline: HashMap::new(), problems: Diagnostics::new() };
+        let mut documents = Self { files, paths, trees, given, inline: HashMap::new(), problems: Diagnostics::new() };
         let sources = project.sources.iter();
         let inline = sources.flat_map(|source| queries(source).into_iter().map(move |(_, _, query)| (source, query)));
         for (source, query) in inline {
@@ -110,6 +123,17 @@ impl<'a> Documents<'a> {
     pub fn text(&self, path: &str) -> Option<&'a str> {
         let id = self.paths.get(path)?;
         self.files.get(*id).map(|file| file.text.as_str())
+    }
+
+    /// The schema in the file at `path`, else V1015; `None` when the compile was not given it, or
+    /// it is SDL that does not parse, which is V1014 at its per-file stage.
+    pub fn schema(&self, path: &str) -> Option<Result<GraphqlSchema, Box<Diagnostic>>> {
+        let file = match (self.trees.get(path), self.paths.get(path)) {
+            (Some(tree), _) => SchemaFile::Introspection(tree),
+            (None, Some(id)) if self.given.contains_key(id) => SchemaFile::Sdl(*id, self.files.get(*id)?.text.as_str()),
+            (None, _) => return None,
+        };
+        Some(graphql_schema::read(&file, self.files))
     }
 
     /// The document the `query` of `source` holds, when it parses.
@@ -198,7 +222,7 @@ fn broken(span: SourceSpan, problem: &GraphqlProblem) -> Diagnostic {
 
 /// Where bytes `at` of the document file `id`, of `text`, are; an offset past the text, or inside
 /// a character, is moved back to the nearest character boundary.
-fn file_span(id: SourceFileId, text: &str, at: &Range<usize>) -> SourceSpan {
+pub fn file_span(id: SourceFileId, text: &str, at: &Range<usize>) -> SourceSpan {
     SourceSpan::new(id, position(text, at.start), position(text, at.end))
 }
 

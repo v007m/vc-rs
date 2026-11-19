@@ -53,7 +53,7 @@ pub fn unit(id: SourceFileId, source: &SourceFile, (tools, strings): (&Tools, &m
         let (script, diagnostics) = script::strip(id, source);
         return FileUnit { kind: None, root: None, parts: IndexMap::new(), script, document: None, diagnostics };
     }
-    if graphql::is_document(source.path.as_str()) {
+    if graphql::is_text(source.path.as_str()) {
         let (document, diagnostics) = graphql::read_file(id, source);
         return FileUnit { kind: None, root: None, parts: IndexMap::new(), script: None, document, diagnostics };
     }
