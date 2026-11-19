@@ -167,19 +167,19 @@ fn normalises_each_error_to_the_fields_it_has_with_a_dotted_path() {
         {"message": "odd", "path": [true, "x", "a.b", 1.5, -1]},
         {"path": "not a list"},
     ]});
-    let expected = json!([
-        {"message": "no", "path": "users[2].email", "code": "FORBIDDEN", "extensions": {"code": "FORBIDDEN", "ms": 5}},
-        {"message": "odd", "path": "true.x[\"a.b\"][\"1.5\"][-1]"},
-        {},
-    ]);
+    let expected = vec![
+        json!({"message": "no", "path": "users[2].email", "code": "FORBIDDEN", "extensions": {"code": "FORBIDDEN", "ms": 5}}),
+        json!({"message": "odd", "path": "true.x[\"a.b\"][\"1.5\"][-1]"}),
+        json!({}),
+    ];
     assert_eq!(normalised(Some(&body)), Ok(expected));
 }
 
 #[test]
 fn a_response_without_errors_or_with_null_has_an_empty_list_and_anything_else_is_no_graphql_response() {
-    assert_eq!(normalised(Some(&json!({"data": {}}))), Ok(json!([])));
-    assert_eq!(normalised(Some(&json!({"errors": []}))), Ok(json!([])));
-    assert_eq!(normalised(Some(&json!({"errors": null}))), Ok(json!([])), "null is no errors (D363)");
+    assert_eq!(normalised(Some(&json!({"data": {}}))), Ok(Vec::new()));
+    assert_eq!(normalised(Some(&json!({"errors": []}))), Ok(Vec::new()));
+    assert_eq!(normalised(Some(&json!({"errors": null}))), Ok(Vec::new()), "null is no errors (D363)");
     assert_eq!(passed(&judged(&[listed(&[])], &json!({"data": null, "errors": null}))), [(true, None)]);
     assert_eq!(normalised(Some(&json!({"errors": {}}))), Err("`errors` is not a list"));
     assert_eq!(normalised(Some(&json!(1))), Err("the body is not a GraphQL response"));

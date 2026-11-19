@@ -151,11 +151,11 @@ impl Pairing {
 ///
 /// What the check reports as the actual value when `body` is not a GraphQL response (not a
 /// JSON object) or its `errors` is not a list.
-pub fn normalised(body: Option<&Value>) -> Result<Value, &'static str> {
+pub fn normalised(body: Option<&Value>) -> Result<Vec<Value>, &'static str> {
     let Some(body) = body.and_then(Value::as_object) else { return Err("the body is not a GraphQL response") };
     match body.get("errors") {
-        None | Some(Value::Null) => Ok(Value::Array(Vec::new())),
-        Some(Value::Array(errors)) => Ok(Value::Array(errors.iter().map(error).collect())),
+        None | Some(Value::Null) => Ok(Vec::new()),
+        Some(Value::Array(errors)) => Ok(errors.iter().map(error).collect()),
         Some(_) => Err("`errors` is not a list"),
     }
 }

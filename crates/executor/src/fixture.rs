@@ -131,6 +131,7 @@ impl Fixture {
             expect,
             save,
             save_on: Matcher::Status(vec![StatusPattern::Class(2)]),
+            save_on_written: false,
             cleanup,
             hooks,
             deprecated: false,

@@ -12,13 +12,14 @@ use vc_model::{
 };
 
 use super::flight::{Flight, Halted};
+use super::held::Held;
 use super::hooks::{self, HookBridge};
 use super::protocol::{ProtocolRuntime, ProtocolRuntimes};
 use super::request;
 use super::{ActionExecutor, ActionRequest};
 use super::{auth, http_retry};
 use crate::check::{self, Judge, MatcherRegistry, Subject};
-use crate::{ActionReport, Call, PendingCleanup, Pipeline, PipelineParts, Render, Saved};
+use crate::{ActionReport, Call, PendingCleanup, Pipeline, PipelineParts, Redactor, Render, Saved};
 
 /// The per-attempt limit when neither the api nor the config's `defaults` sets a `timeout`.
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
@@ -31,7 +32,10 @@ const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
 /// 2xx response it registers the api's `cleanup` with its vars rendered against the response,
 /// whatever the checks say, unless the action is `keep` or is itself a cleanup. Only when every
 /// check holds does it save the api's `save` values, when the status matches the api's `saveOn`
-/// (D191), and then the action's.
+/// (D191), and then the action's. A response with GraphQL errors registers no cleanup and, under
+/// the default `saveOn`, runs no api `save` (V5129); its errors are listed as V5128 when no
+/// errors check ran, the step's own or one it inherits from its api (D123, D365), and a 2xx one
+/// its runtime cannot read fails (V5124, D345). Every warning is masked by the run's redactor.
 #[derive(Clone)]
 pub struct CallExecutor {
     parts: PipelineParts,
@@ -78,7 +82,7 @@ impl CallExecutor {
             timeout,
             ctx: SendContext::default(),
         };
-        let trip = self.flight(request, &mut render, (api, action, runtime))?;
+        let trip = self.flight(request, &mut render, (api, action, Arc::clone(&runtime)))?;
         let exchange = match &action.poll {
             Some(poll) => trip.poll(&mut render, (call, poll)).await?,
             None => trip.send(call).await?,
@@ -86,16 +90,10 @@ impl CallExecutor {
         let response = trip.bind(&mut render, &exchange);
         let expected = judged(request, action, api);
         let checks = trip.judge(&render, (&*expected, subject(&response, &exchange))).await;
-        let registers = !action.keep && request.frame.given.is_none() && exchange.response.status.is_success();
-        let cleanups = if registers { cleanup(&render, api)? } else { None };
-        let specs: Vec<_> = self.api_saves(&render, api, &exchange).into_iter().chain([&action.save]).collect();
-        let saved = check::verdict(&checks).map_or_else(|| saves(&render, &specs), Err);
-        let mut report = ActionReport { cleanups: cleanups.into_iter().collect(), checks, ..ActionReport::passed() };
-        match saved {
-            Ok(saved) => report.saved = saved,
-            Err(failure) => report.outcome = ActionOutcome::Failed(failure),
-        }
-        let warnings = render.warnings();
+        let held = Held::new(runtime.errors(&response));
+        let answered = Answered { request, action, api, exchange: &exchange };
+        let report = self.settle(&render, &answered, (checks, &held))?;
+        let warnings = masked(&request.cx.redactor, render.warnings().into_iter().chain(report.warnings)).await;
         Ok(ActionReport {
             response: Some(response),
             fakes: render.into_memo(),
@@ -105,11 +103,43 @@ impl CallExecutor {
         })
     }
 
-    /// The api's `save`, when the response's status matches its `saveOn` (D191).
-    fn api_saves<'a>(&self, render: &Render<'_>, api: &'a Api, exchange: &Exchange) -> Option<&'a SaveSpec> {
+    /// The report of an `answered` call judged by `checks`: its cleanup and saves, each held back
+    /// by the response's errors as `held` says (D345), and the warnings that gives (D361). A
+    /// response its runtime could not read is the first failed check (V5124); a save held back
+    /// while a check failed was not going to run (no V5129).
+    fn settle(
+        &self,
+        render: &Render<'_>,
+        answered: &Answered<'_>,
+        (checks, held): (Vec<CheckResult>, &Held),
+    ) -> Result<ActionReport, Failure> {
+        let Answered { request, action, api, exchange } = *answered;
+        let registers = !action.keep && request.frame.given.is_none() && exchange.response.status.is_success();
+        let cleanups = if registers && held.clean() { cleanup(render, api)? } else { None };
+        let checks = held.reported(checks, (Origin::Action(request.action), action.span));
+        let failure = check::verdict(&checks);
+        let on_status = failure.is_none() && self.on_status(render, api, exchange);
+        let api_saves = on_status && held.saves(api);
+        let withheld = (registers && api.cleanup.is_some() && !held.clean())
+            || (on_status && !api_saves && !api.save.values.is_empty());
+        let specs: Vec<_> = api_saves.then_some(&api.save).into_iter().chain([&action.save]).collect();
+        let saved = failure.map_or_else(|| saves(render, &specs), Err);
+        let warnings = held.warnings(&checks, withheld).into_iter();
+        let warnings = warnings.map(|warning| warning.at(request.action)).collect();
+        let mut report =
+            ActionReport { cleanups: cleanups.into_iter().collect(), checks, warnings, ..ActionReport::passed() };
+        match saved {
+            Ok(saved) => report.saved = saved,
+            Err(failure) => report.outcome = ActionOutcome::Failed(failure),
+        }
+        Ok(report)
+    }
+
+    /// Whether the response's status matches the api's `saveOn` (D191).
+    fn on_status(&self, render: &Render<'_>, api: &Api, exchange: &Exchange) -> bool {
         let status = Value::from(exchange.response.status.as_u16());
         let judge = Judge::new(&self.matchers, render);
-        (judge.matches(&api.save_on, Some(&status)) == Ok(true)).then_some(&api.save)
+        judge.matches(&api.save_on, Some(&status)) == Ok(true)
     }
 
     /// The call's flight: the pipeline from these parts with the api's retry (D143), auth and
@@ -129,6 +159,26 @@ impl CallExecutor {
         let read = (Arc::clone(&self.matchers), runtime);
         Ok(Flight::new(parts, (hooks::request_hooks(program, api), bridge), read))
     }
+}
+
+/// A call that got its answer: what it ran, as run.
+#[derive(Clone, Copy)]
+struct Answered<'a> {
+    request: &'a ActionRequest,
+    action: &'a Action,
+    api: &'a Api,
+    exchange: &'a Exchange,
+}
+
+/// `warnings` with the run's masked values hidden from their messages, by the built-in masking
+/// and the rules, so the report holds none; the event bus masks them again on the way out
+/// (`RedactingSink`), which is harmless.
+async fn masked(redactor: &Redactor, warnings: impl Iterator<Item = Failure>) -> Vec<Failure> {
+    let mut masked = Vec::new();
+    for warning in warnings {
+        masked.push(Failure { message: redactor.masked_text(&warning.message).await, ..warning });
+    }
+    masked
 }
 
 /// Evaluates `checks` against `subject`, masked by the run's redactor so neither the results

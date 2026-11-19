@@ -1,0 +1,86 @@
+---
+title: "V5128 — The response has GraphQL errors"
+description: "A call to a graphql api got a response with errors, and no errors check ran, the step's own or one it inherits from its api: there is none, or it is a load iteration with checks: api, which skips the step's own."
+sidebar:
+  label: "V5128 The response has GraphQL errors"
+  order: 5128
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="warning" variant="caution" /> <Badge text="Run time" variant="note" />
+
+| | |
+| --- | --- |
+| Code | `V5128` |
+| Category | V5xxx: Run time |
+| Severity | warning |
+| Certain fix | none; `vc check --fix` leaves this one to you |
+
+A call to a `graphql` api got a response with `errors`, and no errors check ran, the step's own or one it inherits from its
+api: there is none, or it is a load iteration with `checks: api`, which skips the step's own. GraphQL errors pass by default, so the step keeps its
+verdict, and this warning lists each error as `CODE at path: message` so that an error nobody asserted stays visible.
+When the errors are part of the behaviour under test, pin them with `expect.errors`: a passing check is silent, and a
+different error fails the step (V5123). When they should not happen, `errors: none` fails the step on them. Here the
+server hides `secretNote` with a `FORBIDDEN` error that the test does not check.
+
+## Wrong
+
+```yaml title="services/accounts/accounts.api.yaml"
+type: graphql
+apis:
+  - id: getSecretNote
+    body:
+      query: 'query GetSecretNote($id: ID!) { user(id: $id) { name secretNote } }'
+      variables:
+        id: "2"
+```
+
+```yaml title="services/accounts/privacy.test.yaml"
+tests:
+  - id: hidesSecretNote
+    call: accounts#getSecretNote
+    expect:
+      body:
+        match:
+          data.user.secretNote: null
+```
+
+## Right
+
+```yaml title="services/accounts/accounts.api.yaml"
+type: graphql
+apis:
+  - id: getSecretNote
+    body:
+      query: 'query GetSecretNote($id: ID!) { user(id: $id) { name secretNote } }'
+      variables:
+        id: "2"
+```
+
+```yaml title="services/accounts/privacy.test.yaml"
+tests:
+  - id: hidesSecretNote
+    call: accounts#getSecretNote
+    expect:
+      errors: [{code: FORBIDDEN, path: user.secretNote}]
+      body:
+        match:
+          data.user.secretNote: null
+```
+
+
+## Explain it in your terminal
+
+The same page is built into the binary, so this works anywhere, even outside a project:
+
+```console
+$ vc explain V5128
+```
+
+## Related
+
+- [All diagnostic codes](/vc-rs/reference/diagnostics/)
+- [`vc explain`](/vc-rs/reference/cli/explain/)
+- [`vc check`](/vc-rs/reference/cli/check/)
+- [Errors and fixes](/vc-rs/guides/errors-and-fixes/)

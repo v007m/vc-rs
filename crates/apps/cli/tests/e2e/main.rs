@@ -24,6 +24,7 @@ mod explain;
 mod generated;
 mod graphql;
 mod graphql_errors;
+mod graphql_saves;
 mod history;
 mod hooks;
 mod import;

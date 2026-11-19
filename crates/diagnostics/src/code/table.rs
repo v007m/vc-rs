@@ -117,5 +117,8 @@ code_table! {
     V5120 = 5120, Warning, "A run cannot use a plugin in the config";
     V5121 = 5121, Warning, "The project's report folder leads outside the project";
     V5123 = 5123, Error, "An `expect.errors` check failed";
+    V5124 = 5124, Error, "The response is not a GraphQL response";
     V5127 = 5127, Error, "The server refused the client certificate";
+    V5128 = 5128, Warning, "The response has GraphQL errors";
+    V5129 = 5129, Warning, "Save skipped: the response has GraphQL errors";
 }

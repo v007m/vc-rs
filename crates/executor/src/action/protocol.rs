@@ -19,6 +19,16 @@ pub trait ProtocolRuntime: fmt::Debug + Send + Sync {
     fn request(&self, render: &Render<'_>, api: &Api, call: (ActionId, &Action)) -> Result<RenderedRequest, Failure>;
     /// The `response` root a call's checks, saves and later actions read.
     fn response(&self, exchange: &Exchange) -> Value;
+    /// The errors `response` (the root [`Self::response`] gave) carries, normalised, which hold
+    /// back an api's default `save` and its `cleanup` (D345); none for a type without them.
+    ///
+    /// # Errors
+    ///
+    /// A failure when `response` is not one this type answers with.
+    fn errors(&self, response: &Value) -> Result<Vec<Value>, Failure> {
+        let _ = response;
+        Ok(Vec::new())
+    }
 }
 
 /// `http`: the api's method, URL, headers and body as written; the response as received.

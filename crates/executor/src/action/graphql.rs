@@ -1,14 +1,17 @@
 //! The runtime of a `graphql` api (D343): a JSON `POST` of `{query, variables, operationName}`.
-//! The response stays the HTTP one; `expect.errors` and the normalised view come later.
+//! The response stays the HTTP one; its errors are read normalised, and a 2xx body that is not a
+//! GraphQL response fails the call (V5124, D345).
 
 use http::HeaderValue;
 use http::header::ACCEPT;
 use serde_json::{Map, Value};
+use vc_diagnostics::Code;
 use vc_model::{Action, ActionId, Api, Exchange, Failure, GraphqlBody, Protocol, RenderedRequest};
 
 use super::protocol::ProtocolRuntime;
 use super::request;
 use crate::Render;
+use crate::check;
 
 /// The `accept` a `graphql` call sends when no level sets one (GraphQL over HTTP).
 const ACCEPTS: &str = "application/graphql-response+json, application/json;q=0.9";
@@ -34,6 +37,29 @@ impl ProtocolRuntime for GraphqlRuntime {
     fn response(&self, exchange: &Exchange) -> Value {
         request::received(exchange)
     }
+
+    /// The body's errors. A 2xx body that is not a JSON object with `data` or `errors`, or whose
+    /// `errors` is not a list, is V5124; any other status is left to the status check.
+    fn errors(&self, response: &Value) -> Result<Vec<Value>, Failure> {
+        let status = response.get("status").and_then(Value::as_u64).unwrap_or_default();
+        match read(response.get("body")) {
+            Ok(errors) => Ok(errors),
+            Err(_) if !(200..300).contains(&status) => Ok(Vec::new()),
+            Err(what) => Err(Failure::new(format!("The response is not a GraphQL response: {what}"))
+                .with_code(Code::V5124.to_string())),
+        }
+    }
+}
+
+/// The errors of a GraphQL response `body`, normalised. A null `errors` is none (D363), so a
+/// body whose only key is that is not a GraphQL response either.
+fn read(body: Option<&Value>) -> Result<Vec<Value>, &'static str> {
+    let object = body.and_then(Value::as_object);
+    let has = |key| object.and_then(|object| object.get(key)).is_some_and(|value: &Value| !value.is_null());
+    if !(object.is_some_and(|object| object.contains_key("data")) || has("errors")) {
+        return Err("the body is not a JSON object with `data` or `errors`");
+    }
+    check::normalised(body)
 }
 
 /// The JSON a `graphql` api sends: its document as written, the rendered `variables`, and its
