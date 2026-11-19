@@ -720,7 +720,7 @@ Round 71 (19 November 2026; Sarath, on key copies inside p12-keystore):
 
 | # | Topic | Decision | Supersedes |
 | --- | --- | --- | --- |
-| D359 | PKCS#12 key copies | p12-keystore's decrypted bags and its parsed `PrivateKey` join D355's list of dependency-held key copies vc cannot wipe; vc zeroizes its own copy as soon as decoding is done. | D355 (adds to its list) |
+| D359 | PKCS#12 key copies | p12-keystore's decrypted bags and its parsed `PrivateKey` join D355's list of dependency-held key copies vc cannot wipe. vc's own copy is held in zeroizing memory and wiped when the identity is dropped, as for PEM. | D355 (adds to its list) |
 
 ## Open
 
