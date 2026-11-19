@@ -1,10 +1,11 @@
 ---
 source: crates/compiler/tests/golden.rs
+assertion_line: 58
 input_file: crates/compiler/tests/cases/v2105_tls_var/project
 ---
 {
   "summary": {
-    "errors": 1,
+    "errors": 3,
     "warnings": 0,
     "infos": 0
   },
@@ -12,13 +13,34 @@ input_file: crates/compiler/tests/cases/v2105_tls_var/project
     {
       "code": "V2105",
       "severity": "error",
-      "message": "`http.tls` reads `var.perRunDir`, which has no value when the run starts",
+      "message": "`http.tls` reads `var.certDir`, which has no value when the run starts under profile `staging`",
       "primary": {
         "span": {
           "path": "vibranium.config.yaml",
           "line": 19,
-          "column": 15,
+          "column": 9,
           "endLine": 19,
+          "endColumn": 23
+        },
+        "text": ""
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "`var.certDir` needs `run`; `http.tls` is read once when the run starts, so the vars it reads may read only `var`, `secret` and `env`"
+      ],
+      "fixes": []
+    },
+    {
+      "code": "V2105",
+      "severity": "error",
+      "message": "`http.tls` reads `var.perRunDir`, which has no value when the run starts",
+      "primary": {
+        "span": {
+          "path": "vibranium.config.yaml",
+          "line": 25,
+          "column": 15,
+          "endLine": 25,
           "endColumn": 31
         },
         "text": ""
@@ -27,6 +49,27 @@ input_file: crates/compiler/tests/cases/v2105_tls_var/project
       "notes": [],
       "help": [
         "`var.runDir` needs `run`; `http.tls` is read once when the run starts, so the vars it reads may read only `var`, `secret` and `env`"
+      ],
+      "fixes": []
+    },
+    {
+      "code": "V2105",
+      "severity": "error",
+      "message": "`http.tls` reads `var.issued`, which has no value when the run starts",
+      "primary": {
+        "span": {
+          "path": "vibranium.config.yaml",
+          "line": 28,
+          "column": 15,
+          "endLine": 28,
+          "endColumn": 32
+        },
+        "text": ""
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "`var.issued` needs a save, which runs after it is read; `http.tls` is read once when the run starts, so the vars it reads may read only `var`, `secret` and `env`"
       ],
       "fixes": []
     }

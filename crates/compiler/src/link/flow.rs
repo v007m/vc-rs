@@ -58,20 +58,25 @@ struct Called<'a> {
 }
 
 impl<'p, 'a> Flow<'p, 'a> {
-    /// The config's own values, then `beforeRun` and `afterRun`; gives what every test sees.
+    /// The config's own values, then `beforeRun`, then `http.tls`, which is read when the run
+    /// starts and sees what `beforeRun` saved, then `afterRun`; gives what every test sees.
     fn config(&mut self, source: &'p Source<'a>) -> Scope<'a> {
         let root = source.root;
         let base = Scope::default().with(Layer::vars(source, root));
         let mut keys = vec!["auth"];
         keys.extend(RUN_BLOCKS);
-        self.spot(source, (root, &project::holes(root, &keys)), &base);
+        let tls = project::tls(root);
+        let mut holes = project::holes(root, &keys);
+        holes.extend(tls.map(|tls| tls.span));
+        self.spot(source, (root, &holes), &base);
         self.auth(source, &base);
-        if let Some(tls) = project::tls(root) {
-            self.checker.run_start(source, tls, &base);
-        }
         let mut before = base.clone();
         let shared = self.block(source, project::list(root, "beforeRun"), (&mut before, Saved::Shared));
         let run = base.with(shared);
+        if let Some(tls) = tls {
+            self.spot(source, (tls, &[]), &run);
+            self.checker.run_start(source, tls, &run);
+        }
         self.block(source, project::list(root, "afterRun"), (&mut run.clone(), Saved::Plain));
         run
     }

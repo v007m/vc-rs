@@ -6,8 +6,9 @@
 //! its own name reads the next level out. Only the definitions every profile shares are followed
 //! here; the engine checks the active profiles' ones before it renders the rows.
 //!
-//! `http.tls` is rendered once when the run starts, so the vars it reads are followed the same
-//! way, to `var`, `secret` and `env` alone (V2105 at the reference, D350).
+//! `http.tls` is rendered once when the run starts, after `beforeRun`, so the vars it reads are
+//! followed the same way, to `var`, `secret` and `env` alone, for the base `vars` and for each
+//! profile's (V2105 at the first reference to each var that has no value then, D350).
 
 use std::collections::HashSet;
 
@@ -47,16 +48,18 @@ const RUN_START_VAR_HELP: &str =
 /// Whether a template read before the run may read `reference`'s root.
 type Readable = fn(&Reference, &PipeRegistry) -> bool;
 
-/// How the vars a template read before the run are followed: which roots they may read, and
-/// the vars already followed, each with the level its lookup starts at.
-struct Follow {
+/// How the vars a template read before the run are followed: which roots they may read, the
+/// profile whose `vars` they are looked up in (`""` for the base ones alone), and the vars
+/// already followed, each with the level its lookup starts at.
+struct Follow<'f> {
     readable: Readable,
+    profile: &'f str,
     seen: HashSet<(String, usize)>,
 }
 
-impl Follow {
-    fn new(readable: Readable) -> Self {
-        Self { readable, seen: HashSet::new() }
+impl<'f> Follow<'f> {
+    fn new(readable: Readable, profile: &'f str) -> Self {
+        Self { readable, profile, seen: HashSet::new() }
     }
 }
 
@@ -80,7 +83,7 @@ impl Checker<'_, '_> {
             return;
         }
         let found = refs(source, rows.span);
-        let mut follow = Follow::new(row_readable);
+        let mut follow = Follow::new(row_readable, "");
         let needed = found.into_iter().find_map(|reference| {
             let needed = self.needed((reference, 0), scope, &mut follow)?;
             Some((var_name(reference)?.to_owned(), needed))
@@ -90,20 +93,34 @@ impl Checker<'_, '_> {
         self.diagnostics.push(Diagnostic::new(Code::V2105, rows.span, message).help(help));
     }
 
-    /// V2105 at each var `http.tls` reads that, directly or through the vars it reads in turn,
-    /// reads a root other than `var`, `secret` and `env`, which has no value when the run
-    /// starts. A root `tls` reads itself is the template check's V2105.
+    /// V2105 at the first reference in `http.tls` to a var that, directly or through the vars
+    /// it reads in turn, has no value when the run starts: one only a save sets, or one that
+    /// reads a root other than `var`, `secret` and `env`. `scope` holds what `beforeRun` saves.
+    /// The base `vars` are followed first, then each profile's; each var at fault is reported
+    /// once. A root `tls` reads itself is the template check's V2105.
     pub fn run_start(&mut self, source: &Source<'_>, tls: &Node, scope: &Scope<'_>) {
-        for reference in refs(source, tls.span) {
-            let Some(Needed { var, root }) = self.needed((reference, 0), scope, &mut Follow::new(run_start_readable))
-            else {
-                continue;
-            };
-            let read = var_name(reference).unwrap_or_default();
-            let message = format!("`http.tls` reads `var.{read}`, which has no value when the run starts");
-            let help = format!("`var.{var}` needs {root}; {RUN_START_VAR_HELP}");
-            self.diagnostics.push(Diagnostic::new(Code::V2105, reference.span, message).help(help));
+        let reads = refs(source, tls.span);
+        let profiles: Vec<String> = std::iter::once(String::new()).chain(self.profiles.iter().cloned()).collect();
+        let mut reported = HashSet::new();
+        for profile in &profiles {
+            let mut follow = Follow::new(run_start_readable, profile);
+            for reference in &reads {
+                let Some(needed) = self.needed((reference, 0), scope, &mut follow) else { continue };
+                if reported.insert(needed.var.clone()) {
+                    self.run_start_unread(reference, &needed, profile);
+                }
+            }
         }
+    }
+
+    /// V2105 at `reference`, a var `http.tls` reads, when `needed` says what it lacks under
+    /// `profile` (`""` for the base `vars`).
+    fn run_start_unread(&mut self, reference: &Reference, Needed { var, root }: &Needed, profile: &str) {
+        let read = var_name(reference).unwrap_or_default();
+        let under = if profile.is_empty() { String::new() } else { format!(" under profile `{profile}`") };
+        let message = format!("`http.tls` reads `var.{read}`, which has no value when the run starts{under}");
+        let help = format!("`var.{var}` needs {root}; {RUN_START_VAR_HELP}");
+        self.diagnostics.push(Diagnostic::new(Code::V2105, reference.span, message).help(help));
     }
 
     /// What the var `reference` names needs that is not there before the run, looked up from the
@@ -111,7 +128,12 @@ impl Checker<'_, '_> {
     /// root, one no level sets (V2101 says so), one only a save sets read with `default`, which
     /// then gives its default, or one already followed. A defined var read with `default` is
     /// still followed, since the rows render its definition.
-    fn needed(&self, (reference, from): (&Reference, usize), scope: &Scope<'_>, follow: &mut Follow) -> Option<Needed> {
+    fn needed(
+        &self,
+        (reference, from): (&Reference, usize),
+        scope: &Scope<'_>,
+        follow: &mut Follow<'_>,
+    ) -> Option<Needed> {
         if reference.ns != Namespace::Var {
             return None;
         }
@@ -119,7 +141,7 @@ impl Checker<'_, '_> {
         if !follow.seen.insert((name.to_owned(), from)) {
             return None;
         }
-        match scope.origin(name, from) {
+        match scope.origin(name, (from, follow.profile)) {
             Origin::Unset => None,
             Origin::Saved if self.takes_missing(reference) => None,
             Origin::Saved => Some(Needed { var: name.to_owned(), root: SAVED.to_owned() }),
@@ -136,7 +158,7 @@ impl Checker<'_, '_> {
         &self,
         (name, value, at): (&str, SourceSpan, usize),
         scope: &Scope<'_>,
-        follow: &mut Follow,
+        follow: &mut Follow<'_>,
     ) -> Option<Needed> {
         let source = self.project.sources.iter().find(|source| source.file == value.file)?;
         let reads = refs(source, value);
