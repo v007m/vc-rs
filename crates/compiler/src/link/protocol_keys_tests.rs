@@ -243,3 +243,20 @@ fn a_call_takes_a_key_unless_the_type_it_reaches_leaves_it_out() {
     assert_eq!(takes("body"), [false, true, true]);
     assert_eq!(takes("headers"), [true, true, true]);
 }
+
+#[test]
+fn a_graphql_block_on_a_file_of_another_type_is_v2213_with_its_removal_as_the_fix() {
+    let apis = "baseUrl: http://x\ngraphql:\n  path: /api/graphql\napis:\n  - id: me\n    type: graphql\n    body: {query: '{ me { id } }'}\n";
+    let tests = "tests:\n  - id: getsMe\n    call: users#me\n";
+    let compiled = compile(apis, tests);
+    let found: Vec<_> = compiled.diagnostics.iter().collect();
+    let [block] = found.as_slice() else { panic!("{:?}", compiled.diagnostics) };
+    assert_eq!((block.code, block.message.as_str()), (Code::V2213, "`graphql` does not apply to a `http` file"));
+    assert_eq!(block.primary.span.start.line, 2);
+    assert_eq!(block.help, ["remove `graphql`, or set the file's `type: graphql`; only a `graphql` file reads it"]);
+    let [fix] = block.fixes.as_slice() else { panic!("{:?}", block.fixes) };
+    assert_eq!((fix.title.as_str(), fix.certain), ("Remove `graphql`", true));
+    assert_eq!(&apis[fix.edits[0].range.clone()], "graphql:\n  path: /api/graphql\n");
+    let typed = apis.replace("baseUrl: http://x\n", "baseUrl: http://x\ntype: graphql\n");
+    assert!(compile(&typed, tests).diagnostics.is_empty());
+}
