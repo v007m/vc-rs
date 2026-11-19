@@ -201,11 +201,12 @@ impl<'a> Documents<'a> {
         self.schema_paths.iter().enumerate().filter_map(read).collect()
     }
 
-    /// The schema file `id`, whose unit is `unit`: a data file, else GraphQL text that parses.
+    /// The schema file `id`, whose unit is `unit`: a data file, else GraphQL text that parses. A
+    /// schema path ends in a schema suffix, so a unit with a tree is a data file, never one of a kind.
     fn schema_file(&self, id: SourceFileId, unit: &'a FileUnit) -> Option<Box<dyn SchemaFile + 'a>> {
         let text = self.files.get(id)?.text.as_str();
         match (&unit.root, &unit.document) {
-            (Some(root), _) if unit.kind.is_none() => Some(Box::new(Introspection(root, text))),
+            (Some(root), _) => Some(Box::new(Introspection(root, text))),
             (_, Some(_)) => Some(Box::new(Sdl(id, text))),
             _ => None,
         }
