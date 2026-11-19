@@ -761,6 +761,14 @@ Round 75 (19 November 2026; Sarath, on which `expect.errors` check silences V512
 | --- | --- | --- | --- |
 | D365 | V5128 is silenced only by an errors check that ran | Only an `expect.errors` check that was judged silences V5128. In a load iteration with `checks: api`, the step's own check is skipped, so the response's errors are listed as V5128. | D364 (refines: a check that ran) |
 
+Round 78 (20 November 2026; mTLS PR 5 review, small choices made under Sarath's delegation, closest to existing behaviour; Round 77 is GraphQL's):
+
+| # | Topic | Decision | Supersedes |
+| --- | --- | --- | --- |
+| D371 | The `mtls` auth type is a registry entry now | The `mtls` provider is registered with the other headless auth types and adds nothing to a request, since its `clientCert` picks the certificate. `AUTH_NEEDS` lists `mtls` with no settings, and `clientCert` is in a second `vc_model` table, `AUTH_OWN_NEEDS`, for keys an auth needs outside its settings, which V1005 and `vc new auth` read too. `vc new auth --type mtls` asks for `clientCert`. | — |
+| D372 | `none` is not a client certificate ID | An `http.tls.clients` entry with `id: none` is V2006, since `clientCert: none` means no certificate. | — |
+| D373 | A client certificate's profiles are checked | Each ID in an `http.tls.clients` entry's `profiles` must be a profile the config defines (V2002, with the closest one as a certain fix), as for a file's `profiles`. | — |
+
 ## Open
 
 All decisions needed for the PRD and technical design are settled. The language is decided by the spike (D6, D36, D37, D41).

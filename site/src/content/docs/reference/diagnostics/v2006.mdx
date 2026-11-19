@@ -19,7 +19,7 @@ import { Badge } from '@astrojs/starlight/components';
 
 The ID is a name Vibranium reserves for a template root: `var`, `env`, `secret`, `response`, `request`, `example`,
 `item`, `iteration`, `fake`, `dataset` or `run`. An action named `response` would make `${response.body}` ambiguous, so
-choose another ID.
+choose another ID. An `http.tls.clients` entry cannot have the ID `none`, since `clientCert: none` means no certificate.
 
 ## Wrong
 

@@ -1,6 +1,6 @@
 ---
 title: "V2002 — Unknown auth, profile, dataset or generator"
-description: "An auth, profile, dataset or generator is referred to by an ID that is not defined."
+description: "An auth, profile, dataset, generator or client certificate is referred to by an ID that is not defined."
 sidebar:
   label: "V2002 Unknown auth, profile, dataset or generator"
   order: 2002
@@ -17,8 +17,10 @@ import { Badge } from '@astrojs/starlight/components';
 | Severity | error |
 | Certain fix | close match |
 
-An `auth`, profile, dataset or generator is referred to by an ID that is not defined. Auths and profiles are defined in
-`vibranium.config.yaml`; the diagnostic suggests the closest defined ID.
+An `auth`, profile, dataset, generator or client certificate is referred to by an ID that is not defined. Auths,
+profiles and client certificates (`http.tls.clients`, named by an auth's `clientCert`) are defined in
+`vibranium.config.yaml`, and a client's `profiles` must name defined profiles too; the diagnostic suggests the closest
+defined ID.
 
 ## Wrong
 

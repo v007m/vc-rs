@@ -288,7 +288,7 @@ const SCOPE_ROOTS: &[(Scope, AddRoots)] = &[
 ];
 
 /// The roots a setting rendered once when the run starts reads (D350).
-const RUN_START_ROOTS: &[Namespace] = &[Namespace::Var, Namespace::Secret, Namespace::Env];
+pub const RUN_START_ROOTS: &[Namespace] = &[Namespace::Var, Namespace::Secret, Namespace::Env];
 
 /// Why a run-start setting reads only [`RUN_START_ROOTS`].
 const RUN_START_HELP: &str = "`http.tls` is read once when the run starts, so it reads only `var`, `secret` and `env`";

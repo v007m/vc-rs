@@ -66,6 +66,9 @@ impl<'p, 'a> Flow<'p, 'a> {
         keys.extend(RUN_BLOCKS);
         self.spot(source, (root, &project::holes(root, &keys)), &base);
         self.auth(source, &base);
+        if let Some(tls) = project::tls(root) {
+            self.checker.run_start(source, tls, &base);
+        }
         let mut before = base.clone();
         let shared = self.block(source, project::list(root, "beforeRun"), (&mut before, Saved::Shared));
         let run = base.with(shared);

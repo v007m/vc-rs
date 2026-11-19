@@ -117,6 +117,7 @@ cases!(
     v1017_host_pattern,
     v2002_unknown_client_cert,
     v2105_tls_root,
+    v2105_tls_var,
     v2211_tls_lone_keys,
     v4013_literal_key,
     v2201_one_of,

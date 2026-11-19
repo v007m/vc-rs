@@ -1,11 +1,10 @@
 ---
 source: crates/compiler/tests/golden.rs
-assertion_line: 44
 input_file: crates/compiler/tests/cases/v2002_unknown_client_cert/project
 ---
 {
   "summary": {
-    "errors": 1,
+    "errors": 2,
     "warnings": 0,
     "infos": 0
   },
@@ -13,13 +12,49 @@ input_file: crates/compiler/tests/cases/v2002_unknown_client_cert/project
     {
       "code": "V2002",
       "severity": "error",
+      "message": "unknown profile `stagng`",
+      "primary": {
+        "span": {
+          "path": "vibranium.config.yaml",
+          "line": 12,
+          "column": 25,
+          "endLine": 12,
+          "endColumn": 31
+        },
+        "text": "the config has no such profile"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "did you mean `staging`?"
+      ],
+      "fixes": [
+        {
+          "title": "Replace with staging",
+          "certain": true,
+          "edits": [
+            {
+              "path": "vibranium.config.yaml",
+              "range": {
+                "start": 198,
+                "end": 204
+              },
+              "newText": "staging"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "V2002",
+      "severity": "error",
       "message": "unknown client certificate `partnerCrt`",
       "primary": {
         "span": {
           "path": "vibranium.config.yaml",
-          "line": 14,
+          "line": 16,
           "column": 17,
-          "endLine": 14,
+          "endLine": 16,
           "endColumn": 27
         },
         "text": "the config has no such client certificate"
@@ -37,8 +72,8 @@ input_file: crates/compiler/tests/cases/v2002_unknown_client_cert/project
             {
               "path": "vibranium.config.yaml",
               "range": {
-                "start": 212,
-                "end": 222
+                "start": 260,
+                "end": 270
               },
               "newText": "partnerCert"
             }

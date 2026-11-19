@@ -1,5 +1,6 @@
-//! References between items: apis and tests (V2003), auths and profiles (V2002), and the
-//! report formats (V2302).
+//! References between items: apis and tests (V2003); auths, profiles and client certificates
+//! (V2002), including the profiles an `http.tls.clients` entry names; and the report formats
+//! (V2302).
 
 use std::collections::{HashMap, HashSet};
 
@@ -76,6 +77,9 @@ pub fn check(project: &Project<'_>, diagnostics: &mut Diagnostics) {
     }
     let auths = project.config().map(|config| project::list(config.root, "auth")).unwrap_or_default();
     diagnostics.extend(auths.iter().filter_map(|auth| globals.client_cert(auth)));
+    let clients = project.config().map(|config| project::tls_clients(config.root)).unwrap_or_default();
+    let profiles = clients.iter().flat_map(|client| project::list(client, "profiles"));
+    diagnostics.extend(profiles.filter_map(|profile| globals.profile(profile)));
     if let Some(reports) = project.config().and_then(|config| config.root.get("reports")) {
         diagnostics.extend(project::list(reports, "formats").iter().filter_map(|name| globals.format(name)));
     }
@@ -192,17 +196,16 @@ struct Globals<'a> {
 impl<'a> Globals<'a> {
     fn of(project: &Project<'a>) -> Self {
         let config = project.config().filter(|config| !config.broken);
-        let ids = |parent: Option<&'a Node>, key: &str| -> HashSet<&'a str> {
-            let items = parent.map(|parent| project::list(parent, key)).unwrap_or_default();
+        let root = config.map(|config| config.root);
+        let ids = |items: &'a [Node]| -> HashSet<&'a str> {
             items.iter().filter_map(|item| item.get("id")?.as_scalar()).map(|id| id.text.as_str()).collect()
         };
-        let root = config.map(|config| config.root);
-        let tls = root.and_then(|root| root.get("http")?.get("tls"));
+        let list = |key: &str| ids(root.map(|root| project::list(root, key)).unwrap_or_default());
         Self {
-            auth: ids(root, "auth"),
-            clients: ids(tls, "clients"),
-            profiles: ids(root, "profiles"),
-            plugins: ids(root, "plugins"),
+            auth: list("auth"),
+            clients: ids(root.map(project::tls_clients).unwrap_or_default()),
+            profiles: list("profiles"),
+            plugins: list("plugins"),
             known: config.is_some(),
         }
     }
@@ -223,7 +226,7 @@ impl<'a> Globals<'a> {
         self.unknown(id, &self.auth, "auth")
     }
 
-    /// V2002 for a file's `profiles` entry naming no profile.
+    /// V2002 for a file's or a client certificate's `profiles` entry naming no profile.
     fn profile(&self, id: &Node) -> Option<Diagnostic> {
         self.unknown(id, &self.profiles, "profile")
     }

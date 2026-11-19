@@ -1,4 +1,5 @@
-//! The ID tables: duplicates (V2001), reserved IDs (V2006) and file IDs (V2007).
+//! The ID tables: duplicates (V2001), reserved IDs (V2006), including a client certificate
+//! named `none`, and file IDs (V2007).
 
 use std::collections::HashMap;
 
@@ -6,6 +7,7 @@ use vc_diagnostics::{Code, Diagnostic, Diagnostics, Fix, TextEdit};
 use vc_model::{FileKind, SourceSpan};
 use vc_parser::Node;
 
+use super::build::NO_CLIENT_CERT;
 use super::project;
 use super::project::{Project, Source};
 
@@ -48,6 +50,8 @@ pub fn check(project: &Project<'_>, diagnostics: &mut Diagnostics) {
         within_file(source, diagnostics);
         diagnostics.extend(explicit_id(source));
     }
+    let clients = project.config().map(|config| project::tls_clients(config.root)).unwrap_or_default();
+    diagnostics.extend(clients.iter().filter_map(no_cert_id));
     let mut seen: HashMap<&str, SourceSpan> = HashMap::new();
     for source in &project.sources {
         let Some(id) = source.id.as_deref() else { continue };
@@ -80,6 +84,15 @@ fn within_file(source: &Source<'_>, diagnostics: &mut Diagnostics) {
             }
         }
     }
+}
+
+/// V2006 for an `http.tls.clients` entry with the ID `none`, which `clientCert: none` means
+/// sending no certificate.
+fn no_cert_id(client: &Node) -> Option<Diagnostic> {
+    let id = client.get("id").filter(|id| id.as_str() == Some(NO_CLIENT_CERT))?;
+    let message = format!("`{NO_CLIENT_CERT}` is a reserved name and cannot be a client certificate ID");
+    let diagnostic = Diagnostic::new(Code::V2006, id.span, message).label("reserved");
+    Some(diagnostic.help(format!("pick another ID; `clientCert: {NO_CLIENT_CERT}` sends no certificate")))
 }
 
 fn duplicate(id: &str, span: SourceSpan, first: SourceSpan) -> Diagnostic {

@@ -1,0 +1,10 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2105_tls_var/project
+---
+error[V2105]: `http.tls` reads `var.perRunDir`, which has no value when the run starts
+  --> vibranium.config.yaml:19:15
+   |
+19 |         cert: ${var.perRunDir}/partner.crt
+   |               ^^^^^^^^^^^^^^^^
+   = help: `var.runDir` needs `run`; `http.tls` is read once when the run starts, so the vars it reads may read only `var`, `secret` and `env`

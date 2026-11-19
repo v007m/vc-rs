@@ -1079,7 +1079,7 @@ Auth definitions live in `vibranium.config.yaml` under `auth`, are written once,
 | `oauth2Refresh` | `tokenUrl`, `clientId`, `clientSecret`, `refreshToken`, `scopes`, `audience` | For CI with a long-lived refresh token |
 | `flow` | `steps`, `apply`, `expiresIn`, `refreshBefore`, `refreshOn`, `cache` | Any sequence of requests that ends in credentials (below) |
 | `plugin` | `plugin`, `config` | Custom schemes through an auth plugin: `plugin` is the ID of an `auth` plugin in `plugins:`, and `config` is passed to its `auth/credentials` call. `config` is rendered like other auth settings, so a `${secret.x}` in it is sent to the plugin whatever the lock grants (writing it there is the grant), and stays masked in output. A plugin that is not ready or answers with no values fails the call with V5114 |
-| `mtls` | `clientCert` | Only presents a client certificate, and adds no headers (D350) |
+| `mtls` | `clientCert` | Only presents a client certificate, and adds no headers (D350, D371) |
 
 Any definition can also name a client certificate with `clientCert: <id>`, the ID of an `http.tls.clients` entry (see Client certificates). Every request made under the definition presents it, and so do the token posts of the `oauth2*` types, for certificate-bound tokens (RFC 8705). `clientCert: none` presents no certificate, even to a host that has one, for negative tests. `clientCert` is a literal ID, never a template.
 
@@ -1169,14 +1169,14 @@ The same definition serves every profile: under `--profile prod` it logs in to `
 | Key under `http.tls` | Type | Default | Purpose |
 | --- | --- | --- | --- |
 | `ca` | path or PEM, or a list of them | none | Extra trusted roots for every host, on top of the OS store |
-| `clients[].id` | camelCase, required | — | Named by `clientCert:` and shown in reports |
+| `clients[].id` | camelCase, required | — | Named by `clientCert:` and shown in reports. `none` is reserved (V2006) |
 | `clients[].name` | text | — | Display name |
-| `clients[].hosts` | list of `host`, `host:port` or `*.domain` | none (used only through `clientCert`) | Hosts that get this certificate without asking. `*` covers exactly one leftmost label; anything else is V1017, and a URL gets its host as a certain fix |
-| `clients[].profiles` | list of profile IDs | every profile | Only under these profiles, like `alerts[].profiles` |
+| `clients[].hosts` | list of `host`, `host:port` or `*.domain` | none (used only through `clientCert`) | Hosts that get this certificate without asking. `*` covers exactly one leftmost label; anything else is V1017, and a URL gets its host as a certain fix (quoted when it starts like `[::1]`) |
+| `clients[].profiles` | list of profile IDs | every profile | Only under these profiles, like `alerts[].profiles`; an unknown profile is V2002 |
 | `clients[].cert`, `clients[].key` | path or inline PEM | — | The PEM certificate chain (leaf first) and its private key |
 | `clients[].pkcs12`, `clients[].passphrase` | path; text | —; empty | A PKCS#12 bundle (`.p12`, `.pfx`) instead of `cert` and `key` |
 
-Each entry gives its certificate one way: `cert` and `key`, or `pkcs12`. Both, or neither, is V1016; `cert` without `key`, `key` without `cert`, or `passphrase` without `pkcs12` is V2211. A `clientCert` that names no entry is V2002. `cert`, `key`, `pkcs12`, `passphrase` and `ca` are templates, rendered once when the run starts, so they read only `var`, `secret` and `env` (any other root is V2105). A `key` written as inline PEM, or a `passphrase` written as text, is warned about (V4013): read them with `${secret.NAME}`; a rendered value that starts with `-----BEGIN` is inline PEM, and anything else is a path from the project root. A request presents the `clientCert` of its auth definition when it has one (`none` presents nothing); otherwise the first entry whose `hosts` match the URL's host and whose `profiles` include an active profile; otherwise none.
+Each entry gives its certificate one way: `cert` and `key`, or `pkcs12`. Both, or neither, is V1016; `cert` without `key`, `key` without `cert`, or `passphrase` without `pkcs12` is V2211. A `clientCert` that names no entry is V2002. `cert`, `key`, `pkcs12`, `passphrase` and `ca` are templates, rendered once when the run starts, so they read only `var`, `secret` and `env` (any other root is V2105). A var they read is held to the same roots, through the vars it reads in turn: with `runDir: ${run.id}`, `cert: ${var.runDir}/client.pem` is V2105 too. A `key` written as inline PEM, or a `passphrase` written as text, is warned about (V4013) and shows as `•••` in every diagnostic's excerpt: read them with `${secret.NAME}`; a rendered value that starts with `-----BEGIN` is inline PEM, and anything else is a path from the project root. A request presents the `clientCert` of its auth definition when it has one (`none` presents nothing); otherwise the first entry whose `hosts` match the URL's host and whose `profiles` include an active profile; otherwise none.
 
 Not built yet: `vc check` checks these keys and the program holds them, but a run does not load or send a certificate until #105 lands in full.
 

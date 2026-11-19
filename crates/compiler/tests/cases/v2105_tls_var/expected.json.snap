@@ -1,0 +1,34 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2105_tls_var/project
+---
+{
+  "summary": {
+    "errors": 1,
+    "warnings": 0,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "code": "V2105",
+      "severity": "error",
+      "message": "`http.tls` reads `var.perRunDir`, which has no value when the run starts",
+      "primary": {
+        "span": {
+          "path": "vibranium.config.yaml",
+          "line": 19,
+          "column": 15,
+          "endLine": 19,
+          "endColumn": 31
+        },
+        "text": ""
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "`var.runDir` needs `run`; `http.tls` is read once when the run starts, so the vars it reads may read only `var`, `secret` and `env`"
+      ],
+      "fixes": []
+    }
+  ]
+}
