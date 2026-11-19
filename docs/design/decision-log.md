@@ -716,6 +716,12 @@ Round 68 (19 November 2026; Sarath, on how far key zeroizing reaches):
 | --- | --- | --- | --- |
 | D355 | Zeroizing client keys | vc zeroizes its own copies of client-key material (the PEM text and the decoded DER). Copies held inside dependencies are a known limit, named in the LLD: pki-types' base64 scratch buffer during PEM decoding, rustls's SEC1→PKCS#8 temporary, and ring's parsed key pair, which lives as long as the transport. | D353 (in part: its wording "key bytes are zeroized") |
 
+Round 71 (19 November 2026; Sarath, on key copies inside p12-keystore):
+
+| # | Topic | Decision | Supersedes |
+| --- | --- | --- | --- |
+| D359 | PKCS#12 key copies | p12-keystore's decrypted bags and its parsed `PrivateKey` join D355's list of dependency-held key copies vc cannot wipe; vc zeroizes its own copy as soon as decoding is done. | D355 (adds to its list) |
+
 ## Open
 
 All decisions needed for the PRD and technical design are settled. The language is decided by the spike (D6, D36, D37, D41).
