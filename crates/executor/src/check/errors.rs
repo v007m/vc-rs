@@ -62,13 +62,18 @@ fn fits(judge: &Judge<'_>, entry: &Matcher, errors: &[Value]) -> Result<Vec<usiz
 }
 
 /// A one-to-one pairing of entries with errors (Kuhn's augmenting paths, searched with an
-/// explicit stack): each entry's fitting errors, the entry each error is paired with, and the
-/// search each error was last tried in.
+/// explicit stack): each entry's fitting errors, the entry each error is paired with, the
+/// search each error was last tried in, and how many steps one search may take.
+///
+/// A search tries each error at most once and pops at most once more than it pushes, so it
+/// takes at most twice as many steps as there are fits, plus one; its path never holds more
+/// entries than there are. Both bounds are enforced, so a search always ends in bounded memory.
 struct Pairing {
     fits: Vec<Vec<usize>>,
     owner: Vec<Option<usize>>,
     seen: Vec<usize>,
     search: usize,
+    budget: usize,
 }
 
 /// One entry on a search's path: the next of its fits to try, and the error it would take.
@@ -80,7 +85,8 @@ struct Step {
 
 impl Pairing {
     fn new(fits: Vec<Vec<usize>>, errors: usize) -> Self {
-        Self { fits, owner: vec![None; errors], seen: vec![0; errors], search: 0 }
+        let budget = fits.iter().map(Vec::len).sum::<usize>().saturating_mul(2).saturating_add(1);
+        Self { fits, owner: vec![None; errors], seen: vec![0; errors], search: 0, budget }
     }
 
     /// The entries left unpaired, after each takes a free error it fits where it can and the
@@ -98,10 +104,13 @@ impl Pairing {
     }
 
     /// Pairs `entry` with an error, moving entries along a path of paired errors to free one.
+    /// A search that outgrows its bounds leaves the entry unpaired.
     fn paired(&mut self, entry: usize) -> bool {
         self.search += 1;
-        let mut path = vec![Step { entry, next: 0, taken: 0 }];
-        while let Some(step) = path.last_mut() {
+        let mut path = Vec::with_capacity(self.fits.len());
+        path.push(Step { entry, next: 0, taken: 0 });
+        for _ in 0..self.budget {
+            let Some(step) = path.last_mut() else { return false };
             let Some(error) = self.untried(step) else {
                 path.pop();
                 continue;
@@ -111,6 +120,9 @@ impl Pairing {
                 self.shift(&path);
                 return true;
             };
+            if path.len() == self.fits.len() {
+                return false;
+            }
             path.push(Step { entry: owner, next: 0, taken: 0 });
         }
         false
