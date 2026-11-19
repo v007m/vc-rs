@@ -175,7 +175,9 @@ fn a_test_level_errors_check_that_reaches_an_http_step_is_reported_once_at_the_t
         .collect();
     assert_eq!(lines, [7, 9], "each step's own, and not the default no step inherits");
     let graphql = "type: graphql\napis:\n  - id: get\n    path: http://x/graphql\n    body: {query: '{ me { id } }'}\n";
-    assert!(compile(graphql, &tests).diagnostics.iter().all(|found| found.code != Code::V2213));
+    let typo = tests.replace("      errors: any\n", "      errors: any\n      statsu: 200\n");
+    let codes: Vec<_> = compile(graphql, &typo).diagnostics.iter().map(|found| found.code).collect();
+    assert_eq!(codes, [Code::V1004], "a key no type knows is V1004 alone");
 }
 
 #[test]
