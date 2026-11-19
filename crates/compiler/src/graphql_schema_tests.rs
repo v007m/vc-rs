@@ -85,8 +85,9 @@ fn json_that_is_not_an_introspection_result_is_v1015_at_what_is_wrong() {
     let path = "services/users/schema.json";
     let openapi = compile("{$file: schema.json}", &[(path, "{\"openapi\": \"3.1.0\"}\n")], &[]);
     assert_eq!(spots(&openapi), [(Code::V1015, 1, 1, "{\"openapi\": \"3.1.0\"}".len())]);
-    let message = &openapi.diagnostics.iter().next().unwrap().message;
-    assert!(message.ends_with("it is not an introspection result: no `__schema` in it"), "{message}");
+    let found = openapi.diagnostics.iter().next().unwrap();
+    assert!(found.message.ends_with("it is not an introspection result: no `__schema` in it"), "{found:?}");
+    assert!(found.help.iter().any(|help| help.contains("the whole answer to an introspection query")), "{found:?}");
     let text = "{\"data\": {\"__schema\": {\n  \"types\": [{\"kind\": \"TABLE\", \"name\": \"T\"}]}}}\n";
     let kind = compile("{$file: schema.json}", &[(path, text)], &[]);
     assert_eq!(spots(&kind), [(Code::V1015, 2, 22, "\"TABLE\"".len())]);

@@ -104,6 +104,7 @@ fn bytes_round_trip_with_the_schema_a_file_holds() {
         source("b.graphql", sdl, 2),
         source("c.graphqls", "type T { a: Int }\n", 3),
         source("d.json", introspection, 4),
+        source("e.json", include_str!("../../parser/tests/graphql/accounts.json"), 5),
     ];
     let cache = compiled(&sources);
     let read = CompileCache::from_bytes(&cache.to_bytes());
@@ -114,6 +115,7 @@ fn bytes_round_trip_with_the_schema_a_file_holds() {
     assert!(schema("b.graphql", 2, 1).is_none());
     assert!(schema("c.graphqls", 3, 2).is_none());
     assert!(schema("d.json", 4, 3).is_none());
+    assert!(schema("e.json", 5, 4).is_some_and(|schema| schema.sdl().contains("type User implements Node")));
 }
 
 #[test]
