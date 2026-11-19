@@ -761,6 +761,13 @@ Round 75 (19 November 2026; Sarath, on which `expect.errors` check silences V512
 | --- | --- | --- | --- |
 | D365 | V5128 is silenced only by an errors check that ran | Only an `expect.errors` check that was judged silences V5128. In a load iteration with `checks: api`, the step's own check is skipped, so the response's errors are listed as V5128. | D364 (refines: a check that ran) |
 
+Round 76 (19 November 2026; Sarath, on GraphQL schema files and the validation library):
+
+| # | Topic | Decision | Supersedes |
+| --- | --- | --- | --- |
+| D366 | A schema file's syntax error is V1014 | Any GraphQL text file that does not parse, a `.graphql`, `.gql` or `.graphqls` schema file among them, is V1014 at the spot where the parser stopped, from its per-file stage. V1015 is a `graphql.schema` file that reads but is not a schema: SDL that holds an operation or a fragment, or JSON that is not an introspection result (and, with schema validation, SDL that does not validate). | D347 (refines: which code) |
+| D367 | apollo-compiler for schema validation, with 12 deny skips | Schema validation (V2314 full, V2315, and SDL that does not validate as V1015) uses apollo-compiler 1.33.1, wrapped by `vc-parser` so no other crate names it. `deny.toml` gains the duplicate-version skips it needs (ariadne → concolor pulls in older bitflags, windows-sys and windows_* crates), applied by the orchestrator. It must build for `wasm32-wasip1` (`vc-browser`). | — |
+
 ## Open
 
 All decisions needed for the PRD and technical design are settled. The language is decided by the spike (D6, D36, D37, D41).
