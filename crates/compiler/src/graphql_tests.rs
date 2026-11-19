@@ -86,3 +86,24 @@ fn a_document_file_that_does_not_parse_is_v1014_in_the_file() {
     assert_eq!((found.code, found.primary.span.start.line, found.primary.span.start.column), (Code::V1014, 4, 1));
     assert_ne!(found.primary.span.file, one("      query: '{ x( }'\n", "{ me }").primary.span.file);
 }
+
+#[test]
+fn operation_name_picks_one_query_or_mutation_of_the_document() {
+    let two = "      query: |\n        query ListUsers { users { id } }\n        mutation AddUser { add }\n";
+    assert_eq!(
+        spots(&compile(two, (&[], &[])))[..].iter().map(|spot| (spot.0, spot.1, spot.2)).collect::<Vec<_>>(),
+        [(Code::V2009, 7, 9)]
+    );
+    assert!(compile(&format!("{two}      operationName: AddUser\n"), (&[], &[])).diagnostics.is_empty());
+    let misspelt = compile(&format!("{two}      operationName: ListUser\n"), (&[], &[]));
+    let found = misspelt.diagnostics.iter().next().unwrap();
+    assert_eq!((found.code, found.primary.span.start.line), (Code::V2009, 9));
+    assert_eq!(found.fixes[0].title, "Replace with ListUsers");
+    let watched = compile("      query: 'subscription OnUser { user { id } }'\n", (&[], &[]));
+    assert_eq!(spots(&watched).iter().map(|spot| (spot.0, spot.1)).collect::<Vec<_>>(), [(Code::V2009, 6)]);
+    let filed = "      query: {$file: me.graphql}\n";
+    let text = "query A { a }\nquery B { b }\n";
+    assert_eq!((one(filed, text).code, one(filed, text).primary.span.start.line), (Code::V2009, 6));
+    let named = compile(&format!("{filed}      operationName: B\n"), (&[(DOCUMENT, text)], &[]));
+    assert!(named.diagnostics.is_empty(), "{:?}", named.diagnostics);
+}

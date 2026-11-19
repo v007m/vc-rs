@@ -1,0 +1,64 @@
+---
+title: "V2009 — operationName does not pick one query or mutation"
+description: "A GraphQL document may hold several operations; the server runs the one operationName names."
+sidebar:
+  label: "V2009 operationName does not pick one query or mutation"
+  order: 2009
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="error" variant="danger" /> <Badge text="References and types" variant="note" />
+
+| | |
+| --- | --- |
+| Code | `V2009` |
+| Category | V2xxx: References and types |
+| Severity | error |
+| Certain fix | the one close operation name |
+
+A GraphQL document may hold several operations; the server runs the one `operationName` names. So a document with
+more than one operation needs `operationName`, and the name must be one the document defines; the fix for a close
+misspelling is the name itself. A document with one operation needs no name. The operation it picks must be a
+`query` or a `mutation`: a `subscription` keeps a connection open, which a `graphql` api does not do yet.
+
+## Wrong
+
+```yaml wrong V2009 title="services/catalog/catalog.api.yaml"
+type: graphql
+apis:
+  - id: listProducts
+    body:
+      query: |
+        query ListProducts { products { id } }
+        query CountProducts { productCount }
+```
+
+## Right
+
+```yaml title="services/catalog/catalog.api.yaml"
+type: graphql
+apis:
+  - id: listProducts
+    body:
+      query: |
+        query ListProducts { products { id } }
+        query CountProducts { productCount }
+      operationName: ListProducts
+```
+
+
+## Explain it in your terminal
+
+The same page is built into the binary, so this works anywhere, even outside a project:
+
+```console
+$ vc explain V2009
+```
+
+## Related
+
+- [All diagnostic codes](/vc-rs/reference/diagnostics/)
+- [`vc explain`](/vc-rs/reference/cli/explain/)
+- [`vc check`](/vc-rs/reference/cli/check/)
+- [Errors and fixes](/vc-rs/guides/errors-and-fixes/)

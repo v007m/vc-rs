@@ -44,6 +44,7 @@ code_table! {
     V2006 = 2006, Error, "Reserved ID";
     V2007 = 2007, Error, "File ID doesn't match its path";
     V2008 = 2008, Error, "Hook import not allowed";
+    V2009 = 2009, Error, "`operationName` does not pick one query or mutation";
     V2101 = 2101, Error, "Var used but never set for some profile";
     V2102 = 2102, Error, "`${item}`, `${example}` or `${iteration}` used outside its block";
     V2103 = 2103, Error, "Unknown example or dataset column";

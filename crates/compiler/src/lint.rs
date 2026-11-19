@@ -8,6 +8,7 @@ mod convention_tests;
 mod default_profiles;
 mod deprecated_calls;
 mod expired;
+mod graphql_operations;
 mod header_names;
 mod item_ids;
 mod load_ranges;
@@ -76,6 +77,7 @@ impl LintRegistry {
             Box::new(header_names::HeaderNames),
             Box::new(redact_rules::RedactRules),
             Box::new(body_schemas::BodySchemas),
+            Box::new(graphql_operations::GraphqlOperations),
         ];
         Self { lints }
     }
