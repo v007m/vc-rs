@@ -4,10 +4,8 @@
 
 mod written;
 
-use std::net::Ipv6Addr;
-
 use vc_diagnostics::{Code, Diagnostic, Diagnostics, Fix, TextEdit};
-use vc_model::{FileKind, Pos, SourceFiles, SourceSpan};
+use vc_model::{FileKind, HostPattern, Pos, SourceFiles, SourceSpan};
 use vc_parser::{Entry, Node, ScalarKind};
 
 use super::project;
@@ -125,9 +123,9 @@ fn one_way(diagnostic: Diagnostic) -> Diagnostic {
 /// it was written as a URL.
 fn host(node: &Node) -> Option<Diagnostic> {
     let written = node.as_str()?;
-    let why = problem(written)?;
+    let why = HostPattern::parse(written).err()?;
     let diagnostic = Diagnostic::new(Code::V1017, node.span, format!("`{written}` is not a host pattern"));
-    let diagnostic = diagnostic.label(why).help(PATTERN_HELP);
+    let diagnostic = diagnostic.label(why.to_string()).help(PATTERN_HELP);
     let Some(host) = host_of(written).filter(|host| host != written) else { return Some(diagnostic) };
     let edit = TextEdit::replace(node.span, yaml_text(&host));
     Some(diagnostic.fix(Fix::certain(format!("Write {host}"), vec![edit])))
@@ -139,61 +137,24 @@ fn yaml_text(host: &str) -> String {
     if host.starts_with(|first| YAML_INDICATORS.contains(first)) { format!("'{host}'") } else { host.to_owned() }
 }
 
-/// Why `pattern` is not `host`, `host:port` or `*.domain`; `None` when it is one.
-fn problem(pattern: &str) -> Option<&'static str> {
-    if pattern.contains("://") {
-        return Some("a URL; write only its host");
-    }
-    if pattern.contains(['/', '?', '#', '@']) {
-        return Some("only a host and a port go here");
-    }
-    let lower = pattern.to_ascii_lowercase();
-    let host = match lower.rsplit_once(':') {
-        Some((host, port)) if !host.contains(':') || host.ends_with(']') => {
-            if port.parse::<u16>().is_err() {
-                return Some("the port is not a number up to 65535");
-            }
-            host
-        }
-        _ => lower.as_str(),
-    };
-    let (host, wildcard) = host.strip_prefix("*.").map_or((host, false), |domain| (domain, true));
-    if host.contains('*') {
-        return Some("`*` stands only for a whole leftmost label, as in `*.partner.example`");
-    }
-    let name = bare(host);
-    let valid = if name.contains(':') {
-        !wildcard && name.parse::<Ipv6Addr>().is_ok()
-    } else {
-        name == host.trim_end_matches('.') && name.split('.').all(is_label)
-    };
-    (!valid).then_some("not a host name or IP address")
-}
-
 /// The host of `url`, without its scheme, user, path, query or fragment, when that is a pattern.
 fn host_of(url: &str) -> Option<String> {
     let rest = url.split_once("://").map_or(url, |(_, rest)| rest);
     let authority = rest.split(['/', '?', '#']).next().unwrap_or_default();
     let host = authority.rsplit_once('@').map_or(authority, |(_, host)| host);
-    (!host.is_empty() && problem(host).is_none()).then(|| host.to_owned())
-}
-
-/// `host` without IPv6 brackets or one trailing dot.
-fn bare(host: &str) -> &str {
-    let host = host.strip_prefix('[').and_then(|inner| inner.strip_suffix(']')).unwrap_or(host);
-    host.strip_suffix('.').unwrap_or(host)
-}
-
-/// A DNS label: non-empty, letters, digits, `-` and `_` only.
-fn is_label(label: &str) -> bool {
-    !label.is_empty() && label.bytes().all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
+    (!host.is_empty() && HostPattern::parse(host).is_ok()).then(|| host.to_owned())
 }
 
 #[cfg(test)]
 mod tests {
-    use vc_model::{Pos, SourceFileId, SourceSpan};
+    use vc_model::{HostPattern, Pos, SourceFileId, SourceSpan};
 
-    use super::{host_of, inline_pem, problem, unindented, yaml_text};
+    use super::{host_of, inline_pem, unindented, yaml_text};
+
+    /// Why V1017 refuses `pattern`, as its label says it.
+    fn problem(pattern: &str) -> Option<String> {
+        HostPattern::parse(pattern).err().map(|why| why.to_string())
+    }
 
     #[test]
     fn a_key_is_inline_pem_when_it_begins_says_private_key_or_runs_over_lines() {
@@ -239,7 +200,7 @@ mod tests {
             ("", "not a host name or IP address"),
         ];
         for (pattern, why) in bad {
-            assert_eq!(problem(pattern), Some(why), "{pattern}");
+            assert_eq!(problem(pattern).as_deref(), Some(why), "{pattern}");
         }
     }
 

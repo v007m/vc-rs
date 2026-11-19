@@ -311,6 +311,24 @@ impl serde_core::ser::Serialize for vc_model::FileKind
 pub fn vc_model::FileKind::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
 impl<'de> serde_core::de::Deserialize<'de> for vc_model::FileKind
 pub fn vc_model::FileKind::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub enum vc_model::HostPatternError
+pub vc_model::HostPatternError::NotHost
+pub vc_model::HostPatternError::NotOnlyHost
+pub vc_model::HostPatternError::Port
+pub vc_model::HostPatternError::Star
+pub vc_model::HostPatternError::Url
+impl core::clone::Clone for vc_model::HostPatternError
+pub fn vc_model::HostPatternError::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::HostPatternError
+impl core::cmp::PartialEq for vc_model::HostPatternError
+pub fn vc_model::HostPatternError::eq(&self, &Self) -> bool
+impl core::error::Error for vc_model::HostPatternError
+impl core::fmt::Debug for vc_model::HostPatternError
+pub fn vc_model::HostPatternError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for vc_model::HostPatternError
+pub fn vc_model::HostPatternError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for vc_model::HostPatternError
+impl core::marker::StructuralPartialEq for vc_model::HostPatternError
 pub enum vc_model::HttpVersion
 pub vc_model::HttpVersion::Http1
 pub vc_model::HttpVersion::Http2
@@ -1562,6 +1580,21 @@ impl serde_core::ser::Serialize for vc_model::HooksConfig
 pub fn vc_model::HooksConfig::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
 impl<'de> serde_core::de::Deserialize<'de> for vc_model::HooksConfig
 pub fn vc_model::HooksConfig::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub struct vc_model::HostPattern
+pub vc_model::HostPattern::name: alloc::string::String
+pub vc_model::HostPattern::port: core::option::Option<u16>
+pub vc_model::HostPattern::wildcard: bool
+impl vc_model::HostPattern
+pub fn vc_model::HostPattern::bare(&str) -> &str
+pub fn vc_model::HostPattern::parse(&str) -> core::result::Result<Self, vc_model::HostPatternError>
+impl core::clone::Clone for vc_model::HostPattern
+pub fn vc_model::HostPattern::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::HostPattern
+impl core::cmp::PartialEq for vc_model::HostPattern
+pub fn vc_model::HostPattern::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::HostPattern
+pub fn vc_model::HostPattern::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::HostPattern
 pub struct vc_model::HttpResponse
 pub vc_model::HttpResponse::body: bytes::bytes::Bytes
 pub vc_model::HttpResponse::headers: http::header::map::HeaderMap
