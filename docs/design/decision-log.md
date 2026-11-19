@@ -729,6 +729,12 @@ Round 70 (19 November 2026; Sarath, on how the V2108 split is carried):
 | --- | --- | --- | --- |
 | D358 | V2109 for an undeclared variable | The undeclared-variable case of D357 gets its own warning code, V2109; V2108 stays an error for a missing non-null variable without a default. Every code keeps one severity. | D357 (code assignment only) |
 
+Round 71 (19 November 2026; Sarath, on key copies inside p12-keystore):
+
+| # | Topic | Decision | Supersedes |
+| --- | --- | --- | --- |
+| D359 | PKCS#12 key copies | p12-keystore's decrypted bags and its parsed `PrivateKey` join D355's list of dependency-held key copies vc cannot wipe. vc's own copy is held in zeroizing memory and wiped when the identity is dropped, as for PEM. | D355 (adds to its list) |
+
 Round 72 (19 November 2026; Sarath, on GraphQL error matching and run-time warning codes):
 
 | # | Topic | Decision | Supersedes |

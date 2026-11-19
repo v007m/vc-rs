@@ -4,7 +4,7 @@
 //! connector that times DNS (the system resolver, through tokio), TCP connect, the proxy tunnel
 //! and the TLS handshake (rustls with ring, the OS certificate store plus extra roots, webpki
 //! verification always on, ALPN h2 and HTTP/1.1). [`TlsOptions`] adds PEM CA bundles and
-//! [`ClientIdentity`] client certificates, each with its own connection pool, picked per request
+//! [`ClientIdentity`] client certificates (PEM or PKCS#12), each with its own connection pool, picked per request
 //! by `SendContext::client_cert`: named, or by matching the URL's host. Bodies are read up to a
 //! cap and decoded (gzip, br, zstd, deflate) with the decoded size capped too. Proxies come from
 //! [`ProxyConfig`], which the engine reads from `HTTP_PROXY`, `HTTPS_PROXY` and `NO_PROXY`
@@ -16,6 +16,8 @@ mod connector;
 mod error;
 mod hosts;
 mod identity;
+mod pkcs12;
+mod pkcs12_reason;
 mod proxy;
 mod stream;
 mod tls;

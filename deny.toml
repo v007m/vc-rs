@@ -36,6 +36,7 @@ skip = [
   { crate = "base64@0.22", reason = "pbjson 0.8 (JSON Connect bodies, D254); the workspace is on base64 0.23" },
   { crate = "hashbrown@0.14", reason = "apollo-parser (GraphQL, D346, D356) via rowan 0.16; indexmap 2 is on hashbrown 0.17" },
   { crate = "rustc-hash@1", reason = "apollo-parser (GraphQL, D346, D356) via rowan 0.16; oxc is on rustc-hash 2" },
+  { crate = "synstructure@0.13", reason = "p12-keystore 0.4 (PKCS#12, D352) via x509-parser 0.18 and asn1-rs-derive; zerovec/yoke are on 0.14" },
 ]
 deny = [
   { name = "openssl-sys", reason = "rustls only" },

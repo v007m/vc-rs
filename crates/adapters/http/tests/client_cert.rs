@@ -1,10 +1,13 @@
-//! Client certificates: PEM identities, refusals at construction, the per-identity pools and host
+//! Client certificates: PEM and PKCS#12 identities, refusals at construction, the per-identity pools and host
 //! matching, against the https mock asking for an optional certificate; and refusals by a server
 //! that requires one (V5127), on TLS 1.2 and 1.3.
 
 use std::error::Error;
 
 use http::{Method, StatusCode, Uri};
+use p12_keystore::{
+    Certificate, EncryptionAlgorithm, KeyStore, KeyStoreEntry, MacAlgorithm, PrivateKey, PrivateKeyChain,
+};
 use vc_adapter_http::{ClientIdentity, HttpAdapterError, HttpOptions, HttpTransport, TlsOptions};
 use vc_interfaces::{CertChoice, CertId, SendContext, SentCert, Transport, TransportError};
 use vc_mock_server::{ClientAuth, MockHandle, MockServer, MockTls};
@@ -84,6 +87,46 @@ fn refuses_a_key_that_does_not_match_the_certificate() -> TestResult {
 fn refuses_an_encrypted_key_with_help() -> TestResult {
     let reason = refusal(include_bytes!("fixtures/rsa.pem"), include_bytes!("fixtures/rsa.encrypted.key"))?;
     assert!(reason.starts_with("the private key is encrypted; decrypt it"), "{reason}");
+    Ok(())
+}
+
+/// `cert` and its key as a PKCS#12 bundle with the CA after it, encrypted with `cipher`.
+fn bundle(pki: &TestPki, cert: &Identity, cipher: EncryptionAlgorithm) -> Result<Vec<u8>, Box<dyn Error>> {
+    let certs = [Certificate::from_der(cert.cert_der())?, Certificate::from_der(pki.ca_der())?];
+    let chain = PrivateKeyChain::new("good", PrivateKey::from_der(cert.key_der())?, certs);
+    let mut store = KeyStore::new();
+    store.add_entry("good", KeyStoreEntry::PrivateKeyChain(chain));
+    Ok(store.writer("s3cret").encryption_algorithm(cipher).mac_algorithm(MacAlgorithm::HmacSha1).write()?)
+}
+
+#[tokio::test]
+async fn sends_pkcs12_identities_encrypted_with_aes_3des_and_rc2() -> TestResult {
+    let pki = TestPki::new()?;
+    let mock = mock(&pki, &[pki.good()]).await?;
+    let ciphers = [
+        EncryptionAlgorithm::PbeWithHmacSha256AndAes256,
+        EncryptionAlgorithm::PbeWithShaAnd3KeyTripleDesCbc,
+        EncryptionAlgorithm::PbeWithShaAnd40BitRc4Cbc,
+    ];
+    for cipher in ciphers {
+        let identity = ClientIdentity::pkcs12("good", &bundle(&pki, pki.good(), cipher)?, "s3cret")?;
+        let transport = transport(&pki, vec![identity])?;
+        let exchange = whoami(&transport, &mock.base_url(), CertChoice::Named(CertId::new(0))).await?;
+        assert_eq!(client(&exchange)?, "good", "{cipher:?}");
+    }
+    Ok(())
+}
+
+#[test]
+fn refuses_a_pkcs12_bundle_with_the_wrong_passphrase() -> TestResult {
+    let pki = TestPki::new()?;
+    let bundle = bundle(&pki, pki.good(), EncryptionAlgorithm::PbeWithHmacSha256AndAes256)?;
+    match ClientIdentity::pkcs12("bank", &bundle, "wrong") {
+        Err(HttpAdapterError::Identity { id, reason }) => {
+            assert_eq!((id.as_str(), reason.starts_with("the passphrase is wrong")), ("bank", true), "{reason}");
+        }
+        other => return Err(format!("expected an identity error, got {other:?}").into()),
+    }
     Ok(())
 }
 
