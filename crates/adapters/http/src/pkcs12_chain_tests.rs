@@ -71,17 +71,19 @@ fn picks_the_renewed_intermediate_that_signed_the_child_then_the_one_that_expire
     let (root_cert, old_cert) = (root.root()?, old.signed_by(&root)?);
     let (renewed_cert, rekeyed_cert) = (renewed.signed_by(&root)?, rekeyed.signed_by(&root)?);
     let (leaf, key) = old.leaf()?;
-    let bags = |intermediates: [&Certificate; 2]| {
+    let bags = |intermediates: &[&Certificate]| {
         let mut bags = vec![cert_bag(&leaf, None, false)];
-        bags.extend(intermediates.map(|cert| cert_bag(cert, None, false)));
+        bags.extend(intermediates.iter().map(|cert| cert_bag(cert, None, false)));
         bags.push(cert_bag(&root_cert, None, false));
         bags
     };
     let to = |intermediate: &Certificate| vec![leaf.as_der().to_vec(), intermediate.as_der().to_vec()];
-    assert_eq!(chain_for(key.clone(), None, bags([&rekeyed_cert, &old_cert]))?, to(&old_cert));
-    assert_eq!(chain_for(key.clone(), None, bags([&old_cert, &rekeyed_cert]))?, to(&old_cert));
-    assert_eq!(chain_for(key.clone(), None, bags([&old_cert, &renewed_cert]))?, to(&renewed_cert));
-    assert_eq!(chain_for(key, None, bags([&renewed_cert, &old_cert]))?, to(&renewed_cert));
+    assert_eq!(chain_for(key.clone(), None, bags(&[&rekeyed_cert, &old_cert]))?, to(&old_cert));
+    assert_eq!(chain_for(key.clone(), None, bags(&[&old_cert, &rekeyed_cert]))?, to(&old_cert));
+    assert_eq!(chain_for(key.clone(), None, bags(&[&old_cert, &renewed_cert]))?, to(&renewed_cert));
+    assert_eq!(chain_for(key.clone(), None, bags(&[&renewed_cert, &old_cert]))?, to(&renewed_cert));
+    let three = bags(&[&rekeyed_cert, &old_cert, &renewed_cert]);
+    assert_eq!(chain_for(key, None, three)?, to(&renewed_cert), "the best of three, not the first");
     Ok(())
 }
 
