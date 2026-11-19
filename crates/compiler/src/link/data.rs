@@ -21,6 +21,7 @@ use super::project;
 use super::project::{Project, Source};
 use super::uses;
 use crate::cache::CacheEntry;
+use crate::graphql;
 use crate::suggest;
 
 /// Where the datasets named by their path live.
@@ -106,6 +107,11 @@ impl<'a> Data<'a> {
         self.given.get(path).copied()
     }
 
+    /// The text of the GraphQL document file at `path`, when the compile was given it.
+    pub fn document(&self, path: &str) -> Option<&'a str> {
+        graphql::text(self.files, path)
+    }
+
     /// The data files the project names and the compile was not given.
     pub fn wanted(&self, project: &Project<'_>, assets: Option<&BTreeSet<SourcePath>>) -> Vec<DataWanted> {
         let mut wanted: BTreeMap<String, Option<SourcePath>> = BTreeMap::new();
@@ -114,10 +120,13 @@ impl<'a> Data<'a> {
             let rows = loops(source).into_iter().filter_map(|node| self.path_at(source, node));
             let schemas =
                 body_schema::nodes(source.root).into_iter().filter_map(|node| body_schema::path(source, node));
-            let known = rows.chain(schemas).filter(|path| assets.is_some_and(|assets| listed(assets, path)));
+            let documents = graphql::queries(source).into_iter().filter_map(|(_, query)| graphql::file(source, query));
+            let known =
+                rows.chain(schemas).chain(documents).filter(|path| assets.is_some_and(|assets| listed(assets, path)));
             wanted.extend(known.map(|path| (path, None)));
         }
-        let missing = wanted.into_iter().filter(|(path, _)| !self.given.contains_key(path.as_str()));
+        let given = |path: &str| self.given.contains_key(path) || self.document(path).is_some();
+        let missing = wanted.into_iter().filter(|(path, _)| !given(path));
         missing.filter_map(|(path, root)| Some(DataWanted { path: SourcePath::data(&path).ok()?, root })).collect()
     }
 

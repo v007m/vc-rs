@@ -1,5 +1,5 @@
 //! The checks each api `type` makes of what it reads of an api ([`ProtocolRules::check`]): a
-//! `graphql` api's `body` keys, its `query` and its `operationName` (D343, D344).
+//! `graphql` api's `body` keys, its `query` and its `operationName` (D343, D344, D356).
 
 use vc_diagnostics::Diagnostics;
 use vc_model::FileKind;
@@ -15,7 +15,7 @@ pub fn check(project: &Project<'_>) -> Diagnostics {
     for source in project.sources.iter().filter(|source| source.kind == FileKind::Api) {
         for api in project::list(source.root, "apis") {
             let Ok(rules) = registry.get(project::protocol(source.root, api)) else { continue };
-            diagnostics.extend(rules.check(api));
+            diagnostics.extend(rules.check(source, api));
         }
     }
     diagnostics

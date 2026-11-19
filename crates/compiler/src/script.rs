@@ -7,7 +7,7 @@
 
 use serde::{Deserialize, Serialize};
 use vc_diagnostics::Diagnostics;
-use vc_model::{HookModule, SourceFile, SourceFileId, SourceSpan};
+use vc_model::{HookModule, Pos, SourceFile, SourceFileId, SourceSpan};
 #[cfg(feature = "hooks")]
 use {
     oxc_allocator::{Allocator, ArenaVec, TakeIn},
@@ -23,7 +23,6 @@ use {
     oxc_transformer::{TransformOptions, Transformer},
     std::path::Path,
     vc_diagnostics::{Code, Diagnostic},
-    vc_model::Pos,
 };
 
 /// The suffixes of a hook file: ES modules in TypeScript or JavaScript.
@@ -245,8 +244,7 @@ fn slice(text: &str, span: Span) -> &str {
 }
 
 /// The line and column of byte `offset` in `text`; the end of the text when it is past it.
-#[cfg(feature = "hooks")]
-fn position(text: &str, offset: usize) -> Pos {
+pub fn position(text: &str, offset: usize) -> Pos {
     let offset = (0..=offset.min(text.len())).rev().find(|at| text.is_char_boundary(*at)).unwrap_or(0);
     let before = text.get(..offset).unwrap_or_default();
     let line = before.matches('\n').count() + 1;

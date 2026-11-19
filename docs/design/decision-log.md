@@ -710,6 +710,12 @@ Round 67 (19 November 2026; Sarath, approving the mTLS design in #105):
 | D353 | mTLS security | Verification stays on: no `insecure`. `serverName` is deferred. Key bytes are zeroized and never appear in errors, `Debug`, reports, history or the debug bundle. Warnings: a key readable by others (Unix, V4012), a literal key or passphrase (V4013), a cert expiring within 30 days (V3107), and one expired or not yet valid (V3108) | — |
 | D354 | mTLS failures | Material that won't load, or that doesn't fit together (V5125, V5126), stops the run before any request, like a missing secret (D280); only identities active for the run's profiles are loaded. A handshake that rejects the cert fails that call with V5127, detected during the handshake (TLS 1.2) and on the first read (TLS 1.3) | V5105 for those TLS alerts |
 
+Round 69 (19 November 2026; Sarath, choosing the GraphQL parser for #90 PR 3):
+
+| # | Topic | Decision | Supersedes |
+| --- | --- | --- | --- |
+| D356 | GraphQL parser for PR 3 | GraphQL PR 3 parses documents with apollo-parser (syntax and spans only). apollo-compiler, with its duplicate-version skips (ariadne → concolor pulls in bitflags 1.3, windows-sys 0.45 and the windows_* 0.42 crates), is deferred to PR 5, together with the standalone V2314 rules, when schema validation (D347) needs it. Approved by Sarath 2026-11-19. | D346 (amends) |
+
 ## Open
 
 All decisions needed for the PRD and technical design are settled. The language is decided by the spike (D6, D36, D37, D41).

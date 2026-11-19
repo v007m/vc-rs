@@ -9,6 +9,7 @@ repository.workspace = true
 publish.workspace = true
 
 [dependencies]
+apollo-parser.workspace = true
 csv.workspace = true
 saphyr-parser.workspace = true
 serde.workspace = true

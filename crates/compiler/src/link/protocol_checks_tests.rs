@@ -66,9 +66,11 @@ fn a_query_that_is_not_text_is_v2302() {
 }
 
 #[test]
-fn a_file_query_is_refused_until_it_is_read() {
-    let message = "a `graphql` api cannot read its `query` from a `$file` yet".to_owned();
-    assert_eq!(found("      query: {$file: me.graphql}\n"), [(Code::V2302, message, 6)]);
+fn a_file_query_names_a_document_file_by_a_literal_path() {
+    let message = "a `query` `$file` takes the literal path of a `.graphql` or `.gql` file".to_owned();
+    for path in ["me.json", "'${var.doc}.graphql'", "[me.graphql]"] {
+        assert_eq!(found(&format!("      query: {{$file: {path}}}\n")), [(Code::V2302, message.clone(), 6)], "{path}");
+    }
 }
 
 #[test]

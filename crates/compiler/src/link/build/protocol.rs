@@ -6,6 +6,7 @@ use vc_parser::Node;
 
 use super::graphql::GraphqlRules;
 use super::read;
+use crate::link::data::Data;
 use crate::link::project::Source;
 
 /// How an api of one type reads into the program.
@@ -14,14 +15,14 @@ pub trait ProtocolRules {
     fn protocol(&self) -> Protocol;
     /// The method the api sends.
     fn method(&self, api: &Node) -> Method;
-    /// The body the api sends.
-    fn body(&self, source: &Source<'_>, api: &Node) -> BodySpec;
+    /// The body the api sends; `data` holds the files the compile was given.
+    fn body(&self, from: (&Source<'_>, &Data<'_>), api: &Node) -> BodySpec;
     /// The path the api sends to; `None` when it has none (V1005 reports it).
     fn path(&self, source: &Source<'_>, api: &Node) -> Option<Template>;
     /// The keys of the api's `body` that are templates; `None` when all of it is.
     fn templated_body_keys(&self) -> Option<&'static [&'static str]>;
     /// The problems in what the type reads of the api, beyond its keys and its shape.
-    fn check(&self, _api: &Node) -> Vec<Diagnostic> {
+    fn check(&self, _source: &Source<'_>, _api: &Node) -> Vec<Diagnostic> {
         Vec::new()
     }
 }
@@ -38,7 +39,7 @@ impl ProtocolRules for HttpRules {
         read::method(api)
     }
 
-    fn body(&self, source: &Source<'_>, api: &Node) -> BodySpec {
+    fn body(&self, (source, _): (&Source<'_>, &Data<'_>), api: &Node) -> BodySpec {
         api.get("body").and_then(|body| read::body(source, body)).unwrap_or_default()
     }
 

@@ -12,6 +12,7 @@ mod csv;
 mod cut;
 mod edit;
 mod error;
+mod graphql;
 mod json;
 mod json_string;
 mod node;
@@ -25,6 +26,7 @@ mod yaml;
 
 pub use edit::{Document, EditCommand, FormatRules, references};
 pub use error::ParserError;
+pub use graphql::{GraphqlDocument, GraphqlOperation, GraphqlProblem, OperationKind, parse_document};
 pub use node::{Entry, Node, Value};
 pub use parse::parse;
 pub use scalar::{Scalar, ScalarKind, ScalarStyle, write_text};

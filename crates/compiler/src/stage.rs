@@ -8,6 +8,7 @@ use vc_diagnostics::{Diagnostic, Diagnostics};
 use vc_model::{FileKind, SourceFile, SourceFileId, SourceSpan, StringTable};
 use vc_parser::{Node, ScalarKind, Syntax, Value};
 
+use crate::graphql;
 use crate::parts::{self, Cx, Piece, Tools};
 use crate::script::{self, Script};
 use crate::shape_check::{self, Walk};
@@ -48,6 +49,10 @@ pub fn unit(id: SourceFileId, source: &SourceFile, (tools, strings): (&Tools, &m
     if script::is_script(source.path.as_str()) {
         let (script, diagnostics) = script::strip(id, source);
         return FileUnit { kind: None, root: None, parts: IndexMap::new(), script, diagnostics };
+    }
+    if graphql::is_document(source.path.as_str()) {
+        let diagnostics = graphql::file_problem(id, source);
+        return FileUnit { kind: None, root: None, parts: IndexMap::new(), script: None, diagnostics };
     }
     let (root, mut diagnostics) = parse(id, source);
     let kind = source.kind();
