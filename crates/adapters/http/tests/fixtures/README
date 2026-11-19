@@ -1,0 +1,1 @@
+Self-signed, test-only certificates and keys, made with the openssl CLI. They are never trusted anywhere and protect nothing; tests only read them to check PEM parsing.

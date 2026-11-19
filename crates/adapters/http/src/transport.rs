@@ -25,16 +25,25 @@ use crate::{HttpAdapterError, ProxyConfig, body, tls};
 pub struct HttpOptions {
     /// Which proxy to use, if any.
     pub proxy: ProxyConfig,
-    /// Extra trusted root certificates (DER), on top of the OS store.
-    pub extra_roots: Vec<Vec<u8>>,
+    /// Extra trusted roots.
+    pub tls: TlsOptions,
     /// How long an idle pooled connection is kept.
     pub pool_idle: Duration,
 }
 
 impl Default for HttpOptions {
     fn default() -> Self {
-        Self { proxy: ProxyConfig::default(), extra_roots: Vec::new(), pool_idle: Duration::from_secs(90) }
+        Self { proxy: ProxyConfig::default(), tls: TlsOptions::default(), pool_idle: Duration::from_secs(90) }
     }
+}
+
+/// The TLS setup shared by every request: extra trusted roots.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[expect(clippy::exhaustive_structs, reason = "options struct filled with `..Default::default()` (D160)")]
+pub struct TlsOptions {
+    /// Extra trusted roots on top of the OS store: each entry is a PEM bundle of one or more
+    /// certificates, or one DER certificate.
+    pub ca: Vec<Vec<u8>>,
 }
 
 /// The HTTP/1.1 and HTTP/2 transport: hyper's pooled client over the timed connector.
@@ -57,9 +66,9 @@ impl HttpTransport {
     ///
     /// # Errors
     ///
-    /// [`HttpAdapterError::Certificate`] when an extra root is not a valid certificate.
+    /// [`HttpAdapterError::Certificate`] when a `ca` entry is not a valid certificate.
     pub fn new(options: &HttpOptions) -> Result<Self, HttpAdapterError> {
-        let tls = tls::client_config(&options.extra_roots)?;
+        let tls = tls::client_config(&tls::roots(&options.tls.ca)?)?;
         let proxy = Arc::new(options.proxy.matcher());
         let connector = TimedConnector::new(tls, Arc::clone(&proxy));
         let client = Client::builder(TokioExecutor::new())

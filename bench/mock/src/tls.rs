@@ -52,6 +52,7 @@ pub struct MockTls {
     key: PrivatePkcs8KeyDer<'static>,
     clients: Option<(ClientAuth, Vec<CertificateDer<'static>>)>,
     names: BTreeMap<Vec<u8>, String>,
+    h2: bool,
 }
 
 impl MockTls {
@@ -59,7 +60,7 @@ impl MockTls {
     #[must_use]
     pub fn new(chain: Vec<Vec<u8>>, key: Vec<u8>) -> Self {
         let chain = chain.into_iter().map(CertificateDer::from).collect();
-        Self { chain, key: PrivatePkcs8KeyDer::from(key), clients: None, names: BTreeMap::new() }
+        Self { chain, key: PrivatePkcs8KeyDer::from(key), clients: None, names: BTreeMap::new(), h2: false }
     }
 
     /// Checks client certificates against `roots` (DER).
@@ -76,7 +77,14 @@ impl MockTls {
         self
     }
 
-    /// The rustls server setup (ring, HTTP/1.1 by ALPN, and the client checks asked for) and the
+    /// Offers HTTP/2 by ALPN as well as HTTP/1.1.
+    #[must_use]
+    pub const fn h2(mut self) -> Self {
+        self.h2 = true;
+        self
+    }
+
+    /// The rustls server setup (ring, HTTP/1.1 and, if asked, HTTP/2 by ALPN, and the client checks asked for) and the
     /// names `/whoami` gives. Consumes the setup, so the key is never copied.
     pub(crate) fn into_server(self) -> Result<(Arc<ServerConfig>, Names), MockError> {
         let provider = Arc::new(rustls::crypto::ring::default_provider());
@@ -88,7 +96,8 @@ impl MockTls {
         };
         let key = PrivateKeyDer::Pkcs8(self.key);
         let mut config = builder.with_single_cert(self.chain, key).map_err(tls_error)?;
-        config.alpn_protocols = vec![b"http/1.1".to_vec()];
+        config.alpn_protocols =
+            if self.h2 { vec![b"h2".to_vec(), b"http/1.1".to_vec()] } else { vec![b"http/1.1".to_vec()] };
         Ok((Arc::new(config), Arc::new(self.names)))
     }
 }

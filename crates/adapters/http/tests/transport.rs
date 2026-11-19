@@ -9,7 +9,7 @@ use http::header::{ACCEPT_ENCODING, CONTENT_ENCODING};
 use http::{HeaderValue, Method, StatusCode, Uri};
 use serde_json::Value;
 use tokio::net::TcpListener;
-use vc_adapter_http::{HttpOptions, HttpTransport, ProxyConfig};
+use vc_adapter_http::{HttpOptions, HttpTransport, ProxyConfig, TlsOptions};
 use vc_interfaces::{SendContext, Transport, TransportError};
 use vc_mock_server::MockServer;
 use vc_model::{Exchange, HttpVersion, RenderedRequest, Size};
@@ -161,7 +161,8 @@ async fn reports_connect_dns_and_invalid_url_errors_with_their_codes() -> TestRe
 }
 
 #[tokio::test]
-async fn an_invalid_extra_root_is_refused_at_construction() {
-    let options = HttpOptions { extra_roots: vec![b"not a certificate".to_vec()], ..HttpOptions::default() };
+async fn an_invalid_ca_entry_is_refused_at_construction() {
+    let tls = TlsOptions { ca: vec![b"not a certificate".to_vec()] };
+    let options = HttpOptions { tls, ..HttpOptions::default() };
     assert!(HttpTransport::new(&options).is_err());
 }
