@@ -154,7 +154,13 @@ fn adhoc(engine: &Engine) -> (vc_executor::ActionCx, crate::plan::Prepared) {
     let prepared = super::unplanned(engine.layered(&[], &[]).unwrap());
     let inputs = RunInputs::new(ports::random(None).1, Arc::clone(&prepared.environment));
     let transport = engine.transports.build(&vc_interfaces::TlsSpec::default(), prepared.environment.as_ref()).unwrap();
-    let secured = Secured { secrets: Secrets::new(), transport, certs: ClientCerts::default(), hidden: Vec::new() };
+    let secured = Secured {
+        secrets: Secrets::new(),
+        transport,
+        certs: ClientCerts::default(),
+        hidden: Vec::new(),
+        notices: Vec::new(),
+    };
     (engine.action_cx(&prepared, (inputs, &Hosts::default(), &secured)), prepared)
 }
 

@@ -53,7 +53,18 @@ fn a_good_pair_and_a_bare_cert_give_only_the_leafs_validity() {
     assert_eq!(inspect(&[pair]), [validity("cert", FIXTURE_VALIDITY)]);
     let bare = pem(Some(fixture("ec.pem")), None);
     assert_eq!(inspect(&[bare]), [validity("cert", FIXTURE_VALIDITY)], "a templated key leaves the cert to date");
-    assert_eq!(inspect(&[pem(None, Some(inline(KEY)))]), [], "a key alone is only read");
+    assert_eq!(inspect(&[pem(None, Some(inline(KEY)))]), [], "a good key alone has nothing to say");
+}
+
+#[test]
+fn a_key_alone_is_loaded_and_what_stops_it_named() {
+    let alone = |key: &[u8]| inspect(&[pem(None, Some(inline(key)))]);
+    let unusable = |found: &[TlsFinding], why: &str| matches!(found, [TlsFinding::Unusable { part: p, reason }] if *p == part("key") && reason.starts_with(why));
+    let encrypted = alone(ENCRYPTED_KEY);
+    assert!(unusable(&encrypted, "the private key is encrypted"), "{encrypted:?}");
+    let text = alone(b"not a key\n");
+    assert!(unusable(&text, "the private key has no PEM block"), "{text:?}");
+    assert_eq!(alone(RSA_KEY), [], "an RSA key loads alone too");
 }
 
 #[test]

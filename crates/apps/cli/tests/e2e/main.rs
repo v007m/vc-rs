@@ -158,3 +158,10 @@ pub(crate) fn of_kind<'e>(events: &'e [Value], kind: &str) -> Vec<&'e Value> {
 pub(crate) fn said(output: &std::process::Output) -> String {
     format!("{}{}", String::from_utf8_lossy(&output.stdout), String::from_utf8_lossy(&output.stderr))
 }
+
+/// `days` days from now, for certificate validity windows.
+pub(crate) fn days(days: i64) -> std::time::SystemTime {
+    let span = std::time::Duration::from_hours(24 * days.unsigned_abs());
+    let now = std::time::SystemTime::now();
+    if days < 0 { now - span } else { now + span }
+}

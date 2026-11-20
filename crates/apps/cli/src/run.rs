@@ -165,7 +165,7 @@ pub fn finished(report: &RunReport) -> Outcome {
 }
 
 /// `warning: <notice>`, or `warning[V5118]: <rest>` for a notice that starts with its code.
-fn warning(notice: &str) -> String {
+pub fn warning(notice: &str) -> String {
     let coded = notice.split_once(": ").filter(|(code, _)| {
         code.len() == 5 && code.starts_with('V') && code[1..].bytes().all(|byte| byte.is_ascii_digit())
     });

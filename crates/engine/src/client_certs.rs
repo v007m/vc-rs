@@ -3,7 +3,9 @@
 //! starts, and the transport built from it by the transport factory on a blocking thread
 //! (D399), with the identities the active profiles allow. Material that
 //! cannot be read or parsed stops the run (V5125), and so do parts that do not fit (V5126),
-//! before any request. No reason quotes a key, and passphrases go to the redactor.
+//! before any request. No reason quotes a key, and passphrases go to the redactor. What the
+//! built material holds that a run only notes (a client certificate's dates, a key file others
+//! can read) becomes the run's notices (D412).
 
 use std::path::Path;
 use std::sync::Arc;
@@ -11,11 +13,12 @@ use std::sync::Arc;
 use vc_diagnostics::Code;
 use vc_executor::{ClientCerts, RunValues, config_text};
 use vc_interfaces::{
-    CertId, ClientSource, ClientSpec, Environment, MaterialSource, Secret, Secrets, TlsError, TlsPart, TlsSpec,
-    Transport,
+    CertId, ClientSource, ClientSpec, Environment, MaterialSource, Secret, Secrets, TlsError, TlsFinding, TlsPart,
+    TlsSpec, Transport,
 };
 use vc_model::{ClientMaterial, Program, Template, TlsClient, inline_pem};
 
+use crate::check_tls::run_notice;
 use crate::plan::Prepared;
 use crate::secured::Secured;
 use crate::shown::Shown;
@@ -24,7 +27,7 @@ use crate::{Engine, EngineError};
 impl Engine {
     /// `secrets` and the transport for `prepared`'s `http.tls`, rendered with them and its
     /// environment, which the transport factory builds on a blocking thread, trusting its roots
-    /// and presenting its client certificates.
+    /// and presenting its client certificates; with the notices its material gives today (D412).
     ///
     /// # Errors
     ///
@@ -37,12 +40,16 @@ impl Engine {
         let (spec, certs) =
             if unset { (TlsSpec::default(), ClientCerts::default()) } else { self.planned(prepared, &secrets)? };
         let hidden = spec.clients.iter().flat_map(hidden).collect();
-        let transport = self.built(spec, (Arc::clone(&prepared.environment), !unset)).await?;
-        Ok(Secured { secrets, transport, certs, hidden })
+        let (transport, findings) = self.built(spec, (Arc::clone(&prepared.environment), !unset)).await?;
+        let today = self.clock.today();
+        let notices = findings.iter().filter_map(|finding| run_notice(finding, today)).collect();
+        Ok(Secured { secrets, transport, certs, hidden, notices })
     }
 
     /// The transport factory's transport for `spec` and `environment`, built on a blocking
-    /// thread: the factory reads files and the system's roots, and may derive PKCS#12 keys.
+    /// thread: the factory reads files and the system's roots, and may derive PKCS#12 keys. Then,
+    /// on the same thread, what the factory's `inspect` finds in `spec`'s parts (D412); a spec
+    /// with none is not inspected.
     ///
     /// # Errors
     ///
@@ -52,9 +59,14 @@ impl Engine {
         &self,
         spec: TlsSpec,
         (environment, configured): (Arc<dyn Environment>, bool),
-    ) -> Result<Arc<dyn Transport>, EngineError> {
+    ) -> Result<(Arc<dyn Transport>, Vec<TlsFinding>), EngineError> {
         let factory = Arc::clone(&self.transports);
-        let built = tokio::task::spawn_blocking(move || factory.build(&spec, environment.as_ref())).await;
+        let built = tokio::task::spawn_blocking(move || {
+            let transport = factory.build(&spec, environment.as_ref())?;
+            let probes = spec.into_probes();
+            Ok::<_, TlsError>((transport, if probes.is_empty() { Vec::new() } else { factory.inspect(&probes) }))
+        });
+        let built = built.await;
         let built =
             built.map_err(|error| EngineError::Internal { reason: format!("building the transport: {error}") })?;
         built.map_err(
