@@ -282,12 +282,14 @@ enum Hang {
     Sends,
     /// Every open after the first.
     Reopens,
+    /// Nothing: a `send` on any of its streams fails at once.
+    Breaks,
 }
 
 /// A stream transport that hangs where its [`Hang`] says.
 struct Stuck(FakeStreamTransport, Hang);
 
-struct StuckSend(Box<dyn MessageStream>);
+struct StuckSend(Box<dyn MessageStream>, Hang);
 
 #[async_trait]
 impl StreamTransport for Stuck {
@@ -301,8 +303,8 @@ impl StreamTransport for Stuck {
             return std::future::pending().await;
         }
         let opened = self.0.open(request, mode, ctx).await?;
-        let stuck = |stream| Box::new(StuckSend(stream)) as Box<dyn MessageStream>;
-        let stream = if self.1 == Hang::Sends { opened.stream.map(stuck) } else { opened.stream };
+        let stuck = |stream| Box::new(StuckSend(stream, self.1)) as Box<dyn MessageStream>;
+        let stream = if self.1 == Hang::Reopens { opened.stream } else { opened.stream.map(stuck) };
         Ok(Opened { stream, ..opened })
     }
 }
@@ -310,6 +312,9 @@ impl StreamTransport for Stuck {
 #[async_trait]
 impl MessageStream for StuckSend {
     async fn send(&mut self, _frame: OutgoingFrame) -> Result<(), TransportError> {
+        if self.1 == Hang::Breaks {
+            return Err(TransportError::Connect { host: "api.test".to_owned(), reason: "reset".to_owned() });
+        }
         std::future::pending().await
     }
 
@@ -343,22 +348,32 @@ async fn a_reconnect_that_does_not_answer_in_time_is_v5130_naming_the_limit() {
     assert_eq!(messages_checks(&report), [(Some("V5130".to_owned()), Some(error))]);
 }
 
-/// A `send` still going out at the call's time limit is a failed `messages` check, V5104; the
+/// A `send` still going out at the call's time limit is a failed `messages` check, V5104, and
+/// one the transport refuses is one under its error; neither is reported as sent, and the
 /// opened api's cleanup still registers on its `101` (D425).
 #[tokio::test(start_paused = true)]
-async fn a_send_that_does_not_go_out_in_time_is_v5104_and_the_cleanup_still_registers() {
-    let mut fixture = Fixture::new();
-    let delete = fixture.call("/rooms");
-    let call = fixture.creating("/ws", delete);
-    let api = fixture.api_mut(call);
-    (api.protocol, api.exchange) = (Protocol::Websocket, vec![send("hi")]);
-    api.timeout = Some(vc_model::Duration::new(Duration::from_secs(2)));
-    let report = run(fixture, call, stuck(FakeStreamTransport::contract(), Hang::Sends)).await;
-    let failure = report.outcome.failure().map(|failure| (failure.code.clone(), failure.message.clone()));
-    let message = "messages: a `send` did not go out within the 2s time limit".to_owned();
-    assert_eq!(failure, Some((Some("V5104".to_owned()), message)));
-    assert_eq!(root(&report, "exchange"), json!([null]), "a send that did not go out is not reported as sent");
-    assert_eq!(report.cleanups, [PendingCleanup::new(delete)]);
+async fn a_send_that_does_not_go_out_is_a_failed_check_and_the_cleanup_still_registers() {
+    let broken = TransportError::Connect { host: "api.test".to_owned(), reason: "reset".to_owned() };
+    for (hang, code, error) in [
+        (Hang::Sends, "V5104", "a `send` did not go out within the 2s time limit".to_owned()),
+        (Hang::Breaks, "V5105", broken.to_string()),
+    ] {
+        let mut fixture = Fixture::new();
+        let delete = fixture.call("/rooms");
+        let call = fixture.creating("/ws", delete);
+        let api = fixture.api_mut(call);
+        (api.protocol, api.exchange) = (Protocol::Websocket, vec![send("hi")]);
+        api.timeout = Some(vc_model::Duration::new(Duration::from_secs(2)));
+        let report = run(fixture, call, stuck(FakeStreamTransport::contract(), hang)).await;
+        let failure = report.outcome.failure().map(|failure| (failure.code.clone(), failure.message.clone()));
+        assert_eq!(failure, Some((Some(code.to_owned()), format!("messages: {error}"))));
+        assert_eq!(
+            root(&report, "exchange"),
+            json!([null]),
+            "{code}: a send that did not go out is not reported as sent"
+        );
+        assert_eq!(report.cleanups, [PendingCleanup::new(delete)]);
+    }
 }
 
 /// `afterResponse` hooks run once the exchange is done, and see its messages and items (D423).

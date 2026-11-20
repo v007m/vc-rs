@@ -139,7 +139,7 @@ Keys that keep their meaning: auth, `headers`, `query`, `http.retry`, `timeout`,
 
 Size: the bytes of every frame the call reads, added up, are capped by `SendContext::body_limit` (64 MiB). Going over the cap fails the call with V5105, as an over-large body does (D424).
 
-A `send` still going out when the time runs out fails the call with V5104, as an `http` timeout does. A failure after the stream opened (the size cap, a stuck `send`, a failed reconnect) is a failed `messages` check at the step, under the failure's code: the report keeps the messages read before it, and the opening status still registers the `cleanup`. Only a failed open or `afterResponse` hook halts the call. Only an open stream holds its per-host permit; an answer that opened none lets it go at once, and a finished exchange lets it go before the hooks run (D425).
+A `send` still going out when the time runs out fails with V5104, the code of an `http` timeout; a `send` the transport did not confirm leaves its `response.exchange` item `null`. A failure after the stream opened (the size cap, a stuck `send`, a failed reconnect) is a failed `messages` check at the step, under the failure's code: the report keeps the messages read before it, and the opening status still registers the `cleanup`. Only a failed open or `afterResponse` hook halts the call. Only an open stream holds its per-host permit; an answer that opened none lets it go at once, and a finished exchange lets it go before the hooks run (D425).
 
 A dropped connection ends the read as a server close does: the messages so far are kept, and an unmet `receive` is V5130, naming the drop (D424). `afterResponse` hooks run once, after the exchange, and see the full `response` root, `messages` and `exchange` included (D423).
 
