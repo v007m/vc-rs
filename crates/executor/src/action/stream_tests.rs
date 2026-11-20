@@ -7,13 +7,15 @@ use vc_testkit::{FakeStreamTransport, FakeTransport, RecordingTransport, StreamA
 use crate::fixture::{self, Fixture};
 use crate::{ActionExecutors, ActionRequest, Frame, HostLimits, PendingCleanup, PipelineParts};
 
-/// Calls whose stream port opens a `websocket` with no frames on a `101` and refuses any other
-/// status, and whose `http` transport answers `status`.
-fn handshakes(status: u16) -> ActionExecutors {
+/// Calls of `protocol` answered `status`: a stream type through a stream port that opens a
+/// `websocket` with no frames on a `101` and refuses any other status, `http` through a transport
+/// that answers it; the other fake has nothing to answer.
+fn handshakes(protocol: Protocol, status: u16) -> ActionExecutors {
     let head = vc_testkit::status(status);
     let answer = if status == 101 { StreamAnswer::stream(head, vec![]) } else { StreamAnswer::refused(head) };
-    let streams = FakeStreamTransport::scripted(vec![Ok(answer)]);
-    let fake = FakeTransport::scripted(vec![Ok(vc_testkit::status(status))]);
+    let streamed = protocol != Protocol::Http;
+    let streams = FakeStreamTransport::scripted(if streamed { vec![Ok(answer)] } else { vec![] });
+    let fake = FakeTransport::scripted(if streamed { vec![] } else { vec![Ok(vc_testkit::status(status))] });
     ActionExecutors::standard(PipelineParts::new(Arc::new(fake), HostLimits::spawn(8)).with_streams(Arc::new(streams)))
 }
 
@@ -46,7 +48,7 @@ async fn a_websocket_api_succeeds_on_101_so_its_default_status_and_its_cleanup_f
         let delete = fixture.call("/rooms");
         let open = fixture.creating("/chat", delete);
         fixture.api_mut(open).protocol = Protocol::Websocket;
-        let cx = fixture.cx(handshakes(status));
+        let cx = fixture.cx(handshakes(Protocol::Websocket, status));
         let request =
             ActionRequest { action: open, owner: OwnerKey::Run, cx: Arc::clone(&cx), frame: Frame::default() };
         let report = cx.executors.execute(request).await;
@@ -87,7 +89,7 @@ async fn a_cleanup_registers_on_the_success_status_whatever_the_expected_status_
         (api.protocol, api.save.values, api.save_on) = (protocol, api_saves, check.matcher.clone());
         api.expect.checks = vec![check.clone()];
         fixture.action_mut(open).expect.checks = vec![check];
-        let cx = fixture.cx(handshakes(status));
+        let cx = fixture.cx(handshakes(protocol, status));
         let request =
             ActionRequest { action: open, owner: OwnerKey::Run, cx: Arc::clone(&cx), frame: Frame::default() };
         let report = cx.executors.execute(request).await;
