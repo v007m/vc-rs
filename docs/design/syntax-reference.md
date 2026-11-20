@@ -415,11 +415,11 @@ apis:
 
 #### Streams
 
-`exchange` (D377, D393, D394) is a list of items run over one connection, in order. Each item writes exactly one of `send` and `receive` (V2201 otherwise). It is written on the api, a test or a step; the most specific one replaces the others whole, as `body` does, and a test-level `exchange` is a default for its `call` steps (D124). With no `exchange`, a call reads until the server closes.
+`exchange` (D377, D417, D418) is a list of items run over one connection, in order. Each item writes exactly one of `send` and `receive` (V2201 otherwise). It is written on the api, a test or a step; the most specific one replaces the others whole, as `body` does, and a test-level `exchange` is a default for its `call` steps (D124). With no `exchange`, a call reads until the server closes.
 
-- `send` (`websocket` only) is a value, templates included, rendered before the stream opens: a map or list is sent as one JSON text frame, any other value as text. On an `sse` api it is V2213 at the item, with no fix (D392).
+- `send` (`websocket` only) is a value, templates included, rendered before the stream opens: a map or list is sent as one JSON text frame, any other value as text. On an `sse` api it is V2213 at the item, with no fix (D416).
 - `receive` waits for the next message its check matches and skips the ones before it that do not (D378). A list is a group: its checks pair one to one with distinct messages, in any order.
-- A message check is a map of the message's fields, matched field by field (D379, D389): `sse` messages have `event`, `data`, `id`, `retry` and `text`; `websocket` messages have `type`, `data`, `text`, `code` and `reason`. A field takes a literal or a matcher; `data` takes `match` (paths into the data, as `body.match`) or `equals` (the whole data, as `body.equals`) (D390). A field the type lacks is V1004, with the close field as its fix, checked against each type a call reaches (D391). A check that is not a map is V2306.
+- A message check is a map of the message's fields, matched field by field (D379, D389): `sse` messages have `event`, `data`, `id`, `retry` and `text`; `websocket` messages have `type`, `data`, `text`, `code` and `reason`. A field takes a literal or a matcher; `data` takes `match` (paths into the data, as `body.match`) or `equals` (the whole data, as `body.equals`) (D414). A field the type lacks is V1004, with the close field as its fix, checked against each type a call reaches (D415). A check that is not a map is V2306.
 - `expect.messages` is a matcher on the list of every message received, merged under the key `messages` (D123, D380): `length`, and `every`, `some` and `none` over message checks, through `not`, `allOf` and `anyOf` too. Anything else there is V2306.
 
 ```yaml
@@ -608,7 +608,7 @@ Each item in `tests`:
 | `auth` | auth ID, `none`, or `id` + `vars` | the api's | Call as a different identity |
 | `headers`, `query` | maps of templates | — | Merged over the api's headers and query |
 | `body` | as an api's `body` | the api's | Replaces the api's body for this test |
-| `exchange` | as an api's `exchange` | the api's | Replaces the api's exchange whole for this test (D393) |
+| `exchange` | as an api's `exchange` | the api's | Replaces the api's exchange whole for this test (D417) |
 | `expect` | checks | the api's `expect` | Merged with the api's checks (see Checks and matchers) |
 | `save` | map of templates over `response` | — | Name values for later steps, `after` and `afterEach`; with `steps`, reads the last step's response (D124) |
 | `poll` | `until`, `every`, `timeout` | none: all three are required (D156) | Re-send until `until` (checks) holds, then check `expect`. Only the last exchange is reported, also when the poll gives up (V5104) |

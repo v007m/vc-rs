@@ -261,7 +261,7 @@ Candidate V codes (V2213 and V5105 are reused):
    - The `exchange` shape on api, test and step, with test-level defaults for call steps (D124).
    - `receive` checks lowered field by field, `data.match` and `data.equals`, V1004 for a field the type lacks.
    - `expect.messages` as a check kind.
-   - Done; its refinements are D389–D394 in the decision log.
+   - Done; its refinements are D389 and D414–D418 in the decision log.
 4. **The executor's stream call.**
    - `StreamMessage` and `Exchange::messages` in `vc-model`.
    - `ProtocolRuntime::stream` and `StreamRuntime`.
