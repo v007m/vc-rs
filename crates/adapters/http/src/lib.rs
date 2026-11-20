@@ -28,6 +28,7 @@ mod proxy;
 mod stream;
 mod tls;
 mod transport;
+mod websocket;
 
 pub use error::HttpAdapterError;
 pub use factory::HttpTransports;

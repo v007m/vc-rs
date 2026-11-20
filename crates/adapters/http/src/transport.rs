@@ -4,7 +4,7 @@ use std::time::{Duration, Instant};
 
 use async_trait::async_trait;
 use bytes::Bytes;
-use http::header::{ACCEPT_ENCODING, PROXY_AUTHORIZATION};
+use http::header::{ACCEPT_ENCODING, PROXY_AUTHORIZATION, UPGRADE};
 use http::{Request, Response, Version};
 use http_body_util::Full;
 use hyper::body::Incoming;
@@ -54,8 +54,16 @@ pub struct TlsOptions {
 /// A pooled hyper client over the timed connector.
 type Pooled = Client<TimedConnector, Full<Bytes>>;
 
-/// A pooled client and the `id` of the identity it presents, if any.
-type Pool = (Pooled, Option<Arc<str>>);
+/// A pooled client and the `id` of its identity, if any.
+type Picked<'pool> = (&'pool Pooled, &'pool Option<Arc<str>>);
+
+/// The pooled clients of one identity, and its `id`, if any. `upgrades` offers only HTTP/1.1 by
+/// ALPN and carries the requests that ask to upgrade, such as a WebSocket's (D460).
+struct Pool {
+    client: Pooled,
+    upgrades: Pooled,
+    id: Option<Arc<str>>,
+}
 
 /// The HTTP/1.1 and HTTP/2 transport: hyper's pooled client over the timed connector.
 ///
@@ -95,20 +103,28 @@ impl HttpTransport {
         checked: HostRules,
     ) -> Result<Self, HttpAdapterError> {
         let proxy = Arc::new(options.proxy.matcher());
-        let pooled = |identity: Option<&ClientIdentity>| -> Result<Pool, HttpAdapterError> {
-            let connector = TimedConnector::new(tls::client_config(roots, identity)?, Arc::clone(&proxy));
+        let build = |config| {
+            let connector = TimedConnector::new(config, Arc::clone(&proxy));
             let mut builder = Client::builder(TokioExecutor::new());
-            let client = builder.pool_idle_timeout(options.pool_idle).pool_timer(TokioTimer::new()).build(connector);
-            Ok((client, identity.map(|identity| Arc::from(identity.id()))))
+            builder.pool_idle_timeout(options.pool_idle).pool_timer(TokioTimer::new()).build(connector)
+        };
+        let pooled = |identity: Option<&ClientIdentity>| -> Result<Pool, HttpAdapterError> {
+            let config = tls::client_config(roots, identity)?;
+            let upgrades = build(tls::http1_only(&config));
+            Ok(Pool { client: build(config), upgrades, id: identity.map(|identity| Arc::from(identity.id())) })
         };
         let clients = ClientTable::new(checked, pooled(None)?, |identity| pooled(Some(identity)))?;
         Ok(Self { clients: Arc::new(clients), proxy })
     }
 
-    /// The pooled client for the identity `choice` picks for `request`, with that identity's `id`.
-    fn client(&self, request: &Request<Full<Bytes>>, choice: CertChoice) -> Result<&Pool, TransportError> {
-        let client = self.clients.pick(request.uri(), choice);
-        client.ok_or_else(|| TransportError::InvalidRequest { reason: format!("no client identity for {choice:?}") })
+    /// The pooled client for the identity `choice` picks for `request`, with that identity's `id`:
+    /// its HTTP/1.1-only one when `request` asks to upgrade.
+    fn client(&self, request: &Request<Full<Bytes>>, choice: CertChoice) -> Result<Picked<'_>, TransportError> {
+        let pool = self.clients.pick(request.uri(), choice);
+        let pool = pool
+            .ok_or_else(|| TransportError::InvalidRequest { reason: format!("no client identity for {choice:?}") })?;
+        let client = if request.headers().contains_key(UPGRADE) { &pool.upgrades } else { &pool.client };
+        Ok((client, &pool.id))
     }
 
     /// The request hyper sends: the rendered one plus, for plain HTTP through a proxy with
