@@ -120,7 +120,9 @@ impl StreamTransport for FakeStreamTransport {
     }
 }
 
-/// A scripted stream: it yields its frames, and an echo stream also what is sent on it.
+/// A scripted stream: it yields its frames, and an echo stream also what is sent on it. A
+/// scripted stream ends when its frames run out; an echo stream with nothing queued waits, as a
+/// server that has not answered yet does, since only `send` or `close` can change that.
 struct FakeStream {
     mode: StreamMode,
     incoming: VecDeque<Result<StreamFrame, TransportError>>,
@@ -152,9 +154,11 @@ impl MessageStream for FakeStream {
         if self.ended {
             return None;
         }
-        let frame = self.incoming.pop_front();
-        self.ended = matches!(frame, Some(Ok(StreamFrame::Close { .. }) | Err(_)));
-        frame
+        let Some(frame) = self.incoming.pop_front() else {
+            return if self.echo { std::future::pending().await } else { None };
+        };
+        self.ended = matches!(frame, Ok(StreamFrame::Close { .. }) | Err(_));
+        Some(frame)
     }
 
     async fn close(&mut self, _code: u16) -> Result<(), TransportError> {

@@ -182,7 +182,7 @@ How the port is used:
 
 - `head` is the opening response. When there is no stream, its body is read in full, capped as today.
 - The adapter answers pings itself. Ping and pong frames are not surfaced.
-- A stream opens only on its mode's success head, `StreamMode::opens_on`; any other answer is refused, an `Opened` with no stream (D388). `send` on a body stream is `InvalidRequest`, and `send` after `close` is an error. An `Err` from `next` ends the stream, and nothing follows a `Close` frame or an `Err`: every later `next` gives `None`, as it does after `close`.
+- A stream opens only on its mode's success head, `StreamMode::opens_on`; any other answer is refused, an `Opened` with no stream (D388). `send` on a body stream is `InvalidRequest`, and `send` after `close` is an error. `next` waits while the stream is open, never `None` before it ends; the fake's echo stream with nothing queued waits too. An `Err` from `next` ends the stream, and nothing follows a `Close` frame or an `Err`: every later `next` gives `None`, as it does after `close`.
 - The frame type is `StreamFrame`, since the executor already has a `Frame` (its run frame). `send` takes an `OutgoingFrame`, text or binary only, so `close(code)` is the only way to close.
 - `vc-testkit` gets `FakeStreamTransport` (scripted opens, and `contract()`) and two suites every implementation runs (D112): `stream_transport_suite` and `message_stream_suite`, which the first runs on an open WebSocket. `arch-tests` names a suite after its trait, so there is no `stream_suite`.
 - `HttpTransport` implements both ports, so SSE and WebSocket reuse its TLS, mTLS identities, proxy, host rules and connect timing.

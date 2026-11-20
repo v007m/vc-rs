@@ -81,9 +81,10 @@ pub trait MessageStream: Send {
     /// [`TransportError`] after [`MessageStream::close`], or one when the connection broke.
     async fn send(&mut self, frame: OutgoingFrame) -> Result<(), TransportError>;
 
-    /// The next frame, or `None` once the stream ended. A server's WebSocket close is one final
-    /// [`StreamFrame::Close`]; an `Err` ends the stream too. Nothing follows a `Close` or an
-    /// `Err`: every later call returns `None`.
+    /// The next frame, waiting for one while the stream is open, or `None` once it ended; never
+    /// `None` before then. A server's WebSocket close is one final [`StreamFrame::Close`]; an
+    /// `Err` ends the stream too. Nothing follows a `Close` or an `Err`: every later call returns
+    /// `None`.
     async fn next(&mut self) -> Option<Result<StreamFrame, TransportError>>;
 
     /// Ends the stream: a WebSocket sends a close with `code` and waits for the server's; a body

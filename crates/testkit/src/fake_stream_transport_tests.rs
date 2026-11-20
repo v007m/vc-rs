@@ -85,6 +85,18 @@ async fn a_scripted_stream_ends_at_a_close_or_an_error() {
 }
 
 #[tokio::test]
+async fn an_echo_stream_with_nothing_queued_waits_for_a_send() {
+    let fake = FakeStreamTransport::scripted(vec![Ok(StreamAnswer::echo())]);
+    let mut stream = fake.open(get("/"), StreamMode::WebSocket, &SendContext::default()).await.unwrap().stream.unwrap();
+    let waited = tokio::time::timeout(Duration::from_millis(20), stream.next()).await;
+    assert!(waited.is_err(), "an open echo stream is not over: {waited:?}");
+    assert_eq!(stream.send(OutgoingFrame::Text("hi".into())).await, Ok(()));
+    assert_eq!(stream.next().await, Some(Ok(StreamFrame::Text("hi".into()))));
+    assert_eq!(stream.close(1000).await, Ok(()));
+    assert_eq!(stream.next().await, None, "a closed stream ends at once");
+}
+
+#[tokio::test]
 async fn an_empty_script_answers_404_with_no_stream() {
     let fake = FakeStreamTransport::scripted(Vec::new());
     let opened = fake.open(get("/"), StreamMode::Body, &SendContext::default()).await.unwrap();
