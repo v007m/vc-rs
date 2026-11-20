@@ -5,7 +5,7 @@
 mod written;
 
 use vc_diagnostics::{Code, Diagnostic, Diagnostics, Fix, TextEdit};
-use vc_model::{FileKind, HostPattern, Pos, SourceFiles, SourceSpan};
+use vc_model::{FileKind, HostPattern, Pos, SourceFiles, SourceSpan, inline_pem};
 use vc_parser::{Entry, Node, ScalarKind};
 
 use super::project;
@@ -77,13 +77,8 @@ fn literal(entry: &Entry) -> bool {
         return false;
     };
     let text = scalar.text.replace("$${", "");
-    let secret = if entry.key == "key" { inline_pem(text.trim()) } else { !text.is_empty() };
+    let secret = if entry.key == "key" { inline_pem(&text) } else { !text.is_empty() };
     secret && !text.contains("${")
-}
-
-/// Whether the `key` value `text` is PEM written inline rather than a path.
-fn inline_pem(text: &str) -> bool {
-    text.starts_with("-----BEGIN") || text.contains("PRIVATE KEY") || text.contains('\n')
 }
 
 /// Every `http.tls.clients` entry of the config.
@@ -149,20 +144,11 @@ fn host_of(url: &str) -> Option<String> {
 mod tests {
     use vc_model::{HostPattern, Pos, SourceFileId, SourceSpan};
 
-    use super::{host_of, inline_pem, unindented, yaml_text};
+    use super::{host_of, unindented, yaml_text};
 
     /// Why V1017 refuses `pattern`, as its label says it.
     fn problem(pattern: &str) -> Option<String> {
         HostPattern::parse(pattern).err().map(|why| why.to_string())
-    }
-
-    #[test]
-    fn a_key_is_inline_pem_when_it_begins_says_private_key_or_runs_over_lines() {
-        assert!(inline_pem("-----BEGIN EC PARAMETERS-----"), "a one-line PEM header");
-        assert!(inline_pem("MIIB PRIVATE KEY"), "`PRIVATE KEY` without `-----BEGIN`");
-        assert!(inline_pem("MIIBVgIBADANBgkqhkiG9w0BAQEFAASC\nAUAwggE8AgEAAkEA"), "base64 over two lines");
-        assert!(!inline_pem("MIIBVgIBADANBgkqhkiG9w0BAQEFAASC"), "one line of bare base64 is a path");
-        assert!(!inline_pem("certs/partner.key"), "a path");
     }
 
     #[test]

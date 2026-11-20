@@ -92,6 +92,6 @@ pub use template::{
     StatusPattern, Template, TemplateValue,
 };
 pub use test::{Action, ActionKind, InlineRequest, Test, TestBody, TestFile};
-pub use tls::{ClientCert, ClientMaterial, TlsClient, TlsConfig};
+pub use tls::{ClientCert, ClientMaterial, TlsClient, TlsConfig, inline_pem};
 pub use units::{Duration, Size};
 pub use verbs::{is_third_person, third_person};

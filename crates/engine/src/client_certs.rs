@@ -11,7 +11,8 @@ use vc_executor::{ClientCerts, RunInputs, RunValues, config_text};
 use vc_interfaces::{
     CertId, ClientSource, ClientSpec, LoadedTls, MaterialSource, Passphrase, TlsError, TlsPart, TlsSpec,
 };
-use vc_model::{ClientMaterial, ProfileId, Program, Template, TlsClient};
+use vc_model::{ClientMaterial, ProfileId, Program, Template, TlsClient, inline_pem};
+use vc_template::RenderError;
 use zeroize::Zeroizing;
 
 use crate::plan::Prepared;
@@ -87,17 +88,18 @@ impl Render<'_> {
         let rendered = config_text(self.program, self.values, template);
         rendered
             .map(Zeroizing::new)
-            .map_err(|error| refused(error.code.unwrap_or(Code::V5125), &part.to_string(), &error.message))
+            .map_err(|error| refused(error.code.unwrap_or(Code::V5125), &part.to_string(), render_reason(&error)))
     }
 
-    /// `template` as inline PEM when it starts `-----BEGIN`, else as a path: absolute as it is,
-    /// else under the project root.
+    /// `template` as inline PEM when [`inline_pem`] says so, else as a path: absolute as it is,
+    /// else under the project root, which an error quotes only when the config wrote it literally.
     fn source(&self, template: &Template, part: &TlsPart) -> Result<MaterialSource, EngineError> {
         let text = self.text(template, part)?;
-        if text.starts_with("-----BEGIN") {
+        if inline_pem(&text) {
             return Ok(MaterialSource::Inline(Zeroizing::new(text.as_bytes().to_vec())));
         }
-        Ok(MaterialSource::File { path: self.root.join(text.as_str()), shown: Some(text.to_string()) })
+        let shown = template.as_literal().map(str::to_owned);
+        Ok(MaterialSource::File { path: self.root.join(text.as_str()), shown })
     }
 
     /// `client`'s ID, hosts and material, rendered.
@@ -116,6 +118,12 @@ impl Render<'_> {
         };
         Ok(ClientSpec { id, hosts: client.hosts.clone(), material })
     }
+}
+
+/// Why a value does not render: a missing one names the path it reads; any other may quote the
+/// value it found, a secret's included, so it says only that (D390).
+fn render_reason(error: &RenderError) -> &str {
+    if error.missing { &error.message } else { "it does not render" }
 }
 
 /// The run-stopping error for `http.tls` material the loader refused: V5126 for parts that do

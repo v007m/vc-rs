@@ -115,13 +115,16 @@ async fn material_that_cannot_be_read_or_does_not_fit_stops_the_run() {
     let reason = refusal(dir.path(), &wrong, key).await;
     assert!(reason.starts_with("V5126: client certificate `bank`, its `pkcs12`: the passphrase is wrong"), "{reason}");
     let reason = refusal(dir.path(), CLIENTS, "").await;
-    assert!(reason.starts_with("V5125: client certificate `good`, its `key`: cannot read `"), "{reason}");
+    assert!(reason.starts_with("V5125: client certificate `good`, its `key`: cannot read its file: "), "{reason}");
     let reason = refusal(dir.path(), CLIENTS, pki.other_ca().key_pem()).await;
     assert!(reason.starts_with("V5126: client certificate `good`: "), "the key is checked as it loads: {reason}");
     std::fs::write(dir.path().join("certs/bad.pem"), "not a certificate").unwrap();
     let bad = CLIENTS.replace("certs/ca.pem", "certs/bad.pem");
     let reason = refusal(dir.path(), &bad, key).await;
     assert_eq!(reason, "V5125: `ca` certificate 1: no certificate in it parses", "a `ca` entry is parsed as it loads");
+    let rendered = CLIENTS.replace("cert: certs/good.pem", "cert: ${env.GOOD_KEY}");
+    let reason = refusal(dir.path(), &rendered, "certs/hidden-name.pem").await;
+    assert!(reason.starts_with("V5125: client certificate `good`, its `cert`: cannot read its file: "), "{reason}");
     let unset = CLIENTS.replace("${env.GOOD_KEY}", "${env.NOPE}");
     let reason = refusal(dir.path(), &unset, key).await;
     assert!(reason == "V5125: client certificate `good`, its `key`: `env.NOPE` is not set", "{reason}");
@@ -152,4 +155,12 @@ async fn the_injected_loader_reads_the_rendered_material() {
     let mut tls = run_with(in_memory(), &only_bank, ("dev", &[])).await.unwrap();
     let memory = tls.loaded.take().and_then(LoadedTls::take::<MemoryTls>).unwrap_or_default();
     assert_eq!((memory.ca, memory.clients), (vec![b"root".to_vec()], vec![("bank".to_owned(), Vec::new())]));
+}
+
+#[test]
+fn a_value_that_does_not_render_is_quoted_only_by_the_path_it_reads() {
+    let missing = vc_template::RenderError::missing("`env.NOPE` is not set");
+    assert_eq!(super::render_reason(&missing), "`env.NOPE` is not set");
+    let invalid = vc_template::RenderError::invalid("cannot decode \"-----BEGIN PRIVATE KEY-----\"");
+    assert_eq!(super::render_reason(&invalid), "it does not render");
 }
