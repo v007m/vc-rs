@@ -36,6 +36,7 @@ vc-model.workspace = true
 vc-parser.workspace = true
 vc-planner.workspace = true
 vc-template.workspace = true
+zeroize.workspace = true
 
 [dev-dependencies]
 axum = { workspace = true, features = ["http1", "tokio"] }

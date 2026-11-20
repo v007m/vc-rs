@@ -48,6 +48,7 @@ mod check_alerts;
 mod check_plugins;
 mod check_profiles;
 mod check_secrets;
+mod client_certs;
 mod complete;
 mod config_explain;
 mod config_values;

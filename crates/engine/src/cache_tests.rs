@@ -148,20 +148,20 @@ fn tombstone(store: &Arc<MemoryCacheStore>) -> CacheEntry {
 }
 
 /// The run's context under `engine`, with nothing planned, and what it was prepared from.
-fn adhoc(engine: &Engine) -> (vc_executor::ActionCx, crate::plan::Prepared) {
+async fn adhoc(engine: &Engine) -> (vc_executor::ActionCx, crate::plan::Prepared) {
     let prepared = super::unplanned(engine.layered(&[], &[]).unwrap());
     let inputs = RunInputs::new(ports::random(None).1, Arc::clone(&prepared.environment));
-    (engine.action_cx(&prepared, (inputs, &Hosts::default())).unwrap(), prepared)
+    (engine.action_cx(&prepared, (inputs, &Hosts::default())).await.unwrap(), prepared)
 }
 
 /// The sweep of a run of `engine` on `store` whose cache sent `events`.
-fn sweep(engine: &Engine, store: &Arc<MemoryCacheStore>, events: Vec<CacheEvent>) -> Sweep {
+async fn sweep(engine: &Engine, store: &Arc<MemoryCacheStore>, events: Vec<CacheEvent>) -> Sweep {
     let (sender, received) = mpsc::unbounded_channel();
     for event in events {
         sender.send(event).unwrap();
     }
     let store: Arc<dyn CacheStore> = Arc::clone(store) as _;
-    let cx = Arc::new(adhoc(engine).0);
+    let cx = Arc::new(adhoc(engine).await.0);
     Sweep { cx, notices: vec!["started".to_owned()], buried: Some(Buried { store, events: received }) }
 }
 
@@ -169,7 +169,7 @@ fn sweep(engine: &Engine, store: &Arc<MemoryCacheStore>, events: Vec<CacheEvent>
 async fn the_end_of_a_run_cleans_up_each_tombstone_then_removes_it() {
     let store = Arc::new(MemoryCacheStore::new());
     let engine = stored(&store);
-    let swept = sweep(&engine, &store, vec![CacheEvent::Replaced(tombstone(&store))]);
+    let swept = sweep(&engine, &store, vec![CacheEvent::Replaced(tombstone(&store))]).await;
     let (_interrupter, mut interrupts) = interrupts();
     let notices = swept.finish(&mut interrupts).await;
     assert_eq!(notices.len(), 2, "{notices:?}");
@@ -183,7 +183,7 @@ async fn a_third_interrupt_leaves_the_tombstones_for_the_next_run() {
     let store = Arc::new(MemoryCacheStore::new());
     let engine = stored(&store);
     let buried = tombstone(&store);
-    let swept = sweep(&engine, &store, vec![CacheEvent::Replaced(buried.clone())]);
+    let swept = sweep(&engine, &store, vec![CacheEvent::Replaced(buried.clone())]).await;
     let (interrupter, mut interrupts) = interrupts();
     (0..3).for_each(|_| interrupter.interrupt());
     let notices = swept.finish(&mut interrupts).await;
@@ -200,12 +200,12 @@ async fn the_cache_notices_of_the_run_follow_the_start_ones_with_or_without_a_sw
     let store = Arc::new(MemoryCacheStore::new());
     let engine = stored(&store);
     let (_interrupter, mut calm) = interrupts();
-    let alone = sweep(&engine, &store, vec![CacheEvent::Notice(UNSTORED.to_owned())]).finish(&mut calm).await;
+    let alone = sweep(&engine, &store, vec![CacheEvent::Notice(UNSTORED.to_owned())]).await.finish(&mut calm).await;
     assert_eq!(alone, ["started", UNSTORED], "a notice needs no tombstone");
     let (interrupter, mut interrupts) = interrupts();
     (0..3).for_each(|_| interrupter.interrupt());
     let events = vec![CacheEvent::Notice(UNSTORED.to_owned()), CacheEvent::Replaced(tombstone(&store))];
-    let notices = sweep(&engine, &store, events).finish(&mut interrupts).await;
+    let notices = sweep(&engine, &store, events).await.finish(&mut interrupts).await;
     assert_eq!(notices.len(), 3, "{notices:?}");
     assert_eq!(notices[1], UNSTORED, "an abandoned sweep keeps the run's notices");
     assert!(notices[2].contains("interrupted"), "{notices:?}");
@@ -214,7 +214,7 @@ async fn the_cache_notices_of_the_run_follow_the_start_ones_with_or_without_a_sw
 #[tokio::test(flavor = "multi_thread")]
 async fn the_run_start_counts_the_expired_entries_that_no_longer_open() {
     let engine = caching(unopened(&Arc::new(MemoryCacheStore::new()), 1));
-    let (cx, prepared) = adhoc(&engine);
+    let (cx, prepared) = adhoc(&engine).await;
     let started = engine.cached(cx, &prepared).await;
     let notice = "cache: 1 entry sealed under another key was removed; its cleanups did not run";
     assert_eq!(started.notices, [notice]);

@@ -79,7 +79,7 @@ impl Engine {
         let reached = crate::body_files::reached(&session.prepared.program, &session.prepared.plan);
         let inputs = self.inputs(&session.prepared, (Arc::clone(&session.random), run_id, reached)).await;
         let inputs = inputs.with_secrets(secrets).with_started_at(session.started_ms);
-        let cx = Arc::new(self.action_cx(&session.prepared, (inputs, plugins))?);
+        let cx = Arc::new(self.action_cx(&session.prepared, (inputs, plugins)).await?);
         session.redactor = Some(Arc::clone(&cx.redactor));
         let full_checks = session.scenario.full_checks;
         let setup = IterationSetup { bus: EventBus::spawn(), cancel: session.root.clone(), full_checks };

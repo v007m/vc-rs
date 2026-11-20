@@ -9,7 +9,7 @@ use std::sync::Arc;
 
 use vc_adapter_auth::{AuthTypes, PluginAuth};
 use vc_adapter_hooks::QuickJsHooks;
-use vc_adapter_http::{HttpOptions, HttpTransport, ProxyConfig};
+use vc_adapter_http::TlsOptions;
 use vc_adapter_notifiers::NotifierRegistry;
 use vc_adapter_secrets::{SecretProviders, VarlockSecrets};
 use vc_adapter_system::{DotEnv, SetFlags, SystemBrowser, SystemEnvironment, UserConfig, VibVars};
@@ -98,13 +98,7 @@ impl Engine {
     ///
     /// [`EngineError::Internal`] when the HTTP client cannot be built.
     pub(crate) fn transport(&self, environment: &dyn Environment) -> Result<Arc<dyn Transport>, EngineError> {
-        if let Some(transport) = &self.transport {
-            return Ok(Arc::clone(transport));
-        }
-        let options = HttpOptions { proxy: ProxyConfig::from_env(|name| environment.var(name)), ..Default::default() };
-        let transport =
-            HttpTransport::new(&options).map_err(|error| EngineError::Internal { reason: error.to_string() })?;
-        Ok(Arc::new(transport))
+        self.transport_with(environment, TlsOptions::default())
     }
 
     /// The auth types a run obtains credentials through (D106): the builder's, else the

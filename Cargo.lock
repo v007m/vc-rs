@@ -6022,6 +6022,7 @@ dependencies = [
  "vc-planner",
  "vc-template",
  "vc-testkit",
+ "zeroize",
 ]
 
 [[package]]

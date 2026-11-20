@@ -192,7 +192,7 @@ impl Engine {
     ) -> Result<(Executor, Sweep), EngineError> {
         let (settings, defaults) = (&prepared.settings, &prepared.program.config.defaults);
         let concurrency = settings.concurrency.or(defaults.concurrency).unwrap_or(CONCURRENCY);
-        let cx = self.action_cx(prepared, given)?;
+        let cx = self.action_cx(prepared, given).await?;
         let sweep = if request.no_cache { Sweep::off(cx, Vec::new()) } else { self.cached(cx, prepared).await };
         let options = RunOptions { concurrency: widen(concurrency), bail: request.bail, ..RunOptions::default() };
         Ok((Executor::new(sweep.cx(), options), sweep))
@@ -203,18 +203,22 @@ impl Engine {
     /// `inputs`' secrets), and events masked by the config's redact rules (a `function:` rule
     /// through the hook runner, with `inputs`' secrets). Every run, call and cache cleanup
     /// starts from it.
-    pub(crate) fn action_cx(
+    pub(crate) async fn action_cx(
         &self,
         prepared: &Prepared,
         (inputs, plugins): (RunInputs, &Hosts),
     ) -> Result<ActionCx, EngineError> {
+        let tls = self.run_tls(prepared, &inputs).await?;
         let hooks = self.hook_runner(&prepared.program);
         let rules =
             MaskRules::standard().with_hooks(RuleHooks::new(hooks.clone(), inputs.secrets.clone()), &prepared.program);
-        let transport = self.transport(prepared.environment.as_ref())?;
+        let transport = self.transport_with(prepared.environment.as_ref(), tls.options)?;
         let auth = self.auth(Arc::clone(&transport), plugins);
         let executors = self.executors(prepared, transport, hooks);
-        Ok(ActionCx::new(Arc::clone(&prepared.program), executors, inputs).with_mask_rules(&rules).with_auth(auth))
+        let cx = ActionCx::new(Arc::clone(&prepared.program), executors, inputs).with_mask_rules(&rules);
+        let cx = cx.with_auth(auth).with_client_certs(tls.certs);
+        cx.redactor.hide_values(tls.passphrases.iter().map(|passphrase| passphrase.as_str()));
+        Ok(cx)
     }
 
     /// The action executors for `prepared`: HTTP through `transport` and the per-host limits,
@@ -265,7 +269,7 @@ impl Engine {
         let reached = vc_planner::bodies_from(&prepared.program, actions);
         let inputs = self.inputs(prepared, (Arc::clone(&prepared.draw.random), run_id, reached)).await;
         let inputs = inputs.with_secrets(secrets).with_started_at(self.clock.now_ms());
-        Ok((Arc::new(self.action_cx(prepared, (inputs, &plugins))?), plugins))
+        Ok((Arc::new(self.action_cx(prepared, (inputs, &plugins)).await?), plugins))
     }
 }
 

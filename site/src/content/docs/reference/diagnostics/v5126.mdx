@@ -1,0 +1,72 @@
+---
+title: "V5126 — A client certificate's parts do not fit together"
+description: "A clients entry in http.tls loaded, but its parts do not make one identity: the key is not the private key of the cert, or a pkcs12 bundle's passphrase is wrong, or the bundle holds no key, or none of its certificates goes with its key."
+sidebar:
+  label: "V5126 A client certificate's parts do not fit together"
+  order: 5126
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="error" variant="danger" /> <Badge text="Run time" variant="note" />
+
+| | |
+| --- | --- |
+| Code | `V5126` |
+| Category | V5xxx: Run time |
+| Severity | error |
+| Certain fix | none; `vc check --fix` leaves this one to you |
+
+A `clients` entry in `http.tls` loaded, but its parts do not make one identity: the `key` is not the private key of
+the `cert`, or a `pkcs12` bundle's `passphrase` is wrong, or the bundle holds no key, or none of its certificates goes
+with its key. The run stops before any request, with exit code 2, since every call to the entry's hosts would be
+refused at the handshake. The message names the entry and what does not fit, never the key or the passphrase. Use the
+key issued with the certificate, or the bundle's own passphrase. Here `key` belongs to another certificate.
+
+## Wrong
+
+```yaml title="vibranium.config.yaml"
+syntaxVersion: 2
+profiles:
+  - id: dev
+    default: true
+http:
+  tls:
+    clients:
+      - id: paymentsClient
+        hosts: [payments.internal.example]
+        cert: certs/payments-client.pem
+        key: certs/orders-client.key
+```
+
+## Right
+
+```yaml title="vibranium.config.yaml"
+syntaxVersion: 2
+profiles:
+  - id: dev
+    default: true
+http:
+  tls:
+    clients:
+      - id: paymentsClient
+        hosts: [payments.internal.example]
+        cert: certs/payments-client.pem
+        key: certs/payments-client.key
+```
+
+
+## Explain it in your terminal
+
+The same page is built into the binary, so this works anywhere, even outside a project:
+
+```console
+$ vc explain V5126
+```
+
+## Related
+
+- [All diagnostic codes](/vc-rs/reference/diagnostics/)
+- [`vc explain`](/vc-rs/reference/cli/explain/)
+- [`vc check`](/vc-rs/reference/cli/check/)
+- [Errors and fixes](/vc-rs/guides/errors-and-fixes/)

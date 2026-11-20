@@ -32,7 +32,7 @@ auth:
     clientCert: tenantB
 ```
 
-<Aside type="caution">Not built yet: `vc check` checks these keys, but a run does not load or send a client certificate until [#105](https://github.com/v007m/vc-rs/issues/105) lands in full.</Aside>
+<Aside type="caution">Not built yet: the `oauth2*` types do not send their `clientCert` on the token request, and `vc check` does not read the certificate files, so a missing file shows only when a run starts ([#105](https://github.com/v007m/vc-rs/issues/105)).</Aside>
 
 ## Syntax
 
@@ -108,7 +108,9 @@ http:
 ## How it behaves
 
 - A request presents the `clientCert` of its auth when it has one. Otherwise it presents the first entry whose `hosts` match the URL's host and whose `profiles` include an active profile. Otherwise it presents none.
-- The `oauth2*` types present their `clientCert` on the token request too, for certificate-bound tokens.
+- The `oauth2*` types will present their `clientCert` on the token request too, for certificate-bound tokens.
+- A run reads the certificates its profiles use once, when it starts; an entry only for other profiles is not read. A file is at most 1 MiB.
+- A `passphrase` is masked in all output, like a secret.
 - Certificates are always verified. `ca` adds roots; nothing turns verification off.
 
 ## Common errors
@@ -121,6 +123,10 @@ http:
 - [V2105](/vc-rs/reference/diagnostics/v2105/): a setting, or a var it reads, reads a root other than `var`, `secret` or `env`.
 - [V2211](/vc-rs/reference/diagnostics/v2211/): `cert` without `key`, `key` without `cert`, or `passphrase` without `pkcs12`.
 - [V4013](/vc-rs/reference/diagnostics/v4013/): a key or passphrase is written in the config.
+- [V5114](/vc-rs/reference/diagnostics/v5114/): a call's `clientCert` names an entry that is only for other profiles.
+- [V5125](/vc-rs/reference/diagnostics/v5125/): a certificate, key or bundle cannot be read when the run starts.
+- [V5126](/vc-rs/reference/diagnostics/v5126/): a key is not the certificate's, or a bundle's passphrase is wrong.
+- [V5127](/vc-rs/reference/diagnostics/v5127/): the server refused the certificate.
 
 ## Related
 

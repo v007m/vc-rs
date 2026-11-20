@@ -785,6 +785,15 @@ Round 78 (20 November 2026; mTLS PR 5 review, small choices made under Sarath's 
 | D374 | Client keys and passphrases are masked in every diagnostic | A `key` counts as inline PEM, for V4013 and masking, when it starts with `-----BEGIN`, says `PRIVATE KEY` or runs over more than one line; one line of anything else is a path. A config that does not parse is masked by its text: the value of every `key` and `passphrase` key, with each following line that is blank, indented deeper or has no `:`. The compile hands the spans on (`Compiled::secrets`, in the cache's replay too), and the engine masks every diagnostic it adds after the compile with them. | — |
 | D375 | `http.tls` vars are checked under every profile | The run-start check of the vars `http.tls` reads follows the base vars and then each profile's, after `beforeRun`, so a var only a profile breaks is named with that profile and a var only a `beforeRun` save sets is reported as one a save sets. Each var is reported once, at its first reference. | — |
 
+Round 80 (20 November 2026; mTLS PR 6, small choices made under Sarath's delegation, closest to existing behaviour; Round 79 is the streams lane's):
+
+| # | Topic | Decision | Supersedes |
+| --- | --- | --- | --- |
+| D390 | Client material is read once, when the run starts | `vc run`, `vc call` and `vc load` render `http.tls` with the config's vars, `secret` and `env` before the first request, then read its files on a blocking thread, each capped at 1 MiB, with `ca` and relative paths taken from the project root. A value that does not render, a file that is missing, unreadable or over the cap, or material that is not PEM or PKCS#12 stops the run with V5125 and exit 2, naming the entry and the file, never the key. | — |
+| D391 | Parts that do not fit are their own code | A key that is not the certificate's, a PKCS#12 bundle whose passphrase is wrong or whose encrypted part does not decrypt, one with no key or with no certificate for its key, is V5126 rather than V5125 (`HttpAdapterError::Mismatch`), since the fix is a different key or passphrase, not a different file. | D354 (refines: which failures are V5126) |
+| D392 | An identity another profile holds is not loaded | Only the `clients` entries active under the run's profiles are read and given a `CertId` (D354). A call whose auth names an entry that was not loaded fails with V5114, naming the profiles that load it; the run goes on. | D354 (refines: what a run loads) |
+| D393 | A PKCS#12 passphrase is masked from the start | Each rendered `passphrase` is added to the run's redactor before the first request, as a secret's value is; a key given through `${secret.X}` is already masked as that secret. | D353 (refines: what the redactor hides) |
+
 ## Open
 
 All decisions needed for the PRD and technical design are settled. The language is decided by the spike (D6, D36, D37, D41).
