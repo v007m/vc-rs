@@ -336,6 +336,7 @@ Each item in `apis`:
 | `auth` | auth ID, `none`, or `id` + `vars` | the file's | Overrides the file's auth |
 | `timeout` | duration | `defaults.timeout` | Per request attempt |
 | `http.retry` | as in config | config's `http.retry` | Transport retry for this api; keys given here replace the config's (D143) |
+| `exchange` | list of `send` and `receive` items | none: read until the server closes | What a stream call sends and waits for, in order; only on an `sse` or `websocket` api (see Streams, D377) |
 | `sse.reconnect` | boolean | the file's, else `false` | Open the stream once more when it ends early; only on an `sse` api (see Api types, D385) |
 | `expect` | checks | `status: 2xx` (`101` on `websocket`) | Checks that hold on every call; a test's `expect` adds to them and replaces matching keys |
 | `save` | map of templates over `response` | — | Values every caller gets as vars, when the status matches `saveOn` |
@@ -410,6 +411,31 @@ apis:
   - id: chat
     type: websocket
     path: /chat
+```
+
+#### Streams
+
+`exchange` (D377, D393, D394) is a list of items run over one connection, in order. Each item writes exactly one of `send` and `receive` (V2201 otherwise). It is written on the api, a test or a step; the most specific one replaces the others whole, as `body` does, and a test-level `exchange` is a default for its `call` steps (D124). With no `exchange`, a call reads until the server closes.
+
+- `send` (`websocket` only) is a value, templates included, rendered before the stream opens: a map or list is sent as one JSON text frame, any other value as text. On an `sse` api it is V2213 at the item, with no fix (D392).
+- `receive` waits for the next message its check matches and skips the ones before it that do not (D378). A list is a group: its checks pair one to one with distinct messages, in any order.
+- A message check is a map of the message's fields, matched field by field (D379, D389): `sse` messages have `event`, `data`, `id`, `retry` and `text`; `websocket` messages have `type`, `data`, `text`, `code` and `reason`. A field takes a literal or a matcher; `data` takes `match` (paths into the data, as `body.match`) or `equals` (the whole data, as `body.equals`) (D390). A field the type lacks is V1004, with the close field as its fix, checked against each type a call reaches (D391). A check that is not a map is V2306.
+- `expect.messages` is a matcher on the list of every message received, merged under the key `messages` (D123, D380): `length`, and `every`, `some` and `none` over message checks, through `not`, `allOf` and `anyOf` too. Anything else there is V2306.
+
+```yaml
+# services/rooms/rooms.api.yaml
+type: websocket
+baseUrl: ${var.chatUrl}
+apis:
+  - id: join
+    path: /rooms/lobby
+    exchange:
+      - send: {type: join, name: ada}
+      - receive:
+          - {type: text, data: {match: {kind: welcome}}}
+          - {type: text, data: {match: {kind: history, 'items[*].id': {every: {gt: 0}}}}}
+    expect:
+      messages: {none: {type: close, code: {ne: 1000}}}
 ```
 
 ### Request body
@@ -582,6 +608,7 @@ Each item in `tests`:
 | `auth` | auth ID, `none`, or `id` + `vars` | the api's | Call as a different identity |
 | `headers`, `query` | maps of templates | — | Merged over the api's headers and query |
 | `body` | as an api's `body` | the api's | Replaces the api's body for this test |
+| `exchange` | as an api's `exchange` | the api's | Replaces the api's exchange whole for this test (D393) |
 | `expect` | checks | the api's `expect` | Merged with the api's checks (see Checks and matchers) |
 | `save` | map of templates over `response` | — | Name values for later steps, `after` and `afterEach`; with `steps`, reads the last step's response (D124) |
 | `poll` | `until`, `every`, `timeout` | none: all three are required (D156) | Re-send until `until` (checks) holds, then check `expect`. Only the last exchange is reported, also when the poll gives up (V5104) |
@@ -593,7 +620,7 @@ Each item in `tests`:
 | `allowFailure` | `true`, or reason and until | the file's | Run and report the test, but a failure does not fail the run (see Allowing a failure) |
 | `standalone` | boolean | `true` | `false`: runs only when reused with `test:`, never on its own |
 
-With `steps`, the test-level `auth`, `headers`, `query`, `body`, `poll` and `expect` are defaults for every `call` step, and a step's own value wins; `test:`, `function` and `command` steps take none (D124). A `test:` step runs the reused test as written, so neither the defaults nor those keys written on the step itself reach its calls (D270). A test-level `save` reads the last step's response. `vc check` warns when a `body` default reaches a `GET` or `HEAD` step (V3205), when no step uses a default (V3206), and when a `test:` action has one of those keys (V3207).
+With `steps`, the test-level `auth`, `headers`, `query`, `body`, `exchange`, `poll` and `expect` are defaults for every `call` step, and a step's own value wins; `test:`, `function` and `command` steps take none (D124). A `test:` step runs the reused test as written, so neither the defaults nor those keys written on the step itself reach its calls (D270). A test-level `save` reads the last step's response. `vc check` warns when a `body` default reaches a `GET` or `HEAD` step (V3205), when no step uses a default (V3206), and when a `test:` action has one of those keys (V3207).
 
 ```yaml
   - id: renamesUser
@@ -972,6 +999,7 @@ beforeEach:
 | `cel.<label>` | CEL expression that must be true; variables are the roots available there (see Templates and references); write `response.body`, not `body` (D125, D150) | `has items: size(response.body.items) > 0` |
 | `custom` | list of functions, `- function: path#export` | `- function: ../../hooks/checks.ts#isSorted` |
 | `errors` | `none`, `any`, a list of expected errors, or a matcher on them; only on a `graphql` api (else V2213, D345, D360) | `errors: [{code: FORBIDDEN, path: user.secretNote}]` |
+| `messages` | a matcher on the list of messages a stream call received; each message check is a map of its fields (see Streams); only on an `sse` or `websocket` api (else V2213, D380, D389) | `messages: {none: {type: close}}` |
 | `replace` | `true` | Drop every inherited check and keep only the ones written here (D123) | `replace: true` |
 
 Merging (D123): checks are inherited from the api, then the test, then the step, and the more specific level wins. Each check is keyed by its kind and leaf path, such as `status`, `headers.content-type` or `body.$.id`; a check with the same key replaces the inherited one, and every other inherited check still applies. `cel` and `custom` checks are never replaced, only added. `replace: true` drops everything inherited. That is how a negative test expects 400 from an api whose normal result is 201.
