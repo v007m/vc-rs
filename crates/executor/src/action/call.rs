@@ -16,6 +16,7 @@ use super::held::Held;
 use super::hooks::{self, HookBridge};
 use super::protocol::{ProtocolRuntime, ProtocolRuntimes};
 use super::request;
+use super::stream_call::{self, Asked};
 use super::{ActionExecutor, ActionRequest};
 use super::{auth, http_retry};
 use crate::check::{self, Judge, MatcherRegistry, Subject};
@@ -92,13 +93,17 @@ impl CallExecutor {
             ctx: SendContext { client_cert, ..SendContext::default() },
         };
         let trip = self.flight(request, &mut render, (api, action, Arc::clone(&runtime)))?;
-        let exchange = match &action.poll {
-            Some(poll) => trip.poll(&mut render, (call, poll)).await?,
-            None => trip.send(call).await?,
+        let asked = Asked { action: (request.action, action), api };
+        let answer = match (runtime.stream(), &action.poll) {
+            (Some(_), _) => stream_call::run(&trip, &mut render, (call, asked)).await?,
+            (None, Some(poll)) => trip.poll(&mut render, (call, poll)).await?.into(),
+            (None, None) => trip.send(call).await?.into(),
         };
-        let response = trip.bind(&mut render, &exchange);
+        let response = trip.answered(&mut render, &answer);
         let expected = judged(request, action, api);
-        let checks = trip.judge(&render, (&*expected, subject(&response, &exchange))).await;
+        let mut checks = trip.judge(&render, (&*expected, subject(&response, &answer.exchange))).await;
+        checks.extend(answer.checks.into_iter().map(|check| render.redactor().check(check)));
+        let exchange = answer.exchange;
         let held = Held::new(runtime.errors(&response));
         let answered = Answered { request, action, api, exchange: &exchange };
         let report = self.settle(&render, &answered, (checks, &held))?;
@@ -243,7 +248,12 @@ fn timeout(program: &Program, api: &Api, action: &Action) -> Duration {
 /// Binds `response` (as `runtime` reads it) and `request` for the checks, saves and cleanup vars;
 /// returns the response.
 pub fn bind(render: &mut Render<'_>, exchange: &Exchange, runtime: &dyn ProtocolRuntime) -> Arc<Value> {
-    let response = Arc::new(runtime.response(exchange));
+    bound(render, exchange, runtime.response(exchange))
+}
+
+/// Binds `response` as the `response` root and `exchange`'s request as the `request` root.
+pub fn bound(render: &mut Render<'_>, exchange: &Exchange, response: Value) -> Arc<Value> {
+    let response = Arc::new(response);
     render.bind(Namespace::Response, Value::clone(&response));
     render.bind(Namespace::Request, request::sent(&exchange.request));
     response

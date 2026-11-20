@@ -16,8 +16,8 @@ use crate::{
     Render,
 };
 
-/// A `websocket` runtime that sends its handshake as an `http` request, standing in for the
-/// stream runtime until it lands.
+/// A `websocket` runtime that sends its handshake as an `http` request, reading no stream, so
+/// the status, cleanup and save of a stream api's opening can be checked on their own.
 #[derive(Debug)]
 struct HandshakeOnly;
 
@@ -43,7 +43,7 @@ fn handshakes(fake: FakeTransport) -> ActionExecutors {
 }
 
 #[tokio::test]
-async fn a_call_of_a_stream_api_fails_with_a_plain_message_and_sends_nothing() {
+async fn a_stream_call_without_a_stream_transport_fails_with_a_plain_message_and_sends_nothing() {
     for (protocol, kind) in [(Protocol::Sse, "sse"), (Protocol::Websocket, "websocket")] {
         let mut fixture = Fixture::new();
         let call = fixture.call("/events");
@@ -56,7 +56,7 @@ async fn a_call_of_a_stream_api_fails_with_a_plain_message_and_sends_nothing() {
             ActionRequest { action: call, owner: OwnerKey::Run, cx: Arc::clone(&cx), frame: Frame::default() };
         let report = cx.executors.execute(request).await;
         let failure = report.outcome.failure().map(|failure| (failure.code.clone(), failure.message.clone()));
-        let message = format!("`{kind}` calls are not supported yet");
+        let message = format!("`{kind}` calls need a stream transport, and none is set");
         assert_eq!(failure, Some((None, message)));
         assert!(recordings.take().is_empty(), "{kind}: nothing is sent");
     }

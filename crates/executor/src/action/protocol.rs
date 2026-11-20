@@ -9,7 +9,9 @@ use vc_model::{Action, ActionId, Api, Exchange, Failure, Protocol, RenderedReque
 
 use super::graphql::GraphqlRuntime;
 use super::request;
-use super::stream::PendingStream;
+use super::sse::SseRuntime;
+use super::stream::StreamRuntime;
+use super::websocket::WebsocketRuntime;
 use crate::Render;
 
 /// How a call to an api of one type is built and read back.
@@ -29,6 +31,11 @@ pub trait ProtocolRuntime: fmt::Debug + Send + Sync {
     fn errors(&self, response: &Value) -> Result<Vec<Value>, Failure> {
         let _ = response;
         Ok(Vec::new())
+    }
+    /// How this type opens and reads a stream (D421); `None` for a type whose call is one
+    /// request and one response.
+    fn stream(&self) -> Option<&dyn StreamRuntime> {
+        None
     }
 }
 
@@ -60,8 +67,9 @@ impl ProtocolRuntimes {
     /// The runtime of every built-in type.
     #[must_use]
     pub fn standard() -> Self {
-        let (sse, websocket) = (PendingStream(Protocol::Sse), PendingStream(Protocol::Websocket));
-        Self { runtimes: vec![Arc::new(HttpRuntime), Arc::new(GraphqlRuntime), Arc::new(sse), Arc::new(websocket)] }
+        let runtimes: Vec<Arc<dyn ProtocolRuntime>> =
+            vec![Arc::new(HttpRuntime), Arc::new(GraphqlRuntime), Arc::new(SseRuntime), Arc::new(WebsocketRuntime)];
+        Self { runtimes }
     }
 
     /// The runtime for `protocol`, if it has one.

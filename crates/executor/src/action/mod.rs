@@ -25,7 +25,10 @@ mod request;
 mod retrying;
 mod reuse;
 mod sink;
+mod sse;
 mod stream;
+mod stream_call;
+mod websocket;
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
