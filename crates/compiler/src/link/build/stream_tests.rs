@@ -1,5 +1,7 @@
 use vc_diagnostics::{Code, Diagnostic};
-use vc_model::{Api, BodySpec, ContentHash, Method, Part, Program, Protocol, SourceFile, SourcePath};
+use vc_model::{
+    Api, BodySpec, ContentHash, Method, Part, Program, Protocol, SourceFile, SourcePath, StatusPattern, StreamSettings,
+};
 
 use crate::{CompileInput, Compiled};
 
@@ -67,6 +69,11 @@ fn path(api: &Api) -> &str {
     path
 }
 
+/// The stream settings of an `sse` api that reconnects or does not.
+const fn sse(reconnect: bool) -> StreamSettings {
+    StreamSettings { opens_on: StatusPattern::Class(2), reconnect }
+}
+
 /// The V2213 diagnostics of a compile, as `(message, line)`, in report order.
 fn stray(compiled: &Compiled) -> Vec<(String, u32)> {
     let found = compiled.diagnostics.iter().filter(|found| found.code == Code::V2213);
@@ -78,19 +85,23 @@ fn an_sse_api_sends_its_request_as_http_and_reconnects_as_its_own_block_else_its
     let program = compiled(SSE);
     let (prices, search, health) = (api(&program, "prices"), api(&program, "search"), api(&program, "health"));
     assert_eq!((prices.protocol, prices.method, path(prices)), (Protocol::Sse, Method::Get, "/prices"));
-    assert_eq!((prices.body.clone(), prices.reconnect), (BodySpec::None, true));
+    assert_eq!((prices.body.clone(), prices.stream), (BodySpec::None, Some(sse(true))));
     assert_eq!((search.protocol, search.method, path(search)), (Protocol::Sse, Method::Post, "/search"));
     assert!(matches!(search.body, BodySpec::Json(_)), "{:?}", search.body);
-    assert!(!search.reconnect, "the api's own `sse.reconnect: false` wins over its file's");
-    assert_eq!((health.protocol, health.reconnect), (Protocol::Http, false), "only an `sse` api reconnects");
+    assert_eq!(search.stream, Some(sse(false)), "the api's own `sse.reconnect: false` wins over its file's");
+    assert_eq!((health.protocol, health.stream), (Protocol::Http, None), "an `http` api does not stream");
 }
 
 #[test]
 fn an_sse_block_without_reconnect_leaves_the_files_and_none_at_all_is_off() {
     let program = compiled(&SSE.replace("    sse: {reconnect: false}\n", "    sse: {}\n"));
-    assert!(api(&program, "search").reconnect, "an api `sse` block that does not set it keeps the file's");
+    assert_eq!(
+        api(&program, "search").stream,
+        Some(sse(true)),
+        "an api `sse` block that does not set it keeps the file's"
+    );
     let program = compiled(MIXED);
-    assert!(!api(&program, "ticks").reconnect);
+    assert_eq!(api(&program, "ticks").stream, Some(sse(false)));
     assert_eq!(api(&program, "ticks").protocol, Protocol::Sse);
 }
 
@@ -99,7 +110,8 @@ fn a_websocket_api_opens_with_a_get_and_no_body_to_its_own_path() {
     let program = compiled(MIXED);
     let chat = api(&program, "chat");
     assert_eq!((chat.protocol, chat.method, path(chat)), (Protocol::Websocket, Method::Get, "/chat"));
-    assert_eq!((chat.body.clone(), chat.reconnect, chat.headers.len()), (BodySpec::None, false, 1));
+    assert_eq!((chat.body.clone(), chat.headers.len()), (BodySpec::None, 1));
+    assert_eq!(chat.stream, Some(StreamSettings { opens_on: StatusPattern::Code(101), reconnect: false }));
 }
 
 #[test]

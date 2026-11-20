@@ -963,11 +963,11 @@ pub vc_model::Api::operation_id: core::option::Option<alloc::string::String>
 pub vc_model::Api::path: vc_model::Template
 pub vc_model::Api::protocol: vc_model::Protocol
 pub vc_model::Api::query: indexmap::map::IndexMap<alloc::string::String, vc_model::Template>
-pub vc_model::Api::reconnect: bool
 pub vc_model::Api::save: vc_model::SaveSpec
 pub vc_model::Api::save_on: vc_model::Matcher
 pub vc_model::Api::save_on_written: bool
 pub vc_model::Api::span: vc_model::SourceSpan
+pub vc_model::Api::stream: core::option::Option<vc_model::StreamSettings>
 pub vc_model::Api::timeout: core::option::Option<vc_model::Duration>
 pub vc_model::Api::vars: vc_model::VarDefs
 impl core::clone::Clone for vc_model::Api
@@ -2416,6 +2416,22 @@ impl serde_core::ser::Serialize for vc_model::SourceSpan
 pub fn vc_model::SourceSpan::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
 impl<'de> serde_core::de::Deserialize<'de> for vc_model::SourceSpan
 pub fn vc_model::SourceSpan::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub struct vc_model::StreamSettings
+pub vc_model::StreamSettings::opens_on: vc_model::StatusPattern
+pub vc_model::StreamSettings::reconnect: bool
+impl core::clone::Clone for vc_model::StreamSettings
+pub fn vc_model::StreamSettings::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::StreamSettings
+impl core::cmp::PartialEq for vc_model::StreamSettings
+pub fn vc_model::StreamSettings::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::StreamSettings
+pub fn vc_model::StreamSettings::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for vc_model::StreamSettings
+impl core::marker::StructuralPartialEq for vc_model::StreamSettings
+impl serde_core::ser::Serialize for vc_model::StreamSettings
+pub fn vc_model::StreamSettings::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::StreamSettings
+pub fn vc_model::StreamSettings::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub struct vc_model::StringTable
 impl vc_model::StringTable
 pub fn vc_model::StringTable::get(&self, &str) -> core::option::Option<vc_model::Sym>

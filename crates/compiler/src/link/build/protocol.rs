@@ -1,7 +1,7 @@
 //! The compile rules of each api `type` (D342): the parts of an api that its type decides.
 
 use vc_diagnostics::Diagnostic;
-use vc_model::{BodySpec, Method, ModelError, Protocol, Template};
+use vc_model::{BodySpec, Method, ModelError, Protocol, StreamSettings, Template};
 use vc_parser::Node;
 
 use super::graphql::GraphqlRules;
@@ -35,10 +35,10 @@ pub trait ProtocolRules {
     fn check(&self, _source: &Source<'_>, _api: &Node) -> Vec<Diagnostic> {
         Vec::new()
     }
-    /// Whether the api's stream is opened once more when it ends early (D385); `false` for a
-    /// type that does not reconnect.
-    fn reconnect(&self, _source: &Source<'_>, _api: &Node) -> bool {
-        false
+    /// How the api's stream opens and whether it reopens (D376, D385); `None` for a type that
+    /// does not stream.
+    fn stream(&self, _source: &Source<'_>, _api: &Node) -> Option<StreamSettings> {
+        None
     }
 }
 

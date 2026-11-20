@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     ActionId, ApiId, AuthRef, Duration, Expect, FileId, HttpRetry, Matcher, Method, Path, Protocol, RequestHooks,
-    SaveSpec, SourceSpan, Template, TemplateValue, VarDefs,
+    SaveSpec, SourceSpan, StatusPattern, Template, TemplateValue, VarDefs,
 };
 
 /// One api file: what its apis share.
@@ -84,9 +84,9 @@ pub struct Api {
     pub timeout: Option<Duration>,
     /// `http.retry`, its keys over the config's; `None` when the api writes none (D143).
     pub http_retry: Option<HttpRetry>,
-    /// `sse.reconnect`, the api's, else its file's: whether an `sse` stream that ends before its
-    /// exchange is done is opened once more (D385). Always `false` on another type.
-    pub reconnect: bool,
+    /// How a streaming api's call opens and keeps its stream; `None` on a type that does not
+    /// stream (D376).
+    pub stream: Option<StreamSettings>,
     /// `expect`; `status: 2xx` when none is written.
     pub expect: Expect,
     /// `save`.
@@ -107,6 +107,21 @@ pub struct Api {
     pub operation_id: Option<String>,
     /// The whole item.
     pub span: SourceSpan,
+}
+
+/// What a streaming api's type decides of its call (D376): the status its stream opens on and
+/// whether it opens it once more.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
+pub struct StreamSettings {
+    /// The status a stream opens on: `2xx` for `sse`, `101` for `websocket`.
+    pub opens_on: StatusPattern,
+    /// `sse.reconnect`, the api's, else its file's: whether an `sse` stream that ends before its
+    /// exchange is done is opened once more (D385). Always `false` on a `websocket` api.
+    pub reconnect: bool,
 }
 
 /// A request body.
