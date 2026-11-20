@@ -9,7 +9,7 @@ use std::collections::HashSet;
 
 use vc_model::{
     Action, ActionId, ActionKind, ApiId, AuthRef, ClientMaterial, FileId, ProfileId, Program, Reference, RequestHooks,
-    Test, TestBody, TestId, TlsClient, TlsConfig, VarDefs,
+    Test, TestBody, TestId, TlsConfig, VarDefs,
 };
 
 /// What a walk reports. Every method defaults to doing nothing.
@@ -67,11 +67,7 @@ impl<'p, V: Visit> Walker<'p, V> {
     /// `tls`'s `ca` entries and the material of each client the followed profiles allow (D354).
     fn tls(&mut self, tls: &TlsConfig) {
         self.templates(&tls.ca);
-        let profiles = self.profiles;
-        let allowed = |client: &&TlsClient| {
-            client.profiles.is_empty() || client.profiles.iter().any(|profile| follows(profiles, *profile))
-        };
-        for client in tls.clients.values().filter(allowed) {
+        for client in tls.active(self.profiles) {
             match &client.material {
                 ClientMaterial::Pem { cert, key } => self.templates([cert, key]),
                 ClientMaterial::Pkcs12 { file, passphrase } => self.templates(std::iter::once(file).chain(passphrase)),

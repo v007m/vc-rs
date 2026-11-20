@@ -13,7 +13,7 @@ use vc_executor::{ClientCerts, RunInputs, RunValues, config_text};
 use vc_interfaces::{
     CertId, ClientSource, ClientSpec, LoadedTls, MaterialSource, Secret, Secrets, TlsError, TlsPart, TlsSpec,
 };
-use vc_model::{ClientMaterial, ProfileId, Program, Template, TlsClient, inline_pem};
+use vc_model::{ClientMaterial, Program, Template, TlsClient, inline_pem};
 use vc_template::RenderError;
 
 use crate::plan::Prepared;
@@ -58,7 +58,7 @@ impl Engine {
         let render = Render { program, values: &values, root: self.root() };
         let ca = tls.ca.iter().enumerate().map(|(index, template)| render.source(template, &TlsPart::Ca(index)));
         let ca = ca.collect::<Result<Vec<_>, _>>()?;
-        let active: Vec<_> = tls.clients.values().filter(|client| active(client, &prepared.profiles)).collect();
+        let active: Vec<_> = tls.active(Some(&prepared.profiles)).collect();
         let clients = active.iter().map(|client| render.client(client)).collect::<Result<Vec<_>, _>>()?;
         let certs = active.iter().zip(0..).map(|(client, index)| (client.id, CertId::new(index))).collect();
         Ok((TlsSpec { ca, clients }, certs))
@@ -72,11 +72,6 @@ fn inputs(prepared: &Prepared, secrets: &Secrets) -> RunInputs {
         .with_profiles(prepared.profiles.clone())
         .with_vars(crate::run::vars(&prepared.settings.vars))
         .with_secrets(secrets.clone())
-}
-
-/// Whether `client` goes with a run under `profiles`: it names none of its own, or one of them (D354).
-fn active(client: &TlsClient, profiles: &[ProfileId]) -> bool {
-    client.profiles.is_empty() || client.profiles.iter().any(|profile| profiles.contains(profile))
 }
 
 /// A PKCS#12 identity's passphrase, when it has one to hide.
