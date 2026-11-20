@@ -32,7 +32,7 @@ auth:
     clientCert: tenantB
 ```
 
-<Aside type="caution">Not built yet: the `oauth2*` types do not send their `clientCert` on the token request, and `vc check` does not read the certificate files, so a missing file shows only when a run starts ([#105](https://github.com/v007m/vc-rs/issues/105)).</Aside>
+<Aside type="caution">Not built yet: `vc check` does not read the certificate files, so a missing file shows only when a run starts ([#105](https://github.com/v007m/vc-rs/issues/105)).</Aside>
 
 ## Syntax
 
@@ -108,7 +108,7 @@ http:
 ## How it behaves
 
 - A request presents the `clientCert` of its auth when it has one. Otherwise it presents the first entry whose `hosts` match the URL's host and whose `profiles` include an active profile. Otherwise it presents none.
-- The `oauth2*` types will present their `clientCert` on the token request too, for certificate-bound tokens.
+- The `oauth2*` types present their `clientCert` on the token request too, for certificate-bound tokens (RFC 8705).
 - A run reads the certificates its profiles use once, when it starts; an entry only for other profiles is not read. A file is at most 1 MiB.
 - A `passphrase` is masked in all output, like a secret.
 - Certificates are always verified. `ca` adds roots; nothing turns verification off.

@@ -2,11 +2,11 @@ use std::sync::Arc;
 use std::sync::mpsc::{self, Sender};
 
 use async_trait::async_trait;
-use vc_interfaces::{CertChoice, CertId, SendContext, Transport, TransportError};
+use vc_interfaces::{AuthError, AuthProvider, AuthRequest, CertChoice, CertId, Credentials};
 use vc_model::{
-    AuthDef, AuthId, AuthRef, ClientCert, ClientMaterial, Exchange, OwnerKey, ProfileId, RenderedRequest, TlsClient,
-    TlsClientId, VarDefs,
+    AuthDef, AuthId, AuthRef, ClientCert, ClientMaterial, OwnerKey, ProfileId, TlsClient, TlsClientId, VarDefs,
 };
+use vc_testkit::{FakeTransport, RecordingTransport, status};
 
 use super::{ClientCerts, cert_choice};
 use crate::action::called;
@@ -66,28 +66,32 @@ fn a_named_certificate_the_profiles_did_not_load_is_v5114_naming_theirs() {
     assert_eq!(failure.message, wanted);
 }
 
-/// Answers every request with 200 and records the certificate choice each one was sent with.
+/// Gives a bearer token and records the certificate choice each request for one carries.
 struct Choices(Sender<CertChoice>);
 
 #[async_trait]
-impl Transport for Choices {
-    async fn send(&self, request: RenderedRequest, ctx: &SendContext) -> Result<Exchange, TransportError> {
-        self.0.send(ctx.client_cert).ok();
-        vc_testkit::FakeTransport::scripted(vec![Ok(vc_testkit::status(200))]).send(request, ctx).await
+impl AuthProvider for Choices {
+    async fn credentials(&self, request: &AuthRequest) -> Result<Credentials, AuthError> {
+        self.0.send(request.client_cert).ok();
+        Ok(Credentials::header("authorization", "Bearer t0ken"))
     }
 }
 
+/// The call and its auth's token request both carry the certificate the auth names.
 #[tokio::test]
-async fn a_call_sends_the_certificate_its_auth_names_from_those_the_run_loaded() {
+async fn a_call_and_its_token_request_send_the_certificate_its_auth_names_from_those_loaded() {
     let (fixture, call, good) = call_with(|good| Some(ClientCert::Named(good)));
-    let (choices, sent) = mpsc::channel();
-    let parts = PipelineParts::new(Arc::new(Choices(choices)), HostLimits::spawn(8));
+    let (transport, sent) = RecordingTransport::new(Arc::new(FakeTransport::scripted(vec![Ok(status(200))])));
+    let (choices, asked) = mpsc::channel();
+    let parts = PipelineParts::new(Arc::new(transport), HostLimits::spawn(8));
     let cx = ActionCx::new(Arc::new(fixture.program), Arc::new(ActionExecutors::standard(parts)), fixture::inputs(&[]))
-        .with_auth(Arc::new(vc_testkit::FakeAuth::new(&["mtls"])))
+        .with_auth(Arc::new(Choices(choices)))
         .with_client_certs(ClientCerts::from([(good, CertId::new(7))]));
     let cx = Arc::new(cx);
     let request = ActionRequest { action: call, owner: OwnerKey::Run, cx: Arc::clone(&cx), frame: Frame::default() };
     let report = cx.executors.execute(request).await;
     assert_eq!(report.outcome.failure(), None);
-    assert_eq!(sent.try_iter().collect::<Vec<_>>(), [CertChoice::Named(CertId::new(7))]);
+    let named = CertChoice::Named(CertId::new(7));
+    assert_eq!(sent.take().into_iter().map(|sent| sent.client_cert).collect::<Vec<_>>(), [named]);
+    assert_eq!(asked.try_iter().collect::<Vec<_>>(), [named]);
 }

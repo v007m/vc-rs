@@ -64,7 +64,8 @@ pub fn prepare(
     let settings = settings(render, def, &given)?;
     let name = program.str(def.id.sym()).unwrap_or_default();
     let key = request.cx.tokens.key(name, &Value::Object(Saved::clone(&given)), &Value::Object(settings.clone()));
-    let mut auth = AuthRequest::new(name, def.kind.clone(), settings);
+    let client_cert = cert_choice(program, request.cx.client_certs(), call)?;
+    let mut auth = AuthRequest::new(name, def.kind.clone(), settings).with_client_cert(client_cert);
     if !def.steps.is_empty() {
         auth = auth.with_flow(Arc::new(FlowRunner::new(Arc::clone(&request.cx), def, given)));
     }

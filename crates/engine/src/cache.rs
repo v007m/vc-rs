@@ -276,14 +276,15 @@ impl<'c> Cleaner<'c> {
     }
 
     /// A context like the run's under `profiles` (comma-separated names), so a cleanup goes to
-    /// the host its entry was made on.
+    /// the host its entry was made on, presenting the client certificates the run loaded.
     fn under(&self, profiles: &str) -> Arc<ActionCx> {
         let program = &self.cx.program;
         let named =
             |name: &str| program.profiles.values().find(|p| program.str(p.id.sym()) == Some(name)).map(|p| p.id);
         let ids = profiles.split(',').filter(|name| !name.is_empty()).filter_map(named).collect();
         let inputs = self.cx.values.inputs().clone().with_profiles(ids);
-        Arc::new(ActionCx::new(Arc::clone(program), Arc::clone(&self.cx.executors), inputs).with_auth(self.cx.auth()))
+        let cx = ActionCx::new(Arc::clone(program), Arc::clone(&self.cx.executors), inputs).with_auth(self.cx.auth());
+        Arc::new(cx.with_client_certs(self.cx.client_certs().clone()))
     }
 }
 

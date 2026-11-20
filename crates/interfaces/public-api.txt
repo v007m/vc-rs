@@ -692,12 +692,14 @@ pub fn vc_interfaces::Artifact::fmt(&self, &mut core::fmt::Formatter<'_>) -> cor
 impl core::marker::StructuralPartialEq for vc_interfaces::Artifact
 #[non_exhaustive] pub struct vc_interfaces::AuthRequest
 pub vc_interfaces::AuthRequest::auth: alloc::string::String
+pub vc_interfaces::AuthRequest::client_cert: vc_interfaces::CertChoice
 pub vc_interfaces::AuthRequest::flow: core::option::Option<alloc::rcs::arc::Arc<dyn vc_interfaces::ActionRunner>>
 pub vc_interfaces::AuthRequest::kind: alloc::string::String
 pub vc_interfaces::AuthRequest::settings: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
 impl vc_interfaces::AuthRequest
 pub fn vc_interfaces::AuthRequest::new(impl core::convert::Into<alloc::string::String>, impl core::convert::Into<alloc::string::String>, serde_json::map::Map<alloc::string::String, serde_json::value::Value>) -> Self
 pub fn vc_interfaces::AuthRequest::text(&self, &str) -> core::option::Option<&str>
+pub fn vc_interfaces::AuthRequest::with_client_cert(self, vc_interfaces::CertChoice) -> Self
 pub fn vc_interfaces::AuthRequest::with_flow(self, alloc::rcs::arc::Arc<dyn vc_interfaces::ActionRunner>) -> Self
 impl core::clone::Clone for vc_interfaces::AuthRequest
 pub fn vc_interfaces::AuthRequest::clone(&self) -> Self
