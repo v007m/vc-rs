@@ -17,7 +17,7 @@ use vc_model::{
 use vc_testkit::{FakeHooks, FakeStreamTransport, FakeTransport, StreamAnswer};
 
 use crate::fixture::{self, Fixture};
-use crate::{ActionExecutors, ActionReport, ActionRequest, Frame, HostLimits, PipelineParts};
+use crate::{ActionExecutors, ActionReport, ActionRequest, Frame, HostLimits, PendingCleanup, PipelineParts};
 
 /// Parts that open streams through `streams`.
 fn parts(streams: FakeStreamTransport) -> PipelineParts {
@@ -225,7 +225,8 @@ async fn a_reconnecting_sse_call_resumes_from_the_last_id_within_its_time_limit(
     }
 }
 
-/// A stream whose frames pass the body limit fails the call with V5105.
+/// A stream whose frames pass the body limit fails the call with V5105, a failed `messages`
+/// check that keeps the messages read before it (D425).
 #[tokio::test]
 async fn a_stream_larger_than_the_body_limit_fails_with_v5105() {
     let mut fixture = Fixture::new();
@@ -238,20 +239,24 @@ async fn a_stream_larger_than_the_body_limit_fails_with_v5105() {
     ))]);
     let report = run(fixture, call, parts(streams)).await;
     let failure = report.outcome.failure().map(|failure| (failure.code.clone(), failure.message.clone()));
-    let message = format!("the stream's messages are larger than {limit} bytes");
+    let message = format!("messages: the stream's messages are larger than {limit} bytes");
     assert_eq!(failure, Some((Some("V5105".to_owned()), message)));
     let kept: Vec<_> = report.exchanges.iter().map(|exchange| exchange.messages.len()).collect();
-    assert_eq!(kept, [1], "the halted call reports the messages read before the limit");
+    assert_eq!(kept, [1], "the call reports the messages read before the limit");
 }
 
 /// A reconnect that answers with no event stream ends the read: the waiting `receive` is V5130
-/// naming the answer. One that fails as a first open would fails the call (D425).
+/// naming the answer. One that fails as a first open would is a failed `messages` check under its
+/// error. Either way the messages of the first connection are kept (D425).
 #[tokio::test(start_paused = true)]
-async fn a_failed_reconnect_is_v5130_with_its_answer_or_fails_the_call() {
-    let refused = Ok(StreamAnswer::refused(vc_testkit::status(500)));
+async fn a_failed_reconnect_is_v5130_with_its_answer_or_a_failed_check_under_its_error() {
+    let mut json_head = vc_testkit::status(200);
+    drop(json_head.headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json")));
+    let not_events = "the response is `application/json`, not `text/event-stream`";
     let broken = Err(TransportError::Connect { host: "api.test".to_owned(), reason: "refused".to_owned() });
-    for (second, code, error) in [
-        (refused, "V5130", Some("no message matched before the reconnect failed (the server answered 500)")),
+    for (second, code, reason) in [
+        (Ok(StreamAnswer::refused(vc_testkit::status(500))), "V5130", Some("the server answered 500")),
+        (Ok(StreamAnswer::stream(json_head.clone(), vec![])), "V5130", Some(not_events)),
         (broken, "V5105", None),
     ] {
         let mut fixture = Fixture::new();
@@ -259,28 +264,45 @@ async fn a_failed_reconnect_is_v5130_with_its_answer_or_fails_the_call() {
         fixture.api_mut(call).stream = Some(StreamSettings { reconnect: true });
         let streams = FakeStreamTransport::scripted(vec![Ok(events(&["id: 1\ndata: 1\n\n"])), second]);
         let report = run(fixture, call, parts(streams)).await;
-        let failure = report.outcome.failure().and_then(|failure| failure.code.clone());
-        assert_eq!(failure.as_deref(), Some(code));
-        let unmet = messages_checks(&report).into_iter().find_map(|(_, error)| error);
-        assert_eq!(unmet.as_deref(), error);
+        let checks = messages_checks(&report);
+        let (found, error) = checks.first().cloned().unwrap_or_default();
+        assert_eq!((checks.len(), found.as_deref()), (1, Some(code)), "{checks:?}");
+        if let Some(reason) = reason {
+            assert_eq!(error, Some(format!("no message matched before the reconnect failed ({reason})")));
+        }
+        let kept: Vec<_> = report.exchanges.iter().map(|exchange| exchange.messages.len()).collect();
+        assert_eq!(kept, [1], "{code}: the first connection's message is kept");
     }
 }
 
-/// A stream transport whose streams never finish a `send`.
-struct StuckSends(FakeStreamTransport);
+/// What a [`Stuck`] transport never finishes.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Hang {
+    /// A `send` on any of its streams.
+    Sends,
+    /// Every open after the first.
+    Reopens,
+}
+
+/// A stream transport that hangs where its [`Hang`] says.
+struct Stuck(FakeStreamTransport, Hang);
 
 struct StuckSend(Box<dyn MessageStream>);
 
 #[async_trait]
-impl StreamTransport for StuckSends {
+impl StreamTransport for Stuck {
     async fn open(
         &self,
         request: RenderedRequest,
         mode: StreamMode,
         ctx: &SendContext,
     ) -> Result<Opened, TransportError> {
+        if self.1 == Hang::Reopens && self.0.calls() > 0 {
+            return std::future::pending().await;
+        }
         let opened = self.0.open(request, mode, ctx).await?;
-        let stream = opened.stream.map(|stream| Box::new(StuckSend(stream)) as Box<dyn MessageStream>);
+        let stuck = |stream| Box::new(StuckSend(stream)) as Box<dyn MessageStream>;
+        let stream = if self.1 == Hang::Sends { opened.stream.map(stuck) } else { opened.stream };
         Ok(Opened { stream, ..opened })
     }
 }
@@ -300,18 +322,42 @@ impl MessageStream for StuckSend {
     }
 }
 
-/// A `send` still going out at the call's time limit fails the call with V5104.
-#[tokio::test(start_paused = true)]
-async fn a_send_that_does_not_go_out_in_time_fails_the_call_with_v5104() {
-    let mut fixture = Fixture::new();
-    let call = streaming(&mut fixture, (Protocol::Websocket, "/ws"), vec![send("hi")]);
-    fixture.api_mut(call).timeout = Some(vc_model::Duration::new(Duration::from_secs(2)));
+/// Parts whose stream port is `streams`, hanging where `hang` says.
+fn stuck(streams: FakeStreamTransport, hang: Hang) -> PipelineParts {
     let fake = FakeTransport::scripted(vec![]);
-    let streams = StuckSends(FakeStreamTransport::contract());
-    let parts = PipelineParts::new(Arc::new(fake), HostLimits::spawn(8)).with_streams(Arc::new(streams));
-    let report = run(fixture, call, parts).await;
+    PipelineParts::new(Arc::new(fake), HostLimits::spawn(8)).with_streams(Arc::new(Stuck(streams, hang)))
+}
+
+/// A reconnect that does not answer within the call's time limit leaves the `receive` V5130,
+/// naming the limit (D425).
+#[tokio::test(start_paused = true)]
+async fn a_reconnect_that_does_not_answer_in_time_is_v5130_naming_the_limit() {
+    let mut fixture = Fixture::new();
+    let call = streaming(&mut fixture, (Protocol::Sse, "/feed"), vec![receive(&[("text", "3")])]);
+    let api = fixture.api_mut(call);
+    (api.stream, api.timeout) =
+        (Some(StreamSettings { reconnect: true }), Some(vc_model::Duration::new(Duration::from_secs(5))));
+    let streams = FakeStreamTransport::scripted(vec![Ok(events(&["id: 1\ndata: 1\n\n"]))]);
+    let report = run(fixture, call, stuck(streams, Hang::Reopens)).await;
+    let error = "no message matched before the 5s time limit passed".to_owned();
+    assert_eq!(messages_checks(&report), [(Some("V5130".to_owned()), Some(error))]);
+}
+
+/// A `send` still going out at the call's time limit is a failed `messages` check, V5104; the
+/// opened api's cleanup still registers on its `101` (D425).
+#[tokio::test(start_paused = true)]
+async fn a_send_that_does_not_go_out_in_time_is_v5104_and_the_cleanup_still_registers() {
+    let mut fixture = Fixture::new();
+    let delete = fixture.call("/rooms");
+    let call = fixture.creating("/ws", delete);
+    let api = fixture.api_mut(call);
+    (api.protocol, api.exchange) = (Protocol::Websocket, vec![send("hi")]);
+    api.timeout = Some(vc_model::Duration::new(Duration::from_secs(2)));
+    let report = run(fixture, call, stuck(FakeStreamTransport::contract(), Hang::Sends)).await;
     let failure = report.outcome.failure().map(|failure| (failure.code.clone(), failure.message.clone()));
-    assert_eq!(failure, Some((Some("V5104".to_owned()), "no response within 2000ms".to_owned())));
+    let message = "messages: a `send` did not go out within the 2s time limit".to_owned();
+    assert_eq!(failure, Some((Some("V5104".to_owned()), message)));
+    assert_eq!(report.cleanups, [PendingCleanup::new(delete)]);
 }
 
 /// `afterResponse` hooks run once the exchange is done, and see its messages and items (D423).

@@ -2,14 +2,14 @@
 //! request pipeline, then sends and reads against the call's deadline, judging each message
 //! against the `receive` the [`ExchangeCursor`] waits on.
 
+use std::slice;
 use std::time::Duration;
-use std::{mem, slice};
 
 use http::{HeaderName, HeaderValue};
 use serde_json::Value;
 use tokio::time::{self, Instant};
 use vc_diagnostics::Code;
-use vc_interfaces::{MessageStream, StreamFrame, TransportError};
+use vc_interfaces::{MessageStream, StreamFrame};
 use vc_model::{
     Action, ActionId, Api, CheckKind, CheckResult, Exchange, ExchangeItem, ExchangeKind, Failure, Matcher, Origin,
     SourceSpan, StreamMessage, TemplateValue,
@@ -52,13 +52,13 @@ impl<'a> Asked<'a> {
 ///
 /// # Errors
 ///
-/// When the open or a reconnect fails, a `send` does not render or go out in time, the messages
-/// pass `body_limit`, or an `afterResponse` hook fails.
+/// When the open fails, a `send` does not render, or an `afterResponse` hook fails. A failure
+/// after the stream opened is a failed `messages` check instead (D425).
 pub async fn run(flight: &Flight, render: &mut Render<'_>, (call, asked): (Call, Asked<'_>)) -> Result<Answer, Halted> {
     let runtime = flight.runtime().stream().ok_or_else(|| Failure::new("the api type reads no stream"))?;
     let mut session = Session::new(runtime, asked, (render, &call))?;
-    let (head, ended, mut opening) = session.converse((flight, render), call).await?;
-    close(opening.as_mut(), (session.deadline, &ended)).await;
+    let (head, ended, opening) = session.converse((flight, render), call).await?;
+    close(opening, (session.deadline, &ended)).await;
     let answer = session.answer(&Judge::new(flight.matchers(), &*render), (head, &ended));
     let after = flight.after(&answer.exchange, || answer.response(flight.runtime())).await;
     after.map_err(|failure| Halted::with(failure, answer.exchange.clone()))?;
@@ -80,12 +80,14 @@ enum Ended {
     Unresumed(String),
     /// The call's time limit passed.
     TimedOut(Duration),
+    /// A `send`, the size cap or a reconnect failed after the stream opened (D425).
+    Failed(Failure),
 }
 
 impl Ended {
     fn reason(&self) -> String {
         match self {
-            Self::Done | Self::Refused(_) => "the exchange ended".to_owned(),
+            Self::Done | Self::Refused(_) | Self::Failed(_) => "the exchange ended".to_owned(),
             Self::Closed => "the stream closed".to_owned(),
             Self::Dropped(error) => format!("the connection dropped ({error})"),
             Self::Unresumed(reason) => format!("the reconnect failed ({reason})"),
@@ -161,17 +163,16 @@ impl<'a> Session<'a> {
         &mut self,
         (flight, render): (&Flight, &mut Render<'_>),
         call: Call,
-    ) -> Result<(Exchange, Ended, Option<Opening>), Halted> {
+    ) -> Result<(Exchange, Ended, Option<Opening>), Failure> {
         let mut opening = flight.open(call.clone()).await?;
         self.deadline = Instant::now() + call.timeout;
         let head = opening.head.clone();
-        let ended = self.read((flight, render), &mut opening).await.map_err(|failure| self.halted(failure, &head))?;
+        let ended = self.read((flight, render), &mut opening).await.unwrap_or_else(Ended::Failed);
         if !self.resumes(&ended) {
             return Ok((head, ended, Some(opening)));
         }
         drop(opening);
-        let read = self.reconnect((flight, render), (call, ended)).await;
-        let (ended, opening) = read.map_err(|failure| self.halted(failure, &head))?;
+        let (ended, opening) = self.reconnect((flight, render), (call, ended)).await;
         Ok((head, ended, opening))
     }
 
@@ -216,8 +217,10 @@ impl<'a> Session<'a> {
             if let Some(slot) = self.items.get_mut(item) {
                 *slot = value;
             }
-            let timed_out = || Err(TransportError::Timeout { after: self.timeout });
-            let sent = time::timeout_at(self.deadline, stream.send(frame)).await.unwrap_or_else(|_| timed_out());
+            let Ok(sent) = time::timeout_at(self.deadline, stream.send(frame)).await else {
+                let message = format!("a `send` did not go out within the {:?} time limit", self.timeout);
+                return Err(Failure::new(message).with_code(Code::V5104.to_string()));
+            };
             sent.map_err(|error| Failure::new(error.to_string()).with_code(error.code().to_string()))?;
         }
         Ok(())
@@ -265,46 +268,41 @@ impl<'a> Session<'a> {
 
     /// Opens the stream once more after the server's `retry`, resuming from its last `id`, and
     /// reads on it: how that read ended, and the opening held. A wait past the time limit keeps
-    /// `ended`, and an answer with no stream this type reads ends it (D425).
-    ///
-    /// # Errors
-    ///
-    /// When the reconnect fails as a first open does (a transport error or a hook's failure), or
-    /// as [`Session::read`] does.
+    /// `ended`; an answer with no stream this type reads, or a failed open, ends it (D425).
     async fn reconnect(
         &mut self,
         (flight, render): (&Flight, &mut Render<'_>),
         (mut call, ended): (Call, Ended),
-    ) -> Result<(Ended, Option<Opening>), Failure> {
+    ) -> (Ended, Option<Opening>) {
         let resume = self.decoder.resume();
         let wait = resume.retry.unwrap_or(RECONNECT_WAIT);
         if Instant::now() + wait > self.deadline {
-            return Ok((ended, None));
+            return (ended, None);
         }
         time::sleep(wait).await;
         if let Some(id) = resume.last_id.and_then(|id| HeaderValue::from_str(&id).ok()) {
             drop(call.request.headers.insert(LAST_EVENT_ID, id));
         }
-        let Ok(opened) = time::timeout_at(self.deadline, flight.open(call)).await else {
-            return Ok((Ended::TimedOut(self.timeout), None));
+        let mut opening = match time::timeout_at(self.deadline, flight.open(call)).await {
+            Err(_) => return (Ended::TimedOut(self.timeout), None),
+            Ok(Err(failure)) => return (Ended::Failed(failure), None),
+            Ok(Ok(opening)) => opening,
         };
-        let mut opening = opened?;
-        if let Some(reason) = self.refusal(&opening) {
-            return Ok((Ended::Unresumed(reason), Some(opening)));
-        }
         self.decoder = self.runtime.decoder();
-        Ok((self.read((flight, render), &mut opening).await?, Some(opening)))
-    }
-
-    /// The call halted by `failure`, its head reported with the messages read so far.
-    fn halted(&mut self, failure: Failure, head: &Exchange) -> Halted {
-        Halted::with(failure, Exchange { messages: mem::take(&mut self.messages), ..head.clone() })
+        match self.read((flight, render), &mut opening).await {
+            Ok(Ended::Refused(reason)) => (Ended::Unresumed(reason), None),
+            read => (read.unwrap_or_else(Ended::Failed), Some(opening)),
+        }
     }
 
     /// The call's answer: the head with every message, the `exchange` items and the failure.
     fn answer(self, judge: &Judge<'_>, (head, ended): (Exchange, &Ended)) -> Answer {
         let failed = match ended {
             Ended::Refused(reason) => self.refused(&head, reason),
+            Ended::Failed(failure) => {
+                let at = (Origin::Action(self.asked.action.0), self.asked.action.1.span);
+                Some(failed(at, failure.code.clone(), failure.message.clone()))
+            }
             _ => self.unmet(judge, ended),
         };
         let exchange = Exchange { messages: self.messages, ..head };
@@ -321,7 +319,7 @@ impl<'a> Session<'a> {
             None if succeeded => (Origin::Action(self.asked.action.0), self.asked.action.1.span),
             None => return None,
         };
-        Some(failed(at, Code::V5131, format!("the stream did not open: {reason}")))
+        Some(failed(at, Some(Code::V5131.to_string()), format!("the stream did not open: {reason}")))
     }
 
     /// V5130 at the `receive` still waiting, with what it expected and the messages since the
@@ -332,7 +330,7 @@ impl<'a> Session<'a> {
         let mut expected = entries.iter().filter_map(|&entry| shape.entries.get(entry));
         let mut expected = expected.by_ref().map(|matcher| judge.expected(matcher).unwrap_or_default());
         let reason = format!("no message matched before {}", ended.reason());
-        let mut result = failed((self.asked.origin(), written.span), Code::V5130, reason);
+        let mut result = failed((self.asked.origin(), written.span), Some(Code::V5130.to_string()), reason);
         result.expected =
             if shape.grouped { Value::Array(expected.collect()) } else { expected.next().unwrap_or_default() };
         result.actual = Some(self.messages.get(since..).unwrap_or_default().iter().map(object).collect());
@@ -340,18 +338,18 @@ impl<'a> Session<'a> {
     }
 }
 
-/// Closes a stream whose exchange is done (a WebSocket close 1000), before `deadline`.
-async fn close(opening: Option<&mut Opening>, (deadline, ended): (Instant, &Ended)) {
-    let Some(stream) = opening.and_then(|opening| opening.stream.as_deref_mut()) else { return };
-    if matches!(ended, Ended::Done) {
+/// Closes a stream whose exchange is done (a WebSocket close 1000), before `deadline`, then
+/// drops the opening, so its host permit goes before the `afterResponse` hooks run.
+async fn close(opening: Option<Opening>, (deadline, ended): (Instant, &Ended)) {
+    let Some(mut opening) = opening else { return };
+    if let (Some(stream), Ended::Done) = (opening.stream.as_deref_mut(), ended) {
         drop(time::timeout_at(deadline, stream.close(1000)).await);
     }
 }
 
 /// A failed messages check at `at`.
-fn failed((origin, span): (Origin, SourceSpan), code: Code, error: String) -> CheckResult {
-    let (expected, actual, diff) = (Value::Null, None, None);
-    let (target, code) = (None, Some(code.to_string()));
+fn failed((origin, span): (Origin, SourceSpan), code: Option<String>, error: String) -> CheckResult {
+    let (expected, actual, diff, target) = (Value::Null, None, None, None);
     CheckResult {
         kind: CheckKind::Messages,
         target,
