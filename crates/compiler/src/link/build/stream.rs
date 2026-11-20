@@ -1,10 +1,10 @@
 //! The compile rules of the streaming types (D376): `sse` sends its request as an `http` api
 //! does and may reopen its stream once (D385); `websocket` opens with a `GET` and no body.
 
-use vc_model::{BodySpec, Method, Protocol, Template};
+use vc_model::{BodySpec, Method, Protocol};
 use vc_parser::Node;
 
-use super::protocol::{HttpRules, ProtocolRules};
+use super::protocol::ProtocolRules;
 use super::read;
 use crate::link::data::Data;
 use crate::link::project;
@@ -17,22 +17,6 @@ pub struct SseRules;
 impl ProtocolRules for SseRules {
     fn protocol(&self) -> Protocol {
         Protocol::Sse
-    }
-
-    fn method(&self, api: &Node) -> Method {
-        HttpRules.method(api)
-    }
-
-    fn body(&self, from: (&Source<'_>, &Data<'_>), api: &Node) -> BodySpec {
-        HttpRules.body(from, api)
-    }
-
-    fn path(&self, source: &Source<'_>, api: &Node) -> Option<Template> {
-        HttpRules.path(source, api)
-    }
-
-    fn templated_body_keys(&self) -> Option<&'static [&'static str]> {
-        None
     }
 
     /// The api's `sse.reconnect`, else its file's, else `false`.
@@ -57,14 +41,6 @@ impl ProtocolRules for WebsocketRules {
 
     fn body(&self, _: (&Source<'_>, &Data<'_>), _: &Node) -> BodySpec {
         BodySpec::None
-    }
-
-    fn path(&self, source: &Source<'_>, api: &Node) -> Option<Template> {
-        HttpRules.path(source, api)
-    }
-
-    fn templated_body_keys(&self) -> Option<&'static [&'static str]> {
-        None
     }
 }
 

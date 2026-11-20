@@ -10,18 +10,27 @@ use super::stream::{SseRules, WebsocketRules};
 use crate::link::data::Data;
 use crate::link::project::Source;
 
-/// How an api of one type reads into the program.
+/// How an api of one type reads into the program. The request methods default to `http`'s:
+/// the api's own `method` (else GET), `body` and `path`, its whole `body` a template.
 pub trait ProtocolRules {
     /// The type these rules compile.
     fn protocol(&self) -> Protocol;
     /// The method the api sends.
-    fn method(&self, api: &Node) -> Method;
+    fn method(&self, api: &Node) -> Method {
+        read::method(api)
+    }
     /// The body the api sends; `data` holds the files the compile was given.
-    fn body(&self, from: (&Source<'_>, &Data<'_>), api: &Node) -> BodySpec;
+    fn body(&self, (source, _): (&Source<'_>, &Data<'_>), api: &Node) -> BodySpec {
+        api.get("body").and_then(|body| read::body(source, body)).unwrap_or_default()
+    }
     /// The path the api sends to; `None` when it has none (V1005 reports it).
-    fn path(&self, source: &Source<'_>, api: &Node) -> Option<Template>;
+    fn path(&self, source: &Source<'_>, api: &Node) -> Option<Template> {
+        api.get("path").and_then(|path| read::template(source, path))
+    }
     /// The keys of the api's `body` that are templates; `None` when all of it is.
-    fn templated_body_keys(&self) -> Option<&'static [&'static str]>;
+    fn templated_body_keys(&self) -> Option<&'static [&'static str]> {
+        None
+    }
     /// The problems in what the type reads of the api, beyond its keys and its shape.
     fn check(&self, _source: &Source<'_>, _api: &Node) -> Vec<Diagnostic> {
         Vec::new()
@@ -33,28 +42,12 @@ pub trait ProtocolRules {
     }
 }
 
-/// `http`: the api's own `method`, else GET, and its own `body` and `path`.
-pub struct HttpRules;
+/// `http`: the request as the defaults read it.
+struct HttpRules;
 
 impl ProtocolRules for HttpRules {
     fn protocol(&self) -> Protocol {
         Protocol::Http
-    }
-
-    fn method(&self, api: &Node) -> Method {
-        read::method(api)
-    }
-
-    fn body(&self, (source, _): (&Source<'_>, &Data<'_>), api: &Node) -> BodySpec {
-        api.get("body").and_then(|body| read::body(source, body)).unwrap_or_default()
-    }
-
-    fn path(&self, source: &Source<'_>, api: &Node) -> Option<Template> {
-        api.get("path").and_then(|path| read::template(source, path))
-    }
-
-    fn templated_body_keys(&self) -> Option<&'static [&'static str]> {
-        None
     }
 }
 
