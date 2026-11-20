@@ -361,3 +361,14 @@ fn reads_nothing_for_a_check_of_paths_that_leave_out_the_config() {
     let fixes = engine.fix(&paths(&["services"])).unwrap();
     assert!(told.try_recv().is_err() && fixes.changes.is_empty(), "a fix of `services` reads none either");
 }
+
+#[test]
+fn a_fix_gathers_the_close_name_for_a_file_that_cannot_be_read() {
+    let (engine, told) = engine(&config(GOOD), vec![unreadable(client("good", "cert"), &["good.pem"])]);
+    let fixes = engine.fix(&CheckRequest::default()).unwrap();
+    assert!(told.try_recv().is_ok(), "the fix reads the files as the check does");
+    assert_eq!(fixes.changes.titles, ["Replace with certs/good.pem"]);
+    let [change] = fixes.changes.files.as_slice() else { panic!("{:?}", fixes.changes.files) };
+    assert!(change.after.contains("        cert: certs/good.pem\n"), "{}", change.after);
+    assert!(fixes.report.diagnostics.iter().any(|found| found.code == Code::V2011), "the check as it is now");
+}
