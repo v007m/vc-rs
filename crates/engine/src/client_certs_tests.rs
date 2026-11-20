@@ -2,8 +2,7 @@ use std::path::Path;
 use std::sync::Arc;
 
 use vc_adapter_http::TlsOptions;
-use vc_executor::RunInputs;
-use vc_interfaces::{CertId, LoadedTls, SourceProvider};
+use vc_interfaces::{CertId, LoadedTls, Secrets, SourceProvider};
 use vc_model::Date;
 use vc_testkit::{
     FakeVcs, FixedClock, MemoryCompileCache, MemoryEnvironment, MemorySources, MemoryTls, MemoryTlsLoader, TestPki,
@@ -42,8 +41,7 @@ async fn run_with(builder: EngineBuilder, tls: &str, (profile, env): Under<'_>) 
         .build()?;
     let request = PlanRequest { profiles: vec![profile.to_owned()], ..PlanRequest::default() };
     let prepared = engine.prepare(&request, Extra::default())?;
-    let inputs = RunInputs::new(Arc::clone(&prepared.draw.random), Arc::clone(&prepared.environment));
-    engine.run_tls(&prepared, &inputs.with_profiles(prepared.profiles.clone())).await
+    engine.run_tls(&prepared, &Secrets::new()).await
 }
 
 /// A project folder holding the test CA, the `good` certificate and the PKCS#12 fixture.

@@ -107,6 +107,7 @@ mod run_feed;
 mod sample;
 mod save_call;
 mod schema;
+mod secured;
 mod selection;
 mod settings;
 mod shown;

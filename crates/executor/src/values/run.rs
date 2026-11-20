@@ -139,16 +139,29 @@ impl RunValues {
     /// Applies the active profiles to every level of `program`, once.
     #[must_use]
     pub fn new(program: &Program, inputs: RunInputs) -> Self {
+        let mut values = Self::of_config(program, inputs);
+        let layer = |defs: &VarDefs| Arc::new(layered(program, defs, &values.active));
+        values.api_files = program.api_groups.iter().map(|(id, group)| (*id, layer(&group.vars))).collect();
+        values.apis = program.apis.iter().map(|(id, api)| (*id, layer(&api.vars))).collect();
+        values.test_files = program.test_files.iter().map(|(id, file)| (*id, layer(&file.vars))).collect();
+        values.tests = program.tests.iter().map(|(id, test)| (*id, layer(&test.vars))).collect();
+        values.actions = program.actions.iter().map(|action| layer(&action.vars)).collect();
+        values
+    }
+
+    /// The config level alone under the active profiles, for what renders before the run, such
+    /// as `http.tls`: no api, test or action has vars in it.
+    #[must_use]
+    pub fn of_config(program: &Program, inputs: RunInputs) -> Self {
         let active = active(program, &inputs.profiles);
-        let layer = |defs: &VarDefs| Arc::new(layered(program, defs, &active));
         Self {
             profiles: active.iter().filter_map(|profile| program.str(profile.sym()).map(str::to_owned)).collect(),
             config: Arc::new(config(program, &active, &inputs.vars)),
-            api_files: program.api_groups.iter().map(|(id, group)| (*id, layer(&group.vars))).collect(),
-            apis: program.apis.iter().map(|(id, api)| (*id, layer(&api.vars))).collect(),
-            test_files: program.test_files.iter().map(|(id, file)| (*id, layer(&file.vars))).collect(),
-            tests: program.tests.iter().map(|(id, test)| (*id, layer(&test.vars))).collect(),
-            actions: program.actions.iter().map(|action| layer(&action.vars)).collect(),
+            api_files: HashMap::new(),
+            apis: HashMap::new(),
+            test_files: HashMap::new(),
+            tests: HashMap::new(),
+            actions: Vec::new(),
             datasets: Arc::new(datasets(program)),
             pipes: PipeRegistry::builtin(),
             secrets: Arc::new(inputs.secrets.iter().map(|(name, secret)| (name, secret.expose())).collect()),

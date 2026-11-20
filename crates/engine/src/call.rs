@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use serde_json::{Map, Value, json};
 use vc_executor::{ActionCx, ActionReport, ActionRequest, Frame, Saved};
-use vc_interfaces::{ConfigEntry, RunEnd, RunStart};
+use vc_interfaces::{ConfigEntry, RunEnd, RunStart, Secrets};
 use vc_model::{
     Action, ActionId, ActionKind, ActionOutcome, Api, Names, Owner, Program, RunStatus, SaveSpec, TestStatus, Totals,
     VarDefs,
@@ -15,6 +15,7 @@ use vc_model::{
 
 use crate::agent_gate::{Gated, call_reach};
 use crate::call_report::CallReport;
+use crate::client_certs::RunTls;
 use crate::examples::Draw;
 use crate::explain::did_you_mean;
 use crate::history::Recording;
@@ -41,12 +42,11 @@ impl Engine {
         let (given, mut prepared, action) =
             self.before_gate(agent_call(request).as_ref(), self.adhoc_call(request)).await?;
         let admitted = self.gate(request, &prepared.program, action).await?;
-        let read = vc_planner::secrets_from(&prepared.program, &[action], &prepared.profiles);
-        let secrets = self.secrets(SecretSource::of(&prepared), &read).await?;
+        let (secrets, tls) = self.call_secured(&prepared, action).await?;
         let mut notices = std::mem::take(&mut prepared.notices);
         let recording = self.call_recording(&prepared, &request.api, &mut notices);
         let run_id = recording.as_ref().map_or(0, |recording| recording.id().get());
-        let (cx, plugins) = self.adhoc_cx(&prepared, (&[action], run_id, secrets)).await?;
+        let (cx, plugins) = self.adhoc_cx(&prepared, (&[action], run_id, secrets), tls).await?;
         let (report, failed) = plugins.around(sent_once(&cx, action, given)).await;
         notices.extend(failed);
         let passed = matches!(report.outcome, ActionOutcome::Passed);
@@ -56,6 +56,15 @@ impl Engine {
         let mut called = CallReport::masked(&cx, (names, action), report).await;
         called.notices = notices;
         Ok(called)
+    }
+
+    /// The secrets `action` reads and the run's `http.tls`, loaded before the call is recorded,
+    /// so a refusal leaves no run begun in the history.
+    async fn call_secured(&self, prepared: &Prepared, action: ActionId) -> Result<(Secrets, RunTls), EngineError> {
+        let read = vc_planner::secrets_from(&prepared.program, &[action], &prepared.profiles);
+        let secrets = self.secrets(SecretSource::of(prepared), &read).await?;
+        let tls = self.run_tls(prepared, &secrets).await?;
+        Ok((secrets, tls))
     }
 
     /// For an agent's call, the agent policy's gate on what `action` reaches: the api's method,

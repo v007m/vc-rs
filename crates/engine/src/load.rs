@@ -9,6 +9,7 @@ use vc_interfaces::{Random, RunEnd, RunStart, RunSummary, Secrets};
 use vc_loadtest::{Ending, LoadError, LoadOutcome};
 use vc_model::{ActionId, ActionKind, LoadScenario, Names, Program, RunStatus, Totals};
 
+use crate::client_certs::RunTls;
 use crate::load_findings;
 use crate::load_live::{self, Live};
 use crate::load_report::{self, LoadBreach, LoadEnding};
@@ -59,27 +60,30 @@ impl Engine {
     /// [`Engine::load`]'s work, boxed there: a load run's future is large.
     async fn load_run(&self, request: &LoadRequest, mut watch: LoadWatch) -> Result<LoadReport, EngineError> {
         let mut session = self.load_session(request)?;
-        let secrets;
-        (session.prepared, secrets) = self.secured(session.prepared).await?;
+        let Some((secrets, tls)) = self.secured(&mut session.prepared, &mut watch.interrupts).await? else {
+            let (exit, ending) = (crate::secured::EXIT_CANCELLED, LoadEnding::Cancelled);
+            return Ok(LoadReport { exit, ending, ..session.report });
+        };
         let live = Live::new(Arc::clone(&session.prepared.program), self.load_recording(&mut session), watch.ticks);
         let run_id = live.run_id().unwrap_or(0);
         session.alerting = self.alerting(&session.prepared, &secrets, (run_id, LOAD_KIND))?;
         let plugins = self.plugin_hosts(&session.prepared.program, &secrets);
-        plugins.around(Box::pin(self.load_with((session, live), (secrets, &plugins), &mut watch.interrupts))).await
+        let given = ((secrets, tls), &plugins);
+        plugins.around(Box::pin(self.load_with((session, live), given, &mut watch.interrupts))).await
     }
 
     /// [`Engine::load_run`]'s work with the run's `plugins`, which it leaves running.
     async fn load_with(
         &self,
         (mut session, live): (Session, Live),
-        (secrets, plugins): (Secrets, &Hosts),
+        ((secrets, tls), plugins): ((Secrets, RunTls), &Hosts),
         interrupts: &mut Interrupts,
     ) -> Result<LoadReport, EngineError> {
         let run_id = live.run_id().unwrap_or(0);
         let reached = crate::body_files::reached(&session.prepared.program, &session.prepared.plan);
         let inputs = self.inputs(&session.prepared, (Arc::clone(&session.random), run_id, reached)).await;
         let inputs = inputs.with_secrets(secrets).with_started_at(session.started_ms);
-        let cx = Arc::new(self.action_cx(&session.prepared, (inputs, plugins)).await?);
+        let cx = Arc::new(self.action_cx(&session.prepared, (inputs, plugins, tls))?);
         session.redactor = Some(Arc::clone(&cx.redactor));
         let full_checks = session.scenario.full_checks;
         let setup = IterationSetup { bus: EventBus::spawn(), cancel: session.root.clone(), full_checks };

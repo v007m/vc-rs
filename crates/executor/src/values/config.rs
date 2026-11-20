@@ -30,13 +30,15 @@ mod tests {
     use crate::fixture::{self, Fixture};
 
     #[test]
-    fn renders_config_vars_secrets_and_env() {
+    fn renders_config_vars_secrets_and_env_with_the_config_level_alone() {
         let mut fixture = Fixture::new();
         fixture.program.config.vars.values = fixture.vars(&[("path", "certs/${env.TIER}")]);
         let mut secrets = Secrets::new();
         secrets.insert("PASS", Secret::new("p4ss-fixture"));
         let inputs = fixture::inputs(&[("TIER", "gold")]).with_secrets(secrets);
-        let values = RunValues::new(&fixture.program, inputs);
+        let values = RunValues::of_config(&fixture.program, inputs.clone());
+        let file = fixture.file;
+        assert!(values.test_file(file).is_none() && RunValues::new(&fixture.program, inputs).test_file(file).is_some());
         let path = fixture.template("${var.path}/a.pem");
         assert_eq!(config_text(&fixture.program, &values, &path), Ok("certs/gold/a.pem".to_owned()));
         let pass = fixture.template("${secret.PASS}");
