@@ -1,5 +1,5 @@
 //! The demo's router: `/users`, kept in [`crate::users`], and `ANY /echo` here; the test routes
-//! in [`crate::scripted`], server-sent events in [`crate::events`], sign-in in [`crate::auth`] and the users specs in [`crate::openapi`].
+//! in [`crate::scripted`], server-sent events in [`crate::events`], the binary's WebSocket in `crate::ws`, sign-in in [`crate::auth`] and the users specs in [`crate::openapi`].
 
 use std::collections::BTreeMap;
 
@@ -23,13 +23,16 @@ pub const PID_HEADER: &str = "x-vc-demo-pid";
 
 /// The demo app.
 pub fn router() -> Router {
-    Router::new()
+    let router = Router::new()
         .route("/echo", any(echo))
         .merge(users::routes())
         .merge(scripted::routes())
         .merge(events::routes())
         .merge(auth::routes())
-        .merge(openapi::routes())
+        .merge(openapi::routes());
+    #[cfg(not(target_family = "wasm"))]
+    let router = router.merge(crate::ws::routes());
+    router
 }
 
 /// `ANY /echo`: the request's method, path, query, headers and body as JSON, with this process's

@@ -14,8 +14,8 @@ path = "src/main.rs"
 
 [dependencies]
 axum.workspace = true
-# `/events` streams its body.
-futures-util.workspace = true
+# `/events` streams its body, and `/ws` sends with `SinkExt`.
+futures-util = { workspace = true, features = ["sink"] }
 serde_json.workspace = true
 # `/slow`'s timer: on WASI the playground's runtime waits on the page's clock.
 tokio.workspace = true
@@ -24,7 +24,11 @@ tokio.workspace = true
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
 axum = { workspace = true, features = ["http1", "tokio"] }
 clap.workspace = true
+# `/ws` upgrades the connection and echoes WebSocket frames.
+hyper.workspace = true
+hyper-util.workspace = true
 tokio = { workspace = true, features = ["net", "rt-multi-thread"] }
+tokio-tungstenite.workspace = true
 
 [dev-dependencies]
 # Reads the served specs, and checks the answers against their schemas.
