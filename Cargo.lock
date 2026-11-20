@@ -6221,6 +6221,7 @@ dependencies = [
  "async-trait",
  "bytes",
  "http",
+ "p12-keystore",
  "rcgen",
  "serde_json",
  "thiserror 2.0.21",

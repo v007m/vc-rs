@@ -4,6 +4,7 @@
 use std::error::Error;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+use p12_keystore::{Certificate, KeyStore, KeyStoreEntry, PrivateKey, PrivateKeyChain};
 use rcgen::{
     BasicConstraints, CertificateParams, CertifiedIssuer, DnType, ExtendedKeyUsagePurpose, IsCa, KeyPair,
     KeyUsagePurpose, PKCS_ECDSA_P256_SHA256, PKCS_ECDSA_P384_SHA384, PKCS_ED25519, SignatureAlgorithm,
@@ -22,6 +23,10 @@ pub enum PkiError {
 }
 
 fn certificate(error: rcgen::Error) -> PkiError {
+    PkiError::Certificate(Box::new(error))
+}
+
+fn bundled(error: p12_keystore::error::Error) -> PkiError {
     PkiError::Certificate(Box::new(error))
 }
 
@@ -235,11 +240,32 @@ impl TestPki {
     pub fn client(&self, spec: &ClientCert) -> Result<Identity, PkiError> {
         self.ca.client(spec)
     }
+
+    /// `identity` and its key as a PKCS#12 bundle (`.p12`), the CA certificate after it,
+    /// encrypted and signed with `passphrase`.
+    ///
+    /// # Errors
+    /// [`PkiError::Certificate`] when the bundle cannot be written.
+    pub fn pkcs12(&self, identity: &Identity, passphrase: &str) -> Result<Vec<u8>, PkiError> {
+        let certs = [
+            Certificate::from_der(identity.cert_der()).map_err(bundled)?,
+            Certificate::from_der(self.ca_der()).map_err(bundled)?,
+        ];
+        let key = PrivateKey::from_der(identity.key_der()).map_err(bundled)?;
+        let mut store = KeyStore::new();
+        store.add_entry(
+            identity.name(),
+            KeyStoreEntry::PrivateKeyChain(PrivateKeyChain::new(identity.name(), key, certs)),
+        );
+        store.writer(passphrase).write().map_err(bundled)
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use std::time::{Duration, UNIX_EPOCH};
+
+    use p12_keystore::{KeyStore, Pkcs12ImportPolicy};
 
     use super::{ClientCert, KeyKind, PkiError, TestPki, YEAR_10000};
 
@@ -275,5 +301,17 @@ mod tests {
         assert!(matches!(pki.client(&late), Err(PkiError::Validity)));
         let error = PkiError::Certificate(Box::new(rcgen::Error::KeyGenerationUnavailable));
         assert!(std::error::Error::source(&error).is_some(), "rcgen's error stays the source");
+    }
+
+    #[test]
+    fn bundles_an_identity_and_the_ca_as_pkcs12_under_its_passphrase() {
+        let pki = TestPki::new().unwrap();
+        let p12 = pki.pkcs12(pki.good(), "s3cret").unwrap();
+        let store = KeyStore::from_pkcs12(&p12, "s3cret", Pkcs12ImportPolicy::Strict).unwrap();
+        let (name, chain) = store.private_key_chain().unwrap();
+        assert_eq!((name, chain.key().as_der()), ("good", pki.good().key_der()));
+        let certs: Vec<&[u8]> = chain.certs().iter().map(p12_keystore::Certificate::as_der).collect();
+        assert_eq!(certs, [pki.good().cert_der(), pki.ca_der()]);
+        assert!(KeyStore::from_pkcs12(&p12, "wrong", Pkcs12ImportPolicy::Strict).is_err(), "the passphrase guards it");
     }
 }

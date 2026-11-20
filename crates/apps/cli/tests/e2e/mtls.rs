@@ -1,11 +1,14 @@
 //! Client certificates end to end (#105, D350–D354, D390–D393): a run reads `http.tls` when it
 //! starts, trusts its `ca` and presents the identity its auth names, else the first whose
 //! `hosts` match under an active profile, to a mock that asks for one and says whose it got.
-//! Material that won't load, or whose parts don't fit, stops the run before any request.
+//! Material that won't load, or whose parts don't fit, stops the run before any request. An
+//! oauth2 token request presents the auth's identity too; a PKCS#12 bundle works like a PEM
+//! pair; and neither an inline key from a secret nor a passphrase shows in any output.
 
 use vc_mock_server::{ClientAuth, MockHandle, MockServer, MockTls};
 use vc_testkit::TestPki;
 
+use crate::redaction::{assert_hidden, files, history_text};
 use crate::{Project, said};
 
 /// The mock over TLS, trusting the test CA and naming its `good` client, asking for a client
@@ -146,4 +149,91 @@ async fn material_that_will_not_load_stops_the_run_before_any_request() {
         project.write("vibranium.config.yaml", &config);
     }
     assert!(server.stats().await.unwrap().requests.is_empty(), "no request was sent");
+}
+
+/// `good` has no hosts and the mock wants a certificate on every connection, so the token
+/// request fails unless it presents the one the auth names.
+#[tokio::test(flavor = "multi_thread")]
+async fn an_oauth2_token_request_presents_the_auths_certificate() {
+    let pki = TestPki::new().unwrap();
+    let server = mock(&pki, ClientAuth::Required).await;
+    let auth = "auth:\n  - id: svc\n    type: oauth2ClientCredentials\n    tokenUrl: ${var.baseUrl}/oauth/token\n\
+                \x20   clientId: vc-client\n    clientSecret: vc-secret\n    clientCert: good\n";
+    let project = project(&pki, (&good("'*.example'", ""), auth), "svc");
+    let run = run(&project, &server, &["tls.who#saysGood"]);
+    assert_eq!(run.status.code(), Some(0), "{}", said(&run));
+}
+
+const PASSPHRASE: &str = "Wq7v-Lc2x-Rm9b-Ty4n";
+
+/// `bundle`: `good` as `certs/good.p12` under `${secret.P12_PASSPHRASE}`, sent to `hosts`.
+fn bundle(hosts: &str) -> String {
+    format!(
+        "      - id: bundle\n        hosts: [{hosts}]\n        pkcs12: certs/good.p12\n\
+         \x20       passphrase: ${{secret.P12_PASSPHRASE}}\n"
+    )
+}
+
+/// [`project`] with `clients`, the `bundle` file written and the secrets it reads declared.
+fn bundled(pki: &TestPki, clients: &str) -> Project {
+    let project = project(pki, (clients, ""), "");
+    std::fs::write(project.path().join("certs/good.p12"), pki.pkcs12(pki.good(), PASSPHRASE).unwrap()).unwrap();
+    project.write(".env.schema", "P12_PASSPHRASE=\nCLIENT_CERT=\nCLIENT_KEY=\n");
+    project
+}
+
+/// `vc run` of `project` against `server` with `args`, the passphrase `passphrase` and `good`'s
+/// certificate and key inline in the secrets.
+fn secret_run(project: &Project, server: &MockHandle, (args, passphrase): (&[&str], &str)) -> std::process::Output {
+    let pki_files = |name: &str| std::fs::read_to_string(project.path().join(name)).unwrap();
+    let mut vc = project.run(&server.base_url(), args);
+    vc.env("P12_PASSPHRASE", passphrase).env("CLIENT_CERT", pki_files("certs/good.pem"));
+    vc.env("CLIENT_KEY", pki_files("certs/good.key")).output().unwrap()
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_pkcs12_bundle_presents_its_identity_and_a_wrong_passphrase_stops_the_run() {
+    let pki = TestPki::new().unwrap();
+    let server = mock(&pki, ClientAuth::Required).await;
+    let project = bundled(&pki, &bundle("'127.0.0.1'"));
+    let run = secret_run(&project, &server, (&["tls.who#saysGood"], PASSPHRASE));
+    assert_eq!(run.status.code(), Some(0), "{}", said(&run));
+    let wrong = secret_run(&project, &server, (&["tls.who#saysGood"], "Zp3k-Hd8s-Qm1x"));
+    assert_eq!(wrong.status.code(), Some(2), "{}", said(&wrong));
+    assert!(said(&wrong).contains("V5126") && said(&wrong).contains("`bundle`"), "{}", said(&wrong));
+    assert_hidden(&[("vc output".to_owned(), said(&wrong))], &["Zp3k-Hd8s-Qm1x"]);
+}
+
+/// The body of `good`'s key past its first line, whose PKCS#8 prefix every P-256 key shares.
+fn key_body(pki: &TestPki) -> Vec<String> {
+    let body = pki.good().key_pem().lines().filter(|line| !line.starts_with("-----"));
+    body.skip(1).map(str::to_owned).collect()
+}
+
+/// `good`'s key comes inline from a secret and the bundle's passphrase from another; a failing
+/// test, the text and JSON output, the CTRF and `JUnit` reports, the history and a wrong passphrase's diagnostic
+/// show neither.
+#[tokio::test(flavor = "multi_thread")]
+async fn an_inline_key_and_a_passphrase_show_in_no_output() {
+    let pki = TestPki::new().unwrap();
+    let server = mock(&pki, ClientAuth::Required).await;
+    let inline = "      - id: good\n        hosts: ['127.0.0.1']\n        cert: ${secret.CLIENT_CERT}\n\
+                  \x20       key: ${secret.CLIENT_KEY}\n";
+    let project = bundled(&pki, &format!("{inline}{}", bundle("'*.example'")));
+    let text = secret_run(&project, &server, (&["--report", "ctrf,junit", "--out", "out"], PASSPHRASE));
+    assert_eq!(text.status.code(), Some(1), "isForbidden fails: {}", said(&text));
+    let json = secret_run(&project, &server, (&["--reporter", "json"], PASSPHRASE));
+    assert_eq!(json.status.code(), Some(1), "{}", said(&json));
+    let wrong = secret_run(&project, &server, (&[], "Zp3k-Hd8s-Qm1x"));
+    assert_eq!(wrong.status.code(), Some(2), "{}", said(&wrong));
+    let history = history_text(&project.path().join(".vibranium/history.db"));
+    let output = said(&text) + &said(&json) + &said(&wrong);
+    let mut seen = vec![("history.db rows".to_owned(), history), ("vc output".to_owned(), output)];
+    files(project.path().join(".vibranium").as_path(), &mut seen);
+    files(project.path().join("out").as_path(), &mut seen);
+    let reports = ["ctrf.json", "junit.xml"].map(|name| seen.iter().any(|(path, _)| path.ends_with(name)));
+    assert_eq!(reports, [true, true], "both reports were written");
+    let body = key_body(&pki);
+    let hidden: Vec<&str> = body.iter().map(String::as_str).chain([PASSPHRASE, "Zp3k-Hd8s-Qm1x"]).collect();
+    assert_hidden(&seen, &hidden);
 }
