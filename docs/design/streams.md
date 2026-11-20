@@ -133,7 +133,7 @@ Defaults (`websocket`):
 Keys that keep their meaning: auth, `headers`, `query`, `http.retry`, `timeout`, `expect`, `save`, `saveOn`, `cleanup`, hooks and `deprecated`.
 
 - `http.retry` retries only the open.
-- `saveOn` and `cleanup` read the opening status. A `websocket` call succeeds on `101`, not `2xx`: with no status written, its `expect` checks `status: 101`, its `saveOn` defaults to `101` and only a `101` registers its `cleanup` (`Protocol::success_status`, D386). An `sse` call keeps `2xx`.
+- `saveOn` and `cleanup` read the opening status. A `websocket` call succeeds on `101`, not `2xx`: with no status written, its `expect` checks `status: 101`, its `saveOn` defaults to `101` and a `101` registers its `cleanup` (`Protocol::success_status`, D386). An api that writes `expect.status` saves and registers its cleanup on that status instead (D387). An `sse` call keeps `2xx`.
 - `poll` is V2213 on a stream type.
 
 Size: each message, and the total kept for the call, is capped by `SendContext::body_limit`. Going over the cap is `BodyTooLarge` (V5105), as an over-large body is today.

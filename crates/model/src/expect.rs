@@ -17,6 +17,17 @@ pub struct Expect {
     pub replace: bool,
 }
 
+impl Expect {
+    /// The statuses a call succeeds on: those its status check matches, else `success`. An api's
+    /// own `expect` gives the default `saveOn` and the statuses that register its cleanup
+    /// (D191, D387).
+    #[must_use]
+    pub fn status_or(&self, success: StatusPattern) -> Matcher {
+        let status = self.checks.iter().find(|check| check.kind == CheckKind::Status);
+        status.map_or_else(|| Matcher::Status(vec![success]), |check| check.matcher.clone())
+    }
+}
+
 /// One check, reported on its own with its source line.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[expect(

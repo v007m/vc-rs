@@ -28,9 +28,10 @@ const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
 ///
 /// It renders the request from the action's scope and sends it; with `poll`, it sends again
 /// every `every` until the `until` checks hold or `timeout` passes (V5104). It then evaluates
-/// the merged checks, with the api's default `status: 2xx` (`101` on a `websocket` api, D386)
-/// when none checks the status. On a response of that status it registers the api's `cleanup` with its vars rendered against the response,
-/// whatever the checks say, unless the action is `keep` or is itself a cleanup. Only when every
+/// the merged checks, with the api's success status (D386) when none checks the status. On a
+/// response whose status matches the api's own `expect.status`, else its success status (the
+/// default `saveOn`, D387), it registers the api's `cleanup` with its vars rendered against the
+/// response, whatever the checks say, unless the action is `keep` or is itself a cleanup. Only when every
 /// check holds does it save the api's `save` values, when the status matches the api's `saveOn`
 /// (D191), and then the action's. A response with GraphQL errors registers no cleanup and, under
 /// the default `saveOn`, runs no api `save` (V5129); its errors are listed as V5128 when no
@@ -121,12 +122,12 @@ impl CallExecutor {
         (checks, held): (Vec<CheckResult>, &Held),
     ) -> Result<ActionReport, Failure> {
         let Answered { request, action, api, exchange } = *answered;
-        let succeeded = api.success_status().matches(exchange.response.status.as_u16());
+        let succeeded = self.on_status(render, &api.expect.status_or(api.success_status()), exchange);
         let registers = !action.keep && request.frame.given.is_none() && succeeded;
         let cleanups = if registers && held.clean() { cleanup(render, api)? } else { None };
         let checks = held.reported(checks, (Origin::Action(request.action), action.span));
         let failure = check::verdict(&checks);
-        let on_status = failure.is_none() && self.on_status(render, api, exchange);
+        let on_status = failure.is_none() && self.on_status(render, &api.save_on, exchange);
         let api_saves = on_status && held.saves(api);
         let withheld = (registers && api.cleanup.is_some() && !held.clean())
             || (on_status && !api_saves && !api.save.values.is_empty());
@@ -143,11 +144,12 @@ impl CallExecutor {
         Ok(report)
     }
 
-    /// Whether the response's status matches the api's `saveOn` (D191).
-    fn on_status(&self, render: &Render<'_>, api: &Api, exchange: &Exchange) -> bool {
+    /// Whether the response's status matches `statuses`: the api's `saveOn` (D191), or its
+    /// `expect.status`, else its success status, for its cleanup (D387).
+    fn on_status(&self, render: &Render<'_>, statuses: &Matcher, exchange: &Exchange) -> bool {
         let status = Value::from(exchange.response.status.as_u16());
         let judge = Judge::new(&self.matchers, render);
-        judge.matches(&api.save_on, Some(&status)) == Ok(true)
+        judge.matches(statuses, Some(&status)) == Ok(true)
     }
 
     /// The call's flight: the pipeline from these parts with the api's retry (D143), auth and

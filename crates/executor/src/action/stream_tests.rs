@@ -2,12 +2,15 @@ use std::sync::Arc;
 
 use serde_json::Value;
 use serde_json::json;
-use vc_model::{Action, ActionId, Api, CheckKind, Exchange, Failure, OwnerKey, Protocol, RenderedRequest};
+use vc_model::{
+    Action, ActionId, Api, Check, CheckKind, Exchange, Failure, Matcher, Origin, OwnerKey, Protocol, RenderedRequest,
+    StatusPattern,
+};
 use vc_testkit::{FakeTransport, RecordingTransport};
 
 use super::super::protocol::{ProtocolRuntime, ProtocolRuntimes};
 use super::super::request;
-use crate::fixture::Fixture;
+use crate::fixture::{self, Fixture};
 use crate::{
     ActionExecutors, ActionKindTag, ActionRequest, CallExecutor, Frame, HostLimits, PendingCleanup, PipelineParts,
     Render,
@@ -76,5 +79,37 @@ async fn a_websocket_api_succeeds_on_101_so_its_default_status_and_its_cleanup_f
         assert_eq!((check.kind, check.passed, check.expected.clone()), (CheckKind::Status, passed, json!([101])));
         let cleanups = if passed { vec![PendingCleanup::new(delete)] } else { vec![] };
         assert_eq!(report.cleanups, cleanups, "{status}: only the stream's own status registers the cleanup");
+    }
+}
+
+/// A `websocket` api that expects a `200` saves on it, as its default `saveOn` is that status,
+/// so a `200` registers its cleanup too, and its `101` neither (D387).
+#[tokio::test]
+async fn a_websocket_api_that_expects_200_saves_and_registers_its_cleanup_on_200_and_not_on_101() {
+    for (status, kept) in [(200, true), (101, false)] {
+        let mut fixture = Fixture::new();
+        let delete = fixture.call("/rooms");
+        let open = fixture.creating("/chat", delete);
+        let api_saves = fixture.vars(&[("name", "${response.status}")]);
+        let api = fixture.api_mut(open);
+        let matcher = Matcher::Status(vec![StatusPattern::Code(200)]);
+        let check = Check {
+            kind: CheckKind::Status,
+            target: None,
+            matcher,
+            origin: Origin::Api(api.id),
+            span: fixture::span(),
+        };
+        (api.protocol, api.save.values, api.save_on) = (Protocol::Websocket, api_saves, check.matcher.clone());
+        api.expect.checks = vec![check.clone()];
+        fixture.action_mut(open).expect.checks = vec![check];
+        let cx = fixture.cx(handshakes(FakeTransport::scripted(vec![Ok(vc_testkit::status(status))])));
+        let request =
+            ActionRequest { action: open, owner: OwnerKey::Run, cx: Arc::clone(&cx), frame: Frame::default() };
+        let report = cx.executors.execute(request).await;
+        let saved: Vec<_> = report.saved.keys().cloned().collect();
+        let (names, cleanups) =
+            if kept { (vec!["name".to_owned()], vec![PendingCleanup::new(delete)]) } else { (vec![], vec![]) };
+        assert_eq!((saved, report.cleanups), (names, cleanups), "{status}: a save always has its cleanup");
     }
 }

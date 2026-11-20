@@ -174,7 +174,7 @@ fn quoted(text: &str) -> Option<(&str, &str)> {
 }
 
 /// When an api's `save` runs (D191): its `saveOn` at `node`, else the status its `expect`
-/// checks, else `success` (`2xx`, `101` on a `websocket` api, D386); and whether it is the
+/// checks ([`Expect::status_or`]), else `success`, its type's (D386); and whether it is the
 /// written `saveOn`, which is status only on a `graphql` api (D345). A `saveOn` that did not
 /// compile to a matcher is not written.
 pub fn save_on(
@@ -186,9 +186,7 @@ pub fn save_on(
         Some(Piece::Matcher(matcher)) => Some(matcher.clone()),
         _ => None,
     });
-    let status = expect.checks.iter().find(|check| check.kind == CheckKind::Status);
-    let expected = || status.map_or_else(|| Matcher::Status(vec![success]), |check| check.matcher.clone());
-    written.map_or_else(|| (expected(), false), |matcher| (matcher, true))
+    written.map_or_else(|| (expect.status_or(success), false), |matcher| (matcher, true))
 }
 
 /// The checks under `until`, for `poll`.
