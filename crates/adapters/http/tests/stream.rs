@@ -1,5 +1,6 @@
-//! `HttpTransport` as the stream port against `vc-mock-server`: the body-stream contract, the
-//! head it hands over, a stream that stays open, and what it refuses (D427).
+//! `HttpTransport` as the stream port against `vc-mock-server`: the stream contract, the head
+//! it hands over, a stream that stays open, what it refuses (D427), and a WebSocket over `ws`,
+//! over TLS and past the body limit (D460–D462).
 
 use std::error::Error;
 use std::time::Duration;
@@ -7,10 +8,14 @@ use std::time::Duration;
 use http::header::{ACCEPT_ENCODING, CONTENT_TYPE};
 use http::{HeaderValue, Method, StatusCode, Uri};
 use serde_json::Value;
-use vc_adapter_http::{HttpOptions, HttpTransport};
-use vc_interfaces::{MessageStream, Opened, SendContext, StreamFrame, StreamMode, StreamTransport, TransportError};
-use vc_mock_server::{MockHandle, MockServer};
-use vc_model::RenderedRequest;
+use vc_adapter_http::{HttpOptions, HttpTransport, TlsOptions};
+use vc_interfaces::{
+    MessageStream, Opened, OutgoingFrame, SendContext, StreamFrame, StreamMode, StreamTransport, Transport,
+    TransportError,
+};
+use vc_mock_server::{MockHandle, MockServer, MockTls};
+use vc_model::{HttpVersion, RenderedRequest, Size};
+use vc_testkit::TestPki;
 
 type TestResult = Result<(), Box<dyn Error>>;
 
@@ -19,6 +24,11 @@ async fn open(mock: &MockHandle, path: &str, mode: StreamMode) -> Result<Opened,
     let transport = HttpTransport::new(&HttpOptions::default())
         .map_err(|error| TransportError::Protocol { reason: error.to_string() })?;
     transport.open(RenderedRequest::new(Method::GET, uri), mode, &SendContext::default()).await
+}
+
+async fn open_at(url: &str, ctx: &SendContext) -> Result<Opened, Box<dyn Error>> {
+    let transport = HttpTransport::new(&HttpOptions::default())?;
+    Ok(transport.open(RenderedRequest::new(Method::GET, Uri::try_from(url)?), StreamMode::WebSocket, ctx).await?)
 }
 
 async fn text_of(stream: &mut dyn MessageStream) -> String {
@@ -30,9 +40,9 @@ async fn text_of(stream: &mut dyn MessageStream) -> String {
 }
 
 #[tokio::test]
-async fn meets_the_body_stream_contract() -> TestResult {
+async fn meets_the_stream_transport_contract() -> TestResult {
     let mock = MockServer::start().await?;
-    vc_testkit::body_stream_suite(&HttpTransport::new(&HttpOptions::default())?, &mock.base_url()).await;
+    vc_testkit::stream_transport_suite(&HttpTransport::new(&HttpOptions::default())?, &mock.base_url()).await;
     Ok(())
 }
 
@@ -85,10 +95,51 @@ async fn an_open_stream_waits_and_ends_when_closed() -> TestResult {
 }
 
 #[tokio::test]
-async fn a_websocket_waits_for_its_adapter() -> TestResult {
+async fn a_ws_url_opens_a_websocket_and_the_head_keeps_it() -> TestResult {
     let mock = MockServer::start().await?;
-    let refused = open(&mock, "/events", StreamMode::WebSocket).await;
-    assert!(matches!(refused, Err(TransportError::InvalidRequest { .. })), "{refused:?}");
-    assert_eq!(mock.stats().await?.count("GET /events"), 0, "nothing is sent");
+    let url = mock.base_url().replacen("http://", "ws://", 1);
+    let opened = open_at(&format!("{url}/ws"), &SendContext::default()).await?;
+    assert_eq!(opened.head.response.status, StatusCode::SWITCHING_PROTOCOLS);
+    assert_eq!(opened.head.request.uri.scheme_str(), Some("ws"), "the head keeps the URL as written");
+    vc_testkit::message_stream_suite(opened.stream.ok_or("no stream")?).await;
+    Ok(())
+}
+
+/// The https mock offering h2, and a transport that trusts it.
+async fn h2_mock(pki: &TestPki) -> Result<(MockHandle, HttpTransport), Box<dyn Error>> {
+    let server = pki.server();
+    let tls = MockTls::new(vec![server.cert_der().to_vec()], server.key_der().to_vec()).h2();
+    let tls_options = TlsOptions { ca: vec![pki.ca_pem().into_bytes()], ..TlsOptions::default() };
+    Ok((
+        MockServer::start_tls(tls).await?,
+        HttpTransport::new(&HttpOptions { tls: tls_options, ..HttpOptions::default() })?,
+    ))
+}
+
+#[tokio::test]
+async fn a_wss_websocket_opens_over_http1_on_a_server_that_offers_h2() -> TestResult {
+    let pki = TestPki::new()?;
+    let (mock, transport) = h2_mock(&pki).await?;
+    let url = format!("{}/ws", mock.base_url().replacen("https://", "wss://", 1));
+    let request = RenderedRequest::new(Method::GET, Uri::try_from(url)?);
+    let opened = transport.open(request, StreamMode::WebSocket, &SendContext::default()).await?;
+    let head = (opened.head.response.status, opened.head.connection.protocol);
+    assert_eq!(head, (StatusCode::SWITCHING_PROTOCOLS, HttpVersion::Http1));
+    vc_testkit::message_stream_suite(opened.stream.ok_or("no stream")?).await;
+    let echo = RenderedRequest::new(Method::GET, Uri::try_from(format!("{}/echo", mock.base_url()))?);
+    let sent = transport.send(echo, &SendContext::default()).await?;
+    assert_eq!(sent.connection.protocol, HttpVersion::Http2, "other requests still speak h2");
+    Ok(())
+}
+
+#[tokio::test]
+async fn a_message_over_the_body_limit_is_too_large() -> TestResult {
+    let mock = MockServer::start().await?;
+    let limit = Size::from_bytes(8);
+    let ctx = SendContext { body_limit: limit, ..SendContext::default() };
+    let mut stream = open_at(&format!("{}/ws", mock.base_url()), &ctx).await?.stream.ok_or("no stream")?;
+    assert_eq!(stream.send(OutgoingFrame::Text("nine bytes".to_owned())).await, Ok(()), "only what is read is capped");
+    assert_eq!(stream.next().await, Some(Err(TransportError::BodyTooLarge { limit })));
+    assert_eq!(stream.next().await, None, "an error ends the stream");
     Ok(())
 }
