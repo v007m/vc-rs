@@ -38,6 +38,18 @@ impl Protocol {
         }
     }
 
+    /// Its key in backticks after the article a message reads it with: "an `sse`", "a
+    /// `websocket`" (and "an `http`", read as "aitch").
+    #[must_use]
+    pub const fn named(self) -> &'static str {
+        match self {
+            Self::Http => "an `http`",
+            Self::Graphql => "a `graphql`",
+            Self::Sse => "an `sse`",
+            Self::Websocket => "a `websocket`",
+        }
+    }
+
     /// The type written as `key`, as [`Protocol::key`] gives it.
     #[must_use]
     pub fn from_key(key: &str) -> Option<Self> {
@@ -196,5 +208,11 @@ mod tests {
         assert_eq!((Protocol::Sse.key(), Protocol::Websocket.key()), ("sse", "websocket"));
         assert_eq!(Protocol::from_key("htp"), None);
         assert_eq!(Protocol::from_key("HTTP"), None);
+    }
+
+    #[test]
+    fn a_message_names_each_type_after_the_article_it_is_read_with() {
+        let named = Protocol::ALL.map(Protocol::named);
+        assert_eq!(named, ["an `http`", "a `graphql`", "an `sse`", "a `websocket`"]);
     }
 }

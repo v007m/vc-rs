@@ -153,7 +153,7 @@ tests:
     headers: {x-a: '1'}
 ";
     let compiled = compile(MIXED, tests);
-    let expected = [("`body` does not apply to a `websocket` api", 4), ("`poll` does not apply to a `sse` api", 7)];
+    let expected = [("`body` does not apply to a `websocket` api", 4), ("`poll` does not apply to an `sse` api", 7)];
     let found: Vec<_> = stray(&compiled);
     assert_eq!(found, expected.map(|(message, line)| (message.to_owned(), line)));
 }
@@ -173,7 +173,7 @@ fn a_test_level_body_that_reaches_a_websocket_step_is_reported_at_the_test_witho
 #[test]
 fn errors_is_a_graphql_check_so_a_stream_api_reports_it() {
     let apis = MIXED.replace("    path: /ticks\n", "    path: /ticks\n    expect: {errors: none}\n");
-    assert_eq!(stray(&compile(&apis, "tests: []\n")), [("`errors` does not apply to a `sse` api".to_owned(), 10)]);
+    assert_eq!(stray(&compile(&apis, "tests: []\n")), [("`errors` does not apply to an `sse` api".to_owned(), 10)]);
 }
 
 #[test]
@@ -181,10 +181,12 @@ fn an_sse_block_is_read_only_on_an_sse_api_or_an_sse_file() {
     let apis =
         "baseUrl: http://x\nsse:\n  reconnect: true\napis:\n  - id: get\n    path: /a\n    sse: {reconnect: true}\n";
     let compiled = compile(apis, "tests: []\n");
-    let expected = [("`sse` does not apply to a `http` file", 2), ("`sse` does not apply to a `http` api", 7)];
+    let expected = [("`sse` does not apply to an `http` file", 2), ("`sse` does not apply to an `http` api", 7)];
     assert_eq!(stray(&compiled), expected.map(|(message, line)| (message.to_owned(), line)));
     let block = compiled.diagnostics.iter().next().unwrap();
     assert_eq!(&apis[block.fixes[0].edits[0].range.clone()], "sse:\n  reconnect: true\n");
+    assert_eq!(block.primary.text, "not an `http` file key");
+    assert_eq!(block.help, ["remove `sse`, or set the file's `type: sse`; only an `sse` file reads it"]);
     let typed = apis.replace("baseUrl: http://x\n", "baseUrl: http://x\ntype: sse\n");
     assert_eq!(compile(&typed, "tests: []\n").diagnostics.iter().count(), 0);
 }
@@ -198,8 +200,8 @@ fn a_misspelt_sse_key_is_v1004_with_the_close_key_and_a_stream_api_without_a_pat
     let apis = "baseUrl: http://x\napis:\n  - id: chat\n    type: websocket\n  - id: ticks\n    type: sse\n";
     let compiled = compile(apis, "tests: []\n");
     let missing: Vec<_> = compiled.diagnostics.iter().map(|found| (found.code, found.message.clone())).collect();
-    let needs = |kind| (Code::V1005, format!("a `{kind}` api needs `path`"));
-    assert_eq!(missing, [needs("websocket"), needs("sse")]);
+    let needs = |kind| (Code::V1005, format!("{kind} api needs `path`"));
+    assert_eq!(missing, [needs("a `websocket`"), needs("an `sse`")]);
 }
 
 /// What `SseRules` makes of the stream of each api in `apis`, read straight from the file, so a
@@ -263,8 +265,27 @@ tests:
       until: {errors: none}
 ";
     let compiled = compile(MIXED, tests);
-    assert_eq!(stray(&compiled), [("`poll` does not apply to a `sse` api".to_owned(), 4)]);
+    assert_eq!(stray(&compiled), [("`poll` does not apply to an `sse` api".to_owned(), 4)]);
     let poll = compiled.diagnostics.iter().next().unwrap();
     let fixes: Vec<_> = poll.fixes.iter().map(|fix| &tests[fix.edits[0].range.clone()]).collect();
     assert_eq!(fixes, ["    poll:\n      every: 1s\n      timeout: 10s\n      until: {errors: none}\n"]);
+}
+
+#[test]
+fn a_test_level_poll_that_reaches_an_sse_step_names_it_with_its_article() {
+    let tests = "tests:\n  - id: watches\n    poll: {every: 1s, timeout: 5s, until: {status: 200}}\n    steps:\n      - call: feed#ticks\n";
+    let compiled = compile(MIXED, tests);
+    let found: Vec<&Diagnostic> = compiled.diagnostics.iter().collect();
+    let [poll] = found.as_slice() else { panic!("{:?}", compiled.diagnostics) };
+    assert_eq!(poll.message, "`poll` does not apply to an `sse` api");
+    assert_eq!(poll.secondary[0].text, "an `sse` call without its own `poll`");
+    assert_eq!(poll.help, ["move `poll` onto the steps that send one; an `sse` call does not take it"]);
+    let own = compile(
+        MIXED,
+        &tests
+            .replace("    poll: {every: 1s, timeout: 5s, until: {status: 200}}\n", "")
+            .replace("ticks\n", "ticks\n        poll: {every: 1s, timeout: 5s, until: {status: 200}}\n"),
+    );
+    let labels: Vec<_> = own.diagnostics.iter().map(|found| found.primary.text.as_str()).collect();
+    assert_eq!(labels, ["not an `sse` key"]);
 }

@@ -65,7 +65,7 @@ impl CallExecutor {
 
     /// The runtime of `api`'s type; one the registry lacks fails the call.
     fn runtime(&self, api: &Api) -> Result<Arc<dyn ProtocolRuntime>, Failure> {
-        let missing = || Failure::new(format!("no runtime for a `{}` api", api.protocol.key()));
+        let missing = || Failure::new(format!("no runtime for {} api", api.protocol.named()));
         self.runtimes.get(api.protocol).ok_or_else(missing)
     }
 

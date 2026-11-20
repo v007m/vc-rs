@@ -139,13 +139,13 @@ fn refused(
     let calls = project::list(test, "steps").iter().filter(|step| step.get("call").is_some());
     let mut inheriting = calls.filter(|step| !(place.own)(step, key));
     let step = inheriting.find(|step| !takes(project, (source, step), (table, place.at, key)))?;
-    let (call, kind) = (step.entry("call")?, reached(project, source, step)?.key());
-    let message = format!("`{key}` does not apply to a `{kind}` api");
+    let (call, kind) = (step.entry("call")?, reached(project, source, step)?.named());
+    let message = format!("`{key}` does not apply to {kind} api");
     Some(
         Diagnostic::new(Code::V2213, entry.key_span, message)
             .label("a test-level default")
-            .secondary(call.value.span, format!("a `{kind}` call without its own `{key}`"))
-            .help(format!("move `{key}` {}; a `{kind}` call does not take it", place.onto)),
+            .secondary(call.value.span, format!("{kind} call without its own `{key}`"))
+            .help(format!("move `{key}` {}; {kind} call does not take it", place.onto)),
     )
 }
 
@@ -191,10 +191,10 @@ fn known(shape: &'static Shape) -> impl Fn(&&Entry) -> bool {
 
 /// V2213 at `entry`'s key, with the certain fix that removes its lines.
 fn removed(source: &Source<'_>, entry: &Entry, protocol: Protocol) -> Diagnostic {
-    let (key, kind) = (entry.key.as_str(), protocol.key());
-    let message = format!("`{key}` does not apply to a `{kind}` api");
+    let (key, kind) = (entry.key.as_str(), protocol.named());
+    let message = format!("`{key}` does not apply to {kind} api");
     let diagnostic = Diagnostic::new(Code::V2213, entry.key_span, message)
-        .label(format!("not a `{kind}` key"))
+        .label(format!("not {kind} key"))
         .help(format!("remove `{key}`; an api's `type` decides which keys apply (see the syntax reference)"));
     remove_fix(diagnostic, source, entry)
 }
@@ -204,17 +204,17 @@ fn removed(source: &Source<'_>, entry: &Entry, protocol: Protocol) -> Diagnostic
 fn file_blocks(source: &Source<'_>) -> Vec<Diagnostic> {
     let file = project::protocol(source.root, source.root);
     let blocks = FILE_BLOCKS.iter().filter(|block| source.kind == FileKind::Api && **block != file);
-    let entries = blocks.filter_map(|block| source.root.entry(block.key()));
-    entries.map(|entry| stray_block(source, entry, file)).collect()
+    let entries = blocks.filter_map(|block| Some((source.root.entry(block.key())?, *block)));
+    entries.map(|block| stray_block(source, block, file)).collect()
 }
 
-/// V2213 at the block `entry` on a `file`-type api file, with the fix that removes it.
-fn stray_block(source: &Source<'_>, entry: &Entry, file: Protocol) -> Diagnostic {
-    let (key, kind) = (entry.key.as_str(), file.key());
-    let message = format!("`{key}` does not apply to a `{kind}` file");
+/// V2213 at `block`'s own entry on a `file`-type api file, with the fix that removes it.
+fn stray_block(source: &Source<'_>, (entry, block): (&Entry, Protocol), file: Protocol) -> Diagnostic {
+    let (key, kind) = (entry.key.as_str(), file.named());
+    let message = format!("`{key}` does not apply to {kind} file");
     let diagnostic = Diagnostic::new(Code::V2213, entry.key_span, message)
-        .label(format!("not a `{kind}` file key"))
-        .help(format!("remove `{key}`, or set the file's `type: {key}`; only a `{key}` file reads it"));
+        .label(format!("not {kind} file key"))
+        .help(format!("remove `{key}`, or set the file's `type: {key}`; only {} file reads it", block.named()));
     remove_fix(diagnostic, source, entry)
 }
 

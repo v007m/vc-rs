@@ -146,7 +146,7 @@ fn errors_on_an_http_api_or_a_call_that_reaches_one_is_reported_and_a_graphql_ap
     let compiled = compile(apis, tests);
     let stray: Vec<_> = compiled.diagnostics.iter().filter(|found| found.code == Code::V2213).collect();
     let found: Vec<_> = stray.iter().map(|found| (found.message.as_str(), found.primary.span.start.line)).collect();
-    let expected = [("`errors` does not apply to a `http` api", 5), ("`errors` does not apply to a `http` api", 5)];
+    let expected = [("`errors` does not apply to an `http` api", 5), ("`errors` does not apply to an `http` api", 5)];
     assert_eq!(found, expected, "the test file's first, then the api file's");
     assert_eq!(&tests[stray[0].fixes[0].edits[0].range.clone()], "      errors: [{code: FORBIDDEN}]\n");
     let graphql =
@@ -162,7 +162,10 @@ fn a_test_level_errors_check_that_reaches_an_http_step_is_reported_once_at_the_t
     let compiled = compile(apis, &tests);
     let stray: Vec<_> = compiled.diagnostics.iter().filter(|found| found.code == Code::V2213).collect();
     let [found] = stray.as_slice() else { panic!("{stray:?}") };
-    assert_eq!((found.message.as_str(), found.primary.span.start.line), ("`errors` does not apply to a `http` api", 4));
+    assert_eq!(
+        (found.message.as_str(), found.primary.span.start.line),
+        ("`errors` does not apply to an `http` api", 4)
+    );
     assert_eq!(found.primary.text, "a test-level default");
     assert!(found.help.iter().any(|help| help.contains("into the `expect` of the steps")), "{found:?}");
     assert_eq!(found.fixes, []);
@@ -199,7 +202,7 @@ fn errors_on_a_flow_auth_step_is_reported_with_its_removal_since_the_step_is_htt
     let compiled = compile_with(&config, APIS, "tests:\n  - id: getsUser\n    call: users#get\n");
     let stray: Vec<_> = compiled.diagnostics.iter().filter(|found| found.code == Code::V2213).collect();
     let [found] = stray.as_slice() else { panic!("{:?}", compiled.diagnostics) };
-    assert_eq!(found.message, "`errors` does not apply to a `http` api");
+    assert_eq!(found.message, "`errors` does not apply to an `http` api");
     assert_eq!(&config[found.fixes[0].edits[0].range.clone()], "          errors: none\n");
 }
 
@@ -209,11 +212,11 @@ fn a_key_the_type_does_not_allow_is_reported_with_a_fix_that_removes_it() {
     let keys: Vec<_> = found.iter().map(|found| (found.code, found.primary.span.start.line)).collect();
     assert_eq!(keys, [(Code::V2213, 6), (Code::V2213, 10), (Code::V2213, 4), (Code::V2213, 10)]);
     let method = &found[0];
-    assert_eq!(method.message, "`method` does not apply to a `http` api");
+    assert_eq!(method.message, "`method` does not apply to an `http` api");
     assert_eq!(method.fixes[0].title, "Remove `method`");
     let edit = &method.fixes[0].edits[0];
     assert_eq!((&APIS[edit.range.clone()], edit.new_text.as_str()), ("    method: POST\n", ""));
-    assert_eq!(found[2].message, "`poll` does not apply to a `http` api");
+    assert_eq!(found[2].message, "`poll` does not apply to an `http` api");
     assert_eq!(&TESTS[found[2].fixes[0].edits[0].range.clone()], "    poll:\n      until: ${response.status == 201}\n");
 }
 
@@ -234,7 +237,7 @@ fn a_poll_until_and_a_nested_cache_check_call_are_checked_too_unless_the_poll_it
         let in_tests = found.into_iter().filter(|found| found.primary.span.file == SourceFileId::new(1));
         in_tests.map(|found| (found.message, found.primary.span.start.line)).collect::<Vec<_>>()
     };
-    let stray = |key: &str, line| (format!("`{key}` does not apply to a `http` api"), line);
+    let stray = |key: &str, line| (format!("`{key}` does not apply to an `http` api"), line);
     assert_eq!(keys(&POLLING), [stray("size", 6), stray("timeout", 11)]);
     assert_eq!(keys(&RESTRICTED), [stray("poll", 4), stray("timeout", 11)], "one V2213 for a stray `poll`");
 }
@@ -332,7 +335,7 @@ fn a_graphql_block_on_a_file_of_another_type_is_v2213_with_its_removal_as_the_fi
     let compiled = compile(apis, tests);
     let found: Vec<_> = compiled.diagnostics.iter().collect();
     let [block] = found.as_slice() else { panic!("{:?}", compiled.diagnostics) };
-    assert_eq!((block.code, block.message.as_str()), (Code::V2213, "`graphql` does not apply to a `http` file"));
+    assert_eq!((block.code, block.message.as_str()), (Code::V2213, "`graphql` does not apply to an `http` file"));
     assert_eq!(block.primary.span.start.line, 2);
     assert_eq!(block.help, ["remove `graphql`, or set the file's `type: graphql`; only a `graphql` file reads it"]);
     let [fix] = block.fixes.as_slice() else { panic!("{:?}", block.fixes) };
