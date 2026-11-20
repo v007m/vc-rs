@@ -1,6 +1,6 @@
 [package]
 name = "vc-adapter-auth"
-description = "Auth types: basic, bearer, apiKey, the OAuth 2.0 grants and flow."
+description = "Auth types: basic, bearer, apiKey, the OAuth 2.0 grants, flow and AWS request signing."
 edition.workspace = true
 version.workspace = true
 rust-version.workspace = true
@@ -12,12 +12,16 @@ publish.workspace = true
 async-trait.workspace = true
 base64.workspace = true
 bytes.workspace = true
+# The request signer: HMAC-SHA256, its hash states wiped when they are dropped (D439, D442).
+hmac = { workspace = true, features = ["zeroize"] }
 http.workspace = true
 percent-encoding.workspace = true
 serde_json.workspace = true
+sha2 = { workspace = true, features = ["zeroize"] }
 tokio = { workspace = true, features = ["io-util"] }
 vc-interfaces.workspace = true
 vc-model.workspace = true
+zeroize.workspace = true
 
 # The browser sign-in listens on a loopback port and hashes with ring: not in the WebAssembly build.
 [target.'cfg(not(target_family = "wasm"))'.dependencies]

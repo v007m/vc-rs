@@ -160,7 +160,7 @@ pub struct Profile {
 /// See the syntax reference, "Authentication". The compiler's V1005, the credentials `vc new auth`
 /// writes as secrets to declare, and the keys the auth adapters require all come from this one
 /// table; [`AUTH_OWN_NEEDS`] adds the keys a type needs that are not settings.
-pub const AUTH_NEEDS: [(&str, &[&str]); 10] = [
+pub const AUTH_NEEDS: [(&str, &[&str]); 11] = [
     ("basic", &["username", "password"]),
     ("bearer", &["token"]),
     ("apiKey", &["name", "value"]),
@@ -171,6 +171,7 @@ pub const AUTH_NEEDS: [(&str, &[&str]); 10] = [
     ("flow", &["steps"]),
     ("mtls", &[]),
     ("plugin", &["plugin"]),
+    ("awsSigV4", &["region", "service", "accessKeyId", "secretAccessKey"]),
 ];
 
 /// The keys a built-in auth type needs outside its `settings`, which its provider never reads.

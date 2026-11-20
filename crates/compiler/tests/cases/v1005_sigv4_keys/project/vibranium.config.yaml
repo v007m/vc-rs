@@ -1,0 +1,9 @@
+syntaxVersion: 2
+project: orders
+profiles:
+  - id: dev
+    default: true
+auth:
+  - id: ordersIam
+    type: awsSigV4
+    region: us-east-1

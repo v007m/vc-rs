@@ -1,0 +1,10 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v1002_sigv4_secret/project
+---
+error[V1002]: mapping values are not allowed in this context
+ --> vibranium.config.yaml:9:62
+  |
+9 |     secretAccessKey: •••
+  |                         ^ the structure breaks here
+  = help: check the indentation: a nested key needs more spaces than its parent, and siblings line up

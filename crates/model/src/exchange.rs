@@ -34,6 +34,24 @@ impl RenderedRequest {
     }
 }
 
+/// The `host` a request to `uri` carries on the wire (D438): the host, lowercased, then `:port`
+/// only when the port is not the scheme's default. `None` when `uri` has no host.
+///
+/// The request signer signs this value and the HTTP transport sends it, so both derive it here.
+#[must_use]
+pub fn wire_host(uri: &Uri) -> Option<String> {
+    let host = uri.host()?.to_ascii_lowercase();
+    let default = match uri.scheme_str() {
+        Some("https" | "wss") => Some(443),
+        Some("http" | "ws") => Some(80),
+        _ => None,
+    };
+    Some(match uri.port_u16() {
+        Some(port) if Some(port) != default => format!("{host}:{port}"),
+        _ => host,
+    })
+}
+
 impl fmt::Debug for RenderedRequest {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("RenderedRequest")
@@ -208,7 +226,7 @@ mod tests {
     use http::header::{AUTHORIZATION, CONTENT_TYPE};
     use http::{HeaderMap, HeaderValue, Method, StatusCode, Uri};
 
-    use super::{HttpResponse, RenderedRequest, StreamMessage};
+    use super::{HttpResponse, RenderedRequest, StreamMessage, wire_host};
 
     fn secret_headers() -> HeaderMap {
         let mut headers = HeaderMap::new();
@@ -247,6 +265,20 @@ mod tests {
         assert!(plain.contains("uri: http://h/p,"), "{plain}");
         let relative = format!("{:?}", RenderedRequest::new(Method::GET, Uri::from_static("/p?q=1")));
         assert!(relative.contains("uri: /p?<hidden>,"), "{relative}");
+    }
+
+    #[test]
+    fn the_wire_host_is_lowercase_with_a_port_only_off_the_default() {
+        let host = |uri: &'static str| wire_host(&Uri::from_static(uri));
+        assert_eq!(host("https://API.Example.com/p"), Some("api.example.com".to_owned()));
+        assert_eq!(host("https://h:443/"), Some("h".to_owned()));
+        assert_eq!(host("http://h:80/"), Some("h".to_owned()));
+        assert_eq!(host("wss://h:443/"), Some("h".to_owned()));
+        assert_eq!(host("ws://h:80/"), Some("h".to_owned()));
+        assert_eq!(host("https://h:80/"), Some("h:80".to_owned()));
+        assert_eq!(host("http://h:443/"), Some("h:443".to_owned()));
+        assert_eq!(host("http://[::1]:8080/"), Some("[::1]:8080".to_owned()));
+        assert_eq!(host("/relative"), None);
     }
 
     #[test]

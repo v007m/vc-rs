@@ -1,0 +1,10 @@
+The AWS Signature Version 4 test suite, copied byte for byte (D441).
+
+Repository: https://github.com/awslabs/aws-c-auth
+Folder:     tests/aws-signing-test-suite/v4
+Commit:     f556deacd6e6d9dbf540ff00a9bf383688076874 (19 November 2026)
+Licence:    Apache-2.0; LICENSE and NOTICE beside this file are the repository's own.
+
+Every case folder is unchanged. The test in crates/adapters/auth/src/sigv4/vectors.rs walks them
+and lists the cases it skips, each with its reason. The query-* files (presigned URLs) are not
+read: signing in the query is in "Later" in docs/design/sigv4.md.

@@ -28,6 +28,9 @@ const SECRET_SCHEMA: &str = ".env.schema";
 const TLS_SECRETS: [&str; 3] =
     ["hunter2", "MC4CAQAwBQYDK2VwBCIEIBNPUm4yBPU2X6pnB4Gw0z0bJqh5TdLmA1n1Rk8o2CNn", "BEGIN PRIVATE KEY"];
 
+/// The AWS secret access key and session token the `awsSigV4` cases write as text (D440).
+const AWS_SECRETS: [&str; 2] = ["wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY", "IQoJb3JpZ2luX2VjEXAMPLETOKEN"];
+
 /// The text and JSON a case renders, or why it could not be read.
 type Rendered = Result<(String, String), Box<dyn Error>>;
 
@@ -122,6 +125,12 @@ cases!(
     v2105_tls_var,
     v2211_tls_lone_keys,
     v4013_literal_key,
+    sigv4_clean,
+    v1002_sigv4_secret,
+    v1005_sigv4_keys,
+    v2302_sigv4_payload,
+    v2316_sigv4_scope,
+    v4014_literal_aws_key,
     v2201_one_of,
     v2301_bad_unit,
     v2301_templated_timeout,
@@ -198,11 +207,29 @@ cases!(
 /// whichever code reports a line near it (D353).
 #[test]
 fn tls_secrets_print_nowhere() -> Outcome {
-    let cases = ["v1002_tls_broken_pem", "v1002_tls_passphrase", "v1016_cert_two_ways", "v2211_tls_lone_keys"];
-    for case in cases.into_iter().chain(["v4013_literal_key"]) {
+    let cases = [
+        "v1002_tls_broken_pem",
+        "v1002_tls_passphrase",
+        "v1016_cert_two_ways",
+        "v2211_tls_lone_keys",
+        "v4013_literal_key",
+    ];
+    print_nowhere(&cases, &TLS_SECRETS)
+}
+
+/// An AWS secret access key or session token written in the config prints in no diagnostic,
+/// parsed or not (D440).
+#[test]
+fn aws_secrets_print_nowhere() -> Outcome {
+    print_nowhere(&["v1002_sigv4_secret", "v4014_literal_aws_key"], &AWS_SECRETS)
+}
+
+/// Each case masks something and prints none of `secrets`.
+fn print_nowhere(cases: &[&str], secrets: &[&str]) -> Outcome {
+    for case in cases {
         let (text, json) = rendered(&Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/cases").join(case))?;
         assert!(text.contains("•••"), "{case} masks nothing:\n{text}");
-        for secret in TLS_SECRETS {
+        for secret in secrets {
             assert!(!text.contains(secret) && !json.contains(secret), "{case} prints `{secret}`:\n{text}");
         }
     }

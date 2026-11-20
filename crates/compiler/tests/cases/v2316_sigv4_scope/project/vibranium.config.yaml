@@ -1,0 +1,26 @@
+syntaxVersion: 2
+project: orders
+vars:
+  awsRegion: EU-West-1
+profiles:
+  - id: dev
+    default: true
+auth:
+  - id: ordersIam
+    type: awsSigV4
+    region: US-East-1
+    service: Execute-API
+    accessKeyId: ${secret.AWS_ACCESS_KEY_ID}
+    secretAccessKey: ${secret.AWS_SECRET_ACCESS_KEY}
+  - id: searchDomain
+    type: awsSigV4
+    region: 'eu west 1'
+    service: ''
+    accessKeyId: ${secret.AWS_ACCESS_KEY_ID}
+    secretAccessKey: ${secret.AWS_SECRET_ACCESS_KEY}
+  - id: fromVars
+    type: awsSigV4
+    region: ${var.awsRegion}
+    service: execute_api
+    accessKeyId: ${secret.AWS_ACCESS_KEY_ID}
+    secretAccessKey: ${secret.AWS_SECRET_ACCESS_KEY}
