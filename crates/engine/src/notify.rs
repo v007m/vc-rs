@@ -70,7 +70,7 @@ fn folder(root: &Path) -> String {
     root.file_name().map(|name| name.to_string_lossy().into_owned()).unwrap_or_default()
 }
 
-/// How the last finished run of `kind` under the same profiles before run `run` ended. A `vc
+/// How the last finished run of `kind` under the same profiles ended. A `vc
 /// run` in which no test ran (exit 2) is passed over: it says nothing about the tests.
 fn previous(history: &dyn HistoryReader, kind: &str, profiles: &[String]) -> Option<RunStatus> {
     let runs = history.runs(LOOKBACK, &RunFilter::default()).ok()?;

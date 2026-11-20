@@ -11,7 +11,7 @@ use vc_interfaces::Secrets;
 use vc_model::{AlertTrigger, Program};
 use vc_testkit::{FakeNotifiers, FakeTransport, FakeVcs, MemoryEnvironment, MemoryHistory, MemorySources, status};
 
-use super::{Lookup, Senders};
+use super::{Lookup, Senders, previous};
 use crate::sample::builder;
 use crate::{Engine, EngineBuilder, RunReport, RunRequest, interrupts};
 
@@ -136,4 +136,27 @@ async fn a_webhook_posts_the_ctrf_summary_over_http() {
         (body["results"]["tool"]["name"].as_str(), body["results"]["summary"]["failed"].as_u64()),
         (Some("vibranium"), Some(1))
     );
+}
+
+#[test]
+fn the_previous_run_is_the_last_of_the_same_kind_under_the_same_profiles() {
+    use vc_interfaces::{HistoryWriter, RunEnd, RunStart};
+    use vc_model::{RunStatus, Totals};
+    let history = MemoryHistory::new();
+    let finished = |kind: &str, profiles: &[&str], status| {
+        let profiles = profiles.iter().map(|&profile| profile.to_owned()).collect();
+        let run = history.begin(&RunStart { kind: kind.into(), profiles, ..RunStart::default() }).unwrap();
+        let totals = Totals { passed: 1, ..Totals::default() };
+        history.finish(run, RunEnd { status, totals, finished_ms: 0, snapshot: Vec::new() }).unwrap();
+    };
+    finished("run", &["dev"], RunStatus::Failed);
+    finished("run", &["staging"], RunStatus::Passed);
+    finished("load", &["dev"], RunStatus::Passed);
+    let profiles = |names: &[&str]| names.iter().map(|&name| name.to_owned()).collect::<Vec<_>>();
+    assert_eq!(
+        previous(&history, "run", &profiles(&["dev"])),
+        Some(RunStatus::Failed),
+        "passing over staging and load"
+    );
+    assert_eq!(previous(&history, "load", &profiles(&["staging"])), None, "a run under staging is not a load run");
 }
