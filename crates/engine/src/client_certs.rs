@@ -36,7 +36,7 @@ impl Engine {
         let unset = tls.ca.is_empty() && tls.clients.is_empty();
         let (spec, certs) =
             if unset { (TlsSpec::default(), ClientCerts::default()) } else { self.planned(prepared, &secrets)? };
-        let hidden = spec.clients.iter().filter_map(hidden).collect();
+        let hidden = spec.clients.iter().flat_map(hidden).collect();
         let transport = self.built(spec, (Arc::clone(&prepared.environment), !unset)).await?;
         Ok(Secured { secrets, transport, certs, hidden })
     }
@@ -78,15 +78,31 @@ impl Engine {
     }
 }
 
+/// The shortest body line of a held key the redactor hides on its own (D405): a PEM base64
+/// line is 64 characters, its last one shorter, and a shorter piece would mask ordinary text.
+const LINE_HIDDEN_FROM: usize = 16;
+
 /// What the redactor hides of `client`: a PKCS#12 bundle's passphrase, or a PEM key given
-/// inline, rendered from a secret, an env var or a var or written literally (D401).
-fn hidden(client: &ClientSpec) -> Option<Secret> {
+/// inline, rendered from a secret, an env var or a var or written literally (D401). Each is
+/// hidden as written, trimmed and with LF line ends, and each body line of at least
+/// [`LINE_HIDDEN_FROM`] characters on its own (D405); each form once.
+fn hidden(client: &ClientSpec) -> Vec<Secret> {
     let held = match &client.material {
-        ClientSource::Pkcs12 { passphrase, .. } => passphrase,
-        ClientSource::Pem { key: MaterialSource::Inline(key), .. } => key,
-        ClientSource::Pem { .. } => return None,
+        ClientSource::Pkcs12 { passphrase, .. } => passphrase.expose(),
+        ClientSource::Pem { key: MaterialSource::Inline(key), .. } => key.expose(),
+        ClientSource::Pem { .. } => return Vec::new(),
     };
-    Some(held.clone()).filter(|held| !held.expose().is_empty())
+    let (trimmed, lf) = (held.trim(), Secret::new(held.replace("\r\n", "\n")));
+    let lines = trimmed.lines().map(|line| line.trim_end_matches('\r'));
+    let body = lines.filter(|line| line.len() >= LINE_HIDDEN_FROM && !line.starts_with("-----"));
+    let whole = [held, trimmed, lf.expose(), lf.expose().trim()].into_iter();
+    let mut forms: Vec<&str> = Vec::new();
+    for form in whole.chain(body).filter(|form| !form.is_empty()) {
+        if !forms.contains(&form) {
+            forms.push(form);
+        }
+    }
+    forms.into_iter().map(Secret::new).collect()
 }
 
 /// Renders `http.tls` values with the config's scope; relative paths are under `root`.

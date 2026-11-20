@@ -276,6 +276,34 @@ async fn a_value_that_does_not_render_names_its_expression_and_never_its_key() {
     assert!(server.stats().await.unwrap().requests.is_empty(), "no request was sent");
 }
 
+/// `good`'s key has CRLF line ends and blank lines around it, and a test sends its trimmed text
+/// and an LF copy, echoed back: the redactor hides both forms and each line of the key's body, so
+/// neither the output, the report nor the history shows them (D405).
+#[tokio::test(flavor = "multi_thread")]
+async fn a_trimmed_or_lf_copy_of_a_crlf_key_is_masked_where_a_run_echoes_it() {
+    let pki = TestPki::new().unwrap();
+    let server = mock(&pki, ClientAuth::Required).await;
+    let project = project(&pki, (&good("'127.0.0.1'", "").replace("certs/good.key", "${env.K}"), ""), "");
+    let body = "body: {trimmed: '${env.KT}', lf: '${env.KL}'}";
+    project.write(
+        "services/echo/echo.api.yaml",
+        &format!("baseUrl: ${{var.baseUrl}}\napis:\n  - id: send\n    method: POST\n    path: /echo\n    {body}\n"),
+    );
+    project.write(
+        "services/echo/key.test.yaml",
+        "tests:\n  - id: echoesTheKey\n    call: echo#send\n    expect: {status: 418}\n",
+    );
+    let crlf = format!("\r\n{}\r\n", pki.good().key_pem().replace('\n', "\r\n"));
+    let mut run = project.run(&server.base_url(), &["echo.key", "--report", "ctrf", "--out", "out"]);
+    let run = run.env("K", &crlf).env("KT", crlf.trim()).env("KL", crlf.trim().replace("\r\n", "\n")).output().unwrap();
+    assert_eq!(run.status.code(), Some(1), "the echo fails its check: {}", said(&run));
+    let history = history_text(&project.path().join(".vibranium/history.db"));
+    let mut seen = vec![("history.db rows".to_owned(), history), ("vc output".to_owned(), said(&run))];
+    files(project.path().join("out").as_path(), &mut seen);
+    assert!(seen.iter().any(|(_, text)| text.contains("\"trimmed\"")), "the echo is reported: {seen:?}");
+    assert_hidden(&seen, &key_body(&pki).iter().map(String::as_str).collect::<Vec<_>>());
+}
+
 /// A key `${env.K}` renders inline from the environment, and a test sends it, echoed back, from a
 /// row labelled with it: the redactor hides it with the passphrases, so neither the output, the
 /// reports nor the history show it.

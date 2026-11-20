@@ -90,7 +90,8 @@ async fn builds_with_the_roots_and_the_identities_the_active_profiles_allow() {
     let certs: Vec<_> = tls.certs.values().copied().collect();
     assert_eq!((tls.certs.len(), certs.contains(&CertId::new(0)), certs.contains(&CertId::new(1))), (2, true, true));
     let hidden: Vec<_> = tls.hidden.iter().map(Secret::expose).collect();
-    assert_eq!(hidden, [key, "fixture"], "the key rendered from the environment and the passphrase (D401)");
+    assert_eq!(hidden.first(), Some(&key), "the key rendered from the environment (D401)");
+    assert_eq!(hidden.last(), Some(&"fixture"), "and the passphrase");
     let (builder, mut read) = memory_pki(&pki);
     run_with(builder, CLIENTS, ("staging", &[("GOOD_KEY", key)])).await.unwrap();
     assert_eq!(read.try_recv().unwrap().clients.len(), 3);
@@ -195,4 +196,23 @@ async fn the_injected_factory_reads_the_rendered_material() {
 fn a_transport_that_cannot_be_built_for_another_reason_is_internal() {
     let error = super::tls_error(&vc_interfaces::TlsError::Transport { reason: "no native roots".into() });
     assert!(matches!(&error, EngineError::Internal { reason } if reason == "no native roots"), "{error:?}");
+}
+
+#[test]
+fn a_held_key_hides_its_trimmed_and_lf_copies_and_each_long_body_line() {
+    let key = "-----BEGIN PRIVATE KEY-----\r\nMIGHAgEAMBMGByqGSM49AgEGCCqGSM49\r\nAwEHBG0wawIBAQQg\r\nAwEHBG0wawIBAQ=\r\n\
+               -----END PRIVATE KEY-----\r\n";
+    let held = format!(" {key}");
+    let inline = |text: &str| vc_interfaces::MaterialSource::Inline(Secret::new(text));
+    let material = vc_interfaces::ClientSource::Pem { cert: inline("c"), key: inline(&held) };
+    let client = vc_interfaces::ClientSpec { id: "good".into(), hosts: Vec::new(), material };
+    let hidden: Vec<String> = super::hidden(&client).iter().map(|secret| secret.expose().to_owned()).collect();
+    let trimmed = key.trim();
+    let lf = |text: &str| text.replace("\r\n", "\n");
+    let lines = ["MIGHAgEAMBMGByqGSM49AgEGCCqGSM49", "AwEHBG0wawIBAQQg"];
+    let want = [held.clone(), trimmed.to_owned(), lf(&held), lf(trimmed)].into_iter().chain(lines.map(str::to_owned));
+    assert_eq!(hidden, want.collect::<Vec<_>>(), "a 15-character line and the PEM lines are not hidden");
+    let passphrase = vc_interfaces::ClientSource::Pkcs12 { bundle: inline("b"), passphrase: Secret::new("pw") };
+    let bundle = vc_interfaces::ClientSpec { id: "bank".into(), hosts: Vec::new(), material: passphrase };
+    assert_eq!(super::hidden(&bundle).iter().map(Secret::expose).collect::<Vec<_>>(), ["pw"], "each form once");
 }
