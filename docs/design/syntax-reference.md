@@ -347,7 +347,7 @@ Each item in `apis`:
 
 ### Api types
 
-An api's `type` says what it speaks: its own `type`, else its file's, else `http`, so a file that sets none keeps its meaning (D342). A value that is not a known type counts as unset, so it falls back the same way. The type decides which keys apply: on the api, in its `expect`, and on a test or step that calls it (in its `expect` and `poll.until` too, and on a `cache.check` call inside it). A key that does not apply is an error with a certain fix that removes it (V2213); a type that is not known is V2302, with the close value as its fix.
+An api's `type` says what it speaks: its own `type`, else its file's, else `http`, so a file that sets none keeps its meaning (D342). A value that is not a known type counts as unset, so it falls back the same way. The type decides which keys apply: on the api, in its `expect`, and on a test or step that calls it (in its `expect` and `poll.until` too, and on a `cache.check` call inside it). A key that does not apply is an error with a certain fix that removes it (V2213); a `poll` its type does not take is that one error, and its `until` is not checked as well; a type that is not known is V2302, with the close value as its fix.
 
 Each type needs some keys: an `http`, `sse` or `websocket` api needs `path`, a `graphql` api needs `body.query`. One that leaves its key out is V1005.
 

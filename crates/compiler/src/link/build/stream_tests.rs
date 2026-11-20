@@ -250,3 +250,21 @@ apis:
     assert_eq!(on("ticks"), status(StatusPattern::Class(2)));
     assert_eq!(on("expected"), status(StatusPattern::Code(200)), "the status its `expect` checks");
 }
+
+#[test]
+fn a_stray_poll_on_a_stream_call_is_one_v2213_whose_fix_removes_it_and_its_until_is_not_walked() {
+    let tests = "\
+tests:
+  - id: watches
+    call: feed#ticks
+    poll:
+      every: 1s
+      timeout: 10s
+      until: {errors: none}
+";
+    let compiled = compile(MIXED, tests);
+    assert_eq!(stray(&compiled), [("`poll` does not apply to a `sse` api".to_owned(), 4)]);
+    let poll = compiled.diagnostics.iter().next().unwrap();
+    let fixes: Vec<_> = poll.fixes.iter().map(|fix| &tests[fix.edits[0].range.clone()]).collect();
+    assert_eq!(fixes, ["    poll:\n      every: 1s\n      timeout: 10s\n      until: {errors: none}\n"]);
+}

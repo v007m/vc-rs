@@ -1,6 +1,7 @@
 //! The keys each api `type` allows ([`vc_model::PROTOCOL_KEYS`], D342): a key that does not
 //! apply to the api's type is V2213, on the api, in its `expect`, or on a call that reaches it
-//! (its `expect` and `poll.until` too, and a `cache.check` call nested in it), or in the
+//! (its `expect`, its `poll.until` when its type takes `poll`, and a `cache.check` call nested
+//! in it), or in the
 //! `expect` of a request written in place (a `flow` auth's steps), which is always `http`; and a
 //! type's own block on an api file whose `type` is another.
 
@@ -162,9 +163,12 @@ fn nested(action: &Node) -> impl Iterator<Item = &Node> {
     std::iter::successors(Some(action), |node| node.get("cache")?.get("check"))
 }
 
-/// V2213 for each key of `node`'s `expect` and `poll.until` that `keys` does not allow.
+/// V2213 for each key of `node`'s `expect` and `poll.until` that `keys` does not allow. A
+/// `poll` the type does not take is one V2213 of its own, whose fix removes it whole, so its
+/// `until` is not walked as well.
 fn expect(source: &Source<'_>, (node, protocol): (&Node, Protocol), keys: &ProtocolKeys) -> Vec<Diagnostic> {
-    let until = node.get("poll").and_then(|poll| poll.get("until"));
+    let polls = node.get("poll").filter(|_| keys.takes(|keys| keys.call, "poll"));
+    let until = polls.and_then(|poll| poll.get("until"));
     let place = Place { shape: shapes::expect(), keys, at: |keys| keys.expect };
     node.get("expect").into_iter().chain(until).flat_map(|checks| stray(source, (checks, protocol), &place)).collect()
 }

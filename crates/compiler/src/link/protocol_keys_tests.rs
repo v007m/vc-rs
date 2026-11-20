@@ -217,13 +217,26 @@ fn a_key_the_type_does_not_allow_is_reported_with_a_fix_that_removes_it() {
     assert_eq!(&TESTS[found[2].fixes[0].edits[0].range.clone()], "    poll:\n      until: ${response.status == 201}\n");
 }
 
+/// RESTRICTED, with `poll` taken on a call.
+const POLLING: [(Protocol, ProtocolKeys); 1] = [(
+    Protocol::Http,
+    ProtocolKeys::Only(AllowedKeys {
+        api: &["id", "name", "type", "path", "expect"],
+        expect: &["status", "headers", "body"],
+        call: &["vars", "expect", "save", "poll"],
+    }),
+)];
+
 #[test]
-fn a_poll_until_and_a_nested_cache_check_call_are_checked_too() {
-    let found = checked(&RESTRICTED, NESTED);
-    let in_tests = found.iter().filter(|found| found.primary.span.file == SourceFileId::new(1));
-    let keys: Vec<_> = in_tests.map(|found| (found.message.as_str(), found.primary.span.start.line)).collect();
-    let stray = |key: &str| format!("`{key}` does not apply to a `http` api");
-    assert_eq!(keys, [(stray("poll").as_str(), 4), (stray("size").as_str(), 6), (stray("timeout").as_str(), 11)]);
+fn a_poll_until_and_a_nested_cache_check_call_are_checked_too_unless_the_poll_itself_is_stray() {
+    let keys = |table: &[(Protocol, ProtocolKeys)]| {
+        let found = checked(table, NESTED);
+        let in_tests = found.into_iter().filter(|found| found.primary.span.file == SourceFileId::new(1));
+        in_tests.map(|found| (found.message, found.primary.span.start.line)).collect::<Vec<_>>()
+    };
+    let stray = |key: &str, line| (format!("`{key}` does not apply to a `http` api"), line);
+    assert_eq!(keys(&POLLING), [stray("size", 6), stray("timeout", 11)]);
+    assert_eq!(keys(&RESTRICTED), [stray("poll", 4), stray("timeout", 11)], "one V2213 for a stray `poll`");
 }
 
 #[test]
