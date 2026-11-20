@@ -82,6 +82,8 @@ fn an_exchange_without_a_receive_reads_to_the_end() {
     assert!(ExchangeCursor::new(Vec::new()).reads_to_end());
     assert!(ExchangeCursor::new(Vec::new()).is_done());
     assert!(!ExchangeCursor::new(vec![Item::Send, Item::Receive(1)]).reads_to_end());
+    let empty_groups = ExchangeCursor::new(vec![Item::Receive(0), Item::Send, Item::Receive(0)]);
+    assert!(empty_groups.reads_to_end(), "an empty group waits for nothing, so it is no receive");
     assert_eq!(ExchangeCursor::new(vec![Item::Send]).unmet(), None, "a send is not a receive");
 }
 

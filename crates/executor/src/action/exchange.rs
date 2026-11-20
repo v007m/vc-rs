@@ -115,10 +115,11 @@ impl ExchangeCursor {
         self.at >= self.items.len()
     }
 
-    /// Whether the exchange has no `receive`, so the call reads until the server closes.
+    /// Whether the exchange has no `receive` with an entry, so the call reads until the server
+    /// closes.
     #[must_use]
     pub fn reads_to_end(&self) -> bool {
-        !self.items.iter().any(|item| matches!(item, Item::Receive(_)))
+        !self.items.iter().any(|item| matches!(item, Item::Receive(entries) if *entries > 0))
     }
 
     /// The waiting group's size.
