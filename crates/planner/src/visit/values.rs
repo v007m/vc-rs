@@ -1,6 +1,9 @@
 //! The walker's leaves: values, templates, bodies and expectations, down to each reference.
 
-use vc_model::{BodySpec, CheckKind, Examples, Expect, Matcher, MatcherArg, Part, PartSpec, Template, TemplateValue};
+use vc_model::{
+    BodySpec, CheckKind, Examples, ExchangeItem, ExchangeKind, Expect, Matcher, MatcherArg, Part, PartSpec, Template,
+    TemplateValue,
+};
 
 use super::{Visit, Walker};
 
@@ -36,6 +39,17 @@ impl<V: Visit> Walker<'_, V> {
         }
     }
 
+    /// Each `send` and each `receive` check of an `exchange` (D377).
+    pub(super) fn exchange(&mut self, items: &[ExchangeItem]) {
+        for item in items {
+            match &item.kind {
+                ExchangeKind::Send(value) => self.value(value),
+                ExchangeKind::Receive(check) => self.matcher(check),
+                ExchangeKind::Group(checks) => checks.iter().for_each(|check| self.matcher(check)),
+            }
+        }
+    }
+
     pub(super) fn expect(&mut self, expect: &Expect) {
         for check in &expect.checks {
             if check.kind == CheckKind::Custom {
@@ -64,6 +78,7 @@ impl<V: Visit> Walker<'_, V> {
             MatcherArg::Matcher(matcher) => self.matcher(matcher),
             MatcherArg::Matchers(matchers) => matchers.iter().for_each(|matcher| self.matcher(matcher)),
             MatcherArg::Fields(fields) => fields.iter().for_each(|(_, matcher)| self.matcher(matcher)),
+            MatcherArg::Paths(paths) => paths.iter().for_each(|(_, matcher)| self.matcher(matcher)),
             MatcherArg::Duration(_) | MatcherArg::Size(_) => {}
         }
     }

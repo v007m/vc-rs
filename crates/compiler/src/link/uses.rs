@@ -242,6 +242,7 @@ fn arg_refs<'p>(arg: &'p MatcherArg, found: &mut Vec<&'p Reference>) {
         MatcherArg::Matcher(matcher) => matcher_refs(matcher, found),
         MatcherArg::Matchers(matchers) => matchers.iter().for_each(|matcher| matcher_refs(matcher, found)),
         MatcherArg::Fields(fields) => fields.iter().for_each(|(_, matcher)| matcher_refs(matcher, found)),
+        MatcherArg::Paths(paths) => paths.iter().for_each(|(_, matcher)| matcher_refs(matcher, found)),
         MatcherArg::Duration(_) | MatcherArg::Size(_) => {}
     }
 }

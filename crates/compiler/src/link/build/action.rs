@@ -59,6 +59,7 @@ impl<'a> Build<'_, 'a> {
             headers: request.headers,
             query: request.query,
             body: request.body,
+            exchange: None,
             expect,
             save: SaveSpec { values: self.values(source, node.get("save"))? },
             poll,

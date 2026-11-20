@@ -153,6 +153,7 @@ impl<'a> Build<'_, 'a> {
             timeout: read::duration(source, node, "timeout"),
             http_retry: http_retry::over(source, node, &self.http_retry),
             stream,
+            exchange: Vec::new(),
             expect,
             save: SaveSpec { values: self.values(source, node.get("save"))? },
             save_on,

@@ -48,6 +48,13 @@ fn arg(arg: &MatcherArg, show: &dyn Fn(&TemplateValue) -> String) -> String {
                 fields.iter().map(|(name, inner)| format!("{name}: {{{}}}", matcher(inner, Some(show)))).collect();
             format!("{{{}}}", fields.join(", "))
         }
+        MatcherArg::Paths(paths) => {
+            let paths: Vec<String> = paths
+                .iter()
+                .map(|(path, inner)| format!("{}: {{{}}}", super::explain::path(path), matcher(inner, Some(show))))
+                .collect();
+            format!("{{{}}}", paths.join(", "))
+        }
     }
 }
 

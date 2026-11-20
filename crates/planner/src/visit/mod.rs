@@ -119,6 +119,7 @@ impl<'p, V: Visit> Walker<'p, V> {
         if let Some(body) = &action.body {
             self.body(body);
         }
+        self.exchange(action.exchange.as_deref().unwrap_or_default());
         self.expect(&action.expect);
         self.values(action.save.values.values());
         self.action_extras(action);
@@ -170,6 +171,7 @@ impl<'p, V: Visit> Walker<'p, V> {
         self.vars(&api.vars);
         self.templates(api.query.values().chain(api.headers.values()));
         self.body(&api.body);
+        self.exchange(&api.exchange);
         self.auth(&api.auth);
         self.hooks(&api.hooks);
         self.expect(&api.expect);

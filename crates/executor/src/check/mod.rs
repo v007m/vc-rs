@@ -5,6 +5,7 @@ mod compare;
 mod compose;
 mod errors;
 mod evaluate;
+mod messages;
 mod registry;
 mod schema;
 mod shape;

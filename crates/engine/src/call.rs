@@ -197,6 +197,7 @@ pub fn called(api: &Api, keep: bool) -> Action {
         headers: iter::empty().collect(),
         query: iter::empty().collect(),
         body: None,
+        exchange: None,
         expect: api.expect.clone(),
         save: SaveSpec::default(),
         poll: None,
