@@ -17,5 +17,7 @@ pub use registry::{Arguments, Judge, MatcherFn, MatcherRegistry};
 pub use schema::Schemas;
 
 #[cfg(test)]
+mod testing;
+#[cfg(test)]
 #[path = "check_tests.rs"]
 mod tests;

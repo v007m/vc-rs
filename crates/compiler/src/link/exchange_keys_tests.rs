@@ -1,10 +1,7 @@
 use vc_diagnostics::{Code, Diagnostic};
-use vc_model::{ContentHash, SourceFile, SourcePath};
 
-use crate::{CompileInput, Compiled};
-
-const CONFIG: &str =
-    "syntaxVersion: 2\nproject: shop\nvars: {apiUrl: 'http://x'}\nprofiles:\n  - id: dev\n    default: true\n";
+use crate::Compiled;
+use crate::testing::feed as compile;
 
 /// An `sse` api, a `websocket` api and an `http` one, each with what `extra` adds to it.
 fn apis(sse: &str, websocket: &str) -> String {
@@ -12,19 +9,6 @@ fn apis(sse: &str, websocket: &str) -> String {
         "baseUrl: ${{var.apiUrl}}\napis:\n  - id: ticks\n    type: sse\n    path: /ticks\n{sse}  - id: chat\n    type: \
          websocket\n    path: /chat\n{websocket}  - id: health\n    path: /health\n"
     )
-}
-
-fn file(path: &str, text: &str) -> SourceFile {
-    SourceFile { path: SourcePath::new(path).unwrap(), text: text.to_owned(), hash: ContentHash::new([0; 32]) }
-}
-
-fn compile(apis: &str, tests: &str) -> Compiled {
-    let files = vec![
-        file("vibranium.config.yaml", CONFIG),
-        file("services/feed/feed.api.yaml", apis),
-        file("services/feed/live.test.yaml", tests),
-    ];
-    crate::compile(CompileInput { files, ..CompileInput::default() })
 }
 
 /// A diagnostic as its code, line, message and certain fix's title.
