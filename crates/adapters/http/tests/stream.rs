@@ -134,6 +134,24 @@ async fn a_wss_websocket_opens_over_http1_on_a_server_that_offers_h2() -> TestRe
 }
 
 #[tokio::test]
+async fn an_h2_stream_hands_over_no_empty_chunk() -> TestResult {
+    let pki = TestPki::new()?;
+    let (mock, transport) = h2_mock(&pki).await?;
+    let uri = Uri::try_from(format!("{}/events?count=1", mock.base_url()))?;
+    let opened =
+        transport.open(RenderedRequest::new(Method::GET, uri), StreamMode::Body, &SendContext::default()).await?;
+    assert_eq!(opened.head.connection.protocol, HttpVersion::Http2);
+    let mut stream = opened.stream.ok_or("no stream")?;
+    let mut frames = Vec::new();
+    while let Some(frame) = stream.next().await {
+        frames.push(frame);
+    }
+    let event = StreamFrame::Chunk(bytes::Bytes::from_static(b"id: 1\ndata: 1\n\n"));
+    assert_eq!(frames, [Ok(event)], "h2 ends a body with an empty DATA frame, which is no chunk");
+    Ok(())
+}
+
+#[tokio::test]
 async fn a_message_over_the_body_limit_is_too_large() -> TestResult {
     let mock = MockServer::start().await?;
     let limit = Size::from_bytes(8);

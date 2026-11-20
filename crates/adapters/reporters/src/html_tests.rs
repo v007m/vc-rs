@@ -90,6 +90,8 @@ fn keeps_the_first_load_of_a_large_run_small() {
         saved.iter().filter(|(name, _)| first_load.contains(&name.as_str())).map(|(_, text)| text.len()).sum();
     assert!(first < 1_500_000, "summary + index of 10k tests: {first} bytes");
     assert!(saved.iter().filter(|(name, _)| name.starts_with("data/tests/")).count() > 1, "tests load in chunks");
+    let bodies = saved.iter().filter(|(name, _)| name.starts_with("data/bodies/")).count();
+    assert_eq!(bodies, 1_000, "each failed test's exchange has its own response body");
 }
 
 #[test]
