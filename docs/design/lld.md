@@ -76,7 +76,7 @@ vibranium/
   sdks/                      typescript/ (pnpm, tsup, vitest) and python/ (uv, hatch, pytest), then go/ and java/: planned (#100, D336; see SDKs)
   bench/
     mock/                    vc-mock-server: axum mock server; a library tests start in-process on port 0, plus a bin (D100);
-                             CRUD (`/users`, `/orders`, and a user's orders at `/users/{id}/orders`), echo, scripted, `/auth/*`, an OAuth 2.0 server (`/oauth/token`, `/oauth/authorize`) and
+                             CRUD (`/users`, `/orders`, and a user's orders at `/users/{id}/orders`), echo, scripted, `/events` (D426), `/auth/*`, an OAuth 2.0 server (`/oauth/token`, `/oauth/authorize`) and
                              a users OpenAPI spec in two versions (`/openapi/users-v1.yaml`, `-v2`, and `/openapi/users.yaml`,
                              switched by `POST /__openapi/users/v2`, and `/openapi/private/users.yaml`, served only
                              with `authorization: Bearer spec-reader`; files in `bench/mock/specs/`)

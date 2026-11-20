@@ -2,6 +2,7 @@ mod admin;
 mod auth;
 mod crud;
 mod echo;
+mod events;
 mod graphql;
 mod oauth;
 mod openapi;
@@ -28,6 +29,7 @@ pub fn router(store: &Store, extra: Router) -> Router {
         .merge(owned::routes(store))
         .merge(auth::routes(store))
         .merge(echo::routes())
+        .merge(events::routes())
         .merge(graphql::routes())
         .merge(oauth::routes(store))
         .merge(openapi::routes(store))

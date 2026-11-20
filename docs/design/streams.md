@@ -160,7 +160,7 @@ Reconnect (`sse` only):
 | Compile rules (`vc-compiler`) | `SseRules`: method as `http`, `body` as `http`, path required | `WebsocketRules`: method `GET`, no body, path required |
 | Runtime (`vc-executor`) | `SseRuntime`: adds headers, decodes byte chunks into events with a pure incremental `text/event-stream` parser | `WebsocketRuntime`: encodes `send` values, maps frames to messages |
 | Transport (`vc-adapter-http`) | streaming response body (hyper `Incoming`) | HTTP/1.1 upgrade on the same connector, framing from tokio-tungstenite (D382) |
-| Demo route (`bench/mock`) | `/events`: scripted events with ids, a heartbeat comment, `retry`, and honours `last-event-id` | `/ws`: echo; JSON `join`/`say` replies; closes on `bye` |
+| Demo route (`bench/mock`, and capped in `vc-demo`) | `/events` (D426): `id`/`data` events that resume after `last-event-id`, and on request a `retry` field, heartbeat comments, a dropped connection (`drop`, or `dropAt` for a reconnect) or a held one (`hold`, mock only) | `/ws`: echo; JSON `join`/`say` replies; closes on `bye` |
 
 ### The port, in `vc-interfaces`
 

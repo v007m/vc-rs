@@ -1,5 +1,5 @@
 //! The demo's router: `/users`, kept in [`crate::users`], and `ANY /echo` here; the test routes
-//! in [`crate::scripted`], sign-in in [`crate::auth`] and the users specs in [`crate::openapi`].
+//! in [`crate::scripted`], server-sent events in [`crate::events`], sign-in in [`crate::auth`] and the users specs in [`crate::openapi`].
 
 use std::collections::BTreeMap;
 
@@ -12,7 +12,7 @@ use axum::routing::any;
 use axum::{Json, Router};
 use serde_json::{Value, json};
 
-use crate::{auth, openapi, scripted, users};
+use crate::{auth, events, openapi, scripted, users};
 
 /// The largest body `/echo` reads.
 const BODY_LIMIT: usize = 1024 * 1024;
@@ -27,6 +27,7 @@ pub fn router() -> Router {
         .route("/echo", any(echo))
         .merge(users::routes())
         .merge(scripted::routes())
+        .merge(events::routes())
         .merge(auth::routes())
         .merge(openapi::routes())
 }
