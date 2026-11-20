@@ -28,13 +28,16 @@ pub fn run(args: &RunArgs, project: Option<&Path>) -> anyhow::Result<Outcome> {
         Err(error) => return Ok(Outcome::Engine(error)),
     };
     let runtime = tokio::runtime::Builder::new_multi_thread().enable_all().build()?;
-    runtime.block_on(watch(&located.engine, request, batches))
+    let outcome = runtime.block_on(watch(&located.engine, request, batches));
+    // A watch ends on Ctrl-C or before its first run, so nothing is left to wait for (D398).
+    runtime.shutdown_background();
+    outcome
 }
 
 /// The saves and the Ctrl-Cs a watch waits on.
 struct Inbox {
     saves: UnboundedReceiver<Vec<SourcePath>>,
-    stops: UnboundedReceiver<()>,
+    stops: run::Stops,
 }
 
 impl Inbox {
@@ -48,7 +51,7 @@ impl Inbox {
                 }
             }
         });
-        let (stop, stops) = unbounded_channel();
+        let (stop, stops) = run::stops();
         tokio::spawn(run::ctrl_c(stop));
         Self { saves, stops }
     }
@@ -57,7 +60,7 @@ impl Inbox {
     async fn saved(&mut self) -> Option<Vec<SourcePath>> {
         let mut saved = tokio::select! {
             batch = self.saves.recv() => batch?,
-            _ = self.stops.recv() => return None,
+            _ = self.stops.next() => return None,
         };
         while let Ok(more) = self.saves.try_recv() {
             saved.extend(more);

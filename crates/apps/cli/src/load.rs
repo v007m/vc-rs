@@ -4,10 +4,11 @@ use std::io::Write as _;
 use std::path::Path;
 
 use clap::Args;
-use tokio::sync::mpsc::{self, Receiver, UnboundedReceiver};
+use tokio::sync::mpsc::{self, Receiver};
 use vc_engine::{Engine, EngineError, Event, LoadReport, LoadRequest, LoadWatch};
 
 use crate::explain::LayerArgs;
+use crate::run::Stops;
 use crate::stdout;
 use crate::{Outcome, project};
 
@@ -39,13 +40,14 @@ pub fn run(args: &LoadArgs, project: Option<&Path>) -> anyhow::Result<Outcome> {
     let request =
         LoadRequest { scenario: args.scenario.clone(), profiles: layers.profiles, sets: layers.sets, seed: None };
     let runtime = tokio::runtime::Builder::new_multi_thread().enable_all().build()?;
-    let (stop, mut stops) = mpsc::unbounded_channel();
+    let (stop, mut stops) = crate::run::stops();
     let report = runtime.block_on(async {
         let signals = tokio::spawn(crate::run::ctrl_c(stop));
         let report = measure((&located.engine, &request), &mut stops, !args.json).await;
         signals.abort();
         report
     });
+    crate::run::close(runtime, &stops);
     match report {
         Ok(report) => finished(&report, args.json),
         Err(error) => Ok(Outcome::Engine(error)),
@@ -56,7 +58,7 @@ pub fn run(args: &LoadArgs, project: Option<&Path>) -> anyhow::Result<Outcome> {
 /// (a Ctrl-C) interrupts the run.
 async fn measure(
     (engine, request): (&Engine, &LoadRequest),
-    stops: &mut UnboundedReceiver<()>,
+    stops: &mut Stops,
     live: bool,
 ) -> Result<LoadReport, EngineError> {
     let (interrupter, interrupts) = vc_engine::interrupts();
@@ -67,7 +69,7 @@ async fn measure(
     let report = loop {
         tokio::select! {
             report = &mut load => break report,
-            Some(()) = stops.recv() => interrupter.interrupt(),
+            Some(()) = stops.next() => interrupter.interrupt(),
         }
     };
     if let Some(printer) = printer {

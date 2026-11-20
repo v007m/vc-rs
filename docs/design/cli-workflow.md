@@ -802,7 +802,7 @@ Console formats: `spec` (above, the default in a terminal), `dots` (compact), `j
 | 3 | A load threshold was breached |
 | 4 | `vc sync --check` found drift or a conflict left unsettled; a plain `vc sync` that leaves conflicts exits 0 |
 | 70 | Internal error in Vibranium: prints a "please report" hint and the path of a redacted debug bundle to attach (D127) |
-| 130 | Cancelled by a signal (Ctrl-C); cleanups have run (D127) |
+| 130 | Cancelled by a signal (Ctrl-C); cleanups have run (D127). A read still on a blocking thread (a `http.tls` file on a FIFO) does not hold up the exit (D398) |
 
 A typical CI job:
 
