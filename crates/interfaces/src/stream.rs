@@ -11,9 +11,9 @@ use crate::{SendContext, TransportError};
 /// `vc-testkit` has a fake, and every implementation runs `stream_transport_suite` (D112).
 #[async_trait]
 pub trait StreamTransport: Send + Sync {
-    /// Sends `request` and opens a stream on an answer whose status is the `mode`'s
-    /// [`StreamMode::opens_on`]. Any other answer is a successful open with no stream, its body read in full
-    /// and capped at `ctx.body_limit` as [`crate::Transport::send`] reads it.
+    /// Sends `request` and opens a stream only on an answer whose status is the `mode`'s
+    /// [`StreamMode::opens_on`]. Any other answer is refused: a successful open with no stream,
+    /// its body read in full and capped at `ctx.body_limit` as [`crate::Transport::send`] reads it.
     ///
     /// # Errors
     ///
@@ -77,16 +77,17 @@ pub trait MessageStream: Send {
     ///
     /// # Errors
     ///
-    /// [`TransportError::InvalidRequest`] on a body stream, which cannot send, or a
-    /// [`TransportError`] when the connection broke.
+    /// [`TransportError::InvalidRequest`] on a body stream, which cannot send, a
+    /// [`TransportError`] after [`MessageStream::close`], or one when the connection broke.
     async fn send(&mut self, frame: OutgoingFrame) -> Result<(), TransportError>;
 
     /// The next frame, or `None` once the stream ended. A server's WebSocket close is one final
-    /// [`StreamFrame::Close`].
+    /// [`StreamFrame::Close`]; an `Err` ends the stream too. Nothing follows a `Close` or an
+    /// `Err`: every later call returns `None`.
     async fn next(&mut self) -> Option<Result<StreamFrame, TransportError>>;
 
     /// Ends the stream: a WebSocket sends a close with `code` and waits for the server's; a body
-    /// stream is dropped. Later calls to `next` return `None`.
+    /// stream is dropped. Later calls to `next` return `None`, and to `send` an error.
     ///
     /// # Errors
     ///

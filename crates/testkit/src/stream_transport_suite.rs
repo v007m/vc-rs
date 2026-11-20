@@ -10,7 +10,8 @@ use vc_model::{RenderedRequest, Size};
 /// `base` is a URL without a trailing slash whose server speaks the stream contract of
 /// `vc-mock-server`: `GET /events?count={n}` answers 200 `text/event-stream` with the events
 /// `id: {i}\ndata: {i}\n\n` for `i` from 1 to `n`, starting after a `last-event-id` header's
-/// number when there is one, then ends; `GET /ws` is a WebSocket that echoes text and binary
+/// number when there is one, then ends, or with `drop=true` drops the connection instead of
+/// ending, which the stream yields as an error; `GET /ws` is a WebSocket that echoes text and binary
 /// frames and answers the text `bye` with a close 1000 `bye`; `GET /status/{code}` answers with
 /// that status and the JSON body `{"status":{code}}`. [`crate::FakeStreamTransport::contract`] speaks it without a network.
 ///
@@ -28,6 +29,7 @@ async fn body_streams(transport: &dyn StreamTransport, base: &str) {
     opens_no_stream_on_an_answer_that_is_not_a_success(transport, base).await;
     caps_a_refused_answer_s_body_at_the_limit(transport, base).await;
     refuses_to_send_on_a_body_stream(transport, base).await;
+    ends_at_its_first_error(transport, base).await;
 }
 
 async fn websockets(transport: &dyn StreamTransport, base: &str) {
@@ -41,7 +43,8 @@ async fn websockets(transport: &dyn StreamTransport, base: &str) {
 }
 
 /// The contract every open WebSocket [`MessageStream`] to an echo server meets: it sends and
-/// receives text and binary frames in order, and ends after the client closes.
+/// receives text and binary frames in order, and ends after the client closes, refusing to send
+/// after it.
 ///
 /// # Panics
 ///
@@ -52,7 +55,13 @@ pub async fn message_stream_suite(mut stream: Box<dyn MessageStream>) {
         assert_eq!(stream.send(frame.clone()).await, Ok(()), "sending {frame:?}");
         assert_eq!(stream.next().await, Some(Ok(frame.into())), "the echo comes back as sent");
     }
+    ends_after_closing(stream.as_mut()).await;
+}
+
+async fn ends_after_closing(stream: &mut dyn MessageStream) {
     assert_eq!(stream.close(1000).await, Ok(()));
+    let sent = stream.send(OutgoingFrame::Text("late".to_owned())).await;
+    assert!(sent.is_err(), "a closed stream refuses to send, not {sent:?}");
     assert_eq!(stream.next().await, None, "a closed stream ends");
 }
 
@@ -141,5 +150,20 @@ async fn hands_the_server_s_close_over_as_a_last_frame(transport: &dyn StreamTra
     let Some(mut stream) = streamed(opened) else { return };
     assert_eq!(stream.send(OutgoingFrame::Text("bye".to_owned())).await, Ok(()));
     assert_eq!(stream.next().await, Some(Ok(StreamFrame::Close { code: 1000, reason: "bye".to_owned() })));
-    assert_eq!(stream.next().await, None, "nothing follows the server's close");
+    let _after_close = stream.send(OutgoingFrame::Text("hi".to_owned())).await;
+    for _ in 0..2 {
+        assert_eq!(stream.next().await, None, "nothing follows the server's close");
+    }
+}
+
+async fn ends_at_its_first_error(transport: &dyn StreamTransport, base: &str) {
+    let path = "/events?count=1&drop=true";
+    let Some(opened) = open(transport, request(base, path), StreamMode::Body).await else { return };
+    let Some(mut stream) = streamed(opened) else { return };
+    assert_eq!(stream.next().await, Some(Ok(StreamFrame::Chunk(bytes::Bytes::from_static(b"id: 1\ndata: 1\n\n")))));
+    let dropped = stream.next().await;
+    assert!(matches!(dropped, Some(Err(_))), "a dropped connection is an error, not {dropped:?}");
+    for _ in 0..2 {
+        assert_eq!(stream.next().await, None, "an error ends the stream");
+    }
 }

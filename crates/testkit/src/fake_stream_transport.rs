@@ -109,9 +109,10 @@ impl StreamTransport for FakeStreamTransport {
         if head.body.len() as u64 > ctx.body_limit.bytes() {
             return Err(TransportError::BodyTooLarge { limit: ctx.body_limit });
         }
-        let stream = frames.map(|frames| {
+        let opens = mode.opens_on().matches(head.status.as_u16());
+        let stream = frames.filter(|_| opens).map(|frames| {
             let incoming = frames.into_iter().collect();
-            Box::new(FakeStream { mode, incoming, echo, closed: false }) as Box<dyn MessageStream>
+            Box::new(FakeStream { mode, incoming, echo, closed: false, ended: false }) as Box<dyn MessageStream>
         });
         let head =
             Exchange { request, response: head, timing: Timing::default(), connection: ConnectionInfo::default() };
@@ -124,7 +125,10 @@ struct FakeStream {
     mode: StreamMode,
     incoming: VecDeque<Result<StreamFrame, TransportError>>,
     echo: bool,
+    /// The client called `close`: sending is an error.
     closed: bool,
+    /// A close frame or an error was yielded, or the client closed: nothing more is.
+    ended: bool,
 }
 
 #[async_trait]
@@ -132,6 +136,9 @@ impl MessageStream for FakeStream {
     async fn send(&mut self, frame: OutgoingFrame) -> Result<(), TransportError> {
         if self.mode == StreamMode::Body {
             return Err(TransportError::InvalidRequest { reason: "a response body stream cannot send".to_owned() });
+        }
+        if self.closed {
+            return Err(TransportError::InvalidRequest { reason: "the stream is closed".to_owned() });
         }
         if self.echo {
             let bye = frame == OutgoingFrame::Text("bye".to_owned());
@@ -142,14 +149,16 @@ impl MessageStream for FakeStream {
     }
 
     async fn next(&mut self) -> Option<Result<StreamFrame, TransportError>> {
-        if self.closed {
+        if self.ended {
             return None;
         }
-        self.incoming.pop_front()
+        let frame = self.incoming.pop_front();
+        self.ended = matches!(frame, Some(Ok(StreamFrame::Close { .. }) | Err(_)));
+        frame
     }
 
     async fn close(&mut self, _code: u16) -> Result<(), TransportError> {
-        self.closed = true;
+        (self.closed, self.ended) = (true, true);
         Ok(())
     }
 }
@@ -178,16 +187,22 @@ fn status_answer(code: &str) -> StreamAnswer {
     StreamAnswer::refused(head)
 }
 
-/// The contract's `/events?count={n}`: one chunk per event after the `last-event-id`.
+/// The contract's `/events?count={n}`: one chunk per event after the `last-event-id`, then an
+/// error with `drop=true`.
 fn events(request: &RenderedRequest) -> StreamAnswer {
     let query = request.uri.query().unwrap_or_default();
-    let count: u32 = query.strip_prefix("count=").and_then(|count| count.parse().ok()).unwrap_or(0);
+    let param = |name: &str| query.split('&').find_map(|pair| pair.strip_prefix(name)?.strip_prefix('='));
+    let count: u32 = param("count").and_then(|count| count.parse().ok()).unwrap_or(0);
     let last = request.headers.get("last-event-id").and_then(|id| id.to_str().ok()?.parse().ok()).unwrap_or(0);
     let chunk = |id: u32| Ok(StreamFrame::Chunk(Bytes::from(format!("id: {id}\ndata: {id}\n\n"))));
     let mut headers = HeaderMap::new();
     headers.insert(CONTENT_TYPE, HeaderValue::from_static("text/event-stream"));
     let head = HttpResponse { status: StatusCode::OK, headers, body: Bytes::new(), wire_size: 0 };
-    StreamAnswer::stream(head, (last + 1..=count).map(chunk).collect())
+    let mut frames: Vec<_> = (last + 1..=count).map(chunk).collect();
+    if param("drop") == Some("true") {
+        frames.push(Err(TransportError::Protocol { reason: "the connection dropped".to_owned() }));
+    }
+    StreamAnswer::stream(head, frames)
 }
 
 #[cfg(test)]

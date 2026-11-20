@@ -51,6 +51,40 @@ async fn a_script_plays_in_order_then_repeats_its_last_entry() {
 }
 
 #[tokio::test]
+async fn a_stream_opens_only_on_its_mode_s_success_head() {
+    let ctx = SendContext::default();
+    let text = || vec![Ok(StreamFrame::Text("a".into()))];
+    for (answer, mode, opens) in [
+        (StreamAnswer::stream(status(200), text()), StreamMode::Body, true),
+        (StreamAnswer::stream(status(200), text()), StreamMode::WebSocket, false),
+        (StreamAnswer::stream(status(101), text()), StreamMode::Body, false),
+        (StreamAnswer::echo(), StreamMode::WebSocket, true),
+        (StreamAnswer::echo(), StreamMode::Body, false),
+    ] {
+        let fake = FakeStreamTransport::scripted(vec![Ok(answer.clone())]);
+        let opened = fake.open(get("/"), mode, &ctx).await.unwrap();
+        assert_eq!(opened.stream.is_some(), opens, "{answer:?} as {mode:?}");
+    }
+}
+
+#[tokio::test]
+async fn a_scripted_stream_ends_at_a_close_or_an_error() {
+    let close = Ok(StreamFrame::Close { code: 1001, reason: "away".into() });
+    let reset = Err(TransportError::Protocol { reason: "reset".into() });
+    let after = Ok(StreamFrame::Text("after".into()));
+    for last in [close, reset] {
+        let fake = FakeStreamTransport::scripted(vec![Ok(StreamAnswer::stream(
+            status(101),
+            vec![last.clone(), after.clone()],
+        ))]);
+        let mut stream =
+            fake.open(get("/"), StreamMode::WebSocket, &SendContext::default()).await.unwrap().stream.unwrap();
+        assert_eq!(stream.next().await, Some(last));
+        assert_eq!((stream.next().await, stream.next().await), (None, None), "nothing follows");
+    }
+}
+
+#[tokio::test]
 async fn an_empty_script_answers_404_with_no_stream() {
     let fake = FakeStreamTransport::scripted(Vec::new());
     let opened = fake.open(get("/"), StreamMode::Body, &SendContext::default()).await.unwrap();
