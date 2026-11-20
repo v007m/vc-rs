@@ -10,13 +10,7 @@ use std::process::Output;
 use serde_json::Value;
 use vc_mock_server::{MockHandle, MockServer};
 
-use crate::{Project, events, of_kind, said};
-
-/// The default profile, and every body kept, so a passing call's messages reach the reports.
-const CONFIG: (&str, &str) = (
-    "vibranium.config.yaml",
-    "syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\nvars: {baseUrl: 'http://x'}\nhistory: {bodies: all}\n",
-);
+use crate::{Project, STREAM_CONFIG, events, of_kind, said};
 
 /// `feed#ticks` reads three events; `feed#dropped` loses its connection after event 2 of 4, and
 /// `feed#resumed` is the same with `sse.reconnect`; `feed#held` stays open after event 1, its call limited to 300ms.
@@ -35,7 +29,7 @@ const FEED: (&str, &str) = (
 /// Runs `tests` (a test file's text) with `args`; gives the output and the mock.
 async fn run(tests: &str, args: &[&str]) -> (Output, Project, MockHandle) {
     let server = MockServer::start().await.unwrap();
-    let project = Project::new(&[CONFIG, FEED, ("services/feed/feed.test.yaml", tests)]);
+    let project = Project::new(&[STREAM_CONFIG, FEED, ("services/feed/feed.test.yaml", tests)]);
     let output = project.run(&server.base_url(), args).output().unwrap();
     (output, project, server)
 }
@@ -114,8 +108,8 @@ async fn a_held_stream_with_an_unmet_receive_ends_at_the_time_limit_with_v5130()
 #[tokio::test(flavor = "multi_thread")]
 async fn vc_call_opens_an_sse_api_and_prints_its_opening_response() {
     let server = MockServer::start().await.unwrap();
-    let project = Project::new(&[CONFIG, FEED]);
-    project.write(CONFIG.0, &CONFIG.1.replace("http://x", &server.base_url()));
+    let project = Project::new(&[STREAM_CONFIG, FEED]);
+    project.write(STREAM_CONFIG.0, &STREAM_CONFIG.1.replace("http://x", &server.base_url()));
     let output = project.vc(&["call", "feed#ticks"]).output().unwrap();
     assert_eq!(output.status.code(), Some(0), "{}", said(&output));
     assert!(String::from_utf8_lossy(&output.stdout).starts_with("200 OK"), "{}", said(&output));
