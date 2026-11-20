@@ -8,3 +8,10 @@ error[V2006]: `request` is a reserved name and cannot be an ID
 2 |   - id: request
   |         ^^^^^^^ reserved
   = help: pick another ID; `request` is a template root
+
+error[V2006]: `none` is a reserved name and cannot be a client certificate ID
+ --> vibranium.config.yaml:9:13
+  |
+9 |       - id: none
+  |             ^^^^ reserved
+  = help: pick another ID; `clientCert: none` sends no certificate

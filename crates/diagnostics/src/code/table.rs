@@ -36,6 +36,8 @@ code_table! {
     V1013 = 1013, Error, "Hook file is not valid TypeScript or JavaScript";
     V1014 = 1014, Error, "GraphQL document does not parse";
     V1015 = 1015, Error, "GraphQL schema file is neither SDL nor an introspection result";
+    V1016 = 1016, Error, "Client certificate given two ways, or not at all";
+    V1017 = 1017, Error, "Not a host pattern";
     // V2xxx: references and types
     V2001 = 2001, Error, "Duplicate ID";
     V2002 = 2002, Error, "Unknown auth, profile, dataset or generator";
@@ -97,6 +99,7 @@ code_table! {
     V4008 = 4008, Warning, "`allowFailure` expired; a failure fails the run again";
     V4009 = 4009, Warning, "A sensitive header in `source.headers` has a literal value";
     V4010 = 4010, Warning, "GraphQL operation has no name";
+    V4013 = 4013, Warning, "A client key or passphrase is written in the config";
     // V5xxx: run time
     V5101 = 5101, Error, "Expectation failed";
     V5102 = 5102, Error, "CEL check false";

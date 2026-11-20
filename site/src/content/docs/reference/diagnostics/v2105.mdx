@@ -23,7 +23,9 @@ A root that no action in the file or the config has as its `id` is "not a root o
 roots, and a close root or step ID is offered as a fix.
 An `examples` written as one template is read before the run starts, so it reads only `var`, `env` and `dataset`,
 and so must each var it reads (one a profile defines is checked when a run starts under that profile). The `$file`
-path of `examples` is written as it is, with no template.
+path of `examples` is written as it is, with no template. `http.tls` is read once when the run starts, so it reads only
+`var`, `secret` and `env`, and so must each var it reads, under every profile; a var only a `beforeRun` save sets has
+no value yet.
 
 ## Wrong
 

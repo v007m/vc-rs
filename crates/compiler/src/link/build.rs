@@ -6,6 +6,8 @@ mod alerts;
 #[cfg(test)]
 mod alerts_tests;
 mod auth;
+#[cfg(test)]
+mod config_tests;
 mod expect;
 mod graphql;
 mod http_retry;
@@ -23,6 +25,9 @@ mod schema_tests;
 mod schemas;
 #[cfg(test)]
 mod tests;
+mod tls;
+#[cfg(test)]
+mod tls_tests;
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -42,6 +47,7 @@ use action::Place;
 pub use expect::path as body_path;
 pub use protocol::ProtocolRulesRegistry;
 pub use read::{duration, flag};
+pub use tls::NO_CLIENT_CERT;
 
 /// What a build step gives; it fails only when a table is full.
 type Built<T> = Result<T, ModelError>;

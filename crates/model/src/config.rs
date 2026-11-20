@@ -3,8 +3,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::{
-    ActionId, AgentPolicy, Alert, AuthId, Duration, FileId, HistoryConfig, Matcher, Method, ProfileId, RedactRule,
-    Retry, SecretsConfig, StatusPattern, Sym, Template, TemplateValue, TestId, VarDefs,
+    ActionId, AgentPolicy, Alert, AuthId, ClientCert, Duration, FileId, HistoryConfig, Matcher, Method, ProfileId,
+    RedactRule, Retry, SecretsConfig, StatusPattern, Sym, Template, TemplateValue, TestId, TlsConfig, VarDefs,
 };
 
 /// How long before expiry credentials are fetched again when `refreshBefore` is not written.
@@ -25,6 +25,8 @@ pub struct Config {
     pub defaults: Defaults,
     /// `http.retry` (D143).
     pub http_retry: HttpRetry,
+    /// `http.tls` (D350).
+    pub http_tls: TlsConfig,
     /// `vars` and `profiles.<id>.vars` at project level.
     pub vars: VarDefs,
     /// `reports.dir`.
@@ -153,12 +155,12 @@ pub struct Profile {
     pub agents: AgentPolicy,
 }
 
-/// Each built-in auth type with the keys it cannot work without.
+/// Each built-in auth type with the settings it cannot work without.
 ///
 /// See the syntax reference, "Authentication". The compiler's V1005, the credentials `vc new auth`
 /// writes as secrets to declare, and the keys the auth adapters require all come from this one
-/// table.
-pub const AUTH_NEEDS: [(&str, &[&str]); 9] = [
+/// table; [`AUTH_OWN_NEEDS`] adds the keys a type needs that are not settings.
+pub const AUTH_NEEDS: [(&str, &[&str]); 10] = [
     ("basic", &["username", "password"]),
     ("bearer", &["token"]),
     ("apiKey", &["name", "value"]),
@@ -167,13 +169,27 @@ pub const AUTH_NEEDS: [(&str, &[&str]); 9] = [
     ("oauth2AuthorizationCode", &["authorizeUrl", "tokenUrl", "clientId"]),
     ("oauth2Refresh", &["tokenUrl", "clientId", "refreshToken"]),
     ("flow", &["steps"]),
+    ("mtls", &[]),
     ("plugin", &["plugin"]),
 ];
+
+/// The keys a built-in auth type needs outside its `settings`, which its provider never reads.
+///
+/// An `mtls` auth is its `clientCert`, held by [`AuthDef`] itself (D350, D371). V1005 and
+/// `vc new auth` read these with [`AUTH_NEEDS`]; they are not credentials.
+pub const AUTH_OWN_NEEDS: [(&str, &[&str]); 1] = [("mtls", &["clientCert"])];
 
 /// The keys the auth type `kind` needs; `None` for a type that is not built in.
 #[must_use]
 pub fn auth_needs(kind: &str) -> Option<&'static [&'static str]> {
     AUTH_NEEDS.iter().find(|(name, _)| *name == kind).map(|(_, needs)| *needs)
+}
+
+/// The keys besides its settings that the auth type `kind` needs ([`AUTH_OWN_NEEDS`]); none for
+/// most types.
+#[must_use]
+pub fn auth_own_needs(kind: &str) -> &'static [&'static str] {
+    AUTH_OWN_NEEDS.iter().find(|(name, _)| *name == kind).map_or(&[], |(_, needs)| *needs)
 }
 
 /// One entry of `auth`.
@@ -204,6 +220,8 @@ pub struct AuthDef {
     pub refresh_on: Vec<u16>,
     /// `cache`: keep the credentials across runs, encrypted (not in M3).
     pub cache: bool,
+    /// `clientCert` (D350): the identity every request under this auth presents.
+    pub client_cert: Option<ClientCert>,
 }
 
 impl AuthDef {
@@ -221,6 +239,7 @@ impl AuthDef {
             refresh_before: Duration::new(REFRESH_BEFORE),
             refresh_on: vec![401],
             cache: false,
+            client_cert: None,
         }
     }
 }

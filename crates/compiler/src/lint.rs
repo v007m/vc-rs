@@ -30,6 +30,7 @@ mod source_headers;
 mod test_cache;
 #[cfg(test)]
 mod tests;
+mod tls_literals;
 mod unused_defaults;
 mod urls;
 
@@ -109,6 +110,7 @@ impl LintRegistry {
             Box::new(path_encode::PathEncode),
             Box::new(expired::ALLOWED_FAILURES),
             Box::new(source_headers::SourceHeaders),
+            Box::new(tls_literals::TlsLiterals),
             Box::new(graphql_names::GraphqlNames),
         ];
         Self { lints }

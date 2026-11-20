@@ -162,6 +162,22 @@ fn an_auth_without_a_key_its_type_needs_is_reported_at_its_type() {
     assert_eq!(missing(&auth("    token: ${var.baseUrl}\n")), []);
 }
 
+#[test]
+fn a_client_certificate_id_is_in_the_config_files_id_table() {
+    let client = |id: &str| {
+        format!(
+            "{CONFIG}auth:\n  - id: partner\n    type: bearer\n    token: t\nhttp:\n  tls:\n    clients:\n      - id: {id}\n        pkcs12: certs/p.p12\n"
+        )
+    };
+    let ids = |config: &str| {
+        let found = diagnostics(config, APIS, &tests("  - id: getsUser\n    call: users#get\n"));
+        found.iter().map(|found| (found.code, found.primary.span.start.line)).collect::<Vec<_>>()
+    };
+    assert_eq!(ids(&client("partnerCert")), []);
+    assert_eq!(ids(&client("partner")), [(Code::V2001, 14)]);
+    assert_eq!(ids(&client("secret")), [(Code::V2006, 14)]);
+}
+
 /// The new text of the fix for each diagnostic.
 fn fixes(tests: &str) -> Vec<String> {
     let found = diagnostics(CONFIG, APIS, tests);

@@ -43,6 +43,7 @@ impl<'a> Build<'_, 'a> {
             ..Config::default()
         };
         let config = self.alerts_and_plugins(source, config)?;
+        let config = self.tls(source, config)?;
         self.builder.config(auth::with_secrets(config, source, self.secrets));
         self.profiles(source)?;
         let before_run = self.block(source, (project::list(root, "beforeRun"), Owner::Run))?;

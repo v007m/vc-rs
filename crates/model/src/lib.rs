@@ -28,6 +28,7 @@ mod files;
 mod form;
 mod history;
 mod hooks;
+mod host_pattern;
 mod ids;
 mod json_text;
 mod labels;
@@ -43,6 +44,7 @@ mod span;
 mod strings;
 mod template;
 mod test;
+mod tls;
 mod units;
 mod verbs;
 
@@ -52,8 +54,8 @@ pub use api::{Api, ApiGroup, ApiSource, BodySpec, GraphqlBody, PartSpec};
 pub use body_file::{FILE_KEY, MULTIPART, basename, file_parts, file_path, is_multipart, part_pointer};
 pub use builder::ProgramBuilder;
 pub use config::{
-    AUTH_NEEDS, AuthDef, Config, Dataset, Defaults, GeneratorDef, HooksConfig, HttpRetry, LoadScenario, LoadStage,
-    MixEntry, PluginRef, Profile, auth_needs,
+    AUTH_NEEDS, AUTH_OWN_NEEDS, AuthDef, Config, Dataset, Defaults, GeneratorDef, HooksConfig, HttpRetry, LoadScenario,
+    LoadStage, MixEntry, PluginRef, Profile, auth_needs, auth_own_needs,
 };
 pub use credential::credential;
 pub use date::Date;
@@ -69,7 +71,8 @@ pub use files::SourceFiles;
 pub use form::{form_pairs, form_text};
 pub use history::{Bodies, DEFAULT_KEEP, DEFAULT_MAX_BODY, HistoryConfig, Keep, cut_body};
 pub use hooks::{HookModule, HookModules, import_paths};
-pub use ids::{ActionId, ApiId, AuthId, DatasetId, FileId, ProfileId, SourceFileId, TestId, VarName};
+pub use host_pattern::{HostPattern, HostPatternError};
+pub use ids::{ActionId, ApiId, AuthId, DatasetId, FileId, ProfileId, SourceFileId, TestId, TlsClientId, VarName};
 pub use labels::{InstanceLabels, instance_marks};
 pub use names::{Location, Names, Planned, check_label, check_parts};
 pub use outcome::{ActionOutcome, CleanupRecord, Failure, OwnerKey, RunStatus, TestResult, TestStatus, Totals};
@@ -89,5 +92,6 @@ pub use template::{
     StatusPattern, Template, TemplateValue,
 };
 pub use test::{Action, ActionKind, InlineRequest, Test, TestBody, TestFile};
+pub use tls::{ClientCert, ClientMaterial, TlsClient, TlsConfig};
 pub use units::{Duration, Size};
 pub use verbs::{is_third_person, third_person};

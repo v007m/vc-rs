@@ -1,0 +1,11 @@
+---
+source: crates/compiler/tests/golden.rs
+assertion_line: 43
+input_file: crates/compiler/tests/cases/v1005_mtls_client_cert/project
+---
+error[V1005]: a `mtls` auth needs `clientCert`
+  --> vibranium.config.yaml:14:11
+   |
+14 |     type: mtls
+   |           ^^^^ `clientCert` is missing
+   = help: add `clientCert:` with the ID of an `http.tls.clients` entry

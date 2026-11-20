@@ -4,7 +4,7 @@ input_file: crates/compiler/tests/cases/v2006_reserved_id/project
 ---
 {
   "summary": {
-    "errors": 1,
+    "errors": 2,
     "warnings": 0,
     "infos": 0
   },
@@ -27,6 +27,27 @@ input_file: crates/compiler/tests/cases/v2006_reserved_id/project
       "notes": [],
       "help": [
         "pick another ID; `request` is a template root"
+      ],
+      "fixes": []
+    },
+    {
+      "code": "V2006",
+      "severity": "error",
+      "message": "`none` is a reserved name and cannot be a client certificate ID",
+      "primary": {
+        "span": {
+          "path": "vibranium.config.yaml",
+          "line": 9,
+          "column": 13,
+          "endLine": 9,
+          "endColumn": 17
+        },
+        "text": "reserved"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "pick another ID; `clientCert: none` sends no certificate"
       ],
       "fixes": []
     }

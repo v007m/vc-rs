@@ -115,7 +115,9 @@ async fn the_fixed_types_build_their_headers_and_query() {
     assert_eq!(query.unwrap(), Credentials::query("Key", "v"));
     let missing = types.credentials(&request("flow", &json!({}))).await.err();
     assert_eq!(missing, Some(AuthError::Missing { auth: "api".into(), key: "steps".into() }));
-    assert_eq!(format!("{types:?}").matches(", ").count(), 7, "eight types: {types:?}");
+    let mtls = types.credentials(&request("mtls", &json!({"clientCert": "partner"}))).await;
+    assert_eq!(mtls, Ok(Credentials::default()), "the client certificate is the HTTP client's to present");
+    assert_eq!(format!("{types:?}").matches(", ").count(), 8, "nine types: {types:?}");
     assert!(format!("{types:?}").contains("oauth2AuthorizationCode"));
 }
 

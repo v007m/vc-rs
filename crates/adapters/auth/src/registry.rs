@@ -11,7 +11,7 @@ use vc_interfaces::{Browser, Keychain};
 
 #[cfg(not(target_family = "wasm"))]
 use crate::AuthorizationCode;
-use crate::{ApiKey, Basic, Bearer, ClientCredentials, Flow, PasswordGrant, RefreshGrant};
+use crate::{ApiKey, Basic, Bearer, ClientCredentials, Flow, Mtls, PasswordGrant, RefreshGrant};
 
 /// Every auth type, by the name `type:` gives it. It is a provider too: it hands each request
 /// to the entry for its `kind`.
@@ -49,6 +49,7 @@ impl AuthTypes {
             .with("bearer", Arc::new(Bearer))
             .with("apiKey", Arc::new(ApiKey))
             .with("flow", Arc::new(Flow))
+            .with("mtls", Arc::new(Mtls))
             .with("oauth2ClientCredentials", Arc::new(ClientCredentials::new(Arc::clone(&transport))))
             .with("oauth2Password", Arc::new(PasswordGrant::new(Arc::clone(&transport))))
             .with("oauth2Refresh", Arc::new(RefreshGrant::new(transport)))

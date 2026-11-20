@@ -1,4 +1,5 @@
-//! The ID tables: duplicates (V2001), reserved IDs (V2006) and file IDs (V2007).
+//! The ID tables: duplicates (V2001), reserved IDs (V2006), including a client certificate
+//! named `none`, and file IDs (V2007).
 
 use std::collections::HashMap;
 
@@ -6,6 +7,7 @@ use vc_diagnostics::{Code, Diagnostic, Diagnostics, Fix, TextEdit};
 use vc_model::{FileKind, SourceSpan};
 use vc_parser::Node;
 
+use super::build::NO_CLIENT_CERT;
 use super::project;
 use super::project::{Project, Source};
 
@@ -13,8 +15,15 @@ use super::project::{Project, Source};
 const RESERVED: [&str; 11] =
     ["var", "env", "secret", "response", "request", "example", "item", "iteration", "fake", "dataset", "run"];
 
-/// The config lists whose items have IDs; `datasets.files` is the other one.
+/// The config's top-level lists whose items have IDs.
 const CONFIG_ITEMS: [&str; 4] = ["profiles", "auth", "generators", "plugins"];
+
+/// The items of the config `root`'s lists below the top level that have IDs: `datasets.files`
+/// and `http.tls.clients`.
+fn nested(root: &Node) -> impl Iterator<Item = &Node> {
+    let files = root.get("datasets").map(|datasets| project::list(datasets, "files")).unwrap_or_default();
+    files.iter().chain(project::tls_clients(root))
+}
 
 /// Every `id` value node a file declares, in file order.
 pub fn declared<'a>(source: &Source<'a>) -> Vec<&'a Node> {
@@ -24,9 +33,9 @@ pub fn declared<'a>(source: &Source<'a>) -> Vec<&'a Node> {
         FileKind::Config => &CONFIG_ITEMS,
         FileKind::Load => &[],
     };
-    let datasets = source.root.get("datasets").filter(|_| source.kind == FileKind::Config);
-    let datasets = datasets.map(|datasets| project::list(datasets, "files")).unwrap_or_default();
-    let nodes = items.iter().flat_map(|key| project::list(source.root, key)).chain(datasets);
+    let config = (source.kind == FileKind::Config).then_some(source.root);
+    let nested = config.into_iter().flat_map(nested);
+    let nodes = items.iter().flat_map(|key| project::list(source.root, key)).chain(nested);
     let nodes = nodes.chain(project::actions(source));
     let mut ids: Vec<&Node> = nodes.filter_map(|node| node.get("id")).collect();
     ids.sort_by_key(|node| node.span.start.offset);
@@ -39,6 +48,8 @@ pub fn check(project: &Project<'_>, diagnostics: &mut Diagnostics) {
         within_file(source, diagnostics);
         diagnostics.extend(explicit_id(source));
     }
+    let clients = project.config().map(|config| project::tls_clients(config.root)).unwrap_or_default();
+    diagnostics.extend(clients.iter().filter_map(no_cert_id));
     let mut seen: HashMap<&str, SourceSpan> = HashMap::new();
     for source in &project.sources {
         let Some(id) = source.id.as_deref() else { continue };
@@ -71,6 +82,15 @@ fn within_file(source: &Source<'_>, diagnostics: &mut Diagnostics) {
             }
         }
     }
+}
+
+/// V2006 for an `http.tls.clients` entry with the ID `none`, which `clientCert: none` means
+/// sending no certificate.
+fn no_cert_id(client: &Node) -> Option<Diagnostic> {
+    let id = client.get("id").filter(|id| id.as_str() == Some(NO_CLIENT_CERT))?;
+    let message = format!("`{NO_CLIENT_CERT}` is a reserved name and cannot be a client certificate ID");
+    let diagnostic = Diagnostic::new(Code::V2006, id.span, message).label("reserved");
+    Some(diagnostic.help(format!("pick another ID; `clientCert: {NO_CLIENT_CERT}` sends no certificate")))
 }
 
 fn duplicate(id: &str, span: SourceSpan, first: SourceSpan) -> Diagnostic {

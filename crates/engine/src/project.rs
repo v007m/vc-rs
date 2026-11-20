@@ -6,18 +6,29 @@ use std::sync::Arc;
 use vc_compiler::{CompileCache, CompileInput, SourceGlobs};
 use vc_diagnostics::Diagnostics;
 use vc_interfaces::{Discovery, SourceError, SourceFilter};
-use vc_model::{DEFAULT_SECRETS_SCHEMA, FileKind, Program, SourceFile, SourceFiles, SourcePath};
+use vc_model::{DEFAULT_SECRETS_SCHEMA, FileKind, Program, SourceFile, SourceFiles, SourcePath, SourceSpan};
 
 use crate::edit::{self, FileChange};
 use crate::{CheckReport, Engine, EngineError};
 
 /// The project as compiled: the program when nothing stops one, every diagnostic (discovery
-/// problems included) and the files they point into.
+/// problems included), the files they point into and where the config writes a client key or
+/// passphrase as text.
 pub struct Compiled {
     pub program: Option<Arc<Program>>,
     pub diagnostics: Diagnostics,
     pub files: SourceFiles,
     pub notices: Vec<String>,
+    pub secrets: Vec<SourceSpan>,
+}
+
+impl Compiled {
+    /// The diagnostics, files and notices to show, with the config's client keys and passphrases
+    /// masked in every diagnostic, those added after the compile too (D353). Every report of
+    /// the diagnostics is made from these.
+    pub fn shown(self) -> (Diagnostics, SourceFiles, Vec<String>) {
+        (vc_compiler::masked(self.diagnostics, &self.secrets), self.files, self.notices)
+    }
 }
 
 /// A program without errors, and the compile's notices.
@@ -59,7 +70,7 @@ impl Engine {
         let (mut diagnostics, mut files) = (compiled.diagnostics, compiled.files);
         vc_interfaces::add_problems(&found.problems, &mut diagnostics, &mut files);
         vc_interfaces::add_problems(&unread, &mut diagnostics, &mut files);
-        Ok(Compiled { program: compiled.program, diagnostics, files, notices })
+        Ok(Compiled { program: compiled.program, diagnostics, files, notices, secrets: compiled.secrets })
     }
 
     /// The config, `.env.schema` and the api files `file_ids` name, compiled without the rest
@@ -84,7 +95,7 @@ impl Engine {
         let (compiled, unread) = self.compile_wanted(input)?;
         let (mut diagnostics, mut files) = (compiled.diagnostics, compiled.files);
         vc_interfaces::add_problems(&unread, &mut diagnostics, &mut files);
-        Ok(Compiled { program: compiled.program, diagnostics, files, notices: Vec::new() })
+        Ok(Compiled { program: compiled.program, diagnostics, files, notices: Vec::new(), secrets: compiled.secrets })
     }
 
     /// The compiled program, for the commands that need one, and the compile's notices.
@@ -100,9 +111,12 @@ impl Engine {
     /// As [`Engine::program`], compiled with `changes` in place of the files they change.
     pub(crate) fn program_with(&self, changes: &[FileChange]) -> Result<Valid, EngineError> {
         let compiled = self.compiled_with(changes)?;
-        match compiled.program {
+        match compiled.program.clone() {
             Some(program) if !compiled.diagnostics.has_errors() => Ok((program, compiled.notices)),
-            _ => Err(invalid(compiled.diagnostics, compiled.files, compiled.notices)),
+            _ => {
+                let (diagnostics, files, notices) = compiled.shown();
+                Err(invalid(diagnostics, files, notices))
+            }
         }
     }
 

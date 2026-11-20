@@ -1,0 +1,12 @@
+syntaxVersion: 2
+project: partner
+http:
+  tls:
+    clients:
+      - id: inline
+        cert: certs/partner.crt
+        key: |
+          -----BEGIN PRIVATE KEY-----
+	MC4CAQAwBQYDK2VwBCIEIBNPUm4yBPU2X6pnB4Gw0z0bJqh5TdLmA1n1Rk8o2CNn
+          -----END PRIVATE KEY-----
+        hosts: [api.partner.example]

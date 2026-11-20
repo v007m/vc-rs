@@ -316,6 +316,13 @@
           "description": "Keep the credentials across runs, encrypted",
           "type": "boolean"
         },
+        "clientCert": {
+          "description": "An `http.tls.clients` ID sent with every request; `none` sends none",
+          "examples": [
+            "partnerCert"
+          ],
+          "type": "string"
+        },
         "clientId": {
           "description": "`oauth2*`: client ID",
           "type": "string"
@@ -418,7 +425,8 @@
             "oauth2AuthorizationCode",
             "oauth2Refresh",
             "flow",
-            "plugin"
+            "plugin",
+            "mtls"
           ]
         },
         "username": {
@@ -534,6 +542,24 @@
       "required": [
         "for"
       ],
+      "type": "object"
+    },
+    "configHttp": {
+      "additionalProperties": false,
+      "description": "Transport settings: retries and TLS",
+      "properties": {
+        "retry": {
+          "$ref": "#/$defs/httpRetry",
+          "default": {
+            "attempts": 0
+          },
+          "description": "Retry one request on a transport failure"
+        },
+        "tls": {
+          "$ref": "#/$defs/tls",
+          "description": "Trusted roots and client certificates"
+        }
+      },
       "type": "object"
     },
     "dataset": {
@@ -926,20 +952,6 @@
       },
       "type": "object"
     },
-    "http": {
-      "additionalProperties": false,
-      "description": "Transport settings",
-      "properties": {
-        "retry": {
-          "$ref": "#/$defs/httpRetry",
-          "default": {
-            "attempts": 0
-          },
-          "description": "Retry one request on a transport failure"
-        }
-      },
-      "type": "object"
-    },
     "httpRetry": {
       "additionalProperties": false,
       "description": "Transport retry of one request",
@@ -1303,6 +1315,102 @@
         }
       },
       "type": "object"
+    },
+    "tls": {
+      "additionalProperties": false,
+      "description": "Trusted roots and client certificates",
+      "properties": {
+        "ca": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          ],
+          "description": "Roots trusted on top of the OS store: a path or inline PEM, or a list",
+          "examples": [
+            "certs/internal-ca.pem"
+          ]
+        },
+        "clients": {
+          "description": "Client certificates, for mTLS",
+          "items": {
+            "$ref": "#/$defs/tlsClient"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "tlsClient": {
+      "additionalProperties": false,
+      "description": "A client certificate; give `cert` and `key`, or `pkcs12`",
+      "properties": {
+        "cert": {
+          "description": "The certificate chain, leaf first: a path or inline PEM",
+          "examples": [
+            "certs/partner.crt"
+          ],
+          "type": "string"
+        },
+        "hosts": {
+          "description": "Sent to these: `host`, `host:port` or `*.domain`",
+          "examples": [
+            [
+              "api.partner.example"
+            ]
+          ],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "id": {
+          "description": "Named by an auth's `clientCert`",
+          "examples": [
+            "partnerCert"
+          ],
+          "type": "string"
+        },
+        "key": {
+          "description": "Its private key: a path or inline PEM",
+          "examples": [
+            "${secret.PARTNER_KEY}"
+          ],
+          "type": "string"
+        },
+        "name": {
+          "description": "Shown in reports",
+          "type": "string"
+        },
+        "passphrase": {
+          "description": "`pkcs12`: its passphrase",
+          "type": "string"
+        },
+        "pkcs12": {
+          "description": "A PKCS#12 bundle (`.p12`, `.pfx`): a path",
+          "examples": [
+            "certs/partner.p12"
+          ],
+          "type": "string"
+        },
+        "profiles": {
+          "description": "Only under these profiles",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
     }
   },
   "$id": "https://v007m.github.io/vc-rs/schema/config.schema.json",
@@ -1362,7 +1470,7 @@
       "description": "How TypeScript and JavaScript hooks run"
     },
     "http": {
-      "$ref": "#/$defs/http",
+      "$ref": "#/$defs/configHttp",
       "description": "Transport settings"
     },
     "paths": {

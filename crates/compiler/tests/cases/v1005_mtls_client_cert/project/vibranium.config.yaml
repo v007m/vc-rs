@@ -1,0 +1,14 @@
+syntaxVersion: 2
+project: partner
+profiles:
+  - id: dev
+    default: true
+http:
+  tls:
+    clients:
+      - id: partnerClient
+        cert: certs/partner.crt
+        key: certs/partner.key
+auth:
+  - id: partnerCert
+    type: mtls

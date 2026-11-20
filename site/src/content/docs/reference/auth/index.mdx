@@ -35,6 +35,7 @@ auth: labBearer
 | `oauth2Refresh` | a token from a long-lived refresh token | [oauth2Refresh](/vc-rs/reference/auth/oauth2-refresh/) |
 | `flow` | whatever your own login steps produce | [flow](/vc-rs/reference/auth/flow/) |
 | `plugin` | whatever an auth plugin returns | [plugin](/vc-rs/reference/auth/plugin/) |
+| `mtls` | only a client certificate | [mtls](/vc-rs/reference/auth/mtls/) |
 
 ## Fields every definition has
 
@@ -46,6 +47,7 @@ auth: labBearer
 | `vars` | map | — | no | Defaults for the templates in this definition |
 | `refreshBefore` | duration | `1m` | no | Fetch again this long before expiry, capped at half the lifetime |
 | `refreshOn` | list of status codes | `[401]` | no | Fetch again once and retry when a response has one of these |
+| `clientCert` | an `http.tls.clients` ID, or `none` | the host's | no | The [client certificate](/vc-rs/reference/auth/mtls/) every request under this definition presents; `none` presents none |
 
 ## Examples
 

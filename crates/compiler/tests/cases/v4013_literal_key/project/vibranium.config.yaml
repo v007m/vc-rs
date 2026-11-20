@@ -1,0 +1,20 @@
+syntaxVersion: 2
+project: partner
+profiles:
+  - id: dev
+    default: true
+http:
+  tls:
+    clients:
+      - id: inlineKey
+        cert: certs/partner.crt
+        key: |
+          -----BEGIN PRIVATE KEY-----
+          MC4CAQAwBQYDK2VwBCIEIBNPUm4yBPU2X6pnB4Gw0z0bJqh5TdLmA1n1Rk8o2CNn
+          -----END PRIVATE KEY-----
+      - id: literalPassphrase
+        pkcs12: certs/partner.p12
+        passphrase: hunter2
+      - id: fromSecrets
+        cert: certs/partner.crt
+        key: ${secret.PARTNER_KEY}

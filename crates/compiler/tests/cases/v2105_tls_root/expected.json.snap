@@ -1,0 +1,77 @@
+---
+source: crates/compiler/tests/golden.rs
+assertion_line: 44
+input_file: crates/compiler/tests/cases/v2105_tls_root/project
+---
+{
+  "summary": {
+    "errors": 3,
+    "warnings": 0,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "code": "V2105",
+      "severity": "error",
+      "message": "`response` is not available here",
+      "primary": {
+        "span": {
+          "path": "vibranium.config.yaml",
+          "line": 12,
+          "column": 9,
+          "endLine": 12,
+          "endColumn": 28
+        },
+        "text": ""
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "`http.tls` is read once when the run starts, so it reads only `var`, `secret` and `env`"
+      ],
+      "fixes": []
+    },
+    {
+      "code": "V2105",
+      "severity": "error",
+      "message": "`run` is not available here",
+      "primary": {
+        "span": {
+          "path": "vibranium.config.yaml",
+          "line": 18,
+          "column": 15,
+          "endLine": 18,
+          "endColumn": 24
+        },
+        "text": ""
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "`http.tls` is read once when the run starts, so it reads only `var`, `secret` and `env`"
+      ],
+      "fixes": []
+    },
+    {
+      "code": "V2105",
+      "severity": "error",
+      "message": "`fake` is not available here",
+      "primary": {
+        "span": {
+          "path": "vibranium.config.yaml",
+          "line": 21,
+          "column": 17,
+          "endLine": 21,
+          "endColumn": 35
+        },
+        "text": ""
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "`http.tls` is read once when the run starts, so it reads only `var`, `secret` and `env`"
+      ],
+      "fixes": []
+    }
+  ]
+}

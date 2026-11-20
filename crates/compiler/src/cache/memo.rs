@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 use vc_diagnostics::Diagnostics;
-use vc_model::{Date, Program, SourceFile, SourceFiles, SourcePath};
+use vc_model::{Date, Program, SourceFile, SourceFiles, SourcePath, SourceSpan};
 
 use super::{encode, read_all};
 use crate::link::DataWanted;
@@ -42,6 +42,8 @@ pub struct Replay {
     pub data_wanted: Vec<DataWanted>,
     /// The hook files it named that it was not given.
     pub hooks_wanted: Vec<SourcePath>,
+    /// Where the config writes a client key or passphrase as text, for diagnostics added later.
+    pub secrets: Vec<SourceSpan>,
 }
 
 /// The output of the compile that `key` describes.
@@ -67,6 +69,7 @@ struct Out<'r> {
     diagnostics: String,
     data_wanted: Vec<(&'r str, Option<&'r str>)>,
     hooks_wanted: Vec<&'r str>,
+    secrets: &'r [SourceSpan],
 }
 
 /// [`Out`], read back.
@@ -76,6 +79,7 @@ struct In {
     diagnostics: String,
     data_wanted: Vec<(String, Option<String>)>,
     hooks_wanted: Vec<String>,
+    secrets: Vec<SourceSpan>,
 }
 
 impl Memo {
@@ -115,6 +119,7 @@ impl Memo {
                 .map(|data| (data.path.as_str(), data.root.as_ref().map(SourcePath::as_str)))
                 .collect(),
             hooks_wanted: made.hooks_wanted.iter().map(SourcePath::as_str).collect(),
+            secrets: &made.secrets,
         };
         encode(&out)
     }
@@ -134,6 +139,7 @@ fn decode(bytes: &[u8], files: &SourceFiles) -> Option<Replay> {
         diagnostics: serde_json::from_str(&read.diagnostics).ok()?,
         data_wanted: data.collect::<Option<_>>()?,
         hooks_wanted: hooks.collect::<Option<_>>()?,
+        secrets: read.secrets,
     })
 }
 

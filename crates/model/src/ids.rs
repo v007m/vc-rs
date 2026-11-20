@@ -76,6 +76,11 @@ sym_id! {
 }
 
 sym_id! {
+    /// An `http.tls.clients` entry's ID, named by an auth's `clientCert` (D350): `partnerCert`.
+    TlsClientId
+}
+
+sym_id! {
     /// A var's name: `userId`.
     VarName
 }

@@ -1,0 +1,9 @@
+name: Partner
+baseUrl: ${var.partnerUrl}
+apis:
+  - id: getAccount
+    path: /accounts/${var.accountId}
+    http:
+      retry: {attempts: 2}
+    expect:
+      status: 200

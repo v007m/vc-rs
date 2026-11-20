@@ -1,13 +1,22 @@
 //! V2211: a key that does something only beside another one that is missing: `parallel`
-//! without `repeat` or `forEach`, and an `abortOn` metric no threshold names.
+//! without `repeat` or `forEach`, an `abortOn` metric no threshold names, and in an
+//! `http.tls.clients` entry `cert` without `key`, `key` without `cert`, or `passphrase` without
+//! `pkcs12` (D350).
 
 use vc_diagnostics::{Code, Diagnostic};
 use vc_model::FileKind;
-use vc_parser::Node;
+use vc_parser::{Entry, Node};
 
 use super::{Lint, LintCx};
 use crate::link;
 use crate::link::Source;
+
+/// Each `http.tls.clients` key, the partner it needs, and the help when that partner is missing.
+const TLS_PARTNERS: [(&str, &str, &str); 3] = [
+    ("cert", "key", "a PEM client certificate needs `cert` and `key`: add `key`, or give `pkcs12` instead"),
+    ("key", "cert", "a PEM client certificate needs `cert` and `key`: add `cert`, or give `pkcs12` instead"),
+    ("passphrase", "pkcs12", "`passphrase` unlocks a `pkcs12` bundle: add `pkcs12`, or remove `passphrase`"),
+];
 
 /// Reports every key whose partner is missing.
 pub struct LoneKeys;
@@ -23,6 +32,9 @@ impl Lint for LoneKeys {
             found.extend(link::actions(source).into_iter().filter_map(|action| self.parallel(action)));
             if source.kind == FileKind::Load {
                 found.extend(self.abort_on(source));
+            }
+            if source.kind == FileKind::Config {
+                found.extend(link::tls_clients(source.root).iter().flat_map(|client| self.tls_client(client)));
             }
         }
         found
@@ -57,6 +69,18 @@ impl LoneKeys {
             .filter(|(_, metric)| !named.contains(metric))
             .map(|(node, metric)| self.unthresholded(node, metric))
             .collect()
+    }
+
+    /// `cert` or `key` without the other, and `passphrase` without `pkcs12`, in a client entry. A
+    /// `cert` or `key` beside `pkcs12` is V1016, a link error, so these lints do not run then.
+    fn tls_client(&self, client: &Node) -> Vec<Diagnostic> {
+        let lone = TLS_PARTNERS.into_iter().filter(|(_, partner, _)| client.get(partner).is_none());
+        lone.filter_map(|(key, partner, help)| Some(self.unpaired(client.entry(key)?, (partner, help)))).collect()
+    }
+
+    fn unpaired(&self, entry: &Entry, (partner, help): (&str, &str)) -> Diagnostic {
+        let message = format!("`{}` without `{partner}`", entry.key);
+        Diagnostic::new(self.code(), entry.key_span, message).label(format!("needs `{partner}`")).help(help)
     }
 
     fn unthresholded(&self, node: &Node, metric: &str) -> Diagnostic {

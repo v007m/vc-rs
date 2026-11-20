@@ -1,0 +1,25 @@
+---
+source: crates/compiler/tests/golden.rs
+assertion_line: 43
+input_file: crates/compiler/tests/cases/v2105_tls_root/project
+---
+error[V2105]: `response` is not available here
+  --> vibranium.config.yaml:12:9
+   |
+12 |       - ${response.body.ca}
+   |         ^^^^^^^^^^^^^^^^^^^
+   = help: `http.tls` is read once when the run starts, so it reads only `var`, `secret` and `env`
+
+error[V2105]: `run` is not available here
+  --> vibranium.config.yaml:18:15
+   |
+18 |         cert: ${run.id}.crt
+   |               ^^^^^^^^^
+   = help: `http.tls` is read once when the run starts, so it reads only `var`, `secret` and `env`
+
+error[V2105]: `fake` is not available here
+  --> vibranium.config.yaml:21:17
+   |
+21 |         pkcs12: ${fake.lorem.word}.p12
+   |                 ^^^^^^^^^^^^^^^^^^
+   = help: `http.tls` is read once when the run starts, so it reads only `var`, `secret` and `env`

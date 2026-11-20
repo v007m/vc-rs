@@ -163,12 +163,12 @@ http:
 
 ```console
 $ vc check
-error[V1004]: unknown key `proxy` in http
+error[V1004]: unknown key `proxy` in configHttp
  --> vibranium.config.yaml:6:3
   |
 6 |   proxy: http://p:8080
   |   ^^^^^ not a known key
-  = help: expected one of `retry`
+  = help: expected one of `tls`, `retry`
 ```
 
 ## Try it
