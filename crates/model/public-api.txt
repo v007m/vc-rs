@@ -2788,3 +2788,4 @@ pub fn vc_model::resolve_path(&[&str], &str) -> core::option::Option<alloc::stri
 pub fn vc_model::schema_names(&str) -> vc_model::SchemaNames
 pub fn vc_model::secret_name(&str) -> alloc::string::String
 pub fn vc_model::third_person(&str) -> alloc::string::String
+pub fn vc_model::wire_host(&http::uri::Uri) -> core::option::Option<alloc::string::String>
