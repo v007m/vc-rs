@@ -594,6 +594,7 @@ pub const vc_model::Protocol::ALL: [Self; 4]
 pub fn vc_model::Protocol::from_key(&str) -> core::option::Option<Self>
 pub const fn vc_model::Protocol::key(self) -> &'static str
 pub const fn vc_model::Protocol::named(self) -> &'static str
+pub const fn vc_model::Protocol::success_status(self) -> vc_model::StatusPattern
 impl core::clone::Clone for vc_model::Protocol
 pub fn vc_model::Protocol::clone(&self) -> Self
 impl core::cmp::Eq for vc_model::Protocol
@@ -973,6 +974,8 @@ pub vc_model::Api::span: vc_model::SourceSpan
 pub vc_model::Api::stream: core::option::Option<vc_model::StreamSettings>
 pub vc_model::Api::timeout: core::option::Option<vc_model::Duration>
 pub vc_model::Api::vars: vc_model::VarDefs
+impl vc_model::Api
+pub const fn vc_model::Api::success_status(&self) -> vc_model::StatusPattern
 impl core::clone::Clone for vc_model::Api
 pub fn vc_model::Api::clone(&self) -> Self
 impl core::cmp::Eq for vc_model::Api
@@ -2420,10 +2423,7 @@ pub fn vc_model::SourceSpan::serialize<__S>(&self, __S) -> core::result::Result<
 impl<'de> serde_core::de::Deserialize<'de> for vc_model::SourceSpan
 pub fn vc_model::SourceSpan::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub struct vc_model::StreamSettings
-pub vc_model::StreamSettings::opens_on: vc_model::StatusPattern
 pub vc_model::StreamSettings::reconnect: bool
-impl vc_model::StreamSettings
-pub const fn vc_model::StreamSettings::success(core::option::Option<Self>) -> vc_model::StatusPattern
 impl core::clone::Clone for vc_model::StreamSettings
 pub fn vc_model::StreamSettings::clone(&self) -> Self
 impl core::cmp::Eq for vc_model::StreamSettings

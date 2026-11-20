@@ -87,12 +87,12 @@ pub struct Api {
     /// How a streaming api's call opens and keeps its stream; `None` on a type that does not
     /// stream (D376).
     pub stream: Option<StreamSettings>,
-    /// `expect`; `status: 2xx` (`101` on a `websocket` api) when none is written.
+    /// `expect`; its status is [`Api::success_status`] when none is written.
     pub expect: Expect,
     /// `save`.
     pub save: SaveSpec,
-    /// `saveOn`: the statuses on which `save` runs; the api's `expect.status`, else `2xx` (`101`
-    /// on a `websocket` api), when none is written (D191, D386).
+    /// `saveOn`: the statuses on which `save` runs; the api's `expect.status`, else
+    /// [`Api::success_status`], when none is written (D191, D386).
     pub save_on: Matcher,
     /// Whether `saveOn` is written. On a `graphql` api the default one also needs the response's
     /// `errors` absent or empty, and an api's `cleanup` always does (D345).
@@ -109,32 +109,25 @@ pub struct Api {
     pub span: SourceSpan,
 }
 
-/// What a streaming api's type decides of its call (D376): the status its stream opens on and
-/// whether it opens it once more.
+impl Api {
+    /// The status a call of this api succeeds on when its `expect` checks none: its type's
+    /// [`Protocol::success_status`].
+    #[must_use]
+    pub const fn success_status(&self) -> StatusPattern {
+        self.protocol.success_status()
+    }
+}
+
+/// What a streaming api's type decides of its call (D376): whether it opens its stream once more.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[expect(
     clippy::exhaustive_structs,
     reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
 )]
 pub struct StreamSettings {
-    /// The status a stream opens on: `2xx` for `sse`, `101` for `websocket`.
-    pub opens_on: StatusPattern,
     /// `sse.reconnect`, the api's, else its file's: whether an `sse` stream that ends before its
     /// exchange is done is opened once more (D385). Always `false` on a `websocket` api.
     pub reconnect: bool,
-}
-
-impl StreamSettings {
-    /// The status a call of an api with `stream` succeeds on when its `expect` checks none, the
-    /// one its `saveOn` defaults to and the one that registers its `cleanup`: the status its
-    /// stream opens on, else `2xx` for a type that does not stream (D386).
-    #[must_use]
-    pub const fn success(stream: Option<Self>) -> StatusPattern {
-        match stream {
-            Some(stream) => stream.opens_on,
-            None => StatusPattern::Class(2),
-        }
-    }
 }
 
 /// A request body.

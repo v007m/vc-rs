@@ -8,7 +8,7 @@ use tower::ServiceExt;
 use vc_interfaces::SendContext;
 use vc_model::{
     Action, ActionId, ActionKind, ActionOutcome, Api, Check, CheckKind, CheckResult, Exchange, Failure, Matcher,
-    Namespace, Origin, Program, SaveSpec, SourceSpan, StatusPattern, StreamSettings,
+    Namespace, Origin, Program, Protocol, SaveSpec, SourceSpan, StatusPattern,
 };
 
 use super::flight::{Flight, Halted};
@@ -63,6 +63,13 @@ impl CallExecutor {
         Self { parts, matchers: Arc::new(MatcherRegistry::standard()), runtimes }
     }
 
+    /// The executor with `runtimes` in place of the standard ones.
+    #[cfg(test)]
+    #[must_use]
+    pub fn with_runtimes(self, runtimes: ProtocolRuntimes) -> Self {
+        Self { runtimes: Arc::new(runtimes), ..self }
+    }
+
     /// The runtime of `api`'s type; one the registry lacks fails the call.
     fn runtime(&self, api: &Api) -> Result<Arc<dyn ProtocolRuntime>, Failure> {
         let missing = || Failure::new(format!("no runtime for {} api", api.protocol.named()));
@@ -114,7 +121,7 @@ impl CallExecutor {
         (checks, held): (Vec<CheckResult>, &Held),
     ) -> Result<ActionReport, Failure> {
         let Answered { request, action, api, exchange } = *answered;
-        let succeeded = StreamSettings::success(api.stream).matches(exchange.response.status.as_u16());
+        let succeeded = api.success_status().matches(exchange.response.status.as_u16());
         let registers = !action.keep && request.frame.given.is_none() && succeeded;
         let cleanups = if registers && held.clean() { cleanup(render, api)? } else { None };
         let checks = held.reported(checks, (Origin::Action(request.action), action.span));
@@ -249,7 +256,7 @@ pub fn subject<'s>(response: &'s Value, exchange: &Exchange) -> Subject<'s> {
 /// iteration only those from the api's own `expect`; either way after the api's default status
 /// check.
 fn judged<'a>(request: &ActionRequest, action: &'a Action, api: &Api) -> Cow<'a, [Check]> {
-    let (origin, success) = ((Origin::Api(api.id), api.span), StreamSettings::success(api.stream));
+    let (origin, success) = ((Origin::Api(api.id), api.span), api.success_status());
     if !request.frame.api_checks_only {
         return defaulted(Cow::Borrowed(&action.expect.checks), origin, success);
     }
@@ -257,10 +264,10 @@ fn judged<'a>(request: &ActionRequest, action: &'a Action, api: &Api) -> Cow<'a,
     defaulted(Cow::Owned(own), origin, success)
 }
 
-/// The action's merged checks, after a default `status: 2xx` from `origin` when none checks
-/// the status.
+/// An inline request's merged checks, after its `http` success status from `origin` when none
+/// checks the status.
 pub fn expected(action: &Action, origin: (Origin, SourceSpan)) -> Cow<'_, [Check]> {
-    defaulted(Cow::Borrowed(&action.expect.checks), origin, StatusPattern::Class(2))
+    defaulted(Cow::Borrowed(&action.expect.checks), origin, Protocol::Http.success_status())
 }
 
 /// `checks` after a default `status: <success>` from `origin` when none checks the status.

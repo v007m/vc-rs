@@ -1,11 +1,43 @@
 use std::sync::Arc;
 
+use serde_json::Value;
 use serde_json::json;
-use vc_model::{CheckKind, OwnerKey, Protocol, StatusPattern, StreamSettings};
+use vc_model::{Action, ActionId, Api, CheckKind, Exchange, Failure, OwnerKey, Protocol, RenderedRequest};
 use vc_testkit::{FakeTransport, RecordingTransport};
 
+use super::super::protocol::{ProtocolRuntime, ProtocolRuntimes};
+use super::super::request;
 use crate::fixture::Fixture;
-use crate::{ActionExecutors, ActionRequest, Frame, HostLimits, PendingCleanup, PipelineParts};
+use crate::{
+    ActionExecutors, ActionKindTag, ActionRequest, CallExecutor, Frame, HostLimits, PendingCleanup, PipelineParts,
+    Render,
+};
+
+/// A `websocket` runtime that sends its handshake as an `http` request, standing in for the
+/// stream runtime until it lands.
+#[derive(Debug)]
+struct HandshakeOnly;
+
+impl ProtocolRuntime for HandshakeOnly {
+    fn protocol(&self) -> Protocol {
+        Protocol::Websocket
+    }
+
+    fn request(&self, render: &Render<'_>, api: &Api, call: (ActionId, &Action)) -> Result<RenderedRequest, Failure> {
+        request::rendered(render, api, call)
+    }
+
+    fn response(&self, exchange: &Exchange) -> Value {
+        request::received(exchange)
+    }
+}
+
+/// Calls through `fake` with [`HandshakeOnly`] as the `websocket` runtime.
+fn handshakes(fake: FakeTransport) -> ActionExecutors {
+    let parts = PipelineParts::new(Arc::new(fake), HostLimits::spawn(8));
+    let runtimes = ProtocolRuntimes::standard().with(Arc::new(HandshakeOnly));
+    ActionExecutors::new().with(ActionKindTag::Call, Arc::new(CallExecutor::new(parts).with_runtimes(runtimes)))
+}
 
 #[tokio::test]
 async fn a_call_of_a_stream_api_fails_with_a_plain_message_and_sends_nothing() {
@@ -27,18 +59,16 @@ async fn a_call_of_a_stream_api_fails_with_a_plain_message_and_sends_nothing() {
     }
 }
 
-/// An api whose stream opens on the WebSocket `101`, called through the `http` runtime until
-/// the stream runtime lands: its default status check and its cleanup follow that status (D386).
+/// A `websocket` api, its handshake sent as an `http` request: its default status check and its
+/// cleanup follow its `101` (D386).
 #[tokio::test]
 async fn a_websocket_api_succeeds_on_101_so_its_default_status_and_its_cleanup_follow_it() {
     for (status, passed) in [(101, true), (200, false)] {
         let mut fixture = Fixture::new();
         let delete = fixture.call("/rooms");
         let open = fixture.creating("/chat", delete);
-        fixture.api_mut(open).stream = Some(StreamSettings { opens_on: StatusPattern::Code(101), reconnect: false });
-        let fake = FakeTransport::scripted(vec![Ok(vc_testkit::status(status))]);
-        let executors = ActionExecutors::standard(PipelineParts::new(Arc::new(fake), HostLimits::spawn(8)));
-        let cx = fixture.cx(executors);
+        fixture.api_mut(open).protocol = Protocol::Websocket;
+        let cx = fixture.cx(handshakes(FakeTransport::scripted(vec![Ok(vc_testkit::status(status))])));
         let request =
             ActionRequest { action: open, owner: OwnerKey::Run, cx: Arc::clone(&cx), frame: Frame::default() };
         let report = cx.executors.execute(request).await;

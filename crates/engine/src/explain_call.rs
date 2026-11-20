@@ -4,7 +4,7 @@
 use std::fmt::Write as _;
 
 use indexmap::IndexMap;
-use vc_model::{Action, Api, AuthRef, CheckKind, StreamSettings, Template, TemplateValue};
+use vc_model::{Action, Api, AuthRef, CheckKind, Template, TemplateValue};
 
 use super::api::SentHeader;
 use super::{CONFIG, Explainer};
@@ -119,7 +119,7 @@ impl Explainer<'_> {
         let expect = called.action.map_or(&called.api.expect, |action| &action.expect);
         let mut out = String::from("  expect\n");
         if !expect.checks.iter().any(|check| check.kind == CheckKind::Status) {
-            let _ = writeln!(out, "    status: {}  (default)", StreamSettings::success(called.api.stream));
+            let _ = writeln!(out, "    status: {}  (default)", called.api.success_status());
         }
         let show = |value: &TemplateValue| shown.value(value);
         for line in vc_planner::shown_check_lines(self.program, expect, &show) {

@@ -4,8 +4,8 @@ use indexmap::IndexMap;
 use vc_diagnostics::Diagnostics;
 use vc_model::{
     Api, ApiGroup, ApiId, Bodies, Config, Defaults, Examples, FileId, GeneratorDef, HistoryConfig, HooksConfig,
-    HttpRetry, Keep, Lifecycle, Origin, Owner, Profile, ProfileId, RequestHooks, RunBlocks, SaveSpec, StreamSettings,
-    Test, TestBody, TestFile, TestId, VarDefs,
+    HttpRetry, Keep, Lifecycle, Origin, Owner, Profile, ProfileId, RequestHooks, RunBlocks, SaveSpec, Test, TestBody,
+    TestFile, TestId, VarDefs,
 };
 use vc_parser::Node;
 use vc_template::FakeRegistry;
@@ -136,7 +136,7 @@ impl<'a> Build<'_, 'a> {
         };
         let expect = self.api_expects.get(&id).cloned().unwrap_or_default();
         let stream = rules.stream(source, node);
-        let success = StreamSettings::success(stream);
+        let success = rules.protocol().success_status();
         let (save_on, save_on_written) = expect::save_on(source, node.get("saveOn"), (&expect, success));
         Ok(Some(Api {
             id,

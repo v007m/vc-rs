@@ -1,7 +1,7 @@
 //! The compile rules of the streaming types (D376): `sse` sends its request as an `http` api
 //! does and may reopen its stream once (D385); `websocket` opens with a `GET` and no body.
 
-use vc_model::{BodySpec, Method, Protocol, StatusPattern, StreamSettings};
+use vc_model::{BodySpec, Method, Protocol, StreamSettings};
 use vc_parser::Node;
 
 use super::protocol::ProtocolRules;
@@ -19,14 +19,14 @@ impl ProtocolRules for SseRules {
         Protocol::Sse
     }
 
-    /// Opens on `2xx`, and reconnects as the api's `sse.reconnect`, else its file's when the
+    /// Reconnects as the api's `sse.reconnect`, else its file's when the
     /// file is an `sse` one (another file's block is V2213 and read by none), else not.
     fn stream(&self, source: &Source<'_>, api: &Node) -> Option<StreamSettings> {
         let file = Some(source.root).filter(|root| project::protocol(root, root) == Protocol::Sse);
         let mut blocks = [Some(api), file].into_iter().flatten().filter_map(|node| node.get("sse"));
         let written = blocks.find(|sse| project::text(sse, "reconnect").is_some());
         let reconnect = written.is_some_and(|sse| read::flag(shapes::sse(), sse, "reconnect"));
-        Some(StreamSettings { opens_on: StatusPattern::Class(2), reconnect })
+        Some(StreamSettings { reconnect })
     }
 }
 
@@ -46,9 +46,9 @@ impl ProtocolRules for WebsocketRules {
         BodySpec::None
     }
 
-    /// Opens on the `101` of the WebSocket handshake, and never reconnects.
+    /// Never reconnects.
     fn stream(&self, _: &Source<'_>, _: &Node) -> Option<StreamSettings> {
-        Some(StreamSettings { opens_on: StatusPattern::Code(101), reconnect: false })
+        Some(StreamSettings { reconnect: false })
     }
 }
 

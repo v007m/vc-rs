@@ -73,7 +73,7 @@ fn path(api: &Api) -> &str {
 
 /// The stream settings of an `sse` api that reconnects or does not.
 const fn sse(reconnect: bool) -> StreamSettings {
-    StreamSettings { opens_on: StatusPattern::Class(2), reconnect }
+    StreamSettings { reconnect }
 }
 
 /// The V2213 diagnostics of a compile, as `(message, line)`, in report order.
@@ -113,7 +113,7 @@ fn a_websocket_api_opens_with_a_get_and_no_body_to_its_own_path() {
     let chat = api(&program, "chat");
     assert_eq!((chat.protocol, chat.method, path(chat)), (Protocol::Websocket, Method::Get, "/chat"));
     assert_eq!((chat.body.clone(), chat.headers.len()), (BodySpec::None, 1));
-    assert_eq!(chat.stream, Some(StreamSettings { opens_on: StatusPattern::Code(101), reconnect: false }));
+    assert_eq!(chat.stream, Some(StreamSettings { reconnect: false }));
 }
 
 #[test]

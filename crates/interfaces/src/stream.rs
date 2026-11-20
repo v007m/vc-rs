@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use bytes::Bytes;
-use vc_model::{Exchange, RenderedRequest};
+use vc_model::{Exchange, Protocol, RenderedRequest, StatusPattern};
 
 use crate::{SendContext, TransportError};
 
@@ -11,8 +11,8 @@ use crate::{SendContext, TransportError};
 /// `vc-testkit` has a fake, and every implementation runs `stream_transport_suite` (D112).
 #[async_trait]
 pub trait StreamTransport: Send + Sync {
-    /// Sends `request` and opens a stream on a 2xx answer (`Body`) or a 101 handshake
-    /// (`WebSocket`). Any other answer is a successful open with no stream, its body read in full
+    /// Sends `request` and opens a stream on an answer whose status is the `mode`'s
+    /// [`StreamMode::opens_on`]. Any other answer is a successful open with no stream, its body read in full
     /// and capped at `ctx.body_limit` as [`crate::Transport::send`] reads it.
     ///
     /// # Errors
@@ -37,6 +37,18 @@ pub enum StreamMode {
     Body,
     /// WebSocket frames after an HTTP/1.1 upgrade (`websocket`).
     WebSocket,
+}
+
+impl StreamMode {
+    /// The status a stream of this mode opens on: the success status of the type it reads.
+    #[must_use]
+    pub const fn opens_on(self) -> StatusPattern {
+        let protocol = match self {
+            Self::Body => Protocol::Sse,
+            Self::WebSocket => Protocol::Websocket,
+        };
+        protocol.success_status()
+    }
 }
 
 /// An opened stream: the opening response, and the stream when one opened.
@@ -102,4 +114,17 @@ pub enum StreamFrame {
         /// The close reason.
         reason: String,
     },
+}
+
+#[cfg(test)]
+mod tests {
+    use vc_model::StatusPattern;
+
+    use super::StreamMode;
+
+    #[test]
+    fn a_body_stream_opens_on_2xx_and_a_websocket_on_its_101_handshake() {
+        let opens_on = [StreamMode::Body, StreamMode::WebSocket].map(StreamMode::opens_on);
+        assert_eq!(opens_on, [StatusPattern::Class(2), StatusPattern::Code(101)]);
+    }
 }

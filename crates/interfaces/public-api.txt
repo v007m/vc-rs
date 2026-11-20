@@ -542,6 +542,8 @@ impl core::marker::StructuralPartialEq for vc_interfaces::StreamFrame
 pub enum vc_interfaces::StreamMode
 pub vc_interfaces::StreamMode::Body
 pub vc_interfaces::StreamMode::WebSocket
+impl vc_interfaces::StreamMode
+pub const fn vc_interfaces::StreamMode::opens_on(self) -> vc_model::template::StatusPattern
 impl core::clone::Clone for vc_interfaces::StreamMode
 pub fn vc_interfaces::StreamMode::clone(&self) -> Self
 impl core::cmp::Eq for vc_interfaces::StreamMode

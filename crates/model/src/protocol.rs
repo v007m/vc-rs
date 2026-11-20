@@ -2,6 +2,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::StatusPattern;
+
 /// What an api speaks: an api item's `type`, else its file's; `http` when neither sets one.
 ///
 /// Each type is a strategy split into facets, one registry entry per layer, all keyed by this
@@ -47,6 +49,17 @@ impl Protocol {
             Self::Graphql => "a `graphql`",
             Self::Sse => "an `sse`",
             Self::Websocket => "a `websocket`",
+        }
+    }
+
+    /// The status a call of this type succeeds on (D386): the one its `expect` checks, its
+    /// `saveOn` defaults to and its `cleanup` registers on when the api writes no `expect.status`,
+    /// and the head a stream opens on. `101` for `websocket`, the handshake; `2xx` for the rest.
+    #[must_use]
+    pub const fn success_status(self) -> StatusPattern {
+        match self {
+            Self::Websocket => StatusPattern::Code(101),
+            Self::Http | Self::Graphql | Self::Sse => StatusPattern::Class(2),
         }
     }
 
@@ -156,6 +169,7 @@ const GRAPHQL_KEYS: AllowedKeys = AllowedKeys {
 #[cfg(test)]
 mod tests {
     use super::{AllowedKeys, PROTOCOL_KEYS, PROTOCOL_NEEDS, Protocol};
+    use crate::StatusPattern;
 
     #[test]
     fn every_type_reads_back_from_its_key_and_has_its_keys() {
@@ -214,5 +228,12 @@ mod tests {
     fn a_message_names_each_type_after_the_article_it_is_read_with() {
         let named = Protocol::ALL.map(Protocol::named);
         assert_eq!(named, ["an `http`", "a `graphql`", "an `sse`", "a `websocket`"]);
+    }
+
+    #[test]
+    fn a_websocket_call_succeeds_on_its_101_handshake_and_every_other_type_on_2xx() {
+        let success = Protocol::ALL.map(Protocol::success_status);
+        let ok = StatusPattern::Class(2);
+        assert_eq!(success, [ok, ok, ok, StatusPattern::Code(101)]);
     }
 }

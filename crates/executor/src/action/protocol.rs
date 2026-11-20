@@ -76,6 +76,15 @@ impl ProtocolRuntimes {
         self.get(protocol).map(|runtime| runtime.response(exchange))
     }
 
+    /// The registry with `runtime` serving its type in place of the one there.
+    #[cfg(test)]
+    #[must_use]
+    pub fn with(mut self, runtime: Arc<dyn ProtocolRuntime>) -> Self {
+        self.runtimes.retain(|held| held.protocol() != runtime.protocol());
+        self.runtimes.push(runtime);
+        self
+    }
+
     /// The types it has a runtime for, in registration order.
     #[must_use]
     pub fn protocols(&self) -> Vec<Protocol> {
