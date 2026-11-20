@@ -27,7 +27,13 @@ impl Transport for Paths {
         tokio::time::sleep(Duration::from_millis(wait * 10)).await;
         let body = Bytes::from(json!({ "path": path }).to_string());
         let response = HttpResponse { wire_size: body.len() as u64, body, ..vc_testkit::status(200) };
-        Ok(Exchange { request, response, timing: Timing::default(), connection: ConnectionInfo::default() })
+        Ok(Exchange {
+            request,
+            response,
+            timing: Timing::default(),
+            connection: ConnectionInfo::default(),
+            messages: Vec::new(),
+        })
     }
 }
 

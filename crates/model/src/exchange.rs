@@ -176,6 +176,30 @@ pub struct Exchange {
     pub timing: Timing,
     /// The connection used.
     pub connection: ConnectionInfo,
+    /// What a stream call received after this opening response, in order (D380); empty for
+    /// `http` and `graphql`, and when no stream opened.
+    pub messages: Vec<StreamMessage>,
+}
+
+/// One message a stream call received (D379), as its checks and `response.messages` read it.
+///
+/// `Debug` prints the field names, never their values, which can carry a secret before the
+/// redactor sees them.
+#[derive(Clone, Default, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
+pub struct StreamMessage {
+    /// Its fields by name: `event`, `data`, `id`, `retry` and `text` on `sse`; `type`, `data`,
+    /// `text`, `code` and `reason` on `websocket`. A field the message lacks is absent.
+    pub fields: serde_json::Map<String, serde_json::Value>,
+}
+
+impl fmt::Debug for StreamMessage {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("StreamMessage").field("fields", &self.fields.keys().collect::<Vec<_>>()).finish()
+    }
 }
 
 #[cfg(test)]
@@ -184,7 +208,7 @@ mod tests {
     use http::header::{AUTHORIZATION, CONTENT_TYPE};
     use http::{HeaderMap, HeaderValue, Method, StatusCode, Uri};
 
-    use super::{HttpResponse, RenderedRequest};
+    use super::{HttpResponse, RenderedRequest, StreamMessage};
 
     fn secret_headers() -> HeaderMap {
         let mut headers = HeaderMap::new();
@@ -223,6 +247,15 @@ mod tests {
         assert!(plain.contains("uri: http://h/p,"), "{plain}");
         let relative = format!("{:?}", RenderedRequest::new(Method::GET, Uri::from_static("/p?q=1")));
         assert!(relative.contains("uri: /p?<hidden>,"), "{relative}");
+    }
+
+    #[test]
+    fn message_debug_shows_field_names_but_never_values() {
+        let fields = serde_json::json!({ "event": "token", "data": "s3cret" });
+        let message = StreamMessage { fields: fields.as_object().cloned().unwrap_or_default() };
+        let text = format!("{message:?}");
+        assert!(text.contains("\"data\"") && text.contains("\"event\""), "{text}");
+        assert!(!text.contains("s3cret") && !text.contains("token"), "{text}");
     }
 
     #[test]

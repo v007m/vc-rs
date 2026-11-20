@@ -72,6 +72,7 @@ async fn samples_are_masked_kind_by_kind_and_dropped_when_no_redactor_is_known()
         response: vc_testkit::status(500),
         timing: Timing::default(),
         connection: ConnectionInfo::default(),
+        messages: Vec::new(),
     };
     let samples = || vec![vec![(Some(ActionId::new(1)), Box::new(exchange("tok-5821")))], vec![], vec![]];
     let redactor = Redactor::new(&[]);

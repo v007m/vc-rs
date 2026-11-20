@@ -155,7 +155,7 @@ impl Transport for HttpTransport {
             (timing.dns, timing.connect, timing.tls) = (record.dns, Some(record.connect), record.tls);
         }
         let response = HttpResponse { status: parts.status, headers: parts.headers, body: decoded, wire_size };
-        Ok(Exchange { request, response, timing, connection })
+        Ok(Exchange { request, response, timing, connection, messages: Vec::new() })
     }
 }
 
