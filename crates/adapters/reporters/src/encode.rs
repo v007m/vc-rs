@@ -78,14 +78,20 @@ pub fn cleanup(names: &Names, cleanup: &CleanupRecord) -> CleanupView {
     }
 }
 
-/// An exchange's method, URL, status and total time; headers and bodies stay in the history.
+/// An exchange's method, URL, status and total time, and how many messages a stream call
+/// received when it received any (D429); headers, bodies and messages stay in the history and
+/// the HTML and CTRF reports.
 pub fn exchange(exchange: &Exchange) -> Value {
-    json!({
+    let mut encoded = json!({
         "method": exchange.request.method.as_str(),
         "url": exchange.request.uri.to_string(),
         "status": exchange.response.status.as_u16(),
         "ms": u64::try_from(exchange.timing.total.as_millis()).unwrap_or(u64::MAX),
-    })
+    });
+    if !exchange.messages.is_empty() {
+        encoded["messages"] = Value::from(exchange.messages.len());
+    }
+    encoded
 }
 
 /// Counts by status.

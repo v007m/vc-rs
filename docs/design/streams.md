@@ -205,7 +205,7 @@ How the port is used:
   - It opens through the request pipeline (timing, retry, auth, hooks, per-host limit, timeout), built by `stream_pipeline` with an `OpenStream` service in place of `Transmit` (D420). Each layer is generic over its reply's `HasHead`: `head()` is the response head retry and auth refresh read, and `hold(permit)` keeps the per-host permit. An `Exchange` drops it at once; an `Opening` keeps it until the stream is dropped.
   - It sends and reads against the call's deadline.
   - It feeds the cursor and builds `response.messages` and `response.exchange`.
-- `vc-model`'s `Exchange` gains `messages: Vec<StreamMessage>`, empty for `http` and `graphql`. It flows to history and reports through `RedactingSink` like bodies do.
+- `vc-model`'s `Exchange` gains `messages: Vec<StreamMessage>`, empty for `http` and `graphql`. It flows to the reports through `RedactingSink` like bodies do: kept by `history.bodies`, whole messages while they fit in `history.maxBodySize`, as an HTML Messages panel, CTRF's `extra.streams` and a count on the json `exchanged` event (D429). `history.db` does not store them yet.
 - The engine hands the executor the stream port `EngineBuilder::stream_transport` names; without one, the transport factory's stream port (D428), which for the HTTP adapter is the run's `HttpTransport`; with neither, a stream call fails with "`sse` calls need a stream transport, and none is set" and sends nothing.
 
 ## Decisions (Round 79)

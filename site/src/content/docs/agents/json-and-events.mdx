@@ -224,7 +224,7 @@ A passing test with a cleanup adds a `cleanupFinished` line after the test's act
 | `runStarted` | Once, first | `files`, `instances` |
 | `fileStarted` | A file's first work begins | `file` |
 | `actionStarted` | A call, step or lifecycle action begins | `action`, `owner` |
-| `exchanged` | A request got a response | `method`, `url`, `status`, `ms` |
+| `exchanged` | A request got a response | `method`, `url`, `status`, `ms`; `messages` (how many a stream call received, when any) |
 | `checkEvaluated` | One `expect` check ran | `check`: `key`, `passed`, `expected`, `actual`, `diff`, `code`, `location`, `origin` |
 | `warned` | An action reported a warning that does not fail it | `warning` |
 | `actionFinished` | An action ended | `status`, `failure` |
