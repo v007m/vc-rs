@@ -339,7 +339,7 @@ Each item in `apis`:
 | `sse.reconnect` | boolean | the file's, else `false` | Open the stream once more when it ends early; only on an `sse` api (see Api types, D385) |
 | `expect` | checks | `status: 2xx` (`101` on `websocket`) | Checks that hold on every call; a test's `expect` adds to them and replaces matching keys |
 | `save` | map of templates over `response` | — | Values every caller gets as vars, when the status matches `saveOn` |
-| `saveOn` | status: code, list of codes, class (`2xx`) or matcher | the api's `expect.status`, else `2xx` | The statuses on which `save` runs (D191) |
+| `saveOn` | status: code, list of codes, class (`2xx`) or matcher | the api's `expect.status`, else `2xx` (`101` on `websocket`) | The statuses on which `save` runs (D191, D386) |
 | `cleanup` | `call` + `vars` | — | How to undo a successful call; registered automatically (see Cleanup on an api) |
 | `operationId` | text | — | Link to the OpenAPI operation, kept by sync |
 | `beforeRequest`, `afterResponse` | lists of functions | — | Run around this api's requests, after the file's |

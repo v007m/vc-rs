@@ -36,9 +36,9 @@ An api file lives at `services/<service>/<name>.api.yaml`. `apis` is a top-level
 | [`timeout`](/vc-rs/reference/syntax/timeout/) | duration | `defaults.timeout` | no | Per request attempt |
 | [`http.retry`](/vc-rs/reference/syntax/http-retry/) | object | — | no | Transport retries |
 | [`sse.reconnect`](/vc-rs/reference/syntax/type/) | boolean | the file's, else `false` | no | Only on an `sse` api: open the stream once more when it ends early |
-| [`expect`](/vc-rs/reference/syntax/expect/) | expect block | `status: 2xx` | no | Checks that hold on every call |
+| [`expect`](/vc-rs/reference/syntax/expect/) | expect block | `status: 2xx` (`101` on `websocket`) | no | Checks that hold on every call |
 | [`save`](/vc-rs/reference/syntax/save/) | map | — | no | Values every caller gets as vars |
-| [`saveOn`](/vc-rs/reference/syntax/save-on/) | status matcher | the api's `expect.status` | no | When `save` runs |
+| [`saveOn`](/vc-rs/reference/syntax/save-on/) | status matcher | the api's `expect.status`, else `2xx` (`101` on `websocket`) | no | When `save` runs |
 | [`cleanup`](/vc-rs/reference/syntax/cleanup/) | `call` + `vars` | — | no | Undoes a successful call |
 | [`beforeRequest`, `afterResponse`](/vc-rs/reference/syntax/request-hooks/) | list of `function` | — | no | Request hooks |
 | [`operationId`](/vc-rs/reference/syntax/operation-id/) | string | — | no | Links the api to an OpenAPI operation |

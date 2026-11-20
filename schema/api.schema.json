@@ -43,9 +43,6 @@
         },
         "expect": {
           "$ref": "#/$defs/expect",
-          "default": {
-            "status": "2xx"
-          },
           "description": "Checks that hold on every call"
         },
         "headers": {
