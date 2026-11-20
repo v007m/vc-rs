@@ -2,8 +2,9 @@ use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AllowFailure, ApiId, AuthRef, BodySpec, CacheSpec, Duration, Examples, Expect, FileId, HookRef, Lifecycle, Loop,
-    Method, Owner, Poll, Retry, SaveSpec, Skip, SourceSpan, Sym, Tag, Template, TestId, VarDefs, VarName,
+    AllowFailure, ApiId, AuthRef, BodySpec, CacheSpec, Duration, Examples, ExchangeItem, Expect, FileId, HookRef,
+    Lifecycle, Loop, Method, Owner, Poll, Retry, SaveSpec, Skip, SourceSpan, Sym, Tag, Template, TestId, VarDefs,
+    VarName,
 };
 
 /// One test file: what its tests share.
@@ -110,6 +111,8 @@ pub struct Action {
     pub query: IndexMap<String, Template>,
     /// `body`, replacing the api's.
     pub body: Option<BodySpec>,
+    /// `exchange`, replacing the api's whole (D377).
+    pub exchange: Option<Vec<ExchangeItem>>,
     /// Merged over the api's `expect` at compile time.
     pub expect: Expect,
     /// `save`.
@@ -148,6 +151,7 @@ impl Action {
             headers: IndexMap::new(),
             query: IndexMap::new(),
             body: None,
+            exchange: None,
             expect: Expect::default(),
             save: SaveSpec::default(),
             poll: None,

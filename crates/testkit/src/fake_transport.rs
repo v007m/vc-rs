@@ -66,7 +66,13 @@ impl Transport for FakeTransport {
         if response.body.len() as u64 > ctx.body_limit.bytes() {
             return Err(TransportError::BodyTooLarge { limit: ctx.body_limit });
         }
-        Ok(Exchange { request, response, timing: Timing::default(), connection: vc_model::ConnectionInfo::default() })
+        Ok(Exchange {
+            request,
+            response,
+            timing: Timing::default(),
+            connection: vc_model::ConnectionInfo::default(),
+            messages: Vec::new(),
+        })
     }
 }
 

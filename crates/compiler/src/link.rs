@@ -10,6 +10,7 @@ mod columns;
 mod cycles;
 mod data;
 mod examples;
+mod exchange_keys;
 mod fakes;
 mod flow;
 mod hooks;
@@ -132,6 +133,7 @@ fn always(
     diagnostics.extend(auth_keys::check(project));
     diagnostics.extend(tls::check(project));
     diagnostics.extend(protocol_keys::check(project, &PROTOCOL_KEYS));
+    diagnostics.extend(exchange_keys::check(project));
     diagnostics.extend(protocol_needs::check(project));
     diagnostics.extend(protocol_checks::check(project, data.documents()));
     diagnostics.extend(reports_dir::check(project));

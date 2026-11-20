@@ -65,10 +65,12 @@ const fn kind(kind: CheckKind) -> &'static str {
         CheckKind::Cel => "cel",
         CheckKind::Custom => "custom",
         CheckKind::Errors => "errors",
+        CheckKind::Messages => "messages",
     }
 }
 
-fn path(path: &Path) -> String {
+/// A path as written: `items[*].id`.
+pub(super) fn path(path: &Path) -> String {
     let mut text = String::new();
     for segment in &path.segments {
         match segment {

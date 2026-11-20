@@ -18,11 +18,9 @@ Everything else is in "Later" below.
 
 ## Syntax by example
 
-The examples use `exchange` and `messages`, which the code does not read yet, so the docs check skips them (`yaml skip`) until PR 3 below lands.
-
 An SSE api. `sse` reads the opening response as `http` does, so `method`, `body`, `status` and `headers` keep their meaning; LLM-style streams that `POST` a body work unchanged.
 
-```yaml skip
+```yaml
 # services/orders/orders.api.yaml
 type: sse
 baseUrl: ${var.ordersUrl}
@@ -40,7 +38,7 @@ apis:
 
 A WebSocket api, and a test that overrides its exchange:
 
-```yaml skip
+```yaml
 # services/chat/chat.api.yaml
 type: websocket
 baseUrl: ${var.chatUrl}            # ws://, wss://, http:// or https://
@@ -48,7 +46,9 @@ apis:
   - id: room
     path: /ws/rooms/${var.roomId}
     auth: member
+```
 
+```yaml
 # services/chat/rooms.test.yaml
 tests:
   - id: echoesEachMessageToTheRoom
@@ -86,7 +86,8 @@ Receiving:
 - `receive: <check>` waits for the next message that the check matches. Messages before it that do not match are skipped. This tolerates heartbeats and interleaved noise.
 - A list under `receive` is a group. Each entry pairs with its own message, in any order, one-to-one, as `expect.errors` lists do (D362). The group is done when every entry has a message.
 - A check is a map over the message's fields, matched field by field as an `expect.errors` entry is (D360): each written field is a literal or a matcher, and unwritten fields are ignored.
-- `data` takes `match` (paths into the JSON, each a matcher, as `body.match`) or `equals` (the whole value, as `body.equals`). Any other field takes a literal or a matcher.
+- `data` takes `match` (paths into the JSON, each a matcher, as `body.match`) or `equals` (the whole value, as `body.equals`), exactly one of them (V2306 for neither or both, D419). Any other field takes a literal or a matcher.
+- A `receive` list with no check is V2306 (D419).
 
 Message shape. The shape is per type, and a field the type's messages lack is V1004 with the close name as its fix:
 
@@ -118,7 +119,7 @@ When the stream does not open:
 
 - An SSE answer that is not 2xx, or a WebSocket handshake that is not 101, has no stream. The call keeps the response with its status, headers and body, and `expect.status: 401` can pass.
 - In that case the first `receive` fails with V5131, which names the status.
-- A 2xx SSE answer whose `content-type` is not `text/event-stream` is also V5131.
+- A 2xx SSE answer whose `content-type` is not `text/event-stream` is also V5131. With no `receive` written, V5131 is at the step, and only when the head itself succeeded, since a failed head already fails its status check (D422).
 
 Defaults (`sse`):
 
@@ -136,7 +137,11 @@ Keys that keep their meaning: auth, `headers`, `query`, `http.retry`, `timeout`,
 - `saveOn` and `cleanup` read the opening status. A `websocket` call succeeds on `101`, not `2xx`: with no status written, its `expect` checks `status: 101`, its `saveOn` defaults to `101` and only a `101` registers its `cleanup` (`Protocol::success_status`, D386), whatever its `expect.status` says (D387). An `sse` call keeps `2xx`.
 - `poll` is V2213 on a stream type.
 
-Size: each message, and the total kept for the call, is capped by `SendContext::body_limit`. Going over the cap is `BodyTooLarge` (V5105), as an over-large body is today.
+Size: the bytes of every frame the call reads, added up, are capped by `SendContext::body_limit` (64 MiB). Going over the cap fails the call with V5105, as an over-large body does (D424).
+
+A `send` still going out when the time runs out fails with V5104, the code of an `http` timeout; a `send` the transport did not confirm leaves its `response.exchange` item `null`. A failure after the stream opened (the size cap, a stuck `send`, a failed reconnect) is a failed `messages` check at the step, under the failure's code: the report keeps the messages read before it, and the opening status still registers the `cleanup`. Only a failed open or `afterResponse` hook halts the call. Only an open stream holds its per-host permit; an answer that opened none lets it go at once, and a finished exchange lets it go before the hooks run (D425).
+
+A dropped connection ends the read as a server close does: the messages so far are kept, and an unmet `receive` is V5130, naming the drop (D424). `afterResponse` hooks run once, after the exchange, and see the full `response` root, `messages` and `exchange` included (D423).
 
 Reconnect (`sse` only):
 
@@ -144,6 +149,7 @@ Reconnect (`sse` only):
 - When the stream ends, by a server close or a dropped connection, before the exchange is done, the call opens it again once. It waits the last `retry` the server sent, else 1s, then sends `last-event-id` with the last `id` received, over any written one. With no `id` received, it sends the written header, if any.
 - The second open goes through the pipeline as the first did, so auth is fresh. Messages keep adding to `response.messages`, and the exchange carries on where it was.
 - The wait and the second open count against the call's `timeout`; when the wait would pass it, there is no reconnect. A second end is final, and an unmet `receive` is then V5130.
+- A reconnect that answers with no event stream ends the read too: an unmet `receive` is V5130, naming the answer. One that fails as a first open would, by a transport error or a hook, is a failed `messages` check under that error, and one that does not answer within the time limit leaves an unmet `receive` V5130 naming the limit (D425).
 - Without `sse.reconnect`, `last-event-id` is a header like any other, so a resume test can also be two steps: the first saves `${response.exchange[0].id}`, the second sends it. `retry` is a message field a check can read.
 
 ## Architecture, by facet (D342)
@@ -192,14 +198,15 @@ How the port is used:
 ### The executor
 
 - `ProtocolRuntime` gains one default method, `stream(&self) -> Option<&dyn StreamRuntime>`. It returns `None` for `http` and `graphql`, so the call path picks the stream driver through the registry, not with a `match`.
-- `StreamRuntime` has three methods: `mode`, `decoder` (a stateful `push(Frame) -> Vec<Message>`) and `encode(&Value) -> Frame`.
+- `StreamRuntime` (`action/stream.rs`) has four methods: `mode`, `decoder`, `encode(&Value) -> OutgoingFrame` (text as is, anything else as JSON text) and `opened(&Exchange)`, which says why a head that opened is not one the type reads (V5131). A `Decoder` is per connection: `push(StreamFrame) -> Vec<StreamMessage>` and `resume()`, the last `id` and `retry` a reconnect uses (D421).
+- `SseRuntime` (`action/sse.rs`) parses the event stream as the HTML standard reads it: lines end in CR, LF or CRLF, even across chunks; a leading BOM is dropped; `:` starts a comment; an `id` holding NUL is ignored and an empty one clears the last id; `retry` counts only when all digits; a block with no `data` dispatches nothing. `WebsocketRuntime` (`action/websocket.rs`) makes one message per frame (D421).
 - `ExchangeCursor` (`action/exchange.rs`) is pure and keeps the place; the driver judges each message against the waiting group's checks. `feed(fits)` takes the entries of the waiting group the message fits and answers `Skipped`, `Held` or `Met` with each entry's message; `next_send()` returns the next `send` item; `unmet()` names what V5130 reports. Group pairing reuses the one-to-one `Pairing` behind D362 (now `pairing.rs`). The cursor keeps the group's `Pairing` between feeds: `Pairing::push` adds one message and pairs it with the first unpaired entry it fits, else runs one augmenting search, so it pairs as many entries as a full rebuild would (a proptest checks it). A message is kept only while an entry it fits holds fewer messages than the group has entries, so the pairing stays bounded on an endless stream.
-- The driver (`action/stream.rs`) is the only async part.
-  - It opens through the request pipeline (timing, retry, auth, hooks, per-host limit, timeout). If a layer is typed to `Exchange`, it is made generic over a small `HasHead` trait in the same PR.
+- The driver (`action/stream_call.rs`) is the only async part.
+  - It opens through the request pipeline (timing, retry, auth, hooks, per-host limit, timeout), built by `stream_pipeline` with an `OpenStream` service in place of `Transmit` (D420). Each layer is generic over its reply's `HasHead`: `head()` is the response head retry and auth refresh read, and `hold(permit)` keeps the per-host permit. An `Exchange` drops it at once; an `Opening` keeps it until the stream is dropped.
   - It sends and reads against the call's deadline.
   - It feeds the cursor and builds `response.messages` and `response.exchange`.
-- The per-host permit is held for the life of the connection.
 - `vc-model`'s `Exchange` gains `messages: Vec<StreamMessage>`, empty for `http` and `graphql`. It flows to history and reports through `RedactingSink` like bodies do.
+- The engine hands the executor the stream port `EngineBuilder::stream_transport` names; without one, a stream call fails with "`sse` calls need a stream transport, and none is set" and sends nothing. PR 5 makes the HTTP adapter the default.
 
 ## Decisions (Round 79)
 
@@ -261,12 +268,14 @@ Candidate V codes (V2213 and V5105 are reused):
    - The `exchange` shape on api, test and step, with test-level defaults for call steps (D124).
    - `receive` checks lowered field by field, `data.match` and `data.equals`, V1004 for a field the type lacks.
    - `expect.messages` as a check kind.
+   - Done; its refinements are D389 and D414–D418 in the decision log.
 4. **The executor's stream call.**
    - `StreamMessage` and `Exchange::messages` in `vc-model`.
    - `ProtocolRuntime::stream` and `StreamRuntime`.
-   - `SseRuntime` with its pure parser.
+   - `SseRuntime` with its pure parser, and `WebsocketRuntime` (moved here from PR 6, since it needs no wire).
    - The driver through the pipeline: the deadline, reconnect, V5130 and V5131, and the `response.messages` and `response.exchange` roots.
-   - Engine wiring tested against the fake.
+   - Engine wiring (`EngineBuilder::stream_transport`) tested against the fake.
+   - Done; its refinements are D421–D425.
 5. **SSE on the wire.**
    - `HttpTransport` implements `StreamTransport` in `StreamMode::Body`.
    - The mock's `/events` route (the suite's `count` and `last-event-id` contract), with a drop for reconnect; the adapter runs `stream_transport_suite` once PR 6 adds the WebSocket side.
@@ -274,5 +283,4 @@ Candidate V codes (V2213 and V5105 are reused):
    - Messages in the json, HTML and CTRF reports.
 6. **WebSocket on the wire.**
    - `tokio-tungstenite` and the upgrade path in `HttpTransport`.
-   - `WebsocketRuntime`.
    - The mock's `/ws` route, end-to-end tests and a site example.

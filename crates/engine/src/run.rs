@@ -207,7 +207,8 @@ impl Engine {
     }
 
     /// The action executors for `prepared`: HTTP through `transport` and the per-host limits,
-    /// hooks through `hooks`, `command:` through the command runner.
+    /// streams through the stream transport, hooks through `hooks`, `command:` through the
+    /// command runner.
     fn executors(
         &self,
         prepared: &Prepared,
@@ -217,6 +218,9 @@ impl Engine {
         let (settings, defaults) = (&prepared.settings, &prepared.program.config.defaults);
         let per_host = settings.per_host.or(defaults.per_host).unwrap_or(PER_HOST);
         let mut parts = PipelineParts::new(transport, HostLimits::spawn(widen(per_host)));
+        if let Some(streams) = &self.streams {
+            parts = parts.with_streams(Arc::clone(streams));
+        }
         if let Some(hooks) = hooks {
             parts = parts.with_hook_runner(hooks);
         }

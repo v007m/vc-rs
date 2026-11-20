@@ -206,7 +206,13 @@ fn exchange(uri: &str, body: &str) -> Exchange {
     let mut headers = HeaderMap::new();
     headers.insert("x-echo", HeaderValue::from_static("key s3cr3t-key for 123-45-6789"));
     let response = HttpResponse { status: StatusCode::OK, headers, body: Bytes::from(body.to_owned()), wire_size: 0 };
-    Exchange { request, response, timing: Timing::default(), connection: ConnectionInfo::default() }
+    Exchange {
+        request,
+        response,
+        timing: Timing::default(),
+        connection: ConnectionInfo::default(),
+        messages: Vec::new(),
+    }
 }
 
 fn shown(headers: &HeaderMap) -> String {

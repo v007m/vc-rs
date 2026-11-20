@@ -9,10 +9,10 @@ use vc_adapter_system::{FsCompileCache, FsSources, GitVcs, NotifyWatcher, Proces
 use vc_interfaces::{
     AgentActionLog, Approvals, AuthProvider, Browser, CacheStore, Clock, CommandRunner, CompileCacheStore, Environment,
     FileWatcher, HistoryReader, HistoryWriter, HookRunner, Keychain, NotifierFactory, PluginStderr, PluginStore,
-    SourceProvider, SourceWriter, Transport, TransportFactory, Vcs,
+    SourceProvider, SourceWriter, StreamTransport, Transport, TransportFactory, Vcs,
 };
 
-use crate::EngineError;
+use crate::{Engine, EngineError};
 
 /// Puts an [`Engine`] together: the composition root, and the only place that names the
 /// concrete adapters. Any port not given is filled with the system adapter for the root.
@@ -25,6 +25,7 @@ pub struct EngineBuilder {
     environment: Option<Arc<dyn Environment>>,
     transport: Option<Arc<dyn Transport>>,
     transport_factory: Option<Arc<dyn TransportFactory>>,
+    streams: Option<Arc<dyn StreamTransport>>,
     vcs: Option<Arc<dyn Vcs>>,
     commands: Option<Arc<dyn CommandRunner>>,
     hooks: Option<Arc<dyn HookRunner>>,
@@ -52,7 +53,7 @@ pub struct PluginProcesses {
 type HistoryPorts = (Arc<dyn HistoryWriter>, Arc<dyn HistoryReader>);
 
 /// The approval queue and the agent call log, given together.
-type ApprovalPorts = (Arc<dyn Approvals>, Arc<dyn AgentActionLog>);
+pub type ApprovalPorts = (Arc<dyn Approvals>, Arc<dyn AgentActionLog>);
 
 impl EngineBuilder {
     /// A builder for the project whose root is `root`.
@@ -67,6 +68,7 @@ impl EngineBuilder {
             environment: None,
             transport: None,
             transport_factory: None,
+            streams: None,
             vcs: None,
             commands: None,
             hooks: None,
@@ -216,6 +218,14 @@ impl EngineBuilder {
         self
     }
 
+    /// Opens `sse` and `websocket` streams through `streams`; without it a stream call fails
+    /// with a plain message and sends nothing.
+    #[must_use]
+    pub fn stream_transport(mut self, streams: Arc<dyn StreamTransport>) -> Self {
+        self.streams = Some(streams);
+        self
+    }
+
     /// Obtains credentials through `auth` instead of the standard auth types (D106).
     #[must_use]
     pub fn auth(mut self, auth: Arc<dyn AuthProvider>) -> Self {
@@ -293,6 +303,7 @@ impl EngineBuilder {
             clock,
             environment: self.environment,
             transports: transports(self.transport_factory, self.transport),
+            streams: self.streams,
             vcs,
             commands,
             hooks: self.hooks,
@@ -330,59 +341,9 @@ impl fmt::Debug for EngineBuilder {
     }
 }
 
-/// The engine apps talk to: one per project.
-pub struct Engine {
-    root: PathBuf,
-    pub(crate) sources: Arc<dyn SourceProvider>,
-    /// `None` only when the sources were given and the root is not a folder to write into.
-    pub(crate) writer: Option<Arc<dyn SourceWriter>>,
-    pub(crate) compile_cache: Arc<dyn CompileCacheStore>,
-    pub(crate) clock: Arc<dyn Clock>,
-    pub(crate) environment: Option<Arc<dyn Environment>>,
-    pub(crate) transports: Arc<dyn TransportFactory>,
-    pub(crate) vcs: Arc<dyn Vcs>,
-    pub(crate) commands: Arc<dyn CommandRunner>,
-    pub(crate) hooks: Option<Arc<dyn HookRunner>>,
-    pub(crate) user_config: Option<PathBuf>,
-    pub(crate) history: Option<Arc<dyn HistoryWriter>>,
-    pub(crate) history_reader: Option<Arc<dyn HistoryReader>>,
-    pub(crate) approvals: Option<ApprovalPorts>,
-    pub(crate) keychain: Option<Arc<dyn Keychain>>,
-    pub(crate) cache: Option<Arc<dyn CacheStore>>,
-    pub(crate) watcher: Arc<dyn FileWatcher>,
-    pub(crate) auth: Option<Arc<dyn AuthProvider>>,
-    pub(crate) browser: Option<Arc<dyn Browser>>,
-    pub(crate) notifiers: Option<Arc<dyn NotifierFactory>>,
-    pub(crate) plugins: Arc<dyn PluginStore>,
-    pub(crate) plugin_processes: PluginProcesses,
-    /// How every plugin host confines its plugin, asking the OS once whether it can.
-    pub(crate) confiner: Arc<Confiner>,
-}
-
 /// The operating system's keychain, when it has one.
 fn os_keychain() -> Option<Arc<dyn Keychain>> {
     OsKeychain::platform().ok().map(|os| Arc::new(os) as Arc<dyn Keychain>)
-}
-
-impl Engine {
-    /// The project root, as the builder was given it.
-    #[must_use]
-    pub fn root(&self) -> &Path {
-        &self.root
-    }
-
-    /// `path`, from `base` when it is relative, as a path in the project with `/` between its
-    /// parts, links resolved; `None` when it is not a file or folder in the project.
-    #[must_use]
-    pub fn project_path(&self, base: &Path, path: &Path) -> Option<String> {
-        vc_adapter_system::project_path(&self.root, &base.join(path))
-    }
-}
-
-impl fmt::Debug for Engine {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Engine").field("root", &self.root).finish_non_exhaustive()
-    }
 }
 
 #[cfg(test)]

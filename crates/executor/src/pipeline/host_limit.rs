@@ -6,7 +6,7 @@ use tokio::sync::{Semaphore, mpsc, oneshot};
 use tower::{Service, ServiceExt};
 use vc_interfaces::TransportError;
 
-use super::{Call, Hop};
+use super::{Call, HasHead, Hop};
 
 /// A request for a host's semaphore, with where to send it.
 type Ask = (String, oneshot::Sender<Arc<Semaphore>>);
@@ -62,15 +62,21 @@ impl<S> HostLimit<S> {
 }
 
 impl<S: Hop> Service<Call> for HostLimit<S> {
-    ready_service!();
+    ready_service!(S::Response, TransportError);
 
+    #[expect(
+        clippy::significant_drop_tightening,
+        reason = "the permit is held for the whole attempt, then handed to the reply (D420)"
+    )]
     fn call(&mut self, call: Call) -> Self::Future {
         let (inner, limits) = (self.inner.clone(), self.limits.clone());
         Box::pin(async move {
             let stopped = || TransportError::Protocol { reason: "the per-host limiter has stopped".to_owned() };
             let semaphore = limits.semaphore(host_key(&call.request.uri)).await.ok_or_else(stopped)?;
-            let _permit = semaphore.acquire_owned().await.map_err(|_| stopped())?;
-            inner.oneshot(call).await
+            let permit = semaphore.acquire_owned().await.map_err(|_| stopped())?;
+            let mut reply = inner.oneshot(call).await?;
+            reply.hold(permit);
+            Ok(reply)
         })
     }
 }

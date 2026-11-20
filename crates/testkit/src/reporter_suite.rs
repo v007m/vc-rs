@@ -131,7 +131,13 @@ fn results(ids: Ids) -> Vec<Event> {
 fn exchange() -> Exchange {
     let request = RenderedRequest::new(Method::GET, Uri::from_static("http://localhost/users/1"));
     let response = crate::status(500);
-    Exchange { request, response, timing: Timing::default(), connection: ConnectionInfo::default() }
+    Exchange {
+        request,
+        response,
+        timing: Timing::default(),
+        connection: ConnectionInfo::default(),
+        messages: Vec::new(),
+    }
 }
 
 fn failed_check(test: TestId) -> CheckResult {

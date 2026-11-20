@@ -183,7 +183,7 @@ pub fn exchange(request: &str, response: &str) -> Exchange {
     answer.body = response.to_owned().into();
     let timing =
         Timing { dns: Some(Duration::from_micros(1_500)), total: Duration::from_millis(12), ..Timing::default() };
-    Exchange { request: sent, response: answer, timing, connection: ConnectionInfo::default() }
+    Exchange { request: sent, response: answer, timing, connection: ConnectionInfo::default(), messages: Vec::new() }
 }
 
 /// A stopwatch that moves on 150ms every time it is read.

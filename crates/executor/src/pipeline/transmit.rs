@@ -27,7 +27,7 @@ impl fmt::Debug for Transmit {
 }
 
 impl Service<Call> for Transmit {
-    ready_service!();
+    ready_service!(vc_model::Exchange, vc_interfaces::TransportError);
 
     fn call(&mut self, call: Call) -> Self::Future {
         let transport = Arc::clone(&self.transport);

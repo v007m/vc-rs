@@ -1,9 +1,9 @@
 use indexmap::IndexMap;
 use vc_model::{
     ActionId, ActionKind, AgentPolicy, AuthDef, AuthId, AuthRef, BodySpec, CacheSpec, CelProgram, CelSource, Check,
-    CheckKind, Duration, Examples, Expect, HookRef, InlineRequest, Loop, Matcher, MatcherArg, MatcherCall, Method,
-    Namespace, Origin, Part, PartSpec, Poll, Profile, ProfileId, ScalarStyle, Segment, Size, Template, TemplateValue,
-    TestId, VarDefs, VarName,
+    CheckKind, Duration, Examples, ExchangeItem, ExchangeKind, Expect, HookRef, InlineRequest, Loop, Matcher,
+    MatcherArg, MatcherCall, Method, Namespace, Origin, Part, PartSpec, Poll, Profile, ProfileId, ScalarStyle, Segment,
+    Size, Template, TemplateValue, TestId, VarDefs, VarName,
 };
 
 use crate::needs::Shared;
@@ -44,6 +44,10 @@ fn expect(matcher: Matcher) -> Expect {
 
 fn call_with(arg: MatcherArg) -> Matcher {
     Matcher::All(vec![MatcherCall { name: "equals".into(), arg, span: testing::span() }])
+}
+
+fn exchange(kind: ExchangeKind) -> Vec<ExchangeItem> {
+    vec![ExchangeItem { kind, span: testing::span() }]
 }
 
 fn inline(url: Template, headers: IndexMap<String, Template>) -> Box<InlineRequest> {
@@ -103,6 +107,18 @@ const ACTION: &[(&str, Place)] = &[
     ("matcher list", |f, _, c| {
         let inner = vec![Matcher::Status(Vec::new()), Matcher::Equals(value())];
         f.action_mut(c).expect = expect(call_with(MatcherArg::Matchers(inner)));
+    }),
+    ("exchange send", |f, _, c| f.action_mut(c).exchange = Some(exchange(ExchangeKind::Send(value())))),
+    ("exchange receive", |f, _, c| {
+        f.action_mut(c).exchange = Some(exchange(ExchangeKind::Receive(Matcher::Equals(value()))));
+    }),
+    ("exchange group", |f, _, c| {
+        let group = vec![Matcher::Status(Vec::new()), Matcher::Equals(value())];
+        f.action_mut(c).exchange = Some(exchange(ExchangeKind::Group(group)));
+    }),
+    ("message paths", |f, _, c| {
+        let paths = vec![(vc_model::Path { segments: vec![Segment::Key("id".into())] }, Matcher::Equals(value()))];
+        f.action_mut(c).expect = expect(call_with(MatcherArg::Paths(paths)));
     }),
     ("poll", |f, _, c| {
         let (every, timeout) = (Duration::default(), Duration::default());
@@ -235,6 +251,7 @@ const API: &[(&str, Place)] = &[
     ("api query", |f, _, _| _ = f.program.apis[0].query.insert("a".into(), testing::read("warm"))),
     ("api header", |f, _, _| _ = f.program.apis[0].headers.insert("a".into(), testing::read("warm"))),
     ("api body", |f, _, _| f.program.apis[0].body = BodySpec::Json(value())),
+    ("api exchange", |f, _, _| f.program.apis[0].exchange = exchange(ExchangeKind::Send(value()))),
     ("api expect", |f, _, _| f.program.apis[0].expect = expect(Matcher::Equals(value()))),
     ("api save", |f, _, _| {
         let name = token(f);

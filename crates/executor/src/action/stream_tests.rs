@@ -1,49 +1,26 @@
 use std::sync::Arc;
 
-use serde_json::Value;
 use serde_json::json;
-use vc_model::{
-    Action, ActionId, Api, Check, CheckKind, Exchange, Failure, Matcher, Origin, OwnerKey, Protocol, RenderedRequest,
-    StatusPattern,
-};
-use vc_testkit::{FakeTransport, RecordingTransport};
+use vc_model::{Check, CheckKind, Matcher, Origin, OwnerKey, Protocol, StatusPattern};
+use vc_testkit::{FakeStreamTransport, FakeTransport, RecordingTransport, StreamAnswer};
 
-use super::super::protocol::{ProtocolRuntime, ProtocolRuntimes};
-use super::super::request;
 use crate::fixture::{self, Fixture};
-use crate::{
-    ActionExecutors, ActionKindTag, ActionRequest, CallExecutor, Frame, HostLimits, PendingCleanup, PipelineParts,
-    Render,
-};
+use crate::{ActionExecutors, ActionRequest, Frame, HostLimits, PendingCleanup, PipelineParts};
 
-/// A `websocket` runtime that sends its handshake as an `http` request, standing in for the
-/// stream runtime until it lands.
-#[derive(Debug)]
-struct HandshakeOnly;
-
-impl ProtocolRuntime for HandshakeOnly {
-    fn protocol(&self) -> Protocol {
-        Protocol::Websocket
-    }
-
-    fn request(&self, render: &Render<'_>, api: &Api, call: (ActionId, &Action)) -> Result<RenderedRequest, Failure> {
-        request::rendered(render, api, call)
-    }
-
-    fn response(&self, exchange: &Exchange) -> Value {
-        request::received(exchange)
-    }
-}
-
-/// Calls through `fake` with [`HandshakeOnly`] as the `websocket` runtime.
-fn handshakes(fake: FakeTransport) -> ActionExecutors {
-    let parts = PipelineParts::new(Arc::new(fake), HostLimits::spawn(8));
-    let runtimes = ProtocolRuntimes::standard().with(Arc::new(HandshakeOnly));
-    ActionExecutors::new().with(ActionKindTag::Call, Arc::new(CallExecutor::new(parts).with_runtimes(runtimes)))
+/// Calls of `protocol` answered `status`: a stream type through a stream port that opens a
+/// `websocket` with no frames on a `101` and refuses any other status, `http` through a transport
+/// that answers it; the other fake has nothing to answer.
+fn handshakes(protocol: Protocol, status: u16) -> ActionExecutors {
+    let head = vc_testkit::status(status);
+    let answer = if status == 101 { StreamAnswer::stream(head, vec![]) } else { StreamAnswer::refused(head) };
+    let streamed = protocol != Protocol::Http;
+    let streams = FakeStreamTransport::scripted(if streamed { vec![Ok(answer)] } else { vec![] });
+    let fake = FakeTransport::scripted(if streamed { vec![] } else { vec![Ok(vc_testkit::status(status))] });
+    ActionExecutors::standard(PipelineParts::new(Arc::new(fake), HostLimits::spawn(8)).with_streams(Arc::new(streams)))
 }
 
 #[tokio::test]
-async fn a_call_of_a_stream_api_fails_with_a_plain_message_and_sends_nothing() {
+async fn a_stream_call_without_a_stream_transport_fails_with_a_plain_message_and_sends_nothing() {
     for (protocol, kind) in [(Protocol::Sse, "sse"), (Protocol::Websocket, "websocket")] {
         let mut fixture = Fixture::new();
         let call = fixture.call("/events");
@@ -56,13 +33,13 @@ async fn a_call_of_a_stream_api_fails_with_a_plain_message_and_sends_nothing() {
             ActionRequest { action: call, owner: OwnerKey::Run, cx: Arc::clone(&cx), frame: Frame::default() };
         let report = cx.executors.execute(request).await;
         let failure = report.outcome.failure().map(|failure| (failure.code.clone(), failure.message.clone()));
-        let message = format!("`{kind}` calls are not supported yet");
+        let message = format!("`{kind}` calls need a stream transport, and none is set");
         assert_eq!(failure, Some((None, message)));
         assert!(recordings.take().is_empty(), "{kind}: nothing is sent");
     }
 }
 
-/// A `websocket` api, its handshake sent as an `http` request: its default status check and its
+/// A `websocket` api, opened through the stream port: its default status check and its
 /// cleanup follow its `101` (D386).
 #[tokio::test]
 async fn a_websocket_api_succeeds_on_101_so_its_default_status_and_its_cleanup_follow_it() {
@@ -71,7 +48,7 @@ async fn a_websocket_api_succeeds_on_101_so_its_default_status_and_its_cleanup_f
         let delete = fixture.call("/rooms");
         let open = fixture.creating("/chat", delete);
         fixture.api_mut(open).protocol = Protocol::Websocket;
-        let cx = fixture.cx(handshakes(FakeTransport::scripted(vec![Ok(vc_testkit::status(status))])));
+        let cx = fixture.cx(handshakes(Protocol::Websocket, status));
         let request =
             ActionRequest { action: open, owner: OwnerKey::Run, cx: Arc::clone(&cx), frame: Frame::default() };
         let report = cx.executors.execute(request).await;
@@ -112,7 +89,7 @@ async fn a_cleanup_registers_on_the_success_status_whatever_the_expected_status_
         (api.protocol, api.save.values, api.save_on) = (protocol, api_saves, check.matcher.clone());
         api.expect.checks = vec![check.clone()];
         fixture.action_mut(open).expect.checks = vec![check];
-        let cx = fixture.cx(handshakes(FakeTransport::scripted(vec![Ok(vc_testkit::status(status))])));
+        let cx = fixture.cx(handshakes(protocol, status));
         let request =
             ActionRequest { action: open, owner: OwnerKey::Run, cx: Arc::clone(&cx), frame: Frame::default() };
         let report = cx.executors.execute(request).await;

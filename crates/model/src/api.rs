@@ -87,6 +87,9 @@ pub struct Api {
     /// How a streaming api's call opens and keeps its stream; `None` on a type that does not
     /// stream (D376).
     pub stream: Option<StreamSettings>,
+    /// `exchange`: what a stream call sends and waits for, in order; empty when none is written,
+    /// and then the call reads until the server closes (D377, D381).
+    pub exchange: Vec<ExchangeItem>,
     /// `expect`; its status is [`Api::success_status`] when none is written.
     pub expect: Expect,
     /// `save`.
@@ -128,6 +131,34 @@ pub struct StreamSettings {
     /// `sse.reconnect`, the api's, else its file's: whether an `sse` stream that ends before its
     /// exchange is done is opened once more (D385). Always `false` on a `websocket` api.
     pub reconnect: bool,
+}
+
+/// One item of an `exchange` (D377).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
+pub struct ExchangeItem {
+    /// What it sends or waits for.
+    pub kind: ExchangeKind,
+    /// The whole item, reported when a `receive` is unmet.
+    pub span: SourceSpan,
+}
+
+/// What one `exchange` item does.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[expect(
+    clippy::exhaustive_enums,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
+pub enum ExchangeKind {
+    /// `send`: a value rendered before the stream opens; a map or list is sent as JSON text.
+    Send(TemplateValue),
+    /// `receive` with one check: the next message it matches, skipping the others (D378).
+    Receive(Matcher),
+    /// `receive` with a list: a group, each check paired with its own message in any order.
+    Group(Vec<Matcher>),
 }
 
 /// A request body.

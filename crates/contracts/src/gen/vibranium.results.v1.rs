@@ -302,6 +302,7 @@ pub enum CheckKind {
     Cel = 8,
     Custom = 9,
     Errors = 10,
+    Messages = 11,
 }
 impl CheckKind {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -321,6 +322,7 @@ impl CheckKind {
             Self::Cel => "CHECK_KIND_CEL",
             Self::Custom => "CHECK_KIND_CUSTOM",
             Self::Errors => "CHECK_KIND_ERRORS",
+            Self::Messages => "CHECK_KIND_MESSAGES",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -337,6 +339,7 @@ impl CheckKind {
             "CHECK_KIND_CEL" => Some(Self::Cel),
             "CHECK_KIND_CUSTOM" => Some(Self::Custom),
             "CHECK_KIND_ERRORS" => Some(Self::Errors),
+            "CHECK_KIND_MESSAGES" => Some(Self::Messages),
             _ => None,
         }
     }

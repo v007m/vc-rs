@@ -1,11 +1,11 @@
 //! Masking an exchange, which is what history and reports keep of a call: the masked headers
 //! whole, and every secret value, hidden field and rule match in the URL, the other headers
-//! and both bodies.
+//! and both bodies, and in every stream message's fields.
 
 use bytes::Bytes;
 use http::{HeaderMap, HeaderValue, Uri};
-use serde_json::Value;
-use vc_model::Exchange;
+use serde_json::{Map, Value};
+use vc_model::{Exchange, StreamMessage};
 
 use crate::MASKED;
 use crate::mask::Masking;
@@ -20,7 +20,21 @@ pub async fn exchange(masking: &Masking<'_>, mut exchange: Exchange) -> Exchange
     exchange.request.body = body(masking, &exchange.request.body).await;
     exchange.response.headers = headers(masking, &exchange.response.headers).await;
     exchange.response.body = body(masking, &exchange.response.body).await;
+    exchange.messages = messages(masking, exchange.messages).await;
     exchange
+}
+
+/// Each stream message with its field values masked as a JSON body is.
+async fn messages(masking: &Masking<'_>, messages: Vec<StreamMessage>) -> Vec<StreamMessage> {
+    let mut masked = Vec::with_capacity(messages.len());
+    for message in messages {
+        let fields = match masking.value(Value::Object(message.fields)).await {
+            Value::Object(fields) => fields,
+            _ => Map::new(),
+        };
+        masked.push(StreamMessage { fields });
+    }
+    masked
 }
 
 /// `uri` with what it must not show masked; one that no longer parses keeps only its scheme

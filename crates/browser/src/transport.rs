@@ -111,7 +111,7 @@ impl Transport for InProcessTransport {
         }
         let wire_size = u64::try_from(body.len()).unwrap_or(u64::MAX);
         let response = HttpResponse { status: parts.status, headers, body, wire_size };
-        Ok(Exchange { request, response, timing, connection: ConnectionInfo::default() })
+        Ok(Exchange { request, response, timing, connection: ConnectionInfo::default(), messages: Vec::new() })
     }
 }
 

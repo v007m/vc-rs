@@ -51,6 +51,7 @@ fn each_error_kind_keeps_the_exchanges_of_its_first_five_failures_only() {
         response: vc_testkit::status(500),
         timing: Timing::default(),
         connection: ConnectionInfo::default(),
+        messages: Vec::new(),
     };
     let failed = |at: usize| IterationReport {
         failure: Some(IterationFailure {

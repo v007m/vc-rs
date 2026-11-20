@@ -11,7 +11,7 @@ use vc_parser::Node;
 use vc_template::FakeRegistry;
 
 use super::action::Place;
-use super::{Build, Built, auth, expect, http_retry, read};
+use super::{Build, Built, auth, exchange, expect, http_retry, read};
 use crate::link::fakes;
 use crate::link::project;
 use crate::link::project::Source;
@@ -153,6 +153,7 @@ impl<'a> Build<'_, 'a> {
             timeout: read::duration(source, node, "timeout"),
             http_retry: http_retry::over(source, node, &self.http_retry),
             stream,
+            exchange: node.get("exchange").map(|items| exchange::read(source, items)).unwrap_or_default(),
             expect,
             save: SaveSpec { values: self.values(source, node.get("save"))? },
             save_on,

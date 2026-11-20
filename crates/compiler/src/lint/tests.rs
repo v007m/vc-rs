@@ -13,7 +13,7 @@ use crate::link::{Project, ProtocolRulesRegistry, Source};
 const CONFIG: &str =
     "syntaxVersion: 2\nproject: shop\nvars: {baseUrl: 'http://x'}\nprofiles:\n  - id: dev\n    default: true\n";
 
-const APIS: &str = "name: Users\nbaseUrl: ${var.baseUrl}\napis:\n  - id: get\n    path: /users/1\n  - id: head\n    method: HEAD\n    path: /users/1\n  - id: make\n    method: POST\n    path: /users\n    save: {id: '${response.body.id}'}\n  - id: put\n    method: PUT\n    path: /users/${var.id}\n  - id: drop\n    method: DELETE\n    path: /users/${var.id}\n  - id: old\n    path: /old\n    deprecated: true\n";
+const APIS: &str = "name: Users\nbaseUrl: ${var.baseUrl}\napis:\n  - id: get\n    path: /users/1\n  - id: head\n    method: HEAD\n    path: /users/1\n  - id: make\n    method: POST\n    path: /users\n    save: {id: '${response.body.id}'}\n  - id: put\n    method: PUT\n    path: /users/${var.id}\n  - id: drop\n    method: DELETE\n    path: /users/${var.id}\n  - id: old\n    path: /old\n    deprecated: true\n  - id: live\n    type: websocket\n    path: /live\n";
 
 fn file(path: &str, text: &str) -> SourceFile {
     SourceFile { path: SourcePath::new(path).unwrap(), text: text.to_owned(), hash: ContentHash::new([0; 32]) }
@@ -236,6 +236,17 @@ fn keys_a_test_action_ignores_are_reported_with_a_fix_that_removes_them() {
     let compiled = compiled(CONFIG, text);
     let fixes = compiled.diagnostics.iter().filter(|found| found.code == Code::V3207).map(|found| found.fixes.len());
     assert_eq!(fixes.collect::<Vec<_>>(), [1, 1, 1, 0], "no fix for a key that shares its line");
+}
+
+#[test]
+fn an_exchange_every_call_step_replaces_is_unused_and_one_on_a_test_action_is_ignored() {
+    let text = tests(concat!(
+        "  - id: a\n    exchange: [{receive: {type: text}}]\n    steps:\n",
+        "      - call: users#live\n        exchange: [{send: hi}]\n",
+        "      - {test: users.crud#b, exchange: [{send: hi}]}\n",
+        "  - id: b\n    call: users#live\n",
+    ));
+    assert_eq!(found(&text), [(Code::V3206, 4), (Code::V3207, 8)]);
 }
 
 fn input(config: &str, tests: &str) -> CompileInput {

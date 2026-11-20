@@ -58,6 +58,13 @@
           ],
           "type": "string"
         },
+        "exchange": {
+          "description": "Replaces the api's exchange whole; only on a stream type",
+          "items": {
+            "$ref": "#/$defs/exchangeItem"
+          },
+          "type": "array"
+        },
         "expect": {
           "$ref": "#/$defs/expect",
           "description": "Merged with the api's checks"
@@ -684,6 +691,55 @@
       },
       "type": "object"
     },
+    "exchangeItem": {
+      "additionalProperties": false,
+      "description": "One step of a stream call: a message to send or one to wait for",
+      "oneOf": [
+        {
+          "required": [
+            "send"
+          ]
+        },
+        {
+          "required": [
+            "receive"
+          ]
+        }
+      ],
+      "properties": {
+        "receive": {
+          "anyOf": [
+            {
+              "items": {},
+              "type": "array"
+            },
+            {}
+          ],
+          "description": "Wait for the next message this check matches, skipping others; a list waits for each, in any order",
+          "examples": [
+            {
+              "data": {
+                "match": {
+                  "total": {
+                    "gt": 0
+                  }
+                }
+              },
+              "event": "paid"
+            }
+          ]
+        },
+        "send": {
+          "description": "A message to send, rendered before the stream opens; a map or list is sent as JSON; only on `websocket`",
+          "examples": [
+            {
+              "type": "join"
+            }
+          ]
+        }
+      },
+      "type": "object"
+    },
     "expect": {
       "additionalProperties": false,
       "description": "Checks on a response; each value is a literal (equals) or a matcher",
@@ -742,6 +798,20 @@
             }
           ],
           "type": "object"
+        },
+        "messages": {
+          "description": "A stream call's messages, in order: `every`, `some`, `none` or `length` (D380)",
+          "examples": [
+            {
+              "none": {
+                "data": {
+                  "match": {
+                    "type": "error"
+                  }
+                }
+              }
+            }
+          ]
         },
         "replace": {
           "default": false,

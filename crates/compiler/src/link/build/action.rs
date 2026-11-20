@@ -2,12 +2,12 @@
 //! merged over the api's (D123).
 
 use vc_model::{
-    Action, ActionKind, ApiId, AuthRef, BodySpec, CacheSpec, Expect, Origin, Owner, PROTOCOL_KEYS, Poll, SaveSpec,
-    TestId, VarDefs, VarName,
+    Action, ActionKind, ApiId, AuthRef, BodySpec, CacheSpec, ExchangeItem, Expect, Origin, Owner, PROTOCOL_KEYS, Poll,
+    SaveSpec, TestId, VarDefs, VarName,
 };
 use vc_parser::Node;
 
-use super::{Build, Built, auth, expect, read};
+use super::{Build, Built, auth, exchange, expect, read};
 use crate::link::project::Source;
 use crate::link::{project, protocol_keys};
 use crate::shapes;
@@ -22,8 +22,8 @@ pub type Defaults<'n> = Option<(TestId, &'n Node)>;
 pub struct Place<'n> {
     /// Who owns its results.
     pub owner: Owner,
-    /// The test whose `auth`, `headers`, `query`, `body`, `poll` and `expect` are this step's
-    /// defaults when it is a `call` (D124); a `test:` step runs the reused test as written (D270).
+    /// The test whose `auth`, `headers`, `query`, `body`, `exchange`, `poll` and `expect` are this
+    /// step's defaults when it is a `call` (D124); a `test:` step runs the reused test as written (D270).
     pub defaults: Defaults<'n>,
     /// Set when the node is a test with `call`: its vars, checks, retry and repeat belong to the
     /// test.
@@ -37,6 +37,7 @@ struct Request {
     headers: indexmap::IndexMap<String, vc_model::Template>,
     query: indexmap::IndexMap<String, vc_model::Template>,
     body: Option<BodySpec>,
+    exchange: Option<Vec<ExchangeItem>>,
 }
 
 impl<'a> Build<'_, 'a> {
@@ -59,6 +60,7 @@ impl<'a> Build<'_, 'a> {
             headers: request.headers,
             query: request.query,
             body: request.body,
+            exchange: request.exchange,
             expect,
             save: SaveSpec { values: self.values(source, node.get("save"))? },
             poll,
@@ -132,11 +134,13 @@ impl<'a> Build<'_, 'a> {
             map.extend(read::templates(source, node, key));
             map
         };
-        let inherited =
-            defaults.filter(|_| protocol_keys::call_takes(self.project, (source, node), (&PROTOCOL_KEYS, "body")));
-        let body = node.get("body").or_else(|| inherited.and_then(|test| test.get("body")));
-        let body = body.and_then(|body| read::body(source, body));
-        Ok(Request { auth, headers: merged("headers"), query: merged("query"), body })
+        let inherited = |key: &str| {
+            let takes = |_: &&Node| protocol_keys::call_takes(self.project, (source, node), (&PROTOCOL_KEYS, key));
+            node.get(key).or_else(|| defaults.filter(takes).and_then(|test| test.get(key)))
+        };
+        let body = inherited("body").and_then(|body| read::body(source, body));
+        let exchange = inherited("exchange").map(|items| exchange::read(source, items));
+        Ok(Request { auth, headers: merged("headers"), query: merged("query"), body, exchange })
     }
 
     /// The api's checks, then the test's defaults, then the action's own (D123); a `function`,

@@ -45,7 +45,7 @@ fn wait(spec: HttpRetry, draw: u64) -> Option<Duration> {
     let random: Arc<dyn Random> = Arc::new(ScriptedRandom::new([draw]));
     let request = vc_model::RenderedRequest::new(http::Method::GET, Uri::from_static("http://api.test/users"));
     let result = Err(connect_failed());
-    policy(&fixture.program, &api, &random).delay(&Attempted { request: &request, result: &result, retries: 0 })
+    policy(&fixture.program, &api, &random).delay(&Attempted { request: &request, result: result.as_ref(), retries: 0 })
 }
 
 #[tokio::test(start_paused = true)]

@@ -1,14 +1,10 @@
 use vc_diagnostics::{Code, Diagnostic};
-use vc_model::{
-    Api, BodySpec, ContentHash, Method, Part, Program, Protocol, SourceFile, SourcePath, StatusPattern, StreamSettings,
-};
+use vc_model::{Api, BodySpec, Method, Part, Program, Protocol, StatusPattern, StreamSettings};
 
 use super::{ProtocolRules, SseRules};
+use crate::Compiled;
 use crate::link::project::{self, Source};
-use crate::{CompileInput, Compiled};
-
-const CONFIG: &str =
-    "syntaxVersion: 2\nproject: shop\nvars: {apiUrl: 'http://x'}\nprofiles:\n  - id: dev\n    default: true\n";
+use crate::testing::{feed as compile, file};
 
 /// An `sse` file that reconnects: an api that inherits it, one that turns it off, and an `http`
 /// api the file's block does not reach.
@@ -42,19 +38,6 @@ apis:
     type: sse
     path: /ticks
 ";
-
-fn file(path: &str, text: &str) -> SourceFile {
-    SourceFile { path: SourcePath::new(path).unwrap(), text: text.to_owned(), hash: ContentHash::new([0; 32]) }
-}
-
-fn compile(apis: &str, tests: &str) -> Compiled {
-    let files = vec![
-        file("vibranium.config.yaml", CONFIG),
-        file("services/feed/feed.api.yaml", apis),
-        file("services/feed/live.test.yaml", tests),
-    ];
-    crate::compile(CompileInput { files, ..CompileInput::default() })
-}
 
 fn compiled(apis: &str) -> std::sync::Arc<Program> {
     let compiled = compile(apis, "tests: []\n");

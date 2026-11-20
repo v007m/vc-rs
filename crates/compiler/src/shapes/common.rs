@@ -30,6 +30,8 @@ pub const ACTIONS: Ty = Ty::List(&Ty::Obj(action));
 pub const HOOKS: Ty = Ty::List(&Ty::Obj(function_ref));
 /// Per-profile overrides of a file's vars.
 pub const PROFILES: Ty = Ty::List(&Ty::Obj(profile_vars));
+/// `exchange`: what a stream call sends and waits for, in order (D377).
+pub const EXCHANGE: Ty = Ty::List(&Ty::Obj(exchange_item));
 
 shape! {
     /// `expect`: the checks (D123).
@@ -45,12 +47,27 @@ shape! {
         types::key("custom", Ty::List(&Ty::Obj(function_ref))).doc("Functions that check the response"),
         types::key("errors", ERRORS).doc("A `graphql` response's errors: `none`, `any`, entries or a matcher (D345)")
             .example("[{code: FORBIDDEN, path: user.secretNote}]"),
+        types::key("messages", Ty::Matcher(Unit::Messages))
+            .doc("A stream call's messages, in order: `every`, `some`, `none` or `length` (D380)")
+            .example("{none: {data: {match: {type: error}}}}"),
         types::key("replace", Ty::Bool).default("false").doc("Drop every inherited check and keep only these"),
     ])
 }
 
 /// `expect.errors`: `none`, `any`, the list of errors expected, or a matcher on them (D345).
 const ERRORS: Ty = Ty::Either(&[Ty::Enum(&["none", "any"]), Ty::Matcher(Unit::Errors)]);
+
+shape! {
+    /// One item of an `exchange` (D377, D378).
+    exchange_item = Shape::new("exchangeItem", "One step of a stream call: a message to send or one to wait for", &[
+        types::key("send", Ty::Value).doc("A message to send, rendered before the stream opens; a map or list is sent as JSON; only on `websocket`")
+            .example("{type: join}"),
+        types::key("receive", Ty::Either(&[Ty::List(&Ty::Matcher(Unit::Message)), Ty::Matcher(Unit::Message)]))
+            .doc("Wait for the next message this check matches, skipping others; a list waits for each, in any order")
+            .example("{event: paid, data: {match: {total: {gt: 0}}}}"),
+    ])
+    .one_of(&["send", "receive"], Code::V2201)
+}
 
 shape! {
     body_expect = Shape::new("bodyExpect", "Checks on the response body", &[
@@ -144,6 +161,7 @@ shape! {
         types::key("headers", TEMPLATES).doc("Merged over the api's headers"),
         types::key("query", TEMPLATES).doc("Merged over the api's query"),
         types::key("body", Ty::Value).doc("Replaces the api's body"),
+        types::key("exchange", EXCHANGE).doc("Replaces the api's exchange whole; only on a stream type"),
         types::key("expect", Ty::Obj(expect)).scope(Scope::CALL).doc("Merged with the api's checks"),
         types::key("save", VARS).scope(Scope::CALL).doc("Values named for later steps, templated over `response`"),
         types::key("poll", Ty::Obj(poll)).doc("`until`, `every`, `timeout`"),

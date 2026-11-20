@@ -44,7 +44,13 @@ impl Transport for Echo {
         response_headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
         let wire_size = u64::try_from(body.len()).unwrap();
         let response = HttpResponse { status: StatusCode::OK, headers: response_headers, wire_size, body };
-        Ok(Exchange { request, response, timing: Timing::default(), connection: ConnectionInfo::default() })
+        Ok(Exchange {
+            request,
+            response,
+            timing: Timing::default(),
+            connection: ConnectionInfo::default(),
+            messages: Vec::new(),
+        })
     }
 }
 

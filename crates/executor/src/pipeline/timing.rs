@@ -11,9 +11,9 @@ use super::{Call, Retried};
 /// What the pipeline returns for one call.
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[non_exhaustive]
-pub struct Delivery {
-    /// How the last attempt ended.
-    pub result: Result<Exchange, TransportError>,
+pub struct Delivery<R = Exchange> {
+    /// How the last attempt ended: the exchange, or the open stream.
+    pub result: Result<R, TransportError>,
     /// Attempts made, at least one.
     pub attempts: u32,
     /// Wall time for the whole call: every attempt, the waits between them and for permits.
@@ -33,11 +33,12 @@ impl<S> Timing<S> {
     }
 }
 
-impl<S> Service<Call> for Timing<S>
+impl<S, R> Service<Call> for Timing<S>
 where
-    S: Service<Call, Response = Retried, Error = Infallible, Future: Send> + Clone + Send + 'static,
+    S: Service<Call, Response = Retried<R>, Error = Infallible, Future: Send> + Clone + Send + 'static,
+    R: Send + 'static,
 {
-    ready_service!(Delivery, Infallible);
+    ready_service!(Delivery<R>, Infallible);
 
     fn call(&mut self, call: Call) -> Self::Future {
         let inner = self.inner.clone();
