@@ -6,7 +6,8 @@ use std::sync::Arc;
 
 use rustls::RootCertStore;
 use vc_interfaces::{
-    ClientSource, ClientSpec, Environment, MaterialSource, TlsError, TlsPart, TlsSpec, Transport, TransportFactory,
+    ClientSource, ClientSpec, Environment, MaterialSource, TlsError, TlsFinding, TlsPart, TlsProbe, TlsSpec, Transport,
+    TransportFactory,
 };
 use zeroize::Zeroizing;
 
@@ -54,6 +55,10 @@ impl TransportFactory for HttpTransports {
         let options = HttpOptions { proxy, ..HttpOptions::default() };
         let transport = HttpTransport::with_roots(&with_native(roots), &options, checked);
         Ok(Arc::new(transport.map_err(|error| refused(error, None))?))
+    }
+
+    fn inspect(&self, probes: &[TlsProbe]) -> Vec<TlsFinding> {
+        crate::inspect::inspect(probes)
     }
 }
 

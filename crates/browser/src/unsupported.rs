@@ -1,5 +1,5 @@
-//! What a page cannot hold, said plainly: a project that needs secrets or runs hooks is refused
-//! before anything runs, and plugins, alerts, report files and the cross-run cache are left out
+//! What a page cannot hold, said plainly: a project that needs secrets, sets `http.tls` or runs
+//! hooks is refused before anything runs, and plugins, alerts, report files and the cross-run cache are left out
 //! with a notice. A `command:` line the page cannot answer fails as the action runs
 //! (`commands.rs`).
 
@@ -12,9 +12,12 @@ use crate::BrowserError;
 const NATIVE: &str = "run the project with `vc run` on your machine";
 
 /// Refuses a project that declares secrets, since the page has no keychain or `.env` to load
-/// them from, or that uses a hook file, since the page has no runtime to run one in (V5115).
+/// them from, that sets `http.tls`, since the browser's fetch can neither present a client
+/// certificate nor trust an extra root (D407), or that uses a hook file, since the page has no
+/// runtime to run one in (V5115).
 pub fn refuse(program: &Program) -> Result<(), BrowserError> {
     secrets(program)?;
+    tls(program)?;
     hooks(program)
 }
 
@@ -35,6 +38,16 @@ fn secrets(program: &Program) -> Result<(), BrowserError> {
     }
     let reason = format!("the project declares secrets ({}), which the playground cannot load", declared.join(", "));
     Err(BrowserError::refused(reason, Some(format!("leave `${{secret.*}}` out of the project, or {NATIVE}"))))
+}
+
+fn tls(program: &Program) -> Result<(), BrowserError> {
+    let tls = &program.config.http_tls;
+    if tls.ca.is_empty() && tls.clients.is_empty() {
+        return Ok(());
+    }
+    let reason = "the project sets `http.tls`, which the playground cannot present: fetch neither sends a client \
+                  certificate nor trusts an extra root";
+    Err(BrowserError::refused(reason, Some(format!("leave `http.tls` out of the project, or {NATIVE}"))))
 }
 
 /// A notice for each part of `program`'s config the run leaves out.

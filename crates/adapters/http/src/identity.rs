@@ -115,6 +115,14 @@ impl ClientIdentity {
         &self.id
     }
 
+    /// Its leaf certificate, once decoded or [parsed](Self::parsed).
+    pub(crate) fn leaf(&self) -> Option<&CertificateDer<'static>> {
+        match &self.material {
+            Material::Der { certified, .. } => certified.cert.first(),
+            Material::Pem { .. } => None,
+        }
+    }
+
     /// Its host rules, as given.
     pub(crate) fn host_rules(&self) -> &[String] {
         &self.hosts
@@ -157,11 +165,7 @@ impl ClientIdentity {
 
     /// The PEM chain and key, the key decoded into memory wiped on drop.
     fn parse_pem(&self, cert: &[u8], key: &[u8]) -> Result<PemParts, HttpAdapterError> {
-        let chain = CertificateDer::pem_slice_iter(cert).collect::<Result<Vec<_>, _>>();
-        let chain = chain.map_err(|error| self.error(format!("the certificate {}", pem_reason(&error))))?;
-        if chain.is_empty() {
-            return Err(self.error("the certificate has no CERTIFICATE block"));
-        }
+        let chain = pem_chain(cert).map_err(|reason| self.error(reason))?;
         if encrypted(key) {
             return Err(self.error(ENCRYPTED));
         }
@@ -183,6 +187,17 @@ impl ClientIdentity {
             Err(error) => Err(HttpAdapterError::Mismatch { id: self.id.clone(), reason: error.to_string() }),
         }
     }
+}
+
+/// The PEM certificate chain in `cert`, leaf first, or what is wrong with it: not PEM, or no
+/// `CERTIFICATE` block.
+pub fn pem_chain(cert: &[u8]) -> Result<Vec<CertificateDer<'static>>, String> {
+    let chain = CertificateDer::pem_slice_iter(cert).collect::<Result<Vec<_>, _>>();
+    let chain = chain.map_err(|error| format!("the certificate {}", pem_reason(&error)))?;
+    if chain.is_empty() {
+        return Err("the certificate has no CERTIFICATE block".to_owned());
+    }
+    Ok(chain)
 }
 
 /// A PEM identity's chain and decoded key.

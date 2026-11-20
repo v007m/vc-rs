@@ -38,7 +38,8 @@ impl Selection {
         all(files).filter(|file| self.selects(file)).count()
     }
 
-    fn selects(&self, file: &SourceFile) -> bool {
+    /// Whether `file` is selected.
+    pub fn selects(&self, file: &SourceFile) -> bool {
         self.prefixes.is_empty() || self.prefixes.iter().any(|prefix| under(file.path.as_str(), prefix))
     }
 }

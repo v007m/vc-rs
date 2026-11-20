@@ -19,6 +19,7 @@ mod error;
 mod factory;
 mod hosts;
 mod identity;
+mod inspect;
 mod material;
 mod pkcs12;
 mod pkcs12_reason;

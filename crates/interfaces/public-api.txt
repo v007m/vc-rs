@@ -604,6 +604,32 @@ pub fn vc_interfaces::TlsError::fmt(&self, &mut core::fmt::Formatter<'_>) -> cor
 impl core::fmt::Display for vc_interfaces::TlsError
 pub fn vc_interfaces::TlsError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_interfaces::TlsError
+pub enum vc_interfaces::TlsFinding
+pub vc_interfaces::TlsFinding::Exposed
+pub vc_interfaces::TlsFinding::Exposed::mode: u32
+pub vc_interfaces::TlsFinding::Exposed::part: vc_interfaces::TlsPart
+pub vc_interfaces::TlsFinding::Mismatch
+pub vc_interfaces::TlsFinding::Mismatch::part: vc_interfaces::TlsPart
+pub vc_interfaces::TlsFinding::Mismatch::reason: alloc::string::String
+pub vc_interfaces::TlsFinding::Unreadable
+pub vc_interfaces::TlsFinding::Unreadable::near: alloc::vec::Vec<alloc::string::String>
+pub vc_interfaces::TlsFinding::Unreadable::part: vc_interfaces::TlsPart
+pub vc_interfaces::TlsFinding::Unreadable::reason: alloc::string::String
+pub vc_interfaces::TlsFinding::Unusable
+pub vc_interfaces::TlsFinding::Unusable::part: vc_interfaces::TlsPart
+pub vc_interfaces::TlsFinding::Unusable::reason: alloc::string::String
+pub vc_interfaces::TlsFinding::Validity
+pub vc_interfaces::TlsFinding::Validity::not_after: i64
+pub vc_interfaces::TlsFinding::Validity::not_before: i64
+pub vc_interfaces::TlsFinding::Validity::part: vc_interfaces::TlsPart
+impl core::clone::Clone for vc_interfaces::TlsFinding
+pub fn vc_interfaces::TlsFinding::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::TlsFinding
+impl core::cmp::PartialEq for vc_interfaces::TlsFinding
+pub fn vc_interfaces::TlsFinding::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_interfaces::TlsFinding
+pub fn vc_interfaces::TlsFinding::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::TlsFinding
 pub enum vc_interfaces::TlsPart
 pub vc_interfaces::TlsPart::Ca(usize)
 pub vc_interfaces::TlsPart::Client
@@ -619,6 +645,20 @@ pub fn vc_interfaces::TlsPart::fmt(&self, &mut core::fmt::Formatter<'_>) -> core
 impl core::fmt::Display for vc_interfaces::TlsPart
 pub fn vc_interfaces::TlsPart::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_interfaces::TlsPart
+pub enum vc_interfaces::TlsProbe
+pub vc_interfaces::TlsProbe::Ca
+pub vc_interfaces::TlsProbe::Ca::index: usize
+pub vc_interfaces::TlsProbe::Ca::source: vc_interfaces::MaterialSource
+pub vc_interfaces::TlsProbe::Pem
+pub vc_interfaces::TlsProbe::Pem::cert: core::option::Option<vc_interfaces::MaterialSource>
+pub vc_interfaces::TlsProbe::Pem::id: alloc::string::String
+pub vc_interfaces::TlsProbe::Pem::key: core::option::Option<vc_interfaces::MaterialSource>
+pub vc_interfaces::TlsProbe::Pkcs12
+pub vc_interfaces::TlsProbe::Pkcs12::bundle: vc_interfaces::MaterialSource
+pub vc_interfaces::TlsProbe::Pkcs12::id: alloc::string::String
+pub vc_interfaces::TlsProbe::Pkcs12::passphrase: core::option::Option<vc_interfaces::Secret>
+impl core::fmt::Debug for vc_interfaces::TlsProbe
+pub fn vc_interfaces::TlsProbe::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 #[non_exhaustive] pub enum vc_interfaces::TransportError
 pub vc_interfaces::TransportError::BodyTooLarge
 pub vc_interfaces::TransportError::BodyTooLarge::limit: vc_model::units::Size
@@ -1738,6 +1778,8 @@ impl core::marker::StructuralPartialEq for vc_interfaces::TimingRow
 pub struct vc_interfaces::TlsSpec
 pub vc_interfaces::TlsSpec::ca: alloc::vec::Vec<vc_interfaces::MaterialSource>
 pub vc_interfaces::TlsSpec::clients: alloc::vec::Vec<vc_interfaces::ClientSpec>
+impl vc_interfaces::TlsSpec
+pub fn vc_interfaces::TlsSpec::into_probes(self) -> alloc::vec::Vec<vc_interfaces::TlsProbe>
 impl core::default::Default for vc_interfaces::TlsSpec
 pub fn vc_interfaces::TlsSpec::default() -> Self
 impl core::fmt::Debug for vc_interfaces::TlsSpec
@@ -1762,6 +1804,7 @@ pub const vc_interfaces::DEADLINE_PASSED: i64
 pub const vc_interfaces::INITIALIZE_DEADLINE: core::time::Duration
 pub const vc_interfaces::LOCK_FILE: &str
 pub const vc_interfaces::MANIFEST_FILE: &str
+pub const vc_interfaces::NEAR_NAMES: usize
 pub const vc_interfaces::PERMISSION_DENIED: i64
 pub const vc_interfaces::PLUGINS_DIR: &str
 pub trait vc_interfaces::ActionRunner: core::marker::Send + core::marker::Sync
@@ -1886,6 +1929,7 @@ pub trait vc_interfaces::Transport: core::marker::Send + core::marker::Sync
 pub fn vc_interfaces::Transport::send<'life0, 'life1, 'async_trait>(&'life0 self, vc_model::exchange::RenderedRequest, &'life1 vc_interfaces::SendContext) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::result::Result<vc_model::exchange::Exchange, vc_interfaces::TransportError>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait, 'life1: 'async_trait
 pub trait vc_interfaces::TransportFactory: core::marker::Send + core::marker::Sync
 pub fn vc_interfaces::TransportFactory::build(&self, &vc_interfaces::TlsSpec, &dyn vc_interfaces::Environment) -> core::result::Result<alloc::rcs::arc::Arc<dyn vc_interfaces::Transport>, vc_interfaces::TlsError>
+pub fn vc_interfaces::TransportFactory::inspect(&self, &[vc_interfaces::TlsProbe]) -> alloc::vec::Vec<vc_interfaces::TlsFinding>
 pub trait vc_interfaces::Vcs: core::marker::Send + core::marker::Sync
 pub fn vc_interfaces::Vcs::changed(&self, &str) -> core::result::Result<alloc::vec::Vec<vc_model::source::SourcePath>, vc_interfaces::VcsError>
 pub fn vc_interfaces::Vcs::changed_within(&self, core::time::Duration) -> core::result::Result<alloc::vec::Vec<vc_model::source::SourcePath>, vc_interfaces::VcsError>

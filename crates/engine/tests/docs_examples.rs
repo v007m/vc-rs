@@ -28,6 +28,7 @@
 //! - V2002: an auth from a config the page does not show;
 //! - V2003: an api or test from a file the page does not show;
 //! - V2004: a body, schema or fixture (`$file: ../../schemas/user.json`) not written out;
+//! - V2011: an `http.tls` certificate, key or root, which a page cannot write out;
 //! - V2101: a var set by such a config, or saved by such an api.
 //!
 //! A **fragment** only has to parse (no V1 error), with its `...` lines dropped.
@@ -69,7 +70,7 @@ type Allowed = fn(&Diagnostic) -> bool;
 type Page = (Vec<Files>, Vec<String>);
 
 /// Errors about names defined in files a page does not write out (see the top of this file).
-const ELSEWHERE: [Code; 4] = [Code::V2002, Code::V2003, Code::V2004, Code::V2101];
+const ELSEWHERE: [Code; 5] = [Code::V2002, Code::V2003, Code::V2004, Code::V2011, Code::V2101];
 
 /// The word in a fence's info string that leaves its block out.
 const SKIP: &str = "skip";
