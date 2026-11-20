@@ -12,12 +12,12 @@ use vc_interfaces::{
 use vc_model::{AlertChannel, Namespace, Program, RunStatus, Totals};
 use vc_template::{PipeRegistry, RenderError, Renderer};
 
+use crate::Engine;
 use crate::alerts::{self, Ending, Finished};
 use crate::load::RUN_KIND;
 use crate::plan::Prepared;
 use crate::restricted::{Read, Restricted, env_value, secret_value};
 use crate::secured::Secured;
-use crate::Engine;
 
 /// How many stored runs are searched for the previous one.
 const LOOKBACK: usize = 50;
@@ -54,11 +54,7 @@ impl Engine {
     }
 
     /// What sends `prepared`'s alerts over `transport`, with `secrets` to fill their settings in.
-    pub(crate) fn senders(
-        &self,
-        prepared: &Prepared,
-        (secrets, transport): (&Secrets, Arc<dyn Transport>),
-    ) -> Senders {
+    pub(crate) fn senders(&self, prepared: &Prepared, (secrets, transport): (&Secrets, Arc<dyn Transport>)) -> Senders {
         let factory = self.notifiers(transport);
         Senders { factory, secrets: secrets.clone(), environment: Arc::clone(&prepared.environment) }
     }

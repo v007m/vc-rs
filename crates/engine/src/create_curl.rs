@@ -44,7 +44,7 @@ impl Engine {
 
     async fn read_curl(&self, file: &str, curl: &str) -> Result<ImportDraft, EngineError> {
         let registry = ImporterRegistry::builtin();
-        let importer = registry.create("curl", self.fetcher()?).map_err(|error| internal(error.to_string()))?;
+        let importer = registry.create("curl", self.fetcher().await?).map_err(|error| internal(error.to_string()))?;
         let source = ImportSource { location: LOCATION.to_owned(), bytes: curl.as_bytes().to_vec() };
         let options = ImportOptions { file_id: file.to_owned(), ..ImportOptions::default() };
         let help = "give one command as copied, starting `curl`, with its URL";

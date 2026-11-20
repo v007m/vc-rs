@@ -97,7 +97,7 @@ impl Engine {
         let project = self.authoring()?;
         let given = self.given_headers(request).await?;
         let fetcher =
-            if request.text.is_some() { self.pasted_fetcher() } else { Arc::new(self.fetcher()?.sending(given)) };
+            if request.text.is_some() { self.pasted_fetcher() } else { Arc::new(self.fetcher().await?.sending(given)) };
         let importer = ImporterRegistry::builtin().create(&request.kind, fetcher.clone()).map_err(|error| {
             refused(error.to_string(), &format!("the importers are {}", Self::importers().join(", ")))
         })?;
@@ -158,9 +158,9 @@ impl Engine {
     }
 
     /// Fetches specs through the project's sources and the run's transport.
-    pub(crate) fn fetcher(&self) -> Result<Arc<ProjectFetcher>, EngineError> {
+    pub(crate) async fn fetcher(&self) -> Result<Arc<ProjectFetcher>, EngineError> {
         let environment = self.environment.clone().unwrap_or_else(|| Arc::new(SystemEnvironment::capture()));
-        let transport = self.transport(environment.as_ref())?;
+        let transport = self.transport(environment).await?;
         Ok(Arc::new(ProjectFetcher {
             sources: Arc::clone(&self.sources),
             transport: Some(transport),

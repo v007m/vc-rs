@@ -215,6 +215,40 @@ async fn a_transport_that_cannot_be_built_stops_an_alerting_project_before_any_r
     }
 }
 
+/// [`config`] without its `http.tls`.
+fn untlsed() -> String {
+    config(PASS).split("http:\n").next().unwrap_or_default().to_owned()
+}
+
+#[tokio::test]
+async fn a_refusal_when_http_tls_is_not_set_is_internal_not_a_setting() {
+    for (error, began) in refused(&untlsed(), refusing(true)).await {
+        assert!(error.contains("it does not open"), "{error}");
+        assert!(!error.contains("V5125") && !error.contains("http.tls"), "no http.tls to blame: {error}");
+        assert!(!began, "a run began: {error}");
+    }
+}
+
+#[tokio::test]
+async fn the_plain_transport_is_built_off_the_runtime_and_its_refusal_is_internal() {
+    let (slow, started, released) = held();
+    let (engine, _runs) = engine(&config(PASS), slow);
+    let environment: Arc<dyn Environment> = Arc::new(MemoryEnvironment::new(&[]));
+    let release = async {
+        for _ in 0..2000 {
+            if started.load(Ordering::SeqCst) {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(1)).await;
+        }
+        released.store(true, Ordering::SeqCst);
+    };
+    let begun = Instant::now();
+    let (built, ()) = tokio::join!(engine.transport(environment), release);
+    assert!(begun.elapsed() < Duration::from_secs(4), "the build blocked the runtime");
+    assert!(matches!(built, Err(EngineError::Internal { .. })), "{:?}", built.err());
+}
+
 /// A loader that refuses once released, and the flags of its start and its release.
 fn held() -> (Loader, Arc<AtomicBool>, Arc<AtomicBool>) {
     let loader = Loader { held: true, ..refusing(false) };

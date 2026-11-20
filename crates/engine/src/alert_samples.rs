@@ -2,6 +2,7 @@
 //! `profiles` match, so a team sees its channels work without a failing run (D257). Nothing
 //! runs and nothing is recorded.
 
+use std::sync::Arc;
 use std::time::Duration;
 
 use vc_interfaces::{Notice, NoticeFailure, RunSummary};
@@ -43,7 +44,7 @@ impl Engine {
             return Ok(Vec::new());
         }
         let secrets = self.secrets(SecretSource::of(&prepared), &vc_planner::alert_secrets(program)).await?;
-        let senders = self.senders(&prepared, (&secrets, self.transport(prepared.environment.as_ref())?));
+        let senders = self.senders(&prepared, (&secrets, self.transport(Arc::clone(&prepared.environment)).await?));
         Ok(sent(&senders, (program, &rules), &notice).await)
     }
 

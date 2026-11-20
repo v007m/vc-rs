@@ -90,14 +90,16 @@ impl Engine {
             .map_err(|error| settings::source_error(&error))
     }
 
-    /// The transport requests go through when no `http.tls` applies: the transport factory's,
-    /// over HTTP through the proxy the environment names. Call it from within a Tokio runtime.
+    /// The transport requests go through when no `http.tls` applies (alert samples and spec
+    /// imports): the transport factory's for an empty [`TlsSpec`], over HTTP through the proxy
+    /// `environment` names, built on a blocking thread ([`Engine::built`]).
     ///
     /// # Errors
     ///
-    /// [`EngineError::Internal`] when the HTTP client cannot be built.
-    pub(crate) fn transport(&self, environment: &dyn Environment) -> Result<Arc<dyn Transport>, EngineError> {
-        self.transports.build(&TlsSpec::default(), environment).map_err(|error| crate::client_certs::tls_error(&error))
+    /// [`EngineError::Internal`] when the factory refuses: with no `http.tls` read, no setting is
+    /// to blame.
+    pub(crate) async fn transport(&self, environment: Arc<dyn Environment>) -> Result<Arc<dyn Transport>, EngineError> {
+        self.built(TlsSpec::default(), (environment, false)).await
     }
 
     /// The auth types a run obtains credentials through (D106): the builder's, else the

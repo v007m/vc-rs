@@ -10,7 +10,10 @@ use std::sync::Arc;
 
 use vc_diagnostics::Code;
 use vc_executor::{ClientCerts, RunValues, config_text};
-use vc_interfaces::{CertId, ClientSource, ClientSpec, MaterialSource, Secret, Secrets, TlsError, TlsPart, TlsSpec};
+use vc_interfaces::{
+    CertId, ClientSource, ClientSpec, Environment, MaterialSource, Secret, Secrets, TlsError, TlsPart, TlsSpec,
+    Transport,
+};
 use vc_model::{ClientMaterial, Program, Template, TlsClient, inline_pem};
 
 use crate::plan::Prepared;
@@ -34,11 +37,29 @@ impl Engine {
         let (spec, certs) =
             if unset { (TlsSpec::default(), ClientCerts::default()) } else { self.planned(prepared, &secrets)? };
         let hidden = spec.clients.iter().filter_map(hidden).collect();
-        let (factory, environment) = (Arc::clone(&self.transports), Arc::clone(&prepared.environment));
+        let transport = self.built(spec, (Arc::clone(&prepared.environment), !unset)).await?;
+        Ok(Secured { secrets, transport, certs, hidden })
+    }
+
+    /// The transport factory's transport for `spec` and `environment`, built on a blocking
+    /// thread: the factory reads files and the system's roots, and may derive PKCS#12 keys.
+    ///
+    /// # Errors
+    ///
+    /// When `configured` (the config sets `http.tls`), [`tls_error`]'s; otherwise every refusal
+    /// is [`EngineError::Internal`], since no setting is to blame.
+    pub(crate) async fn built(
+        &self,
+        spec: TlsSpec,
+        (environment, configured): (Arc<dyn Environment>, bool),
+    ) -> Result<Arc<dyn Transport>, EngineError> {
+        let factory = Arc::clone(&self.transports);
         let built = tokio::task::spawn_blocking(move || factory.build(&spec, environment.as_ref())).await;
         let built =
             built.map_err(|error| EngineError::Internal { reason: format!("building the transport: {error}") })?;
-        Ok(Secured { secrets, transport: built.map_err(|error| tls_error(&error))?, certs, hidden })
+        built.map_err(
+            |error| if configured { tls_error(&error) } else { EngineError::Internal { reason: error.to_string() } },
+        )
     }
 
     /// `prepared`'s `http.tls` rendered with `secrets` and the config's inputs, no other root
