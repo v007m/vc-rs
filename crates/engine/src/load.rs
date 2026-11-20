@@ -67,7 +67,7 @@ impl Engine {
         session.alerting = self.alerting(&session.prepared, &secured, LOAD_KIND);
         let live = Live::new(Arc::clone(&session.prepared.program), self.load_recording(&mut session), watch.ticks);
         let plugins = self.plugin_hosts(&session.prepared.program, &secured.secrets);
-        let given = (&secured, &plugins);
+        let given = (secured, &plugins);
         plugins.around(Box::pin(self.load_with((session, live), given, &mut watch.interrupts))).await
     }
 
@@ -75,14 +75,14 @@ impl Engine {
     async fn load_with(
         &self,
         (mut session, live): (Session, Live),
-        (secured, plugins): (&Secured, &Hosts),
+        (mut secured, plugins): (Secured, &Hosts),
         interrupts: &mut Interrupts,
     ) -> Result<LoadReport, EngineError> {
         let run_id = live.run_id().unwrap_or(0);
         let reached = crate::body_files::reached(&session.prepared.program, &session.prepared.plan);
         let inputs = self.inputs(&session.prepared, (Arc::clone(&session.random), run_id, reached)).await;
-        let inputs = inputs.with_secrets(secured.secrets.clone()).with_started_at(session.started_ms);
-        let cx = Arc::new(self.action_cx(&session.prepared, (inputs, plugins, secured)));
+        let inputs = inputs.with_secrets(secured.take_secrets()).with_started_at(session.started_ms);
+        let cx = Arc::new(self.action_cx(&session.prepared, (inputs, plugins, &secured)));
         session.redactor = Some(Arc::clone(&cx.redactor));
         let full_checks = session.scenario.full_checks;
         let setup = IterationSetup { bus: EventBus::spawn(), cancel: session.root.clone(), full_checks };

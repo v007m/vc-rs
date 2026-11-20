@@ -76,6 +76,13 @@ impl Engine {
     }
 }
 
+impl Secured {
+    /// The secrets, moved out for the run's inputs; the step keeps none.
+    pub(crate) fn take_secrets(&mut self) -> Secrets {
+        std::mem::take(&mut self.secrets)
+    }
+}
+
 /// The report of a run interrupted before it started: nothing ran, nothing was recorded.
 pub fn cancelled(prepared: Prepared) -> RunReport {
     let seed = prepared.draw.seed;

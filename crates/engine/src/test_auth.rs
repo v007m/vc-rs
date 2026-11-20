@@ -68,7 +68,7 @@ impl Engine {
         let actions: Vec<ActionId> = probe.target.into_iter().chain(probe.senders.iter().copied()).collect();
         let read = vc_planner::secrets_from(&prepared.program, &actions, &prepared.profiles);
         let secured = self.secure(&prepared, &read).await?;
-        let (cx, plugins) = self.adhoc_cx(&prepared, (&actions, 0), &secured).await;
+        let (cx, plugins) = self.adhoc_cx(&prepared, (&actions, 0), secured).await;
         let probed = plugins
             .around(async {
                 let through = sender(&cx, &probe, &request.auth).await?;

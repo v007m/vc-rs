@@ -177,7 +177,7 @@ impl Engine {
         let prepared = unplanned(layered);
         let cleanups = crate::body_files::cleanups(&prepared.program);
         let secured = self.secure(&prepared, &crate::ports::cleanup_reads(&prepared.program)).await?;
-        let (cx, plugins) = self.adhoc_cx(&prepared, (&cleanups, 0), &secured).await;
+        let (cx, plugins) = self.adhoc_cx(&prepared, (&cleanups, 0), secured).await;
         let cleared = store.clear(label).map_err(|error| store_error(&error))?;
         let count = cleared.entries.len() + cleared.unopened;
         Ok((count, plugins.around(Cleaner::new(&cx).taken(cleared)).await))

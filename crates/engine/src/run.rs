@@ -92,25 +92,25 @@ impl Engine {
             return Ok(crate::secured::cancelled(prepared));
         };
         let plugins = self.plugin_hosts(&prepared.program, &secured.secrets);
-        plugins.around(Box::pin(self.execute_with(request, (prepared, &secured, &plugins), interrupts))).await
+        plugins.around(Box::pin(self.execute_with(request, (prepared, secured, &plugins), interrupts))).await
     }
 
     /// [`Engine::execute`]'s work with the run's `plugins`, which it leaves running.
     async fn execute_with(
         &self,
         request: &RunRequest,
-        (prepared, secured, plugins): (Prepared, &Secured, &Hosts),
+        (prepared, mut secured, plugins): (Prepared, Secured, &Hosts),
         interrupts: &mut Interrupts,
     ) -> Result<RunReport, EngineError> {
         let heard = plugins.heard();
         let (seed, random, started_ms) = (prepared.draw.seed, Arc::clone(&prepared.draw.random), self.clock.now_ms());
-        let alerting = self.alerting(&prepared, secured, RUN_KIND);
+        let alerting = self.alerting(&prepared, &secured, RUN_KIND);
         let (reporters, unrecorded) = self.reporters(request, &prepared, (seed, plugins.clone(), started_ms))?;
         let run_id = reporters.run_id().map_or(0, RunId::get);
         let reached = crate::body_files::reached(&prepared.program, &prepared.plan);
         let inputs = self.inputs(&prepared, (random, run_id, reached)).await;
-        let inputs = inputs.with_secrets(secured.secrets.clone()).with_started_at(started_ms);
-        let (executor, sweep) = self.executor(&prepared, (inputs, plugins, secured), request).await;
+        let inputs = inputs.with_secrets(secured.take_secrets()).with_started_at(started_ms);
+        let (executor, sweep) = self.executor(&prepared, (inputs, plugins, &secured), request).await;
         let bus = EventBus::spawn();
         let watching = request.watch.as_ref().map(|watch| watch.follow(&bus, &prepared));
         let mut fanout = Fanout { feed: bus.subscribe(FEED), reporters };
@@ -247,13 +247,13 @@ impl Engine {
         &self,
         prepared: &Prepared,
         (actions, run_id): (&[ActionId], u64),
-        secured: &Secured,
+        mut secured: Secured,
     ) -> (Arc<ActionCx>, Hosts) {
         let plugins = self.plugin_hosts(&prepared.program, &secured.secrets);
         let reached = vc_planner::bodies_from(&prepared.program, actions);
         let inputs = self.inputs(prepared, (Arc::clone(&prepared.draw.random), run_id, reached)).await;
-        let inputs = inputs.with_secrets(secured.secrets.clone()).with_started_at(self.clock.now_ms());
-        (Arc::new(self.action_cx(prepared, (inputs, &plugins, secured))), plugins)
+        let inputs = inputs.with_secrets(secured.take_secrets()).with_started_at(self.clock.now_ms());
+        (Arc::new(self.action_cx(prepared, (inputs, &plugins, &secured))), plugins)
     }
 }
 

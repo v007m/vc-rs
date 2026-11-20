@@ -46,7 +46,7 @@ impl Engine {
         let mut notices = std::mem::take(&mut prepared.notices);
         let recording = self.call_recording(&prepared, &request.api, &mut notices);
         let run_id = recording.as_ref().map_or(0, |recording| recording.id().get());
-        let (cx, plugins) = self.adhoc_cx(&prepared, (&[action], run_id), &secured).await;
+        let (cx, plugins) = self.adhoc_cx(&prepared, (&[action], run_id), secured).await;
         let (report, failed) = plugins.around(sent_once(&cx, action, given)).await;
         notices.extend(failed);
         let passed = matches!(report.outcome, ActionOutcome::Passed);
