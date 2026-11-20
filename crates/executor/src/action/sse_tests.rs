@@ -84,7 +84,10 @@ fn a_leading_bom_is_skipped_once() {
 #[test]
 fn an_id_carries_over_to_later_events_and_a_retry_belongs_to_its_block() {
     let mut decoder = SseDecoder::default();
-    let read = events(&mut decoder, &[b"id: 1\nretry: 2500\ndata: a\n\ndata: b\n\nid\0x: 9\nretry: 1s\ndata: c\n\n"]);
+    let read = events(
+        &mut decoder,
+        &[b"id: 1\nretry: 2500\ndata: a\n\ndata: b\n\nid: 9\0\nretry: 1s\nretry: +5\ndata: c\n\n"],
+    );
     let expected = [
         json!({"event": "message", "data": "a", "id": "1", "retry": 2500, "text": "a"}),
         json!({"event": "message", "data": "b", "id": "1", "text": "b"}),
