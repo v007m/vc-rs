@@ -4,7 +4,8 @@
 //! Material that won't load, or whose parts don't fit, stops the run before any request. An
 //! oauth2 token request presents the auth's identity too; a PKCS#12 bundle works like a PEM
 //! pair; and neither an inline key from a secret nor a passphrase shows in any output. A run
-//! notes a certificate that expires soon and a key others can read, rendered or not (D412).
+//! notes a certificate that expires soon or has expired and a key others can read, rendered or not
+//! (D412).
 
 use vc_mock_server::{ClientAuth, MockHandle, MockServer, MockTls};
 use vc_testkit::{ClientCert, TestPki};
@@ -365,4 +366,27 @@ async fn a_run_notes_a_certificate_expiring_soon_and_a_key_others_can_read() {
     let exposed = "warning[V4012]: client certificate `good`, its `key`: its file is open to other users (mode 644)";
     assert!(said.contains(exposed), "{said}");
     assert!(!said.contains("certs/soon"), "a rendered path is never quoted: {said}");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_run_notes_an_expired_certificate_the_server_then_refuses() {
+    let pki = TestPki::new().unwrap();
+    let old = pki.client(&ClientCert::new("old").valid(crate::mtls_check::days(-400), crate::mtls_check::days(-2)));
+    let old = old.unwrap();
+    let server = pki.server();
+    let tls = MockTls::new(vec![server.cert_der().to_vec()], server.key_der().to_vec())
+        .client_auth(ClientAuth::Required, vec![pki.ca_der().to_vec()]);
+    let server = MockServer::start_tls(tls).await.unwrap();
+    let clients =
+        "      - id: good\n        hosts: ['127.0.0.1']\n        cert: ${env.OLD_CERT}\n        key: ${env.OLD_KEY}\n";
+    let project = project(&pki, (clients, ""), "");
+    project.write("certs/old.pem", old.cert_pem());
+    project.write("certs/old.key", old.key_pem());
+    let env = [("OLD_CERT", "certs/old.pem"), ("OLD_KEY", "certs/old.key")];
+    let run = project.run(&server.base_url(), &["tls.who#saysGood"]).envs(env).output().unwrap();
+    let said = said(&run);
+    assert_eq!(run.status.code(), Some(1), "the server refuses it: {said}");
+    assert!(said.contains("V5127"), "{said}");
+    assert!(said.contains("warning[V3108]: client certificate `good`, its `cert` expired on "), "{said}");
+    assert!(!said.contains("certs/old"), "a rendered path is never quoted: {said}");
 }
