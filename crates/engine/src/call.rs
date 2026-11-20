@@ -42,8 +42,9 @@ impl Engine {
             self.before_gate(agent_call(request).as_ref(), self.adhoc_call(request)).await?;
         let admitted = self.gate(request, &prepared.program, action).await?;
         let read = vc_planner::secrets_from(&prepared.program, &[action], &prepared.profiles);
-        let secured = self.secure(&prepared, &read).await?;
+        let mut secured = self.secure(&prepared, &read).await?;
         let mut notices = std::mem::take(&mut prepared.notices);
+        notices.append(&mut secured.notices);
         let recording = self.call_recording(&prepared, &request.api, &mut notices);
         let run_id = recording.as_ref().map_or(0, |recording| recording.id().get());
         let (cx, plugins) = self.adhoc_cx(&prepared, (&[action], run_id), secured).await;

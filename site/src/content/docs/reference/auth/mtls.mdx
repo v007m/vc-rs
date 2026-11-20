@@ -4,21 +4,21 @@ description: "Client certificates for mutual TLS live in http.tls.clients; an au
 sidebar: { order: 9.5 }
 ---
 
-import { Aside, CardGrid, LinkCard } from '@astrojs/starlight/components';
+import { CardGrid, LinkCard } from '@astrojs/starlight/components';
 
 A server that wants mutual TLS asks for a client certificate during the handshake. You list your certificates once under `http.tls.clients` in `vibranium.config.yaml`. A host listed in `hosts` gets its certificate without anything else; an auth definition can name one with `clientCert`, and `type: mtls` sends a certificate and nothing more.
 
 ```yaml title="vibranium.config.yaml (excerpt)"
 http:
   tls:
-    ca: certs/internal-ca.pem
+    ca: ${secret.INTERNAL_CA}
     clients:
       - id: paymentsClient
         hosts: [payments.internal.example, '*.payments.internal.example']
-        cert: certs/payments-client.pem
+        cert: ${secret.PAYMENTS_CLIENT_CERT}
         key: ${secret.PAYMENTS_CLIENT_KEY}
       - id: tenantB
-        pkcs12: certs/tenant-b.p12
+        pkcs12: ${secret.TENANT_B_P12}
         passphrase: ${secret.TENANT_B_PASSPHRASE}
 
 auth:
@@ -32,7 +32,7 @@ auth:
     clientCert: tenantB
 ```
 
-<Aside type="caution">Not built yet: `vc check` does not read the certificate files, so a missing file shows only when a run starts ([#105](https://github.com/v007m/vc-rs/issues/105)).</Aside>
+Here every value comes from a secret: `INTERNAL_CA`, `PAYMENTS_CLIENT_CERT` and `PAYMENTS_CLIENT_KEY` hold inline PEM, and `TENANT_B_P12` holds the path to a bundle your CI writes out. A path written as text, such as `cert: certs/payments-client.pem`, works the same and lets `vc check` read the file before any run ([below](#what-vc-check-and-a-run-read)).
 
 ## Syntax
 
@@ -72,9 +72,9 @@ http:
   tls:
     clients:
       - id: partnerCert
-        cert: certs/partner.pem
-        key: certs/partner-key.pem
-        pkcs12: certs/partner.p12
+        cert: ${secret.PARTNER_CERT}
+        key: ${secret.PARTNER_KEY}
+        pkcs12: ${secret.PARTNER_P12}
 ```
 
 ```console
@@ -82,10 +82,10 @@ $ vc check
 error[V1016]: `partnerCert` gives its certificate two ways
   --> vibranium.config.yaml:11:9
    |
- 9 |         cert: certs/partner.pem
+ 9 |         cert: ${secret.PARTNER_CERT}
    |         ---- and PEM here
-10 |         key: certs/partner-key.pem
-11 |         pkcs12: certs/partner.p12
+10 |         key: ${secret.PARTNER_KEY}
+11 |         pkcs12: ${secret.PARTNER_P12}
    |         ^^^^^^ a PKCS#12 bundle here
    = help: give `cert` and `key` (PEM) or `pkcs12`
 ```
@@ -102,14 +102,52 @@ http:
     clients:
       - id: partnerCert
         hosts: [https://api.partner.example/v1]
-        pkcs12: certs/partner.p12
+        pkcs12: ${secret.PARTNER_P12}
+```
+
+`vc check` reads a file whose path the config writes as text. One that is not there is an error, with the close name in its folder as the fix:
+
+```yaml wrong V2011 title="vibranium.config.yaml"
+syntaxVersion: 2
+profiles:
+  - id: dev
+    default: true
+http:
+  tls:
+    clients:
+      - id: paymentsClient
+        hosts: [payments.internal.example]
+        cert: certs/payments-client.pem
+        key: certs/payments-clinet.key
+```
+
+## What `vc check` and a run read
+
+`vc check` reads each `ca`, `cert`, `key` and `pkcs12` value written as text, for every entry under every profile. A value with a `${…}` in it is read when a run renders it.
+
+| Finding | From `vc check` | When a run starts |
+| --- | --- | --- |
+| A file is missing or cannot be read | error V2011 | stops the run, V5125 |
+| A file does not load (not PEM, no key, an encrypted key, a bad bundle) | error V2012 | stops the run, V5125 |
+| A key is not the certificate's, or a bundle's passphrase is wrong | error V2012 | stops the run, V5126 |
+| A client certificate expires within 30 days, or today | warning V3107 | warning V3107 |
+| A client certificate has expired, or is not valid yet | warning V3108 | warning V3108 |
+| A `key` or `pkcs12` file its group or others can read (Linux, macOS) | warning V4012 | warning V4012 |
+
+Days are counted in UTC, and only the client's own certificate is dated, not the rest of its chain or the `ca` roots. A run's warnings do not fail it; they print once the run ends, and name the entry and its key, never a path rendered from a secret:
+
+```console
+$ vc run
+...
+warning[V3107]: client certificate `paymentsClient`, its `cert` expires on 2026-12-01, within 30 days; renew it before then and point the config at the new one; after that servers refuse it at the handshake
+warning[V4012]: client certificate `tenantB`, its `pkcs12`: its file is open to other users (mode 644); make it readable by you alone with `chmod 600`
 ```
 
 ## How it behaves
 
 - A request presents the `clientCert` of its auth when it has one. Otherwise it presents the first entry whose `hosts` match the URL's host and whose `profiles` include an active profile. Otherwise it presents none.
 - The `oauth2*` types present their `clientCert` on the token request too, for certificate-bound tokens (RFC 8705).
-- A run reads the certificates its profiles use once, when it starts; an entry only for other profiles is not read. A file is at most 1 MiB.
+- A run reads the certificates its profiles use once, when it starts; an entry only for other profiles is not read. A file is at most 1 MiB. Problems `vc check` cannot see, in a value rendered from a secret, show then.
 - A `passphrase`, and a `key` given as inline PEM (written, or rendered from a secret, an env var or a var), are masked in all output, like a secret: as written, trimmed, with LF line ends, and each line of the key's body of 16 characters or more.
 - Certificates are always verified. `ca` adds roots; nothing turns verification off.
 
@@ -120,8 +158,13 @@ http:
 - [V1017](/vc-rs/reference/diagnostics/v1017/): a `hosts` item is not a host pattern.
 - [V2002](/vc-rs/reference/diagnostics/v2002/): `clientCert` names no `clients` entry, or an entry's `profiles` names no profile.
 - [V2006](/vc-rs/reference/diagnostics/v2006/): an entry's `id` is `none`.
+- [V2011](/vc-rs/reference/diagnostics/v2011/): a path written as text names a file that cannot be read.
+- [V2012](/vc-rs/reference/diagnostics/v2012/): a file written as text does not load, or its parts do not fit.
 - [V2105](/vc-rs/reference/diagnostics/v2105/): a setting, or a var it reads, reads a root other than `var`, `secret` or `env`.
 - [V2211](/vc-rs/reference/diagnostics/v2211/): `cert` without `key`, `key` without `cert`, or `passphrase` without `pkcs12`.
+- [V3107](/vc-rs/reference/diagnostics/v3107/): a client certificate expires within 30 days.
+- [V3108](/vc-rs/reference/diagnostics/v3108/): a client certificate has expired, or is not valid yet.
+- [V4012](/vc-rs/reference/diagnostics/v4012/): a key or bundle file others can read.
 - [V4013](/vc-rs/reference/diagnostics/v4013/): a key or passphrase is written in the config.
 - [V5114](/vc-rs/reference/diagnostics/v5114/): a call's `clientCert` names an entry that is only for other profiles.
 - [V5125](/vc-rs/reference/diagnostics/v5125/): a certificate, key or bundle cannot be read when the run starts.
