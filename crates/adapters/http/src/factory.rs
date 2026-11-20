@@ -10,10 +10,10 @@ use vc_interfaces::{
 };
 use zeroize::Zeroizing;
 
-use crate::hosts::ClientTable;
+use crate::hosts::HostRules;
 use crate::material::read_material;
 use crate::tls::{add_ca, with_native};
-use crate::{ClientIdentity, HttpAdapterError, HttpOptions, HttpTransport, ProxyConfig, TlsOptions};
+use crate::{ClientIdentity, HttpAdapterError, HttpOptions, HttpTransport, ProxyConfig};
 
 /// Builds the [`HttpTransport`] for a run's `http.tls`, through the proxy its environment names;
 /// or, made [`fixed`](Self::fixed), checks the material the same way and gives the one transport
@@ -46,28 +46,28 @@ impl fmt::Debug for HttpTransports {
 
 impl TransportFactory for HttpTransports {
     fn build(&self, tls: &TlsSpec, environment: &dyn Environment) -> Result<Arc<dyn Transport>, TlsError> {
-        let (roots, clients) = parsed(tls)?;
+        let (roots, checked) = parsed(tls)?;
         if let Some(transport) = &self.fixed {
             return Ok(Arc::clone(transport));
         }
         let proxy = ProxyConfig::from_env(|name| environment.var(name));
-        let options = HttpOptions { proxy, tls: TlsOptions { ca: Vec::new(), clients }, ..HttpOptions::default() };
-        let transport = HttpTransport::with_roots(&with_native(roots), &options);
+        let options = HttpOptions { proxy, ..HttpOptions::default() };
+        let transport = HttpTransport::with_roots(&with_native(roots), &options, checked);
         Ok(Arc::new(transport.map_err(|error| refused(error, None))?))
     }
 }
 
 /// `tls`'s `ca` entries, parsed into roots, and its identities, each parsed into its signer and
-/// its host rules checked.
-fn parsed(tls: &TlsSpec) -> Result<(RootCertStore, Vec<ClientIdentity>), TlsError> {
+/// its host rules parsed and checked, once: a bad rule names the client's `hosts`.
+fn parsed(tls: &TlsSpec) -> Result<(RootCertStore, HostRules), TlsError> {
     let ca = tls.ca.iter().enumerate();
     let ca = ca.map(|(index, source)| read(source, &TlsPart::Ca(index)).map(|mut bytes| std::mem::take(&mut *bytes)));
     let ca: Vec<_> = ca.collect::<Result<_, _>>()?;
     let mut roots = RootCertStore::empty();
     add_ca(&mut roots, &ca).map_err(|error| refused(error, None))?;
     let clients: Vec<_> = tls.clients.iter().map(identity).collect::<Result<_, _>>()?;
-    ClientTable::new(&clients, (), |_| Ok(())).map_err(|error| refused(error, None))?;
-    Ok((roots, clients))
+    let checked = HostRules::check(clients).map_err(|error| refused(error, Some("hosts")))?;
+    Ok((roots, checked))
 }
 
 /// `client`'s identity, its files read, a bundle decrypted and a PEM pair parsed.

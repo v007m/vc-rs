@@ -51,12 +51,13 @@ async fn reads_files_and_inline_pem_and_parses_each_part_once() -> Result<(), Tl
     let pem = client("pem", ClientSource::Pem { cert: fixture("ec.pem"), key: inline(KEY) });
     let spec =
         TlsSpec { ca: vec![inline(RSA), fixture("ec.pem")], clients: vec![pem, client("p12", bundle("fixture"))] };
-    let (roots, clients) = parsed(&spec)?;
+    let (roots, checked) = parsed(&spec)?;
+    let clients = checked.identities();
     assert_eq!(roots.len(), 2, "each `ca` entry parsed into a root");
     let hosts: Vec<_> = clients.iter().map(|identity| (identity.id(), identity.host_rules())).collect();
     assert_eq!(hosts, [("pem", &["pem.test".to_owned()][..]), ("p12", &["p12.test".to_owned()][..])]);
     let want = ClientIdentity::pem("pem", CERT.to_vec(), KEY.to_vec()).hosts(vec!["pem.test".into()]).parsed();
-    assert_eq!(Ok(&clients[0]), want.as_ref(), "the PEM pair is parsed into its signer");
+    assert_eq!(Ok(clients[0]), want.as_ref(), "the PEM pair is parsed into its signer");
     build(&spec)
 }
 
@@ -119,6 +120,7 @@ async fn checks_each_ca_entry_that_a_pem_key_fits_and_each_host_rule() {
     hosts.hosts = vec!["https://a.test/".into()];
     let fixed = HttpTransports::fixed(Arc::new(FakeTransport::new(|_, _| Ok(status(200)))));
     let rule = build_with(&fixed, &TlsSpec { clients: vec![hosts], ..TlsSpec::default() }).map(|_| ());
+    let part = TlsPart::Client { id: "good".into(), field: Some("hosts") };
     assert!(matches!(&rule, Err(TlsError::Unusable { part: at, .. }) if *at == part), "{rule:?}");
 }
 

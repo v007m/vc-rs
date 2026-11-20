@@ -45,6 +45,35 @@ struct Entry<C> {
     client: C,
 }
 
+/// Client identities with their host rules, each parsed and checked once.
+#[derive(Debug)]
+pub struct HostRules {
+    identities: Vec<(ClientIdentity, Vec<HostRule>)>,
+}
+
+impl HostRules {
+    /// `identities` with each `hosts` rule parsed.
+    ///
+    /// # Errors
+    ///
+    /// [`HttpAdapterError::Identity`] naming the first identity with a rule that is not a host
+    /// pattern.
+    pub fn check(identities: Vec<ClientIdentity>) -> Result<Self, HttpAdapterError> {
+        let parse = |identity: ClientIdentity| {
+            let rules = identity.host_rules().iter().map(|rule| HostRule::parse(rule));
+            let rules = rules.collect::<Result<Vec<_>, _>>().map_err(|reason| identity.error(reason))?;
+            Ok((identity, rules))
+        };
+        Ok(Self { identities: identities.into_iter().map(parse).collect::<Result<_, _>>()? })
+    }
+
+    /// The identities, in order.
+    #[cfg(test)]
+    pub fn identities(&self) -> Vec<&ClientIdentity> {
+        self.identities.iter().map(|(identity, _)| identity).collect()
+    }
+}
+
 /// The client for each identity, with its host rules, and the client that sends no certificate.
 #[derive(Debug)]
 pub struct ClientTable<C> {
@@ -53,18 +82,20 @@ pub struct ClientTable<C> {
 }
 
 impl<C> ClientTable<C> {
-    /// `none` sends no certificate; `client` builds the client for each identity, in order.
+    /// `none` sends no certificate; `client` builds the client for each identity of `checked`,
+    /// in order, its rules parsed already.
+    ///
+    /// # Errors
+    ///
+    /// The first error `client` gives.
     pub fn new(
-        identities: &[ClientIdentity],
+        checked: HostRules,
         none: C,
         mut client: impl FnMut(&ClientIdentity) -> Result<C, HttpAdapterError>,
     ) -> Result<Self, HttpAdapterError> {
-        let mut entry = |identity: &ClientIdentity| {
-            let rules = identity.host_rules().iter().map(|rule| HostRule::parse(rule));
-            let rules = rules.collect::<Result<Vec<_>, _>>().map_err(|reason| identity.error(reason))?;
-            Ok(Entry { rules, client: client(identity)? })
-        };
-        Ok(Self { none, identities: identities.iter().map(&mut entry).collect::<Result<_, _>>()? })
+        let entry =
+            |(identity, rules): (ClientIdentity, Vec<HostRule>)| Ok(Entry { rules, client: client(&identity)? });
+        Ok(Self { none, identities: checked.identities.into_iter().map(entry).collect::<Result<_, _>>()? })
     }
 
     /// The client for `choice` on `uri`, matching the URL's own host; `None` for an unknown identity.
@@ -97,7 +128,7 @@ mod tests {
     use http::Uri;
     use vc_interfaces::{CertChoice, CertId};
 
-    use super::{ClientTable, HostRule};
+    use super::{ClientTable, HostRule, HostRules};
     use crate::{ClientIdentity, HttpAdapterError};
 
     /// The table with client `i + 1` for identity `i`, and client 0 sending no certificate.
@@ -111,7 +142,7 @@ mod tests {
             next += 1;
             Ok(next)
         };
-        ClientTable::new(&hosts.iter().enumerate().map(identity).collect::<Vec<_>>(), 0, client)
+        ClientTable::new(HostRules::check(hosts.iter().enumerate().map(identity).collect())?, 0, client)
     }
 
     fn slot(table: &ClientTable<usize>, url: &str) -> Option<usize> {
