@@ -44,6 +44,7 @@ mod report_dir;
 mod reports;
 mod scheduling;
 mod spec_headers;
+mod sse;
 mod teardown;
 mod timing;
 mod tui;
