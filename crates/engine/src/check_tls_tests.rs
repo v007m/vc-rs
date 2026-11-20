@@ -4,8 +4,8 @@ use std::sync::mpsc::{Receiver, Sender, channel};
 
 use vc_diagnostics::{Code, Diagnostic};
 use vc_interfaces::{
-    Environment, MaterialSource, SourceProvider, TlsError, TlsFinding, TlsPart, TlsProbe, TlsSpec, Transport,
-    TransportFactory,
+    Environment, MaterialSource, SourceProvider, TlsError, TlsFinding, TlsPart, TlsProbe, TlsSpec, TransportFactory,
+    TransportPorts,
 };
 use vc_model::Date;
 use vc_testkit::{FakeVcs, FixedClock, MemoryCompileCache, MemoryEnvironment, MemorySources};
@@ -26,7 +26,7 @@ struct Scripted {
 }
 
 impl TransportFactory for Scripted {
-    fn build(&self, _tls: &TlsSpec, _environment: &dyn Environment) -> Result<Arc<dyn Transport>, TlsError> {
+    fn build(&self, _tls: &TlsSpec, _environment: &dyn Environment) -> Result<TransportPorts, TlsError> {
         Err(TlsError::Transport { reason: "a check builds no transport".to_owned() })
     }
 

@@ -1784,6 +1784,15 @@ impl core::default::Default for vc_interfaces::TlsSpec
 pub fn vc_interfaces::TlsSpec::default() -> Self
 impl core::fmt::Debug for vc_interfaces::TlsSpec
 pub fn vc_interfaces::TlsSpec::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct vc_interfaces::TransportPorts
+pub vc_interfaces::TransportPorts::streams: core::option::Option<alloc::rcs::arc::Arc<dyn vc_interfaces::StreamTransport>>
+pub vc_interfaces::TransportPorts::transport: alloc::rcs::arc::Arc<dyn vc_interfaces::Transport>
+impl core::clone::Clone for vc_interfaces::TransportPorts
+pub fn vc_interfaces::TransportPorts::clone(&self) -> Self
+impl core::convert::From<alloc::rcs::arc::Arc<dyn vc_interfaces::Transport>> for vc_interfaces::TransportPorts
+pub fn vc_interfaces::TransportPorts::from(alloc::rcs::arc::Arc<dyn vc_interfaces::Transport>) -> Self
+impl core::fmt::Debug for vc_interfaces::TransportPorts
+pub fn vc_interfaces::TransportPorts::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 #[non_exhaustive] pub struct vc_interfaces::WatchError
 pub vc_interfaces::WatchError::reason: alloc::string::String
 impl vc_interfaces::WatchError
@@ -1928,7 +1937,7 @@ pub fn vc_interfaces::StreamTransport::open<'life0, 'life1, 'async_trait>(&'life
 pub trait vc_interfaces::Transport: core::marker::Send + core::marker::Sync
 pub fn vc_interfaces::Transport::send<'life0, 'life1, 'async_trait>(&'life0 self, vc_model::exchange::RenderedRequest, &'life1 vc_interfaces::SendContext) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::result::Result<vc_model::exchange::Exchange, vc_interfaces::TransportError>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait, 'life1: 'async_trait
 pub trait vc_interfaces::TransportFactory: core::marker::Send + core::marker::Sync
-pub fn vc_interfaces::TransportFactory::build(&self, &vc_interfaces::TlsSpec, &dyn vc_interfaces::Environment) -> core::result::Result<alloc::rcs::arc::Arc<dyn vc_interfaces::Transport>, vc_interfaces::TlsError>
+pub fn vc_interfaces::TransportFactory::build(&self, &vc_interfaces::TlsSpec, &dyn vc_interfaces::Environment) -> core::result::Result<vc_interfaces::TransportPorts, vc_interfaces::TlsError>
 pub fn vc_interfaces::TransportFactory::inspect(&self, &[vc_interfaces::TlsProbe]) -> alloc::vec::Vec<vc_interfaces::TlsFinding>
 pub trait vc_interfaces::Vcs: core::marker::Send + core::marker::Sync
 pub fn vc_interfaces::Vcs::changed(&self, &str) -> core::result::Result<alloc::vec::Vec<vc_model::source::SourcePath>, vc_interfaces::VcsError>

@@ -66,8 +66,8 @@ impl Engine {
             return Vec::new();
         }
         let environment = self.environment.clone().unwrap_or_else(|| Arc::new(SystemEnvironment::capture()));
-        let Ok(transport) = self.transports.build(&TlsSpec::default(), environment.as_ref()) else { return Vec::new() };
-        bad_settings(files, program, self.notifiers(transport).as_ref())
+        let Ok(ports) = self.transports.build(&TlsSpec::default(), environment.as_ref()) else { return Vec::new() };
+        bad_settings(files, program, self.notifiers(ports.transport).as_ref())
     }
 }
 

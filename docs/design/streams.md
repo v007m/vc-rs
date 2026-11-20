@@ -206,7 +206,7 @@ How the port is used:
   - It sends and reads against the call's deadline.
   - It feeds the cursor and builds `response.messages` and `response.exchange`.
 - `vc-model`'s `Exchange` gains `messages: Vec<StreamMessage>`, empty for `http` and `graphql`. It flows to history and reports through `RedactingSink` like bodies do.
-- The engine hands the executor the stream port `EngineBuilder::stream_transport` names; without one, a stream call fails with "`sse` calls need a stream transport, and none is set" and sends nothing. PR 5 makes the HTTP adapter the default.
+- The engine hands the executor the stream port `EngineBuilder::stream_transport` names; without one, the transport factory's stream port (D428), which for the HTTP adapter is the run's `HttpTransport`; with neither, a stream call fails with "`sse` calls need a stream transport, and none is set" and sends nothing.
 
 ## Decisions (Round 79)
 
