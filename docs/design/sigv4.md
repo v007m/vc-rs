@@ -217,7 +217,7 @@ How the parts fit:
 | D444 | `vc new auth` writes `accessKeyId`, `secretAccessKey` and `sessionToken` only as templates; `region` and `service` are the author's (V1005). |
 | D445 | An empty literal `region` or `service` is V2316 too, with no fix; the fix quotes only where YAML needs it. |
 | D446 | A literal `secretAccessKey` or `sessionToken` is V4014 and masked in any auth, whatever its `type`; a config that does not parse masks every value of those keys. The access key ID is not a secret at check time. |
-| D447 | Unusable rendered settings are V5114 (`AuthError::Missing`); the key names the rule broken, never the value. |
+| D447 | Unusable rendered settings are V5114 (`AuthError::Missing`); the key names the rule broken, never the value. An `accessKeyId` may not hold spaces, `/`, `,` or `=`; a non-text `sessionToken` or `payload` breaks its rule. |
 | D448 | `authorization` and `x-amz-security-token` are sensitive on the request; `x-amz-date` and `x-amz-content-sha256` are not. |
 | D449 | The vector parser unfolds continued headers, encodes raw request-line bytes once, and keeps `x-amz-content-sha256` only for `sign_body`. |
 | D450 | 33 of 38 vectors run; five are skipped with reasons. The presigned (query) files are not read. |
