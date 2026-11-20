@@ -45,10 +45,11 @@ impl Canonical {
     }
 }
 
-/// The canonical request for `request`, whose body hashes to `payload`, by S3's rules when `s3`.
+/// The canonical request for `request`, whose body hashes to `payload`. With `s3`, the path is
+/// signed as sent: the signer has already rewritten it with [`s3_uri`].
 pub fn request(request: &RenderedRequest, payload: &str, s3: bool) -> Canonical {
     let mut text = Vec::with_capacity(512);
-    let path = if s3 { s3_path(request.uri.path()) } else { path(request.uri.path()) };
+    let path = if s3 { sent(request.uri.path()) } else { path(request.uri.path()) };
     for line in [request.method.as_str(), &path, &query(request.uri.query())] {
         text.extend_from_slice(line.as_bytes());
         text.push(b'\n');
@@ -77,10 +78,12 @@ pub fn s3_uri(uri: Uri) -> Uri {
 /// An S3 path: not normalised, each segment decoded and then encoded once. A `%` without two
 /// hex digits after it is a literal `%`.
 fn s3_path(path: &str) -> String {
-    if path.is_empty() {
-        return "/".to_owned();
-    }
-    path.split('/').map(encoded).collect::<Vec<_>>().join("/")
+    sent(&path.split('/').map(encoded).collect::<Vec<_>>().join("/"))
+}
+
+/// `path` as sent, `/` when it is empty.
+fn sent(path: &str) -> String {
+    if path.is_empty() { "/".to_owned() } else { path.to_owned() }
 }
 
 /// Any other service's path: normalised, then encoded again (AWS's double encoding).

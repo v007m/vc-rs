@@ -16,6 +16,7 @@ use std::fmt;
 
 use http::HeaderValue;
 use http::header::AUTHORIZATION;
+use serde_json::Value;
 use vc_interfaces::{AuthError, AuthRequest, Secret};
 use vc_model::RenderedRequest;
 
@@ -28,8 +29,9 @@ const UNSIGNED: &str = "UNSIGNED-PAYLOAD";
 const DATE: &str = "x-amz-date";
 const CONTENT: &str = "x-amz-content-sha256";
 const TOKEN: &str = "x-amz-security-token";
-const KEY_ID_RULE: &str = "accessKeyId: printable ASCII with no / or spaces";
+const KEY_ID_RULE: &str = "accessKeyId: printable ASCII with no spaces, /, comma or =";
 const TOKEN_RULE: &str = "sessionToken: a header value, with no line breaks";
+const PAYLOAD_RULE: &str = "payload: signed or unsigned";
 
 /// What the canonical request holds for the body (`payload`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -60,24 +62,15 @@ impl SigV4 {
     /// # Errors
     ///
     /// [`AuthError::Missing`], naming the key and never a value: an empty `accessKeyId` or
-    /// `secretAccessKey`, an `accessKeyId` holding `/` or whitespace, a `region` or `service`
-    /// that is not lowercase letters, digits and `-`, a `sessionToken` that cannot be a header
-    /// value, or a `payload` other than `signed` or `unsigned`.
+    /// `secretAccessKey`, an `accessKeyId` holding whitespace, `/`, `,` or `=` (which would
+    /// break the `authorization` value), a `region` or `service` that is not lowercase letters,
+    /// digits and `-`, a `sessionToken` that is not text or cannot be a header value, or a
+    /// `payload` other than `signed` or `unsigned`.
     pub fn from_request(request: &AuthRequest) -> Result<Self, AuthError> {
-        let missing = |key: &str| AuthError::Missing { auth: request.auth.clone(), key: key.to_owned() };
         let key_id = filled(request, "accessKeyId")?;
-        if !key_id.bytes().all(|byte| byte.is_ascii_graphic() && byte != b'/') {
-            return Err(missing(KEY_ID_RULE));
+        if !key_id.bytes().all(|byte| byte.is_ascii_graphic() && !b"/,=".contains(&byte)) {
+            return Err(missing(request, KEY_ID_RULE));
         }
-        let token = request.text("sessionToken").filter(|token| !token.is_empty());
-        if token.is_some_and(|token| HeaderValue::from_str(token).is_err()) {
-            return Err(missing(TOKEN_RULE));
-        }
-        let payload = match request.text("payload") {
-            None | Some("signed") => Payload::Signed,
-            Some("unsigned") => Payload::Unsigned,
-            Some(_) => return Err(missing("payload: signed or unsigned")),
-        };
         let service = scope_name(request, "service")?;
         Ok(Self {
             auth: request.auth.clone(),
@@ -86,8 +79,8 @@ impl SigV4 {
             service,
             key_id: key_id.to_owned(),
             secret: Secret::new(filled(request, "secretAccessKey")?),
-            token: token.map(Secret::new),
-            payload,
+            token: token(request)?,
+            payload: payload(request)?,
         })
     }
 
@@ -180,11 +173,44 @@ fn string_to_sign(stamp: &str, scope: &str, canonical: &[u8]) -> String {
     format!("{ALGORITHM}\n{stamp}\n{scope}\n{}", crypto::sha256_hex(canonical))
 }
 
+/// `sessionToken`: none when it is absent or renders empty.
+fn token(request: &AuthRequest) -> Result<Option<Secret>, AuthError> {
+    let token = optional(request, "sessionToken", TOKEN_RULE)?.filter(|token| !token.is_empty());
+    if token.is_some_and(|token| HeaderValue::from_str(token).is_err()) {
+        return Err(missing(request, TOKEN_RULE));
+    }
+    Ok(token.map(Secret::new))
+}
+
+/// `payload`: `signed` when it is absent.
+fn payload(request: &AuthRequest) -> Result<Payload, AuthError> {
+    match optional(request, "payload", PAYLOAD_RULE)? {
+        None | Some("signed") => Ok(Payload::Signed),
+        Some("unsigned") => Ok(Payload::Unsigned),
+        Some(_) => Err(missing(request, PAYLOAD_RULE)),
+    }
+}
+
+/// The optional setting `key`: none when absent or null, and `rule` as the error when it is
+/// anything but text.
+fn optional<'r>(request: &'r AuthRequest, key: &str, rule: &str) -> Result<Option<&'r str>, AuthError> {
+    match request.settings.get(key) {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::String(text)) => Ok(Some(text)),
+        Some(_) => Err(missing(request, rule)),
+    }
+}
+
+/// The error for the setting `key`, or the rule it breaks.
+fn missing(request: &AuthRequest, key: &str) -> AuthError {
+    AuthError::Missing { auth: request.auth.clone(), key: key.to_owned() }
+}
+
 /// The setting `key`, which must be non-empty text.
 fn filled<'r>(request: &'r AuthRequest, key: &str) -> Result<&'r str, AuthError> {
     let value = required(request, key)?;
     if value.is_empty() {
-        return Err(AuthError::Missing { auth: request.auth.clone(), key: key.to_owned() });
+        return Err(missing(request, key));
     }
     Ok(value)
 }
@@ -195,5 +221,5 @@ fn scope_name(request: &AuthRequest, key: &str) -> Result<String, AuthError> {
     if value.bytes().all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-') {
         return Ok(value.to_owned());
     }
-    Err(AuthError::Missing { auth: request.auth.clone(), key: format!("{key}: lowercase letters, digits and -") })
+    Err(missing(request, &format!("{key}: lowercase letters, digits and -")))
 }

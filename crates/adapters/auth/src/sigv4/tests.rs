@@ -1,16 +1,15 @@
-use http::header::{AUTHORIZATION, CONTENT_LENGTH, USER_AGENT};
+use http::header::{AUTHORIZATION, CONTENT_LENGTH, RANGE, USER_AGENT};
 use http::{HeaderValue, Method, Uri};
 use serde_json::{Value, json};
 use vc_interfaces::AuthError;
 use vc_model::RenderedRequest;
 
 use super::crypto::{Moment, hex, hmac};
+use super::vectors::SUITE_MS as NOW;
 use super::{CONTENT, DATE, SigV4, TOKEN, canonical};
 use crate::testing::request;
 
 const SECRET: &str = "wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY";
-/// 2015-08-30T12:36:00Z, the suite's time.
-const NOW: u64 = 1_440_938_160_000;
 
 fn settings(extra: &Value) -> Value {
     let mut settings = json!({
@@ -63,6 +62,27 @@ fn a_signed_request_carries_the_date_the_body_hash_and_the_authorization() {
     assert!(!signed.headers.contains_key(TOKEN));
 }
 
+/// AWS's published S3 "GET Object" example, signed end to end through `sign`.
+#[test]
+fn sign_reproduces_the_aws_s3_get_object_example() {
+    let settings = json!({
+        "region": "us-east-1",
+        "service": "s3",
+        "accessKeyId": "AKIAIOSFODNN7EXAMPLE",
+        "secretAccessKey": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+    });
+    let signer = SigV4::from_request(&request("awsSigV4", &settings)).unwrap();
+    let mut object = get("https://examplebucket.s3.amazonaws.com/test.txt");
+    object.headers.insert(RANGE, HeaderValue::from_static("bytes=0-9"));
+    let sent = signer.sign(object, 1_369_353_600_000).unwrap();
+    assert_eq!(
+        sent.headers[AUTHORIZATION],
+        "AWS4-HMAC-SHA256 Credential=AKIAIOSFODNN7EXAMPLE/20130524/us-east-1/s3/aws4_request, \
+         SignedHeaders=host;range;x-amz-content-sha256;x-amz-date, \
+         Signature=f0e8bdb87c964420e857bd35b5d6ed310bd44f0170aba48dd91039c6036bdb41"
+    );
+}
+
 #[test]
 fn signing_replaces_an_authorization_and_a_date_the_request_already_has() {
     let mut request = get("https://example.amazonaws.com/");
@@ -84,9 +104,11 @@ fn a_session_token_is_sent_signed_and_marked_sensitive() {
 }
 
 #[test]
-fn an_empty_session_token_sends_no_token() {
-    let signed = signer(&json!({"sessionToken": ""})).sign(get("https://e.example/"), NOW).unwrap();
-    assert!(!signed.headers.contains_key(TOKEN));
+fn an_empty_or_null_session_token_sends_no_token() {
+    for token in [json!(""), Value::Null] {
+        let signed = signer(&json!({"sessionToken": token})).sign(get("https://e.example/"), NOW).unwrap();
+        assert!(!signed.headers.contains_key(TOKEN));
+    }
 }
 
 #[test]
@@ -163,14 +185,25 @@ fn the_query_is_decoded_encoded_and_sorted() {
 
 #[test]
 fn each_bad_setting_names_its_key_and_never_its_value() {
-    assert_eq!(missing(&json!({"accessKeyId": ""})), "accessKeyId");
-    assert_eq!(missing(&json!({"secretAccessKey": ""})), "secretAccessKey");
-    assert_eq!(missing(&json!({"accessKeyId": "AKID/EXAMPLE"})), "accessKeyId: printable ASCII with no / or spaces");
-    assert_eq!(missing(&json!({"accessKeyId": "AKID EXAMPLE"})), "accessKeyId: printable ASCII with no / or spaces");
-    assert_eq!(missing(&json!({"region": "US-East-1"})), "region: lowercase letters, digits and -");
-    assert_eq!(missing(&json!({"service": "s3/x"})), "service: lowercase letters, digits and -");
-    assert_eq!(missing(&json!({"sessionToken": "a\nb"})), "sessionToken: a header value, with no line breaks");
-    assert_eq!(missing(&json!({"payload": "streaming"})), "payload: signed or unsigned");
+    const KEY_ID: &str = "accessKeyId: printable ASCII with no spaces, /, comma or =";
+    const TOKEN_RULE: &str = "sessionToken: a header value, with no line breaks";
+    let cases = [
+        (json!({"accessKeyId": ""}), "accessKeyId"),
+        (json!({"secretAccessKey": ""}), "secretAccessKey"),
+        (json!({"accessKeyId": "AKID/EXAMPLE"}), KEY_ID),
+        (json!({"accessKeyId": "AKID EXAMPLE"}), KEY_ID),
+        (json!({"accessKeyId": "AKID,X"}), KEY_ID),
+        (json!({"accessKeyId": "AKID=X"}), KEY_ID),
+        (json!({"region": "US-East-1"}), "region: lowercase letters, digits and -"),
+        (json!({"service": "s3/x"}), "service: lowercase letters, digits and -"),
+        (json!({"sessionToken": "a\nb"}), TOKEN_RULE),
+        (json!({"sessionToken": 12}), TOKEN_RULE),
+        (json!({"payload": "streaming"}), "payload: signed or unsigned"),
+        (json!({"payload": false}), "payload: signed or unsigned"),
+    ];
+    for (extra, key) in cases {
+        assert_eq!(missing(&extra), key, "{extra}");
+    }
 }
 
 #[test]

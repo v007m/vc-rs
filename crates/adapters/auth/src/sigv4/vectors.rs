@@ -9,7 +9,7 @@ use http::{HeaderMap, HeaderName, HeaderValue, Method, Uri};
 use percent_encoding::{AsciiSet, CONTROLS, percent_encode};
 use serde_json::{Map, Value, json};
 use vc_interfaces::AuthRequest;
-use vc_model::{Date, RenderedRequest};
+use vc_model::RenderedRequest;
 
 use super::crypto::Moment;
 use super::{CONTENT, SigV4, canonical, string_to_sign};
@@ -17,6 +17,10 @@ use super::{CONTENT, SigV4, canonical, string_to_sign};
 /// The bytes of a request line that a URL cannot hold raw, encoded as a rendered URL has them
 /// (D278); `percent_encode` encodes every byte outside ASCII too.
 const RAW: &AsciiSet = &CONTROLS.add(b' ');
+
+/// Every case's time, `2015-08-30T12:36:00Z`, in milliseconds since the Unix epoch.
+pub const SUITE_MS: u64 = 1_440_938_160_000;
+const SUITE_TIME: &str = "2015-08-30T12:36:00Z";
 
 /// The cases that do not run, and why.
 const SKIPPED: [(&str, &str); 5] = [
@@ -51,24 +55,6 @@ fn cases() -> Vec<PathBuf> {
 
 fn read(case: &Path, file: &str) -> String {
     fs::read_to_string(case.join(file)).unwrap()
-}
-
-/// Days from 1970-01-01 to `date` (Howard Hinnant's `days_from_civil`).
-fn unix_days(date: Date) -> i64 {
-    let (month, day) = (i64::from(date.month()), i64::from(date.day()));
-    let year = i64::from(date.year()) - i64::from(month <= 2);
-    let era = year.div_euclid(400);
-    let of_era = year - era * 400;
-    let of_year = (153 * (month + if month > 2 { -3 } else { 9 }) + 2) / 5 + day - 1;
-    era * 146_097 + of_era * 365 + of_era / 4 - of_era / 100 + of_year - 719_468
-}
-
-/// `2015-08-30T12:36:00Z` in milliseconds since the Unix epoch.
-fn unix_ms(stamp: &str) -> u64 {
-    let (date, time) = stamp.trim_end_matches('Z').split_once('T').unwrap();
-    let seconds: Vec<i64> = time.split(':').map(|part| part.parse().unwrap()).collect();
-    let total = unix_days(Date::parse(date).unwrap()) * 86_400 + seconds[0] * 3600 + seconds[1] * 60 + seconds[2];
-    u64::try_from(total).unwrap() * 1000
 }
 
 /// The signer for a case's context: S3's rules when it does not normalise.
@@ -130,8 +116,9 @@ fn expected_authorization(case: &Path) -> String {
 fn check(case: &Path) {
     let name = case.file_name().unwrap().to_string_lossy().into_owned();
     let context: Value = serde_json::from_str(&read(case, "context.json")).unwrap();
+    assert_eq!(context["timestamp"], SUITE_TIME, "{name}: the suite's time");
     let signer = signer(&context);
-    let moment = Moment::at(unix_ms(context["timestamp"].as_str().unwrap()));
+    let moment = Moment::at(SUITE_MS);
     let payload = signer.payload_hash(&parse(&read(case, "request.txt")).body);
     let mut request = signer.stamp(parse(&read(case, "request.txt")), &moment, &payload).unwrap();
     if context["sign_body"] != json!(true) {
@@ -174,10 +161,4 @@ fn the_suite_carries_its_licence_and_source_commit() {
     assert!(read(&suite(), "LICENSE").contains("Apache License"));
     assert!(read(&suite(), "NOTICE").contains("SPDX-License-Identifier: Apache-2.0"));
     assert!(read(&suite(), "SOURCE").contains("f556deacd6e6d9dbf540ff00a9bf383688076874"));
-}
-
-#[test]
-fn the_suite_time_is_its_own_date() {
-    let moment = Moment::at(unix_ms("2015-08-30T12:36:00Z"));
-    assert_eq!((moment.date.as_str(), moment.stamp.as_str()), ("20150830", "20150830T123600Z"));
 }
