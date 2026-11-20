@@ -63,7 +63,9 @@ async fn an_sse_call_reads_its_events_through_the_builder_s_stream_transport() {
         json!({"event": "message", "data": 1, "id": "1", "text": "1"}),
         json!({"event": "message", "data": 2, "id": "2", "text": "2"}),
     );
-    assert_eq!(report.response.unwrap()["messages"], json!([one, two]));
+    let response = report.response.unwrap();
+    assert_eq!(response["messages"], json!([one, two]));
+    assert_eq!(response["exchange"], json!([two]), "the `receive` item's message");
     assert_eq!(streams.calls(), 1);
 }
 
@@ -73,7 +75,9 @@ async fn a_websocket_call_sends_and_receives_through_the_builder_s_stream_transp
     assert_eq!(report.exit, 0, "{}", report.text);
     let echoed = json!({"type": "text", "data": "hi", "text": "hi"});
     let closed = json!({"type": "close", "code": 1000, "reason": "bye"});
-    assert_eq!(report.response.unwrap()["messages"], json!([echoed, closed]));
+    let response = report.response.unwrap();
+    assert_eq!(response["messages"], json!([echoed, closed]));
+    assert_eq!(response["exchange"], json!(["hi", echoed, "bye", closed]));
 }
 
 #[tokio::test]
