@@ -102,7 +102,7 @@ async fn builds_with_the_roots_and_the_identities_the_active_profiles_allow() {
 #[tokio::test]
 async fn a_root_alone_builds_and_no_tls_builds_a_plain_transport() {
     let pki = TestPki::new().unwrap();
-    let inline = format!("    ca: \"{}\"\n", pki.ca_pem().replace('\n', "\\n"));
+    let inline = format!("    ca: \"{}\"\n", pki.ca_pem().replace('\r', "\\r").replace('\n', "\\n"));
     let (builder, mut read) = memory_pki(&pki);
     run_with(builder, &inline, ("dev", &[])).await.unwrap();
     let built = read.try_recv().unwrap();

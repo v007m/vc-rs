@@ -293,7 +293,7 @@ async fn a_trimmed_or_lf_copy_of_a_crlf_key_is_masked_where_a_run_echoes_it() {
         "services/echo/key.test.yaml",
         "tests:\n  - id: echoesTheKey\n    call: echo#send\n    expect: {status: 418}\n",
     );
-    let crlf = format!("\r\n{}\r\n", pki.good().key_pem().replace('\n', "\r\n"));
+    let crlf = format!("\r\n{}\r\n", pki.good().key_pem().replace("\r\n", "\n").replace('\n', "\r\n"));
     let mut run = project.run(&server.base_url(), &["echo.key", "--report", "ctrf", "--out", "out"]);
     let run = run.env("K", &crlf).env("KT", crlf.trim()).env("KL", crlf.trim().replace("\r\n", "\n")).output().unwrap();
     assert_eq!(run.status.code(), Some(1), "the echo fails its check: {}", said(&run));
