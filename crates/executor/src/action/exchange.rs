@@ -61,9 +61,10 @@ impl ExchangeCursor {
     /// A cursor before the first of `items`.
     #[must_use]
     pub fn new(items: Vec<Item>) -> Self {
-        let at = past_empty_groups(&items, 0);
-        let pairing = group_pairing(&items, at);
-        Self { items, at, fed: 0, since: 0, kept: Vec::new(), pairing }
+        let mut cursor =
+            Self { items, at: 0, fed: 0, since: 0, kept: Vec::new(), pairing: Pairing::new(Vec::new(), 0) };
+        cursor.pass_empty_groups();
+        cursor
     }
 
     /// The `send` item to send now, if the exchange is at one; the cursor moves past it.
@@ -130,7 +131,10 @@ impl ExchangeCursor {
 
     /// The waiting group's size.
     fn group(&self) -> Option<usize> {
-        group(&self.items, self.at)
+        match self.items.get(self.at) {
+            Some(&Item::Receive(size)) => Some(size),
+            _ => None,
+        }
     }
 
     /// The message each of the waiting group's entries is paired with, if any.
@@ -148,28 +152,12 @@ impl ExchangeCursor {
     /// is to refuse an empty list, so this only guards the cursor. The group it stops at starts
     /// with no messages kept.
     fn pass_empty_groups(&mut self) {
-        self.at = past_empty_groups(&self.items, self.at);
+        while self.items.get(self.at) == Some(&Item::Receive(0)) {
+            self.at += 1;
+        }
         self.kept.clear();
-        self.pairing = group_pairing(&self.items, self.at);
+        self.pairing = Pairing::new(vec![Vec::new(); self.group().unwrap_or(0)], 0);
     }
-}
-
-/// The size of the `receive` group at `at` in `items`, if one is there.
-fn group(items: &[Item], at: usize) -> Option<usize> {
-    match items.get(at) {
-        Some(&Item::Receive(size)) => Some(size),
-        _ => None,
-    }
-}
-
-/// The first item from `at` on that is not a `receive` group with no entries.
-fn past_empty_groups(items: &[Item], at: usize) -> usize {
-    at + items.iter().skip(at).take_while(|&&item| item == Item::Receive(0)).count()
-}
-
-/// An empty pairing for the entries of the group at `at`, none when no group is there.
-fn group_pairing(items: &[Item], at: usize) -> Pairing {
-    Pairing::new(vec![Vec::new(); group(items, at).unwrap_or(0)], 0)
 }
 
 #[cfg(test)]
