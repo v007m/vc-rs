@@ -28,6 +28,7 @@ pub fn read(source: &Source<'_>, node: Option<&Node>, origin: Origin) -> Expect 
     reader.cel(node.get("cel"));
     reader.custom(node.get("custom"));
     reader.errors(node.get("errors"));
+    reader.matcher(CheckKind::Messages, node.get("messages"), None);
     Expect { checks: reader.checks, replace: read::flag(shapes::expect(), node, "replace") }
 }
 

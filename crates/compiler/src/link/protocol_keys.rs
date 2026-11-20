@@ -21,23 +21,23 @@ use crate::shapes::{self, Shape};
 pub type Table = [(Protocol, ProtocolKeys)];
 
 /// The keys a test with `steps` hands each `call` step that does not write its own (D124).
-const INHERITED: [&str; 5] = ["auth", "headers", "query", "body", "poll"];
+const INHERITED: [&str; 6] = ["auth", "headers", "query", "body", "exchange", "poll"];
 
 /// Where a test-level default sits: whether a step writes its own, the keys its type takes
 /// there, and where the help says to move it.
-struct Inherited {
-    own: fn(&Node, &str) -> bool,
+pub struct Inherited {
+    pub own: fn(&Node, &str) -> bool,
     at: At,
     onto: &'static str,
 }
 
 /// A key of the test itself, such as `body`.
-const ON_THE_TEST: Inherited =
+pub const ON_THE_TEST: Inherited =
     Inherited { own: |step, key| step.get(key).is_some(), at: |keys| keys.call, onto: "onto the steps that send one" };
 
 /// A key of the test's `expect`, such as `errors`, which merges into each step's (D123); a step
 /// whose `expect` has `replace: true` inherits none.
-const IN_EXPECT: Inherited = Inherited {
+pub const IN_EXPECT: Inherited = Inherited {
     own: |step, key| {
         let expect = step.get("expect");
         expect.is_some_and(|expect| expect.get(key).is_some() || build::flag(shapes::expect(), expect, "replace"))
@@ -96,7 +96,7 @@ fn allowed(table: &Table, protocol: Protocol) -> Option<&ProtocolKeys> {
 }
 
 /// The type of the api the `call` at `node`, written in `source`, reaches.
-fn reached(project: &Project<'_>, source: &Source<'_>, node: &Node) -> Option<Protocol> {
+pub fn reached(project: &Project<'_>, source: &Source<'_>, node: &Node) -> Option<Protocol> {
     let item = project.apis.get(&source.resolve(project::text(node, "call")?))?;
     Some(project::protocol(project.source(*item).root, item.node))
 }
@@ -151,7 +151,7 @@ fn refused(
 
 /// The tests and actions of `source` that `call` an api, each with that api's type, nested
 /// `cache.check` actions included.
-fn calls<'n>(project: &Project<'n>, source: &Source<'n>) -> Vec<(&'n Node, Protocol)> {
+pub fn calls<'n>(project: &Project<'n>, source: &Source<'n>) -> Vec<(&'n Node, Protocol)> {
     let tests = project::list(source.root, "tests").iter().filter(|_| source.kind == FileKind::Test);
     let callers = tests.chain(project::actions(source)).flat_map(nested);
     let reached = |node: &'n Node| Some((node, reached(project, source, node)?));
