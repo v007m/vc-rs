@@ -121,8 +121,8 @@ impl StreamTransport for FakeStreamTransport {
 }
 
 /// A scripted stream: it yields its frames, and an echo stream also what is sent on it. A
-/// scripted stream ends when its frames run out; an echo stream with nothing queued waits, as a
-/// server that has not answered yet does, since only `send` or `close` can change that.
+/// scripted stream ends when its frames run out; an echo stream with nothing queued waits as a
+/// silent server would, and the caller's timeout ends it.
 struct FakeStream {
     mode: StreamMode,
     incoming: VecDeque<Result<StreamFrame, TransportError>>,

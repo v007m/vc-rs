@@ -109,7 +109,7 @@ async fn a_scripted_stream_that_runs_out_of_frames_has_ended_so_send_is_an_error
 }
 
 #[tokio::test]
-async fn an_echo_stream_with_nothing_queued_waits_for_a_send() {
+async fn an_echo_stream_with_nothing_queued_waits_as_a_silent_server_would() {
     let fake = FakeStreamTransport::scripted(vec![Ok(StreamAnswer::echo())]);
     let mut stream = fake.open(get("/"), StreamMode::WebSocket, &SendContext::default()).await.unwrap().stream.unwrap();
     let waited = tokio::time::timeout(Duration::from_millis(20), stream.next()).await;
