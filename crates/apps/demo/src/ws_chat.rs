@@ -4,7 +4,7 @@
 use std::future::Future;
 
 use axum::extract::Request;
-use axum::http::header::{CONNECTION, SEC_WEBSOCKET_ACCEPT, SEC_WEBSOCKET_KEY, UPGRADE};
+use axum::http::header::{CONNECTION, SEC_WEBSOCKET_ACCEPT, SEC_WEBSOCKET_KEY, SEC_WEBSOCKET_VERSION, UPGRADE};
 use axum::http::{HeaderMap, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
 use hyper::upgrade::Upgraded;
@@ -18,14 +18,15 @@ use tokio_tungstenite::tungstenite::protocol::{Role, WebSocketConfig};
 pub type Socket = WebSocketStream<TokioIo<Upgraded>>;
 
 /// Answers a WebSocket handshake with 101 and hands the upgraded connection, framed under
-/// `config`, to `serve`; a request that does not ask to upgrade gets 426.
+/// `config`, to `serve`; a request that does not ask to upgrade to version 13 gets 426.
 pub fn upgrade<F, Fut>(mut request: Request, config: Option<WebSocketConfig>, serve: F) -> Response
 where
     F: FnOnce(Socket) -> Fut + Send + 'static,
     Fut: Future<Output = ()> + Send,
 {
     let Some(accept) = accept(request.headers()) else {
-        return (StatusCode::UPGRADE_REQUIRED, "GET /ws is a WebSocket").into_response();
+        let version = [(SEC_WEBSOCKET_VERSION, HeaderValue::from_static("13"))];
+        return (StatusCode::UPGRADE_REQUIRED, version, "GET /ws is a WebSocket").into_response();
     };
     let upgrade = hyper::upgrade::on(&mut request);
     tokio::spawn(async move {
@@ -38,10 +39,12 @@ where
     (StatusCode::SWITCHING_PROTOCOLS, upgraded, [(SEC_WEBSOCKET_ACCEPT, accept)]).into_response()
 }
 
-/// The `sec-websocket-accept` for a request that asks to upgrade to `websocket` with a key.
+/// The `sec-websocket-accept` for a request that asks to upgrade to `websocket` version 13 with
+/// a key (RFC 6455, 4.2.1).
 fn accept(headers: &HeaderMap) -> Option<HeaderValue> {
+    let version = headers.get(SEC_WEBSOCKET_VERSION).is_some_and(|value| value == "13");
     let websocket = headers.get(UPGRADE).is_some_and(|value| value.as_bytes().eq_ignore_ascii_case(b"websocket"));
-    let key = headers.get(SEC_WEBSOCKET_KEY).filter(|_| websocket)?;
+    let key = headers.get(SEC_WEBSOCKET_KEY).filter(|_| version && websocket)?;
     HeaderValue::try_from(derive_accept_key(key.as_bytes())).ok()
 }
 

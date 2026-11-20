@@ -2,6 +2,8 @@
 //! ends the connection, and the reply past [`MAX_REPLIES`] is a close 1008 instead. Only the
 //! binary serves it: the playground's in-process router has no connection to upgrade.
 
+use std::time::Duration;
+
 use axum::Router;
 use axum::extract::Request;
 use axum::response::Response;
@@ -18,6 +20,9 @@ pub const MAX_MESSAGE: usize = 64 * 1024;
 
 /// The most replies one connection gets.
 pub const MAX_REPLIES: usize = 100;
+
+/// How long a close waits for the client's answer.
+const CLOSE_WAIT: Duration = Duration::from_secs(1);
 
 pub fn routes() -> Router {
     Router::new().route("/ws", get(ws))
@@ -42,21 +47,28 @@ async fn chat(mut socket: Socket) {
             Message::Binary(bytes) => vec![Message::Binary(bytes)],
             Message::Ping(_) | Message::Pong(_) | Message::Close(_) | Message::Frame(_) => Vec::new(),
         };
+        let room = MAX_REPLIES - sent;
+        let over = answers.len() > room;
+        let answers: Vec<Message> = answers.into_iter().take(room).collect();
         sent += answers.len();
-        if sent > MAX_REPLIES {
-            return closed(&mut socket, CloseCode::Policy, "too many messages").await;
-        }
         if socket.send_all(&mut futures_util::stream::iter(answers.into_iter().map(Ok))).await.is_err() {
             return;
+        }
+        if over {
+            return closed(&mut socket, CloseCode::Policy, "too many messages").await;
         }
     }
 }
 
-/// Closes with `code` and `reason`, and reads until the client's close ends the connection.
+/// Closes with `code` and `reason`, and reads until the client's close ends the connection, for
+/// at most [`CLOSE_WAIT`].
 async fn closed(socket: &mut Socket, code: CloseCode, reason: &str) {
-    if socket.close(Some(CloseFrame { code, reason: reason.into() })).await.is_ok() {
-        while let Some(Ok(_)) = socket.next().await {}
-    }
+    let closing = async {
+        if socket.close(Some(CloseFrame { code, reason: reason.into() })).await.is_ok() {
+            while let Some(Ok(_)) = socket.next().await {}
+        }
+    };
+    let _ = tokio::time::timeout(CLOSE_WAIT, closing).await;
 }
 
 #[cfg(test)]
