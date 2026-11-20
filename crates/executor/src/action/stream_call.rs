@@ -59,7 +59,7 @@ pub async fn run(flight: &Flight, render: &mut Render<'_>, (call, asked): (Call,
     let mut session = Session::new(runtime, asked, (render, &call))?;
     let (head, ended, opening) = session.converse((flight, render), call).await?;
     close(opening, (session.deadline, &ended)).await;
-    let answer = session.answer(&Judge::new(flight.matchers(), &*render), (head, &ended));
+    let answer = session.answer(&Judge::new(flight.matchers(), &*render), (head, ended));
     let after = flight.after(&answer.exchange, || answer.response(flight.runtime())).await;
     after.map_err(|failure| Halted::with(failure, answer.exchange.clone()))?;
     Ok(answer)
@@ -87,7 +87,8 @@ enum Ended {
 impl Ended {
     fn reason(&self) -> String {
         match self {
-            Self::Done | Self::Refused(_) | Self::Failed(_) => "the exchange ended".to_owned(),
+            Self::Done | Self::Refused(_) => "the exchange ended".to_owned(),
+            Self::Failed(failure) => failure.message.clone(),
             Self::Closed => "the stream closed".to_owned(),
             Self::Dropped(error) => format!("the connection dropped ({error})"),
             Self::Unresumed(reason) => format!("the reconnect failed ({reason})"),
@@ -214,14 +215,14 @@ impl<'a> Session<'a> {
         while let Some(item) = self.cursor.next_send() {
             let value = self.sends.get_mut(item).and_then(Option::take).unwrap_or(Value::Null);
             let frame = self.runtime.encode(&value);
-            if let Some(slot) = self.items.get_mut(item) {
-                *slot = value;
-            }
             let Ok(sent) = time::timeout_at(self.deadline, stream.send(frame)).await else {
                 let message = format!("a `send` did not go out within the {:?} time limit", self.timeout);
                 return Err(Failure::new(message).with_code(Code::V5104.to_string()));
             };
             sent.map_err(|error| Failure::new(error.to_string()).with_code(error.code().to_string()))?;
+            if let Some(slot) = self.items.get_mut(item) {
+                *slot = value;
+            }
         }
         Ok(())
     }
@@ -296,14 +297,11 @@ impl<'a> Session<'a> {
     }
 
     /// The call's answer: the head with every message, the `exchange` items and the failure.
-    fn answer(self, judge: &Judge<'_>, (head, ended): (Exchange, &Ended)) -> Answer {
+    fn answer(self, judge: &Judge<'_>, (head, ended): (Exchange, Ended)) -> Answer {
         let failed = match ended {
-            Ended::Refused(reason) => self.refused(&head, reason),
-            Ended::Failed(failure) => {
-                let at = (Origin::Action(self.asked.action.0), self.asked.action.1.span);
-                Some(failed(at, failure.code.clone(), failure.message.clone()))
-            }
-            _ => self.unmet(judge, ended),
+            Ended::Refused(reason) => self.refused(&head, &reason),
+            Ended::Failed(failure) => Some(self.failure(failure)),
+            ended => self.unmet(judge, &ended),
         };
         let exchange = Exchange { messages: self.messages, ..head };
         Answer { exchange, items: Some(self.items), checks: failed.into_iter().collect() }
@@ -320,6 +318,13 @@ impl<'a> Session<'a> {
             None => return None,
         };
         Some(failed(at, Some(Code::V5131.to_string()), format!("the stream did not open: {reason}")))
+    }
+
+    /// The failed `messages` check at the step for a failure after the stream opened, under
+    /// the failure's own code (D425).
+    fn failure(&self, failure: Failure) -> CheckResult {
+        let at = (Origin::Action(self.asked.action.0), self.asked.action.1.span);
+        failed(at, failure.code, failure.message)
     }
 
     /// V5130 at the `receive` still waiting, with what it expected and the messages since the
