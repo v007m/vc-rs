@@ -28,7 +28,7 @@ fn the_response_is_the_http_runtime_s_view_of_the_exchange_and_a_stream_s_adds_i
     };
     let viewed = ProtocolRuntimes::standard().response(Protocol::Http, &exchange).unwrap();
     assert_eq!((&viewed["status"], &viewed["body"]), (&json!(201), &json!({"id": 1})));
-    let mut streamed = viewed.clone();
+    let mut streamed = viewed;
     drop(streamed.as_object_mut().map(|root| root.insert("messages".to_owned(), json!([]))));
     for stream in [Protocol::Sse, Protocol::Websocket] {
         assert_eq!(ProtocolRuntimes::standard().response(stream, &exchange), Some(streamed.clone()), "{stream:?}");
