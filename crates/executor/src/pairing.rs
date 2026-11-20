@@ -1,5 +1,6 @@
 //! A one-to-one pairing of entries with the values they fit, as many as can be: `expect.errors`
-//! lists pair each entry with its own error this way (D362).
+//! lists pair each entry with its own error this way (D362), and a stream's `receive` group
+//! each entry with its own message (D378).
 
 /// A one-to-one pairing of entries with errors (Kuhn's augmenting paths, searched with an
 /// explicit stack): each entry's fitting errors, the entry each error is paired with, the
@@ -29,11 +30,26 @@ impl Pairing {
         Self { fits, owner: vec![None; errors], seen: vec![0; errors], search: 0, budget }
     }
 
-    /// The entries left unpaired, after each takes a free error it fits where it can and the
-    /// rest search for a path that frees one.
-    pub fn unpaired(mut self) -> Vec<usize> {
+    /// The entries left unpaired, in order.
+    pub fn unpaired(self) -> Vec<usize> {
+        let pairs = self.pairs().into_iter().enumerate();
+        pairs.filter_map(|(entry, error)| error.is_none().then_some(entry)).collect()
+    }
+
+    /// The error each entry is paired with, if any, after each takes a free error it fits where
+    /// it can and the rest search for a path that frees one.
+    pub fn pairs(mut self) -> Vec<Option<usize>> {
         let left: Vec<_> = (0..self.fits.len()).filter(|&entry| !self.free(entry)).collect();
-        left.into_iter().filter(|&entry| !self.paired(entry)).collect()
+        for entry in left {
+            self.paired(entry);
+        }
+        let mut pairs = vec![None; self.fits.len()];
+        for (error, owner) in self.owner.iter().enumerate() {
+            if let Some(&entry) = owner.as_ref() {
+                pairs[entry] = Some(error);
+            }
+        }
+        pairs
     }
 
     /// Pairs `entry` with the first free error it fits, if there is one.

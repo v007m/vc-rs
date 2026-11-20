@@ -41,3 +41,10 @@ fn a_search_tries_each_fit_once_and_resumes_after_the_last_one_tried() {
     assert_eq!((pairing.untried(&mut step), step.next), (Some(2), 3), "error 1 was tried already");
     assert_eq!(pairing.untried(&mut step), None);
 }
+
+#[test]
+fn pairs_name_the_error_each_entry_took_after_a_path_moved_them() {
+    assert_eq!(Pairing::new(vec![vec![0, 1], vec![0]], 2).pairs(), [Some(1), Some(0)]);
+    assert_eq!(Pairing::new(vec![vec![0], vec![0], vec![]], 1).pairs(), [Some(0), None, None]);
+    assert_eq!(Pairing::new(Vec::new(), 3).pairs(), Vec::<Option<usize>>::new());
+}

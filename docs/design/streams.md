@@ -18,7 +18,7 @@ Everything else is in "Later" below.
 
 ## Syntax by example
 
-The examples use `exchange` and `messages`, which the code does not read yet, so the docs check skips them (`yaml skip`) until PR 2 below lands.
+The examples use `exchange` and `messages`, which the code does not read yet, so the docs check skips them (`yaml skip`) until PR 3 below lands.
 
 An SSE api. `sse` reads the opening response as `http` does, so `method`, `body`, `status` and `headers` keep their meaning; LLM-style streams that `POST` a body work unchanged.
 
@@ -170,18 +170,20 @@ pub enum StreamMode { Body, WebSocket }
 pub struct Opened { pub head: Exchange, pub stream: Option<Box<dyn MessageStream>> }
 #[async_trait]
 pub trait MessageStream: Send {
-    async fn send(&mut self, frame: Frame) -> Result<(), TransportError>;
-    async fn next(&mut self) -> Option<Result<Frame, TransportError>>;
+    async fn send(&mut self, frame: StreamFrame) -> Result<(), TransportError>;
+    async fn next(&mut self) -> Option<Result<StreamFrame, TransportError>>;
     async fn close(&mut self, code: u16) -> Result<(), TransportError>;
 }
-pub enum Frame { Chunk(Bytes), Text(String), Binary(Bytes), Close { code: u16, reason: String } }
+pub enum StreamFrame { Chunk(Bytes), Text(String), Binary(Bytes), Close { code: u16, reason: String } }
 ```
 
 How the port is used:
 
 - `head` is the opening response. When there is no stream, its body is read in full, capped as today.
 - The adapter answers pings itself. Ping and pong frames are not surfaced.
-- `vc-testkit` gets a scripted fake and a `stream_suite` that every implementation runs (D112).
+- A stream opens on a 2xx answer (`Body`) or a 101 handshake (`WebSocket`); any other answer is an `Opened` with no stream. `send` on a body stream is `InvalidRequest`, and after `close` `next` gives `None`.
+- The frame type is `StreamFrame`, since the executor already has a `Frame` (its run frame).
+- `vc-testkit` gets `FakeStreamTransport` (scripted opens, and `contract()`) and two suites every implementation runs (D112): `stream_transport_suite` and `message_stream_suite`, which the first runs on an open WebSocket. `arch-tests` names a suite after its trait, so there is no `stream_suite`.
 - `HttpTransport` implements both ports, so SSE and WebSocket reuse its TLS, mTLS identities, proxy, host rules and connect timing.
 
 **No new crate and no arch-tests row**: adapters never import each other, so a separate `vc-adapter-ws` would have to copy all of that configuration. `EngineBuilder` hands the same `HttpTransport` to the executor as both `Arc<dyn Transport>` and `Arc<dyn StreamTransport>`.
@@ -190,7 +192,7 @@ How the port is used:
 
 - `ProtocolRuntime` gains one default method, `stream(&self) -> Option<&dyn StreamRuntime>`. It returns `None` for `http` and `graphql`, so the call path picks the stream driver through the registry, not with a `match`.
 - `StreamRuntime` has three methods: `mode`, `decoder` (a stateful `push(Frame) -> Vec<Message>`) and `encode(&Value) -> Frame`.
-- `ExchangeCursor` (`action/exchange.rs`) is pure and does the matching. `feed(message)` reports which item or group entry matched and whether the exchange is done; `next_send()` returns the next frame to send. Group pairing reuses the one-to-one pairing behind D362.
+- `ExchangeCursor` (`action/exchange.rs`) is pure and keeps the place; the driver judges each message against the waiting group's checks. `feed(fits)` takes the entries of the waiting group the message fits and answers `Skipped`, `Held` or `Met` with each entry's message; `next_send()` returns the next `send` item; `unmet()` names what V5130 reports. Group pairing reuses the one-to-one `Pairing` behind D362 (now `pairing.rs`). A message is kept only while an entry it fits holds fewer messages than the group has entries, so the pairing stays bounded on an endless stream.
 - The driver (`action/stream.rs`) is the only async part.
   - It opens through the request pipeline (timing, retry, auth, hooks, per-host limit, timeout). If a layer is typed to `Exchange`, it is made generic over a small `HasHead` trait in the same PR.
   - It sends and reads against the call's deadline.
@@ -248,24 +250,25 @@ Candidate V codes (V2213 and V5105 are reused):
    - `Protocol::Sse` and `Protocol::Websocket` with their key sets, `SseRules` and `WebsocketRules`.
    - `sse.reconnect` on the api and its file.
    - The V2213 cases, with tests.
-   - Executor runtimes that fail a stream call with a plain message until PR 4 replaces them.
+   - Executor runtimes that fail a stream call with a plain message until the stream call replaces them.
    - The syntax-reference "Api types" bullets.
-2. **Exchange and message checks.**
+2. **Port and cursor.**
+   - `StreamTransport`, `MessageStream` and `StreamFrame` in `vc-interfaces`.
+   - The `vc-testkit` fake, `stream_transport_suite` and `message_stream_suite`.
+   - The pure `ExchangeCursor` with unit tests, and `Pairing` moved out of `check/errors.rs` to share.
+3. **Exchange and message checks.**
    - The `exchange` shape on api, test and step, with test-level defaults for call steps (D124).
    - `receive` checks lowered field by field, `data.match` and `data.equals`, V1004 for a field the type lacks.
    - `expect.messages` as a check kind.
-3. **Port and cursor.**
-   - `StreamTransport`, `MessageStream` and `Frame` in `vc-interfaces`; `StreamMessage` and `Exchange::messages` in `vc-model`.
-   - The `vc-testkit` fake and `stream_suite`.
-   - The pure `ExchangeCursor` with unit tests.
 4. **The executor's stream call.**
+   - `StreamMessage` and `Exchange::messages` in `vc-model`.
    - `ProtocolRuntime::stream` and `StreamRuntime`.
    - `SseRuntime` with its pure parser.
    - The driver through the pipeline: the deadline, reconnect, V5130 and V5131, and the `response.messages` and `response.exchange` roots.
    - Engine wiring tested against the fake.
 5. **SSE on the wire.**
    - `HttpTransport` implements `StreamTransport` in `StreamMode::Body`.
-   - The mock's `/events` route, with a drop for reconnect.
+   - The mock's `/events` route (the suite's `count` and `last-event-id` contract), with a drop for reconnect; the adapter runs `stream_transport_suite` once PR 6 adds the WebSocket side.
    - End-to-end tests and a site example.
    - Messages in the json, HTML and CTRF reports.
 6. **WebSocket on the wire.**

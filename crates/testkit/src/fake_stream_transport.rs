@@ -1,0 +1,181 @@
+use std::collections::VecDeque;
+use std::fmt;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
+
+use async_trait::async_trait;
+use bytes::Bytes;
+use http::header::CONTENT_TYPE;
+use http::{HeaderMap, HeaderValue, StatusCode};
+use vc_interfaces::{MessageStream, Opened, SendContext, StreamFrame, StreamMode, StreamTransport, TransportError};
+use vc_model::{ConnectionInfo, Exchange, HttpResponse, RenderedRequest, Timing};
+
+use crate::status;
+
+/// What a [`FakeStreamTransport`] answers to the `n`th open (counting from 0).
+pub type Opens = dyn Fn(&RenderedRequest, StreamMode, usize) -> Result<StreamAnswer, TransportError> + Send + Sync;
+
+/// One scripted open: the opening response, and the frames its stream yields, if one opens.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct StreamAnswer {
+    head: HttpResponse,
+    frames: Option<Vec<Result<StreamFrame, TransportError>>>,
+    echo: bool,
+}
+
+impl StreamAnswer {
+    /// A stream that yields `frames` in order, then ends; frames sent on it are dropped.
+    #[must_use]
+    pub const fn stream(head: HttpResponse, frames: Vec<Result<StreamFrame, TransportError>>) -> Self {
+        Self { head, frames: Some(frames), echo: false }
+    }
+
+    /// A WebSocket that echoes what is sent and answers the text `bye` with a close 1000 `bye`.
+    #[must_use]
+    pub fn echo() -> Self {
+        Self { head: status(101), frames: Some(Vec::new()), echo: true }
+    }
+
+    /// An answer that opens no stream.
+    #[must_use]
+    pub const fn refused(head: HttpResponse) -> Self {
+        Self { head, frames: None, echo: false }
+    }
+}
+
+/// A stream transport that answers from a script, with no network (D112).
+///
+/// Clones share the count of opens. Like a real transport it refuses a refused answer's body
+/// over `ctx.body_limit`, and a body stream cannot send; it reports zero timings.
+#[derive(Clone)]
+pub struct FakeStreamTransport {
+    opens: Arc<Opens>,
+    calls: Arc<AtomicUsize>,
+}
+
+impl FakeStreamTransport {
+    /// Answers every open with `opens(request, mode, call_index)`.
+    pub fn new(
+        opens: impl Fn(&RenderedRequest, StreamMode, usize) -> Result<StreamAnswer, TransportError> + Send + Sync + 'static,
+    ) -> Self {
+        Self { opens: Arc::new(opens), calls: Arc::new(AtomicUsize::new(0)) }
+    }
+
+    /// Answers the `n`th open with `script[n]`, and every later one with the last entry. An
+    /// empty script answers 404 with no stream.
+    #[must_use]
+    pub fn scripted(script: Vec<Result<StreamAnswer, TransportError>>) -> Self {
+        Self::new(move |_, _, call| {
+            script
+                .get(call)
+                .or_else(|| script.last())
+                .cloned()
+                .unwrap_or_else(|| Ok(StreamAnswer::refused(status(404))))
+        })
+    }
+
+    /// Speaks the stream contract of `vc-mock-server` (see [`crate::stream_transport_suite`]);
+    /// other paths get 404.
+    #[must_use]
+    pub fn contract() -> Self {
+        Self::new(|request, mode, _| Ok(contract(request, mode)))
+    }
+
+    /// How many opens were asked for so far.
+    #[must_use]
+    pub fn calls(&self) -> usize {
+        self.calls.load(Ordering::SeqCst)
+    }
+}
+
+impl fmt::Debug for FakeStreamTransport {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("FakeStreamTransport").field("calls", &self.calls()).finish_non_exhaustive()
+    }
+}
+
+#[async_trait]
+impl StreamTransport for FakeStreamTransport {
+    async fn open(
+        &self,
+        request: RenderedRequest,
+        mode: StreamMode,
+        ctx: &SendContext,
+    ) -> Result<Opened, TransportError> {
+        let call = self.calls.fetch_add(1, Ordering::SeqCst);
+        let StreamAnswer { head, frames, echo } = (self.opens)(&request, mode, call)?;
+        if head.body.len() as u64 > ctx.body_limit.bytes() {
+            return Err(TransportError::BodyTooLarge { limit: ctx.body_limit });
+        }
+        let stream = frames.map(|frames| {
+            let incoming = frames.into_iter().collect();
+            Box::new(FakeStream { mode, incoming, echo, closed: false }) as Box<dyn MessageStream>
+        });
+        let head =
+            Exchange { request, response: head, timing: Timing::default(), connection: ConnectionInfo::default() };
+        Ok(Opened { head, stream })
+    }
+}
+
+/// A scripted stream: it yields its frames, and an echo stream also what is sent on it.
+struct FakeStream {
+    mode: StreamMode,
+    incoming: VecDeque<Result<StreamFrame, TransportError>>,
+    echo: bool,
+    closed: bool,
+}
+
+#[async_trait]
+impl MessageStream for FakeStream {
+    async fn send(&mut self, frame: StreamFrame) -> Result<(), TransportError> {
+        if self.mode == StreamMode::Body {
+            return Err(TransportError::InvalidRequest { reason: "a response body stream cannot send".to_owned() });
+        }
+        if self.echo {
+            let bye = frame == StreamFrame::Text("bye".to_owned());
+            let reply = if bye { StreamFrame::Close { code: 1000, reason: "bye".to_owned() } } else { frame };
+            self.incoming.push_back(Ok(reply));
+        }
+        Ok(())
+    }
+
+    async fn next(&mut self) -> Option<Result<StreamFrame, TransportError>> {
+        if self.closed {
+            return None;
+        }
+        self.incoming.pop_front()
+    }
+
+    async fn close(&mut self, _code: u16) -> Result<(), TransportError> {
+        self.closed = true;
+        Ok(())
+    }
+}
+
+fn contract(request: &RenderedRequest, mode: StreamMode) -> StreamAnswer {
+    let path = request.uri.path();
+    if let Some(code) = path.strip_prefix("/status/") {
+        return StreamAnswer::refused(status(code.parse().unwrap_or(400)));
+    }
+    match (mode, path) {
+        (StreamMode::Body, "/events") => events(request),
+        (StreamMode::WebSocket, "/ws") => StreamAnswer::echo(),
+        _ => StreamAnswer::refused(status(404)),
+    }
+}
+
+/// The contract's `/events?count={n}`: one chunk per event after the `last-event-id`.
+fn events(request: &RenderedRequest) -> StreamAnswer {
+    let query = request.uri.query().unwrap_or_default();
+    let count: u32 = query.strip_prefix("count=").and_then(|count| count.parse().ok()).unwrap_or(0);
+    let last = request.headers.get("last-event-id").and_then(|id| id.to_str().ok()?.parse().ok()).unwrap_or(0);
+    let chunk = |id: u32| Ok(StreamFrame::Chunk(Bytes::from(format!("id: {id}\ndata: {id}\n\n"))));
+    let mut headers = HeaderMap::new();
+    headers.insert(CONTENT_TYPE, HeaderValue::from_static("text/event-stream"));
+    let head = HttpResponse { status: StatusCode::OK, headers, body: Bytes::new(), wire_size: 0 };
+    StreamAnswer::stream(head, (last + 1..=count).map(chunk).collect())
+}
+
+#[cfg(test)]
+#[path = "fake_stream_transport_tests.rs"]
+mod tests;
