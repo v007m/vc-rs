@@ -18,11 +18,9 @@ Everything else is in "Later" below.
 
 ## Syntax by example
 
-The examples use `exchange` and `messages`, which the code does not read yet, so the docs check skips them (`yaml skip`) until PR 3 below lands.
-
 An SSE api. `sse` reads the opening response as `http` does, so `method`, `body`, `status` and `headers` keep their meaning; LLM-style streams that `POST` a body work unchanged.
 
-```yaml skip
+```yaml
 # services/orders/orders.api.yaml
 type: sse
 baseUrl: ${var.ordersUrl}
@@ -40,7 +38,7 @@ apis:
 
 A WebSocket api, and a test that overrides its exchange:
 
-```yaml skip
+```yaml
 # services/chat/chat.api.yaml
 type: websocket
 baseUrl: ${var.chatUrl}            # ws://, wss://, http:// or https://
@@ -48,7 +46,9 @@ apis:
   - id: room
     path: /ws/rooms/${var.roomId}
     auth: member
+```
 
+```yaml
 # services/chat/rooms.test.yaml
 tests:
   - id: echoesEachMessageToTheRoom
@@ -261,6 +261,7 @@ Candidate V codes (V2213 and V5105 are reused):
    - The `exchange` shape on api, test and step, with test-level defaults for call steps (D124).
    - `receive` checks lowered field by field, `data.match` and `data.equals`, V1004 for a field the type lacks.
    - `expect.messages` as a check kind.
+   - Done; its refinements are D389–D394 in the decision log.
 4. **The executor's stream call.**
    - `StreamMessage` and `Exchange::messages` in `vc-model`.
    - `ProtocolRuntime::stream` and `StreamRuntime`.
