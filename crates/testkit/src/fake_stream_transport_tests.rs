@@ -95,6 +95,20 @@ async fn a_scripted_stream_ends_at_a_close_or_an_error() {
 }
 
 #[tokio::test]
+async fn a_scripted_stream_that_runs_out_of_frames_has_ended_so_send_is_an_error() {
+    let fake = FakeStreamTransport::scripted(vec![Ok(StreamAnswer::stream(
+        status(101),
+        vec![Ok(StreamFrame::Text("a".into()))],
+    ))]);
+    let mut stream = fake.open(get("/"), StreamMode::WebSocket, &SendContext::default()).await.unwrap().stream.unwrap();
+    assert_eq!(stream.next().await, Some(Ok(StreamFrame::Text("a".into()))));
+    assert_eq!(stream.next().await, None, "the script ran out");
+    let sent = stream.send(OutgoingFrame::Text("hi".into())).await;
+    assert!(matches!(sent, Err(TransportError::InvalidRequest { .. })), "{sent:?}");
+    assert_eq!(stream.next().await, None, "nothing was queued");
+}
+
+#[tokio::test]
 async fn an_echo_stream_with_nothing_queued_waits_for_a_send() {
     let fake = FakeStreamTransport::scripted(vec![Ok(StreamAnswer::echo())]);
     let mut stream = fake.open(get("/"), StreamMode::WebSocket, &SendContext::default()).await.unwrap().stream.unwrap();

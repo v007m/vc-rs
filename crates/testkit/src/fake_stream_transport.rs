@@ -127,8 +127,8 @@ struct FakeStream {
     mode: StreamMode,
     incoming: VecDeque<Result<StreamFrame, TransportError>>,
     echo: bool,
-    /// A close frame or an error was yielded, or the client closed: nothing more is, and sending
-    /// is an error.
+    /// A close frame or an error was yielded, a script ran out, or the client closed: nothing
+    /// more is, and sending is an error.
     ended: bool,
 }
 
@@ -154,7 +154,11 @@ impl MessageStream for FakeStream {
             return None;
         }
         let Some(frame) = self.incoming.pop_front() else {
-            return if self.echo { std::future::pending().await } else { None };
+            if self.echo {
+                return std::future::pending().await;
+            }
+            self.ended = true;
+            return None;
         };
         self.ended = matches!(frame, Ok(StreamFrame::Close { .. }) | Err(_));
         Some(frame)
