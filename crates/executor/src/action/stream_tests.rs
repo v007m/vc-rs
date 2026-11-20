@@ -21,7 +21,7 @@ async fn a_call_of_a_stream_api_fails_with_a_plain_message_and_sends_nothing() {
             ActionRequest { action: call, owner: OwnerKey::Run, cx: Arc::clone(&cx), frame: Frame::default() };
         let report = cx.executors.execute(request).await;
         let failure = report.outcome.failure().map(|failure| (failure.code.clone(), failure.message.clone()));
-        let message = format!("a `{kind}` api cannot be called yet: stream calls are not run (#92, #93)");
+        let message = format!("`{kind}` calls are not supported yet");
         assert_eq!(failure, Some((None, message)));
         assert!(recordings.take().is_empty(), "{kind}: nothing is sent");
     }

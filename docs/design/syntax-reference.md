@@ -392,7 +392,7 @@ apis:
           data.user.id: ${var.userId}
 ```
 
-`sse` and `websocket` (D376, #92, #93) are checked as below; their calls run in later changes (`docs/design/streams.md`). Until then a call of one fails before anything is sent, with "a `sse` api cannot be called yet: stream calls are not run (#92, #93)".
+`sse` and `websocket` (D376, #92, #93) are checked as below; their calls run in later changes (`docs/design/streams.md`). Until then a call of one fails before anything is sent, with "`sse` calls are not supported yet" (or `websocket`).
 
 - `sse` sends its request as `http` does: its own `method` (else `GET`), `path` and `body`. `poll` does not apply on a test or step that calls it (V2213), nor does `expect.errors`.
 - `sse.reconnect: true`, on the api or else on a `type: sse` file, opens the stream once more when it ends before the call is done (D385); it is `false` when neither sets it, and an api's `sse: {}` keeps its file's. An `sse` block on an api or a file of another type is V2213, with the certain fix that removes it; a key it does not know is V1004, with the close key as its fix.

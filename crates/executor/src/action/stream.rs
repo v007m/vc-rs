@@ -18,8 +18,7 @@ impl ProtocolRuntime for PendingStream {
     }
 
     fn request(&self, _: &Render<'_>, api: &Api, _: (ActionId, &Action)) -> Result<RenderedRequest, Failure> {
-        let kind = api.protocol.key();
-        Err(Failure::new(format!("a `{kind}` api cannot be called yet: stream calls are not run (#92, #93)")))
+        Err(Failure::new(format!("`{}` calls are not supported yet", api.protocol.key())))
     }
 
     fn response(&self, exchange: &Exchange) -> Value {
