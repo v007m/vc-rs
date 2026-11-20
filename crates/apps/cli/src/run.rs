@@ -71,7 +71,7 @@ pub fn run(args: &RunArgs, project: Option<&Path>) -> anyhow::Result<Outcome> {
         signals.abort();
         report
     });
-    close(runtime, &stops);
+    close(runtime, stops.interrupted());
     Ok(report.map_or_else(Outcome::Engine, |report| finished(&report)))
 }
 
@@ -119,12 +119,19 @@ impl Stops {
         self.interrupted |= stop.is_some();
         stop
     }
+
+    /// Whether a Ctrl-C has been heard.
+    pub const fn interrupted(&self) -> bool {
+        self.interrupted
+    }
 }
 
-/// Drops `runtime`. After a Ctrl-C it does not wait for blocking tasks, so a read still in
-/// flight (a TLS file on a FIFO) cannot hold up the exit (D398).
-pub fn close(runtime: Runtime, stops: &Stops) {
-    if stops.interrupted {
+/// Drops `runtime`, the one shutdown every command that runs the engine uses (D406). When the
+/// command was `interrupted` (a Ctrl-C, or quitting the TUI while a run is in progress) it does
+/// not wait for blocking tasks, so a read still in flight (a TLS file on a FIFO) cannot hold up
+/// the exit; otherwise it waits for them, so nothing it began is cut short (D398).
+pub fn close(runtime: Runtime, interrupted: bool) {
+    if interrupted {
         runtime.shutdown_background();
     }
 }
@@ -211,7 +218,7 @@ mod tests {
         stop.send(()).unwrap();
         assert_eq!(runtime.block_on(stops.next()), Some(()));
         let begun = Instant::now();
-        close(runtime, &stops);
+        close(runtime, stops.interrupted());
         assert!(begun.elapsed() < Duration::from_secs(5), "closed after {:?}", begun.elapsed());
         release.store(true, Ordering::SeqCst);
     }
@@ -229,7 +236,7 @@ mod tests {
             releaser.store(true, Ordering::SeqCst);
         });
         let begun = Instant::now();
-        close(runtime, &stops);
+        close(runtime, stops.interrupted());
         assert!(begun.elapsed() >= Duration::from_millis(250), "closed after {:?}", begun.elapsed());
         later.join().unwrap();
     }

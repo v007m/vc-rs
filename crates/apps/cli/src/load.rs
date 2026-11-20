@@ -47,7 +47,7 @@ pub fn run(args: &LoadArgs, project: Option<&Path>) -> anyhow::Result<Outcome> {
         signals.abort();
         report
     });
-    crate::run::close(runtime, &stops);
+    crate::run::close(runtime, stops.interrupted());
     match report {
         Ok(report) => finished(&report, args.json),
         Err(error) => Ok(Outcome::Engine(error)),

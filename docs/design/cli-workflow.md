@@ -329,7 +329,7 @@ Commands are grouped by the job they do. `vc help <command>` shows every flag wi
 | Command | Does |
 | --- | --- |
 | `vc run [selector...]` | Runs tests (see Selecting what to run) |
-| `vc watch [selector...]` | Runs the selection, then re-runs the affected tests 200 ms after a definition file, `.env` or `.env.schema` is saved. Takes `vc run`'s flags; a flag value the first run refuses (`--profile nope`) ends it with exit 2, since no save can fix it; Ctrl-C ends it with exit 130 |
+| `vc watch [selector...]` | Runs the selection, then re-runs the affected tests 200 ms after a definition file, `.env` or `.env.schema` is saved. Takes `vc run`'s flags; a flag value the first run refuses (`--profile nope`) ends it with exit 2, since no save can fix it; Ctrl-C ends it with exit 130; a file watcher that stops ends it with exit 70 and says so, since no save can be seen after it (D406) |
 | `vc load <scenarioId>` | Runs a load scenario: `beforeRun` and `beforeAll` once, the stages with a live line each second on stderr (its rps over the last 3 s), `afterAll` and `afterRun` once, then the summary: latency p50/p90/p95/p99/max, each breach in its unit with its limit (`breached p99 at 45.471 ms (lt 30 ms)`) and a line per mix test with its own iterations, rps, errors and latency (`test users.crud#listsUsers · 40 iterations · …`), each error kind indented under its test by the api that failed, its status and code (`  errors users#list 200 V5101 × 12`); `--json` for the report as JSON, each breach as `{metric, test, actual, unit, limit}`, each error kind as `{api, test, status, code, count}` and each test as `{test, iterations, rps, errors, p50Ms, p90Ms, p95Ms, p99Ms, maxMs}` in `tests`. Exit 0 within thresholds, 1 blocked by a shared action, 2 unknown scenario, 3 a threshold breached, 130 cancelled |
 | `vc skip <testId\|fileId> --reason <text> [--until <date>]`, `vc unskip <id>` | Writes or removes a `skip` in the YAML (see Skipping). An `--until` before today (UTC) is refused with V3104, as the skip would have expired already |
 
@@ -802,7 +802,7 @@ Console formats: `spec` (above, the default in a terminal), `dots` (compact), `j
 | 3 | A load threshold was breached |
 | 4 | `vc sync --check` found drift or a conflict left unsettled; a plain `vc sync` that leaves conflicts exits 0 |
 | 70 | Internal error in Vibranium: prints a "please report" hint and the path of a redacted debug bundle to attach (D127) |
-| 130 | Cancelled by a signal (Ctrl-C); cleanups have run (D127). A read still on a blocking thread (a `http.tls` file on a FIFO) does not hold up the exit (D398) |
+| 130 | Cancelled by a signal (Ctrl-C); cleanups have run (D127). A read still on a blocking thread (a `http.tls` file on a FIFO) does not hold up the exit (D398); nor does one when `vc ui` stops on Ctrl-C or `vc tui` quits during a run, while every other end waits for it (D406) |
 
 A typical CI job:
 

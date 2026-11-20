@@ -27,14 +27,25 @@ const POLL: Duration = Duration::from_millis(100);
 /// Key events, or updates, the senders may get ahead of the UI by.
 const QUEUE: usize = 64;
 
+/// How the UI ended: whether quitting ended a run or load run still in progress, so the caller
+/// knows the work it began may have left a blocking task behind (D406).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[expect(clippy::exhaustive_enums, reason = "quitting either interrupts a run in progress or does not")]
+pub enum Quit {
+    /// No run or load run was in progress.
+    Idle,
+    /// Quitting ended the run or load run in progress.
+    Interrupted,
+}
+
 /// Runs the UI over `engine` in this terminal until a key quits it, ending a run still in
-/// progress first. Call it from within a Tokio runtime.
+/// progress first, and says whether it did. Call it from within a Tokio runtime.
 ///
 /// # Errors
 ///
 /// [`TuiError::Terminal`] when the terminal cannot be set up or drawn on, and
 /// [`TuiError::Input`] when the keyboard cannot be read.
-pub async fn run(engine: Engine, options: TuiOptions) -> Result<(), TuiError> {
+pub async fn run(engine: Engine, options: TuiOptions) -> Result<Quit, TuiError> {
     let mut raw = Raw::open()?;
     let (sender, keys) = mpsc::channel(QUEUE);
     let reader = tokio::task::spawn_blocking(move || read_keys(&sender));
@@ -49,10 +60,11 @@ pub async fn run(engine: Engine, options: TuiOptions) -> Result<(), TuiError> {
             break Ok(());
         }
     };
+    let quit = if session.driver.busy() { Quit::Interrupted } else { Quit::Idle };
     let drawn = drawn.and_then(|()| draw_stopping(&mut raw, &session));
     session.close().await;
     let read = reader.await.map_err(|error| TuiError::Input { reason: error.to_string() })?;
-    drawn.and_then(|()| read.map_err(|error| TuiError::Input { reason: error.to_string() }))
+    drawn.and_then(|()| read.map_err(|error| TuiError::Input { reason: error.to_string() })).map(|()| quit)
 }
 
 /// When a run or load run is still in progress, shows that quitting is ending it, as that can

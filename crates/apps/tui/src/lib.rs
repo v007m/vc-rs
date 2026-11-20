@@ -47,4 +47,4 @@ mod view;
 pub use app::{Tui, TuiOptions};
 pub use error::TuiError;
 pub use screen::{Ask, Flight, Update};
-pub use terminal::run;
+pub use terminal::{Quit, run};
