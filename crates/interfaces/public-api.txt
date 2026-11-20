@@ -306,6 +306,19 @@ pub fn vc_interfaces::NotifyError::fmt(&self, &mut core::fmt::Formatter<'_>) -> 
 impl core::fmt::Display for vc_interfaces::NotifyError
 pub fn vc_interfaces::NotifyError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_interfaces::NotifyError
+pub enum vc_interfaces::OutgoingFrame
+pub vc_interfaces::OutgoingFrame::Binary(bytes::bytes::Bytes)
+pub vc_interfaces::OutgoingFrame::Text(alloc::string::String)
+impl core::clone::Clone for vc_interfaces::OutgoingFrame
+pub fn vc_interfaces::OutgoingFrame::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::OutgoingFrame
+impl core::cmp::PartialEq for vc_interfaces::OutgoingFrame
+pub fn vc_interfaces::OutgoingFrame::eq(&self, &Self) -> bool
+impl core::convert::From<vc_interfaces::OutgoingFrame> for vc_interfaces::StreamFrame
+pub fn vc_interfaces::StreamFrame::from(vc_interfaces::OutgoingFrame) -> Self
+impl core::fmt::Debug for vc_interfaces::OutgoingFrame
+pub fn vc_interfaces::OutgoingFrame::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::OutgoingFrame
 #[non_exhaustive] pub enum vc_interfaces::PluginError
 pub vc_interfaces::PluginError::Crashed
 pub vc_interfaces::PluginError::Crashed::plugin: alloc::string::String
@@ -524,6 +537,37 @@ pub fn vc_interfaces::SourceError::fmt(&self, &mut core::fmt::Formatter<'_>) -> 
 impl core::fmt::Display for vc_interfaces::SourceError
 pub fn vc_interfaces::SourceError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_interfaces::SourceError
+pub enum vc_interfaces::StreamFrame
+pub vc_interfaces::StreamFrame::Binary(bytes::bytes::Bytes)
+pub vc_interfaces::StreamFrame::Chunk(bytes::bytes::Bytes)
+pub vc_interfaces::StreamFrame::Close
+pub vc_interfaces::StreamFrame::Close::code: u16
+pub vc_interfaces::StreamFrame::Close::reason: alloc::string::String
+pub vc_interfaces::StreamFrame::Text(alloc::string::String)
+impl core::clone::Clone for vc_interfaces::StreamFrame
+pub fn vc_interfaces::StreamFrame::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::StreamFrame
+impl core::cmp::PartialEq for vc_interfaces::StreamFrame
+pub fn vc_interfaces::StreamFrame::eq(&self, &Self) -> bool
+impl core::convert::From<vc_interfaces::OutgoingFrame> for vc_interfaces::StreamFrame
+pub fn vc_interfaces::StreamFrame::from(vc_interfaces::OutgoingFrame) -> Self
+impl core::fmt::Debug for vc_interfaces::StreamFrame
+pub fn vc_interfaces::StreamFrame::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::StreamFrame
+pub enum vc_interfaces::StreamMode
+pub vc_interfaces::StreamMode::Body
+pub vc_interfaces::StreamMode::WebSocket
+impl vc_interfaces::StreamMode
+pub const fn vc_interfaces::StreamMode::opens_on(self) -> vc_model::template::StatusPattern
+impl core::clone::Clone for vc_interfaces::StreamMode
+pub fn vc_interfaces::StreamMode::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::StreamMode
+impl core::cmp::PartialEq for vc_interfaces::StreamMode
+pub fn vc_interfaces::StreamMode::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_interfaces::StreamMode
+pub fn vc_interfaces::StreamMode::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for vc_interfaces::StreamMode
+impl core::marker::StructuralPartialEq for vc_interfaces::StreamMode
 #[non_exhaustive] pub enum vc_interfaces::TransportError
 pub vc_interfaces::TransportError::BodyTooLarge
 pub vc_interfaces::TransportError::BodyTooLarge::limit: vc_model::units::Size
@@ -1314,6 +1358,11 @@ pub fn vc_interfaces::NoticeFailure::eq(&self, &Self) -> bool
 impl core::fmt::Debug for vc_interfaces::NoticeFailure
 pub fn vc_interfaces::NoticeFailure::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_interfaces::NoticeFailure
+pub struct vc_interfaces::Opened
+pub vc_interfaces::Opened::head: vc_model::exchange::Exchange
+pub vc_interfaces::Opened::stream: core::option::Option<alloc::boxed::Box<dyn vc_interfaces::MessageStream>>
+impl core::fmt::Debug for vc_interfaces::Opened
+pub fn vc_interfaces::Opened::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 pub struct vc_interfaces::PluginManifest
 pub vc_interfaces::PluginManifest::args: alloc::vec::Vec<alloc::string::String>
 pub vc_interfaces::PluginManifest::command: alloc::string::String
@@ -1715,6 +1764,10 @@ pub trait vc_interfaces::Keychain: core::marker::Send + core::marker::Sync
 pub fn vc_interfaces::Keychain::delete(&self, &str, &str) -> core::result::Result<(), vc_interfaces::KeychainError>
 pub fn vc_interfaces::Keychain::get(&self, &str, &str) -> core::result::Result<core::option::Option<vc_interfaces::Secret>, vc_interfaces::KeychainError>
 pub fn vc_interfaces::Keychain::set(&self, &str, &str, &vc_interfaces::Secret) -> core::result::Result<(), vc_interfaces::KeychainError>
+pub trait vc_interfaces::MessageStream: core::marker::Send
+pub fn vc_interfaces::MessageStream::close<'life0, 'async_trait>(&'life0 mut self, u16) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::result::Result<(), vc_interfaces::TransportError>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait
+pub fn vc_interfaces::MessageStream::next<'life0, 'async_trait>(&'life0 mut self) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::option::Option<core::result::Result<vc_interfaces::StreamFrame, vc_interfaces::TransportError>>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait
+pub fn vc_interfaces::MessageStream::send<'life0, 'async_trait>(&'life0 mut self, vc_interfaces::OutgoingFrame) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::result::Result<(), vc_interfaces::TransportError>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait
 pub trait vc_interfaces::Notifier: core::marker::Send + core::marker::Sync
 pub fn vc_interfaces::Notifier::notify<'life0, 'life1, 'async_trait>(&'life0 self, &'life1 vc_interfaces::Notice) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::result::Result<(), vc_interfaces::NotifyError>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait, 'life1: 'async_trait
 pub trait vc_interfaces::NotifierFactory: core::marker::Send + core::marker::Sync
@@ -1761,6 +1814,8 @@ pub trait vc_interfaces::SpecFetcher: core::marker::Send + core::marker::Sync
 pub fn vc_interfaces::SpecFetcher::decode(&self, &str, &[u8]) -> core::result::Result<serde_json::value::Value, vc_interfaces::FetchError>
 pub fn vc_interfaces::SpecFetcher::fetch<'life0, 'life1, 'async_trait>(&'life0 self, &'life1 str) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::result::Result<alloc::vec::Vec<u8>, vc_interfaces::FetchError>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait, 'life1: 'async_trait
 pub fn vc_interfaces::SpecFetcher::list<'life0, 'life1, 'async_trait>(&'life0 self, &'life1 str) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::result::Result<alloc::vec::Vec<alloc::string::String>, vc_interfaces::FetchError>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait, 'life1: 'async_trait
+pub trait vc_interfaces::StreamTransport: core::marker::Send + core::marker::Sync
+pub fn vc_interfaces::StreamTransport::open<'life0, 'life1, 'async_trait>(&'life0 self, vc_model::exchange::RenderedRequest, vc_interfaces::StreamMode, &'life1 vc_interfaces::SendContext) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::result::Result<vc_interfaces::Opened, vc_interfaces::TransportError>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait, 'life1: 'async_trait
 pub trait vc_interfaces::Transport: core::marker::Send + core::marker::Sync
 pub fn vc_interfaces::Transport::send<'life0, 'life1, 'async_trait>(&'life0 self, vc_model::exchange::RenderedRequest, &'life1 vc_interfaces::SendContext) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::result::Result<vc_model::exchange::Exchange, vc_interfaces::TransportError>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait, 'life1: 'async_trait
 pub trait vc_interfaces::Vcs: core::marker::Send + core::marker::Sync

@@ -49,7 +49,7 @@ These changed during the conversation. The older wording may still appear in an 
 
   Where a block sits decides how long its data lives.
 - **Lifecycle actions call apis.** `call: <api>` is the normal action. `test: <test>` exists only to reuse a multi-step flow and runs only that flow's calls, never its checks. `function:` and `command:` run code.
-- **Cleanup is declared once, on the api.** Every 2xx call registers its cleanup. Cleanups run newest first when the owning block ends, including on Ctrl-C. `keep: true` opts out.
+- **Cleanup is declared once, on the api.** Every call answered with the success status (2xx; 101 for websocket) registers its cleanup, whatever its `expect.status` says (D387). Cleanups run newest first when the owning block ends, including on Ctrl-C. `keep: true` opts out.
 - **Shared saves** from `beforeRun` and `beforeAll` are read-only and live under the action's `id` (`${var.admin.userId}`). `beforeRun` and `beforeAll` actions run eagerly: they are planned when their run or file has a selected instance, and finish before any instance starts (D122). The token cache and cache-store hits are still lazy.
 - **Profiles are mandatory.** `vc init` creates `default`. "Environment" now means OS environment variables only.
 - **Each api routes to its own file's `baseUrl` and `auth`**, so one test can span several services.

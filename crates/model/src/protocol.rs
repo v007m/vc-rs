@@ -2,6 +2,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::StatusPattern;
+
 /// What an api speaks: an api item's `type`, else its file's; `http` when neither sets one.
 ///
 /// Each type is a strategy split into facets, one registry entry per layer, all keyed by this
@@ -17,11 +19,15 @@ pub enum Protocol {
     Http,
     /// `graphql`: a GraphQL operation sent as a JSON `POST` (D343).
     Graphql,
+    /// `sse`: server-sent events read from one request's streamed response (D376).
+    Sse,
+    /// `websocket`: messages sent and received over one WebSocket connection (D376).
+    Websocket,
 }
 
 impl Protocol {
     /// Every type, in the order the docs list them.
-    pub const ALL: [Self; 2] = [Self::Http, Self::Graphql];
+    pub const ALL: [Self; 4] = [Self::Http, Self::Graphql, Self::Sse, Self::Websocket];
 
     /// The `type` value it is written as: `http`.
     #[must_use]
@@ -29,6 +35,31 @@ impl Protocol {
         match self {
             Self::Http => "http",
             Self::Graphql => "graphql",
+            Self::Sse => "sse",
+            Self::Websocket => "websocket",
+        }
+    }
+
+    /// Its key in backticks after the article a message reads it with: "an `sse`", "a
+    /// `websocket`" (and "an `http`", read as "aitch").
+    #[must_use]
+    pub const fn named(self) -> &'static str {
+        match self {
+            Self::Http => "an `http`",
+            Self::Graphql => "a `graphql`",
+            Self::Sse => "an `sse`",
+            Self::Websocket => "a `websocket`",
+        }
+    }
+
+    /// The status a call of this type succeeds on (D386): the one its `expect` checks, its
+    /// `saveOn` defaults to and its `cleanup` registers on when the api writes no `expect.status`,
+    /// and the head a stream opens on. `101` for `websocket`, the handshake; `2xx` for the rest.
+    #[must_use]
+    pub const fn success_status(self) -> StatusPattern {
+        match self {
+            Self::Websocket => StatusPattern::Code(101),
+            Self::Http | Self::Graphql | Self::Sse => StatusPattern::Class(2),
         }
     }
 
@@ -80,15 +111,32 @@ pub struct AllowedKeys {
 
 /// Each type with the keys it allows (see the syntax reference, "Api types"). The compiler's
 /// V2213 comes from this one table.
-pub const PROTOCOL_KEYS: [(Protocol, ProtocolKeys); 2] =
-    [(Protocol::Http, ProtocolKeys::Except(HTTP_NOT)), (Protocol::Graphql, ProtocolKeys::Only(GRAPHQL_KEYS))];
+pub const PROTOCOL_KEYS: [(Protocol, ProtocolKeys); 4] = [
+    (Protocol::Http, ProtocolKeys::Except(HTTP_NOT)),
+    (Protocol::Graphql, ProtocolKeys::Only(GRAPHQL_KEYS)),
+    (Protocol::Sse, ProtocolKeys::Except(SSE_NOT)),
+    (Protocol::Websocket, ProtocolKeys::Except(WEBSOCKET_NOT)),
+];
 
 /// The keys an api of each type cannot do without, as dotted paths; a missing one is V1005.
-pub const PROTOCOL_NEEDS: [(Protocol, &[&str]); 2] =
-    [(Protocol::Http, &["path"]), (Protocol::Graphql, &["body.query"])];
+pub const PROTOCOL_NEEDS: [(Protocol, &[&str]); 4] = [
+    (Protocol::Http, &["path"]),
+    (Protocol::Graphql, &["body.query"]),
+    (Protocol::Sse, &["path"]),
+    (Protocol::Websocket, &["path"]),
+];
 
-/// An `http` api takes every key but `expect.errors`, a `graphql` response's (D345).
-const HTTP_NOT: AllowedKeys = AllowedKeys { api: &[], expect: &["errors"], call: &[] };
+/// An `http` api takes every key but `expect.errors`, a `graphql` response's (D345), and `sse`,
+/// an `sse` api's settings (D385).
+const HTTP_NOT: AllowedKeys = AllowedKeys { api: &["sse"], expect: &["errors"], call: &[] };
+
+/// An `sse` api sends its request as an `http` one does, and reads a stream instead of polling
+/// it (D376).
+const SSE_NOT: AllowedKeys = AllowedKeys { api: &[], expect: &["errors"], call: &["poll"] };
+
+/// A `websocket` api opens with a `GET` and no body: its messages are what it sends (D376).
+const WEBSOCKET_NOT: AllowedKeys =
+    AllowedKeys { api: &["method", "body", "sse"], expect: &["errors"], call: &["body", "poll"] };
 
 /// A `graphql` api always sends `POST` with its `body` (D343): no `method`, and no `body` on a
 /// call.
@@ -121,6 +169,7 @@ const GRAPHQL_KEYS: AllowedKeys = AllowedKeys {
 #[cfg(test)]
 mod tests {
     use super::{AllowedKeys, PROTOCOL_KEYS, PROTOCOL_NEEDS, Protocol};
+    use crate::StatusPattern;
 
     #[test]
     fn every_type_reads_back_from_its_key_and_has_its_keys() {
@@ -135,7 +184,7 @@ mod tests {
 
     #[test]
     fn http_takes_all_but_errors_and_graphql_takes_away_method_and_a_call_body() {
-        let [(_, http), (graphql, keys)] = PROTOCOL_KEYS;
+        let [(_, http), (graphql, keys), ..] = PROTOCOL_KEYS;
         let (expect, call, api) =
             (|keys: &AllowedKeys| keys.expect, |keys: &AllowedKeys| keys.call, |keys: &AllowedKeys| keys.api);
         assert_eq!(
@@ -148,10 +197,43 @@ mod tests {
     }
 
     #[test]
+    fn sse_keeps_the_http_request_and_websocket_drops_method_and_body_and_neither_polls() {
+        let [(_, http), _, (sse, sse_keys), (websocket, ws_keys)] = PROTOCOL_KEYS;
+        assert_eq!((sse, websocket), (Protocol::Sse, Protocol::Websocket));
+        let (api, expect, call) =
+            (|keys: &AllowedKeys| keys.api, |keys: &AllowedKeys| keys.expect, |keys: &AllowedKeys| keys.call);
+        assert_eq!(["method", "body", "sse"].map(|key| sse_keys.takes(api, key)), [true; 3]);
+        assert_eq!((sse_keys.takes(call, "body"), sse_keys.takes(call, "poll")), (true, false));
+        let ws_api = ["method", "body", "sse", "path", "http"].map(|key| ws_keys.takes(api, key));
+        assert_eq!(ws_api, [false, false, false, true, true]);
+        assert_eq!(["body", "poll", "headers"].map(|key| ws_keys.takes(call, key)), [false, false, true]);
+        assert!(
+            ws_keys.takes(expect, "status") && !ws_keys.takes(expect, "errors") && !sse_keys.takes(expect, "errors")
+        );
+        assert!(!http.takes(api, "sse"));
+        let needs: Vec<_> = PROTOCOL_NEEDS[2..].iter().map(|(_, needs)| *needs).collect();
+        assert_eq!(needs, [["path"], ["path"]]);
+    }
+
+    #[test]
     fn http_is_the_default_and_an_unknown_key_is_no_type() {
         assert_eq!(Protocol::default(), Protocol::Http);
         assert_eq!((Protocol::Http.key(), Protocol::Graphql.key()), ("http", "graphql"));
+        assert_eq!((Protocol::Sse.key(), Protocol::Websocket.key()), ("sse", "websocket"));
         assert_eq!(Protocol::from_key("htp"), None);
         assert_eq!(Protocol::from_key("HTTP"), None);
+    }
+
+    #[test]
+    fn a_message_names_each_type_after_the_article_it_is_read_with() {
+        let named = Protocol::ALL.map(Protocol::named);
+        assert_eq!(named, ["an `http`", "a `graphql`", "an `sse`", "a `websocket`"]);
+    }
+
+    #[test]
+    fn a_websocket_call_succeeds_on_its_101_handshake_and_every_other_type_on_2xx() {
+        let success = Protocol::ALL.map(Protocol::success_status);
+        let ok = StatusPattern::Class(2);
+        assert_eq!(success, [ok, ok, ok, StatusPattern::Code(101)]);
     }
 }

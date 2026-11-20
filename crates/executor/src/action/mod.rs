@@ -6,6 +6,8 @@ mod cached;
 mod call;
 mod command;
 mod encode;
+#[cfg_attr(not(test), expect(dead_code, reason = "the stream driver uses it from the next PR (#92, #93)"))]
+mod exchange;
 mod flight;
 mod function;
 mod graphql;
@@ -23,6 +25,7 @@ mod request;
 mod retrying;
 mod reuse;
 mod sink;
+mod stream;
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;

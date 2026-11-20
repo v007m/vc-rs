@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     ActionId, ApiId, AuthRef, Duration, Expect, FileId, HttpRetry, Matcher, Method, Path, Protocol, RequestHooks,
-    SaveSpec, SourceSpan, Template, TemplateValue, VarDefs,
+    SaveSpec, SourceSpan, StatusPattern, Template, TemplateValue, VarDefs,
 };
 
 /// One api file: what its apis share.
@@ -84,12 +84,15 @@ pub struct Api {
     pub timeout: Option<Duration>,
     /// `http.retry`, its keys over the config's; `None` when the api writes none (D143).
     pub http_retry: Option<HttpRetry>,
-    /// `expect`; `status: 2xx` when none is written.
+    /// How a streaming api's call opens and keeps its stream; `None` on a type that does not
+    /// stream (D376).
+    pub stream: Option<StreamSettings>,
+    /// `expect`; its status is [`Api::success_status`] when none is written.
     pub expect: Expect,
     /// `save`.
     pub save: SaveSpec,
-    /// `saveOn`: the statuses on which `save` runs; the api's `expect.status`, else `2xx`, when
-    /// none is written (D191).
+    /// `saveOn`: the statuses on which `save` runs; the api's `expect.status`, else
+    /// [`Api::success_status`], when none is written (D191, D386).
     pub save_on: Matcher,
     /// Whether `saveOn` is written. On a `graphql` api the default one also needs the response's
     /// `errors` absent or empty, and an api's `cleanup` always does (D345).
@@ -104,6 +107,27 @@ pub struct Api {
     pub operation_id: Option<String>,
     /// The whole item.
     pub span: SourceSpan,
+}
+
+impl Api {
+    /// The status a call of this api succeeds on when its `expect` checks none: its type's
+    /// [`Protocol::success_status`].
+    #[must_use]
+    pub const fn success_status(&self) -> StatusPattern {
+        self.protocol.success_status()
+    }
+}
+
+/// What a streaming api's type decides of its call (D376): whether it opens its stream once more.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
+pub struct StreamSettings {
+    /// `sse.reconnect`, the api's, else its file's: whether an `sse` stream that ends before its
+    /// exchange is done is opened once more (D385). Always `false` on a `websocket` api.
+    pub reconnect: bool,
 }
 
 /// A request body.

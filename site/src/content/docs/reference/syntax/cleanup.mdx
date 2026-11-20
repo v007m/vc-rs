@@ -205,7 +205,7 @@ apis:
 
 ## How it behaves
 
-- **Registered on success only.** A call registers its cleanup when its status is `2xx`. A 400 registers nothing.
+- **Registered on success only.** A call registers its cleanup when its status is `2xx` (`101` for a `websocket` api), whatever its `expect.status` says. A 400 registers nothing, even when the test expects it.
 - **Newest first.** Cleanups run in reverse order of the calls that registered them.
 - **Owned by the caller.** A test instance's cleanups run when that instance ends, pass or fail. A `beforeAll` action's cleanups run when the file ends.
 - **Every repeat counts.** A step with `repeat: 3` registers three cleanups.

@@ -16,5 +16,5 @@ fn a_type_without_compile_rules_is_an_error_not_a_missing_api() {
     let rules = ProtocolRulesRegistry { rules: Vec::new() };
     let missing = rules.get(Protocol::Http).map(ProtocolRules::protocol);
     assert_eq!(missing, Err(ModelError::NoProtocolRules(Protocol::Http)));
-    assert_eq!(ModelError::NoProtocolRules(Protocol::Http).to_string(), "no compile rules for a `http` api");
+    assert_eq!(ModelError::NoProtocolRules(Protocol::Http).to_string(), "no compile rules for an `http` api");
 }

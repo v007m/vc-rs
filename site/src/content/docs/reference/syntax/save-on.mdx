@@ -224,7 +224,7 @@ apis:
 
 ## How it behaves
 
-- `saveOn` gates the api's `save` only. It does not change the api's checks, and it does not affect [`cleanup`](/vc-rs/reference/syntax/cleanup/): cleanup is registered only for a `2xx` response.
+- `saveOn` gates the api's `save` only. It does not change the api's checks, and it does not affect [`cleanup`](/vc-rs/reference/syntax/cleanup/): cleanup is registered on the success status (`2xx`; `101` for a `websocket` api), whatever `saveOn` or `expect.status` says.
 - The default is the api's own `expect.status`, not the caller's. A test that expects another status skips the api's save unless `saveOn` covers it.
 - A skipped save leaves the var at its next level down, such as the test file's `vars`. If no level sets it, `vc check` already reported V2101.
 - Test and step `save` blocks ignore `saveOn`.

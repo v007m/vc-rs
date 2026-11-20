@@ -22,5 +22,8 @@ fn the_response_is_the_http_runtime_s_view_of_the_exchange() {
     let exchange = Exchange { request, response, timing: Timing::default(), connection: ConnectionInfo::default() };
     let viewed = ProtocolRuntimes::standard().response(Protocol::Http, &exchange).unwrap();
     assert_eq!((&viewed["status"], &viewed["body"]), (&json!(201), &json!({"id": 1})));
+    for stream in [Protocol::Sse, Protocol::Websocket] {
+        assert_eq!(ProtocolRuntimes::standard().response(stream, &exchange), Some(viewed.clone()), "{stream:?}");
+    }
     assert_eq!(ProtocolRuntimes { runtimes: Vec::new() }.response(Protocol::Http, &exchange), None);
 }
