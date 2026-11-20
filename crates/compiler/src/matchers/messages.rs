@@ -96,7 +96,8 @@ fn field(cx: &mut Cx<'_>, at: At<'_>, entry: &Entry) -> Option<(String, Matcher)
 /// V2306 for a `data` that writes neither `match` nor `equals`, or both: `equals` fixes the whole
 /// data, so which one was meant is not certain and there is no fix.
 fn not_one(cx: &mut Cx<'_>, at: At<'_>, checks: &[Entry]) -> Option<Matcher> {
-    let (message, span) = checks.get(1).map_or_else(
+    let second = checks.iter().filter(|check| DATA.contains(&check.key.as_str())).nth(1);
+    let (message, span) = second.map_or_else(
         || ("`data` checks nothing", at.node.span),
         |second| ("`data` takes `match` or `equals`, not both", second.key_span),
     );
@@ -108,13 +109,13 @@ fn not_one(cx: &mut Cx<'_>, at: At<'_>, checks: &[Entry]) -> Option<Matcher> {
 }
 
 /// A `data` that writes more than one check: each is lowered, so a stray key is its own V1004
-/// with a fix and the errors inside the others still show; `match` and `equals` both is V2306.
+/// and the errors inside the others still show; `match` and `equals` both is also V2306.
 fn several(cx: &mut Cx<'_>, at: At<'_>, checks: &[Entry]) -> Option<Matcher> {
     for check in checks {
         drop(data(cx, at, check));
     }
-    let known = checks.iter().all(|check| DATA.contains(&check.key.as_str()));
-    if known { not_one(cx, at, checks) } else { None }
+    let known = checks.iter().filter(|check| DATA.contains(&check.key.as_str())).count();
+    if known > 1 { not_one(cx, at, checks) } else { None }
 }
 
 /// V2302 for `data` written as a value: it takes `match` or `equals`.
@@ -137,10 +138,17 @@ fn data(cx: &mut Cx<'_>, at: At<'_>, check: &Entry) -> Option<Matcher> {
             let diagnostic = Diagnostic::new(Code::V1004, check.key_span, message)
                 .label("not a data check")
                 .help("`data` takes `match` (paths into the data, as `{match: {id: 7}}`) or `equals` (the whole data)");
-            cx.push(suggest::hint(diagnostic, &Misspelling { word: &check.key, span: check.key_span, known: &DATA }));
+            let free = unwritten(at.node);
+            cx.push(suggest::hint(diagnostic, &Misspelling { word: &check.key, span: check.key_span, known: &free }));
             None
         }
     }
+}
+
+/// The data checks `data` does not write yet: a fix never renames a key to one already there.
+fn unwritten(data: &Node) -> Vec<&'static str> {
+    let written = |key: &&str| data.entries().iter().any(|entry| entry.key == *key);
+    DATA.into_iter().filter(|key| !written(key)).collect()
 }
 
 /// `data.match`, as the internal `paths` matcher.

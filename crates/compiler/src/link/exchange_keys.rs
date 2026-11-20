@@ -26,11 +26,7 @@ pub fn check(project: &Project<'_>) -> Diagnostics {
         let apis = apis.map(|api| (api, project::protocol(source.root, api)));
         for (node, protocol) in apis.chain(protocol_keys::calls(project, source)) {
             diagnostics.extend(written(node, protocol));
-            diagnostics.extend(empties(node.get("exchange")));
         }
-        let tests = project::list(source.root, "tests").iter().filter(|_| source.kind == FileKind::Test);
-        diagnostics
-            .extend(tests.filter(|test| test.get("call").is_none()).flat_map(|test| empties(test.get("exchange"))));
         diagnostics.extend(defaults(project, source));
     }
     diagnostics
@@ -77,14 +73,19 @@ fn inheriting(steps: &[(&Node, Protocol)], (place, key): (&Inherited, &str)) -> 
     protocols
 }
 
-/// V2213 at each `send` of the `exchange` at `node` when `protocol` only receives, and V1004 at
-/// each field its `receive` checks that `protocol`'s messages lack.
+/// V2213 at each `send` of the `exchange` at `node` when `protocol` only receives, V2306 at an
+/// empty `receive` list, and V1004 at each field its `receive` checks that `protocol`'s messages
+/// lack. A test's `exchange` that no step inherits is V3206 instead, so it is not walked.
 fn exchange(node: Option<&Node>, protocol: Protocol) -> Vec<Diagnostic> {
     let (Some(node), Some(shape)) = (node, protocol.stream_shape()) else { return Vec::new() };
     let mut found = Vec::new();
     for item in node.items() {
         found.extend(item.entry("send").filter(|_| !shape.sends).map(|send| refused(send, protocol)));
         let checks = match item.get("receive").map(|receive| (receive, &receive.value)) {
+            Some((receive, Value::Seq(checks))) if checks.is_empty() => {
+                found.push(empty(receive));
+                Vec::new()
+            }
             Some((_, Value::Seq(checks))) => checks.iter().collect(),
             Some((receive, _)) => vec![receive],
             None => Vec::new(),
@@ -114,14 +115,6 @@ fn unknown(entry: &Entry, (protocol, shape): Stream) -> Diagnostic {
     let message = format!("{} message has no field `{}`", protocol.named(), entry.key);
     let diagnostic = Diagnostic::new(Code::V1004, entry.key_span, message).label("not a message field");
     suggest::hint(diagnostic, &Misspelling { word: &entry.key, span: entry.key_span, known: shape.fields })
-}
-
-/// V2306 at each `receive` list with no check in the `exchange` at `node`, whatever type it
-/// reaches: it would wait for nothing.
-fn empties(node: Option<&Node>) -> impl Iterator<Item = Diagnostic> {
-    let items = node.map(Node::items).unwrap_or_default().iter();
-    let receives = items.filter_map(|item| item.get("receive"));
-    receives.filter(|receive| receive.items().is_empty() && matches!(receive.value, Value::Seq(_))).map(empty)
 }
 
 /// V2306 at a `receive` list with no check, which would wait for nothing. Which messages were
