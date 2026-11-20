@@ -112,7 +112,7 @@ impl StreamTransport for FakeStreamTransport {
         let opens = mode.opens_on().matches(head.status.as_u16());
         let stream = frames.filter(|_| opens).map(|frames| {
             let incoming = frames.into_iter().collect();
-            Box::new(FakeStream { mode, incoming, echo, ended: false }) as Box<dyn MessageStream>
+            Box::new(FakeStream { mode, incoming, echo, ended: false, closing: false }) as Box<dyn MessageStream>
         });
         let head =
             Exchange { request, response: head, timing: Timing::default(), connection: ConnectionInfo::default() };
@@ -130,6 +130,8 @@ struct FakeStream {
     /// A close frame or an error was yielded, a script ran out, or the client closed: nothing
     /// more is, and sending is an error.
     ended: bool,
+    /// The echo queued its close: sending is an error, though the close is still to be read.
+    closing: bool,
 }
 
 #[async_trait]
@@ -138,12 +140,13 @@ impl MessageStream for FakeStream {
         if self.mode == StreamMode::Body {
             return Err(TransportError::InvalidRequest { reason: "a response body stream cannot send".to_owned() });
         }
-        if self.ended {
+        if self.ended || self.closing {
             return Err(TransportError::InvalidRequest { reason: "the stream has ended".to_owned() });
         }
         if self.echo {
-            let bye = frame == OutgoingFrame::Text("bye".to_owned());
-            let reply = if bye { StreamFrame::Close { code: 1000, reason: "bye".to_owned() } } else { frame.into() };
+            self.closing = frame == OutgoingFrame::Text("bye".to_owned());
+            let reply =
+                if self.closing { StreamFrame::Close { code: 1000, reason: "bye".to_owned() } } else { frame.into() };
             self.incoming.push_back(Ok(reply));
         }
         Ok(())

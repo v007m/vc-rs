@@ -109,6 +109,17 @@ async fn a_scripted_stream_that_runs_out_of_frames_has_ended_so_send_is_an_error
 }
 
 #[tokio::test]
+async fn an_echo_stream_refuses_to_send_once_its_close_is_queued() {
+    let fake = FakeStreamTransport::scripted(vec![Ok(StreamAnswer::echo())]);
+    let mut stream = fake.open(get("/"), StreamMode::WebSocket, &SendContext::default()).await.unwrap().stream.unwrap();
+    assert_eq!(stream.send(OutgoingFrame::Text("bye".into())).await, Ok(()));
+    let sent = stream.send(OutgoingFrame::Text("hi".into())).await;
+    assert!(matches!(sent, Err(TransportError::InvalidRequest { .. })), "the close is queued: {sent:?}");
+    assert_eq!(stream.next().await, Some(Ok(StreamFrame::Close { code: 1000, reason: "bye".into() })));
+    assert_eq!(stream.next().await, None, "the refused send queued nothing");
+}
+
+#[tokio::test]
 async fn an_echo_stream_with_nothing_queued_waits_as_a_silent_server_would() {
     let fake = FakeStreamTransport::scripted(vec![Ok(StreamAnswer::echo())]);
     let mut stream = fake.open(get("/"), StreamMode::WebSocket, &SendContext::default()).await.unwrap().stream.unwrap();
