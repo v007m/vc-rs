@@ -90,7 +90,7 @@ async fn builds_with_the_roots_and_the_identities_the_active_profiles_allow() {
     let certs: Vec<_> = tls.certs.values().copied().collect();
     assert_eq!((tls.certs.len(), certs.contains(&CertId::new(0)), certs.contains(&CertId::new(1))), (2, true, true));
     let hidden: Vec<_> = tls.hidden.iter().map(Secret::expose).collect();
-    assert_eq!(hidden, ["fixture"]);
+    assert_eq!(hidden, [key, "fixture"], "the key rendered from the environment and the passphrase (D401)");
     let (builder, mut read) = memory_pki(&pki);
     run_with(builder, CLIENTS, ("staging", &[("GOOD_KEY", key)])).await.unwrap();
     assert_eq!(read.try_recv().unwrap().clients.len(), 3);

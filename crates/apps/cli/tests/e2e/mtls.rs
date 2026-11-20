@@ -275,3 +275,31 @@ async fn a_value_that_does_not_render_names_its_expression_and_never_its_key() {
     assert_hidden(&[("vc output".to_owned(), said(&run))], &hidden);
     assert!(server.stats().await.unwrap().requests.is_empty(), "no request was sent");
 }
+
+/// A key `${env.K}` renders inline from the environment, and a test sends it, echoed back, from a
+/// row labelled with it: the redactor hides it with the passphrases, so neither the output, the
+/// reports nor the history show it.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_key_rendered_from_the_environment_is_masked_where_a_run_echoes_or_labels_it() {
+    let pki = TestPki::new().unwrap();
+    let server = mock(&pki, ClientAuth::Required).await;
+    let project = project(&pki, (&good("'127.0.0.1'", "").replace("certs/good.key", "${env.K}"), ""), "");
+    project.write("services/echo/echo.api.yaml", "baseUrl: ${var.baseUrl}\napis:\n  - id: send\n    method: POST\n    path: /echo\n    body: {key: '${env.K}'}\n");
+    project.write(
+        "services/echo/key.test.yaml",
+        "tests:\n  - id: echoesTheKey\n    examples: [{name: '${env.K}'}]\n    call: echo#send\n    expect: {status: 418}\n",
+    );
+    let args = ["echo.key", "--report", "ctrf,junit", "--out", "out"];
+    let text = project.run(&server.base_url(), &args).env("K", pki.good().key_pem()).output().unwrap();
+    assert_eq!(text.status.code(), Some(1), "the echo fails its check: {}", said(&text));
+    assert!(said(&text).contains("echoesTheKey"), "{}", said(&text));
+    let json =
+        project.run(&server.base_url(), &["echo.key", "--reporter", "json"]).env("K", pki.good().key_pem()).output();
+    let json = json.unwrap();
+    assert!(said(&json).contains("\"key\""), "the echo is reported: {}", said(&json));
+    let history = history_text(&project.path().join(".vibranium/history.db"));
+    let mut seen = vec![("history.db rows".to_owned(), history), ("vc output".to_owned(), said(&text) + &said(&json))];
+    files(project.path().join("out").as_path(), &mut seen);
+    let body = key_body(&pki);
+    assert_hidden(&seen, &body.iter().map(String::as_str).collect::<Vec<_>>());
+}

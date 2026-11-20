@@ -110,7 +110,7 @@ http:
 - A request presents the `clientCert` of its auth when it has one. Otherwise it presents the first entry whose `hosts` match the URL's host and whose `profiles` include an active profile. Otherwise it presents none.
 - The `oauth2*` types present their `clientCert` on the token request too, for certificate-bound tokens (RFC 8705).
 - A run reads the certificates its profiles use once, when it starts; an entry only for other profiles is not read. A file is at most 1 MiB.
-- A `passphrase` is masked in all output, like a secret.
+- A `passphrase`, and a `key` given as inline PEM (written, or rendered from a secret, an env var or a var), are masked in all output, like a secret.
 - Certificates are always verified. `ca` adds roots; nothing turns verification off.
 
 ## Common errors

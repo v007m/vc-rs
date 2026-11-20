@@ -33,7 +33,7 @@ impl Engine {
         let unset = tls.ca.is_empty() && tls.clients.is_empty();
         let (spec, certs) =
             if unset { (TlsSpec::default(), ClientCerts::default()) } else { self.planned(prepared, &secrets)? };
-        let hidden = spec.clients.iter().filter_map(passphrase).collect();
+        let hidden = spec.clients.iter().filter_map(hidden).collect();
         let (factory, environment) = (Arc::clone(&self.transports), Arc::clone(&prepared.environment));
         let built = tokio::task::spawn_blocking(move || factory.build(&spec, environment.as_ref())).await;
         let built =
@@ -57,10 +57,15 @@ impl Engine {
     }
 }
 
-/// A PKCS#12 identity's passphrase, when it has one to hide.
-fn passphrase(client: &ClientSpec) -> Option<Secret> {
-    let ClientSource::Pkcs12 { passphrase, .. } = &client.material else { return None };
-    Some(passphrase.clone()).filter(|passphrase| !passphrase.expose().is_empty())
+/// What the redactor hides of `client`: a PKCS#12 bundle's passphrase, or a PEM key given
+/// inline, rendered from a secret, an env var or a var or written literally (D401).
+fn hidden(client: &ClientSpec) -> Option<Secret> {
+    let held = match &client.material {
+        ClientSource::Pkcs12 { passphrase, .. } => passphrase,
+        ClientSource::Pem { key: MaterialSource::Inline(key), .. } => key,
+        ClientSource::Pem { .. } => return None,
+    };
+    Some(held.clone()).filter(|held| !held.expose().is_empty())
 }
 
 /// Renders `http.tls` values with the config's scope; relative paths are under `root`.
