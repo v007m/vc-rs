@@ -81,6 +81,7 @@ fn outcome(judge: &Judge<'_>, check: &Check, subject: Subject<'_>) -> Outcome {
         CheckKind::Schema => schema_check(judge, check, subject.response.get("body")),
         CheckKind::Custom => pending("the custom check's function did not run", Code::V5103),
         CheckKind::Errors => errors_check(judge, check, subject.response.get("body")),
+        CheckKind::Messages => matched(judge, check, at("messages")),
     }
 }
 

@@ -63,6 +63,11 @@ pub enum Unit {
     /// One of those errors, under `every`, `some` or `none`: there a map that names no matcher
     /// is an expected error (D360).
     Error,
+    /// A stream call's messages, in order; a value that names no matcher is V2306 (D380).
+    Messages,
+    /// One message, in `receive` or under `every`, `some` or `none`: always a map of the
+    /// message's fields, since `type` is a websocket message's field as well as a matcher (D379).
+    Message,
 }
 
 /// Roots a key makes available to the templates under it (D125).

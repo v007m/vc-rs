@@ -5,7 +5,9 @@
 
 use std::fmt::Write as _;
 
-use vc_model::{Api, AuthRef, BodySpec, Namespace, PartSpec, Program, Reference, Segment, Template, TemplateValue};
+use vc_model::{
+    Api, AuthRef, BodySpec, ExchangeKind, Namespace, PartSpec, Program, Reference, Segment, Template, TemplateValue,
+};
 
 use super::call::{CALL, Called};
 use super::{Explainer, unknown};
@@ -111,7 +113,7 @@ impl Explainer<'_> {
         Some(AuthShown { id: self.text(id.sym()), kind: def.kind.clone(), token_url, secrets })
     }
 
-    /// The references `called`'s base URL, path, query, headers and body make.
+    /// The references `called`'s base URL, path, query, headers, body and stream sends make.
     fn request_references<'r>(&'r self, called: &Called<'r>) -> Vec<&'r Reference> {
         let api = called.api;
         let group = self.program.api_groups.get(&api.group);
@@ -122,6 +124,11 @@ impl Explainer<'_> {
             found.extend(headers.values().flat_map(Template::references));
         }
         body_references(&api.body, &mut found);
+        for item in &api.exchange {
+            if let ExchangeKind::Send(value) = &item.kind {
+                value.collect_references(&mut found);
+            }
+        }
         found
     }
 }

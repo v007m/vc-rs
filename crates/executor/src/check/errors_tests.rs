@@ -1,31 +1,10 @@
 use serde_json::{Value, json};
-use vc_model::{
-    ActionId, Check, CheckKind, Matcher, MatcherArg, MatcherCall, Origin, Pos, SourceFileId, SourceSpan, TemplateValue,
-};
-use vc_template::RenderError;
+use vc_model::{ActionId, Check, CheckKind, Matcher, MatcherArg, Origin, TemplateValue};
 
-use super::super::{Arguments, Judge, MatcherRegistry, Subject, evaluate, verdict};
+use super::super::{Judge, MatcherRegistry, Subject, evaluate, verdict};
 use super::normalised;
+use crate::check::testing::{Texts, call, span};
 use crate::fixture;
-
-/// Renders the literal texts these checks hold.
-struct Texts;
-
-impl Arguments for Texts {
-    fn render(&self, value: &TemplateValue) -> Result<Value, RenderError> {
-        let TemplateValue::String(text) = value else { return Err(RenderError::missing("not text")) };
-        let [vc_model::Part::Literal(text)] = text.parts.as_slice() else { return Err(RenderError::missing("x")) };
-        Ok(json!(text))
-    }
-}
-
-fn span() -> SourceSpan {
-    SourceSpan::new(SourceFileId::new(0), Pos::new(1, 1, 0), Pos::new(1, 1, 0))
-}
-
-fn call(name: &str, arg: MatcherArg) -> Matcher {
-    Matcher::All(vec![MatcherCall { name: name.to_owned(), arg, span: span() }])
-}
 
 /// An expected error of these fields, as the compiler lowers it (D360).
 fn entry(fields: &[(&str, &str)]) -> Matcher {

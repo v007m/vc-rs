@@ -1,7 +1,7 @@
 //! `*.api.yaml`.
 
 use super::common;
-use super::common::{AUTH, HOOKS, METHODS, PROFILES, PROTOCOLS, TEMPLATES, TEXTS, VARS};
+use super::common::{AUTH, EXCHANGE, HOOKS, METHODS, PROFILES, PROTOCOLS, TEMPLATES, TEXTS, VARS};
 use super::types;
 use super::types::{Scope, Shape, Ty};
 
@@ -63,6 +63,7 @@ shape! {
         types::key("timeout", Ty::Duration).default("defaults.timeout").doc("Per request attempt"),
         types::key("http", Ty::Obj(common::http)).doc("Transport retry for this api; keys replace the config's"),
         types::key("sse", Ty::Obj(sse)).default("the file's").doc("Stream settings; only on an `sse` api"),
+        types::key("exchange", EXCHANGE).doc("What the stream sends and waits for, in order; only on `sse` and `websocket`"),
         types::key("expect", Ty::Obj(common::expect)).default("a status check of 2xx, or 101 on `websocket` (D386)").scope(Scope::CALL).doc("Checks that hold on every call"),
         types::key("save", VARS).scope(Scope::CALL).doc("Values every caller gets as vars"),
         types::key("saveOn", Ty::Status).default("expect.status, else 2xx, or 101 on `websocket` (D386)").scope(Scope::CALL).doc("The statuses on which `save` runs").example("201"),

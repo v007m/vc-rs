@@ -126,9 +126,38 @@ pub const PROTOCOL_NEEDS: [(Protocol, &[&str]); 4] = [
     (Protocol::Websocket, &["path"]),
 ];
 
+/// What a stream type's `exchange` holds (D377, D379): whether it sends, and the fields of the
+/// messages it receives, which a `receive` check or an `expect.messages` entry may name.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
+pub struct StreamShape {
+    /// Whether a `send` item applies; on a type that only receives it is V2213.
+    pub sends: bool,
+    /// The fields of each message; any other is V1004.
+    pub fields: &'static [&'static str],
+}
+
+/// Each stream type with its [`StreamShape`]; a type not listed has no stream.
+pub const STREAM_SHAPES: [(Protocol, StreamShape); 2] = [
+    (Protocol::Sse, StreamShape { sends: false, fields: &["event", "data", "id", "retry", "text"] }),
+    (Protocol::Websocket, StreamShape { sends: true, fields: &["type", "data", "text", "code", "reason"] }),
+];
+
+impl Protocol {
+    /// Its [`StreamShape`]; `None` on a type that does not stream.
+    #[must_use]
+    pub fn stream_shape(self) -> Option<&'static StreamShape> {
+        STREAM_SHAPES.iter().find(|(protocol, _)| *protocol == self).map(|(_, shape)| shape)
+    }
+}
+
 /// An `http` api takes every key but `expect.errors`, a `graphql` response's (D345), and `sse`,
-/// an `sse` api's settings (D385).
-const HTTP_NOT: AllowedKeys = AllowedKeys { api: &["sse"], expect: &["errors"], call: &[] };
+/// an `sse` api's settings (D385), and the stream keys `exchange` and `expect.messages` (D377).
+const HTTP_NOT: AllowedKeys =
+    AllowedKeys { api: &["sse", "exchange"], expect: &["errors", "messages"], call: &["exchange"] };
 
 /// An `sse` api sends its request as an `http` one does, and reads a stream instead of polling
 /// it (D376).
@@ -213,6 +242,26 @@ mod tests {
         assert!(!http.takes(api, "sse"));
         let needs: Vec<_> = PROTOCOL_NEEDS[2..].iter().map(|(_, needs)| *needs).collect();
         assert_eq!(needs, [["path"], ["path"]]);
+    }
+
+    #[test]
+    fn neither_http_nor_graphql_streams_and_only_a_websocket_sends() {
+        let [(_, http), (_, graphql), ..] = PROTOCOL_KEYS;
+        let (api, expect, call) =
+            (|keys: &AllowedKeys| keys.api, |keys: &AllowedKeys| keys.expect, |keys: &AllowedKeys| keys.call);
+        for keys in [http, graphql] {
+            assert_eq!([keys.takes(api, "exchange"), keys.takes(call, "exchange")], [false; 2]);
+            assert!(!keys.takes(expect, "messages"));
+        }
+        assert_eq!([Protocol::Http, Protocol::Graphql].map(Protocol::stream_shape), [None, None]);
+        let [.., (_, sse_keys), (_, ws_keys)] = PROTOCOL_KEYS;
+        for keys in [sse_keys, ws_keys] {
+            assert!(keys.takes(api, "exchange") && keys.takes(call, "exchange") && keys.takes(expect, "messages"));
+        }
+        let [sse, websocket] = [Protocol::Sse, Protocol::Websocket].map(|protocol| protocol.stream_shape().unwrap());
+        assert_eq!((sse.sends, websocket.sends), (false, true));
+        assert_eq!(sse.fields, ["event", "data", "id", "retry", "text"]);
+        assert_eq!(websocket.fields, ["type", "data", "text", "code", "reason"]);
     }
 
     #[test]

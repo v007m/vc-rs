@@ -13,6 +13,9 @@ use crate::suggest::{self, Misspelling};
 use crate::value;
 
 mod errors;
+mod messages;
+
+pub use messages::checks as message_checks;
 
 /// What a matcher takes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -97,6 +100,28 @@ fn find(name: &str) -> Option<&'static Kind> {
     MATCHERS.iter().find(|kind| kind.name == name)
 }
 
+/// A list a check reads entry by entry: the unit of the list, the unit of one entry under
+/// `every`, `some` and `none`, and how a value in either is lowered.
+struct Listed {
+    list: Unit,
+    each: Unit,
+    lower: Lower,
+}
+
+/// Lowers the value at `at`, in the list's unit or its entry's.
+type Lower = fn(&mut Cx<'_>, At<'_>, Unit) -> Option<Matcher>;
+
+/// Every such list: `expect.errors` (D345) and a stream call's messages (D380).
+const LISTED: &[Listed] = &[
+    Listed { list: Unit::Errors, each: Unit::Error, lower: errors::expected },
+    Listed { list: Unit::Messages, each: Unit::Message, lower: messages::expected },
+];
+
+/// The list whose own unit, or whose entry's, `unit` is.
+fn listed(unit: Unit) -> Option<&'static Listed> {
+    LISTED.iter().find(|listed| listed.list == unit || listed.each == unit)
+}
+
 /// A matcher's argument, where it is written and the unit it compares in.
 #[derive(Clone, Copy)]
 struct Spot<'n> {
@@ -108,8 +133,8 @@ struct Spot<'n> {
 /// The matcher or literal at `at`, comparing in `unit`. A map with no matcher's name as a key is
 /// a literal object; one lone key close to a matcher's name is V3208.
 pub fn matcher(cx: &mut Cx<'_>, at: At<'_>, unit: Unit) -> Option<Matcher> {
-    if matches!(unit, Unit::Errors | Unit::Error) {
-        return errors::expected(cx, at, unit);
+    if let Some(listed) = listed(unit) {
+        return (listed.lower)(cx, at, unit);
     }
     let Value::Map(entries) = &at.node.value else { return literal(cx, at, unit) };
     if !entries.iter().any(|entry| find(&entry.key).is_some()) {
@@ -217,11 +242,12 @@ fn call(cx: &mut Cx<'_>, at: At<'_>, (entry, unit): (&Entry, Unit)) -> Option<Ma
     })
 }
 
-/// The unit `kind`'s argument compares in: under `expect.errors`, `every`, `some` and `none`
-/// see each error, while `not`, `allOf` and `anyOf` see the list.
+/// The unit `kind`'s argument compares in: on a list read entry by entry (`expect.errors`),
+/// `every`, `some` and `none` see each entry, while `not`, `allOf` and `anyOf` see the list.
 fn inner(unit: Unit, kind: &Kind) -> Unit {
     let each = kind.arg == Arg::Nested && kind.list == OnList::Whole;
-    if unit == Unit::Errors && each { Unit::Error } else { unit }
+    let list = LISTED.iter().find(|listed| listed.list == unit).filter(|_| each);
+    list.map_or(unit, |listed| listed.each)
 }
 
 fn argument(cx: &mut Cx<'_>, spot: Spot<'_>, kind: Arg) -> Option<MatcherArg> {

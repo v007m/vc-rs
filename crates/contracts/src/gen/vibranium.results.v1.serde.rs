@@ -266,6 +266,7 @@ impl serde::Serialize for CheckKind {
             Self::Cel => "CHECK_KIND_CEL",
             Self::Custom => "CHECK_KIND_CUSTOM",
             Self::Errors => "CHECK_KIND_ERRORS",
+            Self::Messages => "CHECK_KIND_MESSAGES",
         };
         serializer.serialize_str(variant)
     }
@@ -288,6 +289,7 @@ impl<'de> serde::Deserialize<'de> for CheckKind {
             "CHECK_KIND_CEL",
             "CHECK_KIND_CUSTOM",
             "CHECK_KIND_ERRORS",
+            "CHECK_KIND_MESSAGES",
         ];
 
         struct GeneratedVisitor;
@@ -339,6 +341,7 @@ impl<'de> serde::Deserialize<'de> for CheckKind {
                     "CHECK_KIND_CEL" => Ok(CheckKind::Cel),
                     "CHECK_KIND_CUSTOM" => Ok(CheckKind::Custom),
                     "CHECK_KIND_ERRORS" => Ok(CheckKind::Errors),
+                    "CHECK_KIND_MESSAGES" => Ok(CheckKind::Messages),
                     _ => Err(serde::de::Error::unknown_variant(value, FIELDS)),
                 }
             }

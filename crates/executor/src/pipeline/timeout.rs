@@ -17,7 +17,7 @@ impl<S> Timeout<S> {
 }
 
 impl<S: Hop> Service<Call> for Timeout<S> {
-    ready_service!();
+    ready_service!(S::Response, TransportError);
 
     fn call(&mut self, call: Call) -> Self::Future {
         let inner = self.inner.clone();

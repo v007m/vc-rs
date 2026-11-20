@@ -174,3 +174,25 @@ async fn explains_the_draft_a_call_would_send_in_place_of_the_file() {
     drafted.draft = Some(CallDraft { digest: "stale".into(), ..drafted.draft.unwrap() });
     assert!(matches!(engine.explain_api(&drafted).await.unwrap_err(), EngineError::Stale { .. }));
 }
+
+#[tokio::test]
+async fn gives_the_vars_a_stream_calls_exchange_sends() {
+    let live = (
+        "services/live/live.api.yaml",
+        concat!(
+            "baseUrl: http://x\nvars: {room: lobby, unused: x}\napis:\n  - id: chat\n    type: websocket\n",
+            "    path: /chat\n    exchange:\n      - send: {join: '${var.room}'}\n      - receive: {type: text}\n",
+        )
+        .as_bytes(),
+    );
+    let sources = MemorySources::new(&[CONFIG, SCHEMA, live]);
+    let environment = [("SHOP_TOKEN", SECRET), ("SHOP_CLIENT_ID", "client-1")];
+    let engine = builder(FakeVcs::default())
+        .sources(Arc::new(sources))
+        .environment(Arc::new(MemoryEnvironment::new(&environment)))
+        .build()
+        .unwrap();
+    let explained = engine.explain_api(&request("live#chat", &[], &[])).await.unwrap();
+    let names: Vec<&str> = explained.vars.iter().map(|var| var.key.as_str()).collect();
+    assert_eq!(names, ["shopKey", "room"], "the sent `room` is shown, `unused` is not");
+}

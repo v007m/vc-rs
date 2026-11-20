@@ -12,7 +12,7 @@ use crate::link;
 use crate::link::Source;
 
 /// The defaults a step's own value replaces.
-const REPLACED: [&str; 3] = ["auth", "body", "poll"];
+const REPLACED: [&str; 4] = ["auth", "body", "poll", "exchange"];
 
 /// The defaults a step's own map merges over, name by name.
 const MERGED: [&str; 2] = ["headers", "query"];

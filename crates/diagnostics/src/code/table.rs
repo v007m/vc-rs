@@ -134,4 +134,6 @@ code_table! {
     V5127 = 5127, Error, "The server refused the client certificate";
     V5128 = 5128, Warning, "The response has GraphQL errors";
     V5129 = 5129, Warning, "Save skipped: the response has GraphQL errors";
+    V5130 = 5130, Error, "A `receive` was not met before the stream ended or the time ran out";
+    V5131 = 5131, Error, "The stream did not open";
 }

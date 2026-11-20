@@ -9,7 +9,7 @@ use crate::link;
 use crate::link::Source;
 
 /// The keys a `test:` action ignores.
-const IGNORED: [&str; 6] = ["auth", "headers", "query", "body", "poll", "expect"];
+const IGNORED: [&str; 7] = ["auth", "headers", "query", "body", "poll", "exchange", "expect"];
 
 /// Reports every key a `test:` action ignores.
 pub struct ReuseKeys;

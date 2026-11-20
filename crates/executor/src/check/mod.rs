@@ -5,6 +5,7 @@ mod compare;
 mod compose;
 mod errors;
 mod evaluate;
+mod messages;
 mod registry;
 mod schema;
 mod shape;
@@ -15,6 +16,8 @@ pub use evaluate::{Subject, diff, evaluate, verdict};
 pub use registry::{Arguments, Judge, MatcherFn, MatcherRegistry};
 pub use schema::Schemas;
 
+#[cfg(test)]
+mod testing;
 #[cfg(test)]
 #[path = "check_tests.rs"]
 mod tests;

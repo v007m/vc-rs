@@ -132,6 +132,7 @@ impl Fixture {
             timeout: None,
             http_retry: None,
             stream: None,
+            exchange: Vec::new(),
             expect,
             save,
             save_on: Matcher::Status(vec![StatusPattern::Class(2)]),
@@ -347,6 +348,7 @@ impl Transport for Server {
             response: vc_testkit::status(code),
             timing: Timing::default(),
             connection: ConnectionInfo::default(),
+            messages: Vec::new(),
         })
     }
 }

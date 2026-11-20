@@ -8,6 +8,9 @@ mod alerts_tests;
 mod auth;
 #[cfg(test)]
 mod config_tests;
+mod exchange;
+#[cfg(test)]
+mod exchange_tests;
 mod expect;
 mod graphql;
 mod http_retry;

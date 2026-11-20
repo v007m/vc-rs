@@ -121,10 +121,10 @@ fn segment(item: &Node) -> Option<Segment> {
     }
 }
 
-fn call((name, arg): (&str, MatcherArg), span: SourceSpan) -> MatcherCall {
+pub(super) fn call((name, arg): (&str, MatcherArg), span: SourceSpan) -> MatcherCall {
     MatcherCall { name: name.to_owned(), arg, span }
 }
 
-fn one(call: MatcherCall) -> Matcher {
+pub(super) fn one(call: MatcherCall) -> Matcher {
     Matcher::All(vec![call])
 }
