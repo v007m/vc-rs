@@ -123,7 +123,7 @@ impl SseDecoder {
 
     fn field(&mut self, field: &str, value: &str) {
         match field {
-            "event" => self.event = Some(value.to_owned()),
+            "event" => self.event = Some(value.to_owned()).filter(|event| !event.is_empty()),
             "data" => {
                 let data = self.data.get_or_insert_with(String::new);
                 data.push_str(value);

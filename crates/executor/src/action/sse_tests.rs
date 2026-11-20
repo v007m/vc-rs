@@ -45,6 +45,15 @@ fn data_lines_join_with_a_newline_and_parse_as_json_else_stay_text() {
     assert_eq!(joined, expected);
 }
 
+/// An empty `event` leaves the type `message`, as an `EventSource` does.
+#[test]
+fn an_empty_event_field_leaves_the_type_message() {
+    let typed = decoded(&[b"event:\ndata: x\n\nevent: a\nevent:\ndata: y\n\n"]);
+    let expected =
+        [json!({"event": "message", "data": "x", "text": "x"}), json!({"event": "message", "data": "y", "text": "y"})];
+    assert_eq!(typed, expected);
+}
+
 #[test]
 fn a_comment_a_blank_block_and_an_unknown_field_send_nothing() {
     let mut decoder = SseDecoder::default();
