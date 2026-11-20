@@ -825,6 +825,12 @@ Round 80 (20 November 2026; mTLS PR 6, small choices made under Sarath's delegat
 | D405 | A held key is masked in each form a run may echo | Besides the value as written, the redactor hides a passphrase's or inline key's trimmed text, its copy with LF line ends (for a CRLF key), and each base64 body line of at least 16 characters on its own, each form once. A shorter piece would mask ordinary text; a PEM line is 64 characters. The LF copy is held wiped like the key. | D401 (extends: the forms hidden) |
 | D406 | One CLI shutdown for every command that runs the engine | `vc run`, `vc load`, `vc watch`, `vc tui`, `vc ui` and `vc mcp` close their runtime through one function: `shutdown_background()` only when the command was interrupted (a Ctrl-C heard by run, load or watch; `vc ui` stopped by Ctrl-C; `vc tui` quit while a run or load run is in progress), otherwise a normal drop that waits for blocking tasks, so a refused flag or a session the agent ends cuts nothing short. In `vc watch` a file watcher whose channel closes is not a Ctrl-C: the watch ends with exit 70 and says the watcher stopped. | D398 (refines: which commands, and what counts as interrupted) |
 
+Round 81 (20 November 2026; mTLS PR 7, small choices made under Sarath's delegation, closest to existing behaviour):
+
+| # | Topic | Decision | Supersedes |
+| --- | --- | --- | --- |
+| D407 | The playground refuses `http.tls` | A project whose config sets `http.tls.ca` or `http.tls.clients` is refused before anything runs in the playground (exit 2), as one that declares secrets is: the browser's fetch can neither present a client certificate nor trust an extra root. The help says to leave `http.tls` out or run the project with `vc run`. | — |
+
 ## Open
 
 All decisions needed for the PRD and technical design are settled. The language is decided by the spike (D6, D36, D37, D41).

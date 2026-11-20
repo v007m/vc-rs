@@ -106,3 +106,20 @@ async fn a_request_with_secrets_is_refused() {
     assert_eq!(exit, 2, "{out}{err}");
     assert!(err.contains("which the playground cannot load"), "{out}{err}");
 }
+
+#[tokio::test]
+async fn a_project_with_client_certificates_or_extra_roots_is_refused() {
+    let tls = [
+        "http:\n  tls:\n    clients:\n      - id: tenantA\n        hosts: [localhost]\n        cert: certs/a.pem\n        key: certs/a.key\n",
+        "http:\n  tls:\n    ca: [certs/root.pem]\n",
+    ];
+    for tls in tls {
+        let mut files = examples();
+        let config = files.get_mut("vibranium.config.yaml").unwrap();
+        config.push_str(tls);
+        let (exit, out, err) = play(files, Command::Run).await;
+        assert_eq!(exit, 2, "{tls}: {out}{err}");
+        assert!(err.contains("the project sets `http.tls`, which the playground cannot present"), "{tls}: {err}");
+        assert!(err.contains("leave `http.tls` out of the project"), "{tls}: {err}");
+    }
+}
