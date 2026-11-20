@@ -86,6 +86,7 @@ error: port 7454 is taken by a program that is not the demo
 | `GET /slow?ms=N` | `200` `{"sleptMs":N}` after N milliseconds (0 when `ms` is not given; `ms=` with no value is refused); N is at most `10000` |
 | `GET /flaky?key=K&failTimes=N` | `{"attempt":n}`, counted per key: `503` for the first N attempts, then `200` |
 | `GET /poll/{id}?after=N` | `200` `{"attempt":n,"status":"pending"}`, counted per ID, until attempt N, which and later ones are `"done"` |
+| `GET /events?count=N` | `200` `text/event-stream`: N events (3 when not given, at most `100`), each `id: i` and `data: i`, then the end; after the number in a `last-event-id` header when one is sent. `drop=true` drops the connection after the last event, `dropAt=k` drops a first connection (one without `last-event-id`) after event k, `retry=ms` sends a `retry` first (at most `60000`) and `heartbeat=true` a comment before each event |
 | any `/status/{code}` | that status, with `{"status":code}`, for any code from `200` to `599`; no body for `204`, `205` and `304` |
 | anything else | `404` |
 

@@ -281,6 +281,7 @@ Candidate V codes (V2213 and V5105 are reused):
    - The mock's `/events` route (the suite's `count` and `last-event-id` contract), with a drop for reconnect; the adapter runs `stream_transport_suite` once PR 6 adds the WebSocket side.
    - End-to-end tests and a site example.
    - Messages in the json, HTML and CTRF reports.
+   - Done; its refinements are D426–D429.
 6. **WebSocket on the wire.**
    - `tokio-tungstenite` and the upgrade path in `HttpTransport`.
    - The mock's `/ws` route, end-to-end tests and a site example.
