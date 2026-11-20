@@ -5,7 +5,7 @@ use std::any::Any;
 use std::fmt;
 use std::path::PathBuf;
 
-use zeroize::Zeroizing;
+use crate::Secret;
 
 /// Reads the roots and identities of a rendered `http.tls`, for the transport that presents them.
 pub trait TlsLoader: Send + Sync {
@@ -46,15 +46,16 @@ pub struct ClientSpec {
 pub enum ClientSource {
     /// A PEM certificate chain, leaf first, and its private key.
     Pem { cert: MaterialSource, key: MaterialSource },
-    /// A PKCS#12 bundle; `Debug` never shows the passphrase.
-    Pkcs12 { bundle: MaterialSource, passphrase: Passphrase },
+    /// A PKCS#12 bundle and its passphrase, which `Debug` never shows; an empty one is none.
+    Pkcs12 { bundle: MaterialSource, passphrase: Secret },
 }
 
 /// Where one piece of material comes from.
 #[expect(clippy::exhaustive_enums, reason = "inline or a file, the two forms a value takes (D374)")]
 pub enum MaterialSource {
-    /// PEM text the config gives inline, or renders from a secret, env var or var.
-    Inline(Zeroizing<Vec<u8>>),
+    /// PEM text the config gives inline, or renders from a secret, env var or var; in memory
+    /// wiped on drop, never shown by `Debug`.
+    Inline(Secret),
     /// A file. `shown` is the path as the config wrote it, when it was written literally: the
     /// only form an error may quote, since a rendered one may hold anything.
     File { path: PathBuf, shown: Option<String> },
@@ -66,17 +67,6 @@ impl fmt::Debug for MaterialSource {
             Self::Inline(_) => f.write_str("Inline"),
             Self::File { shown, .. } => f.debug_struct("File").field("shown", shown).finish_non_exhaustive(),
         }
-    }
-}
-
-/// A PKCS#12 passphrase, in memory wiped on drop; `Debug` never shows it.
-#[derive(Clone, Default, PartialEq, Eq)]
-#[expect(clippy::exhaustive_structs, reason = "a wrapper the engine fills and the adapter reads (D160)")]
-pub struct Passphrase(pub Zeroizing<String>);
-
-impl fmt::Debug for Passphrase {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("Passphrase(..)")
     }
 }
 

@@ -11,11 +11,10 @@ use std::sync::Arc;
 use vc_diagnostics::Code;
 use vc_executor::{ClientCerts, RunInputs, RunValues, config_text};
 use vc_interfaces::{
-    CertId, ClientSource, ClientSpec, LoadedTls, MaterialSource, Passphrase, Secrets, TlsError, TlsPart, TlsSpec,
+    CertId, ClientSource, ClientSpec, LoadedTls, MaterialSource, Secret, Secrets, TlsError, TlsPart, TlsSpec,
 };
 use vc_model::{ClientMaterial, ProfileId, Program, Template, TlsClient, inline_pem};
 use vc_template::RenderError;
-use zeroize::Zeroizing;
 
 use crate::plan::Prepared;
 use crate::{Engine, EngineError};
@@ -26,7 +25,7 @@ use crate::{Engine, EngineError};
 pub struct RunTls {
     pub(crate) loaded: Option<LoadedTls>,
     pub(crate) certs: ClientCerts,
-    pub(crate) passphrases: Vec<Zeroizing<String>>,
+    pub(crate) passphrases: Vec<Secret>,
 }
 
 impl Engine {
@@ -81,9 +80,9 @@ fn active(client: &TlsClient, profiles: &[ProfileId]) -> bool {
 }
 
 /// A PKCS#12 identity's passphrase, when it has one to hide.
-fn passphrase(client: &ClientSpec) -> Option<Zeroizing<String>> {
-    let ClientSource::Pkcs12 { passphrase: Passphrase(passphrase), .. } = &client.material else { return None };
-    Some(passphrase.clone()).filter(|passphrase| !passphrase.is_empty())
+fn passphrase(client: &ClientSpec) -> Option<Secret> {
+    let ClientSource::Pkcs12 { passphrase, .. } = &client.material else { return None };
+    Some(passphrase.clone()).filter(|passphrase| !passphrase.expose().is_empty())
 }
 
 /// Renders `http.tls` values with the config's scope; relative paths are under `root`.
@@ -95,10 +94,10 @@ struct Render<'a> {
 
 impl Render<'_> {
     /// `template` as text, or the run-stopping error for `part`.
-    fn text(&self, template: &Template, part: &TlsPart) -> Result<Zeroizing<String>, EngineError> {
+    fn text(&self, template: &Template, part: &TlsPart) -> Result<Secret, EngineError> {
         let rendered = config_text(self.program, self.values, template);
         rendered
-            .map(Zeroizing::new)
+            .map(Secret::new)
             .map_err(|error| refused(error.code.unwrap_or(Code::V5125), &part.to_string(), render_reason(&error)))
     }
 
@@ -106,11 +105,11 @@ impl Render<'_> {
     /// else under the project root, which an error quotes only when the config wrote it literally.
     fn source(&self, template: &Template, part: &TlsPart) -> Result<MaterialSource, EngineError> {
         let text = self.text(template, part)?;
-        if inline_pem(&text) {
-            return Ok(MaterialSource::Inline(Zeroizing::new(text.as_bytes().to_vec())));
+        if inline_pem(text.expose()) {
+            return Ok(MaterialSource::Inline(text));
         }
         let shown = template.as_literal().map(str::to_owned);
-        Ok(MaterialSource::File { path: self.root.join(text.as_str()), shown })
+        Ok(MaterialSource::File { path: self.root.join(text.expose()), shown })
     }
 
     /// `client`'s ID, hosts and material, rendered.
@@ -123,8 +122,8 @@ impl Render<'_> {
             }
             ClientMaterial::Pkcs12 { file, passphrase } => {
                 let text = |template| self.text(template, &part("passphrase"));
-                let passphrase = passphrase.as_ref().map(text).transpose()?.unwrap_or_default();
-                ClientSource::Pkcs12 { bundle: self.source(file, &part("pkcs12"))?, passphrase: Passphrase(passphrase) }
+                let passphrase = passphrase.as_ref().map(text).transpose()?.unwrap_or_else(|| Secret::new(""));
+                ClientSource::Pkcs12 { bundle: self.source(file, &part("pkcs12"))?, passphrase }
             }
         };
         Ok(ClientSpec { id, hosts: client.hosts.clone(), material })

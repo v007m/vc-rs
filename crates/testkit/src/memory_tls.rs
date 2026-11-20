@@ -30,7 +30,7 @@ impl MemoryTlsLoader {
     /// The bytes of `source`, or `part`'s file refused as missing.
     fn read(&self, source: &MaterialSource, part: TlsPart) -> Result<Vec<u8>, TlsError> {
         match source {
-            MaterialSource::Inline(bytes) => Ok(bytes.to_vec()),
+            MaterialSource::Inline(text) => Ok(text.expose().as_bytes().to_vec()),
             MaterialSource::File { path, shown } => self.files.get(path).cloned().ok_or_else(|| {
                 let file = shown.as_ref().map_or_else(|| "its file".to_owned(), |shown| format!("`{shown}`"));
                 TlsError::Unusable { part, reason: format!("cannot read {file}: not found") }
@@ -64,7 +64,7 @@ impl TlsLoader for MemoryTlsLoader {
 mod tests {
     use std::path::PathBuf;
 
-    use vc_interfaces::{ClientSource, ClientSpec, LoadedTls, MaterialSource, Passphrase, TlsLoader as _, TlsSpec};
+    use vc_interfaces::{ClientSource, ClientSpec, LoadedTls, MaterialSource, Secret, TlsLoader as _, TlsSpec};
 
     use super::{MemoryTls, MemoryTlsLoader};
     use crate::tls_loader_suite;
@@ -75,9 +75,9 @@ mod tests {
         let memory = MemoryTlsLoader::new(&[(path.clone(), b"bundle")]);
         tls_loader_suite(&memory);
         let bundle = MaterialSource::File { path, shown: None };
-        let material = ClientSource::Pkcs12 { bundle, passphrase: Passphrase::default() };
+        let material = ClientSource::Pkcs12 { bundle, passphrase: Secret::new("") };
         let client = ClientSpec { id: "bank".into(), hosts: vec!["a.test".into()], material };
-        let root = MaterialSource::Inline(b"root".to_vec().into());
+        let root = MaterialSource::Inline(Secret::new("root"));
         let loaded = memory.load(TlsSpec { ca: vec![root], clients: vec![client] }).ok().and_then(LoadedTls::take);
         let want = MemoryTls { ca: vec![b"root".to_vec()], clients: vec![("bank".into(), vec!["a.test".into()])] };
         assert_eq!(loaded, Some(want));

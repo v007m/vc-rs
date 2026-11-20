@@ -1,7 +1,6 @@
 use std::path::PathBuf;
 
-use vc_interfaces::{ClientSource, ClientSpec, MaterialSource, Passphrase, TlsError, TlsLoader as _, TlsPart, TlsSpec};
-use zeroize::Zeroizing;
+use vc_interfaces::{ClientSource, ClientSpec, MaterialSource, Secret, TlsError, TlsLoader as _, TlsPart, TlsSpec};
 
 use super::HttpTlsLoader;
 use crate::TlsOptions;
@@ -16,11 +15,11 @@ fn fixture(name: &str) -> MaterialSource {
 }
 
 fn inline(bytes: &[u8]) -> MaterialSource {
-    MaterialSource::Inline(Zeroizing::new(bytes.to_vec()))
+    MaterialSource::Inline(Secret::new(String::from_utf8_lossy(bytes)))
 }
 
 fn bundle(passphrase: &str) -> ClientSource {
-    ClientSource::Pkcs12 { bundle: fixture("ec.p12"), passphrase: Passphrase(Zeroizing::new(passphrase.to_owned())) }
+    ClientSource::Pkcs12 { bundle: fixture("ec.p12"), passphrase: Secret::new(passphrase) }
 }
 
 fn client(id: &str, material: ClientSource) -> ClientSpec {
@@ -78,7 +77,7 @@ fn a_wrong_passphrase_is_a_mismatch_and_a_bad_bundle_unusable() {
     let part = TlsPart::Client { id: "bank".into(), field: Some("pkcs12") };
     let wrong = load(TlsSpec { clients: vec![client("bank", bundle("wrong"))], ..TlsSpec::default() });
     assert!(matches!(&wrong, Err(TlsError::Mismatch { part: at, .. }) if *at == part), "{wrong:?}");
-    let pem = ClientSource::Pkcs12 { bundle: inline(CERT), passphrase: Passphrase::default() };
+    let pem = ClientSource::Pkcs12 { bundle: inline(CERT), passphrase: Secret::new("") };
     let bad = load(TlsSpec { clients: vec![client("bank", pem)], ..TlsSpec::default() });
     assert!(matches!(&bad, Err(TlsError::Unusable { part: at, .. }) if *at == part), "{bad:?}");
 }

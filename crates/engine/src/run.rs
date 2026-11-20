@@ -11,7 +11,9 @@ use vc_executor::{
     ActionCx, ActionExecutors, ActionKindTag, CommandExecutor, Defined, EventBus, Executor, ExecutorError, HostLimits,
     MaskRules, PipelineParts, RuleHooks, RunHandle, RunInputs, RunOptions,
 };
-use vc_interfaces::{ConfigEntry, HookRunner, Random, RunId, RunStart, RunSummary, Secrets, TestRow, Transport};
+use vc_interfaces::{
+    ConfigEntry, HookRunner, Random, RunId, RunStart, RunSummary, Secret, Secrets, TestRow, Transport,
+};
 use vc_model::{ActionId, Feed, Part, RunStatus, Template, TemplateValue, Totals};
 
 use crate::agent_gate::run_call;
@@ -202,7 +204,7 @@ impl Engine {
         let executors = self.executors(prepared, transport, hooks);
         let cx = ActionCx::new(Arc::clone(&prepared.program), executors, inputs).with_mask_rules(&rules);
         let cx = cx.with_auth(auth).with_client_certs(tls.certs);
-        cx.redactor.hide_values(tls.passphrases.iter().map(|passphrase| passphrase.as_str()));
+        cx.redactor.hide_values(tls.passphrases.iter().map(Secret::expose));
         Ok(cx)
     }
 

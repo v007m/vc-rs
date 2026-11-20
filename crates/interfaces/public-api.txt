@@ -111,7 +111,7 @@ pub vc_interfaces::ClientSource::Pem::cert: vc_interfaces::MaterialSource
 pub vc_interfaces::ClientSource::Pem::key: vc_interfaces::MaterialSource
 pub vc_interfaces::ClientSource::Pkcs12
 pub vc_interfaces::ClientSource::Pkcs12::bundle: vc_interfaces::MaterialSource
-pub vc_interfaces::ClientSource::Pkcs12::passphrase: vc_interfaces::Passphrase
+pub vc_interfaces::ClientSource::Pkcs12::passphrase: vc_interfaces::Secret
 impl core::fmt::Debug for vc_interfaces::ClientSource
 pub fn vc_interfaces::ClientSource::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 #[non_exhaustive] pub enum vc_interfaces::CommandError
@@ -296,7 +296,7 @@ pub enum vc_interfaces::MaterialSource
 pub vc_interfaces::MaterialSource::File
 pub vc_interfaces::MaterialSource::File::path: std::path::PathBuf
 pub vc_interfaces::MaterialSource::File::shown: core::option::Option<alloc::string::String>
-pub vc_interfaces::MaterialSource::Inline(zeroize::Zeroizing<alloc::vec::Vec<u8>>)
+pub vc_interfaces::MaterialSource::Inline(vc_interfaces::Secret)
 impl core::fmt::Debug for vc_interfaces::MaterialSource
 pub fn vc_interfaces::MaterialSource::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 #[non_exhaustive] pub enum vc_interfaces::NotifyError
@@ -1377,17 +1377,6 @@ pub fn vc_interfaces::NoticeFailure::eq(&self, &Self) -> bool
 impl core::fmt::Debug for vc_interfaces::NoticeFailure
 pub fn vc_interfaces::NoticeFailure::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_interfaces::NoticeFailure
-pub struct vc_interfaces::Passphrase(pub zeroize::Zeroizing<alloc::string::String>)
-impl core::clone::Clone for vc_interfaces::Passphrase
-pub fn vc_interfaces::Passphrase::clone(&self) -> Self
-impl core::cmp::Eq for vc_interfaces::Passphrase
-impl core::cmp::PartialEq for vc_interfaces::Passphrase
-pub fn vc_interfaces::Passphrase::eq(&self, &Self) -> bool
-impl core::default::Default for vc_interfaces::Passphrase
-pub fn vc_interfaces::Passphrase::default() -> Self
-impl core::fmt::Debug for vc_interfaces::Passphrase
-pub fn vc_interfaces::Passphrase::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
-impl core::marker::StructuralPartialEq for vc_interfaces::Passphrase
 pub struct vc_interfaces::PluginManifest
 pub vc_interfaces::PluginManifest::args: alloc::vec::Vec<alloc::string::String>
 pub vc_interfaces::PluginManifest::command: alloc::string::String

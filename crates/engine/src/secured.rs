@@ -5,7 +5,7 @@
 use std::sync::Arc;
 
 use vc_executor::{MaskRules, Redactor, RuleHooks};
-use vc_interfaces::Secrets;
+use vc_interfaces::{Secret, Secrets};
 
 use crate::client_certs::RunTls;
 use crate::plan::Prepared;
@@ -50,7 +50,7 @@ impl Engine {
         let rules = MaskRules::standard().with_hooks(hooks, &program).for_config(&program.config);
         let redactor = Redactor::for_config(&program.config).with_rules(rules);
         redactor.hide_values(secrets.iter().map(|(_, secret)| secret.expose()));
-        redactor.hide_values(tls.passphrases.iter().map(|passphrase| passphrase.as_str()));
+        redactor.hide_values(tls.passphrases.iter().map(Secret::expose));
         crate::examples::mask_labels(Arc::make_mut(&mut prepared.plan), &redactor).await;
     }
 }

@@ -2,7 +2,7 @@ use std::path::Path;
 use std::sync::Arc;
 
 use vc_adapter_http::TlsOptions;
-use vc_interfaces::{CertId, LoadedTls, Secrets, SourceProvider};
+use vc_interfaces::{CertId, LoadedTls, Secret, Secrets, SourceProvider};
 use vc_model::Date;
 use vc_testkit::{
     FakeVcs, FixedClock, MemoryCompileCache, MemoryEnvironment, MemorySources, MemoryTls, MemoryTlsLoader, TestPki,
@@ -71,7 +71,7 @@ async fn loads_the_roots_and_the_identities_the_active_profiles_allow() {
     assert_eq!(ids, ["good", "bank"]);
     let certs: Vec<_> = tls.certs.values().copied().collect();
     assert_eq!((tls.certs.len(), certs.contains(&CertId::new(0)), certs.contains(&CertId::new(1))), (2, true, true));
-    let hidden: Vec<_> = tls.passphrases.iter().map(|passphrase| passphrase.as_str()).collect();
+    let hidden: Vec<_> = tls.passphrases.iter().map(Secret::expose).collect();
     assert_eq!(hidden, ["fixture"]);
     let mut staging = run_tls(dir.path(), CLIENTS, ("staging", &[("GOOD_KEY", key)])).await.unwrap();
     assert_eq!(http_options(&mut staging).clients.len(), 3);

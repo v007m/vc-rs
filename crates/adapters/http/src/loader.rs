@@ -46,7 +46,7 @@ fn identity(client: ClientSpec) -> Result<ClientIdentity, TlsError> {
         }
         ClientSource::Pkcs12 { bundle, passphrase } => {
             let bundle = read(bundle, &part("pkcs12"))?;
-            let identity = ClientIdentity::pkcs12(client.id.clone(), &bundle, &passphrase.0);
+            let identity = ClientIdentity::pkcs12(client.id.clone(), &bundle, passphrase.expose());
             identity.map_err(|error| refused(error, part("pkcs12")))?
         }
     };
@@ -56,7 +56,7 @@ fn identity(client: ClientSpec) -> Result<ClientIdentity, TlsError> {
 /// The bytes of `source`, or why `part`'s file cannot be read, naming it only as `shown`.
 fn read(source: MaterialSource, part: &TlsPart) -> Result<Zeroizing<Vec<u8>>, TlsError> {
     match source {
-        MaterialSource::Inline(bytes) => Ok(bytes),
+        MaterialSource::Inline(text) => Ok(Zeroizing::new(text.expose().as_bytes().to_vec())),
         MaterialSource::File { path, shown } => read_material(&path).map_err(|error| {
             let file = shown.map_or_else(|| "its file".to_owned(), |shown| format!("`{shown}`"));
             TlsError::Unusable { part: part.clone(), reason: format!("cannot read {file}: {error}") }

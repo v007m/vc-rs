@@ -4,7 +4,7 @@ use std::time::{Duration, Instant};
 
 use tokio::sync::mpsc;
 use vc_interfaces::{
-    HistoryError, HistoryWriter, LoadedTls, Row, RunEnd, RunId, RunStart, TlsError, TlsLoader, TlsPart, TlsSpec,
+    HistoryError, HistoryWriter, LoadedTls, Row, RunEnd, RunId, RunStart, Secret, TlsError, TlsLoader, TlsPart, TlsSpec,
 };
 use vc_model::Keep;
 use vc_testkit::{FakeTransport, FakeVcs, MemoryEnvironment, MemoryHistory, MemorySources, status};
@@ -111,7 +111,7 @@ async fn a_row_label_holding_a_bundles_passphrase_is_masked_once_secured() {
     let (_, tls) = engine.secured(&mut prepared, &mut interrupts).await.unwrap().unwrap();
     let masked: Vec<&str> = prepared.plan.row_names.values().map(String::as_str).collect();
     assert_eq!(masked, ["••••"]);
-    assert_eq!(tls.passphrases.iter().map(|passphrase| passphrase.as_str()).collect::<Vec<_>>(), [PASS]);
+    assert_eq!(tls.passphrases.iter().map(Secret::expose).collect::<Vec<_>>(), [PASS]);
 }
 
 /// The error of each entry point over `config` with `loader`, and whether any began a run.
