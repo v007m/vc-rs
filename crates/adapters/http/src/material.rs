@@ -10,15 +10,18 @@ use zeroize::Zeroizing;
 const LIMIT: usize = 1 << 20;
 
 /// The bytes of the certificate, key or PKCS#12 bundle at `path`, in memory that is wiped when
-/// dropped. The buffer is sized for the limit up front, so reading never leaves a copy behind.
+/// dropped. The buffer is sized from the file's length, capped at the limit, plus one byte to
+/// see the end, so a file that does not grow while it is read leaves no copy behind.
 ///
 /// # Errors
 ///
 /// The error opening or reading `path`, or [`io::ErrorKind::FileTooLarge`] when it holds more
 /// than 1 MiB.
 pub fn read_material(path: &Path) -> io::Result<Zeroizing<Vec<u8>>> {
-    let mut bytes = Zeroizing::new(Vec::with_capacity(LIMIT + 1));
-    File::open(path)?.take(LIMIT as u64 + 1).read_to_end(&mut bytes)?;
+    let file = File::open(path)?;
+    let length = usize::try_from(file.metadata()?.len()).unwrap_or(LIMIT);
+    let mut bytes = Zeroizing::new(Vec::with_capacity(length.min(LIMIT) + 1));
+    file.take(LIMIT as u64 + 1).read_to_end(&mut bytes)?;
     if bytes.len() > LIMIT {
         return Err(io::Error::new(io::ErrorKind::FileTooLarge, "the file is over 1 MiB"));
     }
@@ -42,6 +45,16 @@ mod tests {
         assert_eq!(error, Some((io::ErrorKind::FileTooLarge, "the file is over 1 MiB".to_owned())));
         let gone = read_material(&dir.path().join("gone.pem")).err().map(|error| error.kind());
         assert_eq!(gone, Some(io::ErrorKind::NotFound));
+        Ok(())
+    }
+
+    #[test]
+    fn sizes_its_buffer_from_the_files_length_plus_one() -> io::Result<()> {
+        let dir = tempfile::tempdir()?;
+        let path = dir.path().join("cert.pem");
+        std::fs::write(&path, vec![b'c'; 100])?;
+        let bytes = read_material(&path)?;
+        assert_eq!((bytes.len(), bytes.capacity()), (100, 101));
         Ok(())
     }
 }
