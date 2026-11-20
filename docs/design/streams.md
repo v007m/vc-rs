@@ -196,10 +196,9 @@ How the port is used:
 - `StreamRuntime` has three methods: `mode`, `decoder` (a stateful `push(Frame) -> Vec<Message>`) and `encode(&Value) -> Frame`.
 - `ExchangeCursor` (`action/exchange.rs`) is pure and keeps the place; the driver judges each message against the waiting group's checks. `feed(fits)` takes the entries of the waiting group the message fits and answers `Skipped`, `Held` or `Met` with each entry's message; `next_send()` returns the next `send` item; `unmet()` names what V5130 reports. Group pairing reuses the one-to-one `Pairing` behind D362 (now `pairing.rs`). The cursor keeps the group's `Pairing` between feeds: `Pairing::push` adds one message and pairs it with the first unpaired entry it fits, else runs one augmenting search, so it pairs as many entries as a full rebuild would (a proptest checks it). A message is kept only while an entry it fits holds fewer messages than the group has entries, so the pairing stays bounded on an endless stream.
 - The driver (`action/stream.rs`) is the only async part.
-  - It opens through the request pipeline (timing, retry, auth, hooks, per-host limit, timeout). If a layer is typed to `Exchange`, it is made generic over a small `HasHead` trait in the same PR.
+  - It opens through the request pipeline (timing, retry, auth, hooks, per-host limit, timeout), built by `stream_pipeline` with an `OpenStream` service in place of `Transmit` (D420). Each layer is generic over its reply's `HasHead`: `head()` is the response head retry and auth refresh read, and `hold(permit)` keeps the per-host permit. An `Exchange` drops it at once; an `Opening` keeps it until the stream is dropped.
   - It sends and reads against the call's deadline.
   - It feeds the cursor and builds `response.messages` and `response.exchange`.
-- The per-host permit is held for the life of the connection.
 - `vc-model`'s `Exchange` gains `messages: Vec<StreamMessage>`, empty for `http` and `graphql`. It flows to history and reports through `RedactingSink` like bodies do.
 
 ## Decisions (Round 79)

@@ -32,7 +32,7 @@ fn delay(
     result: &Result<Exchange, TransportError>,
     retries: u32,
 ) -> Option<Duration> {
-    policy.delay(&Attempted { request: &request(method), result, retries })
+    policy.delay(&Attempted { request: &request(method), result: result.as_ref(), retries })
 }
 
 fn on(attempts: u32) -> HttpRetryPolicy {
@@ -78,10 +78,10 @@ fn backs_off_exponentially_up_to_max_and_stops_after_the_last_retry() {
 
 #[test]
 fn a_status_entry_matches_only_responses_with_that_status() {
-    assert!(RetryOn::Status(StatusPattern::Code(502)).matches(&Ok(exchange(502))));
-    assert!(!RetryOn::Status(StatusPattern::Code(502)).matches(&connect_failed()));
-    assert!(!RetryOn::Connect.matches(&Ok(exchange(502))));
-    assert!(!RetryOn::Timeout.matches(&connect_failed()));
+    assert!(RetryOn::Status(StatusPattern::Code(502)).matches(Ok(&exchange(502))));
+    assert!(!RetryOn::Status(StatusPattern::Code(502)).matches(connect_failed().as_ref()));
+    assert!(!RetryOn::Connect.matches(Ok(&exchange(502))));
+    assert!(!RetryOn::Timeout.matches(connect_failed().as_ref()));
 }
 
 #[test]

@@ -58,9 +58,9 @@ pub use machine::{
 };
 pub use mask::{CelRule, MaskRule, MaskRuleMaker, MaskRules, RedactRuleKind, RegexRule};
 pub use pipeline::{
-    Attempted, BoxFuture, Call, Delivery, Hop, HostLimit, HostLimits, HttpRetryPolicy, Jittered, NoRetry, Pipeline,
-    PipelineParts, RequestStage, Retried, Retry, RetryOn, RetryPolicy, Stage, Timeout, Timing, Transmit, Unchanged,
-    pipeline,
+    Attempted, BoxFuture, Call, Delivery, HasHead, Hop, HostLimit, HostLimits, HttpRetryPolicy, Jittered, NoRetry,
+    OpenStream, Opening, Pipeline, PipelineParts, RequestStage, Retried, Retry, RetryOn, RetryPolicy, Stage,
+    StreamPipeline, Timeout, Timing, Transmit, Unchanged, pipeline, stream_pipeline,
 };
 pub use redactor::{MASKED, RedactingSink, Redactor};
 pub use seeded::{MAX_FRESH_SEED, SeededRandom};

@@ -52,7 +52,7 @@ impl<S: fmt::Debug> fmt::Debug for Stage<S> {
 }
 
 impl<S: Hop> Service<Call> for Stage<S> {
-    ready_service!();
+    ready_service!(S::Response, TransportError);
 
     fn call(&mut self, mut call: Call) -> Self::Future {
         let (inner, stage) = (self.inner.clone(), Arc::clone(&self.stage));
