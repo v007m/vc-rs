@@ -1,0 +1,11 @@
+name: Orders
+baseUrl: ${var.ordersUrl}
+auth: ordersIam
+apis:
+  - id: getOrder
+    path: /orders/${var.orderId}
+    expect:
+      status: 200
+  - id: getReport
+    path: /reports/daily.csv
+    auth: reportsBucket

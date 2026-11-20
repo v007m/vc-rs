@@ -1,0 +1,34 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2302_sigv4_payload/project
+---
+{
+  "summary": {
+    "errors": 1,
+    "warnings": 0,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "code": "V2302",
+      "severity": "error",
+      "message": "expected one of signed, unsigned, found `streaming`",
+      "primary": {
+        "span": {
+          "path": "vibranium.config.yaml",
+          "line": 13,
+          "column": 14,
+          "endLine": 13,
+          "endColumn": 23
+        },
+        "text": "not a known value"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "expected one of `signed`, `unsigned`"
+      ],
+      "fixes": []
+    }
+  ]
+}

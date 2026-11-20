@@ -1,0 +1,13 @@
+syntaxVersion: 2
+project: orders
+profiles:
+  - id: dev
+    default: true
+auth:
+  - id: reportsBucket
+    type: awsSigV4
+    region: us-east-1
+    service: s3
+    accessKeyId: ${secret.AWS_ACCESS_KEY_ID}
+    secretAccessKey: ${secret.AWS_SECRET_ACCESS_KEY}
+    payload: streaming

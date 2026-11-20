@@ -1,0 +1,55 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v4014_literal_aws_key/project
+---
+{
+  "summary": {
+    "errors": 0,
+    "warnings": 2,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "code": "V4014",
+      "severity": "warning",
+      "message": "`secretAccessKey` is a secret access key written in the config",
+      "primary": {
+        "span": {
+          "path": "vibranium.config.yaml",
+          "line": 12,
+          "column": 5,
+          "endLine": 12,
+          "endColumn": 20
+        },
+        "text": "its value is kept in git with the file"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "read it from `.env`: `secretAccessKey: ${secret.NAME}`, with `NAME=` declared in `.env.schema`"
+      ],
+      "fixes": []
+    },
+    {
+      "code": "V4014",
+      "severity": "warning",
+      "message": "`sessionToken` is a session token written in the config",
+      "primary": {
+        "span": {
+          "path": "vibranium.config.yaml",
+          "line": 13,
+          "column": 5,
+          "endLine": 13,
+          "endColumn": 17
+        },
+        "text": "its value is kept in git with the file"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "read it from `.env`: `sessionToken: ${secret.NAME}`, with `NAME=` declared in `.env.schema`"
+      ],
+      "fixes": []
+    }
+  ]
+}

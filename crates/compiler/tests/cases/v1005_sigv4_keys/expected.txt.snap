@@ -1,0 +1,24 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v1005_sigv4_keys/project
+---
+error[V1005]: a `awsSigV4` auth needs `service`
+ --> vibranium.config.yaml:8:11
+  |
+8 |     type: awsSigV4
+  |           ^^^^^^^^ `service` is missing
+  = help: add `service:`; a credential is written as a template such as `${secret.PARTNER_TOKEN}`
+
+error[V1005]: a `awsSigV4` auth needs `accessKeyId`
+ --> vibranium.config.yaml:8:11
+  |
+8 |     type: awsSigV4
+  |           ^^^^^^^^ `accessKeyId` is missing
+  = help: add `accessKeyId:`; a credential is written as a template such as `${secret.PARTNER_TOKEN}`
+
+error[V1005]: a `awsSigV4` auth needs `secretAccessKey`
+ --> vibranium.config.yaml:8:11
+  |
+8 |     type: awsSigV4
+  |           ^^^^^^^^ `secretAccessKey` is missing
+  = help: add `secretAccessKey:`; a credential is written as a template such as `${secret.PARTNER_TOKEN}`

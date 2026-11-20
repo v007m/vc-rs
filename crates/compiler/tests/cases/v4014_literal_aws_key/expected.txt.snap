@@ -1,0 +1,17 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v4014_literal_aws_key/project
+---
+warning[V4014]: `secretAccessKey` is a secret access key written in the config
+  --> vibranium.config.yaml:12:5
+   |
+12 |     secretAccessKey: •••
+   |     ^^^^^^^^^^^^^^^ its value is kept in git with the file
+   = help: read it from `.env`: `secretAccessKey: ${secret.NAME}`, with `NAME=` declared in `.env.schema`
+
+warning[V4014]: `sessionToken` is a session token written in the config
+  --> vibranium.config.yaml:13:5
+   |
+13 |     sessionToken: •••
+   |     ^^^^^^^^^^^^ its value is kept in git with the file
+   = help: read it from `.env`: `sessionToken: ${secret.NAME}`, with `NAME=` declared in `.env.schema`

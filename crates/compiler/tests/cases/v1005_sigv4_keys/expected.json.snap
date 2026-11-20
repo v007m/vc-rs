@@ -1,0 +1,76 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v1005_sigv4_keys/project
+---
+{
+  "summary": {
+    "errors": 3,
+    "warnings": 0,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "code": "V1005",
+      "severity": "error",
+      "message": "a `awsSigV4` auth needs `service`",
+      "primary": {
+        "span": {
+          "path": "vibranium.config.yaml",
+          "line": 8,
+          "column": 11,
+          "endLine": 8,
+          "endColumn": 19
+        },
+        "text": "`service` is missing"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "add `service:`; a credential is written as a template such as `${secret.PARTNER_TOKEN}`"
+      ],
+      "fixes": []
+    },
+    {
+      "code": "V1005",
+      "severity": "error",
+      "message": "a `awsSigV4` auth needs `accessKeyId`",
+      "primary": {
+        "span": {
+          "path": "vibranium.config.yaml",
+          "line": 8,
+          "column": 11,
+          "endLine": 8,
+          "endColumn": 19
+        },
+        "text": "`accessKeyId` is missing"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "add `accessKeyId:`; a credential is written as a template such as `${secret.PARTNER_TOKEN}`"
+      ],
+      "fixes": []
+    },
+    {
+      "code": "V1005",
+      "severity": "error",
+      "message": "a `awsSigV4` auth needs `secretAccessKey`",
+      "primary": {
+        "span": {
+          "path": "vibranium.config.yaml",
+          "line": 8,
+          "column": 11,
+          "endLine": 8,
+          "endColumn": 19
+        },
+        "text": "`secretAccessKey` is missing"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "add `secretAccessKey:`; a credential is written as a template such as `${secret.PARTNER_TOKEN}`"
+      ],
+      "fixes": []
+    }
+  ]
+}
