@@ -19,8 +19,7 @@ pub struct Expect {
 
 impl Expect {
     /// The statuses a call succeeds on: those its status check matches, else `success`. An api's
-    /// own `expect` gives the default `saveOn` and the statuses that register its cleanup
-    /// (D191, D387).
+    /// own `expect` gives its default `saveOn` (D191).
     #[must_use]
     pub fn status_or(&self, success: StatusPattern) -> Matcher {
         let status = self.checks.iter().find(|check| check.kind == CheckKind::Status);

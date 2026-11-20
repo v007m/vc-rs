@@ -285,7 +285,7 @@ Saving values from a response: `save` maps names to templates over `response`; a
 
 - **On a test, step or per-test action** (`before`, `beforeEach`): the values are vars for the rest of that test.
 - **In `beforeAll` and `beforeRun`:** everything an action saves is shared under the action's `id`, which those blocks require.
-- **On an api:** `save` runs on every call of it whose status matches the api's `saveOn`, so every caller gets the same names. `saveOn` takes what `expect.status` takes (`201`, `2xx`, `[200, 201]`, a matcher or a template) and defaults to the api's own `expect.status`, or `2xx` when it has none (`101` on a `websocket` api, D386). A test that expects another status, such as a 400, therefore skips the api's `save` (D191). The api's `cleanup` registers on that same default, the api's own `expect.status`, else `2xx` (`101` on a `websocket` api), so a call that runs the default `save` always registers its cleanup (D387). A test's or step's own `save` runs whatever the status, once its checks hold.
+- **On an api:** `save` runs on every call of it whose status matches the api's `saveOn`, so every caller gets the same names. `saveOn` takes what `expect.status` takes (`201`, `2xx`, `[200, 201]`, a matcher or a template) and defaults to the api's own `expect.status`, or `2xx` when it has none (`101` on a `websocket` api, D386). A test that expects another status, such as a 400, therefore skips the api's `save` (D191). The api's `cleanup` registers on the success status (2xx; 101 for websocket), whatever its `expect.status` says (D71, D387). A test's or step's own `save` runs whatever the status, once its checks hold.
 - **Inside a loop:** every saved name collects a list (see Loops: repeat and forEach).
 
 ```yaml
@@ -532,7 +532,7 @@ If a value arrives as text but you need it as JSON, or the other way round, conv
 
 ### Cleanup on an api
 
-An api that creates something says once how to undo it. Every call with a 2xx status registers its cleanup, with the cleanup's `vars` resolved at that moment against that call's `response`, so ten creates register ten deletes. Registered cleanups run in reverse order of creation when the block that made the call ends. `keep: true` on a call skips its cleanup.
+An api that creates something says once how to undo it. Every call answered with the success status (2xx; 101 for websocket) registers its cleanup, whatever its `expect.status` says (D387), with the cleanup's `vars` resolved at that moment against that call's `response`, so ten creates register ten deletes. Registered cleanups run in reverse order of creation when the block that made the call ends. `keep: true` on a call skips its cleanup.
 
 | The call was made in | Its cleanup runs |
 | --- | --- |
