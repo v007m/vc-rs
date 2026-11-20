@@ -1,0 +1,63 @@
+---
+title: "V5130 — A receive was not met before the stream ended or the time ran out"
+description: "A stream call waits at each receive item for a message its check matches, skipping the ones that do not."
+sidebar:
+  label: "V5130 A receive was not met before the stream ended or the time ran out"
+  order: 5130
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="error" variant="danger" /> <Badge text="Run time" variant="note" />
+
+| | |
+| --- | --- |
+| Code | `V5130` |
+| Category | V5xxx: Run time |
+| Severity | error |
+
+A stream call waits at each `receive` item for a message its check matches, skipping the ones that do not. When the
+server closes the stream, the connection drops or the call's `timeout` passes while a `receive` is still waiting, the
+step fails at that item. The report shows what the item expected and every message received since the last match, so
+a field written with the wrong value, or a message the server sends under another `event`, shows up next to it. Here
+the server names the event `price`, so a check for `quote` waits until the time runs out.
+
+## Wrong
+
+```yaml title="services/feed/feed.api.yaml"
+type: sse
+apis:
+  - id: prices
+    path: /prices
+    timeout: 5s
+    exchange:
+      - receive: {event: quote, data: {match: {symbol: ACME}}}
+```
+
+## Right
+
+```yaml title="services/feed/feed.api.yaml"
+type: sse
+apis:
+  - id: prices
+    path: /prices
+    timeout: 5s
+    exchange:
+      - receive: {event: price, data: {match: {symbol: ACME}}}
+```
+
+
+## Explain it in your terminal
+
+The same page is built into the binary, so this works anywhere, even outside a project:
+
+```console
+$ vc explain V5130
+```
+
+## Related
+
+- [All diagnostic codes](/vc-rs/reference/diagnostics/)
+- [`vc explain`](/vc-rs/reference/cli/explain/)
+- [`vc check`](/vc-rs/reference/cli/check/)
+- [Errors and fixes](/vc-rs/guides/errors-and-fixes/)
