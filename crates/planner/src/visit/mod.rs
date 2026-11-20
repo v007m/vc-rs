@@ -8,8 +8,8 @@ mod values;
 use std::collections::HashSet;
 
 use vc_model::{
-    Action, ActionId, ActionKind, ApiId, AuthRef, FileId, ProfileId, Program, Reference, RequestHooks, Test, TestBody,
-    TestId, VarDefs,
+    Action, ActionId, ActionKind, ApiId, AuthRef, ClientMaterial, FileId, ProfileId, Program, Reference, RequestHooks,
+    Test, TestBody, TestId, TlsClient, TlsConfig, VarDefs,
 };
 
 /// What a walk reports. Every method defaults to doing nothing.
@@ -52,13 +52,30 @@ impl<'p, V: Visit> Walker<'p, V> {
         self.visitor
     }
 
-    /// The run-wide templates every instance can read: config vars and headers, and profiles.
+    /// The run-wide templates every instance can read: config vars and headers, profiles, and
+    /// the `http.tls` the run renders before its first request.
     pub fn run_scope(&mut self) {
         let (program, profiles) = (self.program, self.profiles);
         self.vars(&program.config.vars);
         self.templates(program.config.defaults.headers.values());
         for profile in program.profiles.values().filter(|profile| follows(profiles, profile.id)) {
             self.values(profile.vars.values());
+        }
+        self.tls(&program.config.http_tls);
+    }
+
+    /// `tls`'s `ca` entries and the material of each client the followed profiles allow (D354).
+    fn tls(&mut self, tls: &TlsConfig) {
+        self.templates(&tls.ca);
+        let profiles = self.profiles;
+        let allowed = |client: &&TlsClient| {
+            client.profiles.is_empty() || client.profiles.iter().any(|profile| follows(profiles, *profile))
+        };
+        for client in tls.clients.values().filter(allowed) {
+            match &client.material {
+                ClientMaterial::Pem { cert, key } => self.templates([cert, key]),
+                ClientMaterial::Pkcs12 { file, passphrase } => self.templates(std::iter::once(file).chain(passphrase)),
+            }
         }
     }
 
