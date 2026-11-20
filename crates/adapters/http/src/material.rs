@@ -1,6 +1,6 @@
 //! Reading client certificate material: a PEM certificate or key, or a PKCS#12 bundle.
 
-use std::fs::File;
+use std::fs::{File, Metadata};
 use std::io::{self, Read};
 use std::path::Path;
 
@@ -15,17 +15,29 @@ const LIMIT: usize = 1 << 20;
 ///
 /// # Errors
 ///
-/// The error opening or reading `path`, or [`io::ErrorKind::FileTooLarge`] when it holds more
-/// than 1 MiB.
+/// The error opening or reading `path`, [`io::ErrorKind::InvalidInput`] when it is not a regular
+/// file once links are followed (a FIFO, a device, `/dev/stdin`, a folder), checked before it is
+/// opened so opening never blocks, or [`io::ErrorKind::FileTooLarge`] when it holds more than 1 MiB.
 pub fn read_material(path: &Path) -> io::Result<Zeroizing<Vec<u8>>> {
+    regular(&std::fs::metadata(path)?)?;
     let file = File::open(path)?;
-    let length = usize::try_from(file.metadata()?.len()).unwrap_or(LIMIT);
+    let metadata = file.metadata()?;
+    regular(&metadata)?;
+    let length = usize::try_from(metadata.len()).unwrap_or(LIMIT);
     let mut bytes = Zeroizing::new(Vec::with_capacity(length.min(LIMIT) + 1));
     file.take(LIMIT as u64 + 1).read_to_end(&mut bytes)?;
     if bytes.len() > LIMIT {
         return Err(io::Error::new(io::ErrorKind::FileTooLarge, "the file is over 1 MiB"));
     }
     Ok(bytes)
+}
+
+/// Refuses `metadata` that is not a regular file's.
+fn regular(metadata: &Metadata) -> io::Result<()> {
+    if metadata.is_file() {
+        return Ok(());
+    }
+    Err(io::Error::new(io::ErrorKind::InvalidInput, "it is not a regular file"))
 }
 
 #[cfg(test)]
@@ -45,6 +57,28 @@ mod tests {
         assert_eq!(error, Some((io::ErrorKind::FileTooLarge, "the file is over 1 MiB".to_owned())));
         let gone = read_material(&dir.path().join("gone.pem")).err().map(|error| error.kind());
         assert_eq!(gone, Some(io::ErrorKind::NotFound));
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn refuses_what_is_not_a_regular_file_before_opening_it() -> io::Result<()> {
+        let dir = tempfile::tempdir()?;
+        let fifo = dir.path().join("key.fifo");
+        let made = std::process::Command::new("mkfifo").arg(&fifo).status()?;
+        assert!(made.success(), "mkfifo");
+        let link = dir.path().join("stdin.pem");
+        std::os::unix::fs::symlink("/dev/null", &link)?;
+        for path in [fifo.as_path(), dir.path(), std::path::Path::new("/dev/null"), link.as_path()] {
+            let error = read_material(path).err().map(|error| (error.kind(), error.to_string()));
+            let refused = (io::ErrorKind::InvalidInput, "it is not a regular file".to_owned());
+            assert_eq!(error, Some(refused), "{}", path.display());
+        }
+        let real = dir.path().join("cert.pem");
+        std::fs::write(&real, b"cert")?;
+        let linked = dir.path().join("linked.pem");
+        std::os::unix::fs::symlink(&real, &linked)?;
+        assert_eq!(read_material(&linked)?.as_slice(), b"cert", "a link to a regular file is read");
         Ok(())
     }
 
