@@ -166,12 +166,7 @@ impl ClientIdentity {
     /// The PEM chain and key, the key decoded into memory wiped on drop.
     fn parse_pem(&self, cert: &[u8], key: &[u8]) -> Result<PemParts, HttpAdapterError> {
         let chain = pem_chain(cert).map_err(|reason| self.error(reason))?;
-        if encrypted(key) {
-            return Err(self.error(ENCRYPTED));
-        }
-        let key = PrivateKeyDer::from_pem_slice(key).map(Zeroizing::new);
-        let key = key.map_err(|error| self.error(format!("the private key {}", pem_reason(&error))))?;
-        Ok((chain, key))
+        Ok((chain, pem_key(key).map_err(|reason| self.error(reason))?))
     }
 
     /// The chain with a signer made from the key, checked to belong together.
@@ -227,6 +222,22 @@ impl fmt::Debug for Fingerprint {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.0.iter().try_for_each(|byte| write!(f, "{byte:02x}"))
     }
+}
+
+/// The PEM private key in `key`, decoded into memory wiped on drop, or what is wrong with it:
+/// encrypted, or not PEM.
+fn pem_key(key: &[u8]) -> Result<Zeroizing<PrivateKeyDer<'static>>, String> {
+    if encrypted(key) {
+        return Err(ENCRYPTED.to_owned());
+    }
+    let key = PrivateKeyDer::from_pem_slice(key).map(Zeroizing::new);
+    key.map_err(|error| format!("the private key {}", pem_reason(&error)))
+}
+
+/// What is wrong with a PEM private key given without its certificate: encrypted, not PEM, or
+/// of a type the signer does not support (D430).
+pub fn lone_key(key: &[u8]) -> Result<(), String> {
+    any_supported_type(&*pem_key(key)?).map(drop).map_err(|error| error.to_string())
 }
 
 const ENCRYPTED: &str = "the private key is encrypted; decrypt it (`openssl pkey -in key.pem -out plain.pem`) \

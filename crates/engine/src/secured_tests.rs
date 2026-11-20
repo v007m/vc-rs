@@ -233,7 +233,7 @@ async fn a_transport_that_cannot_be_built_stops_an_alerting_project_before_any_r
 const TODAY_DAYS: i64 = 20_762;
 
 #[tokio::test]
-async fn run_load_and_call_note_what_the_built_material_holds() {
+async fn run_load_call_and_test_auth_note_what_the_built_material_holds() {
     let part = |field| TlsPart::Client { id: "bank".into(), field: Some(field) };
     let day = 86_400;
     let findings = vec![
@@ -250,17 +250,19 @@ async fn run_load_and_call_note_what_the_built_material_holds() {
     let (_interrupter, interrupts) = crate::interrupts();
     let load = secured.load(&load_request(), LoadWatch { interrupts, ticks: None }).await.unwrap().notices;
     let call = secured.call(&call_request()).await.unwrap().notices;
+    let auth = TestAuthRequest { auth: "svc".to_owned(), ..TestAuthRequest::default() };
+    let auth = secured.test_auth(&auth).await.unwrap().notices;
     let want = [
         "V3107: client certificate `bank`, its `pkcs12` expires on 2026-11-15, within 30 days; renew it before then \
          and point the config at the new one; after that servers refuse it at the handshake",
         "V4012: client certificate `bank`, its `pkcs12`: its file is open to other users (mode 644); make it \
          readable by you alone with `chmod 600`",
     ];
-    for (entry, notices) in [("run", run), ("load", load), ("call", call)] {
+    for (entry, notices) in [("run", run), ("load", load), ("call", call), ("test auth", auth)] {
         let ours = notices.iter().filter(|notice| notice.starts_with("V3") || notice.starts_with("V4"));
         assert_eq!(ours.collect::<Vec<_>>(), want, "{entry}");
     }
-    assert_eq!(inspected.load(Ordering::SeqCst), 3, "each inspects the rendered bundle once");
+    assert_eq!(inspected.load(Ordering::SeqCst), 4, "each inspects the rendered bundle once");
     let loader =
         Loader { findings: vec![TlsFinding::Exposed { part: part("pkcs12"), mode: 0o644 }], ..Loader::default() };
     let inspected = Arc::clone(&loader.inspected);

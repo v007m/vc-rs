@@ -3,11 +3,9 @@
 //! not load or whose key is another certificate's is V2012; a client certificate expiring within
 //! 30 days is V3107 and one past its end V3108; and a key file others can read is V4012.
 
-use std::time::{Duration, SystemTime};
-
 use vc_testkit::{ClientCert, TestPki};
 
-use crate::{Project, said};
+use crate::{Project, days, said};
 
 /// A project whose config's `http.tls.clients` holds `clients`.
 fn project(clients: &str) -> Project {
@@ -48,12 +46,6 @@ fn check(project: &Project) -> (String, Option<i32>) {
     (said(&checked), checked.status.code())
 }
 
-/// `days` days from now.
-pub fn days(days: i64) -> SystemTime {
-    let span = Duration::from_hours(24 * days.unsigned_abs());
-    if days < 0 { SystemTime::now() - span } else { SystemTime::now() + span }
-}
-
 #[test]
 fn check_names_the_close_file_for_a_path_it_cannot_read() {
     let pki = TestPki::new().unwrap();
@@ -81,14 +73,18 @@ fn check_refuses_material_that_does_not_load_or_fit() {
     let other = pki.client(&ClientCert::new("other")).unwrap();
     let clients =
         entry("good", "certs/good.pem", "certs/other.key") + &entry("text", "certs/text.pem", "certs/good.key");
-    let project = project(&clients);
+    let project = project(&(clients + &entry("lone", "${env.LONE_CERT}", "certs/lone.key")));
     good(&project, &pki);
     project.write("certs/other.key", other.key_pem());
     private(&project, "certs/other.key");
     project.write("certs/text.pem", "not a certificate\n");
+    project.write("certs/lone.key", "not a key\n");
+    private(&project, "certs/lone.key");
     let (said, code) = check(&project);
     assert!(said.contains("error[V2012]: client certificate `good`, its `key` does not fit:"), "{said}");
     assert!(said.contains("error[V2012]: client certificate `text`, its `cert` does not load:"), "{said}");
+    let lone = "error[V2012]: client certificate `lone`, its `key` does not load: the private key has no PEM block";
+    assert!(said.contains(lone), "a key alone is loaded alone (D430): {said}");
     assert!(!said.contains("BEGIN"), "no material is quoted: {said}");
     assert_eq!(code, Some(2), "{said}");
 }

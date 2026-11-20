@@ -339,7 +339,7 @@ async fn a_key_rendered_from_the_environment_is_masked_where_a_run_echoes_or_lab
 async fn a_run_notes_a_certificate_expiring_soon_and_a_key_others_can_read() {
     use std::os::unix::fs::PermissionsExt as _;
     let pki = TestPki::new().unwrap();
-    let soon = pki.client(&ClientCert::new("good").valid(crate::mtls_check::days(-400), crate::mtls_check::days(10)));
+    let soon = pki.client(&ClientCert::new("good").valid(crate::days(-400), crate::days(10)));
     let soon = soon.unwrap();
     let server = pki.server();
     let tls = MockTls::new(vec![server.cert_der().to_vec()], server.key_der().to_vec())
@@ -371,7 +371,7 @@ async fn a_run_notes_a_certificate_expiring_soon_and_a_key_others_can_read() {
 #[tokio::test(flavor = "multi_thread")]
 async fn a_run_notes_an_expired_certificate_the_server_then_refuses() {
     let pki = TestPki::new().unwrap();
-    let old = pki.client(&ClientCert::new("old").valid(crate::mtls_check::days(-400), crate::mtls_check::days(-2)));
+    let old = pki.client(&ClientCert::new("old").valid(crate::days(-400), crate::days(-2)));
     let old = old.unwrap();
     let server = pki.server();
     let tls = MockTls::new(vec![server.cert_der().to_vec()], server.key_der().to_vec())

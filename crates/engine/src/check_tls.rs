@@ -31,6 +31,9 @@ const LOAD_HELP: &str = "give a PEM certificate, an unencrypted PEM key or a PKC
 /// What fits a certificate.
 const FIT_HELP: &str = "use the key issued with the certificate, or the bundle's own passphrase";
 
+/// What a key file others can read is (V4012).
+const OPEN: &str = "is open to other users";
+
 /// The characters a shell word may hold unquoted.
 const SHELL_SAFE: &[char] = &['/', '.', '_', '-', '+', ':', '@', '%', ','];
 
@@ -145,7 +148,7 @@ impl Made<'_> {
             }
             Self::Dated(dated) => dated.diagnostic(node, part),
             Self::Exposed(mode) => {
-                let message = format!("{part}: `{written}` is open to other users (mode {mode:03o})");
+                let message = format!("{part}: `{written}` {OPEN} (mode {mode:03o})");
                 let help = format!(
                     "make it readable by you alone, from the project root: `chmod 600 {}`",
                     shell_word(written)
@@ -220,7 +223,7 @@ pub fn run_notice(finding: &TlsFinding, today: Date) -> Option<String> {
             Some(format!("{code}: {message}; {help}"))
         }
         TlsFinding::Exposed { part, mode } => Some(format!(
-            "{}: {part}: its file is open to other users (mode {mode:03o}); make it readable by you alone with `chmod 600`",
+            "{}: {part}: its file {OPEN} (mode {mode:03o}); make it readable by you alone with `chmod 600`",
             Code::V4012
         )),
         TlsFinding::Unreadable { .. } | TlsFinding::Unusable { .. } | TlsFinding::Mismatch { .. } => None,
