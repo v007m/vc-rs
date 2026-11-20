@@ -9,7 +9,7 @@ use vc_adapter_system::{FsCompileCache, FsSources, GitVcs, NotifyWatcher, Proces
 use vc_interfaces::{
     AgentActionLog, Approvals, AuthProvider, Browser, CacheStore, Clock, CommandRunner, CompileCacheStore, Environment,
     FileWatcher, HistoryReader, HistoryWriter, HookRunner, Keychain, NotifierFactory, PluginStderr, PluginStore,
-    SourceProvider, SourceWriter, Transport, TransportFactory, Vcs,
+    SourceProvider, SourceWriter, StreamTransport, Transport, TransportFactory, Vcs,
 };
 
 use crate::{Engine, EngineError};
@@ -25,6 +25,7 @@ pub struct EngineBuilder {
     environment: Option<Arc<dyn Environment>>,
     transport: Option<Arc<dyn Transport>>,
     transport_factory: Option<Arc<dyn TransportFactory>>,
+    streams: Option<Arc<dyn StreamTransport>>,
     vcs: Option<Arc<dyn Vcs>>,
     commands: Option<Arc<dyn CommandRunner>>,
     hooks: Option<Arc<dyn HookRunner>>,
@@ -67,6 +68,7 @@ impl EngineBuilder {
             environment: None,
             transport: None,
             transport_factory: None,
+            streams: None,
             vcs: None,
             commands: None,
             hooks: None,
@@ -216,6 +218,14 @@ impl EngineBuilder {
         self
     }
 
+    /// Opens `sse` and `websocket` streams through `streams`; without it a stream call fails
+    /// with a plain message and sends nothing.
+    #[must_use]
+    pub fn stream_transport(mut self, streams: Arc<dyn StreamTransport>) -> Self {
+        self.streams = Some(streams);
+        self
+    }
+
     /// Obtains credentials through `auth` instead of the standard auth types (D106).
     #[must_use]
     pub fn auth(mut self, auth: Arc<dyn AuthProvider>) -> Self {
@@ -293,6 +303,7 @@ impl EngineBuilder {
             clock,
             environment: self.environment,
             transports: transports(self.transport_factory, self.transport),
+            streams: self.streams,
             vcs,
             commands,
             hooks: self.hooks,

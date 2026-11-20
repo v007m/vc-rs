@@ -8,7 +8,7 @@ use vc_adapter_plugins::Confiner;
 use vc_interfaces::{
     AuthProvider, Browser, CacheStore, Clock, CommandRunner, CompileCacheStore, Environment, FileWatcher,
     HistoryReader, HistoryWriter, HookRunner, Keychain, NotifierFactory, PluginStore, SourceProvider, SourceWriter,
-    TransportFactory, Vcs,
+    StreamTransport, TransportFactory, Vcs,
 };
 
 use crate::builder::{ApprovalPorts, PluginProcesses};
@@ -22,6 +22,7 @@ pub struct Engine {
     pub(crate) clock: Arc<dyn Clock>,
     pub(crate) environment: Option<Arc<dyn Environment>>,
     pub(crate) transports: Arc<dyn TransportFactory>,
+    pub(crate) streams: Option<Arc<dyn StreamTransport>>,
     pub(crate) vcs: Arc<dyn Vcs>,
     pub(crate) commands: Arc<dyn CommandRunner>,
     pub(crate) hooks: Option<Arc<dyn HookRunner>>,
@@ -61,3 +62,7 @@ impl fmt::Debug for Engine {
         f.debug_struct("Engine").field("root", &self.root).finish_non_exhaustive()
     }
 }
+
+#[cfg(test)]
+#[path = "streams_tests.rs"]
+mod streams_tests;
