@@ -49,7 +49,7 @@ pub use body_files::{FilePath, FileSlot, Unreadable, body_files};
 pub use cache::CompileCache;
 pub use compile::{CompileInput, Compiled, compile};
 pub use docs::key_tables;
-pub use link::{DataWanted, ProtocolRulesRegistry};
+pub use link::{DataWanted, ProtocolRulesRegistry, masked};
 pub use naming::{camel_id, file_id, is_camel_id, is_file_id};
 pub use paths::SourceGlobs;
 pub use schema::{FileSchema, schema_line, schemas, to_json};

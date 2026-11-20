@@ -1,5 +1,6 @@
-//! References between items: apis and tests (V2003), auths and profiles (V2002), and the
-//! report formats (V2302).
+//! References between items: apis and tests (V2003); auths, profiles and client certificates
+//! (V2002), including the profiles an `http.tls.clients` entry names; and the report formats
+//! (V2302).
 
 use std::collections::{HashMap, HashSet};
 
@@ -7,6 +8,7 @@ use vc_diagnostics::{Code, Diagnostic, Diagnostics, Fix, TextEdit};
 use vc_model::FileKind;
 use vc_parser::Node;
 
+use super::build::NO_CLIENT_CERT;
 use super::project;
 use super::project::{Item, Project, Source};
 use crate::suggest;
@@ -73,6 +75,11 @@ pub fn check(project: &Project<'_>, diagnostics: &mut Diagnostics) {
             diagnostics.extend(profile.get("id").and_then(|id| globals.profile(id)));
         }
     }
+    let auths = project.config().map(|config| project::list(config.root, "auth")).unwrap_or_default();
+    diagnostics.extend(auths.iter().filter_map(|auth| globals.client_cert(auth)));
+    let clients = project.config().map(|config| project::tls_clients(config.root)).unwrap_or_default();
+    let profiles = clients.iter().flat_map(|client| project::list(client, "profiles"));
+    diagnostics.extend(profiles.filter_map(|profile| globals.profile(profile)));
     if let Some(reports) = project.config().and_then(|config| config.root.get("reports")) {
         diagnostics.extend(project::list(reports, "formats").iter().filter_map(|name| globals.format(name)));
     }
@@ -176,9 +183,10 @@ fn hint(diagnostic: Diagnostic, (source, node, written): (&Source<'_>, &Node, &s
     diagnostic.fix(Fix::certain(format!("Replace with {text}"), vec![TextEdit::replace(node.span, text)]))
 }
 
-/// The config's auth, profile and plugin IDs.
+/// The config's auth, profile, plugin and client certificate IDs.
 struct Globals<'a> {
     auth: HashSet<&'a str>,
+    clients: HashSet<&'a str>,
     profiles: HashSet<&'a str>,
     plugins: HashSet<&'a str>,
     /// Whether the config could be read; without it nothing is reported.
@@ -188,11 +196,25 @@ struct Globals<'a> {
 impl<'a> Globals<'a> {
     fn of(project: &Project<'a>) -> Self {
         let config = project.config().filter(|config| !config.broken);
-        let ids = |key: &str| -> HashSet<&'a str> {
-            let items = config.map(|config| project::list(config.root, key)).unwrap_or_default();
+        let root = config.map(|config| config.root);
+        let ids = |items: &'a [Node]| -> HashSet<&'a str> {
             items.iter().filter_map(|item| item.get("id")?.as_scalar()).map(|id| id.text.as_str()).collect()
         };
-        Self { auth: ids("auth"), profiles: ids("profiles"), plugins: ids("plugins"), known: config.is_some() }
+        let list = |key: &str| ids(root.map(|root| project::list(root, key)).unwrap_or_default());
+        Self {
+            auth: list("auth"),
+            clients: ids(root.map(project::tls_clients).unwrap_or_default()),
+            profiles: list("profiles"),
+            plugins: list("plugins"),
+            known: config.is_some(),
+        }
+    }
+
+    /// V2002 for an auth's `clientCert` naming no `http.tls.clients` entry; `none` sends none.
+    fn client_cert(&self, auth: &Node) -> Option<Diagnostic> {
+        let id = auth.get("clientCert")?;
+        (id.as_str()? != NO_CLIENT_CERT).then_some(())?;
+        self.unknown(id, &self.clients, "client certificate")
     }
 
     /// V2002 for an `auth` naming no auth; `none` turns auth off.
@@ -204,7 +226,7 @@ impl<'a> Globals<'a> {
         self.unknown(id, &self.auth, "auth")
     }
 
-    /// V2002 for a file's `profiles` entry naming no profile.
+    /// V2002 for a file's or a client certificate's `profiles` entry naming no profile.
     fn profile(&self, id: &Node) -> Option<Diagnostic> {
         self.unknown(id, &self.profiles, "profile")
     }

@@ -1,0 +1,25 @@
+---
+source: crates/compiler/tests/golden.rs
+assertion_line: 57
+input_file: crates/compiler/tests/cases/v2105_tls_var/project
+---
+error[V2105]: `http.tls` reads `var.certDir`, which has no value when the run starts under profile `staging`
+  --> vibranium.config.yaml:19:9
+   |
+19 |     ca: ${var.certDir}/root.pem
+   |         ^^^^^^^^^^^^^^
+   = help: `var.certDir` needs `run`; `http.tls` is read once when the run starts, so the vars it reads may read only `var`, `secret` and `env`
+
+error[V2105]: `http.tls` reads `var.perRunDir`, which has no value when the run starts
+  --> vibranium.config.yaml:25:15
+   |
+25 |         cert: ${var.perRunDir}/partner.crt
+   |               ^^^^^^^^^^^^^^^^
+   = help: `var.runDir` needs `run`; `http.tls` is read once when the run starts, so the vars it reads may read only `var`, `secret` and `env`
+
+error[V2105]: `http.tls` reads `var.issued`, which has no value when the run starts
+  --> vibranium.config.yaml:28:15
+   |
+28 |         cert: ${var.issued.dir}/issued.crt
+   |               ^^^^^^^^^^^^^^^^^
+   = help: `var.issued` needs a save, which runs after it is read; `http.tls` is read once when the run starts, so the vars it reads may read only `var`, `secret` and `env`

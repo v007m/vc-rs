@@ -34,7 +34,7 @@ Only `syntaxVersion` and one profile are required. Everything else has a default
 | [`project`](/vc-rs/reference/config/project/) | text | `vibranium` | no | Name shown in reports. |
 | [`paths`](/vc-rs/reference/config/paths/) | `include`, `exclude` | everything except `node_modules` and `.vibranium` | no | Which files are definitions. |
 | [`defaults`](/vc-rs/reference/config/defaults/) | map | see the page | no | `timeout`, `concurrency`, `perHost`, `retry`, `headers`. |
-| [`http`](/vc-rs/reference/config/http-retry/) | `retry` | retry off | no | Transport retry of one request. |
+| [`http`](/vc-rs/reference/config/http-retry/) | `retry`, [`tls`](/vc-rs/reference/auth/mtls/) | retry off, no client certificates | no | Transport retry of one request; extra trusted roots and client certificates. |
 | [`vars`](/vc-rs/reference/config/vars/) | map | — | no | Project-wide values. |
 | [`profiles`](/vc-rs/reference/config/profiles/) | list | — | yes | At least one, and one `default: true`. |
 | [`auth`](/vc-rs/reference/config/auth/) | list | — | no | Auth definitions. |

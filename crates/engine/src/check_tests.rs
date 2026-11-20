@@ -255,6 +255,26 @@ fn profiles_with_no_default_are_an_error_unless_a_layer_names_one() {
 }
 
 #[test]
+fn a_diagnostic_added_after_the_compile_masks_the_configs_secrets() {
+    let config: (&str, &[u8]) = (
+        "vibranium.config.yaml",
+        concat!(
+            "syntaxVersion: 2\nprofiles:\n  - id: dev\n  - id: staging\nhttp:\n  tls:\n    clients:\n",
+            "      - id: bundle\n        pkcs12: certs/b.p12\n        passphrase: hunter2\n",
+        )
+        .as_bytes(),
+    );
+    let cache = Arc::new(MemoryCompileCache::new());
+    for round in ["compiled", "replayed from the cache"] {
+        let report = engine(&[config, USERS], cache.clone()).check(&CheckRequest::default()).unwrap();
+        let found = report.diagnostics.iter().find(|found| found.code == Code::V3101);
+        let masked = found.map(|found| found.masked.clone()).unwrap_or_default();
+        let lines: Vec<(u32, u32)> = masked.iter().map(|mask| (mask.start.line, mask.start.column)).collect();
+        assert_eq!(lines, [(10, 21)], "{round}: V3101, added by the engine, masks the passphrase");
+    }
+}
+
+#[test]
 fn alert_settings_a_notifier_refuses_are_a_warning_unless_templated() {
     let config: (&str, &[u8]) = (
         "vibranium.config.yaml",

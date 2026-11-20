@@ -1,0 +1,19 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2002_unknown_client_cert/project
+---
+error[V2002]: unknown profile `stagng`
+  --> vibranium.config.yaml:12:25
+   |
+12 |         profiles: [dev, stagng]
+   |                         ^^^^^^ the config has no such profile
+   = help: did you mean `staging`?
+   = fix: Replace with staging (certain)
+
+error[V2002]: unknown client certificate `partnerCrt`
+  --> vibranium.config.yaml:16:17
+   |
+16 |     clientCert: partnerCrt
+   |                 ^^^^^^^^^^ the config has no such client certificate
+   = help: did you mean `partnerCert`?
+   = fix: Replace with partnerCert (certain)

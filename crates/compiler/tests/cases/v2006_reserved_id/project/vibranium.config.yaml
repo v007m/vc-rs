@@ -3,3 +3,8 @@ project: shop
 profiles:
   - id: dev
     default: true
+http:
+  tls:
+    clients:
+      - id: none
+        pkcs12: certs/partner.p12

@@ -1,7 +1,6 @@
-use std::net::Ipv6Addr;
-
 use http::Uri;
 use vc_interfaces::CertChoice;
+use vc_model::HostPattern;
 
 use crate::{ClientIdentity, HttpAdapterError};
 
@@ -16,31 +15,14 @@ struct HostRule {
 }
 
 impl HostRule {
-    /// Refuses anything that could never match a URL's host: a scheme, a path, whitespace or an
-    /// empty label. A trailing dot is dropped, as it is from the URL's host.
+    /// `rule` as [`HostPattern::parse`] reads it, as the compiler's V1017 does, so a rule that
+    /// compiles is one the run can match.
     fn parse(rule: &str) -> Result<Self, String> {
-        let invalid = || format!("host `{rule}` is not a host, host:port or *.domain");
-        let lower = rule.to_ascii_lowercase();
-        let (host, port) = match lower.rsplit_once(':') {
-            Some((host, port)) if !host.contains(':') || host.ends_with(']') => {
-                (host, Some(port.parse().map_err(|_| format!("host `{rule}` has an invalid port"))?))
-            }
-            _ => (lower.as_str(), None),
-        };
-        let (host, wildcard) = host.strip_prefix("*.").map_or((host, false), |domain| (domain, true));
-        let name = bare(host);
-        let valid = if name.contains(':') {
-            !wildcard && name.parse::<Ipv6Addr>().is_ok()
-        } else {
-            name == host.trim_end_matches('.') && name.split('.').all(is_label)
-        };
-        if !valid {
-            return Err(invalid());
-        }
-        Ok(Self { name: name.to_owned(), wildcard, port })
+        let pattern = HostPattern::parse(rule).map_err(|why| format!("host `{rule}` is not a host pattern: {why}"))?;
+        Ok(Self { name: pattern.name, wildcard: pattern.wildcard, port: pattern.port })
     }
 
-    /// `true` when `host` (bare, see [`bare`]) on `port` matches: `*` covers exactly one
+    /// `true` when `host` (bare, see [`HostPattern::bare`]) on `port` matches: `*` covers exactly one
     /// leftmost label.
     fn matches(&self, host: &str, port: u16) -> bool {
         if self.port.is_some_and(|wanted| wanted != port) {
@@ -54,18 +36,6 @@ impl HostRule {
         let label = label.strip_suffix('.');
         domain.eq_ignore_ascii_case(&self.name) && label.is_some_and(|label| !label.is_empty() && !label.contains('.'))
     }
-}
-
-/// `host` without IPv6 brackets or one trailing dot, so `[::1]` and `::1`, or `api.test.` and
-/// `api.test`, compare equal.
-fn bare(host: &str) -> &str {
-    let host = host.strip_prefix('[').and_then(|inner| inner.strip_suffix(']')).unwrap_or(host);
-    host.strip_suffix('.').unwrap_or(host)
-}
-
-/// A DNS label: non-empty, letters, digits, `-` and `_` only.
-fn is_label(label: &str) -> bool {
-    !label.is_empty() && label.bytes().all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
 }
 
 /// One identity's host rules and its client.
@@ -114,7 +84,7 @@ impl<C> ClientTable<C> {
         if self.identities.is_empty() {
             return None;
         }
-        let host = bare(uri.host()?);
+        let host = HostPattern::bare(uri.host()?);
         let default = if uri.scheme_str() == Some("https") { 443 } else { 80 };
         let port = uri.port_u16().unwrap_or(default);
         let entry = self.identities.iter().find(|entry| entry.rules.iter().any(|rule| rule.matches(host, port)));

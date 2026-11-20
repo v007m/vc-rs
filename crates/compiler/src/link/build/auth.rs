@@ -17,7 +17,8 @@ use crate::parts::Piece;
 use crate::shapes;
 
 /// The keys an [`AuthDef`] holds in its own fields; every other key is a setting of its type.
-const OWN_KEYS: [&str; 8] = ["id", "type", "vars", "steps", "expiresIn", "refreshBefore", "refreshOn", "cache"];
+const OWN_KEYS: [&str; 9] =
+    ["id", "type", "vars", "steps", "expiresIn", "refreshBefore", "refreshOn", "cache", "clientCert"];
 
 impl<'a> Build<'_, 'a> {
     /// Adds every entry of the config's `auth`.
@@ -45,6 +46,7 @@ impl<'a> Build<'_, 'a> {
                 statuses.items().iter().filter_map(|status| status.as_scalar()?.text.parse().ok()).collect();
         }
         def.cache = read::flag(shapes::auth(), node, "cache");
+        def.client_cert = self.client_cert(node)?;
         Ok(Some(def))
     }
 

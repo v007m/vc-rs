@@ -287,12 +287,22 @@ const SCOPE_ROOTS: &[(Scope, AddRoots)] = &[
     (Scope::FOR_EACH, Roots::in_for_each),
 ];
 
+/// The roots a setting rendered once when the run starts reads (D350).
+pub const RUN_START_ROOTS: &[Namespace] = &[Namespace::Var, Namespace::Secret, Namespace::Env];
+
+/// Why a run-start setting reads only [`RUN_START_ROOTS`].
+const RUN_START_HELP: &str = "`http.tls` is read once when the run starts, so it reads only `var`, `secret` and `env`";
+
 /// The roots a spot's templates read; a row source reads only [`ROW_ROOTS`], since the engine
-/// renders it before the run starts, when nothing else has a value.
+/// renders it before the run starts, when nothing else has a value, and `http.tls` only
+/// [`RUN_START_ROOTS`].
 fn roots(scope: Scope) -> Roots {
     let roots =
         SCOPE_ROOTS.iter().filter(|(added, _)| scope.has(*added)).fold(Roots::new(), |roots, (_, add)| add(roots));
-    if scope.has(Scope::ROWS) { roots.only(ROW_ROOTS, ROW_HELP) } else { roots }
+    if scope.has(Scope::ROWS) {
+        return roots.only(ROW_ROOTS, ROW_HELP);
+    }
+    if scope.has(Scope::RUN_START) { roots.only(RUN_START_ROOTS, RUN_START_HELP) } else { roots }
 }
 
 /// Bare names that mean `response.<name>` unless a step has that id (D150).

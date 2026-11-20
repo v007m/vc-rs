@@ -1,0 +1,71 @@
+---
+title: "V1017 — Not a host pattern"
+description: "Each hosts item of an http.tls.clients entry names the hosts its certificate is sent to: host, host:port or *.domain, where * stands for exactly one leftmost label."
+sidebar:
+  label: "V1017 Not a host pattern"
+  order: 1017
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="error" variant="danger" /> <Badge text="Syntax" variant="note" />
+
+| | |
+| --- | --- |
+| Code | `V1017` |
+| Category | V1xxx: Syntax |
+| Severity | error |
+| Certain fix | write the host; a URL gets its host as a certain fix |
+
+Each `hosts` item of an `http.tls.clients` entry names the hosts its certificate is sent to: `host`, `host:port` or
+`*.domain`, where `*` stands for exactly one leftmost label. A URL, a path, a user name or a `*` anywhere else can
+never match a request's host, so the certificate would never be sent. When the item is a URL, the fix keeps only
+its host and port.
+
+## Wrong
+
+```yaml wrong V1017 title="vibranium.config.yaml"
+syntaxVersion: 2
+profiles:
+  - id: dev
+    default: true
+http:
+  tls:
+    clients:
+      - id: partnerClient
+        hosts: ['https://api.partner.example/v1', 'api.*.example']
+        cert: certs/partner.crt
+        key: certs/partner.key
+```
+
+## Right
+
+```yaml title="vibranium.config.yaml"
+syntaxVersion: 2
+profiles:
+  - id: dev
+    default: true
+http:
+  tls:
+    clients:
+      - id: partnerClient
+        hosts: [api.partner.example, '*.partner.example:8443']
+        cert: certs/partner.crt
+        key: certs/partner.key
+```
+
+
+## Explain it in your terminal
+
+The same page is built into the binary, so this works anywhere, even outside a project:
+
+```console
+$ vc explain V1017
+```
+
+## Related
+
+- [All diagnostic codes](/vc-rs/reference/diagnostics/)
+- [`vc explain`](/vc-rs/reference/cli/explain/)
+- [`vc check`](/vc-rs/reference/cli/check/)
+- [Errors and fixes](/vc-rs/guides/errors-and-fixes/)

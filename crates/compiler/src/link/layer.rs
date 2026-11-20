@@ -27,14 +27,13 @@ struct Def {
 #[derive(Debug, Default)]
 pub struct Layer {
     all: HashMap<String, Def>,
-    by_profile: HashMap<String, HashMap<String, Type>>,
+    by_profile: HashMap<String, HashMap<String, Def>>,
 }
 
 /// Where a var's value comes from before the run starts.
 pub enum Origin {
-    /// A base `vars` definition at the level `at` (0 is the innermost). A profile's own `vars`
-    /// are left out: which profiles are active is known only at run time, so the engine checks
-    /// those before it renders the rows.
+    /// A `vars` definition at the level `at` (0 is the innermost): the profile's own, when the
+    /// lookup names a profile that defines it there, else the base one.
     Defined {
         /// The value it is defined to.
         value: SourceSpan,
@@ -60,7 +59,7 @@ impl Layer {
         let mut layer = Self { all: base.collect(), by_profile: HashMap::new() };
         for profile in project::list(node, "profiles") {
             let Some(id) = project::text(profile, "id") else { continue };
-            let names = defs(source, profile.get("vars")).map(|(name, ty, _)| (name, ty));
+            let names = defs(source, profile.get("vars")).map(|(name, ty, at)| (name, Def { ty, written: Some(at) }));
             layer.by_profile.entry(id.to_owned()).or_default().extend(names);
         }
         layer
@@ -72,7 +71,7 @@ impl Layer {
         self.all.extend(other.all.iter().map(|(name, def)| (name.clone(), *def)));
         for (profile, names) in &other.by_profile {
             let mine = self.by_profile.entry(profile.clone()).or_default();
-            mine.extend(names.iter().map(|(name, ty)| (name.clone(), *ty)));
+            mine.extend(names.iter().map(|(name, def)| (name.clone(), *def)));
         }
     }
 
@@ -81,12 +80,17 @@ impl Layer {
         self.all.get(name).is_some_and(|def| def.written.is_none())
     }
 
+    /// The definition of `name` here for `profile`: the profile's own, else the base one.
+    fn def(&self, name: &str, profile: &str) -> Option<&Def> {
+        self.by_profile.get(profile).and_then(|names| names.get(name)).or_else(|| self.all.get(name))
+    }
+
     fn sets(&self, name: &str, profile: &str) -> bool {
         self.all.contains_key(name) || self.by_profile.get(profile).is_some_and(|names| names.contains_key(name))
     }
 
     fn types<'s>(&'s self, name: &'s str) -> impl Iterator<Item = Type> + 's {
-        let profiles = self.by_profile.values().filter_map(move |names| names.get(name)).copied();
+        let profiles = self.by_profile.values().filter_map(move |names| names.get(name)).map(|def| def.ty);
         self.all.get(name).map(|def| def.ty).into_iter().chain(profiles)
     }
 
@@ -164,14 +168,16 @@ impl<'a> Scope<'a> {
         names
     }
 
-    /// Where `name`'s value comes from before the run, looked up from the level `from` out (0 is
-    /// the innermost): the first level whose base `vars` define it; else `Saved` when a save at
-    /// one of those levels sets it, as the lookup would find it once the save ran. Saves have no
-    /// value yet, so their levels are passed over, which leaves the order the engine renders
-    /// rows in (`Scope::of_test`): the test's vars, its file's, the config's.
-    pub fn origin(&self, name: &str, from: usize) -> Origin {
+    /// Where `name`'s value comes from before the run under `profile`, looked up from the level
+    /// `from` out (0 is the innermost): the first level whose `vars` define it, a profile's own
+    /// before the base ones; else `Saved` when a save at one of those levels sets it, as the
+    /// lookup would find it once the save ran. Saves have no value yet, so their levels are
+    /// passed over, which leaves the order the engine renders rows in (`Scope::of_test`): the
+    /// test's vars, its file's, the config's. The profile `""` reads the base `vars` alone.
+    pub fn origin(&self, name: &str, (from, profile): (usize, &str)) -> Origin {
         let levels = || self.layers.iter().rev().enumerate().skip(from);
-        if let Some((at, value)) = levels().find_map(|(at, layer)| Some((at, layer.all.get(name)?.written?))) {
+        let written = |layer: &Layer| layer.def(name, profile)?.written;
+        if let Some((at, value)) = levels().find_map(|(at, layer)| Some((at, written(layer)?))) {
             return Origin::Defined { value, at };
         }
         if levels().any(|(_, layer)| layer.saves(name)) { Origin::Saved } else { Origin::Unset }

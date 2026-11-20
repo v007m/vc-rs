@@ -1,0 +1,37 @@
+syntaxVersion: 2
+project: partner
+vars:
+  partnerUrl: https://api.partner.example
+  certDir: certs
+profiles:
+  - id: dev
+    default: true
+  - id: staging
+http:
+  retry:
+    attempts: 1
+  tls:
+    ca: [certs/internal-ca.pem, '${secret.EXTRA_CA_PEM}']
+    clients:
+      - id: partnerClient
+        name: Partner client certificate
+        hosts: [api.partner.example, 'api.partner.example:8443', '*.partner.example', '[::1]:9443', 10.0.0.7]
+        profiles: [staging]
+        cert: ${var.certDir}/partner.crt
+        key: ${secret.PARTNER_KEY_PEM}
+      - id: tenantA
+        pkcs12: certs/tenant-a.p12
+        passphrase: ${secret.TENANT_A_PASSPHRASE}
+      - id: tenantB
+        pkcs12: ${env.TENANT_B_P12}
+auth:
+  - id: tenantAToken
+    type: bearer
+    token: ${secret.TENANT_A_TOKEN}
+    clientCert: tenantA
+  - id: tenantBCert
+    type: mtls
+    clientCert: tenantB
+  - id: noCert
+    type: mtls
+    clientCert: none

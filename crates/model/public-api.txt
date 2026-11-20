@@ -162,6 +162,41 @@ impl serde_core::ser::Serialize for vc_model::CheckKind
 pub fn vc_model::CheckKind::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
 impl<'de> serde_core::de::Deserialize<'de> for vc_model::CheckKind
 pub fn vc_model::CheckKind::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub enum vc_model::ClientCert
+pub vc_model::ClientCert::Named(vc_model::TlsClientId)
+pub vc_model::ClientCert::Off
+impl core::clone::Clone for vc_model::ClientCert
+pub fn vc_model::ClientCert::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::ClientCert
+impl core::cmp::PartialEq for vc_model::ClientCert
+pub fn vc_model::ClientCert::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::ClientCert
+pub fn vc_model::ClientCert::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for vc_model::ClientCert
+impl core::marker::StructuralPartialEq for vc_model::ClientCert
+impl serde_core::ser::Serialize for vc_model::ClientCert
+pub fn vc_model::ClientCert::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::ClientCert
+pub fn vc_model::ClientCert::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub enum vc_model::ClientMaterial
+pub vc_model::ClientMaterial::Pem
+pub vc_model::ClientMaterial::Pem::cert: vc_model::Template
+pub vc_model::ClientMaterial::Pem::key: vc_model::Template
+pub vc_model::ClientMaterial::Pkcs12
+pub vc_model::ClientMaterial::Pkcs12::file: vc_model::Template
+pub vc_model::ClientMaterial::Pkcs12::passphrase: core::option::Option<vc_model::Template>
+impl core::clone::Clone for vc_model::ClientMaterial
+pub fn vc_model::ClientMaterial::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::ClientMaterial
+impl core::cmp::PartialEq for vc_model::ClientMaterial
+pub fn vc_model::ClientMaterial::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::ClientMaterial
+pub fn vc_model::ClientMaterial::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::ClientMaterial
+impl serde_core::ser::Serialize for vc_model::ClientMaterial
+pub fn vc_model::ClientMaterial::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::ClientMaterial
+pub fn vc_model::ClientMaterial::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub enum vc_model::Event
 pub vc_model::Event::ActionFinished
 pub vc_model::Event::ActionFinished::action: vc_model::ActionId
@@ -276,6 +311,24 @@ impl serde_core::ser::Serialize for vc_model::FileKind
 pub fn vc_model::FileKind::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
 impl<'de> serde_core::de::Deserialize<'de> for vc_model::FileKind
 pub fn vc_model::FileKind::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub enum vc_model::HostPatternError
+pub vc_model::HostPatternError::NotHost
+pub vc_model::HostPatternError::NotOnlyHost
+pub vc_model::HostPatternError::Port
+pub vc_model::HostPatternError::Star
+pub vc_model::HostPatternError::Url
+impl core::clone::Clone for vc_model::HostPatternError
+pub fn vc_model::HostPatternError::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::HostPatternError
+impl core::cmp::PartialEq for vc_model::HostPatternError
+pub fn vc_model::HostPatternError::eq(&self, &Self) -> bool
+impl core::error::Error for vc_model::HostPatternError
+impl core::fmt::Debug for vc_model::HostPatternError
+pub fn vc_model::HostPatternError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for vc_model::HostPatternError
+pub fn vc_model::HostPatternError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for vc_model::HostPatternError
+impl core::marker::StructuralPartialEq for vc_model::HostPatternError
 pub enum vc_model::HttpVersion
 pub vc_model::HttpVersion::Http1
 pub vc_model::HttpVersion::Http2
@@ -990,6 +1043,7 @@ impl<'de> serde_core::de::Deserialize<'de> for vc_model::ApiSource
 pub fn vc_model::ApiSource::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub struct vc_model::AuthDef
 pub vc_model::AuthDef::cache: bool
+pub vc_model::AuthDef::client_cert: core::option::Option<vc_model::ClientCert>
 pub vc_model::AuthDef::expires_in: core::option::Option<vc_model::Template>
 pub vc_model::AuthDef::id: vc_model::AuthId
 pub vc_model::AuthDef::kind: alloc::string::String
@@ -1147,6 +1201,7 @@ pub vc_model::Config::history: vc_model::HistoryConfig
 pub vc_model::Config::hooks: vc_model::HooksConfig
 pub vc_model::Config::html_single_file: bool
 pub vc_model::Config::http_retry: vc_model::HttpRetry
+pub vc_model::Config::http_tls: vc_model::TlsConfig
 pub vc_model::Config::plugins: alloc::vec::Vec<vc_model::PluginRef>
 pub vc_model::Config::project: core::option::Option<alloc::string::String>
 pub vc_model::Config::redact_fields: alloc::vec::Vec<alloc::string::String>
@@ -1525,6 +1580,21 @@ impl serde_core::ser::Serialize for vc_model::HooksConfig
 pub fn vc_model::HooksConfig::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
 impl<'de> serde_core::de::Deserialize<'de> for vc_model::HooksConfig
 pub fn vc_model::HooksConfig::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub struct vc_model::HostPattern
+pub vc_model::HostPattern::name: alloc::string::String
+pub vc_model::HostPattern::port: core::option::Option<u16>
+pub vc_model::HostPattern::wildcard: bool
+impl vc_model::HostPattern
+pub fn vc_model::HostPattern::bare(&str) -> &str
+pub fn vc_model::HostPattern::parse(&str) -> core::result::Result<Self, vc_model::HostPatternError>
+impl core::clone::Clone for vc_model::HostPattern
+pub fn vc_model::HostPattern::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::HostPattern
+impl core::cmp::PartialEq for vc_model::HostPattern
+pub fn vc_model::HostPattern::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::HostPattern
+pub fn vc_model::HostPattern::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::HostPattern
 pub struct vc_model::HttpResponse
 pub vc_model::HttpResponse::body: bytes::bytes::Bytes
 pub vc_model::HttpResponse::headers: http::header::map::HeaderMap
@@ -2530,6 +2600,64 @@ impl core::fmt::Debug for vc_model::Timing
 pub fn vc_model::Timing::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Copy for vc_model::Timing
 impl core::marker::StructuralPartialEq for vc_model::Timing
+pub struct vc_model::TlsClient
+pub vc_model::TlsClient::hosts: alloc::vec::Vec<alloc::string::String>
+pub vc_model::TlsClient::id: vc_model::TlsClientId
+pub vc_model::TlsClient::material: vc_model::ClientMaterial
+pub vc_model::TlsClient::name: core::option::Option<alloc::string::String>
+pub vc_model::TlsClient::profiles: alloc::vec::Vec<vc_model::ProfileId>
+impl core::clone::Clone for vc_model::TlsClient
+pub fn vc_model::TlsClient::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::TlsClient
+impl core::cmp::PartialEq for vc_model::TlsClient
+pub fn vc_model::TlsClient::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::TlsClient
+pub fn vc_model::TlsClient::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::TlsClient
+impl serde_core::ser::Serialize for vc_model::TlsClient
+pub fn vc_model::TlsClient::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::TlsClient
+pub fn vc_model::TlsClient::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub struct vc_model::TlsClientId(_)
+impl vc_model::TlsClientId
+pub const fn vc_model::TlsClientId::new(vc_model::Sym) -> Self
+pub const fn vc_model::TlsClientId::sym(self) -> vc_model::Sym
+impl core::clone::Clone for vc_model::TlsClientId
+pub fn vc_model::TlsClientId::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::TlsClientId
+impl core::cmp::Ord for vc_model::TlsClientId
+pub fn vc_model::TlsClientId::cmp(&self, &Self) -> core::cmp::Ordering
+impl core::cmp::PartialEq for vc_model::TlsClientId
+pub fn vc_model::TlsClientId::eq(&self, &Self) -> bool
+impl core::cmp::PartialOrd for vc_model::TlsClientId
+pub fn vc_model::TlsClientId::partial_cmp(&self, &Self) -> core::option::Option<core::cmp::Ordering>
+impl core::fmt::Debug for vc_model::TlsClientId
+pub fn vc_model::TlsClientId::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for vc_model::TlsClientId
+pub fn vc_model::TlsClientId::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for vc_model::TlsClientId
+impl core::marker::StructuralPartialEq for vc_model::TlsClientId
+impl serde_core::ser::Serialize for vc_model::TlsClientId
+pub fn vc_model::TlsClientId::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::TlsClientId
+pub fn vc_model::TlsClientId::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub struct vc_model::TlsConfig
+pub vc_model::TlsConfig::ca: alloc::vec::Vec<vc_model::Template>
+pub vc_model::TlsConfig::clients: indexmap::map::IndexMap<vc_model::TlsClientId, vc_model::TlsClient>
+impl core::clone::Clone for vc_model::TlsConfig
+pub fn vc_model::TlsConfig::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::TlsConfig
+impl core::cmp::PartialEq for vc_model::TlsConfig
+pub fn vc_model::TlsConfig::eq(&self, &Self) -> bool
+impl core::default::Default for vc_model::TlsConfig
+pub fn vc_model::TlsConfig::default() -> Self
+impl core::fmt::Debug for vc_model::TlsConfig
+pub fn vc_model::TlsConfig::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::TlsConfig
+impl serde_core::ser::Serialize for vc_model::TlsConfig
+pub fn vc_model::TlsConfig::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::TlsConfig
+pub fn vc_model::TlsConfig::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub struct vc_model::Totals
 pub vc_model::Totals::allowed_failures: usize
 pub vc_model::Totals::blocked: usize
@@ -2597,7 +2725,8 @@ impl serde_core::ser::Serialize for vc_model::VarName
 pub fn vc_model::VarName::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
 impl<'de> serde_core::de::Deserialize<'de> for vc_model::VarName
 pub fn vc_model::VarName::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
-pub const vc_model::AUTH_NEEDS: [(&str, &[&str]); 9]
+pub const vc_model::AUTH_NEEDS: [(&str, &[&str]); 10]
+pub const vc_model::AUTH_OWN_NEEDS: [(&str, &[&str]); 1]
 pub const vc_model::DEFAULT_KEEP: u32
 pub const vc_model::DEFAULT_MAX_BODY: vc_model::Size
 pub const vc_model::DEFAULT_SECRETS_PROVIDER: &str
@@ -2608,6 +2737,7 @@ pub const vc_model::PROFILE_VARIABLE: &str
 pub const vc_model::PROTOCOL_KEYS: [(vc_model::Protocol, vc_model::ProtocolKeys); 2]
 pub const vc_model::PROTOCOL_NEEDS: [(vc_model::Protocol, &[&str]); 2]
 pub fn vc_model::auth_needs(&str) -> core::option::Option<&'static [&'static str]>
+pub fn vc_model::auth_own_needs(&str) -> &'static [&'static str]
 pub fn vc_model::basename(&str) -> &str
 pub fn vc_model::check_label(&vc_model::CheckResult) -> alloc::string::String
 pub fn vc_model::check_parts(&vc_model::CheckResult) -> (&'static str, core::option::Option<alloc::string::String>)

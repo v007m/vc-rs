@@ -1,4 +1,5 @@
-//! Auth types: `basic`, `bearer`, `apiKey`, the OAuth 2.0 grants, `flow` (D106) and `plugin`, the
+//! Auth types: `basic`, `bearer`, `apiKey`, the OAuth 2.0 grants, `flow` (D106), `mtls`, which
+//! adds nothing because the HTTP client presents its certificate (D350), and `plugin`, the
 //! credentials an auth plugin returns ([`PluginAuth`]).
 //!
 //! Each type implements `vc_interfaces::AuthProvider` and is one entry in the [`AuthTypes`]
@@ -22,7 +23,7 @@ mod token;
 
 #[cfg(not(target_family = "wasm"))]
 pub use code::AuthorizationCode;
-pub use fixed::{ApiKey, Basic, Bearer, Flow};
+pub use fixed::{ApiKey, Basic, Bearer, Flow, Mtls};
 pub use oauth::{ClientCredentials, PasswordGrant, RefreshGrant};
 pub use plugin::PluginAuth;
 pub use registry::AuthTypes;

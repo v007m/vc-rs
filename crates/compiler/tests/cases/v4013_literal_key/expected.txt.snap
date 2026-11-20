@@ -1,0 +1,18 @@
+---
+source: crates/compiler/tests/golden.rs
+assertion_line: 43
+input_file: crates/compiler/tests/cases/v4013_literal_key/project
+---
+warning[V4013]: `key` is a private key written in the config
+  --> vibranium.config.yaml:11:9
+   |
+11 |         key: |
+   |         ^^^ its value is kept in git with the file
+   = help: read it from `.env`: `key: ${secret.NAME}`, with `NAME=` declared in `.env.schema`
+
+warning[V4013]: `passphrase` is a passphrase written in the config
+  --> vibranium.config.yaml:17:9
+   |
+17 |         passphrase: •••
+   |         ^^^^^^^^^^ its value is kept in git with the file
+   = help: read it from `.env`: `passphrase: ${secret.NAME}`, with `NAME=` declared in `.env.schema`

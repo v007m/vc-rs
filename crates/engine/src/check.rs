@@ -91,11 +91,11 @@ impl Engine {
 
     /// The diagnostics of `compiled` on the files `request` selects.
     pub(crate) fn selected(compiled: Compiled, request: &CheckRequest) -> Result<CheckReport, EngineError> {
-        let (diagnostics, files) = (compiled.diagnostics, compiled.files);
+        let (diagnostics, files, notices) = compiled.shown();
         let selection = Selection::new(&request.paths, &files)?;
         let mut diagnostics = selection.keep(diagnostics, &files);
         diagnostics.sort();
-        Ok(CheckReport { checked: selection.count(&files), diagnostics, files, notices: compiled.notices })
+        Ok(CheckReport { checked: selection.count(&files), diagnostics, files, notices })
     }
 
     /// `text` in the editor at `path`, as a change to compile in place of the file.

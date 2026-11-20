@@ -1,0 +1,5 @@
+apis:
+  - id: issue
+    method: POST
+    path: /certs
+    save: {dir: '${response.body.dir}'}

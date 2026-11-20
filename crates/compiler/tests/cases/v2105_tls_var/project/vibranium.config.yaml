@@ -1,0 +1,32 @@
+syntaxVersion: 2
+project: partner
+profiles:
+  - id: dev
+    default: true
+  - id: staging
+    vars:
+      certDir: ${run.id}
+vars:
+  certDir: certs
+  runDir: ${run.id}
+  perRunDir: ${var.runDir}/certs
+  keyFile: ${env.PARTNER_KEY_FILE}
+beforeRun:
+  - id: issued
+    call: certs#issue
+http:
+  tls:
+    ca: ${var.certDir}/root.pem
+    clients:
+      - id: partnerCert
+        cert: ${var.certDir}/partner.crt
+        key: ${var.keyFile}
+      - id: perRun
+        cert: ${var.perRunDir}/partner.crt
+        key: ${var.perRunDir}/partner.key
+      - id: issuedCert
+        cert: ${var.issued.dir}/issued.crt
+        key: ${secret.PARTNER_KEY}
+      - id: bundle
+        pkcs12: ${var.certDir}/bundle.p12
+        passphrase: ${secret.P12_PASSPHRASE}

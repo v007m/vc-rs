@@ -1,0 +1,85 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2002_unknown_client_cert/project
+---
+{
+  "summary": {
+    "errors": 2,
+    "warnings": 0,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "code": "V2002",
+      "severity": "error",
+      "message": "unknown profile `stagng`",
+      "primary": {
+        "span": {
+          "path": "vibranium.config.yaml",
+          "line": 12,
+          "column": 25,
+          "endLine": 12,
+          "endColumn": 31
+        },
+        "text": "the config has no such profile"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "did you mean `staging`?"
+      ],
+      "fixes": [
+        {
+          "title": "Replace with staging",
+          "certain": true,
+          "edits": [
+            {
+              "path": "vibranium.config.yaml",
+              "range": {
+                "start": 198,
+                "end": 204
+              },
+              "newText": "staging"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "V2002",
+      "severity": "error",
+      "message": "unknown client certificate `partnerCrt`",
+      "primary": {
+        "span": {
+          "path": "vibranium.config.yaml",
+          "line": 16,
+          "column": 17,
+          "endLine": 16,
+          "endColumn": 27
+        },
+        "text": "the config has no such client certificate"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "did you mean `partnerCert`?"
+      ],
+      "fixes": [
+        {
+          "title": "Replace with partnerCert",
+          "certain": true,
+          "edits": [
+            {
+              "path": "vibranium.config.yaml",
+              "range": {
+                "start": 260,
+                "end": 270
+              },
+              "newText": "partnerCert"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -168,6 +168,16 @@ pub fn list<'n>(node: &'n Node, key: &str) -> &'n [Node] {
     node.get(key).map(Node::items).unwrap_or_default()
 }
 
+/// The config's `http.tls`, when `root` has one.
+pub fn tls(root: &Node) -> Option<&Node> {
+    root.get("http")?.get("tls")
+}
+
+/// The entries of the config's `http.tls.clients`.
+pub fn tls_clients(root: &Node) -> &[Node] {
+    tls(root).map(|tls| list(tls, "clients")).unwrap_or_default()
+}
+
 /// The spans of the given keys' values, as holes for [`Source::pieces`].
 pub fn holes(node: &Node, keys: &[&str]) -> Vec<SourceSpan> {
     keys.iter().filter_map(|key| node.get(key)).map(|value| value.span).collect()

@@ -1,0 +1,35 @@
+---
+source: crates/compiler/tests/golden.rs
+assertion_line: 44
+input_file: crates/compiler/tests/cases/v1005_mtls_client_cert/project
+---
+{
+  "summary": {
+    "errors": 1,
+    "warnings": 0,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "code": "V1005",
+      "severity": "error",
+      "message": "a `mtls` auth needs `clientCert`",
+      "primary": {
+        "span": {
+          "path": "vibranium.config.yaml",
+          "line": 14,
+          "column": 11,
+          "endLine": 14,
+          "endColumn": 15
+        },
+        "text": "`clientCert` is missing"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "add `clientCert:` with the ID of an `http.tls.clients` entry"
+      ],
+      "fixes": []
+    }
+  ]
+}
