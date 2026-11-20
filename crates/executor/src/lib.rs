@@ -38,9 +38,9 @@ mod values;
 
 pub use action::{
     ActionCx, ActionExecutor, ActionExecutors, ActionKindTag, ActionRequest, AuthKey, CacheEvent, CachedExecutor,
-    CallExecutor, CleanupSink, CommandExecutor, CommandShell, FunctionExecutor, InlineExecutor, Lease, NoAuth,
-    ProbedAuth, ProtocolRuntimes, RuleHooks, RunCache, TestExecutor, TokenCache, auth_steps, body_actions, chosen_auth,
-    probe_auth, probe_origin,
+    CallExecutor, CleanupSink, ClientCerts, CommandExecutor, CommandShell, FunctionExecutor, InlineExecutor, Lease,
+    NoAuth, ProbedAuth, ProtocolRuntimes, RuleHooks, RunCache, TestExecutor, TokenCache, auth_steps, body_actions,
+    chosen_auth, probe_auth, probe_origin,
 };
 use action::{CleanupCollector, called, own_limit};
 pub use bus::EventBus;
@@ -67,6 +67,6 @@ pub use shell::{Executor, IterationSetup, ProgramIterations, RunHandle, RunInter
 pub use slots::{SharedResult, SharedSlots};
 use values::{Around, Render};
 pub use values::{
-    BodyFiles, Defined, ExampleRows, Frame, Iteration, RandomFor, RunInputs, RunValues, Unread, UnreadVar, draw_rows,
-    example_rows, row_names, row_seed, unread_var,
+    BodyFiles, Defined, ExampleRows, Frame, Iteration, RandomFor, RunInputs, RunValues, Unread, UnreadVar, config_text,
+    draw_rows, example_rows, row_names, row_seed, unread_var,
 };

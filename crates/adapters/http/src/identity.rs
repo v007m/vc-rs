@@ -82,11 +82,13 @@ impl ClientIdentity {
     ///
     /// # Errors
     ///
-    /// [`HttpAdapterError::Identity`] for a passphrase PKCS#12 cannot encode, a wrong passphrase,
-    /// a bag that does not decrypt, a bundle that is not DER and fails to decrypt or parse, an
-    /// unsupported cipher or MAC, key-derivation parameters over the limits, a bundle with no key,
-    /// more than one key, a key of an unsupported type, a certificate that is not X.509, no
-    /// certificate or none that matches the key, or a file that is not PKCS#12.
+    /// [`HttpAdapterError::Mismatch`] for a wrong passphrase (the MAC does not match, or a bundle
+    /// without one does not decrypt), a bundle with no key or more than one, or no certificate
+    /// that matches the key. [`HttpAdapterError::Identity`] for a passphrase PKCS#12 cannot
+    /// encode, a bag that does not decrypt, a bundle that is not DER and fails to decrypt or
+    /// parse, an unsupported cipher or MAC, key-derivation parameters over the limits, a key of an
+    /// unsupported type, a certificate that is not X.509, no certificate, or a file that is not
+    /// PKCS#12.
     pub fn pkcs12(id: impl Into<String>, bundle: &[u8], passphrase: &str) -> Result<Self, HttpAdapterError> {
         let id = id.into();
         match pkcs12::decode(bundle, passphrase) {
@@ -94,6 +96,7 @@ impl ClientIdentity {
                 let leaf_sha256 = certified.cert.first().map(|leaf| Fingerprint::of(leaf));
                 Ok(Self { id, hosts: Vec::new(), leaf_sha256, material: Material::Der { certified, key } })
             }
+            Err(reason) if reason.mismatched() => Err(HttpAdapterError::Mismatch { id, reason: reason.to_string() }),
             Err(reason) => Err(HttpAdapterError::Identity { id, reason: reason.to_string() }),
         }
     }
@@ -162,7 +165,7 @@ impl ClientIdentity {
             CertifiedKey::new(chain, any_supported_type(key).map_err(|error| self.error(error.to_string()))?);
         match certified.keys_match() {
             Ok(()) | Err(TlsError::InconsistentKeys(InconsistentKeys::Unknown)) => Ok(certified),
-            Err(error) => Err(self.error(error.to_string())),
+            Err(error) => Err(HttpAdapterError::Mismatch { id: self.id.clone(), reason: error.to_string() }),
         }
     }
 }

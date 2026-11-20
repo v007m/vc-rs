@@ -2,6 +2,7 @@
 //! vars and settings rendered for this call, and the stages that put its credentials on the
 //! request and fetch them again when a response says they went stale.
 
+mod cert;
 mod flow;
 mod probe;
 mod stage;
@@ -18,6 +19,7 @@ use vc_model::{Action, ActionId, Api, AuthDef, AuthId, AuthRef, Failure, Program
 use super::request;
 use crate::{ActionCx, ActionRequest, Around, PipelineParts, Render, Saved};
 
+pub use cert::{ClientCerts, cert_choice};
 use flow::FlowRunner;
 pub use probe::{ProbedAuth, probe_auth, probe_origin};
 use stage::{AuthStage, RefreshOn};

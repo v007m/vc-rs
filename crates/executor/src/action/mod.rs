@@ -38,7 +38,8 @@ use crate::{
 };
 
 pub use auth::{
-    AuthKey, Lease, NoAuth, ProbedAuth, TokenCache, chosen_auth, probe_auth, probe_origin, steps as auth_steps,
+    AuthKey, ClientCerts, Lease, NoAuth, ProbedAuth, TokenCache, chosen_auth, probe_auth, probe_origin,
+    steps as auth_steps,
 };
 pub use cached::{CacheEvent, CachedExecutor, RunCache};
 pub use call::{CallExecutor, called};
@@ -188,6 +189,8 @@ pub struct ActionCx {
     cache: Option<RunCache>,
     /// The JSON Schemas the program's `body.schema` checks name, compiled once for the run (D201).
     schemas: Schemas,
+    /// The client certificates the run loaded, by `http.tls.clients` ID (D390).
+    client_certs: Arc<ClientCerts>,
 }
 
 impl ActionCx {
@@ -199,7 +202,8 @@ impl ActionCx {
         let values = RunValues::new(&program, inputs);
         let (auth, tokens) = (Arc::new(NoAuth), Arc::new(TokenCache::default()));
         let schemas = Schemas::compile(&program);
-        Self { program, executors, values, redactor: Arc::new(redactor), auth, tokens, cache: None, schemas }
+        let (redactor, client_certs) = (Arc::new(redactor), Arc::default());
+        Self { program, executors, values, redactor, auth, tokens, cache: None, schemas, client_certs }
     }
 
     /// The same context obtaining credentials through `provider` (the auth registry).
@@ -227,6 +231,19 @@ impl ActionCx {
     pub fn with_mask_rules(self, rules: &MaskRules) -> Self {
         let redactor = Arc::new(self.redactor.with_rules(rules.for_config(&self.program.config)));
         Self { redactor, ..self }
+    }
+
+    /// The same context presenting the client certificates in `certs`, the identities the run
+    /// loaded for its profiles; a call whose auth names another fails (V5114).
+    #[must_use]
+    pub fn with_client_certs(self, certs: ClientCerts) -> Self {
+        Self { client_certs: Arc::new(certs), ..self }
+    }
+
+    /// The client certificates the run loaded.
+    #[must_use]
+    pub fn client_certs(&self) -> &ClientCerts {
+        &self.client_certs
     }
 
     /// The run's compiled JSON Schemas, by the key each `body.schema` check names.

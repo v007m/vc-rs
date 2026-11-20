@@ -144,6 +144,15 @@ fn wants_exactly_one_key_and_a_certificate() -> TestResult {
 }
 
 #[test]
+fn parts_that_do_not_fit_are_a_mismatch_and_the_rest_unreadable() {
+    let mismatched = [Reason::WrongPassphrase, Reason::Undecryptable, Reason::NoKey, Reason::Keys(2)];
+    assert!(mismatched.into_iter().chain([Reason::NoMatchingCertificate]).all(Reason::mismatched));
+    let unreadable = [Reason::NonBmpPassphrase, Reason::BagUndecryptable, Reason::Unreadable, Reason::Unsupported];
+    let more = [Reason::OverLimit, Reason::NotPkcs8, Reason::KeyType, Reason::NotX509, Reason::NotPkcs12];
+    assert!(!unreadable.into_iter().chain(more).chain([Reason::NoCertificate]).any(Reason::mismatched));
+}
+
+#[test]
 fn picks_the_leaf_by_its_public_key_without_a_local_key_id() -> TestResult {
     let pki = TestPki::new()?;
     let (ca, leaf) = (Certificate::from_der(pki.ca_der())?, Certificate::from_der(pki.good().cert_der())?);
