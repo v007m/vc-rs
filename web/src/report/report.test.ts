@@ -27,7 +27,20 @@ const tests = {
     skipReason: null,
     message: 'expected 400, got 200',
     checks: [{ label: 'status', passed: false, expected: '400', actual: '200', location: null }],
-    exchanges: [],
+    exchanges: [
+      {
+        method: 'GET',
+        url: 'http://x/events',
+        status: 200,
+        ms: 4,
+        requestHeaders: [],
+        responseHeaders: [],
+        requestBody: null,
+        responseBody: null,
+        messages: 'm1',
+        truncated: true,
+      },
+    ],
   },
 };
 
@@ -43,7 +56,12 @@ beforeAll(() => {
 });
 
 async function rendered() {
-  const data: Record<string, unknown> = { summary, index, 'tests/0': tests };
+  const data: Record<string, unknown> = {
+    summary,
+    index,
+    'tests/0': tests,
+    'bodies/m1': '[{"id":"1","text":"1"}]',
+  };
   const report = new Report({ get: (key) => Promise.resolve(data[key]) }, () => {});
   await report.start();
   render(ReportView, { report });
@@ -74,5 +92,17 @@ describe('Report', () => {
     const detail = await screen.findByRole('region', { name: /^Rejects <img/ });
     expect(detail.querySelector('img')).toBeNull();
     expect(within(detail).getByRole('list', { name: 'Checks' }).textContent).toContain('400');
+  });
+
+  it('shows a stream call\'s messages when its exchange is opened', async () => {
+    const { user } = await rendered();
+    const failed = screen.getAllByRole('option').find((option) => option.textContent?.includes('Rejects'));
+    if (failed === undefined) throw new Error('no failed test listed');
+    await user.click(failed);
+    const detail = await screen.findByRole('region', { name: /^Rejects <img/ });
+    await user.click(within(detail).getByText('GET http://x/events'));
+    expect(await within(detail).findByText(/"text": "1"/)).toBeTruthy();
+    expect(within(detail).getByText('Messages')).toBeTruthy();
+    expect(within(detail).getByText(/Bodies and messages were cut/)).toBeTruthy();
   });
 });

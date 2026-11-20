@@ -32,7 +32,7 @@ fn client(id: &str, material: ClientSource) -> ClientSpec {
 
 /// The transport `factory` builds for `spec`, or its refusal.
 fn build_with(factory: &HttpTransports, spec: &TlsSpec) -> Result<Arc<dyn Transport>, TlsError> {
-    factory.build(spec, &MemoryEnvironment::new(&[]))
+    factory.build(spec, &MemoryEnvironment::new(&[])).map(|ports| ports.transport)
 }
 
 /// Whether [`HttpTransports::new`] builds a transport for `spec`, or its refusal.
@@ -70,6 +70,16 @@ async fn a_fixed_factory_checks_the_material_then_gives_its_transport() {
     let wrong = build_with(&factory, &TlsSpec { clients: vec![client("bank", bundle("wrong"))], ..TlsSpec::default() });
     assert!(matches!(wrong, Err(TlsError::Mismatch { .. })), "V5126 still stops the run");
     assert!(format!("{factory:?}").contains("fixed: true"));
+}
+
+#[tokio::test]
+async fn a_built_transport_is_also_the_stream_port_and_a_fixed_one_has_none() {
+    let environment = MemoryEnvironment::new(&[]);
+    let built = HttpTransports::new().build(&TlsSpec::default(), &environment);
+    assert!(built.is_ok_and(|ports| ports.streams.is_some()), "sse calls go over the wire (D428)");
+    let fixed = HttpTransports::fixed(Arc::new(FakeTransport::new(|_, _| Ok(status(200)))));
+    let fixed = fixed.build(&TlsSpec::default(), &environment);
+    assert!(fixed.is_ok_and(|ports| ports.streams.is_none()), "an injected transport opens no stream");
 }
 
 #[tokio::test]

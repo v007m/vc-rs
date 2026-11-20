@@ -14,7 +14,7 @@ use vc_diagnostics::Code;
 use vc_executor::{ClientCerts, RunValues, config_text};
 use vc_interfaces::{
     CertId, ClientSource, ClientSpec, Environment, MaterialSource, Secret, Secrets, TlsError, TlsFinding, TlsPart,
-    TlsSpec, Transport,
+    TlsSpec, TransportPorts,
 };
 use vc_model::{ClientMaterial, Program, Template, TlsClient, inline_pem};
 
@@ -40,13 +40,14 @@ impl Engine {
         let (spec, certs) =
             if unset { (TlsSpec::default(), ClientCerts::default()) } else { self.planned(prepared, &secrets)? };
         let hidden = spec.clients.iter().flat_map(hidden).collect();
-        let (transport, findings) = self.built(spec, (Arc::clone(&prepared.environment), !unset)).await?;
+        let (ports, findings) = self.built(spec, (Arc::clone(&prepared.environment), !unset)).await?;
         let today = self.clock.today();
         let notices = findings.iter().filter_map(|finding| run_notice(finding, today)).collect();
-        Ok(Secured { secrets, transport, certs, hidden, notices })
+        let TransportPorts { transport, streams } = ports;
+        Ok(Secured { secrets, transport, streams, certs, hidden, notices })
     }
 
-    /// The transport factory's transport for `spec` and `environment`, built on a blocking
+    /// The transport factory's ports for `spec` and `environment`, built on a blocking
     /// thread: the factory reads files and the system's roots, and may derive PKCS#12 keys. Then,
     /// on the same thread, what the factory's `inspect` finds in `spec`'s parts (D412); a spec
     /// with none is not inspected.
@@ -59,12 +60,12 @@ impl Engine {
         &self,
         spec: TlsSpec,
         (environment, configured): (Arc<dyn Environment>, bool),
-    ) -> Result<(Arc<dyn Transport>, Vec<TlsFinding>), EngineError> {
+    ) -> Result<(TransportPorts, Vec<TlsFinding>), EngineError> {
         let factory = Arc::clone(&self.transports);
         let built = tokio::task::spawn_blocking(move || {
-            let transport = factory.build(&spec, environment.as_ref())?;
+            let ports = factory.build(&spec, environment.as_ref())?;
             let probes = spec.into_probes();
-            Ok::<_, TlsError>((transport, if probes.is_empty() { Vec::new() } else { factory.inspect(&probes) }))
+            Ok::<_, TlsError>((ports, if probes.is_empty() { Vec::new() } else { factory.inspect(&probes) }))
         });
         let built = built.await;
         let built =

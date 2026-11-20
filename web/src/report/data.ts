@@ -49,6 +49,8 @@ type ExchangeData = Readonly<{
   responseHeaders: readonly (readonly [string, string])[];
   requestBody: string | null;
   responseBody: string | null;
+  /** The stored key of a stream call's messages; absent when it received none. */
+  messages?: string;
   truncated: boolean;
 }>;
 
@@ -97,7 +99,7 @@ export function checkLine(check: CheckData): CheckLine {
   };
 }
 
-/** The exchange with its bodies fetched by `body` on demand. */
+/** The exchange with its bodies and messages fetched by `body` on demand. */
 export function exchangeLine(
   exchange: ExchangeData,
   body: (hash: string) => Promise<string>,
@@ -113,6 +115,7 @@ export function exchangeLine(
     responseHeaders: exchange.responseHeaders,
     requestBody: lazy(exchange.requestBody),
     responseBody: lazy(exchange.responseBody),
+    messages: lazy(exchange.messages ?? null),
     truncated: exchange.truncated,
   };
 }

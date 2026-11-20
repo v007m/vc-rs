@@ -82,6 +82,14 @@ pub async fn handshake(
     TlsConnector::from(config).connect(name, stream).await.map_err(ConnectError::Handshake)
 }
 
+/// `config` offering only HTTP/1.1 by ALPN: a WebSocket opens with an HTTP/1.1 upgrade, which
+/// a server that picks HTTP/2 would not see (D460).
+pub fn http1_only(config: &Arc<ClientConfig>) -> Arc<ClientConfig> {
+    let mut config = ClientConfig::clone(config);
+    config.alpn_protocols = vec![ALPN[1].to_vec()];
+    Arc::new(config)
+}
+
 /// `true` when the server picked HTTP/2 by ALPN.
 pub fn negotiated_h2(stream: &TlsStream<TcpStream>) -> bool {
     stream.get_ref().1.alpn_protocol() == Some(ALPN[0])
@@ -89,7 +97,7 @@ pub fn negotiated_h2(stream: &TlsStream<TcpStream>) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{ALPN, client_config, roots};
+    use super::{ALPN, client_config, http1_only, roots};
     use crate::HttpAdapterError;
 
     const EC: &[u8] = include_bytes!("../tests/fixtures/ec.pem");
@@ -99,6 +107,14 @@ mod tests {
         let native = roots(&[])?;
         assert!(!native.is_empty());
         assert_eq!(client_config(&native, None)?.alpn_protocols, ALPN.map(<[u8]>::to_vec));
+        Ok(())
+    }
+
+    #[test]
+    fn an_upgrade_offers_only_http1() -> Result<(), HttpAdapterError> {
+        let config = client_config(&roots(&[])?, None)?;
+        assert_eq!(http1_only(&config).alpn_protocols, vec![b"http/1.1".to_vec()]);
+        assert_eq!(config.alpn_protocols.len(), 2, "the shared setup keeps HTTP/2");
         Ok(())
     }
 

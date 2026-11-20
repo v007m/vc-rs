@@ -160,7 +160,7 @@ Reconnect (`sse` only):
 | Compile rules (`vc-compiler`) | `SseRules`: method as `http`, `body` as `http`, path required | `WebsocketRules`: method `GET`, no body, path required |
 | Runtime (`vc-executor`) | `SseRuntime`: adds headers, decodes byte chunks into events with a pure incremental `text/event-stream` parser | `WebsocketRuntime`: encodes `send` values, maps frames to messages |
 | Transport (`vc-adapter-http`) | streaming response body (hyper `Incoming`) | HTTP/1.1 upgrade on the same connector, framing from tokio-tungstenite (D382) |
-| Demo route (`bench/mock`) | `/events`: scripted events with ids, a heartbeat comment, `retry`, and honours `last-event-id` | `/ws`: echo; JSON `join`/`say` replies; closes on `bye` |
+| Demo route (`bench/mock`, and capped in `vc-demo`) | `/events` (D426): `id`/`data` events that resume after `last-event-id`, and on request a `retry` field, heartbeat comments, a dropped connection (`drop`, or `dropAt` for a reconnect) or a held one (`hold`, mock only) | `/ws` (D465): echo; JSON `join`/`say` replies; closes on `bye` (binary only in `vc-demo`, capped) |
 
 ### The port, in `vc-interfaces`
 
@@ -205,8 +205,8 @@ How the port is used:
   - It opens through the request pipeline (timing, retry, auth, hooks, per-host limit, timeout), built by `stream_pipeline` with an `OpenStream` service in place of `Transmit` (D420). Each layer is generic over its reply's `HasHead`: `head()` is the response head retry and auth refresh read, and `hold(permit)` keeps the per-host permit. An `Exchange` drops it at once; an `Opening` keeps it until the stream is dropped.
   - It sends and reads against the call's deadline.
   - It feeds the cursor and builds `response.messages` and `response.exchange`.
-- `vc-model`'s `Exchange` gains `messages: Vec<StreamMessage>`, empty for `http` and `graphql`. It flows to history and reports through `RedactingSink` like bodies do.
-- The engine hands the executor the stream port `EngineBuilder::stream_transport` names; without one, a stream call fails with "`sse` calls need a stream transport, and none is set" and sends nothing. PR 5 makes the HTTP adapter the default.
+- `vc-model`'s `Exchange` gains `messages: Vec<StreamMessage>`, empty for `http` and `graphql`. It flows to the reports through `RedactingSink` like bodies do: kept by `history.bodies`, whole messages while they fit in `history.maxBodySize`, as an HTML Messages panel, CTRF's `extra.streams` and a count on the json `exchanged` event (D429). `history.db` does not store them yet.
+- The engine hands the executor the stream port `EngineBuilder::stream_transport` names; without one, the transport factory's stream port (D428), which for the HTTP adapter is the run's `HttpTransport`; with neither, a stream call fails with "`sse` calls need a stream transport, and none is set" and sends nothing.
 
 ## Decisions (Round 79)
 
@@ -278,9 +278,11 @@ Candidate V codes (V2213 and V5105 are reused):
    - Done; its refinements are D421–D425.
 5. **SSE on the wire.**
    - `HttpTransport` implements `StreamTransport` in `StreamMode::Body`.
-   - The mock's `/events` route (the suite's `count` and `last-event-id` contract), with a drop for reconnect; the adapter runs `stream_transport_suite` once PR 6 adds the WebSocket side.
+   - The mock's `/events` route (the suite's `count` and `last-event-id` contract), with a drop for reconnect; the adapter runs `stream_transport_suite` from PR 6, which adds the WebSocket side.
    - End-to-end tests and a site example.
    - Messages in the json, HTML and CTRF reports.
+   - Done; its refinements are D426–D429.
 6. **WebSocket on the wire.**
    - `tokio-tungstenite` and the upgrade path in `HttpTransport`.
    - The mock's `/ws` route, end-to-end tests and a site example.
+   - Done; its refinements are D460–D465.
