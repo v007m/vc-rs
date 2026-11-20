@@ -71,8 +71,9 @@ mod tests {
         let api = key_tables(FileKind::Api);
         assert!(api.starts_with("### `api`\n\nAn api file, `services/<service>/<service>.api.yaml`.\n\n| Key |"));
         assert!(api.contains("### `apiEntry`") && api.contains("### `expect`"));
-        let path = "| `path` | template | required on `http`; on `graphql`, the file's `graphql.path` | Appended to `baseUrl` |\n";
+        let path = "| `path` | template | required, except on `graphql`: there the file's `graphql.path` | Appended to `baseUrl` |\n";
         assert!(api.contains(path), "{api}");
         assert!(api.contains("### `graphql`") && api.contains("| `path` | template | /graphql |"));
+        assert!(api.contains("### `sse`") && api.contains("| `reconnect` | boolean | false |"), "{api}");
     }
 }

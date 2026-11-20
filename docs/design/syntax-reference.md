@@ -307,9 +307,10 @@ File-level keys:
 | --- | --- | --- |
 | `id` | file ID, optional; must match the path (D139) | Prefix of every api in the file |
 | `name` | text | Shown in listings |
-| `type` | `http`, `graphql` | What the file's apis speak, the default for each api (see Api types); `http` when left out (D342) |
+| `type` | `http`, `graphql`, `sse`, `websocket` | What the file's apis speak, the default for each api (see Api types); `http` when left out (D342, D376) |
 | `graphql.path` | template | The `path` of each `graphql` api in the file that sets none; `/graphql` when left out. Only on a `type: graphql` file: on a file of another type it is V2213, with a certain fix that removes it (D343) |
 | `graphql.schema` | `$file` | The schema the file's documents are checked against (D347): an SDL file (`.graphql`, `.gql`, `.graphqls`) or an introspection result (`.json`), relative to the api file. See Api types |
+| `sse.reconnect` | boolean | The `sse.reconnect` of each `sse` api in the file that sets none; `false` when left out (D385). Only on a `type: sse` file: on a file of another type it is V2213, with a certain fix that removes it |
 | `baseUrl` | template | Prefixed to every `path`; written without a trailing `/` (V4005) |
 | `auth` | auth ID, or `none` | Default auth for the file |
 | `headers` | map | Default headers |
@@ -325,9 +326,9 @@ Each item in `apis`:
 | --- | --- | --- | --- |
 | `id` | camelCase, required | — | Reference, e.g. `create` → `users#create` |
 | `name` | text | — | Shown in listings |
-| `type` | `http`, `graphql` | the file's, else `http` | What the api speaks; decides which keys apply to it (see Api types, D342) |
+| `type` | `http`, `graphql`, `sse`, `websocket` | the file's, else `http` | What the api speaks; decides which keys apply to it (see Api types, D342, D376) |
 | `method` | `GET` `POST` `PUT` `PATCH` `DELETE` `HEAD` `OPTIONS` | `GET` | HTTP method |
-| `path` | template | required on `http`; on `graphql`, the file's `graphql.path`, else `/graphql` | Appended to `baseUrl`, e.g. `/users/${var.id}`; starts with `/` unless it is a full URL or starts with a template (V4005); a path parameter is `${var.name}`, never `{name}` (V4006). Literal text is sent as written; each `${…}` value is percent-encoded as one segment, so a `/`, `?`, `#`, `%` or space in it stays data and `.` or `..` names no other path (D278). A value before the first `/` is sent as written only when it is an absolute `http(s)://` URL (`${var.usersUrl}/users`), and one after a literal `?` is encoded as a query value. The `urlEncode` pipe is not needed, and is not applied twice (V4007) |
+| `path` | template | required, except on `graphql`: there the file's `graphql.path`, else `/graphql` | Appended to `baseUrl`, e.g. `/users/${var.id}`; starts with `/` unless it is a full URL or starts with a template (V4005); a path parameter is `${var.name}`, never `{name}` (V4006). Literal text is sent as written; each `${…}` value is percent-encoded as one segment, so a `/`, `?`, `#`, `%` or space in it stays data and `.` or `..` names no other path (D278). A value before the first `/` is sent as written only when it is an absolute `http(s)://` URL (`${var.usersUrl}/users`), and one after a literal `?` is encoded as a query value. The `urlEncode` pipe is not needed, and is not applied twice (V4007) |
 | `vars` | map | — | Defaults for this api; callers override them |
 | `query` | map of templates | — | Query string |
 | `headers` | map of templates | — | Merged over the file's headers |
@@ -335,6 +336,7 @@ Each item in `apis`:
 | `auth` | auth ID, `none`, or `id` + `vars` | the file's | Overrides the file's auth |
 | `timeout` | duration | `defaults.timeout` | Per request attempt |
 | `http.retry` | as in config | config's `http.retry` | Transport retry for this api; keys given here replace the config's (D143) |
+| `sse.reconnect` | boolean | the file's, else `false` | Open the stream once more when it ends early; only on an `sse` api (see Api types, D385) |
 | `expect` | checks | `status: 2xx` | Checks that hold on every call; a test's `expect` adds to them and replaces matching keys |
 | `save` | map of templates over `response` | — | Values every caller gets as vars, when the status matches `saveOn` |
 | `saveOn` | status: code, list of codes, class (`2xx`) or matcher | the api's `expect.status`, else `2xx` | The statuses on which `save` runs (D191) |
@@ -347,9 +349,9 @@ Each item in `apis`:
 
 An api's `type` says what it speaks: its own `type`, else its file's, else `http`, so a file that sets none keeps its meaning (D342). A value that is not a known type counts as unset, so it falls back the same way. The type decides which keys apply: on the api, in its `expect`, and on a test or step that calls it (in its `expect` and `poll.until` too, and on a `cache.check` call inside it). A key that does not apply is an error with a certain fix that removes it (V2213); a type that is not known is V2302, with the close value as its fix.
 
-Each type needs some keys: an `http` api needs `path`, a `graphql` api needs `body.query`. One that leaves its key out is V1005.
+Each type needs some keys: an `http`, `sse` or `websocket` api needs `path`, a `graphql` api needs `body.query`. One that leaves its key out is V1005.
 
-`http` takes every key above, so no `http` api reports V2213. `jsonrpc`, `sse`, `websocket` and `grpc` follow in their own issues.
+`http` takes every key above but `sse` and `expect.errors`. `jsonrpc` and `grpc` follow in their own issues.
 
 `graphql` (D343) sends one GraphQL operation as a JSON `POST` and reads the response as HTTP:
 
@@ -388,6 +390,26 @@ apis:
       body:
         match:
           data.user.id: ${var.userId}
+```
+
+`sse` and `websocket` (D376, #92, #93) are checked as below; their calls run in later changes (`docs/design/streams.md`). Until then a call of one fails before anything is sent, with "a `sse` api cannot be called yet: stream calls are not run (#92, #93)".
+
+- `sse` sends its request as `http` does: its own `method` (else `GET`), `path` and `body`. `poll` does not apply on a test or step that calls it (V2213), nor does `expect.errors`.
+- `sse.reconnect: true`, on the api or else on a `type: sse` file, opens the stream once more when it ends before the call is done (D385); it is `false` when neither sets it, and an api's `sse: {}` keeps its file's. An `sse` block on an api or a file of another type is V2213, with the certain fix that removes it; a key it does not know is V1004, with the close key as its fix.
+- `websocket` opens with a `GET` and no body to the api's `path`, so `method` and `body` do not apply on the api, nor `body` on a test or step that calls it (V2213); a test-level `body` that such a step would inherit is V2213 at the test, with no fix, as for `graphql`. `poll`, `sse` and `expect.errors` do not apply either.
+
+```yaml
+# services/feed/feed.api.yaml
+type: sse
+baseUrl: ${var.feedUrl}
+sse:
+  reconnect: true
+apis:
+  - id: prices
+    path: /prices
+  - id: chat
+    type: websocket
+    path: /chat
 ```
 
 ### Request body

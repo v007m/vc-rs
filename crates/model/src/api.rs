@@ -84,6 +84,9 @@ pub struct Api {
     pub timeout: Option<Duration>,
     /// `http.retry`, its keys over the config's; `None` when the api writes none (D143).
     pub http_retry: Option<HttpRetry>,
+    /// `sse.reconnect`, the api's, else its file's: whether an `sse` stream that ends before its
+    /// exchange is done is opened once more (D385). Always `false` on another type.
+    pub reconnect: bool,
     /// `expect`; `status: 2xx` when none is written.
     pub expect: Expect,
     /// `save`.

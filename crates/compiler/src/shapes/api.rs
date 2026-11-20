@@ -19,6 +19,7 @@ shape! {
         types::key("beforeRequest", HOOKS).doc("Functions run before every request in the file"),
         types::key("afterResponse", HOOKS).doc("Functions run after every response in the file"),
         types::key("graphql", Ty::Obj(graphql)).doc("Defaults for the file's `graphql` apis; only on a `type: graphql` file"),
+        types::key("sse", Ty::Obj(sse)).doc("Defaults for the file's `sse` apis; only on a `type: sse` file"),
         types::key("apis", Ty::List(&Ty::Obj(api))).doc("The apis"),
     ])
 }
@@ -40,11 +41,19 @@ shape! {
 }
 
 shape! {
+    /// `sse`: an `sse` api's stream settings, on the api or its file (D385).
+    sse = Shape::new("sse", "The stream settings of an `sse` api, or of every `sse` api in a `type: sse` file (D385)", &[
+        types::key("reconnect", Ty::Bool).default("false")
+            .doc("Open the stream once more, sending `last-event-id`, when it ends before the exchange is done"),
+    ])
+}
+
+shape! {
     api = Shape::new("apiEntry", "One api: a request and the checks that always hold for it", &[
         types::key("id", Ty::Id).required().doc("camelCase; `create` is referenced as `users#create`").example("create"),
         types::key("name", Ty::Text).doc("Shown in listings"),
         types::key("method", Ty::Enum(METHODS)).default("GET").doc("HTTP method"),
-        types::key("path", Ty::Template).default("required on `http`; on `graphql`, the file's `graphql.path`").doc("Appended to `baseUrl`").example("/users/${var.userId}"),
+        types::key("path", Ty::Template).default("required, except on `graphql`: there the file's `graphql.path`").doc("Appended to `baseUrl`").example("/users/${var.userId}"),
         types::key("type", Ty::Enum(PROTOCOLS)).default("the file's, else http").doc("What the api speaks; decides which keys apply"),
         types::key("vars", VARS).doc("Defaults for this api; callers override them"),
         types::key("query", TEMPLATES).doc("Query string"),
@@ -53,6 +62,7 @@ shape! {
         types::key("auth", AUTH).default("the file's").doc("Overrides the file's auth"),
         types::key("timeout", Ty::Duration).default("defaults.timeout").doc("Per request attempt"),
         types::key("http", Ty::Obj(common::http)).doc("Transport retry for this api; keys replace the config's"),
+        types::key("sse", Ty::Obj(sse)).default("the file's").doc("Stream settings; only on an `sse` api"),
         types::key("expect", Ty::Obj(common::expect)).default("status: 2xx").scope(Scope::CALL).doc("Checks that hold on every call"),
         types::key("save", VARS).scope(Scope::CALL).doc("Values every caller gets as vars"),
         types::key("saveOn", Ty::Status).default("expect.status, else 2xx").scope(Scope::CALL).doc("The statuses on which `save` runs").example("201"),

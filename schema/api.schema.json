@@ -118,6 +118,10 @@
             "object"
           ]
         },
+        "sse": {
+          "$ref": "#/$defs/sse",
+          "description": "Stream settings; only on an `sse` api"
+        },
         "timeout": {
           "description": "Per request attempt",
           "pattern": "^[0-9]+(ms|s|m|h)$",
@@ -127,7 +131,9 @@
           "description": "What the api speaks; decides which keys apply",
           "enum": [
             "http",
-            "graphql"
+            "graphql",
+            "sse",
+            "websocket"
           ]
         },
         "vars": {
@@ -516,6 +522,18 @@
       ],
       "type": "object"
     },
+    "sse": {
+      "additionalProperties": false,
+      "description": "The stream settings of an `sse` api, or of every `sse` api in a `type: sse` file (D385)",
+      "properties": {
+        "reconnect": {
+          "default": false,
+          "description": "Open the stream once more, sending `last-event-id`, when it ends before the exchange is done",
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
     "timing": {
       "additionalProperties": false,
       "description": "Matchers on the request phases",
@@ -624,12 +642,18 @@
       "$ref": "#/$defs/source",
       "description": "The OpenAPI spec this file syncs from"
     },
+    "sse": {
+      "$ref": "#/$defs/sse",
+      "description": "Defaults for the file's `sse` apis; only on a `type: sse` file"
+    },
     "type": {
       "default": "http",
       "description": "What the file's apis speak; an api may set its own",
       "enum": [
         "http",
-        "graphql"
+        "graphql",
+        "sse",
+        "websocket"
       ]
     },
     "vars": {

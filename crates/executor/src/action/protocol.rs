@@ -9,6 +9,7 @@ use vc_model::{Action, ActionId, Api, Exchange, Failure, Protocol, RenderedReque
 
 use super::graphql::GraphqlRuntime;
 use super::request;
+use super::stream::PendingStream;
 use crate::Render;
 
 /// How a call to an api of one type is built and read back.
@@ -59,7 +60,8 @@ impl ProtocolRuntimes {
     /// The runtime of every built-in type.
     #[must_use]
     pub fn standard() -> Self {
-        Self { runtimes: vec![Arc::new(HttpRuntime), Arc::new(GraphqlRuntime)] }
+        let (sse, websocket) = (PendingStream(Protocol::Sse), PendingStream(Protocol::Websocket));
+        Self { runtimes: vec![Arc::new(HttpRuntime), Arc::new(GraphqlRuntime), Arc::new(sse), Arc::new(websocket)] }
     }
 
     /// The runtime for `protocol`, if it has one.

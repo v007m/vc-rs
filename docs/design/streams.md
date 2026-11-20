@@ -18,9 +18,11 @@ Everything else is in "Later" below.
 
 ## Syntax by example
 
+The examples use `exchange` and `messages`, which the code does not read yet, so the docs check skips them (`yaml skip`) until PR 2 below lands.
+
 An SSE api. `sse` reads the opening response as `http` does, so `method`, `body`, `status` and `headers` keep their meaning; LLM-style streams that `POST` a body work unchanged.
 
-```yaml
+```yaml skip
 # services/orders/orders.api.yaml
 type: sse
 baseUrl: ${var.ordersUrl}
@@ -38,7 +40,7 @@ apis:
 
 A WebSocket api, and a test that overrides its exchange:
 
-```yaml
+```yaml skip
 # services/chat/chat.api.yaml
 type: websocket
 baseUrl: ${var.chatUrl}            # ws://, wss://, http:// or https://

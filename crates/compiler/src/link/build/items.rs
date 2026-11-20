@@ -150,6 +150,7 @@ impl<'a> Build<'_, 'a> {
             auth: self.auth(source, node)?.unwrap_or_default(),
             timeout: read::duration(source, node, "timeout"),
             http_retry: http_retry::over(source, node, &self.http_retry),
+            reconnect: rules.reconnect(source, node),
             expect,
             save: SaveSpec { values: self.values(source, node.get("save"))? },
             save_on,

@@ -6,6 +6,7 @@ use vc_parser::Node;
 
 use super::graphql::GraphqlRules;
 use super::read;
+use super::stream::{SseRules, WebsocketRules};
 use crate::link::data::Data;
 use crate::link::project::Source;
 
@@ -25,10 +26,15 @@ pub trait ProtocolRules {
     fn check(&self, _source: &Source<'_>, _api: &Node) -> Vec<Diagnostic> {
         Vec::new()
     }
+    /// Whether the api's stream is opened once more when it ends early (D385); `false` for a
+    /// type that does not reconnect.
+    fn reconnect(&self, _source: &Source<'_>, _api: &Node) -> bool {
+        false
+    }
 }
 
 /// `http`: the api's own `method`, else GET, and its own `body` and `path`.
-struct HttpRules;
+pub struct HttpRules;
 
 impl ProtocolRules for HttpRules {
     fn protocol(&self) -> Protocol {
@@ -61,7 +67,8 @@ impl ProtocolRulesRegistry {
     /// The rules of every built-in type.
     #[must_use]
     pub fn builtin() -> Self {
-        let rules: Vec<Box<dyn ProtocolRules>> = vec![Box::new(HttpRules), Box::new(GraphqlRules)];
+        let rules: Vec<Box<dyn ProtocolRules>> =
+            vec![Box::new(HttpRules), Box::new(GraphqlRules), Box::new(SseRules), Box::new(WebsocketRules)];
         Self { rules }
     }
 

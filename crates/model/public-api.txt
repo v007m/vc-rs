@@ -587,8 +587,10 @@ pub fn vc_model::PartSpec::deserialize<__D>(__D) -> core::result::Result<Self, <
 pub enum vc_model::Protocol
 pub vc_model::Protocol::Graphql
 pub vc_model::Protocol::Http
+pub vc_model::Protocol::Sse
+pub vc_model::Protocol::Websocket
 impl vc_model::Protocol
-pub const vc_model::Protocol::ALL: [Self; 2]
+pub const vc_model::Protocol::ALL: [Self; 4]
 pub fn vc_model::Protocol::from_key(&str) -> core::option::Option<Self>
 pub const fn vc_model::Protocol::key(self) -> &'static str
 impl core::clone::Clone for vc_model::Protocol
@@ -961,6 +963,7 @@ pub vc_model::Api::operation_id: core::option::Option<alloc::string::String>
 pub vc_model::Api::path: vc_model::Template
 pub vc_model::Api::protocol: vc_model::Protocol
 pub vc_model::Api::query: indexmap::map::IndexMap<alloc::string::String, vc_model::Template>
+pub vc_model::Api::reconnect: bool
 pub vc_model::Api::save: vc_model::SaveSpec
 pub vc_model::Api::save_on: vc_model::Matcher
 pub vc_model::Api::save_on_written: bool
@@ -2734,8 +2737,8 @@ pub const vc_model::DEFAULT_SECRETS_SCHEMA: &str
 pub const vc_model::FILE_KEY: &str
 pub const vc_model::MULTIPART: &str
 pub const vc_model::PROFILE_VARIABLE: &str
-pub const vc_model::PROTOCOL_KEYS: [(vc_model::Protocol, vc_model::ProtocolKeys); 2]
-pub const vc_model::PROTOCOL_NEEDS: [(vc_model::Protocol, &[&str]); 2]
+pub const vc_model::PROTOCOL_KEYS: [(vc_model::Protocol, vc_model::ProtocolKeys); 4]
+pub const vc_model::PROTOCOL_NEEDS: [(vc_model::Protocol, &[&str]); 4]
 pub fn vc_model::auth_needs(&str) -> core::option::Option<&'static [&'static str]>
 pub fn vc_model::auth_own_needs(&str) -> &'static [&'static str]
 pub fn vc_model::basename(&str) -> &str

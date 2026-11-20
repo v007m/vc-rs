@@ -23,6 +23,7 @@ mod request;
 mod retrying;
 mod reuse;
 mod sink;
+mod stream;
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;

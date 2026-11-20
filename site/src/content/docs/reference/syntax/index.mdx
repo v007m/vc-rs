@@ -228,6 +228,7 @@ Top level of an `*.api.yaml` file:
 | `name` | Free text for reports | [name](/vc-rs/reference/syntax/name/) |
 | `type` | What the file's apis speak, default `http` | [type](/vc-rs/reference/syntax/type/) |
 | `graphql` | Defaults for a `type: graphql` file's apis: `path` | [graphql](/vc-rs/reference/syntax/graphql/) |
+| `sse` | Defaults for a `type: sse` file's apis: `reconnect` | [type](/vc-rs/reference/syntax/type/) |
 | `source` | The OpenAPI document the file was imported from | [source](/vc-rs/reference/syntax/source/) |
 | `baseUrl` | Prefix for every path | [baseUrl](/vc-rs/reference/syntax/base-url/) |
 | `headers` | Headers for every request in the file | [headers](/vc-rs/reference/syntax/headers/) |
@@ -252,6 +253,7 @@ Each entry in `apis`:
 | `vars` | Defaults a caller can override | [vars](/vc-rs/reference/syntax/vars/) |
 | `timeout` | Request timeout | [timeout](/vc-rs/reference/syntax/timeout/) |
 | `http` | Transport settings: `http.retry` | [http.retry](/vc-rs/reference/syntax/http-retry/) |
+| `sse` | Stream settings of an `sse` api: `reconnect` | [type](/vc-rs/reference/syntax/type/) |
 | `expect` | Checks every caller inherits | [expect](/vc-rs/reference/syntax/expect/) |
 | `save` | Values to keep from the response | [save](/vc-rs/reference/syntax/save/) |
 | `saveOn` | Save only on some statuses | [saveOn](/vc-rs/reference/syntax/save-on/) |

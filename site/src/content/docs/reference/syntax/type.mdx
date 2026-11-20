@@ -20,17 +20,21 @@ apis:
 
 | Field | Type | Default | Required | Notes |
 | --- | --- | --- | --- | --- |
-| `type` | `http`, `graphql` | `http` | no | On the api file, the default for its apis |
-| `type` | `http`, `graphql` | the file's, else `http` | no | On an `apis` entry; wins over the file's |
+| `type` | `http`, `graphql`, `sse`, `websocket` | `http` | no | On the api file, the default for its apis |
+| `type` | `http`, `graphql`, `sse`, `websocket` | the file's, else `http` | no | On an `apis` entry; wins over the file's |
 
 `type` belongs to the api. A test or step that calls it uses the api's type and can't set its own.
 
 | Type | Speaks | Needs | Keys it does not take |
 | --- | --- | --- | --- |
-| `http` | HTTP requests as written | `path` | none |
+| `http` | HTTP requests as written | `path` | `expect.errors`; an `sse` block |
 | `graphql` | one GraphQL operation as a JSON `POST`; see [`graphql`](/vc-rs/reference/syntax/graphql/) | `body.query` | `method` on the api; `body` on a test or step that calls it |
+| `sse` | server-sent events read from one request's streamed response | `path` | `expect.errors`; `poll` on a test or step that calls it |
+| `websocket` | messages over one WebSocket connection, opened with a `GET` | `path` | `method`, `body` and an `sse` block on the api; `expect.errors`; `body` and `poll` on a test or step that calls it |
 
-The other types (JSON-RPC, server-sent events, WebSocket, gRPC) follow in their own issues.
+`sse` and `websocket` are checked today, but their calls are not run yet: a call of one fails before anything is sent. The other types (JSON-RPC, gRPC) follow in their own issues.
+
+An `sse` api, or a `type: sse` file for all of its apis, may set `sse.reconnect: true`: when the stream ends early the call opens it once more, sending `last-event-id`. It is `false` when left out, and an `sse` block anywhere else is V2213.
 
 ## Examples
 
@@ -65,6 +69,23 @@ apis:
         id: ${var.userId}
 ```
 
+### A stream file
+
+A `type: sse` file's block applies to each of its `sse` apis; an api with its own type, here `websocket`, takes none of it.
+
+```yaml title="services/feed/feed.api.yaml"
+type: sse
+baseUrl: ${var.baseUrl}
+sse:
+  reconnect: true
+apis:
+  - id: prices
+    path: /prices
+  - id: chat
+    type: websocket
+    path: /chat
+```
+
 ### Set on one api
 
 An api's own `type` wins over its file's.
@@ -90,8 +111,8 @@ apis:
 ## How it behaves
 
 - The type is read once, when the file is checked: an api's own `type`, else its file's, else `http`. A value that is not a known type counts as unset, so it falls back the same way.
-- The type decides which keys apply: on the api, in its `expect`, and on a test or step that calls it (in its `expect` and `poll.until` too, and on a `cache.check` call inside it). A key the type does not use is an error, V2213, whose fix removes the key. `http` uses every key, so no `http` api reports it.
-- Each type needs its own keys: an `http` api without `path`, or a `graphql` api without `body.query`, is V1005.
+- The type decides which keys apply: on the api, in its `expect`, and on a test or step that calls it (in its `expect` and `poll.until` too, and on a `cache.check` call inside it). A key the type does not use is an error, V2213, whose fix removes the key. `http` uses every key but `expect.errors` and an `sse` block.
+- Each type needs its own keys: an `http`, `sse` or `websocket` api without `path`, or a `graphql` api without `body.query`, is V1005.
 - A value that is not a known type is V2302, with the close type as its fix.
 
 ```yaml wrong V2302 title="services/billing/billing.api.yaml"
@@ -104,7 +125,7 @@ apis:
 
 ```console
 $ vc check services/billing
-error[V2302]: expected one of http, graphql, found `htp`
+error[V2302]: expected one of http, graphql, sse, websocket, found `htp`
 ```
 
 ## Common errors

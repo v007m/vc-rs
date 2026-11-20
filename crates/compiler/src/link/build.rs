@@ -23,6 +23,7 @@ mod saves_tests;
 #[cfg(test)]
 mod schema_tests;
 mod schemas;
+mod stream;
 #[cfg(test)]
 mod tests;
 mod tls;

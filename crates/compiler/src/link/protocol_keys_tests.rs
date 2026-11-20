@@ -128,7 +128,7 @@ fn a_misspelt_type_gets_the_close_value_as_its_fix() {
     let apis = "apis:\n  - id: get\n    type: htp\n    path: http://x/users/1\n";
     let compiled = compile(apis, "tests:\n  - id: getsUser\n    call: users#get\n");
     let wrong = compiled.diagnostics.iter().find(|found| found.code == Code::V2302).unwrap();
-    assert_eq!(wrong.message, "expected one of http, graphql, found `htp`");
+    assert_eq!(wrong.message, "expected one of http, graphql, sse, websocket, found `htp`");
     assert_eq!(wrong.fixes[0].edits[0].new_text, "http");
 }
 

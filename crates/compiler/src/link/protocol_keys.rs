@@ -46,7 +46,7 @@ const IN_EXPECT: Inherited = Inherited {
 };
 
 /// The types with a block of their own on an api file, named after the type (D343).
-const FILE_BLOCKS: [Protocol; 1] = [Protocol::Graphql];
+const FILE_BLOCKS: [Protocol; 2] = [Protocol::Graphql, Protocol::Sse];
 
 /// One place keys are written: the keys the shape knows there, and those the type takes.
 struct Place<'k> {
