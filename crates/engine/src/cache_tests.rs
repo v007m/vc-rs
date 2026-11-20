@@ -5,7 +5,7 @@ use tokio::sync::mpsc;
 use vc_executor::{CacheEvent, ClientCerts, RunInputs};
 use vc_interfaces::{
     CacheEntry, CacheKey, CacheListing, CacheStore, CachedCleanup, CachedValues, CertId, Keychain, KeychainError,
-    Secret, SourceProvider,
+    Secret, Secrets, SourceProvider,
 };
 use vc_model::{StringTable, TlsClientId};
 use vc_testkit::{
@@ -13,8 +13,8 @@ use vc_testkit::{
 };
 
 use super::{ACCOUNT, Buried, Cleaner, SERVICE, Sweep};
-use crate::client_certs::RunTls;
 use crate::plugin_hosts::Hosts;
+use crate::secured::Secured;
 use crate::{Engine, interrupts, ports, sample};
 
 const KEY: &str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
@@ -154,8 +154,8 @@ fn adhoc(engine: &Engine) -> (vc_executor::ActionCx, crate::plan::Prepared) {
     let prepared = super::unplanned(engine.layered(&[], &[]).unwrap());
     let inputs = RunInputs::new(ports::random(None).1, Arc::clone(&prepared.environment));
     let transport = engine.transport(prepared.environment.as_ref()).unwrap();
-    let tls = RunTls { transport, certs: vc_executor::ClientCerts::default(), passphrases: Vec::new() };
-    (engine.action_cx(&prepared, (inputs, &Hosts::default(), tls)), prepared)
+    let secured = Secured { secrets: Secrets::new(), transport, certs: ClientCerts::default(), hidden: Vec::new() };
+    (engine.action_cx(&prepared, (inputs, &Hosts::default(), &secured)), prepared)
 }
 
 /// The sweep of a run of `engine` on `store` whose cache sent `events`.

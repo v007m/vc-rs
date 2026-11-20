@@ -144,10 +144,10 @@ async fn a_load_plan_s_row_labels_from_env_var_or_dataset_are_masked_once_secure
     let drawn: Vec<&str> = session.prepared.plan.row_names.values().map(String::as_str).collect();
     assert_eq!(drawn, [TOKEN; 3], "each label is drawn from the secret's value");
     let (_interrupter, mut interrupts) = interrupts();
-    let (secrets, _) = engine.secured(&mut session.prepared, &mut interrupts).await.unwrap().unwrap();
+    let secured = engine.secured(&mut session.prepared, &mut interrupts).await.unwrap().unwrap();
     let masked: Vec<&str> = session.prepared.plan.row_names.values().map(String::as_str).collect();
     assert_eq!(masked, ["••••"; 3]);
-    assert_eq!(secrets.get("API_TOKEN").map(|secret| secret.expose().to_owned()), Some(TOKEN.to_owned()));
+    assert_eq!(secured.secrets.get("API_TOKEN").map(|secret| secret.expose().to_owned()), Some(TOKEN.to_owned()));
 }
 
 #[tokio::test(start_paused = true)]

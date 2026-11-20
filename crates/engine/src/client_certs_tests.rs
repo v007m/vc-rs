@@ -9,8 +9,8 @@ use vc_testkit::{
     MemoryTransports, TestPki, status,
 };
 
-use super::RunTls;
 use crate::plan::Extra;
+use crate::secured::Secured;
 use crate::{EngineBuilder, EngineError, PlanRequest};
 
 const P12: &[u8] = include_bytes!("../../adapters/http/tests/fixtures/ec.p12");
@@ -24,12 +24,12 @@ fn config(tls: &str) -> String {
 type Under<'a> = (&'a str, &'a [(&'a str, &'a str)]);
 
 /// `http.tls` of a project in `root` whose config holds `tls`, under `profile`, with `env`.
-async fn run_tls(root: &Path, tls: &str, under: Under<'_>) -> Result<RunTls, EngineError> {
+async fn run_tls(root: &Path, tls: &str, under: Under<'_>) -> Result<Secured, EngineError> {
     run_with(EngineBuilder::new(root.to_path_buf()), tls, under).await
 }
 
 /// `http.tls` of the project `builder` builds, whose config holds `tls`, under `profile`, with `env`.
-async fn run_with(builder: EngineBuilder, tls: &str, (profile, env): Under<'_>) -> Result<RunTls, EngineError> {
+async fn run_with(builder: EngineBuilder, tls: &str, (profile, env): Under<'_>) -> Result<Secured, EngineError> {
     let config = config(tls);
     let sources: Arc<dyn SourceProvider> =
         Arc::new(MemorySources::new(&[("vibranium.config.yaml", config.as_bytes())]));
@@ -42,7 +42,7 @@ async fn run_with(builder: EngineBuilder, tls: &str, (profile, env): Under<'_>) 
         .build()?;
     let request = PlanRequest { profiles: vec![profile.to_owned()], ..PlanRequest::default() };
     let prepared = engine.prepare(&request, Extra::default())?;
-    engine.run_tls(&prepared, &Secrets::new()).await
+    engine.with_tls(&prepared, Secrets::new()).await
 }
 
 /// A builder for the project at `root` whose transport factory holds `files`, under `root`, and
@@ -89,7 +89,7 @@ async fn builds_with_the_roots_and_the_identities_the_active_profiles_allow() {
     assert_eq!(built.clients, clients);
     let certs: Vec<_> = tls.certs.values().copied().collect();
     assert_eq!((tls.certs.len(), certs.contains(&CertId::new(0)), certs.contains(&CertId::new(1))), (2, true, true));
-    let hidden: Vec<_> = tls.passphrases.iter().map(Secret::expose).collect();
+    let hidden: Vec<_> = tls.hidden.iter().map(Secret::expose).collect();
     assert_eq!(hidden, ["fixture"]);
     let (builder, mut read) = memory_pki(&pki);
     run_with(builder, CLIENTS, ("staging", &[("GOOD_KEY", key)])).await.unwrap();

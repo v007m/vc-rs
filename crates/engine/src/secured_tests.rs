@@ -2,30 +2,36 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
+use async_trait::async_trait;
 use tokio::sync::mpsc;
 use vc_interfaces::{
-    Environment, HistoryError, HistoryWriter, Row, RunEnd, RunId, RunStart, Secret, TlsError, TlsPart, TlsSpec,
-    Transport, TransportFactory,
+    CommandError, CommandOutput, CommandRunner, CommandSpec, Environment, HistoryError, HistoryWriter, Row, RunEnd,
+    RunId, RunStart, Secret, TlsError, TlsPart, TlsSpec, Transport, TransportFactory,
 };
 use vc_model::Keep;
-use vc_testkit::{FakeTransport, FakeVcs, MemoryEnvironment, MemoryHistory, MemorySources, status};
+use vc_testkit::{FakeTransport, FakeVcs, MemoryCacheStore, MemoryEnvironment, MemoryHistory, MemorySources, status};
 
 use crate::plan::Extra;
 use crate::sample::builder;
-use crate::{CallRequest, Engine, EngineError, LoadEnding, LoadRequest, LoadWatch, PlanRequest, RunRequest};
+use crate::{
+    CallRequest, Engine, EngineBuilder, EngineError, LoadEnding, LoadRequest, LoadWatch, PlanRequest, RunRequest,
+    TestAuthRequest,
+};
 
 /// The passphrase `P12_PASS` holds, which a row label reads too.
 const PASS: &str = "Wq3-fixture-Lp8";
 
-/// A config whose row label and `bank` bundle's passphrase read `passphrase`.
+/// A config whose row label and `bank` bundle's passphrase read `passphrase`, with the bearer
+/// auth `svc`.
 fn config(passphrase: &str) -> String {
     format!(
         "syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\nvars:\n  rows: [{{name: '${{env.P12_PASS}}'}}]\n\
+         auth:\n  - id: svc\n    type: bearer\n    token: t0k3n\n\
          http:\n  tls:\n    clients:\n      - id: bank\n        pkcs12: certs/bank.p12\n        passphrase: {passphrase}\n"
     )
 }
 
-const API: &str = "baseUrl: http://x\napis:\n  - id: send\n    method: GET\n    path: /echo\n";
+const API: &str = "baseUrl: http://x\napis:\n  - id: send\n    method: GET\n    path: /echo\n    auth: svc\n";
 const TESTS: &str = "tests:\n  - id: sendsRows\n    examples: ${var.rows}\n    call: echo#send\n";
 const LOAD: &str = "mix:\n  - {test: echo.send#sendsRows, weight: 1}\nstages:\n  - {duration: 1s, users: 1}\n";
 
@@ -73,9 +79,29 @@ impl HistoryWriter for Begun {
     }
 }
 
+/// A command runner that notes in its flag that it began, and never ends.
+struct Hung(Arc<AtomicBool>);
+
+#[async_trait]
+impl CommandRunner for Hung {
+    async fn run(&self, _: &CommandSpec) -> Result<CommandOutput, CommandError> {
+        self.0.store(true, Ordering::SeqCst);
+        std::future::pending().await
+    }
+}
+
 /// An engine over the echo project with `config`, `P12_PASS` set to [`PASS`] and `loader`; and
 /// the runs it begins in the history.
 fn engine(config: &str, loader: Loader) -> (Engine, mpsc::UnboundedReceiver<String>) {
+    engine_with(config, loader, |builder| builder)
+}
+
+/// [`engine`], with `finish` applied to its builder.
+fn engine_with(
+    config: &str,
+    loader: Loader,
+    finish: impl FnOnce(EngineBuilder) -> EngineBuilder,
+) -> (Engine, mpsc::UnboundedReceiver<String>) {
     let files: [(&str, &[u8]); 5] = [
         ("vibranium.config.yaml", config.as_bytes()),
         (".env.schema", b"# a bundle's passphrase\nNOPE=\n"),
@@ -84,11 +110,12 @@ fn engine(config: &str, loader: Loader) -> (Engine, mpsc::UnboundedReceiver<Stri
         ("load/echo/peak.load.yaml", LOAD.as_bytes()),
     ];
     let (begun, runs) = mpsc::unbounded_channel();
-    let engine = builder(FakeVcs::default())
+    let engine = finish(builder(FakeVcs::default()))
         .sources(Arc::new(MemorySources::new(&files)))
         .environment(Arc::new(MemoryEnvironment::new(&[("P12_PASS", PASS)])))
         .transport_factory(Arc::new(loader))
         .history(Arc::new(Begun(begun)), Arc::new(MemoryHistory::new()))
+        .cache(Arc::new(MemoryCacheStore::new()))
         .build()
         .unwrap();
     (engine, runs)
@@ -109,13 +136,14 @@ async fn a_row_label_holding_a_bundles_passphrase_is_masked_once_secured() {
     let drawn: Vec<&str> = prepared.plan.row_names.values().map(String::as_str).collect();
     assert_eq!(drawn, [PASS], "the label is drawn from the env var the passphrase reads");
     let (_interrupter, mut interrupts) = crate::interrupts();
-    let (_, tls) = engine.secured(&mut prepared, &mut interrupts).await.unwrap().unwrap();
+    let secured = engine.secured(&mut prepared, &mut interrupts).await.unwrap().unwrap();
     let masked: Vec<&str> = prepared.plan.row_names.values().map(String::as_str).collect();
     assert_eq!(masked, ["••••"]);
-    assert_eq!(tls.passphrases.iter().map(Secret::expose).collect::<Vec<_>>(), [PASS]);
+    assert_eq!(secured.hidden.iter().map(Secret::expose).collect::<Vec<_>>(), [PASS]);
 }
 
-/// The error of each entry point over `config` with `loader`, and whether any began a run.
+/// The error of each entry point over `config` with `loader` (run, load, call, `vc test auth`
+/// and a cache clear), and whether any began a run.
 async fn refused(config: &str, loader: Loader) -> Vec<(String, bool)> {
     let (engine, mut begun) = engine(config, loader);
     let mut seen = Vec::new();
@@ -127,6 +155,9 @@ async fn refused(config: &str, loader: Loader) -> Vec<(String, bool)> {
     let (_interrupter, interrupts) = crate::interrupts();
     note(engine.load(&load_request(), LoadWatch { interrupts, ticks: None }).await.err());
     note(engine.call(&call_request()).await.err());
+    note(engine.test_auth(&TestAuthRequest { auth: "svc".to_owned(), ..TestAuthRequest::default() }).await.err());
+    note(engine.cache_clear(None).await.err());
+    assert_eq!(seen.len(), 5, "every entry point is refused");
     seen
 }
 
@@ -138,7 +169,7 @@ fn refusing(unusable: bool) -> Loader {
 }
 
 #[tokio::test]
-async fn a_tls_or_secret_refusal_stops_run_load_and_call_before_any_run_begins() {
+async fn a_tls_or_secret_refusal_stops_every_entry_point_before_any_run_begins() {
     let cases = [
         ("V5125", refused(&config(PASS), refusing(true)).await),
         ("V5126", refused(&config(PASS), refusing(false)).await),
@@ -188,4 +219,23 @@ async fn an_interrupt_while_http_tls_loads_cancels_run_and_load_before_any_run_b
     released.store(true, Ordering::SeqCst);
     assert_eq!((cancelled.ending, cancelled.exit), (LoadEnding::Cancelled, 130));
     assert!(begun.try_recv().is_err(), "no run began");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn an_interrupt_while_the_secrets_load_cancels_run_and_load_before_any_run_begins() {
+    let config = config("${secret.NOPE}").replacen('\n', "\nsecrets: {provider: varlock}\n", 1);
+    let started = Arc::new(AtomicBool::new(false));
+    let hung = Arc::new(Hung(Arc::clone(&started)));
+    let (engine, mut begun) = engine_with(&config, Loader::default(), |builder| builder.commands(hung));
+    let (run, load) = (RunRequest::default(), load_request());
+    let (interrupter, interrupts) = crate::interrupts();
+    let (report, ()) = tokio::join!(engine.run(&run, interrupts), press_once(&started, interrupter));
+    let report = report.unwrap();
+    assert_eq!((report.exit, report.run.is_some()), (130, false));
+    assert!(started.swap(false, Ordering::SeqCst), "the secrets were loading");
+    let (interrupter, interrupts) = crate::interrupts();
+    let watch = LoadWatch { interrupts, ticks: None };
+    let (cancelled, ()) = tokio::join!(engine.load(&load, watch), press_once(&started, interrupter));
+    assert_eq!(cancelled.map(|report| (report.ending, report.exit)).ok(), Some((LoadEnding::Cancelled, 130)));
+    assert!(started.load(Ordering::SeqCst) && begun.try_recv().is_err(), "the load secrets loaded, and no run began");
 }

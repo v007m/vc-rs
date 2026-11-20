@@ -11,20 +11,18 @@ use vc_executor::{
     ActionCx, ActionExecutors, ActionKindTag, CommandExecutor, Defined, EventBus, Executor, ExecutorError, HostLimits,
     MaskRules, PipelineParts, RuleHooks, RunHandle, RunInputs, RunOptions,
 };
-use vc_interfaces::{
-    ConfigEntry, HookRunner, Random, RunId, RunStart, RunSummary, Secret, Secrets, TestRow, Transport,
-};
+use vc_interfaces::{ConfigEntry, HookRunner, Random, RunId, RunStart, RunSummary, Secret, TestRow, Transport};
 use vc_model::{ActionId, Feed, Part, RunStatus, Template, TemplateValue, Totals};
 
 use crate::agent_gate::run_call;
 use crate::cache::Sweep;
-use crate::client_certs::RunTls;
 use crate::load::RUN_KIND;
 use crate::notify::Alerting;
 use crate::plan::{Extra, Prepared};
 use crate::plugin_hosts::Hosts;
 use crate::reporting::{self, Reported, Reporters, Setup};
 use crate::run_feed::Watching;
+use crate::secured::Secured;
 use crate::{Engine, EngineError, Interrupts, RunRequest, history, notify};
 
 /// Room for this many events between the bus and the reporters before they miss some.
@@ -93,26 +91,26 @@ impl Engine {
         let Some(secured) = self.secured(&mut prepared, interrupts).await? else {
             return Ok(crate::secured::cancelled(prepared));
         };
-        let plugins = self.plugin_hosts(&prepared.program, &secured.0);
-        plugins.around(Box::pin(self.execute_with(request, (prepared, secured, &plugins), interrupts))).await
+        let plugins = self.plugin_hosts(&prepared.program, &secured.secrets);
+        plugins.around(Box::pin(self.execute_with(request, (prepared, &secured, &plugins), interrupts))).await
     }
 
     /// [`Engine::execute`]'s work with the run's `plugins`, which it leaves running.
     async fn execute_with(
         &self,
         request: &RunRequest,
-        (prepared, (secrets, tls), plugins): (Prepared, (Secrets, RunTls), &Hosts),
+        (prepared, secured, plugins): (Prepared, &Secured, &Hosts),
         interrupts: &mut Interrupts,
     ) -> Result<RunReport, EngineError> {
         let heard = plugins.heard();
         let (seed, random, started_ms) = (prepared.draw.seed, Arc::clone(&prepared.draw.random), self.clock.now_ms());
         let (reporters, unrecorded) = self.reporters(request, &prepared, (seed, plugins.clone(), started_ms))?;
         let run_id = reporters.run_id().map_or(0, RunId::get);
-        let alerting = self.alerting(&prepared, &secrets, (run_id, RUN_KIND))?;
+        let alerting = self.alerting(&prepared, &secured.secrets, (run_id, RUN_KIND))?;
         let reached = crate::body_files::reached(&prepared.program, &prepared.plan);
         let inputs = self.inputs(&prepared, (random, run_id, reached)).await;
-        let inputs = inputs.with_secrets(secrets).with_started_at(started_ms);
-        let (executor, sweep) = self.executor(&prepared, (inputs, plugins, tls), request).await;
+        let inputs = inputs.with_secrets(secured.secrets.clone()).with_started_at(started_ms);
+        let (executor, sweep) = self.executor(&prepared, (inputs, plugins, secured), request).await;
         let bus = EventBus::spawn();
         let watching = request.watch.as_ref().map(|watch| watch.follow(&bus, &prepared));
         let mut fanout = Fanout { feed: bus.subscribe(FEED), reporters };
@@ -170,12 +168,13 @@ impl Engine {
         Ok((Reporters::create(chosen, setup, recording.ok())?, notices))
     }
 
-    /// The executor for `prepared` with the inputs, plugins and TLS material `given`, keeping `cache:`d results in the cross-run
-    /// cache unless `request` says `--no-cache`, and what the cache leaves for the run's end.
+    /// The executor for `prepared` with the inputs, plugins and what it is secured with `given`,
+    /// keeping `cache:`d results in the cross-run cache unless `request` says `--no-cache`, and
+    /// what the cache leaves for the run's end.
     async fn executor(
         &self,
         prepared: &Prepared,
-        given: (RunInputs, &Hosts, RunTls),
+        given: (RunInputs, &Hosts, &Secured),
         request: &RunRequest,
     ) -> (Executor, Sweep) {
         let (settings, defaults) = (&prepared.settings, &prepared.program.config.defaults);
@@ -188,22 +187,22 @@ impl Engine {
 
     /// What the actions of `prepared` share with `inputs`: the action executors and the auth
     /// types over one transport, the auth plugins among `plugins` (the run's, built once from
-    /// `inputs`' secrets), the transport and client certificates of `tls`, and events masked by the
-    /// config's redact rules (a `function:` rule through the hook runner, with `inputs'` secrets)
-    /// and `tls`'s passphrases. Every run, call and cache cleanup starts from it.
+    /// `inputs`' secrets), the transport and client certificates `secured` holds, and events
+    /// masked by the config's redact rules (a `function:` rule through the hook runner, with
+    /// `inputs'` secrets) and what `secured` hides. Every run, call and cache cleanup starts from it.
     pub(crate) fn action_cx(
         &self,
         prepared: &Prepared,
-        (inputs, plugins, tls): (RunInputs, &Hosts, RunTls),
+        (inputs, plugins, secured): (RunInputs, &Hosts, &Secured),
     ) -> ActionCx {
         let hooks = self.hook_runner(&prepared.program);
         let rules =
             MaskRules::standard().with_hooks(RuleHooks::new(hooks.clone(), inputs.secrets.clone()), &prepared.program);
-        let auth = self.auth(Arc::clone(&tls.transport), plugins);
-        let executors = self.executors(prepared, tls.transport, hooks);
+        let auth = self.auth(Arc::clone(&secured.transport), plugins);
+        let executors = self.executors(prepared, Arc::clone(&secured.transport), hooks);
         let cx = ActionCx::new(Arc::clone(&prepared.program), executors, inputs).with_mask_rules(&rules);
-        let cx = cx.with_auth(auth).with_client_certs(tls.certs);
-        cx.redactor.hide_values(tls.passphrases.iter().map(Secret::expose));
+        let cx = cx.with_auth(auth).with_client_certs(secured.certs.clone());
+        cx.redactor.hide_values(secured.hidden.iter().map(Secret::expose));
         cx
     }
 
@@ -234,30 +233,37 @@ impl Engine {
     /// run's start.
     pub(crate) async fn inputs(&self, prepared: &Prepared, (random, run_id, reached): Seeds) -> RunInputs {
         let bodies = self.body_files(&prepared.program, reached).await;
-        RunInputs::new(random, Arc::clone(&prepared.environment))
-            .with_profiles(prepared.profiles.clone())
-            .with_vars(vars(&prepared.settings.vars))
+        config_inputs(prepared, random)
             .with_run_id(run_id)
             .with_bodies(bodies)
             .with_examples(prepared.draw.rows.clone())
     }
 
-    /// The action context of a run with no plan: `vc call`'s, or the cleanups `vc cache clear`
-    /// runs. It holds `secrets`, the draw's unseeded random source, the `$file` bodies `actions`
-    /// reach (D272) and the TLS material `tls`, which the caller loads first, and starts now. Its plugins come with it: the caller ends them once it is
-    /// done ([`Hosts::around`]).
+    /// The action context of a run with no plan: `vc call`'s, `vc test auth`'s, or the cleanups
+    /// `vc cache clear` runs. It holds what the caller secured first, the draw's unseeded random
+    /// source and the `$file` bodies `actions` reach (D272), and starts now. Its plugins come with
+    /// it: the caller ends them once it is done ([`Hosts::around`]).
     pub(crate) async fn adhoc_cx(
         &self,
         prepared: &Prepared,
-        (actions, run_id, secrets): (&[ActionId], u64, Secrets),
-        tls: RunTls,
+        (actions, run_id): (&[ActionId], u64),
+        secured: &Secured,
     ) -> (Arc<ActionCx>, Hosts) {
-        let plugins = self.plugin_hosts(&prepared.program, &secrets);
+        let plugins = self.plugin_hosts(&prepared.program, &secured.secrets);
         let reached = vc_planner::bodies_from(&prepared.program, actions);
         let inputs = self.inputs(prepared, (Arc::clone(&prepared.draw.random), run_id, reached)).await;
-        let inputs = inputs.with_secrets(secrets).with_started_at(self.clock.now_ms());
-        (Arc::new(self.action_cx(prepared, (inputs, &plugins, tls))), plugins)
+        let inputs = inputs.with_secrets(secured.secrets.clone()).with_started_at(self.clock.now_ms());
+        (Arc::new(self.action_cx(prepared, (inputs, &plugins, secured))), plugins)
     }
+}
+
+/// What every template of `prepared` reads besides the definitions and the run's own values:
+/// `random`, the environment, the active profiles and the `--set vars.*` values. `http.tls`
+/// renders with these alone, and a run's inputs start from them.
+pub fn config_inputs(prepared: &Prepared, random: Arc<dyn Random>) -> RunInputs {
+    RunInputs::new(random, Arc::clone(&prepared.environment))
+        .with_profiles(prepared.profiles.clone())
+        .with_vars(vars(&prepared.settings.vars))
 }
 
 /// What the run adds to its plan request: `rerun`, its setting flags, `--seed` and `--strict`.

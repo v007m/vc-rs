@@ -9,52 +9,44 @@ use std::path::Path;
 use std::sync::Arc;
 
 use vc_diagnostics::Code;
-use vc_executor::{ClientCerts, RunInputs, RunValues, config_text};
-use vc_interfaces::{
-    CertId, ClientSource, ClientSpec, MaterialSource, Secret, Secrets, TlsError, TlsPart, TlsSpec, Transport,
-};
+use vc_executor::{ClientCerts, RunValues, config_text};
+use vc_interfaces::{CertId, ClientSource, ClientSpec, MaterialSource, Secret, Secrets, TlsError, TlsPart, TlsSpec};
 use vc_model::{ClientMaterial, Program, Template, TlsClient, inline_pem};
 
 use crate::plan::Prepared;
+use crate::secured::Secured;
 use crate::shown::Shown;
 use crate::{Engine, EngineError};
 
-/// What a run's `http.tls` gave: the transport built from it, the `CertId` of each identity it
-/// presents, and the passphrases the redactor hides.
-pub struct RunTls {
-    pub(crate) transport: Arc<dyn Transport>,
-    pub(crate) certs: ClientCerts,
-    pub(crate) passphrases: Vec<Secret>,
-}
-
 impl Engine {
-    /// The transport for `prepared`'s `http.tls`, rendered with `secrets` and its environment,
-    /// which the transport factory builds on a blocking thread, trusting its roots and presenting
-    /// its client certificates.
+    /// `secrets` and the transport for `prepared`'s `http.tls`, rendered with them and its
+    /// environment, which the transport factory builds on a blocking thread, trusting its roots
+    /// and presenting its client certificates.
     ///
     /// # Errors
     ///
     /// [`EngineError::Setting`] with V5114, V5125 or V5126 when a value does not render, its
     /// material cannot be read or parsed, or its parts do not fit; [`EngineError::Internal`] when
     /// the transport cannot be built.
-    pub(crate) async fn run_tls(&self, prepared: &Prepared, secrets: &Secrets) -> Result<RunTls, EngineError> {
+    pub(crate) async fn with_tls(&self, prepared: &Prepared, secrets: Secrets) -> Result<Secured, EngineError> {
         let tls = &prepared.program.config.http_tls;
         let unset = tls.ca.is_empty() && tls.clients.is_empty();
         let (spec, certs) =
-            if unset { (TlsSpec::default(), ClientCerts::default()) } else { self.planned(prepared, secrets)? };
-        let passphrases = spec.clients.iter().filter_map(passphrase).collect();
+            if unset { (TlsSpec::default(), ClientCerts::default()) } else { self.planned(prepared, &secrets)? };
+        let hidden = spec.clients.iter().filter_map(passphrase).collect();
         let (factory, environment) = (Arc::clone(&self.transports), Arc::clone(&prepared.environment));
         let built = tokio::task::spawn_blocking(move || factory.build(&spec, environment.as_ref())).await;
         let built =
             built.map_err(|error| EngineError::Internal { reason: format!("building the transport: {error}") })?;
-        Ok(RunTls { transport: built.map_err(|error| tls_error(&error))?, certs, passphrases })
+        Ok(Secured { secrets, transport: built.map_err(|error| tls_error(&error))?, certs, hidden })
     }
 
-    /// `prepared`'s `http.tls` rendered with `secrets`, keeping the identities its profiles
-    /// allow, and the `CertId` of each.
+    /// `prepared`'s `http.tls` rendered with `secrets` and the config's inputs, no other root
+    /// (`Scope::RUN_START`), keeping the identities its profiles allow, and the `CertId` of each.
     fn planned(&self, prepared: &Prepared, secrets: &Secrets) -> Result<(TlsSpec, ClientCerts), EngineError> {
         let (program, tls) = (&*prepared.program, &prepared.program.config.http_tls);
-        let values = RunValues::of_config(program, inputs(prepared, secrets));
+        let inputs = crate::run::config_inputs(prepared, Arc::clone(&prepared.draw.random));
+        let values = RunValues::of_config(program, inputs.with_secrets(secrets.clone()));
         let render = Render { program, values: &values, root: self.root() };
         let ca = tls.ca.iter().enumerate().map(|(index, template)| render.source(template, &TlsPart::Ca(index)));
         let ca = ca.collect::<Result<Vec<_>, _>>()?;
@@ -63,15 +55,6 @@ impl Engine {
         let certs = active.iter().zip(0..).map(|(client, index)| (client.id, CertId::new(index))).collect();
         Ok((TlsSpec { ca, clients }, certs))
     }
-}
-
-/// What `http.tls` renders with: `prepared`'s environment, active profiles and `--set vars.*`,
-/// and `secrets`; it reads no other root (`Scope::RUN_START`).
-fn inputs(prepared: &Prepared, secrets: &Secrets) -> RunInputs {
-    RunInputs::new(Arc::clone(&prepared.draw.random), Arc::clone(&prepared.environment))
-        .with_profiles(prepared.profiles.clone())
-        .with_vars(crate::run::vars(&prepared.settings.vars))
-        .with_secrets(secrets.clone())
 }
 
 /// A PKCS#12 identity's passphrase, when it has one to hide.
