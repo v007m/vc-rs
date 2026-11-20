@@ -4,7 +4,7 @@ use std::time::{Duration, Instant};
 
 use async_trait::async_trait;
 use bytes::Bytes;
-use http::header::{ACCEPT_ENCODING, PROXY_AUTHORIZATION, UPGRADE};
+use http::header::{ACCEPT_ENCODING, PROXY_AUTHORIZATION};
 use http::{Request, Response, Version};
 use http_body_util::Full;
 use hyper::body::Incoming;
@@ -57,8 +57,13 @@ type Pooled = Client<TimedConnector, Full<Bytes>>;
 /// A pooled client and the `id` of its identity, if any.
 type Picked<'pool> = (&'pool Pooled, &'pool Option<Arc<str>>);
 
+/// Marks a wire request that opens a WebSocket, so it goes through the HTTP/1.1-only client; a
+/// request's own `upgrade` header does not (D460).
+#[derive(Clone, Copy, Debug)]
+pub struct Upgrading;
+
 /// The pooled clients of one identity, and its `id`, if any. `upgrades` offers only HTTP/1.1 by
-/// ALPN and carries the requests that ask to upgrade, such as a WebSocket's (D460).
+/// ALPN and carries the requests marked [`Upgrading`], a WebSocket's (D460).
 struct Pool {
     client: Pooled,
     upgrades: Pooled,
@@ -118,12 +123,12 @@ impl HttpTransport {
     }
 
     /// The pooled client for the identity `choice` picks for `request`, with that identity's `id`:
-    /// its HTTP/1.1-only one when `request` asks to upgrade.
+    /// its HTTP/1.1-only one when `request` is marked [`Upgrading`].
     fn client(&self, request: &Request<Full<Bytes>>, choice: CertChoice) -> Result<Picked<'_>, TransportError> {
         let pool = self.clients.pick(request.uri(), choice);
         let pool = pool
             .ok_or_else(|| TransportError::InvalidRequest { reason: format!("no client identity for {choice:?}") })?;
-        let client = if request.headers().contains_key(UPGRADE) { &pool.upgrades } else { &pool.client };
+        let client = if request.extensions().get::<Upgrading>().is_some() { &pool.upgrades } else { &pool.client };
         Ok((client, &pool.id))
     }
 

@@ -5,7 +5,7 @@
 use std::error::Error;
 use std::time::Duration;
 
-use http::header::{ACCEPT_ENCODING, CONTENT_TYPE};
+use http::header::{ACCEPT_ENCODING, CONTENT_TYPE, UPGRADE};
 use http::{HeaderValue, Method, StatusCode, Uri};
 use serde_json::Value;
 use vc_adapter_http::{HttpOptions, HttpTransport, TlsOptions};
@@ -126,9 +126,10 @@ async fn a_wss_websocket_opens_over_http1_on_a_server_that_offers_h2() -> TestRe
     let head = (opened.head.response.status, opened.head.connection.protocol);
     assert_eq!(head, (StatusCode::SWITCHING_PROTOCOLS, HttpVersion::Http1));
     vc_testkit::message_stream_suite(opened.stream.ok_or("no stream")?).await;
-    let echo = RenderedRequest::new(Method::GET, Uri::try_from(format!("{}/echo", mock.base_url()))?);
+    let mut echo = RenderedRequest::new(Method::GET, Uri::try_from(format!("{}/echo", mock.base_url()))?);
+    echo.headers.insert(UPGRADE, HeaderValue::from_static("h2c"));
     let sent = transport.send(echo, &SendContext::default()).await?;
-    assert_eq!(sent.connection.protocol, HttpVersion::Http2, "other requests still speak h2");
+    assert_eq!(sent.connection.protocol, HttpVersion::Http2, "other requests, even with an `upgrade`, still speak h2");
     Ok(())
 }
 

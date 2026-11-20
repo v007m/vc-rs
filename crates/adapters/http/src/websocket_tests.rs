@@ -1,4 +1,6 @@
-use http::header::{CONNECTION, SEC_WEBSOCKET_ACCEPT, SEC_WEBSOCKET_KEY, SEC_WEBSOCKET_VERSION, UPGRADE};
+use http::header::{
+    CONNECTION, SEC_WEBSOCKET_ACCEPT, SEC_WEBSOCKET_EXTENSIONS, SEC_WEBSOCKET_KEY, SEC_WEBSOCKET_VERSION, UPGRADE,
+};
 use http::{HeaderMap, HeaderValue, Method, Uri};
 use tokio_tungstenite::tungstenite::error::CapacityError;
 use tokio_tungstenite::tungstenite::protocol::CloseFrame;
@@ -32,16 +34,19 @@ fn the_upgrade_headers_replace_the_request_s_own() -> Result<(), TransportError>
     let mut headers = HeaderMap::new();
     headers.insert(CONNECTION, HeaderValue::from_static("keep-alive"));
     headers.insert("sec-websocket-protocol", HeaderValue::from_static("chat"));
+    headers.insert(SEC_WEBSOCKET_EXTENSIONS, HeaderValue::from_static("permessage-deflate"));
     asks_to_upgrade(&mut headers, KEY)?;
     let value = |name| headers.get(name).map(HeaderValue::as_bytes);
     assert_eq!((value(CONNECTION), value(UPGRADE)), (Some(&b"upgrade"[..]), Some(&b"websocket"[..])));
     assert_eq!((value(SEC_WEBSOCKET_VERSION), value(SEC_WEBSOCKET_KEY)), (Some(&b"13"[..]), Some(KEY.as_bytes())));
     assert_eq!(value(http::header::SEC_WEBSOCKET_PROTOCOL), Some(&b"chat"[..]), "a subprotocol is kept");
+    assert_eq!(value(SEC_WEBSOCKET_EXTENSIONS), None, "tungstenite reads no compressed frames");
     Ok(())
 }
 
 fn answer(upgrade: &'static str, accept: &'static str) -> HeaderMap {
     let mut headers = HeaderMap::new();
+    headers.insert(CONNECTION, HeaderValue::from_static("keep-alive, Upgrade"));
     headers.insert(UPGRADE, HeaderValue::from_static(upgrade));
     headers.insert(SEC_WEBSOCKET_ACCEPT, HeaderValue::from_static(accept));
     headers
@@ -53,6 +58,16 @@ fn a_101_must_upgrade_to_websocket_and_accept_the_key() {
     assert!(matches!(accepts(&answer("websocket", "nope"), KEY), Err(TransportError::Protocol { .. })));
     assert!(matches!(accepts(&answer("h2c", ACCEPT), KEY), Err(TransportError::Protocol { .. })));
     assert!(matches!(accepts(&HeaderMap::new(), KEY), Err(TransportError::Protocol { .. })));
+}
+
+#[test]
+fn a_101_must_list_upgrade_in_connection_and_name_no_extension() {
+    let mut kept_alive = answer("websocket", ACCEPT);
+    kept_alive.insert(CONNECTION, HeaderValue::from_static("keep-alive"));
+    assert!(matches!(accepts(&kept_alive, KEY), Err(TransportError::Protocol { .. })), "no `connection: upgrade`");
+    let mut deflated = answer("websocket", ACCEPT);
+    deflated.insert(SEC_WEBSOCKET_EXTENSIONS, HeaderValue::from_static("permessage-deflate"));
+    assert!(matches!(accepts(&deflated, KEY), Err(TransportError::Protocol { .. })), "an extension nobody asked for");
 }
 
 #[test]

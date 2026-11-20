@@ -7,7 +7,10 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use futures_util::{SinkExt, StreamExt};
-use http::header::{CONNECTION, SEC_WEBSOCKET_ACCEPT, SEC_WEBSOCKET_KEY, SEC_WEBSOCKET_VERSION, UPGRADE};
+use http::header::{
+    CONNECTION, HeaderName, SEC_WEBSOCKET_ACCEPT, SEC_WEBSOCKET_EXTENSIONS, SEC_WEBSOCKET_KEY, SEC_WEBSOCKET_VERSION,
+    UPGRADE,
+};
 use http::uri::Scheme;
 use http::{HeaderMap, HeaderValue, Uri};
 use hyper::upgrade::{OnUpgrade, Upgraded};
@@ -20,6 +23,7 @@ use vc_interfaces::{MessageStream, Opened, OutgoingFrame, SendContext, StreamFra
 use vc_model::{RenderedRequest, Size};
 
 use crate::HttpTransport;
+use crate::transport::Upgrading;
 
 /// How long [`MessageStream::close`] waits for the server to answer its close (D463).
 const CLOSE_WAIT: Duration = Duration::from_secs(1);
@@ -40,6 +44,7 @@ pub async fn open(
     let key = generate_key();
     let mut wire = transport.wire_request(&over_http(&request)?)?;
     asks_to_upgrade(wire.headers_mut(), &key)?;
+    wire.extensions_mut().insert(Upgrading);
     let mut answered = transport.answer(wire, ctx).await?;
     if !StreamMode::WebSocket.opens_on().matches(answered.parts.status.as_u16()) {
         return Ok(Opened { head: answered.read(request, ctx.body_limit).await?, stream: None });
@@ -67,10 +72,12 @@ fn over_http(request: &RenderedRequest) -> Result<RenderedRequest, TransportErro
     Ok(RenderedRequest { uri, ..request.clone() })
 }
 
-/// Sets the upgrade headers, over any the request names itself.
+/// Sets the upgrade headers, over any the request names itself, and drops its
+/// `sec-websocket-extensions`: tungstenite reads no compressed frames.
 fn asks_to_upgrade(headers: &mut HeaderMap, key: &str) -> Result<(), TransportError> {
     let key =
         HeaderValue::try_from(key).map_err(|error| TransportError::InvalidRequest { reason: error.to_string() })?;
+    headers.remove(SEC_WEBSOCKET_EXTENSIONS);
     headers.insert(CONNECTION, HeaderValue::from_static("upgrade"));
     headers.insert(UPGRADE, HeaderValue::from_static("websocket"));
     headers.insert(SEC_WEBSOCKET_VERSION, HeaderValue::from_static("13"));
@@ -78,14 +85,26 @@ fn asks_to_upgrade(headers: &mut HeaderMap, key: &str) -> Result<(), TransportEr
     Ok(())
 }
 
-/// `Ok` when a 101's headers upgrade to `websocket` and accept `key`.
+/// `Ok` when a 101's headers upgrade the connection to `websocket`, accept `key` and agree no
+/// extension, as none was asked for (RFC 6455, 4.1).
 fn accepts(headers: &HeaderMap, key: &str) -> Result<(), TransportError> {
-    let upgrade = headers.get(UPGRADE).is_some_and(|value| value.as_bytes().eq_ignore_ascii_case(b"websocket"));
     let accept = derive_accept_key(key.as_bytes());
-    if upgrade && headers.get(SEC_WEBSOCKET_ACCEPT).is_some_and(|value| value.as_bytes() == accept.as_bytes()) {
+    let accepted = headers.get(SEC_WEBSOCKET_ACCEPT).is_some_and(|value| value.as_bytes() == accept.as_bytes());
+    let upgraded = names(headers, &CONNECTION, "upgrade") && names(headers, &UPGRADE, "websocket");
+    if accepted && upgraded && !headers.contains_key(SEC_WEBSOCKET_EXTENSIONS) {
         return Ok(());
     }
-    Err(protocol("the 101 answer does not accept the WebSocket: its `upgrade` or `sec-websocket-accept` is wrong"))
+    Err(protocol(
+        "the 101 answer does not accept the WebSocket: its `connection`, `upgrade` or `sec-websocket-accept` is wrong, or it names an extension",
+    ))
+}
+
+/// Whether the `name` header lists `token`, in any case.
+fn names(headers: &HeaderMap, name: &HeaderName, token: &str) -> bool {
+    let listed = |value: &HeaderValue| {
+        value.to_str().is_ok_and(|text| text.split(',').any(|part| part.trim().eq_ignore_ascii_case(token)))
+    };
+    headers.get_all(name).iter().any(listed)
 }
 
 /// Messages and frames capped at `limit`, as a body is (D462).
@@ -167,17 +186,19 @@ impl MessageStream for WebSocket {
         }
     }
 
-    /// Sends a close with `code` (or, after the server's close, its answer), waits up to
-    /// [`CLOSE_WAIT`] for the server to end the connection, and drops it. Closing is cleanup, so
-    /// a connection that already failed is not an error.
+    /// Sends a close with `code` (or, after the server's close, its answer), waits for the server
+    /// to end the connection, and drops it, all within [`CLOSE_WAIT`]. Closing is cleanup, so a
+    /// connection that already failed, or a server that stops reading, is not an error.
     async fn close(&mut self, code: u16) -> Result<(), TransportError> {
         self.open = false;
         let Some(mut socket) = self.socket.take() else { return Ok(()) };
         let frame = CloseFrame { code: code.into(), reason: "".into() };
-        if socket.close(Some(frame)).await.is_ok() {
-            let drained = async { while let Some(Ok(_)) = socket.next().await {} };
-            let _ = tokio::time::timeout(CLOSE_WAIT, drained).await;
-        }
+        let closed = async {
+            if socket.close(Some(frame)).await.is_ok() {
+                while let Some(Ok(_)) = socket.next().await {}
+            }
+        };
+        let _ = tokio::time::timeout(CLOSE_WAIT, closed).await;
         Ok(())
     }
 }
