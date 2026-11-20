@@ -50,7 +50,7 @@ mod verbs;
 
 pub use agents::{AgentPolicy, WriteDefinitions};
 pub use alerts::{Alert, AlertChannel, AlertTrigger};
-pub use api::{Api, ApiGroup, ApiSource, BodySpec, GraphqlBody, PartSpec};
+pub use api::{Api, ApiGroup, ApiSource, BodySpec, GraphqlBody, PartSpec, StreamSettings};
 pub use body_file::{FILE_KEY, MULTIPART, basename, file_parts, file_path, is_multipart, part_pointer};
 pub use builder::ProgramBuilder;
 pub use config::{

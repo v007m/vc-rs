@@ -158,3 +158,19 @@ fn a_test_shows_its_lifecycle_and_the_values_earlier_calls_save() {
     ];
     assert_eq!(text, expected.concat());
 }
+
+#[test]
+fn a_websocket_api_is_judged_by_101_by_default_and_an_sse_api_by_2xx() {
+    let live = (
+        "services/live/live.api.yaml",
+        b"baseUrl: http://x\napis:\n  - id: chat\n    type: websocket\n    path: /chat\n  - id: ticks\n    type: sse\n    path: /ticks\n"
+            .as_slice(),
+    );
+    let sources = MemorySources::new(&[CONFIG, live]);
+    let engine = builder(FakeVcs::default()).sources(Arc::new(sources)).build().unwrap();
+    let request = ExplainRequest::default();
+    let chat = explained(&engine, "live#chat", &request);
+    assert!(chat.ends_with("  expect\n    status: 101  (default)\n"), "{chat}");
+    let ticks = explained(&engine, "live#ticks", &request);
+    assert!(ticks.ends_with("  expect\n    status: 2xx  (default)\n"), "{ticks}");
+}

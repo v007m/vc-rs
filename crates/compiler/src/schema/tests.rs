@@ -59,7 +59,8 @@ fn refers_to_nested_shapes_through_defs() {
     let entry = &api["$defs"]["apiEntry"];
     assert_eq!(entry["required"], json!(["id"]), "`path` is required per type, by the linker");
     assert_eq!(entry["properties"]["method"]["enum"][0], "GET");
-    assert_eq!(entry["properties"]["expect"]["default"], json!({ "status": "2xx" }));
+    let expect = &entry["properties"]["expect"];
+    assert!(expect.get("default").is_none(), "a `websocket` api's default is 101, so it is described: {expect}");
     assert!(api["$defs"].get("api").is_none(), "the root is not repeated in $defs");
     let test = schema(FileKind::Test);
     assert_eq!(test["$defs"]["testEntry"]["oneOf"], json!([{ "required": ["call"] }, { "required": ["steps"] }]));

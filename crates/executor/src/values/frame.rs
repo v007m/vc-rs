@@ -46,8 +46,9 @@ pub struct Frame {
     /// `timeout` keeps those its finished parts registered.
     pub sink: Option<CleanupSink>,
     /// A load iteration with `checks: api`: a call evaluates only its api's own `expect`, not
-    /// the test's or the step's. The default-2xx rule still holds: when that `expect` checks no
-    /// status, the call is judged by `status: 2xx` first, as every call is.
+    /// the test's or the step's. The default status rule still holds: when that `expect` checks
+    /// no status, the call is judged by `status: 2xx` (`101` on a `websocket` api) first, as
+    /// every call is.
     pub api_checks_only: bool,
 }
 

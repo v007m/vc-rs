@@ -188,6 +188,7 @@ fn list(group: FileId, id: ApiId) -> Api {
         hooks,
         timeout: None,
         http_retry: None,
+        stream: None,
         cleanup: None,
         deprecated: false,
         operation_id: None,

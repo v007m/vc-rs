@@ -15,6 +15,6 @@ pub enum ModelError {
     #[error("the action table is full ({0} actions)")]
     ActionTableFull(usize),
     /// An api of a type the compiler has no rules for; every type has them, so a bug (D342).
-    #[error("no compile rules for a `{}` api", .0.key())]
+    #[error("no compile rules for {} api", .0.named())]
     NoProtocolRules(crate::Protocol),
 }

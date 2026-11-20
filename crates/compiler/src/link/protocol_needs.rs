@@ -32,7 +32,7 @@ fn written(node: &Node, path: &str) -> bool {
 /// V1005 at the api's first key, as the shape check reports a missing key: an `http` api is
 /// the plain one, so it is named as the shape check names it.
 fn missing(api: &Node, (protocol, key): (Protocol, &str)) -> Diagnostic {
-    let subject = (protocol != Protocol::default()).then(|| format!("a `{}` api", protocol.key()));
+    let subject = (protocol != Protocol::default()).then(|| format!("{} api", protocol.named()));
     shape_check::missing_key(api, shapes::api(), (key, subject.as_deref()))
 }
 

@@ -9,7 +9,8 @@ use super::types::{Scope, Shape, Ty, Unit};
 /// The HTTP methods.
 pub const METHODS: &[&str] = &["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"];
 /// The api types (D342), in [`Protocol::ALL`] order.
-pub const PROTOCOLS: &[&str] = &[Protocol::Http.key(), Protocol::Graphql.key()];
+pub const PROTOCOLS: &[&str] =
+    &[Protocol::Http.key(), Protocol::Graphql.key(), Protocol::Sse.key(), Protocol::Websocket.key()];
 
 /// `vars`: any values, templates allowed.
 pub const VARS: Ty = Ty::MapOf(&Ty::Value);

@@ -29,6 +29,7 @@ mod fixture;
 mod iterations;
 mod machine;
 mod mask;
+mod pairing;
 mod pipeline;
 mod redactor;
 mod seeded;
