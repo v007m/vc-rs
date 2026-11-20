@@ -366,6 +366,9 @@ async fn a_run_notes_a_certificate_expiring_soon_and_a_key_others_can_read() {
     let exposed = "warning[V4012]: client certificate `good`, its `key`: its file is open to other users (mode 644)";
     assert!(said.contains(exposed), "{said}");
     assert!(!said.contains("certs/soon"), "a rendered path is never quoted: {said}");
+    let base = format!("vars.baseUrl={}", server.base_url());
+    let call = crate::said(&project.vc(&["call", "tls#whoami", "--set", &base]).envs(env).output().unwrap());
+    assert!(call.contains(exposed) && call.contains("warning[V3107]"), "a call notes them too: {call}");
 }
 
 #[tokio::test(flavor = "multi_thread")]
