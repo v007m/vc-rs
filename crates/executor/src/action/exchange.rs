@@ -91,12 +91,11 @@ impl ExchangeCursor {
         let message = self.fed;
         self.fed += 1;
         let Some(size) = self.group() else { return Fed::Skipped };
-        let fits: Vec<usize> = fits.iter().copied().filter(|&entry| entry < size).collect();
-        if !fits.iter().any(|&entry| self.pairing.fitting(entry) < size) {
+        if !fits.iter().any(|&entry| self.pairing.fitting(entry).is_some_and(|held| held < size)) {
             return Fed::Skipped;
         }
         self.kept.push(message);
-        self.pairing.push(&fits);
+        self.pairing.push(fits);
         let item = self.at;
         if !self.pairing.is_full() {
             return Fed::Held { item };

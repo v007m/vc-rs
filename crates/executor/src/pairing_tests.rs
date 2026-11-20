@@ -58,7 +58,7 @@ fn a_pushed_error_moves_an_earlier_pair_to_make_room() {
     assert_eq!(pairing.matched(), [Some(1), Some(0)], "one search moves entry 0 to free error 0");
     pairing.push(&[0, 1, 7]);
     let fitting = (pairing.fitting(1), pairing.fitting(7));
-    assert_eq!((pairing.matched(), pairing.is_full(), fitting), (&[Some(1), Some(0)][..], true, (2, 0)));
+    assert_eq!((pairing.matched(), pairing.is_full(), fitting), (&[Some(1), Some(0)][..], true, (Some(2), None)));
 }
 
 /// The fits of `entries` entries after each error in turn, each error fitting the entries its

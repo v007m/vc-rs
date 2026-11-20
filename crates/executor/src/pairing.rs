@@ -87,9 +87,9 @@ impl Pairing {
         }
     }
 
-    /// How many errors `entry` fits.
-    pub fn fitting(&self, entry: usize) -> usize {
-        self.fits.get(entry).map_or(0, Vec::len)
+    /// How many errors `entry` fits, or `None` when the pairing has no such entry.
+    pub fn fitting(&self, entry: usize) -> Option<usize> {
+        self.fits.get(entry).map(Vec::len)
     }
 
     /// The error each entry is paired with now, if any.
