@@ -44,8 +44,16 @@ const UNCHECKABLE = new Set(['V3101']);
  */
 const PENDING = new Set([]);
 
+/**
+ * The codes about what an `http.tls` file holds, as `ON_DISK` in `crates/engine/tests/explain.rs`:
+ * a page's project cannot write the file out, so its wrong example reports only a missing file
+ * (V2011, which the docs check forgives) and is not marked.
+ */
+const ON_DISK = new Set(['V2012', 'V3107', 'V3108']);
+
 /** A V1–V3 code is reported by `vc check`, so `explain.rs` holds its wrong example to it. */
-const checked = (code) => '123'.includes(code[1]) && !UNCHECKABLE.has(code) && !PENDING.has(code);
+const checked = (code) =>
+  '123'.includes(code[1]) && !UNCHECKABLE.has(code) && !PENDING.has(code) && !ON_DISK.has(code);
 
 /**
  * The info words that mark a block of a V1–V3 wrong example for the docs check

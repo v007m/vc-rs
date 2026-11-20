@@ -1,0 +1,73 @@
+---
+title: "V3107 — A client certificate expires within 30 days"
+description: "vc check reads each http.tls.clients certificate the config writes as text, a cert or a pkcs12 bundle, and warns when it expires within 30 days, counted in whole days in UTC; on its last day it says \"expires today\", as the check sees the day, not the hour."
+sidebar:
+  label: "V3107 A client certificate expires within 30 days"
+  order: 3107
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="warning" variant="caution" /> <Badge text="Lifecycle" variant="note" />
+
+| | |
+| --- | --- |
+| Code | `V3107` |
+| Category | V3xxx: Lifecycle |
+| Severity | warning |
+| Certain fix | none; `vc check --fix` leaves this one to you |
+
+`vc check` reads each `http.tls.clients` certificate the config writes as text, a `cert` or a `pkcs12` bundle, and
+warns when it expires within 30 days, counted in whole days in UTC; on its last day it says "expires today", as the
+check sees the day, not the hour. Until then a run presents it as before; once it expires, servers refuse it at the
+handshake (V5127). Only the client's own certificate is dated, not the rest of its
+chain and not the `ca` roots. A run says the same when it starts, about each certificate its profiles present, one
+whose path or text is rendered from a `${…}` too. Renew it and point `cert` at the new one.
+
+## Wrong
+
+```yaml title="vibranium.config.yaml"
+syntaxVersion: 2
+profiles:
+  - id: dev
+    default: true
+http:
+  tls:
+    clients:
+      - id: paymentsClient
+        hosts: [payments.internal.example]
+        cert: certs/payments-client-2026.pem
+        key: certs/payments-client-2026.key
+```
+
+## Right
+
+```yaml title="vibranium.config.yaml"
+syntaxVersion: 2
+profiles:
+  - id: dev
+    default: true
+http:
+  tls:
+    clients:
+      - id: paymentsClient
+        hosts: [payments.internal.example]
+        cert: certs/payments-client-2027.pem
+        key: certs/payments-client-2027.key
+```
+
+
+## Explain it in your terminal
+
+The same page is built into the binary, so this works anywhere, even outside a project:
+
+```console
+$ vc explain V3107
+```
+
+## Related
+
+- [All diagnostic codes](/vc-rs/reference/diagnostics/)
+- [`vc explain`](/vc-rs/reference/cli/explain/)
+- [`vc check`](/vc-rs/reference/cli/check/)
+- [Errors and fixes](/vc-rs/guides/errors-and-fixes/)
