@@ -53,11 +53,12 @@ fn pairs_name_the_error_each_entry_took_after_a_path_moved_them() {
 fn a_pushed_error_moves_an_earlier_pair_to_make_room() {
     let mut pairing = Pairing::new(vec![Vec::new(), Vec::new()], 0);
     pairing.push(&[0, 1]);
-    assert_eq!(pairing.matched(), [Some(0), None]);
+    assert_eq!((pairing.matched(), pairing.is_full()), (&[Some(0), None][..], false));
     pairing.push(&[0]);
     assert_eq!(pairing.matched(), [Some(1), Some(0)], "one search moves entry 0 to free error 0");
     pairing.push(&[0, 1, 7]);
-    assert_eq!((pairing.matched(), pairing.fitting(1), pairing.fitting(7)), (vec![Some(1), Some(0)], 2, 0));
+    let fitting = (pairing.fitting(1), pairing.fitting(7));
+    assert_eq!((pairing.matched(), pairing.is_full(), fitting), (&[Some(1), Some(0)][..], true, (2, 0)));
 }
 
 /// The fits of `entries` entries after each error in turn, each error fitting the entries its
@@ -83,9 +84,10 @@ proptest::proptest! {
             let full = Pairing::new(fits.clone(), pushed + 1).pairs();
             let matched = pairing.matched();
             let count = |pairs: &[Option<usize>]| pairs.iter().flatten().count();
-            proptest::prop_assert_eq!(count(&matched), count(&full), "after {} errors", pushed + 1);
+            proptest::prop_assert_eq!(count(matched), count(&full), "after {} errors", pushed + 1);
+            proptest::prop_assert_eq!(pairing.is_full(), count(matched) == 4, "full once every entry is paired");
             let errors: std::collections::BTreeSet<_> = matched.iter().flatten().collect();
-            proptest::prop_assert_eq!(errors.len(), count(&matched), "one error to an entry");
+            proptest::prop_assert_eq!(errors.len(), count(matched), "one error to an entry");
             for (entry, error) in matched.iter().enumerate() {
                 proptest::prop_assert!(error.is_none_or(|error| fits[entry].contains(&error)), "entry {entry} fits its error");
             }
