@@ -46,7 +46,7 @@ impl Canonical {
 }
 
 /// The canonical request for `request`, whose body hashes to `payload`. With `s3`, the path is
-/// signed as sent: the signer has already rewritten it with [`s3_uri`].
+/// signed as sent: the signer has already rewritten it with [`sent_uri`].
 pub fn request(request: &RenderedRequest, payload: &str, s3: bool) -> Canonical {
     let mut text = Vec::with_capacity(512);
     let path = if s3 { sent(request.uri.path()) } else { path(request.uri.path()) };
@@ -62,13 +62,15 @@ pub fn request(request: &RenderedRequest, payload: &str, s3: bool) -> Canonical 
     Canonical { text, signed }
 }
 
-/// `uri` with its path in AWS's S3 encoding, so what is signed is what is sent (D436).
-pub fn s3_uri(uri: Uri) -> Uri {
-    let path = s3_path(uri.path());
-    if path == uri.path() {
+/// `uri` as the signer sends it, so what is signed is what is sent: each `+` in the query as
+/// `%20` (D453), and with `s3`, the path in AWS's S3 encoding (D436).
+pub fn sent_uri(uri: Uri, s3: bool) -> Uri {
+    let path = if s3 { s3_path(uri.path()) } else { uri.path().to_owned() };
+    let query = uri.query().map(spaced);
+    if path == uri.path() && query.as_deref() == uri.query() {
         return uri;
     }
-    let target = uri.query().map_or_else(|| path.clone(), |query| format!("{path}?{query}"));
+    let target = query.map_or_else(|| path.clone(), |query| format!("{path}?{query}"));
     let Ok(target) = PathAndQuery::try_from(target) else { return uri };
     let mut parts = uri.clone().into_parts();
     parts.path_and_query = Some(target);
@@ -114,10 +116,10 @@ fn normalized(path: &str) -> String {
     out
 }
 
-/// The query, each name and value decoded and encoded again, sorted by name then value.
+/// The query, each name and value decoded and encoded again, sorted by name then value. A `+`
+/// is a space, as AWS reads a query; a literal plus is written `%2B` (D453).
 fn query(query: Option<&str>) -> String {
-    let mut pairs: Vec<(String, String)> = query
-        .unwrap_or_default()
+    let mut pairs: Vec<(String, String)> = spaced(query.unwrap_or_default())
         .split('&')
         .filter(|item| !item.is_empty())
         .map(|item| item.split_once('=').unwrap_or((item, "")))
@@ -125,6 +127,11 @@ fn query(query: Option<&str>) -> String {
         .collect();
     pairs.sort();
     pairs.iter().map(|(name, value)| format!("{name}={value}")).collect::<Vec<_>>().join("&")
+}
+
+/// `query` with each `+` as `%20`.
+fn spaced(query: &str) -> String {
+    query.replace('+', "%20")
 }
 
 /// `text` percent-decoded (`+` stays `+`), then encoded outside `A-Za-z0-9-._~`.

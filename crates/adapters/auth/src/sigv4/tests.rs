@@ -169,18 +169,40 @@ fn a_path_is_normalised_and_encoded_twice_for_most_services() {
 
 #[test]
 fn an_s3_path_is_encoded_once_and_sent_as_signed() {
-    let s3 = signer(&json!({"service": "s3"}));
-    let sent = s3.sign(get("https://b.s3.amazonaws.com/a%20b/./c+d/%zz?x=1"), NOW).unwrap();
-    assert_eq!(sent.uri.path(), "/a%20b/./c%2Bd/%25zz");
-    assert_eq!(sent.uri.query(), Some("x=1"));
-    assert!(canonical_text(&s3, &sent).starts_with("GET\n/a%20b/./c%2Bd/%25zz\nx=1\n"));
-    assert_eq!(canonical::s3_uri(sent.uri.clone()), sent.uri);
+    for service in ["s3", "s3express", "s3-outposts", "s3-object-lambda"] {
+        let s3 = signer(&json!({"service": service}));
+        let sent = s3.sign(get("https://b.s3.amazonaws.com/a%20b/./c+d/%zz?x=1"), NOW).unwrap();
+        assert_eq!(sent.uri.path(), "/a%20b/./c%2Bd/%25zz", "{service}");
+        assert_eq!(sent.uri.query(), Some("x=1"));
+        assert!(canonical_text(&s3, &sent).starts_with("GET\n/a%20b/./c%2Bd/%25zz\nx=1\n"), "{service}");
+        assert_eq!(canonical::sent_uri(sent.uri.clone(), true), sent.uri);
+    }
+}
+
+#[test]
+fn a_service_named_like_s3_but_not_s3_normalises_its_path() {
+    let sent = signer(&json!({"service": "s3x"})).sign(get("https://e.example/a/./b+c"), NOW).unwrap();
+    assert_eq!(sent.uri.path(), "/a/./b+c");
+    assert!(canonical_text(&signer(&json!({"service": "s3x"})), &sent).starts_with("GET\n/a/b%2Bc\n"));
 }
 
 #[test]
 fn the_query_is_decoded_encoded_and_sorted() {
-    let text = canonical_text(&signer(&json!({})), &get("https://e.example/?b=2&a=1&&a=0&c&d=x+y%2a"));
+    let text = canonical_text(&signer(&json!({})), &get("https://e.example/?b=2&a=1&&a=0&c&d=x%2By%2a"));
     assert!(text.starts_with("GET\n/\na=0&a=1&b=2&c=&d=x%2By%2A\n"), "{text}");
+}
+
+#[test]
+fn a_plus_in_the_query_is_sent_and_signed_as_a_space() {
+    let signer = signer(&json!({}));
+    let sent = signer.sign(get("https://e.example/a+b?q=x+y&n=1%2B1"), NOW).unwrap();
+    assert_eq!(sent.uri.path(), "/a+b");
+    assert_eq!(sent.uri.query(), Some("q=x%20y&n=1%2B1"));
+    assert!(canonical_text(&signer, &sent).starts_with("GET\n/a%2Bb\nn=1%2B1&q=x%20y\n"));
+    assert!(canonical_text(&signer, &get("https://e.example/?q=x+y")).contains("\nq=x%20y\n"));
+    let plain = get("https://e.example/?q=x");
+    let uri = plain.uri.clone();
+    assert_eq!(signer.sign(plain, NOW).unwrap().uri, uri);
 }
 
 #[test]

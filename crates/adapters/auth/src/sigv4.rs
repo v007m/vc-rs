@@ -32,6 +32,8 @@ const TOKEN: &str = "x-amz-security-token";
 const KEY_ID_RULE: &str = "accessKeyId: printable ASCII with no spaces, /, comma or =";
 const TOKEN_RULE: &str = "sessionToken: a header value, with no line breaks";
 const PAYLOAD_RULE: &str = "payload: signed or unsigned";
+/// The signing names that follow S3's path rules (D436, D454).
+const S3_SERVICES: [&str; 4] = ["s3", "s3express", "s3-outposts", "s3-object-lambda"];
 
 /// What the canonical request holds for the body (`payload`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -75,7 +77,7 @@ impl SigV4 {
         Ok(Self {
             auth: request.auth.clone(),
             region: scope_name(request, "region")?,
-            s3: service == "s3",
+            s3: S3_SERVICES.contains(&service.as_str()),
             service,
             key_id: key_id.to_owned(),
             secret: Secret::new(filled(request, "secretAccessKey")?),
@@ -84,8 +86,9 @@ impl SigV4 {
         })
     }
 
-    /// `request` signed as at `now_ms` (UTC, milliseconds since the Unix epoch). For `s3`, the
-    /// path is rewritten into AWS's encoding first (D436).
+    /// `request` signed as at `now_ms` (UTC, milliseconds since the Unix epoch). Each `+` in the
+    /// query is sent as `%20` (D453), and for S3, the path is rewritten into AWS's encoding first
+    /// (D436, D454).
     ///
     /// # Errors
     ///
@@ -109,17 +112,15 @@ impl SigV4 {
         }
     }
 
-    /// `request` with the S3 path, `x-amz-date`, `x-amz-content-sha256` and the session token,
-    /// each replacing a header of that name.
+    /// `request` with the URI as sent, `x-amz-date`, `x-amz-content-sha256` and the session
+    /// token, each replacing a header of that name.
     fn stamp(
         &self,
         mut request: RenderedRequest,
         moment: &Moment,
         payload: &str,
     ) -> Result<RenderedRequest, AuthError> {
-        if self.s3 {
-            request.uri = canonical::s3_uri(request.uri);
-        }
+        request.uri = canonical::sent_uri(request.uri, self.s3);
         request.headers.insert(DATE, self.header(DATE, &moment.stamp, false)?);
         request.headers.insert(CONTENT, self.header(CONTENT, payload, false)?);
         if let Some(token) = &self.token {
