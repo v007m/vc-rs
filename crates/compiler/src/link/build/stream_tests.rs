@@ -3,6 +3,8 @@ use vc_model::{
     Api, BodySpec, ContentHash, Method, Part, Program, Protocol, SourceFile, SourcePath, StatusPattern, StreamSettings,
 };
 
+use super::{ProtocolRules, SseRules};
+use crate::link::project::{self, Source};
 use crate::{CompileInput, Compiled};
 
 const CONFIG: &str =
@@ -199,4 +201,23 @@ fn a_misspelt_sse_key_is_v1004_with_the_close_key_and_a_stream_api_without_a_pat
     let missing: Vec<_> = compiled.diagnostics.iter().map(|found| (found.code, found.message.clone())).collect();
     let needs = |kind| (Code::V1005, format!("a `{kind}` api needs `path`"));
     assert_eq!(missing, [needs("websocket"), needs("sse")]);
+}
+
+/// What `SseRules` makes of the stream of each api in `apis`, read straight from the file, so a
+/// file whose V2213 holds the program back still shows it.
+fn streams(apis: &str) -> Vec<Option<StreamSettings>> {
+    let file = file("services/feed/feed.api.yaml", apis);
+    let (tools, mut strings) = (crate::parts::Tools::new(), vc_model::StringTable::new());
+    let unit = crate::stage::unit(vc_model::SourceFileId::new(0), &file, (&tools, &mut strings));
+    let source = Source::new(vc_model::SourceFileId::new(0), &file, &unit).unwrap();
+    project::list(source.root, "apis").iter().map(|api| SseRules.stream(&source, api)).collect()
+}
+
+#[test]
+fn an_sse_api_in_a_file_of_another_type_does_not_read_that_files_sse_block() {
+    let apis = "sse: {reconnect: true}\napis:\n  - id: ticks\n    type: sse\n    path: /ticks\n";
+    assert_eq!(streams(apis), [Some(sse(false))], "an `http` file's `sse` block is V2213 and read by none");
+    assert_eq!(streams(&format!("type: sse\n{apis}")), [Some(sse(true))]);
+    let own = apis.replace("    path: /ticks\n", "    path: /ticks\n    sse: {reconnect: true}\n");
+    assert_eq!(streams(&own), [Some(sse(true))], "its own block is read wherever it sits");
 }

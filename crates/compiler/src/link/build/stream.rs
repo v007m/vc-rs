@@ -19,9 +19,11 @@ impl ProtocolRules for SseRules {
         Protocol::Sse
     }
 
-    /// Opens on `2xx`, and reconnects as the api's `sse.reconnect`, else its file's, else not.
+    /// Opens on `2xx`, and reconnects as the api's `sse.reconnect`, else its file's when the
+    /// file is an `sse` one (another file's block is V2213 and read by none), else not.
     fn stream(&self, source: &Source<'_>, api: &Node) -> Option<StreamSettings> {
-        let mut blocks = [api, source.root].into_iter().filter_map(|node| node.get("sse"));
+        let file = Some(source.root).filter(|root| project::protocol(root, root) == Protocol::Sse);
+        let mut blocks = [Some(api), file].into_iter().flatten().filter_map(|node| node.get("sse"));
         let written = blocks.find(|sse| project::text(sse, "reconnect").is_some());
         let reconnect = written.is_some_and(|sse| read::flag(shapes::sse(), sse, "reconnect"));
         Some(StreamSettings { opens_on: StatusPattern::Class(2), reconnect })
