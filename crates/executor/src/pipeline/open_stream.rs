@@ -42,8 +42,10 @@ impl Service<Call> for OpenStream {
     }
 }
 
-/// A stream attempt that answered: its opening head and, when it opened, the stream. It holds
-/// the host's permit, so an open stream counts against `limits.perHost` until it is dropped.
+/// A stream attempt that answered: its opening head and, when it opened, the stream.
+///
+/// An open stream holds the host's permit, so it counts against `limits.perHost` until it is dropped; an
+/// answer that opened none lets the permit go at once, as an `http` exchange does.
 #[non_exhaustive]
 pub struct Opening {
     /// The opening response.
@@ -67,7 +69,9 @@ impl HasHead for Opening {
     }
 
     fn hold(&mut self, permit: OwnedSemaphorePermit) {
-        self.permit = Some(permit);
+        if self.stream.is_some() {
+            self.permit = Some(permit);
+        }
     }
 }
 

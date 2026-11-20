@@ -137,7 +137,9 @@ Keys that keep their meaning: auth, `headers`, `query`, `http.retry`, `timeout`,
 - `saveOn` and `cleanup` read the opening status. A `websocket` call succeeds on `101`, not `2xx`: with no status written, its `expect` checks `status: 101`, its `saveOn` defaults to `101` and only a `101` registers its `cleanup` (`Protocol::success_status`, D386), whatever its `expect.status` says (D387). An `sse` call keeps `2xx`.
 - `poll` is V2213 on a stream type.
 
-Size: the bytes of every frame the call reads, added up, are capped by `SendContext::body_limit` (64 MiB). Going over the cap fails the call with V5105, as an over-large body does (D424).
+Size: the bytes of every frame the call reads, added up, are capped by `SendContext::body_limit` (64 MiB). Going over the cap fails the call with V5105, as an over-large body does (D424); the report keeps the messages read before it.
+
+A `send` still going out when the time runs out fails the call with V5104, as an `http` timeout does. Only an open stream holds its per-host permit; an answer that opened none lets it go at once (D425).
 
 A dropped connection ends the read as a server close does: the messages so far are kept, and an unmet `receive` is V5130, naming the drop (D424). `afterResponse` hooks run once, after the exchange, and see the full `response` root, `messages` and `exchange` included (D423).
 
@@ -147,6 +149,7 @@ Reconnect (`sse` only):
 - When the stream ends, by a server close or a dropped connection, before the exchange is done, the call opens it again once. It waits the last `retry` the server sent, else 1s, then sends `last-event-id` with the last `id` received, over any written one. With no `id` received, it sends the written header, if any.
 - The second open goes through the pipeline as the first did, so auth is fresh. Messages keep adding to `response.messages`, and the exchange carries on where it was.
 - The wait and the second open count against the call's `timeout`; when the wait would pass it, there is no reconnect. A second end is final, and an unmet `receive` is then V5130.
+- A reconnect that answers with no event stream ends the read too: an unmet `receive` is V5130, naming the answer. One that fails as a first open would, by a transport error or a hook, fails the call under that error (D425).
 - Without `sse.reconnect`, `last-event-id` is a header like any other, so a resume test can also be two steps: the first saves `${response.exchange[0].id}`, the second sends it. `retry` is a message field a check can read.
 
 ## Architecture, by facet (D342)
@@ -272,7 +275,7 @@ Candidate V codes (V2213 and V5105 are reused):
    - `SseRuntime` with its pure parser, and `WebsocketRuntime` (moved here from PR 6, since it needs no wire).
    - The driver through the pipeline: the deadline, reconnect, V5130 and V5131, and the `response.messages` and `response.exchange` roots.
    - Engine wiring (`EngineBuilder::stream_transport`) tested against the fake.
-   - Done; its refinements are D421–D424.
+   - Done; its refinements are D421–D425.
 5. **SSE on the wire.**
    - `HttpTransport` implements `StreamTransport` in `StreamMode::Body`.
    - The mock's `/events` route (the suite's `count` and `last-event-id` contract), with a drop for reconnect; the adapter runs `stream_transport_suite` once PR 6 adds the WebSocket side.

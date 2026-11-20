@@ -40,6 +40,18 @@ async fn a_refused_open_is_retried_on_its_status_like_an_http_call() {
     assert_eq!((delivery.attempts, streams.calls()), (2, 2));
 }
 
+/// A refused answer lets its host permit go at once: another open of the host does not wait.
+#[tokio::test(start_paused = true)]
+async fn an_answer_that_opened_no_stream_holds_no_permit() {
+    let streams = FakeStreamTransport::scripted(vec![Ok(StreamAnswer::refused(status(401)))]);
+    let limits = parts(1, 0);
+    let refused = open(limits.clone(), &streams, "http://api.test/events").await;
+    assert!(refused.result.as_ref().is_ok_and(|opening| !opening.holds_permit()), "{refused:?}");
+    let next = tokio::time::timeout(SECOND, open(limits, &streams, "http://api.test/events"));
+    assert!(next.await.is_ok(), "the second open does not wait while the first answer is held");
+    drop(refused);
+}
+
 #[tokio::test(start_paused = true)]
 async fn an_open_stream_holds_its_host_permit_until_it_is_dropped() {
     let streams = FakeStreamTransport::contract();

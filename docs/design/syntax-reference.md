@@ -423,7 +423,7 @@ apis:
 - `expect.messages` is a matcher on the list of every message received, merged under the key `messages` (D123, D380): `length`, and `every`, `some` and `none` over message checks, through `not`, `allOf` and `anyOf` too. Anything else there is V2306.
 - The `response` root of a stream call is the opening response (`status`, `headers`, `body`, `timing`) plus `messages`, every message received in order, and `exchange`, one entry per item: what a `send` sent, the message a `receive` matched, or a group's matched messages in written order (D380). `afterResponse` hooks see it once the exchange ends (D423).
 - The call's `timeout` limits the open, then the whole exchange. A `receive` still waiting when the stream closes or drops, or the time runs out, is V5130; a stream that did not open is V5131 (D381, D422, D424). The bytes the call reads are capped as a body is (V5105).
-- `sse` adds `accept: text/event-stream` and `cache-control: no-cache` when no level sets them (D384). A reconnect (`sse.reconnect`) waits the server's last `retry`, else 1s, and sends `last-event-id` with the last `id` received (D385).
+- `sse` adds `accept: text/event-stream` and `cache-control: no-cache` when no level sets them (D384). A reconnect (`sse.reconnect`) waits the server's last `retry`, else 1s, and sends `last-event-id` with the last `id` received (D385); a reconnect answered with no event stream leaves an unmet `receive` V5130 (D425).
 
 ```yaml
 # services/rooms/rooms.api.yaml
