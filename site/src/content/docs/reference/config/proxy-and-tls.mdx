@@ -75,8 +75,7 @@ error[V1004]: unknown key `proxy` in configHttp
 - Only `http://` proxy URLs are supported.
 - Certificates are always verified. The trusted roots are your OS certificate store, so a company CA that your OS trusts works.
 - `http.tls.ca` adds roots on top of the OS store: a path or inline PEM, or a list of them. There is no setting to skip verification.
-
-<Aside>Not built yet: `vc check` checks `http.tls`, but a run does not load its roots or certificates until [#105](https://github.com/v007m/vc-rs/issues/105) lands in full. Until then, add a private CA to your OS certificate store.</Aside>
+- A run reads `http.tls.ca` once, when it starts. A root that cannot be read stops the run before any request ([V5125](/vc-rs/reference/diagnostics/v5125/)).
 
 ## Related
 

@@ -116,6 +116,12 @@ impl Scope {
         scope
     }
 
+    /// The scope a config value renders in before the run, such as `http.tls`: the config's
+    /// vars alone.
+    pub fn of_config(values: &RunValues) -> Self {
+        Self { levels: smallvec::smallvec![Level::Config(values.config())] }
+    }
+
     /// The scope `test`'s example rows render in before the run: the test's vars, its file's and
     /// the config's.
     pub fn of_test(values: &RunValues, test: &Test) -> Self {

@@ -2,6 +2,7 @@
 //! vars and settings rendered for this call, and the stages that put its credentials on the
 //! request and fetch them again when a response says they went stale.
 
+mod cert;
 mod flow;
 mod probe;
 mod stage;
@@ -18,6 +19,7 @@ use vc_model::{Action, ActionId, Api, AuthDef, AuthId, AuthRef, Failure, Program
 use super::request;
 use crate::{ActionCx, ActionRequest, Around, PipelineParts, Render, Saved};
 
+pub use cert::{ClientCerts, cert_choice};
 use flow::FlowRunner;
 pub use probe::{ProbedAuth, probe_auth, probe_origin};
 use stage::{AuthStage, RefreshOn};
@@ -62,7 +64,8 @@ pub fn prepare(
     let settings = settings(render, def, &given)?;
     let name = program.str(def.id.sym()).unwrap_or_default();
     let key = request.cx.tokens.key(name, &Value::Object(Saved::clone(&given)), &Value::Object(settings.clone()));
-    let mut auth = AuthRequest::new(name, def.kind.clone(), settings);
+    let client_cert = cert_choice(program, request.cx.client_certs(), call)?;
+    let mut auth = AuthRequest::new(name, def.kind.clone(), settings).with_client_cert(client_cert);
     if !def.steps.is_empty() {
         auth = auth.with_flow(Arc::new(FlowRunner::new(Arc::clone(&request.cx), def, given)));
     }

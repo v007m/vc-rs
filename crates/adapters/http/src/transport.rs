@@ -11,13 +11,14 @@ use hyper::body::Incoming;
 use hyper_util::client::legacy::Client;
 use hyper_util::client::proxy::matcher::Matcher;
 use hyper_util::rt::{TokioExecutor, TokioTimer};
+use rustls::RootCertStore;
 use vc_interfaces::{CertChoice, SendContext, SentCert, Transport, TransportError};
 use vc_model::{ConnectionInfo, Exchange, HttpResponse, HttpVersion, RenderedRequest, Timing};
 
 use crate::alert::Failure;
 use crate::connector::{TimedConnector, bare_host};
 use crate::error::{ConnectError, causes, chain};
-use crate::hosts::ClientTable;
+use crate::hosts::{ClientTable, HostRules};
 use crate::stream::ConnectRecord;
 use crate::{ClientIdentity, HttpAdapterError, ProxyConfig, body, tls};
 
@@ -82,15 +83,25 @@ impl HttpTransport {
     /// [`HttpAdapterError::Identity`] when a client identity cannot be used: a bad PEM text, an
     /// encrypted key, a key that does not match the certificate, or a bad host rule.
     pub fn new(options: &HttpOptions) -> Result<Self, HttpAdapterError> {
-        let roots = tls::roots(&options.tls.ca)?;
+        Self::with_roots(&tls::roots(&options.tls.ca)?, options, HostRules::check(options.tls.clients.clone())?)
+    }
+
+    /// As [`HttpTransport::new`], trusting `roots` rather than `options.tls.ca` and presenting
+    /// the identities of `checked` rather than `options.tls.clients`, each parsed and checked
+    /// already.
+    pub(crate) fn with_roots(
+        roots: &Arc<RootCertStore>,
+        options: &HttpOptions,
+        checked: HostRules,
+    ) -> Result<Self, HttpAdapterError> {
         let proxy = Arc::new(options.proxy.matcher());
         let pooled = |identity: Option<&ClientIdentity>| -> Result<Pool, HttpAdapterError> {
-            let connector = TimedConnector::new(tls::client_config(&roots, identity)?, Arc::clone(&proxy));
+            let connector = TimedConnector::new(tls::client_config(roots, identity)?, Arc::clone(&proxy));
             let mut builder = Client::builder(TokioExecutor::new());
             let client = builder.pool_idle_timeout(options.pool_idle).pool_timer(TokioTimer::new()).build(connector);
             Ok((client, identity.map(|identity| Arc::from(identity.id()))))
         };
-        let clients = ClientTable::new(&options.tls.clients, pooled(None)?, |identity| pooled(Some(identity)))?;
+        let clients = ClientTable::new(checked, pooled(None)?, |identity| pooled(Some(identity)))?;
         Ok(Self { clients: Arc::new(clients), proxy })
     }
 

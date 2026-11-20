@@ -2,17 +2,19 @@ use std::sync::Arc;
 
 use serde_json::json;
 use tokio::sync::mpsc;
-use vc_executor::{CacheEvent, RunInputs};
+use vc_executor::{CacheEvent, ClientCerts, RunInputs};
 use vc_interfaces::{
-    CacheEntry, CacheKey, CacheListing, CacheStore, CachedCleanup, CachedValues, Keychain, KeychainError, Secret,
-    SourceProvider,
+    CacheEntry, CacheKey, CacheListing, CacheStore, CachedCleanup, CachedValues, CertId, Keychain, KeychainError,
+    Secret, Secrets, SourceProvider,
 };
+use vc_model::{StringTable, TlsClientId};
 use vc_testkit::{
     CacheFault, FakeVcs, FaultyCacheStore, MemoryCacheStore, MemoryEnvironment, MemoryKeychain, MemorySources,
 };
 
-use super::{ACCOUNT, Buried, SERVICE, Sweep};
+use super::{ACCOUNT, Buried, Cleaner, SERVICE, Sweep};
 use crate::plugin_hosts::Hosts;
+use crate::secured::Secured;
 use crate::{Engine, interrupts, ports, sample};
 
 const KEY: &str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
@@ -151,7 +153,9 @@ fn tombstone(store: &Arc<MemoryCacheStore>) -> CacheEntry {
 fn adhoc(engine: &Engine) -> (vc_executor::ActionCx, crate::plan::Prepared) {
     let prepared = super::unplanned(engine.layered(&[], &[]).unwrap());
     let inputs = RunInputs::new(ports::random(None).1, Arc::clone(&prepared.environment));
-    (engine.action_cx(&prepared, (inputs, &Hosts::default())).unwrap(), prepared)
+    let transport = engine.transports.build(&vc_interfaces::TlsSpec::default(), prepared.environment.as_ref()).unwrap();
+    let secured = Secured { secrets: Secrets::new(), transport, certs: ClientCerts::default(), hidden: Vec::new() };
+    (engine.action_cx(&prepared, (inputs, &Hosts::default(), &secured)), prepared)
 }
 
 /// The sweep of a run of `engine` on `store` whose cache sent `events`.
@@ -229,4 +233,15 @@ async fn clearing_counts_the_entries_that_no_longer_open_and_removes_them() {
     let notice = "cache: 2 entries sealed under another key were removed; their cleanups did not run";
     assert_eq!((count, notices), (3, vec![notice.to_owned()]));
     assert_eq!(store.list().unwrap(), Vec::new());
+}
+
+/// A cleanup goes through the run's transport, so it presents the client certificates the run
+/// loaded, whatever profiles its entry was made under.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_cleanup_presents_the_client_certificates_the_run_loaded() {
+    let engine = stored(&Arc::new(MemoryCacheStore::new()));
+    let good = TlsClientId::new(StringTable::new().intern("good").unwrap());
+    let certs = ClientCerts::from([(good, CertId::new(3))]);
+    let cx = Arc::new(adhoc(&engine).0.with_client_certs(certs.clone()));
+    assert_eq!(Cleaner::new(&cx).under("staging").client_certs(), &certs);
 }

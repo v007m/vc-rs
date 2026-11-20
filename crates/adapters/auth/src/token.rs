@@ -67,7 +67,8 @@ impl TokenEndpoint {
     pub async fn token(&self, request: &AuthRequest, grant: &[(&str, &str)]) -> Result<Token, AuthError> {
         let sent = post(request, grant)?;
         let auth = || request.auth.clone();
-        let exchange = self.transport.send(sent, &SendContext::default()).await;
+        let ctx = SendContext { client_cert: request.client_cert, ..SendContext::default() };
+        let exchange = self.transport.send(sent, &ctx).await;
         let exchange = exchange.map_err(|error| AuthError::Unreachable { auth: auth(), reason: error.to_string() })?;
         let status = exchange.response.status;
         if !status.is_success() {

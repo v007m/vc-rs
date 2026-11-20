@@ -85,10 +85,11 @@ impl CallExecutor {
         let mut render = Render::new(request).map_err(request::failed)?;
         let timeout = timeout(render.program(), api, action);
         let runtime = self.runtime(api)?;
+        let client_cert = auth::cert_choice(&request.cx.program, request.cx.client_certs(), (api, action))?;
         let call = Call {
             request: runtime.request(&render, api, (request.action, action))?,
             timeout,
-            ctx: SendContext::default(),
+            ctx: SendContext { client_cert, ..SendContext::default() },
         };
         let trip = self.flight(request, &mut render, (api, action, Arc::clone(&runtime)))?;
         let exchange = match &action.poll {

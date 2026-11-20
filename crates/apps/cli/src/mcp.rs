@@ -32,7 +32,10 @@ pub fn run(args: &McpArgs, project: Option<&Path>) -> anyhow::Result<Outcome> {
     }
     let server = VcServer::new(located.engine, layers.profiles, layers.sets);
     let runtime = tokio::runtime::Builder::new_multi_thread().enable_all().build()?;
-    match runtime.block_on(server.serve_stdio()) {
+    let ended = runtime.block_on(server.serve_stdio());
+    // The agent closing stdin is the session's end, not an interrupt, so the close waits (D406).
+    crate::run::close(runtime, false);
+    match ended {
         Ok(()) => Ok(Outcome::Done),
         Err(error @ McpError::Handshake { .. }) => Ok(Outcome::Helped(error.to_string(), Some(HANDSHAKE.to_owned()))),
         Err(error) => Err(error.into()),

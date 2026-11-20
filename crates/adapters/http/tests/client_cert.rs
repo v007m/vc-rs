@@ -53,6 +53,9 @@ fn refusal(cert: &[u8], key: &[u8]) -> Result<String, Box<dyn Error>> {
     let pki = TestPki::new()?;
     match transport(&pki, vec![identity("ok", pki.good()), ClientIdentity::pem("bad", cert.to_vec(), key.to_vec())]) {
         Err(HttpAdapterError::Identity { id, reason }) if id == "bad" && !reason.contains("BEGIN") => Ok(reason),
+        Err(HttpAdapterError::Mismatch { id, reason }) if id == "bad" && !reason.contains("BEGIN") => {
+            Ok(format!("mismatch: {reason}"))
+        }
         other => Err(format!("expected an identity error, got {other:?}").into()),
     }
 }
@@ -79,7 +82,7 @@ fn refuses_a_key_that_does_not_match_the_certificate() -> TestResult {
     let pki = TestPki::new()?;
     let other = pki.client(&ClientCert::new("other"))?;
     let reason = refusal(pki.good().cert_pem().as_bytes(), other.key_pem().as_bytes())?;
-    assert!(reason.contains("mismatch") || reason.contains("consistent"), "{reason}");
+    assert!(reason.starts_with("mismatch: ") && reason.contains("consistent"), "{reason}");
     Ok(())
 }
 
@@ -118,13 +121,17 @@ async fn sends_pkcs12_identities_encrypted_with_aes_3des_and_rc2() -> TestResult
 }
 
 #[test]
-fn refuses_a_pkcs12_bundle_with_the_wrong_passphrase() -> TestResult {
+fn a_wrong_passphrase_is_a_mismatch_and_a_file_that_is_not_pkcs12_unreadable() -> TestResult {
     let pki = TestPki::new()?;
     let bundle = bundle(&pki, pki.good(), EncryptionAlgorithm::PbeWithHmacSha256AndAes256)?;
     match ClientIdentity::pkcs12("bank", &bundle, "wrong") {
-        Err(HttpAdapterError::Identity { id, reason }) => {
+        Err(HttpAdapterError::Mismatch { id, reason }) => {
             assert_eq!((id.as_str(), reason.starts_with("the passphrase is wrong")), ("bank", true), "{reason}");
         }
+        other => return Err(format!("expected a mismatch, got {other:?}").into()),
+    }
+    match ClientIdentity::pkcs12("bank", b"not a bundle", "s3cret") {
+        Err(HttpAdapterError::Identity { id, .. }) => assert_eq!(id, "bank"),
         other => return Err(format!("expected an identity error, got {other:?}").into()),
     }
     Ok(())

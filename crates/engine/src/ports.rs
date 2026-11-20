@@ -9,7 +9,6 @@ use std::sync::Arc;
 
 use vc_adapter_auth::{AuthTypes, PluginAuth};
 use vc_adapter_hooks::QuickJsHooks;
-use vc_adapter_http::{HttpOptions, HttpTransport, ProxyConfig};
 use vc_adapter_notifiers::NotifierRegistry;
 use vc_adapter_secrets::{SecretProviders, VarlockSecrets};
 use vc_adapter_system::{DotEnv, SetFlags, SystemBrowser, SystemEnvironment, UserConfig, VibVars};
@@ -17,7 +16,7 @@ use vc_diagnostics::Code;
 use vc_executor::MAX_FRESH_SEED;
 use vc_interfaces::{
     AuthProvider, ConfigEntry, Environment, HookRunner, NotifierFactory, PluginKind, Random, SecretError, SecretQuery,
-    Secrets, Transport,
+    Secrets, TlsSpec, Transport,
 };
 use vc_model::{ProfileId, Program, SecretsConfig};
 
@@ -91,20 +90,16 @@ impl Engine {
             .map_err(|error| settings::source_error(&error))
     }
 
-    /// The transport requests go through: HTTP, through the proxy the environment names.
-    /// Call it from within a Tokio runtime.
+    /// The transport requests go through when no `http.tls` applies (alert samples and spec
+    /// imports): the transport factory's for an empty [`TlsSpec`], over HTTP through the proxy
+    /// `environment` names, built on a blocking thread ([`Engine::built`]).
     ///
     /// # Errors
     ///
-    /// [`EngineError::Internal`] when the HTTP client cannot be built.
-    pub(crate) fn transport(&self, environment: &dyn Environment) -> Result<Arc<dyn Transport>, EngineError> {
-        if let Some(transport) = &self.transport {
-            return Ok(Arc::clone(transport));
-        }
-        let options = HttpOptions { proxy: ProxyConfig::from_env(|name| environment.var(name)), ..Default::default() };
-        let transport =
-            HttpTransport::new(&options).map_err(|error| EngineError::Internal { reason: error.to_string() })?;
-        Ok(Arc::new(transport))
+    /// [`EngineError::Internal`] when the factory refuses: with no `http.tls` read, no setting is
+    /// to blame.
+    pub(crate) async fn transport(&self, environment: Arc<dyn Environment>) -> Result<Arc<dyn Transport>, EngineError> {
+        self.built(TlsSpec::default(), (environment, false)).await
     }
 
     /// The auth types a run obtains credentials through (D106): the builder's, else the

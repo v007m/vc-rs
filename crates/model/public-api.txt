@@ -2670,6 +2670,8 @@ pub fn vc_model::TlsClientId::deserialize<__D>(__D) -> core::result::Result<Self
 pub struct vc_model::TlsConfig
 pub vc_model::TlsConfig::ca: alloc::vec::Vec<vc_model::Template>
 pub vc_model::TlsConfig::clients: indexmap::map::IndexMap<vc_model::TlsClientId, vc_model::TlsClient>
+impl vc_model::TlsConfig
+pub fn vc_model::TlsConfig::active(&self, core::option::Option<&[vc_model::ProfileId]>) -> impl core::iter::traits::iterator::Iterator<Item = &vc_model::TlsClient>
 impl core::clone::Clone for vc_model::TlsConfig
 pub fn vc_model::TlsConfig::clone(&self) -> Self
 impl core::cmp::Eq for vc_model::TlsConfig
@@ -2775,6 +2777,7 @@ pub fn vc_model::form_pairs<'p>(impl core::iter::traits::collect::IntoIterator<I
 pub fn vc_model::form_text(&str) -> alloc::string::String
 pub fn vc_model::hidden_part(&str) -> bool
 pub fn vc_model::import_paths(&str) -> alloc::vec::Vec<alloc::string::String>
+pub fn vc_model::inline_pem(&str) -> bool
 pub fn vc_model::instance_marks(core::option::Option<u32>, core::option::Option<u32>) -> alloc::string::String
 pub fn vc_model::is_multipart(&str) -> bool
 pub fn vc_model::is_third_person(&str) -> bool

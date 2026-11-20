@@ -2,7 +2,7 @@ use std::sync::Arc;
 use std::sync::mpsc::{self, Receiver, Sender};
 
 use async_trait::async_trait;
-use vc_interfaces::{SendContext, Transport, TransportError};
+use vc_interfaces::{CertChoice, SendContext, Transport, TransportError};
 use vc_model::{Exchange, RenderedRequest};
 
 /// One request a [`RecordingTransport`] passed on, and what came back.
@@ -11,6 +11,8 @@ use vc_model::{Exchange, RenderedRequest};
 pub struct Recorded {
     /// The request as given.
     pub request: RenderedRequest,
+    /// The client certificate it was sent with.
+    pub client_cert: CertChoice,
     /// The inner transport's answer.
     pub outcome: Result<Exchange, TransportError>,
 }
@@ -56,7 +58,7 @@ impl RecordingTransport {
 impl Transport for RecordingTransport {
     async fn send(&self, request: RenderedRequest, ctx: &SendContext) -> Result<Exchange, TransportError> {
         let outcome = self.inner.send(request.clone(), ctx).await;
-        self.records.send(Recorded { request, outcome: outcome.clone() }).ok();
+        self.records.send(Recorded { request, client_cert: ctx.client_cert, outcome: outcome.clone() }).ok();
         outcome
     }
 }
@@ -66,7 +68,7 @@ mod tests {
     use std::sync::Arc;
 
     use http::{Method, StatusCode, Uri};
-    use vc_interfaces::{SendContext, Transport, TransportError};
+    use vc_interfaces::{CertChoice, SendContext, Transport, TransportError};
     use vc_model::RenderedRequest;
 
     use super::RecordingTransport;
@@ -86,9 +88,11 @@ mod tests {
         let request = RenderedRequest::new(Method::DELETE, Uri::from_static("http://h/users/1"));
         let ctx = SendContext::default();
         recording.send(request.clone(), &ctx).await.ok();
-        recording.clone().send(request.clone(), &ctx).await.ok();
+        let off = SendContext { client_cert: CertChoice::Off, ..ctx };
+        recording.clone().send(request.clone(), &off).await.ok();
         let records = recordings.take();
         assert_eq!(records.len(), 2);
+        assert_eq!([records[0].client_cert, records[1].client_cert], [CertChoice::Host, CertChoice::Off]);
         assert!(records.iter().all(|r| r.request == request));
         assert_eq!(records[0].outcome.as_ref().map(|e| e.response.status).ok(), Some(StatusCode::NO_CONTENT));
         assert_eq!(records[1].outcome.as_ref().err(), Some(&reset));

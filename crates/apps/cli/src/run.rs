@@ -1,7 +1,8 @@
 use std::path::{Path, PathBuf};
 
 use clap::Args;
-use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
+use tokio::runtime::Runtime;
+use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel};
 use vc_engine::{Engine, EngineError, ReportFlags, RunReport, RunRequest};
 
 use crate::Outcome;
@@ -63,13 +64,14 @@ pub fn run(args: &RunArgs, project: Option<&Path>) -> anyhow::Result<Outcome> {
         Err(reason) => return Ok(Outcome::Refused(reason)),
     };
     let runtime = tokio::runtime::Builder::new_multi_thread().enable_all().build()?;
-    let (stop, mut stops) = tokio::sync::mpsc::unbounded_channel();
+    let (stop, mut stops) = stops();
     let report = runtime.block_on(async {
         let signals = tokio::spawn(ctrl_c(stop));
         let report = execute(&located.engine, &request, &mut stops).await;
         signals.abort();
         report
     });
+    close(runtime, stops.interrupted());
     Ok(report.map_or_else(Outcome::Engine, |report| finished(&report)))
 }
 
@@ -98,6 +100,42 @@ impl RunArgs {
     }
 }
 
+/// The Ctrl-Cs a command hears, and whether it has heard one.
+pub struct Stops {
+    heard: UnboundedReceiver<()>,
+    interrupted: bool,
+}
+
+/// A sender for [`ctrl_c`] and the [`Stops`] it feeds.
+pub fn stops() -> (UnboundedSender<()>, Stops) {
+    let (stop, heard) = unbounded_channel();
+    (stop, Stops { heard, interrupted: false })
+}
+
+impl Stops {
+    /// The next Ctrl-C, or `None` once no one sends any.
+    pub async fn next(&mut self) -> Option<()> {
+        let stop = self.heard.recv().await;
+        self.interrupted |= stop.is_some();
+        stop
+    }
+
+    /// Whether a Ctrl-C has been heard.
+    pub const fn interrupted(&self) -> bool {
+        self.interrupted
+    }
+}
+
+/// Drops `runtime`, the one shutdown every command that runs the engine uses (D406). When the
+/// command was `interrupted` (a Ctrl-C, or quitting the TUI while a run is in progress) it does
+/// not wait for blocking tasks, so a read still in flight (a TLS file on a FIFO) cannot hold up
+/// the exit; otherwise it waits for them, so nothing it began is cut short (D398).
+pub fn close(runtime: Runtime, interrupted: bool) {
+    if interrupted {
+        runtime.shutdown_background();
+    }
+}
+
 /// Sends one value on `stop` for each Ctrl-C, until no one listens.
 pub async fn ctrl_c(stop: UnboundedSender<()>) {
     while tokio::signal::ctrl_c().await.is_ok() {
@@ -108,18 +146,14 @@ pub async fn ctrl_c(stop: UnboundedSender<()>) {
 }
 
 /// Runs `request`; each value on `stops` (a Ctrl-C) interrupts the run.
-pub async fn execute(
-    engine: &Engine,
-    request: &RunRequest,
-    stops: &mut UnboundedReceiver<()>,
-) -> Result<RunReport, EngineError> {
+pub async fn execute(engine: &Engine, request: &RunRequest, stops: &mut Stops) -> Result<RunReport, EngineError> {
     let (interrupter, interrupts) = vc_engine::interrupts();
     let run = engine.run(request, interrupts);
     tokio::pin!(run);
     loop {
         tokio::select! {
             report = &mut run => return report,
-            Some(()) = stops.recv() => interrupter.interrupt(),
+            Some(()) = stops.next() => interrupter.interrupt(),
         }
     }
 }
@@ -150,7 +184,62 @@ pub fn notes(report: &RunReport) {
 
 #[cfg(test)]
 mod tests {
-    use super::warning;
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::time::{Duration, Instant};
+
+    use super::{close, stops, warning};
+
+    /// A runtime with one blocking task that has started and runs until `release` is set, or
+    /// 10 seconds pass.
+    fn holding(release: &Arc<AtomicBool>) -> tokio::runtime::Runtime {
+        let runtime = tokio::runtime::Builder::new_multi_thread().build().unwrap();
+        let (started, held) = (Arc::new(AtomicBool::new(false)), Arc::clone(release));
+        let running = Arc::clone(&started);
+        runtime.spawn_blocking(move || {
+            running.store(true, Ordering::SeqCst);
+            let begun = Instant::now();
+            while !held.load(Ordering::SeqCst) && begun.elapsed() < Duration::from_secs(10) {
+                std::thread::sleep(Duration::from_millis(5));
+            }
+        });
+        let begun = Instant::now();
+        while !started.load(Ordering::SeqCst) && begun.elapsed() < Duration::from_secs(10) {
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        runtime
+    }
+
+    #[test]
+    fn after_a_ctrl_c_the_runtime_lets_go_of_a_blocking_read() {
+        let release = Arc::new(AtomicBool::new(false));
+        let runtime = holding(&release);
+        let (stop, mut stops) = stops();
+        stop.send(()).unwrap();
+        assert_eq!(runtime.block_on(stops.next()), Some(()));
+        let begun = Instant::now();
+        close(runtime, stops.interrupted());
+        assert!(begun.elapsed() < Duration::from_secs(5), "closed after {:?}", begun.elapsed());
+        release.store(true, Ordering::SeqCst);
+    }
+
+    #[test]
+    fn without_a_ctrl_c_the_runtime_waits_for_its_blocking_tasks() {
+        let release = Arc::new(AtomicBool::new(false));
+        let runtime = holding(&release);
+        let (stop, mut stops) = stops();
+        drop(stop);
+        assert_eq!(runtime.block_on(stops.next()), None, "no Ctrl-C once no one sends");
+        let releaser = Arc::clone(&release);
+        let later = std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(300));
+            releaser.store(true, Ordering::SeqCst);
+        });
+        let begun = Instant::now();
+        close(runtime, stops.interrupted());
+        assert!(begun.elapsed() >= Duration::from_millis(250), "closed after {:?}", begun.elapsed());
+        later.join().unwrap();
+    }
 
     #[test]
     fn a_warning_carries_the_code_its_notice_starts_with() {

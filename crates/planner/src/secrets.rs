@@ -78,3 +78,7 @@ pub fn alert_secrets(program: &Program) -> BTreeSet<String> {
     walker.alerts();
     walker.into_visitor().names
 }
+
+#[cfg(test)]
+#[path = "secrets_tests.rs"]
+mod tests;

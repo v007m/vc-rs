@@ -32,7 +32,7 @@ auth:
     clientCert: tenantB
 ```
 
-<Aside type="caution">Not built yet: `vc check` checks these keys, but a run does not load or send a client certificate until [#105](https://github.com/v007m/vc-rs/issues/105) lands in full.</Aside>
+<Aside type="caution">Not built yet: `vc check` does not read the certificate files, so a missing file shows only when a run starts ([#105](https://github.com/v007m/vc-rs/issues/105)).</Aside>
 
 ## Syntax
 
@@ -50,7 +50,7 @@ auth:
 | `clients[].pkcs12` | path | — | instead of `cert` and `key` | A `.p12` or `.pfx` bundle |
 | `clients[].passphrase` | text | empty | no | The bundle's passphrase |
 
-Every value except `id`, `name`, `hosts` and `profiles` is a template, rendered once when the run starts, so it reads only `var`, `secret` and `env`. The vars it reads are held to the same roots, under every profile: with `runDir: ${run.id}`, `cert: ${var.runDir}/client.pem` is an error, and so is a var only a `beforeRun` save sets. A value that starts with `-----BEGIN` is inline PEM; anything else is a path from the project root. Keep keys and passphrases in `${secret.X}`: a key written as inline PEM (it starts with `-----BEGIN`, says `PRIVATE KEY` or runs over more than one line), or a passphrase written as text, gets a warning, and shows as `•••` in every error's excerpt, even one about a config that does not parse.
+Every value except `id`, `name`, `hosts` and `profiles` is a template, rendered once when the run starts, so it reads only `var`, `secret` and `env`. The vars it reads are held to the same roots, under every profile: with `runDir: ${run.id}`, `cert: ${var.runDir}/client.pem` is an error, and so is a var only a `beforeRun` save sets. A `ca`, `cert` or `key` value that is inline PEM once trimmed (it starts with `-----BEGIN`, says `PRIVATE KEY` or runs over more than one line) is used as it is; anything else is a path from the project root. `pkcs12` is always a path. Whitespace around a path, such as the newline a file read into an env var ends with, is dropped. An error names the entry and the key it is about, and quotes a path only when the config wrote it as text, never one a template rendered; a value that does not render is named by its `${…}` expressions as written, such as `${env.CLIENT_KEY.pem}`. Keep keys and passphrases in `${secret.X}`: a key written as inline PEM (it starts with `-----BEGIN`, says `PRIVATE KEY` or runs over more than one line), or a passphrase written as text, gets a warning, and shows as `•••` in every error's excerpt, even one about a config that does not parse.
 
 On an auth definition:
 
@@ -108,7 +108,9 @@ http:
 ## How it behaves
 
 - A request presents the `clientCert` of its auth when it has one. Otherwise it presents the first entry whose `hosts` match the URL's host and whose `profiles` include an active profile. Otherwise it presents none.
-- The `oauth2*` types present their `clientCert` on the token request too, for certificate-bound tokens.
+- The `oauth2*` types present their `clientCert` on the token request too, for certificate-bound tokens (RFC 8705).
+- A run reads the certificates its profiles use once, when it starts; an entry only for other profiles is not read. A file is at most 1 MiB.
+- A `passphrase`, and a `key` given as inline PEM (written, or rendered from a secret, an env var or a var), are masked in all output, like a secret: as written, trimmed, with LF line ends, and each line of the key's body of 16 characters or more.
 - Certificates are always verified. `ca` adds roots; nothing turns verification off.
 
 ## Common errors
@@ -121,6 +123,10 @@ http:
 - [V2105](/vc-rs/reference/diagnostics/v2105/): a setting, or a var it reads, reads a root other than `var`, `secret` or `env`.
 - [V2211](/vc-rs/reference/diagnostics/v2211/): `cert` without `key`, `key` without `cert`, or `passphrase` without `pkcs12`.
 - [V4013](/vc-rs/reference/diagnostics/v4013/): a key or passphrase is written in the config.
+- [V5114](/vc-rs/reference/diagnostics/v5114/): a call's `clientCert` names an entry that is only for other profiles.
+- [V5125](/vc-rs/reference/diagnostics/v5125/): a certificate, key or bundle cannot be read when the run starts.
+- [V5126](/vc-rs/reference/diagnostics/v5126/): a key is not the certificate's, or a bundle's passphrase is wrong.
+- [V5127](/vc-rs/reference/diagnostics/v5127/): the server refused the certificate.
 
 ## Related
 

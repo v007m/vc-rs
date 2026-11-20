@@ -2,6 +2,7 @@
 //! the scope a `${var.x}` lookup walks and the renderer that answers references.
 
 mod bodies;
+mod config;
 mod draw;
 mod frame;
 mod labels;
@@ -14,6 +15,7 @@ mod scope;
 mod unread;
 
 pub use bodies::{BodyFiles, Unread};
+pub use config::config_text;
 pub use draw::{RandomFor, draw_rows, row_seed};
 pub use frame::{Frame, Iteration};
 pub use labels::row_names;

@@ -79,7 +79,7 @@ impl Engine {
         let files = selected(&project, &request.files)?;
         let headers = self.spec_headers(&request.profiles, &files).await?;
         let guard = SnapshotGuard::new(self.sources.as_ref(), &project);
-        let syncing = Syncing { project: &project, fetcher: self.fetcher()?, headers, guard, request };
+        let syncing = Syncing { project: &project, fetcher: self.fetcher().await?, headers, guard, request };
         let mut report = SyncReport::default();
         let mut snapshots = Vec::new();
         for file_id in files {

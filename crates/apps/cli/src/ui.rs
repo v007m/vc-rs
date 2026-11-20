@@ -44,7 +44,10 @@ pub fn run(args: &UiArgs, project: Option<&Path>) -> anyhow::Result<Outcome> {
     let layers = args.layers.request();
     let mcp = vc_mcp::VcServer::new(located.engine, layers.profiles, layers.sets);
     let runtime = tokio::runtime::Builder::new_multi_thread().enable_all().build()?;
-    runtime.block_on(serve::serve(mcp, args))
+    let served = runtime.block_on(serve::serve(mcp, args));
+    // It serves until Ctrl-C, which ends whatever a tab or an agent still has in flight (D406).
+    crate::run::close(runtime, matches!(served, Ok(Outcome::Done)));
+    served
 }
 
 #[cfg(feature = "web-ui")]

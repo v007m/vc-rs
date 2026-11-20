@@ -4,7 +4,7 @@ use std::time::Duration;
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD;
 use serde_json::json;
-use vc_interfaces::{AuthError, TransportError};
+use vc_interfaces::{AuthError, CertChoice, CertId, TransportError};
 use vc_testkit::{FakeTransport, status};
 
 use super::{TokenEndpoint, encode, scopes};
@@ -115,5 +115,16 @@ async fn the_largest_expires_in_as_a_number_or_a_string_is_passed_on_for_the_cac
         let settings = json!({"tokenUrl": "https://id.test/token", "clientId": "web"});
         let token = TokenEndpoint::new(transport).token(&request("t", &settings), &GRANT).await.unwrap();
         assert_eq!(token.credentials.expires_in, Some(Duration::from_secs(u64::MAX)), "{body}");
+    }
+}
+
+#[tokio::test]
+async fn a_token_request_presents_the_auths_client_certificate() {
+    for choice in [CertChoice::Host, CertChoice::Off, CertChoice::Named(CertId::new(1))] {
+        let (transport, recordings) = token_server(TOKEN);
+        let settings = json!({"tokenUrl": "https://id.test/token", "clientId": "web"});
+        let request = request("t", &settings).with_client_cert(choice);
+        TokenEndpoint::new(transport).token(&request, &GRANT).await.unwrap();
+        assert_eq!(recordings.take().remove(0).client_cert, choice);
     }
 }
