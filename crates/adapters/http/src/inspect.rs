@@ -146,7 +146,8 @@ fn reason(error: HttpAdapterError) -> String {
 /// [`NEAR_NAMES`], and none when the folder cannot be listed.
 fn near(path: &Path) -> Vec<String> {
     let Some(entries) = path.parent().and_then(|folder| std::fs::read_dir(folder).ok()) else { return Vec::new() };
-    let names = entries.filter_map(Result::ok).map(|entry| entry.file_name().to_string_lossy().into_owned());
+    let files = entries.filter_map(Result::ok).filter(|entry| entry.file_type().is_ok_and(|kind| !kind.is_dir()));
+    let names = files.map(|entry| entry.file_name().to_string_lossy().into_owned());
     let mut names: Vec<_> = names.take(NEAR_NAMES).collect();
     names.sort_unstable();
     names

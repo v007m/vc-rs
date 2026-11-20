@@ -11,6 +11,7 @@ use vc_parser::{Node, ScalarStyle, Syntax};
 
 use crate::Engine;
 use crate::check_alerts;
+use crate::client_certs::file_at;
 use crate::explain::did_you_mean;
 
 /// Seconds in a UTC day: a certificate's dates are judged by the day they fall on (D410).
@@ -67,7 +68,8 @@ fn client_probe(program: &Program, client: &TlsClient, root: &Path) -> Option<Tl
             (cert.is_some() || key.is_some()).then_some(TlsProbe::Pem { id, cert, key })
         }
         ClientMaterial::Pkcs12 { file, passphrase } => {
-            let bundle = file_at(file.as_literal()?, root);
+            let literal = file.as_literal()?;
+            let bundle = file_at(root, literal, Some(literal));
             let passphrase = passphrase.as_ref().map_or(Some(""), Template::as_literal).map(Secret::new);
             Some(TlsProbe::Pkcs12 { id, bundle, passphrase })
         }
@@ -77,13 +79,7 @@ fn client_probe(program: &Program, client: &TlsClient, root: &Path) -> Option<Tl
 /// `template` when it is text: inline PEM as it is, else a path from `root`.
 fn source(template: &Template, root: &Path) -> Option<MaterialSource> {
     let text = template.as_literal()?;
-    Some(if inline_pem(text) { MaterialSource::Inline(Secret::new(text)) } else { file_at(text, root) })
-}
-
-/// The file at `path`, trimmed, from `root`.
-fn file_at(path: &str, root: &Path) -> MaterialSource {
-    let shown = path.trim();
-    MaterialSource::File { path: root.join(shown), shown: Some(shown.to_owned()) }
+    Some(if inline_pem(text) { MaterialSource::Inline(Secret::new(text)) } else { file_at(root, text, Some(text)) })
 }
 
 /// The config's `http.tls` node.
@@ -93,17 +89,21 @@ fn tls_node(files: &SourceFiles) -> Option<Node> {
     root?.get("http")?.get("tls").cloned()
 }
 
-/// The value `part` is about in `tls`: a `ca` entry, or a client's key (the entry without one).
-fn node<'n>(tls: &'n Node, part: &TlsPart) -> Option<&'n Node> {
+/// The value `part` is about in `tls`: a `ca` entry, or a client's key (the entry without one);
+/// else the nearest node written out that holds it (`ca`, the client, or `tls`), so no finding
+/// is lost to a shape the parse does not spell out.
+fn node<'n>(tls: &'n Node, part: &TlsPart) -> &'n Node {
     match part {
         TlsPart::Ca(index) => {
-            let ca = tls.get("ca")?;
-            if ca.as_scalar().is_some() { (*index == 0).then_some(ca) } else { ca.items().get(*index) }
+            let Some(ca) = tls.get("ca") else { return tls };
+            if ca.as_scalar().is_some() { ca } else { ca.items().get(*index).unwrap_or(ca) }
         }
         TlsPart::Client { id, field } => {
-            let mut clients = tls.get("clients")?.items().iter();
-            let client = clients.find(|client| client.get("id").and_then(Node::as_str) == Some(id))?;
-            field.map_or(Some(client), |field| client.get(field))
+            let clients = tls.get("clients").map_or(&[][..], Node::items);
+            let Some(client) = clients.iter().find(|client| client.get("id").and_then(Node::as_str) == Some(id)) else {
+                return tls;
+            };
+            field.and_then(|field| client.get(field)).unwrap_or(client)
         }
     }
 }
@@ -112,21 +112,20 @@ fn node<'n>(tls: &'n Node, part: &TlsPart) -> Option<&'n Node> {
 fn diagnostic(tls: &Node, finding: &TlsFinding, today: Date) -> Option<Diagnostic> {
     let (part, made) = match finding {
         TlsFinding::Unreadable { part, reason, near } => (part, Made::Unread { reason, near }),
-        TlsFinding::Unusable { part, reason } => (part, Made::Refused(Code::V2012, "does not load", reason, LOAD_HELP)),
-        TlsFinding::Mismatch { part, reason } => (part, Made::Refused(Code::V2012, "does not fit", reason, FIT_HELP)),
+        TlsFinding::Unusable { part, reason } => (part, Made::Refused("does not load", reason, LOAD_HELP)),
+        TlsFinding::Mismatch { part, reason } => (part, Made::Refused("does not fit", reason, FIT_HELP)),
         TlsFinding::Validity { part, not_before, not_after } => {
             (part, Made::Dated(dated((*not_before, *not_after), today)?))
         }
         TlsFinding::Exposed { part, mode } => (part, Made::Exposed(*mode)),
     };
-    let node = node(tls, part)?;
-    Some(made.at(node, part))
+    Some(made.at(node(tls, part), part))
 }
 
 /// What a finding says, before it is placed.
 enum Made<'f> {
     Unread { reason: &'f str, near: &'f [String] },
-    Refused(Code, &'static str, &'f str, &'static str),
+    Refused(&'static str, &'f str, &'static str),
     Dated(Dated),
     Exposed(u32),
 }
@@ -140,13 +139,16 @@ impl Made<'_> {
                 let message = format!("{part}: `{written}` cannot be read: {reason}");
                 suggested(Diagnostic::new(Code::V2011, node.span, message).label("cannot be read"), node, near)
             }
-            Self::Refused(code, label, reason, help) => {
-                Diagnostic::new(code, node.span, format!("{part} {label}: {reason}")).label(label).help(help)
+            Self::Refused(label, reason, help) => {
+                Diagnostic::new(Code::V2012, node.span, format!("{part} {label}: {reason}")).label(label).help(help)
             }
             Self::Dated(dated) => dated.diagnostic(node, part),
             Self::Exposed(mode) => {
                 let message = format!("{part}: `{written}` is open to other users (mode {mode:03o})");
-                let help = format!("make it readable by you alone: `chmod 600 {}`", shell_word(written));
+                let help = format!(
+                    "make it readable by you alone, from the project root: `chmod 600 {}`",
+                    shell_word(written)
+                );
                 Diagnostic::new(Code::V4012, node.span, message).label("open to other users").help(help)
             }
         }
@@ -162,6 +164,8 @@ enum Dated {
     NotYet(Date),
     /// It expires on this day, within [`SOON_DAYS`] days.
     Soon(Date),
+    /// Today is its last day: it may have expired already, at a time of day the check does not see.
+    LastDay(Date),
 }
 
 impl Dated {
@@ -188,6 +192,12 @@ impl Dated {
                 "expires soon",
                 format!("renew it before then and point the config at the new one; after that {refused}"),
             ),
+            Self::LastDay(on) => (
+                Code::V3107,
+                format!("{part} expires today, {on}"),
+                "expires today",
+                format!("renew it now and point the config at the new one; once it ends {refused}"),
+            ),
         };
         Diagnostic::new(code, node.span, message).label(label).help(help)
     }
@@ -204,8 +214,12 @@ fn dated((not_before, not_after): (i64, i64), today: Date) -> Option<Dated> {
     if let Some(from) = Date::from_unix_days(day(not_before)).filter(|from| *from > today) {
         return Some(Dated::NotYet(from));
     }
+    let until = until?;
+    if until == today {
+        return Some(Dated::LastDay(until));
+    }
     let warned_from = Date::from_unix_days(day(not_after).saturating_sub(SOON_DAYS))?;
-    if warned_from <= today { until.map(Dated::Soon) } else { None }
+    (warned_from <= today).then_some(Dated::Soon(until))
 }
 
 /// `node`'s text as written, trimmed.

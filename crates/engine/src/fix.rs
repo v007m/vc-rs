@@ -27,7 +27,7 @@ impl Engine {
     ///
     /// As [`Engine::check`]; [`EngineError::Edit`] when the fixes together would add an error.
     pub fn fix(&self, request: &CheckRequest) -> Result<FixReport, EngineError> {
-        let compiled = self.with_check_findings(self.compiled()?);
+        let compiled = self.with_check_findings(self.compiled()?, &request.paths);
         let before = compiled.diagnostics.clone();
         let report = Self::selected(compiled, request)?;
         let changes = certain_fixes(&report.diagnostics, &report.files)?;
