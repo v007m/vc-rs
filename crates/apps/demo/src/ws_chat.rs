@@ -1,5 +1,5 @@
-//! The WebSocket chat that `vc-demo`'s `/ws` and the mock's share (D465): the handshake and the
-//! replies. Neither crate may depend on a workspace crate, so the mock takes this file by `#[path]`.
+//! `vc-demo`'s WebSocket chat (D465): the handshake and the replies. The mock's `/ws` has its own
+//! few lines of each, since neither crate may depend on a workspace crate.
 
 use std::future::Future;
 
