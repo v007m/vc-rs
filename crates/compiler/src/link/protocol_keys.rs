@@ -47,8 +47,7 @@ pub(super) const IN_EXPECT: Inherited = Inherited {
 };
 
 impl Inherited {
-    /// Whether `step` inherits the test's `key` here: it writes no `key` of its own and, for an
-    /// `expect` key, its `expect` has no `replace: true`.
+    /// Whether `step` inherits the test's `key` here: this place finds no `key` of its own.
     pub(super) fn inherits(&self, step: &Node, key: &str) -> bool {
         !(self.own)(step, key)
     }
