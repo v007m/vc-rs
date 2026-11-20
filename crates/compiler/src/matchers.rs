@@ -102,8 +102,11 @@ fn find(name: &str) -> Option<&'static Kind> {
 struct Listed {
     list: Unit,
     each: Unit,
-    lower: fn(&mut Cx<'_>, At<'_>, Unit) -> Option<Matcher>,
+    lower: Lower,
 }
+
+/// Lowers the value at `at`, in the list's unit or its entry's.
+type Lower = fn(&mut Cx<'_>, At<'_>, Unit) -> Option<Matcher>;
 
 /// Every such list: `expect.errors` (D345).
 const LISTED: &[Listed] = &[Listed { list: Unit::Errors, each: Unit::Error, lower: errors::expected }];
