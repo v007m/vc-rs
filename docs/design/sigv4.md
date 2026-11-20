@@ -1,6 +1,6 @@
 # AWS SigV4: the `awsSigV4` auth type (#106)
 
-Status: approved by Sarath on 20 November 2026, with Q1 (a) below. The decisions are Round 83 (D431–D446) in `decision-log.md`.
+Status: approved by Sarath on 20 November 2026, with Q1 (a) below. The decisions are Round 83 (D431–D443) and Round 84 (D444–D446) in `decision-log.md`.
 
 ## Goal and scope
 
@@ -197,7 +197,7 @@ How the parts fit:
 - The canonical request and the string to sign are never logged, reported or put in an error.
 - V4014's excerpt masks the value, as V4013's does.
 
-## Decisions (Round 83)
+## Decisions (Rounds 83 and 84)
 
 | D | Decision |
 | --- | --- |
@@ -216,7 +216,7 @@ How the parts fit:
 | D443 | D141 amended: timing → retry → auth → `beforeRequest` hooks → per-host limit → sign → timeout → transport. |
 | D444 | `vc new auth` writes `accessKeyId`, `secretAccessKey` and `sessionToken` only as templates; `region` and `service` are the author's (V1005). |
 | D445 | An empty literal `region` or `service` is V2316 too, with no fix; the fix quotes only where YAML needs it. |
-| D446 | A config that does not parse masks every `secretAccessKey` and `sessionToken` value, as it does a TLS `key` and `passphrase`. |
+| D446 | A literal `secretAccessKey` or `sessionToken` is V4014 and masked in any auth, whatever its `type`; a config that does not parse masks every value of those keys. The access key ID is not a secret at check time. |
 
 Candidate V codes (V1005, V2302 and V5114 are reused; V1 and V3 need nothing new):
 

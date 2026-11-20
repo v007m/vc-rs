@@ -26,7 +26,7 @@ input_file: crates/compiler/tests/cases/v1005_sigv4_keys/project
       "secondary": [],
       "notes": [],
       "help": [
-        "add `service:`; a credential is written as a template such as `${secret.PARTNER_TOKEN}`"
+        "add `service:` with the signing name, such as `execute-api` or `s3`"
       ],
       "fixes": []
     },

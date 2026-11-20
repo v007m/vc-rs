@@ -7,7 +7,7 @@ error[V1005]: a `awsSigV4` auth needs `service`
   |
 8 |     type: awsSigV4
   |           ^^^^^^^^ `service` is missing
-  = help: add `service:`; a credential is written as a template such as `${secret.PARTNER_TOKEN}`
+  = help: add `service:` with the signing name, such as `execute-api` or `s3`
 
 error[V1005]: a `awsSigV4` auth needs `accessKeyId`
  --> vibranium.config.yaml:8:11

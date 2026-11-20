@@ -25,10 +25,16 @@ impl Lint for TlsLiterals {
 
 impl TlsLiterals {
     fn literal(&self, entry: &Entry) -> Diagnostic {
-        let name = &entry.key;
-        let what = if name == "key" { "a private key" } else { "a passphrase" };
-        Diagnostic::new(self.code(), entry.key_span, format!("`{name}` is {what} written in the config"))
-            .label("its value is kept in git with the file")
-            .help(format!("read it from `.env`: `{name}: ${{secret.NAME}}`, with `NAME=` declared in `.env.schema`"))
+        let what = if entry.key == "key" { "a private key" } else { "a passphrase" };
+        written_secret(self.code(), entry, what)
     }
+}
+
+/// `code` at `entry`'s key: the secret `what` is written in the config. It names the key, never
+/// the value.
+pub(super) fn written_secret(code: Code, entry: &Entry, what: &str) -> Diagnostic {
+    let name = &entry.key;
+    Diagnostic::new(code, entry.key_span, format!("`{name}` is {what} written in the config"))
+        .label("its value is kept in git with the file")
+        .help(format!("read it from `.env`: `{name}: ${{secret.NAME}}`, with `NAME=` declared in `.env.schema`"))
 }

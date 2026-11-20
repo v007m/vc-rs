@@ -1,13 +1,14 @@
 //! V2316: an `awsSigV4` auth's `region` or `service` written as text that is not a credential
 //! scope name: lowercase letters, digits and `-` (D440). Every signature names that scope, so a
 //! run with one would be refused on every request. Lowercasing it is the certain fix when that
-//! is enough. A value with a `${…}` in it is checked when it renders.
+//! is enough. A value with a `${…}` in it is left to the run.
 
 use vc_diagnostics::{Code, Diagnostic, Fix, TextEdit};
 use vc_parser::{Entry, write_text};
 
 use super::{Lint, LintCx};
 use crate::link;
+use crate::naming::is_lower_word;
 
 /// Reports each literal `region` and `service` in the config's `awsSigV4` auths that AWS would
 /// not take.
@@ -46,9 +47,10 @@ impl Sigv4Scopes {
     }
 }
 
-/// Whether `text` is a credential scope part: lowercase ASCII letters, digits and `-`, not empty.
+/// Whether `text` is a credential scope part: a lowercase ASCII letter, then letters, digits and
+/// `-`, as every AWS region code and signing name is.
 fn scope_name(text: &str) -> bool {
-    !text.is_empty() && text.bytes().all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-')
+    is_lower_word(text, true)
 }
 
 #[cfg(test)]
@@ -57,10 +59,10 @@ mod tests {
 
     #[test]
     fn a_scope_name_is_lowercase_letters_digits_and_dashes() {
-        for good in ["us-east-1", "execute-api", "s3", "aoss", "1"] {
+        for good in ["us-east-1", "execute-api", "s3", "aoss"] {
             assert!(scope_name(good), "{good}");
         }
-        for bad in ["", "US-East-1", "execute api", "execute_api", "eu-west-1\n", "ü", "s3."] {
+        for bad in ["", "US-East-1", "execute api", "execute_api", "eu-west-1\n", "ü", "s3.", "1a"] {
             assert!(!scope_name(bad), "{bad:?}");
         }
     }

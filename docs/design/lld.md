@@ -1536,7 +1536,7 @@ Codes are stable once released: a code is never reused for a different problem, 
 | V2313 | error | `reports.dir` in the project config is an absolute path, a drive or has a `..` part, so it leaves the project; the help names the file and line and suggests `--out` (D327) | — |
 | V2314 | error | A `graphql` api's document does not fit the schema its file's `graphql.schema` names (D347, D368): an unknown field, a missing required argument, a value of the wrong type, a selection on a leaf; at the part at fault, once per document and schema | the one close field of the type |
 | V2315 | error | A literal value in a `graphql` api's `body.variables` does not fit the type its operation declares for the variable, by the schema (`limit: "3"` for `Int`; D347, D368, D370); a value with a template (a `$${` is literal), `$cel`, `$extend` or `$remove` is not checked | — |
-| V2316 | error | An `awsSigV4` auth's `region` or `service` is written as text that is not lowercase letters, digits and `-`, or is empty (D440, D445); a value with a template is checked when it renders | certain fix when lowercasing is enough |
+| V2316 | error | An `awsSigV4` auth's `region` or `service` is written as text that is not lowercase letters, digits and `-`, or is empty (D440, D445); `vc check` does not check a value with a template | certain fix when lowercasing is enough |
 | V3101 | error | No profile defined, or no active profile for this run | add `default: true` to the only profile |
 | V3102 | error | More than one default profile | — |
 | V3103 | error | `skip` without a reason | — |
@@ -1563,7 +1563,7 @@ Codes are stable once released: a code is never reused for a different problem, 
 | V4010 | warning | A `graphql` api's operation has no name; once per document, however many apis use it | name it after the api, `getUser` → `query GetUser` (certain fix, when the document holds that one operation and no other api uses it) |
 | V4012 | warning | A client `key` or `pkcs12` file can be read or written by its group or others, after following links; Unix only (D353, D411); from `vc check`, and as a run notice (D412) | — (help: `chmod 600 <path>`) |
 | V4013 | warning | An `http.tls.clients` entry's `key` is inline PEM, or its `passphrase` is text, written in the config (D353, D374); the value is masked in this and every other excerpt | read it with `${secret.NAME}` declared in `.env.schema` |
-| V4014 | warning | An `awsSigV4` auth's `secretAccessKey` or `sessionToken` is written as text in the config (D440); the value is masked in this and every other excerpt | read it with `${secret.NAME}` declared in `.env.schema` |
+| V4014 | warning | An auth's `secretAccessKey` or `sessionToken` is written as text in the config (D440, D446); the value is masked in this and every other excerpt | read it with `${secret.NAME}` declared in `.env.schema` |
 | V5101 | failure | Expectation failed | — |
 | V5102 | failure | CEL check false | — |
 | V5103 | failure | Custom check failed or threw | — |

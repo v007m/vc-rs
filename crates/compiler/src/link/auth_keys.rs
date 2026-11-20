@@ -9,8 +9,13 @@ use vc_parser::Node;
 use super::project;
 use super::project::Project;
 
-/// The help for each key in [`vc_model::AUTH_OWN_NEEDS`]: these are not credentials.
-const OWN_HELP: [(&str, &str); 1] = [("clientCert", "add `clientCert:` with the ID of an `http.tls.clients` entry")];
+/// The help for each needed key that is not a credential: the [`vc_model::AUTH_OWN_NEEDS`] and
+/// an `awsSigV4` auth's scope.
+const PLAIN_HELP: [(&str, &str); 3] = [
+    ("clientCert", "add `clientCert:` with the ID of an `http.tls.clients` entry"),
+    ("region", "add `region:` with the signing region, such as `us-east-1`"),
+    ("service", "add `service:` with the signing name, such as `execute-api` or `s3`"),
+];
 
 /// The help for a credential the provider reads.
 const CREDENTIAL_HELP: &str = "a credential is written as a template such as `${secret.PARTNER_TOKEN}`";
@@ -22,8 +27,8 @@ pub fn check(project: &Project<'_>) -> Diagnostics {
     for entry in project::list(config.root, "auth") {
         let Some(kind) = entry.get("type") else { continue };
         let Some(name) = kind.as_str() else { continue };
-        let settings = auth_needs(name).unwrap_or_default().iter().map(|key| (*key, None));
-        let own = auth_own_needs(name).iter().map(|key| (*key, own_help(key)));
+        let settings = auth_needs(name).unwrap_or_default().iter().map(|key| (*key, plain_help(key)));
+        let own = auth_own_needs(name).iter().map(|key| (*key, plain_help(key)));
         for (key, help) in settings.chain(own).filter(|(key, _)| entry.get(key).is_none()) {
             diagnostics.push(missing(kind, (name, key), help));
         }
@@ -31,9 +36,9 @@ pub fn check(project: &Project<'_>) -> Diagnostics {
     diagnostics
 }
 
-/// The help for the own key `key`.
-fn own_help(key: &str) -> Option<&'static str> {
-    OWN_HELP.iter().find(|(own, _)| *own == key).map(|(_, help)| *help)
+/// The help for `key` when it is not a credential.
+fn plain_help(key: &str) -> Option<&'static str> {
+    PLAIN_HELP.iter().find(|(own, _)| *own == key).map(|(_, help)| *help)
 }
 
 /// V1005 at the entry's `type`, naming the key it needs.
