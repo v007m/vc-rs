@@ -78,7 +78,8 @@ pub trait MessageStream: Send {
     /// # Errors
     ///
     /// [`TransportError::InvalidRequest`] on a body stream, which cannot send, a
-    /// [`TransportError`] after [`MessageStream::close`], or one when the connection broke.
+    /// [`TransportError`], with nothing sent, once the stream ended (after [`MessageStream::close`],
+    /// the server's `Close` or an `Err` from `next`), or one when the connection broke.
     async fn send(&mut self, frame: OutgoingFrame) -> Result<(), TransportError>;
 
     /// The next frame, waiting for one while the stream is open, or `None` once it ended; never

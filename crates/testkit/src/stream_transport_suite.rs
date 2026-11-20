@@ -150,7 +150,8 @@ async fn hands_the_server_s_close_over_as_a_last_frame(transport: &dyn StreamTra
     let Some(mut stream) = streamed(opened) else { return };
     assert_eq!(stream.send(OutgoingFrame::Text("bye".to_owned())).await, Ok(()));
     assert_eq!(stream.next().await, Some(Ok(StreamFrame::Close { code: 1000, reason: "bye".to_owned() })));
-    let _after_close = stream.send(OutgoingFrame::Text("hi".to_owned())).await;
+    let sent = stream.send(OutgoingFrame::Text("hi".to_owned())).await;
+    assert!(sent.is_err(), "sending after the server's close: {sent:?}");
     for _ in 0..2 {
         assert_eq!(stream.next().await, None, "nothing follows the server's close");
     }

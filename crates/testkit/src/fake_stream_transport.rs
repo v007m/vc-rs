@@ -112,7 +112,7 @@ impl StreamTransport for FakeStreamTransport {
         let opens = mode.opens_on().matches(head.status.as_u16());
         let stream = frames.filter(|_| opens).map(|frames| {
             let incoming = frames.into_iter().collect();
-            Box::new(FakeStream { mode, incoming, echo, closed: false, ended: false }) as Box<dyn MessageStream>
+            Box::new(FakeStream { mode, incoming, echo, ended: false }) as Box<dyn MessageStream>
         });
         let head =
             Exchange { request, response: head, timing: Timing::default(), connection: ConnectionInfo::default() };
@@ -127,9 +127,8 @@ struct FakeStream {
     mode: StreamMode,
     incoming: VecDeque<Result<StreamFrame, TransportError>>,
     echo: bool,
-    /// The client called `close`: sending is an error.
-    closed: bool,
-    /// A close frame or an error was yielded, or the client closed: nothing more is.
+    /// A close frame or an error was yielded, or the client closed: nothing more is, and sending
+    /// is an error.
     ended: bool,
 }
 
@@ -139,8 +138,8 @@ impl MessageStream for FakeStream {
         if self.mode == StreamMode::Body {
             return Err(TransportError::InvalidRequest { reason: "a response body stream cannot send".to_owned() });
         }
-        if self.closed {
-            return Err(TransportError::InvalidRequest { reason: "the stream is closed".to_owned() });
+        if self.ended {
+            return Err(TransportError::InvalidRequest { reason: "the stream has ended".to_owned() });
         }
         if self.echo {
             let bye = frame == OutgoingFrame::Text("bye".to_owned());
@@ -162,7 +161,7 @@ impl MessageStream for FakeStream {
     }
 
     async fn close(&mut self, _code: u16) -> Result<(), TransportError> {
-        (self.closed, self.ended) = (true, true);
+        self.ended = true;
         Ok(())
     }
 }

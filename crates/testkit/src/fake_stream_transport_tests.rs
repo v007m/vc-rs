@@ -67,6 +67,8 @@ async fn a_stream_opens_only_on_its_mode_s_success_head() {
     }
 }
 
+/// After a close frame or an error, `send` is an error and queues nothing, even on an echo
+/// stream (D388).
 #[tokio::test]
 async fn a_scripted_stream_ends_at_a_close_or_an_error() {
     let close = Ok(StreamFrame::Close { code: 1001, reason: "away".into() });
@@ -80,8 +82,16 @@ async fn a_scripted_stream_ends_at_a_close_or_an_error() {
         let mut stream =
             fake.open(get("/"), StreamMode::WebSocket, &SendContext::default()).await.unwrap().stream.unwrap();
         assert_eq!(stream.next().await, Some(last));
+        let sent = stream.send(OutgoingFrame::Text("hi".into())).await;
+        assert!(matches!(sent, Err(TransportError::InvalidRequest { .. })), "{sent:?}");
         assert_eq!((stream.next().await, stream.next().await), (None, None), "nothing follows");
     }
+    let fake = FakeStreamTransport::scripted(vec![Ok(StreamAnswer::echo())]);
+    let mut echo = fake.open(get("/"), StreamMode::WebSocket, &SendContext::default()).await.unwrap().stream.unwrap();
+    assert_eq!(echo.send(OutgoingFrame::Text("bye".into())).await, Ok(()));
+    assert!(matches!(echo.next().await, Some(Ok(StreamFrame::Close { .. }))));
+    assert!(echo.send(OutgoingFrame::Text("hi".into())).await.is_err(), "the server closed");
+    assert_eq!(echo.next().await, None, "nothing was queued");
 }
 
 #[tokio::test]
