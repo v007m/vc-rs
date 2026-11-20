@@ -128,7 +128,8 @@ fn a_missing_file_lists_its_folder_and_an_unreadable_one_does_not() -> std::io::
     let found = inspect(&[TlsProbe::Ca { index: 0, source: file(&dir.path().join("tenant-a.pem")) }]);
     let [TlsFinding::Unreadable { part: TlsPart::Ca(0), reason, near }] = &found[..] else { panic!("{found:?}") };
     assert_eq!(near, &["tenant-a.key", "tenant-b.pem"], "sorted");
-    assert!(reason.contains("No such file"), "{reason}");
+    let missing = std::fs::read(dir.path().join("tenant-a.pem")).err().map(|error| error.to_string());
+    assert_eq!(Some(reason), missing.as_ref(), "the OS's own words");
     let folder = inspect(&[pem(Some(file(dir.path())), None)]);
     let [TlsFinding::Unreadable { reason, near, .. }] = &folder[..] else { panic!("{folder:?}") };
     assert_eq!((reason.as_str(), near.len()), ("it is not a regular file", 0));
