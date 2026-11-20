@@ -2,13 +2,14 @@ use std::fmt;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+use vc_adapter_http::HttpTlsLoader;
 use vc_adapter_plugins::{Confiner, FsPluginStore};
 use vc_adapter_secrets::OsKeychain;
 use vc_adapter_system::{FsCompileCache, FsSources, GitVcs, NotifyWatcher, ProcessRunner, SystemClock};
 use vc_interfaces::{
     AgentActionLog, Approvals, AuthProvider, Browser, CacheStore, Clock, CommandRunner, CompileCacheStore, Environment,
     FileWatcher, HistoryReader, HistoryWriter, HookRunner, Keychain, NotifierFactory, PluginStderr, PluginStore,
-    SourceProvider, SourceWriter, Transport, Vcs,
+    SourceProvider, SourceWriter, TlsLoader, Transport, Vcs,
 };
 
 use crate::EngineError;
@@ -23,6 +24,7 @@ pub struct EngineBuilder {
     clock: Option<Arc<dyn Clock>>,
     environment: Option<Arc<dyn Environment>>,
     transport: Option<Arc<dyn Transport>>,
+    tls_loader: Option<Arc<dyn TlsLoader>>,
     vcs: Option<Arc<dyn Vcs>>,
     commands: Option<Arc<dyn CommandRunner>>,
     hooks: Option<Arc<dyn HookRunner>>,
@@ -64,6 +66,7 @@ impl EngineBuilder {
             clock: None,
             environment: None,
             transport: None,
+            tls_loader: None,
             vcs: None,
             commands: None,
             hooks: None,
@@ -204,6 +207,14 @@ impl EngineBuilder {
         self
     }
 
+    /// Reads `http.tls`'s roots and client identities with `loader` instead of the HTTP
+    /// transport's; what it loads goes to the transport the builder was given.
+    #[must_use]
+    pub fn tls_loader(mut self, loader: Arc<dyn TlsLoader>) -> Self {
+        self.tls_loader = Some(loader);
+        self
+    }
+
     /// Obtains credentials through `auth` instead of the standard auth types (D106).
     #[must_use]
     pub fn auth(mut self, auth: Arc<dyn AuthProvider>) -> Self {
@@ -281,6 +292,7 @@ impl EngineBuilder {
             clock,
             environment: self.environment,
             transport: self.transport,
+            tls_loader: self.tls_loader.unwrap_or_else(|| Arc::new(HttpTlsLoader)),
             vcs,
             commands,
             hooks: self.hooks,
@@ -314,6 +326,7 @@ pub struct Engine {
     pub(crate) clock: Arc<dyn Clock>,
     pub(crate) environment: Option<Arc<dyn Environment>>,
     pub(crate) transport: Option<Arc<dyn Transport>>,
+    pub(crate) tls_loader: Arc<dyn TlsLoader>,
     pub(crate) vcs: Arc<dyn Vcs>,
     pub(crate) commands: Arc<dyn CommandRunner>,
     pub(crate) hooks: Option<Arc<dyn HookRunner>>,

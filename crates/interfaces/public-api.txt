@@ -105,6 +105,15 @@ impl core::fmt::Debug for vc_interfaces::CertChoice
 pub fn vc_interfaces::CertChoice::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Copy for vc_interfaces::CertChoice
 impl core::marker::StructuralPartialEq for vc_interfaces::CertChoice
+pub enum vc_interfaces::ClientSource
+pub vc_interfaces::ClientSource::Pem
+pub vc_interfaces::ClientSource::Pem::cert: vc_interfaces::MaterialSource
+pub vc_interfaces::ClientSource::Pem::key: vc_interfaces::MaterialSource
+pub vc_interfaces::ClientSource::Pkcs12
+pub vc_interfaces::ClientSource::Pkcs12::bundle: vc_interfaces::MaterialSource
+pub vc_interfaces::ClientSource::Pkcs12::passphrase: vc_interfaces::Passphrase
+impl core::fmt::Debug for vc_interfaces::ClientSource
+pub fn vc_interfaces::ClientSource::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 #[non_exhaustive] pub enum vc_interfaces::CommandError
 pub vc_interfaces::CommandError::Failed
 pub vc_interfaces::CommandError::Failed::program: alloc::string::String
@@ -283,6 +292,13 @@ impl core::fmt::Display for vc_interfaces::Limit
 pub fn vc_interfaces::Limit::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Copy for vc_interfaces::Limit
 impl core::marker::StructuralPartialEq for vc_interfaces::Limit
+pub enum vc_interfaces::MaterialSource
+pub vc_interfaces::MaterialSource::File
+pub vc_interfaces::MaterialSource::File::path: std::path::PathBuf
+pub vc_interfaces::MaterialSource::File::shown: core::option::Option<alloc::string::String>
+pub vc_interfaces::MaterialSource::Inline(zeroize::Zeroizing<alloc::vec::Vec<u8>>)
+impl core::fmt::Debug for vc_interfaces::MaterialSource
+pub fn vc_interfaces::MaterialSource::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 #[non_exhaustive] pub enum vc_interfaces::NotifyError
 pub vc_interfaces::NotifyError::Send
 pub vc_interfaces::NotifyError::Send::channel: alloc::string::String
@@ -524,6 +540,39 @@ pub fn vc_interfaces::SourceError::fmt(&self, &mut core::fmt::Formatter<'_>) -> 
 impl core::fmt::Display for vc_interfaces::SourceError
 pub fn vc_interfaces::SourceError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_interfaces::SourceError
+pub enum vc_interfaces::TlsError
+pub vc_interfaces::TlsError::Mismatch
+pub vc_interfaces::TlsError::Mismatch::part: vc_interfaces::TlsPart
+pub vc_interfaces::TlsError::Mismatch::reason: alloc::string::String
+pub vc_interfaces::TlsError::Unusable
+pub vc_interfaces::TlsError::Unusable::part: vc_interfaces::TlsPart
+pub vc_interfaces::TlsError::Unusable::reason: alloc::string::String
+impl core::clone::Clone for vc_interfaces::TlsError
+pub fn vc_interfaces::TlsError::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::TlsError
+impl core::cmp::PartialEq for vc_interfaces::TlsError
+pub fn vc_interfaces::TlsError::eq(&self, &Self) -> bool
+impl core::error::Error for vc_interfaces::TlsError
+impl core::fmt::Debug for vc_interfaces::TlsError
+pub fn vc_interfaces::TlsError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for vc_interfaces::TlsError
+pub fn vc_interfaces::TlsError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::TlsError
+pub enum vc_interfaces::TlsPart
+pub vc_interfaces::TlsPart::Ca(usize)
+pub vc_interfaces::TlsPart::Client
+pub vc_interfaces::TlsPart::Client::field: core::option::Option<&'static str>
+pub vc_interfaces::TlsPart::Client::id: alloc::string::String
+impl core::clone::Clone for vc_interfaces::TlsPart
+pub fn vc_interfaces::TlsPart::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::TlsPart
+impl core::cmp::PartialEq for vc_interfaces::TlsPart
+pub fn vc_interfaces::TlsPart::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_interfaces::TlsPart
+pub fn vc_interfaces::TlsPart::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for vc_interfaces::TlsPart
+pub fn vc_interfaces::TlsPart::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::TlsPart
 #[non_exhaustive] pub enum vc_interfaces::TransportError
 pub vc_interfaces::TransportError::BodyTooLarge
 pub vc_interfaces::TransportError::BodyTooLarge::limit: vc_model::units::Size
@@ -832,6 +881,12 @@ pub fn vc_interfaces::CheckRow::default() -> Self
 impl core::fmt::Debug for vc_interfaces::CheckRow
 pub fn vc_interfaces::CheckRow::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_interfaces::CheckRow
+pub struct vc_interfaces::ClientSpec
+pub vc_interfaces::ClientSpec::hosts: alloc::vec::Vec<alloc::string::String>
+pub vc_interfaces::ClientSpec::id: alloc::string::String
+pub vc_interfaces::ClientSpec::material: vc_interfaces::ClientSource
+impl core::fmt::Debug for vc_interfaces::ClientSpec
+pub fn vc_interfaces::ClientSpec::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 #[non_exhaustive] pub struct vc_interfaces::CommandOutput
 pub vc_interfaces::CommandOutput::status: core::option::Option<i32>
 pub vc_interfaces::CommandOutput::stderr: alloc::vec::Vec<u8>
@@ -1246,6 +1301,12 @@ pub fn vc_interfaces::KeychainError::fmt(&self, &mut core::fmt::Formatter<'_>) -
 impl core::fmt::Display for vc_interfaces::KeychainError
 pub fn vc_interfaces::KeychainError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_interfaces::KeychainError
+pub struct vc_interfaces::LoadedTls(_)
+impl vc_interfaces::LoadedTls
+pub fn vc_interfaces::LoadedTls::new<T: core::any::Any + core::marker::Send + core::marker::Sync>(T) -> Self
+pub fn vc_interfaces::LoadedTls::take<T: core::any::Any>(self) -> core::option::Option<T>
+impl core::fmt::Debug for vc_interfaces::LoadedTls
+pub fn vc_interfaces::LoadedTls::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 pub struct vc_interfaces::LoggedAction
 pub vc_interfaces::LoggedAction::action: vc_interfaces::AgentAction
 pub vc_interfaces::LoggedAction::at_ms: u64
@@ -1316,6 +1377,17 @@ pub fn vc_interfaces::NoticeFailure::eq(&self, &Self) -> bool
 impl core::fmt::Debug for vc_interfaces::NoticeFailure
 pub fn vc_interfaces::NoticeFailure::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_interfaces::NoticeFailure
+pub struct vc_interfaces::Passphrase(pub zeroize::Zeroizing<alloc::string::String>)
+impl core::clone::Clone for vc_interfaces::Passphrase
+pub fn vc_interfaces::Passphrase::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::Passphrase
+impl core::cmp::PartialEq for vc_interfaces::Passphrase
+pub fn vc_interfaces::Passphrase::eq(&self, &Self) -> bool
+impl core::default::Default for vc_interfaces::Passphrase
+pub fn vc_interfaces::Passphrase::default() -> Self
+impl core::fmt::Debug for vc_interfaces::Passphrase
+pub fn vc_interfaces::Passphrase::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::Passphrase
 pub struct vc_interfaces::PluginManifest
 pub vc_interfaces::PluginManifest::args: alloc::vec::Vec<alloc::string::String>
 pub vc_interfaces::PluginManifest::command: alloc::string::String
@@ -1629,6 +1701,13 @@ impl core::fmt::Debug for vc_interfaces::TimingRow
 pub fn vc_interfaces::TimingRow::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Copy for vc_interfaces::TimingRow
 impl core::marker::StructuralPartialEq for vc_interfaces::TimingRow
+pub struct vc_interfaces::TlsSpec
+pub vc_interfaces::TlsSpec::ca: alloc::vec::Vec<vc_interfaces::MaterialSource>
+pub vc_interfaces::TlsSpec::clients: alloc::vec::Vec<vc_interfaces::ClientSpec>
+impl core::default::Default for vc_interfaces::TlsSpec
+pub fn vc_interfaces::TlsSpec::default() -> Self
+impl core::fmt::Debug for vc_interfaces::TlsSpec
+pub fn vc_interfaces::TlsSpec::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 #[non_exhaustive] pub struct vc_interfaces::WatchError
 pub vc_interfaces::WatchError::reason: alloc::string::String
 impl vc_interfaces::WatchError
@@ -1763,6 +1842,8 @@ pub trait vc_interfaces::SpecFetcher: core::marker::Send + core::marker::Sync
 pub fn vc_interfaces::SpecFetcher::decode(&self, &str, &[u8]) -> core::result::Result<serde_json::value::Value, vc_interfaces::FetchError>
 pub fn vc_interfaces::SpecFetcher::fetch<'life0, 'life1, 'async_trait>(&'life0 self, &'life1 str) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::result::Result<alloc::vec::Vec<u8>, vc_interfaces::FetchError>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait, 'life1: 'async_trait
 pub fn vc_interfaces::SpecFetcher::list<'life0, 'life1, 'async_trait>(&'life0 self, &'life1 str) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::result::Result<alloc::vec::Vec<alloc::string::String>, vc_interfaces::FetchError>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait, 'life1: 'async_trait
+pub trait vc_interfaces::TlsLoader: core::marker::Send + core::marker::Sync
+pub fn vc_interfaces::TlsLoader::load(&self, vc_interfaces::TlsSpec) -> core::result::Result<vc_interfaces::LoadedTls, vc_interfaces::TlsError>
 pub trait vc_interfaces::Transport: core::marker::Send + core::marker::Sync
 pub fn vc_interfaces::Transport::send<'life0, 'life1, 'async_trait>(&'life0 self, vc_model::exchange::RenderedRequest, &'life1 vc_interfaces::SendContext) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::result::Result<vc_model::exchange::Exchange, vc_interfaces::TransportError>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait, 'life1: 'async_trait
 pub trait vc_interfaces::Vcs: core::marker::Send + core::marker::Sync

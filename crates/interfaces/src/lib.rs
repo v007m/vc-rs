@@ -41,6 +41,8 @@
 //!   secrets its [`PluginManifest`] declares.
 //! - [`PluginStore`]: fetches a plugin for `vc plugin add`, installs it under
 //!   `.vibranium/plugins/`, and reads `vibranium.lock` and the installed manifests.
+//! - [`TlsLoader`]: reads and checks the roots and client identities of `http.tls` once, before
+//!   the first request, for the transport that presents them (D390).
 //!
 //! ```
 //! use vc_interfaces::{SourceFilter, content_hash, source_file};
@@ -80,6 +82,7 @@ mod run_filter;
 mod secrets;
 mod source;
 mod source_problems;
+mod tls;
 mod transport;
 mod trend;
 mod vcs;
@@ -125,6 +128,7 @@ pub use run_filter::RunFilter;
 pub use secrets::{Secret, SecretError, SecretProvider, SecretQuery, Secrets};
 pub use source::{Discovery, SourceError, SourceProvider, SourceWriter, content_hash, source_file};
 pub use source_problems::add_problems;
+pub use tls::{ClientSource, ClientSpec, LoadedTls, MaterialSource, Passphrase, TlsError, TlsLoader, TlsPart, TlsSpec};
 pub use transport::{CertChoice, CertId, SendContext, SentCert, Transport, TransportError};
 pub use trend::{ApiTrend, TestTrend, api_trends};
 pub use vcs::{Vcs, VcsError, checked_ref};

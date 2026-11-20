@@ -5,8 +5,8 @@
 //! and the TLS handshake (rustls with ring, the OS certificate store plus extra roots, webpki
 //! verification always on, ALPN h2 and HTTP/1.1). [`TlsOptions`] adds PEM CA bundles and
 //! [`ClientIdentity`] client certificates (PEM or PKCS#12), each with its own connection pool, picked per request
-//! by `SendContext::client_cert`: named, or by matching the URL's host; [`read_material`] reads
-//! their files, capped and wiped when dropped. Bodies are read up to a
+//! by `SendContext::client_cert`: named, or by matching the URL's host; [`HttpTlsLoader`] reads
+//! their files, capped and wiped when dropped, and builds them (`vc_interfaces::TlsLoader`). Bodies are read up to a
 //! cap and decoded (gzip, br, zstd, deflate) with the decoded size capped too. Proxies come from
 //! [`ProxyConfig`], which the engine reads from `HTTP_PROXY`, `HTTPS_PROXY` and `NO_PROXY`
 //! through its environment source. Header values never appear in errors or `Debug` output.
@@ -17,6 +17,7 @@ mod connector;
 mod error;
 mod hosts;
 mod identity;
+mod loader;
 mod material;
 mod pkcs12;
 mod pkcs12_reason;
@@ -27,6 +28,6 @@ mod transport;
 
 pub use error::HttpAdapterError;
 pub use identity::ClientIdentity;
-pub use material::read_material;
+pub use loader::HttpTlsLoader;
 pub use proxy::ProxyConfig;
 pub use transport::{HttpOptions, HttpTransport, TlsOptions};

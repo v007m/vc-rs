@@ -212,7 +212,7 @@ impl Engine {
         let hooks = self.hook_runner(&prepared.program);
         let rules =
             MaskRules::standard().with_hooks(RuleHooks::new(hooks.clone(), inputs.secrets.clone()), &prepared.program);
-        let transport = self.transport_with(prepared.environment.as_ref(), tls.options)?;
+        let transport = self.transport_with(prepared.environment.as_ref(), tls.loaded)?;
         let auth = self.auth(Arc::clone(&transport), plugins);
         let executors = self.executors(prepared, transport, hooks);
         let cx = ActionCx::new(Arc::clone(&prepared.program), executors, inputs).with_mask_rules(&rules);
