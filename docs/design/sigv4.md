@@ -1,6 +1,6 @@
 # AWS SigV4: the `awsSigV4` auth type (#106)
 
-Status: proposed on 20 November 2026 and awaiting Sarath's approval. The decisions are Round 82 (D431–D442) in `decision-log.md`, all marked proposed. Only Q1 below needs an answer; everything else is a refinement made under delegation, and Sarath can overrule any of it.
+Status: approved by Sarath on 20 November 2026, with Q1 (a) below. The decisions are Round 83 (D431–D443) in `decision-log.md`.
 
 ## Goal and scope
 
@@ -80,7 +80,7 @@ Where credentials come from:
 - An implicit lookup would make a run depend on whatever machine it runs on, and could sign with the wrong account without a word. An explicit `${secret.AWS_SECRET_ACCESS_KEY}` already reads the standard environment variable through the secrets adapter, and keeps it masked.
 - A secrets provider that reads a named profile from the AWS shared files is in "Later". It would plug in behind the same `${secret.X}` names, with nothing changed here.
 
-When signing happens (D433, amending D141):
+When signing happens (D433, D443, amending D141):
 
 - The pipeline becomes timing → retry (`refreshOn`, `http.retry`) → auth → `beforeRequest` hooks → per-host limit → **sign** → timeout (per attempt) → transport.
 - The sign stage is a null object for every other auth type.
@@ -195,7 +195,7 @@ How the parts fit:
 - The canonical request and the string to sign are never logged, reported or put in an error.
 - V4014's excerpt masks the value, as V4013's does.
 
-## Decisions (Round 82, proposed)
+## Decisions (Round 83)
 
 | D | Decision |
 | --- | --- |
@@ -211,6 +211,7 @@ How the parts fit:
 | D440 | Diagnostics: V1005 (a missing required key) and V2302 (`payload`) are reused. V2316 is new: an error for a literal `region` or `service` that is not lowercase letters, digits and `-`, with lowercasing as a certain fix when that makes it valid. V4014 is new: a warning for a literal `secretAccessKey` or `sessionToken`, with the value masked in the excerpt. At run time, unusable settings are V5114. Signing itself cannot fail, so there is no new V5 code. |
 | D441 | Tests: the AWS SigV4 test-suite vectors (Apache-2.0, from `awslabs/aws-c-auth`) are vendored unchanged with their licence and source commit. They drive the pure signer, and the vectors it cannot represent are listed as skipped, with reasons. The mock verifies signatures independently at `/aws/*`. The transport suite pins `host`. |
 | D442 | Dependencies: the signer is hand-rolled on `hmac` 0.13 and `sha2` 0.11, already workspace dependencies (`vc-adapter-hooks` uses both), plus `percent-encoding` and `zeroize`, also already there. The `aws-sigv4` crate is not used: it brings `aws-smithy-*`, `aws-credential-types` and their dependencies for about 300 lines of rules that the AWS vectors pin. No `hex` crate either: hex encoding is a five-line function. |
+| D443 | D141 amended: timing → retry → auth → `beforeRequest` hooks → per-host limit → sign → timeout → transport. |
 
 Candidate V codes (V1005, V2302 and V5114 are reused; V1 and V3 need nothing new):
 
@@ -272,15 +273,15 @@ Wire and end to end (PR 4):
 - Choosing the signed headers, or leaving `x-amz-content-sha256` out, if a service turns out to refuse it.
 - Importers: OpenAPI's `x-amazon-apigateway-authtype: awsSigv4` becoming an `awsSigV4` definition.
 
-## Questions for Sarath
+## Questions Sarath answered (20 November 2026)
 
 **Q1. Where the request is signed.** D141 fixes the pipeline order, and signing "after every header is set" (issue #106, D134) needs a step after the `beforeRequest` hooks, which D141 puts after auth.
 
-- (a) **Recommended.** A new sign stage after the per-host limit, before the per-attempt timeout (D433, amending D141). Hook changes are signed, and the date is fresh even after a wait for a permit. It is a null object for the other types.
+- (a) **Chosen.** A new sign stage after the per-host limit, before the per-attempt timeout (D433, D443, amending D141). Hook changes are signed, and the date is fresh even after a wait for a permit. It is a null object for the other types.
 - (b) A new sign stage right after the hooks, before the per-host limit. The same, except that a request that waits long for a permit carries an older date. AWS allows 5 to 15 minutes.
 - (c) No new stage: sign inside the auth stage, before the hooks. D141 is unchanged, but a hook that touches a signed header, the body or the URL breaks the signature, and the issue's "after every other header" is not met.
 
-Nothing else needs Sarath: there is no new dependency (D442) and no other D row changes. The credential source (D432) and the S3 rules (D436) are decided above, and either is open to his veto.
+The rest was approved as written: the credential source (D432), the S3 rules (D436), the hand-rolled signer (D442), V2316 and V4014.
 
 ## PR split (each under about 400 changed lines of code; the vendored vectors are data)
 

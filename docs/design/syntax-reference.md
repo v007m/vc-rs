@@ -1104,7 +1104,7 @@ Auth definitions live in `vibranium.config.yaml` under `auth`, are written once,
 | `flow` | `steps`, `apply`, `expiresIn`, `refreshBefore`, `refreshOn`, `cache` | Any sequence of requests that ends in credentials (below) |
 | `plugin` | `plugin`, `config` | Custom schemes through an auth plugin: `plugin` is the ID of an `auth` plugin in `plugins:`, and `config` is passed to its `auth/credentials` call. `config` is rendered like other auth settings, so a `${secret.x}` in it is sent to the plugin whatever the lock grants (writing it there is the grant), and stays masked in output. A plugin that is not ready or answers with no values fails the call with V5114 |
 | `mtls` | `clientCert` | Only presents a client certificate, and adds no headers (D350, D371) |
-| `awsSigV4` | `region`, `service`, `accessKeyId`, `secretAccessKey`, `sessionToken`, `payload` | Planned, not built yet: signs each request with AWS SigV4 (#106; proposed in `docs/design/sigv4.md`, D431–D442) |
+| `awsSigV4` | `region`, `service`, `accessKeyId`, `secretAccessKey`, `sessionToken`, `payload` | Planned, not built yet: signs each request with AWS SigV4 (#106; `docs/design/sigv4.md`, D431–D443) |
 
 Any definition can also name a client certificate with `clientCert: <id>`, the ID of an `http.tls.clients` entry (see Client certificates). Every request made under the definition presents it, and so do the token posts of the `oauth2*` types, for certificate-bound tokens (RFC 8705). `clientCert: none` presents no certificate, even to a host that has one, for negative tests. `clientCert` is a literal ID, never a template.
 
