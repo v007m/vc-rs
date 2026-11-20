@@ -13,6 +13,9 @@ use crate::suggest::{self, Misspelling};
 use crate::value;
 
 mod errors;
+mod messages;
+
+pub use messages::checks as message_checks;
 
 /// What a matcher takes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -108,8 +111,11 @@ struct Listed {
 /// Lowers the value at `at`, in the list's unit or its entry's.
 type Lower = fn(&mut Cx<'_>, At<'_>, Unit) -> Option<Matcher>;
 
-/// Every such list: `expect.errors` (D345).
-const LISTED: &[Listed] = &[Listed { list: Unit::Errors, each: Unit::Error, lower: errors::expected }];
+/// Every such list: `expect.errors` (D345) and a stream call's messages (D380).
+const LISTED: &[Listed] = &[
+    Listed { list: Unit::Errors, each: Unit::Error, lower: errors::expected },
+    Listed { list: Unit::Messages, each: Unit::Message, lower: messages::expected },
+];
 
 /// The list whose own unit, or whose entry's, `unit` is.
 fn listed(unit: Unit) -> Option<&'static Listed> {
