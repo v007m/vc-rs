@@ -1,6 +1,7 @@
 //! `vc check`'s look at the `http.tls` material the config writes as text (D408–D411): each value
 //! is read through the transport factory's `inspect`, and each finding becomes a diagnostic at the
-//! value as written. A value with a `${…}` is left to the run, which renders it first.
+//! value as written. A value with a `${…}` is left to the run, which renders it first, and whose
+//! start turns the same findings into notices (D412).
 
 use std::path::Path;
 
@@ -29,6 +30,9 @@ const LOAD_HELP: &str = "give a PEM certificate, an unencrypted PEM key or a PKC
 
 /// What fits a certificate.
 const FIT_HELP: &str = "use the key issued with the certificate, or the bundle's own passphrase";
+
+/// What a key file others can read is (V4012).
+const OPEN: &str = "is open to other users";
 
 /// The characters a shell word may hold unquoted.
 const SHELL_SAFE: &[char] = &['/', '.', '_', '-', '+', ':', '@', '%', ','];
@@ -144,7 +148,7 @@ impl Made<'_> {
             }
             Self::Dated(dated) => dated.diagnostic(node, part),
             Self::Exposed(mode) => {
-                let message = format!("{part}: `{written}` is open to other users (mode {mode:03o})");
+                let message = format!("{part}: `{written}` {OPEN} (mode {mode:03o})");
                 let help = format!(
                     "make it readable by you alone, from the project root: `chmod 600 {}`",
                     shell_word(written)
@@ -170,8 +174,14 @@ enum Dated {
 
 impl Dated {
     fn diagnostic(self, node: &Node, part: &TlsPart) -> Diagnostic {
+        let (code, message, label, help) = self.said(part);
+        Diagnostic::new(code, node.span, message).label(label).help(help)
+    }
+
+    /// The code, message, label and help for `part` dated so.
+    fn said(self, part: &TlsPart) -> (Code, String, &'static str, String) {
         let refused = "servers refuse it at the handshake";
-        let (code, message, label, help) = match self {
+        match self {
             Self::Expired(on) => (
                 Code::V3108,
                 format!("{part} expired on {on}"),
@@ -198,8 +208,25 @@ impl Dated {
                 "expires today",
                 format!("renew it now and point the config at the new one; once it ends {refused}"),
             ),
-        };
-        Diagnostic::new(code, node.span, message).label(label).help(help)
+        }
+    }
+}
+
+/// The notice `finding` gives at the start of a run on `today` (D412): a client certificate
+/// that expires soon or is not valid today (V3107, V3108), or a key file others can read
+/// (V4012). It names the part, never a rendered path. Material that cannot be read, used or
+/// fitted stopped the transport's build before this, so it gives none.
+pub fn run_notice(finding: &TlsFinding, today: Date) -> Option<String> {
+    match finding {
+        TlsFinding::Validity { part, not_before, not_after } => {
+            let (code, message, _, help) = dated((*not_before, *not_after), today)?.said(part);
+            Some(format!("{code}: {message}; {help}"))
+        }
+        TlsFinding::Exposed { part, mode } => Some(format!(
+            "{}: {part}: its file {OPEN} (mode {mode:03o}); make it readable by you alone with `chmod 600`",
+            Code::V4012
+        )),
+        TlsFinding::Unreadable { .. } | TlsFinding::Unusable { .. } | TlsFinding::Mismatch { .. } => None,
     }
 }
 

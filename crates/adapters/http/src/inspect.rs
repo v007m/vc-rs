@@ -10,7 +10,7 @@ use rustls::RootCertStore;
 use vc_interfaces::{MaterialSource, NEAR_NAMES, Secret, TlsFinding, TlsPart, TlsProbe};
 use zeroize::Zeroizing;
 
-use crate::identity::pem_chain;
+use crate::identity::{lone_key, pem_chain};
 use crate::material::read_material;
 use crate::tls::add_ca;
 use crate::{ClientIdentity, HttpAdapterError};
@@ -44,12 +44,18 @@ impl Findings {
         }
     }
 
-    /// A PEM identity: the chain's leaf dated, and the key checked against it when both are known.
+    /// A PEM identity: the chain's leaf dated, and the key checked against it when both are known,
+    /// or loaded alone when only it is (D430).
     fn pem(&mut self, id: &str, (cert, key): (Option<&MaterialSource>, Option<&MaterialSource>)) {
         let (cert_part, key_part) = (client(id, "cert"), client(id, "key"));
         let cert = cert.and_then(|source| self.read(source, &cert_part));
         let key = key.and_then(|source| self.key(source, &key_part));
-        let Some(mut cert) = cert else { return };
+        let Some(mut cert) = cert else {
+            if let Some(Err(reason)) = key.map(|key| lone_key(&key)) {
+                self.0.push(TlsFinding::Unusable { part: key_part, reason });
+            }
+            return;
+        };
         match pem_chain(&cert) {
             Ok(chain) => chain.first().into_iter().for_each(|leaf| self.validity(&cert_part, leaf)),
             Err(reason) => {

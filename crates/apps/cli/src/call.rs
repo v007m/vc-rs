@@ -60,7 +60,7 @@ impl CallArgs {
 
 fn shown(report: &CallReport) -> anyhow::Result<()> {
     for notice in &report.notices {
-        eprintln!("warning: {notice}");
+        eprintln!("{}", crate::run::warning(notice));
     }
     write!(stdout::out(), "{}", report.text)?;
     Ok(())

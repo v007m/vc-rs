@@ -1,0 +1,69 @@
+---
+title: "V4012 — A client key file can be read by other users"
+description: "On Linux and macOS, vc check looks at the mode of each http.tls.clients key and pkcs12 file the config names as text, after following links."
+sidebar:
+  label: "V4012 A client key file can be read by other users"
+  order: 4012
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="warning" variant="caution" /> <Badge text="Conventions" variant="note" />
+
+| | |
+| --- | --- |
+| Code | `V4012` |
+| Category | V4xxx: Conventions |
+| Severity | warning |
+| Certain fix | — (help: `chmod 600 <path>`) |
+
+On Linux and macOS, `vc check` looks at the mode of each `http.tls.clients` `key` and `pkcs12` file the config names
+as text, after following links. A file that its group or other users can read or write holds a private key anyone
+on the machine can take. Make it readable by you alone with `chmod 600`, run from the project root. A run still uses
+the file, and says the same in a warning at its end, about each key its profiles present, one whose path is rendered
+from a `${…}` too.
+
+## Wrong
+
+```yaml title="vibranium.config.yaml"
+syntaxVersion: 2
+profiles:
+  - id: dev
+    default: true
+http:
+  tls:
+    clients:
+      - id: paymentsClient
+        hosts: [payments.internal.example]
+        cert: certs/payments-client.pem
+        key: certs/payments-client.key
+```
+
+```console
+$ ls -l certs/payments-client.key
+-rw-r--r--  1 dev  staff  241 Nov 20 09:12 certs/payments-client.key
+```
+
+## Right
+
+```console
+$ chmod 600 certs/payments-client.key
+$ ls -l certs/payments-client.key
+-rw-------  1 dev  staff  241 Nov 20 09:12 certs/payments-client.key
+```
+
+
+## Explain it in your terminal
+
+The same page is built into the binary, so this works anywhere, even outside a project:
+
+```console
+$ vc explain V4012
+```
+
+## Related
+
+- [All diagnostic codes](/vc-rs/reference/diagnostics/)
+- [`vc explain`](/vc-rs/reference/cli/explain/)
+- [`vc check`](/vc-rs/reference/cli/check/)
+- [Errors and fixes](/vc-rs/guides/errors-and-fixes/)

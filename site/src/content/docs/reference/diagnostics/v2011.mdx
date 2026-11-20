@@ -1,0 +1,72 @@
+---
+title: "V2011 — A client certificate, key or trusted root file cannot be read"
+description: "vc check reads the http.tls files the config names as text: each ca root, and the cert, key or pkcs12 of every clients entry, whatever its profiles."
+sidebar:
+  label: "V2011 A client certificate, key or trusted root file cannot be read"
+  order: 2011
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="error" variant="danger" /> <Badge text="References and types" variant="note" />
+
+| | |
+| --- | --- |
+| Code | `V2011` |
+| Category | V2xxx: References and types |
+| Severity | error |
+| Certain fix | the one close name in its folder (certain fix, when the path is written plainly) |
+
+`vc check` reads the `http.tls` files the config names as text: each `ca` root, and the `cert`, `key` or `pkcs12`
+of every `clients` entry, whatever its `profiles`. A file that is missing, cannot be opened, is not a regular file
+(a FIFO, a device, a folder) or is over 1 MiB is this error, which a run would stop on (V5125). A relative path is
+read from the project root. When the file is missing and one name in its folder is close, the fix is to use it. A
+value with a `${…}` is left to the run, which renders it first.
+
+## Wrong
+
+```yaml wrong V2011 title="vibranium.config.yaml"
+syntaxVersion: 2
+profiles:
+  - id: dev
+    default: true
+http:
+  tls:
+    clients:
+      - id: paymentsClient
+        hosts: [payments.internal.example]
+        cert: certs/payments-client.pem
+        key: certs/payments-clinet.key
+```
+
+## Right
+
+```yaml title="vibranium.config.yaml"
+syntaxVersion: 2
+profiles:
+  - id: dev
+    default: true
+http:
+  tls:
+    clients:
+      - id: paymentsClient
+        hosts: [payments.internal.example]
+        cert: certs/payments-client.pem
+        key: certs/payments-client.key
+```
+
+
+## Explain it in your terminal
+
+The same page is built into the binary, so this works anywhere, even outside a project:
+
+```console
+$ vc explain V2011
+```
+
+## Related
+
+- [All diagnostic codes](/vc-rs/reference/diagnostics/)
+- [`vc explain`](/vc-rs/reference/cli/explain/)
+- [`vc check`](/vc-rs/reference/cli/check/)
+- [Errors and fixes](/vc-rs/guides/errors-and-fixes/)

@@ -18,13 +18,14 @@ use crate::{Engine, EngineError, Interrupts, RunReport};
 pub const EXIT_CANCELLED: u8 = 130;
 
 /// What a run is secured with: its declared secrets, the transport built from its `http.tls`,
-/// the `CertId` of each identity that transport presents, and the values the redactor hides
-/// besides the secrets.
+/// the `CertId` of each identity that transport presents, the values the redactor hides
+/// besides the secrets, and the notices its material gives (D412).
 pub struct Secured {
     pub(crate) secrets: Secrets,
     pub(crate) transport: Arc<dyn Transport>,
     pub(crate) certs: ClientCerts,
     pub(crate) hidden: Vec<Secret>,
+    pub(crate) notices: Vec<String>,
 }
 
 impl Engine {
@@ -41,8 +42,9 @@ impl Engine {
 
     /// [`Engine::secure`] for a run of `prepared`, with its example-row labels masked by a
     /// redactor like the one its events go through, so no label reaches a reporter, the history
-    /// or a watcher unmasked. `None` when an interrupt comes first: the step, which a PKCS#12
-    /// bundle's key derivation can make slow, is not waited for.
+    /// or a watcher unmasked, and the secured step's notices moved to `prepared`'s. `None` when
+    /// an interrupt comes first: the step, which a PKCS#12 bundle's key derivation can make
+    /// slow, is not waited for.
     ///
     /// # Errors
     ///
@@ -53,11 +55,12 @@ impl Engine {
         interrupts: &mut Interrupts,
     ) -> Result<Option<Secured>, EngineError> {
         let reads = crate::ports::run_reads(prepared);
-        let secured = tokio::select! {
+        let mut secured = tokio::select! {
             biased;
             Some(()) = interrupts.next() => return Ok(None),
             secured = self.secure(prepared, &reads) => secured?,
         };
+        prepared.notices.append(&mut secured.notices);
         if !prepared.plan.row_names.is_empty() {
             self.mask_rows(prepared, &secured).await;
         }

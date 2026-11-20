@@ -105,7 +105,7 @@ fn line(event: &Event) -> Option<String> {
 /// Prints the notices and the summary (or the JSON report), and ends with the run's exit code.
 fn finished(report: &LoadReport, json: bool) -> anyhow::Result<Outcome> {
     for notice in &report.notices {
-        eprintln!("warning: {notice}");
+        eprintln!("{}", crate::run::warning(notice));
     }
     let mut out = stdout::out();
     if json {
