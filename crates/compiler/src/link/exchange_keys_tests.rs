@@ -27,14 +27,17 @@ fn compile(apis: &str, tests: &str) -> Compiled {
     crate::compile(CompileInput { files, ..CompileInput::default() })
 }
 
-/// Each diagnostic as its code, line, message and certain fix's title.
-fn found(compiled: &Compiled) -> Vec<(Code, u32, String, Option<String>)> {
+/// A diagnostic as its code, line, message and certain fix's title.
+type Row = (Code, u32, String, Option<String>);
+
+/// Each diagnostic as a [`Row`].
+fn found(compiled: &Compiled) -> Vec<Row> {
     let fix = |found: &Diagnostic| found.fixes.iter().find(|fix| fix.certain).map(|fix| fix.title.clone());
     let row = |found: &Diagnostic| (found.code, found.primary.span.start.line, found.message.clone(), fix(found));
     compiled.diagnostics.iter().map(row).collect()
 }
 
-fn row(code: Code, line: u32, message: &str, fix: Option<&str>) -> (Code, u32, String, Option<String>) {
+fn row(code: Code, line: u32, message: &str, fix: Option<&str>) -> Row {
     (code, line, message.to_owned(), fix.map(str::to_owned))
 }
 
