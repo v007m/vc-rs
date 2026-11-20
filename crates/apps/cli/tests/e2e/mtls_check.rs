@@ -49,7 +49,7 @@ fn check(project: &Project) -> (String, Option<i32>) {
 }
 
 /// `days` days from now.
-fn days(days: i64) -> SystemTime {
+pub fn days(days: i64) -> SystemTime {
     let span = Duration::from_hours(24 * days.unsigned_abs());
     if days < 0 { SystemTime::now() - span } else { SystemTime::now() + span }
 }

@@ -6,7 +6,7 @@ use async_trait::async_trait;
 use tokio::sync::mpsc;
 use vc_interfaces::{
     CommandError, CommandOutput, CommandRunner, CommandSpec, Environment, HistoryError, HistoryWriter, Row, RunEnd,
-    RunId, RunStart, Secret, TlsError, TlsPart, TlsSpec, Transport, TransportFactory,
+    RunId, RunStart, Secret, TlsError, TlsFinding, TlsPart, TlsProbe, TlsSpec, Transport, TransportFactory,
 };
 use vc_model::Keep;
 use vc_testkit::{FakeTransport, FakeVcs, MemoryCacheStore, MemoryEnvironment, MemoryHistory, MemorySources, status};
@@ -42,7 +42,8 @@ const LOAD: &str = "mix:\n  - {test: echo.send#sendsRows, weight: 1}\nstages:\n 
 
 /// A transport factory that refuses with `refusal` or builds a transport answering 200, once
 /// `released` is set or a few seconds have passed; it notes in `started` that it began, and
-/// counts its builds in `builds`.
+/// counts its builds in `builds`. Its inspections find `findings`, and count in `inspected`
+/// those whose probes hold `bank`'s bundle with the passphrase rendered.
 #[derive(Default)]
 struct Loader {
     refusal: Option<TlsError>,
@@ -50,6 +51,8 @@ struct Loader {
     started: Arc<AtomicBool>,
     released: Arc<AtomicBool>,
     builds: Arc<AtomicUsize>,
+    findings: Vec<TlsFinding>,
+    inspected: Arc<AtomicUsize>,
 }
 
 impl TransportFactory for Loader {
@@ -62,6 +65,17 @@ impl TransportFactory for Loader {
         }
         let transport: Arc<dyn Transport> = Arc::new(FakeTransport::new(|_, _| Ok(status(200))));
         self.refusal.clone().map_or_else(|| Ok(transport), Err)
+    }
+
+    fn inspect(&self, probes: &[TlsProbe]) -> Vec<TlsFinding> {
+        let rendered = |probe: &TlsProbe| {
+            matches!(probe, TlsProbe::Pkcs12 { id, passphrase: Some(passphrase), .. }
+                if id == "bank" && passphrase.expose() == PASS)
+        };
+        if probes.iter().any(rendered) {
+            self.inspected.fetch_add(1, Ordering::SeqCst);
+        }
+        self.findings.clone()
     }
 }
 
@@ -213,6 +227,48 @@ async fn a_transport_that_cannot_be_built_stops_an_alerting_project_before_any_r
         assert!(error.contains("no client"), "{error}");
         assert!(!began, "a run began: {error}");
     }
+}
+
+/// The 5th of November 2026, the sample clock's day, as days since 1970.
+const TODAY_DAYS: i64 = 20_762;
+
+#[tokio::test]
+async fn run_load_and_call_note_what_the_built_material_holds() {
+    let part = |field| TlsPart::Client { id: "bank".into(), field: Some(field) };
+    let day = 86_400;
+    let findings = vec![
+        TlsFinding::Validity { part: part("pkcs12"), not_before: 0, not_after: (TODAY_DAYS + 10) * day },
+        TlsFinding::Exposed { part: part("pkcs12"), mode: 0o644 },
+        TlsFinding::Validity { part: part("pkcs12"), not_before: 0, not_after: (TODAY_DAYS + 31) * day },
+        TlsFinding::Unusable { part: part("pkcs12"), reason: "a build refuses it first".into() },
+    ];
+    let loader = Loader { findings, ..Loader::default() };
+    let inspected = Arc::clone(&loader.inspected);
+    let (secured, _runs) = engine(&config("${env.P12_PASS}"), loader);
+    let (_interrupter, interrupts) = crate::interrupts();
+    let run = secured.run(&RunRequest::default(), interrupts).await.unwrap().notices;
+    let (_interrupter, interrupts) = crate::interrupts();
+    let load = secured.load(&load_request(), LoadWatch { interrupts, ticks: None }).await.unwrap().notices;
+    let call = secured.call(&call_request()).await.unwrap().notices;
+    let want = [
+        "V3107: client certificate `bank`, its `pkcs12` expires on 2026-11-15, within 30 days; renew it before then \
+         and point the config at the new one; after that servers refuse it at the handshake",
+        "V4012: client certificate `bank`, its `pkcs12`: its file is open to other users (mode 644); make it \
+         readable by you alone with `chmod 600`",
+    ];
+    for (entry, notices) in [("run", run), ("load", load), ("call", call)] {
+        let ours = notices.iter().filter(|notice| notice.starts_with("V3") || notice.starts_with("V4"));
+        assert_eq!(ours.collect::<Vec<_>>(), want, "{entry}");
+    }
+    assert_eq!(inspected.load(Ordering::SeqCst), 3, "each inspects the rendered bundle once");
+    let loader =
+        Loader { findings: vec![TlsFinding::Exposed { part: part("pkcs12"), mode: 0o644 }], ..Loader::default() };
+    let inspected = Arc::clone(&loader.inspected);
+    let (plain, _runs) = engine(&untlsed(), loader);
+    let (_interrupter, interrupts) = crate::interrupts();
+    let notices = plain.run(&RunRequest::default(), interrupts).await.unwrap().notices;
+    assert!(notices.iter().all(|notice| !notice.starts_with("V4012")), "no http.tls, nothing inspected: {notices:?}");
+    assert_eq!(inspected.load(Ordering::SeqCst), 0);
 }
 
 /// [`config`] without its `http.tls`.
