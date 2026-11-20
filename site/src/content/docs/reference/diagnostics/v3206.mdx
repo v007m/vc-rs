@@ -1,6 +1,6 @@
 ---
 title: "V3206 — A test-level default that no step uses"
-description: "A test-level default (auth, headers, query, body, poll or expect) is set, but every step sets its own, so the default is never used."
+description: "A test-level default (auth, headers, query, body, exchange, poll or expect) is set, but every step sets its own, so the default is never used."
 sidebar:
   label: "V3206 A test-level default that no step uses"
   order: 3206
@@ -17,8 +17,8 @@ import { Badge } from '@astrojs/starlight/components';
 | Severity | warning |
 | Certain fix | none; `vc check --fix` leaves this one to you |
 
-A test-level default (`auth`, `headers`, `query`, `body`, `poll` or `expect`) is set, but every step sets its own, so the
-default is never used. Remove it, or remove the steps' own values so that the default applies.
+A test-level default (`auth`, `headers`, `query`, `body`, `exchange`, `poll` or `expect`) is set, but every step
+sets its own, so the default is never used. Remove it, or remove the steps' own values so that the default applies.
 
 ## Wrong
 
