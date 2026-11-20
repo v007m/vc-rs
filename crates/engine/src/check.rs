@@ -66,7 +66,10 @@ impl Engine {
     /// refuses, is a V5117 warning, and profiles of which none is active without `--profile` a
     /// V3101 error. A `plugins` item a run would refuse (not approved, not installed, asking for
     /// more than `vibranium.lock` grants, or a `${…}` in its `config`) is a V5120 warning, and a
-    /// `reports.formats` name that is an installed plugin other than a reporter V2302.
+    /// `reports.formats` name that is an installed plugin other than a reporter V2302. Each
+    /// `http.tls` file written as text is read: one that cannot be is V2011, one that does not
+    /// load V2012, a client certificate expiring within 30 days V3107 and one not valid today
+    /// V3108, and a client key others can read V4012 (D408–D411).
     ///
     /// # Errors
     ///
@@ -79,14 +82,21 @@ impl Engine {
     pub fn check(&self, request: &CheckRequest) -> Result<CheckReport, EngineError> {
         let overlay = request.overlay.iter().map(|(path, text)| self.unsaved(path, text));
         let overlay = overlay.collect::<Result<Vec<_>, _>>()?;
-        let mut compiled = self.compiled_with(&overlay)?;
+        let compiled = self.with_check_findings(self.compiled_with(&overlay)?);
+        Self::selected(compiled, request)
+    }
+
+    /// `compiled` with what a check finds beyond the compiler: alerts, profiles, plugins and
+    /// `http.tls` files, as [`Engine::check`] lists them.
+    pub(crate) fn with_check_findings(&self, mut compiled: Compiled) -> Compiled {
         compiled.diagnostics.extend(check_alerts::unknown_channels(&compiled.files, &self.channels()));
         if let Some(program) = compiled.program.clone() {
             compiled.diagnostics.extend(self.channel_settings(&program, &compiled.files));
             compiled.diagnostics.extend(self.no_active_profile(&program, &compiled.files));
             compiled.diagnostics.extend(self.plugin_problems(&program, &compiled.files));
+            compiled.diagnostics.extend(self.tls_problems(&program, &compiled.files));
         }
-        Self::selected(compiled, request)
+        compiled
     }
 
     /// The diagnostics of `compiled` on the files `request` selects.

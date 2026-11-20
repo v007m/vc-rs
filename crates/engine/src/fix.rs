@@ -18,7 +18,8 @@ pub struct FixReport {
 }
 
 impl Engine {
-    /// Checks the project and gathers the certain fix of each selected diagnostic that has one.
+    /// Checks the project as [`Engine::check`] does and gathers the certain fix of each selected
+    /// diagnostic that has one, such as the close name for an `http.tls` file (V2011).
     /// A fix whose edits overlap an earlier one's is left for the next run, and nothing is
     /// written: the app shows the changes and writes them.
     ///
@@ -26,7 +27,7 @@ impl Engine {
     ///
     /// As [`Engine::check`]; [`EngineError::Edit`] when the fixes together would add an error.
     pub fn fix(&self, request: &CheckRequest) -> Result<FixReport, EngineError> {
-        let compiled = self.compiled()?;
+        let compiled = self.with_check_findings(self.compiled()?);
         let before = compiled.diagnostics.clone();
         let report = Self::selected(compiled, request)?;
         let changes = certain_fixes(&report.diagnostics, &report.files)?;

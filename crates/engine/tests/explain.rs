@@ -12,6 +12,10 @@
 //!
 //! A [`PENDING`] code's examples need an api `type` that has not landed yet, so its wrong
 //! example is held to having an error until it reports the code.
+//!
+//! A page's project has no files on disk, so every `http.tls` file it names is missing: a V2011
+//! is never held against a right example, and the [`ON_DISK`] codes, about what such a file
+//! holds, are confirmed by the engine's `check_tls` tests and the CLI's `mtls_check` tests.
 
 mod support;
 
@@ -19,7 +23,7 @@ use std::fs;
 use std::path::PathBuf;
 
 use support::Outcome;
-use vc_diagnostics::{Code, Diagnostics, Severity};
+use vc_diagnostics::{Code, Diagnostic, Diagnostics, Severity};
 
 /// The languages an example block may be written in: `ts` is a hook's, `dotenv` is `.env.schema`'s,
 /// `graphql` is a GraphQL document's or schema's.
@@ -42,9 +46,17 @@ fn paged() -> impl Iterator<Item = Code> {
 /// key, so V2213 is reported once `graphql` is. A code leaves the list when its example reports it.
 const PENDING: [Code; 0] = [];
 
+/// The codes about what an `http.tls` file holds, which a page's project cannot write out.
+const ON_DISK: [Code; 3] = [Code::V2012, Code::V3107, Code::V3108];
+
+/// Whether `found` is about an `http.tls` file a page's project cannot hold.
+fn unheld(found: &Diagnostic) -> bool {
+    found.code == Code::V2011
+}
+
 /// The codes whose examples `check` can confirm.
 fn explained() -> impl Iterator<Item = Code> {
-    paged().filter(|code| code.number() < 4000 && !PENDING.contains(code))
+    paged().filter(|code| code.number() < 4000 && !PENDING.contains(code) && !ON_DISK.contains(code))
 }
 
 /// The files of the section headed `## <section>`.
@@ -95,7 +107,7 @@ fn misfit(code: Code) -> Outcome<Option<String>> {
         return Ok(Some(format!("{code}: the wrong example reports {:?}", codes(&wrong))));
     }
     let right = support::check(&project(&page, "Right")?)?.diagnostics;
-    let bad = right.iter().any(|found| found.code == code || found.severity == Severity::Error);
+    let bad = right.iter().any(|found| !unheld(found) && (found.code == code || found.severity == Severity::Error));
     Ok(bad.then(|| format!("{code}: the right example reports {:?}", codes(&right))))
 }
 
@@ -112,6 +124,17 @@ fn a_pending_wrong_example_has_an_error_but_not_yet_its_code() -> Outcome<()> {
         let wrong = support::check(&project(&page(code)?, "Wrong")?)?.diagnostics;
         assert!(!codes(&wrong).contains(&code), "{code} is reported now; take it off PENDING");
         assert!(wrong.has_errors(), "{code}: the wrong example reports {:?}", codes(&wrong));
+    }
+    Ok(())
+}
+
+#[test]
+fn an_on_disk_codes_examples_report_only_their_missing_files() -> Outcome<()> {
+    for code in ON_DISK {
+        for section in ["Wrong", "Right"] {
+            let found = support::check(&project(&page(code)?, section)?)?.diagnostics;
+            assert!(!found.is_empty() && found.iter().all(unheld), "{code} {section}: {:?}", codes(&found));
+        }
     }
     Ok(())
 }
