@@ -101,7 +101,10 @@ impl ExchangeCursor {
         if !self.pairing.is_full() {
             return Fed::Held { item };
         }
-        let pairs = self.pairs().into_iter().flatten().collect();
+        let messages = self.pairing.matched().iter().map(|slot| slot.and_then(|slot| self.kept.get(slot).copied()));
+        let pairs: Option<Vec<usize>> = messages.collect();
+        debug_assert!(pairs.is_some(), "a full pairing names a kept message for every entry");
+        let Some(pairs) = pairs else { return Fed::Held { item } };
         self.advance();
         self.since = self.fed;
         Fed::Met { item, pairs }
@@ -111,8 +114,8 @@ impl ExchangeCursor {
     #[must_use]
     pub fn unmet(&self) -> Option<Unmet> {
         self.group()?;
-        let pairs = self.pairs().into_iter().enumerate();
-        let entries = pairs.filter_map(|(entry, message)| message.is_none().then_some(entry)).collect();
+        let slots = self.pairing.matched().iter().enumerate();
+        let entries = slots.filter_map(|(entry, slot)| slot.is_none().then_some(entry)).collect();
         Some(Unmet { item: self.at, entries, since: self.since })
     }
 
@@ -135,12 +138,6 @@ impl ExchangeCursor {
             Some(&Item::Receive(size)) => Some(size),
             _ => None,
         }
-    }
-
-    /// The message each of the waiting group's entries is paired with, if any.
-    fn pairs(&self) -> Vec<Option<usize>> {
-        let slots = self.pairing.matched().iter().copied();
-        slots.map(|slot| slot.and_then(|slot| self.kept.get(slot).copied())).collect()
     }
 
     fn advance(&mut self) {
