@@ -4,7 +4,7 @@
 use std::fmt::Write as _;
 
 use indexmap::IndexMap;
-use vc_model::{Action, Api, AuthRef, CheckKind, Template, TemplateValue};
+use vc_model::{Action, Api, AuthRef, CheckKind, ExchangeItem, Template, TemplateValue};
 
 use super::api::SentHeader;
 use super::{CONFIG, Explainer};
@@ -14,6 +14,13 @@ use crate::shown::{Shown, Var};
 pub struct Called<'a> {
     pub api: &'a Api,
     pub action: Option<&'a Action>,
+}
+
+impl<'a> Called<'a> {
+    /// The stream exchange the call runs: the action's own (or its test's), else the api's.
+    pub fn exchange(&self) -> &'a [ExchangeItem] {
+        self.action.and_then(|action| action.exchange.as_deref()).unwrap_or(&self.api.exchange)
+    }
 }
 
 /// The headers one level sets on a call, with that level's origin.

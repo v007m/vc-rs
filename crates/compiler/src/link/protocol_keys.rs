@@ -25,19 +25,19 @@ const INHERITED: [&str; 6] = ["auth", "headers", "query", "body", "exchange", "p
 
 /// Where a test-level default sits: whether a step writes its own, the keys its type takes
 /// there, and where the help says to move it.
-pub struct Inherited {
-    pub own: fn(&Node, &str) -> bool,
+pub(super) struct Inherited {
+    own: fn(&Node, &str) -> bool,
     at: At,
     onto: &'static str,
 }
 
 /// A key of the test itself, such as `body`.
-pub const ON_THE_TEST: Inherited =
+pub(super) const ON_THE_TEST: Inherited =
     Inherited { own: |step, key| step.get(key).is_some(), at: |keys| keys.call, onto: "onto the steps that send one" };
 
 /// A key of the test's `expect`, such as `errors`, which merges into each step's (D123); a step
 /// whose `expect` has `replace: true` inherits none.
-pub const IN_EXPECT: Inherited = Inherited {
+pub(super) const IN_EXPECT: Inherited = Inherited {
     own: |step, key| {
         let expect = step.get("expect");
         expect.is_some_and(|expect| expect.get(key).is_some() || build::flag(shapes::expect(), expect, "replace"))
@@ -45,6 +45,13 @@ pub const IN_EXPECT: Inherited = Inherited {
     at: |keys| keys.expect,
     onto: "into the `expect` of the steps that check one",
 };
+
+impl Inherited {
+    /// Whether `step` inherits the test's `key` here: it writes no `key` of its own.
+    pub(super) fn inherits(&self, step: &Node, key: &str) -> bool {
+        !(self.own)(step, key)
+    }
+}
 
 /// The types with a block of their own on an api file, named after the type (D343).
 const FILE_BLOCKS: [Protocol; 2] = [Protocol::Graphql, Protocol::Sse];
@@ -105,13 +112,8 @@ pub fn reached(project: &Project<'_>, source: &Source<'_>, node: &Node) -> Optio
 /// reaches no api takes every key, since V2003 reports it. The build asks this too before a step
 /// inherits a test's key, so a `graphql` call never sends a test-level `body` (D343).
 pub fn call_takes(project: &Project<'_>, (source, node): (&Source<'_>, &Node), (table, key): (&Table, &str)) -> bool {
-    takes(project, (source, node), (table, |keys| keys.call, key))
-}
-
-/// Whether the `call` at `node` takes `key` at `at` under the type of the api it reaches.
-fn takes(project: &Project<'_>, (source, node): (&Source<'_>, &Node), (table, at, key): (&Table, At, &str)) -> bool {
     let keys = reached(project, source, node).and_then(|protocol| allowed(table, protocol));
-    keys.is_none_or(|keys| keys.takes(at, key))
+    keys.is_none_or(|keys| keys.takes(|keys| keys.call, key))
 }
 
 /// V2213 at each key a test with `steps` hands its `call` steps (D124), or merges into their
@@ -120,26 +122,31 @@ fn defaults(project: &Project<'_>, source: &Source<'_>, table: &Table) -> Vec<Di
     let tests = project::list(source.root, "tests").iter().filter(|_| source.kind == FileKind::Test);
     let mut found = Vec::new();
     for test in tests.filter(|test| test.get("call").is_none()) {
+        let steps = call_steps(project, source, test);
         let keys = test.entries().iter().filter(|entry| INHERITED.contains(&entry.key.as_str()));
-        found.extend(keys.filter_map(|entry| refused(project, (source, test), (table, entry, &ON_THE_TEST))));
+        found.extend(keys.filter_map(|entry| refused(&steps, (table, entry, &ON_THE_TEST))));
         let checks = test.get("expect").map(Node::entries).unwrap_or_default().iter().filter(known(shapes::expect()));
-        found.extend(checks.filter_map(|entry| refused(project, (source, test), (table, entry, &IN_EXPECT))));
+        found.extend(checks.filter_map(|entry| refused(&steps, (table, entry, &IN_EXPECT))));
     }
     found
 }
 
-/// V2213 at `entry`, a default of `test` at `place`, when a `call` step that does not write its
-/// own reaches an api whose type does not take it. Other steps may use it, so there is no fix.
-fn refused(
-    project: &Project<'_>,
-    (source, test): (&Source<'_>, &Node),
-    (table, entry, place): (&Table, &Entry, &Inherited),
-) -> Option<Diagnostic> {
-    let key = entry.key.as_str();
+/// The `call` steps of `test`, each with the type of the api it reaches; one that reaches no api
+/// is left out, since V2003 reports it.
+pub(super) fn call_steps<'n>(project: &Project<'_>, source: &Source<'_>, test: &'n Node) -> Vec<(&'n Node, Protocol)> {
     let calls = project::list(test, "steps").iter().filter(|step| step.get("call").is_some());
-    let mut inheriting = calls.filter(|step| !(place.own)(step, key));
-    let step = inheriting.find(|step| !takes(project, (source, step), (table, place.at, key)))?;
-    let (call, kind) = (step.entry("call")?, reached(project, source, step)?.named());
+    calls.filter_map(|step| Some((step, reached(project, source, step)?))).collect()
+}
+
+/// V2213 at `entry`, a default at `place` of the test whose `call` steps are `steps`, when one
+/// that does not write its own reaches an api whose type does not take it. Other steps may use
+/// it, so there is no fix.
+fn refused(steps: &[(&Node, Protocol)], (table, entry, place): (&Table, &Entry, &Inherited)) -> Option<Diagnostic> {
+    let key = entry.key.as_str();
+    let takes = |protocol: Protocol| allowed(table, protocol).is_none_or(|keys| keys.takes(place.at, key));
+    let mut inheriting = steps.iter().filter(|(step, _)| place.inherits(step, key));
+    let (step, protocol) = inheriting.find(|(_, protocol)| !takes(*protocol))?;
+    let (call, kind) = (step.entry("call")?, protocol.named());
     let message = format!("`{key}` does not apply to {kind} api");
     Some(
         Diagnostic::new(Code::V2213, entry.key_span, message)

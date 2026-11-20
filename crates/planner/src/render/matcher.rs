@@ -43,19 +43,16 @@ fn arg(arg: &MatcherArg, show: &dyn Fn(&TemplateValue) -> String) -> String {
             let inner: Vec<String> = inner.iter().map(|inner| format!("{{{}}}", matcher(inner, Some(show)))).collect();
             format!("[{}]", inner.join(", "))
         }
-        MatcherArg::Fields(fields) => {
-            let fields: Vec<String> =
-                fields.iter().map(|(name, inner)| format!("{name}: {{{}}}", matcher(inner, Some(show)))).collect();
-            format!("{{{}}}", fields.join(", "))
-        }
-        MatcherArg::Paths(paths) => {
-            let paths: Vec<String> = paths
-                .iter()
-                .map(|(path, inner)| format!("{}: {{{}}}", super::explain::path(path), matcher(inner, Some(show))))
-                .collect();
-            format!("{{{}}}", paths.join(", "))
-        }
+        MatcherArg::Fields(fields) => keyed(fields.iter().map(|(name, inner)| (name.clone(), inner)), show),
+        MatcherArg::Paths(paths) => keyed(paths.iter().map(|(path, inner)| (super::explain::path(path), inner)), show),
     }
+}
+
+/// Matchers by field name or path, as `{name: {gt 0}, items[*].id: {…}}`.
+fn keyed<'m>(entries: impl Iterator<Item = (String, &'m Matcher)>, show: &dyn Fn(&TemplateValue) -> String) -> String {
+    let entries: Vec<String> =
+        entries.map(|(key, inner)| format!("{key}: {{{}}}", matcher(inner, Some(show)))).collect();
+    format!("{{{}}}", entries.join(", "))
 }
 
 fn named(name: &str, value: Option<String>) -> String {
@@ -86,7 +83,7 @@ fn status(pattern: StatusPattern) -> String {
 #[cfg(test)]
 mod tests {
     use super::{arg, duration, size};
-    use vc_model::{Duration, Matcher, MatcherArg, Size, TemplateValue};
+    use vc_model::{Duration, Matcher, MatcherArg, Path, Segment, Size, TemplateValue};
 
     #[test]
     fn units_are_written_out_as_a_file_writes_them() {
@@ -113,5 +110,22 @@ mod tests {
             ("path".to_owned(), Matcher::Equals(TemplateValue::Bool(false))),
         ];
         assert_eq!(arg(&MatcherArg::Fields(fields), &show), "{code: {true}, path: {false}}");
+    }
+
+    #[test]
+    fn a_data_match_shows_each_path_as_written_with_what_it_expects() {
+        let show = |value: &TemplateValue| match value {
+            TemplateValue::Bool(flag) => flag.to_string(),
+            _ => "?".to_owned(),
+        };
+        let path = |segments| Path { segments };
+        let paths = vec![
+            (
+                path(vec![Segment::Key("user".into()), Segment::Key("id".into())]),
+                Matcher::Equals(TemplateValue::Bool(true)),
+            ),
+            (path(vec![Segment::Key("items".into()), Segment::All]), Matcher::Equals(TemplateValue::Bool(false))),
+        ];
+        assert_eq!(arg(&MatcherArg::Paths(paths), &show), "{user.id: {true}, items[*]: {false}}");
     }
 }

@@ -155,3 +155,18 @@ fn an_exchange_item_writes_one_of_send_and_receive() {
     let found = found(&compile(&both, "tests: []\n"));
     assert_eq!(found, [row(Code::V2201, 10, "write only one of `send`, `receive`", None)]);
 }
+
+#[test]
+fn an_empty_receive_list_and_a_data_check_that_is_not_one_are_v2306() {
+    let sse = "    exchange:\n      - receive: []\n      - receive: {data: {}}\n";
+    let websocket = "    exchange:\n      - receive: {data: {match: {id: 1}, equals: {id: 1}}}\n";
+    let compiled = compile(&apis(sse, websocket), "tests: []\n");
+    assert_eq!(
+        found(&compiled),
+        [
+            row(Code::V2306, 8, "`data` checks nothing", None),
+            row(Code::V2306, 13, "`data` takes `match` or `equals`, not both", None),
+            row(Code::V2306, 7, "`receive` lists no message check", None),
+        ]
+    );
+}
