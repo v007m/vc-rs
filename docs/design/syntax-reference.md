@@ -393,7 +393,7 @@ apis:
           data.user.id: ${var.userId}
 ```
 
-`sse` and `websocket` (D376, #92, #93) are checked as below; their calls run in later changes (`docs/design/streams.md`). Until then a call of one fails before anything is sent, with "`sse` calls are not supported yet" (or `websocket`).
+`sse` and `websocket` (D376, #92, #93) are checked as below, and their calls run as Streams describes (`docs/design/streams.md`). Until the HTTP adapter opens streams, a call of one fails before anything is sent, with "`sse` calls need a stream transport, and none is set" (or `websocket`).
 
 - `sse` sends its request as `http` does: its own `method` (else `GET`), `path` and `body`. `poll` does not apply on a test or step that calls it (V2213), nor does `expect.errors`.
 - `sse.reconnect: true`, on the api or else on a `type: sse` file, opens the stream once more when it ends before the call is done (D385); it is `false` when neither sets it, and an api's `sse: {}` keeps its file's. An `sse` block on an api or a file of another type is V2213, with the certain fix that removes it; a key it does not know is V1004, with the close key as its fix.
@@ -421,6 +421,9 @@ apis:
 - `receive` waits for the next message its check matches and skips the ones before it that do not (D378). A list is a group: its checks pair one to one with distinct messages, in any order. An empty list is V2306 (D419).
 - A message check is a map of the message's fields, matched field by field (D379, D389): `sse` messages have `event`, `data`, `id`, `retry` and `text`; `websocket` messages have `type`, `data`, `text`, `code` and `reason`. A field takes a literal or a matcher; `data` takes `match` (paths into the data, as `body.match`) or `equals` (the whole data, as `body.equals`), exactly one of them; neither or both is V2306 (D414, D419). A field the type lacks is V1004, with the close field as its fix, checked against each type a call reaches (D415). A check that is not a map is V2306.
 - `expect.messages` is a matcher on the list of every message received, merged under the key `messages` (D123, D380): `length`, and `every`, `some` and `none` over message checks, through `not`, `allOf` and `anyOf` too. Anything else there is V2306.
+- The `response` root of a stream call is the opening response (`status`, `headers`, `body`, `timing`) plus `messages`, every message received in order, and `exchange`, one entry per item: what a `send` sent, the message a `receive` matched, or a group's matched messages in written order (D380). `afterResponse` hooks see it once the exchange ends (D423).
+- The call's `timeout` limits the open, then the whole exchange. A `receive` still waiting when the stream closes or drops, or the time runs out, is V5130; a stream that did not open is V5131 (D381, D422, D424). The bytes the call reads are capped as a body is (V5105).
+- `sse` adds `accept: text/event-stream` and `cache-control: no-cache` when no level sets them (D384). A reconnect (`sse.reconnect`) waits the server's last `retry`, else 1s, and sends `last-event-id` with the last `id` received (D385).
 
 ```yaml
 # services/rooms/rooms.api.yaml

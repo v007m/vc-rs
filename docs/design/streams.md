@@ -119,7 +119,7 @@ When the stream does not open:
 
 - An SSE answer that is not 2xx, or a WebSocket handshake that is not 101, has no stream. The call keeps the response with its status, headers and body, and `expect.status: 401` can pass.
 - In that case the first `receive` fails with V5131, which names the status.
-- A 2xx SSE answer whose `content-type` is not `text/event-stream` is also V5131.
+- A 2xx SSE answer whose `content-type` is not `text/event-stream` is also V5131. With no `receive` written, V5131 is at the step, and only when the head itself succeeded, since a failed head already fails its status check (D422).
 
 Defaults (`sse`):
 
@@ -137,7 +137,9 @@ Keys that keep their meaning: auth, `headers`, `query`, `http.retry`, `timeout`,
 - `saveOn` and `cleanup` read the opening status. A `websocket` call succeeds on `101`, not `2xx`: with no status written, its `expect` checks `status: 101`, its `saveOn` defaults to `101` and only a `101` registers its `cleanup` (`Protocol::success_status`, D386), whatever its `expect.status` says (D387). An `sse` call keeps `2xx`.
 - `poll` is V2213 on a stream type.
 
-Size: each message, and the total kept for the call, is capped by `SendContext::body_limit`. Going over the cap is `BodyTooLarge` (V5105), as an over-large body is today.
+Size: the bytes of every frame the call reads, added up, are capped by `SendContext::body_limit` (64 MiB). Going over the cap fails the call with V5105, as an over-large body does (D424).
+
+A dropped connection ends the read as a server close does: the messages so far are kept, and an unmet `receive` is V5130, naming the drop (D424). `afterResponse` hooks run once, after the exchange, and see the full `response` root, `messages` and `exchange` included (D423).
 
 Reconnect (`sse` only):
 
@@ -193,13 +195,15 @@ How the port is used:
 ### The executor
 
 - `ProtocolRuntime` gains one default method, `stream(&self) -> Option<&dyn StreamRuntime>`. It returns `None` for `http` and `graphql`, so the call path picks the stream driver through the registry, not with a `match`.
-- `StreamRuntime` has three methods: `mode`, `decoder` (a stateful `push(Frame) -> Vec<Message>`) and `encode(&Value) -> Frame`.
+- `StreamRuntime` (`action/stream.rs`) has four methods: `mode`, `decoder`, `encode(&Value) -> OutgoingFrame` (text as is, anything else as JSON text) and `opened(&Exchange)`, which says why a head that opened is not one the type reads (V5131). A `Decoder` is per connection: `push(StreamFrame) -> Vec<StreamMessage>` and `resume()`, the last `id` and `retry` a reconnect uses (D421).
+- `SseRuntime` (`action/sse.rs`) parses the event stream as the HTML standard reads it: lines end in CR, LF or CRLF, even across chunks; a leading BOM is dropped; `:` starts a comment; an `id` holding NUL is ignored and an empty one clears the last id; `retry` counts only when all digits; a block with no `data` dispatches nothing. `WebsocketRuntime` (`action/websocket.rs`) makes one message per frame (D421).
 - `ExchangeCursor` (`action/exchange.rs`) is pure and keeps the place; the driver judges each message against the waiting group's checks. `feed(fits)` takes the entries of the waiting group the message fits and answers `Skipped`, `Held` or `Met` with each entry's message; `next_send()` returns the next `send` item; `unmet()` names what V5130 reports. Group pairing reuses the one-to-one `Pairing` behind D362 (now `pairing.rs`). The cursor keeps the group's `Pairing` between feeds: `Pairing::push` adds one message and pairs it with the first unpaired entry it fits, else runs one augmenting search, so it pairs as many entries as a full rebuild would (a proptest checks it). A message is kept only while an entry it fits holds fewer messages than the group has entries, so the pairing stays bounded on an endless stream.
-- The driver (`action/stream.rs`) is the only async part.
+- The driver (`action/stream_call.rs`) is the only async part.
   - It opens through the request pipeline (timing, retry, auth, hooks, per-host limit, timeout), built by `stream_pipeline` with an `OpenStream` service in place of `Transmit` (D420). Each layer is generic over its reply's `HasHead`: `head()` is the response head retry and auth refresh read, and `hold(permit)` keeps the per-host permit. An `Exchange` drops it at once; an `Opening` keeps it until the stream is dropped.
   - It sends and reads against the call's deadline.
   - It feeds the cursor and builds `response.messages` and `response.exchange`.
 - `vc-model`'s `Exchange` gains `messages: Vec<StreamMessage>`, empty for `http` and `graphql`. It flows to history and reports through `RedactingSink` like bodies do.
+- The engine hands the executor the stream port `EngineBuilder::stream_transport` names; without one, a stream call fails with "`sse` calls need a stream transport, and none is set" and sends nothing. PR 5 makes the HTTP adapter the default.
 
 ## Decisions (Round 79)
 
@@ -265,9 +269,10 @@ Candidate V codes (V2213 and V5105 are reused):
 4. **The executor's stream call.**
    - `StreamMessage` and `Exchange::messages` in `vc-model`.
    - `ProtocolRuntime::stream` and `StreamRuntime`.
-   - `SseRuntime` with its pure parser.
+   - `SseRuntime` with its pure parser, and `WebsocketRuntime` (moved here from PR 6, since it needs no wire).
    - The driver through the pipeline: the deadline, reconnect, V5130 and V5131, and the `response.messages` and `response.exchange` roots.
-   - Engine wiring tested against the fake.
+   - Engine wiring (`EngineBuilder::stream_transport`) tested against the fake.
+   - Done; its refinements are D421–D424.
 5. **SSE on the wire.**
    - `HttpTransport` implements `StreamTransport` in `StreamMode::Body`.
    - The mock's `/events` route (the suite's `count` and `last-event-id` contract), with a drop for reconnect; the adapter runs `stream_transport_suite` once PR 6 adds the WebSocket side.
@@ -275,5 +280,4 @@ Candidate V codes (V2213 and V5105 are reused):
    - Messages in the json, HTML and CTRF reports.
 6. **WebSocket on the wire.**
    - `tokio-tungstenite` and the upgrade path in `HttpTransport`.
-   - `WebsocketRuntime`.
    - The mock's `/ws` route, end-to-end tests and a site example.
