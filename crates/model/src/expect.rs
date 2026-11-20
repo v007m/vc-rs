@@ -74,11 +74,13 @@ pub enum CheckKind {
     Custom,
     /// `errors`: a `graphql` response's errors, normalised (D345).
     Errors,
+    /// `messages`: every message a stream call received, in order (D380).
+    Messages,
 }
 
 impl CheckKind {
     /// Every kind, in `expect` key order.
-    pub const ALL: [Self; 10] = [
+    pub const ALL: [Self; 11] = [
         Self::Status,
         Self::Header,
         Self::Schema,
@@ -89,6 +91,7 @@ impl CheckKind {
         Self::Cel,
         Self::Custom,
         Self::Errors,
+        Self::Messages,
     ];
 
     /// The `expect` key it is written under, which the history stores: `body.match`.
@@ -105,6 +108,7 @@ impl CheckKind {
             Self::Cel => "cel",
             Self::Custom => "custom",
             Self::Errors => "errors",
+            Self::Messages => "messages",
         }
     }
 
@@ -185,6 +189,9 @@ pub enum MatcherArg {
     /// A matcher per named field of an object: the internal `fields` matcher an `expect.errors`
     /// entry lowers to, which users cannot write (D360).
     Fields(Vec<(String, Matcher)>),
+    /// A matcher per path into a value: the internal `paths` matcher a message check's
+    /// `data.match` lowers to, read as `body.match` reads the body (D379).
+    Paths(Vec<(Path, Matcher)>),
 }
 
 /// One evaluated check, reported on its own: where it was written, what it expected, what came
@@ -242,7 +249,8 @@ mod tests {
             | CheckKind::Timing
             | CheckKind::Cel
             | CheckKind::Custom
-            | CheckKind::Errors => CheckKind::ALL.iter().filter(|other| **other == kind).count(),
+            | CheckKind::Errors
+            | CheckKind::Messages => CheckKind::ALL.iter().filter(|other| **other == kind).count(),
         };
         for kind in CheckKind::ALL {
             assert_eq!((listed(kind), CheckKind::from_key(kind.key())), (1, Some(kind)), "{kind:?}");

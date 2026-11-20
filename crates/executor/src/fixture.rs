@@ -132,6 +132,7 @@ impl Fixture {
             timeout: None,
             http_retry: None,
             stream: None,
+            exchange: Vec::new(),
             expect,
             save,
             save_on: Matcher::Status(vec![StatusPattern::Class(2)]),

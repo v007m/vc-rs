@@ -50,7 +50,7 @@ mod verbs;
 
 pub use agents::{AgentPolicy, WriteDefinitions};
 pub use alerts::{Alert, AlertChannel, AlertTrigger};
-pub use api::{Api, ApiGroup, ApiSource, BodySpec, GraphqlBody, PartSpec, StreamSettings};
+pub use api::{Api, ApiGroup, ApiSource, BodySpec, ExchangeItem, ExchangeKind, GraphqlBody, PartSpec, StreamSettings};
 pub use body_file::{FILE_KEY, MULTIPART, basename, file_parts, file_path, is_multipart, part_pointer};
 pub use builder::ProgramBuilder;
 pub use config::{
@@ -79,7 +79,7 @@ pub use outcome::{ActionOutcome, CleanupRecord, Failure, OwnerKey, RunStatus, Te
 pub use plan::{Instance, InstanceId, Needs, Plan, PlannedAction, PlannedFile, SkippedTest};
 pub use printable::{one_line, printable};
 pub use program::Program;
-pub use protocol::{AllowedKeys, PROTOCOL_KEYS, PROTOCOL_NEEDS, Protocol, ProtocolKeys};
+pub use protocol::{AllowedKeys, PROTOCOL_KEYS, PROTOCOL_NEEDS, Protocol, ProtocolKeys, STREAM_SHAPES, StreamShape};
 pub use secrets::{
     DEFAULT_SECRETS_PROVIDER, DEFAULT_SECRETS_SCHEMA, PROFILE_VARIABLE, RedactRule, SchemaNames, SecretsConfig,
     schema_names, secret_name,
