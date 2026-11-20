@@ -322,6 +322,16 @@ impl StatusPattern {
     }
 }
 
+/// As written: `201` or `2xx`.
+impl std::fmt::Display for StatusPattern {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Code(code) => write!(f, "{code}"),
+            Self::Class(class) => write!(f, "{class}xx"),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use indexmap::IndexMap;
@@ -383,5 +393,9 @@ mod tests {
         assert!(StatusPattern::Class(2).matches(299));
         assert!(!StatusPattern::Class(2).matches(300));
         assert!(!StatusPattern::Class(2).matches(199));
+        assert_eq!(
+            (StatusPattern::Class(2).to_string(), StatusPattern::Code(101).to_string()),
+            ("2xx".into(), "101".into())
+        );
     }
 }

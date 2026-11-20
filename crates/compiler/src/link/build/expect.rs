@@ -174,16 +174,20 @@ fn quoted(text: &str) -> Option<(&str, &str)> {
 }
 
 /// When an api's `save` runs (D191): its `saveOn` at `node`, else the status its `expect`
-/// checks, else `2xx`; and whether it is the written `saveOn`, which is status only on a
-/// `graphql` api (D345). A `saveOn` that did not compile to a matcher is not written.
-pub fn save_on(source: &Source<'_>, node: Option<&Node>, expect: &Expect) -> (Matcher, bool) {
+/// checks, else `success` (`2xx`, `101` on a `websocket` api, D386); and whether it is the
+/// written `saveOn`, which is status only on a `graphql` api (D345). A `saveOn` that did not
+/// compile to a matcher is not written.
+pub fn save_on(
+    source: &Source<'_>,
+    node: Option<&Node>,
+    (expect, success): (&Expect, StatusPattern),
+) -> (Matcher, bool) {
     let written = node.and_then(|node| match source.piece(node) {
         Some(Piece::Matcher(matcher)) => Some(matcher.clone()),
         _ => None,
     });
     let status = expect.checks.iter().find(|check| check.kind == CheckKind::Status);
-    let expected =
-        || status.map_or_else(|| Matcher::Status(vec![StatusPattern::Class(2)]), |check| check.matcher.clone());
+    let expected = || status.map_or_else(|| Matcher::Status(vec![success]), |check| check.matcher.clone());
     written.map_or_else(|| (expected(), false), |matcher| (matcher, true))
 }
 
@@ -266,7 +270,9 @@ mod tests {
             format!("type: graphql\napis:\n  - id: get\n    saveOn: {written}\n    expect: {{status: 201}}\n")
         };
         let saved = |written: &str| {
-            first_api(&apis(written), |source, api, expect| save_on(source, api.get("saveOn"), &expect))
+            first_api(&apis(written), |source, api, expect| {
+                save_on(source, api.get("saveOn"), (&expect, vc_model::StatusPattern::Class(2)))
+            })
         };
         let status = |code| Matcher::Status(vec![vc_model::StatusPattern::Code(code)]);
         assert_eq!(saved("200"), ((status(200), true), vec![]));

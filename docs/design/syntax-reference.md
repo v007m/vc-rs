@@ -285,7 +285,7 @@ Saving values from a response: `save` maps names to templates over `response`; a
 
 - **On a test, step or per-test action** (`before`, `beforeEach`): the values are vars for the rest of that test.
 - **In `beforeAll` and `beforeRun`:** everything an action saves is shared under the action's `id`, which those blocks require.
-- **On an api:** `save` runs on every call of it whose status matches the api's `saveOn`, so every caller gets the same names. `saveOn` takes what `expect.status` takes (`201`, `2xx`, `[200, 201]`, a matcher or a template) and defaults to the api's own `expect.status`, or `2xx` when it has none. A test that expects another status, such as a 400, therefore skips the api's `save`, just as a non-2xx call registers no cleanup (D191). A test's or step's own `save` runs whatever the status, once its checks hold.
+- **On an api:** `save` runs on every call of it whose status matches the api's `saveOn`, so every caller gets the same names. `saveOn` takes what `expect.status` takes (`201`, `2xx`, `[200, 201]`, a matcher or a template) and defaults to the api's own `expect.status`, or `2xx` when it has none (`101` on a `websocket` api, D386). A test that expects another status, such as a 400, therefore skips the api's `save`, just as a non-2xx call (on a `websocket` api, one that is not 101) registers no cleanup (D191). A test's or step's own `save` runs whatever the status, once its checks hold.
 - **Inside a loop:** every saved name collects a list (see Loops: repeat and forEach).
 
 ```yaml
@@ -337,7 +337,7 @@ Each item in `apis`:
 | `timeout` | duration | `defaults.timeout` | Per request attempt |
 | `http.retry` | as in config | config's `http.retry` | Transport retry for this api; keys given here replace the config's (D143) |
 | `sse.reconnect` | boolean | the file's, else `false` | Open the stream once more when it ends early; only on an `sse` api (see Api types, D385) |
-| `expect` | checks | `status: 2xx` | Checks that hold on every call; a test's `expect` adds to them and replaces matching keys |
+| `expect` | checks | `status: 2xx` (`101` on `websocket`) | Checks that hold on every call; a test's `expect` adds to them and replaces matching keys |
 | `save` | map of templates over `response` | — | Values every caller gets as vars, when the status matches `saveOn` |
 | `saveOn` | status: code, list of codes, class (`2xx`) or matcher | the api's `expect.status`, else `2xx` | The statuses on which `save` runs (D191) |
 | `cleanup` | `call` + `vars` | — | How to undo a successful call; registered automatically (see Cleanup on an api) |

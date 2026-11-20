@@ -4,7 +4,7 @@
 use std::fmt::Write as _;
 
 use indexmap::IndexMap;
-use vc_model::{Action, Api, AuthRef, CheckKind, Template, TemplateValue};
+use vc_model::{Action, Api, AuthRef, CheckKind, StreamSettings, Template, TemplateValue};
 
 use super::api::SentHeader;
 use super::{CONFIG, Explainer};
@@ -113,13 +113,13 @@ impl Explainer<'_> {
         levels.into_iter().flatten().find(|(auth, _)| !matches!(auth, AuthRef::Inherit))
     }
 
-    /// The merged checks with the values they expect, after the `status: 2xx` a run judges a
-    /// call by when none checks the status.
+    /// The merged checks with the values they expect, after the default status a run judges a
+    /// call by when none checks it: `2xx`, `101` for a `websocket` api (D386).
     fn expect(&self, called: &Called<'_>, shown: &Shown<'_>) -> String {
         let expect = called.action.map_or(&called.api.expect, |action| &action.expect);
         let mut out = String::from("  expect\n");
         if !expect.checks.iter().any(|check| check.kind == CheckKind::Status) {
-            out.push_str("    status: 2xx  (default)\n");
+            let _ = writeln!(out, "    status: {}  (default)", StreamSettings::success(called.api.stream));
         }
         let show = |value: &TemplateValue| shown.value(value);
         for line in vc_planner::shown_check_lines(self.program, expect, &show) {

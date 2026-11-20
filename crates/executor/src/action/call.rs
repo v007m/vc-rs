@@ -8,7 +8,7 @@ use tower::ServiceExt;
 use vc_interfaces::SendContext;
 use vc_model::{
     Action, ActionId, ActionKind, ActionOutcome, Api, Check, CheckKind, CheckResult, Exchange, Failure, Matcher,
-    Namespace, Origin, Program, SaveSpec, SourceSpan, StatusPattern,
+    Namespace, Origin, Program, SaveSpec, SourceSpan, StatusPattern, StreamSettings,
 };
 
 use super::flight::{Flight, Halted};
@@ -28,8 +28,8 @@ const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
 ///
 /// It renders the request from the action's scope and sends it; with `poll`, it sends again
 /// every `every` until the `until` checks hold or `timeout` passes (V5104). It then evaluates
-/// the merged checks, with the api's default `status: 2xx` when none checks the status. On a
-/// 2xx response it registers the api's `cleanup` with its vars rendered against the response,
+/// the merged checks, with the api's default `status: 2xx` (`101` on a `websocket` api, D386)
+/// when none checks the status. On a response of that status it registers the api's `cleanup` with its vars rendered against the response,
 /// whatever the checks say, unless the action is `keep` or is itself a cleanup. Only when every
 /// check holds does it save the api's `save` values, when the status matches the api's `saveOn`
 /// (D191), and then the action's. A response with GraphQL errors registers no cleanup and, under
@@ -114,7 +114,8 @@ impl CallExecutor {
         (checks, held): (Vec<CheckResult>, &Held),
     ) -> Result<ActionReport, Failure> {
         let Answered { request, action, api, exchange } = *answered;
-        let registers = !action.keep && request.frame.given.is_none() && exchange.response.status.is_success();
+        let succeeded = StreamSettings::success(api.stream).matches(exchange.response.status.as_u16());
+        let registers = !action.keep && request.frame.given.is_none() && succeeded;
         let cleanups = if registers && held.clean() { cleanup(render, api)? } else { None };
         let checks = held.reported(checks, (Origin::Action(request.action), action.span));
         let failure = check::verdict(&checks);
@@ -245,28 +246,33 @@ pub fn subject<'s>(response: &'s Value, exchange: &Exchange) -> Subject<'s> {
 }
 
 /// The checks a call judges: all of the action's merged ones, or with `checks: api` in a load
-/// iteration only those from the api's own `expect`; either way after a default `status: 2xx`.
+/// iteration only those from the api's own `expect`; either way after the api's default status
+/// check.
 fn judged<'a>(request: &ActionRequest, action: &'a Action, api: &Api) -> Cow<'a, [Check]> {
-    let origin = (Origin::Api(api.id), api.span);
+    let (origin, success) = ((Origin::Api(api.id), api.span), StreamSettings::success(api.stream));
     if !request.frame.api_checks_only {
-        return expected(action, origin);
+        return defaulted(Cow::Borrowed(&action.expect.checks), origin, success);
     }
     let own = action.expect.checks.iter().filter(|check| matches!(check.origin, Origin::Api(_))).cloned().collect();
-    defaulted(Cow::Owned(own), origin)
+    defaulted(Cow::Owned(own), origin, success)
 }
 
 /// The action's merged checks, after a default `status: 2xx` from `origin` when none checks
 /// the status.
 pub fn expected(action: &Action, origin: (Origin, SourceSpan)) -> Cow<'_, [Check]> {
-    defaulted(Cow::Borrowed(&action.expect.checks), origin)
+    defaulted(Cow::Borrowed(&action.expect.checks), origin, StatusPattern::Class(2))
 }
 
-/// `checks` after a default `status: 2xx` from `origin` when none checks the status.
-fn defaulted(checks: Cow<'_, [Check]>, (origin, span): (Origin, SourceSpan)) -> Cow<'_, [Check]> {
+/// `checks` after a default `status: <success>` from `origin` when none checks the status.
+fn defaulted(
+    checks: Cow<'_, [Check]>,
+    (origin, span): (Origin, SourceSpan),
+    success: StatusPattern,
+) -> Cow<'_, [Check]> {
     if checks.iter().any(|check| check.kind == CheckKind::Status) {
         return checks;
     }
-    let matcher = Matcher::Status(vec![StatusPattern::Class(2)]);
+    let matcher = Matcher::Status(vec![success]);
     let status = Check { kind: CheckKind::Status, target: None, matcher, origin, span };
     Cow::Owned(std::iter::once(status).chain(checks.iter().cloned()).collect())
 }

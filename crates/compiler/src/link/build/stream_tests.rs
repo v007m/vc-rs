@@ -151,7 +151,6 @@ tests:
   - id: talks
     call: feed#chat
     headers: {x-a: '1'}
-    expect: {status: 101}
 ";
     let compiled = compile(MIXED, tests);
     let expected = [("`body` does not apply to a `websocket` api", 4), ("`poll` does not apply to a `sse` api", 7)];
@@ -220,4 +219,34 @@ fn an_sse_api_in_a_file_of_another_type_does_not_read_that_files_sse_block() {
     assert_eq!(streams(&format!("type: sse\n{apis}")), [Some(sse(true))]);
     let own = apis.replace("    path: /ticks\n", "    path: /ticks\n    sse: {reconnect: true}\n");
     assert_eq!(streams(&own), [Some(sse(true))], "its own block is read wherever it sits");
+}
+
+#[test]
+fn a_websocket_api_saves_on_101_unless_its_expect_or_its_save_on_says_otherwise_and_an_sse_on_2xx() {
+    let apis = "\
+baseUrl: http://x
+apis:
+  - id: chat
+    type: websocket
+    path: /chat
+    save: {roomId: '${response.body.roomId}'}
+  - id: expected
+    type: websocket
+    path: /chat
+    expect: {status: 200}
+  - id: written
+    type: websocket
+    path: /chat
+    saveOn: 204
+  - id: ticks
+    type: sse
+    path: /ticks
+";
+    let program = compiled(apis);
+    let on = |id: &str| api(&program, id).save_on.clone();
+    let status = |pattern| vc_model::Matcher::Status(vec![pattern]);
+    assert_eq!(on("chat"), status(StatusPattern::Code(101)));
+    assert_eq!(on("written"), status(StatusPattern::Code(204)));
+    assert_eq!(on("ticks"), status(StatusPattern::Class(2)));
+    assert_eq!(on("expected"), status(StatusPattern::Code(200)), "the status its `expect` checks");
 }
