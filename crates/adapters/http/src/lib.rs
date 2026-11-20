@@ -14,6 +14,7 @@
 
 mod alert;
 mod body;
+mod body_stream;
 mod connector;
 mod error;
 mod factory;

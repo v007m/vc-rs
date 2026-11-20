@@ -19,11 +19,17 @@ use vc_model::{RenderedRequest, Size};
 ///
 /// When the transport breaks the contract.
 pub async fn stream_transport_suite(transport: &dyn StreamTransport, base: &str) {
-    body_streams(transport, base).await;
+    body_stream_suite(transport, base).await;
     websockets(transport, base).await;
 }
 
-async fn body_streams(transport: &dyn StreamTransport, base: &str) {
+/// The body-stream half of [`stream_transport_suite`], for a transport with no WebSocket yet:
+/// `GET /events` and `GET /status/{code}` of the same contract.
+///
+/// # Panics
+///
+/// When the transport breaks the contract.
+pub async fn body_stream_suite(transport: &dyn StreamTransport, base: &str) {
     reads_an_event_stream_to_its_end(transport, base).await;
     resumes_after_the_last_event_id(transport, base).await;
     opens_no_stream_on_an_answer_that_is_not_a_success(transport, base).await;
@@ -33,6 +39,7 @@ async fn body_streams(transport: &dyn StreamTransport, base: &str) {
 }
 
 async fn websockets(transport: &dyn StreamTransport, base: &str) {
+    opens_a_websocket_on_its_handshake_only(transport, base).await;
     opens_no_websocket_on_a_200(transport, base).await;
     hands_the_server_s_close_over_as_a_last_frame(transport, base).await;
     if let Some(stream) =
@@ -114,11 +121,17 @@ async fn resumes_after_the_last_event_id(transport: &dyn StreamTransport, base: 
 }
 
 async fn opens_no_stream_on_an_answer_that_is_not_a_success(transport: &dyn StreamTransport, base: &str) {
-    for (mode, code) in [(StreamMode::Body, 503), (StreamMode::WebSocket, 404)] {
-        let Some(opened) = open(transport, request(base, &format!("/status/{code}")), mode).await else { return };
-        assert_eq!(opened.head.response.status.as_u16(), code, "{mode:?}");
-        assert!(opened.stream.is_none(), "{mode:?}: a {code} answer opens no stream");
-    }
+    refuses_to_open_on(transport, (base, StreamMode::Body, 503)).await;
+}
+
+async fn refuses_to_open_on(transport: &dyn StreamTransport, (base, mode, code): (&str, StreamMode, u16)) {
+    let Some(opened) = open(transport, request(base, &format!("/status/{code}")), mode).await else { return };
+    assert_eq!(opened.head.response.status.as_u16(), code, "{mode:?}");
+    assert!(opened.stream.is_none(), "{mode:?}: a {code} answer opens no stream");
+}
+
+async fn opens_a_websocket_on_its_handshake_only(transport: &dyn StreamTransport, base: &str) {
+    refuses_to_open_on(transport, (base, StreamMode::WebSocket, 404)).await;
     let Some(opened) = open(transport, request(base, "/ws"), StreamMode::WebSocket).await else { return };
     assert_eq!(opened.head.response.status, StatusCode::SWITCHING_PROTOCOLS);
 }
