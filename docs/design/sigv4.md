@@ -217,6 +217,12 @@ How the parts fit:
 | D444 | `vc new auth` writes `accessKeyId`, `secretAccessKey` and `sessionToken` only as templates; `region` and `service` are the author's (V1005). |
 | D445 | An empty literal `region` or `service` is V2316 too, with no fix; the fix quotes only where YAML needs it. |
 | D446 | A literal `secretAccessKey` or `sessionToken` is V4014 and masked in any auth, whatever its `type`; a config that does not parse masks every value of those keys. The access key ID is not a secret at check time. |
+| D447 | Unusable rendered settings are V5114 (`AuthError::Missing`); the key names the rule broken, never the value. |
+| D448 | `authorization` and `x-amz-security-token` are sensitive on the request; `x-amz-date` and `x-amz-content-sha256` are not. |
+| D449 | The vector parser unfolds continued headers, encodes raw request-line bytes once, and keeps `x-amz-content-sha256` only for `sign_body`. |
+| D450 | 33 of 38 vectors run; five are skipped with reasons. The presigned (query) files are not read. |
+| D451 | Zeroized: the secret, token, seed, derived keys and hash states. Not the canonical request, string to sign or signature. |
+| D452 | `wire_host` lands in PR 2; PR 3 wires the transport. A time past year 9999 signs as the epoch. |
 
 Candidate V codes (V1005, V2302 and V5114 are reused; V1 and V3 need nothing new):
 
@@ -232,9 +238,10 @@ The pure signer (`vc-adapter-auth`, PR 2):
 - One test walks every vector.
   - It parses `request.txt` with a small test-only parser into a `RenderedRequest`.
   - It picks S3 or non-S3 rules from the vector's context: normalising and double encoding, or neither.
-  - It signs with the vector's credentials and time, with `x-amz-content-sha256` turned off, since the vectors predate it.
-  - It compares the canonical request, the string to sign and the signature with the vector's files.
-- Vectors a `RenderedRequest` cannot hold, such as a header folded over two lines or raw non-ASCII bytes in the request line, are listed in the test with their reason, so each skip is visible. So is a context flag pair the type does not offer.
+  - It signs with the vector's credentials and time, leaving `x-amz-content-sha256` out unless the case sets `sign_body`, since the vectors predate it.
+  - It compares the canonical request, the string to sign, the signature and the `Authorization` line with the vector's files.
+  - A header continued on the next line is unfolded with one space, and raw bytes in the request line are encoded once, as a rendered URL holds them (D449).
+- The five cases that cannot run are listed in the test with their reason, and a second test checks each names a vendored case (D450): two sign a raw path a rendered URL cannot hold, one adds the token after signing, and two sign `content-length`. 33 cases run.
 - Unit tests beyond the suite cover:
   - the S3 path rewrite (`a b/c+d` and a stray `%`);
   - the deny-list;
@@ -300,9 +307,10 @@ The rest was approved as written: the credential source (D432), the S3 rules (D4
    - `vc-adapter-auth` `sigv4/`: the settings check, the canonical request, the signing key and the signature, with no wiring.
    - The vendored vectors with the `.gitattributes` line, the vector test, and the unit tests.
    - `hmac` and `sha2` added to the crate.
+   - `wire_host` in `vc-model`, with its unit test (D452).
 3. **The port and the sign stage.**
    - `RequestSigner`, `Signer`, `Credentials::signer` and `AuthProvider::signs`.
-   - `wire_host` in `vc-model`, used by `vc-adapter-http`, and its transport-suite case.
+   - `vc-adapter-http` sends the `host` from `wire_host`, and its transport-suite case.
    - `PipelineParts::sign`, `SignStage` and the `auth::added` wiring, with executor tests.
    - The `awsSigV4` registry entry.
    - The `mise run public-api` snapshot, and the LLD auth and pipeline text.
