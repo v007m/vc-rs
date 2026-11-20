@@ -5,14 +5,14 @@
 //! inside retry and inside the per-host limit, so it limits each attempt and waiting for a
 //! permit does not count. Until M3 auth is an [`Unchanged`] null object; the call executor sets
 //! the hooks stage of each call from its api's `beforeRequest` hooks.
+//!
+//! A stream call opens through the same layers with [`OpenStream`] in place of [`Transmit`]
+//! (D420): each layer is generic over its [`HasHead`] reply, retry and auth refresh read the
+//! opening head, and the per-host permit lives with the open stream.
 
 /// The associated types and `poll_ready` every pipeline service shares: it is always ready and
-/// returns a boxed future. With no arguments, the types of a [`Hop`]: one attempt, ending in an
-/// exchange or a transport error.
+/// returns a boxed future.
 macro_rules! ready_service {
-    () => {
-        ready_service!(vc_model::Exchange, vc_interfaces::TransportError);
-    };
     ($response:ty, $error:ty) => {
         type Response = $response;
         type Error = $error;
@@ -25,6 +25,7 @@ macro_rules! ready_service {
 }
 
 mod host_limit;
+mod open_stream;
 mod retry;
 mod stage;
 mod timeout;
@@ -36,11 +37,13 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::time::Duration;
 
+use tokio::sync::OwnedSemaphorePermit;
 use tower::Service;
-use vc_interfaces::{HookRunner, SendContext, Transport, TransportError};
+use vc_interfaces::{HookRunner, SendContext, StreamMode, StreamTransport, Transport, TransportError};
 use vc_model::{Exchange, RenderedRequest};
 
 pub use host_limit::{HostLimit, HostLimits};
+pub use open_stream::{OpenStream, Opening};
 pub use retry::{Attempted, HttpRetryPolicy, Jittered, NoRetry, Retried, Retry, RetryOn, RetryPolicy};
 pub use stage::{RequestStage, Stage, Unchanged};
 pub use timeout::Timeout;
@@ -62,19 +65,37 @@ pub struct Call {
 /// A boxed future, as every pipeline service returns.
 pub type BoxFuture<T> = Pin<Box<dyn Future<Output = T> + Send>>;
 
-/// A service inside retry: it sends one attempt and returns the exchange or its error.
-pub trait Hop:
-    Service<Call, Response = Exchange, Error = TransportError, Future: Send> + Clone + Send + 'static
-{
+/// What one attempt answers: an [`Exchange`], or an [`Opening`] stream with its head.
+pub trait HasHead: Send + 'static {
+    /// The response head retry and auth refresh read.
+    fn head(&self) -> &Exchange;
+
+    /// Keeps the per-host `permit` for as long as the reply is alive; an exchange is done, so
+    /// it lets the permit go.
+    fn hold(&mut self, permit: OwnedSemaphorePermit) {
+        drop(permit);
+    }
 }
+
+impl HasHead for Exchange {
+    fn head(&self) -> &Exchange {
+        self
+    }
+}
+
+/// A service inside retry: it sends one attempt and returns its reply or its error.
+pub trait Hop: Service<Call, Response: HasHead, Error = TransportError, Future: Send> + Clone + Send + 'static {}
 
 impl<S> Hop for S where
-    S: Service<Call, Response = Exchange, Error = TransportError, Future: Send> + Clone + Send + 'static
+    S: Service<Call, Response: HasHead, Error = TransportError, Future: Send> + Clone + Send + 'static
 {
 }
 
-/// The whole pipeline, as [`pipeline`] builds it.
-pub type Pipeline = Timing<Retry<Stage<Stage<HostLimit<Timeout<Transmit>>>>>>;
+/// The whole pipeline, as [`pipeline`] builds it; [`StreamPipeline`] opens streams instead.
+pub type Pipeline<B = Transmit> = Timing<Retry<Stage<Stage<HostLimit<Timeout<B>>>>>>;
+
+/// The pipeline a stream call opens through, as [`stream_pipeline`] builds it.
+pub type StreamPipeline = Pipeline<OpenStream>;
 
 /// What the pipeline is built from. [`PipelineParts::new`] fills in the null objects.
 #[derive(Clone)]
@@ -94,6 +115,8 @@ pub struct PipelineParts {
     /// Runs hooks (D172): request hooks, custom checks and `function:` actions. With none, any
     /// hook that runs fails with V5115.
     pub hook_runner: Option<Arc<dyn HookRunner>>,
+    /// Opens `sse` and `websocket` streams. With none, a stream call fails with a plain message.
+    pub streams: Option<Arc<dyn StreamTransport>>,
 }
 
 impl PipelineParts {
@@ -101,7 +124,13 @@ impl PipelineParts {
     #[must_use]
     pub fn new(transport: Arc<dyn Transport>, limits: HostLimits) -> Self {
         let (retry, auth, hooks) = (Arc::new(NoRetry), Arc::new(Unchanged), Arc::new(Unchanged));
-        Self { transport, limits, retry, auth, hooks, hook_runner: None }
+        Self { transport, limits, retry, auth, hooks, hook_runner: None, streams: None }
+    }
+
+    /// These parts, opening streams through `streams`.
+    #[must_use]
+    pub fn with_streams(self, streams: Arc<dyn StreamTransport>) -> Self {
+        Self { streams: Some(streams), ..self }
     }
 
     /// These parts, running hooks with `runner`.
@@ -114,7 +143,22 @@ impl PipelineParts {
 /// Builds the pipeline in D141 order.
 #[must_use]
 pub fn pipeline(parts: PipelineParts) -> Pipeline {
-    let attempt = HostLimit::new(Timeout::new(Transmit::new(parts.transport)), parts.limits);
+    let transmit = Transmit::new(Arc::clone(&parts.transport));
+    layered(transmit, parts)
+}
+
+/// Builds the pipeline in D141 order around `transport`, opening streams in `mode` (D420).
+#[must_use]
+pub fn stream_pipeline(
+    parts: PipelineParts,
+    (transport, mode): (Arc<dyn StreamTransport>, StreamMode),
+) -> StreamPipeline {
+    layered(OpenStream::new(transport, mode), parts)
+}
+
+/// The D141 layers around `bottom`, the service that makes each attempt.
+fn layered<B: Hop>(bottom: B, parts: PipelineParts) -> Pipeline<B> {
+    let attempt = HostLimit::new(Timeout::new(bottom), parts.limits);
     let prepared = Stage::new(Stage::new(attempt, parts.hooks), parts.auth);
     Timing::new(Retry::new(prepared, parts.retry))
 }
@@ -122,3 +166,7 @@ pub fn pipeline(parts: PipelineParts) -> Pipeline {
 #[cfg(test)]
 #[path = "pipeline_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "stream_pipeline_tests.rs"]
+mod stream_tests;

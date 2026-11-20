@@ -8,7 +8,7 @@ use tower::{Service, ServiceExt};
 use vc_interfaces::{Random, TransportError};
 use vc_model::{Exchange, RenderedRequest, StatusPattern};
 
-use super::{Call, Hop};
+use super::{Call, HasHead, Hop};
 
 /// One finished attempt, as a [`RetryPolicy`] sees it.
 #[derive(Clone, Copy, Debug)]
@@ -16,8 +16,8 @@ use super::{Call, Hop};
 pub struct Attempted<'a> {
     /// The request as rendered (before auth and hooks).
     pub request: &'a RenderedRequest,
-    /// How the attempt ended.
-    pub result: &'a Result<Exchange, TransportError>,
+    /// How the attempt ended: the response head, or the error.
+    pub result: Result<&'a Exchange, &'a TransportError>,
     /// Retries already made before this attempt.
     pub retries: u32,
 }
@@ -52,7 +52,7 @@ pub enum RetryOn {
 }
 
 impl RetryOn {
-    fn matches(self, result: &Result<Exchange, TransportError>) -> bool {
+    fn matches(self, result: Result<&Exchange, &TransportError>) -> bool {
         match (self, result) {
             (Self::Connect, Err(TransportError::Connect { .. }))
             | (Self::Timeout, Err(TransportError::Timeout { .. })) => true,
@@ -152,9 +152,9 @@ fn spread(wait: Duration, draw: u64) -> Duration {
 /// The last attempt's result and how many attempts were made.
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[non_exhaustive]
-pub struct Retried {
+pub struct Retried<R = Exchange> {
     /// How the last attempt ended.
-    pub result: Result<Exchange, TransportError>,
+    pub result: Result<R, TransportError>,
     /// Attempts made, at least one.
     pub attempts: u32,
 }
@@ -180,7 +180,7 @@ impl<S: fmt::Debug> fmt::Debug for Retry<S> {
 }
 
 impl<S: Hop> Service<Call> for Retry<S> {
-    ready_service!(Retried, Infallible);
+    ready_service!(Retried<S::Response>, Infallible);
 
     fn call(&mut self, call: Call) -> Self::Future {
         let (inner, policy) = (self.inner.clone(), Arc::clone(&self.policy));
@@ -188,11 +188,12 @@ impl<S: Hop> Service<Call> for Retry<S> {
     }
 }
 
-async fn attempt_until_kept<S: Hop>(inner: S, policy: &dyn RetryPolicy, call: Call) -> Retried {
+async fn attempt_until_kept<S: Hop>(inner: S, policy: &dyn RetryPolicy, call: Call) -> Retried<S::Response> {
     let mut retries = 0;
     loop {
         let result = inner.clone().oneshot(call.clone()).await;
-        match policy.delay(&Attempted { request: &call.request, result: &result, retries }) {
+        let seen = result.as_ref().map(HasHead::head);
+        match policy.delay(&Attempted { request: &call.request, result: seen, retries }) {
             Some(wait) => tokio::time::sleep(wait).await,
             None => return Retried { result, attempts: retries + 1 },
         }
