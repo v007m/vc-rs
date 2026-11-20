@@ -345,6 +345,7 @@ impl Transport for Server {
             response: vc_testkit::status(code),
             timing: Timing::default(),
             connection: ConnectionInfo::default(),
+            messages: Vec::new(),
         })
     }
 }

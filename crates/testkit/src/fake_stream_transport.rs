@@ -114,8 +114,13 @@ impl StreamTransport for FakeStreamTransport {
             let incoming = frames.into_iter().collect();
             Box::new(FakeStream { mode, incoming, echo, ended: false, closing: false }) as Box<dyn MessageStream>
         });
-        let head =
-            Exchange { request, response: head, timing: Timing::default(), connection: ConnectionInfo::default() };
+        let head = Exchange {
+            request,
+            response: head,
+            timing: Timing::default(),
+            connection: ConnectionInfo::default(),
+            messages: Vec::new(),
+        };
         Ok(Opened { head, stream })
     }
 }

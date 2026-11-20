@@ -19,7 +19,13 @@ fn the_response_is_the_http_runtime_s_view_of_the_exchange() {
     let request = RenderedRequest::new(http::Method::GET, "http://x/users/1".parse().unwrap());
     let body = Bytes::from_static(br#"{"id":1}"#);
     let response = HttpResponse { status: StatusCode::CREATED, headers: HeaderMap::new(), body, wire_size: 0 };
-    let exchange = Exchange { request, response, timing: Timing::default(), connection: ConnectionInfo::default() };
+    let exchange = Exchange {
+        request,
+        response,
+        timing: Timing::default(),
+        connection: ConnectionInfo::default(),
+        messages: Vec::new(),
+    };
     let viewed = ProtocolRuntimes::standard().response(Protocol::Http, &exchange).unwrap();
     assert_eq!((&viewed["status"], &viewed["body"]), (&json!(201), &json!({"id": 1})));
     for stream in [Protocol::Sse, Protocol::Websocket] {

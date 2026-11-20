@@ -18,6 +18,7 @@ fn exchange(code: u16) -> Exchange {
         response,
         timing: Timing::default(),
         connection: ConnectionInfo::default(),
+        messages: Vec::new(),
     }
 }
 

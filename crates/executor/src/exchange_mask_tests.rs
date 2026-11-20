@@ -5,7 +5,7 @@ use bytes::Bytes;
 use http::header::{AUTHORIZATION, CONTENT_TYPE, SET_COOKIE};
 use http::{HeaderMap, HeaderValue, Method, StatusCode, Uri};
 use serde_json::{Value, json};
-use vc_model::{ConnectionInfo, Exchange, HttpResponse, RedactRule, RenderedRequest, Timing};
+use vc_model::{ConnectionInfo, Exchange, HttpResponse, RedactRule, RenderedRequest, StreamMessage, Timing};
 
 use super::{MASKED_IN_URL, exchange};
 use crate::MASKED;
@@ -26,7 +26,13 @@ fn sent(uri: &str, headers: HeaderMap, body: &[u8]) -> Exchange {
         body: Bytes::copy_from_slice(body),
     };
     let response = HttpResponse { status: StatusCode::OK, headers: HeaderMap::new(), body: Bytes::new(), wire_size: 0 };
-    Exchange { request, response, timing: Timing::default(), connection: ConnectionInfo::default() }
+    Exchange {
+        request,
+        response,
+        timing: Timing::default(),
+        connection: ConnectionInfo::default(),
+        messages: Vec::new(),
+    }
 }
 
 async fn masked(exchange_in: Exchange) -> Exchange {
@@ -137,4 +143,16 @@ async fn bytes_that_are_not_text_are_replaced_only_when_they_hold_a_secret() {
     assert_eq!(shown.request.body, MASKED.as_bytes());
     let clean = [0xff, 0xfe, 0x00, 0x01];
     assert_eq!(masked(sent("https://api.test/", HeaderMap::new(), &clean)).await.request.body, &clean[..]);
+}
+
+#[tokio::test]
+async fn a_secret_in_a_stream_message_is_masked_in_its_text_and_its_data() {
+    let mut exchange_in = sent("https://api.test/events", HeaderMap::new(), b"");
+    let text = format!(r#"{{"token":"{SECRET}"}}"#);
+    let fields = json!({ "event": "token", "data": { "token": SECRET }, "text": text });
+    exchange_in.messages = vec![StreamMessage { fields: fields.as_object().cloned().unwrap() }];
+    let shown = masked(exchange_in).await.messages;
+    let expected =
+        json!({ "event": "token", "data": { "token": MASKED }, "text": format!(r#"{{"token":"{MASKED}"}}"#) });
+    assert_eq!(shown, vec![StreamMessage { fields: expected.as_object().cloned().unwrap() }]);
 }
