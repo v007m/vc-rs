@@ -107,6 +107,42 @@ async fn auth_runs_before_hooks_on_every_attempt() {
     assert_eq!((auth.1.load(Ordering::SeqCst), hooks.1.load(Ordering::SeqCst)), (2, 2));
 }
 
+/// Stamps `x-signed-at` with the milliseconds since `.0` when the request is signed.
+struct SignedAt(Instant);
+
+#[async_trait]
+impl RequestStage for SignedAt {
+    async fn apply(&self, mut request: RenderedRequest) -> Result<RenderedRequest, TransportError> {
+        let after = self.0.elapsed().as_millis().to_string();
+        request.headers.insert("x-signed-at", HeaderValue::try_from(after).unwrap_or(HeaderValue::from_static("?")));
+        Ok(request)
+    }
+}
+
+#[tokio::test(start_paused = true)]
+async fn the_sign_stage_runs_last_after_the_permit_on_every_attempt() {
+    let marks = ["auth;", "hooks;", "sign;"].map(|name| Arc::new(Mark(name, AtomicUsize::new(0))));
+    let fake = FakeTransport::scripted(vec![Ok(vc_testkit::status(503)), Ok(vc_testkit::status(200))]);
+    let [auth, hooks, sign] = marks.clone();
+    let parts = PipelineParts { auth, hooks, sign, ..retrying(Arc::new(fake), 1) };
+    let delivery = run(parts, call("http://api.test/x")).await;
+    let sent = delivery.result.map(|exchange| exchange.request.headers.get("x-stages").cloned());
+    assert_eq!(sent, Ok(Some(HeaderValue::from_static("auth;hooks;sign;"))));
+    assert_eq!(marks.map(|mark| mark.1.load(Ordering::SeqCst)), [2, 2, 2]);
+    let started = Instant::now();
+    let parts = PipelineParts {
+        sign: Arc::new(SignedAt(started)),
+        ..PipelineParts::new(delayed(Duration::from_millis(800), 2), HostLimits::spawn(1))
+    };
+    let (first, second) =
+        tokio::join!(run(parts.clone(), call("http://api.test/echo")), run(parts, call("http://api.test/echo")));
+    let signed = [first, second]
+        .map(|delivery| delivery.result.ok().and_then(|exchange| exchange.request.headers.get("x-signed-at").cloned()));
+    let mut signed = signed.map(|value| value.and_then(|value| value.to_str().ok().map(str::to_owned)));
+    signed.sort();
+    assert_eq!(signed, [Some("0".to_owned()), Some("800".to_owned())], "the waiting request is signed when it leaves");
+}
+
 /// A stage that refuses every request.
 struct Refuse;
 

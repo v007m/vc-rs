@@ -1,7 +1,8 @@
 use vc_interfaces::{ActionRunner, AuthProvider, AuthRequest, Browser, Keychain, Secret};
 
 /// The settings whose values are secret: no error message may hold them.
-const SECRET_KEYS: [&str; 6] = ["clientSecret", "password", "token", "value", "refreshToken", "code"];
+const SECRET_KEYS: [&str; 8] =
+    ["clientSecret", "password", "token", "value", "refreshToken", "code", "secretAccessKey", "sessionToken"];
 
 /// The contract every [`AuthProvider`] meets (D112). `served` is a request it can serve;
 /// `refused` is one it must refuse.

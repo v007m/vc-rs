@@ -5,6 +5,7 @@ use std::time::{Duration, Instant};
 use async_trait::async_trait;
 use bytes::Bytes;
 use http::header::{ACCEPT_ENCODING, PROXY_AUTHORIZATION};
+use http::uri::{Authority, Uri};
 use http::{Request, Response, Version};
 use http_body_util::Full;
 use hyper::body::Incoming;
@@ -13,7 +14,7 @@ use hyper_util::client::proxy::matcher::Matcher;
 use hyper_util::rt::{TokioExecutor, TokioTimer};
 use rustls::RootCertStore;
 use vc_interfaces::{CertChoice, SendContext, SentCert, Transport, TransportError};
-use vc_model::{ConnectionInfo, Exchange, HttpResponse, HttpVersion, RenderedRequest, Timing};
+use vc_model::{ConnectionInfo, Exchange, HttpResponse, HttpVersion, RenderedRequest, Timing, wire_host};
 
 use crate::alert::Failure;
 use crate::connector::{TimedConnector, bare_host};
@@ -111,15 +112,16 @@ impl HttpTransport {
         client.ok_or_else(|| TransportError::InvalidRequest { reason: format!("no client identity for {choice:?}") })
     }
 
-    /// The request hyper sends: the rendered one plus `accept-encoding` and, for plain HTTP
-    /// through a proxy with credentials, `proxy-authorization`.
+    /// The request hyper sends: the rendered one with its authority written as [`wire_host`]
+    /// (D456), plus `accept-encoding` and, for plain HTTP through a proxy with credentials,
+    /// `proxy-authorization`.
     fn wire_request(&self, request: &RenderedRequest) -> Result<Request<Full<Bytes>>, TransportError> {
         if request.uri.host().is_none() || !matches!(request.uri.scheme_str(), Some("http" | "https")) {
             return Err(TransportError::InvalidRequest { reason: format!("{} is not an http(s) URL", request.uri) });
         }
         let mut wire = Request::new(Full::new(request.body.clone()));
         *wire.method_mut() = request.method.clone();
-        *wire.uri_mut() = request.uri.clone();
+        *wire.uri_mut() = on_the_wire(&request.uri)?;
         *wire.headers_mut() = request.headers.clone();
         let headers = wire.headers_mut();
         headers.entry(ACCEPT_ENCODING).or_insert(http::HeaderValue::from_static(body::ACCEPT_ENCODING));
@@ -129,6 +131,17 @@ impl HttpTransport {
         }
         Ok(wire)
     }
+}
+
+/// `uri` with the authority a request signer signs (D438, D456): the host lowercased, the
+/// scheme's default port left out and any user info dropped. hyper derives the HTTP/1.1 `host`
+/// and the HTTP/2 `:authority` from it, so both match what was signed.
+fn on_the_wire(uri: &Uri) -> Result<Uri, TransportError> {
+    let invalid = |_| TransportError::InvalidRequest { reason: format!("{uri} has no usable host") };
+    let host = wire_host(uri).unwrap_or_default();
+    let mut parts = uri.clone().into_parts();
+    parts.authority = Some(Authority::try_from(host).map_err(invalid)?);
+    Uri::from_parts(parts).map_err(|_| TransportError::InvalidRequest { reason: format!("{uri} is not a valid URL") })
 }
 
 #[async_trait]

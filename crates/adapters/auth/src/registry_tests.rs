@@ -37,6 +37,24 @@ async fn every_written_type_meets_the_auth_provider_contract() {
     let flow = Arc::new(FixedFlow::new(Ok(Credentials::header("authorization", "Bearer f"))));
     auth_provider_suite(&types, &request("flow", &json!({})).with_flow(flow), &request("flow", &json!({}))).await;
     auth_provider_suite(&types, &request("bearer", &json!({"token": "t0k3n"})), &request("saml", &json!({}))).await;
+    let aws = json!({"region": "us-east-1", "service": "s3", "accessKeyId": "AKID", "secretAccessKey": "wJalr-s3cret"});
+    let mut bad = aws.clone();
+    bad["accessKeyId"] = json!("AKID/x");
+    auth_provider_suite(&types, &request("awsSigV4", &aws), &request("awsSigV4", &bad)).await;
+}
+
+#[tokio::test]
+async fn only_aws_sigv4_signs_and_its_credentials_are_a_signer() {
+    let types = types(None);
+    let aws = json!({"region": "us-east-1", "service": "s3", "accessKeyId": "AKID", "secretAccessKey": "wJalr-s3cret"});
+    assert!(types.signs(&request("awsSigV4", &aws)));
+    for kind in ["bearer", "mtls", "saml"] {
+        assert!(!types.signs(&request(kind, &json!({}))), "{kind}");
+    }
+    let credentials = types.credentials(&request("awsSigV4", &aws)).await.unwrap();
+    assert!(credentials.headers.is_empty() && credentials.query.is_empty() && credentials.cookies.is_empty());
+    assert!(credentials.signer.is_some());
+    assert_eq!(credentials.values().collect::<Vec<_>>(), ["AKID", "wJalr-s3cret"]);
 }
 
 #[tokio::test]
@@ -81,23 +99,12 @@ async fn every_key_a_type_requires_is_one_the_compiler_checks_for() {
 const READ_LATE: [(&str, &str); 2] =
     [("oauth2AuthorizationCode", "authorizeUrl"), ("oauth2AuthorizationCode", "tokenUrl")];
 
-/// The type `vc check` knows that no adapter serves yet: its signer lands in #106 PR 3, so a
-/// run that uses it fails as an unknown type (V5114).
-const UNBUILT: &str = "awsSigV4";
-
-#[tokio::test]
-async fn a_type_no_adapter_serves_yet_is_unknown() {
-    let settings = json!({"region": "us-east-1", "service": "s3", "accessKeyId": "a", "secretAccessKey": "s"});
-    let answer = types(None).credentials(&request(UNBUILT, &settings)).await;
-    assert!(matches!(&answer, Err(AuthError::Unknown { kind }) if kind == UNBUILT), "{answer:?}");
-}
-
 #[tokio::test]
 async fn leaving_out_any_key_a_type_needs_is_missing_that_key() {
     let types = types(None);
     let flow = Arc::new(FixedFlow::new(Ok(Credentials::header("authorization", "Bearer f"))));
     let value = |key: &str| if key.ends_with("Url") { "https://id.test/token" } else { "cli" };
-    for (kind, needs) in vc_model::AUTH_NEEDS.iter().filter(|(kind, _)| !["plugin", UNBUILT].contains(kind)) {
+    for (kind, needs) in vc_model::AUTH_NEEDS.iter().filter(|(kind, _)| *kind != "plugin") {
         for left in needs.iter().filter(|key| !READ_LATE.contains(&(*kind, **key))) {
             let kept = needs.iter().filter(|key| *key != left);
             let settings: serde_json::Map<String, Value> =

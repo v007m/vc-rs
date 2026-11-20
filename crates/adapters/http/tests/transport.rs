@@ -118,9 +118,9 @@ async fn sends_plain_http_through_the_proxy_in_absolute_form() -> TestResult {
     let mock = MockServer::start().await?;
     let lookup = |name: &str| (name == "HTTP_PROXY").then(|| format!("http://u:p@{}", mock.addr()));
     let options = HttpOptions { proxy: ProxyConfig::from_env(lookup), ..HttpOptions::default() };
-    let exchange = send(&HttpTransport::new(&options)?, get("http://api.invalid/echo?via=proxy")?).await?;
+    let exchange = send(&HttpTransport::new(&options)?, get("http://u:p@API.Invalid:80/echo?via=proxy")?).await?;
     let echoed = json(&exchange)?;
-    assert_eq!(echoed["headers"]["host"], "api.invalid", "{echoed}");
+    assert_eq!(echoed["headers"]["host"], "api.invalid", "the host a signer signs (D456): {echoed}");
     assert_eq!(echoed["headers"]["proxy-authorization"], "Basic dTpw", "{echoed}");
     assert_eq!(echoed["query"]["via"], "proxy", "{echoed}");
     assert_eq!(exchange.request.headers.len(), 0, "proxy credentials stay out of the exchange");

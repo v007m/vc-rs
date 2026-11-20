@@ -13,11 +13,13 @@ mod tests;
 mod vectors;
 
 use std::fmt;
+use std::sync::Arc;
 
+use async_trait::async_trait;
 use http::HeaderValue;
 use http::header::AUTHORIZATION;
 use serde_json::Value;
-use vc_interfaces::{AuthError, AuthRequest, Secret};
+use vc_interfaces::{AuthError, AuthProvider, AuthRequest, Credentials, RequestSigner, Secret, Signer};
 use vc_model::RenderedRequest;
 
 use self::canonical::Canonical;
@@ -34,6 +36,26 @@ const TOKEN_RULE: &str = "sessionToken: a header value, with no line breaks";
 const PAYLOAD_RULE: &str = "payload: signed or unsigned";
 /// The signing names that follow S3's path rules (D436, D454).
 const S3_SERVICES: [&str; 4] = ["s3", "s3express", "s3-outposts", "s3-object-lambda"];
+
+/// `awsSigV4`: adds no headers, query values or cookies. Its credentials carry a [`Signer`]
+/// holding the checked settings, which signs each attempt as it leaves (D434); the access key ID,
+/// the secret and the token are the values the redactor hides (D439).
+#[derive(Clone, Copy, Debug, Default)]
+#[non_exhaustive]
+pub struct AwsSigV4;
+
+#[async_trait]
+impl AuthProvider for AwsSigV4 {
+    async fn credentials(&self, request: &AuthRequest) -> Result<Credentials, AuthError> {
+        let signer = SigV4::from_request(request)?;
+        let hidden = signer.hidden();
+        Ok(Credentials::signed(Signer::new(Arc::new(signer), hidden)))
+    }
+
+    fn signs(&self, _request: &AuthRequest) -> bool {
+        true
+    }
+}
 
 /// What the canonical request holds for the body (`payload`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -104,6 +126,12 @@ impl SigV4 {
         Ok(request)
     }
 
+    /// The values the redactor hides: the access key ID, the secret and the token.
+    fn hidden(&self) -> Vec<Secret> {
+        let key_id = Secret::new(self.key_id.clone());
+        [Some(key_id), Some(self.secret.clone()), self.token.clone()].into_iter().flatten().collect()
+    }
+
     /// The canonical request's last line: the body's hash, or `UNSIGNED-PAYLOAD`.
     fn payload_hash(&self, body: &[u8]) -> String {
         match self.payload {
@@ -160,6 +188,12 @@ impl SigV4 {
             .map_err(|_| AuthError::Missing { auth: self.auth.clone(), key: key.to_owned() })?;
         value.set_sensitive(sensitive);
         Ok(value)
+    }
+}
+
+impl RequestSigner for SigV4 {
+    fn sign(&self, request: RenderedRequest, now_ms: u64) -> Result<RenderedRequest, AuthError> {
+        Self::sign(self, request, now_ms)
     }
 }
 

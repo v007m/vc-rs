@@ -78,8 +78,8 @@ impl InProcessTransport {
         *wire.headers_mut() = request.headers.clone();
         let headers = wire.headers_mut();
         headers.entry(ACCEPT_ENCODING).or_insert(HeaderValue::from_static(ACCEPT));
-        if let Some(authority) = request.uri.authority()
-            && let Ok(value) = HeaderValue::from_str(authority.as_str())
+        if let Some(host) = vc_model::wire_host(&request.uri)
+            && let Ok(value) = HeaderValue::from_str(&host)
         {
             headers.entry(HOST).or_insert(value);
         }
