@@ -67,7 +67,7 @@ Keys:
 | Key | Type | Default | Purpose |
 | --- | --- | --- | --- |
 | `region` | template | required | The signing region, such as `us-east-1` |
-| `service` | template | required | The signing name, such as `execute-api`, `es`, `aoss`, `lambda` or `s3` |
+| `service` | template | required | The signing name, such as `execute-api`, `es`, `aoss`, `lambda` or `s3`. `s3`, `s3express`, `s3-outposts` and `s3-object-lambda` follow S3's path rules (D454) |
 | `accessKeyId` | template | required | The access key ID |
 | `secretAccessKey` | template | required | The secret access key |
 | `sessionToken` | template | — | A temporary credential's token, sent as `x-amz-security-token` and signed. When it renders empty, no token is sent, so one definition serves both long-term and temporary keys |
@@ -107,15 +107,16 @@ The canonical request (D435):
   - Dot segments are removed and runs of `/` collapse to one (RFC 3986 §5.2.4, as AWS normalises).
   - Every byte outside `A-Za-z0-9-._~/` is then percent-encoded with uppercase hex. The path as sent is already encoded once (D278), so this is AWS's double encoding: a `%20` on the wire is `%2520` in the canonical path.
   - The path sent is not changed.
-- **Path, S3** (`service: s3`, D436):
+- **Path, S3** (`service` is `s3`, `s3express`, `s3-outposts` or `s3-object-lambda`, D436, D454):
   - No normalising, since an object key may hold `//` or `..`, and single encoding.
   - The signer first rewrites the path it sends into AWS's encoding: each segment is percent-decoded, then every byte outside `A-Za-z0-9-._~` is encoded. A `%` not followed by two hex digits counts as a literal `%`.
   - The canonical path is that rewritten path, so what is signed is what is sent, whatever characters a key holds.
 - **Query**:
   - Split on `&`, skipping empty items. Each item splits at its first `=`; an item with no `=` has an empty value.
-  - Names and values are percent-decoded (`+` stays `+`), then encoded as above, with `/` encoded too.
+  - A `+` is a space, as AWS reads a query, so it is signed as `%20`; a literal plus is written `%2B` (D453).
+  - Names and values are percent-decoded, then encoded as above, with `/` encoded too.
   - Items are sorted by encoded name, then encoded value, and written `name=value` (`name=` when the value is empty), joined by `&`.
-  - The query sent is not changed. AWS decodes and re-encodes it the same way.
+  - The query sent changes only in that each `+` is sent as `%20`, so the server reads what was signed. AWS decodes and re-encodes it the same way.
 - **Headers**:
   - Every header on the request when it is signed, plus `host`, except a deny-list of headers that the transport or a proxy may add, drop or change: `authorization`, `connection`, `content-length`, `expect`, `keep-alive`, `proxy-authorization`, `te`, `transfer-encoding`, `upgrade`, `user-agent` and `x-amzn-trace-id`.
   - Names are lowercased.
@@ -223,6 +224,8 @@ How the parts fit:
 | D450 | 33 of 38 vectors run; five are skipped with reasons. The presigned (query) files are not read. |
 | D451 | Zeroized: the secret, token, seed, derived keys and hash states. Not the canonical request, string to sign or signature. |
 | D452 | `wire_host` lands in PR 2; PR 3 wires the transport. A time past year 9999 signs as the epoch. |
+| D453 | A `+` in the query is a space: sent and signed as `%20`; a literal plus is `%2B`. Supersedes D435 in part (Sarath, 2026-11-21). |
+| D454 | `s3`, `s3express`, `s3-outposts` and `s3-object-lambda` follow S3's path rules. Supersedes D436 in part (Sarath, 2026-11-21). |
 
 Candidate V codes (V1005, V2302 and V5114 are reused; V1 and V3 need nothing new):
 
@@ -243,7 +246,8 @@ The pure signer (`vc-adapter-auth`, PR 2):
   - A header continued on the next line is unfolded with one space, and raw bytes in the request line are encoded once, as a rendered URL holds them (D449).
 - The five cases that cannot run are listed in the test with their reason, and a second test checks each names a vendored case (D450): two sign a raw path a rendered URL cannot hold, one adds the token after signing, and two sign `content-length`. 33 cases run.
 - Unit tests beyond the suite cover:
-  - the S3 path rewrite (`a b/c+d` and a stray `%`);
+  - the S3 path rewrite (`a b/c+d` and a stray `%`), for each of the four S3 names, and a near name (`s3x`) that normalises;
+  - a `+` in the query sent and signed as `%20`, and `%2B` kept;
   - the deny-list;
   - a header that is not UTF-8;
   - an empty `sessionToken`;

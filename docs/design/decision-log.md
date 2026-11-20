@@ -888,6 +888,13 @@ Round 84 (20 November 2026; refinements decided in #106 PRs 1 and 2 under Sarath
 | D451 | What the signer zeroizes | The secret and token (`Secret`), the `"AWS4" + secret` seed, each derived key and the HMAC and SHA-256 states (the `zeroize` features of `hmac` and `sha2`). The canonical request, string to sign and signature are not: they hold what is sent, or a value derived from it, and never leave the signer. | D439 (refines) |
 | D452 | `wire_host` lands with the signer | `vc_model::wire_host` arrives in PR 2, with its first user; PR 3 points `vc-adapter-http` at it and adds the transport-suite case. A signing time past 9999-12-31 signs as 1970-01-01, which AWS rejects as skewed, instead of failing. | — |
 
+Round 86 (21 November 2026; Sarath, 2026-11-21, ruling on two #106 PR 2 review findings; Round 85 is the streams lane's):
+
+| # | Topic | Decision | Supersedes |
+| --- | --- | --- | --- |
+| D453 | `+` in a signed query | A `+` in the query is a space, as the AWS SDKs and AWS itself read it: the signer sends it as `%20` and signs `%20`. A literal plus is written `%2B`, which is sent and signed as `%2B`. The path is unchanged: a `+` there is a plus. Sarath, 2026-11-21. | D435 (in part: "`+` stays `+`" in the query) |
+| D454 | Services that follow S3's rules | `s3`, `s3express`, `s3-outposts` and `s3-object-lambda` use S3's path rules (no normalising, single encoding, the path rewritten and signed as sent). Any other name, `s3x` included, normalises and double-encodes. Sarath, 2026-11-21. | D436 (in part: "No other service name changes the rules") |
+
 ## Open
 
 All decisions needed for the PRD and technical design are settled. The language is decided by the spike (D6, D36, D37, D41).
