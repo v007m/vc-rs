@@ -43,7 +43,7 @@ impl Engine {
             return Ok(Vec::new());
         }
         let secrets = self.secrets(SecretSource::of(&prepared), &vc_planner::alert_secrets(program)).await?;
-        let senders = self.senders(&prepared, &secrets)?;
+        let senders = self.senders(&prepared, (&secrets, self.transport(prepared.environment.as_ref())?));
         Ok(sent(&senders, (program, &rules), &notice).await)
     }
 

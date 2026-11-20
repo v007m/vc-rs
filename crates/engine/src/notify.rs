@@ -7,7 +7,7 @@ use std::sync::Arc;
 use serde_json::Value;
 use vc_diagnostics::Code;
 use vc_interfaces::{
-    Environment, HistoryReader, Notice, NotifierFactory, RunFilter, RunId, RunRow, RunSummary, Secrets,
+    Environment, HistoryReader, Notice, NotifierFactory, RunFilter, RunRow, RunSummary, Secrets, Transport,
 };
 use vc_model::{AlertChannel, Namespace, Program, RunStatus, Totals};
 use vc_template::{PipeRegistry, RenderError, Renderer};
@@ -16,7 +16,8 @@ use crate::alerts::{self, Ending, Finished};
 use crate::load::RUN_KIND;
 use crate::plan::Prepared;
 use crate::restricted::{Read, Restricted, env_value, secret_value};
-use crate::{Engine, EngineError};
+use crate::secured::Secured;
+use crate::Engine;
 
 /// How many stored runs are searched for the previous one.
 const LOOKBACK: usize = 50;
@@ -38,36 +39,28 @@ pub struct Senders {
 }
 
 impl Engine {
-    /// What the end of history run `run` of `prepared`, of `kind` (`run` or `load`), sends its
-    /// alerts with; `None` when the config has no `alerts`.
-    ///
-    /// # Errors
-    ///
-    /// [`EngineError::Internal`] when the HTTP client cannot be built.
-    pub(crate) fn alerting(
-        &self,
-        prepared: &Prepared,
-        secrets: &Secrets,
-        (run, kind): (u64, &str),
-    ) -> Result<Option<Alerting>, EngineError> {
+    /// What the end of a run of `prepared`, of `kind` (`run` or `load`), sends its alerts with,
+    /// over `secured`'s transport; `None` when the config has no `alerts`. Call it before the run
+    /// begins in the history: the previous run it reads is the last one stored.
+    pub(crate) fn alerting(&self, prepared: &Prepared, secured: &Secured, kind: &str) -> Option<Alerting> {
         let program = Arc::clone(&prepared.program);
         if program.config.alerts.is_empty() {
-            return Ok(None);
+            return None;
         }
-        let senders = self.senders(prepared, secrets)?;
-        let previous = previous(self.history_reader().as_ref(), (run, kind), &prepared.names);
+        let senders = self.senders(prepared, (&secured.secrets, Arc::clone(&secured.transport)));
+        let previous = previous(self.history_reader().as_ref(), kind, &prepared.names);
         let project = self.project_name(&program);
-        Ok(Some(Alerting { program, project, root: self.root().to_path_buf(), previous, senders }))
+        Some(Alerting { program, project, root: self.root().to_path_buf(), previous, senders })
     }
 
-    /// What sends `prepared`'s alerts, with `secrets` to fill their settings in.
-    ///
-    /// # Errors
-    ///
-    /// [`EngineError::Internal`] when the HTTP client cannot be built.
-    pub(crate) fn senders(&self, prepared: &Prepared, secrets: &Secrets) -> Result<Senders, EngineError> {
-        let factory = self.notifiers(self.transport(prepared.environment.as_ref())?);
-        Ok(Senders { factory, secrets: secrets.clone(), environment: Arc::clone(&prepared.environment) })
+    /// What sends `prepared`'s alerts over `transport`, with `secrets` to fill their settings in.
+    pub(crate) fn senders(
+        &self,
+        prepared: &Prepared,
+        (secrets, transport): (&Secrets, Arc<dyn Transport>),
+    ) -> Senders {
+        let factory = self.notifiers(transport);
+        Senders { factory, secrets: secrets.clone(), environment: Arc::clone(&prepared.environment) }
     }
 
     /// The project a notice names: the config's `project`, else the root folder's name.
@@ -83,9 +76,9 @@ fn folder(root: &Path) -> String {
 
 /// How the last finished run of `kind` under the same profiles before run `run` ended. A `vc
 /// run` in which no test ran (exit 2) is passed over: it says nothing about the tests.
-fn previous(history: &dyn HistoryReader, (run, kind): (u64, &str), profiles: &[String]) -> Option<RunStatus> {
+fn previous(history: &dyn HistoryReader, kind: &str, profiles: &[String]) -> Option<RunStatus> {
     let runs = history.runs(LOOKBACK, &RunFilter::default()).ok()?;
-    let earlier = |row: &&RunRow| row.id != RunId::new(run) && row.start.kind == kind && row.start.profiles == profiles;
+    let earlier = |row: &&RunRow| row.start.kind == kind && row.start.profiles == profiles;
     runs.iter().filter(earlier).filter(|row| kind != RUN_KIND || ran(&row.totals)).find_map(|row| row.status)
 }
 

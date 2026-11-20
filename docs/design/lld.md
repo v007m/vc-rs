@@ -1135,7 +1135,7 @@ When a run ends, `engine/src/alerts.rs` decides which rules fire. It is pure: `d
 - Each channel's settings are rendered when the run ends.
   - Only `${secret.X}` and `${env.X}` are read.
   - Reading a declared secret through `env` is refused, so the secret stays masked.
-- The channels come from `EngineBuilder::notifiers`, else `NotifierRegistry::standard` over the run's transport.
+- The channels come from `EngineBuilder::notifiers`, else `NotifierRegistry::standard` over the transport the run secured (D402); no second transport is built. `vc run` and `vc load` set their alerting up right after the secured step, before any reporter or history run begins, so `previous` is the last run already stored.
 - Every channel that cannot be built or sent to adds a `V5117: <reason>` line to `RunReport.notices`; the exit code is unchanged.
 
 `vc alerts test` sends a sample instead of a run's notice (`Engine::test_alerts`, `engine/src/alert_samples.rs`; D257).

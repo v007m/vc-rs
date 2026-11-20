@@ -64,9 +64,8 @@ impl Engine {
             let (exit, ending) = (crate::secured::EXIT_CANCELLED, LoadEnding::Cancelled);
             return Ok(LoadReport { exit, ending, ..session.report });
         };
+        session.alerting = self.alerting(&session.prepared, &secured, LOAD_KIND);
         let live = Live::new(Arc::clone(&session.prepared.program), self.load_recording(&mut session), watch.ticks);
-        let run_id = live.run_id().unwrap_or(0);
-        session.alerting = self.alerting(&session.prepared, &secured.secrets, (run_id, LOAD_KIND))?;
         let plugins = self.plugin_hosts(&session.prepared.program, &secured.secrets);
         let given = (&secured, &plugins);
         plugins.around(Box::pin(self.load_with((session, live), given, &mut watch.interrupts))).await

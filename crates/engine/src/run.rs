@@ -104,9 +104,9 @@ impl Engine {
     ) -> Result<RunReport, EngineError> {
         let heard = plugins.heard();
         let (seed, random, started_ms) = (prepared.draw.seed, Arc::clone(&prepared.draw.random), self.clock.now_ms());
+        let alerting = self.alerting(&prepared, secured, RUN_KIND);
         let (reporters, unrecorded) = self.reporters(request, &prepared, (seed, plugins.clone(), started_ms))?;
         let run_id = reporters.run_id().map_or(0, RunId::get);
-        let alerting = self.alerting(&prepared, &secured.secrets, (run_id, RUN_KIND))?;
         let reached = crate::body_files::reached(&prepared.program, &prepared.plan);
         let inputs = self.inputs(&prepared, (random, run_id, reached)).await;
         let inputs = inputs.with_secrets(secured.secrets.clone()).with_started_at(started_ms);

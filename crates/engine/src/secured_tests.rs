@@ -1,5 +1,5 @@
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 
 use async_trait::async_trait;
@@ -31,23 +31,31 @@ fn config(passphrase: &str) -> String {
     )
 }
 
+/// [`config`] with one alert rule, whose webhook every run's end sends.
+fn alerting(passphrase: &str) -> String {
+    format!("{}alerts:\n  - notify:\n      - webhook: {{url: 'http://hook'}}\n", config(passphrase))
+}
+
 const API: &str = "baseUrl: http://x\napis:\n  - id: send\n    method: GET\n    path: /echo\n    auth: svc\n";
 const TESTS: &str = "tests:\n  - id: sendsRows\n    examples: ${var.rows}\n    call: echo#send\n";
 const LOAD: &str = "mix:\n  - {test: echo.send#sendsRows, weight: 1}\nstages:\n  - {duration: 1s, users: 1}\n";
 
 /// A transport factory that refuses with `refusal` or builds a transport answering 200, once
-/// `released` is set or a few seconds have passed; it notes in `started` that it began.
+/// `released` is set or a few seconds have passed; it notes in `started` that it began, and
+/// counts its builds in `builds`.
 #[derive(Default)]
 struct Loader {
     refusal: Option<TlsError>,
     held: bool,
     started: Arc<AtomicBool>,
     released: Arc<AtomicBool>,
+    builds: Arc<AtomicUsize>,
 }
 
 impl TransportFactory for Loader {
     fn build(&self, _: &TlsSpec, _: &dyn Environment) -> Result<Arc<dyn Transport>, TlsError> {
         self.started.store(true, Ordering::SeqCst);
+        self.builds.fetch_add(1, Ordering::SeqCst);
         let until = Instant::now() + Duration::from_secs(5);
         while self.held && !self.released.load(Ordering::SeqCst) && Instant::now() < until {
             std::thread::sleep(Duration::from_millis(5));
@@ -174,12 +182,36 @@ async fn a_tls_or_secret_refusal_stops_every_entry_point_before_any_run_begins()
         ("V5125", refused(&config(PASS), refusing(true)).await),
         ("V5126", refused(&config(PASS), refusing(false)).await),
         ("V5114", refused(&config("${secret.NOPE}"), Loader::default()).await),
+        ("V5125", refused(&alerting(PASS), refusing(true)).await),
+        ("V5114", refused(&alerting("${secret.NOPE}"), Loader::default()).await),
     ];
     for (code, seen) in cases {
         for (error, began) in seen {
             assert!(error.contains(code), "{code}: {error}");
             assert!(!began, "{code} began a run: {error}");
         }
+    }
+}
+
+#[tokio::test]
+async fn a_run_or_load_with_alerts_builds_only_the_transport_it_secured() {
+    let loader = Loader::default();
+    let builds = Arc::clone(&loader.builds);
+    let (engine, _runs) = engine(&alerting(PASS), loader);
+    engine.run(&RunRequest::default(), crate::interrupts().1).await.unwrap();
+    assert_eq!(builds.swap(0, Ordering::SeqCst), 1, "the run's alerts use its secured transport");
+    let watch = LoadWatch { interrupts: crate::interrupts().1, ticks: None };
+    engine.load(&load_request(), watch).await.unwrap();
+    assert_eq!(builds.load(Ordering::SeqCst), 1, "the load's alerts use its secured transport");
+}
+
+#[tokio::test]
+async fn a_transport_that_cannot_be_built_stops_an_alerting_project_before_any_run_begins() {
+    let refusal = TlsError::Transport { reason: "no client".to_owned() };
+    let seen = refused(&alerting(PASS), Loader { refusal: Some(refusal), ..Loader::default() }).await;
+    for (error, began) in seen {
+        assert!(error.contains("no client"), "{error}");
+        assert!(!began, "a run began: {error}");
     }
 }
 
