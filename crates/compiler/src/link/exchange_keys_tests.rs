@@ -131,6 +131,7 @@ fn a_message_check_that_is_no_map_of_fields_is_v2306_and_data_takes_match_or_equ
         ("{data: 7}", Code::V2302, "`data` takes `match` or `equals`, found an integer", None),
         ("{data: {matches: {id: 7}}}", Code::V1004, "`data` has no `matches`", Some("Replace with match")),
         ("{data: {match: [id]}}", Code::V2302, "`data.match` takes a map of paths, found a list", None),
+        ("{data: {match: {id: 1}, mtach: {}}}", Code::V1004, "`data` has no `mtach`", Some("Replace with match")),
     ];
     for (check, code, message, fix) in cases {
         assert_eq!(found(&compile(&receive(check), "tests: []\n")), [row(code, 7, message, fix)], "{check}");
@@ -169,4 +170,7 @@ fn an_empty_receive_list_and_a_data_check_that_is_not_one_are_v2306() {
             row(Code::V2306, 7, "`receive` lists no message check", None),
         ]
     );
+    let unused = "tests:\n  - id: waits\n    exchange:\n      - receive: []\n    steps:\n      - call: feed#chat\n        exchange:\n          - send: hi\n";
+    let found = found(&compile(&apis("", ""), unused));
+    assert!(found.contains(&row(Code::V2306, 4, "`receive` lists no message check", None)), "{found:?}");
 }

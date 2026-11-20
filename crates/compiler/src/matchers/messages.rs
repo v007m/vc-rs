@@ -83,8 +83,11 @@ fn field(cx: &mut Cx<'_>, at: At<'_>, entry: &Entry) -> Option<(String, Matcher)
         return Some((entry.key.clone(), super::matcher(cx, at, Unit::Plain)?));
     }
     let check = match &at.node.value {
-        Value::Map(checks) if checks.len() == 1 => checks.first().and_then(|check| data(cx, at, check)),
-        Value::Map(checks) => not_one(cx, at, checks),
+        Value::Map(checks) => match checks.as_slice() {
+            [check] => data(cx, at, check),
+            [] => not_one(cx, at, checks),
+            _ => several(cx, at, checks),
+        },
         _ => data_not_a_map(cx, at),
     };
     Some(("data".to_owned(), check?))
@@ -102,6 +105,16 @@ fn not_one(cx: &mut Cx<'_>, at: At<'_>, checks: &[Entry]) -> Option<Matcher> {
         .help("write `data: {match: {…}}` for paths into the data, or `data: {equals: …}` for the whole of it");
     cx.push(diagnostic);
     None
+}
+
+/// A `data` that writes more than one check: each is lowered, so a stray key is its own V1004
+/// with a fix and the errors inside the others still show; `match` and `equals` both is V2306.
+fn several(cx: &mut Cx<'_>, at: At<'_>, checks: &[Entry]) -> Option<Matcher> {
+    for check in checks {
+        drop(data(cx, at, check));
+    }
+    let known = checks.iter().all(|check| DATA.contains(&check.key.as_str()));
+    if known { not_one(cx, at, checks) } else { None }
 }
 
 /// V2302 for `data` written as a value: it takes `match` or `equals`.

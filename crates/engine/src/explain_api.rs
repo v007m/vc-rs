@@ -124,7 +124,7 @@ impl Explainer<'_> {
             found.extend(headers.values().flat_map(Template::references));
         }
         body_references(&api.body, &mut found);
-        for item in called.exchange() {
+        for item in &api.exchange {
             if let ExchangeKind::Send(value) = &item.kind {
                 value.collect_references(&mut found);
             }
