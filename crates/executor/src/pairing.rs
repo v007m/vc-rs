@@ -5,7 +5,7 @@
 /// A one-to-one pairing of entries with errors (Kuhn's augmenting paths, searched with an
 /// explicit stack): each entry's fitting errors, the entry each error is paired with and the
 /// error each entry holds, how many entries hold none, the search each error was last tried in,
-/// and how many steps one search may take.
+/// how many steps one search may take, and the path buffer every search reuses.
 ///
 /// A search tries each error at most once and pops at most once more than it pushes, so it
 /// takes at most twice as many steps as there are fits, plus one; its path never holds more
@@ -22,9 +22,11 @@ pub struct Pairing {
     seen: Vec<usize>,
     search: usize,
     budget: usize,
+    path: Vec<Step>,
 }
 
 /// One entry on a search's path: the next of its fits to try, and the error it would take.
+#[derive(Debug)]
 struct Step {
     entry: usize,
     next: usize,
@@ -35,7 +37,7 @@ impl Pairing {
     pub fn new(fits: Vec<Vec<usize>>, errors: usize) -> Self {
         let budget = fits.iter().map(Vec::len).sum::<usize>().saturating_mul(2).saturating_add(1);
         let (held, open) = (vec![None; fits.len()], fits.len());
-        Self { fits, owner: vec![None; errors], held, open, seen: vec![0; errors], search: 0, budget }
+        Self { fits, owner: vec![None; errors], held, open, seen: vec![0; errors], search: 0, budget, path: Vec::new() }
     }
 
     /// The entries left unpaired, in order.
@@ -119,9 +121,17 @@ impl Pairing {
 
     /// Pairs `entry` with an error, moving entries along a path of paired errors to free one,
     /// trying only errors the current search has not. A search that outgrows its bounds leaves
-    /// the entry unpaired.
+    /// the entry unpaired. The path buffer is cleared, not reallocated, for each search.
     fn paired(&mut self, entry: usize) -> bool {
-        let mut path = Vec::with_capacity(self.fits.len());
+        let mut path = std::mem::take(&mut self.path);
+        path.clear();
+        let found = self.search_from(entry, &mut path);
+        self.path = path;
+        found
+    }
+
+    /// One search from `entry`, along `path`, which starts empty.
+    fn search_from(&mut self, entry: usize, path: &mut Vec<Step>) -> bool {
         path.push(Step { entry, next: 0, taken: 0 });
         for _ in 0..self.budget {
             let Some(step) = path.last_mut() else { return false };
@@ -131,7 +141,7 @@ impl Pairing {
             };
             step.taken = error;
             let Some(owner) = self.owner[error] else {
-                self.shift(&path);
+                self.shift(path);
                 return true;
             };
             if path.len() == self.fits.len() {
