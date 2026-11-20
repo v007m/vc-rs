@@ -69,26 +69,43 @@ fn not_a_message(cx: &mut Cx<'_>, at: At<'_>) -> Option<Matcher> {
     None
 }
 
-/// A message check, as the internal `fields` matcher; `data` may add two entries.
+/// A message check, as the internal `fields` matcher.
 fn message(cx: &mut Cx<'_>, at: At<'_>, entries: &[Entry]) -> Option<Matcher> {
     let found: Vec<_> = entries.iter().map(|entry| field(cx, at, entry)).collect();
-    let fields = found.into_iter().collect::<Option<Vec<_>>>()?.concat();
+    let fields = found.into_iter().collect::<Option<Vec<_>>>()?;
     Some(one(call(("fields", MatcherArg::Fields(fields)), at.node.span)))
 }
 
-/// One written field: `data` as its `match` and `equals`, any other a literal or a matcher.
-fn field(cx: &mut Cx<'_>, at: At<'_>, entry: &Entry) -> Option<Vec<(String, Matcher)>> {
+/// One written field: `data` as its `match` or `equals`, any other a literal or a matcher.
+fn field(cx: &mut Cx<'_>, at: At<'_>, entry: &Entry) -> Option<(String, Matcher)> {
     let at = at.child(&entry.value);
     if entry.key != "data" {
-        return Some(vec![(entry.key.clone(), super::matcher(cx, at, Unit::Plain)?)]);
+        return Some((entry.key.clone(), super::matcher(cx, at, Unit::Plain)?));
     }
-    let Value::Map(checks) = &at.node.value else { return data_not_a_map(cx, at) };
-    let found: Vec<_> = checks.iter().map(|check| data(cx, at, check)).collect();
-    found.into_iter().map(|check| check.map(|check| ("data".to_owned(), check))).collect()
+    let check = match &at.node.value {
+        Value::Map(checks) if checks.len() == 1 => checks.first().and_then(|check| data(cx, at, check)),
+        Value::Map(checks) => not_one(cx, at, checks),
+        _ => data_not_a_map(cx, at),
+    };
+    Some(("data".to_owned(), check?))
+}
+
+/// V2306 for a `data` that writes neither `match` nor `equals`, or both: `equals` fixes the whole
+/// data, so which one was meant is not certain and there is no fix.
+fn not_one(cx: &mut Cx<'_>, at: At<'_>, checks: &[Entry]) -> Option<Matcher> {
+    let (message, span) = checks.get(1).map_or_else(
+        || ("`data` checks nothing", at.node.span),
+        |second| ("`data` takes `match` or `equals`, not both", second.key_span),
+    );
+    let diagnostic = Diagnostic::new(Code::V2306, span, message)
+        .label("one data check")
+        .help("write `data: {match: {…}}` for paths into the data, or `data: {equals: …}` for the whole of it");
+    cx.push(diagnostic);
+    None
 }
 
 /// V2302 for `data` written as a value: it takes `match` or `equals`.
-fn data_not_a_map(cx: &mut Cx<'_>, at: At<'_>) -> Option<Vec<(String, Matcher)>> {
+fn data_not_a_map(cx: &mut Cx<'_>, at: At<'_>) -> Option<Matcher> {
     let message = format!("`data` takes `match` or `equals`, found {}", crate::shape_check::found(at.node));
     let diagnostic = Diagnostic::new(Code::V2302, at.node.span, message)
         .label("not a map")

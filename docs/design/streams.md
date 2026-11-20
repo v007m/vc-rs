@@ -86,7 +86,8 @@ Receiving:
 - `receive: <check>` waits for the next message that the check matches. Messages before it that do not match are skipped. This tolerates heartbeats and interleaved noise.
 - A list under `receive` is a group. Each entry pairs with its own message, in any order, one-to-one, as `expect.errors` lists do (D362). The group is done when every entry has a message.
 - A check is a map over the message's fields, matched field by field as an `expect.errors` entry is (D360): each written field is a literal or a matcher, and unwritten fields are ignored.
-- `data` takes `match` (paths into the JSON, each a matcher, as `body.match`) or `equals` (the whole value, as `body.equals`). Any other field takes a literal or a matcher.
+- `data` takes `match` (paths into the JSON, each a matcher, as `body.match`) or `equals` (the whole value, as `body.equals`), exactly one of them (V2306 for neither or both, D419). Any other field takes a literal or a matcher.
+- A `receive` list with no check is V2306 (D419).
 
 Message shape. The shape is per type, and a field the type's messages lack is V1004 with the close name as its fix:
 

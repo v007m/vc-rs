@@ -46,8 +46,9 @@ fn defaults(project: &Project<'_>, source: &Source<'_>) -> Vec<Diagnostic> {
     let tests = project::list(source.root, "tests").iter().filter(|_| source.kind == FileKind::Test);
     let mut found = Vec::new();
     for test in tests.filter(|test| test.get("call").is_none()) {
-        let exchanges = inheriting(project, source, (test, &ON_THE_TEST, "exchange"));
-        let checks = inheriting(project, source, (test, &IN_EXPECT, "messages"));
+        let steps = protocol_keys::call_steps(project, source, test);
+        let exchanges = inheriting(&steps, (&ON_THE_TEST, "exchange"));
+        let checks = inheriting(&steps, (&IN_EXPECT, "messages"));
         let problems = exchanges.into_iter().flat_map(|protocol| exchange(test.get("exchange"), protocol));
         let problems = problems.chain(checks.into_iter().flat_map(|protocol| messages(test.get("expect"), protocol)));
         for problem in problems {
@@ -60,31 +61,31 @@ fn defaults(project: &Project<'_>, source: &Source<'_>) -> Vec<Diagnostic> {
     found
 }
 
-/// The types reached by the `call` steps of `test` that inherit its `key`, each once.
-fn inheriting(
-    project: &Project<'_>,
-    source: &Source<'_>,
-    (test, place, key): (&Node, &Inherited, &str),
-) -> Vec<Protocol> {
-    let calls = project::list(test, "steps").iter().filter(|step| step.get("call").is_some());
-    let reached = calls.filter(|step| !(place.own)(step, key));
+/// The types reached by the `call` steps, of `steps`, that inherit the test's `key` at `place`,
+/// each once.
+fn inheriting(steps: &[(&Node, Protocol)], (place, key): (&Inherited, &str)) -> Vec<Protocol> {
     let mut protocols = Vec::new();
-    for protocol in reached.filter_map(|step| protocol_keys::reached(project, source, step)) {
-        if !protocols.contains(&protocol) {
-            protocols.push(protocol);
+    for (_, protocol) in steps.iter().filter(|(step, _)| place.inherits(step, key)) {
+        if !protocols.contains(protocol) {
+            protocols.push(*protocol);
         }
     }
     protocols
 }
 
-/// V2213 at each `send` of the `exchange` at `node` when `protocol` only receives, and V1004
-/// at each field its `receive` checks that `protocol`'s messages lack.
+/// V2213 at each `send` of the `exchange` at `node` when `protocol` only receives, V2306 at an
+/// empty `receive` list, and V1004 at each field its `receive` checks that `protocol`'s messages
+/// lack.
 fn exchange(node: Option<&Node>, protocol: Protocol) -> Vec<Diagnostic> {
     let (Some(node), Some(shape)) = (node, protocol.stream_shape()) else { return Vec::new() };
     let mut found = Vec::new();
     for item in node.items() {
         found.extend(item.entry("send").filter(|_| !shape.sends).map(|send| refused(send, protocol)));
         let checks = match item.get("receive").map(|receive| (receive, &receive.value)) {
+            Some((receive, Value::Seq(checks))) if checks.is_empty() => {
+                found.push(empty(receive));
+                Vec::new()
+            }
             Some((_, Value::Seq(checks))) => checks.iter().collect(),
             Some((receive, _)) => vec![receive],
             None => Vec::new(),
@@ -114,6 +115,14 @@ fn unknown(entry: &Entry, (protocol, shape): Stream) -> Diagnostic {
     let message = format!("{} message has no field `{}`", protocol.named(), entry.key);
     let diagnostic = Diagnostic::new(Code::V1004, entry.key_span, message).label("not a message field");
     suggest::hint(diagnostic, &Misspelling { word: &entry.key, span: entry.key_span, known: shape.fields })
+}
+
+/// V2306 at a `receive` list with no check, which would wait for nothing. Which messages were
+/// meant is not certain, so there is no fix.
+fn empty(receive: &Node) -> Diagnostic {
+    Diagnostic::new(Code::V2306, receive.span, "`receive` lists no message check")
+        .label("waits for nothing")
+        .help("write the messages to wait for, as in `[{type: joined}, {type: history}]`, or remove the item")
 }
 
 /// V2213 at a `send` on a stream that only receives. Dropping the message would change what the
