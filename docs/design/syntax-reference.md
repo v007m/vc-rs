@@ -393,7 +393,7 @@ apis:
           data.user.id: ${var.userId}
 ```
 
-`sse` and `websocket` (D376, #92, #93) are checked as below, and their calls run as Streams describes (`docs/design/streams.md`). An `sse` call opens over the HTTP adapter (D427, D428). Until it opens WebSockets, a `websocket` call fails before anything is sent, with "`websocket` calls need a stream transport, and none is set".
+`sse` and `websocket` (D376, #92, #93) are checked as below, and their calls run as Streams describes (`docs/design/streams.md`). Both open over the HTTP adapter (D427, D428): an `sse` call as a streamed response, and a `websocket` call as an HTTP/1.1 upgrade, whose `baseUrl` may be `ws://`, `wss://`, `http://` or `https://` (D460). An engine built with no stream transport fails such a call before anything is sent, with "`websocket` calls need a stream transport, and none is set".
 
 - `sse` sends its request as `http` does: its own `method` (else `GET`), `path` and `body`. `poll` does not apply on a test or step that calls it (V2213), nor does `expect.errors`.
 - `sse.reconnect: true`, on the api or else on a `type: sse` file, opens the stream once more when it ends before the call is done (D385); it is `false` when neither sets it, and an api's `sse: {}` keeps its file's. An `sse` block on an api or a file of another type is V2213, with the certain fix that removes it; a key it does not know is V1004, with the close key as its fix.
