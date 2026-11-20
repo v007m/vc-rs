@@ -275,18 +275,18 @@ async fn a_failed_reconnect_is_v5130_with_its_answer_or_a_failed_check_under_its
     }
 }
 
-/// What a [`Stuck`] transport never finishes.
+/// Where a [`Stuck`] transport does not answer as asked.
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Hang {
     /// A `send` on any of its streams.
     Sends,
     /// Every open after the first.
     Reopens,
-    /// Nothing: a `send` on any of its streams fails at once.
+    /// A `send` on any of its streams, which fails at once with [`reset`].
     Breaks,
 }
 
-/// A stream transport that hangs where its [`Hang`] says.
+/// A stream transport that hangs or fails where its [`Hang`] says.
 struct Stuck(FakeStreamTransport, Hang);
 
 struct StuckSend(Box<dyn MessageStream>, Hang);
@@ -313,7 +313,7 @@ impl StreamTransport for Stuck {
 impl MessageStream for StuckSend {
     async fn send(&mut self, _frame: OutgoingFrame) -> Result<(), TransportError> {
         if self.1 == Hang::Breaks {
-            return Err(TransportError::Connect { host: "api.test".to_owned(), reason: "reset".to_owned() });
+            return Err(reset());
         }
         std::future::pending().await
     }
@@ -348,15 +348,20 @@ async fn a_reconnect_that_does_not_answer_in_time_is_v5130_naming_the_limit() {
     assert_eq!(messages_checks(&report), [(Some("V5130".to_owned()), Some(error))]);
 }
 
+/// The error a [`Hang::Breaks`] stream's `send` fails with.
+fn reset() -> TransportError {
+    TransportError::Connect { host: "api.test".to_owned(), reason: "reset".to_owned() }
+}
+
 /// A `send` still going out at the call's time limit is a failed `messages` check, V5104, and
-/// one the transport refuses is one under its error; neither is reported as sent, and the
-/// opened api's cleanup still registers on its `101` (D425).
+/// one the transport refuses is a failed `messages` check under its error's code, V5105;
+/// neither is reported as sent, and the opened api's cleanup still registers on its `101`
+/// (D425).
 #[tokio::test(start_paused = true)]
 async fn a_send_that_does_not_go_out_is_a_failed_check_and_the_cleanup_still_registers() {
-    let broken = TransportError::Connect { host: "api.test".to_owned(), reason: "reset".to_owned() };
     for (hang, code, error) in [
         (Hang::Sends, "V5104", "a `send` did not go out within the 2s time limit".to_owned()),
-        (Hang::Breaks, "V5105", broken.to_string()),
+        (Hang::Breaks, "V5105", reset().to_string()),
     ] {
         let mut fixture = Fixture::new();
         let delete = fixture.call("/rooms");
