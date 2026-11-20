@@ -48,3 +48,47 @@ fn pairs_name_the_error_each_entry_took_after_a_path_moved_them() {
     assert_eq!(Pairing::new(vec![vec![0], vec![0], vec![]], 1).pairs(), [Some(0), None, None]);
     assert_eq!(Pairing::new(Vec::new(), 3).pairs(), Vec::<Option<usize>>::new());
 }
+
+#[test]
+fn a_pushed_error_moves_an_earlier_pair_to_make_room() {
+    let mut pairing = Pairing::new(vec![Vec::new(), Vec::new()], 0);
+    pairing.push(&[0, 1]);
+    assert_eq!(pairing.matched(), [Some(0), None]);
+    pairing.push(&[0]);
+    assert_eq!(pairing.matched(), [Some(1), Some(0)], "one search moves entry 0 to free error 0");
+    pairing.push(&[0, 1, 7]);
+    assert_eq!((pairing.matched(), pairing.fitting(1), pairing.fitting(7)), (vec![Some(1), Some(0)], 2, 0));
+}
+
+/// The fits of `entries` entries after each error in turn, each error fitting the entries its
+/// mask names.
+fn rebuilt(entries: usize, masks: &[Vec<bool>]) -> Vec<Vec<usize>> {
+    (0..entries)
+        .map(|entry| masks.iter().enumerate().filter_map(|(error, mask)| mask[entry].then_some(error)).collect())
+        .collect()
+}
+
+proptest::proptest! {
+    /// Pushing errors one at a time pairs as many entries as a full rebuild, and every pair is
+    /// one of the entry's fits, one error to an entry.
+    #[test]
+    fn pushing_one_error_at_a_time_pairs_as_many_as_a_full_rebuild(
+        masks in proptest::collection::vec(proptest::collection::vec(proptest::bool::ANY, 4), 0..10),
+    ) {
+        let mut pairing = Pairing::new(vec![Vec::new(); 4], 0);
+        for (pushed, mask) in masks.iter().enumerate() {
+            let fits: Vec<usize> = (0..4).filter(|&entry| mask[entry]).collect();
+            pairing.push(&fits);
+            let fits = rebuilt(4, &masks[..=pushed]);
+            let full = Pairing::new(fits.clone(), pushed + 1).pairs();
+            let matched = pairing.matched();
+            let count = |pairs: &[Option<usize>]| pairs.iter().flatten().count();
+            proptest::prop_assert_eq!(count(&matched), count(&full), "after {} errors", pushed + 1);
+            let errors: std::collections::BTreeSet<_> = matched.iter().flatten().collect();
+            proptest::prop_assert_eq!(errors.len(), count(&matched), "one error to an entry");
+            for (entry, error) in matched.iter().enumerate() {
+                proptest::prop_assert!(error.is_none_or(|error| fits[entry].contains(&error)), "entry {entry} fits its error");
+            }
+        }
+    }
+}

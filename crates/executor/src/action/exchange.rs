@@ -51,15 +51,18 @@ pub struct ExchangeCursor {
     at: usize,
     fed: usize,
     since: usize,
-    /// The messages kept for the waiting group, each with the entries it fits.
-    kept: Vec<(usize, Vec<usize>)>,
+    /// The messages kept for the waiting group, by their index among the messages fed.
+    kept: Vec<usize>,
+    /// The waiting group's entries paired with the kept messages, grown one message at a time.
+    pairing: Pairing,
 }
 
 impl ExchangeCursor {
     /// A cursor before the first of `items`.
     #[must_use]
     pub fn new(items: Vec<Item>) -> Self {
-        let mut cursor = Self { items, at: 0, fed: 0, since: 0, kept: Vec::new() };
+        let pairing = Pairing::new(Vec::new(), 0);
+        let mut cursor = Self { items, at: 0, fed: 0, since: 0, kept: Vec::new(), pairing };
         cursor.pass_empty_groups();
         cursor
     }
@@ -89,12 +92,13 @@ impl ExchangeCursor {
         self.fed += 1;
         let Some(size) = self.group() else { return Fed::Skipped };
         let fits: Vec<usize> = fits.iter().copied().filter(|&entry| entry < size).collect();
-        if !fits.iter().any(|&entry| self.held_by(entry) < size) {
+        if !fits.iter().any(|&entry| self.pairing.fitting(entry) < size) {
             return Fed::Skipped;
         }
-        self.kept.push((message, fits));
+        self.kept.push(message);
+        self.pairing.push(&fits);
         let item = self.at;
-        let Some(pairs) = self.pairs(size).into_iter().collect::<Option<Vec<_>>>() else { return Fed::Held { item } };
+        let Some(pairs) = self.pairs().into_iter().collect::<Option<Vec<_>>>() else { return Fed::Held { item } };
         self.advance();
         self.since = self.fed;
         Fed::Met { item, pairs }
@@ -103,8 +107,8 @@ impl ExchangeCursor {
     /// The `receive` still waiting, with its open entries, or `None` once none waits.
     #[must_use]
     pub fn unmet(&self) -> Option<Unmet> {
-        let size = self.group()?;
-        let pairs = self.pairs(size).into_iter().enumerate();
+        self.group()?;
+        let pairs = self.pairs().into_iter().enumerate();
         let entries = pairs.filter_map(|(entry, message)| message.is_none().then_some(entry)).collect();
         Some(Unmet { item: self.at, entries, since: self.since })
     }
@@ -130,33 +134,26 @@ impl ExchangeCursor {
         }
     }
 
-    /// How many kept messages fit `entry`.
-    fn held_by(&self, entry: usize) -> usize {
-        self.kept.iter().filter(|(_, fits)| fits.contains(&entry)).count()
-    }
-
-    /// The message each of the group's `size` entries is paired with, if any.
-    fn pairs(&self, size: usize) -> Vec<Option<usize>> {
-        let fits = (0..size).map(|entry| {
-            let kept = self.kept.iter().enumerate();
-            kept.filter_map(|(slot, (_, fits))| fits.contains(&entry).then_some(slot)).collect()
-        });
-        let slots = Pairing::new(fits.collect(), self.kept.len()).pairs();
-        slots.into_iter().map(|slot| slot.and_then(|slot| self.kept.get(slot)).map(|(message, _)| *message)).collect()
+    /// The message each of the waiting group's entries is paired with, if any.
+    fn pairs(&self) -> Vec<Option<usize>> {
+        let slots = self.pairing.matched().into_iter();
+        slots.map(|slot| slot.and_then(|slot| self.kept.get(slot).copied())).collect()
     }
 
     fn advance(&mut self) {
         self.at += 1;
-        self.kept.clear();
         self.pass_empty_groups();
     }
 
     /// Moves past `receive` groups with no entries: they wait for nothing. The exchange shape
-    /// is to refuse an empty list, so this only guards the cursor.
+    /// is to refuse an empty list, so this only guards the cursor. The group it stops at starts
+    /// with no messages kept.
     fn pass_empty_groups(&mut self) {
         while self.items.get(self.at) == Some(&Item::Receive(0)) {
             self.at += 1;
         }
+        self.kept.clear();
+        self.pairing = Pairing::new(vec![Vec::new(); self.group().unwrap_or(0)], 0);
     }
 }
 
