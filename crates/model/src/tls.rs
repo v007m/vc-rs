@@ -39,7 +39,7 @@ pub struct TlsClient {
 }
 
 /// Where an identity's certificate and key come from. Each value is a template, rendered once
-/// per run; a rendered value starting `-----BEGIN` is inline PEM, anything else a path.
+/// per run; a rendered value [`inline_pem`] finds to be PEM is inline, anything else a path.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[expect(
     clippy::exhaustive_enums,
