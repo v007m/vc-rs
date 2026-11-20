@@ -1,7 +1,7 @@
 use http::header::CONTENT_TYPE;
 use http::{HeaderValue, Method, StatusCode, Uri};
 use vc_interfaces::{MessageStream, Opened, SendContext, StreamFrame, StreamMode, StreamTransport, TransportError};
-use vc_model::RenderedRequest;
+use vc_model::{RenderedRequest, Size};
 
 /// The contract every [`StreamTransport`] meets (D112).
 ///
@@ -10,16 +10,26 @@ use vc_model::RenderedRequest;
 /// `id: {i}\ndata: {i}\n\n` for `i` from 1 to `n`, starting after a `last-event-id` header's
 /// number when there is one, then ends; `GET /ws` is a WebSocket that echoes text and binary
 /// frames and answers the text `bye` with a close 1000 `bye`; `GET /status/{code}` answers with
-/// that status. [`crate::FakeStreamTransport::contract`] speaks it without a network.
+/// that status and the JSON body `{"status":{code}}`. [`crate::FakeStreamTransport::contract`] speaks it without a network.
 ///
 /// # Panics
 ///
 /// When the transport breaks the contract.
 pub async fn stream_transport_suite(transport: &dyn StreamTransport, base: &str) {
+    body_streams(transport, base).await;
+    websockets(transport, base).await;
+}
+
+async fn body_streams(transport: &dyn StreamTransport, base: &str) {
     reads_an_event_stream_to_its_end(transport, base).await;
     resumes_after_the_last_event_id(transport, base).await;
     opens_no_stream_on_an_answer_that_is_not_a_success(transport, base).await;
+    caps_a_refused_answer_s_body_at_the_limit(transport, base).await;
     refuses_to_send_on_a_body_stream(transport, base).await;
+}
+
+async fn websockets(transport: &dyn StreamTransport, base: &str) {
+    opens_no_websocket_on_a_200(transport, base).await;
     hands_the_server_s_close_over_as_a_last_frame(transport, base).await;
     if let Some(stream) =
         open(transport, request(base, "/ws"), StreamMode::WebSocket).await.and_then(|opened| opened.stream)
@@ -100,6 +110,21 @@ async fn opens_no_stream_on_an_answer_that_is_not_a_success(transport: &dyn Stre
     }
     let Some(opened) = open(transport, request(base, "/ws"), StreamMode::WebSocket).await else { return };
     assert_eq!(opened.head.response.status, StatusCode::SWITCHING_PROTOCOLS);
+}
+
+async fn opens_no_websocket_on_a_200(transport: &dyn StreamTransport, base: &str) {
+    let Some(opened) = open(transport, request(base, "/status/200"), StreamMode::WebSocket).await else { return };
+    assert_eq!(opened.head.response.status, StatusCode::OK);
+    assert!(opened.stream.is_none(), "a WebSocket opens only on its 101 handshake");
+}
+
+async fn caps_a_refused_answer_s_body_at_the_limit(transport: &dyn StreamTransport, base: &str) {
+    let limit = Size::from_bytes(8);
+    let ctx = SendContext { body_limit: limit, ..SendContext::default() };
+    let refused = transport.open(request(base, "/status/503"), StreamMode::Body, &ctx).await;
+    assert_eq!(refused.err(), Some(TransportError::BodyTooLarge { limit }), "a refused body over the limit");
+    let Some(opened) = open(transport, request(base, "/status/503"), StreamMode::Body).await else { return };
+    assert_eq!(opened.head.response.body.as_ref(), br#"{"status":503}"#, "a refused body is read in full");
 }
 
 async fn refuses_to_send_on_a_body_stream(transport: &dyn StreamTransport, base: &str) {

@@ -155,13 +155,25 @@ impl MessageStream for FakeStream {
 fn contract(request: &RenderedRequest, mode: StreamMode) -> StreamAnswer {
     let path = request.uri.path();
     if let Some(code) = path.strip_prefix("/status/") {
-        return StreamAnswer::refused(status(code.parse().unwrap_or(400)));
+        return status_answer(code);
     }
     match (mode, path) {
         (StreamMode::Body, "/events") => events(request),
         (StreamMode::WebSocket, "/ws") => StreamAnswer::echo(),
         _ => StreamAnswer::refused(status(404)),
     }
+}
+
+/// The contract's `/status/{code}`: that status, with the code as a JSON body; 400 with no body
+/// when `code` is not a status.
+fn status_answer(code: &str) -> StreamAnswer {
+    let Some(code) = code.parse().ok().filter(|code| StatusCode::from_u16(*code).is_ok()) else {
+        return StreamAnswer::refused(status(400));
+    };
+    let mut head = status(code);
+    head.headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
+    head.body = Bytes::from(format!(r#"{{"status":{code}}}"#));
+    StreamAnswer::refused(head)
 }
 
 /// The contract's `/events?count={n}`: one chunk per event after the `last-event-id`.
