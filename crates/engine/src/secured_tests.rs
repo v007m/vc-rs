@@ -4,7 +4,8 @@ use std::time::{Duration, Instant};
 
 use tokio::sync::mpsc;
 use vc_interfaces::{
-    HistoryError, HistoryWriter, LoadedTls, Row, RunEnd, RunId, RunStart, Secret, TlsError, TlsLoader, TlsPart, TlsSpec,
+    Environment, HistoryError, HistoryWriter, Row, RunEnd, RunId, RunStart, Secret, TlsError, TlsPart, TlsSpec,
+    Transport, TransportFactory,
 };
 use vc_model::Keep;
 use vc_testkit::{FakeTransport, FakeVcs, MemoryEnvironment, MemoryHistory, MemorySources, status};
@@ -28,8 +29,8 @@ const API: &str = "baseUrl: http://x\napis:\n  - id: send\n    method: GET\n    
 const TESTS: &str = "tests:\n  - id: sendsRows\n    examples: ${var.rows}\n    call: echo#send\n";
 const LOAD: &str = "mix:\n  - {test: echo.send#sendsRows, weight: 1}\nstages:\n  - {duration: 1s, users: 1}\n";
 
-/// A TLS loader that refuses with `refusal` or loads, once `released` is set or a few seconds
-/// have passed; it notes in `started` that it began.
+/// A transport factory that refuses with `refusal` or builds a transport answering 200, once
+/// `released` is set or a few seconds have passed; it notes in `started` that it began.
 #[derive(Default)]
 struct Loader {
     refusal: Option<TlsError>,
@@ -38,14 +39,15 @@ struct Loader {
     released: Arc<AtomicBool>,
 }
 
-impl TlsLoader for Loader {
-    fn load(&self, _: TlsSpec) -> Result<LoadedTls, TlsError> {
+impl TransportFactory for Loader {
+    fn build(&self, _: &TlsSpec, _: &dyn Environment) -> Result<Arc<dyn Transport>, TlsError> {
         self.started.store(true, Ordering::SeqCst);
         let until = Instant::now() + Duration::from_secs(5);
         while self.held && !self.released.load(Ordering::SeqCst) && Instant::now() < until {
             std::thread::sleep(Duration::from_millis(5));
         }
-        self.refusal.clone().map_or_else(|| Ok(LoadedTls::new(())), Err)
+        let transport: Arc<dyn Transport> = Arc::new(FakeTransport::new(|_, _| Ok(status(200))));
+        self.refusal.clone().map_or_else(|| Ok(transport), Err)
     }
 }
 
@@ -85,8 +87,7 @@ fn engine(config: &str, loader: Loader) -> (Engine, mpsc::UnboundedReceiver<Stri
     let engine = builder(FakeVcs::default())
         .sources(Arc::new(MemorySources::new(&files)))
         .environment(Arc::new(MemoryEnvironment::new(&[("P12_PASS", PASS)])))
-        .transport(Arc::new(FakeTransport::new(|_, _| Ok(status(200)))))
-        .tls_loader(Arc::new(loader))
+        .transport_factory(Arc::new(loader))
         .history(Arc::new(Begun(begun)), Arc::new(MemoryHistory::new()))
         .build()
         .unwrap();

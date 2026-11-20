@@ -289,19 +289,3 @@ async fn only_the_active_profiles_vars_are_read() {
     let shown = refusal(&engine.run(&prod, interrupts().1).await.unwrap_err());
     assert!(shown.starts_with("secrets: V5114: the declared secret `PROD_TOKEN` has no value"), "{shown}");
 }
-
-#[test]
-fn transport_errors_name_the_code_and_the_material() {
-    use vc_adapter_http::HttpAdapterError;
-    let reason = |error: &HttpAdapterError| match super::transport_error(error) {
-        EngineError::Setting { reason, .. } => reason,
-        other => format!("internal: {other}"),
-    };
-    let identity = HttpAdapterError::Identity { id: "good".into(), reason: "the private key is encrypted".into() };
-    assert_eq!(reason(&identity), "V5125: client certificate `good`: the private key is encrypted");
-    let mismatch = HttpAdapterError::Mismatch { id: "good".into(), reason: "keys do not match".into() };
-    assert_eq!(reason(&mismatch), "V5126: client certificate `good`: keys do not match");
-    let ca = HttpAdapterError::Certificate { index: 1, reason: "bad PEM".into() };
-    assert_eq!(reason(&ca), "V5125: `ca` certificate 2: bad PEM");
-    assert_eq!(reason(&HttpAdapterError::NoHost("/x".into())), "internal: the URL /x has no host");
-}

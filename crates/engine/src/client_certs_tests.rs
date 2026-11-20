@@ -1,11 +1,12 @@
 use std::path::Path;
 use std::sync::Arc;
 
-use vc_adapter_http::TlsOptions;
-use vc_interfaces::{CertId, LoadedTls, Secret, Secrets, SourceProvider};
+use tokio::sync::mpsc::UnboundedReceiver;
+use vc_interfaces::{CertId, Secret, Secrets, SourceProvider};
 use vc_model::Date;
 use vc_testkit::{
-    FakeVcs, FixedClock, MemoryCompileCache, MemoryEnvironment, MemorySources, MemoryTls, MemoryTlsLoader, TestPki,
+    FakeTransport, FakeVcs, FixedClock, MemoryCompileCache, MemoryEnvironment, MemorySources, MemoryTls,
+    MemoryTransports, TestPki, status,
 };
 
 use super::RunTls;
@@ -44,6 +45,23 @@ async fn run_with(builder: EngineBuilder, tls: &str, (profile, env): Under<'_>) 
     engine.run_tls(&prepared, &Secrets::new()).await
 }
 
+/// A builder for the project at `root` whose transport factory holds `files`, under `root`, and
+/// what each of its builds read.
+fn memory(root: &Path, files: &[(&str, &[u8])]) -> (EngineBuilder, UnboundedReceiver<MemoryTls>) {
+    let files: Vec<_> = files.iter().map(|(path, bytes)| (root.join(path), *bytes)).collect();
+    let (factory, read) = MemoryTransports::new(&files, Arc::new(FakeTransport::new(|_, _| Ok(status(200)))));
+    (EngineBuilder::new(root.to_path_buf()).transport_factory(Arc::new(factory)), read)
+}
+
+/// A factory holding the test CA, the `good` certificate and the PKCS#12 fixture.
+fn memory_pki(pki: &TestPki) -> (EngineBuilder, UnboundedReceiver<MemoryTls>) {
+    let (ca, good) = (pki.ca_pem(), pki.good().cert_pem());
+    memory(
+        Path::new("/project"),
+        &[("certs/ca.pem", ca.as_bytes()), ("certs/good.pem", good.as_bytes()), ("certs/bank.p12", P12)],
+    )
+}
+
 /// A project folder holding the test CA, the `good` certificate and the PKCS#12 fixture.
 fn folder(pki: &TestPki) -> tempfile::TempDir {
     let dir = tempfile::tempdir().unwrap();
@@ -60,39 +78,44 @@ const CLIENTS: &str = "    ca: certs/ca.pem\n    clients:\n\
                        \x20     - id: bank\n        pkcs12: certs/bank.p12\n        passphrase: fixture\n";
 
 #[tokio::test]
-async fn loads_the_roots_and_the_identities_the_active_profiles_allow() {
+async fn builds_with_the_roots_and_the_identities_the_active_profiles_allow() {
     let pki = TestPki::new().unwrap();
-    let dir = folder(&pki);
     let key = pki.good().key_pem();
-    let mut tls = run_tls(dir.path(), CLIENTS, ("dev", &[("GOOD_KEY", key)])).await.unwrap();
-    let options = http_options(&mut tls);
-    assert_eq!(options.ca, [pki.ca_pem().into_bytes()]);
-    let ids: Vec<_> = options.clients.iter().map(vc_adapter_http::ClientIdentity::id).collect();
-    assert_eq!(ids, ["good", "bank"]);
+    let (builder, mut read) = memory_pki(&pki);
+    let tls = run_with(builder, CLIENTS, ("dev", &[("GOOD_KEY", key)])).await.unwrap();
+    let built = read.try_recv().unwrap();
+    assert_eq!(built.ca, [pki.ca_pem().into_bytes()]);
+    let clients = [("good".to_owned(), vec!["a.example".to_owned()]), ("bank".to_owned(), Vec::new())];
+    assert_eq!(built.clients, clients);
     let certs: Vec<_> = tls.certs.values().copied().collect();
     assert_eq!((tls.certs.len(), certs.contains(&CertId::new(0)), certs.contains(&CertId::new(1))), (2, true, true));
     let hidden: Vec<_> = tls.passphrases.iter().map(Secret::expose).collect();
     assert_eq!(hidden, ["fixture"]);
-    let mut staging = run_tls(dir.path(), CLIENTS, ("staging", &[("GOOD_KEY", key)])).await.unwrap();
-    assert_eq!(http_options(&mut staging).clients.len(), 3);
+    let (builder, mut read) = memory_pki(&pki);
+    run_with(builder, CLIENTS, ("staging", &[("GOOD_KEY", key)])).await.unwrap();
+    assert_eq!(read.try_recv().unwrap().clients.len(), 3);
+    let dir = folder(&pki);
+    assert!(run_tls(dir.path(), CLIENTS, ("dev", &[("GOOD_KEY", key)])).await.is_ok(), "the HTTP factory builds it");
 }
 
 #[tokio::test]
-async fn a_root_alone_loads_and_no_tls_loads_nothing() {
+async fn a_root_alone_builds_and_no_tls_builds_a_plain_transport() {
     let pki = TestPki::new().unwrap();
-    let dir = folder(&pki);
     let inline = format!("    ca: \"{}\"\n", pki.ca_pem().replace('\n', "\\n"));
-    let options = http_options(&mut run_tls(dir.path(), &inline, ("dev", &[])).await.unwrap());
-    assert_eq!((options.ca, options.clients.len()), (vec![pki.ca_pem().into_bytes()], 0));
-    let none = run_tls(dir.path(), "    ca: []\n", ("dev", &[])).await.unwrap();
-    assert!(none.loaded.is_none() && none.certs.is_empty());
+    let (builder, mut read) = memory_pki(&pki);
+    run_with(builder, &inline, ("dev", &[])).await.unwrap();
+    let built = read.try_recv().unwrap();
+    assert_eq!((built.ca, built.clients.len()), (vec![pki.ca_pem().into_bytes()], 0));
+    let (builder, mut read) = memory_pki(&pki);
+    let none = run_with(builder, "    ca: []\n", ("dev", &[])).await.unwrap();
+    assert_eq!((read.try_recv().unwrap(), none.certs.len()), (MemoryTls::default(), 0));
 }
 
 /// The reason `tls` stops the run with, under `dev` with `GOOD_KEY` set to `key`.
 async fn refusal(dir: &Path, tls: &str, key: &str) -> String {
     match run_tls(dir, tls, ("dev", &[("GOOD_KEY", key)])).await {
         Err(EngineError::Setting { origin, reason, help }) if origin == "http.tls" && help.is_some() => reason,
-        other => format!("unexpected {:?}", other.map(|tls| tls.loaded)),
+        other => format!("unexpected {:?}", other.err()),
     }
 }
 
@@ -135,44 +158,41 @@ async fn material_that_cannot_be_read_or_does_not_fit_stops_the_run() {
 #[tokio::test]
 async fn a_rendered_path_is_trimmed_and_a_pkcs12_value_is_always_a_path() {
     let pki = TestPki::new().unwrap();
-    let dir = folder(&pki);
     let rendered = "    ca: ${env.CA}\n    clients:\n      - id: bank\n        pkcs12: ${env.P12}\n\
                     \x20       passphrase: fixture\n";
     let env = [("CA", " certs/ca.pem\n"), ("P12", "\tcerts/bank.p12 ")];
-    let mut tls = run_tls(dir.path(), rendered, ("dev", &env)).await.unwrap();
-    let options = http_options(&mut tls);
-    assert_eq!((options.ca.len(), options.clients.len()), (1, 1), "both paths load once trimmed");
+    let (builder, mut read) = memory_pki(&pki);
+    run_with(builder, rendered, ("dev", &env)).await.unwrap();
+    let built = read.try_recv().unwrap();
+    assert_eq!((built.ca.len(), built.clients.len()), (1, 1), "both paths are read once trimmed");
     let env = [("CA", "certs/ca.pem"), ("P12", "-----BEGIN PKCS12-----\nMIIB\n")];
-    let reason = match run_tls(dir.path(), rendered, ("dev", &env)).await {
+    let reason = match run_with(memory_pki(&pki).0, rendered, ("dev", &env)).await {
         Err(EngineError::Setting { reason, .. }) => reason,
-        other => format!("unexpected {:?}", other.map(|tls| tls.loaded)),
+        other => format!("unexpected {:?}", other.err()),
     };
     assert!(reason.starts_with("V5125: client certificate `bank`, its `pkcs12`: cannot read its file: "), "{reason}");
 }
 
-/// The HTTP transport's options `tls` loaded.
-fn http_options(tls: &mut RunTls) -> TlsOptions {
-    tls.loaded.take().and_then(LoadedTls::take).unwrap_or_default()
-}
-
-/// A builder for the project at `/project` whose TLS loader holds its CA and the bank's bundle.
-fn in_memory() -> EngineBuilder {
-    let root = Path::new("/project");
-    let files = [(root.join("certs/ca.pem"), &b"root"[..]), (root.join("certs/bank.p12"), &b"bundle"[..])];
-    EngineBuilder::new(root.to_path_buf()).tls_loader(Arc::new(MemoryTlsLoader::new(&files)))
-}
-
 #[tokio::test]
-async fn the_injected_loader_reads_the_rendered_material() {
-    let tls = run_with(in_memory(), CLIENTS, ("dev", &[("GOOD_KEY", "-----BEGIN PRIVATE KEY-----")])).await;
+async fn the_injected_factory_reads_the_rendered_material() {
+    let files: [(&str, &[u8]); 2] = [("certs/ca.pem", b"root"), ("certs/bank.p12", b"bundle")];
+    let (builder, _read) = memory(Path::new("/project"), &files);
+    let tls = run_with(builder, CLIENTS, ("dev", &[("GOOD_KEY", "-----BEGIN PRIVATE KEY-----")])).await;
     let reason = match tls {
         Err(EngineError::Setting { reason, .. }) => reason,
-        other => format!("unexpected {:?}", other.map(|tls| tls.loaded)),
+        other => format!("unexpected {:?}", other.err()),
     };
     assert_eq!(reason, "V5125: client certificate `good`, its `cert`: cannot read `certs/good.pem`: not found");
     let only_bank = CLIENTS.split("      - id: good").next().unwrap_or_default().to_owned()
         + "      - id: bank\n        pkcs12: certs/bank.p12\n        passphrase: fixture\n";
-    let mut tls = run_with(in_memory(), &only_bank, ("dev", &[])).await.unwrap();
-    let memory = tls.loaded.take().and_then(LoadedTls::take::<MemoryTls>).unwrap_or_default();
-    assert_eq!((memory.ca, memory.clients), (vec![b"root".to_vec()], vec![("bank".to_owned(), Vec::new())]));
+    let (builder, mut read) = memory(Path::new("/project"), &files);
+    run_with(builder, &only_bank, ("dev", &[])).await.unwrap();
+    let built = read.try_recv().unwrap();
+    assert_eq!((built.ca, built.clients), (vec![b"root".to_vec()], vec![("bank".to_owned(), Vec::new())]));
+}
+
+#[test]
+fn a_transport_that_cannot_be_built_for_another_reason_is_internal() {
+    let error = super::tls_error(&vc_interfaces::TlsError::Transport { reason: "no native roots".into() });
+    assert!(matches!(&error, EngineError::Internal { reason } if reason == "no native roots"), "{error:?}");
 }

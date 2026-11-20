@@ -9,15 +9,14 @@ use std::sync::Arc;
 
 use vc_adapter_auth::{AuthTypes, PluginAuth};
 use vc_adapter_hooks::QuickJsHooks;
-use vc_adapter_http::{HttpAdapterError, HttpOptions, HttpTransport, ProxyConfig, TlsOptions};
 use vc_adapter_notifiers::NotifierRegistry;
 use vc_adapter_secrets::{SecretProviders, VarlockSecrets};
 use vc_adapter_system::{DotEnv, SetFlags, SystemBrowser, SystemEnvironment, UserConfig, VibVars};
 use vc_diagnostics::Code;
 use vc_executor::MAX_FRESH_SEED;
 use vc_interfaces::{
-    AuthProvider, ConfigEntry, Environment, HookRunner, LoadedTls, NotifierFactory, PluginKind, Random, SecretError,
-    SecretQuery, Secrets, Transport,
+    AuthProvider, ConfigEntry, Environment, HookRunner, NotifierFactory, PluginKind, Random, SecretError, SecretQuery,
+    Secrets, TlsSpec, Transport,
 };
 use vc_model::{ProfileId, Program, SecretsConfig};
 
@@ -91,42 +90,14 @@ impl Engine {
             .map_err(|error| settings::source_error(&error))
     }
 
-    /// The transport requests go through: HTTP, through the proxy the environment names.
-    /// Call it from within a Tokio runtime.
+    /// The transport requests go through when no `http.tls` applies: the transport factory's,
+    /// over HTTP through the proxy the environment names. Call it from within a Tokio runtime.
     ///
     /// # Errors
     ///
     /// [`EngineError::Internal`] when the HTTP client cannot be built.
     pub(crate) fn transport(&self, environment: &dyn Environment) -> Result<Arc<dyn Transport>, EngineError> {
-        self.transport_with(environment, None)
-    }
-
-    /// As [`Self::transport`], trusting the roots and presenting the client certificates the TLS
-    /// loader `loaded` from a run's `http.tls`.
-    ///
-    /// # Errors
-    ///
-    /// [`EngineError::Setting`] with V5125 or V5126 when a certificate or identity in `loaded`
-    /// does not parse or its parts do not fit; [`EngineError::Internal`] when the client cannot be
-    /// built, or `loaded` is not what the HTTP transport's loader loads.
-    pub(crate) fn transport_with(
-        &self,
-        environment: &dyn Environment,
-        loaded: Option<LoadedTls>,
-    ) -> Result<Arc<dyn Transport>, EngineError> {
-        if let Some(transport) = &self.transport {
-            return Ok(Arc::clone(transport));
-        }
-        let tls = match loaded {
-            None => TlsOptions::default(),
-            Some(loaded) => loaded.take::<TlsOptions>().ok_or_else(|| EngineError::Internal {
-                reason: "the TLS loader's material is not the HTTP transport's".to_owned(),
-            })?,
-        };
-        let options =
-            HttpOptions { proxy: ProxyConfig::from_env(|name| environment.var(name)), tls, ..Default::default() };
-        let transport = HttpTransport::new(&options).map_err(|error| transport_error(&error))?;
-        Ok(Arc::new(transport))
+        self.transports.build(&TlsSpec::default(), environment).map_err(|error| crate::client_certs::tls_error(&error))
     }
 
     /// The auth types a run obtains credentials through (D106): the builder's, else the
@@ -274,24 +245,6 @@ impl Engine {
             return None;
         }
         Some(self.hooks.clone().unwrap_or_else(|| Arc::new(QuickJsHooks::with_threads(program.config.hooks.threads))))
-    }
-}
-
-/// The run-stopping error for a transport that cannot be built from `http.tls`: V5126 for an
-/// identity whose parts do not fit, V5125 for material that does not parse.
-fn transport_error(error: &HttpAdapterError) -> EngineError {
-    let refused = crate::client_certs::refused;
-    match error {
-        HttpAdapterError::Identity { id, reason } => {
-            refused(Code::V5125, &format!("client certificate `{id}`"), reason)
-        }
-        HttpAdapterError::Mismatch { id, reason } => {
-            refused(Code::V5126, &format!("client certificate `{id}`"), reason)
-        }
-        HttpAdapterError::Certificate { index, reason } => {
-            refused(Code::V5125, &format!("`ca` certificate {}", index + 1), reason)
-        }
-        other => EngineError::Internal { reason: other.to_string() },
     }
 }
 

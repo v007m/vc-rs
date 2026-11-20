@@ -1,7 +1,7 @@
 //! The client certificates a run presents (#105, D350–D354, D390–D395): `http.tls` rendered
 //! once from the config's vars, secrets and environment, before any reporter or history run
-//! starts, read by the TLS loader on a blocking thread, and the identities the active profiles
-//! allow handed to the transport. Material that
+//! starts, and the transport built from it by the transport factory on a blocking thread
+//! (D399), with the identities the active profiles allow. Material that
 //! cannot be read or parsed stops the run (V5125), and so do parts that do not fit (V5126),
 //! before any request. No reason quotes a key, and passphrases go to the redactor.
 
@@ -11,7 +11,7 @@ use std::sync::Arc;
 use vc_diagnostics::Code;
 use vc_executor::{ClientCerts, RunInputs, RunValues, config_text};
 use vc_interfaces::{
-    CertId, ClientSource, ClientSpec, LoadedTls, MaterialSource, Secret, Secrets, TlsError, TlsPart, TlsSpec,
+    CertId, ClientSource, ClientSpec, MaterialSource, Secret, Secrets, TlsError, TlsPart, TlsSpec, Transport,
 };
 use vc_model::{ClientMaterial, Program, Template, TlsClient, inline_pem};
 
@@ -19,35 +19,35 @@ use crate::plan::Prepared;
 use crate::shown::Shown;
 use crate::{Engine, EngineError};
 
-/// What a run's `http.tls` gave: the material the transport presents, the `CertId` of each
-/// identity it loaded, and the passphrases the redactor hides.
-#[derive(Default)]
+/// What a run's `http.tls` gave: the transport built from it, the `CertId` of each identity it
+/// presents, and the passphrases the redactor hides.
 pub struct RunTls {
-    pub(crate) loaded: Option<LoadedTls>,
+    pub(crate) transport: Arc<dyn Transport>,
     pub(crate) certs: ClientCerts,
     pub(crate) passphrases: Vec<Secret>,
 }
 
 impl Engine {
-    /// The client certificates and trusted roots of `prepared`'s `http.tls`, with `secrets` and
-    /// its environment, read by the TLS loader on a blocking thread; nothing to load gives the
-    /// defaults.
+    /// The transport for `prepared`'s `http.tls`, rendered with `secrets` and its environment,
+    /// which the transport factory builds on a blocking thread, trusting its roots and presenting
+    /// its client certificates.
     ///
     /// # Errors
     ///
     /// [`EngineError::Setting`] with V5114, V5125 or V5126 when a value does not render, its
-    /// material cannot be read or parsed, or its parts do not fit.
+    /// material cannot be read or parsed, or its parts do not fit; [`EngineError::Internal`] when
+    /// the transport cannot be built.
     pub(crate) async fn run_tls(&self, prepared: &Prepared, secrets: &Secrets) -> Result<RunTls, EngineError> {
         let tls = &prepared.program.config.http_tls;
-        if tls.ca.is_empty() && tls.clients.is_empty() {
-            return Ok(RunTls::default());
-        }
-        let (spec, certs) = self.planned(prepared, secrets)?;
+        let unset = tls.ca.is_empty() && tls.clients.is_empty();
+        let (spec, certs) =
+            if unset { (TlsSpec::default(), ClientCerts::default()) } else { self.planned(prepared, secrets)? };
         let passphrases = spec.clients.iter().filter_map(passphrase).collect();
-        let reader = Arc::clone(&self.tls_loader);
-        let read = tokio::task::spawn_blocking(move || reader.load(spec)).await;
-        let read = read.map_err(|error| EngineError::Internal { reason: format!("reading `http.tls`: {error}") })?;
-        Ok(RunTls { loaded: Some(read.map_err(|error| tls_error(&error))?), certs, passphrases })
+        let (factory, environment) = (Arc::clone(&self.transports), Arc::clone(&prepared.environment));
+        let built = tokio::task::spawn_blocking(move || factory.build(&spec, environment.as_ref())).await;
+        let built =
+            built.map_err(|error| EngineError::Internal { reason: format!("building the transport: {error}") })?;
+        Ok(RunTls { transport: built.map_err(|error| tls_error(&error))?, certs, passphrases })
     }
 
     /// `prepared`'s `http.tls` rendered with `secrets`, keeping the identities its profiles
@@ -146,12 +146,14 @@ impl Render<'_> {
     }
 }
 
-/// The run-stopping error for `http.tls` material the loader refused: V5126 for parts that do
-/// not fit, V5125 for material that cannot be read or parsed.
-fn tls_error(error: &TlsError) -> EngineError {
+/// The run-stopping error for `http.tls` material the transport factory refused: V5126 for
+/// parts that do not fit, V5125 for material that cannot be read or parsed; a transport that
+/// cannot be built for another reason is an internal error.
+pub fn tls_error(error: &TlsError) -> EngineError {
     match error {
         TlsError::Unusable { part, reason } => refused(Code::V5125, &part.to_string(), reason),
         TlsError::Mismatch { part, reason } => refused(Code::V5126, &part.to_string(), reason),
+        TlsError::Transport { reason } => EngineError::Internal { reason: reason.clone() },
     }
 }
 

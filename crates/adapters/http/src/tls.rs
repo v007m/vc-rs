@@ -23,10 +23,17 @@ const PEM_CERTIFICATE: &[u8] = b"-----BEGIN CERTIFICATE-----";
 /// PEM bundle or one DER certificate. Like the OS store, a bundle skips certificates that do
 /// not parse; an entry fails only when none of its certificates do.
 pub fn roots(ca: &[Vec<u8>]) -> Result<Arc<RootCertStore>, HttpAdapterError> {
+    let mut extra = RootCertStore::empty();
+    add_ca(&mut extra, ca)?;
+    Ok(with_native(extra))
+}
+
+/// The OS certificate store plus `extra`, roots parsed already.
+pub fn with_native(extra: RootCertStore) -> Arc<RootCertStore> {
     let mut roots = RootCertStore::empty();
     roots.add_parsable_certificates(rustls_native_certs::load_native_certs().certs);
-    add_ca(&mut roots, ca)?;
-    Ok(Arc::new(roots))
+    roots.roots.extend(extra.roots);
+    Arc::new(roots)
 }
 
 /// Adds each `ca` entry to `roots`; an entry fails when none of its certificates parse.

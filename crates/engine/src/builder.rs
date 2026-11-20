@@ -2,14 +2,14 @@ use std::fmt;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use vc_adapter_http::HttpTlsLoader;
+use vc_adapter_http::HttpTransports;
 use vc_adapter_plugins::{Confiner, FsPluginStore};
 use vc_adapter_secrets::OsKeychain;
 use vc_adapter_system::{FsCompileCache, FsSources, GitVcs, NotifyWatcher, ProcessRunner, SystemClock};
 use vc_interfaces::{
     AgentActionLog, Approvals, AuthProvider, Browser, CacheStore, Clock, CommandRunner, CompileCacheStore, Environment,
     FileWatcher, HistoryReader, HistoryWriter, HookRunner, Keychain, NotifierFactory, PluginStderr, PluginStore,
-    SourceProvider, SourceWriter, TlsLoader, Transport, Vcs,
+    SourceProvider, SourceWriter, Transport, TransportFactory, Vcs,
 };
 
 use crate::EngineError;
@@ -24,7 +24,7 @@ pub struct EngineBuilder {
     clock: Option<Arc<dyn Clock>>,
     environment: Option<Arc<dyn Environment>>,
     transport: Option<Arc<dyn Transport>>,
-    tls_loader: Option<Arc<dyn TlsLoader>>,
+    transport_factory: Option<Arc<dyn TransportFactory>>,
     vcs: Option<Arc<dyn Vcs>>,
     commands: Option<Arc<dyn CommandRunner>>,
     hooks: Option<Arc<dyn HookRunner>>,
@@ -66,7 +66,7 @@ impl EngineBuilder {
             clock: None,
             environment: None,
             transport: None,
-            tls_loader: None,
+            transport_factory: None,
             vcs: None,
             commands: None,
             hooks: None,
@@ -134,7 +134,8 @@ impl EngineBuilder {
         self
     }
 
-    /// Sends requests through `transport` instead of HTTP.
+    /// Sends requests through `transport` instead of HTTP; `http.tls`'s material is still read
+    /// and checked (V5125, V5126) before a run starts.
     #[must_use]
     pub fn transport(mut self, transport: Arc<dyn Transport>) -> Self {
         self.transport = Some(transport);
@@ -207,11 +208,11 @@ impl EngineBuilder {
         self
     }
 
-    /// Reads `http.tls`'s roots and client identities with `loader` instead of the HTTP
-    /// transport's; what it loads goes to the transport the builder was given.
+    /// Builds each run's transport from its `http.tls` with `factory` instead of the HTTP
+    /// adapter's (D399); it wins over [`EngineBuilder::transport`].
     #[must_use]
-    pub fn tls_loader(mut self, loader: Arc<dyn TlsLoader>) -> Self {
-        self.tls_loader = Some(loader);
+    pub fn transport_factory(mut self, factory: Arc<dyn TransportFactory>) -> Self {
+        self.transport_factory = Some(factory);
         self
     }
 
@@ -291,8 +292,7 @@ impl EngineBuilder {
             compile_cache,
             clock,
             environment: self.environment,
-            transport: self.transport,
-            tls_loader: self.tls_loader.unwrap_or_else(|| Arc::new(HttpTlsLoader)),
+            transports: transports(self.transport_factory, self.transport),
             vcs,
             commands,
             hooks: self.hooks,
@@ -310,6 +310,20 @@ impl EngineBuilder {
     }
 }
 
+/// The factory each run's transport comes from: `factory`, else one that checks `http.tls` and
+/// gives `transport`, else the HTTP adapter's.
+fn transports(
+    factory: Option<Arc<dyn TransportFactory>>,
+    transport: Option<Arc<dyn Transport>>,
+) -> Arc<dyn TransportFactory> {
+    factory.unwrap_or_else(|| {
+        transport.map_or_else(
+            || Arc::new(HttpTransports::new()) as Arc<dyn TransportFactory>,
+            |transport| Arc::new(HttpTransports::fixed(transport)),
+        )
+    })
+}
+
 impl fmt::Debug for EngineBuilder {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("EngineBuilder").field("root", &self.root).finish_non_exhaustive()
@@ -325,8 +339,7 @@ pub struct Engine {
     pub(crate) compile_cache: Arc<dyn CompileCacheStore>,
     pub(crate) clock: Arc<dyn Clock>,
     pub(crate) environment: Option<Arc<dyn Environment>>,
-    pub(crate) transport: Option<Arc<dyn Transport>>,
-    pub(crate) tls_loader: Arc<dyn TlsLoader>,
+    pub(crate) transports: Arc<dyn TransportFactory>,
     pub(crate) vcs: Arc<dyn Vcs>,
     pub(crate) commands: Arc<dyn CommandRunner>,
     pub(crate) hooks: Option<Arc<dyn HookRunner>>,

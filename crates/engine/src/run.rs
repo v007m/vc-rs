@@ -112,7 +112,7 @@ impl Engine {
         let reached = crate::body_files::reached(&prepared.program, &prepared.plan);
         let inputs = self.inputs(&prepared, (random, run_id, reached)).await;
         let inputs = inputs.with_secrets(secrets).with_started_at(started_ms);
-        let (executor, sweep) = self.executor(&prepared, (inputs, plugins, tls), request).await?;
+        let (executor, sweep) = self.executor(&prepared, (inputs, plugins, tls), request).await;
         let bus = EventBus::spawn();
         let watching = request.watch.as_ref().map(|watch| watch.follow(&bus, &prepared));
         let mut fanout = Fanout { feed: bus.subscribe(FEED), reporters };
@@ -177,35 +177,34 @@ impl Engine {
         prepared: &Prepared,
         given: (RunInputs, &Hosts, RunTls),
         request: &RunRequest,
-    ) -> Result<(Executor, Sweep), EngineError> {
+    ) -> (Executor, Sweep) {
         let (settings, defaults) = (&prepared.settings, &prepared.program.config.defaults);
         let concurrency = settings.concurrency.or(defaults.concurrency).unwrap_or(CONCURRENCY);
-        let cx = self.action_cx(prepared, given)?;
+        let cx = self.action_cx(prepared, given);
         let sweep = if request.no_cache { Sweep::off(cx, Vec::new()) } else { self.cached(cx, prepared).await };
         let options = RunOptions { concurrency: widen(concurrency), bail: request.bail, ..RunOptions::default() };
-        Ok((Executor::new(sweep.cx(), options), sweep))
+        (Executor::new(sweep.cx(), options), sweep)
     }
 
     /// What the actions of `prepared` share with `inputs`: the action executors and the auth
     /// types over one transport, the auth plugins among `plugins` (the run's, built once from
-    /// `inputs`' secrets), the client certificates `tls` loaded, and events masked by the
+    /// `inputs`' secrets), the transport and client certificates of `tls`, and events masked by the
     /// config's redact rules (a `function:` rule through the hook runner, with `inputs'` secrets)
     /// and `tls`'s passphrases. Every run, call and cache cleanup starts from it.
     pub(crate) fn action_cx(
         &self,
         prepared: &Prepared,
         (inputs, plugins, tls): (RunInputs, &Hosts, RunTls),
-    ) -> Result<ActionCx, EngineError> {
+    ) -> ActionCx {
         let hooks = self.hook_runner(&prepared.program);
         let rules =
             MaskRules::standard().with_hooks(RuleHooks::new(hooks.clone(), inputs.secrets.clone()), &prepared.program);
-        let transport = self.transport_with(prepared.environment.as_ref(), tls.loaded)?;
-        let auth = self.auth(Arc::clone(&transport), plugins);
-        let executors = self.executors(prepared, transport, hooks);
+        let auth = self.auth(Arc::clone(&tls.transport), plugins);
+        let executors = self.executors(prepared, tls.transport, hooks);
         let cx = ActionCx::new(Arc::clone(&prepared.program), executors, inputs).with_mask_rules(&rules);
         let cx = cx.with_auth(auth).with_client_certs(tls.certs);
         cx.redactor.hide_values(tls.passphrases.iter().map(Secret::expose));
-        Ok(cx)
+        cx
     }
 
     /// The action executors for `prepared`: HTTP through `transport` and the per-host limits,
@@ -252,12 +251,12 @@ impl Engine {
         prepared: &Prepared,
         (actions, run_id, secrets): (&[ActionId], u64, Secrets),
         tls: RunTls,
-    ) -> Result<(Arc<ActionCx>, Hosts), EngineError> {
+    ) -> (Arc<ActionCx>, Hosts) {
         let plugins = self.plugin_hosts(&prepared.program, &secrets);
         let reached = vc_planner::bodies_from(&prepared.program, actions);
         let inputs = self.inputs(prepared, (Arc::clone(&prepared.draw.random), run_id, reached)).await;
         let inputs = inputs.with_secrets(secrets).with_started_at(self.clock.now_ms());
-        Ok((Arc::new(self.action_cx(prepared, (inputs, &plugins, tls))?), plugins))
+        (Arc::new(self.action_cx(prepared, (inputs, &plugins, tls))), plugins)
     }
 }
 

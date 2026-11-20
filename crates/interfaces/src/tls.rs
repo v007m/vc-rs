@@ -1,21 +1,25 @@
 //! The TLS material a run's `http.tls` names, read and checked once before the first request
-//! (D350, D390): the extra trusted roots and the client identities.
+//! (D350, D390, D399): the extra trusted roots and the client identities, and the factory that
+//! builds the transport presenting them.
 
-use std::any::Any;
 use std::fmt;
 use std::path::PathBuf;
+use std::sync::Arc;
 
-use crate::Secret;
+use crate::{Environment, Secret, Transport};
 
-/// Reads the roots and identities of a rendered `http.tls`, for the transport that presents them.
-pub trait TlsLoader: Send + Sync {
-    /// `spec`'s material, read and checked. It blocks on files and on a PKCS#12 bundle's key
-    /// derivation, so call it off the async runtime.
+/// Builds the transport a run sends through, trusting the roots and presenting the identities
+/// of its rendered `http.tls` (D399).
+pub trait TransportFactory: Send + Sync {
+    /// The transport for `tls`, through the proxy `environment` names; `tls`'s material is read,
+    /// parsed and checked once, here. It blocks on files and on a PKCS#12 bundle's key
+    /// derivation, so call it off the async runtime (`spawn_blocking`), from within a Tokio
+    /// runtime.
     ///
     /// # Errors
     ///
     /// [`TlsError`] naming the part that cannot be used; no reason quotes a key or a passphrase.
-    fn load(&self, spec: TlsSpec) -> Result<LoadedTls, TlsError>;
+    fn build(&self, tls: &TlsSpec, environment: &dyn Environment) -> Result<Arc<dyn Transport>, TlsError>;
 }
 
 /// A rendered `http.tls`: the `ca` entries, and the client identities the run's profiles allow.
@@ -70,30 +74,6 @@ impl fmt::Debug for MaterialSource {
     }
 }
 
-/// What a [`TlsLoader`] made of a [`TlsSpec`], for the transport that matches the loader; only
-/// that transport knows what is inside.
-pub struct LoadedTls(Box<dyn Any + Send + Sync>);
-
-impl LoadedTls {
-    /// Holds `loaded`.
-    #[must_use]
-    pub fn new<T: Any + Send + Sync>(loaded: T) -> Self {
-        Self(Box::new(loaded))
-    }
-
-    /// What it holds, when that is a `T`.
-    #[must_use]
-    pub fn take<T: Any>(self) -> Option<T> {
-        self.0.downcast::<T>().ok().map(|loaded| *loaded)
-    }
-}
-
-impl fmt::Debug for LoadedTls {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("LoadedTls(..)")
-    }
-}
-
 /// The part of `http.tls` an error is about.
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[expect(
@@ -117,9 +97,10 @@ impl fmt::Display for TlsPart {
     }
 }
 
-/// Why a [`TlsSpec`] cannot be loaded. No reason quotes a key, a passphrase or a rendered path.
+/// Why no transport can be built for a [`TlsSpec`]. No reason quotes a key, a passphrase or a
+/// rendered path.
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
-#[expect(clippy::exhaustive_enums, reason = "one variant per code a run stops with (D391)")]
+#[expect(clippy::exhaustive_enums, reason = "one variant per way a run stops (D391, D399)")]
 pub enum TlsError {
     /// Material that cannot be read or parsed (V5125).
     #[error("{part}: {reason}")]
@@ -127,4 +108,7 @@ pub enum TlsError {
     /// Parts that do not fit: a key that is not the certificate's, a wrong passphrase (V5126).
     #[error("{part}: {reason}")]
     Mismatch { part: TlsPart, reason: String },
+    /// A transport that cannot be built for a reason no part of `http.tls` causes.
+    #[error("{reason}")]
+    Transport { reason: String },
 }

@@ -153,7 +153,9 @@ fn tombstone(store: &Arc<MemoryCacheStore>) -> CacheEntry {
 fn adhoc(engine: &Engine) -> (vc_executor::ActionCx, crate::plan::Prepared) {
     let prepared = super::unplanned(engine.layered(&[], &[]).unwrap());
     let inputs = RunInputs::new(ports::random(None).1, Arc::clone(&prepared.environment));
-    (engine.action_cx(&prepared, (inputs, &Hosts::default(), RunTls::default())).unwrap(), prepared)
+    let transport = engine.transport(prepared.environment.as_ref()).unwrap();
+    let tls = RunTls { transport, certs: vc_executor::ClientCerts::default(), passphrases: Vec::new() };
+    (engine.action_cx(&prepared, (inputs, &Hosts::default(), tls)), prepared)
 }
 
 /// The sweep of a run of `engine` on `store` whose cache sent `events`.

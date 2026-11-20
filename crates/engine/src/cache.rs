@@ -179,7 +179,7 @@ impl Engine {
         let secrets =
             self.secrets(SecretSource::of(&prepared), &crate::ports::cleanup_reads(&prepared.program)).await?;
         let tls = self.run_tls(&prepared, &secrets).await?;
-        let (cx, plugins) = self.adhoc_cx(&prepared, (&cleanups, 0, secrets), tls).await?;
+        let (cx, plugins) = self.adhoc_cx(&prepared, (&cleanups, 0, secrets), tls).await;
         let cleared = store.clear(label).map_err(|error| store_error(&error))?;
         let count = cleared.entries.len() + cleared.unopened;
         Ok((count, plugins.around(Cleaner::new(&cx).taken(cleared)).await))
