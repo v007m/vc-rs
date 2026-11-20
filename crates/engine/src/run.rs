@@ -9,9 +9,9 @@ use tokio::sync::broadcast;
 use tokio::sync::mpsc::Receiver;
 use vc_executor::{
     ActionCx, ActionExecutors, ActionKindTag, CommandExecutor, Defined, EventBus, Executor, ExecutorError, HostLimits,
-    MaskRules, PipelineParts, Redactor, RuleHooks, RunHandle, RunInputs, RunOptions,
+    MaskRules, PipelineParts, RuleHooks, RunHandle, RunInputs, RunOptions,
 };
-use vc_interfaces::{ConfigEntry, HookRunner, Random, RunId, RunStart, RunSummary, Secrets, TestRow, Transport};
+use vc_interfaces::{ConfigEntry, HookRunner, Random, RunId, RunStart, RunSummary, Secret, TestRow, Transport};
 use vc_model::{ActionId, Feed, Part, RunStatus, Template, TemplateValue, Totals};
 
 use crate::agent_gate::run_call;
@@ -20,9 +20,9 @@ use crate::load::RUN_KIND;
 use crate::notify::Alerting;
 use crate::plan::{Extra, Prepared};
 use crate::plugin_hosts::Hosts;
-use crate::ports::SecretSource;
 use crate::reporting::{self, Reported, Reporters, Setup};
 use crate::run_feed::Watching;
+use crate::secured::Secured;
 use crate::{Engine, EngineError, Interrupts, RunRequest, history, notify};
 
 /// Room for this many events between the bus and the reporters before they miss some.
@@ -85,30 +85,32 @@ impl Engine {
     async fn execute(
         &self,
         request: &RunRequest,
-        prepared: Prepared,
+        mut prepared: Prepared,
         interrupts: &mut Interrupts,
     ) -> Result<RunReport, EngineError> {
-        let (prepared, secrets) = self.secured(prepared).await?;
-        let plugins = self.plugin_hosts(&prepared.program, &secrets);
-        plugins.around(Box::pin(self.execute_with(request, (prepared, secrets, &plugins), interrupts))).await
+        let Some(secured) = self.secured(&mut prepared, interrupts).await? else {
+            return Ok(crate::secured::cancelled(prepared));
+        };
+        let plugins = self.plugin_hosts(&prepared.program, &secured.secrets);
+        plugins.around(Box::pin(self.execute_with(request, (prepared, secured, &plugins), interrupts))).await
     }
 
     /// [`Engine::execute`]'s work with the run's `plugins`, which it leaves running.
     async fn execute_with(
         &self,
         request: &RunRequest,
-        (prepared, secrets, plugins): (Prepared, Secrets, &Hosts),
+        (prepared, mut secured, plugins): (Prepared, Secured, &Hosts),
         interrupts: &mut Interrupts,
     ) -> Result<RunReport, EngineError> {
         let heard = plugins.heard();
         let (seed, random, started_ms) = (prepared.draw.seed, Arc::clone(&prepared.draw.random), self.clock.now_ms());
+        let alerting = self.alerting(&prepared, &secured, RUN_KIND);
         let (reporters, unrecorded) = self.reporters(request, &prepared, (seed, plugins.clone(), started_ms))?;
         let run_id = reporters.run_id().map_or(0, RunId::get);
-        let alerting = self.alerting(&prepared, &secrets, (run_id, RUN_KIND))?;
         let reached = crate::body_files::reached(&prepared.program, &prepared.plan);
         let inputs = self.inputs(&prepared, (random, run_id, reached)).await;
-        let inputs = inputs.with_secrets(secrets).with_started_at(started_ms);
-        let (executor, sweep) = self.executor(&prepared, (inputs, plugins), request).await?;
+        let inputs = inputs.with_secrets(secured.take_secrets()).with_started_at(started_ms);
+        let (executor, sweep) = self.executor(&prepared, (inputs, plugins, &secured), request).await;
         let bus = EventBus::spawn();
         let watching = request.watch.as_ref().map(|watch| watch.follow(&bus, &prepared));
         let mut fanout = Fanout { feed: bus.subscribe(FEED), reporters };
@@ -128,22 +130,6 @@ impl Engine {
         let run_id = Some(run_id).filter(|id| *id > 0);
         let closing = Closing { seed: (seed, generated), run: run_id, notices, alerting, watching, heard };
         close(fanout.reporters, closing, (ran, run)).await
-    }
-
-    /// `prepared` with its declared secrets, and with its example-row labels masked by a redactor
-    /// like the one its events go through, so a row `name` holding a secret's value never
-    /// reaches a reporter, the history or a watcher. `vc run` and `vc load` both start here.
-    pub(crate) async fn secured(&self, mut prepared: Prepared) -> Result<(Prepared, Secrets), EngineError> {
-        let program = Arc::clone(&prepared.program);
-        let secrets = self.secrets(SecretSource::of(&prepared), &crate::ports::run_reads(&prepared)).await?;
-        if !prepared.plan.row_names.is_empty() {
-            let hooks = RuleHooks::new(self.hook_runner(&program), secrets.clone());
-            let rules = MaskRules::standard().with_hooks(hooks, &program).for_config(&program.config);
-            let redactor = Redactor::for_config(&program.config).with_rules(rules);
-            redactor.hide_values(secrets.iter().map(|(_, secret)| secret.expose()));
-            crate::examples::mask_labels(Arc::make_mut(&mut prepared.plan), &redactor).await;
-        }
-        Ok((prepared, secrets))
     }
 
     /// The reporters `request` chooses, the reporter plugins among `plugins`, recording into the
@@ -182,39 +168,42 @@ impl Engine {
         Ok((Reporters::create(chosen, setup, recording.ok())?, notices))
     }
 
-    /// The executor for `prepared` with the inputs and plugins `given`, keeping `cache:`d results in the cross-run
-    /// cache unless `request` says `--no-cache`, and what the cache leaves for the run's end.
+    /// The executor for `prepared` with the inputs, plugins and what it is secured with `given`,
+    /// keeping `cache:`d results in the cross-run cache unless `request` says `--no-cache`, and
+    /// what the cache leaves for the run's end.
     async fn executor(
         &self,
         prepared: &Prepared,
-        given: (RunInputs, &Hosts),
+        given: (RunInputs, &Hosts, &Secured),
         request: &RunRequest,
-    ) -> Result<(Executor, Sweep), EngineError> {
+    ) -> (Executor, Sweep) {
         let (settings, defaults) = (&prepared.settings, &prepared.program.config.defaults);
         let concurrency = settings.concurrency.or(defaults.concurrency).unwrap_or(CONCURRENCY);
-        let cx = self.action_cx(prepared, given)?;
+        let cx = self.action_cx(prepared, given);
         let sweep = if request.no_cache { Sweep::off(cx, Vec::new()) } else { self.cached(cx, prepared).await };
         let options = RunOptions { concurrency: widen(concurrency), bail: request.bail, ..RunOptions::default() };
-        Ok((Executor::new(sweep.cx(), options), sweep))
+        (Executor::new(sweep.cx(), options), sweep)
     }
 
     /// What the actions of `prepared` share with `inputs`: the action executors and the auth
     /// types over one transport, the auth plugins among `plugins` (the run's, built once from
-    /// `inputs`' secrets), and events masked by the config's redact rules (a `function:` rule
-    /// through the hook runner, with `inputs`' secrets). Every run, call and cache cleanup
-    /// starts from it.
+    /// `inputs`' secrets), the transport and client certificates `secured` holds, and events
+    /// masked by the config's redact rules (a `function:` rule through the hook runner, with
+    /// `inputs'` secrets) and what `secured` hides. Every run, call and cache cleanup starts from it.
     pub(crate) fn action_cx(
         &self,
         prepared: &Prepared,
-        (inputs, plugins): (RunInputs, &Hosts),
-    ) -> Result<ActionCx, EngineError> {
+        (inputs, plugins, secured): (RunInputs, &Hosts, &Secured),
+    ) -> ActionCx {
         let hooks = self.hook_runner(&prepared.program);
         let rules =
             MaskRules::standard().with_hooks(RuleHooks::new(hooks.clone(), inputs.secrets.clone()), &prepared.program);
-        let transport = self.transport(prepared.environment.as_ref())?;
-        let auth = self.auth(Arc::clone(&transport), plugins);
-        let executors = self.executors(prepared, transport, hooks);
-        Ok(ActionCx::new(Arc::clone(&prepared.program), executors, inputs).with_mask_rules(&rules).with_auth(auth))
+        let auth = self.auth(Arc::clone(&secured.transport), plugins);
+        let executors = self.executors(prepared, Arc::clone(&secured.transport), hooks);
+        let cx = ActionCx::new(Arc::clone(&prepared.program), executors, inputs).with_mask_rules(&rules);
+        let cx = cx.with_auth(auth).with_client_certs(secured.certs.clone());
+        cx.redactor.hide_values(secured.hidden.iter().map(Secret::expose));
+        cx
     }
 
     /// The action executors for `prepared`: HTTP through `transport` and the per-host limits,
@@ -244,29 +233,37 @@ impl Engine {
     /// run's start.
     pub(crate) async fn inputs(&self, prepared: &Prepared, (random, run_id, reached): Seeds) -> RunInputs {
         let bodies = self.body_files(&prepared.program, reached).await;
-        RunInputs::new(random, Arc::clone(&prepared.environment))
-            .with_profiles(prepared.profiles.clone())
-            .with_vars(vars(&prepared.settings.vars))
+        config_inputs(prepared, random)
             .with_run_id(run_id)
             .with_bodies(bodies)
             .with_examples(prepared.draw.rows.clone())
     }
 
-    /// The action context of a run with no plan: `vc call`'s, or the cleanups `vc cache clear`
-    /// runs. It holds `secrets`, the draw's unseeded random source and the `$file` bodies `actions`
-    /// reach (D272), and starts now. Its plugins come with it: the caller ends them once it is
-    /// done ([`Hosts::around`]).
+    /// The action context of a run with no plan: `vc call`'s, `vc test auth`'s, or the cleanups
+    /// `vc cache clear` runs. It holds what the caller secured first, the draw's unseeded random
+    /// source and the `$file` bodies `actions` reach (D272), and starts now. Its plugins come with
+    /// it: the caller ends them once it is done ([`Hosts::around`]).
     pub(crate) async fn adhoc_cx(
         &self,
         prepared: &Prepared,
-        (actions, run_id, secrets): (&[ActionId], u64, Secrets),
-    ) -> Result<(Arc<ActionCx>, Hosts), EngineError> {
-        let plugins = self.plugin_hosts(&prepared.program, &secrets);
+        (actions, run_id): (&[ActionId], u64),
+        mut secured: Secured,
+    ) -> (Arc<ActionCx>, Hosts) {
+        let plugins = self.plugin_hosts(&prepared.program, &secured.secrets);
         let reached = vc_planner::bodies_from(&prepared.program, actions);
         let inputs = self.inputs(prepared, (Arc::clone(&prepared.draw.random), run_id, reached)).await;
-        let inputs = inputs.with_secrets(secrets).with_started_at(self.clock.now_ms());
-        Ok((Arc::new(self.action_cx(prepared, (inputs, &plugins))?), plugins))
+        let inputs = inputs.with_secrets(secured.take_secrets()).with_started_at(self.clock.now_ms());
+        (Arc::new(self.action_cx(prepared, (inputs, &plugins, &secured))), plugins)
     }
+}
+
+/// What every template of `prepared` reads besides the definitions and the run's own values:
+/// `random`, the environment, the active profiles and the `--set vars.*` values. `http.tls`
+/// renders with these alone, and a run's inputs start from them.
+pub fn config_inputs(prepared: &Prepared, random: Arc<dyn Random>) -> RunInputs {
+    RunInputs::new(random, Arc::clone(&prepared.environment))
+        .with_profiles(prepared.profiles.clone())
+        .with_vars(vars(&prepared.settings.vars))
 }
 
 /// What the run adds to its plan request: `rerun`, its setting flags, `--seed` and `--strict`.

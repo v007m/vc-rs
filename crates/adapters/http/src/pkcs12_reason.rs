@@ -87,6 +87,15 @@ impl fmt::Display for Reason {
 impl std::error::Error for Reason {}
 
 impl Reason {
+    /// Whether the bundle's parts do not fit (V5126): a wrong passphrase, no key or several, or
+    /// no certificate for the key; any other reason is a bundle that cannot be read (V5125).
+    pub const fn mismatched(self) -> bool {
+        matches!(
+            self,
+            Self::WrongPassphrase | Self::Undecryptable | Self::NoKey | Self::Keys(_) | Self::NoMatchingCertificate
+        )
+    }
+
     /// The reason for `p12-keystore`'s error. A failure that decrypting may have caused gets
     /// [`Self::Undecryptable`] (check the passphrase) without a MAC, [`Self::BagUndecryptable`]
     /// with one, and [`Self::Unreadable`] when the layout is unknown (`None`); any other failure

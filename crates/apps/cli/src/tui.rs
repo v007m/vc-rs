@@ -33,6 +33,8 @@ pub fn run(args: &TuiArgs, project: Option<&Path>) -> anyhow::Result<Outcome> {
     let mut options = TuiOptions::new(name, args.profiles.clone());
     options.base.clone_from(&located.base);
     let runtime = tokio::runtime::Builder::new_multi_thread().enable_all().build()?;
-    runtime.block_on(vc_tui::run(located.engine, options))?;
+    let quit = runtime.block_on(vc_tui::run(located.engine, options));
+    crate::run::close(runtime, matches!(quit, Ok(vc_tui::Quit::Interrupted)));
+    quit?;
     Ok(Outcome::Done)
 }

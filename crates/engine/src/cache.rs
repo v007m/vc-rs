@@ -25,7 +25,7 @@ use vc_model::Plan;
 
 use crate::examples::Draw;
 use crate::plan::Prepared;
-use crate::ports::{Layered, SecretSource};
+use crate::ports::Layered;
 use crate::stored::started;
 use crate::{Engine, EngineError, Interrupts};
 
@@ -176,9 +176,8 @@ impl Engine {
         let store = self.cache_store(layered.environment.as_ref())?;
         let prepared = unplanned(layered);
         let cleanups = crate::body_files::cleanups(&prepared.program);
-        let secrets =
-            self.secrets(SecretSource::of(&prepared), &crate::ports::cleanup_reads(&prepared.program)).await?;
-        let (cx, plugins) = self.adhoc_cx(&prepared, (&cleanups, 0, secrets)).await?;
+        let secured = self.secure(&prepared, &crate::ports::cleanup_reads(&prepared.program)).await?;
+        let (cx, plugins) = self.adhoc_cx(&prepared, (&cleanups, 0), secured).await;
         let cleared = store.clear(label).map_err(|error| store_error(&error))?;
         let count = cleared.entries.len() + cleared.unopened;
         Ok((count, plugins.around(Cleaner::new(&cx).taken(cleared)).await))
@@ -276,14 +275,15 @@ impl<'c> Cleaner<'c> {
     }
 
     /// A context like the run's under `profiles` (comma-separated names), so a cleanup goes to
-    /// the host its entry was made on.
+    /// the host its entry was made on, presenting the client certificates the run loaded.
     fn under(&self, profiles: &str) -> Arc<ActionCx> {
         let program = &self.cx.program;
         let named =
             |name: &str| program.profiles.values().find(|p| program.str(p.id.sym()) == Some(name)).map(|p| p.id);
         let ids = profiles.split(',').filter(|name| !name.is_empty()).filter_map(named).collect();
         let inputs = self.cx.values.inputs().clone().with_profiles(ids);
-        Arc::new(ActionCx::new(Arc::clone(program), Arc::clone(&self.cx.executors), inputs).with_auth(self.cx.auth()))
+        let cx = ActionCx::new(Arc::clone(program), Arc::clone(&self.cx.executors), inputs).with_auth(self.cx.auth());
+        Arc::new(cx.with_client_certs(self.cx.client_certs().clone()))
     }
 }
 

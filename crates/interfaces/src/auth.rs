@@ -8,7 +8,7 @@ use async_trait::async_trait;
 use serde_json::{Map, Value};
 use vc_diagnostics::Code;
 
-use crate::Secret;
+use crate::{CertChoice, Secret};
 
 /// One `auth` definition with its settings rendered, ready for its type's provider.
 ///
@@ -24,19 +24,28 @@ pub struct AuthRequest {
     pub settings: Map<String, Value>,
     /// For a `flow`: its steps and `apply`, bound to this definition's vars by the executor.
     pub flow: Option<Arc<dyn ActionRunner>>,
+    /// The client certificate a request the provider sends presents, such as a token request:
+    /// the definition's `clientCert`, else the one whose hosts match.
+    pub client_cert: CertChoice,
 }
 
 impl AuthRequest {
     /// A request for definition `auth` of type `kind` with `settings` and no flow.
     #[must_use]
     pub fn new(auth: impl Into<String>, kind: impl Into<String>, settings: Map<String, Value>) -> Self {
-        Self { auth: auth.into(), kind: kind.into(), settings, flow: None }
+        Self { auth: auth.into(), kind: kind.into(), settings, flow: None, client_cert: CertChoice::Host }
     }
 
     /// This request, with the flow that runs its steps.
     #[must_use]
     pub fn with_flow(self, flow: Arc<dyn ActionRunner>) -> Self {
         Self { flow: Some(flow), ..self }
+    }
+
+    /// This request, presenting `choice` on what the provider sends.
+    #[must_use]
+    pub fn with_client_cert(self, choice: CertChoice) -> Self {
+        Self { client_cert: choice, ..self }
     }
 
     /// The setting `key` as text, when it is a string.
@@ -53,6 +62,7 @@ impl fmt::Debug for AuthRequest {
             .field("kind", &self.kind)
             .field("settings", &self.settings.keys().collect::<Vec<_>>())
             .field("flow", &self.flow.is_some())
+            .field("client_cert", &self.client_cert)
             .finish()
     }
 }

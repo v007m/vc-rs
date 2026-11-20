@@ -23,8 +23,21 @@ const PEM_CERTIFICATE: &[u8] = b"-----BEGIN CERTIFICATE-----";
 /// PEM bundle or one DER certificate. Like the OS store, a bundle skips certificates that do
 /// not parse; an entry fails only when none of its certificates do.
 pub fn roots(ca: &[Vec<u8>]) -> Result<Arc<RootCertStore>, HttpAdapterError> {
+    let mut extra = RootCertStore::empty();
+    add_ca(&mut extra, ca)?;
+    Ok(with_native(extra))
+}
+
+/// The OS certificate store plus `extra`, roots parsed already.
+pub fn with_native(extra: RootCertStore) -> Arc<RootCertStore> {
     let mut roots = RootCertStore::empty();
     roots.add_parsable_certificates(rustls_native_certs::load_native_certs().certs);
+    roots.roots.extend(extra.roots);
+    Arc::new(roots)
+}
+
+/// Adds each `ca` entry to `roots`; an entry fails when none of its certificates parse.
+pub fn add_ca(roots: &mut RootCertStore, ca: &[Vec<u8>]) -> Result<(), HttpAdapterError> {
     for (index, entry) in ca.iter().enumerate() {
         let fail = |reason: &str| HttpAdapterError::Certificate { index, reason: reason.to_owned() };
         let certs = if entry.windows(PEM_CERTIFICATE.len()).any(|window| window == PEM_CERTIFICATE) {
@@ -37,7 +50,7 @@ pub fn roots(ca: &[Vec<u8>]) -> Result<Arc<RootCertStore>, HttpAdapterError> {
             return Err(fail("no certificate in it parses"));
         }
     }
-    Ok(Arc::new(roots))
+    Ok(())
 }
 
 /// The client TLS setup: ring as the crypto provider, `roots` with the webpki verifier, ALPN for

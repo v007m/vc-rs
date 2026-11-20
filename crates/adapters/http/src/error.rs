@@ -18,12 +18,21 @@ pub enum HttpAdapterError {
         /// What rustls said.
         reason: String,
     },
-    /// A client identity cannot be used. The reason never quotes the PEM text.
+    /// A client identity cannot be read or parsed. The reason never quotes the PEM text.
     #[error("client identity {id}: {reason}")]
     Identity {
         /// The identity's ID.
         id: String,
         /// What is wrong with it.
+        reason: String,
+    },
+    /// A client identity's parts do not fit: a key that is not its certificate's, a wrong
+    /// PKCS#12 passphrase, or a bundle with no key or several.
+    #[error("client identity {id}: {reason}")]
+    Mismatch {
+        /// The identity's ID.
+        id: String,
+        /// What does not fit.
         reason: String,
     },
     /// The URL has no host.
@@ -66,9 +75,10 @@ pub enum HttpAdapterError {
 impl From<HttpAdapterError> for TransportError {
     fn from(error: HttpAdapterError) -> Self {
         match error {
-            HttpAdapterError::Certificate { .. } | HttpAdapterError::Identity { .. } | HttpAdapterError::NoHost(_) => {
-                Self::InvalidRequest { reason: error.to_string() }
-            }
+            HttpAdapterError::Certificate { .. }
+            | HttpAdapterError::Identity { .. }
+            | HttpAdapterError::Mismatch { .. }
+            | HttpAdapterError::NoHost(_) => Self::InvalidRequest { reason: error.to_string() },
             HttpAdapterError::Dns { host, reason } => Self::Dns { host, reason },
             HttpAdapterError::Connect { host, reason } | HttpAdapterError::Tunnel { host, reason } => {
                 Self::Connect { host, reason }

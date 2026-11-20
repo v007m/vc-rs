@@ -140,13 +140,14 @@ fn history(written: &mut mpsc::UnboundedReceiver<String>) -> String {
 #[tokio::test]
 async fn a_load_plan_s_row_labels_from_env_var_or_dataset_are_masked_once_secured() {
     let (engine, _written) = engine();
-    let session = engine.load_session(&request()).unwrap();
+    let mut session = engine.load_session(&request()).unwrap();
     let drawn: Vec<&str> = session.prepared.plan.row_names.values().map(String::as_str).collect();
     assert_eq!(drawn, [TOKEN; 3], "each label is drawn from the secret's value");
-    let (prepared, secrets) = engine.secured(session.prepared).await.unwrap();
-    let masked: Vec<&str> = prepared.plan.row_names.values().map(String::as_str).collect();
+    let (_interrupter, mut interrupts) = interrupts();
+    let secured = engine.secured(&mut session.prepared, &mut interrupts).await.unwrap().unwrap();
+    let masked: Vec<&str> = session.prepared.plan.row_names.values().map(String::as_str).collect();
     assert_eq!(masked, ["••••"; 3]);
-    assert_eq!(secrets.get("API_TOKEN").map(|secret| secret.expose().to_owned()), Some(TOKEN.to_owned()));
+    assert_eq!(secured.secrets.get("API_TOKEN").map(|secret| secret.expose().to_owned()), Some(TOKEN.to_owned()));
 }
 
 #[tokio::test(start_paused = true)]

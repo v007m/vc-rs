@@ -7,7 +7,7 @@ use std::sync::Arc;
 use serde_json::Value;
 use vc_adapter_system::SystemEnvironment;
 use vc_diagnostics::{Code, Diagnostic};
-use vc_interfaces::{NotifierFactory, NotifyError};
+use vc_interfaces::{NotifierFactory, NotifyError, TlsSpec};
 use vc_model::{AlertChannel, FileKind, Program, SourceFile, SourceFileId, SourceFiles, TemplateValue};
 use vc_parser::{Entry, Node, Syntax};
 use vc_template::{PipeRegistry, Renderer};
@@ -59,13 +59,14 @@ fn refused(entry: &Entry, error: &NotifyError) -> Diagnostic {
 
 impl Engine {
     /// [`bad_settings`] with the engine's notifiers; none when the HTTP client they post
-    /// through cannot be built, which a run reports.
+    /// through cannot be built, which a run reports. [`Engine::check`] is a blocking call (the
+    /// server runs it on a blocking thread), so the client is built on its caller's thread.
     pub(crate) fn channel_settings(&self, program: &Program, files: &SourceFiles) -> Vec<Diagnostic> {
         if program.config.alerts.is_empty() {
             return Vec::new();
         }
         let environment = self.environment.clone().unwrap_or_else(|| Arc::new(SystemEnvironment::capture()));
-        let Ok(transport) = self.transport(environment.as_ref()) else { return Vec::new() };
+        let Ok(transport) = self.transports.build(&TlsSpec::default(), environment.as_ref()) else { return Vec::new() };
         bad_settings(files, program, self.notifiers(transport).as_ref())
     }
 }

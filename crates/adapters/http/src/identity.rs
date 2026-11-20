@@ -28,8 +28,8 @@ pub struct ClientIdentity {
 enum Material {
     /// PEM text, parsed when the transport is built.
     Pem { cert: Vec<u8>, key: Zeroizing<Vec<u8>> },
-    /// A decoded PKCS#12 bundle: the DER chain, leaf first, with the signer built from the key,
-    /// and the PKCS#8 key.
+    /// A decoded PKCS#12 bundle, or a PEM identity once parsed: the DER chain, leaf first, with
+    /// the signer built from the key, and the key's DER.
     Der { certified: CertifiedKey, key: Zeroizing<Vec<u8>> },
 }
 
@@ -82,11 +82,13 @@ impl ClientIdentity {
     ///
     /// # Errors
     ///
-    /// [`HttpAdapterError::Identity`] for a passphrase PKCS#12 cannot encode, a wrong passphrase,
-    /// a bag that does not decrypt, a bundle that is not DER and fails to decrypt or parse, an
-    /// unsupported cipher or MAC, key-derivation parameters over the limits, a bundle with no key,
-    /// more than one key, a key of an unsupported type, a certificate that is not X.509, no
-    /// certificate or none that matches the key, or a file that is not PKCS#12.
+    /// [`HttpAdapterError::Mismatch`] for a wrong passphrase (the MAC does not match, or a bundle
+    /// without one does not decrypt), a bundle with no key or more than one, or no certificate
+    /// that matches the key. [`HttpAdapterError::Identity`] for a passphrase PKCS#12 cannot
+    /// encode, a bag that does not decrypt, a bundle that is not DER and fails to decrypt or
+    /// parse, an unsupported cipher or MAC, key-derivation parameters over the limits, a key of an
+    /// unsupported type, a certificate that is not X.509, no certificate, or a file that is not
+    /// PKCS#12.
     pub fn pkcs12(id: impl Into<String>, bundle: &[u8], passphrase: &str) -> Result<Self, HttpAdapterError> {
         let id = id.into();
         match pkcs12::decode(bundle, passphrase) {
@@ -94,6 +96,7 @@ impl ClientIdentity {
                 let leaf_sha256 = certified.cert.first().map(|leaf| Fingerprint::of(leaf));
                 Ok(Self { id, hosts: Vec::new(), leaf_sha256, material: Material::Der { certified, key } })
             }
+            Err(reason) if reason.mismatched() => Err(HttpAdapterError::Mismatch { id, reason: reason.to_string() }),
             Err(reason) => Err(HttpAdapterError::Identity { id, reason: reason.to_string() }),
         }
     }
@@ -120,6 +123,21 @@ impl ClientIdentity {
     /// An error about this identity.
     pub(crate) fn error(&self, reason: impl Into<String>) -> HttpAdapterError {
         HttpAdapterError::Identity { id: self.id.clone(), reason: reason.into() }
+    }
+
+    /// This identity with its PEM chain and key parsed once into the signer the transport uses,
+    /// checked to belong together, so building the transport parses nothing again (D399); a
+    /// PKCS#12 identity, decoded already, as it is.
+    ///
+    /// # Errors
+    ///
+    /// As [`ClientIdentity::certified`].
+    pub(crate) fn parsed(self) -> Result<Self, HttpAdapterError> {
+        let Material::Pem { cert, key } = &self.material else { return Ok(self) };
+        let (chain, der) = self.parse_pem(cert, key)?;
+        let certified = self.sign(chain, &der)?;
+        let key = Zeroizing::new(der.secret_der().to_vec());
+        Ok(Self { material: Material::Der { certified, key }, ..self })
     }
 
     /// The certificate chain and its signing key, for rustls, checked to belong together.
@@ -162,7 +180,7 @@ impl ClientIdentity {
             CertifiedKey::new(chain, any_supported_type(key).map_err(|error| self.error(error.to_string()))?);
         match certified.keys_match() {
             Ok(()) | Err(TlsError::InconsistentKeys(InconsistentKeys::Unknown)) => Ok(certified),
-            Err(error) => Err(self.error(error.to_string())),
+            Err(error) => Err(HttpAdapterError::Mismatch { id: self.id.clone(), reason: error.to_string() }),
         }
     }
 }
@@ -277,6 +295,21 @@ mod tests {
         assert_ne!(aes, sec1);
         assert_eq!(sec1, pem(include_bytes!("../tests/fixtures/ec.sec1.key")));
         assert_ne!(sec1, pem(b"other"));
+        Ok(())
+    }
+
+    #[test]
+    fn a_parsed_pem_identity_keeps_its_chain_and_signer_and_a_bad_one_is_refused() -> Result<(), HttpAdapterError> {
+        let cert = include_bytes!("../tests/fixtures/ec.pem").to_vec();
+        let pem = ClientIdentity::pem("ec", cert.clone(), include_bytes!("../tests/fixtures/ec.sec1.key").to_vec());
+        let parsed = pem.clone().parsed()?;
+        assert!(matches!(parsed.material, super::Material::Der { .. }), "parsed into the signer");
+        assert_eq!(format!("{parsed:?}"), format!("{pem:?}"));
+        assert_eq!(parsed.certified()?.cert, pem.certified()?.cert);
+        let bundle = ClientIdentity::pkcs12("ec", include_bytes!("../tests/fixtures/ec.p12"), "fixture")?;
+        assert_eq!(bundle.clone().parsed()?, bundle, "a bundle is parsed already");
+        let other = ClientIdentity::pem("ec", cert, include_bytes!("../tests/fixtures/rsa.pkcs8.key").to_vec());
+        assert!(matches!(other.parsed(), Err(HttpAdapterError::Mismatch { .. })));
         Ok(())
     }
 

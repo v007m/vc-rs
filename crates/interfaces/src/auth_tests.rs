@@ -4,6 +4,7 @@ use serde_json::{Map, Value, json};
 use vc_diagnostics::Code;
 
 use super::{AuthError, AuthRequest, Credentials};
+use crate::{CertChoice, CertId};
 
 fn settings() -> Map<String, Value> {
     let Value::Object(map) = json!({"clientId": "shop", "clientSecret": "s3cr3t-value"}) else { return Map::new() };
@@ -64,4 +65,13 @@ fn a_refusal_is_told_from_a_failure_that_may_pass() {
     assert!(unreachable.may_pass() && !unreachable.refused());
     let flow = AuthError::Flow { auth: "svc".into(), reason: "step login failed".into() };
     assert!(!rejected(404).refused() && !rejected(404).may_pass() && !flow.refused() && !flow.may_pass());
+}
+
+#[test]
+fn a_request_lets_the_host_pick_its_client_certificate_unless_given_one() {
+    let request = AuthRequest::new("svc", "oauth2ClientCredentials", settings());
+    assert_eq!(request.client_cert, CertChoice::Host);
+    let named = request.with_client_cert(CertChoice::Named(CertId::new(2)));
+    assert_eq!(named.client_cert, CertChoice::Named(CertId::new(2)));
+    assert!(format!("{named:?}").contains("client_cert: Named"), "{named:?}");
 }

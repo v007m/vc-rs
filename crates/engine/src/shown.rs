@@ -90,7 +90,7 @@ impl Shown<'_> {
     }
 
     /// `reference` as written: `${response.body.id | int}`.
-    fn written(&self, reference: &Reference) -> String {
+    pub fn written(&self, reference: &Reference) -> String {
         let root = match reference.ns {
             Namespace::Step(sym) => self.program.str(sym).unwrap_or("?"),
             other => vc_template::root_name(other).unwrap_or("?"),

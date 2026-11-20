@@ -10,7 +10,6 @@ use vc_model::{Action, ActionId, ActionKind, AuthId, Failure, Owner, Program};
 
 use crate::call::{called, named_api, pushed};
 use crate::explain::did_you_mean;
-use crate::ports::SecretSource;
 use crate::{CallRequest, Engine, EngineError};
 
 /// What the auth test asks for.
@@ -68,8 +67,8 @@ impl Engine {
         let probe = probe_call(&mut prepared.program, request, prepared.names.join(", "))?;
         let actions: Vec<ActionId> = probe.target.into_iter().chain(probe.senders.iter().copied()).collect();
         let read = vc_planner::secrets_from(&prepared.program, &actions, &prepared.profiles);
-        let secrets = self.secrets(SecretSource::of(&prepared), &read).await?;
-        let (cx, plugins) = self.adhoc_cx(&prepared, (&actions, 0, secrets)).await?;
+        let secured = self.secure(&prepared, &read).await?;
+        let (cx, plugins) = self.adhoc_cx(&prepared, (&actions, 0), secured).await;
         let probed = plugins
             .around(async {
                 let through = sender(&cx, &probe, &request.auth).await?;
