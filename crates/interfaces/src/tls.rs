@@ -106,7 +106,10 @@ impl fmt::Debug for LoadedTls {
 
 /// The part of `http.tls` an error is about.
 #[derive(Clone, Debug, PartialEq, Eq)]
-#[expect(clippy::exhaustive_enums, reason = "matched by the engine, built by the adapter; both are in this repo (D160)")]
+#[expect(
+    clippy::exhaustive_enums,
+    reason = "matched by the engine, built by the adapter; both are in this repo (D160)"
+)]
 pub enum TlsPart {
     /// The `ca` entry at this index.
     Ca(usize),

@@ -282,8 +282,12 @@ impl Engine {
 fn transport_error(error: &HttpAdapterError) -> EngineError {
     let refused = crate::client_certs::refused;
     match error {
-        HttpAdapterError::Identity { id, reason } => refused(Code::V5125, &format!("client certificate `{id}`"), reason),
-        HttpAdapterError::Mismatch { id, reason } => refused(Code::V5126, &format!("client certificate `{id}`"), reason),
+        HttpAdapterError::Identity { id, reason } => {
+            refused(Code::V5125, &format!("client certificate `{id}`"), reason)
+        }
+        HttpAdapterError::Mismatch { id, reason } => {
+            refused(Code::V5126, &format!("client certificate `{id}`"), reason)
+        }
         HttpAdapterError::Certificate { index, reason } => {
             refused(Code::V5125, &format!("`ca` certificate {}", index + 1), reason)
         }

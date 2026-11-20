@@ -106,12 +106,22 @@ async fn material_that_cannot_be_read_or_does_not_fit_stops_the_run() {
     let gone = CLIENTS.replace("certs/ca.pem", "certs/gone.pem");
     assert!(refusal(dir.path(), &gone, key).await.starts_with("V5125: `ca` certificate 1: cannot read `"));
     let gone = CLIENTS.replace("pkcs12: certs/bank.p12", "pkcs12: certs/gone.p12");
-    assert!(refusal(dir.path(), &gone, key).await.starts_with("V5125: client certificate `bank`, its `pkcs12`: cannot read `"));
+    assert!(
+        refusal(dir.path(), &gone, key)
+            .await
+            .starts_with("V5125: client certificate `bank`, its `pkcs12`: cannot read `")
+    );
     let wrong = CLIENTS.replace("passphrase: fixture", "passphrase: wrong");
     let reason = refusal(dir.path(), &wrong, key).await;
     assert!(reason.starts_with("V5126: client certificate `bank`, its `pkcs12`: the passphrase is wrong"), "{reason}");
     let reason = refusal(dir.path(), CLIENTS, "").await;
     assert!(reason.starts_with("V5125: client certificate `good`, its `key`: cannot read `"), "{reason}");
+    let reason = refusal(dir.path(), CLIENTS, pki.other_ca().key_pem()).await;
+    assert!(reason.starts_with("V5126: client certificate `good`: "), "the key is checked as it loads: {reason}");
+    std::fs::write(dir.path().join("certs/bad.pem"), "not a certificate").unwrap();
+    let bad = CLIENTS.replace("certs/ca.pem", "certs/bad.pem");
+    let reason = refusal(dir.path(), &bad, key).await;
+    assert_eq!(reason, "V5125: `ca` certificate 1: no certificate in it parses", "a `ca` entry is parsed as it loads");
     let unset = CLIENTS.replace("${env.GOOD_KEY}", "${env.NOPE}");
     let reason = refusal(dir.path(), &unset, key).await;
     assert!(reason == "V5125: client certificate `good`, its `key`: `env.NOPE` is not set", "{reason}");

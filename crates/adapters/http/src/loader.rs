@@ -1,10 +1,12 @@
 //! The HTTP transport's [`TlsLoader`]: reads `http.tls`'s files and builds its client identities
 //! into the [`TlsOptions`] the transport is made from.
 
+use rustls::RootCertStore;
 use vc_interfaces::{ClientSource, ClientSpec, LoadedTls, MaterialSource, TlsError, TlsLoader, TlsPart, TlsSpec};
 use zeroize::Zeroizing;
 
 use crate::material::read_material;
+use crate::tls::add_ca;
 use crate::{ClientIdentity, HttpAdapterError, TlsOptions};
 
 /// Loads `http.tls` for [`crate::HttpTransport`]: what it loads is a [`TlsOptions`].
@@ -18,11 +20,20 @@ pub struct HttpTlsLoader;
 impl TlsLoader for HttpTlsLoader {
     fn load(&self, spec: TlsSpec) -> Result<LoadedTls, TlsError> {
         let ca = spec.ca.into_iter().enumerate();
-        let ca = ca.map(|(index, source)| read(source, &TlsPart::Ca(index)).map(|mut bytes| std::mem::take(&mut *bytes)));
-        let ca = ca.collect::<Result<_, _>>()?;
+        let ca =
+            ca.map(|(index, source)| read(source, &TlsPart::Ca(index)).map(|mut bytes| std::mem::take(&mut *bytes)));
+        let ca: Vec<_> = ca.collect::<Result<_, _>>()?;
+        add_ca(&mut RootCertStore::empty(), &ca).map_err(|error| refused(error, TlsPart::Ca(0)))?;
         let clients = spec.clients.into_iter().map(identity).collect::<Result<_, _>>()?;
         Ok(LoadedTls::new(TlsOptions { ca, clients }))
     }
+}
+
+/// `identity`, its PEM certificate and key parsed and checked to belong together.
+fn checked(identity: ClientIdentity) -> Result<ClientIdentity, TlsError> {
+    let part = || TlsPart::Client { id: identity.id().to_owned(), field: None };
+    identity.certified().map_err(|error| refused(error, part()))?;
+    Ok(identity)
 }
 
 /// `client`'s identity, its files read and a bundle decrypted.
@@ -31,7 +42,7 @@ fn identity(client: ClientSpec) -> Result<ClientIdentity, TlsError> {
     let identity = match client.material {
         ClientSource::Pem { cert, key } => {
             let (mut cert, mut key) = (read(cert, &part("cert"))?, read(key, &part("key"))?);
-            ClientIdentity::pem(client.id.clone(), std::mem::take(&mut *cert), std::mem::take(&mut *key))
+            checked(ClientIdentity::pem(client.id.clone(), std::mem::take(&mut *cert), std::mem::take(&mut *key)))?
         }
         ClientSource::Pkcs12 { bundle, passphrase } => {
             let bundle = read(bundle, &part("pkcs12"))?;
@@ -53,11 +64,12 @@ fn read(source: MaterialSource, part: &TlsPart) -> Result<Zeroizing<Vec<u8>>, Tl
     }
 }
 
-/// `error` about `part`: V5126 for parts that do not fit, else V5125.
+/// `error` about `part`, or the `ca` entry it names: V5126 for parts that do not fit, else V5125.
 fn refused(error: HttpAdapterError, part: TlsPart) -> TlsError {
     match error {
         HttpAdapterError::Mismatch { reason, .. } => TlsError::Mismatch { part, reason },
         HttpAdapterError::Identity { reason, .. } => TlsError::Unusable { part, reason },
+        HttpAdapterError::Certificate { index, reason } => TlsError::Unusable { part: TlsPart::Ca(index), reason },
         other => TlsError::Unusable { part, reason: other.to_string() },
     }
 }

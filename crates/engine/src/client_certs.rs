@@ -85,9 +85,9 @@ impl Render<'_> {
     /// `template` as text, or the run-stopping error for `part`.
     fn text(&self, template: &Template, part: &TlsPart) -> Result<Zeroizing<String>, EngineError> {
         let rendered = config_text(self.program, self.values, template);
-        rendered.map(Zeroizing::new).map_err(|error| {
-            refused(error.code.unwrap_or(Code::V5125), &part.to_string(), &error.message)
-        })
+        rendered
+            .map(Zeroizing::new)
+            .map_err(|error| refused(error.code.unwrap_or(Code::V5125), &part.to_string(), &error.message))
     }
 
     /// `template` as inline PEM when it starts `-----BEGIN`, else as a path: absolute as it is,
