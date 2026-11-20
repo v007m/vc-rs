@@ -257,3 +257,21 @@ async fn a_rendered_key_that_will_not_load_is_never_quoted() {
     }
     assert!(server.stats().await.unwrap().requests.is_empty(), "no request was sent");
 }
+
+/// A value that does not render, such as `${env.K.pem}` over a K that holds a key, is named as
+/// the config wrote it and never by what it read (D397).
+#[tokio::test(flavor = "multi_thread")]
+async fn a_value_that_does_not_render_names_its_expression_and_never_its_key() {
+    let pki = TestPki::new().unwrap();
+    let server = mock(&pki, ClientAuth::Optional).await;
+    let project = project(&pki, (&good("'127.0.0.1'", "").replace("certs/good.key", "${env.K.pem}"), ""), "");
+    let key = pki.good().key_pem();
+    let run = project.run(&server.base_url(), &[]).env("K", key).output().unwrap();
+    assert_eq!(run.status.code(), Some(2), "{}", said(&run));
+    let want = "V5125: client certificate `good`, its `key`: `${env.K.pem}` does not render";
+    assert!(said(&run).contains(want), "{}", said(&run));
+    let body: Vec<&str> = key.lines().filter(|line| !line.starts_with("-----")).collect();
+    let hidden: Vec<&str> = body.iter().map(|line| &line[..line.len().min(12)]).chain(["PRIVATE KEY"]).collect();
+    assert_hidden(&[("vc output".to_owned(), said(&run))], &hidden);
+    assert!(server.stats().await.unwrap().requests.is_empty(), "no request was sent");
+}

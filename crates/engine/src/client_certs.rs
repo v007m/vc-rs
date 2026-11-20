@@ -14,9 +14,9 @@ use vc_interfaces::{
     CertId, ClientSource, ClientSpec, LoadedTls, MaterialSource, Secret, Secrets, TlsError, TlsPart, TlsSpec,
 };
 use vc_model::{ClientMaterial, Program, Template, TlsClient, inline_pem};
-use vc_template::RenderError;
 
 use crate::plan::Prepared;
+use crate::shown::Shown;
 use crate::{Engine, EngineError};
 
 /// What a run's `http.tls` gave: the material the transport presents, the `CertId` of each
@@ -88,12 +88,23 @@ struct Render<'a> {
 }
 
 impl Render<'_> {
-    /// `template` as text, or the run-stopping error for `part`.
+    /// `template` as text, or the run-stopping error for `part`, which names `template`'s
+    /// expressions as the config wrote them and never what they read (D397).
     fn text(&self, template: &Template, part: &TlsPart) -> Result<Secret, EngineError> {
         let rendered = config_text(self.program, self.values, template);
-        rendered
-            .map(Secret::new)
-            .map_err(|error| refused(error.code.unwrap_or(Code::V5125), &part.to_string(), render_reason(&error)))
+        rendered.map(Secret::new).map_err(|error| {
+            let reason = format!("{} does not render", self.expressions(template));
+            refused(error.code.unwrap_or(Code::V5125), &part.to_string(), &reason)
+        })
+    }
+
+    /// `template`'s `${…}` expressions as written, each in backticks, and nothing around them: the
+    /// text between may be key material written inline.
+    fn expressions(&self, template: &Template) -> String {
+        let shown = Shown { program: self.program, vars: &[] };
+        let written: Vec<_> =
+            template.references().map(|reference| format!("`{}`", shown.written(reference))).collect();
+        if written.is_empty() { "the value".to_owned() } else { written.join(", ") }
     }
 
     /// `template` as inline PEM when [`inline_pem`] says so, else as a [`Render::path`].
@@ -133,12 +144,6 @@ impl Render<'_> {
         };
         Ok(ClientSpec { id, hosts: client.hosts.clone(), material })
     }
-}
-
-/// Why a value does not render: a missing one names the path it reads; any other may quote the
-/// value it found, a secret's included, so it says only that (D390).
-fn render_reason(error: &RenderError) -> &str {
-    if error.missing { &error.message } else { "it does not render" }
 }
 
 /// The run-stopping error for `http.tls` material the loader refused: V5126 for parts that do

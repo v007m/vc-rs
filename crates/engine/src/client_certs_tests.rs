@@ -125,7 +125,11 @@ async fn material_that_cannot_be_read_or_does_not_fit_stops_the_run() {
     assert!(reason.starts_with("V5125: client certificate `good`, its `cert`: cannot read its file: "), "{reason}");
     let unset = CLIENTS.replace("${env.GOOD_KEY}", "${env.NOPE}");
     let reason = refusal(dir.path(), &unset, key).await;
-    assert!(reason == "V5125: client certificate `good`, its `key`: `env.NOPE` is not set", "{reason}");
+    assert!(reason == "V5125: client certificate `good`, its `key`: `${env.NOPE}` does not render", "{reason}");
+    let deeper = CLIENTS.replace("${env.GOOD_KEY}", "-----BEGIN ${env.GOOD_KEY.pem | trim}");
+    let reason = refusal(dir.path(), &deeper, key).await;
+    let want = "V5125: client certificate `good`, its `key`: `${env.GOOD_KEY.pem | trim}` does not render";
+    assert!(reason == want, "only the expression, never the text around it or what it read: {reason}");
 }
 
 #[tokio::test]
@@ -171,12 +175,4 @@ async fn the_injected_loader_reads_the_rendered_material() {
     let mut tls = run_with(in_memory(), &only_bank, ("dev", &[])).await.unwrap();
     let memory = tls.loaded.take().and_then(LoadedTls::take::<MemoryTls>).unwrap_or_default();
     assert_eq!((memory.ca, memory.clients), (vec![b"root".to_vec()], vec![("bank".to_owned(), Vec::new())]));
-}
-
-#[test]
-fn a_value_that_does_not_render_is_quoted_only_by_the_path_it_reads() {
-    let missing = vc_template::RenderError::missing("`env.NOPE` is not set");
-    assert_eq!(super::render_reason(&missing), "`env.NOPE` is not set");
-    let invalid = vc_template::RenderError::invalid("cannot decode \"-----BEGIN PRIVATE KEY-----\"");
-    assert_eq!(super::render_reason(&invalid), "it does not render");
 }
