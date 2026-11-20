@@ -97,10 +97,10 @@ fn normalized(path: &str) -> String {
     let mut trailing = false;
     for segment in path.split('/') {
         trailing = matches!(segment, "" | "." | "..");
-        match segment {
-            "" | "." => {}
-            ".." => drop(kept.pop()),
-            _ => kept.push(segment),
+        if segment == ".." {
+            kept.pop();
+        } else if !matches!(segment, "" | ".") {
+            kept.push(segment);
         }
     }
     let mut out = kept.iter().fold(String::with_capacity(path.len() + 1), |mut out, segment| {
