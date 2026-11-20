@@ -357,6 +357,7 @@ async fn a_send_that_does_not_go_out_in_time_is_v5104_and_the_cleanup_still_regi
     let failure = report.outcome.failure().map(|failure| (failure.code.clone(), failure.message.clone()));
     let message = "messages: a `send` did not go out within the 2s time limit".to_owned();
     assert_eq!(failure, Some((Some("V5104".to_owned()), message)));
+    assert_eq!(root(&report, "exchange"), json!([null]), "a send that did not go out is not reported as sent");
     assert_eq!(report.cleanups, [PendingCleanup::new(delete)]);
 }
 
