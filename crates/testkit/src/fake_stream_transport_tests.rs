@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use http::{Method, StatusCode, Uri};
-use vc_interfaces::{SendContext, StreamFrame, StreamMode, StreamTransport, TransportError};
+use vc_interfaces::{OutgoingFrame, SendContext, StreamFrame, StreamMode, StreamTransport, TransportError};
 use vc_model::{RenderedRequest, Size};
 
 use super::{FakeStreamTransport, StreamAnswer};
@@ -42,7 +42,7 @@ async fn a_script_plays_in_order_then_repeats_its_last_entry() {
     let ctx = SendContext::default();
     assert_eq!(fake.open(get("/"), StreamMode::WebSocket, &ctx).await.err(), Some(timeout));
     let mut stream = clone.open(get("/"), StreamMode::WebSocket, &ctx).await.unwrap().stream.unwrap();
-    assert_eq!(stream.send(StreamFrame::Text("dropped".into())).await, Ok(()));
+    assert_eq!(stream.send(OutgoingFrame::Text("dropped".into())).await, Ok(()));
     assert_eq!(stream.next().await, Some(Ok(StreamFrame::Text("a".into()))));
     assert_eq!(stream.next().await, Some(Err(TransportError::Protocol { reason: "reset".into() })));
     assert_eq!(stream.next().await, None, "a scripted stream does not echo");

@@ -7,7 +7,9 @@ use async_trait::async_trait;
 use bytes::Bytes;
 use http::header::CONTENT_TYPE;
 use http::{HeaderMap, HeaderValue, StatusCode};
-use vc_interfaces::{MessageStream, Opened, SendContext, StreamFrame, StreamMode, StreamTransport, TransportError};
+use vc_interfaces::{
+    MessageStream, Opened, OutgoingFrame, SendContext, StreamFrame, StreamMode, StreamTransport, TransportError,
+};
 use vc_model::{ConnectionInfo, Exchange, HttpResponse, RenderedRequest, Timing};
 
 use crate::status;
@@ -127,13 +129,13 @@ struct FakeStream {
 
 #[async_trait]
 impl MessageStream for FakeStream {
-    async fn send(&mut self, frame: StreamFrame) -> Result<(), TransportError> {
+    async fn send(&mut self, frame: OutgoingFrame) -> Result<(), TransportError> {
         if self.mode == StreamMode::Body {
             return Err(TransportError::InvalidRequest { reason: "a response body stream cannot send".to_owned() });
         }
         if self.echo {
-            let bye = frame == StreamFrame::Text("bye".to_owned());
-            let reply = if bye { StreamFrame::Close { code: 1000, reason: "bye".to_owned() } } else { frame };
+            let bye = frame == OutgoingFrame::Text("bye".to_owned());
+            let reply = if bye { StreamFrame::Close { code: 1000, reason: "bye".to_owned() } } else { frame.into() };
             self.incoming.push_back(Ok(reply));
         }
         Ok(())

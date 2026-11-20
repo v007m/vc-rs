@@ -126,7 +126,7 @@ pub use run_filter::RunFilter;
 pub use secrets::{Secret, SecretError, SecretProvider, SecretQuery, Secrets};
 pub use source::{Discovery, SourceError, SourceProvider, SourceWriter, content_hash, source_file};
 pub use source_problems::add_problems;
-pub use stream::{MessageStream, Opened, StreamFrame, StreamMode, StreamTransport};
+pub use stream::{MessageStream, Opened, OutgoingFrame, StreamFrame, StreamMode, StreamTransport};
 pub use transport::{CertChoice, CertId, SendContext, SentCert, Transport, TransportError};
 pub use trend::{ApiTrend, TestTrend, api_trends};
 pub use vcs::{Vcs, VcsError, checked_ref};

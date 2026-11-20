@@ -73,13 +73,13 @@ impl std::fmt::Debug for Opened {
 /// One open stream. The adapter answers pings itself; pings and pongs are never surfaced.
 #[async_trait]
 pub trait MessageStream: Send {
-    /// Sends `frame` on a WebSocket.
+    /// Sends `frame` on a WebSocket. A close is sent only by [`MessageStream::close`].
     ///
     /// # Errors
     ///
     /// [`TransportError::InvalidRequest`] on a body stream, which cannot send, or a
     /// [`TransportError`] when the connection broke.
-    async fn send(&mut self, frame: StreamFrame) -> Result<(), TransportError>;
+    async fn send(&mut self, frame: OutgoingFrame) -> Result<(), TransportError>;
 
     /// The next frame, or `None` once the stream ended. A server's WebSocket close is one final
     /// [`StreamFrame::Close`].
@@ -94,7 +94,30 @@ pub trait MessageStream: Send {
     async fn close(&mut self, code: u16) -> Result<(), TransportError>;
 }
 
-/// One unit read from or sent on a stream.
+/// One frame a client sends on a WebSocket: data only, as [`MessageStream::close`] sends the
+/// close.
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_enums,
+    reason = "built or matched in other crates, shared across the workspace; every user is in this repo (D160)"
+)]
+pub enum OutgoingFrame {
+    /// A text frame.
+    Text(String),
+    /// A binary frame.
+    Binary(Bytes),
+}
+
+impl From<OutgoingFrame> for StreamFrame {
+    fn from(frame: OutgoingFrame) -> Self {
+        match frame {
+            OutgoingFrame::Text(text) => Self::Text(text),
+            OutgoingFrame::Binary(bytes) => Self::Binary(bytes),
+        }
+    }
+}
+
+/// One unit read from a stream.
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[expect(
     clippy::exhaustive_enums,
@@ -120,11 +143,21 @@ pub enum StreamFrame {
 mod tests {
     use vc_model::StatusPattern;
 
-    use super::StreamMode;
+    use super::{OutgoingFrame, StreamFrame, StreamMode};
 
     #[test]
     fn a_body_stream_opens_on_2xx_and_a_websocket_on_its_101_handshake() {
         let opens_on = [StreamMode::Body, StreamMode::WebSocket].map(StreamMode::opens_on);
         assert_eq!(opens_on, [StatusPattern::Class(2), StatusPattern::Code(101)]);
+    }
+
+    #[test]
+    fn an_outgoing_frame_reads_back_as_the_same_frame_received() {
+        let text = StreamFrame::from(OutgoingFrame::Text("hi".to_owned()));
+        let binary = StreamFrame::from(OutgoingFrame::Binary(bytes::Bytes::from_static(&[0, 255])));
+        assert_eq!(
+            (text, binary),
+            (StreamFrame::Text("hi".to_owned()), StreamFrame::Binary(bytes::Bytes::from_static(&[0, 255])))
+        );
     }
 }

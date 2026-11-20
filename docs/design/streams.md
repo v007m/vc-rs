@@ -170,10 +170,11 @@ pub enum StreamMode { Body, WebSocket }
 pub struct Opened { pub head: Exchange, pub stream: Option<Box<dyn MessageStream>> }
 #[async_trait]
 pub trait MessageStream: Send {
-    async fn send(&mut self, frame: StreamFrame) -> Result<(), TransportError>;
+    async fn send(&mut self, frame: OutgoingFrame) -> Result<(), TransportError>;
     async fn next(&mut self) -> Option<Result<StreamFrame, TransportError>>;
     async fn close(&mut self, code: u16) -> Result<(), TransportError>;
 }
+pub enum OutgoingFrame { Text(String), Binary(Bytes) }  // close only through `close`
 pub enum StreamFrame { Chunk(Bytes), Text(String), Binary(Bytes), Close { code: u16, reason: String } }
 ```
 
@@ -182,7 +183,7 @@ How the port is used:
 - `head` is the opening response. When there is no stream, its body is read in full, capped as today.
 - The adapter answers pings itself. Ping and pong frames are not surfaced.
 - A stream opens on a 2xx answer (`Body`) or a 101 handshake (`WebSocket`); any other answer is an `Opened` with no stream. `send` on a body stream is `InvalidRequest`, and after `close` `next` gives `None`.
-- The frame type is `StreamFrame`, since the executor already has a `Frame` (its run frame).
+- The frame type is `StreamFrame`, since the executor already has a `Frame` (its run frame). `send` takes an `OutgoingFrame`, text or binary only, so `close(code)` is the only way to close.
 - `vc-testkit` gets `FakeStreamTransport` (scripted opens, and `contract()`) and two suites every implementation runs (D112): `stream_transport_suite` and `message_stream_suite`, which the first runs on an open WebSocket. `arch-tests` names a suite after its trait, so there is no `stream_suite`.
 - `HttpTransport` implements both ports, so SSE and WebSocket reuse its TLS, mTLS identities, proxy, host rules and connect timing.
 

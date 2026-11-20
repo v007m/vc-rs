@@ -1,6 +1,8 @@
 use http::header::CONTENT_TYPE;
 use http::{HeaderValue, Method, StatusCode, Uri};
-use vc_interfaces::{MessageStream, Opened, SendContext, StreamFrame, StreamMode, StreamTransport, TransportError};
+use vc_interfaces::{
+    MessageStream, Opened, OutgoingFrame, SendContext, StreamFrame, StreamMode, StreamTransport, TransportError,
+};
 use vc_model::{RenderedRequest, Size};
 
 /// The contract every [`StreamTransport`] meets (D112).
@@ -45,10 +47,10 @@ async fn websockets(transport: &dyn StreamTransport, base: &str) {
 ///
 /// When the stream breaks the contract.
 pub async fn message_stream_suite(mut stream: Box<dyn MessageStream>) {
-    let frames = [StreamFrame::Text("hi".to_owned()), StreamFrame::Binary(bytes::Bytes::from_static(&[0, 255]))];
+    let frames = [OutgoingFrame::Text("hi".to_owned()), OutgoingFrame::Binary(bytes::Bytes::from_static(&[0, 255]))];
     for frame in frames {
         assert_eq!(stream.send(frame.clone()).await, Ok(()), "sending {frame:?}");
-        assert_eq!(stream.next().await, Some(Ok(frame)), "the echo comes back as sent");
+        assert_eq!(stream.next().await, Some(Ok(frame.into())), "the echo comes back as sent");
     }
     assert_eq!(stream.close(1000).await, Ok(()));
     assert_eq!(stream.next().await, None, "a closed stream ends");
@@ -130,14 +132,14 @@ async fn caps_a_refused_answer_s_body_at_the_limit(transport: &dyn StreamTranspo
 async fn refuses_to_send_on_a_body_stream(transport: &dyn StreamTransport, base: &str) {
     let Some(opened) = open(transport, request(base, "/events?count=1"), StreamMode::Body).await else { return };
     let Some(mut stream) = streamed(opened) else { return };
-    let sent = stream.send(StreamFrame::Text("hi".to_owned())).await;
+    let sent = stream.send(OutgoingFrame::Text("hi".to_owned())).await;
     assert!(matches!(sent, Err(TransportError::InvalidRequest { .. })), "{sent:?}");
 }
 
 async fn hands_the_server_s_close_over_as_a_last_frame(transport: &dyn StreamTransport, base: &str) {
     let Some(opened) = open(transport, request(base, "/ws"), StreamMode::WebSocket).await else { return };
     let Some(mut stream) = streamed(opened) else { return };
-    assert_eq!(stream.send(StreamFrame::Text("bye".to_owned())).await, Ok(()));
+    assert_eq!(stream.send(OutgoingFrame::Text("bye".to_owned())).await, Ok(()));
     assert_eq!(stream.next().await, Some(Ok(StreamFrame::Close { code: 1000, reason: "bye".to_owned() })));
     assert_eq!(stream.next().await, None, "nothing follows the server's close");
 }
