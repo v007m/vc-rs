@@ -855,6 +855,9 @@ Round 83 (20 November 2026; Sarath approved the AWS SigV4 design, #106, `docs/de
 | D441 | SigV4 tests | The AWS SigV4 test-suite vectors (Apache-2.0, `awslabs/aws-c-auth`) are vendored byte for byte, with their licence and source commit, in a `-text` folder. They drive the pure signer, and any vector it cannot represent is listed as skipped, with its reason. `bench/mock` verifies signatures independently at `/aws/*`. | — |
 | D442 | SigV4 on existing crates | The signer is hand-rolled in `vc-adapter-auth` on `hmac` 0.13, `sha2` 0.11, `percent-encoding` and `zeroize`, all already workspace dependencies. The `aws-sigv4` crate, and with it `aws-smithy-*` and `aws-credential-types`, is not used. Nor is the `hex` crate. | — |
 | D443 | Request pipeline order, with signing | timing → retry (`refreshOn`, `http.retry`) → auth → `beforeRequest` hooks → per-host limit → sign → timeout (per attempt) → transport. The sign stage (D433) is a null object for every auth type that does not sign; everything else in D141 stands. | D141 order (adds the sign stage) |
+| D444 | `vc new auth` for `awsSigV4` | `accessKeyId`, `secretAccessKey` and `sessionToken` are credential fields, so `vc new auth` writes them only as templates; a missing `accessKeyId` or `secretAccessKey` gets a `${secret.<ID>_ACCESS_KEY_ID}`-style placeholder. `region` and `service` are left to the author and reported as V1005. `sessionToken` and `payload` are optional. | — |
+| D445 | V2316 details | An empty literal `region` or `service` is V2316 too ("`service` is empty"), with no fix. The certain fix writes the lowercased text, quoted only where YAML needs it. | D440 (refines) |
+| D446 | Masking AWS secrets in a config that does not parse | Like a TLS `key` and `passphrase` (D353), the value of every `secretAccessKey` and `sessionToken` key is masked in the excerpts of a config that does not parse, whatever auth it belongs to. | D440 (refines) |
 
 ## Open
 

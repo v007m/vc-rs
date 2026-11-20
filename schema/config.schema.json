@@ -299,6 +299,10 @@
       "additionalProperties": false,
       "description": "An auth definition; the keys used depend on `type`",
       "properties": {
+        "accessKeyId": {
+          "description": "`awsSigV4`: the access key ID",
+          "type": "string"
+        },
         "apply": {
           "$ref": "#/$defs/apply",
           "description": "`flow`: what is added to each request"
@@ -360,6 +364,14 @@
           "description": "`basic`, `oauth2Password`",
           "type": "string"
         },
+        "payload": {
+          "default": "signed",
+          "description": "`awsSigV4`: `unsigned` signs `UNSIGNED-PAYLOAD` instead of the body's hash",
+          "enum": [
+            "signed",
+            "unsigned"
+          ]
+        },
         "pkce": {
           "description": "`oauth2AuthorizationCode`: use PKCE",
           "type": "boolean"
@@ -392,12 +404,34 @@
           "description": "`oauth2Refresh`: long-lived refresh token",
           "type": "string"
         },
+        "region": {
+          "description": "`awsSigV4`: the signing region",
+          "examples": [
+            "us-east-1"
+          ],
+          "type": "string"
+        },
         "scopes": {
           "description": "`oauth2*`: scopes requested",
           "items": {
             "type": "string"
           },
           "type": "array"
+        },
+        "secretAccessKey": {
+          "description": "`awsSigV4`: the secret access key",
+          "type": "string"
+        },
+        "service": {
+          "description": "`awsSigV4`: the signing name",
+          "examples": [
+            "execute-api"
+          ],
+          "type": "string"
+        },
+        "sessionToken": {
+          "description": "`awsSigV4`: a temporary credential's token; empty sends none",
+          "type": "string"
         },
         "steps": {
           "description": "`flow`: the requests that produce credentials",
@@ -426,7 +460,8 @@
             "oauth2Refresh",
             "flow",
             "plugin",
-            "mtls"
+            "mtls",
+            "awsSigV4"
           ]
         },
         "username": {

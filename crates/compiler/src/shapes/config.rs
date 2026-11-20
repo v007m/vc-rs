@@ -19,6 +19,7 @@ const AUTH_TYPES: &[&str] = &[
     "flow",
     "plugin",
     "mtls",
+    "awsSigV4",
 ];
 
 shape! {
@@ -140,6 +141,13 @@ shape! {
         types::key("refreshOn", Ty::List(&Ty::Int)).default("[401]").doc("`flow`: statuses that re-run the flow"),
         types::key("plugin", Ty::Ref).doc("`plugin`: the auth plugin"),
         types::key("config", Ty::Value).doc("`plugin`: its settings"),
+        types::key("region", Ty::Template).doc("`awsSigV4`: the signing region").example("us-east-1"),
+        types::key("service", Ty::Template).doc("`awsSigV4`: the signing name").example("execute-api"),
+        types::key("accessKeyId", Ty::Template).doc("`awsSigV4`: the access key ID"),
+        types::key("secretAccessKey", Ty::Template).doc("`awsSigV4`: the secret access key"),
+        types::key("sessionToken", Ty::Template).doc("`awsSigV4`: a temporary credential's token; empty sends none"),
+        types::key("payload", Ty::Enum(&["signed", "unsigned"])).default("signed")
+            .doc("`awsSigV4`: `unsigned` signs `UNSIGNED-PAYLOAD` instead of the body's hash"),
         types::key("clientCert", Ty::Ref).doc("An `http.tls.clients` ID sent with every request; `none` sends none")
             .example("partnerCert"),
     ])

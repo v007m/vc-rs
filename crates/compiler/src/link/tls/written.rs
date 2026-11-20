@@ -5,7 +5,7 @@
 use vc_model::{Pos, SourceFileId, SourceSpan};
 
 /// The keys whose values the fallback masks.
-const SECRET_KEYS: [&str; 2] = ["key", "passphrase"];
+const SECRET_KEYS: [&str; 4] = ["key", "passphrase", "secretAccessKey", "sessionToken"];
 
 /// One line of the text, without its line break.
 struct Line<'t> {
@@ -101,7 +101,8 @@ mod tests {
         let at = spans(SourceFileId::new(0), text);
         assert_eq!((at[0].start.line, at[0].start.column, at[0].end.column), (3, 17, 30));
         assert_eq!(covered("  - key: k1\n  - 'key' : k2\n  - \"passphrase\":p3\n"), ["k1", "k2", "p3"]);
-        assert!(covered("keyFile: a\napiKey: b\nid: key\n").is_empty(), "only the keys `key` and `passphrase`");
+        assert!(covered("keyFile: a\napiKey: b\nid: key\n").is_empty(), "only the secret keys");
+        assert_eq!(covered("    secretAccessKey: s1\n    sessionToken: t1\n    accessKeyId: a1\n"), ["s1", "t1"]);
     }
 
     #[test]

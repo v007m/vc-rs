@@ -81,12 +81,23 @@ async fn every_key_a_type_requires_is_one_the_compiler_checks_for() {
 const READ_LATE: [(&str, &str); 2] =
     [("oauth2AuthorizationCode", "authorizeUrl"), ("oauth2AuthorizationCode", "tokenUrl")];
 
+/// The type `vc check` knows that no adapter serves yet: its signer lands in #106 PR 3, so a
+/// run that uses it fails as an unknown type (V5114).
+const UNBUILT: &str = "awsSigV4";
+
+#[tokio::test]
+async fn a_type_no_adapter_serves_yet_is_unknown() {
+    let settings = json!({"region": "us-east-1", "service": "s3", "accessKeyId": "a", "secretAccessKey": "s"});
+    let answer = types(None).credentials(&request(UNBUILT, &settings)).await;
+    assert!(matches!(&answer, Err(AuthError::Unknown { kind }) if kind == UNBUILT), "{answer:?}");
+}
+
 #[tokio::test]
 async fn leaving_out_any_key_a_type_needs_is_missing_that_key() {
     let types = types(None);
     let flow = Arc::new(FixedFlow::new(Ok(Credentials::header("authorization", "Bearer f"))));
     let value = |key: &str| if key.ends_with("Url") { "https://id.test/token" } else { "cli" };
-    for (kind, needs) in vc_model::AUTH_NEEDS.iter().filter(|(kind, _)| *kind != "plugin") {
+    for (kind, needs) in vc_model::AUTH_NEEDS.iter().filter(|(kind, _)| !["plugin", UNBUILT].contains(kind)) {
         for left in needs.iter().filter(|key| !READ_LATE.contains(&(*kind, **key))) {
             let kept = needs.iter().filter(|key| *key != left);
             let settings: serde_json::Map<String, Value> =

@@ -1,6 +1,6 @@
 # AWS SigV4: the `awsSigV4` auth type (#106)
 
-Status: approved by Sarath on 20 November 2026, with Q1 (a) below. The decisions are Round 83 (D431–D443) in `decision-log.md`.
+Status: approved by Sarath on 20 November 2026, with Q1 (a) below. The decisions are Round 83 (D431–D446) in `decision-log.md`.
 
 ## Goal and scope
 
@@ -17,12 +17,14 @@ Everything else is in "Later" below.
 
 ## Syntax by example
 
-The examples use `awsSigV4`, which the code does not read yet, so the docs check skips them (`yaml skip`) until PR 1 below lands.
+`vc check` reads these examples (PR 1 below), and the docs check checks them. No run signs with them until PR 3.
 
-```yaml skip
+```yaml
 # vibranium.config.yaml
 vars:
   awsRegion: eu-west-1
+  ordersApiId: a1b2c3d4e5
+  orderId: "42"
 auth:
   - id: ordersIam                       # API Gateway with IAM auth
     type: awsSigV4
@@ -49,7 +51,7 @@ AWS_SESSION_TOKEN=
 
 With the default secrets provider (`provider: env`, D163), these three names are read from the process environment, which is where CI, `aws-vault exec` and `aws sso` exports put them. The project's `.env` fills in any the environment does not set. Use the definition by ID, as any other:
 
-```yaml skip
+```yaml
 # services/orders/orders.api.yaml
 baseUrl: https://${var.ordersApiId}.execute-api.${var.awsRegion}.amazonaws.com/prod
 auth: ordersIam
@@ -212,6 +214,9 @@ How the parts fit:
 | D441 | Tests: the AWS SigV4 test-suite vectors (Apache-2.0, from `awslabs/aws-c-auth`) are vendored unchanged with their licence and source commit. They drive the pure signer, and the vectors it cannot represent are listed as skipped, with reasons. The mock verifies signatures independently at `/aws/*`. The transport suite pins `host`. |
 | D442 | Dependencies: the signer is hand-rolled on `hmac` 0.13 and `sha2` 0.11, already workspace dependencies (`vc-adapter-hooks` uses both), plus `percent-encoding` and `zeroize`, also already there. The `aws-sigv4` crate is not used: it brings `aws-smithy-*`, `aws-credential-types` and their dependencies for about 300 lines of rules that the AWS vectors pin. No `hex` crate either: hex encoding is a five-line function. |
 | D443 | D141 amended: timing → retry → auth → `beforeRequest` hooks → per-host limit → sign → timeout → transport. |
+| D444 | `vc new auth` writes `accessKeyId`, `secretAccessKey` and `sessionToken` only as templates; `region` and `service` are the author's (V1005). |
+| D445 | An empty literal `region` or `service` is V2316 too, with no fix; the fix quotes only where YAML needs it. |
+| D446 | A config that does not parse masks every `secretAccessKey` and `sessionToken` value, as it does a TLS `key` and `passphrase`. |
 
 Candidate V codes (V1005, V2302 and V5114 are reused; V1 and V3 need nothing new):
 
@@ -304,4 +309,3 @@ The rest was approved as written: the credential source (D432), the S3 rules (D4
 4. **Wire and end to end.**
    - The mock's `/aws/*` verifier with its tests, and the e2e tests above.
    - The redaction checks, and the site page.
-   - The `yaml skip` markers dropped from this note.

@@ -77,6 +77,7 @@ code_table! {
     V2313 = 2313, Error, "`reports.dir` in the project config leaves the project";
     V2314 = 2314, Error, "GraphQL document does not fit the schema";
     V2315 = 2315, Error, "GraphQL variable value does not fit its type";
+    V2316 = 2316, Error, "An AWS signing `region` or `service` is not a scope name";
     // V3xxx: lifecycle
     V3101 = 3101, Error, "No profile defined, or no active profile for this run";
     V3102 = 3102, Error, "More than one default profile";
@@ -105,6 +106,7 @@ code_table! {
     V4010 = 4010, Warning, "GraphQL operation has no name";
     V4012 = 4012, Warning, "A client key file can be read by other users";
     V4013 = 4013, Warning, "A client key or passphrase is written in the config";
+    V4014 = 4014, Warning, "An AWS secret access key or session token is written in the config";
     // V5xxx: run time
     V5101 = 5101, Error, "Expectation failed";
     V5102 = 5102, Error, "CEL check false";
