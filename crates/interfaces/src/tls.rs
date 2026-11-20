@@ -20,6 +20,16 @@ pub trait TransportFactory: Send + Sync {
     ///
     /// [`TlsError`] naming the part that cannot be used; no reason quotes a key or a passphrase.
     fn build(&self, tls: &TlsSpec, environment: &dyn Environment) -> Result<Arc<dyn Transport>, TlsError>;
+
+    /// What `probes`' material holds that a check or a run's start reports without stopping
+    /// (D408–D412): a file that cannot be read, material that cannot be used or whose parts do
+    /// not fit, each leaf certificate's validity, and a key or bundle file that others may read.
+    /// It blocks on files as [`TransportFactory::build`] does. A factory that reads no files
+    /// finds nothing, the default.
+    fn inspect(&self, probes: &[TlsProbe]) -> Vec<TlsFinding> {
+        let _ = probes;
+        Vec::new()
+    }
 }
 
 /// A rendered `http.tls`: the `ca` entries, and the client identities the run's profiles allow.
@@ -30,6 +40,21 @@ pub struct TlsSpec {
     pub ca: Vec<MaterialSource>,
     /// The identities; entry `i` becomes `CertId::new(i)`.
     pub clients: Vec<ClientSpec>,
+}
+
+impl TlsSpec {
+    /// Every part of this spec as a probe, for [`TransportFactory::inspect`] once it is built.
+    #[must_use]
+    pub fn into_probes(self) -> Vec<TlsProbe> {
+        let ca = self.ca.into_iter().enumerate().map(|(index, source)| TlsProbe::Ca { index, source });
+        let clients = self.clients.into_iter().map(|ClientSpec { id, material, .. }| match material {
+            ClientSource::Pem { cert, key } => TlsProbe::Pem { id, cert: Some(cert), key: Some(key) },
+            ClientSource::Pkcs12 { bundle, passphrase } => {
+                TlsProbe::Pkcs12 { id, bundle, passphrase: Some(passphrase) }
+            }
+        });
+        ca.chain(clients).collect()
+    }
 }
 
 /// One client identity: its ID, the hosts it is sent to and its material.
@@ -73,6 +98,45 @@ impl fmt::Debug for MaterialSource {
         }
     }
 }
+
+/// One `ca` entry or client identity for [`TransportFactory::inspect`], with only the values known
+/// before a run renders it: `vc check` leaves out a value written with `${…}` (D408).
+#[derive(Debug)]
+#[expect(clippy::exhaustive_enums, reason = "a `ca` entry or one of the two forms of a client (D350)")]
+pub enum TlsProbe {
+    /// The `ca` entry at `index`.
+    Ca { index: usize, source: MaterialSource },
+    /// A PEM identity's `cert` and `key`, each `None` when it is known only once rendered.
+    Pem { id: String, cert: Option<MaterialSource>, key: Option<MaterialSource> },
+    /// A PKCS#12 identity's bundle and passphrase; with no passphrase known, the bundle is only
+    /// read.
+    Pkcs12 { id: String, bundle: MaterialSource, passphrase: Option<Secret> },
+}
+
+/// What [`TransportFactory::inspect`] found in one part of `http.tls`. No reason quotes a key, a
+/// passphrase or a rendered path.
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_enums,
+    reason = "matched by the engine, built by the adapter; both are in this repo (D160)"
+)]
+pub enum TlsFinding {
+    /// `part`'s file cannot be read (V2011). `near` holds the names in its folder when it does
+    /// not exist, at most [`NEAR_NAMES`] of them.
+    Unreadable { part: TlsPart, reason: String, near: Vec<String> },
+    /// `part`'s material cannot be used (V2012).
+    Unusable { part: TlsPart, reason: String },
+    /// `part`'s parts do not fit: a key that is not the certificate's, a wrong passphrase (V2012).
+    Mismatch { part: TlsPart, reason: String },
+    /// `part`'s leaf certificate is valid from `not_before` until `not_after`, in seconds since
+    /// the Unix epoch (V3107, V3108).
+    Validity { part: TlsPart, not_before: i64, not_after: i64 },
+    /// `part`'s file has `mode`, which lets its group or others read or write it (V4012).
+    Exposed { part: TlsPart, mode: u32 },
+}
+
+/// The most names of a missing file's folder a [`TlsFinding::Unreadable`] holds (D409).
+pub const NEAR_NAMES: usize = 1024;
 
 /// The part of `http.tls` an error is about.
 #[derive(Clone, Debug, PartialEq, Eq)]

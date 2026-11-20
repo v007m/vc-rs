@@ -149,8 +149,7 @@ impl Render<'_> {
     /// `text`, `template` rendered, as a path once trimmed: absolute as it is, else under the
     /// project root, which an error quotes only when the config wrote it literally (D396).
     fn file(&self, template: &Template, text: &Secret) -> MaterialSource {
-        let shown = template.as_literal().map(|literal| literal.trim().to_owned());
-        MaterialSource::File { path: self.root.join(text.expose().trim()), shown }
+        file_at(self.root, text.expose(), template.as_literal())
     }
 
     /// `client`'s ID, hosts and material, rendered.
@@ -194,6 +193,12 @@ pub fn refused(code: Code, what: &str, reason: &str) -> EngineError {
         reason: format!("{code}: {what}: {reason}"),
         help: Some(format!("{help}; `vc explain {code}` says more")),
     }
+}
+
+/// The file at `text`, trimmed: absolute as it is, else under `root`; `literal`, the value as
+/// the config wrote it when it has no `${…}`, is the only form an error may quote (D396, D408).
+pub fn file_at(root: &Path, text: &str, literal: Option<&str>) -> MaterialSource {
+    MaterialSource::File { path: root.join(text.trim()), shown: literal.map(|literal| literal.trim().to_owned()) }
 }
 
 #[cfg(test)]

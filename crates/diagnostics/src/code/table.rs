@@ -48,6 +48,8 @@ code_table! {
     V2007 = 2007, Error, "File ID doesn't match its path";
     V2008 = 2008, Error, "Hook import not allowed";
     V2009 = 2009, Error, "`operationName` does not pick one query or mutation";
+    V2011 = 2011, Error, "A client certificate, key or trusted root file cannot be read";
+    V2012 = 2012, Error, "A client certificate, key or trusted root does not load";
     V2101 = 2101, Error, "Var used but never set for some profile";
     V2102 = 2102, Error, "`${item}`, `${example}` or `${iteration}` used outside its block";
     V2103 = 2103, Error, "Unknown example or dataset column";
@@ -80,6 +82,8 @@ code_table! {
     V3102 = 3102, Error, "More than one default profile";
     V3103 = 3103, Error, "`skip` without a reason";
     V3104 = 3104, Warning, "Skip expired; the test runs again";
+    V3107 = 3107, Warning, "A client certificate expires within 30 days";
+    V3108 = 3108, Warning, "A client certificate has expired or is not valid yet";
     V3201 = 3201, Warning, "`PUT`, `PATCH` or `DELETE` uses a shared value from `beforeRun` or `beforeAll`";
     V3202 = 3202, Warning, "`cache` on a per-test action";
     V3203 = 3203, Warning, "Call to a `deprecated` api";
@@ -99,6 +103,7 @@ code_table! {
     V4008 = 4008, Warning, "`allowFailure` expired; a failure fails the run again";
     V4009 = 4009, Warning, "A sensitive header in `source.headers` has a literal value";
     V4010 = 4010, Warning, "GraphQL operation has no name";
+    V4012 = 4012, Warning, "A client key file can be read by other users";
     V4013 = 4013, Warning, "A client key or passphrase is written in the config";
     // V5xxx: run time
     V5101 = 5101, Error, "Expectation failed";
