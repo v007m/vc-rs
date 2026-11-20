@@ -78,7 +78,8 @@ async fn names_the_part_and_only_a_shown_path() {
         path: PathBuf::from("/nowhere/gone.pem"),
         shown: shown.map(str::to_owned),
     };
-    let unusable = |part, file| (part, format!("cannot read {file}: No such file or directory (os error 2)"));
+    let missing = std::fs::read("/nowhere/gone.pem").err().map(|error| error.to_string()).unwrap_or_default();
+    let unusable = |part, file| (part, format!("cannot read {file}: {missing}"));
     let reason = |spec| match build(&spec) {
         Err(TlsError::Unusable { part, reason }) => Some((part, reason)),
         _ => None,
