@@ -128,6 +128,24 @@ async fn material_that_cannot_be_read_or_does_not_fit_stops_the_run() {
     assert!(reason == "V5125: client certificate `good`, its `key`: `env.NOPE` is not set", "{reason}");
 }
 
+#[tokio::test]
+async fn a_rendered_path_is_trimmed_and_a_pkcs12_value_is_always_a_path() {
+    let pki = TestPki::new().unwrap();
+    let dir = folder(&pki);
+    let rendered = "    ca: ${env.CA}\n    clients:\n      - id: bank\n        pkcs12: ${env.P12}\n\
+                    \x20       passphrase: fixture\n";
+    let env = [("CA", " certs/ca.pem\n"), ("P12", "\tcerts/bank.p12 ")];
+    let mut tls = run_tls(dir.path(), rendered, ("dev", &env)).await.unwrap();
+    let options = http_options(&mut tls);
+    assert_eq!((options.ca.len(), options.clients.len()), (1, 1), "both paths load once trimmed");
+    let env = [("CA", "certs/ca.pem"), ("P12", "-----BEGIN PKCS12-----\nMIIB\n")];
+    let reason = match run_tls(dir.path(), rendered, ("dev", &env)).await {
+        Err(EngineError::Setting { reason, .. }) => reason,
+        other => format!("unexpected {:?}", other.map(|tls| tls.loaded)),
+    };
+    assert!(reason.starts_with("V5125: client certificate `bank`, its `pkcs12`: cannot read its file: "), "{reason}");
+}
+
 /// The HTTP transport's options `tls` loaded.
 fn http_options(tls: &mut RunTls) -> TlsOptions {
     tls.loaded.take().and_then(LoadedTls::take).unwrap_or_default()

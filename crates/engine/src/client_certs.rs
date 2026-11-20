@@ -101,15 +101,25 @@ impl Render<'_> {
             .map_err(|error| refused(error.code.unwrap_or(Code::V5125), &part.to_string(), render_reason(&error)))
     }
 
-    /// `template` as inline PEM when [`inline_pem`] says so, else as a path: absolute as it is,
-    /// else under the project root, which an error quotes only when the config wrote it literally.
+    /// `template` as inline PEM when [`inline_pem`] says so, else as a [`Render::path`].
     fn source(&self, template: &Template, part: &TlsPart) -> Result<MaterialSource, EngineError> {
         let text = self.text(template, part)?;
         if inline_pem(text.expose()) {
             return Ok(MaterialSource::Inline(text));
         }
-        let shown = template.as_literal().map(str::to_owned);
-        Ok(MaterialSource::File { path: self.root.join(text.expose()), shown })
+        Ok(self.file(template, &text))
+    }
+
+    /// `template` as a path, whatever it renders to (D396).
+    fn path(&self, template: &Template, part: &TlsPart) -> Result<MaterialSource, EngineError> {
+        Ok(self.file(template, &self.text(template, part)?))
+    }
+
+    /// `text`, `template` rendered, as a path once trimmed: absolute as it is, else under the
+    /// project root, which an error quotes only when the config wrote it literally (D396).
+    fn file(&self, template: &Template, text: &Secret) -> MaterialSource {
+        let shown = template.as_literal().map(|literal| literal.trim().to_owned());
+        MaterialSource::File { path: self.root.join(text.expose().trim()), shown }
     }
 
     /// `client`'s ID, hosts and material, rendered.
@@ -123,7 +133,7 @@ impl Render<'_> {
             ClientMaterial::Pkcs12 { file, passphrase } => {
                 let text = |template| self.text(template, &part("passphrase"));
                 let passphrase = passphrase.as_ref().map(text).transpose()?.unwrap_or_else(|| Secret::new(""));
-                ClientSource::Pkcs12 { bundle: self.source(file, &part("pkcs12"))?, passphrase }
+                ClientSource::Pkcs12 { bundle: self.path(file, &part("pkcs12"))?, passphrase }
             }
         };
         Ok(ClientSpec { id, hosts: client.hosts.clone(), material })
