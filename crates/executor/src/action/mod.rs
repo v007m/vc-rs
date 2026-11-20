@@ -28,6 +28,8 @@ mod sink;
 mod sse;
 mod stream;
 mod stream_call;
+#[cfg(test)]
+mod stream_fakes;
 mod websocket;
 
 use std::collections::{BTreeMap, BTreeSet};

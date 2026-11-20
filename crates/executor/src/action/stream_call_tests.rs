@@ -1,21 +1,18 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use async_trait::async_trait;
 use bytes::Bytes;
 use http::HeaderValue;
 use http::header::{ACCEPT, CACHE_CONTROL, CONTENT_TYPE};
 use serde_json::{Value, json};
-use vc_interfaces::{
-    HookCall, HookOutput, MessageStream, Opened, OutgoingFrame, SendContext, StreamFrame, StreamMode, StreamTransport,
-    TransportError,
-};
+use vc_interfaces::{HookCall, HookOutput, StreamFrame, StreamMode, TransportError};
 use vc_model::{
     ActionId, ExchangeItem, ExchangeKind, HookRef, HttpResponse, Matcher, MatcherArg, MatcherCall, Origin, OwnerKey,
-    Protocol, RenderedRequest, StreamSettings, TemplateValue,
+    Protocol, StreamSettings, TemplateValue,
 };
 use vc_testkit::{FakeHooks, FakeStreamTransport, FakeTransport, StreamAnswer};
 
+use crate::action::stream_fakes::{Hang, Stuck, reset};
 use crate::fixture::{self, Fixture};
 use crate::{ActionExecutors, ActionReport, ActionRequest, Frame, HostLimits, PendingCleanup, PipelineParts};
 
@@ -198,7 +195,7 @@ async fn a_stream_that_did_not_open_is_v5131_at_its_first_receive_else_at_the_st
 
 /// `sse.reconnect` opens an ended stream once more, after the server's `retry`, sending the
 /// last `id` as `last-event-id`; it does not when that wait passes the call's time limit, nor
-/// when `reconnect` is off.
+/// when `reconnect` is off, and the `receive` is V5130 naming the dropped connection.
 #[tokio::test(start_paused = true)]
 async fn a_reconnecting_sse_call_resumes_from_the_last_id_within_its_time_limit() {
     for (reconnect, timeout, opens) in [(true, 30, 2), (true, 1, 1), (false, 30, 1)] {
@@ -216,8 +213,13 @@ async fn a_reconnecting_sse_call_resumes_from_the_last_id_within_its_time_limit(
         });
         let report = run(fixture, call, parts(streams.clone())).await;
         assert_eq!(streams.calls(), opens, "reconnect {reconnect}, timeout {timeout}s");
-        let failed = messages_checks(&report).into_iter().find_map(|(code, _)| code);
-        assert_eq!(failed.as_deref(), (opens == 1).then_some("V5130"));
+        let failed = messages_checks(&report).into_iter().find(|(code, _)| code.is_some());
+        let error = failed.as_ref().and_then(|(_, error)| error.as_deref());
+        assert_eq!(
+            error.map(|error| error.contains("the connection dropped")),
+            (opens == 1).then_some(true),
+            "{error:?}"
+        );
         let texts = if opens == 2 { json!(["1", "2", "3"]) } else { json!(["1", "2"]) };
         let messages = root(&report, "messages");
         let read: Vec<_> = messages.as_array().into_iter().flatten().map(|message| &message["text"]).collect();
@@ -226,23 +228,28 @@ async fn a_reconnecting_sse_call_resumes_from_the_last_id_within_its_time_limit(
 }
 
 /// A stream whose frames pass the body limit fails the call with V5105, a failed `messages`
-/// check that keeps the messages read before it (D425).
+/// check that keeps the messages read before it; one that reaches it exactly does not (D425).
 #[tokio::test]
 async fn a_stream_larger_than_the_body_limit_fails_with_v5105() {
-    let mut fixture = Fixture::new();
-    let call = streaming(&mut fixture, (Protocol::Sse, "/feed"), vec![receive(&[("event", "never")])]);
-    let limit = vc_interfaces::SendContext::DEFAULT_BODY_LIMIT.bytes();
-    let big = vec![b'a'; usize::try_from(limit).unwrap() + 1];
-    let streams = FakeStreamTransport::scripted(vec![Ok(StreamAnswer::stream(
-        events_head(),
-        vec![Ok(chunk("data: 1\n\n")), Ok(StreamFrame::Chunk(Bytes::from(big)))],
-    ))]);
-    let report = run(fixture, call, parts(streams)).await;
-    let failure = report.outcome.failure().map(|failure| (failure.code.clone(), failure.message.clone()));
-    let message = format!("messages: the stream's messages are larger than {limit} bytes");
-    assert_eq!(failure, Some((Some("V5105".to_owned()), message)));
-    let kept: Vec<_> = report.exchanges.iter().map(|exchange| exchange.messages.len()).collect();
-    assert_eq!(kept, [1], "the call reports the messages read before the limit");
+    let limit = usize::try_from(vc_interfaces::SendContext::DEFAULT_BODY_LIMIT.bytes()).unwrap();
+    let first = "data: 1\n\n";
+    for (rest, code) in [(limit - first.len(), "V5130"), (limit - first.len() + 1, "V5105")] {
+        let mut fixture = Fixture::new();
+        let call = streaming(&mut fixture, (Protocol::Sse, "/feed"), vec![receive(&[("event", "never")])]);
+        let big = StreamFrame::Chunk(Bytes::from(vec![b'a'; rest]));
+        let answer = StreamAnswer::stream(events_head(), vec![Ok(chunk(first)), Ok(big)]);
+        let report = run(fixture, call, parts(FakeStreamTransport::scripted(vec![Ok(answer)]))).await;
+        let failure = report.outcome.failure().map(|failure| (failure.code.clone(), failure.message.clone()));
+        let failure = failure.filter(|(code, _)| code.as_deref() == Some("V5105"));
+        let message = format!("messages: the stream's messages are larger than {limit} bytes");
+        assert_eq!(
+            failure,
+            (code == "V5105").then(|| (Some(code.to_owned()), message)),
+            "{rest} bytes after the first"
+        );
+        let kept: Vec<_> = report.exchanges.iter().map(|exchange| exchange.messages.len()).collect();
+        assert_eq!(kept, [1], "the call reports the messages read before the limit");
+    }
 }
 
 /// A reconnect that answers with no event stream ends the read: the waiting `receive` is V5130
@@ -275,64 +282,6 @@ async fn a_failed_reconnect_is_v5130_with_its_answer_or_a_failed_check_under_its
     }
 }
 
-/// Where a [`Stuck`] transport does not answer as asked.
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum Hang {
-    /// A `send` on any of its streams.
-    Sends,
-    /// Every open after the first.
-    Reopens,
-    /// A `send` on any of its streams, which fails at once with [`reset`].
-    Breaks,
-}
-
-/// A stream transport that hangs or fails where its [`Hang`] says.
-struct Stuck(FakeStreamTransport, Hang);
-
-struct StuckSend(Box<dyn MessageStream>, Hang);
-
-#[async_trait]
-impl StreamTransport for Stuck {
-    async fn open(
-        &self,
-        request: RenderedRequest,
-        mode: StreamMode,
-        ctx: &SendContext,
-    ) -> Result<Opened, TransportError> {
-        if self.1 == Hang::Reopens && self.0.calls() > 0 {
-            return std::future::pending().await;
-        }
-        let opened = self.0.open(request, mode, ctx).await?;
-        let stuck = |stream| Box::new(StuckSend(stream, self.1)) as Box<dyn MessageStream>;
-        let stream = if self.1 == Hang::Reopens { opened.stream } else { opened.stream.map(stuck) };
-        Ok(Opened { stream, ..opened })
-    }
-}
-
-#[async_trait]
-impl MessageStream for StuckSend {
-    async fn send(&mut self, _frame: OutgoingFrame) -> Result<(), TransportError> {
-        if self.1 == Hang::Breaks {
-            return Err(reset());
-        }
-        std::future::pending().await
-    }
-
-    async fn next(&mut self) -> Option<Result<StreamFrame, TransportError>> {
-        self.0.next().await
-    }
-
-    async fn close(&mut self, code: u16) -> Result<(), TransportError> {
-        self.0.close(code).await
-    }
-}
-
-/// Parts whose stream port is `streams`, hanging where `hang` says.
-fn stuck(streams: FakeStreamTransport, hang: Hang) -> PipelineParts {
-    let fake = FakeTransport::scripted(vec![]);
-    PipelineParts::new(Arc::new(fake), HostLimits::spawn(8)).with_streams(Arc::new(Stuck(streams, hang)))
-}
-
 /// A reconnect that does not answer within the call's time limit leaves the `receive` V5130,
 /// naming the limit (D425).
 #[tokio::test(start_paused = true)]
@@ -343,14 +292,9 @@ async fn a_reconnect_that_does_not_answer_in_time_is_v5130_naming_the_limit() {
     (api.stream, api.timeout) =
         (Some(StreamSettings { reconnect: true }), Some(vc_model::Duration::new(Duration::from_secs(5))));
     let streams = FakeStreamTransport::scripted(vec![Ok(events(&["id: 1\ndata: 1\n\n"]))]);
-    let report = run(fixture, call, stuck(streams, Hang::Reopens)).await;
+    let report = run(fixture, call, Stuck::new(streams, Hang::Reopens).parts()).await;
     let error = "no message matched before the 5s time limit passed".to_owned();
     assert_eq!(messages_checks(&report), [(Some("V5130".to_owned()), Some(error))]);
-}
-
-/// The error a [`Hang::Breaks`] stream's `send` fails with.
-fn reset() -> TransportError {
-    TransportError::Connect { host: "api.test".to_owned(), reason: "reset".to_owned() }
 }
 
 /// A `send` still going out at the call's time limit is a failed `messages` check, V5104, and
@@ -369,7 +313,7 @@ async fn a_send_that_does_not_go_out_is_a_failed_check_and_the_cleanup_still_reg
         let api = fixture.api_mut(call);
         (api.protocol, api.exchange) = (Protocol::Websocket, vec![send("hi")]);
         api.timeout = Some(vc_model::Duration::new(Duration::from_secs(2)));
-        let report = run(fixture, call, stuck(FakeStreamTransport::contract(), hang)).await;
+        let report = run(fixture, call, Stuck::new(FakeStreamTransport::contract(), hang).parts()).await;
         let failure = report.outcome.failure().map(|failure| (failure.code.clone(), failure.message.clone()));
         assert_eq!(failure, Some((Some(code.to_owned()), format!("messages: {error}"))));
         assert_eq!(
@@ -396,4 +340,18 @@ async fn after_response_hooks_see_the_messages_and_the_exchange() {
     let parts = parts(FakeStreamTransport::contract()).with_hook_runner(Arc::new(hooks));
     let report = run(fixture, call, parts).await;
     assert_eq!(report.outcome.failure(), None, "{:?}", report.checks);
+}
+
+/// A `websocket` whose exchange is done is closed with 1000 before the hooks run; one that
+/// ends any other way is not (D423).
+#[tokio::test(start_paused = true)]
+async fn a_done_exchange_closes_its_websocket_with_1000() {
+    for (text, closed) in [("hi", 1000), ("nope", 0)] {
+        let mut fixture = Fixture::new();
+        let call = streaming(&mut fixture, (Protocol::Websocket, "/ws"), vec![send("hi"), receive(&[("text", text)])]);
+        fixture.api_mut(call).timeout = Some(vc_model::Duration::new(Duration::from_secs(2)));
+        let stuck = Stuck::new(FakeStreamTransport::contract(), Hang::Nowhere);
+        let report = run(fixture, call, stuck.parts()).await;
+        assert_eq!((stuck.closed(), report.outcome.failure().is_none()), (closed, closed == 1000), "{text}");
+    }
 }
