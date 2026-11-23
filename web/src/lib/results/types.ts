@@ -37,7 +37,9 @@ export type ExchangeLine = Readonly<{
   responseHeaders: readonly (readonly [string, string])[];
   requestBody?: LazyBody;
   responseBody?: LazyBody;
-  /** Whether the bodies were cut at `history.maxBodySize`. */
+  /** What a stream call received, as a JSON list of messages; absent when it received none. */
+  messages?: LazyBody;
+  /** Whether the bodies or messages were cut at `history.maxBodySize`. */
   truncated: boolean;
 }>;
 

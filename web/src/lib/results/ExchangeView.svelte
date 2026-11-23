@@ -33,8 +33,11 @@
       {/if}
       {#if part.body}<BodyView title="{part.title} body" load={part.body} />{/if}
     {/each}
+    {#if exchange.messages}<BodyView title="Messages" load={exchange.messages} />{/if}
     {#if exchange.truncated}
-      <p class="muted">Bodies were cut at history.maxBodySize.</p>
+      <p class="muted">
+        {exchange.messages ? 'Bodies and messages were' : 'Bodies were'} cut at history.maxBodySize.
+      </p>
     {/if}
   {/if}
 </details>

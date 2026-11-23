@@ -18,6 +18,8 @@ const kindLabel: Readonly<Record<CheckKind, string>> = {
   [CheckKind.TIMING]: 'timing',
   [CheckKind.CEL]: 'expression',
   [CheckKind.CUSTOM]: 'custom',
+  [CheckKind.ERRORS]: 'errors',
+  [CheckKind.MESSAGES]: 'messages',
 };
 
 const decoder = new TextDecoder();

@@ -125,8 +125,9 @@ fn check(check: &CheckView) -> Value {
 }
 
 fn exchange(exchange: &ExchangeView, bodies: &mut BTreeMap<String, String>) -> Value {
+    let messages = (!exchange.messages.is_empty()).then(|| Value::from(exchange.messages.clone()).to_string());
     let mut keep = |body: &Option<String>| body.as_ref().map(|text| stored(text, bodies));
-    json!({
+    let mut data = json!({
         "action": exchange.action,
         "method": exchange.method,
         "url": exchange.url,
@@ -137,7 +138,11 @@ fn exchange(exchange: &ExchangeView, bodies: &mut BTreeMap<String, String>) -> V
         "responseHeaders": exchange.response_headers,
         "responseBody": keep(&exchange.response_body),
         "truncated": exchange.truncated,
-    })
+    });
+    if let Some(messages) = keep(&messages) {
+        data["messages"] = Value::String(messages);
+    }
+    data
 }
 
 /// Stores `body` once and returns its key.

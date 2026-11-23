@@ -105,3 +105,11 @@ fn encodes_a_load_tick_in_milliseconds() {
     assert_eq!(tick(&event), encoded);
     assert_eq!(tick(&Event::RunStarted { files: 1, instances: 1 }), json!({}));
 }
+
+#[test]
+fn counts_a_stream_call_s_messages_and_gives_no_count_without_any() {
+    let mut exchange = testing::exchange("", "");
+    assert_eq!(super::exchange(&exchange).get("messages"), None);
+    exchange.messages = vec![vc_model::StreamMessage::default(); 2];
+    assert_eq!(super::exchange(&exchange)["messages"], 2);
+}

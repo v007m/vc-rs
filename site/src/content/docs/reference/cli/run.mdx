@@ -187,7 +187,7 @@ error: --changed: cannot list the files changed since nosuchref: fatal: Needed a
 | `runStarted` | `files`, `instances` |
 | `fileStarted` / `fileFinished` | `file`; `fileFinished` adds `totals` |
 | `actionStarted` | `action` (`call sample#listUsers`, `command`, …), `owner` `{instance, kind}` |
-| `exchanged` | `action`, `owner`, `method`, `url`, `status`, `ms` |
+| `exchanged` | `action`, `owner`, `method`, `url`, `status`, `ms`; `messages` (the count, for a stream call that received any) |
 | `checkEvaluated` | `action`, `owner`, `check` `{key, expected, actual, passed, diff, error, code, origin, location {path, line, column}}` |
 | `actionFinished` | `action`, `owner`, `status`, `failure` |
 | `testFinished` | `test`, `instance`, `label`, `name` (the test's `name`, or `null`), `status`, `attempts`, `durationMs`, `failure` `{action, code, message}`, `skipReason` |

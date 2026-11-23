@@ -92,7 +92,7 @@ A testcase is named by its label, the full test ID. A failure keeps the short me
 
 ### CTRF
 
-Each test has the standard CTRF fields (`name`, `status`, `duration`, `message`, `filePath`, `line`, `tags`, `retries`, `flaky`). `name` is the full test ID. Everything else is under `extra`: the test's and its file's `name` (`name`, `fileName`), each step with its checks (expected, actual, where it was set), the lifecycle actions, the cleanups, and, in `results.extra`, the run's totals, profiles, `profileNames` and `seed`.
+Each test has the standard CTRF fields (`name`, `status`, `duration`, `message`, `filePath`, `line`, `tags`, `retries`, `flaky`). `name` is the full test ID. Everything else is under `extra`: the test's and its file's `name` (`name`, `fileName`), each step with its checks (expected, actual, where it was set), the lifecycle actions, the cleanups, a stream call's messages (`streams`: `action`, `url`, `messages`, `truncated`, kept as bodies are), and, in `results.extra`, the run's totals, profiles, `profileNames` and `seed`.
 
 ```json title="ctrf.json (one test, shortened)"
 {
@@ -111,7 +111,7 @@ Each test has the standard CTRF fields (`name`, `status`, `duration`, `message`,
 
 ### HTML
 
-The HTML report lists every test with its status, time, file and tags, and opens one in a detail pane with its steps, checks and the requests and responses it sent. Secrets are masked. By default it is `index.html` with a `data/` folder it loads as you click. For one file to attach to a ticket or an email, use `--single-file` or set `reports.html.layout: single`:
+The HTML report lists every test with its status, time, file and tags, and opens one in a detail pane with its steps, checks and the requests and responses it sent, with the messages a stream call received. Secrets are masked. By default it is `index.html` with a `data/` folder it loads as you click. For one file to attach to a ticket or an email, use `--single-file` or set `reports.html.layout: single`:
 
 ```console
 $ vc run --report html --single-file --out build/share

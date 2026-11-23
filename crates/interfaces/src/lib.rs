@@ -133,7 +133,7 @@ pub use source_problems::add_problems;
 pub use stream::{MessageStream, Opened, OutgoingFrame, StreamFrame, StreamMode, StreamTransport};
 pub use tls::{
     ClientSource, ClientSpec, MaterialSource, NEAR_NAMES, TlsError, TlsFinding, TlsPart, TlsProbe, TlsSpec,
-    TransportFactory,
+    TransportFactory, TransportPorts,
 };
 pub use transport::{CertChoice, CertId, SendContext, SentCert, Transport, TransportError};
 pub use trend::{ApiTrend, TestTrend, api_trends};

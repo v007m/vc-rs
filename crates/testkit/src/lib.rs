@@ -99,7 +99,7 @@ pub use recording_transport::{Recorded, RecordingTransport, Recordings};
 pub use reporter_suite::{MakeReporter, reporter_suite};
 pub use secrets_suite::{MakeSecretProvider, command_runner_suite, secret_provider_suite};
 pub use source_suite::{MakeSources, MakeWriter, source_provider_suite, source_writer_suite};
-pub use stream_transport_suite::{message_stream_suite, stream_transport_suite};
+pub use stream_transport_suite::{body_stream_suite, message_stream_suite, stream_transport_suite};
 pub use transport_factory_suite::transport_factory_suite;
 pub use transport_suite::transport_suite;
 pub use vc_interfaces::MemorySources;

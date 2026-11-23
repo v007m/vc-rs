@@ -11,7 +11,7 @@ use vc_executor::{
     ActionCx, ActionExecutors, ActionKindTag, CommandExecutor, Defined, EventBus, Executor, ExecutorError, HostLimits,
     MaskRules, PipelineParts, RuleHooks, RunHandle, RunInputs, RunOptions,
 };
-use vc_interfaces::{ConfigEntry, HookRunner, Random, RunId, RunStart, RunSummary, Secret, TestRow, Transport};
+use vc_interfaces::{ConfigEntry, HookRunner, Random, RunId, RunStart, RunSummary, Secret, TestRow};
 use vc_model::{ActionId, Feed, Part, RunStatus, Template, TemplateValue, Totals};
 
 use crate::agent_gate::run_call;
@@ -199,27 +199,28 @@ impl Engine {
         let rules =
             MaskRules::standard().with_hooks(RuleHooks::new(hooks.clone(), inputs.secrets.clone()), &prepared.program);
         let auth = self.auth(Arc::clone(&secured.transport), plugins);
-        let executors = self.executors(prepared, Arc::clone(&secured.transport), hooks);
+        let executors = self.executors(prepared, secured, hooks);
         let cx = ActionCx::new(Arc::clone(&prepared.program), executors, inputs).with_mask_rules(&rules);
         let cx = cx.with_auth(auth).with_client_certs(secured.certs.clone());
         cx.redactor.hide_values(secured.hidden.iter().map(Secret::expose));
         cx
     }
 
-    /// The action executors for `prepared`: HTTP through `transport` and the per-host limits,
-    /// streams through the stream transport, hooks through `hooks`, `command:` through the
-    /// command runner.
+    /// The action executors for `prepared`: HTTP through `secured`'s transport and the per-host
+    /// limits, streams through the builder's stream transport, else `secured`'s (D428), hooks
+    /// through `hooks`, `command:` through the command runner.
     fn executors(
         &self,
         prepared: &Prepared,
-        transport: Arc<dyn Transport>,
+        secured: &Secured,
         hooks: Option<Arc<dyn HookRunner>>,
     ) -> Arc<ActionExecutors> {
         let (settings, defaults) = (&prepared.settings, &prepared.program.config.defaults);
         let per_host = settings.per_host.or(defaults.per_host).unwrap_or(PER_HOST);
         let limits = HostLimits::spawn(widen(per_host));
+        let transport = Arc::clone(&secured.transport);
         let mut parts = PipelineParts::new(transport, limits).with_clock(Arc::clone(&self.clock));
-        if let Some(streams) = &self.streams {
+        if let Some(streams) = self.streams.as_ref().or(secured.streams.as_ref()) {
             parts = parts.with_streams(Arc::clone(streams));
         }
         if let Some(hooks) = hooks {

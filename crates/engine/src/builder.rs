@@ -218,8 +218,9 @@ impl EngineBuilder {
         self
     }
 
-    /// Opens `sse` and `websocket` streams through `streams`; without it a stream call fails
-    /// with a plain message and sends nothing.
+    /// Opens `sse` and `websocket` streams through `streams`; without it they open through the
+    /// transport factory's stream port (D428), and with neither a stream call fails with a
+    /// plain message and sends nothing.
     #[must_use]
     pub fn stream_transport(mut self, streams: Arc<dyn StreamTransport>) -> Self {
         self.streams = Some(streams);

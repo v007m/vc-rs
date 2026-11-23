@@ -1,10 +1,10 @@
 //! End-to-end runs of the real `vc` binary against an in-process mock server: auth, lifecycle
 //! blocks and cleanups, retries and backoff, polls, loops, the per-host limit, timing checks, load
 //! thresholds, the config layers, `--changed`, `command:` actions, hooks, computed bodies, file,
-//! form and multipart bodies, `graphql` apis, client certificates and `vc check` of their files, `awsSigV4`
-//! signatures the mock checks, the report files, `vc call`, `vc explain`, the
-//! completion scripts, `vc ui`, `vc sync` with `source.headers`, and the docs playground printing
-//! what `vc run` prints.
+//! form and multipart bodies, `graphql`, `sse` and `websocket` apis, client certificates and
+//! `vc check` of their files, `awsSigV4` signatures the mock checks, the report files, `vc call`,
+//! `vc explain`, the completion scripts, `vc ui`, `vc sync` with `source.headers`, and the docs
+//! playground printing what `vc run` prints.
 //! Each test gets its own project, home folder and server.
 
 #![cfg(test)]
@@ -46,11 +46,13 @@ mod reports;
 mod scheduling;
 mod sigv4;
 mod spec_headers;
+mod sse;
 mod teardown;
 mod timing;
 mod tui;
 mod ui;
 mod values;
+mod websocket;
 
 #[path = "../common/port.rs"]
 mod port;
@@ -63,6 +65,12 @@ use assert_cmd::Command;
 use assert_cmd::cargo::cargo_bin_cmd;
 pub(crate) use project::Project;
 use serde_json::Value;
+
+/// The default profile, and every body kept, so a passing stream call's messages reach the reports.
+pub(crate) const STREAM_CONFIG: (&str, &str) = (
+    "vibranium.config.yaml",
+    "syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\nvars: {baseUrl: 'http://x'}\nhistory: {bodies: all}\n",
+);
 
 /// The config every project starts from: a default profile and the base URL `--set` replaces.
 pub(crate) const CONFIG: (&str, &str) = (
