@@ -1031,10 +1031,12 @@ pub vc_interfaces::Credentials::cookies: alloc::vec::Vec<(alloc::string::String,
 pub vc_interfaces::Credentials::expires_in: core::option::Option<core::time::Duration>
 pub vc_interfaces::Credentials::headers: alloc::vec::Vec<(alloc::string::String, vc_interfaces::Secret)>
 pub vc_interfaces::Credentials::query: alloc::vec::Vec<(alloc::string::String, vc_interfaces::Secret)>
+pub vc_interfaces::Credentials::signer: core::option::Option<vc_interfaces::Signer>
 impl vc_interfaces::Credentials
 pub fn vc_interfaces::Credentials::expiring(self, core::option::Option<core::time::Duration>) -> Self
 pub fn vc_interfaces::Credentials::header(impl core::convert::Into<alloc::string::String>, impl core::convert::Into<alloc::string::String>) -> Self
 pub fn vc_interfaces::Credentials::query(impl core::convert::Into<alloc::string::String>, impl core::convert::Into<alloc::string::String>) -> Self
+pub fn vc_interfaces::Credentials::signed(vc_interfaces::Signer) -> Self
 pub fn vc_interfaces::Credentials::values(&self) -> impl core::iter::traits::iterator::Iterator<Item = &str>
 impl core::clone::Clone for vc_interfaces::Credentials
 pub fn vc_interfaces::Credentials::clone(&self) -> Self
@@ -1682,6 +1684,17 @@ impl core::fmt::Debug for vc_interfaces::SendContext
 pub fn vc_interfaces::SendContext::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Copy for vc_interfaces::SendContext
 impl core::marker::StructuralPartialEq for vc_interfaces::SendContext
+pub struct vc_interfaces::Signer
+impl vc_interfaces::Signer
+pub fn vc_interfaces::Signer::new(alloc::rcs::arc::Arc<dyn vc_interfaces::RequestSigner>, alloc::vec::Vec<vc_interfaces::Secret>) -> Self
+pub fn vc_interfaces::Signer::sign(&self, vc_model::exchange::RenderedRequest, u64) -> core::result::Result<vc_model::exchange::RenderedRequest, vc_interfaces::AuthError>
+impl core::clone::Clone for vc_interfaces::Signer
+pub fn vc_interfaces::Signer::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::Signer
+impl core::cmp::PartialEq for vc_interfaces::Signer
+pub fn vc_interfaces::Signer::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_interfaces::Signer
+pub fn vc_interfaces::Signer::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 pub struct vc_interfaces::SourceFilter
 impl vc_interfaces::SourceFilter
 pub fn vc_interfaces::SourceFilter::allows(&self, &vc_model::source::SourcePath) -> bool
@@ -1833,6 +1846,7 @@ pub fn vc_interfaces::Approvals::list(&self, bool) -> core::result::Result<alloc
 pub fn vc_interfaces::Approvals::wait<'life0, 'async_trait>(&'life0 self, vc_interfaces::ApprovalId, core::time::Duration) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::result::Result<vc_interfaces::ApprovalStatus, vc_interfaces::ApprovalError>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait
 pub trait vc_interfaces::AuthProvider: core::marker::Send + core::marker::Sync
 pub fn vc_interfaces::AuthProvider::credentials<'life0, 'life1, 'async_trait>(&'life0 self, &'life1 vc_interfaces::AuthRequest) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::result::Result<vc_interfaces::Credentials, vc_interfaces::AuthError>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait, 'life1: 'async_trait
+pub fn vc_interfaces::AuthProvider::signs(&self, &vc_interfaces::AuthRequest) -> bool
 pub trait vc_interfaces::Browser: core::marker::Send + core::marker::Sync
 pub fn vc_interfaces::Browser::open<'life0, 'life1, 'async_trait>(&'life0 self, &'life1 str) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::result::Result<(), vc_interfaces::BrowserError>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait, 'life1: 'async_trait
 pub trait vc_interfaces::CacheStore: core::marker::Send + core::marker::Sync
@@ -1908,6 +1922,8 @@ pub fn vc_interfaces::Random::next_u64(&self) -> u64
 pub trait vc_interfaces::Reporter: core::marker::Send
 pub fn vc_interfaces::Reporter::finish<'life0, 'life1, 'async_trait>(&'life0 mut self, &'life1 vc_interfaces::RunSummary) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::result::Result<alloc::vec::Vec<vc_interfaces::Artifact>, vc_interfaces::ReportError>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait, 'life1: 'async_trait
 pub fn vc_interfaces::Reporter::on_event<'life0, 'life1, 'async_trait>(&'life0 mut self, &'life1 vc_model::event::Event) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::result::Result<(), vc_interfaces::ReportError>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait, 'life1: 'async_trait
+pub trait vc_interfaces::RequestSigner: core::marker::Send + core::marker::Sync
+pub fn vc_interfaces::RequestSigner::sign(&self, vc_model::exchange::RenderedRequest, u64) -> core::result::Result<vc_model::exchange::RenderedRequest, vc_interfaces::AuthError>
 pub trait vc_interfaces::SecretProvider: core::marker::Send + core::marker::Sync
 pub fn vc_interfaces::SecretProvider::load<'life0, 'life1, 'async_trait>(&'life0 self, &'life1 vc_interfaces::SecretQuery) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::result::Result<vc_interfaces::Secrets, vc_interfaces::SecretError>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait, 'life1: 'async_trait
 pub trait vc_interfaces::SourceProvider: core::marker::Send + core::marker::Sync

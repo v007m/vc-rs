@@ -21,7 +21,8 @@
 //!   (D163, D165).
 //! - [`CommandRunner`]: runs a program with its arguments as a list, never through a shell.
 //! - [`AuthProvider`]: obtains [`Credentials`] for one `auth` type; [`ActionRunner`] runs a
-//!   `flow` definition's steps for it (D106).
+//!   `flow` definition's steps for it (D106), and a [`RequestSigner`] signs each request as it
+//!   leaves (D434).
 //! - [`Browser`] and [`Keychain`]: the browser sign-in and the stored refresh token of
 //!   `oauth2AuthorizationCode`.
 //! - [`HistoryWriter`] and [`HistoryReader`]: the run history in `.vibranium/history.db`; the
@@ -97,7 +98,7 @@ pub use approvals::{
     AgentAction, AgentActionWriter, Approval, ApprovalError, ApprovalId, ApprovalRequest, ApprovalStatus, Approvals,
     Decided, Decision, StandingRule, Verdict,
 };
-pub use auth::{ActionRunner, AuthError, AuthProvider, AuthRequest, Credentials};
+pub use auth::{ActionRunner, AuthError, AuthProvider, AuthRequest, Credentials, RequestSigner, Signer};
 pub use browser::{Browser, BrowserError};
 pub use cache::{CompileCacheError, CompileCacheStore};
 pub use clock::{Clock, unix_millis, utc_date};

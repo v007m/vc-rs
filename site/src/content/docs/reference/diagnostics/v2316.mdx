@@ -22,8 +22,8 @@ writes them: lowercase letters, digits and `-`, such as `us-east-1` and `execute
 value with a capital, a space, an `_` or anything else would sign every request for a scope the
 service does not know, so each one would be refused with `403`. Write the region's code and the
 service's signing name. When lowercasing the value is enough, that is the certain fix. `vc check`
-does not check a value with a `${…}` in it: the signer checks it when it renders, once it lands
-(#106 PR 3).
+does not check a value with a `${…}` in it: the signer checks it when it renders, and a value
+that breaks the rule fails the call with V5114.
 
 ## Wrong
 

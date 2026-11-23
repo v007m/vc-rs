@@ -5,6 +5,7 @@
 mod cert;
 mod flow;
 mod probe;
+mod sign;
 mod stage;
 mod token_cache;
 
@@ -17,11 +18,12 @@ use vc_interfaces::{AuthError, AuthProvider, AuthRequest, Credentials};
 use vc_model::{Action, ActionId, Api, AuthDef, AuthId, AuthRef, Failure, Program, VarDefs};
 
 use super::request;
-use crate::{ActionCx, ActionRequest, Around, PipelineParts, Render, Saved};
+use crate::{ActionCx, ActionRequest, Around, PipelineParts, Render, RequestStage, Saved};
 
 pub use cert::{ClientCerts, cert_choice};
 use flow::FlowRunner;
 pub use probe::{ProbedAuth, probe_auth, probe_origin};
+use sign::SignStage;
 use stage::{AuthStage, RefreshOn};
 pub use token_cache::{AuthKey, Lease, TokenCache};
 
@@ -73,15 +75,20 @@ pub fn prepare(
     Ok(Some(Prepared { key, request: auth, refresh_before, refresh_on }))
 }
 
-/// `parts` with `prepared` put in: the auth stage, and a retry that fetches the credentials
-/// again once when a response has a `refreshOn` status, sharing one [`Lease`].
+/// `parts` with `prepared` put in: the auth stage, the sign stage when the type signs
+/// requests (D434), and a retry that fetches the credentials again once when a response has a
+/// `refreshOn` status, sharing one [`Lease`].
 #[must_use]
 pub fn added(parts: PipelineParts, cx: &ActionCx, prepared: Option<Prepared>) -> PipelineParts {
     let Some(prepared) = prepared else { return parts };
+    let signs = cx.auth.signs(&prepared.request);
     let (tokens, lease) = (Arc::clone(&cx.tokens), Arc::new(Lease::new(prepared.key)));
     let retry = RefreshOn::new(parts.retry, (Arc::clone(&tokens), Arc::clone(&lease)), prepared.refresh_on.clone());
     let stage = AuthStage::new(prepared, (tokens, lease), (Arc::clone(&cx.auth), Arc::clone(&cx.redactor)));
-    PipelineParts { retry: Arc::new(retry), auth: Arc::new(stage), ..parts }
+    let stage = Arc::new(stage);
+    let sign: Arc<dyn RequestStage> =
+        if signs { Arc::new(SignStage::new(Arc::clone(&stage), parts.clock.clone())) } else { parts.sign };
+    PipelineParts { retry: Arc::new(retry), auth: stage, sign, ..parts }
 }
 
 /// The steps of the `flow` the call uses, so the start-up check and the agent policy's gate

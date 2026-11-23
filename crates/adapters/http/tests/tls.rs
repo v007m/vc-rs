@@ -46,6 +46,20 @@ async fn speaks_h2_to_a_trusted_server_and_times_the_handshake() -> TestResult {
     Ok(())
 }
 
+/// The `:authority` is the host a signer signs (D456): lowercase, with no default port.
+#[tokio::test]
+async fn sends_the_signed_host_as_the_h2_authority() -> TestResult {
+    let pki = TestPki::new()?;
+    let mock = mock(&pki, true).await?;
+    let port = mock.addr().port();
+    let exchange = get(&trusting(&pki, ProxyConfig::default())?, &format!("https://LocalHost:{port}/echo")).await?;
+    assert_eq!(exchange.connection.protocol, HttpVersion::Http2);
+    let echoed: serde_json::Value = serde_json::from_slice(&exchange.response.body)?;
+    assert_eq!(echoed["headers"]["host"], format!("localhost:{port}"), "{echoed}");
+    assert_eq!(exchange.request.uri.host(), Some("LocalHost"), "the exchange keeps the URL as given");
+    Ok(())
+}
+
 #[tokio::test]
 async fn falls_back_to_http1_when_the_server_offers_only_that() -> TestResult {
     let pki = TestPki::new()?;

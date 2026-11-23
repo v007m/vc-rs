@@ -7,6 +7,7 @@ use std::time::Duration;
 use async_trait::async_trait;
 use serde_json::{Map, Value};
 use vc_diagnostics::Code;
+use vc_model::RenderedRequest;
 
 use crate::{CertChoice, Secret};
 
@@ -67,6 +68,56 @@ impl fmt::Debug for AuthRequest {
     }
 }
 
+/// Signs a request as it leaves, when only the whole request can make the credential, as
+/// `awsSigV4` does (D434).
+pub trait RequestSigner: Send + Sync {
+    /// `request` signed as at `now_ms` (UTC, milliseconds since the Unix epoch).
+    ///
+    /// # Errors
+    ///
+    /// [`AuthError`] when the request cannot be signed; it never holds a secret.
+    fn sign(&self, request: RenderedRequest, now_ms: u64) -> Result<RenderedRequest, AuthError>;
+}
+
+/// A [`RequestSigner`] and the values it holds that the redactor must hide. `Debug` shows
+/// neither; two are equal when they share one signer.
+#[derive(Clone)]
+pub struct Signer {
+    signer: Arc<dyn RequestSigner>,
+    hidden: Vec<Secret>,
+}
+
+impl Signer {
+    /// `signer`, holding the values `hidden`.
+    #[must_use]
+    pub fn new(signer: Arc<dyn RequestSigner>, hidden: Vec<Secret>) -> Self {
+        Self { signer, hidden }
+    }
+
+    /// `request` signed as at `now_ms`.
+    ///
+    /// # Errors
+    ///
+    /// The signer's [`AuthError`].
+    pub fn sign(&self, request: RenderedRequest, now_ms: u64) -> Result<RenderedRequest, AuthError> {
+        self.signer.sign(request, now_ms)
+    }
+}
+
+impl fmt::Debug for Signer {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Signer").finish_non_exhaustive()
+    }
+}
+
+impl PartialEq for Signer {
+    fn eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.signer, &other.signer)
+    }
+}
+
+impl Eq for Signer {}
+
 /// What an auth adds to each request, and how long it holds. Every value is a [`Secret`], so
 /// `Debug` hides them and the redactor masks them.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -80,6 +131,8 @@ pub struct Credentials {
     pub cookies: Vec<(String, Secret)>,
     /// How long they hold from now; `None` when they never expire.
     pub expires_in: Option<Duration>,
+    /// Signs each attempt as it leaves, after every other stage (D433, D434).
+    pub signer: Option<Signer>,
 }
 
 impl Credentials {
@@ -95,16 +148,23 @@ impl Credentials {
         Self { query: vec![(name.into(), Secret::new(value))], ..Self::default() }
     }
 
+    /// Credentials that add nothing but sign each request with `signer`.
+    #[must_use]
+    pub fn signed(signer: Signer) -> Self {
+        Self { signer: Some(signer), ..Self::default() }
+    }
+
     /// These credentials, expiring `after` from now.
     #[must_use]
     pub fn expiring(self, after: Option<Duration>) -> Self {
         Self { expires_in: after, ..self }
     }
 
-    /// Every value they hold, for the redactor.
+    /// Every value they hold, the signer's too, for the redactor.
     pub fn values(&self) -> impl Iterator<Item = &str> {
         let all = self.headers.iter().chain(&self.query).chain(&self.cookies);
-        all.map(|(_, value)| value.expose())
+        let signer = self.signer.iter().flat_map(|signer| &signer.hidden);
+        all.map(|(_, value)| value.expose()).chain(signer.map(Secret::expose))
     }
 }
 
@@ -118,6 +178,13 @@ pub trait AuthProvider: Send + Sync {
     ///
     /// [`AuthError`] when they cannot be obtained; it never holds a secret or a token body.
     async fn credentials(&self, request: &AuthRequest) -> Result<Credentials, AuthError>;
+
+    /// Whether `request`'s credentials sign each request as it leaves, so the executor adds its
+    /// sign stage (D434). The registry asks the entry for the request's type.
+    fn signs(&self, request: &AuthRequest) -> bool {
+        let _ = request;
+        false
+    }
 }
 
 /// Runs a `flow` definition's steps and renders its `apply` with what they saved.

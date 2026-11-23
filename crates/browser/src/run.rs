@@ -124,13 +124,15 @@ fn console(prepared: &Prepared, sink: Arc<dyn Sink>, color: bool) -> Result<Box<
     ReporterRegistry::builtin().create("spec", &context).map_err(crate::print::internal)
 }
 
-/// The executor of `prepared`: HTTP through `transport` under the config's limits, `command:`
-/// lines through [`PageCommands`] in the `sh -c` form whatever the host, the auth types
-/// a page can run, events masked by the standard and the config's redact rules, and no secrets.
+/// The executor of `prepared`: HTTP through `transport` under the config's limits and signed at
+/// the system time, `command:` lines through [`PageCommands`] in the `sh -c` form whatever the
+/// host, the auth types a page can run, events masked by the standard and the config's redact
+/// rules, and no secrets.
 fn executor(prepared: &Prepared, project: &MemorySources, transport: Arc<dyn Transport>) -> Executor {
     let defaults = &prepared.program.config.defaults;
     let per_host = widen(defaults.per_host.unwrap_or(PER_HOST));
-    let parts = PipelineParts::new(Arc::clone(&transport), HostLimits::spawn(per_host));
+    let parts =
+        PipelineParts::new(Arc::clone(&transport), HostLimits::spawn(per_host)).with_clock(Arc::new(SystemClock));
     let commands =
         CommandExecutor::new(Arc::new(PageCommands), PathBuf::new(), Vec::new()).with_shell(CommandShell::POSIX);
     let executors = Arc::new(ActionExecutors::standard(parts).with(ActionKindTag::Command, Arc::new(commands)));

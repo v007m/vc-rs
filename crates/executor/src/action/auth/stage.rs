@@ -41,6 +41,16 @@ impl AuthStage {
         Self { prepared, tokens, lease, provider, redactor }
     }
 
+    /// The definition's ID.
+    pub fn name(&self) -> &str {
+        &self.prepared.request.auth
+    }
+
+    /// The auth type, as written.
+    pub fn kind(&self) -> &str {
+        &self.prepared.request.kind
+    }
+
     /// The credentials of the call's lease: the cached ones, or ones fetched now.
     pub async fn credentials(&self) -> Result<Credentials, AuthError> {
         self.tokens.get(&self.lease, self.prepared.refresh_before, || self.fetch()).await

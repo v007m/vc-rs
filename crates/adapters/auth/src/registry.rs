@@ -11,7 +11,7 @@ use vc_interfaces::{Browser, Keychain};
 
 #[cfg(not(target_family = "wasm"))]
 use crate::AuthorizationCode;
-use crate::{ApiKey, Basic, Bearer, ClientCredentials, Flow, Mtls, PasswordGrant, RefreshGrant};
+use crate::{ApiKey, AwsSigV4, Basic, Bearer, ClientCredentials, Flow, Mtls, PasswordGrant, RefreshGrant};
 
 /// Every auth type, by the name `type:` gives it. It is a provider too: it hands each request
 /// to the entry for its `kind`.
@@ -50,6 +50,7 @@ impl AuthTypes {
             .with("apiKey", Arc::new(ApiKey))
             .with("flow", Arc::new(Flow))
             .with("mtls", Arc::new(Mtls))
+            .with("awsSigV4", Arc::new(AwsSigV4))
             .with("oauth2ClientCredentials", Arc::new(ClientCredentials::new(Arc::clone(&transport))))
             .with("oauth2Password", Arc::new(PasswordGrant::new(Arc::clone(&transport))))
             .with("oauth2Refresh", Arc::new(RefreshGrant::new(transport)))
@@ -74,6 +75,10 @@ impl AuthProvider for AuthTypes {
     async fn credentials(&self, request: &AuthRequest) -> Result<Credentials, AuthError> {
         let unknown = || AuthError::Unknown { kind: request.kind.clone() };
         self.by_kind.get(&request.kind).ok_or_else(unknown)?.credentials(request).await
+    }
+
+    fn signs(&self, request: &AuthRequest) -> bool {
+        self.by_kind.get(&request.kind).is_some_and(|provider| provider.signs(request))
     }
 }
 

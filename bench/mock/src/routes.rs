@@ -1,5 +1,6 @@
 mod admin;
 mod auth;
+mod aws;
 mod crud;
 mod echo;
 mod events;
@@ -18,6 +19,7 @@ use tower_http::compression::CompressionLayer;
 
 use crate::store::Store;
 
+pub use aws::{ACCESS_KEY_ID as AWS_ACCESS_KEY_ID, SECRET_ACCESS_KEY as AWS_SECRET_ACCESS_KEY};
 pub use whoami::routes as whoami;
 
 /// Builds the app, with `extra` routes beside the usual ones. Every route except `/__stats`, `/__reset` and `/__openapi/…` is counted in
@@ -29,6 +31,7 @@ pub fn router(store: &Store, extra: Router) -> Router {
         .merge(crud::routes(store, "orders"))
         .merge(owned::routes(store))
         .merge(auth::routes(store))
+        .merge(aws::routes())
         .merge(echo::routes())
         .merge(events::routes())
         .merge(graphql::routes())

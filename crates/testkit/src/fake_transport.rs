@@ -104,11 +104,14 @@ fn describe(request: &RenderedRequest) -> Value {
         .filter_map(|pair| pair.split_once('='))
         .map(|(name, value)| (name.to_owned(), Value::from(value)))
         .collect();
-    let headers: Map<String, Value> = request
+    let mut headers: Map<String, Value> = request
         .headers
         .iter()
         .map(|(name, value)| (name.as_str().to_owned(), Value::from(String::from_utf8_lossy(value.as_bytes()))))
         .collect();
+    if let Some(host) = vc_model::wire_host(&request.uri) {
+        headers.entry("host").or_insert(Value::from(host));
+    }
     json!({
         "method": request.method.as_str(),
         "path": request.uri.path(),

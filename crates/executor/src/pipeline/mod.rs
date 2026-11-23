@@ -1,10 +1,12 @@
 //! The request pipeline (D141): `tower` services around the transport, outermost first:
-//! timing → retry → auth → `beforeRequest` hooks → per-host limit → timeout → transport.
+//! timing → retry → auth → `beforeRequest` hooks → per-host limit → sign → timeout → transport.
 //!
 //! Auth and hooks sit inside retry, so a retried request is prepared again. The timeout sits
 //! inside retry and inside the per-host limit, so it limits each attempt and waiting for a
-//! permit does not count. Until M3 auth is an [`Unchanged`] null object; the call executor sets
-//! the hooks stage of each call from its api's `beforeRequest` hooks.
+//! permit does not count. The sign stage sits inside the per-host limit too (D443): a request
+//! is signed as it leaves, after every header is on it, so its date is fresh. Without auth,
+//! the auth and sign stages are [`Unchanged`] null objects; the call executor sets them, and
+//! the hooks stage, for each call.
 //!
 //! A stream call opens through the same layers with [`OpenStream`] in place of [`Transmit`]
 //! (D420): each layer is generic over its [`HasHead`] reply, retry and auth refresh read the
@@ -39,7 +41,7 @@ use std::time::Duration;
 
 use tokio::sync::OwnedSemaphorePermit;
 use tower::Service;
-use vc_interfaces::{HookRunner, SendContext, StreamMode, StreamTransport, Transport, TransportError};
+use vc_interfaces::{Clock, HookRunner, SendContext, StreamMode, StreamTransport, Transport, TransportError};
 use vc_model::{Exchange, RenderedRequest};
 
 pub use host_limit::{HostLimit, HostLimits};
@@ -92,7 +94,7 @@ impl<S> Hop for S where
 }
 
 /// The whole pipeline, as [`pipeline`] builds it; [`StreamPipeline`] opens streams instead.
-pub type Pipeline<B = Transmit> = Timing<Retry<Stage<Stage<HostLimit<Timeout<B>>>>>>;
+pub type Pipeline<B = Transmit> = Timing<Retry<Stage<Stage<HostLimit<Stage<Timeout<B>>>>>>>;
 
 /// The pipeline a stream call opens through, as [`stream_pipeline`] builds it.
 pub type StreamPipeline = Pipeline<OpenStream>;
@@ -112,6 +114,12 @@ pub struct PipelineParts {
     pub auth: Arc<dyn RequestStage>,
     /// Runs `beforeRequest` hooks; the call executor sets it per call from the api's hooks.
     pub hooks: Arc<dyn RequestStage>,
+    /// Signs each attempt as it leaves (D443); the call executor sets it per call when its auth
+    /// signs requests.
+    pub sign: Arc<dyn RequestStage>,
+    /// Tells the time a request is signed at. With none, an auth that signs fails with V5114,
+    /// as an auth type this host cannot run (D455).
+    pub clock: Option<Arc<dyn Clock>>,
     /// Runs hooks (D172): request hooks, custom checks and `function:` actions. With none, any
     /// hook that runs fails with V5115.
     pub hook_runner: Option<Arc<dyn HookRunner>>,
@@ -120,11 +128,18 @@ pub struct PipelineParts {
 }
 
 impl PipelineParts {
-    /// Parts with no retry, no auth, no hooks and no hook runner.
+    /// Parts with no retry, no auth, no hooks, no signing, no clock and no hook runner.
     #[must_use]
     pub fn new(transport: Arc<dyn Transport>, limits: HostLimits) -> Self {
-        let (retry, auth, hooks) = (Arc::new(NoRetry), Arc::new(Unchanged), Arc::new(Unchanged));
-        Self { transport, limits, retry, auth, hooks, hook_runner: None, streams: None }
+        let (retry, auth, hooks, sign) =
+            (Arc::new(NoRetry), Arc::new(Unchanged), Arc::new(Unchanged), Arc::new(Unchanged));
+        Self { transport, limits, retry, auth, hooks, sign, clock: None, hook_runner: None, streams: None }
+    }
+
+    /// These parts, signing requests at the time `clock` tells.
+    #[must_use]
+    pub fn with_clock(self, clock: Arc<dyn Clock>) -> Self {
+        Self { clock: Some(clock), ..self }
     }
 
     /// These parts, opening streams through `streams`.
@@ -158,7 +173,7 @@ pub fn stream_pipeline(
 
 /// The D141 layers around `bottom`, the service that makes each attempt.
 fn layered<B: Hop>(bottom: B, parts: PipelineParts) -> Pipeline<B> {
-    let attempt = HostLimit::new(Timeout::new(bottom), parts.limits);
+    let attempt = HostLimit::new(Stage::new(Timeout::new(bottom), parts.sign), parts.limits);
     let prepared = Stage::new(Stage::new(attempt, parts.hooks), parts.auth);
     Timing::new(Retry::new(prepared, parts.retry))
 }

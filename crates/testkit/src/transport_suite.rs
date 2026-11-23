@@ -3,14 +3,15 @@ use http::header::CONTENT_TYPE;
 use http::{HeaderValue, Method, StatusCode, Uri};
 use serde_json::Value;
 use vc_interfaces::{SendContext, Transport, TransportError};
-use vc_model::{Exchange, RenderedRequest, Size};
+use vc_model::{Exchange, RenderedRequest, Size, wire_host};
 
 /// The contract every [`Transport`] meets (D112).
 ///
 /// `base` is a URL without a trailing slash whose server speaks the echo contract of
 /// `vc-mock-server`: `ANY /echo` answers 200 with a JSON object of the request's `method`,
-/// `path`, `query`, lowercase `headers` and `body` (parsed when JSON), and `GET /status/{code}`
-/// answers with that status. [`crate::FakeTransport::echo`] speaks it without a network.
+/// `path`, `query`, lowercase `headers` (with the `host` it was sent to, on HTTP/2 too) and
+/// `body` (parsed when JSON), and `GET /status/{code}` answers with that status.
+/// [`crate::FakeTransport::echo`] speaks it without a network.
 ///
 /// # Panics
 ///
@@ -18,6 +19,7 @@ use vc_model::{Exchange, RenderedRequest, Size};
 pub async fn transport_suite(transport: &dyn Transport, base: &str) {
     sends_the_request_and_returns_it_with_the_response(transport, base).await;
     sends_the_body(transport, base).await;
+    sends_the_host_a_signer_signs(transport, base).await;
     returns_error_statuses_as_responses(transport, base).await;
     refuses_a_body_over_the_limit(transport, base).await;
 }
@@ -62,6 +64,22 @@ async fn sends_the_body(transport: &dyn Transport, base: &str) {
     let echoed = json(&exchange);
     assert_eq!(echoed["method"], "POST", "{echoed}");
     assert_eq!(echoed["body"]["name"], "Ada", "{echoed}");
+}
+
+/// The `host` on the wire is [`wire_host`] (D438, D456), whatever case the URL's host has.
+async fn sends_the_host_a_signer_signs(transport: &dyn Transport, base: &str) {
+    let sent = request(Method::GET, &shouted(base), "/echo");
+    let Some(exchange) = send(transport, &sent).await else { return };
+    assert_eq!(exchange.request, sent, "the exchange carries the request as given");
+    let echoed = json(&exchange);
+    assert_eq!(echoed["headers"]["host"].as_str(), wire_host(&sent.uri).as_deref(), "{echoed}");
+}
+
+/// `base` with its host in upper case.
+fn shouted(base: &str) -> String {
+    let uri = Uri::try_from(base).unwrap_or_default();
+    let host = uri.host().unwrap_or_default();
+    base.replacen(host, &host.to_ascii_uppercase(), 1)
 }
 
 async fn returns_error_statuses_as_responses(transport: &dyn Transport, base: &str) {
