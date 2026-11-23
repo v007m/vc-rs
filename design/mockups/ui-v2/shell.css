@@ -101,9 +101,7 @@ code, kbd, pre, samp { font-family: var(--mono); }
   min-height: 0;
   padding: var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-2);
   gap: var(--sp-2);
-  color: var(--l0-ink);
-  background: linear-gradient(90deg, var(--l0-scrim), color-mix(in srgb, var(--l0-scrim) 55%, transparent));
-  border-radius: 0 var(--r-lg) var(--r-lg) 0;
+  color: var(--l0-ink);   /* R2: straight on L0, no panel background */
 }
 
 .sb-top {
@@ -340,7 +338,7 @@ code, kbd, pre, samp { font-family: var(--mono); }
 /* Anything marked .hide-rail disappears in the rail. Rows keep their icon. */
 @container app (min-width: 760px) and (max-width: 1100px) {
   .shell { grid-template-columns: var(--rail-w) minmax(0, 1fr); }
-  .app:not(.is-rail-open) .sidebar { align-items: center; padding-inline: 6px; background: color-mix(in srgb, var(--l0-scrim) 70%, transparent); }
+  .app:not(.is-rail-open) .sidebar { align-items: center; padding-inline: 6px; }
   .app:not(.is-rail-open) .sidebar .hide-rail { display: none; }
   .app:not(.is-rail-open) .sb-scroll { align-items: center; }
   .app:not(.is-rail-open) .sb-top { justify-content: center; padding: 0; }

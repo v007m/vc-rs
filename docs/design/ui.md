@@ -21,10 +21,16 @@ The style follows the Arc browser.
 ### Layers
 | Layer | What sits on it | Treatment |
 |---|---|---|
-| L0 background | sidebar, header, breadcrumbs, section labels, secondary text, status line | Vivid blended colour blobs that drift slowly, under a fine film grain. It looks matte metallic. Text sits directly on it with an AA-checked scrim |
-| L1 glass card | the main content card (one per view; a split shows two) | Frosted glass, about 75% opaque with a strong blur. A 1 px inner top highlight, a soft outer shadow and a faint inner deboss rim |
-| L2 raised control | buttons, segmented controls, inputs, chips, tabs | A smaller glass "pill" that is lifted on hover and debossed (inset shadow) when pressed or active |
+| L0 background | sidebar, header, breadcrumbs, section labels, secondary text, status line | Muted colour blobs blended into the near-black (or pale) base, drifting slowly under a visible film grain. It looks matte metallic, not neon. The sidebar, header and status line have no panel of their own: their text sits straight on L0 |
+| L1 glass card | the main content card (one per view; a split shows two) | Liquid glass: translucent enough that the blobs show through, with a strong blur and saturation, a specular top edge, an inner rim and a soft outer shadow |
+| L2 raised control | buttons, segmented controls, chips, tabs | A smaller glass "pill" that is lifted on hover and debossed (inset shadow) when pressed or active |
 | L3 overlay | command palette, popovers, dialogs, toasts | The strongest glass, with a backdrop dim |
+
+Inside a card:
+- **One card level.** Nothing inside a card gets its own box. Group with spacing, section labels and hairline rules; tables are a header row plus row rules.
+- **Only inputs are filled.** Text inputs, selects, the URL field, key/value cells and the YAML editor are debossed: darker than the card, with an inset top shadow. Read-only values are plain text.
+- **Viewers are wells.** Read-only code, JSON, diffs and logs sit in a padded debossed well, like an input.
+- Wrappers that are not cards, such as the URL bar row, have no background or border.
 
 ### Tokens
 - Every colour, radius, blur, shadow, space and type size is a CSS custom property in `tokens.css`. Components use tokens only.
@@ -32,7 +38,7 @@ The style follows the Arc browser.
 - **Themes:** dark is the default. Light is the alternative. Both are checked for AA on every layer pair, including text on L0 over the brightest blob.
 - **Reduce motion:** the blobs stop drifting. **Reduce transparency** (or the in-app switch) makes L1 and L2 solid.
 - **Type:** Geist and Geist Mono, self-hosted under the CSP. Their licence is OFL 1.1, which must be checked against JSLICENSE. The scale is 12/13/14/16/20/24 with tokens for each.
-- **Grain:** a tiny tiled noise PNG, or an SVG `feTurbulence` baked to a data URI at build time (the CSP forbids inline styles but allows hashed CSS).
+- **Grain:** visible at 100% zoom in both themes; a tiny tiled noise PNG, or an SVG `feTurbulence` baked to a data URI at build time (the CSP forbids inline styles but allows hashed CSS).
 
 ### Status language
 These colours are shared with the CLI, TUI and HTML report: pass, fail, blocked, skipped, flaky and allowFailure. Every status has an icon as well as a colour, so status never relies on colour alone.

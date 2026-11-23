@@ -21,7 +21,9 @@
      http status .. .hs[data-class=2|3|4|5]
      card parts ... .card-head .card-title .card-sub .card-tabs .card-body .card-foot
      layers ....... .layer (Inherited / This request blocks) .kv-row
-     data ......... .table (in .glass-dense) .code (pre) .json .diff .waterfall
+     data ......... .table (borderless, hairline rows) .code (pre) .json .diff .waterfall
+                    read-only viewers (.code .body-view .diff .events .rn-span .preview-frame)
+                    and editable fields are debossed wells (glass.css R6/R7)
      tree ......... .tree[role=tree] .ti[role=treeitem]
      feedback ..... .callout[data-tone=warn|info|danger|ok] .toast .empty
      overlays ..... .pop (anchored popover) .dlg-head/.dlg-body/.dlg-foot .palette
@@ -238,20 +240,20 @@
   height: var(--ctl-h);
   padding: 0 var(--sp-3);
   border-radius: var(--r-md);
-  border: 1px solid var(--l2-border);
+  border: 1px solid transparent;
   background: var(--field-bg);
-  box-shadow: inset 0 1px 2px light-dark(rgb(30 24 60 / 0.06), rgb(0 0 0 / 0.35));
+  box-shadow: var(--sh-deboss);
   color: var(--ink);
   font-size: var(--fs-2);
   transition: border-color var(--dur-2) var(--ease), background-color var(--dur-2) var(--ease), box-shadow var(--dur-2) var(--ease);
 }
 .input::placeholder, .textarea::placeholder { color: var(--ink-3); }
-.input:hover, .select:hover, .textarea:hover { border-color: var(--l2-border-hover); }
+.input:hover, .select:hover, .textarea:hover { border-color: var(--l2-border); }
 .input:focus-visible, .select:focus-visible, .textarea:focus-visible, .input:focus, .textarea:focus {
   outline: none;
   background: var(--field-bg-focus);
   border-color: var(--focus);
-  box-shadow: inset 0 1px 2px light-dark(rgb(30 24 60 / 0.06), rgb(0 0 0 / 0.35)), 0 0 0 3px color-mix(in oklab, var(--focus) 30%, transparent);
+  box-shadow: var(--sh-deboss), 0 0 0 3px color-mix(in oklab, var(--focus) 30%, transparent);
   border-radius: var(--r-md);
 }
 .input.mono, .textarea.mono { font-family: var(--mono); font-size: 12.5px; }
@@ -269,7 +271,7 @@
 .input-group > .ico { position: absolute; left: 10px; color: var(--ink-3); pointer-events: none; }
 .input-group > .input { padding-left: 32px; }
 .input-group > .kbd { position: absolute; right: 8px; }
-.on-l0 .input { background: light-dark(rgb(255 255 255 / 0.55), rgb(0 0 0 / 0.18)); color: var(--l0-ink); }
+.on-l0 .input { color: var(--l0-ink); }
 .on-l0 .input::placeholder { color: var(--l0-ink-3); }
 .on-l0 .input-group > .ico { color: var(--l0-ink-3); }
 
@@ -508,7 +510,6 @@ button.chip[aria-pressed="true"] { background: var(--l2-bg-pressed); box-shadow:
 .kv.is-readonly .k { color: var(--ink-2); }
 .kv-row.is-overridden .k, .kv-row.is-overridden .v { text-decoration: line-through; text-decoration-color: var(--ink-3); color: var(--ink-3); }
 .kv-row .input { height: 26px; font-family: var(--mono); font-size: 12.5px; border-radius: var(--r-sm); }
-.kv-row:hover > * { background: var(--row-hover); }
 .kv-add { padding: 6px var(--sp-3); border-top: 1px solid var(--rule); }
 
 /* ---- table --------------------------------------------------------------- */
@@ -524,17 +525,30 @@ button.chip[aria-pressed="true"] { background: var(--l2-bg-pressed); box-shadow:
   text-transform: uppercase;
   color: var(--ink-3);
   padding: 8px var(--sp-3);
-  background: var(--dense-solid);
+  background: transparent;   /* R5: no header box; the blur hides rows scrolled under it */
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
   border-bottom: 1px solid var(--rule-strong);
   white-space: nowrap;
 }
 .table td { padding: 7px var(--sp-3); border-top: 1px solid var(--rule); vertical-align: middle; color: var(--ink); }
 .table tr:first-child td { border-top: 0; }
+.table tbody th { position: static; -webkit-backdrop-filter: none; backdrop-filter: none; border-bottom: 0; border-top: 1px solid var(--rule); padding: 7px var(--sp-3); }
+.table tbody tr:first-child th { border-top: 0; }
 .table tbody tr:hover td { background: var(--row-hover); }
 .table tr[aria-selected="true"] td { background: var(--row-selected); }
 .table .mono, .table code { font-size: 12px; }
 .table td.r, .table th.r { text-align: right; }
 .table td.muted { color: var(--ink-2); }
+
+/* ---- read-only viewers: debossed wells (R7) -------------------------------- */
+.code, .body-view, .diff, .events, .rn-span, .preview-frame {
+  background: var(--well-bg);
+  border-radius: var(--r-md);
+  box-shadow: var(--sh-deboss);
+}
+/* a viewer inside a well does not deboss twice */
+:is(.body-view, .rn-span) > :is(.code, .json) { background: none; box-shadow: none; border-radius: 0; }
 
 /* ---- code ---------------------------------------------------------------- */
 .code {
@@ -569,17 +583,19 @@ button.chip[aria-pressed="true"] { background: var(--l2-bg-pressed); box-shadow:
   border-radius: 4px;
   font-family: var(--mono);
   color: var(--syn-var);
-  background: var(--syn-var-bg);
+  background: none;
+  text-decoration: underline dotted color-mix(in oklab, var(--syn-var) 55%, transparent);
+  text-underline-offset: 3px;
   cursor: help;
   border: 0;
   font-size: inherit;
 }
 .var-token:hover, .var-token:focus-visible { outline: 1px solid color-mix(in oklab, var(--accent) 60%, transparent); outline-offset: 0; }
-.var-token.is-secret { color: var(--st-blocked-ink); background: var(--st-blocked-soft); }
+.var-token.is-secret { color: var(--st-blocked-ink); text-decoration-color: color-mix(in oklab, var(--st-blocked) 55%, transparent); }
 .redacted { font-family: var(--mono); color: var(--ink-3); letter-spacing: 0.1em; }
 
 /* ---- JSON tree (click-to-check) ------------------------------------------ */
-.json { font-family: var(--mono); font-size: 12.5px; line-height: 1.75; padding: var(--sp-2) var(--sp-3) var(--sp-3); overflow: auto; min-width: 0; }
+.json { font-family: var(--mono); font-size: 12.5px; line-height: 1.75; padding: var(--sp-3) var(--sp-4); overflow: auto; min-width: 0; }
 .json ul { list-style: none; margin: 0; padding: 0 0 0 18px; border-left: 1px dashed var(--rule-strong); margin-left: 5px; }
 .json > ul { padding-left: 0; border-left: 0; margin-left: 0; }
 .json li { position: relative; white-space: nowrap; }
@@ -626,7 +642,7 @@ button.chip[aria-pressed="true"] { background: var(--l2-bg-pressed); box-shadow:
 .json li.is-hit > .jk { background: var(--accent-soft); border-radius: 3px; }
 
 /* ---- diff ---------------------------------------------------------------- */
-.diff { font-family: var(--mono); font-size: 12px; line-height: 1.65; overflow: auto; min-width: 0; padding: var(--sp-1) 0; }
+.diff { font-family: var(--mono); font-size: 12px; line-height: 1.65; overflow: auto; min-width: 0; padding: var(--sp-3) var(--sp-2); }
 .diff .dl { display: grid; grid-template-columns: 3.2em 3.2em 1.4em minmax(0, 1fr); white-space: pre; }
 .diff .dl > span:nth-child(-n+2) { text-align: right; padding-right: 8px; color: var(--ink-3); user-select: none; }
 .diff .dl > span:nth-child(3) { text-align: center; color: var(--ink-3); user-select: none; }
@@ -634,7 +650,7 @@ button.chip[aria-pressed="true"] { background: var(--l2-bg-pressed); box-shadow:
 .diff .dl.add > span:nth-child(3), .diff .dl.add > span:last-child { color: var(--diff-add-ink); }
 .diff .dl.del { background: var(--diff-del-bg); }
 .diff .dl.del > span:nth-child(3), .diff .dl.del > span:last-child { color: var(--diff-del-ink); }
-.diff .dl.hunk { color: var(--ink-3); background: var(--dense-alt); }
+.diff .dl.hunk { color: var(--ink-3); background: var(--well-alt); }
 .diff .dl.hunk > span:last-child { color: var(--accent-ink); }
 .diff-files { display: flex; flex-direction: column; gap: 2px; }
 .diff-file {
@@ -696,17 +712,17 @@ button.chip[aria-pressed="true"] { background: var(--l2-bg-pressed); box-shadow:
   font-size: var(--fs-2);
   line-height: var(--lh);
   color: var(--ink);
-  background: var(--l2-bg);
-  box-shadow: inset 0 0 0 1px var(--l2-border);
+  border-radius: 0;
+  box-shadow: inset 2px 0 0 var(--rule-strong);   /* R5: a tone rule, not a box */
 }
 .callout > .ico { margin-top: 2px; }
-.callout[data-tone="warn"] { background: var(--st-blocked-soft); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--st-blocked) 35%, transparent); }
+.callout[data-tone="warn"] { box-shadow: inset 2px 0 0 var(--st-blocked); }
 .callout[data-tone="warn"] > .ico { color: var(--st-blocked-ink); }
-.callout[data-tone="danger"] { background: var(--st-fail-soft); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--st-fail) 35%, transparent); }
+.callout[data-tone="danger"] { box-shadow: inset 2px 0 0 var(--st-fail); }
 .callout[data-tone="danger"] > .ico { color: var(--st-fail-ink); }
-.callout[data-tone="info"] { background: var(--accent-soft); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--accent) 30%, transparent); }
+.callout[data-tone="info"] { box-shadow: inset 2px 0 0 var(--accent); }
 .callout[data-tone="info"] > .ico { color: var(--accent-ink); }
-.callout[data-tone="ok"] { background: var(--st-pass-soft); }
+.callout[data-tone="ok"] { box-shadow: inset 2px 0 0 var(--st-pass); }
 .callout[data-tone="ok"] > .ico { color: var(--st-pass-ink); }
 .callout b { font-weight: var(--fw-semibold); }
 

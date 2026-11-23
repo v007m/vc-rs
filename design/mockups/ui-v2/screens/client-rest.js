@@ -72,7 +72,7 @@
   };
   VC.panel = (id, cur, html, cls) => `<div class="card-body${cls ? ' ' + cls : ''}" role="tabpanel" id="${id}-panel" aria-labelledby="${id}-${cur}" tabindex="0" data-sk="${id}-panel">${html}</div>`;
   VC.reqbar = function (opts) {
-    return `<div class="reqbar glass" role="group" aria-label="Request">
+    return `<div class="reqbar on-l0" role="group" aria-label="Request">
       <button class="btn btn-ghost type-btn" data-action="type-menu" aria-haspopup="menu" aria-label="Request type: ${esc(opts.typeLabel)}" data-fk="type">${method(opts.m)}${ic('chev-down', 'ico-sm')}</button>
       <div class="url">${opts.input ? `<input value="${esc(opts.url)}" placeholder="Paste a URL or a cURL command, or type \${baseUrl}/…" aria-label="URL" data-fk="url-input">` : `<span class="url-text">${urlTokens(opts.url)}</span>`}</div>
       ${opts.extra || ''}

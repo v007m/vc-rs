@@ -11,7 +11,7 @@
 
   /* ---- shared: sub-nav, undo toast, day maths ---------------------------- */
   const NAV = [['tests', 'Explorer', 'flow'], ['tests-editor', 'Editor', 'code'], ['tests-run', 'Runner', 'play'], ['tests-load', 'Load', 'chart']];
-  VC.testsNav = (cur, right) => `<div class="tx-bar glass">
+  VC.testsNav = (cur, right) => `<div class="tx-bar on-l0">
     <nav class="tabs tx-nav" aria-label="Tests mode">${NAV.map(([r, l, i]) => `<a class="tab" href="#${r}" data-fk="txnav-${r}"${r === cur ? ' aria-current="page"' : ''}>${ic(i, 'ico-sm')}${l}</a>`).join('')}</nav>
     <span class="grow"></span>${right || ''}</div>`;
   VC.runBtn = (label) => `<button class="btn btn-primary btn-sm" data-action="tx-run-dialog" data-fk="tx-runbtn">${ic('play')}${esc(label || 'Run')}<span class="kbd hide-narrow">⌘R</span></button>`;

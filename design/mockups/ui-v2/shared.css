@@ -13,7 +13,7 @@
 .sh-scope {
   --sh-series: var(--m-post);
   --sh-series-soft: color-mix(in oklab, var(--m-post) 32%, transparent);
-  --sh-surface: var(--dense-solid);
+  --sh-surface: var(--l1-solid);
 }
 
 /* ---- shared helpers -------------------------------------------------------- */
@@ -97,7 +97,7 @@
   gap: var(--sp-3); overflow: hidden;
 }
 .rn-files { display: flex; flex-direction: column; min-height: 0; overflow: auto; border-radius: var(--r-md); }
-.rn-files-head { position: sticky; top: 0; z-index: 1; padding: var(--sp-2); background: var(--dense-bg); border-bottom: 1px solid var(--rule); }
+.rn-files-head { position: sticky; top: 0; z-index: 1; padding: var(--sp-2); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); border-bottom: 1px solid var(--rule); }
 .rn-file-list, .rn-file ul { list-style: none; margin: 0; padding: 0; }
 .rn-file { padding: var(--sp-2); border-top: 1px solid var(--rule); }
 .rn-file:first-child { border-top: 0; }
@@ -137,8 +137,7 @@
 .rn-cmp-sum { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2) var(--sp-3); padding: 0 var(--sp-3) var(--sp-3); }
 .rn-cmp-run {
   display: inline-flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2);
-  padding: 6px var(--sp-3); border-radius: var(--r-md);
-  background: var(--dense-alt); box-shadow: inset 0 0 0 1px var(--rule);
+  padding: 6px 0;
 }
 .rn-cmp-arrow { display: inline-flex; color: var(--ink-3); }
 .rn-delta { display: inline-flex; align-items: center; gap: 2px; font-family: var(--mono); font-size: 12px; font-variant-numeric: tabular-nums; }
@@ -226,8 +225,8 @@
 .ag-tool { color: var(--accent-ink); font-size: 12px; }
 
 .ag-queue { display: flex; flex-direction: column; gap: var(--sp-2); }
-.ag-q { display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3); border-radius: var(--r-md); box-shadow: inset 0 0 0 1px var(--rule); min-width: 0; }
-.ag-q[data-open="true"] { background: var(--dense-alt); }
+.ag-q { display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-2) 0; border-top: 1px solid var(--rule); min-width: 0; }
+.ag-q:first-child { border-top: 0; }
 .ag-q-head { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2); min-width: 0; font-size: var(--fs-1); }
 .ag-q-head .grow { min-width: 120px; }
 .ag-q-why { display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-1); }

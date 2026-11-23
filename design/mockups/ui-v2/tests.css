@@ -18,13 +18,14 @@
   display: flex;
   align-items: center;
   gap: var(--sp-2);
-  padding: 4px var(--sp-2);
-  border-radius: var(--r-lg);
+  padding: 0;   /* R4: a toolbar on L0, no bg or border */
   min-width: 0;
 }
 .tx-nav { border: 0; gap: 2px; min-width: 0; overflow-x: auto; }
 .tx-nav .tab { text-decoration: none; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
-.tx-nav .tab[aria-current="page"] { color: var(--ink); background: var(--row-selected); box-shadow: inset 0 -2px 0 var(--accent); }
+.tx-nav .tab { color: var(--l0-ink-2); }
+.tx-nav .tab:hover { color: var(--l0-ink); background: var(--l0-hover); }
+.tx-nav .tab[aria-current="page"] { color: var(--l0-ink); background: var(--l0-selected); box-shadow: inset 0 1px 0 var(--l2-highlight), inset 0 -2px 0 var(--accent); }
 .tx-nav .tab:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
 
 /* heat cells (30-run strip, legend) */
@@ -63,7 +64,7 @@
 .tx-table td.r, .ld-hosts td.r, .ld-tbl td, .ld-form td.r { white-space: nowrap; }
 .tx-table tr.tx-file th {
   text-align: left; font-weight: var(--fw-medium); text-transform: none; letter-spacing: 0;
-  color: var(--ink-2); background: color-mix(in oklab, var(--rule) 40%, transparent);
+  color: var(--ink-2); background: none;   /* R5: a group row is a label, not a band */
   border-top: 1px solid var(--rule);
 }
 .tx-table tr.is-checked td { background: var(--row-selected); }
@@ -148,7 +149,7 @@ progress.tr-prog.is-stopping::-moz-progress-bar { background: var(--st-blocked);
 .tr-logwrap { overflow: hidden; padding: var(--sp-2) var(--sp-3) var(--sp-3); }
 .tr-log { flex: 1 1 auto; min-height: 120px; overflow: auto; }
 .tr-log:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
-.tr-ev.is-run { background: color-mix(in oklab, var(--rule) 35%, transparent); }
+.tr-ev.is-run { color: var(--ink); }
 .tr-ev.is-life .t, .tr-ev.is-http .t { color: var(--ink-3); }
 .tr-ev small { display: block; color: var(--ink-2); font-size: var(--fs-1); overflow-wrap: anywhere; }
 .tr-ev .ico[data-st="fail"], .tr-ev.is-test .ico-fail { color: var(--st-fail-ink); }
@@ -159,7 +160,7 @@ progress.tr-prog.is-stopping::-moz-progress-bar { background: var(--st-blocked);
 .tr-evlink:hover { text-decoration-color: currentColor; }
 .tr-evlink:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 3px; }
 
-.tr-badrow td { background: color-mix(in oklab, var(--st-fail-soft) 60%, transparent); }
+.tr-badrow td:first-child { box-shadow: inset 2px 0 0 var(--st-fail); }   /* R6: state is a rule, not a row fill */
 .tr-bad { color: var(--st-fail-ink); font-weight: var(--fw-semibold); }
 .tr-at { white-space: nowrap; }
 .tr-span { font-size: 12px; }
@@ -177,10 +178,12 @@ progress.tr-prog.is-stopping::-moz-progress-bar { background: var(--st-blocked);
 /* ==========================================================================
    Editor
    ========================================================================== */
-.ed-head {
+.ed-head, .ld-head {
   flex: none; display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2);
-  padding: var(--sp-2) var(--sp-3); border-radius: var(--r-lg); min-width: 0;
+  padding: var(--sp-1) 2px; min-width: 0;   /* R4: a header row on L0, not a card */
+  color: var(--l0-ink);
 }
+.ed-head .subtle, .ld-head .subtle { color: var(--l0-ink-3); }
 .ed-head .card-title { font-size: var(--fs-4); }
 .ed-dirty { background: var(--st-blocked-soft); color: var(--st-blocked-ink); }
 .ed-errbadge {
@@ -219,7 +222,7 @@ progress.tr-prog.is-stopping::-moz-progress-bar { background: var(--st-blocked);
 .ed-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
 .ed-steps li {
   display: flex; align-items: center; gap: var(--sp-2); min-width: 0;
-  padding: 4px var(--sp-2); border-radius: var(--r-sm); background: var(--dense-bg); box-shadow: inset 0 0 0 1px var(--rule);
+  padding: 4px var(--sp-2); border-top: 1px solid var(--rule);
   font-size: var(--fs-2);
 }
 .ed-steps li > .ellipsis { flex: 1 1 auto; min-width: 0; }
@@ -234,7 +237,8 @@ progress.tr-prog.is-stopping::-moz-progress-bar { background: var(--st-blocked);
 .ed-yamlbody.has-explain { flex-direction: row; align-items: stretch; }
 .ed-code {
   flex: 1 1 auto; min-width: 0; min-height: 0; overflow: auto;
-  padding: var(--sp-2) 0; font-family: var(--mono); font-size: 12.5px; line-height: var(--lh-code);
+  border-radius: var(--r-md); background: var(--field-bg); box-shadow: var(--sh-deboss);   /* R6: the editor is an input */
+  padding: var(--sp-3) 0; font-family: var(--mono); font-size: 12.5px; line-height: var(--lh-code);
 }
 .ed-code:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
 .ed-line { display: flex; min-width: max-content; }
@@ -244,7 +248,7 @@ progress.tr-prog.is-stopping::-moz-progress-bar { background: var(--st-blocked);
 .ed-gut {
   position: sticky; left: 0; z-index: 1; flex: none;
   display: grid; grid-template-columns: 18px 16px 2.6em; align-items: center; gap: 2px;
-  padding: 0 var(--sp-2) 0 4px; background: var(--dense-bg); color: var(--ink-3); user-select: none;
+  padding: 0 var(--sp-2) 0 4px; -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); color: var(--ink-3); user-select: none;
 }
 .ed-gut .ln { text-align: right; font-size: 11.5px; }
 .ed-gap { display: block; width: 1px; }
@@ -301,10 +305,6 @@ progress.tr-prog.is-stopping::-moz-progress-bar { background: var(--st-blocked);
 /* ==========================================================================
    Load
    ========================================================================== */
-.ld-head {
-  flex: none; display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2);
-  padding: var(--sp-2) var(--sp-3); border-radius: var(--r-lg); min-width: 0;
-}
 .ld-head .card-title { font-size: var(--fs-4); }
 .ld-body {
   flex: 1 1 auto; min-height: 0; min-width: 0; overflow: auto;
@@ -344,7 +344,7 @@ progress.tr-prog.is-stopping::-moz-progress-bar { background: var(--st-blocked);
 .ld-band { fill: var(--st-fail-soft); opacity: 0.7; }
 .ld-band.is-warn { fill: var(--st-blocked-soft); }
 .ld-th { stroke: var(--ink-2); stroke-width: 1.5; stroke-dasharray: 5 4; }
-.ld-thl { fill: var(--ink-2); font-size: 10.5px; font-weight: var(--fw-medium); paint-order: stroke; stroke: var(--dense-bg); stroke-width: 3px; }
+.ld-thl { fill: var(--ink-2); font-size: 10.5px; font-weight: var(--fw-medium); paint-order: stroke; stroke: var(--l1-solid); stroke-width: 3px; }
 .ld-line { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
 .ld-line.s-p50 { stroke: var(--lt-p50); }
 .ld-line.s-p95 { stroke: var(--lt-p95); }
@@ -354,7 +354,7 @@ progress.tr-prog.is-stopping::-moz-progress-bar { background: var(--st-blocked);
 .ld-dot.s-p95 { fill: var(--lt-p95); }
 .ld-dot.s-p99 { fill: var(--lt-p99); }
 .ld-breach { fill: var(--st-fail); stroke: var(--l1-solid); stroke-width: 2; }
-.ld-bl { fill: var(--st-fail-ink); font-size: 10.5px; font-weight: var(--fw-semibold); paint-order: stroke; stroke: var(--dense-bg); stroke-width: 3px; }
+.ld-bl { fill: var(--st-fail-ink); font-size: 10.5px; font-weight: var(--fw-semibold); paint-order: stroke; stroke: var(--l1-solid); stroke-width: 3px; }
 .ld-end { fill: var(--ink-2); font-size: 10.5px; font-variant-numeric: tabular-nums; }
 .ld-xline { stroke: var(--ink-3); stroke-width: 1; }
 .ld-hit { fill: transparent; cursor: crosshair; }
@@ -379,7 +379,7 @@ progress.tr-prog.is-stopping::-moz-progress-bar { background: var(--st-blocked);
 
 .ld-hosts { display: flex; flex-direction: column; min-width: 0; padding-bottom: var(--sp-3); }
 .ld-hosts > :not(.card-head) { margin-inline: var(--sp-3); }
-.ld-hosts tr.is-warn td { background: color-mix(in oklab, var(--st-blocked-soft) 60%, transparent); }
+.ld-hosts tr.is-warn :is(th, td) { color: var(--st-blocked); }   /* R6: state is ink, not a row fill */
 .ld-spark { display: block; width: 96px; height: 22px; overflow: visible; }
 .ld-spark .ld-line { stroke-width: 1.5; }
 .ld-hosts .callout { margin-top: var(--sp-2); }

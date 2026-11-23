@@ -130,7 +130,7 @@
   /* ---- header, banners, screen ------------------------------------------- */
   function headHtml() {
     const n = errs(), c = nChanges();
-    return `<div class="ed-head glass"><div class="grow stack-tight"><div class="row row-wrap"><h1 class="card-title mono">${FILE}</h1><span class="subtle mono hide-narrow">${PATH}</span>${c ? `<span class="chip ed-dirty" title="Unsaved changes">${c} unsaved</span>` : ''}</div></div>
+    return `<div class="ed-head on-l0"><div class="grow stack-tight"><div class="row row-wrap"><h1 class="card-title mono">${FILE}</h1><span class="subtle mono hide-narrow">${PATH}</span>${c ? `<span class="chip ed-dirty" title="Unsaved changes">${c} unsaved</span>` : ''}</div></div>
       <div class="seg seg-sm" role="group" aria-label="View">${[['form', 'Form'], ['yaml', 'YAML'], ['split', 'Split']].map(([k, l]) => `<button aria-pressed="${E.view === k}" data-action="ed-view" data-v="${k}" data-fk="edv-${k}">${l}</button>`).join('')}</div>
       <button class="btn btn-sm" data-action="ed-plan" data-fk="ed-plan">${ic('flow', 'ico-sm')}Plan</button>
       <button class="btn btn-sm" data-action="ed-file" aria-haspopup="menu" data-fk="ed-file">${ic('file', 'ico-sm')}File${ic('chev-down', 'ico-sm')}</button>
