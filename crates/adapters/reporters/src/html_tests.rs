@@ -90,4 +90,19 @@ fn keeps_the_first_load_of_a_large_run_small() {
         saved.iter().filter(|(name, _)| first_load.contains(&name.as_str())).map(|(_, text)| text.len()).sum();
     assert!(first < 1_500_000, "summary + index of 10k tests: {first} bytes");
     assert!(saved.iter().filter(|(name, _)| name.starts_with("data/tests/")).count() > 1, "tests load in chunks");
+    let bodies = saved.iter().filter(|(name, _)| name.starts_with("data/bodies/")).count();
+    assert_eq!(bodies, 1_000, "each failed test's exchange has its own response body");
+}
+
+#[test]
+fn stores_a_stream_call_s_messages_as_one_lazy_body() {
+    let mut snapshot = testing::snapshot();
+    let messages = vec![serde_json::json!({"id": "1", "text": "1"})];
+    snapshot.tests[1].exchanges = vec![ExchangeView { messages, ..ExchangeView::default() }, ExchangeView::default()];
+    let (_, saved) = rendered(HtmlLayout::Single, &snapshot);
+    let data = packed_data(&saved[0].1);
+    let exchanges = &data["tests/0"]["1"]["exchanges"];
+    let hash = exchanges[0]["messages"].as_str().unwrap();
+    assert_eq!(data[format!("bodies/{hash}")], "[{\"id\":\"1\",\"text\":\"1\"}]");
+    assert_eq!(exchanges[1].get("messages"), None, "an exchange with no messages has no key");
 }

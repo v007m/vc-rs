@@ -47,15 +47,19 @@ pub async fn read(mut body: Incoming, limit: Size) -> Result<Bytes, TransportErr
 /// Undoes the response's content encodings, last applied first. The output is capped at
 /// `limit`, so a small compressed body cannot expand without bound (a zip bomb).
 pub fn decode(headers: &HeaderMap, wire: Bytes, limit: Size) -> Result<Bytes, TransportError> {
-    let encodings: Vec<String> = headers
+    encodings(headers).iter().rev().try_fold(wire, |body, encoding| decode_one(encoding, &body, limit))
+}
+
+/// The content codings `headers` name, in the order they were applied, without `identity`.
+pub fn encodings(headers: &HeaderMap) -> Vec<String> {
+    headers
         .get_all(CONTENT_ENCODING)
         .iter()
         .filter_map(|value| value.to_str().ok())
         .flat_map(|value| value.split(','))
         .map(|name| name.trim().to_ascii_lowercase())
         .filter(|name| !name.is_empty() && name != "identity")
-        .collect();
-    encodings.iter().rev().try_fold(wire, |body, encoding| decode_one(encoding, &body, limit))
+        .collect()
 }
 
 fn decode_one(encoding: &str, body: &[u8], limit: Size) -> Result<Bytes, TransportError> {

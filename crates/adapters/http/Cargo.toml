@@ -14,6 +14,8 @@ brotli-decompressor.workspace = true
 bytes.workspace = true
 der.workspace = true
 flate2.workspace = true
+# A WebSocket sends with `SinkExt` (D460).
+futures-util = { workspace = true, features = ["sink"] }
 http.workspace = true
 http-body-util.workspace = true
 hyper.workspace = true
@@ -25,6 +27,8 @@ sha2.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["io-util", "net"] }
 tokio-rustls.workspace = true
+# WebSocket frames over the upgraded connection; `handshake` for the key helpers only (D460).
+tokio-tungstenite.workspace = true
 tower-service.workspace = true
 vc-interfaces.workspace = true
 vc-model.workspace = true

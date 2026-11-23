@@ -8,7 +8,7 @@ use std::collections::BTreeSet;
 use std::sync::Arc;
 
 use vc_executor::{ClientCerts, MaskRules, Redactor, RuleHooks};
-use vc_interfaces::{Secret, Secrets, Transport};
+use vc_interfaces::{Secret, Secrets, StreamTransport, Transport};
 
 use crate::plan::Prepared;
 use crate::ports::SecretSource;
@@ -17,12 +17,13 @@ use crate::{Engine, EngineError, Interrupts, RunReport};
 /// The exit code of a run an interrupt ended (D127).
 pub const EXIT_CANCELLED: u8 = 130;
 
-/// What a run is secured with: its declared secrets, the transport built from its `http.tls`,
-/// the `CertId` of each identity that transport presents, the values the redactor hides
-/// besides the secrets, and the notices its material gives (D412).
+/// What a run is secured with: its declared secrets, the transport and stream port built from
+/// its `http.tls` (D428), the `CertId` of each identity they present, the values the redactor
+/// hides besides the secrets, and the notices its material gives (D412).
 pub struct Secured {
     pub(crate) secrets: Secrets,
     pub(crate) transport: Arc<dyn Transport>,
+    pub(crate) streams: Option<Arc<dyn StreamTransport>>,
     pub(crate) certs: ClientCerts,
     pub(crate) hidden: Vec<Secret>,
     pub(crate) notices: Vec<String>,

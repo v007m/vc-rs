@@ -7,6 +7,7 @@ use tokio::sync::mpsc;
 use vc_interfaces::{
     CommandError, CommandOutput, CommandRunner, CommandSpec, Environment, HistoryError, HistoryWriter, Row, RunEnd,
     RunId, RunStart, Secret, TlsError, TlsFinding, TlsPart, TlsProbe, TlsSpec, Transport, TransportFactory,
+    TransportPorts,
 };
 use vc_model::Keep;
 use vc_testkit::{FakeTransport, FakeVcs, MemoryCacheStore, MemoryEnvironment, MemoryHistory, MemorySources, status};
@@ -56,7 +57,7 @@ struct Loader {
 }
 
 impl TransportFactory for Loader {
-    fn build(&self, _: &TlsSpec, _: &dyn Environment) -> Result<Arc<dyn Transport>, TlsError> {
+    fn build(&self, _: &TlsSpec, _: &dyn Environment) -> Result<TransportPorts, TlsError> {
         self.started.store(true, Ordering::SeqCst);
         self.builds.fetch_add(1, Ordering::SeqCst);
         let until = Instant::now() + Duration::from_secs(5);
@@ -64,7 +65,7 @@ impl TransportFactory for Loader {
             std::thread::sleep(Duration::from_millis(5));
         }
         let transport: Arc<dyn Transport> = Arc::new(FakeTransport::new(|_, _| Ok(status(200))));
-        self.refusal.clone().map_or_else(|| Ok(transport), Err)
+        self.refusal.clone().map_or_else(|| Ok(transport.into()), Err)
     }
 
     fn inspect(&self, probes: &[TlsProbe]) -> Vec<TlsFinding> {

@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use tokio::sync::mpsc;
 use vc_interfaces::{
-    ClientSource, Environment, MaterialSource, TlsError, TlsPart, TlsSpec, Transport, TransportFactory,
+    ClientSource, Environment, MaterialSource, TlsError, TlsPart, TlsSpec, Transport, TransportFactory, TransportPorts,
 };
 
 /// A transport factory over files held in memory, by path. It checks nothing but that each file
@@ -60,7 +60,7 @@ impl MemoryTransports {
 }
 
 impl TransportFactory for MemoryTransports {
-    fn build(&self, tls: &TlsSpec, _: &dyn Environment) -> Result<Arc<dyn Transport>, TlsError> {
+    fn build(&self, tls: &TlsSpec, _: &dyn Environment) -> Result<TransportPorts, TlsError> {
         let ca = tls.ca.iter().enumerate().map(|(index, source)| self.read(source, TlsPart::Ca(index)));
         let mut read = MemoryTls { ca: ca.collect::<Result<_, _>>()?, clients: Vec::new() };
         for client in &tls.clients {
@@ -77,7 +77,7 @@ impl TransportFactory for MemoryTransports {
             read.clients.push((client.id.clone(), client.hosts.clone()));
         }
         self.read.send(read).ok();
-        Ok(Arc::clone(&self.transport))
+        Ok(TransportPorts::from(Arc::clone(&self.transport)))
     }
 }
 

@@ -32,7 +32,7 @@ apis:
 | `sse` | server-sent events read from one request's streamed response | `path` | `expect.errors`; `poll` on a test or step that calls it |
 | `websocket` | messages over one WebSocket connection, opened with a `GET` | `path` | `method`, `body` and an `sse` block on the api; `expect.errors`; `body` and `poll` on a test or step that calls it |
 
-`sse` and `websocket` are checked today, but their calls are not run yet: a call of one fails before anything is sent. The other types (JSON-RPC, gRPC) follow in their own issues.
+`sse` calls run over HTTP: the call reads the events as they arrive and checks them with its `exchange` and `expect.messages`. `websocket` calls open a WebSocket with an HTTP/1.1 upgrade, then send and receive their `exchange` over it; their `baseUrl` may be `ws://`, `wss://`, `http://` or `https://`. The other types (JSON-RPC, gRPC) follow in their own issues.
 
 An `sse` api, or a `type: sse` file for all of its apis, may set `sse.reconnect: true`: when the stream ends early the call opens it once more, sending `last-event-id`. It is `false` when left out, and an `sse` block anywhere else is V2213.
 
@@ -84,6 +84,69 @@ apis:
   - id: chat
     type: websocket
     path: /chat
+```
+
+### Read a stream
+
+An `sse` api waits for the events its `exchange` names and stops reading after the last one. `vc demo` serves `/events`: `count` events, each with an `id` and its number as `data`, and `dropAt` drops the first connection after that many, so `sse.reconnect` opens it again from the last `id`.
+
+```yaml title="services/ticker/ticker.api.yaml"
+type: sse
+baseUrl: ${var.baseUrl}
+apis:
+  - id: ticks
+    path: /events
+    query: {count: '4', dropAt: '2'}
+    sse:
+      reconnect: true
+```
+
+```yaml title="services/ticker/ticks.test.yaml"
+tests:
+  - id: readsEveryTickAcrossADrop
+    call: ticker#ticks
+    exchange:
+      - receive: {id: '4', data: {equals: 4}}
+    expect:
+      status: 200
+      messages: {length: 4}
+    save:
+      lastTickId: ${response.exchange[0].id}
+```
+
+The HTML report shows the messages under the call, and CTRF lists them in the test's `extra.streams`, when bodies are kept ([`history.bodies`](/vc-rs/guides/reporters-and-history/)).
+
+### Talk over a WebSocket
+
+A `websocket` api sends each `send` in turn and waits for each `receive`; a list under `receive` takes its messages in any order. `vc demo` serves `/ws`: `{"type":"join"}` gets `{"type":"joined","memberId":"m1"}`, `{"type":"say","text":t}` gets a `message` with that text and a `seen`, the text `bye` gets a close `1000`, and anything else comes back as it was sent. A call closes the WebSocket once its last item is done.
+
+```yaml title="services/chat/chat.api.yaml"
+type: websocket
+baseUrl: ${var.baseUrl}
+apis:
+  - id: room
+    path: /ws
+    timeout: 5s
+```
+
+```yaml title="services/chat/rooms.test.yaml"
+tests:
+  - id: echoesEachMessageToTheRoom
+    call: chat#room
+    exchange:
+      - send: {type: join}
+      - receive: {data: {match: {type: joined}}}
+      - send: {type: say, text: hi}
+      - receive:
+          - data: {match: {type: message, text: hi}}
+          - data: {match: {type: seen}}
+      - send: bye
+      - receive: {type: close, code: 1000, reason: bye}
+    expect:
+      status: 101
+      messages: {length: 4}
+    save:
+      memberId: ${response.exchange[1].data.memberId}
 ```
 
 ### Set on one api

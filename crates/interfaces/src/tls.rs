@@ -6,12 +6,12 @@ use std::fmt;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use crate::{Environment, Secret, Transport};
+use crate::{Environment, Secret, StreamTransport, Transport};
 
 /// Builds the transport a run sends through, trusting the roots and presenting the identities
 /// of its rendered `http.tls` (D399).
 pub trait TransportFactory: Send + Sync {
-    /// The transport for `tls`, through the proxy `environment` names; `tls`'s material is read,
+    /// The ports for `tls`, through the proxy `environment` names; `tls`'s material is read,
     /// parsed and checked once, here. It blocks on files and on a PKCS#12 bundle's key
     /// derivation, so call it off the async runtime (`spawn_blocking`), from within a Tokio
     /// runtime.
@@ -19,7 +19,7 @@ pub trait TransportFactory: Send + Sync {
     /// # Errors
     ///
     /// [`TlsError`] naming the part that cannot be used; no reason quotes a key or a passphrase.
-    fn build(&self, tls: &TlsSpec, environment: &dyn Environment) -> Result<Arc<dyn Transport>, TlsError>;
+    fn build(&self, tls: &TlsSpec, environment: &dyn Environment) -> Result<TransportPorts, TlsError>;
 
     /// What `probes`' material holds that a check or a run's start reports without stopping
     /// (D408–D412): a file that cannot be read, material that cannot be used or whose parts do
@@ -33,6 +33,32 @@ pub trait TransportFactory: Send + Sync {
 }
 
 /// A rendered `http.tls`: the `ca` entries, and the client identities the run's profiles allow.
+/// What a [`TransportFactory`] builds for a run (D428).
+///
+/// The transport, and the stream port presenting the same roots and identities when the
+/// factory has one.
+#[derive(Clone)]
+#[expect(clippy::exhaustive_structs, reason = "built by the adapter, read by the engine; both are in this repo (D160)")]
+pub struct TransportPorts {
+    /// Sends each request and reads its answer.
+    pub transport: Arc<dyn Transport>,
+    /// Opens `sse` and `websocket` streams; `None` when the factory opens none.
+    pub streams: Option<Arc<dyn StreamTransport>>,
+}
+
+impl From<Arc<dyn Transport>> for TransportPorts {
+    /// `transport` alone, with no stream port.
+    fn from(transport: Arc<dyn Transport>) -> Self {
+        Self { transport, streams: None }
+    }
+}
+
+impl fmt::Debug for TransportPorts {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("TransportPorts").field("streams", &self.streams.is_some()).finish_non_exhaustive()
+    }
+}
+
 #[derive(Debug, Default)]
 #[expect(clippy::exhaustive_structs, reason = "built by the engine, read by the adapter; both are in this repo (D160)")]
 pub struct TlsSpec {
