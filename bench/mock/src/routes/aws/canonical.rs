@@ -16,16 +16,38 @@ const UNRESERVED: &AsciiSet = &NON_ALPHANUMERIC.remove(b'-').remove(b'.').remove
 const PATH: &AsciiSet = &UNRESERVED.remove(b'/');
 const UNSIGNED_PAYLOAD: &str = "UNSIGNED-PAYLOAD";
 
-/// The canonical request of `parts` and `body`, signing the headers `names`. S3 signs the path
-/// as it arrives; any other service signs it encoded again. Paths are not normalised: a client
-/// sends what it signed, and the tests send no dot segments.
-pub fn request(parts: &Parts, body: &Bytes, names: &[&str], s3: bool) -> Result<String, Refusal> {
+/// A request as it arrives: its head and its body.
+pub struct Arrived<'a> {
+    pub parts: &'a Parts,
+    pub body: &'a Bytes,
+}
+
+/// The canonical request of `arrived`, signing the headers `names`. S3 signs the path as it
+/// arrives; any other service signs it normalised and encoded again.
+pub fn request(arrived: &Arrived<'_>, names: &[&str], s3: bool) -> Result<String, Refusal> {
+    let Arrived { parts, body } = *arrived;
     let path = parts.uri.path();
-    let path = if s3 { path.to_owned() } else { percent_encode(path.as_bytes(), PATH).to_string() };
+    let path = if s3 { path.to_owned() } else { percent_encode(normalized(path).as_bytes(), PATH).to_string() };
     let headers = headers(parts, names)?;
     let payload = payload(parts, body)?;
     let query = query(parts.uri.query().unwrap_or_default());
     Ok(format!("{}\n{path}\n{query}\n{headers}\n{}\n{payload}", parts.method, names.join(";")))
+}
+
+/// `path` with RFC 3986's dot segments removed and empty segments dropped, as AWS reads the path
+/// of every service but S3. It ends in `/` when `path` ends in a `/`, a `.` or a `..` segment.
+fn normalized(path: &str) -> String {
+    let mut kept: Vec<&str> = Vec::new();
+    for segment in path.split('/') {
+        if segment == ".." {
+            kept.pop();
+        } else if !segment.is_empty() && segment != "." {
+            kept.push(segment);
+        }
+    }
+    let ends = ["/", "/.", "/.."].iter().any(|end| path.ends_with(end));
+    let slash = if ends && !kept.is_empty() { "/" } else { "" };
+    format!("/{}{slash}", kept.join("/"))
 }
 
 /// Each name and value decoded and encoded again, sorted; a `+` is a space.

@@ -1,6 +1,6 @@
 //! `awsSigV4` against the mock's `/aws/…`, which checks each signature server side as AWS does
-//! (D457): a hashed body and a session token for `execute-api`, `UNSIGNED-PAYLOAD` and the path
-//! as written for `s3`, and a wrong secret refused with neither key shown anywhere.
+//! (D457): a hashed body and a session token for `execute-api`, `UNSIGNED-PAYLOAD` and a path
+//! with reserved characters, sent in S3's encoding, for `s3`, and a wrong secret refused with neither key shown anywhere.
 
 use vc_mock_server::{AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, MockHandle, MockServer};
 
@@ -16,7 +16,7 @@ const APIS: &str = concat!(
     "  - id: create\n    method: POST\n    path: /orders/o-1\n    query: {b: '2', a: 'one two'}\n",
     "    headers: {x-trace: '  t1   t2 '}\n    body: {item: book}\n",
     "    expect:\n      status: 200\n      body: {match: {service: execute-api, region: eu-west-1}}\n",
-    "  - id: put\n    method: PUT\n    path: /reports/daily.csv\n    auth: reportsBucket\n    body: 'a,b'\n",
+    "  - id: put\n    method: PUT\n    path: /reports/daily+v1=a.csv\n    auth: reportsBucket\n    body: 'a,b'\n",
     "    expect:\n      status: 200\n      body: {match: {service: s3, region: us-east-1}}\n",
 );
 

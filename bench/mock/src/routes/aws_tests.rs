@@ -84,10 +84,43 @@ fn a_body_hash_header_must_match_the_body() {
     assert_eq!(refused["error"], "XAmzContentSHA256Mismatch");
 }
 
+/// The path line of the canonical request the mock computes for `path`, signed for `service`.
+fn canonical_path(path: &str, service: &str) -> String {
+    let mut parts = query_order(&"0".repeat(64));
+    parts.uri = path.parse().unwrap();
+    let authorization = parts.headers["authorization"].to_str().unwrap().replace("/service/", &format!("/{service}/"));
+    parts.headers.insert("authorization", authorization.parse().unwrap());
+    let refused = error(verify(&parts, &Bytes::new(), SUITE_SECS));
+    refused["canonicalRequest"].as_str().unwrap().lines().nth(1).unwrap().to_owned()
+}
+
+#[test]
+fn normalises_and_encodes_again_every_path_but_s3_s() {
+    let cases = [
+        ("/./", "/"),
+        ("/example/..", "/"),
+        ("/./example", "/example"),
+        ("/a//b/../c/", "/a/c/"),
+        ("/a/.", "/a/"),
+        ("/a%20b/c~d", "/a%2520b/c~d"),
+    ];
+    for (path, line) in cases {
+        assert_eq!(canonical_path(path, "service"), line, "{path}");
+    }
+    for service in ["s3", "s3express", "s3-outposts", "s3-object-lambda"] {
+        assert_eq!(canonical_path("/a//b/./c%20d", service), "/a//b/./c%20d", "{service}");
+    }
+}
+
 #[test]
 fn reads_a_sigv4_date() {
     assert_eq!(super::seconds("20150830T123600Z"), Some(SUITE_SECS));
     assert_eq!(super::seconds("19700101T000000Z"), Some(0));
     assert_eq!(super::seconds("20240229T000001Z"), Some(1_709_164_801));
     assert_eq!(super::seconds("2015-08-30"), None);
+    let bad = ["20151330T000000Z", "20150800T000000Z", "20150832T000000Z", "20150830T240000Z", "20150830T006000Z"];
+    for stamp in bad.into_iter().chain(["20150830T0000000Z", "201508300T000000Z", "20150830T000061Z"]) {
+        assert_eq!(super::seconds(stamp), None, "{stamp}");
+    }
+    assert_eq!(super::seconds("20151231T235960Z"), Some(1_451_606_400), "a leap second");
 }

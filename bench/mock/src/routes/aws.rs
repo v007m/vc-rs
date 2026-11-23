@@ -25,6 +25,8 @@ pub const SECRET_ACCESS_KEY: &str = "wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY";
 const SKEW_SECS: u64 = 300;
 const BODY_LIMIT: usize = 16 * 1024 * 1024;
 const ALGORITHM: &str = "AWS4-HMAC-SHA256";
+/// The signing names whose paths AWS signs as they arrive, as S3 does.
+const S3_SERVICES: [&str; 4] = ["s3", "s3express", "s3-outposts", "s3-object-lambda"];
 
 /// `ANY /aws/{service path}` answers 200 with the service, region and signed header names of a
 /// valid signature, or 403 with AWS's error code and, for a mismatch, the canonical request.
@@ -75,7 +77,8 @@ pub fn verify(parts: &Parts, body: &Bytes, now: u64) -> Result<Value, Refusal> {
     }
     let stamp = header("x-amz-date").ok_or_else(|| refused("IncompleteSignature", "no x-amz-date"))?;
     fresh(stamp, signed.scope[0], now)?;
-    let canonical = canonical::request(parts, body, &signed.names, signed.scope[2] == "s3")?;
+    let s3 = S3_SERVICES.contains(&signed.scope[2]);
+    let canonical = canonical::request(&canonical::Arrived { parts, body }, &signed.names, s3)?;
     let scope = format!("{}/aws4_request", signed.scope.join("/"));
     let to_sign = format!("{ALGORITHM}\n{stamp}\n{scope}\n{}", hex(&Sha256::digest(canonical.as_bytes())));
     if signature(&to_sign, signed.scope) != signed.signature {
@@ -114,13 +117,18 @@ fn fresh(stamp: &str, date: &str, now: u64) -> Result<(), Refusal> {
     Ok(())
 }
 
-/// `YYYYMMDD'T'HHMMSS'Z'` in seconds since the Unix epoch.
+/// `YYYYMMDD'T'HHMMSS'Z'` in seconds since the Unix epoch; `None` for any other text, or a
+/// month, day, hour, minute or second out of its range.
 fn seconds(stamp: &str) -> Option<u64> {
-    let digits = stamp.strip_suffix('Z')?;
-    let (date, time) = digits.split_once('T')?;
-    let number = |text: &str, from: usize, to: usize| text.get(from..to)?.parse::<u64>().ok();
-    let days = days_from_civil(number(date, 0, 4)?, number(date, 4, 6)?, number(date, 6, 8)?)?;
-    Some(days * 86_400 + number(time, 0, 2)? * 3600 + number(time, 2, 4)? * 60 + number(time, 4, 6)?)
+    let (date, time) = stamp.strip_suffix('Z')?.split_once('T')?;
+    if (date.len(), time.len()) != (8, 6) {
+        return None;
+    }
+    let number =
+        |text: &str, from: usize, to: usize, top: u64| text.get(from..to)?.parse::<u64>().ok().filter(|n| *n <= top);
+    let (month, day) = (number(date, 4, 6, 12).filter(|m| *m > 0)?, number(date, 6, 8, 31).filter(|d| *d > 0)?);
+    let days = days_from_civil(number(date, 0, 4, 9999)?, month, day)?;
+    Some(days * 86_400 + number(time, 0, 2, 23)? * 3600 + number(time, 2, 4, 59)? * 60 + number(time, 4, 6, 60)?)
 }
 
 /// Days from 1970-01-01 to a date on or after it (Howard Hinnant's `days_from_civil`).
