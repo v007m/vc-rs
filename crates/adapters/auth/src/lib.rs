@@ -1,5 +1,6 @@
 //! Auth types: `basic`, `bearer`, `apiKey`, the OAuth 2.0 grants, `flow` (D106), `mtls`, which
-//! adds nothing because the HTTP client presents its certificate (D350), and `plugin`, the
+//! adds nothing because the HTTP client presents its certificate (D350), `awsSigV4`, whose
+//! credentials sign each request as it leaves ([`AwsSigV4`], D434), and `plugin`, the
 //! credentials an auth plugin returns ([`PluginAuth`]).
 //!
 //! Each type implements `vc_interfaces::AuthProvider` and is one entry in the [`AuthTypes`]
@@ -17,7 +18,6 @@ mod plugin;
 #[cfg(not(target_family = "wasm"))]
 mod redirect;
 mod registry;
-#[cfg_attr(not(test), expect(dead_code, reason = "the sign stage wires it in the next PR (#106 PR 3)"))]
 mod sigv4;
 #[cfg(test)]
 mod testing;
@@ -29,3 +29,4 @@ pub use fixed::{ApiKey, Basic, Bearer, Flow, Mtls};
 pub use oauth::{ClientCredentials, PasswordGrant, RefreshGrant};
 pub use plugin::PluginAuth;
 pub use registry::AuthTypes;
+pub use sigv4::AwsSigV4;

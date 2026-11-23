@@ -34,11 +34,14 @@ pub async fn described(request: Request, answer: impl FnOnce(Value) -> Value) ->
 
 fn describe(parts: &Parts, body: &Bytes) -> Value {
     let query = Query::<BTreeMap<String, String>>::try_from_uri(&parts.uri).map(|query| query.0).unwrap_or_default();
-    let headers: BTreeMap<&str, String> = parts
+    let mut headers: BTreeMap<&str, String> = parts
         .headers
         .iter()
         .map(|(name, value)| (name.as_str(), String::from_utf8_lossy(value.as_bytes()).into_owned()))
         .collect();
+    if let Some(authority) = parts.uri.authority() {
+        headers.entry("host").or_insert_with(|| authority.as_str().to_owned());
+    }
     json!({
         "method": parts.method.as_str(),
         "path": parts.uri.path(),

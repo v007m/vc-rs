@@ -217,7 +217,9 @@ impl Engine {
     ) -> Arc<ActionExecutors> {
         let (settings, defaults) = (&prepared.settings, &prepared.program.config.defaults);
         let per_host = settings.per_host.or(defaults.per_host).unwrap_or(PER_HOST);
-        let mut parts = PipelineParts::new(Arc::clone(&secured.transport), HostLimits::spawn(widen(per_host)));
+        let limits = HostLimits::spawn(widen(per_host));
+        let transport = Arc::clone(&secured.transport);
+        let mut parts = PipelineParts::new(transport, limits).with_clock(Arc::clone(&self.clock));
         if let Some(streams) = self.streams.as_ref().or(secured.streams.as_ref()) {
             parts = parts.with_streams(Arc::clone(streams));
         }

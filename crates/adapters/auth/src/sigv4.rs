@@ -13,11 +13,13 @@ mod tests;
 mod vectors;
 
 use std::fmt;
+use std::sync::Arc;
 
+use async_trait::async_trait;
 use http::HeaderValue;
 use http::header::AUTHORIZATION;
 use serde_json::Value;
-use vc_interfaces::{AuthError, AuthRequest, Secret};
+use vc_interfaces::{AuthError, AuthProvider, AuthRequest, Credentials, RequestSigner, Secret, Signer};
 use vc_model::RenderedRequest;
 
 use self::canonical::Canonical;
@@ -34,6 +36,28 @@ const TOKEN_RULE: &str = "sessionToken: a header value, with no line breaks";
 const PAYLOAD_RULE: &str = "payload: signed or unsigned";
 /// The signing names that follow S3's path rules (D436, D454).
 const S3_SERVICES: [&str; 4] = ["s3", "s3express", "s3-outposts", "s3-object-lambda"];
+
+/// `awsSigV4`: its credentials are a [`Signer`] over the checked settings.
+///
+/// It adds no headers, query values or cookies; the signer signs each attempt as it leaves
+/// (D434), and the access key ID, the secret and the token are the values the redactor hides
+/// (D439).
+#[derive(Clone, Copy, Debug, Default)]
+#[non_exhaustive]
+pub struct AwsSigV4;
+
+#[async_trait]
+impl AuthProvider for AwsSigV4 {
+    async fn credentials(&self, request: &AuthRequest) -> Result<Credentials, AuthError> {
+        let signer = SigV4::from_request(request)?;
+        let hidden = signer.hidden();
+        Ok(Credentials::signed(Signer::new(Arc::new(signer), hidden)))
+    }
+
+    fn signs(&self, _request: &AuthRequest) -> bool {
+        true
+    }
+}
 
 /// What the canonical request holds for the body (`payload`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -86,22 +110,10 @@ impl SigV4 {
         })
     }
 
-    /// `request` signed as at `now_ms` (UTC, milliseconds since the Unix epoch). Each `+` in the
-    /// query is sent as `%20` (D453), and for S3, the path is rewritten into AWS's encoding first
-    /// (D436, D454).
-    ///
-    /// # Errors
-    ///
-    /// [`AuthError::Missing`] if a header the signer sets cannot hold its value; the checks in
-    /// [`SigV4::from_request`] rule that out.
-    pub fn sign(&self, request: RenderedRequest, now_ms: u64) -> Result<RenderedRequest, AuthError> {
-        let moment = Moment::at(now_ms);
-        let payload = self.payload_hash(&request.body);
-        let mut request = self.stamp(request, &moment, &payload)?;
-        let canonical = canonical::request(&request, &payload, self.s3);
-        let authorization = self.authorization(&canonical, &moment)?;
-        request.headers.insert(AUTHORIZATION, authorization);
-        Ok(request)
+    /// The values the redactor hides: the access key ID, the secret and the token.
+    fn hidden(&self) -> Vec<Secret> {
+        let key_id = Secret::new(self.key_id.clone());
+        [Some(key_id), Some(self.secret.clone()), self.token.clone()].into_iter().flatten().collect()
     }
 
     /// The canonical request's last line: the body's hash, or `UNSIGNED-PAYLOAD`.
@@ -160,6 +172,26 @@ impl SigV4 {
             .map_err(|_| AuthError::Missing { auth: self.auth.clone(), key: key.to_owned() })?;
         value.set_sensitive(sensitive);
         Ok(value)
+    }
+}
+
+impl RequestSigner for SigV4 {
+    /// `request` signed as at `now_ms` (UTC, milliseconds since the Unix epoch). Each `+` in the
+    /// query is sent as `%20` (D453), and for S3, the path is rewritten into AWS's encoding first
+    /// (D436, D454).
+    ///
+    /// # Errors
+    ///
+    /// [`AuthError::Missing`] if a header the signer sets cannot hold its value; the checks in
+    /// [`SigV4::from_request`] rule that out.
+    fn sign(&self, request: RenderedRequest, now_ms: u64) -> Result<RenderedRequest, AuthError> {
+        let moment = Moment::at(now_ms);
+        let payload = self.payload_hash(&request.body);
+        let mut request = self.stamp(request, &moment, &payload)?;
+        let canonical = canonical::request(&request, &payload, self.s3);
+        let authorization = self.authorization(&canonical, &moment)?;
+        request.headers.insert(AUTHORIZATION, authorization);
+        Ok(request)
     }
 }
 

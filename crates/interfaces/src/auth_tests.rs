@@ -1,10 +1,34 @@
+use std::sync::Arc;
 use std::time::Duration;
 
+use async_trait::async_trait;
+use bytes::Bytes;
 use serde_json::{Map, Value, json};
 use vc_diagnostics::Code;
+use vc_model::RenderedRequest;
 
-use super::{AuthError, AuthRequest, Credentials};
-use crate::{CertChoice, CertId};
+use super::{AuthError, AuthProvider, AuthRequest, Credentials, RequestSigner, Signer};
+use crate::{CertChoice, CertId, Secret};
+
+/// Puts the time it signs at in the body.
+struct Stamp;
+
+impl RequestSigner for Stamp {
+    fn sign(&self, mut request: RenderedRequest, now_ms: u64) -> Result<RenderedRequest, AuthError> {
+        request.body = Bytes::from(now_ms.to_string());
+        Ok(request)
+    }
+}
+
+/// A provider that keeps the default answer to `signs`.
+struct Plain;
+
+#[async_trait]
+impl AuthProvider for Plain {
+    async fn credentials(&self, _: &AuthRequest) -> Result<Credentials, AuthError> {
+        Ok(Credentials::default())
+    }
+}
 
 fn settings() -> Map<String, Value> {
     let Value::Object(map) = json!({"clientId": "shop", "clientSecret": "s3cr3t-value"}) else { return Map::new() };
@@ -29,6 +53,26 @@ fn credentials_list_every_value_and_their_expiry() {
     credentials.cookies = Credentials::header("sid", "c1").headers;
     assert_eq!(credentials.values().collect::<Vec<_>>(), ["h1", "k1", "c1"]);
     assert_eq!(credentials.expires_in, Some(Duration::from_secs(5)));
+}
+
+#[test]
+fn a_signer_signs_hides_its_values_and_equals_only_itself() {
+    let stamp: Arc<dyn RequestSigner> = Arc::new(Stamp);
+    let signer = Signer::new(Arc::clone(&stamp), vec![Secret::new("AKIDEXAMPLE"), Secret::new("wJalr-secret")]);
+    let mut credentials = Credentials::signed(signer.clone());
+    credentials.headers = Credentials::header("x-a", "h1").headers;
+    assert_eq!(credentials.values().collect::<Vec<_>>(), ["h1", "AKIDEXAMPLE", "wJalr-secret"]);
+    let shown = format!("{credentials:?}");
+    assert!(!shown.contains("AKIDEXAMPLE") && !shown.contains("wJalr-secret") && shown.contains("Signer"), "{shown}");
+    let request = RenderedRequest::new("GET".parse().unwrap(), "http://api.test/x".parse().unwrap());
+    assert_eq!(signer.sign(request, 42).map(|request| request.body), Ok(Bytes::from("42")));
+    assert_eq!(credentials.signer.as_ref(), Some(&signer), "a clone shares the signer");
+    assert_ne!(Signer::new(stamp, Vec::new()), Signer::new(Arc::new(Stamp), Vec::new()));
+}
+
+#[test]
+fn a_provider_does_not_sign_unless_it_says_so() {
+    assert!(!Plain.signs(&AuthRequest::new("svc", "bearer", settings())));
 }
 
 #[test]

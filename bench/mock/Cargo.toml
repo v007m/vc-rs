@@ -17,12 +17,16 @@ axum = { workspace = true, features = ["http1", "http2", "tokio"] }
 clap.workspace = true
 # `/events` streams its body, and `/ws` sends with `SinkExt`.
 futures-util = { workspace = true, features = ["sink"] }
+# `/aws/…` checks AWS Signature Version 4 server side (D457).
+hmac.workspace = true
 # `/ws` upgrades the connection and echoes WebSocket frames.
 hyper.workspace = true
 hyper-util.workspace = true
+percent-encoding.workspace = true
 rustls.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+sha2.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["io-util", "net", "rt-multi-thread", "signal", "time"] }
 tokio-rustls.workspace = true

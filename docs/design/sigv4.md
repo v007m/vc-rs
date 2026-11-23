@@ -17,7 +17,7 @@ Everything else is in "Later" below.
 
 ## Syntax by example
 
-`vc check` reads these examples (PR 1 below), and the docs check checks them. No run signs with them until PR 3.
+`vc check` reads these examples (PR 1 below), and the docs check checks them. A run signs with them from PR 3.
 
 ```yaml
 # vibranium.config.yaml
@@ -226,6 +226,9 @@ How the parts fit:
 | D452 | `wire_host` lands in PR 2; PR 3 wires the transport. A time past year 9999 signs as the epoch. |
 | D453 | A `+` in the query is a space: sent and signed as `%20`; a literal plus is `%2B`. Supersedes D435 in part (Sarath, 2026-11-21). |
 | D454 | `s3`, `s3express`, `s3-outposts` and `s3-object-lambda` follow S3's path rules. Supersedes D436 in part (Sarath, 2026-11-21). |
+| D455 | The sign stage reads `PipelineParts::clock`; a host with no clock fails a signing call with V5114. |
+| D456 | `HttpTransport` sends the authority as `wire_host`; an explicit `host` header goes as written; the exchange keeps the URL as given. |
+| D457 | The mock's `/aws/*` verifier, its canonical rules and its error bodies; PR 3 brings it and the first e2e tests. |
 
 Candidate V codes (V1005, V2302 and V5114 are reused; V1 and V3 need nothing new):
 
@@ -306,7 +309,7 @@ The rest was approved as written: the credential source (D432), the S3 rules (D4
    - The V1005 required keys, and `payload` as an enum (V2302).
    - The V2316 and V4014 lints, with tests.
    - The syntax-reference auth row and section, and the LLD diagnostic rows.
-   - Until PR 3, a run fails the call with V5114 "unknown auth type".
+   - Until PR 3, a run failed the call with V5114 "unknown auth type".
 2. **The pure signer.**
    - `vc-adapter-auth` `sigv4/`: the settings check, the canonical request, the signing key and the signature, with no wiring.
    - The vendored vectors with the `.gitattributes` line, the vector test, and the unit tests.
@@ -318,6 +321,7 @@ The rest was approved as written: the credential source (D432), the S3 rules (D4
    - `PipelineParts::sign`, `SignStage` and the `auth::added` wiring, with executor tests.
    - The `awsSigV4` registry entry.
    - The `mise run public-api` snapshot, and the LLD auth and pipeline text.
-4. **Wire and end to end.**
-   - The mock's `/aws/*` verifier with its tests, and the e2e tests above.
-   - The redaction checks, and the site page.
+   - Brought forward from PR 4 (D457): the mock's `/aws/*` verifier with its tests, and `vc run` e2e tests for `execute-api` (hashed body, session token, a query that needs sorting and encoding) and `s3` (`UNSIGNED-PAYLOAD`), and a wrong secret refused, with the redaction checks.
+4. **The rest of end to end.**
+   - `vc call`, the `http.retry` and hook-header e2e cases, and `vc check` of V2316 and V4014 end to end.
+   - The site page.
