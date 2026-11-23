@@ -8,8 +8,8 @@ use vc_diagnostics::{Code, Diagnostic, Diagnostics, Fix, TextEdit};
 use vc_model::{FileKind, HostPattern, Pos, SourceFiles, SourceSpan, inline_pem};
 use vc_parser::{Entry, Node, ScalarKind};
 
-use super::project;
 use super::project::Project;
+use super::{project, sigv4};
 use crate::cache::CacheEntry;
 
 /// The help shared by every V1017.
@@ -26,12 +26,13 @@ pub fn literals(root: &Node) -> Vec<&Entry> {
     entries.flatten().filter(|entry| literal(entry)).collect()
 }
 
-/// Where the config writes a client key or passphrase as text (D353). A config that does not
-/// parse has no tree to find them in, so the text fallback masks every `key` and `passphrase`
-/// value in its `files` text instead.
+/// Where the config writes a client key or passphrase (D353), or an AWS secret access key or
+/// session token (D440), as text. A config that does not parse has no tree to find them in, so
+/// the text fallback masks the value of every key of those names in its `files` text instead.
 pub fn secrets(project: &Project<'_>, (entries, files): (&[CacheEntry], &SourceFiles)) -> Vec<SourceSpan> {
     let Some(config) = project.config() else { return unparsed(entries, files) };
-    literals(config.root).into_iter().map(|entry| unindented(config.text, entry.value.span)).collect()
+    let written = literals(config.root).into_iter().chain(sigv4::secrets(config.root));
+    written.map(|entry| unindented(config.text, entry.value.span)).collect()
 }
 
 /// The text fallback's spans over the config, when there is one; it has no tree here.
@@ -73,12 +74,15 @@ pub fn masked(diagnostics: Diagnostics, secrets: &[SourceSpan]) -> Diagnostics {
 /// `-----BEGIN`, says `PRIVATE KEY` or runs over more than one line; for `passphrase`, any text.
 /// A one-line key that is none of these is a path; the run's file check reports one that is not.
 fn literal(entry: &Entry) -> bool {
-    let Some(scalar) = entry.value.as_scalar().filter(|scalar| scalar.kind != ScalarKind::Null) else {
-        return false;
-    };
-    let text = scalar.text.replace("$${", "");
-    let secret = if entry.key == "key" { inline_pem(&text) } else { !text.is_empty() };
-    secret && !text.contains("${")
+    let Some(text) = written_text(entry).map(|text| text.replace("$${", "")) else { return false };
+    if entry.key == "key" { inline_pem(&text) } else { !text.is_empty() }
+}
+
+/// The text `entry`'s value is written as: a scalar that is not null and holds no `${…}`, where
+/// a `$${` is a literal `${`.
+pub fn written_text(entry: &Entry) -> Option<&str> {
+    let scalar = entry.value.as_scalar().filter(|scalar| scalar.kind != ScalarKind::Null)?;
+    (!scalar.text.replace("$${", "").contains("${")).then_some(scalar.text.as_str())
 }
 
 /// Every `http.tls.clients` entry of the config.

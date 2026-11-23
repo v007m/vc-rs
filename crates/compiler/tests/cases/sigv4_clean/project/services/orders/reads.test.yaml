@@ -1,0 +1,11 @@
+name: Order reads
+tests:
+  - id: readsAnOrder
+    call: orders#getOrder
+    vars: {orderId: o-1}
+  - id: readsTheDailyReport
+    call: orders#getReport
+  - id: searchesOrders
+    call: orders#getOrder
+    auth: searchDomain
+    vars: {orderId: o-2}

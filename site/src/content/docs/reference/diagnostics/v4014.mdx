@@ -1,0 +1,78 @@
+---
+title: "V4014 — An AWS secret access key or session token is written in the config"
+description: "An awsSigV4 auth holds its secretAccessKey or sessionToken as text, so the credential is committed to git with vibranium.config.yaml."
+sidebar:
+  label: "V4014 An AWS secret access key or session token is written in the config"
+  order: 4014
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="warning" variant="caution" /> <Badge text="Conventions" variant="note" />
+
+| | |
+| --- | --- |
+| Code | `V4014` |
+| Category | V4xxx: Conventions |
+| Severity | warning |
+| Certain fix | read it with `${secret.NAME}` declared in `.env.schema` |
+
+An `awsSigV4` auth holds its `secretAccessKey` or `sessionToken` as text, so the credential is
+committed to git with `vibranium.config.yaml`. Read it with `${secret.NAME}` instead and declare
+the name in `.env.schema`: the value then comes from the environment, `.env` or the secrets
+provider, and is masked in every output. With the default provider, the names AWS tools export
+(`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`) are read as they are.
+
+## Wrong
+
+```yaml title="vibranium.config.yaml"
+syntaxVersion: 2
+profiles:
+  - id: dev
+    default: true
+auth:
+  - id: ordersIam
+    type: awsSigV4
+    region: us-east-1
+    service: execute-api
+    accessKeyId: AKIAIOSFODNN7EXAMPLE
+    secretAccessKey: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+```
+
+## Right
+
+```dotenv title=".env.schema"
+AWS_ACCESS_KEY_ID=
+# @sensitive
+AWS_SECRET_ACCESS_KEY=
+```
+
+```yaml title="vibranium.config.yaml"
+syntaxVersion: 2
+profiles:
+  - id: dev
+    default: true
+auth:
+  - id: ordersIam
+    type: awsSigV4
+    region: us-east-1
+    service: execute-api
+    accessKeyId: ${secret.AWS_ACCESS_KEY_ID}
+    secretAccessKey: ${secret.AWS_SECRET_ACCESS_KEY}
+```
+
+
+## Explain it in your terminal
+
+The same page is built into the binary, so this works anywhere, even outside a project:
+
+```console
+$ vc explain V4014
+```
+
+## Related
+
+- [All diagnostic codes](/vc-rs/reference/diagnostics/)
+- [`vc explain`](/vc-rs/reference/cli/explain/)
+- [`vc check`](/vc-rs/reference/cli/check/)
+- [Errors and fixes](/vc-rs/guides/errors-and-fixes/)

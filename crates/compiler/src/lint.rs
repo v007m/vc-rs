@@ -25,6 +25,8 @@ mod placeholders;
 mod redact_rules;
 mod reuse_keys;
 mod shared_writes;
+mod sigv4_scopes;
+mod sigv4_secrets;
 mod skip_reasons;
 mod source_headers;
 mod test_cache;
@@ -94,6 +96,7 @@ impl LintRegistry {
             Box::new(graphql_undeclared::GraphqlUndeclared),
             Box::new(graphql_schemas::GraphqlSchemas),
             Box::new(graphql_values::GraphqlValues),
+            Box::new(sigv4_scopes::Sigv4Scopes),
         ];
         Self { lints }
     }
@@ -111,6 +114,7 @@ impl LintRegistry {
             Box::new(expired::ALLOWED_FAILURES),
             Box::new(source_headers::SourceHeaders),
             Box::new(tls_literals::TlsLiterals),
+            Box::new(sigv4_secrets::Sigv4Secrets),
             Box::new(graphql_names::GraphqlNames),
         ];
         Self { lints }

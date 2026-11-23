@@ -1,0 +1,9 @@
+syntaxVersion: 2
+project: orders
+auth:
+  - id: ordersIam
+    type: awsSigV4
+    region: us-east-1
+    service: execute-api
+    accessKeyId: AKIAIOSFODNN7EXAMPLE
+    secretAccessKey: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY: oops

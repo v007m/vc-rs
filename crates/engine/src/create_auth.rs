@@ -17,14 +17,19 @@ use crate::edit::{Changes, declaring, internal};
 use crate::{Added, Engine, EngineError};
 
 /// The keys worth asking for that a type does not need, by type.
-const OPTIONAL: [(&str, &[&str]); 2] =
-    [("apiKey", &["in"]), ("oauth2ClientCredentials", &["clientSecret", "audience"])];
+const OPTIONAL: [(&str, &[&str]); 3] = [
+    ("apiKey", &["in"]),
+    ("oauth2ClientCredentials", &["clientSecret", "audience"]),
+    ("awsSigV4", &["sessionToken", "payload"]),
+];
 
 /// The key no prompt asks for: a flow's `steps` are a list.
 const UNASKED: &str = "steps";
 
-/// The fields that hold a credential, so are written only as templates.
-const SECRET: [&str; 5] = ["password", "token", "value", "clientSecret", "refreshToken"];
+/// The fields that hold a credential, so are written only as templates. An AWS access key ID is
+/// one, as the other half of its secret key (D444).
+const SECRET: [&str; 8] =
+    ["password", "token", "value", "clientSecret", "refreshToken", "accessKeyId", "secretAccessKey", "sessionToken"];
 
 /// What `vc new auth` asks for.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -185,6 +190,8 @@ mod tests {
         assert_eq!(auth_fields("oauth2ClientCredentials"), ["tokenUrl", "clientId", "clientSecret", "audience"]);
         assert_eq!(auth_fields("flow"), [""; 0]);
         assert_eq!(auth_fields("mtls"), ["clientCert"]);
+        let sigv4 = ["region", "service", "accessKeyId", "secretAccessKey", "sessionToken", "payload"];
+        assert_eq!(auth_fields("awsSigV4"), sigv4);
         assert_eq!(auth_fields("nope"), [""; 0]);
     }
 
@@ -210,6 +217,11 @@ mod tests {
         assert_eq!(yaml(&request("oauth2ClientCredentials", &[])).map(|(_, missing)| missing), Some(0));
         let mtls = yaml(&request("mtls", &[("clientCert", "partnerCert")]));
         assert_eq!(mtls, Some(("id: partnerToken\ntype: mtls\nclientCert: partnerCert".into(), 0)));
+        let sigv4 = auth_yaml(&request("awsSigV4", &[("region", "us-east-1"), ("payload", "unsigned")])).ok();
+        let keys = "accessKeyId: ${secret.PARTNER_TOKEN_ACCESS_KEY_ID}\n\
+                    secretAccessKey: ${secret.PARTNER_TOKEN_SECRET_ACCESS_KEY}";
+        let written = format!("id: partnerToken\ntype: awsSigV4\nregion: us-east-1\npayload: unsigned\n{keys}");
+        assert_eq!(sigv4.map(|(yaml, missing)| (yaml, missing.len())), Some((written, 2)), "`service` is the author's");
     }
 
     #[test]
@@ -226,5 +238,8 @@ mod tests {
         assert!(auth_yaml(&request("bearer", &[("token", "eyJhbGciOi")])).is_err());
         assert!(auth_yaml(&request("bearer", &[("username", "ann")])).is_err());
         assert!(auth_yaml(&request("bearr", &[])).is_err());
+        for key in ["accessKeyId", "secretAccessKey", "sessionToken"] {
+            assert!(auth_yaml(&request("awsSigV4", &[(key, "AKIAIOSFODNN7EXAMPLE")])).is_err(), "{key}");
+        }
     }
 }

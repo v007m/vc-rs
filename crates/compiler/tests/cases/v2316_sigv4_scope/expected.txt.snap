@@ -1,0 +1,40 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2316_sigv4_scope/project
+---
+error[V2316]: `US-East-1` is not an AWS region
+  --> vibranium.config.yaml:11:13
+   |
+11 |     region: US-East-1
+   |             ^^^^^^^^^ a scope name is lowercase letters, digits and `-`
+   = help: write an AWS region, such as `us-east-1`
+   = fix: Write us-east-1 (certain)
+
+error[V2316]: `Execute-API` is not an AWS signing name
+  --> vibranium.config.yaml:12:14
+   |
+12 |     service: Execute-API
+   |              ^^^^^^^^^^^ a scope name is lowercase letters, digits and `-`
+   = help: write an AWS signing name, such as `execute-api` or `s3`
+   = fix: Write execute-api (certain)
+
+error[V2316]: `eu west 1` is not an AWS region
+  --> vibranium.config.yaml:17:13
+   |
+17 |     region: 'eu west 1'
+   |             ^^^^^^^^^^^ a scope name is lowercase letters, digits and `-`
+   = help: write an AWS region, such as `us-east-1`
+
+error[V2316]: `service` is empty
+  --> vibranium.config.yaml:18:14
+   |
+18 |     service: ''
+   |              ^^ a scope name is lowercase letters, digits and `-`
+   = help: write an AWS signing name, such as `execute-api` or `s3`
+
+error[V2316]: `execute_api` is not an AWS signing name
+  --> vibranium.config.yaml:24:14
+   |
+24 |     service: execute_api
+   |              ^^^^^^^^^^^ a scope name is lowercase letters, digits and `-`
+   = help: write an AWS signing name, such as `execute-api` or `s3`

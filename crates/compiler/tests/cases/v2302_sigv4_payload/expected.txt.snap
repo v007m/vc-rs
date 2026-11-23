@@ -1,0 +1,10 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2302_sigv4_payload/project
+---
+error[V2302]: expected one of signed, unsigned, found `streaming`
+  --> vibranium.config.yaml:13:14
+   |
+13 |     payload: streaming
+   |              ^^^^^^^^^ not a known value
+   = help: expected one of `signed`, `unsigned`

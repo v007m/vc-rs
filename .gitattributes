@@ -1,2 +1,5 @@
 # Golden snapshots and byte offsets assume LF line endings on every OS.
 * text=auto eol=lf
+
+# The AWS signing vectors are compared byte for byte: no line-ending conversion.
+crates/adapters/auth/tests/sigv4/** -text

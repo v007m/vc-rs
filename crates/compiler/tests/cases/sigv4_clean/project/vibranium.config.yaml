@@ -1,0 +1,32 @@
+syntaxVersion: 2
+project: orders
+vars:
+  awsRegion: eu-west-1
+  ordersUrl: https://orders.execute-api.eu-west-1.amazonaws.com/prod
+profiles:
+  - id: dev
+    default: true
+auth:
+  - id: ordersIam
+    type: awsSigV4
+    region: ${var.awsRegion}
+    service: execute-api
+    accessKeyId: ${secret.AWS_ACCESS_KEY_ID}
+    secretAccessKey: ${secret.AWS_SECRET_ACCESS_KEY}
+    sessionToken: ${secret.AWS_SESSION_TOKEN}
+  - id: reportsBucket
+    type: awsSigV4
+    name: Reports bucket
+    region: us-east-1
+    service: s3
+    accessKeyId: ${secret.AWS_ACCESS_KEY_ID}
+    secretAccessKey: ${secret.AWS_SECRET_ACCESS_KEY}
+    payload: unsigned
+  - id: searchDomain
+    type: awsSigV4
+    region: ${var.awsRegion}
+    service: es
+    accessKeyId: ${secret.AWS_ACCESS_KEY_ID}
+    secretAccessKey: ${secret.AWS_SECRET_ACCESS_KEY}
+    sessionToken: ''
+    payload: signed

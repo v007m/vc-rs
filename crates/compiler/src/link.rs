@@ -25,6 +25,7 @@ mod reports_dir;
 mod saves;
 mod secrets;
 mod shared;
+mod sigv4;
 mod spec_files;
 mod tls;
 mod uses;
@@ -43,6 +44,7 @@ pub use body_schema::{is_inline as schema_is_inline, key as schema_key, nodes as
 pub use build::{ProtocolRulesRegistry, body_path, duration, flag};
 pub use data::DataWanted;
 pub use project::{Project, Source, TEST_BLOCKS, actions, list, protocol, text, tls_clients, whole_lines};
+pub use sigv4::{scopes as sigv4_scopes, secrets as sigv4_secrets};
 pub use tls::{literals as tls_literals, masked};
 pub use uses::piece_refs;
 

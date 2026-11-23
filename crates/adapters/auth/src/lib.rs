@@ -17,6 +17,8 @@ mod plugin;
 #[cfg(not(target_family = "wasm"))]
 mod redirect;
 mod registry;
+#[cfg_attr(not(test), expect(dead_code, reason = "the sign stage wires it in the next PR (#106 PR 3)"))]
+mod sigv4;
 #[cfg(test)]
 mod testing;
 mod token;
