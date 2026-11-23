@@ -141,7 +141,7 @@ Requirements are grouped by area; the release column follows the plan below (v2.
 | R41 | Import | HAR import: filter noise, map hosts to api files, derive conventional IDs and path vars, merge duplicates, match existing apis, strip secrets into auth and ${secret} references, optionally write a flow test replaying the session; --dry-run with diffs. CLI first, then TUI and web UI | v2.0 (CLI), v2.2 (TUI), v2.3 (web) |
 | R42 | Compile | Diagnostics with code, location, underlined source, explanation, help and certain fixes; vc check --fix with diff preview; vc explain \<code>; naming-convention lint with rename across references (vc rename) | v2.0 |
 | R43 | Web UI | API client like Postman: browse every api, build and send requests per profile, inspect body, headers, timing and checks, chain multi-stage flows with values passed forward, history, save as test or flow test, import HAR, OpenAPI, cURL and Postman | v2.3 |
-| R44 | Web UI | Editor for every file kind (config, api, test, load, dataset, schema, hook) in form, YAML or split view over one source of truth; autocomplete of IDs, vars, matchers; live diagnostics with quick fixes; diff against the saved file; save blocked on errors; creators that apply the naming conventions | v2.3 |
+| R44 | Web UI | Editor for every file kind (config, api, test, load, dataset, schema, hook) in form, YAML or split view over one source of truth; autocomplete of IDs, vars, matchers; live diagnostics with quick fixes; diff against the saved file; saving with errors allowed after a clear warning (D227, D475); creators that apply the naming conventions | v2.3 |
 
 ## Interfaces
 

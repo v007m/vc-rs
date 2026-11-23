@@ -1,0 +1,219 @@
+/* ==========================================================================
+   Vibranium UI v2 · glass.css: the four layers
+   --------------------------------------------------------------------------
+   L0  .l0            fixed background: drifting colour blobs, a matte film,
+                      a metallic sheen and fine grain. Sidebar, header,
+                      breadcrumbs, labels and the status line sit on it.
+                      Text on L0 uses --l0-ink*, never --ink*.
+   L1  .glass         the main content card (one per view; a split has two).
+       .glass-dense   the most opaque surface inside a card, for tables,
+                      code, JSON and anything dense. Keep data crisp here.
+   L2  .l2            a raised glass pill (buttons, chips, tiles). It lifts
+                      on hover and is debossed when pressed or selected:
+                      [aria-pressed=true], [aria-selected=true], .is-active.
+                      components.css builds .btn, .seg, .chip on these tokens.
+   L3  .l3            the strongest glass: palette, popovers, dialogs, toasts.
+                      <dialog class="l3"> gets a dimmed, blurred ::backdrop.
+
+   Rules
+   - Never stack L1 inside L1. Inside a card, group with .glass-dense or
+     hairline rules (--rule), not another card.
+   - No inline style= anywhere (the real app's CSP bans it). State is a
+     class or an aria-/data- attribute.
+   ========================================================================== */
+
+/* ---- L0 ------------------------------------------------------------------ */
+.l0 {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  background: var(--l0-base);
+  pointer-events: none;
+  contain: strict;
+}
+
+.l0-blob {
+  position: absolute;
+  border-radius: 50%;
+  will-change: transform;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+}
+
+/* main hue, behind the sidebar */
+.l0-blob--1 {
+  width: 78vmax; height: 78vmax;
+  left: -26vmax; top: -30vmax;
+  background: radial-gradient(closest-side, var(--blob-1), color-mix(in oklab, var(--blob-1) 72%, transparent) 52%, transparent);
+  animation-name: drift-a;
+  animation-duration: 46s;
+}
+/* companion hue, lower right */
+.l0-blob--2 {
+  width: 70vmax; height: 70vmax;
+  right: -24vmax; bottom: -32vmax;
+  background: radial-gradient(closest-side, var(--blob-2), color-mix(in oklab, var(--blob-2) 66%, transparent) 52%, transparent);
+  animation-name: drift-b;
+  animation-duration: 58s;
+}
+/* cool hue, upper right */
+.l0-blob--3 {
+  width: 60vmax; height: 60vmax;
+  right: -12vmax; top: -28vmax;
+  background: radial-gradient(closest-side, var(--blob-3), color-mix(in oklab, var(--blob-3) 60%, transparent) 52%, transparent);
+  animation-name: drift-c;
+  animation-duration: 64s;
+}
+/* warm spark, lower left */
+.l0-blob--4 {
+  width: 44vmax; height: 44vmax;
+  left: -8vmax; bottom: -20vmax;
+  background: radial-gradient(closest-side, var(--blob-4), color-mix(in oklab, var(--blob-4) 55%, transparent) 52%, transparent);
+  animation-name: drift-d;
+  animation-duration: 52s;
+}
+/* a second main-hue pool under the content, seen through the glass */
+.l0-blob--5 {
+  width: 56vmax; height: 56vmax;
+  left: 30vw; top: 22vh;
+  background: radial-gradient(closest-side, color-mix(in oklab, var(--blob-1) 80%, var(--blob-3)), transparent);
+  opacity: 0.85;
+  animation-name: drift-e;
+  animation-duration: 72s;
+}
+
+@keyframes drift-a {
+  0%   { transform: translate3d(0, 0, 0) scale(1); }
+  50%  { transform: translate3d(6vmax, 5vmax, 0) scale(1.06); }
+  100% { transform: translate3d(2vmax, 10vmax, 0) scale(0.96); }
+}
+@keyframes drift-b {
+  0%   { transform: translate3d(0, 0, 0) scale(1); }
+  50%  { transform: translate3d(-8vmax, -4vmax, 0) scale(1.08); }
+  100% { transform: translate3d(-3vmax, -9vmax, 0) scale(1); }
+}
+@keyframes drift-c {
+  0%   { transform: translate3d(0, 0, 0) scale(1); }
+  100% { transform: translate3d(-10vmax, 8vmax, 0) scale(1.1); }
+}
+@keyframes drift-d {
+  0%   { transform: translate3d(0, 0, 0) scale(1); }
+  100% { transform: translate3d(9vmax, -6vmax, 0) scale(1.12); }
+}
+@keyframes drift-e {
+  0%   { transform: translate3d(0, 0, 0) scale(1); }
+  100% { transform: translate3d(-12vmax, 6vmax, 0) scale(0.9); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion="full"]) .l0-blob { animation: none; }
+}
+:root[data-motion="reduce"] .l0-blob { animation: none; }
+
+/* the matte film dims the colour so it reads as brushed metal, not neon */
+.l0-film {
+  position: absolute;
+  inset: 0;
+  background: var(--l0-film);
+}
+
+/* broad metallic sheen: two soft diagonal highlights */
+.l0-sheen {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(116deg, transparent 18%, var(--l0-sheen) 34%, transparent 48%),
+    linear-gradient(116deg, transparent 62%, var(--l0-sheen) 76%, transparent 90%);
+  mix-blend-mode: var(--sheen-blend);
+}
+
+/* fine film grain: fractal noise, grey, tiled */
+.l0-grain {
+  position: absolute;
+  inset: 0;
+  opacity: var(--grain-opacity);
+  mix-blend-mode: var(--grain-blend);
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n' x='0' y='0'><feTurbulence type='fractalNoise' baseFrequency='0.92' numOctaves='3' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/><feComponentTransfer><feFuncA type='linear' slope='1'/></feComponentTransfer></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  background-size: 240px 240px;
+}
+
+/* ---- L1 glass card ------------------------------------------------------- */
+.glass {
+  position: relative;
+  background: var(--l1-bg);
+  -webkit-backdrop-filter: blur(var(--blur-l1)) saturate(160%);
+  backdrop-filter: blur(var(--blur-l1)) saturate(160%);
+  border-radius: var(--r-lg);
+  box-shadow: var(--sh-l1);
+  color: var(--ink);
+  min-width: 0;
+}
+
+/* the most opaque surface inside a card: tables, code, JSON */
+.glass-dense {
+  background: var(--dense-bg);
+  border-radius: var(--r-md);
+  box-shadow: inset 0 0 0 1px var(--rule);
+  min-width: 0;
+}
+
+/* ---- L2 raised pill ------------------------------------------------------ */
+.l2 {
+  background: var(--l2-bg);
+  border: 1px solid var(--l2-border);
+  box-shadow: var(--sh-l2);
+  -webkit-backdrop-filter: blur(var(--blur-l2));
+  backdrop-filter: blur(var(--blur-l2));
+  transition:
+    transform var(--dur-1) var(--ease),
+    box-shadow var(--dur-2) var(--ease),
+    background-color var(--dur-2) var(--ease),
+    border-color var(--dur-2) var(--ease);
+}
+.l2:where(button, a, [role="button"], [tabindex]):hover {
+  background: var(--l2-bg-hover);
+  border-color: var(--l2-border-hover);
+  box-shadow: var(--sh-l2-hover);
+  transform: translateY(-1px);
+}
+.l2:where(button, a, [role="button"], [tabindex]):active,
+.l2[aria-pressed="true"],
+.l2[aria-selected="true"],
+.l2.is-active {
+  background: var(--l2-bg-pressed);
+  box-shadow: var(--sh-l2-pressed);
+  transform: translateY(0);
+}
+
+/* ---- L3 overlay ---------------------------------------------------------- */
+.l3 {
+  background: var(--l3-bg);
+  -webkit-backdrop-filter: blur(var(--blur-l3)) saturate(170%);
+  backdrop-filter: blur(var(--blur-l3)) saturate(170%);
+  border: 1px solid var(--l3-border);
+  border-radius: var(--r-xl);
+  box-shadow: var(--sh-l3);
+  color: var(--ink);
+}
+dialog.l3 {
+  padding: 0;
+  max-width: min(720px, calc(100vw - 32px));
+  max-height: min(86vh, 820px);
+  overflow: hidden;
+}
+dialog.l3::backdrop {
+  background: var(--l3-backdrop);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+}
+dialog.l3[open] { animation: l3-in var(--dur-2) var(--ease); }
+[popover].l3 { margin: 0; padding: 0; }
+/* component display rules must not keep a closed popover on screen */
+[popover]:not(:popover-open) { display: none !important; }
+[popover].l3:popover-open { animation: l3-in var(--dur-1) var(--ease); }
+@keyframes l3-in {
+  from { opacity: 0; transform: translateY(4px) scale(0.985); }
+  to   { opacity: 1; transform: none; }
+}
