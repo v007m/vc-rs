@@ -59,6 +59,20 @@ impl AuthProvider for Signing {
     }
 }
 
+/// Says it signs, but serves a plain header and no signer.
+struct Unsigned;
+
+#[async_trait]
+impl AuthProvider for Unsigned {
+    async fn credentials(&self, _request: &AuthRequest) -> Result<Credentials, AuthError> {
+        Ok(Credentials::header("x-key", SECRET))
+    }
+
+    fn signs(&self, _request: &AuthRequest) -> bool {
+        true
+    }
+}
+
 /// A clock a second further on each time it is read.
 #[derive(Default)]
 struct Stepping(AtomicU64);
@@ -154,6 +168,18 @@ async fn a_signer_that_fails_or_a_host_with_no_clock_fails_the_call_with_v5114()
     assert_eq!(code(&report), Some(Code::V5114.to_string()));
     let message = report.outcome.failure().map(|failure| failure.message.clone()).unwrap_or_default();
     assert!(message.contains("no auth type is called `sig`"), "{message}");
+    assert_eq!(recordings.take().len(), 0, "nothing is sent");
+}
+
+#[tokio::test]
+async fn credentials_with_no_signer_fail_a_signing_call_and_name_the_auth() {
+    let clock: Arc<dyn Clock> = Arc::new(Stepping::default());
+    let (cx, call, recordings) =
+        signed_call("/users", Arc::new(Unsigned), (vec![vc_testkit::status(200)], Some(clock)));
+    let report = run(&cx, call).await;
+    assert_eq!(code(&report), Some(Code::V5114.to_string()));
+    let message = report.outcome.failure().map(|failure| failure.message.clone()).unwrap_or_default();
+    assert!(message.contains("`svc` has no signer"), "{message}");
     assert_eq!(recordings.take().len(), 0, "nothing is sent");
 }
 

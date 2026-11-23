@@ -1,7 +1,6 @@
 //! The sign stage of the pipeline (D443): it sits inside the per-host limit, after the hooks,
 //! so the signer sees every header the request leaves with and dates it as it leaves.
 
-use std::fmt;
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -16,12 +15,6 @@ use crate::RequestStage;
 pub struct SignStage {
     auth: Arc<AuthStage>,
     clock: Option<Arc<dyn Clock>>,
-}
-
-impl fmt::Debug for SignStage {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("SignStage").field("auth", &self.auth).finish_non_exhaustive()
-    }
 }
 
 impl SignStage {
