@@ -136,7 +136,7 @@ async fn the_sign_stage_runs_last_after_the_permit_on_every_attempt() {
     };
     let (first, second) =
         tokio::join!(run(parts.clone(), call("http://api.test/echo")), run(parts, call("http://api.test/echo")));
-    let signed = [first, second]
+    let signed = <[_; 2]>::from((first, second))
         .map(|delivery| delivery.result.ok().and_then(|exchange| exchange.request.headers.get("x-signed-at").cloned()));
     let mut signed = signed.map(|value| value.and_then(|value| value.to_str().ok().map(str::to_owned)));
     signed.sort();

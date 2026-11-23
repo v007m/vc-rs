@@ -1,6 +1,7 @@
 //! The canonical request AWS computes from a request as it arrives.
 
 use std::borrow::Cow;
+use std::fmt::Write as _;
 
 use axum::body::Bytes;
 use axum::http::request::Parts;
@@ -60,7 +61,7 @@ fn headers(parts: &Parts, names: &[&str]) -> Result<String, Refusal> {
         if values.is_empty() {
             return Err(refused("SignatureDoesNotMatch", &format!("the signed header `{name}` is not sent")));
         }
-        text.push_str(&format!("{name}:{}\n", values.join(",")));
+        let _ = writeln!(text, "{name}:{}", values.join(","));
     }
     Ok(text)
 }

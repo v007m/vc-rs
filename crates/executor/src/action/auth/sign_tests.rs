@@ -73,12 +73,15 @@ impl Clock for Stepping {
     }
 }
 
+/// The transport's answers, and the clock the sign stage reads, if the host gives one.
+type Scripted = (Vec<HttpResponse>, Option<Arc<dyn Clock>>);
+
 /// A call to `path` with an `x-trace` header using an auth of type `sig`, its context over a transport answering
 /// `answers`, signed by `provider` at the time `clock` tells.
 fn signed_call(
     path: &str,
     provider: Arc<dyn AuthProvider>,
-    (answers, clock): (Vec<HttpResponse>, Option<Arc<dyn Clock>>),
+    (answers, clock): Scripted,
 ) -> (Arc<ActionCx>, vc_model::ActionId, Recordings) {
     let mut fixture = Fixture::new();
     let id = AuthId::new(fixture.sym("svc"));
@@ -151,7 +154,7 @@ async fn a_signer_that_fails_or_a_host_with_no_clock_fails_the_call_with_v5114()
     assert_eq!(code(&report), Some(Code::V5114.to_string()));
     let message = report.outcome.failure().map(|failure| failure.message.clone()).unwrap_or_default();
     assert!(message.contains("no auth type is called `sig`"), "{message}");
-    assert!(recordings.take().is_empty());
+    assert_eq!(recordings.take().len(), 0, "nothing is sent");
 }
 
 #[tokio::test]

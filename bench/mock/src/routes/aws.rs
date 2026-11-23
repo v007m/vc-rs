@@ -2,6 +2,7 @@
 //! test proves that what `awsSigV4` sends is what it signed (D457). Written apart from the
 //! signer, from AWS's documentation, so the two do not share a mistake.
 
+use std::fmt::Write as _;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use axum::body::{self, Bytes};
@@ -146,7 +147,10 @@ fn hmac(key: &[u8], data: &str) -> Vec<u8> {
 }
 
 fn hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+    bytes.iter().fold(String::with_capacity(bytes.len() * 2), |mut text, byte| {
+        let _ = write!(text, "{byte:02x}");
+        text
+    })
 }
 
 #[cfg(test)]

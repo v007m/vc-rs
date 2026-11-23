@@ -37,9 +37,11 @@ const PAYLOAD_RULE: &str = "payload: signed or unsigned";
 /// The signing names that follow S3's path rules (D436, D454).
 const S3_SERVICES: [&str; 4] = ["s3", "s3express", "s3-outposts", "s3-object-lambda"];
 
-/// `awsSigV4`: adds no headers, query values or cookies. Its credentials carry a [`Signer`]
-/// holding the checked settings, which signs each attempt as it leaves (D434); the access key ID,
-/// the secret and the token are the values the redactor hides (D439).
+/// `awsSigV4`: its credentials are a [`Signer`] over the checked settings.
+///
+/// It adds no headers, query values or cookies; the signer signs each attempt as it leaves
+/// (D434), and the access key ID, the secret and the token are the values the redactor hides
+/// (D439).
 #[derive(Clone, Copy, Debug, Default)]
 #[non_exhaustive]
 pub struct AwsSigV4;
