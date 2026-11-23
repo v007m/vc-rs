@@ -99,7 +99,7 @@ impl Engine {
     /// [`EngineError::Internal`] when the factory refuses: with no `http.tls` read, no setting is
     /// to blame.
     pub(crate) async fn transport(&self, environment: Arc<dyn Environment>) -> Result<Arc<dyn Transport>, EngineError> {
-        Ok(self.built(TlsSpec::default(), (environment, false)).await?.0)
+        Ok(self.built(TlsSpec::default(), (environment, false)).await?.0.transport)
     }
 
     /// The auth types a run obtains credentials through (D106): the builder's, else the

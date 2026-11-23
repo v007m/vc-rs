@@ -5,6 +5,7 @@ use vc_interfaces::{Artifact, ReportError};
 
 use super::*;
 use crate::testing::{self, Broken, Capture};
+use crate::view::ExchangeView;
 
 /// The document the scripted run writes.
 fn written() -> Value {
@@ -131,4 +132,22 @@ fn keeps_the_names_of_tests_files_and_profiles_and_the_runs_seed() {
     CtrfFormat.render(&snapshot, capture.as_ref()).unwrap();
     let document: Value = serde_json::from_str(&captured.take().1[0].1).unwrap();
     assert_eq!(document["results"]["extra"]["seed"], 42);
+}
+
+#[test]
+fn lists_a_test_s_stream_messages_under_its_extra() {
+    let mut snapshot = testing::snapshot();
+    let messages = vec![serde_json::json!({"text": "1"})];
+    let streamed = ExchangeView {
+        action: "call feed#ticks".to_owned(),
+        url: "http://x/events".to_owned(),
+        messages,
+        ..ExchangeView::default()
+    };
+    snapshot.tests[1].exchanges = vec![ExchangeView::default(), streamed];
+    let document = rendered(&snapshot);
+    let tests = &document["results"]["tests"];
+    let want = serde_json::json!([{"action": "call feed#ticks", "url": "http://x/events", "messages": [{"text": "1"}], "truncated": false}]);
+    assert_eq!(tests[1]["extra"]["streams"], want);
+    assert_eq!(tests[0]["extra"].get("streams"), None, "a test with no stream has no key");
 }

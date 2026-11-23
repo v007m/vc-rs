@@ -6,7 +6,7 @@ use serde_json::{Value, json};
 use vc_interfaces::{Artifact, ReportError};
 use vc_model::TestStatus;
 
-use crate::view::{RunFacts, TestView};
+use crate::view::{ExchangeView, RunFacts, TestView};
 use crate::{Destination, Format, RunSnapshot, encode, text};
 
 /// The file the format writes.
@@ -85,7 +85,7 @@ fn test(view: &TestView, started_ms: u64) -> Value {
 }
 
 fn test_extra(view: &TestView) -> Value {
-    json!({
+    let mut extra = json!({
         "id": view.id,
         "name": view.name,
         "file": view.file,
@@ -97,6 +97,22 @@ fn test_extra(view: &TestView) -> Value {
         "skipReason": view.skip_reason,
         "checks": view.checks().collect::<Vec<_>>(),
         "steps": view.steps,
+    });
+    let streamed = view.exchanges.iter().filter(|exchange| !exchange.messages.is_empty());
+    let streams: Vec<Value> = streamed.map(stream).collect();
+    if !streams.is_empty() {
+        extra["streams"] = Value::from(streams);
+    }
+    extra
+}
+
+/// A stream call's kept messages under its action and URL (D429).
+fn stream(exchange: &ExchangeView) -> Value {
+    json!({
+        "action": exchange.action,
+        "url": exchange.url,
+        "messages": exchange.messages,
+        "truncated": exchange.truncated,
     })
 }
 

@@ -21,8 +21,8 @@ pub struct CallReport {
     pub text: String,
     /// What the run should still say: settings notices, failed cleanups, an unrecorded history.
     pub notices: Vec<String>,
-    /// The response as the checks saw it (`status`, `headers`, `body`), masked; what
-    /// `--save-as-test` takes its expectations from.
+    /// The response as the checks saw it (`status`, `headers`, `body`, and a stream call's
+    /// `messages` and `exchange`), masked; what `--save-as-test` takes its expectations from.
     pub response: Option<Value>,
     /// The last request as sent and its response, bodies whole, masked; `None` when no
     /// response came back.
@@ -68,11 +68,7 @@ impl CallReport {
             .as_ref()
             .zip(api)
             .and_then(|(exchange, (_, api))| ProtocolRuntimes::standard().response(api.protocol, exchange));
-        let response = match (viewed, report.response.as_deref()) {
-            (Some(viewed), _) => Some(viewed),
-            (None, Some(response)) => Some(redactor.masked(response.clone()).await),
-            (None, None) => None,
-        };
+        let response = response(redactor, viewed, report.response.as_deref()).await;
         let saved = saved(redactor, api, (&report, response.as_ref().unwrap_or(&Value::Null))).await;
         let passed = matches!(report.outcome, ActionOutcome::Passed);
         let text = shown(cx, exchange.as_ref(), &report.outcome).await;
@@ -114,6 +110,29 @@ async fn saved(
 fn save_of<'p>(program: &Program, api: &'p Api, name: &str) -> Option<&'p TemplateValue> {
     let found = api.save.values.iter().find(|(var, _)| program.str(var.sym()) == Some(name));
     found.map(|(_, value)| value)
+}
+
+/// The response to show: `viewed`, read from the masked exchange, when the call's protocol
+/// reads one, else the call's own `answered`, masked.
+async fn response(redactor: &Redactor, viewed: Option<Value>, answered: Option<&Value>) -> Option<Value> {
+    match (viewed, answered) {
+        (Some(viewed), answered) => Some(with_items(redactor, viewed, answered).await),
+        (None, Some(answered)) => Some(redactor.masked(answered.clone()).await),
+        (None, None) => None,
+    }
+}
+
+/// `viewed` with the `exchange` items of the call's own `response`, masked, when it is a
+/// stream call's (D380, D429).
+async fn with_items(redactor: &Redactor, viewed: Value, answered: Option<&Value>) -> Value {
+    let items = answered.and_then(|answered| answered.get("exchange"));
+    match (viewed, items) {
+        (Value::Object(mut root), Some(items)) => {
+            drop(root.insert("exchange".to_owned(), redactor.masked(items.clone()).await));
+            Value::Object(root)
+        }
+        (viewed, _) => viewed,
+    }
 }
 
 /// Whether `value` reads a part of `response`, the masked response, that is masked, or one

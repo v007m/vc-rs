@@ -13,7 +13,7 @@ use hyper_util::client::proxy::matcher::Matcher;
 use hyper_util::rt::{TokioExecutor, TokioTimer};
 use rustls::RootCertStore;
 use vc_interfaces::{CertChoice, SendContext, SentCert, Transport, TransportError};
-use vc_model::{ConnectionInfo, Exchange, HttpResponse, HttpVersion, RenderedRequest, Timing};
+use vc_model::{ConnectionInfo, Exchange, HttpResponse, HttpVersion, RenderedRequest, Size, Timing};
 
 use crate::alert::Failure;
 use crate::connector::{TimedConnector, bare_host};
@@ -54,8 +54,21 @@ pub struct TlsOptions {
 /// A pooled hyper client over the timed connector.
 type Pooled = Client<TimedConnector, Full<Bytes>>;
 
-/// A pooled client and the `id` of the identity it presents, if any.
-type Pool = (Pooled, Option<Arc<str>>);
+/// A pooled client and the `id` of its identity, if any.
+type Picked<'pool> = (&'pool Pooled, &'pool Option<Arc<str>>);
+
+/// Marks a wire request that opens a WebSocket, so it goes through the HTTP/1.1-only client; a
+/// request's own `upgrade` header does not (D460).
+#[derive(Clone, Copy, Debug)]
+pub struct Upgrading;
+
+/// The pooled clients of one identity, and its `id`, if any. `upgrades` offers only HTTP/1.1 by
+/// ALPN and carries the requests marked [`Upgrading`], a WebSocket's (D460).
+struct Pool {
+    client: Pooled,
+    upgrades: Pooled,
+    id: Option<Arc<str>>,
+}
 
 /// The HTTP/1.1 and HTTP/2 transport: hyper's pooled client over the timed connector.
 ///
@@ -95,25 +108,33 @@ impl HttpTransport {
         checked: HostRules,
     ) -> Result<Self, HttpAdapterError> {
         let proxy = Arc::new(options.proxy.matcher());
-        let pooled = |identity: Option<&ClientIdentity>| -> Result<Pool, HttpAdapterError> {
-            let connector = TimedConnector::new(tls::client_config(roots, identity)?, Arc::clone(&proxy));
+        let build = |config| {
+            let connector = TimedConnector::new(config, Arc::clone(&proxy));
             let mut builder = Client::builder(TokioExecutor::new());
-            let client = builder.pool_idle_timeout(options.pool_idle).pool_timer(TokioTimer::new()).build(connector);
-            Ok((client, identity.map(|identity| Arc::from(identity.id()))))
+            builder.pool_idle_timeout(options.pool_idle).pool_timer(TokioTimer::new()).build(connector)
+        };
+        let pooled = |identity: Option<&ClientIdentity>| -> Result<Pool, HttpAdapterError> {
+            let config = tls::client_config(roots, identity)?;
+            let upgrades = build(tls::http1_only(&config));
+            Ok(Pool { client: build(config), upgrades, id: identity.map(|identity| Arc::from(identity.id())) })
         };
         let clients = ClientTable::new(checked, pooled(None)?, |identity| pooled(Some(identity)))?;
         Ok(Self { clients: Arc::new(clients), proxy })
     }
 
-    /// The pooled client for the identity `choice` picks for `request`, with that identity's `id`.
-    fn client(&self, request: &RenderedRequest, choice: CertChoice) -> Result<&Pool, TransportError> {
-        let client = self.clients.pick(&request.uri, choice);
-        client.ok_or_else(|| TransportError::InvalidRequest { reason: format!("no client identity for {choice:?}") })
+    /// The pooled client for the identity `choice` picks for `request`, with that identity's `id`:
+    /// its HTTP/1.1-only one when `request` is marked [`Upgrading`].
+    fn client(&self, request: &Request<Full<Bytes>>, choice: CertChoice) -> Result<Picked<'_>, TransportError> {
+        let pool = self.clients.pick(request.uri(), choice);
+        let pool = pool
+            .ok_or_else(|| TransportError::InvalidRequest { reason: format!("no client identity for {choice:?}") })?;
+        let client = if request.extensions().get::<Upgrading>().is_some() { &pool.upgrades } else { &pool.client };
+        Ok((client, &pool.id))
     }
 
-    /// The request hyper sends: the rendered one plus `accept-encoding` and, for plain HTTP
-    /// through a proxy with credentials, `proxy-authorization`.
-    fn wire_request(&self, request: &RenderedRequest) -> Result<Request<Full<Bytes>>, TransportError> {
+    /// The request hyper sends: the rendered one plus, for plain HTTP through a proxy with
+    /// credentials, `proxy-authorization`.
+    pub(crate) fn wire_request(&self, request: &RenderedRequest) -> Result<Request<Full<Bytes>>, TransportError> {
         if request.uri.host().is_none() || !matches!(request.uri.scheme_str(), Some("http" | "https")) {
             return Err(TransportError::InvalidRequest { reason: format!("{} is not an http(s) URL", request.uri) });
         }
@@ -121,41 +142,75 @@ impl HttpTransport {
         *wire.method_mut() = request.method.clone();
         *wire.uri_mut() = request.uri.clone();
         *wire.headers_mut() = request.headers.clone();
-        let headers = wire.headers_mut();
-        headers.entry(ACCEPT_ENCODING).or_insert(http::HeaderValue::from_static(body::ACCEPT_ENCODING));
         let proxy = self.proxy.intercept(&request.uri).filter(|_| request.uri.scheme_str() == Some("http"));
         if let Some(auth) = proxy.as_ref().and_then(|found| found.basic_auth()) {
-            headers.insert(PROXY_AUTHORIZATION, auth.clone());
+            wire.headers_mut().insert(PROXY_AUTHORIZATION, auth.clone());
         }
         Ok(wire)
+    }
+
+    /// Sends `wire` and waits for the head of its answer, leaving the body to read.
+    pub(crate) async fn answer(
+        &self,
+        wire: Request<Full<Bytes>>,
+        ctx: &SendContext,
+    ) -> Result<Answered, TransportError> {
+        let (client, client_cert) = self.client(&wire, ctx.client_cert)?;
+        let host = bare_host(wire.uri().host().unwrap_or_default()).to_owned();
+        let started = Instant::now();
+        let response = client
+            .request(wire)
+            .await
+            .map_err(|error| transport_error(&error, &host, sent_cert(client_cert.as_deref(), ctx.client_cert)))?;
+        let first_byte = started.elapsed();
+        let (mut connection, record) = connection_of(&response);
+        connection.client_cert.clone_from(client_cert);
+        let mut timing = Timing { first_byte, total: first_byte, ..Timing::default() };
+        if let Some(record) = record {
+            (timing.dns, timing.connect, timing.tls) = (record.dns, Some(record.connect), record.tls);
+        }
+        let (parts, body) = response.into_parts();
+        Ok(Answered { parts, body, connection, timing, started })
+    }
+}
+
+/// The head of an answer, its body not read yet.
+pub struct Answered {
+    pub parts: http::response::Parts,
+    body: Incoming,
+    connection: ConnectionInfo,
+    timing: Timing,
+    started: Instant,
+}
+
+impl Answered {
+    /// The exchange, with the body read and decoded, each capped at `limit`.
+    pub async fn read(self, request: RenderedRequest, limit: Size) -> Result<Exchange, TransportError> {
+        let Self { parts, body: incoming, connection, mut timing, started } = self;
+        let wire_body = body::read(incoming, limit).await?;
+        let wire_size = wire_body.len() as u64;
+        let decoded = body::decode(&parts.headers, wire_body, limit)?;
+        timing.total = started.elapsed();
+        timing.download = timing.total.saturating_sub(timing.first_byte);
+        let response = HttpResponse { status: parts.status, headers: parts.headers, body: decoded, wire_size };
+        Ok(Exchange { request, response, timing, connection, messages: Vec::new() })
+    }
+
+    /// The exchange of the head alone, with an empty body, and the body left to stream.
+    pub fn streamed(self, request: RenderedRequest) -> (Exchange, Incoming) {
+        let Self { parts, body, connection, timing, .. } = self;
+        let response = HttpResponse { status: parts.status, headers: parts.headers, body: Bytes::new(), wire_size: 0 };
+        (Exchange { request, response, timing, connection, messages: Vec::new() }, body)
     }
 }
 
 #[async_trait]
 impl Transport for HttpTransport {
     async fn send(&self, request: RenderedRequest, ctx: &SendContext) -> Result<Exchange, TransportError> {
-        let wire = self.wire_request(&request)?;
-        let (client, client_cert) = self.client(&request, ctx.client_cert)?;
-        let started = Instant::now();
-        let host = bare_host(request.uri.host().unwrap_or_default());
-        let response = client
-            .request(wire)
-            .await
-            .map_err(|error| transport_error(&error, host, sent_cert(client_cert.as_deref(), ctx.client_cert)))?;
-        let first_byte = started.elapsed();
-        let (mut connection, record) = connection_of(&response);
-        connection.client_cert.clone_from(client_cert);
-        let (parts, incoming) = response.into_parts();
-        let wire_body = body::read(incoming, ctx.body_limit).await?;
-        let wire_size = wire_body.len() as u64;
-        let decoded = body::decode(&parts.headers, wire_body, ctx.body_limit)?;
-        let total = started.elapsed();
-        let mut timing = Timing { first_byte, download: total.saturating_sub(first_byte), total, ..Timing::default() };
-        if let Some(record) = record {
-            (timing.dns, timing.connect, timing.tls) = (record.dns, Some(record.connect), record.tls);
-        }
-        let response = HttpResponse { status: parts.status, headers: parts.headers, body: decoded, wire_size };
-        Ok(Exchange { request, response, timing, connection, messages: Vec::new() })
+        let mut wire = self.wire_request(&request)?;
+        let encodings = http::HeaderValue::from_static(body::ACCEPT_ENCODING);
+        wire.headers_mut().entry(ACCEPT_ENCODING).or_insert(encodings);
+        self.answer(wire, ctx).await?.read(request, ctx.body_limit).await
     }
 }
 

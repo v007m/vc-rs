@@ -103,6 +103,7 @@ fn exchange(index: usize) -> ExchangeView {
         response_headers: vec![("content-type".to_owned(), "application/json".to_owned())],
         request_body: None,
         response_body: Some(format!("{{\"error\":\"{}\",\"user\":{index}}}", error(index))),
+        messages: Vec::new(),
         truncated: false,
     }
 }

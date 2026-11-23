@@ -102,7 +102,8 @@ pub struct TimingView {
     pub total: f64,
 }
 
-/// One redacted request and response; bodies are text, cut at `history.maxBodySize`.
+/// One redacted request and response; bodies are text, and they and a stream's messages are cut
+/// at `history.maxBodySize`.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ExchangeView {
@@ -116,6 +117,10 @@ pub struct ExchangeView {
     pub response_headers: Vec<(String, String)>,
     pub request_body: Option<String>,
     pub response_body: Option<String>,
+    /// What a stream call received, each message's fields as an object, kept and cut as the
+    /// bodies are (D429).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub messages: Vec<serde_json::Value>,
     pub truncated: bool,
 }
 

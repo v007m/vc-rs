@@ -1,4 +1,5 @@
-use vc_model::Bodies;
+use serde_json::json;
+use vc_model::{Bodies, StreamMessage};
 
 use super::*;
 use crate::testing::exchange as sample;
@@ -33,4 +34,22 @@ fn keeps_bodies_as_history_bodies_says() {
     assert!(keeping(Bodies::Failures).bodies_of(true));
     assert!(!keeping(Bodies::Failures).bodies_of(false));
     assert!(keeping(Bodies::All).bodies_of(false));
+}
+
+fn streamed(texts: &[&str]) -> vc_model::Exchange {
+    let mut exchange = sample("", "");
+    let message =
+        |text: &&str| StreamMessage { fields: json!({"text": text}).as_object().cloned().unwrap_or_default() };
+    exchange.messages = texts.iter().map(message).collect();
+    exchange
+}
+
+#[test]
+fn keeps_whole_messages_while_they_fit_in_the_body_limit() {
+    let all = view(&streamed(&["1", "2"]), 64);
+    assert_eq!((all.messages, all.truncated), (vec![json!({"text": "1"}), json!({"text": "2"})], false));
+    let one = view(&streamed(&["1", "2"]), 20);
+    assert_eq!((one.messages, one.truncated), (vec![json!({"text": "1"})], true), "{{\"text\":\"1\"}} is 12 bytes");
+    let stripped = without_bodies(view(&streamed(&["1"]), 64));
+    assert!(stripped.messages.is_empty(), "messages are kept as the bodies are");
 }

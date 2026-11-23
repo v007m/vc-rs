@@ -2,6 +2,7 @@ mod admin;
 mod auth;
 mod crud;
 mod echo;
+mod events;
 mod graphql;
 mod oauth;
 mod openapi;
@@ -9,6 +10,7 @@ mod owned;
 mod scripted;
 mod track;
 mod whoami;
+mod ws;
 
 use axum::Router;
 use axum::middleware;
@@ -28,10 +30,12 @@ pub fn router(store: &Store, extra: Router) -> Router {
         .merge(owned::routes(store))
         .merge(auth::routes(store))
         .merge(echo::routes())
+        .merge(events::routes())
         .merge(graphql::routes())
         .merge(oauth::routes(store))
         .merge(openapi::routes(store))
         .merge(scripted::routes(store))
+        .merge(ws::routes())
         .merge(extra)
         .route_layer(middleware::from_fn_with_state(store.clone(), track::track));
     counted.merge(admin::routes(store)).merge(openapi::switch(store)).layer(CompressionLayer::new())
