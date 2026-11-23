@@ -110,24 +110,6 @@ impl SigV4 {
         })
     }
 
-    /// `request` signed as at `now_ms` (UTC, milliseconds since the Unix epoch). Each `+` in the
-    /// query is sent as `%20` (D453), and for S3, the path is rewritten into AWS's encoding first
-    /// (D436, D454).
-    ///
-    /// # Errors
-    ///
-    /// [`AuthError::Missing`] if a header the signer sets cannot hold its value; the checks in
-    /// [`SigV4::from_request`] rule that out.
-    pub fn sign(&self, request: RenderedRequest, now_ms: u64) -> Result<RenderedRequest, AuthError> {
-        let moment = Moment::at(now_ms);
-        let payload = self.payload_hash(&request.body);
-        let mut request = self.stamp(request, &moment, &payload)?;
-        let canonical = canonical::request(&request, &payload, self.s3);
-        let authorization = self.authorization(&canonical, &moment)?;
-        request.headers.insert(AUTHORIZATION, authorization);
-        Ok(request)
-    }
-
     /// The values the redactor hides: the access key ID, the secret and the token.
     fn hidden(&self) -> Vec<Secret> {
         let key_id = Secret::new(self.key_id.clone());
@@ -194,8 +176,22 @@ impl SigV4 {
 }
 
 impl RequestSigner for SigV4 {
+    /// `request` signed as at `now_ms` (UTC, milliseconds since the Unix epoch). Each `+` in the
+    /// query is sent as `%20` (D453), and for S3, the path is rewritten into AWS's encoding first
+    /// (D436, D454).
+    ///
+    /// # Errors
+    ///
+    /// [`AuthError::Missing`] if a header the signer sets cannot hold its value; the checks in
+    /// [`SigV4::from_request`] rule that out.
     fn sign(&self, request: RenderedRequest, now_ms: u64) -> Result<RenderedRequest, AuthError> {
-        Self::sign(self, request, now_ms)
+        let moment = Moment::at(now_ms);
+        let payload = self.payload_hash(&request.body);
+        let mut request = self.stamp(request, &moment, &payload)?;
+        let canonical = canonical::request(&request, &payload, self.s3);
+        let authorization = self.authorization(&canonical, &moment)?;
+        request.headers.insert(AUTHORIZATION, authorization);
+        Ok(request)
     }
 }
 

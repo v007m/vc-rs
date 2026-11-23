@@ -1,7 +1,7 @@
 use http::header::{AUTHORIZATION, CONTENT_LENGTH, RANGE, USER_AGENT};
 use http::{HeaderValue, Method, Uri};
 use serde_json::{Value, json};
-use vc_interfaces::AuthError;
+use vc_interfaces::{AuthError, RequestSigner as _};
 use vc_model::RenderedRequest;
 
 use super::crypto::{Moment, hex, hmac};
@@ -234,6 +234,18 @@ fn a_missing_setting_is_missing() {
     settings.as_object_mut().unwrap().remove("region");
     let error = SigV4::from_request(&request("awsSigV4", &settings)).unwrap_err();
     assert!(matches!(error, AuthError::Missing { ref key, .. } if key == "region"), "{error:?}");
+}
+
+#[test]
+fn passes_the_request_signer_suite() {
+    let mut request = get("https://example.amazonaws.com/?Param1=value1");
+    request.headers.insert("x-trace", HeaderValue::from_static("t1"));
+    vc_testkit::request_signer_suite(&signer(&json!({"sessionToken": "t0k3n-session"})), &request, NOW);
+    vc_testkit::request_signer_suite(
+        &signer(&json!({"service": "s3"})),
+        &get("https://bucket.s3.amazonaws.com/a+b/c%2Fd"),
+        NOW,
+    );
 }
 
 #[test]

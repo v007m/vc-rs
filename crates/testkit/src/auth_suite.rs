@@ -1,4 +1,5 @@
-use vc_interfaces::{ActionRunner, AuthProvider, AuthRequest, Browser, Keychain, Secret};
+use vc_interfaces::{ActionRunner, AuthProvider, AuthRequest, Browser, Keychain, RequestSigner, Secret};
+use vc_model::RenderedRequest;
 
 /// The settings whose values are secret: no error message may hold them.
 const SECRET_KEYS: [&str; 8] =
@@ -79,4 +80,26 @@ pub fn keychain_suite(keychain: &dyn Keychain) {
     assert!(keychain.delete(service, account).is_ok());
     assert_eq!(keychain.get(service, account).ok(), Some(None));
     assert!(keychain.delete(service, account).is_ok(), "deleting nothing is fine");
+}
+
+/// The contract every [`RequestSigner`] meets (D112, D434), signing `request` at `now_ms`.
+///
+/// It adds or changes at least one header, keeps the method, host, body and every header it was
+/// given that it does not set (it may encode the path again, as S3 needs), and signs one request at one time the same way twice.
+///
+/// # Panics
+///
+/// When the signer breaks the contract or cannot sign `request`.
+pub fn request_signer_suite(signer: &dyn RequestSigner, request: &RenderedRequest, now_ms: u64) {
+    let outcome = signer.sign(request.clone(), now_ms);
+    assert!(outcome.is_ok(), "signing {request:?} failed: {outcome:?}");
+    let sent = outcome.unwrap_or_else(|_| request.clone());
+    assert_ne!(sent.headers, request.headers, "signing sets a header");
+    let fixed = (&sent.method, sent.uri.authority(), &sent.body);
+    assert_eq!(fixed, (&request.method, request.uri.authority(), &request.body), "the method, host and body are kept");
+    for (name, value) in &request.headers {
+        let kept = sent.headers.get_all(name).iter().any(|given| given == value);
+        assert!(kept || sent.headers.contains_key(name), "`{name}` is kept or set by the signer");
+    }
+    assert_eq!(signer.sign(request.clone(), now_ms).ok(), Some(sent), "one request at one time signs the same");
 }

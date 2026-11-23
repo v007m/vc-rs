@@ -10,7 +10,8 @@ use vc_model::{Exchange, RenderedRequest, Size, wire_host};
 /// `base` is a URL without a trailing slash whose server speaks the echo contract of
 /// `vc-mock-server`: `ANY /echo` answers 200 with a JSON object of the request's `method`,
 /// `path`, `query`, lowercase `headers` (with the `host` it was sent to, on HTTP/2 too) and
-/// `body` (parsed when JSON), and `GET /status/{code}` answers with that status. [`crate::FakeTransport::echo`] speaks it without a network.
+/// `body` (parsed when JSON), and `GET /status/{code}` answers with that status.
+/// [`crate::FakeTransport::echo`] speaks it without a network.
 ///
 /// # Panics
 ///
