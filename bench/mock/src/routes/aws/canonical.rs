@@ -22,12 +22,16 @@ pub struct Arrived<'a> {
     pub body: &'a Bytes,
 }
 
-/// The canonical request of `arrived`, signing the headers `names`. S3 signs the path as it
-/// arrives; any other service signs it normalised and encoded again.
+/// The canonical request of `arrived`, signing the headers `names`. S3 signs each path segment
+/// decoded and encoded once; any other service signs the path normalised and encoded again.
 pub fn request(arrived: &Arrived<'_>, names: &[&str], s3: bool) -> Result<String, Refusal> {
     let Arrived { parts, body } = *arrived;
     let path = parts.uri.path();
-    let path = if s3 { path.to_owned() } else { percent_encode(normalized(path).as_bytes(), PATH).to_string() };
+    let path = if s3 {
+        path.split('/').map(encoded).collect::<Vec<_>>().join("/")
+    } else {
+        percent_encode(normalized(path).as_bytes(), PATH).to_string()
+    };
     let headers = headers(parts, names)?;
     let payload = payload(parts, body)?;
     let query = query(parts.uri.query().unwrap_or_default());

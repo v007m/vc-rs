@@ -109,6 +109,7 @@ fn normalises_and_encodes_again_every_path_but_s3_s() {
     }
     for service in ["s3", "s3express", "s3-outposts", "s3-object-lambda"] {
         assert_eq!(canonical_path("/a//b/./c%20d", service), "/a//b/./c%20d", "{service}");
+        assert_eq!(canonical_path("/a+b=c/d%2Fe", service), "/a%2Bb%3Dc/d%2Fe", "{service}");
     }
 }
 
@@ -119,8 +120,10 @@ fn reads_a_sigv4_date() {
     assert_eq!(super::seconds("20240229T000001Z"), Some(1_709_164_801));
     assert_eq!(super::seconds("2015-08-30"), None);
     let bad = ["20151330T000000Z", "20150800T000000Z", "20150832T000000Z", "20150830T240000Z", "20150830T006000Z"];
-    for stamp in bad.into_iter().chain(["20150830T0000000Z", "201508300T000000Z", "20150830T000061Z"]) {
+    let more = ["20150830T0000000Z", "201508300T000000Z", "20150830T000061Z", "2015+830T12+600Z"];
+    for stamp in bad.into_iter().chain(more).chain(["20150231T000000Z", "20150229T000000Z", "21000229T000000Z"]) {
         assert_eq!(super::seconds(stamp), None, "{stamp}");
     }
     assert_eq!(super::seconds("20151231T235960Z"), Some(1_451_606_400), "a leap second");
+    assert_eq!(super::seconds("20000229T000000Z"), Some(951_782_400), "2000 is a leap year");
 }

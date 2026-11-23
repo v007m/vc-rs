@@ -118,17 +118,27 @@ fn fresh(stamp: &str, date: &str, now: u64) -> Result<(), Refusal> {
 }
 
 /// `YYYYMMDD'T'HHMMSS'Z'` in seconds since the Unix epoch; `None` for any other text, or a
-/// month, day, hour, minute or second out of its range.
+/// date that does not exist or a time out of range (a leap second is allowed).
 fn seconds(stamp: &str) -> Option<u64> {
     let (date, time) = stamp.strip_suffix('Z')?.split_once('T')?;
-    if (date.len(), time.len()) != (8, 6) {
+    let digits = |text: &str, len: usize| text.len() == len && text.bytes().all(|byte| byte.is_ascii_digit());
+    if !digits(date, 8) || !digits(time, 6) {
         return None;
     }
-    let number =
-        |text: &str, from: usize, to: usize, top: u64| text.get(from..to)?.parse::<u64>().ok().filter(|n| *n <= top);
-    let (month, day) = (number(date, 4, 6, 12).filter(|m| *m > 0)?, number(date, 6, 8, 31).filter(|d| *d > 0)?);
-    let days = days_from_civil(number(date, 0, 4, 9999)?, month, day)?;
-    Some(days * 86_400 + number(time, 0, 2, 23)? * 3600 + number(time, 2, 4, 59)? * 60 + number(time, 4, 6, 60)?)
+    let field = |text: &str, from: usize, to: usize| text.get(from..to)?.parse::<u64>().ok();
+    let (year, month, day) = (field(date, 0, 4)?, field(date, 4, 6)?, field(date, 6, 8)?);
+    let (hour, minute, second) = (field(time, 0, 2)?, field(time, 2, 4)?, field(time, 4, 6)?);
+    if day == 0 || day > month_days(year, month)? || hour > 23 || minute > 59 || second > 60 {
+        return None;
+    }
+    Some(days_from_civil(year, month, day)? * 86_400 + hour * 3600 + minute * 60 + second)
+}
+
+/// The days in `month` (1 to 12) of `year`.
+fn month_days(year: u64, month: u64) -> Option<u64> {
+    let leap = year.is_multiple_of(4) && (!year.is_multiple_of(100) || year.is_multiple_of(400));
+    let days = [31, if leap { 29 } else { 28 }, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    days.get(usize::try_from(month.checked_sub(1)?).ok()?).copied()
 }
 
 /// Days from 1970-01-01 to a date on or after it (Howard Hinnant's `days_from_civil`).

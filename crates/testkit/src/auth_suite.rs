@@ -84,8 +84,9 @@ pub fn keychain_suite(keychain: &dyn Keychain) {
 
 /// The contract every [`RequestSigner`] meets (D112, D434), signing `request` at `now_ms`.
 ///
-/// It adds or changes at least one header, keeps the method, host, body and every header it was
-/// given that it does not set (it may encode the path again, as S3 needs), and signs one request at one time the same way twice.
+/// It adds or changes at least one header, keeps the method, host and body and the name of
+/// every header it was given, and signs one request at one time the same way twice. It may
+/// encode the path and query again (S3's path, a `+` as `%20`) and set a header it owns.
 ///
 /// # Panics
 ///
@@ -97,9 +98,10 @@ pub fn request_signer_suite(signer: &dyn RequestSigner, request: &RenderedReques
     assert_ne!(sent.headers, request.headers, "signing sets a header");
     let fixed = (&sent.method, sent.uri.authority(), &sent.body);
     assert_eq!(fixed, (&request.method, request.uri.authority(), &request.body), "the method, host and body are kept");
-    for (name, value) in &request.headers {
-        let kept = sent.headers.get_all(name).iter().any(|given| given == value);
-        assert!(kept || sent.headers.contains_key(name), "`{name}` is kept or set by the signer");
+    let pairs = |sent: &RenderedRequest| sent.uri.query().map_or(0, |query| query.split('&').count());
+    assert_eq!(pairs(&sent), pairs(request), "every query parameter is kept");
+    for name in request.headers.keys() {
+        assert!(sent.headers.contains_key(name), "`{name}` is still sent");
     }
     assert_eq!(signer.sign(request.clone(), now_ms).ok(), Some(sent), "one request at one time signs the same");
 }
