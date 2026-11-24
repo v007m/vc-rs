@@ -1,0 +1,258 @@
+/* ==========================================================================
+   Vibranium UI v2 · glass.css: the layers and the surface rules
+   --------------------------------------------------------------------------
+   L0  .l0            fixed background: dusky low-chroma blobs that melt into
+                      the near-black base, a matte film, a metallic sheen and
+                      visible film grain. Text on L0 uses --l0-ink*.
+   L1  .glass         liquid glass: the main content card (one per view; a
+                      split has two). Translucent so the blobs show through,
+                      backdrop blur + saturate, a specular top edge, an inner
+                      rim and a soft drop shadow.
+       .well          a debossed surface inside a card: darker than the card,
+                      inset top shade, faint bottom lip. Editable fields
+                      (.input, .select, .textarea, the URL field, kv cells,
+                      the YAML editor) and read-only code/JSON/diff/log
+                      viewers use it.
+   L2  .l2            a raised glass pill (buttons, chips, tiles). It lifts
+                      on hover and is debossed when pressed or selected:
+                      [aria-pressed=true], [aria-selected=true], .is-active.
+                      components.css builds .btn, .seg, .chip on these tokens.
+   L3  .l3            the strongest glass: palette, popovers, dialogs, toasts.
+                      <dialog class="l3"> gets a dimmed, blurred ::backdrop.
+
+   Rules
+   R1  L0 colour is dusky and metallic, never neon; the grain is visible at
+       100% zoom in both themes.
+   R2  Sidebar, header, breadcrumbs and the status line sit straight on L0:
+       no panel background, scrim or border. Only L2 buttons and chips rise.
+   R3  Cards are L1 liquid glass. Text contrast comes from the tinted film
+       and the blur over dusky blobs, not from making the card opaque.
+   R4  A wrapper that is not a card (a toolbar, the URL bar row) has no
+       background and no border.
+   R5  One card level only. Never a box inside a card: group with spacing,
+       .section-label and hairline rules (--rule). Tables are borderless: a
+       header row and hairline row rules. .glass-dense is a legacy grouping
+       hook and paints nothing.
+   R6  Inside a card the only filled surfaces are editable inputs, and they
+       are debossed (.well tokens). Read-only values are plain text with no
+       fill. Buttons stay raised L2.
+   R7  Read-only code, JSON, diff and log viewers are debossed wells with
+       12-16px padding, the same treatment as R6.
+   - No inline style= anywhere (the real app's CSP bans it). State is a
+     class or an aria-/data- attribute.
+   ========================================================================== */
+
+/* ---- L0 ------------------------------------------------------------------ */
+.l0 {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  background: var(--l0-base);
+  pointer-events: none;
+  contain: strict;
+}
+
+.l0-blob {
+  position: absolute;
+  border-radius: 50%;
+  will-change: transform;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+}
+
+/* main hue, behind the sidebar */
+.l0-blob--1 {
+  width: 78vmax; height: 78vmax;
+  left: -26vmax; top: -30vmax;
+  background: radial-gradient(closest-side, var(--blob-1), color-mix(in oklab, var(--blob-1) 72%, transparent) 52%, transparent);
+  animation-name: drift-a;
+  animation-duration: 46s;
+}
+/* companion hue, lower right */
+.l0-blob--2 {
+  width: 70vmax; height: 70vmax;
+  right: -24vmax; bottom: -32vmax;
+  background: radial-gradient(closest-side, var(--blob-2), color-mix(in oklab, var(--blob-2) 66%, transparent) 52%, transparent);
+  animation-name: drift-b;
+  animation-duration: 58s;
+}
+/* cool hue, upper right */
+.l0-blob--3 {
+  width: 60vmax; height: 60vmax;
+  right: -12vmax; top: -28vmax;
+  background: radial-gradient(closest-side, var(--blob-3), color-mix(in oklab, var(--blob-3) 60%, transparent) 52%, transparent);
+  animation-name: drift-c;
+  animation-duration: 64s;
+}
+/* warm spark, lower left */
+.l0-blob--4 {
+  width: 44vmax; height: 44vmax;
+  left: -8vmax; bottom: -20vmax;
+  background: radial-gradient(closest-side, var(--blob-4), color-mix(in oklab, var(--blob-4) 55%, transparent) 52%, transparent);
+  animation-name: drift-d;
+  animation-duration: 52s;
+}
+/* a second main-hue pool under the content, seen through the glass */
+.l0-blob--5 {
+  width: 56vmax; height: 56vmax;
+  left: 30vw; top: 22vh;
+  background: radial-gradient(closest-side, color-mix(in oklab, var(--blob-1) 80%, var(--blob-3)), transparent);
+  opacity: 0.85;
+  animation-name: drift-e;
+  animation-duration: 72s;
+}
+
+@keyframes drift-a {
+  0%   { transform: translate3d(0, 0, 0) scale(1); }
+  50%  { transform: translate3d(6vmax, 5vmax, 0) scale(1.06); }
+  100% { transform: translate3d(2vmax, 10vmax, 0) scale(0.96); }
+}
+@keyframes drift-b {
+  0%   { transform: translate3d(0, 0, 0) scale(1); }
+  50%  { transform: translate3d(-8vmax, -4vmax, 0) scale(1.08); }
+  100% { transform: translate3d(-3vmax, -9vmax, 0) scale(1); }
+}
+@keyframes drift-c {
+  0%   { transform: translate3d(0, 0, 0) scale(1); }
+  100% { transform: translate3d(-10vmax, 8vmax, 0) scale(1.1); }
+}
+@keyframes drift-d {
+  0%   { transform: translate3d(0, 0, 0) scale(1); }
+  100% { transform: translate3d(9vmax, -6vmax, 0) scale(1.12); }
+}
+@keyframes drift-e {
+  0%   { transform: translate3d(0, 0, 0) scale(1); }
+  100% { transform: translate3d(-12vmax, 6vmax, 0) scale(0.9); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion="full"]) .l0-blob { animation: none; }
+}
+:root[data-motion="reduce"] .l0-blob { animation: none; }
+
+/* the matte film dims the colour so it reads as brushed metal, not neon */
+.l0-film {
+  position: absolute;
+  inset: 0;
+  background: var(--l0-film);
+}
+
+/* broad metallic sheen: two soft diagonal highlights */
+.l0-sheen {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(116deg, transparent 18%, var(--l0-sheen) 34%, transparent 48%),
+    linear-gradient(116deg, transparent 62%, var(--l0-sheen) 76%, transparent 90%);
+  mix-blend-mode: var(--sheen-blend);
+}
+
+/* fine film grain: fractal noise, grey, tiled */
+.l0-grain {
+  position: absolute;
+  inset: 0;
+  opacity: var(--grain-opacity);
+  mix-blend-mode: var(--grain-blend);
+  /* contrast-stretched so soft-light shows it on the near-black base too */
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n' x='0' y='0'><feTurbulence type='fractalNoise' baseFrequency='0.78' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/><feComponentTransfer><feFuncR type='linear' slope='2.6' intercept='-0.8'/><feFuncG type='linear' slope='2.6' intercept='-0.8'/><feFuncB type='linear' slope='2.6' intercept='-0.8'/><feFuncA type='linear' slope='0' intercept='1'/></feComponentTransfer></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  background-size: 200px 200px;
+}
+
+/* ---- L1 liquid-glass card ----------------------------------------------- */
+.glass {
+  position: relative;
+  background:
+    linear-gradient(180deg, var(--l1-gloss), transparent 120px),
+    var(--l1-bg);
+  -webkit-backdrop-filter: blur(var(--blur-l1)) saturate(var(--glass-sat));
+  backdrop-filter: blur(var(--blur-l1)) saturate(var(--glass-sat));
+  border-radius: var(--r-lg);
+  box-shadow: var(--sh-l1);
+  color: var(--ink);
+  min-width: 0;
+}
+/* specular edge: bright along the top, fading down the sides */
+.glass::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(180deg, var(--l1-edge-top), transparent 38%, transparent 72%, var(--l1-edge-bottom));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  pointer-events: none;
+}
+
+/* R5: a grouping hook only; it paints nothing (no box inside a card) */
+.glass-dense { min-width: 0; }
+
+/* R6/R7: debossed well, for fields and read-only viewers */
+.well {
+  background: var(--well-bg);
+  border-radius: var(--r-md);
+  box-shadow: var(--sh-deboss);
+  min-width: 0;
+}
+
+/* ---- L2 raised pill ------------------------------------------------------ */
+.l2 {
+  background: var(--l2-bg);
+  border: 1px solid var(--l2-border);
+  box-shadow: var(--sh-l2);
+  -webkit-backdrop-filter: blur(var(--blur-l2));
+  backdrop-filter: blur(var(--blur-l2));
+  transition:
+    transform var(--dur-1) var(--ease),
+    box-shadow var(--dur-2) var(--ease),
+    background-color var(--dur-2) var(--ease),
+    border-color var(--dur-2) var(--ease);
+}
+.l2:where(button, a, [role="button"], [tabindex]):hover {
+  background: var(--l2-bg-hover);
+  border-color: var(--l2-border-hover);
+  box-shadow: var(--sh-l2-hover);
+  transform: translateY(-1px);
+}
+.l2:where(button, a, [role="button"], [tabindex]):active,
+.l2[aria-pressed="true"],
+.l2[aria-selected="true"],
+.l2.is-active {
+  background: var(--l2-bg-pressed);
+  box-shadow: var(--sh-l2-pressed);
+  transform: translateY(0);
+}
+
+/* ---- L3 overlay ---------------------------------------------------------- */
+.l3 {
+  background: var(--l3-bg);
+  -webkit-backdrop-filter: blur(var(--blur-l3)) saturate(170%);
+  backdrop-filter: blur(var(--blur-l3)) saturate(170%);
+  border: 1px solid var(--l3-border);
+  border-radius: var(--r-xl);
+  box-shadow: var(--sh-l3);
+  color: var(--ink);
+}
+dialog.l3 {
+  padding: 0;
+  max-width: min(720px, calc(100vw - 32px));
+  max-height: min(86vh, 820px);
+  overflow: hidden;
+}
+dialog.l3::backdrop {
+  background: var(--l3-backdrop);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+}
+dialog.l3[open] { animation: l3-in var(--dur-2) var(--ease); }
+[popover].l3 { margin: 0; padding: 0; }
+/* component display rules must not keep a closed popover on screen */
+[popover]:not(:popover-open) { display: none !important; }
+[popover].l3:popover-open { animation: l3-in var(--dur-1) var(--ease); }
+@keyframes l3-in {
+  from { opacity: 0; transform: translateY(4px) scale(0.985); }
+  to   { opacity: 1; transform: none; }
+}

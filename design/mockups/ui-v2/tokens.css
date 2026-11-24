@@ -1,0 +1,283 @@
+/* ==========================================================================
+   Vibranium UI v2 · tokens.css
+   --------------------------------------------------------------------------
+   The only place a raw colour, size, radius, blur, shadow or duration may be
+   written. Every other file uses var(--token) only.
+
+   Theme model
+   - Dark is the default (bare :root sets color-scheme: dark).
+   - Light: [data-theme=light] on <html>, or the OS light preference when
+     <html> has no data-theme="dark".
+   - Colour tokens use light-dark(LIGHT, DARK), so each is written once and
+     follows color-scheme. Never put a colour inside a theme block.
+
+   Tint model (the blob palette and the accent follow the profile)
+   - [data-tint=violet|blue|teal|amber|red] on <html> sets --h (hue) and --h2
+     (companion hue). Blobs and the accent are oklch() of those hues.
+   - Project default: violet. Profile prod: red. Profile staging: amber.
+
+   Accessibility switches (on <html>)
+   - [data-motion=reduce]        or @media (prefers-reduced-motion)  -> blobs still
+   - [data-transparency=reduce]  or @media (prefers-reduced-transparency)
+                                 -> --glass-* alphas become 1, blur 0
+
+   Naming
+   - --l0-*   background layer (sidebar, header, status line text)
+   - --l1-*   liquid-glass card;  --well-* debossed fields and read-only wells
+   - --l2-*   raised controls (buttons, inputs, chips, tabs)
+   - --l3-*   overlays (palette, popovers, dialogs, toasts)
+   - --ink-*  text on L1/L2/L3;  --l0-ink-* text straight on L0
+   - --st-<status>, --st-<status>-soft, --st-<status>-ink   status language
+   ========================================================================== */
+
+:root {
+  color-scheme: dark;
+
+  /* ---- tint (hue drivers) -------------------------------------------- */
+  --h: 292;          /* main hue: violet */
+  --h2: 340;         /* companion hue */
+  --h3: 250;         /* cool hue */
+  --h4: 30;          /* warm spark */
+
+  /* ---- L0 background ------------------------------------------------- */
+  --l0-base: light-dark(#eeecf5, #0b0a11);
+  /* dusky, low-chroma pools that melt into the base; warm hues (h2, h4) are
+     the most muted so nothing reads as neon */
+  --blob-1: light-dark(oklch(0.86 0.07 var(--h)), oklch(0.40 0.105 var(--h)));
+  --blob-2: light-dark(oklch(0.88 0.05 var(--h2)), oklch(0.33 0.065 var(--h2)));
+  --blob-3: light-dark(oklch(0.87 0.06 var(--h3)), oklch(0.37 0.085 var(--h3)));
+  --blob-4: light-dark(oklch(0.90 0.04 var(--h4)), oklch(0.34 0.05 var(--h4)));
+  /* matte metallic: a dimming film over the blobs, then grain and sheen */
+  --l0-film: light-dark(rgb(246 244 252 / 0.46), rgb(9 8 15 / 0.30));
+  --l0-sheen: light-dark(rgb(255 255 255 / 0.30), rgb(255 255 255 / 0.04));
+  --grain-opacity: 0.55;   /* theme blocks below adjust */
+  --grain-blend: soft-light;
+  --sheen-blend: soft-light;
+  --l0-ink: light-dark(#15121f, #f6f4fb);
+  --l0-ink-2: light-dark(#3a3550, #d9d4e8);
+  --l0-ink-3: light-dark(#4c4763, #d2cce4);
+  --l0-hover: light-dark(rgb(255 255 255 / 0.42), rgb(255 255 255 / 0.08));
+  --l0-selected: light-dark(rgb(255 255 255 / 0.70), rgb(255 255 255 / 0.11));
+  --l0-rule: light-dark(rgb(21 18 31 / 0.10), rgb(255 255 255 / 0.09));
+
+  /* ---- L1 liquid-glass card ----------------------------------------- */
+  /* AA comes from the tinted film plus blur over the dusky blobs, not from
+     opacity: contrast.cjs checks every ink over the brightest blob */
+  --glass-l1: 0.52;   /* theme blocks below adjust */
+  --glass-l3: 0.86;
+  --glass-sat: 150%;
+  --l1-solid: light-dark(#fbfaff, #0f0d16);
+  --l1-bg: color-mix(in srgb, var(--l1-solid) calc(var(--glass-l1) * 100%), transparent);
+  --l1-border: light-dark(rgb(255 255 255 / 0.85), rgb(255 255 255 / 0.09));
+  --l1-highlight: light-dark(rgb(255 255 255 / 1), rgb(255 255 255 / 0.16));
+  --l1-rim: light-dark(rgb(255 255 255 / 0.55), rgb(255 255 255 / 0.06));
+  --l1-gloss: light-dark(rgb(255 255 255 / 0.38), rgb(255 255 255 / 0.045));
+  --l1-edge-top: light-dark(rgb(255 255 255 / 0.95), rgb(255 255 255 / 0.30));
+  --l1-edge-bottom: light-dark(rgb(30 24 60 / 0.10), rgb(255 255 255 / 0.04));
+  --l1-shadow-color: light-dark(rgb(40 30 90 / 0.14), rgb(0 0 0 / 0.50));
+  /* ---- debossed surfaces inside a card: editable fields and read-only
+     code/log wells. Darker than the card, inset top shade, faint bottom lip */
+  --well-bg: light-dark(rgb(40 32 80 / 0.055), rgb(0 0 0 / 0.30));
+  --well-bg-focus: light-dark(rgb(255 255 255 / 0.70), rgb(0 0 0 / 0.40));
+  --well-alt: light-dark(rgb(40 32 80 / 0.035), rgb(255 255 255 / 0.04));   /* hunk rows, gutters inside a well */
+  --well-shade: light-dark(rgb(30 24 60 / 0.16), rgb(0 0 0 / 0.55));
+  --well-lip: light-dark(rgb(255 255 255 / 0.85), rgb(255 255 255 / 0.07));
+  --rule: light-dark(rgb(21 18 31 / 0.09), rgb(255 255 255 / 0.08));
+  --rule-strong: light-dark(rgb(21 18 31 / 0.16), rgb(255 255 255 / 0.14));
+  --row-hover: light-dark(rgb(90 70 200 / 0.06), rgb(255 255 255 / 0.045));
+  --row-selected: light-dark(oklch(0.93 0.04 var(--h)), oklch(0.32 0.07 var(--h)));
+
+  /* text on L1/L2/L3 */
+  --ink: light-dark(#17142a, #f2f0f8);
+  --ink-2: light-dark(#47425e, #c2bcd5);
+  --ink-3: light-dark(#5d5875, #a49eba);
+  --ink-disabled: light-dark(#858099, #7a7590);
+
+  /* ---- L2 raised controls ------------------------------------------- */
+  --l2-bg: light-dark(rgb(255 255 255 / 0.62), rgb(255 255 255 / 0.065));
+  --l2-bg-hover: light-dark(rgb(255 255 255 / 0.92), rgb(255 255 255 / 0.085));
+  --l2-bg-pressed: light-dark(rgb(30 24 60 / 0.07), rgb(0 0 0 / 0.30));
+  --l2-border: light-dark(rgb(30 24 60 / 0.12), rgb(255 255 255 / 0.10));
+  --l2-border-hover: light-dark(rgb(30 24 60 / 0.18), rgb(255 255 255 / 0.17));
+  --l2-highlight: light-dark(rgb(255 255 255 / 0.95), rgb(255 255 255 / 0.10));
+  --l2-press-shade: light-dark(rgb(30 24 60 / 0.20), rgb(0 0 0 / 0.55));
+  --field-bg: var(--well-bg);
+  --field-bg-focus: var(--well-bg-focus);
+
+  /* ---- L3 overlays --------------------------------------------------- */
+  --l3-solid: light-dark(#faf9ff, #1a1825);
+  --l3-bg: color-mix(in srgb, var(--l3-solid) calc(var(--glass-l3) * 100%), transparent);
+  --l3-backdrop: light-dark(rgb(40 34 70 / 0.22), rgb(4 3 8 / 0.55));
+  --l3-border: light-dark(rgb(255 255 255 / 0.9), rgb(255 255 255 / 0.12));
+
+  /* ---- accent (follows tint) ---------------------------------------- */
+  --accent: light-dark(oklch(0.45 0.20 var(--h)), oklch(0.76 0.14 var(--h)));
+  --accent-fill: light-dark(oklch(0.48 0.21 var(--h)), oklch(0.50 0.20 var(--h)));
+  --accent-fill-2: light-dark(oklch(0.44 0.21 var(--h)), oklch(0.46 0.19 var(--h)));
+  --accent-soft: light-dark(oklch(0.93 0.045 var(--h)), oklch(0.34 0.09 var(--h) / 0.55));
+  --accent-ink: light-dark(oklch(0.42 0.19 var(--h)), oklch(0.85 0.09 var(--h)));
+  --on-accent: #ffffff;
+  --focus: light-dark(oklch(0.52 0.22 var(--h)), oklch(0.80 0.13 var(--h)));
+
+  /* ---- status language (shared with CLI/TUI/report) ------------------ */
+  --st-pass: light-dark(#126a40, #46d08f);
+  --st-pass-soft: light-dark(#ddf3e7, rgb(70 208 143 / 0.15));
+  --st-pass-ink: light-dark(#0f5c37, #7fe2b3);
+  --st-fail: light-dark(#b82424, #ff7a7e);
+  --st-fail-soft: light-dark(#fde5e4, rgb(255 107 112 / 0.15));
+  --st-fail-ink: light-dark(#9c1f1f, #ff9ea1);
+  --danger-fill: light-dark(#c42b2b, #c4303a); /* filled danger buttons: white text passes AA */
+  --st-blocked: light-dark(#8a5000, #f3ad45);
+  --st-blocked-soft: light-dark(#fbefd9, rgb(243 173 69 / 0.15));
+  --st-blocked-ink: light-dark(#784600, #f8c57a);
+  --st-skipped: light-dark(#5b5772, #a6a1ba);
+  --st-skipped-soft: light-dark(#eceaf2, rgb(166 161 186 / 0.15));
+  --st-skipped-ink: light-dark(#46425b, #c8c3d8);
+  --st-flaky: light-dark(#2a5cc4, #7eaaff);
+  --st-flaky-soft: light-dark(#e3ebfc, rgb(126 170 255 / 0.15));
+  --st-flaky-ink: light-dark(#1f4699, #a9c6ff);
+  --st-allow: light-dark(#a3367a, #f08fc4);
+  --st-allow-soft: light-dark(#f9e4f0, rgb(240 143 196 / 0.15));
+  --st-allow-ink: light-dark(#80285f, #f6b5d9);
+  --st-warn: var(--st-blocked);
+  --st-info: var(--st-flaky);
+
+  /* http methods (text on soft fill) */
+  --m-get: light-dark(#126b41, #6ee0aa);
+  --m-post: light-dark(#2554b5, #a3c2ff);
+  --m-put: light-dark(#8a5000, #f3b860);
+  --m-patch: light-dark(#6c3bb8, #d2b8ff);
+  --m-delete: light-dark(#ad2222, #ffa3a6);
+  --m-stream: light-dark(#0b6470, #6fdde8);
+
+  /* syntax (code, JSON, YAML, GraphQL) */
+  --syn-key: light-dark(#5a3fd0, #b9a8ff);
+  --syn-string: light-dark(#126a40, #8fe0b0);
+  --syn-number: light-dark(#a3367a, #f5a3cf);
+  --syn-bool: light-dark(#8a5000, #f3c06b);
+  --syn-null: light-dark(#5d5875, #a49eba);
+  --syn-punct: light-dark(#6d6884, #8d87a3);
+  --syn-var-bg: light-dark(oklch(0.93 0.05 var(--h)), oklch(0.38 0.10 var(--h) / 0.6));
+  --syn-var: light-dark(oklch(0.40 0.19 var(--h)), oklch(0.88 0.08 var(--h)));
+  --diff-add-bg: light-dark(#e3f5ea, rgb(70 208 143 / 0.13));
+  --diff-add-ink: light-dark(#0f5c37, #8fe6b9);
+  --diff-del-bg: light-dark(#fde8e7, rgb(255 107 112 / 0.13));
+  --diff-del-ink: light-dark(#9c1f1f, #ffa4a7);
+
+  /* ---- type ---------------------------------------------------------- */
+  --font: 'Geist', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono: 'Geist Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --fs-1: 12px;   /* meta, badges, status line */
+  --fs-2: 13px;   /* UI default, tables, code */
+  --fs-3: 14px;   /* body copy */
+  --fs-4: 16px;   /* section titles */
+  --fs-5: 20px;   /* card titles */
+  --fs-6: 24px;   /* page titles */
+  --lh-tight: 1.25;
+  --lh: 1.45;
+  --lh-code: 1.6;
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+  --tracking-label: 0.06em;
+  --tracking-title: -0.012em;
+
+  /* ---- space (4px grid) --------------------------------------------- */
+  --sp-0: 2px;
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+  --sp-10: 40px;
+
+  /* ---- size ---------------------------------------------------------- */
+  --ctl-h-sm: 24px;
+  --ctl-h: 30px;
+  --ctl-h-lg: 36px;
+  --sidebar-w: 268px;
+  --rail-w: 60px;
+  --header-h: 48px;
+  --statusline-h: 28px;
+
+  /* ---- radius -------------------------------------------------------- */
+  --r-xs: 5px;
+  --r-sm: 7px;
+  --r-md: 9px;
+  --r-lg: 14px;
+  --r-xl: 18px;
+  --r-pill: 999px;
+
+  /* ---- blur ---------------------------------------------------------- */
+  --blur-l1: 40px;
+  --blur-l2: 14px;
+  --blur-l3: 44px;
+  --blur-blob: 0px;   /* blobs are soft radial gradients; no filter needed */
+
+  /* ---- shadow -------------------------------------------------------- */
+  --sh-l1:
+    inset 0 1px 0 var(--l1-highlight),
+    inset 0 0 0 1px var(--l1-rim),
+    0 1px 2px var(--l1-shadow-color),
+    0 22px 56px -22px var(--l1-shadow-color);
+  --sh-deboss:
+    inset 0 1px 2px var(--well-shade),
+    inset 0 0 0 1px light-dark(rgb(30 24 60 / 0.06), rgb(0 0 0 / 0.20)),
+    0 1px 0 var(--well-lip);
+  --sh-l2:
+    inset 0 1px 0 var(--l2-highlight),
+    0 1px 2px light-dark(rgb(30 24 60 / 0.08), rgb(0 0 0 / 0.35));
+  --sh-l2-hover:
+    inset 0 1px 0 var(--l2-highlight),
+    0 2px 4px light-dark(rgb(30 24 60 / 0.10), rgb(0 0 0 / 0.40)),
+    0 6px 14px -6px light-dark(rgb(30 24 60 / 0.18), rgb(0 0 0 / 0.55));
+  --sh-l2-pressed:
+    inset 0 1px 3px var(--l2-press-shade),
+    inset 0 0 0 1px light-dark(rgb(30 24 60 / 0.06), rgb(0 0 0 / 0.25));
+  --sh-l3:
+    inset 0 1px 0 var(--l1-highlight),
+    0 2px 6px light-dark(rgb(30 24 60 / 0.10), rgb(0 0 0 / 0.4)),
+    0 32px 80px -24px light-dark(rgb(30 24 60 / 0.35), rgb(0 0 0 / 0.75));
+  --sh-focus: 0 0 0 2px var(--l0-base), 0 0 0 4px var(--focus);
+
+  /* ---- motion -------------------------------------------------------- */
+  --dur-1: 110ms;
+  --dur-2: 180ms;
+  --dur-3: 280ms;
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+/* ---- light theme: only color-scheme changes; light-dark() does the rest -- */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) { color-scheme: light; --grain-opacity: 0.16; --grain-blend: multiply; --glass-l1: 0.62; }
+}
+:root[data-theme="light"] { color-scheme: light; --grain-opacity: 0.16; --grain-blend: multiply; --glass-l1: 0.62; }
+:root[data-theme="dark"] { color-scheme: dark; --grain-opacity: 0.55; --grain-blend: soft-light; --glass-l1: 0.52; }
+
+/* ---- tints --------------------------------------------------------------- */
+:root[data-tint="violet"] { --h: 292; --h2: 340; --h3: 250; --h4: 30; }
+:root[data-tint="blue"]   { --h: 255; --h2: 215; --h3: 295; --h4: 180; }
+:root[data-tint="teal"]   { --h: 185; --h2: 150; --h3: 230; --h4: 95; }
+:root[data-tint="amber"]  { --h: 70;  --h2: 40;  --h3: 15;  --h4: 110; }
+:root[data-tint="red"]    { --h: 25;  --h2: 5;   --h3: 345; --h4: 55; }
+
+/* ---- reduce transparency: glass becomes solid --------------------------- */
+@media (prefers-reduced-transparency: reduce) {
+  :root:not([data-transparency="full"]) {
+    --glass-l1: 1; --glass-l3: 1;
+    --blur-l1: 0px; --blur-l2: 0px; --blur-l3: 0px;
+  }
+}
+:root[data-transparency="reduce"] {
+  --glass-l1: 1; --glass-l3: 1;
+  --blur-l1: 0px; --blur-l2: 0px; --blur-l3: 0px;
+}
+
+/* ---- reduce motion: blobs hold still ------------------------------------ */
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion="full"]) { --dur-1: 0ms; --dur-2: 0ms; --dur-3: 0ms; }
+}
+:root[data-motion="reduce"] { --dur-1: 0ms; --dur-2: 0ms; --dur-3: 0ms; }
+/* glass.css stops the blob animation under the same two conditions. */
