@@ -22,7 +22,7 @@
   function chartCard(k) {
     const c = CHARTS[k], v = slice(c.vals());
     const first = v[0], last = v[v.length - 1];
-    return `<section class="in-panel glass-dense" aria-labelledby="in-${k}-t">
+    return `<section class="in-panel" aria-labelledby="in-${k}-t">
       <div class="in-panel-head"><div class="grow"><h3 class="in-h" id="in-${k}-t">${c.title}</h3><span class="subtle">${c.sub}</span></div>
         ${SH.seg(`${c.title} view`, [['chart', 'Chart'], ['table', 'Table']], I[k], 'in-view', ` data-k="${k}"`)}</div>
       ${I[k] === 'table' ? chartTable(k) : `<figure class="in-chart" data-chart="${k}"><div class="in-plot"></div>
@@ -101,7 +101,7 @@
 
   /* ---- tiles ------------------------------------------------------------------ */
   function kpis() {
-    return `<div class="in-kpis" role="list" aria-label="Key numbers">${N.kpi.map((t) => `<div class="in-kpi glass-dense" role="listitem">
+    return `<div class="in-kpis" role="list" aria-label="Key numbers">${N.kpi.map((t) => `<div class="in-kpi" role="listitem">
       <span class="in-kpi-k">${esc(t.k)}</span>
       <div class="in-kpi-row"><b class="in-kpi-v num">${esc(t.v)}</b>${t.spark ? SH.spark(slice(t.spark).length > 1 ? slice(t.spark) : t.spark, `${t.k} trend`) : ''}</div>
       <span class="in-kpi-d">${t.good === null ? '' : `<span class="in-delta" data-good="${t.good}">${ic(t.d.startsWith('−') ? 'down' : 'up', 'ico-sm')}${esc(t.d)}</span>`}<span class="subtle">${t.good === null ? esc(t.d) + ' ' : ''}${esc(t.vs)}</span></span>
@@ -115,9 +115,9 @@
       const q = I.quarantined[f.id];
       return `<tr><td><button class="btn btn-ghost btn-sm mono" data-action="in-open-test" data-id="${esc(f.id)}">${esc(f.id)}</button></td>
         <td class="r mono">${f.rate}%</td><td>${strip(f.strip)}</td><td class="muted hide-narrow">${esc(f.last)}</td>
-        <td class="r">${q ? `<span class="badge badge-sm st-allow">${ic('allow')}until ${esc(q)}</span>` : `<button class="btn btn-sm" data-action="in-quarantine" data-id="${esc(f.id)}" data-fk="inq-${esc(f.id)}">${ic('allow')}Quarantine</button>`}</td></tr>`;
+        <td class="r">${q ? `<span class="badge badge-sm st-allow">${ic('allow')}until ${esc(q)}</span>` : `<button class="btn btn-ghost btn-sm" data-action="in-quarantine" data-id="${esc(f.id)}" data-fk="inq-${esc(f.id)}">${ic('allow')}Quarantine</button>`}</td></tr>`;
     });
-    return `<section class="in-panel glass-dense in-wide" aria-labelledby="in-flaky-t"><div class="in-panel-head"><div class="grow"><h3 class="in-h" id="in-flaky-t">Flaky tests</h3><span class="subtle">Passed on retry, or both passed and failed on the same commit</span></div></div>
+    return `<section class="in-panel in-wide" aria-labelledby="in-flaky-t"><div class="in-panel-head"><div class="grow"><h3 class="in-h" id="in-flaky-t">Flaky tests</h3><span class="subtle">Passed on retry, or both passed and failed on the same commit</span></div></div>
       ${SH.table(['Test', ['Fail rate', 'r'], 'Last 24 runs', ['Last flake', 'hide-narrow'], ['<span class="sr-only">Action</span>', 'r']], rows, 'in-flat')}</section>`;
   }
   function slow() {
@@ -127,15 +127,15 @@
       <td class="in-range-cell"><span class="in-range" role="img" aria-label="${esc(s.api)}: p50 ${s.p50} ms, p95 ${s.p95} ms" title="p50 ${s.p50} ms · p95 ${s.p95} ms"><i class="bar" data-w="${((s.p95 / max) * 100).toFixed(1)}"></i><i class="p50" data-w="${((s.p50 / max) * 100).toFixed(1)}"></i></span></td>
       <td class="r mono muted">${s.p50}</td><td class="r mono">${s.p95}</td></tr>`);
     const axis = `<span class="in-range-axis" aria-hidden="true">${[0, 200, 400, 600].map((t) => `<span data-w="${(t / max) * 100}">${t}</span>`).join('')}</span>`;
-    return `<section class="in-panel glass-dense" aria-labelledby="in-slow-t"><div class="in-panel-head"><div class="grow"><h3 class="in-h" id="in-slow-t">Slowest apis</h3><span class="subtle">Response time over the range, in ms</span></div>
+    return `<section class="in-panel" aria-labelledby="in-slow-t"><div class="in-panel-head"><div class="grow"><h3 class="in-h" id="in-slow-t">Slowest apis</h3><span class="subtle">Response time over the range, in ms</span></div>
       ${SH.seg('Sort by', [['p95', 'p95'], ['p50', 'p50']], key, 'in-slow')}</div>
       <div class="in-legend" aria-hidden="true"><span><i class="lg-p50"></i>p50 (median)</span><span><i class="lg-p95"></i>p50 → p95</span></div>
       ${SH.table(['Api', ['Range ' + axis, 'in-range-cell'], ['p50', 'r'], ['p95', 'r']], rows, 'in-flat')}</section>`;
   }
   function gaps() {
     const rows = N.gaps.map((g) => `<li class="in-li"><span class="mono grow ellipsis">${method(g.m)} ${esc(g.api)}</span><span class="subtle">${esc(g.why)}</span>${g.risk ? `<span class="badge badge-sm st-blocked">${ic('warn')}${esc(g.risk)}</span>` : ''}
-      <button class="btn btn-sm" data-action="in-scaffold" data-api="${esc(g.api)}">${ic('plus')}Add test</button></li>`).join('');
-    return `<section class="in-panel glass-dense" aria-labelledby="in-gaps-t"><div class="in-panel-head"><div class="grow"><h3 class="in-h" id="in-gaps-t">Coverage gaps</h3><span class="subtle">Apis with no running test (<code>vc coverage</code>)</span></div><span class="chip">10 of 14 covered</span></div>
+      <button class="btn btn-ghost btn-sm" data-action="in-scaffold" data-api="${esc(g.api)}">${ic('plus')}Add test</button></li>`).join('');
+    return `<section class="in-panel" aria-labelledby="in-gaps-t"><div class="in-panel-head"><div class="grow"><h3 class="in-h" id="in-gaps-t">Coverage gaps</h3><span class="subtle" title="vc coverage">Apis with no running test</span></div></div>
       <ul class="in-list" role="list">${rows}</ul></section>`;
   }
   function skips() {
@@ -143,11 +143,11 @@
       const exp = s.left < 0;
       return `<li class="in-li"><span class="badge badge-sm st-${s.kind === 'skip' ? 'skipped' : 'allow'}">${ic(s.kind === 'skip' ? 'skipped' : 'allow')}${s.kind}</span>
         <span class="stack-tight grow"><button class="btn btn-ghost btn-sm mono in-li-id" data-action="in-open-test" data-id="${esc(s.id)}">${esc(s.id)}</button><span class="subtle ellipsis">"${esc(s.reason)}"</span></span>
-        <span class="in-left" data-exp="${exp}">${exp ? `${ic('warn', 'ico-sm')}expired ${-s.left} days ago · ${s.kind === 'skip' ? 'V3104' : 'V4008'}` : `${ic('clock', 'ico-sm')}${s.left} days left`}</span>
+        <span class="in-left" data-exp="${exp}"${exp ? ` title="${s.kind === 'skip' ? 'V3104' : 'V4008'}"` : ''}>${exp ? `${ic('warn', 'ico-sm')}expired ${-s.left} days ago` : `${ic('clock', 'ico-sm')}${s.left} days left`}</span>
         <button class="btn btn-sm" data-action="in-extend" data-i="${i}">Extend</button><button class="btn btn-sm btn-ghost" data-action="in-unskip" data-i="${i}">${s.kind === 'skip' ? 'Unskip' : 'Remove'}</button></li>`;
     }).join('');
-    return `<section class="in-panel glass-dense" aria-labelledby="in-skips-t"><div class="in-panel-head"><div class="grow"><h3 class="in-h" id="in-skips-t">Expiring skips</h3><span class="subtle">skip and allowFailure with an <code>until:</code> in the next 7 days</span></div></div>
-      <ul class="in-list" role="list">${rows || '<li class="subtle">Nothing expires soon.</li>'}</ul></section>`;
+    return `<section class="in-panel" aria-labelledby="in-skips-t"><div class="in-panel-head"><div class="grow"><h3 class="in-h" id="in-skips-t">Expiring skips</h3><span class="subtle">skip and allowFailure ending in the next 7 days</span></div></div>
+      ${rows ? `<ul class="in-list" role="list">${rows}</ul>` : SH.empty('', 'Nothing expires in the next 7 days.')}</section>`;
   }
   function services() {
     return `<section class="in-wide" aria-labelledby="in-svc-t"><h3 class="section-label" id="in-svc-t">By service</h3><div class="in-svcs" role="list">${N.services.map((s) => `<button class="in-svc l2" role="listitem" data-action="in-service" data-id="${s.id}" data-fk="svc-${s.id}">
@@ -158,19 +158,27 @@
 
   /* ---- screen ------------------------------------------------------------------- */
   const opt = (v, cur) => `<option value="${esc(v)}"${v === cur ? ' selected' : ''}>${esc(v)}</option>`;
+  /* B: profile and branch sit behind one Filters button; range stays visible */
   function scope() {
     return `<div class="sh-filters" role="group" aria-label="Scope">
-      <label class="sh-sel"><span class="subtle">Profile</span><select class="select" id="in-profile" data-fk="in-profile">${D.profiles.map((p) => opt(p.id, I.profile)).join('')}</select></label>
-      <label class="sh-sel"><span class="subtle">Branch</span><select class="select" id="in-branch" data-fk="in-branch">${['master', 's/checkout-v2', 'any'].map((b) => opt(b, I.branch)).join('')}</select></label>
       ${SH.seg('Range', [['7', '7 days'], ['14', '14 days'], ['30', '30 days']], String(I.range), 'in-range')}
+      <button class="btn btn-sm" data-action="in-filters" aria-haspopup="true" aria-label="Filters: profile ${esc(I.profile)}, branch ${esc(I.branch)}" data-fk="in-filters">${ic('filter')}<span class="mono">${esc(I.profile)} · ${esc(I.branch)}</span></button>
       <span class="grow"></span><span class="subtle hide-narrow">${I.range * 6} runs · Oct 25 – Nov 23</span></div>`;
+  }
+  function openFilters(focusId) {
+    const anchor = $('[data-fk="in-filters"]');
+    if (!anchor) return;
+    VC.pick(anchor, `<div class="rn-filter in-filter" role="group" aria-label="Scope filters"><div class="form-grid">
+      <div class="field"><label for="in-profile">Profile</label><select class="select" id="in-profile" data-fk="in-profile">${D.profiles.map((p) => opt(p.id, I.profile)).join('')}</select></div>
+      <div class="field"><label for="in-branch">Branch</label><select class="select" id="in-branch" data-fk="in-branch">${['master', 's/checkout-v2', 'any'].map((b) => opt(b, I.branch)).join('')}</select></div></div></div>`);
+    const f = focusId && $('#' + focusId); if (f) f.focus();
   }
   VC.screens.insights = {
     crumbs: () => [D.project.name, 'Insights'],
-    status: () => `${ic('chart', 'ico-sm')} ${esc(I.profile)} · ${esc(I.branch)} · last ${I.range} days · from history.db`,
+    status: () => '',
     render: () => `<div class="stage-one sh-scope"><section class="glass stage-one" aria-label="Insights">
-      <div class="card-head"><div class="grow"><h2 class="card-title">Insights</h2><div class="card-sub">Trends across stored runs. Same numbers as <code>vc history --stats</code>.</div></div>
-        <button class="btn btn-sm" data-action="in-export" data-fk="in-export">${ic('copy')}Copy as CSV</button></div>
+      <div class="card-head"><div class="grow"><h2 class="card-title">Insights</h2><div class="card-sub" title="Same numbers as vc history --stats">Trends across stored runs.</div></div>
+        ${VC.moreBtn('in-more', 'More insights actions')}</div>
       <div class="card-tabs">${scope()}</div>
       <div class="card-body" data-sk="in-body"><div class="in-page">${kpis()}<div class="in-two">${chartCard('pass')}${chartCard('dur')}</div>${flaky()}<div class="in-two">${slow()}${gaps()}</div>${skips()}${services()}</div></div>
     </section></div>`,
@@ -190,6 +198,8 @@
   A['in-view'] = (el) => { I[el.dataset.k] = el.dataset.v; VC.render(); };
   A['in-range'] = (el) => { I.range = +el.dataset.v; VC.render(); };
   A['in-slow'] = (el) => { I.slow = el.dataset.v; VC.render(); };
+  A['in-filters'] = () => openFilters();
+  A['in-more'] = (el) => VC.menu(el, VC.menuItem('Copy as CSV', 'in-export', '', { ico: 'copy', meta: `${I.range} days` }));
   A['in-export'] = () => VC.copy(['day,passRate,durationS'].concat(slice(N.days).map((d, i) => `${d},${slice(N.passRate)[i]},${slice(N.duration)[i]}`)).join('\n'), 'Copied as CSV', `${I.range} rows · pass rate and duration per day`);
   A['in-open-test'] = (el) => { VC.toast(`Opening ${el.dataset.id}`, 'In Tests, with its history strip'); VC.go('tests'); };
   A['in-service'] = (el) => { VC.toast(`Tests filtered to service:${el.dataset.id}`); VC.go('tests'); };
@@ -222,6 +232,6 @@
     });
   };
   document.addEventListener('change', (e) => {
-    if (e.target.id === 'in-profile' || e.target.id === 'in-branch') { I[e.target.id.slice(3)] = e.target.value; VC.render(); }
+    if (e.target.id === 'in-profile' || e.target.id === 'in-branch') { I[e.target.id.slice(3)] = e.target.value; VC.render(); openFilters(e.target.id); }
   });
 })();

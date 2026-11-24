@@ -1,5 +1,6 @@
 /* Tests mode · Explorer (#tests). Also owns what the other Tests screens share:
-   the Tests sub-nav (VC.testsNav) and the undo toast (VC.undoToast). The sidebar tree lives in app.js. */
+   the Run… button (VC.runBtn), the ⋯ overflow button (VC.moreBtn) and the undo toast
+   (VC.undoToast). The Tests sub-nav lives in the shared header (app.js). */
 (function () {
   'use strict';
   const VC = window.VC, D = VC.data, S = VC.state, A = VC.actions, TD = VC.testsData;
@@ -9,11 +10,7 @@
   const TX = (VC.tx = { sel: 'orders.checkout#rejectsDeclinedCard', q: '', checked: new Set() });
   if (S.txSplit == null) S.txSplit = 54;
 
-  /* ---- shared: sub-nav, undo toast, day maths ---------------------------- */
-  const NAV = [['tests', 'Explorer', 'flow'], ['tests-editor', 'Editor', 'code'], ['tests-run', 'Runner', 'play'], ['tests-load', 'Load', 'chart']];
-  VC.testsNav = (cur, right) => `<div class="tx-bar on-l0">
-    <nav class="tabs tx-nav" aria-label="Tests mode">${NAV.map(([r, l, i]) => `<a class="tab" href="#${r}" data-fk="txnav-${r}"${r === cur ? ' aria-current="page"' : ''}>${ic(i, 'ico-sm')}${l}</a>`).join('')}</nav>
-    <span class="grow"></span>${right || ''}</div>`;
+  /* ---- shared: run button, overflow button, undo toast, day maths -------- */
   VC.runBtn = (label) => `<button class="btn btn-primary btn-sm" data-action="tx-run-dialog" data-fk="tx-runbtn">${ic('play')}${esc(label || 'Run')}<span class="kbd hide-narrow">⌘R</span></button>`;
   /* an undo toast is a VC.toast with an Undo action */
   VC.undoToast = function (msg, sub, fn) {
@@ -58,26 +55,21 @@
 
   /* ---- list (left card) --------------------------------------------------- */
   const STATUS_F = [['failed', 'fail'], ['flaky', 'flaky'], ['blocked', 'blocked'], ['skipped', 'skipped'], ['passed', 'pass'], ['allowed', 'allow']];
-  function facetsHtml() {
-    const cnt = (st) => TD.order.filter((k) => TD.tests[k].st === st).length;
-    const svc = TX.q.match(/(?:^|\s)service:(\S+)/), tag = TX.q.match(/(?:^|\s)tag:(\S+)/);
-    return `<div class="tx-facets" role="group" aria-label="Filters">
-      <div class="tx-chips" role="group" aria-label="Status">${STATUS_F.map(([q, st]) => `<button class="tx-fchip" aria-pressed="${hasTok('status:' + q)}" data-action="tx-facet" data-tok="status:${q}" data-fk="txf-${q}"><span class="dot st-${st}" aria-hidden="true"></span>${q}<span class="count">${cnt(st)}</span></button>`).join('')}</div>
-      <span class="grow"></span>
-      <button class="btn btn-sm${svc ? ' is-on' : ''}" data-action="tx-facet-pick" data-k="service" aria-haspopup="dialog" data-fk="txf-service">${ic('folder', 'ico-sm')}${svc ? esc(svc[1]) : 'Service'}${ic('chev-down', 'ico-sm')}</button>
-      <button class="btn btn-sm${tag ? ' is-on' : ''}" data-action="tx-facet-pick" data-k="tag" aria-haspopup="dialog" data-fk="txf-tag">${ic('pin', 'ico-sm')}${tag ? esc(tag[1]) : 'Tag'}${ic('chev-down', 'ico-sm')}</button>
-      <button class="btn btn-sm" aria-pressed="${hasTok('changed:yes')}" data-action="tx-facet" data-tok="changed:yes" data-fk="txf-changed">${ic('branch', 'ico-sm')}Changed</button>
-    </div>`;
+  const FILTER_RE = /^(status|service|tag|changed):/;
+  const nFilters = () => TX.q.split(/\s+/).filter((x) => FILTER_RE.test(x)).length;
+  function filterBtn() {
+    const n = nFilters();
+    return `<button class="btn btn-sm${n ? ' is-on' : ''}" data-action="tx-filter" aria-haspopup="dialog" data-fk="txf-filter"${n ? ` aria-label="Filter, ${n} on"` : ''}>${ic('filter', 'ico-sm')}Filter${n ? `<span class="tx-fn num">${n}</span>` : ''}</button>`;
   }
   function rowHtml(t) {
     const on = TX.checked.has(t.full);
-    const flag = t.quarantined ? '<span class="chip">quarantined</span>' : t.skip ? `<span class="chip">skip · ${esc(VC.untilText(t.skip.until))}</span>` : t.allow ? '<span class="chip">allowFailure</span>' : '';
+    const flag = t.quarantined ? '<span class="chip">quarantined</span>' : t.skip ? `<span class="chip" title="skip · ${esc(VC.untilText(t.skip.until))}">skipped</span>` : t.allow ? '<span class="chip">allowFailure</span>' : '';
     return `<tr aria-selected="${TX.sel === t.full}" class="${on ? 'is-checked' : ''}">
       <td class="tx-ck"><input type="checkbox" class="tx-check" data-id="${esc(t.full)}" ${on ? 'checked' : ''} aria-label="Select ${esc(t.id)}" data-fk="txc-${esc(t.full)}"></td>
-      <td class="tx-name"><button class="tx-open" data-action="tx-sel" data-id="${esc(t.full)}" data-fk="txr-${esc(t.full)}"><span class="dot st-${t.st}" role="img" aria-label="${t.st}"></span><span class="ellipsis"><span class="mono">${esc(t.id)}</span><small>${esc(t.name)}</small></span></button></td>
-      <td class="hide-narrow"><span class="tx-tags">${t.tags.map((g) => `<span class="chip">${esc(g)}</span>`).join('')}${flag}</span></td>
+      <td class="tx-name"><button class="tx-open" data-action="tx-sel" data-id="${esc(t.full)}" data-fk="txr-${esc(t.full)}"><span class="dot st-${t.st}" role="img" aria-label="${t.st}"></span><span class="mono ellipsis" title="${esc(t.name)}">${esc(t.id)}</span></button></td>
+      <td class="tx-flag hide-narrow">${flag}</td>
       <td class="r mono muted">${t.ms ? t.ms + ' ms' : '—'}</td>
-      <td class="r mono ${t.flake >= 10 ? 'tx-hot' : 'muted'}">${t.flake}%</td></tr>`;
+      <td class="r mono ${t.flake >= 10 ? 'tx-hot' : 'muted'}"${t.flake >= 10 ? ' title="Flaky in 10% or more of the last 30 runs"' : ''}>${t.flake}%</td></tr>`;
   }
   function listHtml() {
     const vis = visible();
@@ -85,10 +77,10 @@
     const byFile = Object.keys(TD.files).map((f) => [f, vis.filter((t) => t.file === f)]).filter(([, ts]) => ts.length);
     const all = vis.length && vis.every((t) => TX.checked.has(t.full));
     const head = `<p class="tx-count" aria-live="polite">${bad.length ? `<span class="tx-bad">${ic('warn', 'ico-sm')}unknown key ${esc(bad.join(', '))}: · keys are tag status api service file changed</span>` : `<b>${vis.length}</b> of ${TD.order.length} tests · ${byFile.length} files`}</p>`;
-    if (!vis.length) return head + `<div class="empty">${ic('search')}<b>No tests match</b><span>Try <code>status:failed</code>, <code>tag:smoke OR api:payments</code>, or clear the query.</span><button class="btn btn-sm" data-action="tx-clear">Clear query</button></div>`;
+    if (!vis.length) return head + `<div class="empty empty-quiet"><span>No tests match. Try <code>status:failed</code> or <code>tag:smoke OR api:payments</code>.</span><button class="link" data-action="tx-clear">Clear query</button></div>`;
     return head + `<div class="table-wrap glass-dense" data-sk="tx-list"><table class="table tx-table" aria-label="Tests">
-      <thead><tr><th class="tx-ck"><input type="checkbox" class="tx-check-all" ${all ? 'checked' : ''} aria-label="Select all ${vis.length} visible tests" data-fk="tx-all"></th><th>Test</th><th class="hide-narrow">Tags</th><th class="r">Last</th><th class="r" title="Share of the last 30 runs that failed, flaked or were allowed to fail">Flake</th></tr></thead>
-      ${byFile.map(([f, ts]) => `<tbody><tr class="tx-file"><th colspan="5" scope="rowgroup"><span class="row">${ic('file', 'ico-sm')}<span class="mono">${esc(f)}</span><span class="subtle mono hide-narrow">${esc(TD.files[f].path)}</span>${TD.files[f].changed ? '<span class="chip">changed</span>' : ''}</span></th></tr>${ts.map(rowHtml).join('')}</tbody>`).join('')}
+      <thead><tr><th class="tx-ck"><input type="checkbox" class="tx-check-all" ${all ? 'checked' : ''} aria-label="Select all ${vis.length} visible tests" data-fk="tx-all"></th><th>Test</th><th class="hide-narrow"><span class="sr-only">Flag</span></th><th class="r">Last</th><th class="r" title="Share of the last 30 runs that failed, flaked or were allowed to fail">Flake</th></tr></thead>
+      ${byFile.map(([f, ts]) => `<tbody><tr class="tx-file"><th colspan="5" scope="rowgroup"><span class="row" title="${esc(TD.files[f].path)}">${ic('file', 'ico-sm')}<span class="mono">${esc(f)}</span>${TD.files[f].changed ? '<span class="chip">changed</span>' : ''}</span></th></tr>${ts.map(rowHtml).join('')}</tbody>`).join('')}
     </table></div>`;
   }
   function bulkHtml() {
@@ -97,18 +89,16 @@
     return `<div class="tx-bulk l2" role="toolbar" aria-label="${n} selected">
       <b>${n} selected</b><span class="grow"></span>
       <button class="btn btn-sm btn-primary" data-action="tx-bulk-run" data-fk="txb-run">${ic('play', 'ico-sm')}Run</button>
-      <button class="btn btn-sm" data-action="tx-edit-dlg" data-kind="skip" data-fk="txb-skip">${ic('skipped', 'ico-sm')}Skip until…</button>
       <button class="btn btn-sm" data-action="tx-edit-dlg" data-kind="tag" data-fk="txb-tag">${ic('pin', 'ico-sm')}Tag…</button>
-      <button class="btn btn-sm" data-action="tx-edit-dlg" data-kind="quarantine" data-fk="txb-q">${ic('shield', 'ico-sm')}Quarantine…</button>
-      <button class="btn btn-ghost btn-icon btn-sm" data-action="tx-uncheck" aria-label="Clear selection" data-fk="txb-x">${ic('x')}</button></div>`;
+      <button class="btn btn-sm" data-action="tx-edit-dlg" data-kind="skip" data-fk="txb-skip">${ic('skipped', 'ico-sm')}Skip until…</button>
+      ${VC.moreBtn('tx-bulk-more', 'More actions for the selection', 'txb-more')}</div>`;
   }
   function leftHtml() {
     return `<section class="glass" aria-labelledby="tx-title">
-      <div class="card-head"><h2 class="card-title" id="tx-title">Tests</h2><span class="card-sub">16 tests · 6 files · last run today 14:02</span><span class="grow"></span>
-        <button class="btn btn-sm btn-ghost" data-action="tx-views" aria-haspopup="menu" data-fk="tx-views">${ic('layers', 'ico-sm')}Views${ic('chev-down', 'ico-sm')}</button></div>
-      <div class="card-tabs tx-qrow"><div class="input-group grow">${ic('search')}<input class="input mono" id="tx-q" value="${esc(TX.q)}" placeholder="tag:smoke status:failed api:orders   ·   OR   ·   -tag:slow" aria-label="Filter tests" aria-describedby="tx-q-help" data-fk="tx-q" autocomplete="off" spellcheck="false"></div>
-        <span id="tx-q-help" class="sr-only">Keys: tag, status, api, service, file, changed. OR joins groups; a leading minus excludes.</span></div>
-      <div class="card-tabs">${facetsHtml()}</div>
+      <div class="card-head"><h2 class="card-title" id="tx-title">Tests</h2><span class="grow"></span>
+        <button class="btn btn-sm btn-ghost" data-action="tx-views" aria-haspopup="menu" data-fk="tx-views">${ic('layers', 'ico-sm')}Views${ic('chev-down', 'ico-sm')}</button>${VC.runBtn('Run…')}</div>
+      <div class="card-tabs tx-qrow"><div class="input-group grow">${ic('search')}<input class="input mono" id="tx-q" value="${esc(TX.q)}" placeholder="tag:smoke status:failed -tag:slow" aria-label="Filter tests" aria-describedby="tx-q-help" data-fk="tx-q" autocomplete="off" spellcheck="false"></div>
+        <span id="tx-q-help" class="sr-only">Keys: tag, status, api, service, file, changed. OR joins groups; a leading minus excludes.</span>${filterBtn()}</div>
       <div class="card-body tx-listbody" id="tx-list">${listHtml()}</div>
       <div id="tx-bulk">${bulkHtml()}</div>
     </section>`;
@@ -116,14 +106,15 @@
   function refreshList() {
     const l = $('#tx-list'); if (l) l.innerHTML = listHtml();
     const b = $('#tx-bulk'); if (b) b.innerHTML = bulkHtml();
-    const f = $('.tx-facets'); if (f) f.outerHTML = facetsHtml();
+    const f = $('[data-fk="txf-filter"]'); if (f) f.outerHTML = filterBtn();
   }
 
   /* ---- detail (right card) ------------------------------------------------ */
+  const SLAB = { pass: 'passed', fail: 'failed', flaky: 'flaky', allow: 'allowed failure', blocked: 'blocked', skipped: 'skipped' };
   function strip(t) {
     const n = (s) => t.history.filter((x) => x === s).length;
     const parts = [['pass', 'passed'], ['flaky', 'flaky'], ['fail', 'failed'], ['allow', 'allowed'], ['blocked', 'blocked'], ['skipped', 'skipped']].filter(([s]) => n(s)).map(([s, l]) => `${n(s)} ${l}`);
-    return `<ol class="tx-strip" aria-label="Last 30 runs, oldest first: ${parts.join(', ')}">${t.history.map((s, i) => `<li class="hc st-${s}" title="run ${453 + i} · ${s}${t.durs[i] ? ' · ' + t.durs[i] + ' ms' : ''}"></li>`).join('')}</ol>`;
+    return `<ol class="tx-strip" aria-label="Last 30 runs, oldest first: ${parts.join(', ')}">${t.history.map((s, i) => `<li class="hc st-${s}" title="run ${453 + i} · ${SLAB[s] || s}${t.durs[i] ? ' · ' + t.durs[i] + ' ms' : ''}${i === 0 ? ' · oldest' : i === t.history.length - 1 ? ' · newest' : ''}"></li>`).join('')}</ol>`;
   }
   function spark(t) {
     const W = 280, H = 44, P = 4;
@@ -162,25 +153,30 @@
     if (t.st === 'blocked') out.push(`<p class="callout" data-tone="warn">${ic('blocked')}<span><b>Blocked:</b> beforeEach carts#addItem failed (409), so the test did not run.</span></p>`);
     return out.join('');
   }
+  function sourceHtml(t, f) {
+    const tags = TD.allTags(t);
+    const rows = [['file', `<span class="mono ellipsis" title="${esc(t.full)}">${esc(f.path)}:${t.line}</span>`], ['tags', tags.length ? `<span class="tx-tags">${tags.map((g) => `<span class="chip">${esc(g)}</span>`).join('')}</span>` : '<span class="subtle">none</span>']];
+    if (t.examples) rows.push(['examples', `<span class="num">${t.examples} rows</span>`]);
+    if (t.repeat) rows.push(['repeat', `<span class="num">${t.repeat}</span>`]);
+    return `<div class="kv glass-dense">${rows.map(([k, v]) => `<div class="kv-row"><span class="k">${k}</span><span class="v">${v}</span></div>`).join('')}</div>`;
+  }
+  const disc = (id, label, meta, body, open) => `<details class="disc" data-fk="${id}"${open ? ' open' : ''}><summary>${ic('chev-down', 'chev')}${label}${meta ? `<span class="meta">${meta}</span>` : ''}</summary><div class="disc-body">${body}</div></details>`;
   function detailHtml() {
     const t = TD.tests[TX.sel] || TD.tests[TD.order[0]];
     const f = TD.files[t.file];
+    const nLife = TD.beforeRun.length + f.lifecycle.beforeAll.length + f.lifecycle.beforeEach.length + f.lifecycle.afterAll.length + f.lifecycle.cleanups.length;
     return `<section class="glass" aria-labelledby="txd-title">
       <div class="card-head"><div class="grow stack-tight">
-          <div class="row row-wrap">${badge(t.st)}<h2 class="card-title mono" id="txd-title">${esc(t.full)}</h2></div>
-          <div class="card-sub">${esc(t.name)}</div></div>
+          <div class="row">${badge(t.st)}<h2 class="card-title mono ellipsis" id="txd-title" title="${esc(t.full)} · ${esc(f.path)}:${t.line}">${esc(t.id)}</h2></div>
+          <div class="card-sub ellipsis">${esc(t.name)}</div></div>
         <div class="row"><button class="btn btn-primary btn-sm" data-action="tx-run-one" data-fk="txd-run">${ic('play', 'ico-sm')}Run</button>
           <button class="btn btn-sm" data-action="tx-edit" data-fk="txd-edit">${ic('code', 'ico-sm')}Edit</button>
-          <button class="btn btn-sm" data-action="tx-edit-dlg" data-kind="quarantine" data-one="1" data-fk="txd-q">${ic('shield', 'ico-sm')}Quarantine</button>
-          <button class="btn btn-ghost btn-icon btn-sm" data-action="tx-more" aria-haspopup="menu" aria-label="More actions" data-fk="txd-more">${ic('dots')}</button></div></div>
-      <div class="card-tabs tx-meta"><span class="mono">${esc(f.path)}:${t.line}</span><span class="tx-tags">${TD.allTags(t).map((g) => `<span class="chip">${esc(g)}</span>`).join('')}</span>
-        ${t.examples ? `<span class="chip">examples ×${t.examples}</span>` : ''}${t.repeat ? `<span class="chip">repeat ${t.repeat}</span>` : ''}</div>
-      <div class="card-body" data-sk="txd">${notes(t)}
+          ${VC.moreBtn('tx-more', 'More test actions', 'txd-more')}</div></div>
+      <div class="card-body tx-detail" data-sk="txd">${notes(t)}
         <section class="tx-hist" aria-labelledby="txh"><div class="row"><h3 class="section-label" id="txh">Last 30 runs</h3><span class="grow"></span><span class="tx-flake"><b class="num">${t.flake}%</b> flake rate</span></div>
-          ${strip(t)}<div class="tx-legend subtle"><span><i class="hc st-pass"></i>passed</span><span><i class="hc st-flaky"></i>flaky</span><span><i class="hc st-fail"></i>failed</span><span><i class="hc st-allow"></i>allowed</span><span><i class="hc st-skipped"></i>skipped or blocked</span><span class="grow"></span><span>oldest → newest</span></div>
+          ${strip(t)}
           ${spark(t)}</section>
-        <section aria-labelledby="txl"><h3 class="section-label" id="txl">Lifecycle it inherits</h3>${lifecycle(t)}</section>
-        <section aria-labelledby="txc"><h3 class="section-label" id="txc">Apis it calls</h3>${apisHtml(t)}</section>
+        <div class="tx-discs">${disc('txd-life', 'Lifecycle it inherits', `${nLife} steps`, lifecycle(t), true)}${disc('txd-apis', 'Apis it calls', String(t.apis.length), apisHtml(t))}${disc('txd-src', 'Source and tags', '', sourceHtml(t, f))}</div>
       </div></section>`;
   }
 
@@ -188,27 +184,33 @@
   VC.screens.tests = {
     enter: () => { S.mode = 'tests'; },
     crumbs: () => [D.project.name, 'Tests', 'Explorer'],
-    status: () => `${ic('runs', 'ico-sm')} run 482 · 1 failed · 2 flaky`,
-    render: () => `${VC.testsNav('tests', VC.runBtn('Run…'))}
-      <div class="split tx-split"${VC.splitAttrs()}>${leftHtml()}${VC.divider('Resize list and detail')}${detailHtml()}</div>`,
+    status: () => `${ic('runs', 'ico-sm')} run 482 · 1 failed`,
+    render: () => `<div class="split tx-split"${VC.splitAttrs()}>${leftHtml()}${VC.divider('Resize list and detail')}${detailHtml()}</div>`,
     mount: (view) => { VC.mountSplit(view, 'txSplit'); const d = $('.tx-split .divider', view); if (d) d.setAttribute('aria-valuenow', S.txSplit); }
   };
 
   /* ---- actions ------------------------------------------------------------ */
   A['tx-sel'] = (el) => { TX.sel = el.dataset.id; VC.render(); };
-  A['tx-facet'] = (el) => { toggleTok(el.dataset.tok); const fromPick = el.closest('#pick'); VC.render(); if (fromPick) openFacet(el.dataset.k, el.dataset.tok); };
+  A['tx-facet'] = (el) => { toggleTok(el.dataset.tok); const fromPick = el.closest('#pick'); VC.render(); if (fromPick) openFilter(el.dataset.tok); };
   A['tx-clear'] = () => { TX.q = ''; VC.render(); };
   A['tx-uncheck'] = () => { TX.checked.clear(); VC.render(); };
-  function openFacet(k, focusTok) {
-    const anchor = $(`[data-fk="txf-${k}"]`);
+  /* one Filter popover: status, service, tag, changed; each toggles a token in the query */
+  function openFilter(focusTok) {
+    const anchor = $('[data-fk="txf-filter"]');
     if (!anchor) return;
-    const vals = k === 'service' ? [...new Set(TD.order.map((x) => TD.tests[x].file.split('.')[0]))] : [...new Set(TD.order.flatMap((x) => TD.allTags(TD.tests[x])))].sort();
-    const cnt = (v) => TD.order.filter((x) => PRED[k](TD.tests[x], v)).length;
-    VC.pick(anchor, `<div class="pop-head"><span class="title">${k === 'service' ? 'Service' : 'Tag'}</span></div><div class="pop-menu" role="group" aria-label="${k}">${vals.map((v) =>
-      `<button class="pop-item" role="menuitemcheckbox" aria-checked="${hasTok(k + ':' + v)}" data-action="tx-facet" data-k="${k}" data-tok="${k}:${esc(v)}">${hasTok(k + ':' + v) ? ic('check') : '<span class="leaf-gap"></span>'}<span>${esc(v)}</span><span class="meta">${cnt(v)}</span></button>`).join('')}</div>`);
+    const item = (k, v, label, dot) => `<button class="pop-item" role="menuitemcheckbox" aria-checked="${hasTok(k + ':' + v)}" data-action="tx-facet" data-tok="${k}:${esc(v)}">${hasTok(k + ':' + v) ? ic('check') : '<span class="leaf-gap"></span>'}${dot ? `<span class="dot st-${dot}" aria-hidden="true"></span>` : ''}<span>${esc(label)}</span></button>`;
+    const svcs = [...new Set(TD.order.map((x) => TD.tests[x].file.split('.')[0]))];
+    const tags = [...new Set(TD.order.flatMap((x) => TD.allTags(TD.tests[x])))].sort();
+    VC.pick(anchor, `<div class="pop-menu tx-filter" role="group" aria-label="Filter tests">
+      <div class="pop-label">Status</div>${STATUS_F.map(([q, st]) => item('status', q, q, st)).join('')}
+      <div class="pop-sep"></div><div class="pop-label">Service</div>${svcs.map((v) => item('service', v, v)).join('')}
+      <div class="pop-sep"></div><div class="pop-label">Tag</div>${tags.map((v) => item('tag', v, v)).join('')}
+      <div class="pop-sep"></div>${item('changed', 'yes', 'Changed since origin/master')}
+      ${nFilters() ? `<div class="pop-sep"></div><button class="pop-item" data-action="tx-clear">${ic('x')}<span>Clear filters</span></button>` : ''}</div>`);
     const f = focusTok && $(`#pick [data-tok="${CSS.escape(focusTok)}"]`); if (f) f.focus();
   }
-  A['tx-facet-pick'] = (el) => openFacet(el.dataset.k);
+  A['tx-filter'] = () => openFilter();
+  A['tx-facet-pick'] = () => openFilter();
   A['tx-views'] = (el) => VC.menu(el, `<div class="pop-label">Saved views</div>${TD.savedViews.map((v, i) => VC.menuItem(esc(v.name), 'tx-view', `data-i="${i}"`, { radio: true, checked: TX.q === v.q, meta: `<code>${esc(v.q)}</code>` })).join('')}
     <div class="pop-sep"></div>${VC.menuItem('Save current query as a view…', 'tx-save-view', '', { ico: 'plus', disabled: !TX.q.trim() })}${VC.menuItem('Clear query', 'tx-clear', '', { ico: 'x' })}`);
   A['tx-view'] = (el) => { TX.q = TD.savedViews[+el.dataset.i].q; VC.render(); };
@@ -217,7 +219,8 @@
   A['tx-open-drill'] = () => { VC.go('tests-run'); };
   A['tx-run-one'] = () => VC.startRun && VC.startRun({ selector: TX.sel, only: [TX.sel] });
   A['tx-bulk-run'] = () => VC.startRun && VC.startRun({ selector: [...TX.checked].join(' '), only: [...TX.checked] });
-  A['tx-more'] = (el) => VC.menu(el, `${VC.menuItem('Copy id', 'tx-copy', `data-t="${esc(TX.sel)}"`, { ico: 'copy' })}${VC.menuItem('Copy vc run command', 'tx-copy', `data-t="vc run ${esc(TX.sel)} --profile ${esc(S.profile)}"`, { ico: 'terminal' })}
+  A['tx-bulk-more'] = (el) => VC.menu(el, `${VC.menuItem('Quarantine…', 'tx-edit-dlg', 'data-kind="quarantine"', { ico: 'shield' })}<div class="pop-sep"></div>${VC.menuItem('Clear selection', 'tx-uncheck', '', { ico: 'x' })}`);
+  A['tx-more'] = (el) => VC.menu(el, `${VC.menuItem('Quarantine…', 'tx-edit-dlg', 'data-kind="quarantine" data-one="1"', { ico: 'shield' })}${VC.menuItem('Skip until…', 'tx-edit-dlg', 'data-kind="skip" data-one="1"', { ico: 'skipped' })}<div class="pop-sep"></div>${VC.menuItem('Copy id', 'tx-copy', `data-t="${esc(TX.sel)}"`, { ico: 'copy' })}${VC.menuItem('Copy vc run command', 'tx-copy', `data-t="vc run ${esc(TX.sel)} --profile ${esc(S.profile)}"`, { ico: 'terminal' })}
     ${VC.menuItem('Run 20 times to check flakiness', 'tx-run-one', '', { ico: 'refresh', meta: '--repeat 20' })}<div class="pop-sep"></div>${VC.menuItem('Show in runs', 'go', 'data-route="runs"', { ico: 'runs' })}`);
   A['tx-copy'] = (el) => VC.copy(el.dataset.t, 'Copied', el.dataset.t);
 

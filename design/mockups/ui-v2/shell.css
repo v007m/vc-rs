@@ -34,7 +34,7 @@ body {
   background: var(--l0-base);
   color: var(--l0-ink);
   font-family: var(--font);
-  font-size: var(--fs-2);
+  font-size: var(--fs-3);
   line-height: var(--lh);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -99,8 +99,8 @@ code, kbd, pre, samp { font-family: var(--mono); }
   display: flex;
   flex-direction: column;
   min-height: 0;
-  padding: var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-2);
-  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3) var(--sp-3);
+  gap: var(--sp-4);
   color: var(--l0-ink);   /* R2: straight on L0, no panel background */
 }
 
@@ -108,9 +108,13 @@ code, kbd, pre, samp { font-family: var(--mono); }
   display: flex;
   align-items: center;
   gap: var(--sp-2);
-  height: 34px;
-  padding: 0 var(--sp-1) 0 var(--sp-2);
+  flex: none;
+  height: 28px;   /* fixed, so the controls line up with the URL bar band on every route */
+  padding: 0 0 0 var(--sp-2);
 }
+.sb-top .rail-toggle { margin-left: auto; }
+/* mode switch, profile and search: one compact stack */
+.sb-controls { flex: none; display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; }
 .traffic { display: flex; gap: 8px; align-items: center; }
 .traffic span {
   width: 12px; height: 12px; border-radius: 50%;
@@ -120,6 +124,7 @@ code, kbd, pre, samp { font-family: var(--mono); }
 .traffic span:nth-child(2) { background: #febc2e; }
 .traffic span:nth-child(3) { background: #28c840; }
 
+/* B2: a 24px fade at the bottom edge of every long scroller (.fade-end in components.css) */
 .sb-scroll {
   flex: 1 1 auto;
   min-height: 0;
@@ -127,8 +132,8 @@ code, kbd, pre, samp { font-family: var(--mono); }
   overflow-x: hidden;
   display: flex;
   flex-direction: column;
-  gap: var(--sp-4);
-  padding: var(--sp-1) 2px var(--sp-4);
+  gap: var(--sp-6);
+  padding: var(--sp-1) 2px var(--fade-h);   /* B2: the last row clears the fade when scrolled to the end */
   margin-inline: -2px;
 }
 
@@ -137,23 +142,25 @@ code, kbd, pre, samp { font-family: var(--mono); }
   align-items: center;
   gap: var(--sp-2);
   margin: 0;
-  padding: 0 var(--sp-2);
-  font-size: 11px;
+  padding: 0 var(--sp-3);
+  min-height: 24px;
+  font-size: var(--fs-1);
   font-weight: var(--fw-semibold);
   letter-spacing: var(--tracking-label);
   text-transform: uppercase;
   color: var(--l0-ink-3);
 }
-.sb-label .count { margin-left: auto; font-weight: var(--fw-medium); letter-spacing: 0; }
-.sb-section { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
+.sb-section { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.sb-section-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); padding-bottom: var(--sp-1); }
+.sb-section-head .btn { margin-right: 2px; color: var(--l0-ink-2); }
 
 /* L0 list rows: flat, highlighted on hover, "selected" is a soft plate */
 .sb-row {
   display: flex;
   align-items: center;
   gap: var(--sp-2);
-  min-height: 30px;
-  padding: 4px var(--sp-2);
+  min-height: 32px;
+  padding: 4px var(--sp-3);
   border: 0;
   border-radius: var(--r-md);
   background: transparent;
@@ -183,38 +190,37 @@ code, kbd, pre, samp { font-family: var(--mono); }
 .sb-row:hover .close, .sb-row:focus-within .close, .sb-row[aria-current="page"] .close { opacity: 1; }
 .sb-row .close:hover { background: var(--l0-hover); color: var(--l0-ink); }
 
-/* Arc-style pinned tiles */
-.pins { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
-.pin {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-  height: 46px;
-  border-radius: var(--r-md);
-  color: var(--l0-ink);
-  font-size: 11px;
-  min-width: 0;
-  padding: 0 4px;
-}
-.pin .pin-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* B6: the icon rail shows one Tabs button in place of the tab list */
+.rail-only { display: none; }
 
-/* the tree and history live on L0 too */
+/* B8: the sidebar filter sits at the right edge of the search field */
+.search-field { position: relative; width: 100%; min-width: 0; }
+.search-field .search-btn { padding-right: 40px; }
+.search-filter { position: absolute; top: 50%; right: 4px; translate: 0 -50%; color: var(--l0-ink-2); }
+.search-filter.is-on { color: var(--accent); }
+.search-filter.is-on::after { content: ""; position: absolute; top: 4px; right: 4px; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+
+/* B7: one hue per profile, the same everywhere (local blue, dev teal, staging amber, prod red) */
+.tint-dot[data-p="local"] { --h: 255; }
+.tint-dot[data-p="dev"] { --h: 190; }
+.tint-dot[data-p="staging"] { --h: 70; }
+.tint-dot[data-p="prod"] { --h: 25; }
+
+/* shared screens: a quiet icon nav at the bottom */
 .sb-foot {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 2px;
-  padding-top: var(--sp-2);
+  gap: var(--sp-1);
+  padding-top: var(--sp-3);
   border-top: 1px solid var(--l0-rule);
 }
 .sb-foot .sb-row {
   flex-direction: column;
   gap: 2px;
   justify-content: center;
-  min-height: 46px;
-  font-size: 11px;
-  padding: 4px 2px;
+  min-height: 52px;
+  font-size: var(--fs-1);
+  padding: 6px 2px;
   text-align: center;
 }
 
@@ -231,11 +237,17 @@ code, kbd, pre, samp { font-family: var(--mono); }
 .header {
   display: flex;
   align-items: center;
-  gap: var(--sp-3);
+  gap: var(--sp-4);
   min-width: 0;
-  padding: 0 var(--sp-1);
+  padding: 0 var(--sp-2) 0 var(--sp-1);
   color: var(--l0-ink);
 }
+.crumbs-nav { flex: 0 1 auto; min-width: 0; }
+/* the mode's views: tabs right after the breadcrumb */
+.subnav { display: flex; align-items: center; gap: 2px; flex: none; padding-left: var(--sp-4); border-left: 1px solid var(--l0-rule); }
+.subnav .tab { color: var(--l0-ink-2); text-decoration: none; }
+.subnav .tab:hover { color: var(--l0-ink); background: var(--l0-hover); }
+.subnav .tab[aria-current="page"] { color: var(--l0-ink); }
 .header .menu-btn { display: none; }
 .crumbs {
   display: flex;
@@ -257,11 +269,29 @@ code, kbd, pre, samp { font-family: var(--mono); }
 .crumbs a:hover { color: var(--l0-ink); text-decoration: underline; text-underline-offset: 3px; }
 
 .stage {
+  position: relative;
   min-height: 0;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--sp-3);
+  gap: var(--card-gap);
+  padding-top: var(--band-h);   /* B1: the band is reserved on every route, so the card top never moves */
+  padding-bottom: var(--sp-1);
+}
+/* The band: one L0 toolbar row (URL bar, editor/run/load head) pinned in the
+   reserved strip. It never wraps; content that does not fit moves into a ⋯ menu. */
+.band, .stage .reqbar, .stage > .ed-head, .stage > .ld-head {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--ctl-h-lg);
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  min-width: 0;
+  padding-top: 0;
+  padding-bottom: 0;
 }
 .stage > * { min-height: 0; }
 .stage-one { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; }
@@ -270,9 +300,9 @@ code, kbd, pre, samp { font-family: var(--mono); }
 .statusline {
   display: flex;
   align-items: center;
-  gap: var(--sp-4);
-  padding: 0 var(--sp-2);
-  padding-right: 96px; /* room for the review toggle (mockup only) */
+  gap: var(--sp-6);
+  padding: 0 var(--sp-3);
+  padding-right: 104px; /* room for the review toggle (mockup only) */
   font-size: var(--fs-1);
   color: var(--l0-ink-2);
   white-space: nowrap;
@@ -280,7 +310,7 @@ code, kbd, pre, samp { font-family: var(--mono); }
   min-width: 0;
 }
 .statusline .item { display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; }
-/* a short status line keeps the engine and the profile */
+/* a short status line keeps the engine and the check */
 @container app (max-width: 960px) { .statusline .item.hide-narrow { display: none; } }
 .statusline .item b { color: var(--l0-ink); font-weight: var(--fw-medium); }
 .statusline .spacer { flex: 1 1 auto; }
@@ -345,12 +375,14 @@ code, kbd, pre, samp { font-family: var(--mono); }
   .app:not(.is-rail-open) .mode-switch { flex-direction: column; width: 40px; }
   .app:not(.is-rail-open) .mode-switch { border-radius: var(--r-lg); }
   .app:not(.is-rail-open) .mode-switch > button { flex: 0 0 auto; width: 100%; padding: 0; border-radius: var(--r-md); }
-  .app:not(.is-rail-open) .pins { grid-template-columns: 40px; }
-  .app:not(.is-rail-open) .pin { height: 36px; }
+  .app:not(.is-rail-open) .sb-controls { align-items: center; }
+  .app:not(.is-rail-open) .sb-section-head { display: none; }
   .app:not(.is-rail-open) .sb-row { justify-content: center; padding-inline: 0; width: 40px; }
   .app:not(.is-rail-open) .sb-foot { grid-template-columns: 40px; }
   .app:not(.is-rail-open) .sb-foot .sb-row { min-height: 36px; }
   .app:not(.is-rail-open) .profile-btn, .app:not(.is-rail-open) .search-btn { width: 40px; padding: 0; justify-content: center; }
+  .app:not(.is-rail-open) .search-field { width: 40px; }
+  .app:not(.is-rail-open) .rail-only { display: flex; }
 
   .app.is-rail-open .sidebar {
     position: absolute;
@@ -391,3 +423,6 @@ code, kbd, pre, samp { font-family: var(--mono); }
   .scrim-drawer { position: absolute; inset: 0; z-index: 35; background: var(--l3-backdrop); }
   .hide-narrow { display: none; }
 }
+
+/* ---- compact widths: a little less card padding ------------------------- */
+@container app (max-width: 1024px) { .shell { --card-pad: 20px; } }

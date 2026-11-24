@@ -7,7 +7,10 @@
    L1  .glass         liquid glass: the main content card (one per view; a
                       split has two). Translucent so the blobs show through,
                       backdrop blur + saturate, a specular top edge, an inner
-                      rim and a soft drop shadow.
+                      rim and a soft drop shadow. Over the tinted base sits a
+                      thin frost (--l1-frost, white ~5% in dark) so the card
+                      reads as lit glass whose hue follows the blob behind
+                      it, the same material as the URL bar.
        .well          a debossed surface inside a card: darker than the card,
                       inset top shade, faint bottom lip. Editable fields
                       (.input, .select, .textarea, the URL field, kv cells,
@@ -17,7 +20,8 @@
                       on hover and is debossed when pressed or selected:
                       [aria-pressed=true], [aria-selected=true], .is-active.
                       components.css builds .btn, .seg, .chip on these tokens.
-   L3  .l3            the strongest glass: palette, popovers, dialogs, toasts.
+   L3  .l3            the strongest glass: palette, popovers, dialogs, toasts
+                      (--glass-l3 ~0.72 + frost, blur and saturate 180%).
                       <dialog class="l3"> gets a dimmed, blurred ::backdrop.
 
    Rules
@@ -97,11 +101,22 @@
 /* a second main-hue pool under the content, seen through the glass */
 .l0-blob--5 {
   width: 56vmax; height: 56vmax;
-  left: 30vw; top: 22vh;
-  background: radial-gradient(closest-side, color-mix(in oklab, var(--blob-1) 80%, var(--blob-3)), transparent);
+  left: 20vw; top: 4vh;
+  background: radial-gradient(closest-side, color-mix(in oklab, var(--blob-1) 80%, var(--blob-3)), color-mix(in oklab, var(--blob-1) 50%, transparent) 58%, transparent);
   opacity: 0.85;
   animation-name: drift-e;
   animation-duration: 72s;
+}
+
+/* cool pool under the right-hand card, so a split's second pane picks up colour too */
+.l0-blob--6 {
+  width: 46vmax; height: 46vmax;
+  left: 58vw; top: 34vh;
+  background: radial-gradient(closest-side, color-mix(in oklab, var(--blob-3) 75%, var(--blob-2)), color-mix(in oklab, var(--blob-3) 50%, transparent) 58%, transparent);
+  opacity: 0.9;
+  animation-name: drift-c;
+  animation-duration: 80s;
+  animation-direction: alternate-reverse;
 }
 
 @keyframes drift-a {
@@ -165,6 +180,7 @@
   position: relative;
   background:
     linear-gradient(180deg, var(--l1-gloss), transparent 120px),
+    linear-gradient(var(--l1-frost), var(--l1-frost)),
     var(--l1-bg);
   -webkit-backdrop-filter: blur(var(--blur-l1)) saturate(var(--glass-sat));
   backdrop-filter: blur(var(--blur-l1)) saturate(var(--glass-sat));
@@ -228,9 +244,9 @@
 
 /* ---- L3 overlay ---------------------------------------------------------- */
 .l3 {
-  background: var(--l3-bg);
-  -webkit-backdrop-filter: blur(var(--blur-l3)) saturate(170%);
-  backdrop-filter: blur(var(--blur-l3)) saturate(170%);
+  background: linear-gradient(var(--l3-frost), var(--l3-frost)), var(--l3-bg);
+  -webkit-backdrop-filter: blur(var(--blur-l3)) saturate(180%);
+  backdrop-filter: blur(var(--blur-l3)) saturate(180%);
   border: 1px solid var(--l3-border);
   border-radius: var(--r-xl);
   box-shadow: var(--sh-l3);
@@ -248,7 +264,7 @@ dialog.l3::backdrop {
   backdrop-filter: blur(3px);
 }
 dialog.l3[open] { animation: l3-in var(--dur-2) var(--ease); }
-[popover].l3 { margin: 0; padding: 0; }
+:where([popover].l3) { margin: 0; padding: 0; }   /* zero specificity: .pop, .pop-menu and .tip set their own padding */
 /* component display rules must not keep a closed popover on screen */
 [popover]:not(:popover-open) { display: none !important; }
 [popover].l3:popover-open { animation: l3-in var(--dur-1) var(--ease); }

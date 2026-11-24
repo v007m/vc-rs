@@ -8,18 +8,18 @@
 
   /* ---- runs (history.db) ------------------------------------------------------ */
   const runs = [
-    { n: 482, kind: 'test', st: 'fail', when: 'Today 14:02', ago: '4 min ago', dur: '41.2 s', profile: 'local', layers: ['eu'], branch: 's/checkout-v2', commit: 'a41c9e2', by: 'you', sel: 'orders users', tot: t(38, 2, 1, 3, 1, 1) },
-    { n: 481, kind: 'test', st: 'pass', when: 'Today 13:40', ago: '26 min ago', dur: '38.9 s', profile: 'local', layers: ['eu'], branch: 's/checkout-v2', commit: '7d02bb1', by: 'you', sel: 'orders users', tot: t(41, 0, 0, 3, 1, 1) },
-    { n: 480, kind: 'test', st: 'pass', when: 'Today 13:12', ago: '54 min ago', dur: '12.4 s', profile: 'local', layers: [], branch: 's/checkout-v2', commit: '7d02bb1', by: 'claude-code', sel: 'tag:smoke', tot: t(9, 0, 0, 0, 0, 0) },
-    { n: 479, kind: 'adhoc', st: 'fail', when: 'Today 13:58', ago: '8 min ago', dur: '311 ms', profile: 'local', layers: [], branch: 's/checkout-v2', commit: '7d02bb1', by: 'you', sel: 'payments#charge', code: 402 },
-    { n: 478, kind: 'load', st: 'fail', when: 'Today 11:30', ago: '2 h ago', dur: '5 m 00 s', profile: 'staging', layers: [], branch: 'master', commit: 'e19f04a', by: 'ci', sel: 'checkout.peak', load: { iters: 18240, errs: 212, breach: 'p95 < 400ms · got 512 ms' } },
-    { n: 477, kind: 'test', st: 'pass', when: 'Today 10:05', ago: '4 h ago', dur: '1 m 12 s', profile: 'staging', layers: [], branch: 'master', commit: 'e19f04a', by: 'ci', sel: 'all', tot: t(118, 0, 0, 6, 2, 1) },
-    { n: 476, kind: 'test', st: 'fail', when: 'Yesterday 18:40', ago: '20 h ago', dur: '44.0 s', profile: 'local', layers: ['eu'], branch: 's/checkout-v2', commit: '3b7a0c5', by: 'cursor', sel: 'orders.checkout', tot: t(7, 1, 1, 0, 0, 0) },
-    { n: 475, kind: 'test', st: 'blocked', when: 'Yesterday 16:22', ago: '22 h ago', dur: '3.1 s', profile: 'dev', layers: [], branch: 'master', commit: 'c02e771', by: 'ci', sel: 'payments', tot: t(0, 0, 6, 0, 0, 0) },
-    { n: 474, kind: 'test', st: 'pass', when: 'Yesterday 09:15', ago: '1 d ago', dur: '1 m 09 s', profile: 'staging', layers: [], branch: 'master', commit: 'c02e771', by: 'ci', sel: 'all', tot: t(119, 0, 0, 6, 1, 1) },
-    { n: 473, kind: 'test', st: 'pass', when: 'Sat 21 Nov 22:00', ago: '2 d ago', dur: '58.2 s', profile: 'prod', layers: [], branch: 'master', commit: 'c02e771', by: 'ci', sel: 'tag:smoke', tot: t(14, 0, 0, 0, 0, 0) },
-    { n: 472, kind: 'load', st: 'pass', when: 'Fri 20 Nov 17:30', ago: '3 d ago', dur: '5 m 00 s', profile: 'staging', layers: [], branch: 'master', commit: '90d1a3e', by: 'you', sel: 'checkout.peak', load: { iters: 18800, errs: 9, breach: null } },
-    { n: 471, kind: 'test', st: 'fail', when: 'Fri 20 Nov 11:15', ago: '3 d ago', dur: '40.3 s', profile: 'local', layers: [], branch: 's/refunds', commit: '5e6f2aa', by: 'you', sel: 'payments.refunds', tot: t(4, 2, 0, 0, 0, 0) }
+    { n: 482, kind: 'test', st: 'fail', when: 'Today 14:02', ago: '4 min ago', dur: '41.2s', profile: 'local', layers: ['eu'], branch: 's/checkout-v2', commit: 'a41c9e2', by: 'you', sel: 'orders users', tot: t(38, 2, 1, 3, 1, 1) },
+    { n: 481, kind: 'test', st: 'pass', when: 'Today 13:40', ago: '26 min ago', dur: '38.9s', profile: 'local', layers: ['eu'], branch: 's/checkout-v2', commit: '7d02bb1', by: 'you', sel: 'orders users', tot: t(41, 0, 0, 3, 1, 1) },
+    { n: 480, kind: 'test', st: 'pass', when: 'Today 13:12', ago: '54 min ago', dur: '12.4s', profile: 'local', layers: [], branch: 's/checkout-v2', commit: '7d02bb1', by: 'claude-code', sel: 'tag:smoke', tot: t(9, 0, 0, 0, 0, 0) },
+    { n: 479, kind: 'adhoc', st: 'fail', when: 'Today 13:58', ago: '8 min ago', dur: '311ms', profile: 'local', layers: [], branch: 's/checkout-v2', commit: '7d02bb1', by: 'you', sel: 'payments#charge', code: 402 },
+    { n: 478, kind: 'load', st: 'fail', when: 'Today 11:30', ago: '2 h ago', dur: '5m 00s', profile: 'staging', layers: [], branch: 'master', commit: 'e19f04a', by: 'ci', sel: 'checkout.peak', load: { iters: 18240, errs: 212, breach: 'p95 < 400ms · got 512 ms' } },
+    { n: 477, kind: 'test', st: 'pass', when: 'Today 10:05', ago: '4 h ago', dur: '1m 12s', profile: 'staging', layers: [], branch: 'master', commit: 'e19f04a', by: 'ci', sel: 'all', tot: t(118, 0, 0, 6, 2, 1) },
+    { n: 476, kind: 'test', st: 'fail', when: 'Yesterday 18:40', ago: '20 h ago', dur: '44.0s', profile: 'local', layers: ['eu'], branch: 's/checkout-v2', commit: '3b7a0c5', by: 'cursor', sel: 'orders.checkout', tot: t(7, 1, 1, 0, 0, 0) },
+    { n: 475, kind: 'test', st: 'blocked', when: 'Yesterday 16:22', ago: '22 h ago', dur: '3.1s', profile: 'dev', layers: [], branch: 'master', commit: 'c02e771', by: 'ci', sel: 'payments', tot: t(0, 0, 6, 0, 0, 0) },
+    { n: 474, kind: 'test', st: 'pass', when: 'Yesterday 09:15', ago: '1 d ago', dur: '1m 09s', profile: 'staging', layers: [], branch: 'master', commit: 'c02e771', by: 'ci', sel: 'all', tot: t(119, 0, 0, 6, 1, 1) },
+    { n: 473, kind: 'test', st: 'pass', when: 'Sat 21 Nov 22:00', ago: '2 d ago', dur: '58.2s', profile: 'prod', layers: [], branch: 'master', commit: 'c02e771', by: 'ci', sel: 'tag:smoke', tot: t(14, 0, 0, 0, 0, 0) },
+    { n: 472, kind: 'load', st: 'pass', when: 'Fri 20 Nov 17:30', ago: '3 d ago', dur: '5m 00s', profile: 'staging', layers: [], branch: 'master', commit: '90d1a3e', by: 'you', sel: 'checkout.peak', load: { iters: 18800, errs: 9, breach: null } },
+    { n: 471, kind: 'test', st: 'fail', when: 'Fri 20 Nov 11:15', ago: '3 d ago', dur: '40.3s', profile: 'local', layers: [], branch: 's/refunds', commit: '5e6f2aa', by: 'you', sel: 'payments.refunds', tot: t(4, 2, 0, 0, 0, 0) }
   ];
 
   /* ---- one stored run, the same shape a live run streams ---------------------- */
@@ -103,7 +103,7 @@
   const insights = {
     days, passRate, duration,
     kpi: [
-      { k: 'Pass rate', v: '97.4%', d: '+1.8 pts', good: true, vs: 'vs previous 30 days', spark: passRate },
+      { k: 'Pass rate', v: '97.4%', d: '+1.8 pts', good: true, vs: 'vs previous 30 days', spark: null },
       { k: 'Median run', v: '69 s', d: '−6 s', good: true, vs: 'vs previous 30 days', spark: duration },
       { k: 'Flaky tests', v: '4', d: '+1', good: false, vs: 'vs previous 30 days', spark: [2, 2, 3, 3, 2, 3, 3, 4, 4, 3, 4, 4] },
       { k: 'Api coverage', v: '71%', d: '10 of 14 apis', good: null, vs: 'have at least one test', spark: null }
@@ -145,7 +145,7 @@
     queue: [
       { id: 'q1', agent: 'claude-code', tool: 'write_definition', profile: 'local', at: '14:05', what: 'services/orders/checkout.test.yaml', why: 'writeDefinitions: ask', digest: '9f2c41e', diff: [['@', '@@ -36,6 +36,10 @@'], [' ', '  - id: rejectsDeclinedCard'], [' ', '    call: payments#charge'], ['+', '    allowFailure:'], ['+', '      reason: "sandbox returns 500 for expired card tokens, see #352"'], ['+', '      until: 2026-12-01'], [' ', '    vars: { card: "4000 0000 0000 0002" }']] },
       { id: 'q2', agent: 'cursor', tool: 'call_api', profile: 'staging', at: '13:59', what: 'POST payments#refund', why: 'approve: [POST] on staging', body: '{ "chargeId": "ch_3PqZ", "amount": 1200 }' },
-      { id: 'q3', agent: 'claude-code', tool: 'run_tests', profile: 'local', at: '13:51', what: 'orders · 11 tests', why: 'plan runs a command: action (D202)', cmd: 'beforeRun: docker compose up -d --wait' }
+      { id: 'q3', agent: 'claude-code', tool: 'run_tests', profile: 'local', at: '13:51', what: 'orders · 11 tests', why: 'the plan runs a command action', cmd: 'beforeRun: docker compose up -d --wait' }
     ],
     tools: [
       ['list_definitions', 'read'], ['search', 'read'], ['get_definition', 'read'], ['check', 'read'], ['query_history', 'read'], ['explain_failure', 'read'],

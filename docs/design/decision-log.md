@@ -948,6 +948,19 @@ Round 88 (23 November 2026; Sarath, grilling the web and desktop UI v2 for #95 a
 | D493 | Tabs | Arc-style tabs: pinned tabs stay, others close after 12 h idle (configurable); a closed scratch request stays in history. ⌘T, ⌘W, ⌃Tab | — |
 | D494 | Session cookie | The launch link's session cookie gains `Secure` beside `HttpOnly` and `SameSite=Strict`; browsers treat localhost as secure | — |
 
+Round 89 (24 November 2026; Sarath's second and third mockup reviews of UI v2, "too crowded, no padding, not intuitive"; in-design refinements decided by the orchestrator and logged here):
+
+| # | Topic | Decision | Supersedes |
+| --- | --- | --- | --- |
+| D495 | Glass | Cards are clearly translucent: a light frost over a tinted base (about 36% in dark, 40% in light) with blur and saturation, so the blobs show through; overlays about 72%. Every text pair stays WCAG AA over the brightest blob; reduce transparency still makes them solid | D483 (glass level only) |
+| D496 | Accent | Primary buttons are monochrome (near-white in dark, near-black in light). The accent is a calm blue used only for focus rings, links, the selected-tab underline, progress and toggles; purple is retired. Profile dots: local blue, dev teal, staging amber, prod red | — |
+| D497 | Density | A 4/8/12/16/24/32 spacing scale; 24 px card padding; 40–44 px rows; at most one chip per row; at most three visible actions per area, the rest in a ⋯ menu; paths and IDs in tooltips; detail sections start collapsed; log and run rows are one line | — |
+| D498 | Sidebar | The sidebar holds the Client / Tests switch, one profile button (its popover holds the profile, layers, "Explain merged config" and "Edit profiles"), search with a filter icon that opens its own popover, open tabs, the tree, and the shared screens at the foot. Pinned tiles, chips and the duplicated Tests sub-views are removed; the header sub-nav is their only home | D472 (sidebar contents) |
+| D499 | Header band | A fixed 48 px band under the crumbs holds the sub-nav, at most one status and one primary action, so the card top sits at the same height on every screen | — |
+| D500 | Rename | Request, scratch and tab names are edited in place: a pencil on hover, click to edit, Enter saves, Esc cancels; double-click renames an open tab | — |
+| D501 | Empty response | Before the first send the response pane keeps its place and shows one quiet line ("Send the request to see the response ⌘↵") plus "Show last response" when history has one | — |
+| D502 | Run dialog | Run tests is a 560 px form: selector, profile, concurrency, bail and a one-line plan ("17 tests · 4 files · ~2 s"); layers, since-commit, seed, repeat, strict, reporters and the command preview sit under a collapsed "More options"; the footer is Cancel and Run | — |
+
 ## Open
 
 All decisions needed for the PRD and technical design are settled. The language is decided by the spike (D6, D36, D37, D41).

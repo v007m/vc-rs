@@ -22,18 +22,26 @@ The style follows the Arc browser.
 | Layer | What sits on it | Treatment |
 |---|---|---|
 | L0 background | sidebar, header, breadcrumbs, section labels, secondary text, status line | Muted colour blobs blended into the near-black (or pale) base, drifting slowly under a visible film grain. It looks matte metallic, not neon. The sidebar, header and status line have no panel of their own: their text sits straight on L0 |
-| L1 glass card | the main content card (one per view; a split shows two) | Liquid glass: translucent enough that the blobs show through, with a strong blur and saturation, a specular top edge, an inner rim and a soft outer shadow |
+| L1 glass card | the main content card (one per view; a split shows two) | Liquid glass: a light frost over a tinted base (about 36% in dark, 40% in light), so the blobs clearly show through, with a strong blur and saturation, a specular top edge, an inner rim and a soft outer shadow (D495) |
 | L2 raised control | buttons, segmented controls, chips, tabs | A smaller glass "pill" that is lifted on hover and debossed (inset shadow) when pressed or active |
-| L3 overlay | command palette, popovers, dialogs, toasts | The strongest glass, with a backdrop dim |
+| L3 overlay | command palette, popovers, dialogs, toasts | The strongest glass (about 72%), with a backdrop dim |
 
 Inside a card:
 - **One card level.** Nothing inside a card gets its own box. Group with spacing, section labels and hairline rules; tables are a header row plus row rules.
 - **Only inputs are filled.** Text inputs, selects, the URL field, key/value cells and the YAML editor are debossed: darker than the card, with an inset top shadow. Read-only values are plain text.
 - **Viewers are wells.** Read-only code, JSON, diffs and logs sit in a padded debossed well, like an input.
 - Wrappers that are not cards, such as the URL bar row, have no background or border.
+- **Selection** is a faint tint plus a 2 px left bar, never a filled box.
+
+Density (D497):
+- Spacing comes from one scale: 4/8/12/16/24/32. Cards have 24 px padding; rows are 40–44 px.
+- At most one chip per row and at most three visible actions per area; the rest go in a ⋯ menu.
+- Paths, file IDs and other secondary detail live in tooltips. Detail sections start collapsed. Log and run rows are one line.
+- An empty pane keeps its place and shows one quiet line, with at most one action.
 
 ### Tokens
 - Every colour, radius, blur, shadow, space and type size is a CSS custom property in `tokens.css`. Components use tokens only.
+- **Accent and buttons (D496):** primary buttons are monochrome: near-white in dark, near-black in light. The accent is a calm blue, used only for focus rings, links, the selected-tab underline, progress and toggles. Profile dots: local blue, dev teal, staging amber, prod red.
 - **Tint:** the blob palette is picked per project, and overridden per profile. Prod defaults to a red or amber tint, so a dangerous profile is visible at a glance. Tints are stored in UI prefs.
 - **Themes:** dark is the default. Light is the alternative. Both are checked for AA on every layer pair, including text on L0 over the brightest blob.
 - **Reduce motion:** the blobs stop drifting. **Reduce transparency** (or the in-app switch) makes L1 and L2 solid.
@@ -46,16 +54,15 @@ These colours are shared with the CLI, TUI and HTML report: pass, fail, blocked,
 ## 3. Shell and navigation
 
 ```
-┌ L0: sidebar ──────────┬─ L0: header (breadcrumb · profile · run status) ────┐
-│ ● ● ●  (traffic)      │ ┌ L1 glass card ─────────────────────────────────┐ │
-│ [ Client | Tests ]    │ │                                                │ │
-│ profile: dev ▾  tint  │ │   view for the selected item                   │ │
-│ ⌕ Search      ⌘K      │ │                                                │ │
-│ ── pinned tabs ──     │ │                                                │ │
-│ ── today's tabs ──    │ │                                                │ │
+┌ L0: sidebar ──────────┬─ L0: crumbs ─────────────────────────────────────────┐
+│ ● ● ●  (traffic)      │  48 px band: sub-nav · one status · one action     │
+│ [ Client | Tests ]    │ ┌ L1 glass card ─────────────────────────────────┐ │
+│ ● local · eu ▾        │ │                                                │ │
+│ ⌕ Search      ⌘K   ⏷  │ │   view for the selected item                   │ │
+│ ── open tabs ──       │ │                                                │ │
 │ ── tree ──            │ │                                                │ │
-│ ── history ──         │ └────────────────────────────────────────────────┘ │
-│ Runs Insights Agents ⚙│  L0 status line: engine · branch · last check      │
+│                       │ └────────────────────────────────────────────────┘ │
+│ Runs Insights Agents ⚙│  L0 status line: version · branch · vc check       │
 └───────────────────────┴────────────────────────────────────────────────────┘
 ```
 
@@ -64,11 +71,14 @@ These colours are shared with the CLI, TUI and HTML report: pass, fail, blocked,
   - Tests mode's tree: services, then test files, then tests, with status dots from the last run.
 - **Tabs follow Arc.** Pinned tabs stay. Other tabs close themselves after 12 h idle; the time can be changed. A closed scratch request stays in history.
   - ⌘T opens a new scratch tab, ⌘W closes a tab, ⌃Tab cycles tabs.
-- **Profile picker:** one main profile, with "add layer" to stack more in order. A "config explain" popover shows the merged value of every key and where it was set. The tint follows the profile.
+- **Profile button** (D498): one button showing the profile and region ("local · eu"). Its popover holds the main profile, "add layer" to stack more in order, "Explain merged config" (the merged value of every key and where it was set) and "Edit profiles". The tint follows the profile.
+- **Search** (⌘K) has a filter icon at its right end that opens its own popover (All / REST / GraphQL / Streams); the icon gets a dot while a filter is on. Nothing else filters in the sidebar.
+- **Header band** (D499): a fixed 48 px band under the crumbs holds the sub-nav (Explorer, Editor, Runner, Load in Tests mode), at most one status and one primary action, so every card starts at the same height. The sub-nav is the only home of those views; the sidebar does not repeat them.
+- **Rename** (D500): request, scratch and tab names are edited in place (pencil on hover, Enter saves, Esc cancels); double-click an open tab to rename it.
 - **Shared screens** at the sidebar's foot: Runs, Insights, Agents and Settings.
 - **Responsive:**
   - Above 1100 px the sidebar is open.
-  - From 760 to 1100 px the sidebar collapses to an icon rail.
+  - From 760 to 1100 px the sidebar collapses to an icon rail; open tabs sit behind one "Tabs" button.
   - Below 760 px the sidebar is a drawer. This is web only and read-mostly.
 - **Desktop shell:** the traffic lights sit in the sidebar. The window can be dragged from the L0 header. Native menus mirror the palette commands.
 
@@ -97,7 +107,8 @@ These colours are shared with the CLI, TUI and HTML report: pass, fail, blocked,
 
 ### Response card
 - **Status line:** status, time, size, the protocol (h1 or h2), and retried or auth-refreshed badges.
-- **Tabs:** Body, Headers, Cookies (read-only), Timing, Checks, Saved, Raw.
+- **Tabs:** Body, Headers, Cookies (read-only), Timing, Checks, Saved. The raw exchange is "View raw exchange" in the card's ⋯ menu.
+- **Before the first send** (D501) the pane keeps its place and shows one quiet line, "Send the request to see the response ⌘↵", plus "Show last response" when history has one.
 - **Body:**
   - tree view for JSON and XML, raw text, and a preview for HTML and images;
   - large bodies are virtualised;
@@ -160,9 +171,10 @@ A wizard with six steps: Source (OpenAPI, HAR, Postman, Bruno, .http, cURL paste
 - **Plan preview** (`vc plan --explain`) for the selection shows the instances, the lifecycle order and the merged expects.
 
 ### Runner
-- **Run dialog** (or ⌘R on a selection):
-  - selector, profiles, seed, repeat, bail, concurrency, strict and reporters;
-  - "since commit" for `--changed`.
+- **Run dialog** (or ⌘R on a selection; D502): a 560 px form.
+  - Visible: selector, profile, concurrency, bail and a one-line plan ("17 tests · 4 files · ~2 s").
+  - Under a collapsed "More options": layers, "since commit" for `--changed`, seed, repeat, strict, reporters and the command preview.
+  - Footer: Cancel and Run.
 - **Live run view:**
   - plan progress, a now-running list, and pass/fail counters;
   - an event log with filters and pause;
@@ -267,6 +279,19 @@ A wizard with six steps: Source (OpenAPI, HAR, Postman, Bruno, .http, cURL paste
 | D492 | The response viewer has tree, raw and preview, a filter, click-to-check, and a waterfall |
 | D493 | Arc-style pinned and temporary tabs |
 | D494 | The session cookie gets the `Secure` flag |
+
+Round 89 (the second and third mockup reviews):
+
+| D | Decision |
+|---|---|
+| D495 | Clearly translucent frost glass; overlays about 72%; AA kept |
+| D496 | Monochrome primary buttons; a calm blue accent; purple retired |
+| D497 | Density: one spacing scale, 24 px card padding, one chip per row, three visible actions, the rest in ⋯ |
+| D498 | The sidebar holds a profile popover and a search filter popover; pinned tiles and duplicate nav are removed |
+| D499 | A fixed 48 px header band for the sub-nav, one status and one action |
+| D500 | Names are renamed in place |
+| D501 | A quiet empty response state with "Show last response" |
+| D502 | The run dialog is a short form with "More options" |
 
 ## 10. Mockups (`design/mockups/ui-v2/`)
 

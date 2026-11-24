@@ -188,30 +188,33 @@
   function sidebar() {
     const p = VC.profile();
     const tests = S.mode === 'tests';
-    const layerChips = S.layers.map((id, i) => `<span class="chip layer-chip" title="${esc((D.layers.find((l) => l.id === id) || {}).note)}"><span class="order">${i + 2}</span>${esc(id)}<button class="x" data-action="remove-layer" data-id="${esc(id)}" aria-label="Remove layer ${esc(id)}">${ic('x', 'ico-sm')}</button></span>`).join('');
+    const label = [p.id].concat(S.layers).join(' · ');
+    const filtered = treeFilter() !== 'all';
+    const welcome = S.empty || S.route === 'welcome';
     return `
     <aside class="sidebar" id="sidebar" aria-label="Sidebar">
       <div class="sb-top">
         <div class="traffic hide-rail" aria-hidden="true"><span></span><span></span><span></span></div>
         <button class="btn btn-ghost btn-icon btn-sm on-l0 rail-toggle" data-action="toggle-rail" aria-label="Toggle sidebar" data-fk="rail">${ic('columns')}</button>
       </div>
-      <div class="seg seg-fill mode-switch on-l0" role="group" aria-label="Mode">
-        <button aria-pressed="${!tests}" data-action="mode" data-mode="client" data-fk="mode-client" title="Client (⌘1)">${ic('send')}<span class="hide-rail">Client</span><span class="kbd hide-rail">⌘1</span></button>
-        <button aria-pressed="${tests}" data-action="mode" data-mode="tests" data-fk="mode-tests" title="Tests (⌘2)">${ic('runs')}<span class="hide-rail">Tests</span><span class="kbd hide-rail">⌘2</span></button>
+      <div class="sb-controls">
+        <div class="seg seg-fill mode-switch on-l0" role="group" aria-label="Mode">
+          <button aria-pressed="${!tests}" data-action="mode" data-mode="client" data-fk="mode-client" title="Client (⌘1)">${ic('send')}<span class="hide-rail">Client</span></button>
+          <button aria-pressed="${tests}" data-action="mode" data-mode="tests" data-fk="mode-tests" title="Tests (⌘2)">${ic('runs')}<span class="hide-rail">Tests</span></button>
+        </div>
+        <button class="btn profile-btn on-l0" data-action="profile-menu" aria-haspopup="dialog" aria-expanded="false" data-fk="profile" title="Profile and layers">
+          <span class="tint-dot" data-p="${esc(p.id)}" aria-hidden="true"></span><span class="label hide-rail">${esc(label)}</span>${ic('chev-down', 'chev hide-rail')}</button>
+        <div class="search-field">
+          <button class="btn search-btn on-l0" data-action="palette" data-fk="search" title="Search (⌘K)">${ic('search')}<span class="label hide-rail">Search or run…</span><span class="kbd hide-rail">⌘K</span></button>
+          ${welcome ? '' : `<button class="btn btn-ghost btn-icon btn-sm on-l0 search-filter hide-rail${filtered ? ' is-on' : ''}" data-action="filter-menu" aria-haspopup="dialog" aria-expanded="false" data-fk="filter" aria-label="Filter the sidebar${filtered ? ' (on)' : ''}" title="Filter the sidebar">${ic('filter')}</button>`}
+        </div>
       </div>
-      <div class="profile-row">
-        <button class="btn profile-btn" data-action="profile-menu" aria-haspopup="menu" data-fk="profile" title="Profile: ${esc(p.id)}"><span class="tint-dot" aria-hidden="true"></span><span class="label hide-rail">${esc(p.id)}${S.layers.length ? `<small>+ ${S.layers.length} layer${S.layers.length > 1 ? 's' : ''}</small>` : ''}</span>${ic('chev-down', 'chev hide-rail')}</button>
-        <button class="btn btn-icon hide-rail" data-action="explain" aria-label="Explain merged config" title="Config explain" data-fk="explain">${ic('layers')}</button>
-      </div>
-      <div class="add-layer hide-rail" aria-label="Profile layers, applied in order">${layerChips}<button class="chip plus" data-action="add-layer" aria-haspopup="menu" data-fk="add-layer">${ic('plus', 'ico-sm')}layer</button></div>
-      <button class="btn search-btn" data-action="palette" data-fk="search" title="Search (⌘K)">${ic('search')}<span class="label hide-rail">Search or run…</span><span class="kbd hide-rail">⌘K</span></button>
       <div class="sb-scroll" data-sk="sidebar">
-        ${S.empty ? '' : tests ? testsNavHtml() : pinsHtml() + tabsHtml()}
+        ${welcome || tests ? '' : tabsHtml()}
         <section class="sb-section hide-rail" aria-label="${tests ? 'Tests' : 'Services'}">
-          <h2 class="sb-label">${tests ? 'Tests' : 'Services'}${countHtml(tests)}</h2>
-          <div class="sb-tree">${S.empty ? '<p class="empty-tree">No services yet. Init, import or open the demo.</p>' : tests ? testsTreeHtml() : treeHtml()}</div>
+          <h2 class="sb-label">${tests ? 'Test files' : 'Services'}</h2>
+          <div class="sb-tree">${welcome ? '<p class="empty-quiet empty-tree">No services yet. Init, import or open the demo.</p>' : tests ? testsTreeHtml() : treeHtml()}</div>
         </section>
-        ${S.empty || tests ? '' : historyHtml()}
       </div>
       <nav class="sb-foot" aria-label="Shared screens">
         ${[['runs', 'runs', 'Runs'], ['insights', 'chart', 'Insights'], ['agents', 'bot', 'Agents'], ['project-settings', 'gear', 'Settings']].map(([r, i, l]) =>
@@ -219,40 +222,31 @@
       </nav>
     </aside>`;
   }
-  function countHtml(tests) {
-    if (S.empty) return '<span class="count">0</span>';
-    const TD = VC.testsData;
-    const [n, title] = tests && TD ? [TD.order.length, `${TD.order.length} tests in ${Object.keys(TD.files).length} files`]
-      : [Object.keys(D.apis).length, `${Object.keys(D.apis).length} apis in ${D.services.length} services`];
-    return `<span class="count" title="${title}">${n}</span>`;
-  }
-  const TESTS_NAV = [['tests', 'flow', 'Explorer'], ['tests-editor', 'code', 'Editor'], ['tests-run', 'play', 'Runner', '⌘R'], ['tests-load', 'chart', 'Load']];
-  function testsNavHtml() {
-    return `<nav class="sb-section" aria-label="Tests screens">${TESTS_NAV.map(([r, i, l, k]) =>
-      `<a class="sb-row" href="#${r}"${S.route === r ? ' aria-current="page"' : ''} title="${l}" data-fk="tn-${r}">${ic(i)}<span class="title hide-rail">${l}</span>${k ? `<span class="kbd hide-rail">${k}</span>` : ''}</a>`).join('')}</nav>`;
-  }
-  function pinsHtml() {
-    return `<section class="sb-section" aria-label="Pinned"><div class="pins">${D.pins.map((p, i) => {
-      const a = p.api ? D.apis[p.api] : null;
-      const cur = p.api ? S.api === p.api && S.route.startsWith('client') && S.route !== 'client-auth' : S.route === p.route;
-      return `<button class="pin l2${cur ? ' is-active' : ''}" data-action="${p.api ? 'open-api' : 'go'}" data-api="${esc(p.api || '')}" data-route="${esc(p.route || '')}" data-fk="pin${i}" title="${esc(p.label)}">${a ? method(a.m) : ic(p.ico)}<span class="pin-name hide-rail">${esc(p.label)}</span></button>`;
-    }).join('')}</div></section>`;
-  }
+  /* tree filter (set in the profile popover): client = service kind, tests = status */
+  const treeFilter = () => (S.mode === 'tests' ? S.testFilter : S.svcFilter) || 'all';
+  const SVC_KIND = { http: 'rest', graphql: 'graphql', websocket: 'streams', sse: 'streams' };
+  const FAILING = ['fail', 'blocked', 'flaky'];
+  const tabTitle = (t) => t.title || (t.api ? D.apis[t.api].name : t.name);
   function tabsHtml() {
-    return `<section class="sb-section" aria-label="Today's tabs">
-      <div class="sb-section-head"><h2 class="sb-label">Today</h2></div>
-      <button class="sb-row new-tab" data-action="new-tab" data-fk="new-tab" title="New tab (⌘T)">${ic('plus')}<span class="title hide-rail">New tab</span><span class="kbd hide-rail">⌘T</span></button>
+    const cur = S.tabs.some((t) => t.id === S.tab) && TAB_ROUTES.includes(S.route);
+    /* B6: in the icon rail the tab list collapses to one Tabs button (it opens the rail) */
+    return `<button class="sb-row rail-only rail-tabs" data-action="toggle-rail" data-fk="rail-tabs" title="Open tabs (${S.tabs.length})" aria-label="Open tabs, ${S.tabs.length}">${ic('tab')}</button>
+    <section class="sb-section hide-rail" aria-label="Open tabs">
+      <div class="sb-section-head"><h2 class="sb-label">Open tabs</h2><button class="btn btn-ghost btn-icon btn-sm on-l0 hide-rail" data-action="new-tab" data-fk="new-tab" aria-label="New tab" title="New tab (⌘T)">${ic('plus')}</button></div>
       ${S.tabs.map((t) => {
         const a = t.api ? D.apis[t.api] : null;
-        const cur = t.id === S.tab && S.route.startsWith('client') && S.route !== 'client-auth';
-        return `<div class="sb-row tab-row"${cur ? ' aria-current="page"' : ''}>
-          <button class="tab-open" data-action="open-tab" data-id="${t.id}" data-fk="tab-${t.id}" title="${esc(a ? a.name : t.name)}">${a ? method(a.m) : ic('tab', 'scratch-ico')}<span class="title hide-rail">${esc(a ? a.name : t.name)}</span></button>
-          <button class="close hide-rail" data-action="close-tab" data-id="${t.id}" aria-label="Close ${esc(a ? a.name : t.name)}">${ic('x', 'ico-sm')}</button></div>`;
+        const on = cur && t.id === S.tab;
+        return `<div class="sb-row tab-row"${on ? ' aria-current="page"' : ''}>
+          <button class="tab-open" data-action="open-tab" data-id="${t.id}" data-fk="tab-${t.id}" title="${esc(tabTitle(t))} (double-click to rename)">${a ? method(a.m) : ic('tab', 'scratch-ico')}<span class="title hide-rail">${esc(tabTitle(t))}</span></button>
+          <button class="close hide-rail" data-action="close-tab" data-id="${t.id}" aria-label="Close ${esc(tabTitle(t))}">${ic('x', 'ico-sm')}</button></div>`;
       }).join('')}
     </section>`;
   }
   function treeHtml() {
-    return `<ul class="tree" role="tree" aria-label="Services and apis">${D.services.map((s, si) => {
+    const f = treeFilter();
+    const svcs = D.services.filter((s) => f === 'all' || SVC_KIND[s.type] === f);
+    if (!svcs.length) return '<p class="empty-quiet empty-tree">No services match this filter.</p>';
+    return `<ul class="tree" role="tree" aria-label="Services and apis">${svcs.map((s, si) => {
       const open = !(S.closed || []).includes(s.id);
       return `<li class="ti" role="treeitem" aria-expanded="${open}" aria-level="1" tabindex="${si === 0 ? 0 : -1}" data-action="tree-toggle" data-id="${s.id}" data-fk="tree-${s.id}">
         <div class="ti-row">${ic('chev-down', 'chev')}${ic(s.type === 'graphql' ? 'graph' : s.type === 'websocket' ? 'chat' : 'folder')}<span class="ti-name">${esc(s.id)}</span><span class="ti-meta">${s.apis.length}</span></div>
@@ -273,45 +267,58 @@
   const runBtn = (id, label) => `<button class="ti-run" tabindex="-1" data-action="tt-run" data-id="${esc(id)}" aria-label="Run ${esc(label)}" title="Run">${ic('play', 'ico-sm')}</button>`;
   function testsTreeHtml() {
     let first = true;
-    return `<ul class="tree" role="tree" aria-label="Test files and tests">${D.testsTree.map((s) => s.files.map((f) => {
+    const failing = treeFilter() === 'failing';
+    const files = [].concat(...D.testsTree.map((s) => s.files))
+      .map((f) => (failing ? Object.assign({}, f, { tests: f.tests.filter(([, st]) => FAILING.includes(st)) }) : f))
+      .filter((f) => f.tests.length);
+    if (!files.length) return '<p class="empty-quiet empty-tree">Nothing is failing.</p>';
+    return `<ul class="tree" role="tree" aria-label="Test files and tests">${files.map((f) => {
       const ti = first ? 0 : -1; first = false;
       const open = !(S.closed || []).includes('tt:' + f.id);
       const cur = f.load ? S.route === 'tests-load' : S.route === 'tests-editor' && f.id === EDITOR_FILE && !!VC.ed && VC.ed.sel === 'lifecycle';
       return `<li class="ti" role="treeitem" aria-expanded="${open}" aria-level="1" aria-selected="${cur}" tabindex="${ti}" data-action="tt-file" data-file="${esc(f.id)}" data-fk="tt-${f.id}">
         <div class="ti-row"><span class="ti-fold" data-action="tt-fold" title="${open ? 'Collapse' : 'Expand'}">${ic('chev-down', 'chev')}</span>${ic(f.load ? 'chart' : 'file')}<span class="ti-name">${esc(f.id)}</span><span class="ti-meta">${f.tests.length}</span>${f.load ? '' : runBtn(f.id, f.id)}</div>
         <ul role="group">${f.tests.map(([t, st]) => `<li class="ti" role="treeitem" aria-level="2" tabindex="-1" aria-selected="${ttSelected(f, t)}" data-action="tt-test" data-id="${esc(f.load ? f.id : `${f.id}#${t}`)}"${f.load ? ' data-load="1"' : ''} data-fk="tt-${f.id}-${t}"><div class="ti-row"><span class="leaf-gap"></span><span class="dot st-${st}" role="img" aria-label="${STATUS[st][1]}"></span><span class="ti-name">${esc(t)}</span>${f.load ? '' : runBtn(`${f.id}#${t}`, t)}</div></li>`).join('')}</ul></li>`;
-    }).join('')).join('')}</ul>`;
+    }).join('')}</ul>`;
   }
-  function historyHtml() {
-    return `<section class="sb-section sb-history hide-rail" aria-label="History">
-      <div class="sb-section-head"><h2 class="sb-label">History</h2><a class="sb-link" href="#history">All</a></div>
-      ${D.history.slice(0, 2).map((d) => `<div class="day">${esc(d.day)}</div>${d.items.slice(0, d.day === 'Today' ? 4 : 2).map((it, i) =>
-        `<button class="sb-row" data-action="reopen" data-api="${it.api}" data-fk="h-${esc(d.day)}-${i}" title="${esc(it.m + ' ' + it.path)}">${method(it.m)}<span class="title">${esc(it.path)}</span><span class="meta"><span class="hs" data-class="${String(it.s)[0]}">${it.s}</span></span></button>`).join('')}`).join('')}
-    </section>`;
+  /* mode sub-nav in the header: one place to switch views inside a mode */
+  const SUBNAV = {
+    tests: [['tests', 'Explorer'], ['tests-editor', 'Editor'], ['tests-run', 'Run'], ['tests-load', 'Load']],
+    client: [['client', 'Requests'], ['history', 'History']]
+  };
+  function subnavHtml() {
+    if (S.empty) return '';
+    const items = SUBNAV[S.mode === 'tests' ? 'tests' : 'client'];
+    const shared = ['runs', 'runs-compare', 'insights', 'agents', 'project-settings'].includes(S.route);
+    if (shared || ['client-auth', 'import', 'welcome'].includes(S.route)) return '';   /* B4: Requests/History only where they apply */
+    return `<nav class="subnav hide-narrow" aria-label="${S.mode === 'tests' ? 'Tests' : 'Client'} views">${items.map(([r, l]) => {
+      const cur = r === 'client' ? S.route.startsWith('client') : S.route === r;
+      const target = r === 'client' ? `data-action="open-tab" data-id="${esc(S.tab)}"` : `data-action="go" data-route="${r}"`;
+      return `<a class="tab" href="#${r === 'client' ? 'client-rest' : r}" ${target}${cur ? ' aria-current="page"' : ''} data-fk="sn-${r}">${l}</a>`;
+    }).join('')}</nav>`;
   }
   function header() {
     const scr = VC.screens[S.route] || {};
     const crumbs = (scr.crumbs ? scr.crumbs() : [S.route]);
     const p = VC.profile();
     const flag = p.id === 'prod' ? `<span class="prod-flag">${ic('warn', 'ico-sm')}prod · live data</span>` : p.id === 'staging' ? `<span class="prod-flag is-staging">${ic('warn', 'ico-sm')}staging</span>` : '';
+    const st = scr.status ? scr.status() : '';
     return `<header class="header">
       <button class="btn btn-ghost btn-icon on-l0 menu-btn" data-action="drawer" aria-label="Open sidebar" aria-expanded="${S.drawer}" data-fk="drawer">${ic('menu')}</button>
-      <nav aria-label="Breadcrumb" class="grow"><ol class="crumbs">${crumbs.map((c, i) => `<li${i === crumbs.length - 1 ? ' aria-current="page"' : ''}>${esc(c)}</li>`).join('')}</ol></nav>
+      <nav aria-label="Breadcrumb" class="crumbs-nav"><ol class="crumbs">${crumbs.map((c, i) => `<li${i === crumbs.length - 1 ? ' aria-current="page"' : ''}>${esc(c)}</li>`).join('')}</ol></nav>
+      ${subnavHtml()}
       <div class="header-actions">
-        ${flag}
-        <span class="run-status hide-narrow">${scr.status ? scr.status() : ''}</span>
-        <button class="btn btn-ghost btn-icon on-l0" data-action="shortcuts" aria-label="Keyboard shortcuts (?)" title="Shortcuts (?)" data-fk="help">${ic('keyboard')}</button>
+        ${flag || (st ? `<span class="run-status hide-narrow">${st}</span>` : '')}
+        ${scr.primary ? scr.primary() : ''}
       </div>
     </header>`;
   }
   function statusline() {
     return `<footer class="statusline" aria-label="Status">
-      <span class="item">${ic('cpu', 'ico-sm')}<b>${esc(D.project.engine)}</b></span>
+      <span class="item">${ic('cpu', 'ico-sm')}${esc(D.project.engine)}</span>
       <span class="item hide-narrow">${ic('branch', 'ico-sm')}${esc(D.project.branch)}</span>
-      <span class="item hide-narrow">${ic('pass', 'ico-sm')}${esc(D.project.lastCheck)}</span>
       <span class="spacer"></span>
-      <span class="item">${ic('layers', 'ico-sm')}profile <b>${esc([S.profile].concat(S.layers).join(' + '))}</b></span>
-      <span class="item hide-narrow">${ic('db', 'ico-sm')}history.db · 1,204 calls</span>
+      <span class="item">${ic('pass', 'ico-sm')}${esc(D.project.lastCheck)}</span>
     </footer>`;
   }
 
@@ -339,10 +346,26 @@
   };
 
   /* ---- router ------------------------------------------------------------ */
+  /* B3: the open tab always matches the request route, so its highlight never goes stale */
+  const TAB_ROUTES = ['client-rest', 'client-graphql', 'client-ws', 'client-sse', 'client-scratch'];
+  const tabRoute = (t) => (t.api ? D.apis[t.api].route || 'client-rest' : 'client-scratch');
+  function syncTab(route) {
+    if (!TAB_ROUTES.includes(route)) return;
+    const cur = S.tabs.find((t) => t.id === S.tab);
+    if (cur && tabRoute(cur) === route) return;
+    let t = S.tabs.find((x) => tabRoute(x) === route);
+    if (!t && route === 'client-scratch' && S.tab !== null) { t = { id: 't' + S.nextTab++, api: null, name: 'Untitled request' }; S.tabs.push(t); }
+    else if (!t && route !== 'client-scratch') {
+      const api = Object.keys(D.apis).find((id) => (D.apis[id].route || 'client-rest') === route);
+      if (api) { t = { id: 't' + S.nextTab++, api }; S.tabs.push(t); }
+    }
+    if (t) { S.tab = t.id; if (t.api) S.api = t.api; }
+  }
   function onHash() {
     const r = (location.hash || '').slice(1);
     S.route = VC.screens[r] ? r : (S.empty ? 'welcome' : 'client-rest');
     if (S.route.startsWith('client') && S.route !== 'client-auth') S.lastClient = S.route;
+    syncTab(S.route);
     if (S.route === 'tests' || S.route.startsWith('tests-')) { S.mode = 'tests'; S.lastTests = S.route; }
     else if (S.route.startsWith('client') || S.route === 'import' || S.route === 'history') S.mode = 'client';
     S.drawer = false; S.rail = false;
@@ -465,7 +488,11 @@
   const A = VC.actions;
   A.go = (el) => VC.go(el.dataset.route);
   A['open-api'] = (el) => VC.openApi(el.dataset.api);
-  A['open-tab'] = (el) => { const t = S.tabs.find((x) => x.id === el.dataset.id); S.tab = t.id; if (t.api) VC.openApi(t.api); else VC.go('client-scratch'); };
+  A['open-tab'] = (el) => {
+    const t = S.tabs.find((x) => x.id === el.dataset.id);
+    if (!t) return VC.go('client-rest');
+    if (el.closest('.tab-row') && t.id === S.tab && TAB_ROUTES.includes(S.route)) return;
+    S.tab = t.id; if (t.api) VC.openApi(t.api); else VC.go('client-scratch'); };
   A['close-tab'] = (el) => VC.closeTab(el.dataset.id);
   A['new-tab'] = () => VC.newTab();
   A.reopen = (el) => VC.openApi(el.dataset.api, { toast: 'Reopened from history' });
@@ -487,6 +514,7 @@
     const f = el.dataset.file;
     if (f === 'checkout.peak') return VC.go('tests-load');
     if (f !== EDITOR_FILE) VC.toast(`Opened ${f}`, `Sample editor: the mockup holds one file (${EDITOR_FILE}).`);
+    else if (VC.ed) VC.ed.sel = 'lifecycle';   /* a file row opens that file's lifecycle */
     VC.go('tests-editor');
   };
   A['tt-test'] = (el) => {
@@ -506,9 +534,26 @@
   A['close-dialog'] = () => VC.closeDialog();
   A.drawer = () => { S.drawer = !S.drawer; VC.render(); if (S.drawer) { const f = $('#sidebar .mode-switch button'); if (f) f.focus(); } };
   A['toggle-rail'] = () => { S.rail = !S.rail; VC.render(); };
-  A['profile-menu'] = (el) => VC.menu(el, `<div class="pop-label">Profile</div>${D.profiles.map((p) =>
-    menuItem(`<span class="tint-dot is-${p.tint || 'project'}"></span>${esc(p.id)}`, 'set-profile', `data-id="${p.id}"`, { radio: true, checked: p.id === S.profile, meta: esc(p.note) })).join('')}
-    <div class="pop-sep"></div>${menuItem('Add layer…', 'add-layer', '', { ico: 'plus' })}${menuItem('Explain merged config', 'explain', '', { ico: 'layers' })}${menuItem('Edit profiles', 'go', 'data-route="project-settings"', { ico: 'gear' })}`);
+  /* profile popover: the profile and its layers (the tree filter lives on the search field, B8) */
+  const FILTERS = { tests: [['all', 'All'], ['failing', 'Failing']], client: [['all', 'All'], ['rest', 'REST'], ['graphql', 'GraphQL'], ['streams', 'Streams']] };
+  function profilePop(addOpen) {
+    const note = (id) => esc((D.layers.find((l) => l.id === id) || {}).note || '');
+    const left = D.layers.filter((l) => !S.layers.includes(l.id));
+    return `<div class="pp" role="group" aria-label="Profile and layers">
+      <section class="pp-sec"><h3 class="pp-label" id="pp-p">Profile</h3>
+        <div class="pp-list" role="radiogroup" aria-labelledby="pp-p">${D.profiles.map((p) =>
+          `<button class="pop-item" role="radio" aria-checked="${p.id === S.profile}" data-action="set-profile" data-id="${p.id}"><span class="tint-dot" data-p="${esc(p.id)}" aria-hidden="true"></span><span>${esc(p.id)}</span><span class="meta">${esc(p.note)}</span>${p.id === S.profile ? ic('check', 'ico-sm tick') : ''}</button>`).join('')}</div>
+      </section>
+      <section class="pp-sec"><div class="pp-head"><h3 class="pp-label">Layers</h3><span class="meta">later layers win</span></div>
+        ${S.layers.length ? `<ol class="pp-layers">${S.layers.map((id) => `<li><span class="name">${esc(id)}</span><span class="meta">${note(id)}</span><button class="btn btn-ghost btn-icon btn-sm" data-action="remove-layer" data-id="${esc(id)}" aria-label="Remove layer ${esc(id)}">${ic('x')}</button></li>`).join('')}</ol>` : '<p class="pp-none">No layers. The profile applies on its own.</p>'}
+        ${left.length ? `<details class="disc pp-add"${addOpen ? ' open' : ''}><summary>${ic('chev-down', 'chev')}Add a layer</summary><div class="disc-body">${left.map((l) =>
+          `<button class="pop-item" data-action="push-layer" data-id="${l.id}">${ic('plus', 'ico-sm')}<span>${esc(l.id)}</span><span class="meta">${esc(l.note)}</span></button>`).join('')}</div></details>` : ''}
+      </section>
+      <div class="pp-foot"><button class="link" data-action="explain">Explain merged config</button><span class="grow"></span><button class="link" data-action="go" data-route="project-settings">Edit profiles</button></div>
+    </div>`;
+  }
+  const reopenProfile = (addOpen) => { VC.render(); const b = $('.profile-btn'); if (b && b.offsetParent) A['profile-menu'](b, null, addOpen); };
+  A['profile-menu'] = (el, ev, addOpen) => VC.pick(el, profilePop(addOpen));
   A['set-profile'] = (el) => {
     VC.hidePopovers();
     S.profile = el.dataset.id;
@@ -516,23 +561,59 @@
     VC.render();
     VC.toast(`Profile: ${p.id}`, p.tint ? `Tint follows the profile (${p.tint}). ${p.id === 'prod' ? 'Writes ask for confirmation.' : ''}` : 'Tint follows the project.', p.id === 'prod' ? 'warn' : '');
   };
-  A['add-layer'] = () => {
-    const anchor = $('.add-layer .plus') || $('.profile-btn');
-    const left = D.layers.filter((l) => !S.layers.includes(l.id));
-    VC.menu(anchor, `<div class="pop-label">Stack a layer on ${esc(S.profile)}</div>${left.length ? left.map((l) => menuItem(esc(l.id), 'push-layer', `data-id="${l.id}"`, { meta: esc(l.note) })).join('') : '<div class="pop-item" aria-disabled="true">Every layer is applied</div>'}`);
+  function filterPop() {
+    const f = treeFilter();
+    return `<div class="pp fp" role="group" aria-label="Sidebar filter"><section class="pp-sec"><h3 class="pp-label" id="pp-f">Show in sidebar</h3>
+      <div class="seg seg-fill" role="group" aria-labelledby="pp-f">${FILTERS[S.mode === 'tests' ? 'tests' : 'client'].map(([k, l]) => `<button aria-pressed="${f === k}" data-action="set-filter" data-k="${k}">${l}</button>`).join('')}</div></section></div>`;
+  }
+  A['filter-menu'] = (el) => VC.pick(el, filterPop());
+  A['set-filter'] = (el) => {
+    S[S.mode === 'tests' ? 'testFilter' : 'svcFilter'] = el.dataset.k;
+    VC.render();
+    const b = $('.search-filter');
+    if (b && b.offsetParent) { A['filter-menu'](b); const k = $(`#pick [data-k="${CSS.escape(el.dataset.k)}"]`); if (k) k.focus(); }
   };
-  A['push-layer'] = (el) => { VC.hidePopovers(); S.layers.push(el.dataset.id); VC.render(); VC.toast(`Layer ${el.dataset.id} added`, `Applied after ${S.layers.length > 1 ? S.layers[S.layers.length - 2] : S.profile}; later layers win.`); };
-  A['remove-layer'] = (el) => { S.layers = S.layers.filter((x) => x !== el.dataset.id); VC.render(); };
+  A['add-layer'] = () => { const b = $('.profile-btn'); if (b) A['profile-menu'](b, null, true); };
+  A['push-layer'] = (el) => { S.layers.push(el.dataset.id); reopenProfile(); VC.toast(`Layer ${el.dataset.id} added`, `Applied after ${S.layers.length > 1 ? S.layers[S.layers.length - 2] : S.profile}; later layers win.`); };
+  A['remove-layer'] = (el) => { S.layers = S.layers.filter((x) => x !== el.dataset.id); reopenProfile(); };
   A.explain = () => {
-    const anchor = $('.profile-row [data-action="explain"]') || $('.profile-btn');
+    const anchor = $('.profile-btn');
     const p = VC.profile();
     const rows = D.explain.map((r) => {
       const v = r.key === 'baseUrl' ? p.baseUrl : r.key === 'timeout' && S.layers.includes('slowNetwork') ? '30s' : r.value;
       const at = r.key === 'timeout' && S.layers.includes('slowNetwork') ? 'layer slowNetwork · vibranium.config.yaml:40' : r.at.replace('<p>', p.id);
-      return `<span class="k">${esc(r.key)}</span><span class="v">${v === '••••' ? '<span class="redacted">••••</span>' : esc(v)}</span><span class="at">${chipSrc(r.src)}<span class="ellipsis">${esc(at)}</span></span>`;
+      return `<span class="k">${esc(r.key)}</span><span class="v">${v === '••••' ? '<span class="redacted">••••</span>' : esc(v)}</span><span class="at" title="${esc(at)}">${chipSrc(r.src)}</span>`;
     }).join('');
-    VC.pick(anchor, `<div class="pop-head"><span class="title">Config explain</span><span class="grow"></span><span class="chip">${esc([S.profile].concat(S.layers).join(' → '))}</span></div><div class="explain-table">${rows}</div><div class="row"><button class="btn btn-sm" data-action="go" data-route="project-settings">Open settings</button><span class="grow"></span><span class="subtle">Later layers win</span></div>`);
+    VC.pick(anchor, `<div class="pop-head"><span class="title">Merged config</span><span class="grow"></span><span class="subtle">${esc([S.profile].concat(S.layers).join(' → '))}</span></div><div class="explain-table">${rows}</div><div class="pp-foot"><button class="link" data-action="profile-back">${ic('arrow-left', 'ico-sm')}Back</button><span class="grow"></span><span class="subtle">Hover a source to see the file and line</span></div>`);
   };
+  A['profile-back'] = () => { const b = $('.profile-btn'); if (b) A['profile-menu'](b); };
+  /* B1: inline rename. Enter saves, Esc cancels, blur saves */
+  VC.inlineEdit = function (el, value, save, label) {
+    const inp = document.createElement('input');
+    inp.className = 'title-input';
+    inp.value = value;
+    inp.setAttribute('aria-label', label || 'Name');
+    el.replaceWith(inp);
+    inp.focus();
+    inp.select();
+    let done = false;
+    const finish = (ok) => {
+      if (done) return;
+      done = true;
+      const v = inp.value.trim();
+      if (ok && v && v !== value) save(v); else VC.render();
+    };
+    inp.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); finish(true); } else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); finish(false); }
+    });
+    inp.addEventListener('blur', () => finish(true));
+  };
+  function renameTab(btn) {
+    const t = S.tabs.find((x) => x.id === btn.dataset.id);
+    if (!t) return;
+    VC.inlineEdit(btn, tabTitle(t), (v) => { t.title = v; if (!t.api) t.name = v; VC.render(); VC.toast('Tab renamed', v); }, 'Tab name');
+  }
+  VC.renameTab = renameTab;
 
   /* ---- keyboard ---------------------------------------------------------- */
   const typing = (el) => el && (el.matches('input, textarea, select, [contenteditable="true"]'));
@@ -608,6 +689,7 @@
       <label class="switch row"><span>Reduce transparency</span><input type="checkbox" data-action="dev-check" data-k="transparency" ${reduceT ? 'checked' : ''}><span class="track"></span></label>
       <div class="row"><span>Width</span>${seg('width', [['fit', 'Fit'], ['1440', '1440'], ['1280', '1280'], ['1024', '1024'], ['760', '760']], S.width)}</div>
       <label class="switch row"><span>Empty project</span><input type="checkbox" data-action="dev-check" data-k="empty" ${S.empty ? 'checked' : ''}><span class="track"></span></label>
+      <label class="switch row"><span>No response yet</span><input type="checkbox" data-action="dev-check" data-k="noResp" ${S.noResp ? 'checked' : ''}><span class="track"></span></label>
       <div class="stack-tight"><span class="subtle">Screens</span><div class="screens">${SCREENS.map(([r, l]) => r.includes('/') ? `<button data-action="go-view" data-route="${r}">${l}</button>` : `<a href="#${r}"${S.route === r ? ' aria-current="page"' : ''}>${l}</a>`).join('')}</div></div>
     </div>` : ''}<button class="btn btn-sm devcorner-toggle" data-action="dev-toggle" aria-expanded="${S.dev}">${ic('sliders')}${S.dev ? 'Hide' : 'Review'}</button>`;
   };
@@ -626,6 +708,7 @@
     const el = e.target.closest('[data-action="dev-check"]');
     if (!el) return;
     if (el.dataset.k === 'empty') { S.empty = el.checked; VC.go(S.empty ? 'welcome' : 'client-rest'); return; }
+    if (el.dataset.k === 'noResp') { S.noResp = el.checked; if (!S.route.startsWith('client')) VC.go('client-rest'); else VC.render(); return; }
     S[el.dataset.k] = el.checked ? 'reduce' : 'full';
     VC.savePrefs();
     VC.render();
@@ -639,6 +722,7 @@
     const fn = A[el.dataset.action];
     if (!fn) return;
     if (el.closest('#menu') && !el.dataset.keepOpen) VC.hidePopovers();
+    if (el.closest('#pick') && el.dataset.route) VC.hidePopovers();
     if (el.tagName === 'A') e.preventDefault();
     fn(el, e);
   }
@@ -646,6 +730,7 @@
     document.addEventListener('click', onClick);
     document.addEventListener('keydown', onKey);
     document.addEventListener('change', onDevChange);
+    document.addEventListener('dblclick', (e) => { const b = e.target.closest('.tab-row .tab-open'); if (b) renameTab(b); });
     document.addEventListener('mouseover', (e) => { const v = e.target.closest('.var-token[data-var]'); if (v) showTip(v); });
     document.addEventListener('mouseout', (e) => { if (e.target.closest('.var-token[data-var]')) hideTip(); });
     document.addEventListener('focusin', (e) => { if (e.target.matches('.var-token[data-var]')) showTip(e.target); });

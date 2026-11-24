@@ -18,9 +18,9 @@
   const H = 188, M = { l: 46, r: 70, t: 16, b: 26 };
   function nice(v) { const p = Math.pow(10, Math.floor(Math.log10(v))); const f = v / p; return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * p; }
   const CH = {
-    rps: { title: 'Iterations per second', sub: 'all mix tests', series: [['rps', 'iterations/s', 'p95']], unit: '/s', max: () => nice(Math.max(...SER.map((p) => p.rps)) * 1.08) },
+    rps: { title: 'Iterations per second', sub: 'all mix tests', series: [['rps', 'iterations/s', 'one']], unit: '/s', max: () => nice(Math.max(...SER.map((p) => p.rps)) * 1.08) },
     lat: { title: 'Latency', sub: 'per iteration, from its scheduled start', series: [['p50', 'p50', 'p50'], ['p95', 'p95', 'p95'], ['p99', 'p99', 'p99']], unit: ' ms', max: () => nice(Math.max(TH.p99 * 1.25, ...SER.slice(0, L.i + 1).map((p) => p.p99 * 1.05))), th: { k: 'p99', v: TH.p99, label: 'p99 lt 800ms', fail: true } },
-    err: { title: 'Error rate', sub: 'rolling 10 s', series: [['err', 'errorRate', 'p95']], unit: '%', max: () => 1.25, th: { k: 'err', v: TH.err, label: 'errorRate lt 1% · abortOn', fail: false } }
+    err: { title: 'Error rate', sub: 'rolling 10 s', series: [['err', 'errorRate', 'one']], unit: '%', max: () => 1.25, th: { k: 'err', v: TH.err, label: 'errorRate lt 1% · abortOn', fail: false } }
   };
   function scales(c) {
     const ymax = c.max(), w = L.w;
@@ -86,23 +86,25 @@
     const c = CH[id], p = SER[L.i];
     const leg = c.series.length > 1 ? `<ul class="ld-legend" aria-label="Series">${c.series.map(([, l, col]) => `<li><i class="ld-sw s-${col}"></i>${l}</li>`).join('')}${c.th ? '<li><i class="ld-sw is-th"></i>threshold</li>' : ''}</ul>` : '';
     const br = c.th && c.th.fail ? runs(c.th.k, c.th.v) : [];
-    return `<figure class="glass ld-chart" data-c="${id}" aria-labelledby="ldc-${id}"><div class="card-head"><div class="grow"><h3 class="card-title" id="ldc-${id}">${c.title}</h3><span class="card-sub">${c.sub} · now ${fmtN(p[c.series[c.series.length - 1][0]])}${c.unit}</span></div>
-        <button class="btn btn-ghost btn-sm" data-action="ld-tbl" data-c="${id}" aria-pressed="${!!L.tbl[id]}" data-fk="ldt-${id}">${ic('rows', 'ico-sm')}Table</button></div>
-      ${leg}${L.tbl[id] ? tableHtml(id) : `<div class="ld-plot" id="ldp-${id}" tabindex="0" role="img" aria-label="${esc(c.title)} over ${mmss(SER[L.i].t)}; use arrow keys to read values; Table shows every 30 s">${chartSvg(id)}<div class="ld-tip l3" id="ldtip-${id}" role="status">${tipHtml(id)}</div></div>`}
+    return `<figure class="glass ld-chart" data-c="${id}" aria-labelledby="ldc-${id}"><div class="card-head"><div class="grow"><h3 class="card-title" id="ldc-${id}">${c.title}</h3><span class="card-sub">${c.sub} · now ${fmtN(p[c.series[c.series.length - 1][0]])}${c.unit}</span></div></div>
+      ${leg}${L.tbl.live ? tableHtml(id) : `<div class="ld-plot" id="ldp-${id}" tabindex="0" role="img" aria-label="${esc(c.title)} over ${mmss(SER[L.i].t)}; use arrow keys to read values; Table shows every 30 s">${chartSvg(id)}<div class="ld-tip l3" id="ldtip-${id}" role="status">${tipHtml(id)}</div></div>`}
       ${br.length ? `<figcaption class="ld-cap"><span class="badge badge-sm st-fail">${ic('fail')}breach</span>p99 over 800 ms from ${br.map(([a, b]) => `${mmss(SER[a].t)} to ${mmss(SER[b].t)}`).join(', ')} (rolling 10 s)</figcaption>` : c.th ? `<figcaption class="ld-cap">${ic('pass', 'ico-sm')}Held on the rolling window · peak ${Math.max(...SER.slice(0, L.i + 1).map((q) => q.err))}%</figcaption>` : ''}</figure>`;
   }
 
   /* ---- live view ----------------------------------------------------------- */
   function stage(t) { let acc = 0; for (let i = 0; i < LD.stages.length; i++) { acc += LD.stages[i].duration; if (t <= acc) return [i, LD.stages[i]]; } return [LD.stages.length - 1, LD.stages[LD.stages.length - 1]]; }
+  const peak = (k) => SER.slice(0, L.i + 1).reduce((a, q) => (q[k] > a[k] ? q : a), SER[0]);
   function kpis() {
     const p = SER[L.i], [si, st] = stage(p.t), tot = SER.slice(0, L.i + 1).reduce((s, q) => s + q.rps * 5, 0);
+    const ended = L.phase === 'done' || L.phase === 'stopped', pu = peak('users'), pr = peak('rps');
     const k = (lab, v, sub, bad) => `<li class="ld-kpi${bad ? ' is-bad' : ''}"><span class="ld-kl">${lab}</span><b class="num">${v}</b><span class="ld-ks">${sub}</span></li>`;
-    return `<ul class="ld-kpis glass" aria-label="Now">${k('Elapsed', mmss(p.t), `of ${mmss(END)} · stage ${si + 1} of ${LD.stages.length}`)}${k('Users', fmtN(p.users), `${si === 0 || st.users > (LD.stages[si - 1] || {}).users ? 'ramping to' : 'down to'} ${fmtN(st.users)}`)}
-      ${k('Iterations/s', fmtN(p.rps), `${fmtN(Math.round(tot))} iterations`)}${k('p99', `${p.p99} ms`, 'limit 800 ms', p.p99 > TH.p99)}${k('Error rate', `${p.err}%`, 'limit 1% · abortOn')}</ul>`;
+    const users = ended ? k('Peak users', fmtN(pu.users), `at ${mmss(pu.t)} · now ${fmtN(p.users)}`) : k('Users', fmtN(p.users), `${si === 0 || st.users > (LD.stages[si - 1] || {}).users ? 'ramping to' : 'down to'} ${fmtN(st.users)}`);
+    const rate = ended ? k('Peak iterations/s', fmtN(pr.rps), `${fmtN(Math.round(tot))} iterations in all`) : k('Iterations/s', fmtN(p.rps), `${fmtN(Math.round(tot))} iterations`);
+    return `<ul class="ld-kpis" aria-label="${ended ? 'Run summary' : 'Now'}">${k('Elapsed', mmss(p.t), `of ${mmss(END)} · stage ${si + 1} of ${LD.stages.length}`)}${users}${rate}${k('p99', `${p.p99} ms`, 'limit 800 ms', p.p99 > TH.p99)}${k('Error rate', `${p.err}%`, 'limit 1% · abortOn')}</ul>`;
   }
   function hostsHtml() {
     const p = SER[L.i], drop = SER.slice(0, L.i + 1).reduce((s, q) => s + q.dropped, 0);
-    const spark = (k, max) => { const pts = SER.slice(0, L.i + 1); return `<svg class="ld-spark" viewBox="0 0 120 28" aria-hidden="true"><path class="ld-line s-p95" d="${pts.map((q, i) => `${i ? 'L' : 'M'}${((q.t / END) * 118 + 1).toFixed(1)},${(26 - (q[k] / max) * 24).toFixed(1)}`).join('')}"/></svg>`; };
+    const spark = (k, max) => { const pts = SER.slice(0, L.i + 1); return `<svg class="ld-spark" viewBox="0 0 120 28" aria-hidden="true"><path class="ld-line s-one" d="${pts.map((q, i) => `${i ? 'L' : 'M'}${((q.t / END) * 118 + 1).toFixed(1)},${(26 - (q[k] / max) * 24).toFixed(1)}`).join('')}"/></svg>`; };
     const row = (l, v, k, max, hint, warn) => `<tr${warn ? ' class="is-warn"' : ''}><th scope="row">${l}</th><td class="r num">${v}</td><td class="hide-narrow">${spark(k, max)}</td><td class="subtle">${hint}</td></tr>`;
     return `<section class="glass ld-hosts" aria-labelledby="ld-h-t"><div class="card-head"><h3 class="card-title" id="ld-h-t">Hosts</h3><span class="card-sub">runner-1 · this machine · 8 cores</span></div>
       <div class="card-body"><div class="table-wrap glass-dense"><table class="table"><thead><tr><th>Metric</th><th class="r">Now</th><th class="hide-narrow">Run</th><th>Note</th></tr></thead><tbody>
@@ -111,7 +113,7 @@
   }
   function liveHtml() {
     const running = L.phase === 'running' || L.phase === 'stopping';
-    return `<div class="ld-live" id="ld-live">${kpis()}<progress class="tr-prog ld-prog${L.phase === 'stopping' ? ' is-stopping' : ''}" max="${N}" value="${L.i}" aria-label="Load run progress">${Math.round((L.i / N) * 100)}%</progress>
+    return `<div class="ld-live" id="ld-live"><section class="glass ld-now" aria-label="Load run">${kpis()}<progress class="tr-prog ld-prog${L.phase === 'stopping' ? ' is-stopping' : ''}" max="${N}" value="${L.i}" aria-label="Load run progress">${Math.round((L.i / N) * 100)}%</progress></section>
       ${running && reduced() ? `<div class="row"><span class="subtle">Reduced motion: the run advances when you step.</span><button class="btn btn-sm" data-action="ld-step" data-fk="ld-step">${ic('arrow-right', 'ico-sm')}Step 30 s</button><button class="btn btn-sm" data-action="ld-finish">Finish</button></div>` : ''}
       <div class="ld-charts">${chartCard('lat')}${chartCard('rps')}${chartCard('err')}${hostsHtml()}</div></div>`;
   }
@@ -133,8 +135,8 @@
     const P = LD.previous, max = 1000, w = 560, rowH = 30, l = 150, h = P.length * rowH + 24, x = (v) => l + (v / max) * (w - l - 60);
     let g = P.map((r, i) => `<g class="ld-hbar${r.cur ? ' is-cur' : ''}"><text class="ld-ax is-name" x="${l - 8}" y="${i * rowH + 19}" text-anchor="end">${esc(r.run)}${r.cur ? ' (this)' : ''}</text><rect x="${l}" y="${i * rowH + 6}" width="${x(r.p99) - l}" height="18" rx="3"/><text class="ld-end" x="${x(r.p99) + 6}" y="${i * rowH + 19}">${r.p99} ms</text></g>`).join('');
     g += `<line class="ld-th" x1="${x(800)}" x2="${x(800)}" y1="2" y2="${h - 18}"/><text class="ld-thl" x="${x(800)}" y="${h - 4}" text-anchor="middle">limit 800</text>`;
-    return `<figure class="glass ld-chart" aria-labelledby="ld-prev-t"><div class="card-head"><div class="grow"><h3 class="card-title" id="ld-prev-t">Compared with previous runs</h3><span class="card-sub">p99 per run of checkout.peak</span></div><button class="btn btn-ghost btn-sm" data-action="ld-tbl" data-c="prev" aria-pressed="${!!L.tbl.prev}">${ic('rows', 'ico-sm')}Table</button></div>
-      ${L.tbl.prev ? `<div class="table-wrap glass-dense ld-tbl"><table class="table"><thead><tr><th>Run</th><th>Branch</th><th class="r">p99</th><th class="r">it/s</th><th class="r">errors</th><th>Verdict</th></tr></thead><tbody>${P.map((r) => `<tr${r.cur ? ' aria-selected="true"' : ''}><td>${esc(r.run)}</td><td class="mono">${esc(r.branch)}</td><td class="r num">${r.p99} ms</td><td class="r num">${fmtN(r.rps)}</td><td class="r num">${r.err}%</td><td>${badge(r.verdict, null, true)}</td></tr>`).join('')}</tbody></table></div>`
+    return `<figure class="glass ld-chart" aria-labelledby="ld-prev-t"><div class="card-head"><div class="grow"><h3 class="card-title" id="ld-prev-t">Compared with previous runs</h3><span class="card-sub">p99 per run of checkout.peak</span></div></div>
+      ${L.tbl.report ? `<div class="table-wrap glass-dense ld-tbl"><table class="table"><thead><tr><th>Run</th><th>Branch</th><th class="r">p99</th><th class="r">it/s</th><th class="r">errors</th><th>Verdict</th></tr></thead><tbody>${P.map((r) => `<tr${r.cur ? ' aria-selected="true"' : ''}><td>${esc(r.run)}</td><td class="mono">${esc(r.branch)}</td><td class="r num">${r.p99} ms</td><td class="r num">${fmtN(r.rps)}</td><td class="r num">${r.err}%</td><td>${badge(r.verdict, null, true)}</td></tr>`).join('')}</tbody></table></div>`
         : `<div class="ld-plot"><svg class="ld-svg is-fluid" viewBox="0 0 ${w} ${h}" role="img" aria-label="p99 by run: ${P.map((r) => `${r.run} ${r.p99} ms`).join(', ')}">${g}</svg></div>`}
       <figcaption class="ld-cap">p99 is ${P[0].p99 - P[1].p99} ms slower than the last master run (${P[1].run}); iterations/s and errors are within 3%.</figcaption></figure>`;
   }
@@ -159,7 +161,7 @@
     const pts = [[0, 0]].concat(LD.stages.map((s) => { t += s.duration; u = s.users; return [t, u]; }));
     const x = (v) => 40 + (v / tot) * (w - 50), y = (v) => 8 + (1 - v / max) * (h - 26);
     return `<svg class="ld-svg is-fluid ld-stages" viewBox="0 0 ${w} ${h}" role="img" aria-label="Users over time: ${LD.stages.map((s) => `${s.users} users over ${s.duration} s`).join(', ')}"><line class="ld-base" x1="40" x2="${w - 10}" y1="${y(0)}" y2="${y(0)}"/><text class="ld-ax" x="34" y="${y(max) + 4}" text-anchor="end">${fmtN(max)}</text><text class="ld-ax" x="34" y="${y(0) + 4}" text-anchor="end">0</text>
-      <path class="ld-area" d="M${x(0)},${y(0)}${pts.map(([a, b]) => `L${x(a)},${y(b)}`).join('')}L${x(tot)},${y(0)}Z"/><path class="ld-line s-p95" d="${pts.map(([a, b], i) => `${i ? 'L' : 'M'}${x(a)},${y(b)}`).join('')}"/>${pts.slice(1).map(([a, b], i) => `<circle class="ld-dot s-p95" cx="${x(a)}" cy="${y(b)}" r="4"><title>stage ${i + 1}: ${b} users at ${mmss(a)}</title></circle><text class="ld-ax" x="${x(a)}" y="${h - 4}" text-anchor="middle">${mmss(a)}</text>`).join('')}</svg>`;
+      <path class="ld-area" d="M${x(0)},${y(0)}${pts.map(([a, b]) => `L${x(a)},${y(b)}`).join('')}L${x(tot)},${y(0)}Z"/><path class="ld-line s-one" d="${pts.map(([a, b], i) => `${i ? 'L' : 'M'}${x(a)},${y(b)}`).join('')}"/>${pts.slice(1).map(([a, b], i) => `<circle class="ld-dot s-p95" cx="${x(a)}" cy="${y(b)}" r="4"><title>stage ${i + 1}: ${b} users at ${mmss(a)}</title></circle><text class="ld-ax" x="${x(a)}" y="${h - 4}" text-anchor="middle">${mmss(a)}</text>`).join('')}</svg>`;
   }
   function designHtml() {
     let prev = 0;
@@ -186,16 +188,17 @@
     const running = L.phase === 'running' || L.phase === 'stopping';
     const st = running ? badge('running', L.phase === 'stopping' ? 'stopping' : 'running', true) : L.phase === 'stopped' ? badge('skipped', 'stopped · exit 130', true) : badge('fail', 'breached · exit 3', true);
     const nd = Object.keys(L.dirty).length;
-    return `<div class="ld-head on-l0"><div class="grow stack-tight"><div class="row row-wrap"><h1 class="card-title mono">${LD.id}</h1>${st}${nd ? `<span class="chip">${nd} unsaved</span>` : ''}</div><span class="subtle ellipsis">${esc(LD.name)} · <span class="mono">${LD.path}</span> · profile ${esc(S.profile)}</span></div>
+    return `<div class="ld-head on-l0"><div class="grow row ld-title"><h1 class="card-title mono ellipsis" title="${LD.path}">${LD.id}</h1>${st}<span class="subtle ellipsis ld-sub" title="${esc(LD.name)} · profile ${esc(S.profile)}">${esc(LD.name)} · profile ${esc(S.profile)}</span></div>
+      ${L.view === 'design' ? '' : `<button class="btn btn-ghost btn-sm" data-action="ld-tbl" aria-pressed="${!!L.tbl[L.view]}" data-fk="ld-tbl" title="Show the charts as tables">${ic('rows', 'ico-sm')}Table</button>`}
       <div class="seg seg-sm" role="group" aria-label="View">${[['design', 'Design'], ['live', 'Live'], ['report', 'Report']].map(([k, l]) => `<button aria-pressed="${L.view === k}" data-action="ld-view" data-v="${k}" data-fk="ldv-${k}">${l}</button>`).join('')}</div>
-      ${L.view === 'design' ? `<button class="btn btn-sm" data-action="ld-save" data-fk="ld-save">${ic('check', 'ico-sm')}Save</button>` : ''}
+      ${L.view === 'design' ? `<button class="btn btn-sm" data-action="ld-save" data-fk="ld-save"${nd ? ` title="${nd} unsaved"` : ''}>${ic('check', 'ico-sm')}Save${nd ? ` (${nd})` : ''}</button>` : ''}
       ${running ? `<button class="btn btn-sm btn-danger" data-action="ld-stop" data-fk="ld-stop"${L.phase === 'stopping' ? ' disabled' : ''}>${ic('stop', 'ico-sm')}Stop</button>` : `<button class="btn btn-sm btn-primary${S.profile === 'prod' ? ' btn-danger' : ''}" data-action="ld-run" data-fk="ld-run">${ic('play', 'ico-sm')}Run load<span class="kbd hide-narrow">⌘R</span></button>`}</div>`;
   }
   VC.screens['tests-load'] = {
     enter: () => { S.mode = 'tests'; },
     crumbs: () => [D.project.name, 'Tests', 'Load', LD.id],
-    status: () => (L.phase === 'running' ? `${ic('play', 'ico-sm')} load ${mmss(SER[L.i].t)} / ${mmss(END)}` : `${ic('fail', 'ico-sm')} last load · p99 breached · exit 3`),
-    render: () => `${VC.testsNav('tests-load')}${headHtml()}<div class="ld-body" data-sk="ld-body">${L.view === 'design' ? designHtml() : L.view === 'report' ? reportHtml() : liveHtml()}</div>`,
+    status: () => '',
+    render: () => `${headHtml()}<div class="ld-body" data-sk="ld-body">${L.view === 'design' ? designHtml() : L.view === 'report' ? reportHtml() : liveHtml()}</div>`,
     mount: (view) => {
       const c = $('.ld-chart[data-c] .ld-plot', view);
       if (c) { const w = Math.round(c.clientWidth); if (w > 200 && Math.abs(w - L.w) > 4) { L.w = w; paint(); } }
@@ -256,7 +259,7 @@
   A['ld-step'] = () => tick(6);
   A['ld-finish'] = () => tick(N);
   A['ld-view'] = (el) => { L.view = el.dataset.v; L.hover = null; VC.render(); };
-  A['ld-tbl'] = (el) => { const c = el.dataset.c; L.tbl[c] = !L.tbl[c]; VC.render(); };
+  A['ld-tbl'] = () => { L.tbl[L.view] = !L.tbl[L.view]; VC.render(); };
   A['ld-open-report'] = () => VC.toast('Opened report.html', 'reports/load/checkout.peak-2026-11-23T1420.html');
   A['ld-open-test'] = (el) => { VC.tx.sel = el.dataset.id; VC.go('tests'); };
   A['ld-model'] = (el) => { L.model = el.dataset.v; VC.render(); };

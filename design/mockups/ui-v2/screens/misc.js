@@ -13,21 +13,21 @@
     const days = D.history.map((d) => {
       const items = d.items.filter((it) => (H.src === 'all' || it.src === H.src) && (!q || `${it.m} ${it.path} ${it.s} ${it.api}`.toLowerCase().includes(q)));
       if (!items.length) return '';
-      return `<section class="hist-day" aria-label="${esc(d.day)}"><h3 class="section-label">${esc(d.day)} <span class="subtle">· ${items.length}</span></h3>
-        <div class="table-wrap glass-dense"><table class="table"><thead class="sr-only"><tr><th scope="col">Time</th><th scope="col">Request</th><th scope="col">Status</th><th scope="col">Duration</th><th scope="col">From</th><th scope="col">Api</th></tr></thead><tbody>
+      return `<section class="hist-day" aria-label="${esc(d.day)}"><h3 class="section-label">${esc(d.day)}</h3>
+        <div class="table-wrap"><table class="table"><colgroup><col class="c-t"><col><col class="c-s"><col class="c-d"><col class="c-f"></colgroup><thead class="sr-only"><tr><th scope="col">Time</th><th scope="col">Request</th><th scope="col">Status</th><th scope="col">Duration</th><th scope="col">From</th></tr></thead><tbody>
         ${items.map((it) => `<tr class="hist-row"><td class="mono muted">${esc(it.t)}</td>
-          <td><button class="btn btn-ghost btn-sm" data-action="reopen" data-api="${esc(it.api)}" aria-label="Reopen ${esc(it.m + ' ' + it.path)}">${method(it.m)}<span class="mono">${esc(it.path)}</span></button></td>
+          <td><button class="btn btn-ghost btn-sm" data-action="reopen" data-api="${esc(it.api)}" aria-label="Reopen ${esc(it.m + ' ' + it.path)}" title="${esc(it.api)}">${method(it.m)}<span class="mono">${esc(it.path)}</span></button></td>
           <td><span class="hs" data-class="${String(it.s)[0]}">${it.s}</span></td><td class="mono muted">${it.ms ? it.ms + ' ms' : esc(it.note || '—')}</td>
-          <td><span class="chip">${esc(SRC[it.src])}</span></td><td class="mono muted hide-narrow">${esc(it.api)}</td></tr>`).join('')}
+          <td class="muted">${esc(SRC[it.src])}</td></tr>`).join('')}
         </tbody></table></div></section>`;
     }).join('');
-    return days || `<div class="empty">${ic('history')}<b>No calls match</b><span>Try a path, a status such as 4xx, or clear the source filter.</span></div>`;
+    return days || `<div class="empty empty-quiet" role="status"><span>No calls match</span><button class="link" data-action="hist-clear" data-fk="hist-clear">Clear search and filter</button></div>`;
   }
   VC.screens.history = {
-    crumbs: () => [D.project.name, 'History'],
-    status: () => `${ic('db', 'ico-sm')} history.db · 10 adhoc runs · kept 30 days`,
+    crumbs: () => [D.project.name],
+    status: () => '',
     render: () => `<div class="stage-one"><section class="glass stage-one" aria-label="Call history">
-      <div class="card-head"><div class="grow"><h2 class="card-title">History</h2><div class="card-sub">Every call from the UI, <code>vc call</code> and the TUI, stored as adhoc runs. Bodies are kept per history.bodies; secrets are redacted.</div></div></div>
+      <div class="card-head"><div class="grow"><h2 class="card-title">History</h2><div class="card-sub" title="Stored as adhoc runs in history.db for 30 days; secrets are redacted">Every call from the UI, <code>vc call</code> and the TUI.</div></div></div>
       <div class="card-tabs"><div class="row row-wrap">
         <div class="input-group grow">${ic('search')}<input class="input" id="hist-q" value="${esc(H.q)}" placeholder="Search path, status or api" aria-label="Search history" data-fk="hist-q"></div>
         <div class="seg seg-sm" role="group" aria-label="Source">${[['all', 'All'], ['ui', 'UI'], ['cli', 'CLI'], ['tui', 'TUI']].map(([k, l]) => `<button aria-pressed="${H.src === k}" data-action="hist-src" data-v="${k}" data-fk="hs-${k}">${l}</button>`).join('')}</div>
@@ -35,38 +35,39 @@
       <div class="card-body" data-sk="hist"><div class="hist" id="hist-body">${histBody()}</div></div>
     </section></div>`
   };
+  A['hist-clear'] = () => { H.q = ''; H.src = 'all'; VC.render(); };
   A['hist-src'] = (el) => { H.src = el.dataset.v; VC.render(); };
   document.addEventListener('input', (e) => { if (e.target.id === 'hist-q') { H.q = e.target.value; const b = $('#hist-body'); if (b) b.innerHTML = histBody(); } });
 
   /* ---- welcome / onboarding --------------------------------------------------- */
   VC.screens.welcome = {
     crumbs: () => [S.empty ? '~/dev/new-api' : D.project.name, 'Welcome'],
-    status: () => (S.empty ? 'no vibranium.config.yaml in this folder' : 'shop · 14 apis · 12 test files'),
+    status: () => '',
     render: () => `<div class="welcome"><section class="glass welcome-card" aria-labelledby="w-title">
       <div><p class="section-label">Vibranium</p><h1 id="w-title">${S.empty ? 'This folder has no Vibranium project yet' : 'Start something new'}</h1>
-        <p class="lede">Tests are plain YAML in git. Start a project here, open the demo shop with its own mock server, or bring apis in from a spec you already have.</p></div>
-      <div class="tiles">
-        <button class="tile" data-action="init-wizard" data-fk="w-init"><span class="tile-ico">${ic('sparkle')}</span><span class="tile-title">Init a project</span><span class="tile-desc">Writes vibranium.config.yaml, a local profile and one example service. Asks three questions first.</span><span class="cmd">vc init</span></button>
-        <button class="tile" data-action="open-demo" data-fk="w-demo"><span class="tile-ico">${ic('play')}</span><span class="tile-title">Open the demo</span><span class="tile-desc">The shop project: users, orders, payments, a GraphQL catalog and a WebSocket room, on a mock at :7421.</span><span class="cmd">vc demo</span></button>
-        <button class="tile" data-action="go" data-route="import" data-fk="w-import"><span class="tile-ico">${ic('import')}</span><span class="tile-title">Import</span><span class="tile-desc">OpenAPI, HAR, Postman, Bruno, .http files or curl. Every file is shown as a diff first.</span><span class="cmd">vc import openapi ./openapi.yaml</span></button>
-      </div>
-      <div class="foot"><span>${ic('keyboard', 'ico-sm')} Press <span class="kbd">⌘K</span> for the command palette and <span class="kbd">?</span> for shortcuts.</span><span>${ic('terminal', 'ico-sm')} Everything here is also a <code>vc</code> command.</span></div>
+        <p class="lede">Tests are plain YAML in git. Pick a way to start.</p></div>
+      <ul class="start-list" aria-label="Ways to start">
+        <li><button class="start-row" data-action="init-wizard" data-fk="w-init">${ic('sparkle')}<span class="grow"><span class="start-title">Init a project</span><span class="start-desc">A config, a local profile and one example service.</span></span><code class="cmd">vc init</code></button></li>
+        <li><button class="start-row" data-action="open-demo" data-fk="w-demo">${ic('play')}<span class="grow"><span class="start-title">Open the demo</span><span class="start-desc">A sample shop with REST, GraphQL and WebSocket on a local mock.</span></span><code class="cmd">vc demo</code></button></li>
+        <li><button class="start-row" data-action="go" data-route="import" data-fk="w-import">${ic('import')}<span class="grow"><span class="start-title">Import</span><span class="start-desc">OpenAPI, HAR, Postman, Bruno, .http or curl.</span></span><code class="cmd">vc import</code></button></li>
+      </ul>
+      <div class="foot"><span>Press <span class="kbd">⌘K</span> for the command palette</span></div>
     </section></div>`
   };
   const W = { step: 0, name: 'new-api', base: 'http://localhost:8080', auth: 'none', example: true };
   function initHtml() {
     const files = ['vibranium.config.yaml', 'services/example/example.api.yaml'].concat(W.example ? ['services/example/smoke.test.yaml'] : []).concat(['.gitignore (adds .vc/)', '.env.schema']);
-    return `<div class="dlg">
-      <div class="dlg-head"><div class="grow"><h2 id="dlg-title">Init a project</h2><div class="sub">Same as <code>vc init</code>. Nothing is written until you confirm.</div></div><button class="btn btn-ghost btn-icon" data-action="close-dialog" aria-label="Close">${ic('x')}</button></div>
+    return `<div class="dlg dlg-form">
+      <div class="dlg-head"><div class="grow"><h2 id="dlg-title">Init a project</h2><div class="sub">Same as <code>vc init</code>. Nothing is written until you confirm; then it runs <code>vc check</code>.</div></div><button class="btn btn-ghost btn-icon" data-action="close-dialog" aria-label="Close">${ic('x')}</button></div>
       <div class="dlg-body">
-        <div class="field"><label for="init-name">Project name</label><input class="input" id="init-name" value="${esc(W.name)}" autofocus><span class="hint">Lowercase; used for the tint and the history file.</span></div>
-        <div class="field"><label for="init-base">Base URL for the local profile</label><input class="input mono" id="init-base" value="${esc(W.base)}"><span class="hint">Becomes <code>\${baseUrl}</code> under profile <b>local</b>.</span></div>
+        <div class="field"><label for="init-name">Project name</label><input class="input" id="init-name" value="${esc(W.name)}" autofocus><span class="hint">Lowercase</span></div>
+        <div class="field"><label for="init-base">Base URL for the local profile</label><input class="input mono" id="init-base" value="${esc(W.base)}"><span class="hint">Becomes <code>\${baseUrl}</code> under <b>local</b></span></div>
         <div class="field"><label for="init-auth">Auth</label><select class="select" id="init-auth"><option>none</option><option>bearer · token from \${secret.API_TOKEN}</option><option>oauth2ClientCredentials</option><option>apiKey</option></select></div>
         <label class="switch"><input type="checkbox" id="init-example" ${W.example ? 'checked' : ''}><span class="track"></span><span>Add an example smoke test</span></label>
-        <section class="layer"><div class="layer-head"><h3 class="section-label">Files</h3><span class="subtle">${files.length} new</span></div>
-          <ul class="stack-tight mono subtle">${files.map((f) => `<li>${ic('plus', 'ico-sm')} ${esc(f)}</li>`).join('')}</ul></section>
+        <details class="disc"><summary>${ic('chev-down', 'chev')}Files it writes<span class="meta">${files.length} new</span></summary><div class="disc-body">
+          <ul class="stack-tight mono subtle">${files.map((f) => `<li>${ic('plus', 'ico-sm')} ${esc(f)}</li>`).join('')}</ul></div></details>
       </div>
-      <div class="dlg-foot"><span class="note">Then runs vc check.</span><button class="btn" data-action="close-dialog">Cancel</button><button class="btn btn-primary" data-action="init-done">${ic('check')}Create project</button></div>
+      <div class="dlg-foot"><button class="btn" data-action="close-dialog">Cancel</button><button class="btn btn-primary" data-action="init-done">${ic('check')}Create project</button></div>
     </div>`;
   }
   A['init-wizard'] = () => VC.dialog(initHtml());

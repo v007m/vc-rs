@@ -19,37 +19,38 @@
   function connection() {
     const s = SNIPS[M.snip];
     const clients = G.server.clients.map((c) => `<li class="ag-client"><span class="dot ${M.serving ? 'is-live' : ''}" aria-hidden="true"></span>${SH.agent(c.name)}<span class="subtle mono">${esc(c.ver)}</span><span class="subtle grow ellipsis">${esc(c.via)}</span><span class="subtle">${esc(c.last)}</span></li>`).join('');
-    return `<section class="ag-panel glass-dense" aria-labelledby="ag-conn-t">
+    return `<section class="ag-panel" aria-labelledby="ag-conn-t">
       <div class="in-panel-head"><div class="grow"><h3 class="in-h" id="ag-conn-t">MCP server</h3><span class="subtle">${M.serving ? `Serving since ${G.server.since} · <span class="mono">${esc(G.server.http)}</span>` : 'Stopped. Agents cannot connect.'}</span></div>
         <label class="switch"><input type="checkbox" id="ag-serving" ${M.serving ? 'checked' : ''}><span class="track"></span><span>Serve</span></label></div>
-      <ul class="ag-clients" role="list" aria-label="Connected agents">${M.serving ? clients : '<li class="subtle">No agents connected.</li>'}</ul>
+      <ul class="ag-clients" role="list" aria-label="Connected agents">${M.serving ? clients : ''}</ul>${M.serving ? '' : SH.empty('', 'No agents connected.')}
       <div class="ag-snip">${SH.tabs('ag-sn', 'Connect from', Object.entries(SNIPS).map(([k, v]) => [k, v.label]), M.snip, 'ag-snip')}
-        <div role="tabpanel" id="ag-sn-panel" aria-labelledby="ag-sn-${M.snip}" class="stack-tight"><span class="subtle">${esc(s.note)}</span>
-          <div class="ag-code"><pre class="code glass-dense">${esc(s.text)}</pre><button class="btn btn-sm ag-copy" data-action="ag-copy" data-fk="ag-copy">${ic('copy')}Copy</button></div>
+        <div role="tabpanel" id="ag-sn-panel" aria-labelledby="ag-sn-${M.snip}" class="stack-tight">
+          <div class="ag-snip-head"><span class="subtle grow">${esc(s.note)}</span><button class="btn btn-sm" data-action="ag-copy" data-fk="ag-copy">${ic('copy')}Copy</button></div>
+          <pre class="code ag-code">${esc(s.text)}</pre>
           ${M.snip === 'http' ? `<div class="row row-wrap"><span class="secret-field grow"><span class="grow">VC_MCP_TOKEN = ••••</span><span class="chip-src chip" data-src="secret">keychain</span></span><button class="btn btn-sm" data-action="ag-rotate">${ic('refresh')}Rotate token</button></div>` : ''}</div></div>
     </section>`;
   }
 
   /* ---- approval queue ------------------------------------------------------------- */
   function qBody(q) {
-    if (q.diff) return `${VC.diffHtml(q.diff, q.what)}<span class="subtle">${ic('lock', 'ico-sm')} digest ${esc(q.digest)} matches the file on disk. If it changes before you approve, the write is refused.</span>`;
+    if (q.diff) return `${VC.diffHtml(q.diff, q.what)}<span class="subtle" title="digest ${esc(q.digest)}">${ic('lock', 'ico-sm')} Checked against the file on disk before writing.</span>`;
     if (q.body) return `<pre class="code glass-dense">${esc(q.what)}\ncontent-type: application/json\n\n${esc(q.body)}</pre><p class="callout" data-tone="warn">${ic('warn')}<span>This writes data on <b>${esc(q.profile)}</b>. The response goes back to the agent, redacted.</span></p>`;
-    return `<p class="callout" data-tone="warn">${ic('terminal')}<span><b>The plan runs a shell command.</b> <code>${esc(q.cmd)}</code>. Runs whose plan holds <code>command:</code> or <code>function:</code> always ask (D202), whatever the policy says.</span></p>`;
+    return `<p class="callout" data-tone="warn">${ic('terminal')}<span><b>The plan runs a shell command.</b> <code>${esc(q.cmd)}</code>. Runs that hold <code>command:</code> or <code>function:</code> always ask.</span></p>`;
   }
   function queue() {
     const items = G.queue.map((q) => {
-      const open = !!M.open[q.id];
+      const open = !!M.open[q.id], prim = open ? 'btn-primary' : '';
       return `<li class="ag-q" data-open="${open}"><div class="ag-q-head">
         <button class="btn btn-ghost btn-icon btn-sm" data-action="ag-q-toggle" data-id="${q.id}" aria-expanded="${open}" aria-controls="agq-${q.id}" aria-label="${open ? 'Hide' : 'Show'} details" data-fk="agqt-${q.id}">${ic(open ? 'chev-down' : 'chev-right')}</button>
         ${SH.agent(q.agent)}<span class="mono ag-tool">${esc(q.tool)}</span><span class="mono grow ellipsis">${esc(q.what)}</span>
-        <span class="chip-src chip" data-src="profile">${esc(q.profile)}</span><span class="subtle">${esc(q.at)}</span></div>
+        <span class="subtle">on <span class="mono">${esc(q.profile)}</span> · ${esc(q.at)}</span></div>
         <div class="ag-q-why subtle">${ic('info', 'ico-sm')}Asks because ${esc(q.why)}</div>
         ${open ? `<div class="ag-q-body" id="agq-${q.id}">${qBody(q)}</div>` : ''}
-        <div class="ag-q-actions"><button class="btn btn-primary btn-sm" data-action="ag-approve" data-id="${q.id}" data-fk="aga-${q.id}">${ic('check')}Approve once</button>
-          ${q.cmd ? '' : `<button class="btn btn-sm" data-action="ag-always" data-id="${q.id}">Always allow on ${esc(q.profile)}…</button>`}
+        <div class="ag-q-actions"><button class="btn ${prim} btn-sm" data-action="ag-approve" data-id="${q.id}" data-fk="aga-${q.id}">${ic('check')}Approve once</button>
+          ${q.cmd ? '' : `<button class="btn btn-sm" data-action="ag-always" data-id="${q.id}" title="Writes the ${esc(q.profile)} profile's agents policy">Always allow…</button>`}
           <span class="grow"></span><button class="btn btn-ghost btn-sm" data-action="ag-reject" data-id="${q.id}">${ic('x')}Reject</button></div></li>`;
     }).join('');
-    return `<section class="ag-panel glass-dense" aria-labelledby="ag-q-t"><div class="in-panel-head"><div class="grow"><h3 class="in-h" id="ag-q-t">Waiting for you <span class="count${G.queue.length ? ' is-bad' : ''}">${G.queue.length}</span></h3><span class="subtle">The agent's call blocks until you answer, or times out after 5 min.</span></div></div>
+    return `<section class="ag-panel" aria-labelledby="ag-q-t"><div class="in-panel-head"><div class="grow"><h3 class="in-h" id="ag-q-t">Waiting for you <span class="count${G.queue.length ? ' is-bad' : ''}">${G.queue.length}</span></h3><span class="subtle">The agent's call blocks until you answer, or times out after 5 min.</span></div></div>
       ${G.queue.length ? `<ul class="ag-queue" role="list">${items}</ul>` : SH.empty('check', 'Nothing waiting', 'Agents only ask when a profile\'s policy says ask.')}</section>`;
   }
 
@@ -68,7 +69,7 @@
     const calls = G.methods.map((m) => row(`call_api · ${m}`, '', PROFILES.map((p) => `<td>${cell(p, 'm.' + m, pol(p).m[m], 'call_api ' + m)}</td>`).join(''))).join('');
     const write = row('write_definition', 'writes are always shown as a diff', PROFILES.map((p) => `<td>${cell(p, 'write', pol(p).write, 'write_definition')}</td>`).join(''));
     const n = Object.keys(M.edits).length;
-    return `<section class="ag-panel glass-dense ag-wide" aria-labelledby="ag-pol-t"><div class="in-panel-head"><div class="grow"><h3 class="in-h" id="ag-pol-t">What agents may do</h3><span class="subtle">Per profile, from <span class="mono">profiles.&lt;id&gt;.agents</span> in vibranium.config.yaml. A profile with no agents block allows reads only.</span></div>
+    return `<section class="ag-panel ag-wide" aria-labelledby="ag-pol-t"><div class="in-panel-head"><div class="grow"><h3 class="in-h" id="ag-pol-t">What agents may do</h3><span class="subtle" title="profiles.&lt;id&gt;.agents in vibranium.config.yaml">Per profile. Without an agents block, a profile allows reads only.</span></div>
         ${n ? `<button class="btn btn-sm" data-action="ag-discard">Discard</button><button class="btn btn-primary btn-sm" data-action="ag-review" data-fk="ag-review">Review ${n} change${n > 1 ? 's' : ''}</button>` : ''}</div>
       ${locked('prod') ? `<p class="callout" data-tone="info">${ic('shield')}<span><b>prod is reads only.</b> Agents can list, search and explain, but cannot run, call or write. Turn on the switch in its column to change that.</span></p>` : `<p class="callout" data-tone="danger">${ic('warn')}<span><b>Agents may act on prod.</b> Keep every write and non-GET call on Ask.</span></p>`}
       <div class="table-wrap ag-matrix"><table class="table"><thead><tr><th scope="col">Tool</th>${head}</tr></thead><tbody>${reads}${run}${calls}${write}</tbody></table></div></section>`;
@@ -79,13 +80,13 @@
   function activity() {
     const rows = G.log.filter((l) => M.logWho === 'all' || l.agent === M.logWho).map((l, i) => {
       const [st, word] = RES[l.res], open = !!M.logOpen[i];
-      return `<li class="ag-log-row"><div class="ag-log-line"><span class="mono subtle">${esc(l.t)}</span>${SH.agent(l.agent)}<span class="mono ag-tool">${esc(l.tool)}</span>
-        <span class="mono grow ellipsis" title="${esc(l.arg)}">${esc(l.arg)}</span><span class="chip-src chip hide-narrow" data-src="profile">${esc(l.profile)}</span>${badge(st, word + (l.by ? ' by ' + l.by : ''), true)}
+      return `<li class="ag-log-row"><div class="ag-log-line"><span class="mono subtle">${esc(l.t)}</span>${SH.by(l.agent)}<span class="mono ag-tool">${esc(l.tool)}</span>
+        <span class="mono grow ellipsis" title="${esc(l.arg)}">${esc(l.arg)}</span><span class="subtle mono hide-narrow">${esc(l.profile)}</span>${badge(st, word + (l.by ? ' by ' + l.by : ''), true)}
         ${l.run ? `<button class="btn btn-ghost btn-sm" data-action="ag-run-open" data-n="${l.run}">#${l.run}</button>` : ''}
         ${l.diff ? `<button class="btn btn-ghost btn-sm" data-action="ag-log-toggle" data-i="${i}" aria-expanded="${open}" data-fk="agl-${i}">${ic(open ? 'chev-down' : 'chev-right')}Diff</button>` : ''}</div>
         ${l.note ? `<span class="subtle ag-log-note">${esc(l.note)}</span>` : ''}${open ? VC.diffHtml(l.diff, l.arg) : ''}</li>`;
     }).join('');
-    return `<section class="ag-panel glass-dense ag-wide" aria-labelledby="ag-log-t"><div class="in-panel-head"><div class="grow"><h3 class="in-h" id="ag-log-t">Activity</h3><span class="subtle">Every tool call, redacted, kept with history (<code>vc history --agent</code>)</span></div>
+    return `<section class="ag-panel ag-wide" aria-labelledby="ag-log-t"><div class="in-panel-head"><div class="grow"><h3 class="in-h" id="ag-log-t">Activity</h3><span class="subtle" title="vc history --agent">Every tool call, redacted, kept with history</span></div>
         ${SH.seg('Agent', [['all', 'All'], ['claude-code', 'claude-code'], ['cursor', 'cursor']], M.logWho, 'ag-who')}</div>
       <ul class="ag-log" role="list">${rows}</ul></section>`;
   }
@@ -93,10 +94,9 @@
   /* ---- screen ------------------------------------------------------------------------- */
   VC.screens.agents = {
     crumbs: () => [D.project.name, 'Agents'],
-    status: () => `${ic('bot', 'ico-sm')} MCP ${M.serving ? `serving · ${G.server.clients.length} agents` : 'stopped'} · ${G.queue.length} waiting`,
+    status: () => '',
     render: () => `<div class="stage-one sh-scope"><section class="glass stage-one" aria-label="Agents">
-      <div class="card-head"><div class="grow"><h2 class="card-title">Agents</h2><div class="card-sub">AI agents use Vibranium over MCP. They see definitions and history, and act only where a profile allows it.</div></div>
-        ${G.queue.length ? `<span class="badge st-blocked">${ic('clock')}${G.queue.length} waiting</span>` : ''}</div>
+      <div class="card-head"><div class="grow"><h2 class="card-title">Agents</h2><div class="card-sub">AI agents work over MCP, and act only where a profile allows it.</div></div></div>
       <div class="card-body" data-sk="ag-body"><div class="ag-page">${connection()}${queue()}${policy()}${activity()}</div></div>
     </section></div>`
   };
@@ -126,7 +126,7 @@
       title: `Always allow ${q.tool} on ${q.profile}`, sub: 'Changes the profile\'s agents policy. The pending request is approved too.',
       file: 'vibranium.config.yaml', confirm: 'Write and approve',
       lines: [['@', '@@ -48,6 +48,6 @@'], [' ', `  ${q.profile}:`], [' ', '    agents:'], [' ', '      run: true'], ['-', `      ${line[0]}`], ['+', `      ${line[1]}`]],
-      callout: 'vibranium.config.yaml digest b3f1c27 is checked before writing.',
+      callout: 'The file is checked for changes on disk before writing.',
       after: () => { settle(q.id, 'approved', `Approved ${q.tool}`, 'and future ones like it'); }
     });
   };
@@ -154,7 +154,7 @@
       const name = key === 'write' ? 'writeDefinitions' : key === 'run' ? 'run' : `call.${key.slice(2)}`;
       lines.push([' ', `  ${p}.agents:`], ['-', `    ${name}: ${was}`], ['+', `    ${name}: ${now}`]);
     });
-    VC.diffDialog({ title: 'Save agent policy', sub: 'Agents pick up the new policy on their next tool call.', file: 'vibranium.config.yaml', lines, confirm: 'Write', callout: 'vibranium.config.yaml digest b3f1c27 is checked before writing.', after: () => { M.edits = {}; VC.render(); } });
+    VC.diffDialog({ title: 'Save agent policy', sub: 'Agents pick up the new policy on their next tool call.', file: 'vibranium.config.yaml', lines, confirm: 'Write', callout: 'The file is checked for changes on disk before writing.', after: () => { M.edits = {}; VC.render(); } });
   };
   A['ag-who'] = (el) => { M.logWho = el.dataset.v; M.logOpen = {}; VC.render(); };
   A['ag-log-toggle'] = (el) => { M.logOpen[el.dataset.i] = !M.logOpen[el.dataset.i]; VC.render(); };

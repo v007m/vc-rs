@@ -39,14 +39,6 @@
   }
 
   /* ---- form view ---------------------------------------------------------- */
-  function railHtml() {
-    const t = (id) => TD.tests[`${FILE}#${id}`];
-    return `<nav class="ed-rail" aria-label="In this file">
-      <h3 class="section-label">Tests</h3>${Object.keys(FM).map((id) => `<button class="ed-rail-i" data-action="ed-pick" data-v="${id}" data-fk="edr-${id}"${E.sel === 'test' && E.test === id ? ' aria-current="true"' : ''}><span class="dot st-${t(id).st}" aria-hidden="true"></span><span class="mono ellipsis">${id}</span>${id === 'placesOrder' && !E.fixed ? `<span class="ed-err" aria-label="1 error">${ic('fail', 'ico-sm')}</span>` : ''}</button>`).join('')}
-      <button class="btn btn-ghost btn-sm" data-action="ed-new-test" data-fk="edr-new">${ic('plus', 'ico-sm')}Add test</button>
-      <h3 class="section-label">File lifecycle</h3>
-      <button class="ed-rail-i" data-action="ed-pick" data-v="lifecycle" data-fk="edr-life"${E.sel === 'lifecycle' ? ' aria-current="true"' : ''}>${ic('flow', 'ico-sm')}<span>beforeAll · beforeEach · afterAll</span></button></nav>`;
-  }
   const fld = (id, label, key, v, opts) => `<div class="field${opts && opts.wide ? ' ed-wide' : ''}"><label for="${id}">${label}</label><input class="input${opts && opts.mono ? ' mono' : ''}${E.changes[key] ? ' is-dirty' : ''}" id="${id}" data-ed="${key}" data-orig="${esc(v)}" value="${esc(val(key, v))}" data-fk="${id}">${opts && opts.hint ? `<span class="hint">${opts.hint}</span>` : ''}</div>`;
   function expectHtml(id, m) {
     return `<section class="ed-sec" aria-labelledby="ed-exp"><div class="row"><h3 class="section-label" id="ed-exp">Expect</h3><span class="grow"></span><button class="btn btn-sm btn-ghost" data-action="ed-add-check" aria-haspopup="menu" data-fk="ed-addchk">${ic('plus', 'ico-sm')}Add check</button></div>
@@ -65,22 +57,23 @@
     if (!m.examples) return `<section class="ed-sec" aria-labelledby="ed-ex"><h3 class="section-label" id="ed-ex">Examples</h3><p class="subtle">No examples. Add a table to run this test once per row; each row is its own instance (<code>:1</code>, <code>:2</code>…).</p><div><button class="btn btn-sm" data-action="ed-add-examples" data-fk="ed-addex">${ic('plus', 'ico-sm')}Add examples</button></div></section>`;
     return `<section class="ed-sec" aria-labelledby="ed-ex"><div class="row"><h3 class="section-label" id="ed-ex">Examples · ${m.examples.rows.length} rows</h3><span class="grow"></span><button class="btn btn-sm btn-ghost" data-action="ed-add-row" data-fk="ed-addrow">${ic('plus', 'ico-sm')}Row</button><button class="btn btn-sm btn-ghost" data-action="ed-add-col" data-fk="ed-addcol">${ic('plus', 'ico-sm')}Column</button></div>
       <div class="table-wrap glass-dense"><table class="table ed-grid" aria-label="Examples"><thead><tr><th class="r">#</th>${m.examples.cols.map((c) => `<th class="mono">${esc(c)}</th>`).join('')}</tr></thead><tbody>
-      ${m.examples.rows.map((r, i) => `<tr><td class="r mono muted">:${i + 1}</td>${r.map((v, j) => `<td><input class="input input-sm mono" value="${esc(v)}" aria-label="Row ${i + 1} ${esc(m.examples.cols[j])}" data-fk="edx-${i}-${j}"></td>`).join('')}</tr>`).join('')}</tbody></table></div>
+      ${m.examples.rows.map((r, i) => `<tr><td class="r mono muted">:${i + 1}</td>${r.map((v, j) => `<td><input class="input input-sm mono ed-cell" value="${esc(v)}" aria-label="Row ${i + 1} ${esc(m.examples.cols[j])}" data-fk="edx-${i}-${j}"></td>`).join('')}</tr>`).join('')}</tbody></table></div>
       <p class="hint subtle">Use a column as <code>\${example.coupon}</code>. Select one row with <code>${FILE}#${E.test}:2</code>.</p></section>`;
   }
   function testForm() {
     const id = E.test, m = FM[id], t = TD.tests[`${FILE}#${id}`];
     const a = m.call && D.apis[m.call];
-    return `<div class="ed-form"><div class="row row-wrap">${badge(t.st)}<span class="mono subtle">${PATH}:${m.line}</span>${m.allow ? '<span class="chip">allowFailure until 2026-12-07</span>' : ''}</div>
+    return `<div class="ed-form"><div class="row"${m.allow ? ' title="allowFailure until 2026-12-07"' : ''}>${badge(t.st)}</div>
       ${id === 'placesOrder' && !E.fixed ? `<p class="callout" data-tone="danger">${ic('fail')}<span><b>V2101</b> savedCard is never set (vars.cardToken). <button class="btn btn-sm" data-action="ed-fix" data-fk="ed-fixform">${ic('wand', 'ico-sm')}Use \${var.declinedCard}</button></span></p>` : ''}
-      <section class="ed-sec ed-cols" aria-label="Basics">${fld('edf-id', 'id', `${id}.id`, id, { mono: true, hint: 'third-person verb · <code>' + FILE + '#' + id + '</code>' })}${fld('edf-name', 'name', `${id}.name`, t.name, { wide: true })}
+      <section class="ed-sec ed-cols" aria-label="Basics">${fld('edf-id', 'id', `${id}.id`, id, { mono: true, hint: 'A third-person verb' })}${fld('edf-name', 'name', `${id}.name`, t.name, { wide: true })}
         <div class="field"><label for="edf-call">call</label>${m.steps ? '<span class="subtle">Uses steps below</span>' : `<button class="btn ed-apibtn" id="edf-call" data-action="ed-api-pick" aria-haspopup="menu" data-fk="edf-call">${a ? method(a.m) : ''}<span class="mono">${esc(m.call)}</span>${ic('chev-down', 'ico-sm')}</button>`}</div>
         <div class="field"><span class="ed-lbl">tags</span><div class="row row-wrap">${m.tags.map((g) => `<span class="chip">${esc(g)}</span>`).join('')}<button class="btn btn-ghost btn-sm" data-action="ed-add-tag" data-fk="edf-tag">${ic('plus', 'ico-sm')}tag</button></div></div></section>
       ${m.steps ? `<section class="ed-sec" aria-labelledby="ed-steps"><h3 class="section-label" id="ed-steps">Steps · run in order</h3><ol class="ed-steps">${m.steps.map(([api, d], i) => `<li><span class="n">${i + 1}</span>${method(D.apis[api] ? D.apis[api].m : 'GET')}<span class="mono">${esc(api)}</span><span class="subtle ellipsis">${esc(d)}</span><button class="btn btn-ghost btn-icon btn-sm" data-action="noop" aria-label="Step ${i + 1} options">${ic('dots')}</button></li>`).join('')}</ol><div><button class="btn btn-sm" data-action="noop">${ic('plus', 'ico-sm')}Add step</button></div></section>` : ''}
       ${m.vars.length ? `<section class="ed-sec" aria-labelledby="ed-vars"><h3 class="section-label" id="ed-vars">Vars</h3><div class="kv glass-dense">${m.vars.map(([k, v]) => `<div class="kv-row"><span class="k">${esc(k)}</span><span class="v"><input class="input mono${E.changes[`${id}.vars/${k}`] ? ' is-dirty' : ''}" value="${esc(val(`${id}.vars/${k}`, id === 'placesOrder' && E.fixedBy ? E.fixedBy : v))}" data-ed="${id}.vars/${k}" data-orig="${esc(v)}" aria-label="${esc(k)}" data-fk="edv-${k}"></span><span class="s">${v.includes('savedCard') && !E.fixed ? '<span class="badge badge-sm st-fail">V2101</span>' : chipSrc(v.includes('example') ? 'set' : 'profile', 'where the value comes from')}</span></div>`).join('')}</div></section>` : ''}
       ${m.steps ? '' : examplesHtml(m)}${m.steps ? '' : expectHtml(id, m)}
       ${m.save.length ? `<section class="ed-sec" aria-labelledby="ed-save"><h3 class="section-label" id="ed-save">Save · for later steps and tests</h3><div class="kv glass-dense">${m.save.map(([k, v]) => `<div class="kv-row"><span class="k">${esc(k)}</span><span class="v"><span>${esc(v)}</span></span><span class="s">${chipSrc('set')}</span></div>`).join('')}</div></section>` : ''}
-      <section class="ed-sec" aria-labelledby="ed-tl"><h3 class="section-label" id="ed-tl">Lifecycle for this test</h3><p class="subtle">Inherits the file's beforeAll, beforeEach and afterAll. <button class="btn btn-sm btn-ghost" data-action="ed-pick" data-v="lifecycle">${ic('flow', 'ico-sm')}Edit file lifecycle</button> <button class="btn btn-sm btn-ghost" data-action="noop">${ic('plus', 'ico-sm')}before / after</button></p></section></div>`;
+      <details class="disc ed-disc" data-fk="ed-tl"><summary>${ic('chev-down', 'chev')}Lifecycle for this test</summary><div class="disc-body"><p class="subtle">Inherits the file's beforeAll, beforeEach and afterAll.</p>
+        <div class="row"><button class="btn btn-sm" data-action="ed-pick" data-v="lifecycle">${ic('flow', 'ico-sm')}Edit file lifecycle</button><button class="btn btn-sm btn-ghost" data-action="noop">${ic('plus', 'ico-sm')}before / after</button></div></div></details></div>`;
   }
   function lifeForm() {
     const lc = TD.files[FILE].lifecycle;
@@ -90,8 +83,8 @@
       <section class="ed-sec"><h3 class="section-label">Cleanups</h3><p class="subtle">Registered by the apis these actions call (<code>users#create</code> → <code>users#delete</code>). They run newest first, also after a failure or Stop.</p></section></div>`;
   }
   function formCard() {
-    return `<section class="glass ed-card" aria-labelledby="ed-form-t"><div class="card-head"><h2 class="card-title" id="ed-form-t">${E.sel === 'test' ? `<span class="mono">${E.test}</span>` : 'File lifecycle'}</h2><span class="grow"></span>${S.edView === 'split' ? '' : ''}</div>
-      <div class="card-body ed-formwrap" data-sk="ed-form">${railHtml()}${E.sel === 'test' ? testForm() : lifeForm()}</div></section>`;
+    return `<section class="glass ed-card" aria-labelledby="ed-form-t"><div class="card-head"><h2 class="card-title" id="ed-form-t"${E.sel === 'test' ? ` title="${FILE}#${E.test} · ${PATH}:${FM[E.test].line}"` : ` title="${PATH}"`}>${E.sel === 'test' ? `<span class="mono">${E.test}</span>` : 'File lifecycle'}</h2></div>
+      <div class="card-body ed-formwrap" data-sk="ed-form">${E.sel === 'test' ? testForm() : lifeForm()}</div></section>`;
   }
 
   /* ---- YAML view ---------------------------------------------------------- */
@@ -121,7 +114,7 @@
   }
   function yamlCard() {
     const lines = sourceLines();
-    return `<section class="glass ed-card" aria-labelledby="ed-yaml-t"><div class="card-head"><h2 class="card-title" id="ed-yaml-t">YAML</h2><span class="card-sub mono">${PATH}</span><span class="grow"></span>
+    return `<section class="glass ed-card" aria-labelledby="ed-yaml-t"><div class="card-head"><h2 class="card-title" id="ed-yaml-t" title="${PATH}">YAML</h2><span class="grow"></span>
         <button class="btn btn-sm btn-ghost" data-action="ed-suggest" data-fk="ed-suggest">${ic('sparkle', 'ico-sm')}Suggest<span class="kbd hide-narrow">⌃Space</span></button></div>
       <div class="card-tabs">${problems()}</div>
       <div class="card-body ed-yamlbody${E.explain ? ' has-explain' : ''}"><div class="ed-code glass-dense" role="region" aria-label="Source of ${PATH}" tabindex="0" data-sk="ed-code" data-fk="ed-code">${lines.map((l, i) => lineHtml(l, i + 1)).join('')}</div>${explainHtml()}</div></section>`;
@@ -130,25 +123,24 @@
   /* ---- header, banners, screen ------------------------------------------- */
   function headHtml() {
     const n = errs(), c = nChanges();
-    return `<div class="ed-head on-l0"><div class="grow stack-tight"><div class="row row-wrap"><h1 class="card-title mono">${FILE}</h1><span class="subtle mono hide-narrow">${PATH}</span>${c ? `<span class="chip ed-dirty" title="Unsaved changes">${c} unsaved</span>` : ''}</div></div>
+    return `<div class="ed-head on-l0"><div class="grow row ed-title"><h1 class="card-title mono ellipsis" title="${PATH}">${FILE}</h1>${c ? `<span class="chip ed-dirty" title="Unsaved changes">${c} unsaved</span>` : ''}</div>
       <div class="seg seg-sm" role="group" aria-label="View">${[['form', 'Form'], ['yaml', 'YAML'], ['split', 'Split']].map(([k, l]) => `<button aria-pressed="${E.view === k}" data-action="ed-view" data-v="${k}" data-fk="edv-${k}">${l}</button>`).join('')}</div>
-      <button class="btn btn-sm" data-action="ed-plan" data-fk="ed-plan">${ic('flow', 'ico-sm')}Plan</button>
-      <button class="btn btn-sm" data-action="ed-file" aria-haspopup="menu" data-fk="ed-file">${ic('file', 'ico-sm')}File${ic('chev-down', 'ico-sm')}</button>
-      <button class="btn btn-sm btn-primary" data-action="ed-save" data-fk="ed-save">${ic('check', 'ico-sm')}Save${n ? `<span class="ed-errbadge" aria-label="${n} error">${n}</span>` : ''}<span class="kbd hide-narrow">⌘S</span></button></div>`;
+      <button class="btn btn-sm btn-primary" data-action="ed-save" data-fk="ed-save"${n ? ` title="${n} error; Save asks before writing"` : ''}>${ic('check', 'ico-sm')}Save<span class="kbd hide-narrow">⌘S</span></button>
+      ${VC.moreBtn('ed-file', 'Plan and file actions', 'ed-file')}</div>`;
   }
   function conflictHtml() {
     if (!E.conflict) return '';
-    return `<div class="callout ed-banner" data-tone="danger" role="alert">${ic('warn')}<span><b>Not saved: the file changed on disk</b> since you opened it (digest 9f3c1a → 41ab07, git pull 2 min ago: +2 lines in rejectsDeclinedCard).</span><span class="grow"></span>
+    return `<div class="callout ed-banner" data-tone="danger" role="alert">${ic('warn')}<span><b>Not saved: the file changed on disk</b> <span title="digest 9f3c1a → 41ab07">since you opened it</span> (git pull 2 min ago: +2 lines in rejectsDeclinedCard).</span><span class="grow"></span>
       <button class="btn btn-sm" data-action="ed-reload" data-fk="ed-reload">${ic('refresh', 'ico-sm')}Reload</button><button class="btn btn-sm btn-danger" data-action="ed-keep" data-fk="ed-keep">Keep mine…</button></div>`;
   }
   VC.screens['tests-editor'] = {
     enter: () => { S.mode = 'tests'; },
     crumbs: () => [D.project.name, 'Tests', FILE],
-    status: () => (E.deleted ? 'file in Trash' : `${errs() ? `${ic('fail', 'ico-sm')} 1 error` : `${ic('pass', 'ico-sm')} vc check · 0 errors`} · ${nChanges()} unsaved`),
+    status: () => (E.deleted ? 'file in Trash' : errs() ? `${ic('fail', 'ico-sm')} 1 error` : ''),
     render: () => {
-      if (E.deleted) return `${VC.testsNav('tests-editor')}<div class="stage-one"><section class="glass stage-one"><div class="empty">${ic('file')}<b>${PATH} is in the Trash</b><span>The tests that referenced it now fail vc check until you restore it or point them elsewhere.</span><button class="btn" data-action="ed-restore">${ic('arrow-left')}Restore</button></div></section></div>`;
+      if (E.deleted) return `<div class="stage-one"><section class="glass stage-one"><div class="empty empty-quiet"><span><b class="mono" title="${PATH}">${FILE}</b> is in the Trash. Tests that referenced it fail vc check until you restore it.</span><button class="btn" data-action="ed-restore">${ic('arrow-left')}Restore</button></div></section></div>`;
       const body = E.view === 'form' ? `<div class="stage-one">${formCard()}</div>` : E.view === 'yaml' ? `<div class="stage-one">${yamlCard()}</div>` : `<div class="split ed-split"${VC.splitAttrs()}>${formCard()}${VC.divider('Resize form and YAML')}${yamlCard()}</div>`;
-      return `${VC.testsNav('tests-editor', VC.runBtn('Run file'))}${headHtml()}${conflictHtml()}${body}`;
+      return `${headHtml()}${conflictHtml()}${body}`;
     },
     mount: (view) => { if (E.view === 'split') VC.mountSplit(view, 'edSplit'); const ac = $('#ed-ac', view); if (ac) ac.focus({ preventScroll: true }); }
   };
@@ -223,7 +215,8 @@
     lines: [['@', '@@ -36,4 +36,2 @@ rejectsDeclinedCard (theirs, from git pull)'], ['-', '    retry:'], ['-', '      attempts: 2'], [' ', '    vars:']].concat(saveDiff()), confirm: 'Overwrite', after: () => { const t = $('#toasts').lastElementChild; if (t) t.remove(); commit('overwrote the change on disk · '); } });
 
   /* ---- file ops ----------------------------------------------------------- */
-  A['ed-file'] = (el) => VC.menu(el, `<div class="pop-label">New from a template</div>${TD.templates.map(([k, l, c]) => VC.menuItem(esc(l), 'ed-new', `data-k="${k}"`, { ico: 'plus', meta: `vc new ${k}` })).join('')}
+  A['ed-file'] = (el) => VC.menu(el, `${VC.menuItem('Plan', 'ed-plan', '', { ico: 'flow', meta: 'vc plan' })}${VC.menuItem('Run this file…', 'tx-run-dialog', '', { ico: 'play', meta: '⌘R' })}
+    <div class="pop-sep"></div>${E.sel === 'test' ? VC.menuItem('Edit file lifecycle', 'ed-pick', 'data-v="lifecycle"', { ico: 'flow', meta: 'beforeAll · afterAll' }) : VC.menuItem(`Back to ${E.test}`, 'ed-pick', `data-v="${E.test}"`, { ico: 'arrow-left' })}${VC.menuItem('Add test', 'ed-new-test', '', { ico: 'plus', meta: 'vc new test' })}<div class="pop-sep"></div><div class="pop-label">New from a template</div>${TD.templates.map(([k, l, c]) => VC.menuItem(esc(l), 'ed-new', `data-k="${k}"`, { ico: 'plus', meta: `vc new ${k}` })).join('')}
     <div class="pop-sep"></div>${VC.menuItem('Rename…', 'ed-rename', '', { ico: 'redirect', meta: 'vc rename' })}${VC.menuItem('Format', 'ed-format', '', { ico: 'braces', meta: 'vc fmt' })}${VC.menuItem('Delete…', 'ed-delete', '', { ico: 'x' })}
     <div class="pop-sep"></div><div class="pop-label">Mockup</div>${VC.menuItem('Simulate a change on disk', 'ed-sim', '', { ico: 'refresh' })}`);
   A['ed-sim'] = () => { E.conflict = true; VC.render(); };
