@@ -32,7 +32,7 @@
     switch (S.gqTab) {
       case 'query': return `<div class="gql-editor well"><pre class="code" aria-label="Query" tabindex="0">${numbered(hlGql(G.query))}</pre>
         <div class="editor-foot" title="operationName: ProductById · from catalog.api.yaml:10"><span><kbd class="kbd">⌃</kbd><kbd class="kbd">Space</kbd> completes from the schema</span><span class="grow"></span><span class="mono">ProductById</span></div></div>`;
-      case 'variables': return `<pre class="code glass-dense" aria-label="Variables" tabindex="0">${numbered(hlJson(G.variables))}</pre>
+      case 'variables': return `<pre class="code glass-dense code-fill" aria-label="Variables" tabindex="0">${numbered(hlJson(G.variables))}</pre>
         ${layers({ inherited: [{ k: 'id', v: '${productId}', src: 'api', at: 'catalog.api.yaml:14' }], own: [{ k: 'withCost', v: 'true' }] }, 'gvars')}`;
       case 'schema': return schemaPanel();
       case 'headers': return layers({ inherited: [{ k: 'authorization', v: 'Bearer ••••', src: 'profile', at: 'auth: shopAuth' }, { k: 'x-client', v: 'vibranium', src: 'config', at: 'vibranium.config.yaml:11' }], own: [] }, 'gheaders');

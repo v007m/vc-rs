@@ -65,16 +65,16 @@
      opacity: contrast.cjs checks every ink over the brightest blob.
      Dark glass is a light frost (white film over a low smoke), not a dark
      smoke: the blob colour behind a card stays visible through it. */
-  --glass-l1: 0.36;   /* theme blocks below adjust */
-  --glass-l3: 0.72;
+  --glass-l1: 0.20;   /* theme blocks below adjust; round 4: clear glass, the blobs show through */
+  --glass-l3: 0.62;
   --glass-sat: 160%;
   --l1-solid: light-dark(#fbfaff, #191623);
-  --l1-frost: light-dark(rgb(255 255 255 / 0), rgb(255 255 255 / 0.05));
+  --l1-frost: light-dark(rgb(255 255 255 / 0), rgb(255 255 255 / 0.015));
   --l1-bg: color-mix(in srgb, var(--l1-solid) calc(var(--glass-l1) * 100%), transparent);
   --l1-border: light-dark(rgb(255 255 255 / 0.85), rgb(255 255 255 / 0.09));
   --l1-highlight: light-dark(rgb(255 255 255 / 1), rgb(255 255 255 / 0.16));
   --l1-rim: light-dark(rgb(255 255 255 / 0.55), rgb(255 255 255 / 0.06));
-  --l1-gloss: light-dark(rgb(255 255 255 / 0.38), rgb(255 255 255 / 0.045));
+  --l1-gloss: light-dark(rgb(255 255 255 / 0.22), rgb(255 255 255 / 0.035));
   --l1-edge-top: light-dark(rgb(255 255 255 / 0.95), rgb(255 255 255 / 0.30));
   --l1-edge-bottom: light-dark(rgb(30 24 60 / 0.10), rgb(255 255 255 / 0.04));
   --l1-shadow-color: light-dark(rgb(40 30 90 / 0.14), rgb(0 0 0 / 0.50));
@@ -88,13 +88,12 @@
   --rule: light-dark(rgb(21 18 31 / 0.09), rgb(255 255 255 / 0.08));
   --rule-strong: light-dark(rgb(21 18 31 / 0.16), rgb(255 255 255 / 0.14));
   --row-hover: light-dark(rgb(20 30 60 / 0.055), rgb(255 255 255 / 0.045));
-  --row-selected: light-dark(rgb(40 32 80 / 0.065), rgb(255 255 255 / 0.07));   /* B5: a quiet tint ... */
-  --row-bar: inset 2px 0 0 var(--accent);                                         /* ... plus a 2px accent bar on the leading edge */
+  --row-selected: light-dark(rgb(40 32 80 / 0.085), rgb(255 255 255 / 0.09));   /* B5: selection is a quiet tint only; no leading-edge bar (round 4) */
 
   /* text on L1/L2/L3 */
   --ink: light-dark(#17142a, #f2f0f8);
   --ink-2: light-dark(#47425e, #cdc8de);
-  --ink-3: light-dark(#524d69, #c1bcd3);
+  --ink-3: light-dark(#4d4864, #c1bcd3);
   --ink-disabled: light-dark(#78738e, #908ba6);
 
   /* ---- L2 raised controls ------------------------------------------- */
@@ -110,20 +109,26 @@
 
   /* ---- L3 overlays --------------------------------------------------- */
   --l3-solid: light-dark(#faf9ff, #1d1a29);
-  --l3-frost: light-dark(rgb(255 255 255 / 0), rgb(255 255 255 / 0.05));
+  --l3-frost: light-dark(rgb(255 255 255 / 0), rgb(255 255 255 / 0.03));
   --l3-bg: color-mix(in srgb, var(--l3-solid) calc(var(--glass-l3) * 100%), transparent);
   --l3-backdrop: light-dark(rgb(40 34 70 / 0.22), rgb(4 3 8 / 0.55));
   --l3-border: light-dark(rgb(255 255 255 / 0.9), rgb(255 255 255 / 0.12));
 
+  /* ---- prod environment pill: the one place prod red appears on L0 ------ */
+  --prod-bg: light-dark(oklch(0.93 0.05 25 / 0.9), oklch(0.42 0.15 25 / 0.55));
+  --prod-bg-hover: light-dark(oklch(0.95 0.04 25 / 0.95), oklch(0.46 0.16 25 / 0.65));
+  --prod-border: light-dark(oklch(0.62 0.18 25 / 0.5), oklch(0.72 0.16 25 / 0.5));
+  --prod-ink: light-dark(#8f1d1d, #ffe1e1);
+
   /* ---- accent: calm blue, fixed (C2). The tint drives only the L0 blobs;
-     focus rings, links, the selected-tab rule, progress and toggles use this.
-     Prod red lives only in prod indicators (.prod-flag). */
+     focus rings, links, progress and toggles use this.
+     Prod red lives only in the prod environment pill (--prod-*). */
   --ah: 247;
-  --accent: light-dark(oklch(0.45 0.14 var(--ah)), oklch(0.80 0.10 var(--ah)));
+  --accent: light-dark(oklch(0.42 0.14 var(--ah)), oklch(0.80 0.10 var(--ah)));
   --accent-fill: light-dark(oklch(0.50 0.14 var(--ah)), oklch(0.54 0.13 var(--ah)));
   --accent-fill-2: light-dark(oklch(0.46 0.14 var(--ah)), oklch(0.50 0.13 var(--ah)));
   --accent-soft: light-dark(oklch(0.94 0.03 var(--ah)), oklch(0.36 0.07 var(--ah) / 0.55));
-  --accent-ink: light-dark(oklch(0.45 0.14 var(--ah)), oklch(0.84 0.08 var(--ah)));
+  --accent-ink: light-dark(oklch(0.42 0.14 var(--ah)), oklch(0.84 0.08 var(--ah)));
   --on-accent: #ffffff;
   --focus: light-dark(oklch(0.52 0.15 var(--ah)), oklch(0.74 0.12 var(--ah)));
 
@@ -146,7 +151,7 @@
   --st-blocked: light-dark(#7a4600, #f5b75a);
   --st-blocked-soft: light-dark(#fbefd9, rgb(243 173 69 / 0.15));
   --st-blocked-ink: light-dark(#784600, #f8c57a);
-  --st-skipped: light-dark(#55516b, #c4bfd6);
+  --st-skipped: light-dark(#4f4b65, #c4bfd6);
   --st-skipped-soft: light-dark(#eceaf2, rgb(166 161 186 / 0.15));
   --st-skipped-ink: light-dark(#46425b, #c8c3d8);
   --st-flaky: light-dark(#204caa, #a2c3ff);
@@ -169,7 +174,7 @@
   /* syntax (code, JSON, YAML, GraphQL) */
   --syn-key: light-dark(#5038c0, #b9a8ff);
   --syn-string: light-dark(#0f5e39, #8fe0b0);
-  --syn-number: light-dark(#91306c, #f5a3cf);
+  --syn-number: light-dark(#862a63, #f5a3cf);
   --syn-bool: light-dark(#7a4600, #f3c06b);
   --syn-null: light-dark(#55506c, #b0aac5);
   --syn-punct: light-dark(#6d6884, #8d87a3);
@@ -228,7 +233,8 @@
   --ctl-px: 14px;
   --sidebar-w: 268px;
   --rail-w: 60px;
-  --header-h: 52px;
+  --topbar-h: 44px;        /* round 4: the top row (open tabs; env pill and search at the right) */
+  --header-h: 44px;        /* the header band: breadcrumb, Tests sub-nav, one status, one primary action */
   --fade-h: 24px;          /* B2: bottom fade on long scrollers */
   --band-h: 48px;          /* B1: the L0 toolbar band under the header; every card's top edge sits below it */
   --statusline-h: 28px;
@@ -282,10 +288,10 @@
 
 /* ---- light theme: only color-scheme changes; light-dark() does the rest -- */
 @media (prefers-color-scheme: light) {
-  :root:not([data-theme="dark"]) { color-scheme: light; --grain-opacity: 0.16; --grain-blend: multiply; --glass-l1: 0.40; }
+  :root:not([data-theme="dark"]) { color-scheme: light; --grain-opacity: 0.16; --grain-blend: multiply; --glass-l1: 0.25; }
 }
-:root[data-theme="light"] { color-scheme: light; --grain-opacity: 0.16; --grain-blend: multiply; --glass-l1: 0.40; }
-:root[data-theme="dark"] { color-scheme: dark; --grain-opacity: 0.55; --grain-blend: soft-light; --glass-l1: 0.36; }
+:root[data-theme="light"] { color-scheme: light; --grain-opacity: 0.16; --grain-blend: multiply; --glass-l1: 0.25; }
+:root[data-theme="dark"] { color-scheme: dark; --grain-opacity: 0.55; --grain-blend: soft-light; --glass-l1: 0.20; }
 
 /* ---- tints --------------------------------------------------------------- */
 :root[data-tint="violet"] { --h: 292; --h2: 340; --h3: 250; --h4: 30; }

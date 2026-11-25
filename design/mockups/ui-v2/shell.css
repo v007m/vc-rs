@@ -5,10 +5,11 @@
 
      .app  (container "app"; [data-width] preset from the dev corner)
        .shell
-         aside.sidebar           L0: traffic, mode switch, profile, search,
-                                 pinned tiles, today's tabs, tree, history, foot
+         aside.sidebar           L0: traffic, mode switch, Requests | History
+                                 (Client), the tree or history, shared screens
          .main
-           header.header         L0: breadcrumb, run status, help
+           .topbar               L0: open tabs strip; env pill + search at the right
+           header.header         L0 band: breadcrumb, Tests sub-nav, status, primary
            main.stage#view       screens render here: one or two .glass cards
            footer.statusline     L0: engine, branch, last check, profile
 
@@ -190,11 +191,11 @@ code, kbd, pre, samp { font-family: var(--mono); }
 .sb-row:hover .close, .sb-row:focus-within .close, .sb-row[aria-current="page"] .close { opacity: 1; }
 .sb-row .close:hover { background: var(--l0-hover); color: var(--l0-ink); }
 
-/* B6: the icon rail shows one Tabs button in place of the tab list */
+/* the icon rail shows Requests / History buttons in place of the segmented control */
 .rail-only { display: none; }
 
-/* B8: the sidebar filter sits at the right edge of the search field */
-.search-field { position: relative; width: 100%; min-width: 0; }
+/* B8: the sidebar filter sits inside the search field, at its right edge */
+.search-field { position: relative; flex: 0 1 260px; min-width: 0; }
 .search-field .search-btn { padding-right: 40px; }
 .search-filter { position: absolute; top: 50%; right: 4px; translate: 0 -50%; color: var(--l0-ink-2); }
 .search-filter.is-on { color: var(--accent); }
@@ -227,13 +228,80 @@ code, kbd, pre, samp { font-family: var(--mono); }
 /* ---- main column --------------------------------------------------------- */
 .main {
   display: grid;
-  grid-template-rows: var(--header-h) minmax(0, 1fr) var(--statusline-h);
+  grid-template-rows: var(--topbar-h) var(--header-h) minmax(0, 1fr) var(--statusline-h);
+  grid-template-columns: minmax(0, 1fr);   /* the top row and band never widen the column */
   min-width: 0;
   min-height: 0;
   padding-left: var(--sp-2);
 }
 
-/* L0 header: window drag region in the desktop shell */
+/* L0 top row: open tabs (Client) at the left, env pill and search at the right.
+   It is the window drag region in the desktop shell. */
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-width: 0;
+  padding: 0 var(--sp-2) 0 var(--sp-1);
+}
+.topbar .menu-btn { display: none; flex: none; }
+.topbar-end { display: flex; align-items: center; gap: var(--sp-2); flex: none; margin-left: auto; }   /* the tabs give way first */
+
+/* open tabs: browser-like pills; the active one is a raised L2 pill */
+.tabstrip { display: flex; align-items: center; gap: var(--sp-1); flex: 1 1 auto; min-width: 0; }
+.ts-list {
+  display: flex; align-items: center; gap: 2px;
+  min-width: 0; overflow-x: auto; overflow-y: hidden;
+  scrollbar-width: none;
+  padding: 2px;   /* room for the raised pill's shadow */
+}
+.ts-list::-webkit-scrollbar { display: none; }
+/* more tabs than fit: the strip scrolls; a soft fade marks the hidden side */
+.ts-list.is-more-end { mask-image: linear-gradient(to right, var(--ink) calc(100% - 32px), transparent); }
+.ts-list.is-more-start { mask-image: linear-gradient(to left, var(--ink) calc(100% - 32px), transparent); }
+.ts-list.is-more-start.is-more-end { mask-image: linear-gradient(to right, transparent, var(--ink) 32px, var(--ink) calc(100% - 32px), transparent); }
+.ot {
+  position: relative;
+  display: flex; align-items: center;
+  flex: 0 1 auto; min-width: 112px; max-width: 208px;
+  height: var(--ctl-h);
+  border: 1px solid transparent;
+  border-radius: var(--r-pill);
+  color: var(--l0-ink-2);
+  transition: background-color var(--dur-2) var(--ease), color var(--dur-2) var(--ease);
+}
+.ot:hover { background: var(--l0-hover); color: var(--l0-ink); }
+.ot[aria-current="page"] {
+  color: var(--l0-ink);
+  background: var(--l2-bg);
+  border-color: var(--l2-border);
+  box-shadow: var(--sh-l2);
+}
+.ot-open {
+  display: flex; align-items: center; gap: var(--sp-2);
+  flex: 1 1 auto; min-width: 0; height: 100%;
+  padding: 0 var(--sp-1) 0 var(--sp-3);
+  border: 0; border-radius: var(--r-pill);
+  background: transparent; color: inherit; text-align: left;
+  font-size: var(--fs-2); font-weight: var(--fw-medium);
+}
+.ot-open:focus-visible { outline-offset: -2px; border-radius: var(--r-pill); }
+.ot-open .title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ot .method { min-width: 0; height: 16px; padding: 0 3px; background: transparent; font-size: 9.5px; }
+.ot .scratch-ico { color: var(--l0-ink-3); flex: none; }
+.ot .title-input { flex: 1 1 auto; min-width: 0; height: 24px; margin-inline: var(--sp-2); }
+.ot-close {
+  flex: none; display: grid; place-items: center;
+  width: 20px; height: 20px; margin-right: 6px;
+  border: 0; border-radius: 50%;
+  background: transparent; color: var(--l0-ink-2);
+  opacity: 0;
+}
+.ot:hover .ot-close, .ot:focus-within .ot-close, .ot[aria-current="page"] .ot-close { opacity: 1; }
+.ot-close:hover { background: var(--l0-hover); color: var(--l0-ink); }
+.ts-new { flex: none; }
+
+/* L0 header band */
 .header {
   display: flex;
   align-items: center;
@@ -244,11 +312,16 @@ code, kbd, pre, samp { font-family: var(--mono); }
 }
 .crumbs-nav { flex: 0 1 auto; min-width: 0; }
 /* the mode's views: tabs right after the breadcrumb */
-.subnav { display: flex; align-items: center; gap: 2px; flex: none; padding-left: var(--sp-4); border-left: 1px solid var(--l0-rule); }
+.subnav {
+  display: flex; align-items: center; gap: 2px; flex: 0 1 auto; min-width: 0;
+  padding: 2px 2px 2px var(--sp-4); border-left: 1px solid var(--l0-rule);
+  overflow-x: auto; scrollbar-width: none;   /* narrow: the views scroll rather than wrap */
+}
+.subnav::-webkit-scrollbar { display: none; }
+.subnav .tab { flex: none; }
 .subnav .tab { color: var(--l0-ink-2); text-decoration: none; }
 .subnav .tab:hover { color: var(--l0-ink); background: var(--l0-hover); }
 .subnav .tab[aria-current="page"] { color: var(--l0-ink); }
-.header .menu-btn { display: none; }
 .crumbs {
   display: flex;
   align-items: center;
@@ -380,9 +453,8 @@ code, kbd, pre, samp { font-family: var(--mono); }
   .app:not(.is-rail-open) .sb-row { justify-content: center; padding-inline: 0; width: 40px; }
   .app:not(.is-rail-open) .sb-foot { grid-template-columns: 40px; }
   .app:not(.is-rail-open) .sb-foot .sb-row { min-height: 36px; }
-  .app:not(.is-rail-open) .profile-btn, .app:not(.is-rail-open) .search-btn { width: 40px; padding: 0; justify-content: center; }
-  .app:not(.is-rail-open) .search-field { width: 40px; }
-  .app:not(.is-rail-open) .rail-only { display: flex; }
+  .app:not(.is-rail-open) .sidebar .rail-only { display: flex; }
+  .search-field { flex-basis: 220px; }
 
   .app.is-rail-open .sidebar {
     position: absolute;
@@ -405,7 +477,12 @@ code, kbd, pre, samp { font-family: var(--mono); }
     padding-right: max(8px, env(safe-area-inset-right, 0px));
   }
   .main { padding-left: 0; }
-  .header .menu-btn { display: inline-flex; }
+  .topbar { gap: var(--sp-2); padding-left: 0; }
+  .topbar .menu-btn { display: inline-flex; }
+  /* the views win over the breadcrumb, which the top row's tab already names */
+  .header:has(.subnav) .crumbs-nav { display: none; }
+  .header .subnav { padding-left: 0; border-left: 0; }
+  .ot { min-width: 96px; max-width: 160px; }
   .sidebar {
     position: absolute;
     z-index: 40;
@@ -421,8 +498,16 @@ code, kbd, pre, samp { font-family: var(--mono); }
   }
   .app.is-drawer-open .sidebar { transform: none; visibility: visible; }
   .scrim-drawer { position: absolute; inset: 0; z-index: 35; background: var(--l3-backdrop); }
-  .hide-narrow { display: none; }
+  .app .hide-narrow { display: none; }   /* .app: wins over components that set their own display (.kbd) */
 }
 
 /* ---- compact widths: a little less card padding ------------------------- */
 @container app (max-width: 1024px) { .shell { --card-pad: 20px; } }
+/* narrow rail and drawer: the top row gives the open tabs room. Search collapses
+   to an icon button; the env pill keeps its dot and name. */
+@container app (max-width: 900px) {
+  .topbar .env-pill .env-cap, .topbar .env-pill .env-layers { display: none; }
+  .topbar .search-field { flex: none; }
+  .topbar .search-field .search-btn { width: var(--ctl-h); padding: 0; justify-content: center; }
+  .topbar .search-field :is(.label, .kbd, .search-filter) { display: none; }
+}

@@ -65,24 +65,27 @@
 #tx-bulk:empty { display: none; }
 
 .tx-detail { gap: var(--section-gap); padding-top: 0; }   /* B11: the callout sits right under the header */
-.tx-hist { display: flex; flex-direction: column; gap: var(--label-gap); }
+.tx-hist { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--label-gap) var(--sp-6); }
+.tx-hist > .row { grid-column: 1 / -1; }   /* round 4: strip and duration sparkline side by side, equal width */
 .tx-discs { display: flex; flex-direction: column; }
 .tx-discs .kv .v .ellipsis { min-width: 0; }
 .tx-flake { font-size: var(--fs-1); color: var(--ink-2); }
 /* B10: thin, desaturated ticks; no legend, each tick's tooltip names the run, status and time */
-.tx-strip { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(30, minmax(0, 1fr)); gap: 2px; }
-.tx-strip .hc { --hc: var(--ink-3); justify-self: center; width: 3px; height: 14px; border-radius: 2px; background: color-mix(in oklab, var(--hc) 60%, var(--ink-3)); }
+.tx-strip { list-style: none; margin: 16px 0 0; padding: 0; align-self: start; display: grid; grid-template-columns: repeat(30, minmax(0, 1fr)); gap: 2px; }
+.tx-strip .hc { --hc: var(--ink-3); justify-self: stretch; width: auto; height: 24px; border-radius: 2px; background: color-mix(in oklab, var(--hc) 62%, transparent); }
 .tx-strip .hc.st-pass { --hc: var(--st-pass); }
 .tx-strip .hc.st-fail { --hc: var(--st-fail); background: var(--st-fail); }
 .tx-strip .hc.st-flaky { --hc: var(--st-flaky); }
 .tx-strip .hc.st-allow { --hc: var(--st-allow); }
 .tx-strip .hc:is(.st-skipped, .st-blocked) { --hc: var(--rule); }
-.tx-strip .hc:hover { width: 5px; }
 .tx-spark { margin: 0; display: flex; flex-direction: column; gap: 4px; }
 .tx-spark svg { width: 100%; height: 56px; overflow: visible; }
-.tx-spark .ref { stroke: var(--ink-3); stroke-width: 1; stroke-dasharray: 3 3; }
-.tx-spark .ln { fill: none; stroke: var(--lt-p95); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
-.tx-spark .pt { fill: var(--lt-p95); stroke: var(--l1-solid); stroke-width: 2; }
+.tx-spark .ref { stroke: var(--ink-3); stroke-width: 1; stroke-dasharray: 3 3; vector-effect: non-scaling-stroke; }
+.tx-spark .ln { vector-effect: non-scaling-stroke; fill: none; stroke: var(--lt-p95); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+/* the last-run dot is a round-capped zero-length stroke, so it stays round when the svg stretches */
+.tx-spark .pt, .tx-spark .pt-ring { fill: none; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.tx-spark .pt-ring { stroke: var(--l1-solid); stroke-width: 12; }
+.tx-spark .pt { stroke: var(--lt-p95); stroke-width: 8; }
 .tx-spark .hit { fill: transparent; }
 .tx-spark .hit:hover { fill: color-mix(in oklab, var(--ink) 8%, transparent); }
 .tx-spark figcaption { display: flex; flex-wrap: wrap; gap: var(--sp-3); font-size: var(--fs-1); color: var(--ink-2); }
@@ -95,7 +98,7 @@
 }
 .tx-life .ellipsis { white-space: nowrap; }
 .tx-life .ph { font-size: 11.5px; color: var(--ink-3); }
-.tx-life li.is-this { background: var(--accent-soft); box-shadow: inset 2px 0 0 var(--accent); }
+.tx-life li.is-this { background: var(--row-selected); }
 .tx-life li.is-overridden .ellipsis { text-decoration: line-through; color: var(--ink-3); }
 .tx-apis { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
 .tx-apis .btn { width: 100%; justify-content: flex-start; min-width: 0; height: var(--row-h); }
@@ -163,7 +166,6 @@ ol.tr-log { list-style: none; margin: 0; padding: var(--sp-2) 0; }
 .tr-evlink:hover { text-decoration-color: currentColor; }
 .tr-evlink:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 3px; }
 
-.tr-badrow td:first-child { box-shadow: inset 2px 0 0 var(--st-fail); }   /* R6: state is a rule, not a row fill */
 .tr-bad { color: var(--st-fail-ink); font-weight: var(--fw-semibold); }
 .tr-at { white-space: nowrap; }
 .tr-chk { display: inline-flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; vertical-align: middle; }
@@ -221,9 +223,17 @@ ol.tr-log { list-style: none; margin: 0; padding: var(--sp-2) 0; }
 .ed-lbl { font-size: var(--fs-1); color: var(--ink-2); }
 .ed-apibtn { justify-content: flex-start; width: 100%; min-width: 0; }
 .ed-apibtn .mono { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; text-align: left; }
-/* a changed field is a left rule; focus keeps the one blue ring on top */
-.ed-form .input.is-dirty { box-shadow: var(--sh-deboss), inset 2px 0 0 var(--st-blocked); }
-.ed-form .input.is-dirty:focus { border-color: var(--focus); box-shadow: var(--sh-deboss), inset 2px 0 0 var(--st-blocked), 0 0 0 3px color-mix(in oklab, var(--focus) 30%, transparent); }
+/* a changed field: a small amber dot by its label (round 4: no leading-edge rule) */
+.ed-form .field:has(> .input.is-dirty) > label::after,
+.ed-form .kv-row:has(.input.is-dirty) > .k::after {
+  content: ""; display: inline-block; width: 6px; height: 6px; margin-left: 6px; vertical-align: middle;
+  border-radius: 50%; background: var(--st-blocked);
+}
+.ed-form td:has(> .input.is-dirty) { position: relative; }
+.ed-form td:has(> .input.is-dirty)::before {
+  content: ""; position: absolute; top: 50%; left: 2px; width: 6px; height: 6px; margin-top: -3px;
+  border-radius: 50%; background: var(--st-blocked);
+}
 /* example cells read as table text until focused */
 .ed-grid .ed-cell:not(:focus) { background: transparent; box-shadow: none; border-color: transparent; }
 .ed-grid .ed-cell:not(:focus):hover { border-color: var(--rule); }
@@ -238,7 +248,6 @@ ol.tr-log { list-style: none; margin: 0; padding: var(--sp-2) 0; }
 .ed-exp td, .ed-grid td { padding-top: var(--sp-2); padding-bottom: var(--sp-2); height: var(--row-h-table); }
 .ed-exp .input, .ed-grid .input { height: var(--ctl-h-sm); font-family: var(--mono); font-size: var(--fs-2); border-radius: var(--r-sm); }
 .ed-exp tr.is-inherited td { color: var(--ink-2); }
-.ed-exp tr.is-inherited td:first-child { box-shadow: inset 2px 0 0 var(--ink-3); }
 
 /* YAML view: a mock CodeMirror */
 .ed-yamlbody { padding: var(--sp-3) var(--card-pad) var(--card-pad); gap: var(--sp-3); }
@@ -293,7 +302,7 @@ ol.tr-log { list-style: none; margin: 0; padding: var(--sp-2) 0; }
 .ed-ac-i .mono { font-family: var(--mono); }
 .ed-ac-i .subtle { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-1); }
 .ed-ac-i:hover { background: var(--row-hover); }
-.ed-ac-i[aria-selected="true"] { background: var(--row-selected); box-shadow: inset 2px 0 0 var(--accent); }
+.ed-ac-i[aria-selected="true"] { background: var(--row-selected); }
 .ed-kind { font-size: 10.5px; }
 .ed-ac-foot { padding: 4px var(--sp-2) 2px; border-top: 1px solid var(--rule); margin-top: 2px; font-size: 11px; color: var(--ink-3); }
 

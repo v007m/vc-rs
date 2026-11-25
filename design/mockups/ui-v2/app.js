@@ -33,6 +33,8 @@
     `<span class="badge${sm ? ' badge-sm' : ''} st-${st}">${st === 'running' ? '<span class="dot is-live" aria-hidden="true"></span>' : ic(STATUS[st][0])}${esc(text == null ? STATUS[st][1] : text)}</span>`;
   const method = (m) => `<span class="method" data-m="${esc(m)}">${m === 'DELETE' ? 'DEL' : esc(m)}</span>`;
   const SRC_LABEL = { api: 'api', file: 'file', config: 'config', profile: 'profile', request: 'request', secret: 'secret', env: 'env', set: 'saved' };
+  /* the ⋯ overflow button every card head and row uses (opens a VC.menu) */
+  VC.moreBtn = (action, label, fk) => `<button class="btn btn-ghost btn-icon btn-sm row-more" data-action="${action}" aria-haspopup="menu" aria-label="${esc(label)}" title="More" data-fk="${fk || action}">${ic('dots')}</button>`;
   const chipSrc = (src, title) =>
     `<span class="chip chip-src" data-src="${esc(src)}"${title ? ` title="${esc(title)}"` : ''}>${esc(SRC_LABEL[src] || src)}</span>`;
 
@@ -186,11 +188,9 @@
 
   /* ---- shell ------------------------------------------------------------- */
   function sidebar() {
-    const p = VC.profile();
     const tests = S.mode === 'tests';
-    const label = [p.id].concat(S.layers).join(' · ');
-    const filtered = treeFilter() !== 'all';
     const welcome = S.empty || S.route === 'welcome';
+    const hist = !tests && !welcome && S.sbView === 'history';
     return `
     <aside class="sidebar" id="sidebar" aria-label="Sidebar">
       <div class="sb-top">
@@ -202,19 +202,18 @@
           <button aria-pressed="${!tests}" data-action="mode" data-mode="client" data-fk="mode-client" title="Client (⌘1)">${ic('send')}<span class="hide-rail">Client</span></button>
           <button aria-pressed="${tests}" data-action="mode" data-mode="tests" data-fk="mode-tests" title="Tests (⌘2)">${ic('runs')}<span class="hide-rail">Tests</span></button>
         </div>
-        <button class="btn profile-btn on-l0" data-action="profile-menu" aria-haspopup="dialog" aria-expanded="false" data-fk="profile" title="Profile and layers">
-          <span class="tint-dot" data-p="${esc(p.id)}" aria-hidden="true"></span><span class="label hide-rail">${esc(label)}</span>${ic('chev-down', 'chev hide-rail')}</button>
-        <div class="search-field">
-          <button class="btn search-btn on-l0" data-action="palette" data-fk="search" title="Search (⌘K)">${ic('search')}<span class="label hide-rail">Search or run…</span><span class="kbd hide-rail">⌘K</span></button>
-          ${welcome ? '' : `<button class="btn btn-ghost btn-icon btn-sm on-l0 search-filter hide-rail${filtered ? ' is-on' : ''}" data-action="filter-menu" aria-haspopup="dialog" aria-expanded="false" data-fk="filter" aria-label="Filter the sidebar${filtered ? ' (on)' : ''}" title="Filter the sidebar">${ic('filter')}</button>`}
+        ${tests || welcome ? '' : `<div class="seg seg-fill sb-view on-l0 hide-rail" role="group" aria-label="Sidebar view">
+          <button aria-pressed="${!hist}" data-action="sb-view" data-v="requests" data-fk="sbv-requests">Requests</button>
+          <button aria-pressed="${hist}" data-action="sb-view" data-v="history" data-fk="sbv-history">History</button>
         </div>
+        <button class="sb-row rail-only" data-action="rail-view" data-v="requests" data-fk="rail-requests" title="Requests" aria-label="Requests">${ic('folder')}</button>
+        <button class="sb-row rail-only" data-action="rail-view" data-v="history" data-fk="rail-history" title="History" aria-label="History">${ic('history')}</button>`}
       </div>
-      <div class="sb-scroll" data-sk="sidebar">
-        ${welcome || tests ? '' : tabsHtml()}
-        <section class="sb-section hide-rail" aria-label="${tests ? 'Tests' : 'Services'}">
+      <div class="sb-scroll" data-sk="sidebar-${tests ? 'tests' : hist ? 'history' : 'requests'}">
+        ${hist ? sbHistoryHtml() : `<section class="sb-section hide-rail" aria-label="${tests ? 'Tests' : 'Services'}">
           <h2 class="sb-label">${tests ? 'Test files' : 'Services'}</h2>
           <div class="sb-tree">${welcome ? '<p class="empty-quiet empty-tree">No services yet. Init, import or open the demo.</p>' : tests ? testsTreeHtml() : treeHtml()}</div>
-        </section>
+        </section>`}
       </div>
       <nav class="sb-foot" aria-label="Shared screens">
         ${[['runs', 'runs', 'Runs'], ['insights', 'chart', 'Insights'], ['agents', 'bot', 'Agents'], ['project-settings', 'gear', 'Settings']].map(([r, i, l]) =>
@@ -222,25 +221,55 @@
       </nav>
     </aside>`;
   }
-  /* tree filter (set in the profile popover): client = service kind, tests = status */
+  /* sidebar History view: recent calls grouped by day (same data as the History screen) */
+  function sbHistoryHtml() {
+    return `<section class="sb-section sb-hist hide-rail" aria-label="Call history">${D.history.map((d) => `
+      <h2 class="sb-label">${esc(d.day)}</h2>
+      ${d.items.map((it) => `<button class="sb-row sb-hist-row" data-action="reopen" data-api="${esc(it.api)}" title="${esc(`${it.m} ${it.path} · ${it.s} · ${it.t}`)}">${method(it.m)}<span class="title mono">${esc(it.path)}</span><span class="meta"><span class="hs" data-class="${String(it.s)[0]}">${it.s}</span></span></button>`).join('')}`).join('')}
+      <a class="sb-row sb-hist-all" href="#history"${S.route === 'history' ? ' aria-current="page"' : ''}>${ic('history')}<span class="title">All history</span>${ic('chev-right', 'ico-sm')}</a>
+    </section>`;
+  }
+  /* tree filter (set from the search field): client = service kind, tests = status */
   const treeFilter = () => (S.mode === 'tests' ? S.testFilter : S.svcFilter) || 'all';
   const SVC_KIND = { http: 'rest', graphql: 'graphql', websocket: 'streams', sse: 'streams' };
   const FAILING = ['fail', 'blocked', 'flaky'];
   const tabTitle = (t) => t.title || (t.api ? D.apis[t.api].name : t.name);
-  function tabsHtml() {
+  /* top row: open tabs as a browser-like strip (double-click a tab to rename it) */
+  function tabStrip() {
     const cur = S.tabs.some((t) => t.id === S.tab) && TAB_ROUTES.includes(S.route);
-    /* B6: in the icon rail the tab list collapses to one Tabs button (it opens the rail) */
-    return `<button class="sb-row rail-only rail-tabs" data-action="toggle-rail" data-fk="rail-tabs" title="Open tabs (${S.tabs.length})" aria-label="Open tabs, ${S.tabs.length}">${ic('tab')}</button>
-    <section class="sb-section hide-rail" aria-label="Open tabs">
-      <div class="sb-section-head"><h2 class="sb-label">Open tabs</h2><button class="btn btn-ghost btn-icon btn-sm on-l0 hide-rail" data-action="new-tab" data-fk="new-tab" aria-label="New tab" title="New tab (⌘T)">${ic('plus')}</button></div>
-      ${S.tabs.map((t) => {
+    return `<nav class="tabstrip" aria-label="Open tabs">
+      <div class="ts-list" data-sk="tabstrip">${S.tabs.map((t) => {
         const a = t.api ? D.apis[t.api] : null;
         const on = cur && t.id === S.tab;
-        return `<div class="sb-row tab-row"${on ? ' aria-current="page"' : ''}>
-          <button class="tab-open" data-action="open-tab" data-id="${t.id}" data-fk="tab-${t.id}" title="${esc(tabTitle(t))} (double-click to rename)">${a ? method(a.m) : ic('tab', 'scratch-ico')}<span class="title hide-rail">${esc(tabTitle(t))}</span></button>
-          <button class="close hide-rail" data-action="close-tab" data-id="${t.id}" aria-label="Close ${esc(tabTitle(t))}">${ic('x', 'ico-sm')}</button></div>`;
-      }).join('')}
-    </section>`;
+        return `<div class="ot"${on ? ' aria-current="page"' : ''}>
+          <button class="ot-open" data-action="open-tab" data-id="${t.id}" data-fk="tab-${t.id}" title="${esc(tabTitle(t))} (double-click to rename)">${a ? method(a.m) : ic('tab', 'scratch-ico')}<span class="title">${esc(tabTitle(t))}</span></button>
+          <button class="ot-close" data-action="close-tab" data-id="${t.id}" aria-label="Close ${esc(tabTitle(t))}" title="Close (⌘W)">${ic('x', 'ico-sm')}</button></div>`;
+      }).join('')}</div>
+      <button class="btn btn-ghost btn-icon btn-sm on-l0 ts-new" data-action="new-tab" data-fk="new-tab" aria-label="New tab" title="New tab (⌘T)">${ic('plus')}</button>
+    </nav>`;
+  }
+  /* top row, right: the environment pill (profile + layers) and the search field */
+  function envPill() {
+    const p = VC.profile();
+    const prod = p.id === 'prod';
+    return `<button class="btn env-pill profile-btn on-l0" data-p="${esc(p.id)}" data-action="profile-menu" aria-haspopup="dialog" aria-expanded="false" data-fk="profile" title="Environment: profile ${esc(p.id)}${S.layers.length ? ', layers ' + esc(S.layers.join(', ')) : ''}${prod ? ' (live data)' : ''}">
+      <span class="env-cap">${prod ? ic('warn', 'ico-sm') : ''}${prod ? 'Live' : 'Env'}</span><span class="tint-dot" data-p="${esc(p.id)}" aria-hidden="true"></span><span class="env-name">${esc(p.id)}</span>${S.layers.length ? `<span class="env-layers">${esc(S.layers.join(' · '))}</span>` : ''}${ic('chev-down', 'ico-sm chev')}</button>`;
+  }
+  function searchField() {
+    const filtered = treeFilter() !== 'all';
+    const welcome = S.empty || S.route === 'welcome';
+    return `<div class="search-field">
+      <button class="btn search-btn on-l0" data-action="palette" data-fk="search" title="Search or run (⌘K)" aria-label="Search or run">${ic('search')}<span class="label">Search or run…</span><span class="kbd">⌘K</span></button>
+      ${welcome ? '' : `<button class="btn btn-ghost btn-icon btn-sm on-l0 search-filter${filtered ? ' is-on' : ''}" data-action="filter-menu" aria-haspopup="dialog" aria-expanded="false" data-fk="filter" aria-label="Filter the sidebar${filtered ? ' (on)' : ''}" title="Filter the sidebar">${ic('filter')}</button>`}
+    </div>`;
+  }
+  function topbar() {
+    const strip = S.mode === 'client' && !(S.empty || S.route === 'welcome');
+    return `<div class="topbar">
+      <button class="btn btn-ghost btn-icon on-l0 menu-btn" data-action="drawer" aria-label="Open sidebar" aria-expanded="${S.drawer}" data-fk="drawer">${ic('menu')}</button>
+      ${strip ? tabStrip() : '<span class="grow"></span>'}
+      <div class="topbar-end">${envPill()}${searchField()}</div>
+    </div>`;
   }
   function treeHtml() {
     const f = treeFilter();
@@ -281,34 +310,29 @@
         <ul role="group">${f.tests.map(([t, st]) => `<li class="ti" role="treeitem" aria-level="2" tabindex="-1" aria-selected="${ttSelected(f, t)}" data-action="tt-test" data-id="${esc(f.load ? f.id : `${f.id}#${t}`)}"${f.load ? ' data-load="1"' : ''} data-fk="tt-${f.id}-${t}"><div class="ti-row"><span class="leaf-gap"></span><span class="dot st-${st}" role="img" aria-label="${STATUS[st][1]}"></span><span class="ti-name">${esc(t)}</span>${f.load ? '' : runBtn(`${f.id}#${t}`, t)}</div></li>`).join('')}</ul></li>`;
     }).join('')}</ul>`;
   }
-  /* mode sub-nav in the header: one place to switch views inside a mode */
-  const SUBNAV = {
-    tests: [['tests', 'Explorer'], ['tests-editor', 'Editor'], ['tests-run', 'Run'], ['tests-load', 'Load']],
-    client: [['client', 'Requests'], ['history', 'History']]
-  };
-  function subnavHtml() {
+  /* view sub-nav in the header band: one place to switch views inside a screen.
+     Tests has its four views; any other screen can supply its own through
+     scr.subnav() (tab items) and scr.subnavLabel. Client's Requests | History
+     lives in the sidebar (round 4). */
+  const SUBNAV = [['tests', 'Explorer'], ['tests-editor', 'Editor'], ['tests-run', 'Run'], ['tests-load', 'Load']];
+  function subnavHtml(scr) {
     if (S.empty) return '';
-    const items = SUBNAV[S.mode === 'tests' ? 'tests' : 'client'];
-    const shared = ['runs', 'runs-compare', 'insights', 'agents', 'project-settings'].includes(S.route);
-    if (shared || ['client-auth', 'import', 'welcome'].includes(S.route)) return '';   /* B4: Requests/History only where they apply */
-    return `<nav class="subnav hide-narrow" aria-label="${S.mode === 'tests' ? 'Tests' : 'Client'} views">${items.map(([r, l]) => {
-      const cur = r === 'client' ? S.route.startsWith('client') : S.route === r;
-      const target = r === 'client' ? `data-action="open-tab" data-id="${esc(S.tab)}"` : `data-action="go" data-route="${r}"`;
-      return `<a class="tab" href="#${r === 'client' ? 'client-rest' : r}" ${target}${cur ? ' aria-current="page"' : ''} data-fk="sn-${r}">${l}</a>`;
-    }).join('')}</nav>`;
+    if (scr.subnav) return `<nav class="subnav" aria-label="${esc(scr.subnavLabel || 'Views')}">${scr.subnav()}</nav>`;
+    if (S.mode !== 'tests' || !SUBNAV.some(([r]) => r === S.route)) return '';
+    return `<nav class="subnav" aria-label="Tests views">${SUBNAV.map(([r, l]) =>
+      `<a class="tab" href="#${r}" data-action="go" data-route="${r}"${S.route === r ? ' aria-current="page"' : ''} data-fk="sn-${r}">${l}</a>`).join('')}</nav>`;
   }
+  /* the band: breadcrumb, the Tests sub-nav, at most one status and one primary action.
+     The environment (prod, staging) is shown by the env pill in the top row. */
   function header() {
     const scr = VC.screens[S.route] || {};
     const crumbs = (scr.crumbs ? scr.crumbs() : [S.route]);
-    const p = VC.profile();
-    const flag = p.id === 'prod' ? `<span class="prod-flag">${ic('warn', 'ico-sm')}prod · live data</span>` : p.id === 'staging' ? `<span class="prod-flag is-staging">${ic('warn', 'ico-sm')}staging</span>` : '';
     const st = scr.status ? scr.status() : '';
     return `<header class="header">
-      <button class="btn btn-ghost btn-icon on-l0 menu-btn" data-action="drawer" aria-label="Open sidebar" aria-expanded="${S.drawer}" data-fk="drawer">${ic('menu')}</button>
       <nav aria-label="Breadcrumb" class="crumbs-nav"><ol class="crumbs">${crumbs.map((c, i) => `<li${i === crumbs.length - 1 ? ' aria-current="page"' : ''}>${esc(c)}</li>`).join('')}</ol></nav>
-      ${subnavHtml()}
+      ${subnavHtml(scr)}
       <div class="header-actions">
-        ${flag || (st ? `<span class="run-status hide-narrow">${st}</span>` : '')}
+        ${st ? `<span class="run-status hide-narrow">${st}</span>` : ''}
         ${scr.primary ? scr.primary() : ''}
       </div>
     </header>`;
@@ -324,6 +348,14 @@
 
   /* ---- render ------------------------------------------------------------ */
   let mounted = null;
+  let keyMode = false;   /* last input was the keyboard (focus rings follow it) */
+  /* open-tab strip: mark the sides that hide tabs, so a fade shows there */
+  function tabFades() {
+    const l = $('.ts-list');
+    if (!l) return;
+    l.classList.toggle('is-more-start', l.scrollLeft > 1);
+    l.classList.toggle('is-more-end', l.scrollLeft + l.clientWidth < l.scrollWidth - 1);
+  }
   VC.render = function () {
     const app = $('#app');
     const fk = document.activeElement && document.activeElement.closest && document.activeElement.closest('[data-fk]');
@@ -337,11 +369,15 @@
     app.classList.toggle('is-rail-open', S.rail);
     const scr = VC.screens[S.route] || VC.screens['client-rest'];
     if (scr.enter) scr.enter();
-    app.innerHTML = `<div class="shell">${sidebar()}<div class="main">${header()}<main class="stage" id="view" tabindex="-1">${scr.render()}</main>${statusline()}</div></div>${S.drawer ? '<div class="scrim-drawer" data-action="drawer"></div>' : ''}`;
+    app.innerHTML = `<div class="shell">${sidebar()}<div class="main">${topbar()}${header()}<main class="stage" id="view" tabindex="-1">${scr.render()}</main>${statusline()}</div></div>${S.drawer ? '<div class="scrim-drawer" data-action="drawer"></div>' : ''}`;
     mounted = scr;
     if (scr.mount) scr.mount($('#view'));
     $$('[data-sk]').forEach((el) => { const s = scroll[el.dataset.sk]; if (s) { el.scrollTop = s[0]; el.scrollLeft = s[1]; } });
-    if (fkKey) { const el = $(`[data-fk="${CSS.escape(fkKey)}"]`); if (el) el.focus({ preventScroll: true }); }
+    /* restore focus; after a pointer click only text fields get it back, so a clicked row never shows a ring */
+    if (fkKey) { const el = $(`[data-fk="${CSS.escape(fkKey)}"]`); if (el && (keyMode || typing(el))) el.focus({ preventScroll: true }); }
+    const ot = $('.tabstrip .ot[aria-current]');
+    if (ot) ot.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    tabFades();
     VC.renderDev();
   };
 
@@ -368,6 +404,7 @@
     syncTab(S.route);
     if (S.route === 'tests' || S.route.startsWith('tests-')) { S.mode = 'tests'; S.lastTests = S.route; }
     else if (S.route.startsWith('client') || S.route === 'import' || S.route === 'history') S.mode = 'client';
+    if (S.route === 'history') S.sbView = 'history';
     S.drawer = false; S.rail = false;
     VC.hidePopovers();
     clearToasts();
@@ -491,11 +528,13 @@
   A['open-tab'] = (el) => {
     const t = S.tabs.find((x) => x.id === el.dataset.id);
     if (!t) return VC.go('client-rest');
-    if (el.closest('.tab-row') && t.id === S.tab && TAB_ROUTES.includes(S.route)) return;
+    if (el.closest('.ot') && t.id === S.tab && TAB_ROUTES.includes(S.route)) return;
     S.tab = t.id; if (t.api) VC.openApi(t.api); else VC.go('client-scratch'); };
   A['close-tab'] = (el) => VC.closeTab(el.dataset.id);
   A['new-tab'] = () => VC.newTab();
   A.reopen = (el) => VC.openApi(el.dataset.api, { toast: 'Reopened from history' });
+  A['sb-view'] = (el) => { S.sbView = el.dataset.v; VC.render(); };
+  A['rail-view'] = (el) => { S.sbView = el.dataset.v; S.rail = true; VC.render(); };
   A.mode = (el) => {
     const m = el.dataset.mode;
     if (m === S.mode) return;
@@ -534,7 +573,7 @@
   A['close-dialog'] = () => VC.closeDialog();
   A.drawer = () => { S.drawer = !S.drawer; VC.render(); if (S.drawer) { const f = $('#sidebar .mode-switch button'); if (f) f.focus(); } };
   A['toggle-rail'] = () => { S.rail = !S.rail; VC.render(); };
-  /* profile popover: the profile and its layers (the tree filter lives on the search field, B8) */
+  /* environment popover (env pill): the profile and its layers (the tree filter lives on the search field, B8) */
   const FILTERS = { tests: [['all', 'All'], ['failing', 'Failing']], client: [['all', 'All'], ['rest', 'REST'], ['graphql', 'GraphQL'], ['streams', 'Streams']] };
   function profilePop(addOpen) {
     const note = (id) => esc((D.layers.find((l) => l.id === id) || {}).note || '');
@@ -730,7 +769,11 @@
     document.addEventListener('click', onClick);
     document.addEventListener('keydown', onKey);
     document.addEventListener('change', onDevChange);
-    document.addEventListener('dblclick', (e) => { const b = e.target.closest('.tab-row .tab-open'); if (b) renameTab(b); });
+    document.addEventListener('dblclick', (e) => { const b = e.target.closest('.ot .ot-open'); if (b) renameTab(b); });
+    document.addEventListener('keydown', () => { keyMode = true; }, true);
+    document.addEventListener('pointerdown', () => { keyMode = false; }, true);
+    document.addEventListener('scroll', (e) => { if (e.target.classList && e.target.classList.contains('ts-list')) tabFades(); }, true);
+    window.addEventListener('resize', tabFades);
     document.addEventListener('mouseover', (e) => { const v = e.target.closest('.var-token[data-var]'); if (v) showTip(v); });
     document.addEventListener('mouseout', (e) => { if (e.target.closest('.var-token[data-var]')) hideTip(); });
     document.addEventListener('focusin', (e) => { if (e.target.matches('.var-token[data-var]')) showTip(e.target); });

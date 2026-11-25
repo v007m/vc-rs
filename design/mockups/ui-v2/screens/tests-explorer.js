@@ -125,9 +125,9 @@
     const sorted = ds.map((d) => d[1]).sort((a, b) => a - b), p50 = sorted[Math.floor(sorted.length / 2)], p95 = sorted[Math.floor(sorted.length * 0.95) - 1] || sorted[sorted.length - 1];
     const path = ds.map(([i, d], k) => `${k ? 'L' : 'M'}${x(i).toFixed(1)},${y(d).toFixed(1)}`).join('');
     const last = ds[ds.length - 1];
-    return `<figure class="tx-spark"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Duration over the last 30 runs: median ${p50} ms, p95 ${p95} ms, last ${last[1]} ms">
+    return `<figure class="tx-spark"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Duration over the last 30 runs: median ${p50} ms, p95 ${p95} ms, last ${last[1]} ms">
       <line class="ref" x1="${P}" x2="${W - P}" y1="${y(p50).toFixed(1)}" y2="${y(p50).toFixed(1)}"/><path class="ln" d="${path}"/>
-      <circle class="pt" cx="${x(last[0]).toFixed(1)}" cy="${y(last[1]).toFixed(1)}" r="4"/>
+      <path class="pt-ring" d="M${x(last[0]).toFixed(1)},${y(last[1]).toFixed(1)}h0"/><path class="pt" d="M${x(last[0]).toFixed(1)},${y(last[1]).toFixed(1)}h0"/>
       ${ds.map(([i, d]) => `<rect class="hit" x="${(x(i) - 4.5).toFixed(1)}" y="0" width="9" height="${H}"><title>run ${453 + i} · ${d} ms</title></rect>`).join('')}</svg>
       <figcaption><span><b class="num">${last[1]}</b> ms last</span><span>p50 <b class="num">${p50}</b></span><span>p95 <b class="num">${p95}</b></span></figcaption></figure>`;
   }

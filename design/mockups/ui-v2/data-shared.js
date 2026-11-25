@@ -143,9 +143,9 @@
   const agents = {
     server: { http: 'http://127.0.0.1:7420/mcp', since: '09:12', clients: [{ name: 'claude-code', ver: '2.1', via: 'stdio · vc mcp', last: '2 min ago' }, { name: 'cursor', ver: '1.9', via: 'http · /mcp', last: '18 min ago' }] },
     queue: [
-      { id: 'q1', agent: 'claude-code', tool: 'write_definition', profile: 'local', at: '14:05', what: 'services/orders/checkout.test.yaml', why: 'writeDefinitions: ask', digest: '9f2c41e', diff: [['@', '@@ -36,6 +36,10 @@'], [' ', '  - id: rejectsDeclinedCard'], [' ', '    call: payments#charge'], ['+', '    allowFailure:'], ['+', '      reason: "sandbox returns 500 for expired card tokens, see #352"'], ['+', '      until: 2026-12-01'], [' ', '    vars: { card: "4000 0000 0000 0002" }']] },
-      { id: 'q2', agent: 'cursor', tool: 'call_api', profile: 'staging', at: '13:59', what: 'POST payments#refund', why: 'approve: [POST] on staging', body: '{ "chargeId": "ch_3PqZ", "amount": 1200 }' },
-      { id: 'q3', agent: 'claude-code', tool: 'run_tests', profile: 'local', at: '13:51', what: 'orders · 11 tests', why: 'the plan runs a command action', cmd: 'beforeRun: docker compose up -d --wait' }
+      { id: 'q1', agent: 'claude-code', tool: 'write_definition', profile: 'local', at: '14:05', age: '1 min', what: 'services/orders/checkout.test.yaml', why: 'writeDefinitions: ask', digest: '9f2c41e', diff: [['@', '@@ -36,6 +36,10 @@'], [' ', '  - id: rejectsDeclinedCard'], [' ', '    call: payments#charge'], ['+', '    allowFailure:'], ['+', '      reason: "sandbox returns 500 for expired card tokens, see #352"'], ['+', '      until: 2026-12-01'], [' ', '    vars: { card: "4000 0000 0000 0002" }']] },
+      { id: 'q2', agent: 'cursor', tool: 'call_api', profile: 'staging', at: '13:59', age: '7 min', what: 'POST payments#refund', why: 'approve: [POST] on staging', body: '{ "chargeId": "ch_3PqZ", "amount": 1200 }' },
+      { id: 'q3', agent: 'claude-code', tool: 'run_tests', profile: 'local', at: '13:51', age: '15 min', what: 'orders · 11 tests', why: 'the plan runs a command action', cmd: 'beforeRun: docker compose up -d --wait' }
     ],
     tools: [
       ['list_definitions', 'read'], ['search', 'read'], ['get_definition', 'read'], ['check', 'read'], ['query_history', 'read'], ['explain_failure', 'read'],

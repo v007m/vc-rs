@@ -213,16 +213,13 @@
   transition: background-color var(--dur-2) var(--ease), color var(--dur-2) var(--ease);
 }
 .tab:hover { color: var(--ink); background: var(--row-hover); }
-.tab[aria-selected="true"] {
+/* round 4: one tab component everywhere (card tabs, header sub-nav, open tabs).
+   Selected = a subtle raised L2 pill with full-ink text; no underline. */
+.tab[aria-selected="true"], .tab[aria-current="page"] {
   color: var(--ink);
-  background: var(--l2-bg-pressed);
+  background: var(--l2-bg);
   border-color: var(--l2-border);
-  box-shadow: var(--sh-l2-pressed);
-}
-/* C2: the selected tab carries a short accent rule */
-.tab[aria-selected="true"]::after, .tab[aria-current="page"]::after {
-  content: ""; position: absolute; left: 50%; bottom: 3px; width: 14px; height: 2px; margin-left: -7px;
-  border-radius: 2px; background: var(--accent);
+  box-shadow: var(--sh-l2);
 }
 .tab .count {
   font-size: 11px;
@@ -547,7 +544,6 @@ button.chip[aria-pressed="true"] { background: var(--l2-bg-pressed); box-shadow:
 .table tbody tr:first-child th { border-top: 0; }
 .table tbody tr:hover td { background: var(--row-hover); }
 .table tr[aria-selected="true"] td { background: var(--row-selected); }
-.table tr[aria-selected="true"] > :first-child { box-shadow: var(--row-bar); }
 .table .mono, .table code { font-size: var(--fs-2); }
 .table td, .table tbody th { white-space: nowrap; }
 .table td.wrap { white-space: normal; }
@@ -674,7 +670,7 @@ button.chip[aria-pressed="true"] { background: var(--l2-bg-pressed); box-shadow:
   font-family: var(--mono); font-size: 12px; color: var(--ink);
 }
 .diff-file:hover { background: var(--row-hover); }
-.diff-file[aria-selected="true"] { background: var(--row-selected); box-shadow: var(--row-bar); }
+.diff-file[aria-selected="true"] { background: var(--row-selected); }
 .diff-file .add { color: var(--diff-add-ink); }
 .diff-file .del { color: var(--diff-del-ink); }
 
@@ -693,7 +689,7 @@ button.chip[aria-pressed="true"] { background: var(--l2-bg-pressed); box-shadow:
   color: var(--l0-ink);
 }
 .ti > .ti-row:hover { background: var(--l0-hover); }
-.ti[aria-selected="true"] > .ti-row { background: var(--row-selected); box-shadow: var(--row-bar); }
+.ti[aria-selected="true"] > .ti-row { background: var(--row-selected); }
 .ti:focus-visible { outline: none; }
 .ti:focus-visible > .ti-row { outline: 2px solid var(--focus); outline-offset: -2px; }
 .ti .chev { width: 14px; height: 14px; color: var(--l0-ink-3); transition: transform var(--dur-1) var(--ease); flex: none; }
@@ -720,22 +716,15 @@ button.chip[aria-pressed="true"] { background: var(--l2-bg-pressed); box-shadow:
   display: flex;
   gap: var(--sp-2);
   align-items: flex-start;
-  padding: var(--sp-2) var(--sp-4);
-  border-radius: var(--r-md);
+  padding: var(--sp-1) 0;
   font-size: var(--fs-2);
   line-height: var(--lh);
-  color: var(--ink);
-  border-radius: 0;
-  box-shadow: inset 2px 0 0 var(--rule-strong);   /* R5: a tone rule, not a box */
+  color: var(--ink);   /* R5 + round 4: a toned icon and a line of text; no box, no leading rule */
 }
-.callout > .ico { margin-top: 2px; }
-.callout[data-tone="warn"] { box-shadow: inset 2px 0 0 var(--st-blocked); }
+.callout > .ico { margin-top: 2px; color: var(--ink-2); }
 .callout[data-tone="warn"] > .ico { color: var(--st-blocked-ink); }
-.callout[data-tone="danger"] { box-shadow: inset 2px 0 0 var(--st-fail); }
 .callout[data-tone="danger"] > .ico { color: var(--st-fail-ink); }
-.callout[data-tone="info"] { box-shadow: inset 2px 0 0 var(--accent); }
 .callout[data-tone="info"] > .ico { color: var(--accent-ink); }
-.callout[data-tone="ok"] { box-shadow: inset 2px 0 0 var(--st-pass); }
 .callout[data-tone="ok"] > .ico { color: var(--st-pass-ink); }
 .callout b { font-weight: var(--fw-semibold); }
 
@@ -856,7 +845,7 @@ dialog.palette { margin-top: 12vh; }
 .palette-list { overflow: auto; padding: var(--sp-2); border-right: 1px solid var(--rule); }
 .palette-preview { overflow: auto; padding: var(--sp-4) var(--sp-5); display: flex; flex-direction: column; gap: var(--sp-4); font-size: var(--fs-2); }
 .palette-item { display: flex; align-items: center; gap: var(--sp-3); min-height: 40px; padding: 6px var(--sp-3); border-radius: var(--r-sm); cursor: pointer; color: var(--ink); }
-.palette-item[aria-selected="true"] { background: var(--row-selected); box-shadow: var(--row-bar); }
+.palette-item[aria-selected="true"] { background: var(--row-selected); }
 .palette-item .meta { margin-left: auto; color: var(--ink-3); font-size: var(--fs-1); white-space: nowrap; }
 .palette-item .arg { font-family: var(--mono); font-size: 11.5px; color: var(--accent-ink); }
 .palette-item .ico { color: var(--ink-2); }

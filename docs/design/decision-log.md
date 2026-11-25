@@ -961,6 +961,20 @@ Round 89 (24 November 2026; Sarath's second and third mockup reviews of UI v2, "
 | D501 | Empty response | Before the first send the response pane keeps its place and shows one quiet line ("Send the request to see the response ⌘↵") plus "Show last response" when history has one | — |
 | D502 | Run dialog | Run tests is a 560 px form: selector, profile, concurrency, bail and a one-line plan ("17 tests · 4 files · ~2 s"); layers, since-commit, seed, repeat, strict, reporters and the command preview sit under a collapsed "More options"; the footer is Cancel and Run | — |
 
+Round 90 (26 November 2026; Sarath's fourth mockup review of UI v2; in-design refinements decided by the orchestrator and logged here):
+
+| # | Topic | Decision | Supersedes |
+| --- | --- | --- | --- |
+| D503 | Top row | A 44 px top row over the main column holds the open tabs as a strip (method badge, name, close on hover, + for a scratch tab, double-click renames; tabs shrink, then the strip scrolls) and, at the right, the env pill and search ("Search or run… ⌘K" with the filter icon inside; an icon below 900 px). The sidebar keeps only the traffic lights, the Client / Tests switch, in Client mode a Requests / History switch over the tree, and the shared screens at the foot | D498 (sidebar contents), D493 (tab placement) |
+| D504 | Env pill | The profile shows as a pill: an ENV caption, the profile dot, the name and layers, and a chevron that opens the D498 popover. On prod the pill is red and reads LIVE · PROD; the separate prod flag in the header is removed | D498 (profile button placement) |
+| D505 | Glass | Cards are clearer: about 20% in dark and 25% in light, with less frost and gloss; overlays about 62%. Every text pair stays WCAG AA over the brightest blob | D495 (values) |
+| D506 | No edge bars | No component has a leading-edge bar. Selection is a tint only; a changed field shows a small dot; callouts carry their tone in the icon. Focus rings show for keyboard use only (`:focus-visible`) | — |
+| D507 | Tabs | One tab style everywhere (card tabs, header views, the top strip): the selected tab is a raised L2 pill with full-ink text and no underline | D496 (accent on the selected-tab underline) |
+| D508 | Full height | Cards reach the status line. Large editors and viewers (query, variables, body, response, message list, YAML) fill the card and scroll inside. The method pill, URL field, Send and Connect share one 36 px height and centre line | — |
+| D509 | Run report | A stored run opens with a summary header (status, counts, duration, profile, branch @ commit, start time), Open report as the primary action, an Export menu (HTML, CTRF JSON, JUnit XML, NDJSON, copy `vc report`) and a ⋯ (Re-run failed, Compare, Copy run command). Each runs-list row has the same actions in its ⋯ | — |
+| D510 | Agents | Agents has four views in the header band, each opening with one sentence: Approvals (expand to a diff, Approve / Reject), Permissions (tools × profiles switches, prod off, "Review N changes"), Connection (status, clients, setup snippets) and Activity (one-line log with a filter) | — |
+| D511 | History strips | Per-test and Insights run strips fill their column; the strip and the duration sparkline are equal-width columns that stack when narrow | — |
+
 ## Open
 
 All decisions needed for the PRD and technical design are settled. The language is decided by the spike (D6, D36, D37, D41).

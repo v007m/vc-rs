@@ -73,7 +73,7 @@
   VC.panel = (id, cur, html, cls) => `<div class="card-body${cls ? ' ' + cls : ''}" role="tabpanel" id="${id}-panel" aria-labelledby="${id}-${cur}" tabindex="0" data-sk="${id}-panel">${html}</div>`;
   VC.reqbar = function (opts) {
     return `<div class="reqbar on-l0" role="group" aria-label="Request">
-      <button class="btn btn-ghost type-btn" data-action="type-menu" aria-haspopup="menu" aria-label="Request type: ${esc(opts.typeLabel)}" data-fk="type">${method(opts.m)}${ic('chev-down', 'ico-sm')}</button>
+      <button class="btn type-btn" data-action="type-menu" aria-haspopup="menu" aria-label="Request type: ${esc(opts.typeLabel)}" data-fk="type">${method(opts.m)}${ic('chev-down', 'ico-sm')}</button>
       <div class="url">${opts.input ? `<input value="${esc(opts.url)}" placeholder="Paste a URL or a cURL command, or type \${baseUrl}/…" aria-label="URL" data-fk="url-input">` : `<span class="url-text">${urlTokens(opts.url)}</span>`}</div>
       ${opts.extra || ''}
       ${opts.conn ? opts.conn : `<div class="btn-split">
@@ -138,7 +138,7 @@
         <div class="empty">${ic('braces')}<b>No body</b><span>${esc(a.m)} requests usually send none. Pick a type to add one for this request only.</span></div>`;
     }
     return `<div class="body-modes"><div class="seg seg-sm" role="group" aria-label="Body type">${['none', 'json', 'form', 'multipart', 'raw', 'file'].map((m) => `<button aria-pressed="${m === 'json'}">${m}</button>`).join('')}</div></div>
-      <pre class="code glass-dense">${hlJson('{\n  "name": "Ada Lovelace",\n  "email": "ada+${uuid()}@shop.test",\n  "role": "admin"\n}')}</pre>`;
+      <pre class="code glass-dense code-fill">${hlJson('{\n  "name": "Ada Lovelace",\n  "email": "ada+${uuid()}@shop.test",\n  "role": "admin"\n}')}</pre>`;
   }
   function expectPanel() {
     const ex = allExpect();
@@ -163,7 +163,6 @@
   }
   /* B1: an editable title. Hover shows a pencil; click turns it into an input */
   VC.titleEdit = (name, action, label, tip) => `<h2 class="card-title"><button class="title-edit" data-action="${action}" aria-label="${esc(label)}: ${esc(name)}" title="${esc(tip || 'Rename')}" data-fk="${action}"><span class="t">${esc(name)}</span>${ic('pencil')}</button></h2>`;
-  VC.moreBtn = (action, label, fk) => `<button class="btn btn-ghost btn-icon btn-sm row-more" data-action="${action}" aria-haspopup="menu" aria-label="${esc(label)}" title="More" data-fk="${fk || action}">${ic('dots')}</button>`;
   function requestCard() {
     const a = VC.api();
     return `<section class="glass" aria-label="Request">

@@ -79,12 +79,13 @@
       <td class="hide-narrow"><span class="rn-branch" title="${esc(r.branch)} @ ${esc(r.commit)}">${ic('branch', 'ico-sm')}<span class="ellipsis">${esc(r.branch)}</span></span></td>
       <td>${results(r)}</td>
       <td class="r mono muted rn-opt">${esc(r.dur)}</td>
-      <td class="r muted hide-narrow" title="${esc(r.when)}">${esc(r.ago)}</td></tr>`).join('');
+      <td class="r muted hide-narrow" title="${esc(r.when)}"><span class="rn-swap"><span class="rn-ago">${esc(r.ago)}</span><span class="rn-go" aria-hidden="true">Open${ic('chev-right', 'ico-sm')}</span></span></td>
+      <td class="r rn-act"><span class="rn-go rn-go-narrow" aria-hidden="true">${ic('chev-right', 'ico-sm')}</span>${VC.moreBtn('rn-row-more', `Run ${r.n} actions`, `rn-m-${r.n}`).replace('data-action', `data-n="${r.n}" data-action`)}</td></tr>`).join('');
   }
   function listBody() {
     const rows = listRows();
     if (!rows) return SH.empty('runs', 'No runs match these filters.', '<button class="link" data-action="rn-clear" data-fk="rn-clear">Clear filters</button>');
-    return SH.table(['<span class="sr-only">Compare</span>', 'Run', 'Status', 'Selection', ['By', 'rn-opt'], ['Profile', 'rn-opt rn-wide'], ['Branch', 'hide-narrow'], 'Results', ['Duration', 'r rn-opt'], ['Started', 'r hide-narrow']], [rows], 'rn-table fade-end' + (R.pick.length === 1 ? ' is-selecting' : ''));
+    return SH.table(['<span class="sr-only">Compare</span>', 'Run', 'Status', 'Selection', ['By', 'rn-opt'], ['Profile', 'rn-opt rn-wide'], ['Branch', 'hide-narrow'], 'Results', ['Duration', 'r rn-opt'], ['Started', 'r hide-narrow'], ['<span class="sr-only">Actions</span>', 'r rn-act']], [rows], 'rn-table fade-end' + (R.pick.length === 1 ? ' is-selecting' : ''));
   }
   const opt = (v, cur, l) => `<option value="${esc(v)}"${v === cur ? ' selected' : ''}>${esc(l || v)}</option>`;
   /* D1: search and Status stay visible; kind, profile, branch and who sit behind Filters */
@@ -182,20 +183,34 @@
       <div class="rn-detail-tabs">${SH.tabs('rd', 'Test result', tabs, R.dtab, 'rn-dtab')}</div>
       <div class="rn-detail-body" role="tabpanel" id="rd-panel" aria-labelledby="rd-${R.dtab}" tabindex="0" data-sk="rd-panel">${panel}</div></section>`;
   }
+  /* the run's summary: four status counts, then where and when it ran */
+  function facts(r) {
+    const tot = r.tot, extra = ['flaky', 'allow'].filter((k) => tot[k]).map((k) => `${tot[k]} ${SH.WORD[k]}`).join(', ');
+    const fact = (label, value, title) => `<div class="rn-fact"${title ? ` title="${esc(title)}"` : ''}><dt>${label}</dt><dd>${value}</dd></div>`;
+    const count = (k, label) => fact(label, `<span class="rn-fact-n" data-st="${k}"${tot[k] ? '' : ' data-zero'}>${ic(k, 'ico-sm')}<b class="num">${tot[k] || 0}</b></span>`, k === 'pass' && extra ? `Also ${extra}` : '');
+    return `<dl class="rn-facts" aria-label="Run summary">
+      ${count('pass', 'Passed')}${count('fail', 'Failed')}${count('blocked', 'Blocked')}${count('skipped', 'Skipped')}
+      <span class="rn-facts-gap" aria-hidden="true"></span>
+      ${fact('Duration', `<span class="num">${esc(r.dur)}</span>`, 'concurrency 32 · seed 4127')}
+      ${fact('Profile', `<span class="mono">${esc([r.profile].concat(r.layers).join(' + '))}</span>`)}
+      ${fact('Branch', `<span class="mono ellipsis">${esc(r.branch)}</span><span class="mono subtle">@ ${esc(r.commit)}</span>`)}
+      ${fact('Started', `<span>${esc(r.when)}</span>`, r.ago)}</dl>`;
+  }
   function runView() {
-    const r = runOf(R.run), tot = r.tot, n = Object.values(tot).reduce((x, y) => x + y, 0);
+    const r = runOf(R.run);
     return `<div class="stage-one sh-scope"><section class="glass stage-one" aria-label="Run ${r.n}">
       <div class="card-head"><button class="btn btn-ghost btn-sm" data-action="rn-back" data-fk="rn-back">${ic('arrow-left')}Runs</button>
-        <div class="grow stack-tight"><div class="row row-wrap"><h2 class="card-title" title="${esc(cmdOf(r))}">Run #${r.n}</h2>${badge(r.st, null, true)}</div>
-          <div class="card-sub">${ic('branch', 'ico-sm')}<span title="${esc(r.branch)} @ ${esc(r.commit)}">${esc(r.branch)}</span><span>·</span><span>${esc(r.when)} · ${esc(r.dur)}</span>${SH.isAgent(r.by) ? `<span>·</span>${SH.by(r.by)}` : ''}</div></div>
-        <button class="btn btn-sm" data-action="rn-compare-prev" data-fk="rn-cp" aria-label="Compare with #${r.n - 1}">${ic('columns')}<span class="rn-cp-l">Compare with #${r.n - 1}</span></button>
-        <button class="btn btn-primary btn-sm" data-action="rn-rerun" data-fk="rn-rerun">${ic('refresh')}Re-run failed</button>
-        <button class="btn btn-ghost btn-icon row-more" aria-label="More actions" aria-haspopup="menu" data-action="rn-more" data-fk="rn-more">${ic('dots')}</button></div>
-      <div class="card-tabs rn-summary" aria-label="Summary"><span class="rn-sum-counts">${SH.counts(tot)}</span>${SH.segbar(tot, 'rn-sum-bar')}<span class="subtle num" title="concurrency 32 · seed 4127">${n} tests</span></div>
+        <div class="grow stack-tight"><div class="row row-wrap"><h2 class="card-title">Run #${r.n}</h2>${badge(r.st, null, true)}</div>
+          <div class="card-sub"><span class="mono" title="${esc(cmdOf(r))}">${esc(r.sel)}</span><span>·</span><span>by</span>${SH.by(r.by)}</div></div>
+        <button class="btn btn-primary btn-sm" data-action="rn-report" data-n="${r.n}" data-fk="rn-report">${ic('external')}Open report</button>
+        <button class="btn btn-sm" data-action="rn-export" data-n="${r.n}" aria-haspopup="menu" data-fk="rn-export">Export${ic('chev-down', 'ico-sm')}</button>
+        ${VC.moreBtn('rn-more', 'More run actions', 'rn-more').replace('data-action', `data-n="${r.n}" data-action`)}</div>
+      <div class="card-tabs rn-summary">${facts(r)}</div>
       <div class="card-body rn-run">${filesPane()}${detailPane()}</div>
     </section></div>`;
   }
   const cmdOf = (r) => `vc run ${r.sel} --profile ${[r.profile].concat(r.layers).join(',')}`;
+  const prevTest = (n) => X.runs.filter((r) => r.kind === 'test' && r.n < n).sort((a, b) => b.n - a.n)[0];
 
   /* ---- compare ------------------------------------------------------------------------ */
   const C = X.compare;
@@ -254,8 +269,39 @@
   A['rn-st'] = (el) => { R.st = el.dataset.v; rerender(); };
   A['rn-filters'] = () => openFilters();
   A['rn-clear'] = () => { MORE_F.forEach((k) => { R[k] = 'all'; }); R.st = 'all'; R.q = ''; VC.hidePopovers(); rerender(); };
-  A['rn-more'] = (el) => VC.menu(el, VC.menuItem('Open report', 'rn-report', '', { ico: 'external' }) + VC.menuItem('Copy run command', 'rn-copy-cmd', '', { ico: 'terminal' }));
-  A['rn-copy-cmd'] = () => { const c = cmdOf(runOf(R.run)); VC.copy(c, 'Copied the run command', c); };
+  /* report and export: the stored-run header and every list row's ⋯ reach the same actions */
+  const nOf = (el) => +(el.dataset.n || R.run);
+  const EXPORTS = [
+    ['html', 'HTML report', 'index.html', 'Wrote the HTML report'],
+    ['ctrf', 'CTRF JSON', 'ctrf.json', 'Wrote CTRF JSON'],
+    ['junit', 'JUnit XML', 'junit.xml', 'Wrote JUnit XML'],
+    ['ndjson', 'NDJSON events', 'events.ndjson', 'Wrote NDJSON events']
+  ];
+  const exportMenu = (n) => `<div class="pop-label">Export run #${n}</div>${EXPORTS.map(([k, l, f]) => VC.menuItem(l, 'rn-export-as', `data-n="${n}" data-k="${k}"`, { meta: f })).join('')}
+    <div class="pop-sep"></div>${VC.menuItem('Copy <code>vc report</code> command', 'rn-copy-report', `data-n="${n}"`, { ico: 'terminal' })}`;
+  A['rn-export'] = (el) => VC.menu(el, exportMenu(nOf(el)));
+  A['rn-export-as'] = (el) => {
+    const [, , file, msg] = EXPORTS.find((x) => x[0] === el.dataset.k);
+    VC.toast(msg, `.vibranium/reports/${nOf(el)}/${file}`);
+  };
+  const reportCmd = (n) => `vc report ${n} --format html,ctrf,junit --out .vibranium/reports/${n}`;
+  A['rn-copy-report'] = (el) => { const c = reportCmd(nOf(el)); VC.copy(c, 'Copied the vc report command', c); };
+  A['rn-more'] = (el) => {
+    const r = runOf(nOf(el)), p = prevTest(r.n);
+    VC.menu(el, VC.menuItem('Re-run failed tests', 'rn-rerun', `data-n="${r.n}"`, { ico: 'refresh' })
+      + VC.menuItem(p ? `Compare with #${p.n}` : 'Compare with previous', 'rn-compare-prev', `data-n="${r.n}"`, { ico: 'columns', disabled: !p })
+      + VC.menuItem('Copy run command', 'rn-copy-cmd', `data-n="${r.n}"`, { ico: 'terminal' }));
+  };
+  A['rn-row-more'] = (el) => {
+    const r = runOf(el.dataset.n), p = r.kind === 'test' && prevTest(r.n);
+    VC.menu(el, VC.menuItem('Open report', 'rn-report', `data-n="${r.n}"`, { ico: 'external' })
+      + VC.menuItem('Export…', 'rn-export-from', `data-n="${r.n}"`, { ico: 'file' })
+      + VC.menuItem(p ? `Compare with #${p.n}` : 'Compare with previous', 'rn-compare-prev', `data-n="${r.n}"`, { ico: 'columns', disabled: !p })
+      + VC.menuItem('Re-run', 'rn-rerun', `data-n="${r.n}"`, { ico: 'refresh' }));
+  };
+  /* Export… swaps the row menu for the export menu, on the same ⋯ anchor */
+  A['rn-export-from'] = (el) => { const a = $(`[data-fk="rn-m-${el.dataset.n}"]`); if (a) VC.menu(a, exportMenu(+el.dataset.n)); };
+  A['rn-copy-cmd'] = (el) => { const c = cmdOf(runOf(nOf(el))); VC.copy(c, 'Copied the run command', c); };
   A['rn-show'] = (el) => { R.show = el.dataset.v; rerender(); };
   A['rn-test'] = (el) => { R.test = el.dataset.id; R.dtab = 'checks'; rerender(); };
   A['rn-test-in'] = (el) => { R.view = 'run'; R.run = R.head; R.test = el.dataset.id; R.dtab = 'checks'; rerender(); };
@@ -263,11 +309,14 @@
   A['rn-ctab'] = (el) => { R.ctab = el.dataset.v; rerender(); };
   A['rn-thr'] = (el) => { R.thr = +el.dataset.v; rerender(); };
   A['rn-compare'] = () => { if (R.pick.length !== 2) return; [R.base, R.head] = R.pick.slice().sort((x, y) => x - y); R.view = 'compare'; R.ctab = 'failing'; rerender(); };
-  A['rn-compare-prev'] = () => { R.base = R.run - 1; R.head = R.run; R.view = 'compare'; R.ctab = 'failing'; rerender(); };
+  A['rn-compare-prev'] = (el) => { const n = nOf(el), p = prevTest(n); if (!p) return; R.base = p.n; R.head = n; R.view = 'compare'; R.ctab = 'failing'; rerender(); };
   A['rn-swap'] = () => { [R.base, R.head] = [R.head, R.base]; rerender(); };
   A['rn-run'] = () => VC.toast('Run dialog', 'Opens from Tests mode: selector, profiles, seed, repeat, bail, concurrency.');
-  A['rn-report'] = () => VC.toast('Opened report', `.vibranium/reports/${R.run}/index.html`);
-  A['rn-rerun'] = () => VC.toast('Re-running 3 tests', `vc run --failed ${R.run} --profile local,eu · results stream into a new run #483`);
+  A['rn-report'] = (el) => VC.toast(`Opened the report for run #${nOf(el)}`, `.vibranium/reports/${nOf(el)}/index.html · in your browser`);
+  A['rn-rerun'] = (el) => {
+    const r = runOf(nOf(el)), failed = r.tot ? (r.tot.fail || 0) + (r.tot.blocked || 0) : 0;
+    VC.toast(failed ? `Re-running ${failed} tests from #${r.n}` : `Re-running #${r.n}`, `${failed ? `vc run --failed ${r.n}` : cmdOf(r)} · results stream into a new run #483`);
+  };
   A['rn-rerun-one'] = () => VC.toast(`Running ${R.test}`, 'vc run ' + R.test + ' · its beforeAll runs first');
   A['rn-quarantine'] = () => SH.quarantine(R.test);
   /* Quarantine = allowFailure with a reason and an until date, written as a diff (ui.md §5) */

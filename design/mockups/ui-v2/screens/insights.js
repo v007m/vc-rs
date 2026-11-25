@@ -109,16 +109,17 @@
   }
 
   /* ---- flaky, slow, gaps, skips ---------------------------------------------------- */
-  const strip = (s) => `<span class="in-strip" role="img" aria-label="${[...s].filter((c) => c === 'f').length} failures in the last ${s.length} runs, oldest first">${[...s].map((c) => `<i data-st="${c === 'f' ? 'fail' : 'pass'}"></i>`).join('')}</span>`;
+  /* one tick per run, oldest first; the ticks share the column's whole width */
+  const strip = (s) => `<span class="in-strip" role="img" aria-label="${[...s].filter((c) => c === 'f').length} failures in the last ${s.length} runs, oldest first">${[...s].map((c, i) => `<i data-st="${c === 'f' ? 'fail' : 'pass'}" title="run ${482 - s.length + 1 + i} · ${c === 'f' ? 'failed' : 'passed'}${i === s.length - 1 ? ' · newest' : i === 0 ? ' · oldest' : ''}"></i>`).join('')}</span>`;
   function flaky() {
     const rows = N.flaky.map((f) => {
       const q = I.quarantined[f.id];
       return `<tr><td><button class="btn btn-ghost btn-sm mono" data-action="in-open-test" data-id="${esc(f.id)}">${esc(f.id)}</button></td>
-        <td class="r mono">${f.rate}%</td><td>${strip(f.strip)}</td><td class="muted hide-narrow">${esc(f.last)}</td>
+        <td class="r mono">${f.rate}%</td><td class="in-strip-cell">${strip(f.strip)}</td><td class="muted hide-narrow">${esc(f.last)}</td>
         <td class="r">${q ? `<span class="badge badge-sm st-allow">${ic('allow')}until ${esc(q)}</span>` : `<button class="btn btn-ghost btn-sm" data-action="in-quarantine" data-id="${esc(f.id)}" data-fk="inq-${esc(f.id)}">${ic('allow')}Quarantine</button>`}</td></tr>`;
     });
     return `<section class="in-panel in-wide" aria-labelledby="in-flaky-t"><div class="in-panel-head"><div class="grow"><h3 class="in-h" id="in-flaky-t">Flaky tests</h3><span class="subtle">Passed on retry, or both passed and failed on the same commit</span></div></div>
-      ${SH.table(['Test', ['Fail rate', 'r'], 'Last 24 runs', ['Last flake', 'hide-narrow'], ['<span class="sr-only">Action</span>', 'r']], rows, 'in-flat')}</section>`;
+      ${SH.table(['Test', ['Fail rate', 'r'], ['Last 24 runs', 'in-strip-cell'], ['Last flake', 'hide-narrow'], ['<span class="sr-only">Action</span>', 'r']], rows, 'in-flat')}</section>`;
   }
   function slow() {
     const max = 650, key = I.slow;

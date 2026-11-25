@@ -24,7 +24,7 @@
     return days || `<div class="empty empty-quiet" role="status"><span>No calls match</span><button class="link" data-action="hist-clear" data-fk="hist-clear">Clear search and filter</button></div>`;
   }
   VC.screens.history = {
-    crumbs: () => [D.project.name],
+    crumbs: () => [D.project.name, 'History'],
     status: () => '',
     render: () => `<div class="stage-one"><section class="glass stage-one" aria-label="Call history">
       <div class="card-head"><div class="grow"><h2 class="card-title">History</h2><div class="card-sub" title="Stored as adhoc runs in history.db for 30 days; secrets are redacted">Every call from the UI, <code>vc call</code> and the TUI.</div></div></div>
