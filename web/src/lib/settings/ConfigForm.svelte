@@ -210,7 +210,7 @@
     <pre class="diff vc-mono" aria-label="Changes to vibranium.config.yaml">{form.diff ||
         'No change to the file.'}</pre>
   {/if}
-  <!-- the card's sticky footer: Cancel-like actions first, the primary last at the right (D616) -->
+  <!-- the section's footer: Cancel-like actions first, the primary last at the right (D616) -->
   <div class="actions">
     <p class="status" role="status" bind:this={status}>
       {#if form.dirty}
@@ -331,18 +331,15 @@
   .var {
     min-width: 0;
   }
+  /* The section's footer, on the card's own surface: no fill, a hairline that stops 12px short
+     of both ends (D614), Cancel-like actions first and Save last (D616). It stays in the flow:
+     Secrets and Auth follow, so a sticky footer would always cover the rows scrolling under
+     it, and a translucent one either shows them through or reads as a panel. */
   .actions {
-    position: sticky;
-    /* down into the card's padding, so nothing scrolls by under the footer */
-    bottom: calc(-1 * var(--st-card-padding));
-    z-index: 1;
+    position: relative;
     justify-content: flex-end;
     margin: 0 -12px;
-    padding: 12px 12px calc(12px + var(--st-card-padding));
-    /* the overlay surface, so fields scrolling under the footer don't read as part of it */
-    background: var(--st-surface-overlay);
-    backdrop-filter: var(--st-overlay-filter);
-    -webkit-backdrop-filter: var(--st-overlay-filter);
+    padding: 12px 12px 0;
   }
   .actions::before {
     content: '';

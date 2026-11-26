@@ -754,8 +754,10 @@ select.st-input:disabled {
 
 /* MOTION (D617, D618): an overlay grows out of its anchor (anchor.ts): moved onto the anchor
    and clipped to its size, it springs to its place while the content stays full size. The
-   rest clip reaches past the frame so its shadow shows. Closing fades the content first, then
-   shrinks the frame on the quicker spring; CSS transitions make a reopen reverse in place. */
+   clip's edges and corners morph together, from the anchor's capsule radius to the frame's
+   own (--vc-to-clip), so every frame is concentric; at rest (is-rest) the clip goes and the
+   shadow fades in. Closing fades the content first, then shrinks the frame on the quicker
+   spring; CSS transitions make a reopen reverse in place. */
 dialog.st-overlay[open],
 [popover].st-overlay:popover-open {
   animation: vc-fade var(--st-duration-fast) var(--st-ease-standard) both;
@@ -765,7 +767,7 @@ dialog.st-overlay[open],
 dialog.st-overlay.vc-anchored[open] {
   animation: none;
   translate: 0 0;
-  clip-path: inset(-48px round 64px);
+  clip-path: var(--vc-to-clip, none);
   transition:
     translate var(--vc-spring-dur) var(--vc-spring),
     clip-path var(--vc-spring-dur) var(--vc-spring);
@@ -790,6 +792,11 @@ dialog.st-overlay.vc-anchored.is-closing[open] {
 .vc-anchored.is-closing > * {
   transition-delay: 0ms;
 }
+.vc-anchored.is-rest,
+dialog.st-overlay.vc-anchored.is-rest[open] {
+  clip-path: none;
+  animation: vc-shadow-in var(--vc-fade-dur) var(--st-ease-standard);
+}
 .vc-anchored.is-snap,
 .vc-anchored.is-snap > * {
   transition: none !important;
@@ -797,6 +804,11 @@ dialog.st-overlay.vc-anchored.is-closing[open] {
 @keyframes vc-fade {
   from {
     opacity: 0;
+  }
+}
+@keyframes vc-shadow-in {
+  from {
+    box-shadow: none;
   }
 }
 

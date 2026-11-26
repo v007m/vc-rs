@@ -112,19 +112,8 @@
     <button type="submit" class="st-btn st-btn--sm" disabled={busy || !name.trim()}>Add</button>
     {#if problem}<p id="secret-name-problem" class="error">{problem}</p>{/if}
   </form>
+  <!-- the status, then Discard, then the primary last at the right (D616) -->
   <div class="actions">
-    <button
-      type="button"
-      class="st-btn st-btn--primary"
-      disabled={busy || !schema.dirty}
-      onclick={() => void schema.save()}>{schema.state === 'saving' ? 'Saving…' : 'Save'}</button
-    >
-    <button
-      type="button"
-      class="st-btn"
-      disabled={busy || !schema.dirty}
-      onclick={() => schema.discard()}>Discard changes</button
-    >
     <p class="status" role="status">
       {#if schema.dirty}
         Unsaved changes.
@@ -136,6 +125,18 @@
           : `The project has ${schema.saved.problems} problem${schema.saved.problems === 1 ? '' : 's'}; see them in the editor.`}
       {/if}
     </p>
+    <button
+      type="button"
+      class="st-btn"
+      disabled={busy || !schema.dirty}
+      onclick={() => schema.discard()}>Discard changes</button
+    >
+    <button
+      type="button"
+      class="st-btn st-btn--primary"
+      disabled={busy || !schema.dirty}
+      onclick={() => void schema.save()}>{schema.state === 'saving' ? 'Saving…' : 'Save'}</button
+    >
   </div>
 </section>
 
@@ -181,6 +182,12 @@
     flex-wrap: wrap;
     gap: 8px;
     align-items: center;
+  }
+  .actions {
+    justify-content: flex-end;
+  }
+  .actions .status {
+    flex: 1 1 200px;
   }
   .add .error,
   .check .error {

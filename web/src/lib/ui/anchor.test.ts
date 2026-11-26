@@ -38,7 +38,8 @@ describe('growFrom and shrinkInto', () => {
     growFrom(frame, anchor);
     expect(frame.style.getPropertyValue('--vc-from-x')).toBe('700px');
     expect(frame.style.getPropertyValue('--vc-from-clip')).toContain('round 16px');
-    expect([...frame.classList]).toEqual([]);
+    expect(frame.style.getPropertyValue('--vc-to-clip')).toMatch(/^inset\(0px round /);
+    expect([...frame.classList]).toEqual(['is-rest']);
   });
 
   it('only fades when there is no anchor to grow from', () => {
@@ -57,5 +58,15 @@ describe('growFrom and shrinkInto', () => {
     expect(frame.classList.contains('is-closing')).toBe(true);
     growFrom(frame, anchor);
     expect(frame.classList.contains('is-closing')).toBe(false);
+  });
+
+  it('drops the clip at rest and puts it back to close', () => {
+    const frame = shown(document.createElement('div'), box(0, 0, 100, 100));
+    const anchor = shown(document.createElement('button'), box(10, 10, 40, 20));
+    growFrom(frame, anchor);
+    expect(frame.classList.contains('is-rest')).toBe(true);
+    shrinkInto(frame, anchor, () => undefined);
+    expect(frame.classList.contains('is-rest')).toBe(false);
+    expect(frame.classList.contains('is-from')).toBe(true);
   });
 });

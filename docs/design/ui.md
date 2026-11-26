@@ -41,7 +41,7 @@ Each space sets `data-space` on the app, which picks the blobs and the accent (D
 - Every single-line control is a capsule: fields, selects (with a gradient-drawn chevron, D621), the Env control and search. Multi-line fields are 8 px rounded rects. Controls are 28, 32 (default) or 40 px, border-box, and a row's items share one height; badges never sit in a control row (D611).
 - Empty panes show the empty state: icon, Title3 title and caption, centred in a wash (D609).
 - In a row every item has the same height, with icon and text centred; icons have no border or background (D596).
-- Buttons have one emboss, and a long label wraps instead of clipping. The primary button is the space's accent, one per view, last at the bottom right with Cancel-like actions before it; Settings keeps them in a sticky footer. Fields are capped in width, not stretched (D597, D616).
+- Buttons have one emboss, and a long label wraps instead of clipping. The primary button is the space's accent, one per view, last at the bottom right with Cancel-like actions before it; each Settings section ends in a footer on the card's own surface. Fields are capped in width, not stretched (D597, D616).
 - The switch and slider are iOS liquid glass: a capsule track and a glassy debossed thumb. The segmented control has one glass lens that springs between options (D598, D615). Badges are capsules, larger than 18 px.
 - Focus: buttons and toggles get a 2 px accent outline at 2 px offset; a text field gets a 1.5 px accent ring on itself (D612).
 - Settings rows are left aligned, at least 44 px tall. Separators stop 12 px short of both ends everywhere (D603, D614).
