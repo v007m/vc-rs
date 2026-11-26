@@ -58,7 +58,7 @@
     margin: 0;
     color: var(--fail);
   }
-  @media (width < 720px) {
+  @container card (width < 620px) {
     .runs {
       grid-template-columns: 1fr;
     }

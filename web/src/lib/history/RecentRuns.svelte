@@ -75,7 +75,7 @@
   }
   .run:hover,
   .run[aria-pressed='true'] {
-    background: var(--hover, rgb(0 0 0 / 6%));
+    background: var(--row-hover);
   }
   .what {
     flex: 1;

@@ -52,33 +52,16 @@
 </div>
 
 <style>
-  .tabs {
-    display: flex;
-    gap: 2px;
-    border-bottom: 1px solid var(--line);
-  }
-  .tab {
-    height: 32px;
-    padding: 0 12px;
-    border: 0;
-    border-bottom: 2px solid transparent;
-    background: none;
-    color: var(--ink2);
-    font: 500 13px var(--font);
-    cursor: pointer;
-  }
-  .tab[aria-selected='true'] {
-    border-bottom-color: var(--accent);
-    color: var(--ink);
-  }
+  /* The look is the shared .tabs/.tab of controls.css: the selected tab is a raised L2 pill. */
   .count {
-    color: var(--ink2);
-    font-weight: 400;
+    font-size: var(--fs-0);
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-3);
   }
   .count.bad {
-    color: var(--fail);
+    color: var(--st-fail-ink);
   }
   .panel {
-    padding: 12px 0;
+    padding: var(--sp-3) 0;
   }
 </style>

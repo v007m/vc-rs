@@ -129,7 +129,7 @@
     white-space: pre-wrap;
     color: var(--fail);
   }
-  @media (width < 720px) {
+  @container card (width < 620px) {
     .layout {
       grid-template-columns: 1fr;
     }
