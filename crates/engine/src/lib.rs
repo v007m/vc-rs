@@ -31,6 +31,7 @@
 //! assert_eq!(schemas[0].file_name, "config.schema.json");
 //! ```
 
+mod adhoc;
 mod agent_gate;
 mod agent_write;
 mod alert_samples;
@@ -164,7 +165,7 @@ pub use plugins::{PluginListing, PluginOffer, PluginState};
 pub use policy::{AgentCall, Permission};
 pub use project_info::ProjectInfo;
 pub use request::{
-    CallRequest, ExplainRequest, ListKind, ListRequest, PlanRequest, ReportFlags, RunRequest, SelectRequest,
+    AdhocCall, CallRequest, ExplainRequest, ListKind, ListRequest, PlanRequest, ReportFlags, RunRequest, SelectRequest,
 };
 pub use run::RunReport;
 pub use run_feed::{RunFeed, RunWatch};

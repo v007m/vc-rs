@@ -273,6 +273,24 @@ pub fn vc_engine::Added::eq(&self, &Self) -> bool
 impl core::fmt::Debug for vc_engine::Added
 pub fn vc_engine::Added::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_engine::Added
+pub struct vc_engine::AdhocCall
+pub vc_engine::AdhocCall::auth: core::option::Option<alloc::string::String>
+pub vc_engine::AdhocCall::body: core::option::Option<alloc::string::String>
+pub vc_engine::AdhocCall::headers: alloc::vec::Vec<(alloc::string::String, alloc::string::String)>
+pub vc_engine::AdhocCall::kind: alloc::string::String
+pub vc_engine::AdhocCall::method: alloc::string::String
+pub vc_engine::AdhocCall::query: alloc::vec::Vec<(alloc::string::String, alloc::string::String)>
+pub vc_engine::AdhocCall::url: alloc::string::String
+impl core::clone::Clone for vc_engine::AdhocCall
+pub fn vc_engine::AdhocCall::clone(&self) -> Self
+impl core::cmp::Eq for vc_engine::AdhocCall
+impl core::cmp::PartialEq for vc_engine::AdhocCall
+pub fn vc_engine::AdhocCall::eq(&self, &Self) -> bool
+impl core::default::Default for vc_engine::AdhocCall
+pub fn vc_engine::AdhocCall::default() -> Self
+impl core::fmt::Debug for vc_engine::AdhocCall
+pub fn vc_engine::AdhocCall::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_engine::AdhocCall
 pub struct vc_engine::AgentCall
 pub vc_engine::AgentCall::agent: alloc::string::String
 pub vc_engine::AgentCall::arguments: serde_json::value::Value
@@ -432,6 +450,7 @@ pub fn vc_engine::CallReport::clone(&self) -> Self
 impl core::fmt::Debug for vc_engine::CallReport
 pub fn vc_engine::CallReport::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 pub struct vc_engine::CallRequest
+pub vc_engine::CallRequest::adhoc: core::option::Option<vc_engine::AdhocCall>
 pub vc_engine::CallRequest::agent: core::option::Option<alloc::string::String>
 pub vc_engine::CallRequest::api: alloc::string::String
 pub vc_engine::CallRequest::draft: core::option::Option<vc_engine::CallDraft>
