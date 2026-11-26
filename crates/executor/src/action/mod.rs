@@ -15,6 +15,7 @@ mod held;
 mod hooks;
 mod http_retry;
 mod inline;
+mod live;
 mod looping;
 mod media;
 mod multipart;
@@ -54,6 +55,7 @@ pub use call::{CallExecutor, called};
 pub use command::{CommandExecutor, CommandShell};
 pub use function::FunctionExecutor;
 pub use inline::InlineExecutor;
+pub use live::{LiveEnd, LiveRead, LiveStream};
 pub use protocol::ProtocolRuntimes;
 pub use reuse::{TestExecutor, body_actions};
 pub use sink::{CleanupCollector, CleanupSink};
@@ -127,6 +129,16 @@ pub trait ActionExecutor: Send + Sync {
     /// The further actions that running `action` can run (an api's cleanup, a reused test's
     /// steps), so the start-up check reaches them.
     fn follows(&self, program: &Program, action: &Action) -> Vec<ActionId>;
+
+    /// Opens `request.action` as a live stream (D543); only a call of a streaming api does.
+    ///
+    /// # Errors
+    ///
+    /// When the action opens no stream, or its open failed.
+    async fn open_live(&self, request: ActionRequest) -> Result<LiveStream, Failure> {
+        let _ = request;
+        Err(Failure::new("only a call of an `sse` or `websocket` api opens a live stream"))
+    }
 }
 
 /// What an executor gets: the action, the frame it runs in, the program and the shared values.
@@ -327,6 +339,18 @@ impl ActionExecutors {
             (Some(executor), None) => executor.execute(request).await,
             (None, _) => ActionReport::failed(Failure::new("no executor runs this action").at(id)),
         }
+    }
+
+    /// Opens `request` as a live stream with the executor for its kind (D543).
+    ///
+    /// # Errors
+    ///
+    /// When no executor runs the action, the action opens no stream, or its open failed.
+    pub async fn open_live(&self, request: ActionRequest) -> Result<LiveStream, Failure> {
+        let kind = request.cx.action(request.action).map(|action| ActionKindTag::of(&action.kind));
+        let executor = kind.and_then(|kind| self.by_kind.get(&kind));
+        let executor = executor.ok_or_else(|| Failure::new("no executor runs this action"))?;
+        executor.open_live(request).await
     }
 
     /// Checks that every action reachable from `roots` exists and has an executor, so a run never

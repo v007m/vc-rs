@@ -17,7 +17,7 @@ use super::hooks::{self, HookBridge};
 use super::protocol::{ProtocolRuntime, ProtocolRuntimes};
 use super::request;
 use super::stream_call::{self, Asked};
-use super::{ActionExecutor, ActionRequest};
+use super::{ActionExecutor, ActionRequest, LiveStream};
 use super::{auth, http_retry};
 use crate::check::{self, Judge, MatcherRegistry, Subject};
 use crate::{ActionReport, Call, PendingCleanup, Pipeline, PipelineParts, Redactor, Render, Saved};
@@ -241,6 +241,10 @@ impl ActionExecutor for CallExecutor {
             report.outcome = ActionOutcome::Failed(failure.at(request.action));
         }
         report
+    }
+
+    async fn open_live(&self, request: ActionRequest) -> Result<LiveStream, Failure> {
+        self.live(&request).await
     }
 
     fn follows(&self, program: &Program, action: &Action) -> Vec<ActionId> {
