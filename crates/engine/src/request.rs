@@ -3,6 +3,7 @@
 use std::path::PathBuf;
 use std::time::Duration;
 
+use vc_interfaces::ConfigEntry;
 use vc_model::SourcePath;
 
 use crate::{CallDraft, RunWatch};
@@ -83,6 +84,9 @@ pub struct RunRequest {
     pub no_cache: bool,
     /// `--strict`: every failure fails the run, whatever `allowFailure` says (D248).
     pub strict: bool,
+    /// A check run (D517, D670): no history entry, no report files or reporter plugins and no
+    /// alerts; the watch still gets every event. `false` for `vc run`.
+    pub unrecorded: bool,
     /// The agent starting the run (MCP), when one is: the run then passes the profiles' agent
     /// policy for `run` and every method its plan sends, with one approval for the whole run,
     /// prints nothing to stdout, and is logged (D195). `None` for a person at the CLI.
@@ -97,6 +101,24 @@ impl RunRequest {
     /// run, whose watcher shows it.
     pub(crate) const fn quiet(&self) -> bool {
         self.agent.is_some() || self.watch.is_some()
+    }
+
+    /// The run flags that are settings, as the layer between `VIB_*` and `--set` (D129).
+    pub(crate) fn flags(&self) -> Vec<ConfigEntry> {
+        let mut flags = Vec::new();
+        if let Some(concurrency) = self.concurrency {
+            flags.push(ConfigEntry::new("defaults.concurrency", concurrency.to_string(), "--concurrency"));
+        }
+        if !self.files.formats.is_empty() {
+            flags.push(ConfigEntry::new("reports.formats", self.files.formats.join(","), "--report"));
+        }
+        if self.files.single_file {
+            flags.push(ConfigEntry::new("reports.html.layout", "single", "--single-file"));
+        }
+        if let Some(out) = &self.files.out {
+            flags.push(ConfigEntry::new("reports.dir", out.to_string_lossy(), "--out"));
+        }
+        flags
     }
 }
 

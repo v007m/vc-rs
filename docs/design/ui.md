@@ -299,7 +299,7 @@ Built so far (D620): ⌘K or the top row's search opens it, grown out of the sea
 | 14 | Done (D546–D550): `VcsStatus` (`branch`, `upstream`, `ahead`, `behind`, `files`: each `path`, `change` (`added`, `modified`, `deleted`, `untracked`, `conflicted`), `added`, `removed`, `binary`), `VcsDiff{path}` (a masked unified diff, empty for an unchanged file), `VcsCommit{paths, message}` (the short ID; only those files are committed), `VcsPush` and `VcsPull` (fast-forward only; what git said, masked). UI only, never agents. A git failure is `failed_precondition` with git's message, no URL's credentials in it | The git pane |
 | 15 | Schedules: list, write (through the config diff), the server's scheduler, `ExportSchedule` (GitHub Actions) | Schedules |
 | 16 | `AgentUsage` (per agent and tool, over a window) | Agents › Usage |
-| 17 | A check run: `Run` with `record: false` | Check run in Tests |
+| 17 | Done (D670): a check run is `Run` with `record: false` (`true` when absent). It writes no history entry, no report files and calls no reporter plugin or alert; its events still stream, and its report comes last with no `run` | Check run in Tests |
 
 ## 11. Decisions (Round 88)
 

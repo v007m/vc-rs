@@ -264,6 +264,10 @@ message RunRequest {
   // letters, digits, `-` and `_`, and held by no other running run. Empty: only closing the
   // stream stops the run.
   string handle = 10;
+  // Whether the run is kept in the run history; `true` when absent. `false` is a check run
+  // (D670): no history entry, no report files or reporter plugins and no alerts, while its
+  // events still stream and its report comes last, with no `run`.
+  optional bool record = 11;
 }
 
 // How far `Cancel` stops a run.

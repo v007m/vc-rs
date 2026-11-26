@@ -1280,6 +1280,7 @@ pub vc_engine::RunRequest::no_cache: bool
 pub vc_engine::RunRequest::plan: vc_engine::PlanRequest
 pub vc_engine::RunRequest::seed: core::option::Option<u64>
 pub vc_engine::RunRequest::strict: bool
+pub vc_engine::RunRequest::unrecorded: bool
 pub vc_engine::RunRequest::watch: core::option::Option<vc_engine::RunWatch>
 impl core::clone::Clone for vc_engine::RunRequest
 pub fn vc_engine::RunRequest::clone(&self) -> Self

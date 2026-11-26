@@ -233,3 +233,29 @@ async fn the_report_names_no_html_file_written_up_and_out_of_the_project() {
     assert_eq!(report.html_report, None, "`../` leaves the project, so the path is never sent");
     assert!(std::fs::read_dir(out.path()).unwrap().next().is_some(), "the report is still written there");
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_check_run_streams_every_event_but_leaves_no_history_entry_and_no_report_file() {
+    let (root, api) = project();
+    std::fs::write(root.path().join("vibranium.config.yaml"), format!("{CONFIG}reports: {{formats: [html]}}\n"))
+        .unwrap();
+    let (events, end) = parse(&stream_from(api, &wire::RunRequest { record: Some(false), ..Default::default() }).await);
+    assert_eq!(end, json!({}));
+    assert!(events.iter().any(|event| matches!(event.kind, Some(Kind::TestFinished(_)))), "{events:?}");
+    let Some(Kind::Report(report)) = events.last().and_then(|event| event.kind.clone()) else { panic!("{events:?}") };
+    assert_eq!((report.exit, report.run, report.html_report), (1, None, None));
+    let engine = vc_engine::EngineBuilder::for_project(root.path()).unwrap().build().unwrap();
+    let history = engine.history(10, &vc_engine::RunFilter::default()).unwrap();
+    assert_eq!(history.runs(), [], "a check run is not kept");
+    assert!(!root.path().join(".vibranium/reports").exists(), "no report file is written");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_run_that_asks_to_be_recorded_or_says_nothing_is_kept_in_the_history() {
+    for record in [None, Some(true)] {
+        let (_root, api) = project();
+        let (events, _) = parse(&stream_from(api, &wire::RunRequest { record, ..Default::default() }).await);
+        let Some(Kind::Report(report)) = events.last().and_then(|event| event.kind.clone()) else { panic!() };
+        assert_eq!(report.run, Some(1), "{record:?}");
+    }
+}
