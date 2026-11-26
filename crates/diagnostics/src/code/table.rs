@@ -138,4 +138,5 @@ code_table! {
     V5129 = 5129, Warning, "Save skipped: the response has GraphQL errors";
     V5130 = 5130, Error, "A `receive` was not met before the stream ended or the time ran out";
     V5131 = 5131, Error, "The stream did not open";
+    V5132 = 5132, Error, "A client's report folder is not inside the project";
 }

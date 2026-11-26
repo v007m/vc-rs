@@ -273,8 +273,10 @@ message RunRequest {
   // `--report`: the report formats (`ctrf`, `junit`, `html`), each may be a comma list; over
   // `reports.formats`. An unknown format fails the run before it starts (D671).
   repeated string reports = 13;
-  // `--out`: the folder the report files go in, as they are, over `reports.dir`; relative to
-  // the project root, or absolute. Empty: each run's files go in `<reports.dir>/<run>/`.
+  // `--out`: the folder the report files go in, as they are, over `reports.dir`. A folder
+  // inside the project, relative to its root, with no `..` and no link out of it; anything
+  // else is `invalid_argument` with V5132 (D671). Empty: each run's files go in
+  // `<reports.dir>/<run>/`.
   string out = 14;
   // `--single-file`: the HTML report as one self-contained file, over `reports.html.layout`.
   bool single_file = 15;

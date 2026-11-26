@@ -662,6 +662,8 @@ pub async fn vc_engine::Engine::config_values(&self, &[alloc::string::String], &
 impl vc_engine::Engine
 pub async fn vc_engine::Engine::check_secrets(&self, &vc_engine::ExplainRequest) -> core::result::Result<vc_engine::SecretsChecked, vc_engine::EngineError>
 impl vc_engine::Engine
+pub fn vc_engine::Engine::client_report_folder(&self, &str) -> core::result::Result<std::path::PathBuf, vc_engine::EngineError>
+impl vc_engine::Engine
 pub fn vc_engine::Engine::complete(&self, vc_engine::CompleteKind, &str) -> alloc::vec::Vec<alloc::string::String>
 impl vc_engine::Engine
 pub async fn vc_engine::Engine::config_explain(&self, &str, &vc_engine::ExplainRequest) -> core::result::Result<vc_engine::ExplainReport, vc_engine::EngineError>

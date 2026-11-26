@@ -51,6 +51,7 @@ mod check_profiles;
 mod check_secrets;
 mod check_tls;
 mod client_certs;
+mod client_out;
 mod complete;
 mod config_explain;
 mod config_values;

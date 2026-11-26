@@ -300,3 +300,24 @@ async fn a_run_that_asks_for_an_unknown_report_format_ends_with_an_error() {
     assert!(events.iter().all(|event| !matches!(event.kind, Some(Kind::Report(_)))), "{events:?}");
     assert!(end["error"]["message"].as_str().is_some_and(|message| message.contains("pdf")), "{end}");
 }
+
+#[cfg(unix)]
+#[tokio::test(flavor = "multi_thread")]
+async fn a_run_whose_out_leaves_the_project_is_refused_before_it_starts() {
+    let outside = tempfile::tempdir().unwrap();
+    let absolute = outside.path().to_string_lossy().into_owned();
+    for out in [absolute.as_str(), "../elsewhere", "reports/../../elsewhere", "linked", "linked/ci"] {
+        let (root, api) = project();
+        std::os::unix::fs::symlink(outside.path(), root.path().join("linked")).unwrap();
+        let request = wire::RunRequest { out: out.to_owned(), ..Default::default() };
+        let (events, end) = parse(&stream_from(api, &request).await);
+        assert_eq!(events, [], "{out}: nothing ran");
+        assert_eq!(end["error"]["code"], "invalid_argument", "{out}: {end}");
+        let message = end["error"]["message"].as_str().unwrap();
+        assert!(message.starts_with("V5132"), "{out}: {message}");
+        assert!(!message.contains(&absolute), "{out}: the path is not echoed");
+        let engine = vc_engine::EngineBuilder::for_project(root.path()).unwrap().build().unwrap();
+        assert_eq!(engine.history(10, &vc_engine::RunFilter::default()).unwrap().runs(), [], "{out}");
+    }
+    assert_eq!(std::fs::read_dir(outside.path()).unwrap().count(), 0, "nothing is written outside");
+}

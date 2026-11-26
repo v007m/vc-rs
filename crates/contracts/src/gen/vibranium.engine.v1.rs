@@ -513,8 +513,10 @@ pub struct RunRequest {
     /// `reports.formats`. An unknown format fails the run before it starts (D671).
     #[prost(string, repeated, tag="13")]
     pub reports: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
-    /// `--out`: the folder the report files go in, as they are, over `reports.dir`; relative to
-    /// the project root, or absolute. Empty: each run's files go in `<reports.dir>/<run>/`.
+    /// `--out`: the folder the report files go in, as they are, over `reports.dir`. A folder
+    /// inside the project, relative to its root, with no `..` and no link out of it; anything
+    /// else is `invalid_argument` with V5132 (D671). Empty: each run's files go in
+    /// `<reports.dir>/<run>/`.
     #[prost(string, tag="14")]
     pub out: ::prost::alloc::string::String,
     /// `--single-file`: the HTML report as one self-contained file, over `reports.html.layout`.

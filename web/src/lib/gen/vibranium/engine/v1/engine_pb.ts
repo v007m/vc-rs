@@ -610,8 +610,10 @@ export type RunRequest = Message<"vibranium.engine.v1.RunRequest"> & {
   reports: string[];
 
   /**
-   * `--out`: the folder the report files go in, as they are, over `reports.dir`; relative to
-   * the project root, or absolute. Empty: each run's files go in `<reports.dir>/<run>/`.
+   * `--out`: the folder the report files go in, as they are, over `reports.dir`. A folder
+   * inside the project, relative to its root, with no `..` and no link out of it; anything
+   * else is `invalid_argument` with V5132 (D671). Empty: each run's files go in
+   * `<reports.dir>/<run>/`.
    *
    * @generated from field: string out = 14;
    */

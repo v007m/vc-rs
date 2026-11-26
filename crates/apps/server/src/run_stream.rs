@@ -30,22 +30,34 @@ pub fn register(rpcs: Rpcs) -> Rpcs {
 /// Runs what `request` selects, streaming its feed to `sink` while it runs.
 async fn run(
     api: Arc<EngineApi>,
-    request: wire::RunRequest,
+    mut request: wire::RunRequest,
     sink: Sink<wire::RunResponse>,
 ) -> Result<(), ConnectError> {
     let (interrupter, interrupts) = vc_engine::interrupts();
-    api.runs().open(&request.handle, &interrupter).await?;
     let (sender, feed) = mpsc::channel(FEED);
-    let request = run_request(&api, request, RunWatch::new(sender));
+    let handle = request.handle.clone();
+    let out = client_out(&api, std::mem::take(&mut request.out)).await?;
+    let request = run_request(&api, (request, out), RunWatch::new(sender));
+    api.runs().open(&handle, &interrupter).await?;
     let running = api.blocking(move |engine| Handle::current().block_on(engine.run(&request, interrupts)));
     let (ran, relayed) = tokio::join!(running, relay(feed, &sink, &interrupter));
     ran?;
     relayed
 }
 
-/// The engine's request for `request`, over the server's profiles and `--set` values, with
-/// `watch` following it.
-fn run_request(api: &EngineApi, request: wire::RunRequest, watch: RunWatch) -> RunRequest {
+/// The report folder `out` names, `None` when empty; `invalid_argument` (V5132) when it is not
+/// a folder inside the project, checked before the run holds its handle (D671).
+async fn client_out(api: &Arc<EngineApi>, out: String) -> Result<Option<PathBuf>, ConnectError> {
+    if out.is_empty() {
+        return Ok(None);
+    }
+    api.blocking(move |engine| engine.client_report_folder(&out)).await.map(Some)
+}
+
+/// The engine's request for `request`, writing its report files to `out`, over the server's
+/// profiles and `--set` values, with `watch` following it.
+fn run_request(api: &EngineApi, (request, out): (wire::RunRequest, Option<PathBuf>), watch: RunWatch) -> RunRequest {
+    let files = ReportFlags { formats: request.reports, out, single_file: request.single_file };
     let (profiles, sets) = api.layers(request.profiles, request.sets);
     let plan = PlanRequest { select: select(request.selection), repeat: request.repeat, profiles, sets };
     RunRequest {
@@ -57,17 +69,10 @@ fn run_request(api: &EngineApi, request: wire::RunRequest, watch: RunWatch) -> R
         no_cache: request.no_cache,
         unrecorded: request.record == Some(false),
         strict: request.strict,
-        files: report_flags(request.reports, request.out, request.single_file),
+        files,
         watch: Some(watch),
         ..RunRequest::default()
     }
-}
-
-/// `--report`, `--out` and `--single-file` as the run request carries them; an empty `out` is
-/// none, and a relative one is under the project root (D671).
-fn report_flags(formats: Vec<String>, out: String, single_file: bool) -> ReportFlags {
-    let out = (!out.is_empty()).then(|| PathBuf::from(out));
-    ReportFlags { formats, out, single_file }
 }
 
 /// Sends the feed's events to `sink` until every sender has gone, which is once the run has
