@@ -63,6 +63,11 @@ service EngineService {
   rpc ListRuns(ListRunsRequest) returns (ListRunsResponse);
   // One run of the history with its tests.
   rpc GetRun(GetRunRequest) returns (GetRunResponse);
+  // Run `b` against the earlier run `a`: the tests newly failing, newly blocked, fixed, still
+  // failing, slower and faster, and the apis whose JSON response shapes changed (D672).
+  rpc CompareRuns(CompareRunsRequest) returns (CompareRunsResponse);
+  // One test's results over the newest test runs, newest first, for its history strip (D673).
+  rpc TestHistory(TestHistoryRequest) returns (TestHistoryResponse);
   // Each test's results over the last runs, as `vc history --trends` reports them.
   rpc Trends(TrendsRequest) returns (TrendsResponse);
   // Each api's calls and response times over the same runs, for Insights' slowest apis.
@@ -770,6 +775,91 @@ message GetRunRequest {
 message GetRunResponse {
   vibranium.results.v1.Run run = 1;
   repeated vibranium.results.v1.Test tests = 2;
+}
+
+message CompareRunsRequest {
+  // The earlier run's number; the last run when 0.
+  uint64 a = 1;
+  // The later run's number; the last run when 0.
+  uint64 b = 2;
+  // How much longer a test must take in `b` to count as slower, and shorter to count as faster,
+  // as a share of its time in `a`: 0.2 for 20%, the default when 0. A negative share is refused.
+  double slower_threshold = 3;
+}
+
+// One test instance of the later run, with how it did in the earlier.
+message TestChange {
+  string test_id = 1;
+  // The instance as `GetRun` labels it: `users.crud#rejectsBadEmail [row 2]`.
+  string label = 2;
+  // Unspecified when the earlier run did not run it.
+  vibranium.results.v1.TestStatus before = 3;
+  vibranium.results.v1.TestStatus after = 4;
+  // Absent when the earlier run did not run it.
+  optional double before_ms = 5;
+  double after_ms = 6;
+}
+
+// A response path whose JSON types changed.
+message Retyped {
+  string path = 1;
+  // The types, `|`-joined: `number|null`.
+  string before = 2;
+  string after = 3;
+}
+
+// How one api's JSON responses with one status changed shape. Paths are JSON Pointers, `*` for
+// any array element, and only paths and types are compared, never values. Only the bodies the
+// runs kept count (by default those of failed tests), and an api and status count only when
+// both runs kept a whole JSON body for them.
+message ShapeChange {
+  string api_id = 1;
+  uint32 status = 2;
+  repeated string added = 3;
+  repeated string removed = 4;
+  repeated Retyped retyped = 5;
+}
+
+message CompareRunsResponse {
+  // The two runs' numbers.
+  uint64 a = 1;
+  uint64 b = 2;
+  // Failed in `b`, and neither failed nor blocked in `a` (or not run there).
+  repeated TestChange newly_failing = 3;
+  // Blocked in `b`, and neither failed nor blocked in `a`.
+  repeated TestChange newly_blocked = 4;
+  // Failed or blocked in `a`, and passed or flaky in `b`.
+  repeated TestChange fixed = 5;
+  // Failed or blocked in both.
+  repeated TestChange still_failing = 6;
+  // Ran in both and took longer by more than the threshold, then shorter.
+  repeated TestChange slower = 7;
+  repeated TestChange faster = 8;
+  repeated ShapeChange shapes = 9;
+}
+
+message TestHistoryRequest {
+  // The test's full ID: `users.crud#listsUsers`.
+  string test = 1;
+  // Over this many of the newest test runs: 20 when 0, at most 100.
+  uint32 limit = 2;
+}
+
+// How the test did in one run.
+message TestRunResult {
+  vibranium.results.v1.Run run = 1;
+  // The worst way an instance ended (failed, blocked, allowed failure, flaky, passed, skipped);
+  // unspecified when the run did not run the test.
+  vibranium.results.v1.TestStatus status = 2;
+  // The instances' time together.
+  double duration_ms = 3;
+  // Each example row and repeat, with checks and without exchanges; `GetRun` has those.
+  repeated vibranium.results.v1.Test instances = 4;
+}
+
+message TestHistoryResponse {
+  // Newest first.
+  repeated TestRunResult runs = 1;
 }
 
 message TrendsRequest {

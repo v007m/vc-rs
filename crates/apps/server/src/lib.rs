@@ -23,6 +23,7 @@ mod cancel_rpcs;
 mod client_rpcs;
 mod code;
 mod codec;
+mod compare_rpcs;
 mod csp;
 mod edit_rpcs;
 #[cfg(feature = "ui")]

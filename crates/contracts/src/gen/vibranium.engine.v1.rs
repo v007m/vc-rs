@@ -1144,6 +1144,124 @@ pub struct GetRunResponse {
     #[prost(message, repeated, tag="2")]
     pub tests: ::prost::alloc::vec::Vec<super::super::results::v1::Test>,
 }
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct CompareRunsRequest {
+    /// The earlier run's number; the last run when 0.
+    #[prost(uint64, tag="1")]
+    pub a: u64,
+    /// The later run's number; the last run when 0.
+    #[prost(uint64, tag="2")]
+    pub b: u64,
+    /// How much longer a test must take in `b` to count as slower, and shorter to count as faster,
+    /// as a share of its time in `a`: 0.2 for 20%, the default when 0. A negative share is refused.
+    #[prost(double, tag="3")]
+    pub slower_threshold: f64,
+}
+/// One test instance of the later run, with how it did in the earlier.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct TestChange {
+    #[prost(string, tag="1")]
+    pub test_id: ::prost::alloc::string::String,
+    /// The instance as `GetRun` labels it: `users.crud#rejectsBadEmail \[row 2\]`.
+    #[prost(string, tag="2")]
+    pub label: ::prost::alloc::string::String,
+    /// Unspecified when the earlier run did not run it.
+    #[prost(enumeration="super::super::results::v1::TestStatus", tag="3")]
+    pub before: i32,
+    #[prost(enumeration="super::super::results::v1::TestStatus", tag="4")]
+    pub after: i32,
+    /// Absent when the earlier run did not run it.
+    #[prost(double, optional, tag="5")]
+    pub before_ms: ::core::option::Option<f64>,
+    #[prost(double, tag="6")]
+    pub after_ms: f64,
+}
+/// A response path whose JSON types changed.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct Retyped {
+    #[prost(string, tag="1")]
+    pub path: ::prost::alloc::string::String,
+    /// The types, `|`-joined: `number|null`.
+    #[prost(string, tag="2")]
+    pub before: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub after: ::prost::alloc::string::String,
+}
+/// How one api's JSON responses with one status changed shape. Paths are JSON Pointers, `*` for
+/// any array element, and only paths and types are compared, never values. Only the bodies the
+/// runs kept count (by default those of failed tests), and an api and status count only when
+/// both runs kept a whole JSON body for them.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ShapeChange {
+    #[prost(string, tag="1")]
+    pub api_id: ::prost::alloc::string::String,
+    #[prost(uint32, tag="2")]
+    pub status: u32,
+    #[prost(string, repeated, tag="3")]
+    pub added: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, repeated, tag="4")]
+    pub removed: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(message, repeated, tag="5")]
+    pub retyped: ::prost::alloc::vec::Vec<Retyped>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CompareRunsResponse {
+    /// The two runs' numbers.
+    #[prost(uint64, tag="1")]
+    pub a: u64,
+    #[prost(uint64, tag="2")]
+    pub b: u64,
+    /// Failed in `b`, and neither failed nor blocked in `a` (or not run there).
+    #[prost(message, repeated, tag="3")]
+    pub newly_failing: ::prost::alloc::vec::Vec<TestChange>,
+    /// Blocked in `b`, and neither failed nor blocked in `a`.
+    #[prost(message, repeated, tag="4")]
+    pub newly_blocked: ::prost::alloc::vec::Vec<TestChange>,
+    /// Failed or blocked in `a`, and passed or flaky in `b`.
+    #[prost(message, repeated, tag="5")]
+    pub fixed: ::prost::alloc::vec::Vec<TestChange>,
+    /// Failed or blocked in both.
+    #[prost(message, repeated, tag="6")]
+    pub still_failing: ::prost::alloc::vec::Vec<TestChange>,
+    /// Ran in both and took longer by more than the threshold, then shorter.
+    #[prost(message, repeated, tag="7")]
+    pub slower: ::prost::alloc::vec::Vec<TestChange>,
+    #[prost(message, repeated, tag="8")]
+    pub faster: ::prost::alloc::vec::Vec<TestChange>,
+    #[prost(message, repeated, tag="9")]
+    pub shapes: ::prost::alloc::vec::Vec<ShapeChange>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct TestHistoryRequest {
+    /// The test's full ID: `users.crud#listsUsers`.
+    #[prost(string, tag="1")]
+    pub test: ::prost::alloc::string::String,
+    /// Over this many of the newest test runs: 20 when 0, at most 100.
+    #[prost(uint32, tag="2")]
+    pub limit: u32,
+}
+/// How the test did in one run.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct TestRunResult {
+    #[prost(message, optional, tag="1")]
+    pub run: ::core::option::Option<super::super::results::v1::Run>,
+    /// The worst way an instance ended (failed, blocked, allowed failure, flaky, passed, skipped);
+    /// unspecified when the run did not run the test.
+    #[prost(enumeration="super::super::results::v1::TestStatus", tag="2")]
+    pub status: i32,
+    /// The instances' time together.
+    #[prost(double, tag="3")]
+    pub duration_ms: f64,
+    /// Each example row and repeat, with checks and without exchanges; `GetRun` has those.
+    #[prost(message, repeated, tag="4")]
+    pub instances: ::prost::alloc::vec::Vec<super::super::results::v1::Test>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct TestHistoryResponse {
+    /// Newest first.
+    #[prost(message, repeated, tag="1")]
+    pub runs: ::prost::alloc::vec::Vec<TestRunResult>,
+}
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct TrendsRequest {
     /// Over this many runs; the engine's default when 0.

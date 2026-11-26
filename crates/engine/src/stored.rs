@@ -128,7 +128,7 @@ impl Engine {
     }
 
     /// The report snapshot stored with `row`.
-    fn snapshot(&self, row: &RunRow) -> Result<RunSnapshot, EngineError> {
+    pub(crate) fn snapshot(&self, row: &RunRow) -> Result<RunSnapshot, EngineError> {
         let stored = self.history_reader().snapshot(row.id).map_err(|error| history_error(&error))?;
         let bytes = stored.ok_or_else(|| EngineError::History {
             reason: format!("run {} has no report snapshot", row.id),

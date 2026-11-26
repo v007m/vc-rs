@@ -291,7 +291,7 @@ Built so far (D620): ⌘K or the top row's search opens it, grown out of the sea
 | 6 | `CreateFile` (templates), `Rename`, `Format`, `TrashFile` | File operations |
 | 7 | Done (D551–D553): `Cancel{run, level}`, where `run` is the `handle` the client gave `RunRequest` (its own pick, such as a UUID: at most 64 ASCII letters, digits, `-` and `_`) and `level` is `CANCEL_LEVEL_STOP` (one Ctrl-C: grace period, then cleanups; a second `stop` ends the grace period) or `CANCEL_LEVEL_ABANDON` (the third Ctrl-C: the cleanups still to run are skipped). It answers at once; the run's stream ends with its report (exit 130). A handle a running run holds is `already_exists`; one not running is `not_found` | Stop, then Skip cleanups |
 | 8 | `RunLoad` stream; `load_tick` host stats | Load tests |
-| 9 | `CompareRuns`, `TestHistory` | Compare runs, per-test strip |
+| 9 | Done (D672, D673): `CompareRuns{a, b, slower_threshold}` (0 for a run is the last; the threshold is a share, 0.2 for 20%, the default when 0) gives `b`'s tests newly failing, newly blocked, fixed, still failing, slower and faster than in `a`, and each api and status whose JSON response shape changed (paths added, removed and retyped; never values; only from the bodies the runs kept). `TestHistory{test, limit}` gives the test in each of the newest 20 (at most 100) test runs, newest first: its worst status (unspecified when not run), time and instances | Compare runs, per-test strip |
 | 10 | `Init`, `Demo` | Onboarding |
 | 11 | `TestAlert`, `PluginList`/`Add`/`Remove` | Settings |
 | 12 | User-config read and write (scoped) | Settings, the "You only" scope |
