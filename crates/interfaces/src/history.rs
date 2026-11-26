@@ -7,7 +7,7 @@ use std::fmt;
 
 use vc_model::{Keep, RunStatus, Totals};
 
-use crate::{ApiTrend, ExchangeRow, FindingRow, RunFilter, TestRow, TestTrend};
+use crate::{ApiTrend, CallSummary, ExchangeRow, FindingRow, RunFilter, TestRow, TestTrend};
 
 /// Stores runs as they happen.
 ///
@@ -213,6 +213,8 @@ pub struct RunRow {
     pub status: Option<RunStatus>,
     /// Every instance by status, once it has ended.
     pub totals: Totals,
+    /// For an `adhoc` run, the call it made, once its exchange is stored (D542).
+    pub call: Option<CallSummary>,
 }
 
 /// One result the writer stores.

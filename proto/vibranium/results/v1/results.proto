@@ -184,4 +184,14 @@ message Run {
   string vc_version = 10;
   RunStatus status = 11;
   Totals totals = 12;
+  // For an `adhoc` run, the call it made, from its first exchange (D542).
+  optional CallSummary call = 13;
+}
+
+// What an `adhoc` run sent and got: a History row (D542). The URL is masked.
+message CallSummary {
+  string method = 1;
+  string url = 2;
+  // Absent when no response came back.
+  optional uint32 status = 3;
 }

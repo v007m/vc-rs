@@ -929,6 +929,22 @@ pub fn vc_interfaces::CachedCleanup::eq(&self, &Self) -> bool
 impl core::fmt::Debug for vc_interfaces::CachedCleanup
 pub fn vc_interfaces::CachedCleanup::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_interfaces::CachedCleanup
+pub struct vc_interfaces::CallSummary
+pub vc_interfaces::CallSummary::method: alloc::string::String
+pub vc_interfaces::CallSummary::status: core::option::Option<u16>
+pub vc_interfaces::CallSummary::url: alloc::string::String
+impl vc_interfaces::CallSummary
+pub fn vc_interfaces::CallSummary::of(&vc_interfaces::ExchangeRow) -> Self
+impl core::clone::Clone for vc_interfaces::CallSummary
+pub fn vc_interfaces::CallSummary::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::CallSummary
+impl core::cmp::PartialEq for vc_interfaces::CallSummary
+pub fn vc_interfaces::CallSummary::eq(&self, &Self) -> bool
+impl core::default::Default for vc_interfaces::CallSummary
+pub fn vc_interfaces::CallSummary::default() -> Self
+impl core::fmt::Debug for vc_interfaces::CallSummary
+pub fn vc_interfaces::CallSummary::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::CallSummary
 pub struct vc_interfaces::CertId(_)
 impl vc_interfaces::CertId
 pub const fn vc_interfaces::CertId::index(self) -> u32
@@ -1560,6 +1576,7 @@ pub fn vc_interfaces::RunId::hash<__H: core::hash::Hasher>(&self, &mut __H)
 impl core::marker::Copy for vc_interfaces::RunId
 impl core::marker::StructuralPartialEq for vc_interfaces::RunId
 pub struct vc_interfaces::RunRow
+pub vc_interfaces::RunRow::call: core::option::Option<vc_interfaces::CallSummary>
 pub vc_interfaces::RunRow::finished_ms: core::option::Option<u64>
 pub vc_interfaces::RunRow::id: vc_interfaces::RunId
 pub vc_interfaces::RunRow::start: vc_interfaces::RunStart

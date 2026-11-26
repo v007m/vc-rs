@@ -111,7 +111,7 @@ pub use held_sources::{MemorySources, secret_schema};
 pub use history::{
     HistoryError, HistoryReader, HistoryWriter, IntervalRow, Row, RunEnd, RunId, RunRef, RunRow, RunStart,
 };
-pub use history_rows::{CheckRow, ExchangeRow, FindingKind, FindingRow, TestRow, TimingRow};
+pub use history_rows::{CallSummary, CheckRow, ExchangeRow, FindingKind, FindingRow, TestRow, TimingRow};
 pub use hooks::{Budget, HookCall, HookError, HookOutput, HookRunner, Limit};
 pub use import::{
     DraftApi, DraftBefore, DraftCleanup, DraftExample, DraftFlow, DraftGroup, DraftStep, DraftTest, ImportDraft,

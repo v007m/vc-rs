@@ -93,6 +93,30 @@ pub struct ExchangeRow {
     pub body_truncated: bool,
 }
 
+/// What an `adhoc` run sent and got, from its first exchange: the row the web UI's History
+/// lists (D542). The URL is masked, as the exchange is.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "history row built and read across crates; every user is in this repo (D160)"
+)]
+pub struct CallSummary {
+    /// The request method.
+    pub method: String,
+    /// The request URL.
+    pub url: String,
+    /// The response status; `None` when no response came back.
+    pub status: Option<u16>,
+}
+
+impl CallSummary {
+    /// The summary of `exchange`.
+    #[must_use]
+    pub fn of(exchange: &ExchangeRow) -> Self {
+        Self { method: exchange.method.clone(), url: exchange.url.clone(), status: exchange.status }
+    }
+}
+
 /// An exchange's timings, in milliseconds.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 #[expect(

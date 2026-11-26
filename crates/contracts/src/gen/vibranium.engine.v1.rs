@@ -684,6 +684,114 @@ pub struct CallRequest {
     /// file is left as it is.
     #[prost(message, optional, tag="6")]
     pub draft: ::core::option::Option<ApiDraft>,
+    /// A request with no api in a `*.api.yaml`, sent in place of `api`, which is then empty; no
+    /// `draft` goes with it (D540, D541).
+    #[prost(message, optional, tag="7")]
+    pub adhoc: ::core::option::Option<AdhocCall>,
+}
+/// A scratch request the API client sends with no api file (D540, D541). Its values may hold
+/// `${…}` templates, which render as an api's do under the active profiles.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AdhocCall {
+    /// `http` (when empty), `sse` or `websocket`.
+    #[prost(string, tag="1")]
+    pub r#type: ::prost::alloc::string::String,
+    /// `GET` when empty; a `websocket` call takes none.
+    #[prost(string, tag="2")]
+    pub method: ::prost::alloc::string::String,
+    /// The full URL, or one starting with a template: `${var.usersUrl}/users`.
+    #[prost(string, tag="3")]
+    pub url: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag="4")]
+    pub headers: ::prost::alloc::vec::Vec<super::super::results::v1::Header>,
+    /// Added to the URL's own query.
+    #[prost(message, repeated, tag="5")]
+    pub query: ::prost::alloc::vec::Vec<super::super::results::v1::Header>,
+    /// As the editor holds it: JSON text with a map or a list is sent as JSON, any other text as
+    /// written. A `websocket` call takes none.
+    #[prost(string, optional, tag="6")]
+    pub body: ::core::option::Option<::prost::alloc::string::String>,
+    /// An auth ID from the project's config, or `none`; no auth when absent. Never a credential.
+    #[prost(string, optional, tag="7")]
+    pub auth: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CallStreamRequest {
+    /// The api, or the ad hoc request, to open; its `keep` is not used, as a stream registers no
+    /// cleanup.
+    #[prost(message, optional, tag="1")]
+    pub call: ::core::option::Option<CallRequest>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CallStreamResponse {
+    #[prost(oneof="call_stream_response::Event", tags="1, 2, 3")]
+    pub event: ::core::option::Option<call_stream_response::Event>,
+}
+/// Nested message and enum types in `CallStreamResponse`.
+pub mod call_stream_response {
+    #[derive(Clone, PartialEq, ::prost::Oneof)]
+    pub enum Event {
+        #[prost(message, tag="1")]
+        Opened(super::StreamOpened),
+        #[prost(message, tag="2")]
+        Message(super::StreamMessage),
+        #[prost(message, tag="3")]
+        Ended(super::StreamEnded),
+    }
+}
+/// The stream's opening answer, sent first.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct StreamOpened {
+    /// Names the stream for `StreamSend` while it is open.
+    #[prost(string, tag="1")]
+    pub stream: ::prost::alloc::string::String,
+    /// The history run the call is recorded as; 0 when the history could not be written.
+    #[prost(uint64, tag="2")]
+    pub run_id: u64,
+    /// The request as sent and the opening response, masked; no messages.
+    #[prost(message, optional, tag="3")]
+    pub head: ::core::option::Option<super::super::results::v1::Exchange>,
+}
+/// One message, as a `receive` item matches it, masked: `{event, data, id, text}` for `sse`,
+/// `{type, data, text}` for `websocket`.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct StreamMessage {
+    /// `in` for one the server sent, `out` for one `StreamSend` sent.
+    #[prost(string, tag="1")]
+    pub direction: ::prost::alloc::string::String,
+    #[prost(uint64, tag="2")]
+    pub at_ms: u64,
+    /// The message's fields, as JSON text.
+    #[prost(string, tag="3")]
+    pub json: ::prost::alloc::string::String,
+}
+/// How the stream ended, sent last.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct StreamEnded {
+    /// Why: `the stream closed`, `the server answered 404`, `the connection dropped (…)`.
+    #[prost(string, tag="1")]
+    pub reason: ::prost::alloc::string::String,
+    /// It ended on an error rather than a close.
+    #[prost(bool, tag="2")]
+    pub failed: bool,
+    /// The WebSocket close code, when the server sent one.
+    #[prost(uint32, optional, tag="3")]
+    pub code: ::core::option::Option<u32>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct StreamSendRequest {
+    /// As `StreamOpened` named it.
+    #[prost(string, tag="1")]
+    pub stream: ::prost::alloc::string::String,
+    /// The text to send as one message; a `${…}` in it is sent as written.
+    #[prost(string, optional, tag="2")]
+    pub text: ::core::option::Option<::prost::alloc::string::String>,
+    /// Closes the stream, with code 1000, instead of sending.
+    #[prost(bool, tag="3")]
+    pub close: bool,
+}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct StreamSendResponse {
 }
 /// Pointer edits to an api file, made over it as it was opened; nothing is written.
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -966,7 +1074,8 @@ pub struct ListRunsRequest {
     /// At most this many; all when 0.
     #[prost(uint32, tag="1")]
     pub limit: u32,
-    /// Only runs of this kind (`run`, `load`), the limit counted among them; every kind when absent.
+    /// Only runs of this kind (`run`, `load`, `adhoc` for the calls the History lists), the limit
+    /// counted among them; every kind when absent (D542).
     #[prost(string, optional, tag="2")]
     pub kind: ::core::option::Option<::prost::alloc::string::String>,
     /// Only runs under this profile; every profile when absent.

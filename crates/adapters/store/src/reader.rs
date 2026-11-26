@@ -3,17 +3,21 @@ use std::path::{Path, PathBuf};
 
 use rusqlite::{Connection, OptionalExtension, Row as SqlRow, params};
 use vc_interfaces::{
-    ApiTrend, CheckRow, ExchangeRow, FindingKind, FindingRow, HistoryError, HistoryReader, RunFilter, RunId, RunRef,
-    RunRow, RunStart, TestRow, TestTrend, TimingRow, api_trends,
+    ApiTrend, CallSummary, CheckRow, ExchangeRow, FindingKind, FindingRow, HistoryError, HistoryReader, RunFilter,
+    RunId, RunRef, RunRow, RunStart, TestRow, TestTrend, TimingRow, api_trends,
 };
 use vc_model::{TestStatus, Totals};
 
 use crate::codec::{Location, decompress, from_json, run_status, test_status, test_status_text, unreadable};
 use crate::schema;
 
-/// The columns a run is read from, in [`run_row`]'s order.
+/// The columns a run is read from, in [`run_row`]'s order: an `adhoc` run's first exchange
+/// last, for its [`CallSummary`] (D542).
 const RUN_COLUMNS: &str = "id, started_at, finished_at, profiles, selector, git_commit, git_branch, seed, vc_version,
-    config_hash, kind, status, passed, failed, blocked, skipped, flaky, allowed_failures";
+    config_hash, kind, status, passed, failed, blocked, skipped, flaky, allowed_failures,
+    (SELECT method FROM exchanges WHERE exchanges.run_id = runs.id AND runs.kind = 'adhoc' ORDER BY exchanges.id LIMIT 1),
+    (SELECT url FROM exchanges WHERE exchanges.run_id = runs.id AND runs.kind = 'adhoc' ORDER BY exchanges.id LIMIT 1),
+    (SELECT status FROM exchanges WHERE exchanges.run_id = runs.id AND runs.kind = 'adhoc' ORDER BY exchanges.id LIMIT 1)";
 
 /// The kind of the runs trends are taken over when a filter names none.
 const TREND_KIND: &str = "run";
@@ -190,7 +194,15 @@ fn run_row(row: &SqlRow<'_>) -> rusqlite::Result<RunRow> {
         flaky: count(16)?,
         allowed_failures: count(17)?,
     };
-    Ok(RunRow { id: RunId::new(row.get(0)?), start, finished_ms: row.get(2)?, status, totals })
+    let call = call_summary(row)?;
+    Ok(RunRow { id: RunId::new(row.get(0)?), start, finished_ms: row.get(2)?, status, totals, call })
+}
+
+/// The call an `adhoc` run made, from [`RUN_COLUMNS`]' last three; `None` for any other run and
+/// for one whose exchange is not stored.
+fn call_summary(row: &SqlRow<'_>) -> rusqlite::Result<Option<CallSummary>> {
+    let Some(method) = row.get::<_, Option<String>>(18)? else { return Ok(None) };
+    Ok(Some(CallSummary { method, url: row.get(19)?, status: row.get(20)? }))
 }
 
 fn trend_row(row: &SqlRow<'_>) -> rusqlite::Result<TestTrend> {
