@@ -1,7 +1,8 @@
-/* Tests mode · Runner (#tests-run): the Run dialog (⌘R in Tests mode), the live run
-   (progress, now running, counters, event log with filter and pause), drill-down
-   (checks with expected/actual/span, exchanges, body diff), Stop with live cleanups,
-   and the after-run actions. Timers drive the run; under reduced motion it steps on click. */
+/* Runs space · live run (#runs-live): the Run dialog (⌘R), the live run (progress, now
+   running, counters, event log with filter and pause), drill-down (checks with
+   expected/actual/span, exchanges, body diff), Stop with live cleanups, and the after-run
+   actions. Timers drive the run and keep going while you look elsewhere; the Runs sidebar
+   shows it with a pulsing dot. Under reduced motion it steps on click. */
 (function () {
   'use strict';
   const VC = window.VC, D = VC.data, S = VC.state, A = VC.actions, TD = VC.testsData;
@@ -11,7 +12,7 @@
   const LABEL = { pass: 'passed', fail: 'failed', blocked: 'blocked', skipped: 'skipped', flaky: 'flaky', allow: 'allowed' };
   const CLEANUPS = ['carts#delete c_91x', 'carts#delete c_88a', 'users#delete u_3kd8', 'users#delete u_2p1q', 'orders#cancel o_7f1', 'users#delete u_8f2c41'];
   const R = (VC.run = {
-    phase: 'done', n: 482, done: TD.run.instances.length, results: TD.run.instances.slice(), events: [], open: {}, paused: false, buffered: 0, filter: 'all',
+    phase: 'running', n: 483, done: 0, results: [], events: [], open: {}, paused: false, buffered: 0, filter: 'all', slow: true,
     drill: 'orders.checkout#rejectsDeclinedCard', tab: 'checks', clean: 0, timer: null, t0: 0, ms: 4630,
     opts: { selector: TD.run.selector, profile: 'local', layers: [], seed: 42, repeat: 1, bail: false, concurrency: 4, strict: false, reporters: ['pretty', 'html'], since: 'origin/master' }
   });
@@ -22,7 +23,7 @@
   const clock = (ms) => `${String(Math.floor(ms / 60000)).padStart(2, '0')}:${(ms / 1000 % 60).toFixed(1).padStart(4, '0')}`;
   const cmd = () => { const o = R.opts; return `vc run ${o.selector.includes(' OR ') ? `-t smoke --changed ${o.since}` : o.selector}${o.since && !o.selector.includes(' OR ') && o.since !== 'origin/master' ? ` --changed ${o.since}` : ''} --profile ${[o.profile].concat(o.layers).join(',')} --seed ${o.seed}${o.repeat > 1 ? ` --repeat ${o.repeat}` : ''}${o.bail ? ' --bail' : ''} --concurrency ${o.concurrency}${o.strict ? ' --strict' : ''}${o.reporters.filter((r) => r !== 'pretty').map((r) => ` --reporter ${r}`).join('')}`; };
 
-  /* seed the log of the finished run 482 so the screen opens on a complete report */
+  /* seed run 483 part-way through, so the Runs space opens with a live run in the background */
   function evFor(r, i) {
     const out = [];
     const prev = R.plan[i - 1];
@@ -37,29 +38,32 @@
     return out;
   }
   function stamp(list, t) { return list.map((e, j) => Object.assign({ t: clock(t + j * 40) }, e)); }
-  function seedDone() {
+  function seedLive() {
     R.plan = TD.run.instances.slice();
+    R.done = Math.round(R.plan.length * 0.6);
+    R.results = R.plan.slice(0, R.done);
     R.events = [{ k: 'run', st: 'pass', t: '00:00.0', txt: `plan ${R.plan.length} instances in 4 files · seed 42 · concurrency 4`, sub: 'lifecycle: beforeAll catalog (cached, 3h left) · beforeEach ×3 actions · profile local' }, { k: 'life', st: 'pass', t: '00:00.1', txt: 'beforeRun auth shopUser', sub: 'token cached, 41 min left' }];
     let t = 200;
-    R.plan.forEach((r, i) => { R.events.push(...stamp(evFor(r, i), t)); t += 260; });
-    R.events.push(...stamp(tail(), t));
+    R.results.forEach((r, i) => { R.events.push(...stamp(evFor(r, i), t)); t += 260; });
+    R.t0 = t;
   }
-  const tail = () => [{ k: 'life', st: 'pass', txt: 'afterAll command ./scripts/print-order-stats.sh', sub: 'exit 0 · 3 lines' }, { k: 'life', st: 'pass', txt: `cleanup ${CLEANUPS.length} resources, newest first`, sub: 'all deleted' }, { k: 'run', st: 'fail', txt: summaryText(), sub: 'exit 1 · report .vc/reports/run-482.html' }];
+  const tail = () => [{ k: 'life', st: 'pass', txt: 'afterAll command ./scripts/print-order-stats.sh', sub: 'exit 0 · 3 lines' }, { k: 'life', st: 'pass', txt: `cleanup ${CLEANUPS.length} resources, newest first`, sub: 'all deleted' }, { k: 'run', st: counts().fail ? 'fail' : 'pass', txt: summaryText(), sub: `exit ${counts().fail ? 1 : 0} · report .vc/reports/run-${R.n}.html` }];
   const summaryText = () => { const c = counts(); return `run ${R.n} · ${ST.filter((s) => c[s]).map((s) => `${c[s]} ${LABEL[s]}`).join(' · ')}`; };
-  seedDone();
+  seedLive();
+  const every = () => (R.slow ? 2400 : 420);
 
   /* ---- live run ----------------------------------------------------------- */
   VC.startRun = function (o) {
     VC.closeDialog();
-    clearInterval(R.timer);
-    Object.assign(R, { phase: 'running', n: R.n + 1, done: 0, results: [], buffered: 0, clean: 0, t0: 0, only: o && o.only });
+    clearInterval(R.timer); R.timer = null;
+    Object.assign(R, { phase: 'running', n: R.n + 1, done: 0, results: [], buffered: 0, clean: 0, t0: 0, only: o && o.only, slow: false, logged: false });
     if (o && o.selector) R.opts.selector = o.selector;
     R.plan = R.only ? R.only.map((id) => { const t = TD.tests[id]; return { id, st: t.st === 'skipped' ? 'skipped' : t.st, ms: t.ms, label: id }; }) : TD.run.instances.slice();
     if (o && o.failedOnly) R.plan = TD.run.instances.filter((r) => r.st === 'fail' || r.st === 'blocked').map((r) => Object.assign({}, r, { st: r.st === 'fail' ? 'fail' : 'pass' }));
     R.open = {};
     R.events = [{ k: 'run', st: 'pass', t: '00:00.0', txt: `$ ${cmd()}` }, { k: 'run', st: 'pass', t: '00:00.0', txt: `plan ${R.plan.length} instance${R.plan.length === 1 ? '' : 's'} · seed ${R.opts.seed} · concurrency ${R.opts.concurrency}`, sub: `profile ${[R.opts.profile].concat(R.opts.layers).join(' + ')}` }, { k: 'life', st: 'pass', t: '00:00.1', txt: 'beforeRun auth shopUser', sub: 'token cached, 41 min left' }];
-    if (S.route !== 'tests-run') VC.go('tests-run'); else VC.render();
-    if (!reduced()) R.timer = setInterval(tick, 420);
+    if (S.route !== 'runs-live') VC.go('runs-live'); else VC.render();
+    if (!reduced() && !R.timer) R.timer = setInterval(tick, every());
   };
   function tick() {
     if (R.phase === 'running') {
@@ -78,9 +82,17 @@
     }
     paint();
   }
-  function finish(phase) { clearInterval(R.timer); R.timer = null; R.phase = phase; R.ms = R.t0 + 400; VC.render(); }
+  function finish(phase) { clearInterval(R.timer); R.timer = null; R.phase = phase; R.ms = R.t0 + 400; record(); VC.render(); }
+  /* a finished run joins the history, so the Runs list and sidebar show it at once */
+  function record() {
+    const H = D.shared.runs, c = counts();
+    if (R.logged || H.some((r) => r.n === R.n)) return;
+    R.logged = true;
+    H.unshift({ n: R.n, kind: 'test', st: R.phase === 'cancelled' ? 'skipped' : c.fail ? 'fail' : c.blocked ? 'blocked' : 'pass', when: 'Today 14:10', ago: 'just now', dur: `${(R.ms / 1000).toFixed(1)}s`, profile: R.opts.profile, layers: R.opts.layers.slice(), branch: D.project.branch, commit: 'a41c9e2', by: 'you', sel: R.opts.selector, tot: { pass: c.pass, fail: c.fail, blocked: c.blocked, skipped: c.skipped, flaky: c.flaky, allow: c.allow } });
+  }
   function stop(why) {
     R.phase = 'stopping';
+    if (R.slow && R.timer) { clearInterval(R.timer); R.slow = false; R.timer = setInterval(tick, every()); }
     R.events.push({ k: 'run', st: 'blocked', t: clock(R.t0 + 10), txt: why === 'bail' ? 'bail: first failure stops the run' : 'stop requested · running cleanups', sub: `${CLEANUPS.length} resources to delete, newest first` });
     VC.render();
   }
@@ -185,19 +197,19 @@
   }
 
   /* ---- screen ------------------------------------------------------------- */
-  VC.screens['tests-run'] = {
-    enter: () => { S.mode = 'tests'; },
-    crumbs: () => [D.project.name, 'Tests', `Run ${R.n}`],
+  const live = () => R.phase === 'running' || R.phase === 'stopping';
+  VC.screens['runs-live'] = {
+    space: 'runs',
+    crumbs: () => [D.project.name, 'Runs', live() ? `#${R.n} live` : `#${R.n}`],
+    primary: () => VC.sh.runBtn(),
     status: () => '',
     render: () => `<div class="split tr-split"${VC.splitAttrs()}>${leftHtml()}${VC.divider('Resize run and drill-down')}${drillHtml()}</div>`,
     mount: (view) => {
       VC.mountSplit(view, 'trSplit');
       const log = $('#tr-log', view);
       if (log && !R.paused && R.phase !== 'done' && R.phase !== 'cancelled') log.scrollTop = log.scrollHeight;
-      if (R.phase === 'running' && !R.timer && !reduced()) R.timer = setInterval(tick, 420);
-      if (R.phase === 'stopping' && !R.timer && !reduced()) R.timer = setInterval(tick, 420);
-    },
-    unmount: () => { if (S.route !== 'tests-run') { clearInterval(R.timer); R.timer = null; } }
+      if (live() && !R.timer && !reduced()) R.timer = setInterval(tick, every());
+    }
   };
 
   /* ---- actions ------------------------------------------------------------ */
@@ -314,5 +326,5 @@
     if (mod && e.key === 'Enter' && $('#dlg').open && $('.tr-dlg')) { e.preventDefault(); e.stopPropagation(); A['tr-go'](); }
   }, true);
   /* ⌘↵ on this screen re-runs */
-  VC.screens['tests-run'].send = () => { if (R.phase === 'done' || R.phase === 'cancelled') A['tr-again'](); };
+  VC.screens['runs-live'].send = () => { if (R.phase === 'done' || R.phase === 'cancelled') A['tr-again'](); };
 })();

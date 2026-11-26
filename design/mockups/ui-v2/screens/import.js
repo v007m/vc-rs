@@ -100,7 +100,7 @@
     const last = I.step === STEPS.length - 1;
     return `<div class="stage-one"><section class="glass card-hug wizard" aria-label="Import">
       <div class="card-head"><div class="grow"><h2 class="card-title">Import</h2><div class="card-sub">Every file is shown as a diff before anything is written.</div></div>
-        <button class="btn btn-ghost btn-sm" data-action="go" data-route="${S.lastClient}">Cancel</button></div>
+        <button class="btn btn-ghost btn-sm" data-action="open-tab" data-id="${S.tab}">Cancel</button></div>
       <div class="card-tabs"><div class="step-line"><span class="step-label" aria-live="polite">Step ${I.step + 1} of ${STEPS.length} · <b>${STEPS[I.step]}</b></span><ol class="step-dots" aria-label="Steps">${steps}</ol></div></div>
       <div class="card-body" data-sk="imp-body">${BODY[I.step]()}</div>
       <div class="card-foot"><span>${chosen().length} of ${allOps().length} operations</span><span class="grow"></span>
@@ -124,6 +124,7 @@
   document.addEventListener('input', (e) => { if (e.target.id === 'imp-q') { I.q = e.target.value; VC.render(); } if (e.target.id === 'imp-path') I.path = e.target.value; });
 
   VC.screens.import = {
+    space: 'client',
     crumbs: () => [D.project.name, 'Import', STEPS[I.step]],
     status: () => '',
     render,

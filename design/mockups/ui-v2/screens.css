@@ -1,14 +1,12 @@
 /* ==========================================================================
    Vibranium UI v2 · screens.css: sidebar controls and screen layouts
    --------------------------------------------------------------------------
-   Sidebar controls (L0, rendered by app.js):
-     .mode-switch        Client | Tests segmented
-     .sb-view            Requests | History segmented (Client)
-     .sb-tree            the mode's tree (uses .tree / .ti from components)
+   Sidebar content (L0, inside the shell's .sb-secs sections, shell.css):
+     .sb-tree            a space's tree (uses .tree / .ti from components)
      .sb-hist            recent calls grouped by day (Client > History)
    Top row (L0): .tabstrip .ot (shell.css)  .env-pill  .search-btn
      .pp                 env popover: profile list, layers, explain link
-   Header extras: .subnav (shell.css)  .run-status  .header-actions
+   Top row title extras: .run-status (scr.status())
    Screen layouts (one block per screen, prefixed by screen):
      .reqbar .url .type-btn ...... Client request bar (REST, GraphQL, streams)
      .resp-meta .wf .events ...... response status row, timing waterfall, engine events
@@ -21,10 +19,7 @@
    Pass-2 screens add their own block here, prefixed the same way.
    ========================================================================== */
 
-/* ---- sidebar controls ---------------------------------------------------- */
-.mode-switch { display: flex; width: 100%; }
-.mode-switch > button { flex: 1 1 0; gap: 8px; }
-.sb-view { display: flex; width: 100%; }
+/* ---- top row controls ---------------------------------------------------- */
 /* environment pill (top row): caption, profile dot, profile, layers, chevron */
 .env-pill { flex: 0 1 auto; min-width: 0; gap: var(--sp-2); padding: 0 10px 0 12px; color: var(--l0-ink); }
 .env-pill .env-cap {
@@ -88,8 +83,7 @@
 .pp-foot { display: flex; align-items: center; gap: var(--sp-3); padding-top: var(--sp-3); border-top: 1px solid var(--rule); }
 .pp-foot .subtle { font-size: var(--fs-1); }
 
-/* ---- header -------------------------------------------------------------- */
-.header-actions { margin-left: auto; display: flex; align-items: center; gap: var(--sp-2); flex: none; }
+/* ---- top row status -------------------------------------------------------- */
 .run-status { display: inline-flex; align-items: center; gap: 8px; font-size: var(--fs-1); color: var(--l0-ink-2); white-space: nowrap; }
 .run-status b { color: var(--l0-ink); font-weight: var(--fw-medium); }
 
@@ -410,7 +404,6 @@
 .sb-section-head .sb-label { flex: 1 1 auto; }
 .sb-link { font-size: var(--fs-1); color: var(--l0-ink-2); background: transparent; border: 0; padding: 2px 6px; border-radius: var(--r-xs); text-decoration: none; }
 .sb-link:hover { color: var(--l0-ink); background: var(--l0-hover); }
-.rail-toggle { margin-left: auto; }
 .explain-table { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px var(--sp-3); font-size: var(--fs-1); }
 .explain-table .k { font-family: var(--mono); color: var(--ink); white-space: nowrap; }
 .explain-table .v { font-family: var(--mono); color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -419,7 +412,7 @@
 .devcorner .screens { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; }
 .devcorner .screens a { color: var(--ink-2); text-decoration: none; padding: 3px 6px; border-radius: var(--r-xs); font-size: var(--fs-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .devcorner .screens a:hover, .devcorner .screens a[aria-current="page"] { color: var(--ink); background: var(--row-hover); }
-.tint-dot.is-project { --h: 292; }
+.tint-dot.is-project { background: var(--sw-graphite); box-shadow: 0 0 0 3px color-mix(in oklab, var(--sw-graphite) 25%, transparent); }
 .tint-dot.is-amber { --h: 70; }
 .tint-dot.is-red { --h: 25; }
 

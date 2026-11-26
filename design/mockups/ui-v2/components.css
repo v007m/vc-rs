@@ -139,8 +139,8 @@
   line-height: 1;
   color: inherit;
   opacity: 0.78;
-  background: light-dark(rgb(30 24 60 / 0.06), rgb(255 255 255 / 0.08));
-  box-shadow: inset 0 -1px 0 light-dark(rgb(30 24 60 / 0.10), rgb(0 0 0 / 0.3));
+  background: light-dark(rgb(20 24 32 / 0.06), rgb(255 255 255 / 0.08));
+  box-shadow: inset 0 -1px 0 light-dark(rgb(20 24 32 / 0.10), rgb(0 0 0 / 0.3));
 }
 .btn-primary .kbd { background: color-mix(in oklab, var(--primary-ink) 12%, transparent); box-shadow: none; opacity: 0.85; }
 
@@ -300,7 +300,7 @@
   top: 2px; left: 2px;
   width: 14px; height: 14px;
   border-radius: 50%;
-  background: light-dark(#ffffff, #e9e6f2);
+  background: light-dark(#ffffff, #e6e8ec);
   box-shadow: 0 1px 2px rgb(0 0 0 / 0.35);
   transition: transform var(--dur-2) var(--ease);
 }
@@ -698,18 +698,9 @@ button.chip[aria-pressed="true"] { background: var(--l2-bg-pressed); box-shadow:
 .ti .leaf-gap { width: 14px; flex: none; }
 .ti .ti-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ti .ti-meta { color: var(--l0-ink-3); font-size: 11px; font-family: var(--mono); flex: none; }
-/* fold chevron as its own hit area (rows that open something), and a per-node Run that shows on hover, focus or selection */
+/* fold chevron as its own hit area (rows that open something) */
 .ti .ti-fold { display: inline-flex; flex: none; border-radius: var(--r-xs, 4px); margin: -2px; padding: 2px; }
 .ti .ti-fold:hover { background: var(--l0-hover); }
-.ti .ti-run {
-  display: none; flex: none; align-items: center; justify-content: center;
-  width: 22px; height: 22px; margin: -2px -4px -2px 0; border: 0; border-radius: var(--r-sm);
-  background: transparent; color: var(--l0-ink-2); cursor: pointer;
-}
-.ti .ti-run:hover { background: var(--l0-hover); color: var(--accent-ink); }
-.ti > .ti-row:hover > .ti-run, .ti:focus-visible > .ti-row > .ti-run, .ti[aria-selected="true"] > .ti-row > .ti-run { display: inline-flex; }
-.ti > .ti-row:hover:has(> .ti-run) > .ti-meta, .ti[aria-selected="true"] > .ti-row:has(> .ti-run) > .ti-meta { display: none; }
-@media (hover: none) { .ti .ti-run { display: inline-flex; } .ti > .ti-row:has(> .ti-run) > .ti-meta { display: none; } }
 
 /* ---- callout ------------------------------------------------------------- */
 .callout {
@@ -947,14 +938,14 @@ dialog.palette { margin-top: 12vh; }
 .devcorner-panel .row { justify-content: space-between; }
 .devcorner-toggle { height: 24px; }
 .devcorner-panel .seg > button { padding: 0 7px; }
-.tint-swatch { width: 18px; height: 18px; border-radius: 50%; border: 0; padding: 0; box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.2); }
+.tint-swatch { width: 18px; height: 18px; border-radius: 50%; border: 0; padding: 0; box-shadow: inset 0 0 0 1px var(--sw-edge); }
 .tint-swatch[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--l3-solid), 0 0 0 4px var(--ink); }
-.tint-swatch[data-t="violet"] { background: oklch(0.6 0.2 292); }
-.tint-swatch[data-t="blue"]   { background: oklch(0.6 0.18 255); }
-.tint-swatch[data-t="teal"]   { background: oklch(0.65 0.13 185); }
-.tint-swatch[data-t="amber"]  { background: oklch(0.72 0.16 70); }
-.tint-swatch[data-t="red"]    { background: oklch(0.6 0.2 25); }
-.tint-swatch[data-t="auto"]   { background: conic-gradient(oklch(0.6 0.2 292), oklch(0.65 0.13 185), oklch(0.72 0.16 70), oklch(0.6 0.2 25), oklch(0.6 0.2 292)); }
+.tint-swatch[data-t="graphite"] { background: var(--sw-graphite); }
+.tint-swatch[data-t="blue"]   { background: var(--sw-blue); }
+.tint-swatch[data-t="teal"]   { background: var(--sw-teal); }
+.tint-swatch[data-t="amber"]  { background: var(--sw-amber); }
+.tint-swatch[data-t="red"]    { background: var(--sw-red); }
+.tint-swatch[data-t="auto"]   { background: var(--sw-auto); }
 
 /* ---- round 2 components ----------------------------------------------------
    .empty-quiet ......... B2/B3 quiet empty state: one line, optional keys, one link
@@ -993,6 +984,10 @@ details.more > summary:focus-visible, details.disc > summary:focus-visible { out
 /* D1: the ⋯ overflow button keeps a hairline so it reads next to filled buttons */
 .row-more { color: var(--ink-2); border-color: var(--rule); }
 .row-more:hover, .row-more[aria-expanded="true"] { color: var(--ink); background: var(--row-hover); }
+/* on L0 (sidebar, top row, bands) it rests like the sidebar's other icon buttons */
+.row-more > svg { stroke-width: 3; }   /* the dots are round caps: a heavier stroke makes them read like the other icons */
+.sidebar .row-more, .on-l0 .row-more { color: var(--l0-ink-2); border-color: transparent; opacity: 1; }
+.sidebar .row-more:hover, .on-l0 .row-more:hover, .sidebar .row-more[aria-expanded="true"] { color: var(--l0-ink); background: var(--l0-hover); }
 details.more > summary .chev, details.disc > summary .chev { transition: transform var(--dur-1) var(--ease); transform: rotate(-90deg); }
 details.more[open] > summary .chev, details.disc[open] > summary .chev { transform: none; }
 details.more > .more-body { display: flex; flex-direction: column; gap: var(--field-gap); padding-top: var(--sp-3); }
@@ -1026,7 +1021,7 @@ details.disc > .disc-body { padding: var(--sp-1) 0 var(--sp-4); display: flex; f
 /* ---- scroll fade (B2) ----------------------------------------------------- */
 /* A long scroller fades out over its last 24px so rows never end on a hard cut.
    Put .fade-end on the element that scrolls; it gets room below the last row. */
-.fade-end, .sb-scroll {
+.fade-end {
   -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - var(--fade-h)), transparent);
   mask-image: linear-gradient(to bottom, #000 calc(100% - var(--fade-h)), transparent);
 }

@@ -4,9 +4,11 @@ Status: draft for Sarath's review. The decisions are from the 2026-11-23 grillin
 
 ## 1. Goals
 
-- **Two modes in one workspace:**
-  - **Client** is a fast API client like Postman or REST Client.
-  - **Tests** is a full test workbench: explorer, editor, runner, reports, load and insights.
+- **Five spaces in one workspace:**
+  - **Client** is a fast API client like Postman or REST Client, for trying calls out.
+  - **Tests** holds every api and load test to read, edit, check and commit.
+  - **Runs** holds every run, schedule and report, with the Overview.
+  - **Agents** and **Settings** hold agent access and every setting.
 - **Everything runs on the engine:** profiles, vars, auth, checks, history, diagnostics and fixes. The UI never re-implements engine logic.
 - **One Svelte UI, two shells:**
   - Tauri 2 desktop (#98) comes first: a frameless window, with the engine in process over IPC.
@@ -53,37 +55,42 @@ Density (D497):
 ### Status language
 These colours are shared with the CLI, TUI and HTML report: pass, fail, blocked, skipped, flaky and allowFailure. Every status has an icon as well as a colour, so status never relies on colour alone.
 
-## 3. Shell and navigation
+## 3. Shell and spaces
 
 ```
-┌ L0: sidebar ──────────┬─ L0 top row: open tabs ············· ENV ● local ▾  ⌕ Search ⌘K ⏷ ┐
-│ ● ● ●  (traffic)      │  crumbs · sub-nav / views                                      │
-│ [ Client | Tests ]    │  48 px band: URL bar, or one status · one action               │
-│ [Requests | History]  │ ┌ L1 glass card ─────────────────────────────────────────────┐ │
-│ ── tree / history ──  │ │   view for the selected item (fills to the status line)    │ │
-│                       │ └────────────────────────────────────────────────────────────┘ │
-│ Runs Insights Agents ⚙│  L0 status line: version · branch · vc check                   │
-└───────────────────────┴────────────────────────────────────────────────────────────────┘
+┌ rail ┬ L0: sidebar ─────────┬─ L0 top row: tabs, or title · status · primary ·· ENV ● local ▾  ⌕ Search ⌘K ┐
+│ ●●●  │ space's views,       │ ┌ L1 glass card ─────────────────────────────────────────────────────────┐ │
+│ ⇢ Cl │ filters and          │ │   the selected screen (fills to the status line)                      │ │
+│ ▤ Te │ collapsible sections │ │                                                                       │ │
+│ ▶ Ru │ (Requests / History, │ │                                                                       │ │
+│ ⚇ Ag │  Tests / Changes)    │ └───────────────────────────────────────────────────────────────────────┘ │
+│ ⚙ Se │                      │  L0 status line: version · branch · vc check                               │
+└──────┴──────────────────────┴────────────────────────────────────────────────────────────────────────────┘
 ```
 
-- **Mode switch** (⌘1 Client, ⌘2 Tests) sits at the top of the sidebar.
-  - Client mode's tree: services, then apis, then call history.
-  - Tests mode's tree: services, then test files, then tests, with status dots from the last run.
-- **Tabs follow Arc.** Pinned tabs stay. Other tabs close themselves after 12 h idle; the time can be changed. A closed scratch request stays in history.
+- **Five spaces** (D512): Client, Tests, Runs, Agents and Settings. The app opens in Client, and each space remembers its last screen.
+  - **Client:** try requests. Open tabs, the api tree, call history, Save as test. Not for serious testing.
+  - **Tests:** every api and load test, read and edit, check runs, and the git pane.
+  - **Runs:** every run, live and stored, API and load; reports, compare, schedules and the Overview (the former Insights).
+  - **Agents:** approvals, activity, usage, permissions and connection.
+  - **Settings:** every setting, by scope.
+- **Space switcher** (D513): a left icon rail on L0 by default, with the traffic lights on top, the five spaces with small labels (⌘1–⌘5) and Settings pinned at the bottom (⌘,). It stays when the sidebar is collapsed. Settings › This app › Appearance offers **Sidebar bottom** instead: the five icons in one row at the sidebar's foot.
+- **One bar** (D514): the 44 px top row is the only bar above the cards. Client shows its tab strip there; other spaces show the screen title (the crumbs without the project), at most one status and one primary action. The env pill and search sit at its right in every space. There is no header band or sub-nav: a space's views live in its sidebar.
+- **Sidebar sections** (D515): a sidebar stacks collapsible sections. A closed section keeps only its header; open sections share the height equally.
+- **Pinned and temporary tabs.** Pinned tabs stay. Other tabs close themselves after 12 h idle; the time can be changed. A closed scratch request stays in history.
   - ⌘T opens a new scratch tab, ⌘W closes a tab, ⌃Tab cycles tabs.
-- **Top row** (D503): open tabs as a strip (method badge, name, close on hover, + for a scratch tab, double-click renames; tabs shrink, then the strip scrolls), then the env pill and search at the right. In Client mode the sidebar has a Requests / History switch over the tree.
+  - Each open tab has a 1 px hairline border and no fill; the current tab has a stronger border and full-ink text (D524).
 - **Env pill** (D504): an ENV caption, the profile dot, the name and layers, and a chevron. On prod it turns red and reads LIVE · PROD. Its popover holds the main profile, "add layer" to stack more in order, "Explain merged config" (the merged value of every key and where it was set) and "Edit profiles". The tint follows the profile.
-- **Search** (⌘K), top right, has a filter icon inside the field that opens its own popover (All / REST / GraphQL / Streams); the icon gets a dot while a filter is on. Nothing else filters in the sidebar.
-- **Header band** (D499): the crumbs row carries the sub-nav (Explorer, Editor, Runner, Load in Tests mode; Approvals, Permissions, Connection, Activity on Agents), and a fixed 48 px band holds the URL bar or at most one status and one primary action, so every card starts at the same height. The sub-nav is the only home of those views; the sidebar does not repeat them.
+- **Search** (⌘K), top right, has a filter icon inside the field that opens its own popover (All / REST / GraphQL / Streams); the icon gets a dot while a filter is on.
 - **Rename** (D500): request, scratch and tab names are edited in place (pencil on hover, Enter saves, Esc cancels); double-click an open tab to rename it.
-- **Shared screens** at the sidebar's foot: Runs, Insights, Agents and Settings.
 - **Responsive:**
   - Above 1100 px the sidebar is open.
-  - From 760 to 1100 px the sidebar collapses to an icon rail; Requests and History become two icon buttons. Below 900 px search collapses to an icon.
+  - From 760 to 1100 px the sidebar collapses; the rail stays.
+  - Below 900 px search collapses to an icon.
   - Below 760 px the sidebar is a drawer. This is web only and read-mostly.
-- **Desktop shell:** the traffic lights sit in the sidebar. The window can be dragged from the L0 header. Native menus mirror the palette commands.
+- **Desktop shell:** the traffic lights sit at the top of the rail, or of the sidebar with Sidebar bottom. The window can be dragged from the top row. Native menus mirror the palette commands.
 
-## 4. Client mode (R43)
+## 4. Client space (R43)
 
 ### Request card
 - The request and response sit side by side, with a draggable divider. Below 1100 px they stack. A toggle sets the orientation, and the choice is remembered.
@@ -130,27 +137,43 @@ These colours are shared with the CLI, TUI and HTML report: pass, fail, blocked,
   - Bodies follow `history.bodies`.
   - Values are redacted as usual.
   - Retention follows the history config.
-- The sidebar's History switch groups calls by day, with an "All history" link. Each row shows the method, path and status.
+- The sidebar's History section groups calls by day, with an "All history" link. Each row shows the method, path and status.
 - Clicking a row re-opens it in a tab. History can be searched.
 
 ### Import
 A wizard with six steps: Source (OpenAPI, HAR, Postman, Bruno, .http, cURL paste), Filter, Map (services and names), Secrets (values found become `${secret}`), Also create (tests or checks), and Review (a diff of every file). It uses the existing `Import` RPC for every kind.
 
-## 5. Tests mode (R32, R44)
+## 5. Tests space (R32, R44)
 
-### Explorer
-- The tree and facets (service, tag, status, changed).
-- Query syntax: `tag:smoke status:failed api:orders`, with OR, `-` to exclude, and saved views.
-- Bulk actions: Run, Skip until, Tag, Quarantine, each with Undo.
-- **Test detail** (one L1 card):
+### Sidebar and read view (D516)
+- **Sidebar:**
+  - an All / API / Load filter;
+  - a filter popover (status, tags, service, changed, saved views), shown as removable chips;
+  - the **Tests** section: one tree of api and load tests, with status dots from the last run, topped by "All tests";
+  - the **Changes** section (the git pane, below).
+- **Query syntax** in the table and the popover: `tag:smoke status:failed api:orders`, with OR, `-` to exclude, and saved views.
+- **All tests** opens the table, with bulk actions: Run, Skip until, Tag, Quarantine, each with Undo.
+- **Test detail** (one L1 card at full width):
   - id, `path:line`, tags;
   - the lifecycle it inherits (beforeAll/afterAll and cleanups);
   - the apis it calls;
-  - a **per-test history strip** of the last N results, with a duration sparkline and flake rate;
-  - Run, Edit and Quarantine actions.
+  - a **per-test history strip** of the last N results, with a duration sparkline and flake rate; both fill the card (D525);
+  - Run (a check run), Edit, and Quarantine in ⋯.
+- A **file** shows its lifecycle and its tests. A **load test** shows its scenario, stages and thresholds, with Edit and a Quick check.
 - **Quarantine** writes `allowFailure: true` plus an `until:` date into the test's YAML, shown as a diff first. There is no new model concept.
 
+### Check run (D517)
+- Run in Tests checks one test inline: status, time, each check and the exchange, labelled "Check run, not saved to Runs".
+- A load test offers a **Quick check**: 1 user for 10 s, showing req/s, p95 and errors.
+- "Run in Runs…" in ⋯ starts a recorded run.
+
+### Changes: the git pane (D518)
+- The branch, ahead and behind, and the changed test files (M, A, D) with +/- counts; a file opens its diff.
+- Pick files, write a message, Commit. Push, Pull and Commit & push sit in a menu.
+- The server does this through the `Vcs` port, which gains status, diff, commit, push and pull. Agents cannot commit or push.
+
 ### Editor
+- **Edit** on a test, file or load test opens its editor in place; Done or Esc returns to the read view. There is no separate Editor page.
 - **Form view is the default. YAML (CodeMirror 6) is the alternative, and Split shows both.** All three edit one buffer, so comments and order survive a switch, because the form edits through the parser's minimal `TextEdit`s.
 - **Form editors** exist for test files (tests, steps, examples grid, expect builder, save, lifecycle), api files, config (profiles, vars, http, tls, auth, alerts, plugins), load files (stages and thresholds) and datasets (a grid).
 - **YAML view:**
@@ -171,7 +194,12 @@ A wizard with six steps: Source (OpenAPI, HAR, Postman, Bruno, .http, cURL paste
   - Delete moves the file to the OS trash, after a confirmation that lists the tests that reference it.
 - **Plan preview** (`vc plan --explain`) for the selection shows the instances, the lifecycle order and the merged expects.
 
-### Runner
+## 6. Runs space (D519)
+
+- **Sidebar:** Overview, All runs (filters: kind, status, profile), Schedules, and the recent runs with a live run first.
+- **Run…** is the top row's primary action (⌘R).
+
+### Run dialog and live run
 - **Run dialog** (or ⌘R on a selection; D502): a 560 px form.
   - Visible: selector, profile, concurrency, bail and a one-line plan ("17 tests · 4 files · ~2 s").
   - Under a collapsed "More options": layers, "since commit" for `--changed`, seed, repeat, strict, reporters and the command preview.
@@ -183,8 +211,8 @@ A wizard with six steps: Source (OpenAPI, HAR, Postman, Bruno, .http, cURL paste
 - **Stop** ends the run. The cleanups then run live, and a "Skip cleanups" button appears with a warning that created data will remain. This needs a two-level `Cancel` RPC.
 - **After a run:** Re-run failed, Run again, Open report, Compare with previous.
 
-### Load tests (`*.load.yaml`)
-- A form editor for stages (ramp and hold), executors, thresholds and scenarios.
+### Load runs (`*.load.yaml`)
+- The load editor (stages, ramp and hold, executors, thresholds and scenarios) lives in Tests; its runs open here.
 - **Live run:** RPS, latency p50/p95/p99 and the error rate as hand-built SVG charts, with threshold lines and breach markers. A **Hosts panel** shows the load generator's own CPU, memory, open connections and dropped iterations. The engine must collect this; it's a new `load_tick` field.
 - **Report:** breaches, a latency histogram, the per-scenario split, and a comparison with earlier load runs.
 - **RPC:** load fields on `RunRequest`, or a `RunLoad` stream. The plan picks `RunLoad`, because the event shape differs.
@@ -194,26 +222,37 @@ A wizard with six steps: Source (OpenAPI, HAR, Postman, Bruno, .http, cURL paste
 - **Stored run** (D509): a summary header (status, counts, duration, profile, branch @ commit, start time) with Open report, an Export menu (HTML, CTRF JSON, JUnit XML, NDJSON, copy `vc report`) and a ⋯ (Re-run failed, Compare, Copy run command); below it, the same view as a live run. Each runs-list row has these actions in its ⋯.
 - **Compare two runs:** newly failing, fixed, slower and faster tests (with a threshold), and changed response shapes.
 
-### Insights
+### Overview (the former Insights)
 - A profile and branch scope, which the port already supports.
 - KPIs: the pass rate trend, the duration trend, a flaky list with a Quarantine action, the slowest apis (p50/p95), api coverage gaps, skips that are expiring, and per-service cards.
 
-## 6. Shared screens
+### Schedules (D520)
+- Stored in `vibranium.config.yaml` under `schedules:` (name, selector, profile, cron, notify), so they are in git.
+- The vc server runs them while it is up (`vc ui` locally, or `vc serve` on a shared machine) and records each in run history.
+- **Export to CI** writes a GitHub Actions cron workflow, for machines that sleep.
+- The list shows the cron in words, the selector, profile, runner, next run and last result, with an on/off switch. New schedule saves through a diff.
+- The mockup proposes two more keys per schedule, `runner: vcServer | githubActions` and `enabled: false`. Their exact syntax goes into `syntax-reference.md` when the server is built (D520).
 
-### Agents
-Four views in the header band (D510), each opening with one sentence on what it is for:
+## 7. Agents and Settings spaces
+
+### Agents (D521)
+Five views in the sidebar, each opening with one sentence on what it is for:
 - **Approvals:** requests that wait for an answer; each row expands to a diff with Approve and Reject.
 - **Permissions:** a switch for each tool and each profile (prod off by default); edits apply through "Review N changes".
 - **Connection:** MCP server status, connected clients, and the snippets to connect Claude Code, Cursor or HTTP.
 - **Activity:** a one-line log of each run or edit, with a filter.
+- **Usage:** requests, tool calls, runs started and time per agent over 7 days, with a table per agent and tool.
 - Runs made by agents carry an agent badge in Runs.
 
-### Settings
+### Settings (D522)
+- Scopes and sections sit in the sidebar, grouped by scope; the main area shows one section at full width.
 - **Project** (`vibranium.config.yaml`):
   - general, paths, defaults, profiles, vars per profile, http, tls, auth (with Test), secrets (`.env.schema`), reports and history, alerts (with Send test alert), agent access and plugins.
   - Each has a form, plus a pending-changes bar with a diff.
 - **You only** (`~/.config/vibranium`): the same form, clearly badged.
-- **UI preferences:** theme, tint for each project and profile, motion and transparency, density and the tab idle time.
+- **This app:** theme, tint for each project and profile, motion and transparency, density, the tab idle time and the space switcher (Icon rail or Sidebar bottom).
+
+## 8. Shared overlays
 
 ### Command palette (⌘K)
 - Jump to any api, test, file, run or setting.
@@ -226,7 +265,7 @@ Four views in the header band (D510), each opening with one sentence on what it 
 - Or offer **Open the demo**: `vc demo`'s mock API and project.
 - Or offer **Import**.
 
-## 7. Security
+## 9. Security
 - **Session cookie:** a launch link is exchanged for a cookie that is HttpOnly, SameSite=Strict and, new, **Secure**. This works on localhost.
 - **The CSP stays strict.** Fonts and CodeMirror are bundled, there's no CDN, and there are no inline styles.
 - **Secrets are never rendered.** They show as `••••` with their source, and Reveal is never offered for `secret` values.
@@ -234,7 +273,7 @@ Four views in the header band (D510), each opening with one sentence on what it 
 - **Every write is review first** (a diff) and digest guarded. Deletes go to the trash.
 - **Desktop:** the Tauri IPC allow-list holds only the engine commands. There is no shell or fs plugin, and no remote content.
 
-## 8. Engine work this needs (new RPCs and fields)
+## 10. Engine work this needs (new RPCs and fields)
 
 | # | RPC or field | For |
 |---|---|---|
@@ -251,8 +290,12 @@ Four views in the header band (D510), each opening with one sentence on what it 
 | 11 | `TestAlert`, `PluginList`/`Add`/`Remove` | Settings |
 | 12 | User-config read and write (scoped) | Settings, the "You only" scope |
 | 13 | `RunRequest`: strict and reporters | Run dialog |
+| 14 | `Vcs` status, diff, commit, push and pull (UI only, never agents) | The git pane |
+| 15 | Schedules: list, write (through the config diff), the server's scheduler, `ExportSchedule` (GitHub Actions) | Schedules |
+| 16 | `AgentUsage` (per agent and tool, over a window) | Agents › Usage |
+| 17 | A check run: `Run` with `record: false` | Check run in Tests |
 
-## 9. Decisions (Round 88)
+## 11. Decisions (Round 88)
 
 | D | Decision |
 |---|---|
@@ -309,7 +352,26 @@ Round 90 (the fourth mockup review):
 | D510 | Agents: Approvals, Permissions, Connection, Activity |
 | D511 | History strips fill their column |
 
-## 10. Mockups (`design/mockups/ui-v2/`)
+Round 91 (the fifth mockup review: five spaces):
+
+| D | Decision |
+|---|---|
+| D512 | Five spaces: Client, Tests, Runs, Agents, Settings; opens in Client |
+| D513 | A left icon rail switches spaces; "Sidebar bottom" is the option |
+| D514 | The top row is the only bar; no header band or sub-nav |
+| D515 | Collapsible sidebar sections that share the height |
+| D516 | Tests: kind filter, filter popover, one tree, full-width read view, Edit in place |
+| D517 | Check runs in Tests are not saved to Runs; load Quick check |
+| D518 | The git pane in Tests |
+| D519 | Runs: Overview, All runs, Schedules, recent runs, Run… |
+| D520 | Schedules in config, run by the vc server, Export to CI |
+| D521 | Agents' views in the sidebar, plus Usage |
+| D522 | Settings' sections in the sidebar |
+| D523 | No purple: blue, graphite and orange |
+| D524 | Open tabs have a hairline border, no fill |
+| D525 | Graphs fill their card |
+
+## 12. Mockups (`design/mockups/ui-v2/`)
 
 - Static HTML, CSS and JS with fake data. There's no framework or CDN, and the CSP-style rules apply: no inline `style=`.
 - One shared `tokens.css`, `shell.css` and `glass.css`. A theme and tint switcher sits in a dev corner.
@@ -322,32 +384,33 @@ Round 90 (the fourth mockup review):
 4. Client: WebSocket live (messages, composer) and SSE.
 5. Client: the auth tab (registry, greyed future entries), copy as cURL, history.
 6. Client: the Import wizard.
-7. Tests: explorer with facets, query, bulk actions, and test detail with its history strip.
+7. Tests: the sidebar (kind filter, filter popover, tree, Changes), the all-tests table with bulk actions, and the test, file and load read views with a check run.
 8. Tests: editor in Form, YAML (diagnostics, autocomplete popup, hover) and Split views; Save anyway; rename diff.
-9. Tests: the run dialog, the live run with drill-down, and Stop then Skip cleanups.
-10. Tests: the load editor, the live load run with charts and the Hosts panel, and the load report.
-11. Runs: the list, a stored run, and Compare.
-12. Insights.
-13. Agents.
-14. Settings: project and "You only", with the pending-changes bar.
+9. Runs: the run dialog, the live run with drill-down, and Stop then Skip cleanups.
+10. Runs: the live load run with charts and the Hosts panel, and the load report.
+11. Runs: the list, a stored run, Compare, the Overview and Schedules (new, Export to CI).
+12. Agents: Approvals, Activity, Usage, Permissions, Connection.
+13. Settings: project and "You only", with the pending-changes bar; the space switcher option.
+14. The git pane: changes, diff, commit and push.
 15. Command palette, the shortcut sheet, and toasts.
 16. Light theme and a prod tint, shown on three screens.
 17. Narrow widths: 1280, 1024 and 760 px.
 
 **Review:** an artifact-design pass, an AA contrast check of every token pair, a keyboard walk, and screenshots at each width.
 
-## 11. After the review: the build plan (outline)
+## 13. After the review: the build plan (outline)
 
 1. Token, shell and glass refactor of `web/`, with fonts bundled and #114 fixed.
-2. Client mode: ad hoc Call and history.
+2. The five-space shell (rail, sidebar sections, top row), then Client: ad hoc Call and history.
 3. Response viewer extras.
 4. Streams in the client.
 5. Editor: forms and CodeMirror with Complete, Hover and Fix.
 6. File operations and plan.
 7. Runner: drill-down and Cancel.
 8. Load UI.
-9. Compare runs and per-test history.
-10. Settings scopes, onboarding and the palette.
-11. The Tauri shell (#98).
+9. Compare runs, per-test history, check runs and the git pane.
+10. Schedules and Agents usage.
+11. Settings scopes, onboarding and the palette.
+12. The Tauri shell (#98).
 
 Each step is one or two PRs, and each RPC gets its own small engine PR first.

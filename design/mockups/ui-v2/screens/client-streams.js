@@ -173,6 +173,7 @@
   };
 
   VC.screens['client-ws'] = {
+    space: 'client',
     enter: () => { S.api = 'rooms#join'; },
     crumbs: () => [D.project.name, 'rooms', D.apis['rooms#join'].name],
     status: () => '',
@@ -211,6 +212,7 @@
     confirm: 'Create file'
   });
   VC.screens['client-sse'] = {
+    space: 'client',
     enter: () => { S.api = 'payments#events'; },
     crumbs: () => [D.project.name, 'payments', D.apis['payments#events'].name],
     status: () => '',

@@ -76,6 +76,7 @@
   });
 
   VC.screens['client-auth'] = {
+    space: 'client',
     crumbs: () => [D.project.name, 'Auth', D.auth.find((x) => x.id === S.authType).label],
     status: () => '',
     render

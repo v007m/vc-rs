@@ -98,6 +98,7 @@
   });
 
   VC.screens['client-graphql'] = {
+    space: 'client',
     enter: ensure,
     crumbs: () => [D.project.name, 'catalog', VC.api().name],
     status: () => '',

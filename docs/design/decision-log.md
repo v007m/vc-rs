@@ -975,6 +975,25 @@ Round 90 (26 November 2026; Sarath's fourth mockup review of UI v2; in-design re
 | D510 | Agents | Agents has four views in the header band, each opening with one sentence: Approvals (expand to a diff, Approve / Reject), Permissions (tools × profiles switches, prod off, "Review N changes"), Connection (status, clients, setup snippets) and Activity (one-line log with a filter) | — |
 | D511 | History strips | Per-test and Insights run strips fill their column; the strip and the duration sparkline are equal-width columns that stack when narrow | — |
 
+Round 91 (26 November 2026; Sarath's fifth mockup review of UI v2, the five-spaces redesign; the switcher and schedules asked and answered, the rest in-design refinements decided by the orchestrator):
+
+| # | Topic | Decision | Supersedes |
+| --- | --- | --- | --- |
+| D512 | Five spaces | The app has five spaces: Client (try requests, tabs, history, Save as test), Tests (every api and load test, read and edit, check runs, git), Runs (every run, reports, schedules, Overview), Agents (approvals, activity, usage, permissions, connection) and Settings. It opens in Client; each space remembers its last screen | D472 (mode switch and sidebar foot), D490 (Agents as a shared screen at the foot) |
+| D513 | Space switcher | A left icon rail on L0 by default: traffic lights, the five spaces with small labels (⌘1–⌘5), Settings pinned at the bottom (⌘,). It stays when the sidebar is collapsed. Settings › This app › Appearance offers "Sidebar bottom" instead: the five icons in one row at the sidebar's foot | D472 (switch placement) |
+| D514 | One bar | The 44 px top row is the only bar above the cards: Client shows its tab strip; other spaces show the screen title (crumbs without the project), at most one status and one primary action. The header band and every sub-nav are gone; a space's views sit in its sidebar | D499 (header band), D503 (top row in Client only) |
+| D515 | Sidebar sections | A sidebar stacks collapsible sections: a closed one keeps only its header, open ones share the height equally. Client has Requests and History; Tests has Tests and Changes | the Requests / History switch (D472) |
+| D516 | Tests space | The Tests sidebar has an All / API / Load filter, a filter popover (status, tags, service, changed, saved views) shown as removable chips, and one tree of api and load tests topped by "All tests" (the table with bulk actions). The main area shows the selected test, file or table at full width; Edit opens that test's editor in place, and Done or Esc goes back. Explorer, Editor, Run and Load are no longer pages | D499 (Tests sub-nav) |
+| D517 | Check run | Run in Tests checks one test inline: status, time, each check and the exchange, labelled "Check run, not saved to Runs". A load test offers a Quick check (1 user, 10 s). "Run in Runs…" starts a recorded run | — |
+| D518 | Git pane | Tests' Changes section shows the branch, ahead/behind and the changed test files with their diffs; you pick files, write a message and Commit, with Push, Pull and Commit & push in a menu. The server does this through the `Vcs` port, which gains status, diff, commit, push and pull when the UI is built; agents cannot commit or push | — |
+| D519 | Runs space | The Runs sidebar has Overview (the former Insights), All runs (filters: kind, status, profile), Schedules and the recent runs, a live run first. Run… is the primary action. Live API runs, load runs, stored reports, compare and export all open here | D472 (Runs and Insights at the foot) |
+| D520 | Schedules | Schedules live in `vibranium.config.yaml` under `schedules:` (name, selector, profile, cron, notify), so they are in git. The vc server runs them while it is up (`vc ui` locally, or `vc serve` on a shared machine) and records each in run history. Export to CI writes a GitHub Actions cron workflow for machines that sleep. The key's syntax is specified when the server is built | D38 (scheduled monitoring after the web UI: it now ships with it) |
+| D521 | Agents views | Agents' views sit in its sidebar: Approvals (with the pending count), Activity, Usage (new: requests, tool calls, runs started and time per agent over 7 days), Permissions and Connection | D510 (views in the header band) |
+| D522 | Settings | Settings' scopes and sections sit in its sidebar, grouped by scope; the main area shows one section at full width | — |
+| D523 | No purple | The default background is blue, graphite (near-black grey) and a warm orange; no purple or violet in the default palette. The default tint is named graphite; the choices are auto, graphite, blue, teal, amber and red | D471 (default tint) |
+| D524 | Open tabs | Each open tab in the top strip has a 1 px hairline border and no fill; the current tab has a stronger border and full-ink text | D507 (raised pill in the top strip) |
+| D525 | Graphs fill | Status strips, sparklines and charts stretch to their card's width and height; no fixed small chart sizes or max-width caps leave empty space | D511 (extends) |
+
 ## Open
 
 All decisions needed for the PRD and technical design are settled. The language is decided by the spike (D6, D36, D37, D41).
@@ -985,7 +1004,7 @@ The items carried to milestone kick-offs in Round 15 are settled: the default se
 
 ## Parking lot
 
-- Mocks generated from `*.api.yaml` and scheduled monitoring: after the web UI (D38).
+- Mocks generated from `*.api.yaml`: after the web UI (D38). Scheduled runs ship with the web UI (D520).
 - GraphQL, gRPC and WebSocket/SSE executors: after v2.0 (D4).
 - UI testing through HTML/XML parsing: later (D4).
 - Distributed load generation beyond one machine: not in v2 (D8).

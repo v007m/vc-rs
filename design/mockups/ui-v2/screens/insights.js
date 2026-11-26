@@ -1,5 +1,6 @@
-/* Insights (#insights): trends over stored runs for one profile and branch. Charts are
-   hand-built SVG drawn in mount() at the measured width; every chart has a table view. */
+/* Runs space · Overview (#insights): the dashboard of all runs, trends over stored runs for
+   one profile and branch. Charts are hand-built SVG drawn in mount() at the measured width
+   and height of their plot, so they fill the card; every chart has a table view. */
 (function () {
   'use strict';
   const VC = window.VC, D = VC.data, A = VC.actions, SH = VC.sh;
@@ -50,7 +51,7 @@
   function drawLine(fig) {
     const k = fig.dataset.chart, c = CHARTS[k], plot = $('.in-plot', fig);
     const vals = slice(c.vals()), days = slice(N.days);
-    const w = Math.max(280, plot.clientWidth), h = 200;
+    const w = Math.max(280, plot.clientWidth), h = Math.max(160, plot.clientHeight);
     const g = { w, h, l: 40, r: 44, t: 12, b: 24, days };
     g.x = (i) => g.l + (i / (vals.length - 1)) * (w - g.l - g.r);
     g.y = (v) => g.t + (1 - (v - c.lo) / (c.hi - c.lo)) * (h - g.t - g.b);
@@ -175,10 +176,12 @@
     const f = focusId && $('#' + focusId); if (f) f.focus();
   }
   VC.screens.insights = {
-    crumbs: () => [D.project.name, 'Insights'],
+    space: 'runs',
+    crumbs: () => [D.project.name, 'Runs', 'Overview'],
     status: () => '',
+    primary: () => SH.runBtn(),
     render: () => `<div class="stage-one sh-scope"><section class="glass stage-one" aria-label="Insights">
-      <div class="card-head"><div class="grow"><h2 class="card-title">Insights</h2><div class="card-sub" title="Same numbers as vc history --stats">Trends across stored runs.</div></div>
+      <div class="card-head"><div class="grow"><h2 class="card-title">Overview</h2><div class="card-sub" title="Same numbers as vc history --stats">Trends across every stored run.</div></div>
         ${VC.moreBtn('in-more', 'More insights actions')}</div>
       <div class="card-tabs">${scope()}</div>
       <div class="card-body" data-sk="in-body"><div class="in-page">${kpis()}<div class="in-two">${chartCard('pass')}${chartCard('dur')}</div>${flaky()}<div class="in-two">${slow()}${gaps()}</div>${skips()}${services()}</div></div>
@@ -188,8 +191,9 @@
       const figs = $$('.in-chart', view);
       figs.forEach(drawLine);
       if (!figs.length) return;
-      let last = figs[0].clientWidth;
-      const ro = new ResizeObserver(() => { const w = figs[0].clientWidth; if (Math.abs(w - last) > 2) { last = w; figs.forEach(drawLine); } });
+      const size = () => { const p = $('.in-plot', figs[0]); return p ? `${p.clientWidth}x${p.clientHeight}` : ""; };
+      let last = size();
+      const ro = new ResizeObserver(() => { const z = size(); if (z !== last) { last = z; figs.forEach(drawLine); } });
       figs.forEach((f) => ro.observe(f));
       I.ro = ro;
     },

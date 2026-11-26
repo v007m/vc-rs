@@ -1,8 +1,11 @@
+@import url("runs-load.css");   /* one load run (rl-) */
+@import url("admin.css");   /* Agents and Settings; split out of this file */
 /* ==========================================================================
-   Vibranium UI v2 · shared.css: the sidebar-foot screens
+   Vibranium UI v2 · shared.css: the Runs space, and helpers for every space
    --------------------------------------------------------------------------
-   Runs (rn-), Insights (in-), Agents (ag-) and Settings (cfg-), plus the
-   helpers they share (sh-). Loaded last. Tokens only; no new colours.
+   Runs (rn-), Overview (in-), Schedules (sc-) and the load run (rl-), plus
+   the helpers they share with Agents and Settings (sh-; admin.css). Tokens
+   only; no new colours.
 
    Charts: one series colour (--sh-series), 2px lines, r4 markers with a
    surface ring, ~12% area, hairline grid, text in ink tokens.
@@ -67,13 +70,12 @@
 #pick:has(> .in-filter) { left: anchor(left); right: auto; }   /* the Insights button sits at the left */
 
 /* count pills outside tabs (queue title, scope switch) */
-.in-h .count, .cfg-nav-h .count {
+.in-h .count {
   display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 5px;
   border-radius: var(--r-pill); background: var(--l2-bg-pressed); color: var(--ink-2);
   font-size: 11px; font-weight: var(--fw-semibold); font-variant-numeric: tabular-nums;
 }
 .in-h .count.is-bad { background: var(--st-fail-soft); color: var(--st-fail-ink); }
-.cfg-nav-h .count { background: var(--accent-soft); color: var(--accent-ink); }
 
 /* a scrolling table must contain its absolutely positioned .sr-only spans */
 .sh-scope .table-wrap { position: relative; }
@@ -99,7 +101,8 @@
 @media (hover: none) { .rn-table .rn-pick { opacity: 1; } }
 .rn-res, .rn-counts { display: inline-flex; align-items: center; gap: var(--sp-2); }
 .rn-sel { display: inline-flex; align-items: center; gap: var(--sp-2); max-width: 300px; min-width: 0; }
-.rn-branch { display: inline-flex; align-items: center; gap: 4px; max-width: 200px; min-width: 0; color: var(--ink-2); }
+.rn-sel2 { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; }
+.rn-branch { display: inline-flex; align-items: center; gap: 4px; max-width: 200px; min-width: 0; color: var(--ink-2); font-size: var(--fs-1); }
 .rn-branch .ico { flex: none; color: var(--ink-3); }
 .rn-breach { display: inline-flex; align-items: center; color: var(--st-blocked-ink); }
 /* the row's way in: on hover or focus, "Open ›" takes the Started cell's place; ⋯ holds report, export, compare, re-run */
@@ -214,8 +217,9 @@
 .in-panel-head > .grow { display: flex; flex-direction: column; gap: 2px; font-size: var(--fs-1); }
 .in-h { display: flex; align-items: center; gap: 6px; margin: 0; font-size: var(--fs-3); font-weight: var(--fw-semibold); color: var(--ink); }
 
-.in-chart { position: relative; margin: 0; min-width: 0; }
-.in-plot { width: 100%; height: 200px; }
+.in-chart { position: relative; margin: 0; min-width: 0; flex: 1 1 auto; display: flex; flex-direction: column; }
+.in-plot { position: relative; flex: 1 1 auto; width: 100%; min-height: clamp(200px, 30vh, 380px); }
+.in-plot > .in-svg { position: absolute; inset: 0; }
 .in-svg { display: block; border-radius: var(--r-sm); }
 .in-svg:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .in-svg .grid { stroke: var(--rule); stroke-width: 1; shape-rendering: crispEdges; }
@@ -231,7 +235,7 @@
   display: flex; flex-direction: column; gap: 2px; min-width: 140px; padding: 6px var(--sp-2);
   border-radius: var(--r-sm); font-size: var(--fs-1); color: var(--ink); pointer-events: none;
 }
-.in-table-view { max-height: 200px; }
+.in-table-view { max-height: clamp(200px, 30vh, 380px); }
 
 /* the run strip fills its column: every tick takes an equal share, 2px apart */
 .table th.in-strip-cell, .table td.in-strip-cell { width: 32%; min-width: 140px; }
@@ -268,176 +272,82 @@
 .in-svc-v { font-size: var(--fs-5); font-weight: var(--fw-semibold); line-height: 1.1; }
 .in-flaky-n { display: inline-flex; align-items: center; gap: 3px; color: var(--st-flaky-ink); }
 
-/* ---- agents ----------------------------------------------------------------
-   Four views; each opens with one sentence, then its one list or table. */
-.ag-wide, .in-wide { grid-column: 1 / -1; }
-.ag-view { display: flex; flex-direction: column; gap: var(--sp-6); min-width: 0; }
-.ag-lead { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2); min-height: var(--ctl-h-sm); min-width: 0; }
-.ag-lead > p { margin: 0; color: var(--ink-2); font-size: var(--fs-2); }
-.ag-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; min-width: 0; }
-.ag-list > li + li { border-top: 1px solid var(--rule); }
-.ag-line { display: flex; align-items: center; gap: var(--sp-3); min-height: var(--row-h); padding: var(--sp-1) 0; min-width: 0; font-size: var(--fs-1); }
-.ag-line > * { flex: none; }
-.ag-line > .grow { flex: 1 1 auto; min-width: 0; }
-.ag-tool { color: var(--accent-ink); font-size: var(--fs-1); }
-.ag-sec { display: flex; flex-direction: column; gap: var(--sp-3); min-width: 0; }
-.ag-sec .section-label { margin: 0; }
-
-/* approvals: the whole line is the disclosure button */
-.ag-q-line { padding: var(--sp-2); margin: 0 calc(-1 * var(--sp-2)); width: calc(100% + 2 * var(--sp-2)); border: 0; border-radius: var(--r-sm); background: none; color: var(--ink); font: inherit; font-size: var(--fs-1); text-align: left; cursor: pointer; }
-.ag-q-line:hover { background: var(--row-hover); }
-.ag-q-line:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
-.ag-chev { color: var(--ink-3); }
-.ag-age { min-width: 64px; text-align: right; }
-.ag-q-body { display: flex; flex-direction: column; gap: var(--sp-3); padding: var(--sp-1) 0 var(--sp-5) var(--sp-6); min-width: 0; font-size: var(--fs-1); }
-.ag-q-body > p { margin: 0; }
-.ag-q-actions { display: flex; align-items: center; gap: var(--sp-2); }
-.ag-code { margin: 0; padding: var(--sp-3); max-height: 200px; overflow: auto; border-radius: var(--r-md); font-size: var(--fs-1); }
-/* diffs scroll sideways; each line keeps its full width so add/remove tints span it */
-.ag-view .diff { overflow-x: auto; }
-.ag-view .diff .dl { grid-template-columns: 3.2em 3.2em 1.4em max-content; width: max-content; min-width: 100%; }
-
-/* permissions: tools down, profiles across; each cell a switch and, when on, its level */
-.ag-matrix { border-radius: var(--r-md); box-shadow: inset 0 0 0 1px var(--rule); }
-.ag-matrix .table :is(th, td) { padding-left: var(--sp-3); padding-right: var(--sp-3); }
-.ag-matrix .table :is(th, td):first-child { padding-left: var(--sp-4); }
-.ag-matrix th[scope="row"] > span { display: block; }
-.ag-matrix th[scope="row"] > .subtle { margin-top: 2px; font-size: var(--fs-1); font-weight: var(--fw-regular); }
-.ag-ph { display: inline-flex; align-items: center; gap: 4px; }
-.ag-ph .ico { color: var(--ink-3); }
-.ag-cell { display: inline-flex; align-items: center; gap: var(--sp-2); min-height: var(--ctl-h-sm); }
-.ag-lv-off, .ag-lv-txt { font-size: var(--fs-1); }
-.ag-lv-off { color: var(--ink-3); }
-.ag-lv-txt { color: var(--ink-2); }
-.ag-lv {
-  display: inline-flex; align-items: center; gap: 2px; height: var(--ctl-h-sm); padding: 0 4px 0 6px; margin-left: -6px;
-  border: 0; border-radius: var(--r-sm); background: none; color: var(--ink-2); font: inherit; font-size: var(--fs-1); cursor: pointer;
-}
-.ag-lv:hover { background: var(--row-hover); color: var(--ink); }
-.ag-lv:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
-
-/* connection */
-.ag-status { display: flex; align-items: center; gap: var(--sp-3); min-height: var(--ctl-h); font-size: var(--fs-2); min-width: 0; }
-.ag-snip-head { display: flex; align-items: center; gap: var(--sp-3); min-width: 0; font-size: var(--fs-1); }
-
-/* activity */
-.ag-time { min-width: 40px; }
-.ag-end { display: inline-flex; justify-content: flex-end; min-width: 72px; }
-.ag-log-row > .diff { margin: var(--sp-1) 0 var(--sp-3); }
-
-/* ---- settings -------------------------------------------------------------- */
-.cfg-where {
-  display: inline-flex; align-items: center; height: 18px; padding: 0 7px; border-radius: var(--r-pill);
-  font-size: 11px; font-weight: var(--fw-semibold); background: var(--l2-bg-pressed); color: var(--ink-2);
-}
-.cfg-where[data-scope="project"] { background: var(--accent-soft); color: var(--accent-ink); }
-.cfg-body { flex: 1 1 auto; display: grid; grid-template-columns: 200px minmax(0, 1fr); min-height: 0; overflow: hidden; }
-/* one nav level: scope labels, sections under them. Items run to the card edge so their
-   text sits on the card's 24px gutter, like the title above */
-.cfg-nav { display: flex; flex-direction: column; gap: var(--sp-4); padding: var(--sp-3) 0 var(--sp-6); border-right: 1px solid var(--rule); overflow: auto; min-height: 0; }
-.cfg-nav-group { display: flex; flex-direction: column; gap: 1px; }
-.cfg-nav-h { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-1) var(--sp-3) var(--sp-1) var(--card-pad); font-size: 11px; font-weight: var(--fw-semibold); letter-spacing: var(--tracking-label); text-transform: uppercase; color: var(--ink-3); }
-.cfg-nav-h .count { letter-spacing: 0; }
-.cfg-tab {
-  display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); flex: none;
-  height: var(--ctl-h); padding: 0 var(--sp-3) 0 var(--card-pad); border: 0; border-radius: 0;
-  background: transparent; color: var(--ink-2); font-size: var(--fs-2); text-align: left; white-space: nowrap;
-}
-.cfg-tab:hover { background: var(--row-hover); color: var(--ink); }
-.cfg-tab[aria-current="page"] { background: var(--row-selected); color: var(--ink); font-weight: var(--fw-medium); }
-.cfg-tab:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
-.cfg-nav-narrow { display: none; }
-.cfg-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); flex: none; }
-.cfg-panel { display: flex; flex-direction: column; gap: var(--section-gap); padding: var(--card-pad); overflow: auto; min-height: 0; min-width: 0; }
-.cfg-panel:focus-visible { outline-offset: -2px; }
-.cfg-group { display: flex; flex-direction: column; gap: var(--label-gap); max-width: 760px; min-width: 0; }
-.cfg-group-head { display: flex; align-items: flex-start; gap: var(--sp-3); flex-wrap: wrap; }
-.cfg-group-head > .grow { display: flex; flex-direction: column; gap: 2px; font-size: var(--fs-1); }
-.cfg-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--field-gap) var(--group-gap); align-items: start; }
-.cfg-group > details.more, .cfg-grid + details.more { margin-top: var(--sp-1); }
-.cfg-wide { grid-column: 1 / -1; }
-.cfg-sw { display: flex; flex-direction: column; gap: var(--sp-1); padding-top: 24px; }
-.cfg-sw .hint { font-size: var(--fs-1); color: var(--ink-3); }
-.cfg-group > .cfg-sw { padding-top: 0; }
-.cfg-group > .callout { margin: 0; }
-.cfg-group .field > .seg { align-self: flex-start; max-width: 100%; flex-wrap: wrap; }
-.cfg-secret { display: inline-flex; align-items: center; gap: 6px; max-width: 320px; min-width: 0; }
-.cfg-secret .redacted { letter-spacing: 0.1em; }
-.cfg-vars .input { min-width: 110px; }
-.cfg-group input[type="radio"] { accent-color: var(--accent); width: 15px; height: 15px; margin: 0; }
-.cfg-auth { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-3); }
-.cfg-auth-item { display: flex; flex-direction: column; gap: var(--sp-3); padding: var(--sp-4); border-radius: var(--r-md); box-shadow: inset 0 0 0 1px var(--rule); min-width: 0; }
-.cfg-auth-item .kv-row .s { gap: 6px; }
-.cfg-perms { font-size: var(--fs-1); }
-
-.cfg-tint, .cfg-swatch { --sw-h: 292; background: oklch(0.62 0.17 var(--sw-h)); }
-.cfg-tint[data-tint="blue"], .cfg-swatch[data-tint="blue"] { --sw-h: 255; }
-.cfg-tint[data-tint="teal"], .cfg-swatch[data-tint="teal"] { --sw-h: 185; }
-.cfg-tint[data-tint="amber"], .cfg-swatch[data-tint="amber"] { --sw-h: 70; }
-.cfg-tint[data-tint="red"], .cfg-swatch[data-tint="red"] { --sw-h: 25; }
-.cfg-tint { display: inline-block; width: 10px; height: 10px; border-radius: 50%; flex: none; }
-.cfg-tints { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-.cfg-swatch { width: 22px; height: 22px; padding: 0; border: 0; border-radius: 50%; box-shadow: inset 0 0 0 1px var(--rule-strong); }
-.cfg-swatch[data-tint="none"] { background: transparent; box-shadow: inset 0 0 0 1.5px var(--ink-3); }
-.cfg-swatch[aria-checked="true"] { box-shadow: 0 0 0 2px var(--sh-surface), 0 0 0 4px var(--ink); }
-.cfg-swatch:focus-visible { outline: 2px solid var(--focus); outline-offset: 5px; border-radius: 50%; }
-.cfg-tint-rows { display: flex; flex-direction: column; }
-.cfg-tint-row { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-3); min-height: var(--row-h); padding: var(--sp-2) 0; border-top: 1px solid var(--rule); font-size: var(--fs-1); }
-.cfg-tint-row:first-child { border-top: 0; }
-
-.cfg-pending[data-dirty="true"] { background: var(--accent-soft); color: var(--ink); }
-.cfg-dirty { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 6px; color: var(--accent-ink); }
-.cfg-dirty b { color: var(--ink); }
+.in-wide { grid-column: 1 / -1; }
 
 /* ---- density (UI preferences) ----------------------------------------------
    Compact trims row height, never the gutters: panels keep at least 16px. */
 html[data-density="compact"] .sh-scope .table td { padding-top: var(--sp-2); padding-bottom: var(--sp-2); }
 html[data-density="compact"] .sh-scope .kv-row > * { padding-top: 6px; padding-bottom: 6px; }
 html[data-density="compact"] .rn-t { height: 32px; }
-html[data-density="compact"] .in-li,
-html[data-density="compact"] .ag-line,
-html[data-density="compact"] .cfg-tint-row { min-height: 32px; padding-top: 6px; padding-bottom: 6px; }
-html[data-density="compact"] .cfg-tab { height: var(--ctl-h); }
-html[data-density="compact"] .cfg-panel { gap: var(--sp-6); padding: var(--sp-5); }
+html[data-density="compact"] .in-li { min-height: 32px; padding-top: 6px; padding-bottom: 6px; }
 html[data-density="compact"] .in-panel { gap: var(--sp-2); }
 
 /* ---- responsive (the app container) ---------------------------------------- */
+/* ---- Runs sidebar: recent rows -------------------------------------------- */
+.rn-sbr .dot { margin: 0 2px; }
+.rn-sbn { margin-right: 6px; color: var(--l0-ink-2); font-size: var(--fs-1); }
+
+/* ---- Schedules (sc-) ----------------------------------------------------------- */
+.sc-page { display: flex; flex-direction: column; gap: var(--card-gap); min-width: 0; min-height: 100%; }
+.sc-card { flex: none; }
+.sc-table tbody th { font-size: var(--fs-2); font-weight: var(--fw-medium); letter-spacing: normal; text-transform: none; color: var(--ink); }
+.sc-body { flex-direction: column; gap: var(--sp-4); }
+.sc-table td, .sc-table th { white-space: nowrap; }
+.sc-table tr.is-off :is(th, td):not(:nth-last-child(-n+2)) { color: var(--ink-3); }
+.sc-when { display: flex; flex-direction: column; gap: 2px; }
+.sc-when .mono { font-size: var(--fs-1); }
+.sc-runner, .sc-last { display: inline-flex; align-items: center; gap: 6px; }
+.sc-note { display: flex; align-items: center; gap: var(--sp-2); margin: 0; font-size: var(--fs-1); }
+.sc-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--field-gap); align-content: start; }
+.sc-wide { grid-column: 1 / -1; }
+.sc-form > .callout { margin: 0; }
+.sc-pick { display: flex; flex-direction: column; gap: var(--sp-2); }
+.sc-chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.sc-chip[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent-ink); box-shadow: inset 0 0 0 1px var(--accent); }
+.sc-err { display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-1); color: var(--st-fail-ink); }
+.sc-err:empty { display: none; }
+.sc-form .input[readonly] { color: var(--ink-2); }
+.sc-yaml { max-height: 340px; overflow: auto; margin: 0; }
+
 @container app (max-width: 1600px) {
   .rn-table .rn-wide { display: none; }
+}
+@container app (max-width: 1300px) {
+  .rn-table .rn-by { display: none; }
 }
 @container app (max-width: 1100px) {
   .rn-table .hide-narrow { display: none; }
   .rn-go-narrow { display: inline-flex; }
-  .cfg-body { grid-template-columns: 184px minmax(0, 1fr); }
   .in-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: var(--sp-5); }
   .in-kpi:nth-child(odd) { padding-left: 0; border-left: 0; }
 }
+@container app (max-width: 1400px) {
+  .sc-table .sc-opt { display: none; }
+}
 @container app (max-width: 900px) {
+  .sc-table .sc-opt2, .sc-table .sc-last .subtle { display: none; }
   .rn-table .rn-opt { display: none; }
+  .rn-table .table :is(th, td) { padding-left: var(--sp-2); padding-right: var(--sp-2); }
+  .rn-table .rn-res .sh-seg { display: none; }   /* the counts stay; the bar repeats them */
   .rn-table .sh-seg { width: 52px; }
-  .rn-table .rn-sel { max-width: 130px; }
+  .rn-table :is(.rn-sel, .rn-branch) { max-width: 116px; }
+  .rn-table .rn-sel > .subtle { display: none; }   /* the kind tag yields to the selector; Status and filters still say it */
+  .rn-table .rn-pickc { display: none; }   /* compare stays in each row's ⋯ menu */
   .in-two { grid-template-columns: minmax(0, 1fr); }
   .card-body.rn-run { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); overflow: auto; }
   .rn-files { max-height: 220px; }
   .rn-detail { overflow: visible; }
-  /* B: below 900 the section nav is one select, not a clipped tab strip */
-  .cfg-body { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
-  .cfg-nav { display: none; }
-  .cfg-nav-narrow { display: block; padding: var(--sp-3) var(--card-pad); border-bottom: 1px solid var(--rule); }
-  .cfg-nav-select { width: 100%; max-width: 360px; }
-  .cfg-panel { padding: var(--sp-4) var(--card-pad); }
   /* compare: ids and reasons wrap instead of clipping */
   .rn-fit td:first-child, .rn-fit td:last-child { white-space: normal; }
   .rn-fit .rn-id { height: auto; min-height: var(--ctl-h-sm); padding-block: 2px; text-align: left; }
   .rn-fit .rn-id .ellipsis { white-space: normal; overflow-wrap: anywhere; }
 }
 @container app (max-width: 759px) {
+  .sc-form { grid-template-columns: minmax(0, 1fr); }
   .rn-search { flex-basis: 100%; max-width: none; }
   .sh-fields { grid-template-columns: minmax(0, 1fr); }
   .in-kpi-v { font-size: var(--fs-5); }
   .in-kpi { padding: 0 var(--sp-3); }
-  .cfg-grid { grid-template-columns: minmax(0, 1fr); }
-  .ag-q-body { padding-left: 0; }
   .rn-facts-gap { flex-basis: 100%; height: 0; }
   .in-li { flex-wrap: wrap; }
 }

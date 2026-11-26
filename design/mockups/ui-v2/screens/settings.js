@@ -1,4 +1,5 @@
-/* Settings (#project-settings): three clearly badged scopes. Project = vibranium.config.yaml
+/* Settings space (#project-settings): the sections sit in the space's sidebar, grouped by
+   three clearly badged scopes; the main area shows the one selected section, full width. Project = vibranium.config.yaml
    (shared through git), You only = ~/.config/vibranium (this machine), UI preferences (this
    browser). Config edits collect in a pending bar and are written through a diff. Secrets
    are never shown: •••• plus where they come from, with no Reveal. */
@@ -142,15 +143,19 @@
     (String(val('u:plugins.allowUnconfined', 'false')) === 'true' ? `<p class="callout" data-tone="danger">${ic('warn')}<span><b>Plugins could read any file and reach any host.</b> Turn this off once you finish debugging the plugin.</span></p>` : ''));
 
   /* ---- UI preferences (applied at once, like the dev corner) ----------------------------- */
-  const TINTS = ['violet', 'blue', 'teal', 'amber', 'red'];
+  /* the same names as tokens.css [data-tint]; a saved 'violet' reads as graphite (app.js applyRoot) */
+  const TINTS = ['graphite', 'blue', 'teal', 'amber', 'red'];
+  const tintOf = (t) => (t === 'violet' ? 'graphite' : t);
   const pseg = (label, k, cur, opts) => `<div class="field"><span class="label">${label}</span><div class="seg" role="group" aria-label="${esc(label)}">${opts.map(([v, l]) => `<button aria-pressed="${cur === v}" data-action="cfg-pref" data-k="${k}" data-v="${v}" data-fk="pf-${k}-${v}">${l}</button>`).join('')}</div></div>`;
-  const tintPick = (label, who, cur, none) => `<div class="cfg-tints" role="radiogroup" aria-label="${esc(label)}">${(none ? [[null, none]] : []).concat(TINTS.map((t) => [t, t])).map(([t, l]) => `<button class="cfg-swatch" role="radio" aria-checked="${cur === t}" data-action="cfg-tint" data-who="${who}" data-v="${t || ''}" data-tint="${t || 'none'}" title="${l}" aria-label="${l}" data-fk="tn-${who}-${t}"></button>`).join('')}</div>`;
+  const tintPick = (label, who, cur, none) => `<div class="cfg-tints" role="radiogroup" aria-label="${esc(label)}">${(none ? [[null, none]] : []).concat(TINTS.map((t) => [t, t])).map(([t, l]) => `<button class="cfg-swatch" role="radio" aria-checked="${tintOf(cur) === t}" data-action="cfg-tint" data-who="${who}" data-v="${t || ''}" data-tint="${t || 'none'}" title="${l}" aria-label="${l}" data-fk="tn-${who}-${t}"></button>`).join('')}</div>`;
   const UI = {};
-  UI.appearance = () => group('Appearance', 'Match system follows the OS light or dark setting.', pseg('Theme', 'theme', S.theme, [['system', 'Match system'], ['light', 'Light'], ['dark', 'Dark']])) +
+  UI.appearance = () => group('Theme', 'Match system follows the OS light or dark setting.', pseg('Theme', 'theme', S.theme, [['system', 'Match system'], ['light', 'Light'], ['dark', 'Dark']])) +
+    group('Space switcher', 'Where the Client, Tests, Runs, Agents and Settings icons sit. ⌘1–⌘5 work either way.',
+      pseg('Space switcher', 'switcher', S.switcher === 'foot' ? 'foot' : 'rail', [['rail', 'Icon rail'], ['foot', 'Sidebar bottom']])) +
     group('Tint', 'The project has a tint; a profile may set its own so risky ones stand out. Saved to vibranium.config.yaml so the team sees the same colours.',
       `<div class="cfg-tint-rows"><div class="cfg-tint-row"><span class="mono grow">project · ${esc(D.project.name)}</span>${tintPick('Project tint', 'project', D.project.tint)}</div>
       ${D.profiles.map((p) => `<div class="cfg-tint-row"><span class="mono grow">profile · ${esc(p.id)}</span>${tintPick(`${p.id} tint`, p.id, p.tint, 'Same as project')}</div>`).join('')}</div>`) +
-    group('This browser', 'Override every tint while you work here.', pseg('Browser tint', 'tint', S.tint, [['auto', 'Follow profile']].concat(TINTS.map((t) => [t, t[0].toUpperCase() + t.slice(1)]))));
+    group('This browser', 'Override every tint while you work here.', pseg('Browser tint', 'tint', tintOf(S.tint), [['auto', 'Follow profile']].concat(TINTS.map((t) => [t, t[0].toUpperCase() + t.slice(1)]))));
   UI.access = () => group('Motion and transparency', 'Match system follows your OS settings.', grid(
     pseg('Motion', 'motion', S.motion, [['system', 'Match system'], ['reduce', 'Reduce'], ['full', 'Full']]),
     pseg('Transparency', 'transparency', S.transparency, [['system', 'Match system'], ['reduce', 'Reduce'], ['full', 'Full']])));
@@ -168,28 +173,30 @@
     return `<span class="cfg-dirty">${ic('info', 'ico-sm')}<b>${n} unsaved change${n > 1 ? 's' : ''}</b> in ${files.map((f) => `<span class="mono">${esc(f)}</span>`).join(' and ')}</span><span class="grow"></span>
       <button class="btn btn-sm" data-action="cfg-discard" data-fk="cfg-discard">Discard</button><button class="btn btn-primary btn-sm" data-action="cfg-review" data-fk="cfg-review">${ic('eye')}Review & save</button>`;
   }
-  /* B: one navigation level. The three scopes are group labels; their sections sit under them */
+  /* the sidebar: the three scopes are quiet group labels, their sections sit under them */
   const dirtyIn = (scope, k) => pendingFor(scope).some(([key]) => key.slice(2).startsWith(k === 'vars' ? 'vars' : k) || (k === 'vars' && key.includes('.vars.')));
-  function nav() {
-    return `<nav class="cfg-nav" aria-label="Settings sections">${Object.entries(SCOPES).map(([sc, o]) => {
-      const n = sc === 'ui' ? 0 : pendingFor(sc).length;
-      return `<div class="cfg-nav-group" role="group" aria-labelledby="cfn-${sc}"><span class="cfg-nav-h" id="cfn-${sc}">${esc(o.label)}${n ? `<span class="count" aria-label="${n} unsaved">${n}</span>` : ''}</span>
-        ${SECTIONS[sc].map(([k, l]) => `<button class="cfg-tab" id="cfs-${sc}-${k}"${sc === C.scope && C.sec[sc] === k ? ' aria-current="page"' : ''} data-action="cfg-sec" data-scope="${sc}" data-v="${k}" data-fk="cfs-${sc}-${k}">${esc(l)}${dirtyIn(sc, k) ? '<span class="cfg-dot" aria-label="unsaved"></span>' : ''}</button>`).join('')}</div>`;
-    }).join('')}</nav>`;
+  const onSettings = () => S.route === 'project-settings';
+  function navGroup([sc, o]) {
+    const n = sc === 'ui' ? 0 : pendingFor(sc).length;
+    const items = SECTIONS[sc].map(([k, l]) => ({
+      label: l, action: 'cfg-sec', attrs: `data-scope="${sc}" data-v="${k}"`, fk: `cfs-${sc}-${k}`,
+      current: onSettings() && sc === C.scope && C.sec[sc] === k, meta: dirtyIn(sc, k) ? '<span class="cfg-dot" aria-label="unsaved"></span>' : ''
+    }));
+    return `<section class="sb-section" aria-labelledby="cfn-${sc}"><h2 class="sb-label" id="cfn-${sc}">${esc(o.label)}${n ? `<span class="count" aria-label="${n} unsaved">${n}</span>` : ''}</h2>${VC.sbNav(items)}</section>`;
   }
-  /* narrow: the same list as one select, grouped by scope */
-  function navSelect() {
-    return `<select class="select cfg-nav-select" id="cfg-nav-select" aria-label="Settings section" data-fk="cfg-nav-select">${Object.entries(SCOPES).map(([sc, o]) => `<optgroup label="${esc(o.label)}">${SECTIONS[sc].map(([k, l]) => `<option value="${sc}:${k}"${sc === C.scope && C.sec[sc] === k ? ' selected' : ''}>${esc(l)}${dirtyIn(sc, k) ? ' •' : ''}</option>`).join('')}</optgroup>`).join('')}</select>`;
-  }
+  const sidebar = () => Object.entries(SCOPES).map(navGroup).join('');
+  VC.spaces.settings.sidebar = sidebar;
+  const secLabel = () => SECTIONS[C.scope].find(([k]) => k === C.sec[C.scope])[1];
   VC.screens['project-settings'] = {
-    crumbs: () => [D.project.name, 'Settings', SCOPES[C.scope].label, SECTIONS[C.scope].find(([k]) => k === C.sec[C.scope])[1]],
+    space: 'settings',
+    crumbs: () => [D.project.name, 'Settings', SCOPES[C.scope].label, secLabel()],
     status: () => '',
     render: () => {
       const sc = SCOPES[C.scope], sec = C.sec[C.scope];
-      return `<div class="stage-one sh-scope"><section class="glass stage-one" aria-label="Settings">
-        <div class="card-head"><div class="grow"><h2 class="card-title">Settings</h2><div class="card-sub">${ic(sc.ico, 'ico-sm')}<span class="cfg-where" data-scope="${C.scope}">${esc(sc.label)}</span><span>${esc(sc.where)}</span></div></div>
+      return `<div class="stage-one sh-scope"><section class="glass stage-one rn-hug" aria-labelledby="cfg-title">
+        <div class="card-head"><div class="grow"><h2 class="card-title" id="cfg-title">${esc(secLabel())}</h2><div class="card-sub">${ic(sc.ico, 'ico-sm')}<span class="cfg-where" data-scope="${C.scope}">${esc(sc.label)}</span><span>${esc(sc.where)}</span></div></div>
           ${C.scope !== 'ui' ? `<button class="btn btn-sm" data-action="cfg-open-file" data-fk="cfg-open">${ic('code')}Open YAML</button>` : ''}</div>
-        <div class="cfg-body">${nav()}<div class="cfg-nav-narrow">${navSelect()}</div><div class="cfg-panel" role="region" id="cfs-panel" aria-labelledby="cfs-${C.scope}-${sec}" data-sk="cfg-panel" tabindex="-1">${RENDER[C.scope][sec]()}</div></div>
+        <div class="card-body cfg-panel" id="cfs-panel" data-sk="cfg-${C.scope}-${sec}">${RENDER[C.scope][sec]()}</div>
         <div class="card-foot cfg-pending" id="cfg-pending" role="status" data-dirty="${!!Object.keys(C.pending).length}">${pendingBar()}</div>
       </section></div>`;
     }
@@ -200,9 +207,8 @@
     if (String(now) === String(was)) delete C.pending[key]; else C.pending[key] = { was: String(was), now: String(now) };
     const bar = $('#cfg-pending');
     if (bar) { bar.innerHTML = pendingBar(); bar.dataset.dirty = String(!!Object.keys(C.pending).length); }
-    const n = $('.cfg-nav'), ns = $('#cfg-nav-select');
-    if (n) n.outerHTML = nav();
-    if (ns) ns.outerHTML = navSelect();
+    const sb = $('#sidebar .sb-body');
+    if (sb && S.space === 'settings') sb.innerHTML = sidebar();
   }
   function yamlLines(key, p) {
     const path = key.slice(2).split('.'), leaf = path.pop(), ind = '  '.repeat(path.length);
@@ -226,8 +232,8 @@
     });
   };
   A['cfg-discard'] = () => { C.pending = {}; VC.render(); VC.toast('Discarded unsaved changes'); };
-  const goSec = (scope, k) => { C.scope = scope; C.sec[scope] = k; VC.render(); const p = $('#cfs-panel'); if (p) p.scrollTop = 0; };
-  A['cfg-sec'] = (el) => { goSec(el.dataset.scope, el.dataset.v); const b = $(`[data-fk="${el.dataset.fk}"]`); if (b) b.focus(); };
+  /* VC.go re-renders on the same route and closes the narrow drawer; each section keeps its own scroll */
+  A['cfg-sec'] = (el) => { C.scope = el.dataset.scope; C.sec[C.scope] = el.dataset.v; VC.go('project-settings'); };
   A['cfg-seg'] = (el) => { record(el.dataset.cfg, el.dataset.was, el.dataset.v); VC.render(); };
   A['cfg-chip'] = (el) => {
     const k = el.dataset.cfg, cur = val(k, el.dataset.was).split(',').filter(Boolean);
@@ -272,8 +278,7 @@
   };
   A['cfg-pref'] = (el) => {
     const k = el.dataset.k, v = el.dataset.v;
-    S[k] = v; VC.savePrefs();
-    VC.render();
+    if (VC.setPref) VC.setPref(k, v); else { S[k] = v; VC.savePrefs(); VC.render(); }
   };
   A['cfg-tint'] = (el) => {
     const who = el.dataset.who, v = el.dataset.v || null;
@@ -286,7 +291,6 @@
   document.addEventListener('input', (e) => { const t = e.target; if (t.dataset && t.dataset.cfg && t.type !== 'checkbox' && t.type !== 'radio') record(t.dataset.cfg, t.dataset.was, t.value); });
   document.addEventListener('change', (e) => {
     const t = e.target;
-    if (t.id === 'cfg-nav-select') { const [sc, k] = t.value.split(':'); goSec(sc, k); const ns = $('#cfg-nav-select'); if (ns) ns.focus(); return; }
     if (t.id === 'cf-idle') { S.idle = t.value; VC.savePrefs(); VC.toast(`Idle tabs close after ${t.selectedOptions[0].text.replace(' (default)', '')}`); return; }
     if (!t.dataset || !t.dataset.cfg) return;
     if (t.type === 'checkbox') { record(t.dataset.cfg, t.dataset.was, String(t.checked)); VC.render(); }

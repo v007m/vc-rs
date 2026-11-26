@@ -12,14 +12,24 @@
     { n: 481, kind: 'test', st: 'pass', when: 'Today 13:40', ago: '26 min ago', dur: '38.9s', profile: 'local', layers: ['eu'], branch: 's/checkout-v2', commit: '7d02bb1', by: 'you', sel: 'orders users', tot: t(41, 0, 0, 3, 1, 1) },
     { n: 480, kind: 'test', st: 'pass', when: 'Today 13:12', ago: '54 min ago', dur: '12.4s', profile: 'local', layers: [], branch: 's/checkout-v2', commit: '7d02bb1', by: 'claude-code', sel: 'tag:smoke', tot: t(9, 0, 0, 0, 0, 0) },
     { n: 479, kind: 'adhoc', st: 'fail', when: 'Today 13:58', ago: '8 min ago', dur: '311ms', profile: 'local', layers: [], branch: 's/checkout-v2', commit: '7d02bb1', by: 'you', sel: 'payments#charge', code: 402 },
-    { n: 478, kind: 'load', st: 'fail', when: 'Today 11:30', ago: '2 h ago', dur: '5m 00s', profile: 'staging', layers: [], branch: 'master', commit: 'e19f04a', by: 'ci', sel: 'checkout.peak', load: { iters: 18240, errs: 212, breach: 'p95 < 400ms · got 512 ms' } },
-    { n: 477, kind: 'test', st: 'pass', when: 'Today 10:05', ago: '4 h ago', dur: '1m 12s', profile: 'staging', layers: [], branch: 'master', commit: 'e19f04a', by: 'ci', sel: 'all', tot: t(118, 0, 0, 6, 2, 1) },
+    { n: 478, kind: 'load', st: 'fail', when: 'Today 11:30', ago: '2 h ago', dur: '7m 00s', profile: 'staging', layers: [], branch: 'master', commit: 'e19f04a', by: 'ci', sel: 'checkout.peak', sched: 'weekly-load', load: { iters: 666055, errs: 4120, breach: 'p99 lt 800ms · got 862 ms' } },
+    { n: 477, kind: 'test', st: 'pass', when: 'Today 10:05', ago: '4 h ago', dur: '1m 12s', profile: 'staging', layers: [], branch: 'master', commit: 'e19f04a', by: 'ci', sel: 'all', sched: 'nightly-staging', tot: t(118, 0, 0, 6, 2, 1) },
     { n: 476, kind: 'test', st: 'fail', when: 'Yesterday 18:40', ago: '20 h ago', dur: '44.0s', profile: 'local', layers: ['eu'], branch: 's/checkout-v2', commit: '3b7a0c5', by: 'cursor', sel: 'orders.checkout', tot: t(7, 1, 1, 0, 0, 0) },
     { n: 475, kind: 'test', st: 'blocked', when: 'Yesterday 16:22', ago: '22 h ago', dur: '3.1s', profile: 'dev', layers: [], branch: 'master', commit: 'c02e771', by: 'ci', sel: 'payments', tot: t(0, 0, 6, 0, 0, 0) },
     { n: 474, kind: 'test', st: 'pass', when: 'Yesterday 09:15', ago: '1 d ago', dur: '1m 09s', profile: 'staging', layers: [], branch: 'master', commit: 'c02e771', by: 'ci', sel: 'all', tot: t(119, 0, 0, 6, 1, 1) },
-    { n: 473, kind: 'test', st: 'pass', when: 'Sat 21 Nov 22:00', ago: '2 d ago', dur: '58.2s', profile: 'prod', layers: [], branch: 'master', commit: 'c02e771', by: 'ci', sel: 'tag:smoke', tot: t(14, 0, 0, 0, 0, 0) },
-    { n: 472, kind: 'load', st: 'pass', when: 'Fri 20 Nov 17:30', ago: '3 d ago', dur: '5m 00s', profile: 'staging', layers: [], branch: 'master', commit: '90d1a3e', by: 'you', sel: 'checkout.peak', load: { iters: 18800, errs: 9, breach: null } },
+    { n: 473, kind: 'test', st: 'pass', when: 'Sat 21 Nov 22:00', ago: '2 d ago', dur: '58.2s', profile: 'prod', layers: [], branch: 'master', commit: 'c02e771', by: 'ci', sel: 'tag:smoke', sched: 'prod-smoke', tot: t(14, 0, 0, 0, 0, 0) },
+    { n: 472, kind: 'load', st: 'pass', when: 'Fri 20 Nov 17:30', ago: '3 d ago', dur: '7m 00s', profile: 'staging', layers: [], branch: 'master', commit: '90d1a3e', by: 'you', sel: 'checkout.peak', load: { iters: 671900, errs: 310, breach: null } },
     { n: 471, kind: 'test', st: 'fail', when: 'Fri 20 Nov 11:15', ago: '3 d ago', dur: '40.3s', profile: 'local', layers: [], branch: 's/refunds', commit: '5e6f2aa', by: 'you', sel: 'payments.refunds', tot: t(4, 2, 0, 0, 0, 0) }
+  ];
+
+  /* ---- schedules (vibranium.config.yaml › schedules:) ---------------------------
+     The vc server runs them while `vc ui` or `vc serve` is up; each run lands in history.
+     runner 'ci' means the schedule was exported to a GitHub Actions cron workflow. */
+  const schedules = [
+    { id: 'nightly-staging', cron: '0 2 * * 1-5', words: 'Weekdays 02:00', sel: 'all', profile: 'staging', runner: 'server', next: 'Tomorrow 02:00', last: { n: 477, st: 'pass', ago: '4 h ago' }, on: true, notify: 'slack #qa-alerts' },
+    { id: 'prod-smoke', cron: '0 */6 * * *', words: 'Every 6 hours', sel: 'tag:smoke', profile: 'prod', runner: 'ci', next: 'Today 18:00', last: { n: 473, st: 'pass', ago: '2 d ago' }, on: true, notify: 'pagerduty on failure' },
+    { id: 'weekly-load', cron: '30 11 * * 4', words: 'Thursdays 11:30', sel: 'checkout.peak', profile: 'staging', runner: 'server', next: 'Thu 3 Dec 11:30', last: { n: 478, st: 'fail', ago: '2 h ago' }, on: true, notify: 'slack #qa-alerts' },
+    { id: 'morning-orders', cron: '0 9 * * 1-5', words: 'Weekdays 09:00', sel: 'orders users', profile: 'dev', runner: 'server', next: 'Tomorrow 09:00', last: null, on: false, notify: 'none' }
   ];
 
   /* ---- one stored run, the same shape a live run streams ---------------------- */
@@ -169,6 +179,24 @@
     ]
   };
 
+  /* ---- agent usage, last 7 days (today, Thursday, is the last point) ----------------- */
+  const usage = {
+    days: ['Fri', 'Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu'],
+    agents: [
+      { id: 'claude-code', req: [42, 8, 3, 61, 74, 58, 49], tools: [118, 21, 9, 170, 205, 161, 132], runs: [4, 1, 0, 6, 7, 5, 4], tokens: '1.9M', time: '3 h 12 min' },
+      { id: 'cursor', req: [18, 2, 0, 22, 31, 27, 14], tools: [40, 4, 0, 51, 66, 58, 29], runs: [1, 0, 0, 2, 2, 1, 1], tokens: '640k', time: '1 h 05 min' }
+    ],
+    byTool: [
+      { agent: 'claude-code', tool: 'explain_failure', calls: 212, ok: 212, refused: 0, asked: 0 },
+      { agent: 'claude-code', tool: 'run_tests', calls: 27, ok: 27, refused: 0, asked: 0 },
+      { agent: 'claude-code', tool: 'write_definition', calls: 19, ok: 14, refused: 1, asked: 19 },
+      { agent: 'claude-code', tool: 'get_definition', calls: 486, ok: 486, refused: 0, asked: 0 },
+      { agent: 'cursor', tool: 'call_api', calls: 96, ok: 88, refused: 6, asked: 11 },
+      { agent: 'cursor', tool: 'query_history', calls: 61, ok: 61, refused: 0, asked: 0 },
+      { agent: 'cursor', tool: 'run_tests', calls: 7, ok: 7, refused: 0, asked: 0 }
+    ]
+  };
+
   /* ---- settings ---------------------------------------------------------------- */
   const settings = {
     digest: 'b3f1c27',
@@ -216,5 +244,6 @@
     user: { profile: 'local', timeout: '', concurrency: '8', reportsDir: '', formats: '', allowUnconfined: false, vars: [['buyerEmail', 'sarath+buyer@shop.test']] }
   };
 
-  VC.data.shared = { runs, runDetail, compare, insights, agents, settings };
+  agents.usage = usage;
+  VC.data.shared = { runs, runDetail, compare, insights, agents, settings, schedules };
 })();

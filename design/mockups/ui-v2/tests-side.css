@@ -1,0 +1,72 @@
+/* ==========================================================================
+   Vibranium v2 · UI mockups · Tests sidebar (ts-) and Changes pane (tg-)
+   Markup: screens/tests-sidebar.js and screens/tests-git.js, inside A's
+   .sb-body / VC.sbSections frame (sidebar.css). The sidebar is L0, so text
+   uses the --l0-* inks. Fits a 260–300 px sidebar. Tokens only.
+   ========================================================================== */
+
+/* the frame: the bar and chips stay put, the two sections share the rest */
+.sb-body:has(> .ts-side) { overflow: hidden; }
+.ts-side { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
+.ts-side > .sb-secs { flex: 1 1 auto; }
+
+.ts-bar { flex: none; display: flex; align-items: center; gap: var(--sp-2); padding-inline: 2px; }
+.ts-kind { flex: 1 1 auto; min-width: 0; }
+.ts-filter { position: relative; flex: none; }
+.ts-filter.is-on { color: var(--l0-ink); background: var(--l0-selected); }
+.ts-chips { flex: none; list-style: none; margin: 0; padding: 0 2px; display: flex; flex-wrap: wrap; gap: var(--sp-1); }
+.ts-chip { gap: var(--sp-1); font-family: var(--mono); font-size: 11px; max-width: 100%; }
+.ts-chip .ico { flex: none; opacity: 0.7; }
+.ts-chip:hover .ico { opacity: 1; }
+.ts-chip:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+
+.ts-tests { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ts-tests .sb-tree { min-width: 0; }
+.ts-mod { flex: none; font-family: var(--mono); font-size: 10.5px; font-weight: var(--fw-semibold); color: var(--st-blocked-ink); }
+.ts-load-chip { flex: none; font-family: var(--mono); font-size: 10.5px; }
+.ts-count {
+  display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 5px;
+  border-radius: var(--r-pill); background: var(--l0-selected); color: var(--l0-ink); font-size: 11px;
+}
+
+/* ---- Changes pane ---------------------------------------------------------- */
+.tg { display: flex; flex-direction: column; gap: var(--sp-2); padding: 0 var(--sp-1) var(--sp-3); min-width: 0; font-size: var(--fs-2); color: var(--l0-ink); }
+.tg-branch { display: flex; align-items: center; gap: var(--sp-2); min-height: 28px; padding: 0 var(--sp-2); color: var(--l0-ink-2); min-width: 0; }
+.tg-branch .mono { font-size: var(--fs-1); }
+.tg-ab { flex: none; display: inline-flex; gap: var(--sp-2); font-size: var(--fs-1); color: var(--l0-ink-3); }
+.tg-ab > span { display: inline-flex; align-items: center; gap: 2px; }
+.tg-ab > .is-on { color: var(--l0-ink); font-weight: var(--fw-semibold); }
+
+.tg-head { display: flex; align-items: center; min-height: 28px; padding: 0 var(--sp-2); font-size: var(--fs-1); color: var(--l0-ink-3); }
+.tg-all { display: inline-flex; align-items: center; gap: var(--sp-2); cursor: pointer; }
+.tg-files { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 1px; }
+.tg-file { display: flex; align-items: center; gap: var(--sp-1); min-height: 30px; padding-left: var(--sp-2); border-radius: var(--r-sm); }
+.tg-file:hover { background: var(--l0-hover); }
+.tg-stage, .tg-stage-all { flex: none; margin: 0; }
+.tg-stage:focus-visible, .tg-stage-all:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.tg-open {
+  flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: var(--sp-2);
+  height: 28px; padding: 0 var(--sp-2) 0 var(--sp-1); border: 0; border-radius: var(--r-sm);
+  background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer;
+}
+.tg-open:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.tg-file.is-unstaged .tg-name { color: var(--l0-ink-3); }
+.tg-name { flex: 1 1 auto; min-width: 0; }
+.tg-st { flex: none; width: 12px; font-family: var(--mono); font-size: 11px; font-weight: var(--fw-semibold); text-align: center; }
+.tg-st-M { color: var(--st-blocked-ink); }
+.tg-st-A { color: var(--diff-add-ink); }
+.tg-st-D { color: var(--diff-del-ink); }
+.tg-n { flex: none; display: inline-flex; gap: var(--sp-1); font-family: var(--mono); font-size: 11px; }
+.tg-n .add { color: var(--diff-add-ink); }
+.tg-n .del { color: var(--diff-del-ink); }
+
+.tg-msg { display: flex; padding: 0; margin-top: var(--sp-1); }
+.tg-text {
+  flex: 1 1 auto; width: 100%; min-height: 56px; padding: var(--sp-2) var(--sp-3);
+  border: 0; background: transparent; color: var(--ink); font: inherit; resize: vertical;
+}
+.tg-text::placeholder { color: var(--ink-3); }
+.tg-text:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; border-radius: inherit; }
+.tg-acts { display: flex; align-items: center; gap: var(--sp-2); }
+.tg-empty { display: flex; align-items: flex-start; gap: var(--sp-2); margin: 0; padding: var(--sp-2); color: var(--l0-ink-2); }
+.tg-empty .ico { flex: none; margin-top: 2px; color: var(--st-pass-ink); }

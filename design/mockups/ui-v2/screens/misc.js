@@ -1,4 +1,4 @@
-/* History (#history), Welcome / onboarding (#welcome) and the pass-2 placeholders
+/* History (#history), Welcome / onboarding (#welcome) and the placeholders for the space homes
    (#tests #runs #insights #agents #project-settings). */
 (function () {
   'use strict';
@@ -24,6 +24,7 @@
     return days || `<div class="empty empty-quiet" role="status"><span>No calls match</span><button class="link" data-action="hist-clear" data-fk="hist-clear">Clear search and filter</button></div>`;
   }
   VC.screens.history = {
+    space: 'client',
     crumbs: () => [D.project.name, 'History'],
     status: () => '',
     render: () => `<div class="stage-one"><section class="glass stage-one" aria-label="Call history">
@@ -41,6 +42,7 @@
 
   /* ---- welcome / onboarding --------------------------------------------------- */
   VC.screens.welcome = {
+    space: 'client',
     crumbs: () => [S.empty ? '~/dev/new-api' : D.project.name, 'Welcome'],
     status: () => '',
     render: () => `<div class="welcome"><section class="glass welcome-card" aria-labelledby="w-title">
@@ -78,14 +80,15 @@
 
   /* ---- pass-2 placeholders ------------------------------------------------------ */
   const P2 = {
-    tests: ['Tests', 'runs', 'ui.md §5 · Explorer, Editor, Runner', ['Explorer: tree, facets and the query bar (tag:smoke status:failed api:orders)', 'Test detail card with the lifecycle it inherits and a history strip', 'Editor: Form, YAML and Split over one buffer', 'Run dialog, live run with drill-down, and Stop with live cleanups']],
-    runs: ['Runs', 'play', 'ui.md §5 · Runs and reports', ['Runs list filtered by status, profile, branch, kind and agent', 'A stored run uses the live-run view', 'Compare two runs: newly failing, fixed, slower, faster']],
-    insights: ['Insights', 'chart', 'ui.md §5 · Insights', ['Pass-rate and duration trends per profile and branch', 'Flaky list with Quarantine (writes allowFailure + until)', 'Slowest apis, coverage gaps and expiring skips']],
-    agents: ['Agents', 'bot', 'ui.md §6 · Agents', ['MCP server status and connect snippets', 'Approval queue and per-tool, per-profile permissions', 'Activity log with diffs; agent runs carry a badge']],
-    'project-settings': ['Settings', 'gear', 'ui.md §6 · Settings', ['Project (vibranium.config.yaml) and You-only (~/.config/vibranium) scopes', 'A form per section with a pending-changes diff bar', 'UI preferences: theme, tint, motion, transparency, density, tab idle time']]
+    tests: ['Tests', 'flow', 'ui.md §5 · Tests space', ['Sidebar: an All / API / Load filter, the Tests tree and the Changes (git) section', 'Read view: the All tests table, a file, or a test with its history strip', 'Edit opens the editor in place: Form, YAML and Split over one buffer', 'Run in Tests is a check run, not saved to Runs']],
+    runs: ['Runs', 'runs', 'ui.md §6 · Runs space', ['Sidebar: Overview, All runs, Schedules and the recent runs', 'Run… (⌘R) opens the run dialog; the live run drills down per test', 'A stored run uses the live-run view; compare two runs']],
+    insights: ['Overview', 'chart', 'ui.md §6 · Runs space › Overview', ['Pass-rate and duration trends per profile and branch', 'Flaky list with Quarantine (writes allowFailure + until)', 'Slowest apis, coverage gaps and expiring skips']],
+    agents: ['Agents', 'bot', 'ui.md §7 · Agents and Settings spaces', ['Approvals, Permissions, Connection, Activity and Usage in the sidebar', 'Each approval expands to a diff with Approve and Reject', 'Runs made by agents carry an agent badge in Runs']],
+    'project-settings': ['Settings', 'gear', 'ui.md §7 · Agents and Settings spaces', ['Scopes and sections in the sidebar: Project, You only, This app', 'A form per section with a pending-changes diff bar', 'This app: theme, tint, motion, transparency, density, tab idle time and the space switcher']]
   };
   Object.entries(P2).forEach(([route, [title, ico, ref, items]]) => {
     VC.screens[route] = {
+      space: VC.spaceOf(route),
       crumbs: () => [D.project.name, title],
       status: () => 'pass 2',
       render: () => `<div class="p2"><section class="glass p2-card" aria-labelledby="p2-title">
@@ -94,7 +97,7 @@
         <p class="subtle">This screen is designed in the next pass. The shell, sidebar and navigation already work, so it plugs in as one more file under screens/.</p>
         <ul>${items.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>
         <p class="ref">${esc(ref)}</p>
-        <div class="row"><button class="btn" data-action="go" data-route="${esc(S.lastClient)}">${ic('arrow-left')}Back to Client</button></div>
+        <div class="row"><button class="btn" data-action="space" data-space="client">${ic('arrow-left')}Back to Client</button></div>
       </section></div>`
     };
   });

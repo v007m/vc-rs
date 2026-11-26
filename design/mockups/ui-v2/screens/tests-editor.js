@@ -1,4 +1,5 @@
-/* Tests mode · Editor (#tests-editor): Form | YAML | Split over one test file.
+/* Tests space · Editor (#tests-editor): Form | YAML over one test file. It opens from
+   Edit on a read card and is in no nav; Done (or Escape) goes back to the read view.
    YAML is a mock CodeMirror (gutter, squiggle, hover card, autocomplete, quick fix,
    Explain panel). Save goes through a diff; errors ask "Save anyway"; a digest
    conflict offers Reload or Keep mine. File ops: New, Rename, Format, Delete. */
@@ -18,8 +19,13 @@
   };
   const E = (VC.ed = { view: 'form', test: 'appliesCoupon', fixed: false, conflict: false, conflictOnce: true, deleted: false, explain: false, complete: false, ac: 0, sel: 'test',
     changes: { 'appliesCoupon.name': ['Applies a percentage coupon', 'Applies a percentage coupon to the order total'] } });
-  if (S.edSplit == null) S.edSplit = 50;
-  VC.edSel = (id) => { const t = id.split('#')[1]; if (id.startsWith(FILE + '#') && FM[t]) { E.test = t; E.sel = 'test'; } };
+  /* Edit on a read card: the mock models one file, so another file's test shows a note */
+  VC.edSel = (id) => {
+    const t = (id || '').split('#')[1];
+    E.from = id;
+    E.foreign = id && !id.startsWith(FILE + '#') ? id : null;
+    if (!E.foreign && FM[t]) { E.test = t; E.sel = 'test'; }
+  };
   const errs = () => (E.fixed ? 0 : 1);
   const nChanges = () => Object.keys(E.changes).length + (E.fixedBy ? 1 : 0);
   const val = (key, dflt) => (E.changes[key] ? E.changes[key][1] : dflt);
@@ -124,9 +130,14 @@
   function headHtml() {
     const n = errs(), c = nChanges();
     return `<div class="ed-head on-l0"><div class="grow row ed-title"><h1 class="card-title mono ellipsis" title="${PATH}">${FILE}</h1>${c ? `<span class="chip ed-dirty" title="Unsaved changes">${c} unsaved</span>` : ''}</div>
-      <div class="seg seg-sm" role="group" aria-label="View">${[['form', 'Form'], ['yaml', 'YAML'], ['split', 'Split']].map(([k, l]) => `<button aria-pressed="${E.view === k}" data-action="ed-view" data-v="${k}" data-fk="edv-${k}">${l}</button>`).join('')}</div>
+      <div class="seg seg-sm" role="group" aria-label="View">${[['form', 'Form'], ['yaml', 'YAML']].map(([k, l]) => `<button aria-pressed="${E.view === k}" data-action="ed-view" data-v="${k}" data-fk="edv-${k}">${l}</button>`).join('')}</div>
+      <button class="btn btn-sm" data-action="ed-done" data-fk="ed-done" title="Back to the read view (Esc)">Done</button>
       <button class="btn btn-sm btn-primary" data-action="ed-save" data-fk="ed-save"${n ? ` title="${n} error; Save asks before writing"` : ''}>${ic('check', 'ico-sm')}Save<span class="kbd hide-narrow">⌘S</span></button>
       ${VC.moreBtn('ed-file', 'Plan and file actions', 'ed-file')}</div>`;
+  }
+  function foreignHtml() {
+    if (!E.foreign) return '';
+    return `<p class="callout ed-banner" data-tone="info">${ic('info')}<span>The mockup edits <b class="mono">${FILE}</b> only. <b class="mono">${esc(E.foreign)}</b> opens the same way in its own file.</span></p>`;
   }
   function conflictHtml() {
     if (!E.conflict) return '';
@@ -134,19 +145,25 @@
       <button class="btn btn-sm" data-action="ed-reload" data-fk="ed-reload">${ic('refresh', 'ico-sm')}Reload</button><button class="btn btn-sm btn-danger" data-action="ed-keep" data-fk="ed-keep">Keep mine…</button></div>`;
   }
   VC.screens['tests-editor'] = {
-    enter: () => { S.mode = 'tests'; },
-    crumbs: () => [D.project.name, 'Tests', FILE],
+    space: 'tests',
+    enter: () => { if (E.view !== 'yaml') E.view = 'form'; },
+    crumbs: () => [D.project.name, 'Tests', E.sel === 'test' ? `${FILE}#${E.test}` : FILE],
     status: () => (E.deleted ? 'file in Trash' : errs() ? `${ic('fail', 'ico-sm')} 1 error` : ''),
     render: () => {
       if (E.deleted) return `<div class="stage-one"><section class="glass stage-one"><div class="empty empty-quiet"><span><b class="mono" title="${PATH}">${FILE}</b> is in the Trash. Tests that referenced it fail vc check until you restore it.</span><button class="btn" data-action="ed-restore">${ic('arrow-left')}Restore</button></div></section></div>`;
-      const body = E.view === 'form' ? `<div class="stage-one">${formCard()}</div>` : E.view === 'yaml' ? `<div class="stage-one">${yamlCard()}</div>` : `<div class="split ed-split"${VC.splitAttrs()}>${formCard()}${VC.divider('Resize form and YAML')}${yamlCard()}</div>`;
-      return `${headHtml()}${conflictHtml()}${body}`;
+      const body = `<div class="stage-one">${E.view === 'yaml' ? yamlCard() : formCard()}</div>`;
+      return `${headHtml()}${foreignHtml()}${conflictHtml()}${body}`;
     },
-    mount: (view) => { if (E.view === 'split') VC.mountSplit(view, 'edSplit'); const ac = $('#ed-ac', view); if (ac) ac.focus({ preventScroll: true }); }
+    mount: (view) => { const ac = $('#ed-ac', view); if (ac) ac.focus({ preventScroll: true }); }
   };
 
   /* ---- actions: view, form, YAML helpers ---------------------------------- */
   A['ed-view'] = (el) => { E.view = el.dataset.v; VC.render(); };
+  A['ed-done'] = () => {
+    const back = E.foreign || (E.sel === 'test' ? `${FILE}#${E.test}` : null);
+    Object.assign(VC.tx, back && TD.tests[back] ? { sel: back, view: 'test', check: null } : { file: FILE, view: 'file', check: null });
+    VC.go('tests');
+  };
   A['ed-pick'] = (el) => { if (el.dataset.v === 'lifecycle') E.sel = 'lifecycle'; else { E.sel = 'test'; E.test = el.dataset.v; } VC.render(); };
   const applyFix = (to) => { E.fixed = true; E.fixedBy = to; E.complete = false; E.explain = false; VC.hidePopovers(); VC.render(); VC.toast('Fixed V2101', `vars.cardToken now uses ${to} · vc check · 0 errors`); };
   A['ed-fix'] = () => applyFix('${var.declinedCard}');
@@ -273,6 +290,8 @@
     if (mod && e.code === 'KeyS') { e.preventDefault(); return A['ed-save'](); }
     if (e.ctrlKey && e.code === 'Space') { e.preventDefault(); return A['ed-suggest'](); }
     if (mod && e.key === '.' && !E.fixed) { e.preventDefault(); const b = $('.ed-bulb'); if (b) A['ed-bulb'](b); return; }
+    const overlay = $('#dlg').open || $('#menu').matches(':popover-open') || $('#pick').matches(':popover-open') || S.drawer;
+    if (e.key === 'Escape' && !E.complete && !overlay && !e.defaultPrevented) { e.preventDefault(); return A['ed-done'](); }
     if (!E.complete || !e.target.closest('#ed-ac')) return;
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); E.ac = (E.ac + (e.key === 'ArrowDown' ? 1 : -1) + TD.complete.length) % TD.complete.length; $$('#ed-ac [role="option"]').forEach((o, i) => o.setAttribute('aria-selected', i === E.ac)); $('#ed-ac').setAttribute('aria-activedescendant', 'ed-ac-' + E.ac); }
     else if (e.key === 'Enter') { e.preventDefault(); A['ed-ac-pick']({ dataset: { i: E.ac } }); }

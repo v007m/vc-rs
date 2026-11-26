@@ -95,8 +95,9 @@
 
   /* ---- command palette ----------------------------------------------------------- */
   const SCREENS = [['client-auth', 'Auth registry', 'key'], ['history', 'History', 'history'], ['import', 'Import…', 'import'], ['welcome', 'Welcome', 'sparkle'],
-    ['tests', 'Tests · Explorer', 'flow'], ['tests-editor', 'Tests · Editor', 'code'], ['tests-run', 'Tests · Runner', 'play'], ['tests-load', 'Tests · Load', 'chart'],
-    ['runs', 'Runs', 'runs'], ['runs/compare', 'Compare runs #481 → #482', 'columns'], ['insights', 'Insights', 'chart'], ['agents', 'Agents', 'bot'], ['project-settings', 'Project settings', 'gear']];
+    ['tests', 'Tests', 'flow'], ['tests-load', 'Tests · Load', 'chart'],
+    ['runs', 'Runs', 'runs'], ['runs/compare', 'Compare runs #481 → #482', 'columns'], ['runs-live', 'Runs · Live run', 'play'], ['runs-load', 'Runs · Load run', 'chart'],
+    ['insights', 'Runs · Insights', 'chart'], ['schedules', 'Runs · Schedules', 'clock'], ['agents', 'Agents', 'bot'], ['project-settings', 'Settings', 'gear']];
   const P = { q: '', i: 0, items: [], args: {} };
   function items(q) {
     q = q.trim().toLowerCase();
@@ -174,7 +175,7 @@
     if (it.kind === 'go') return VC.goView(it.r);
     const c = it.c;
     if (c.cmd === 'vc import') return VC.go('import');
-    if (c.cmd === 'vc run') { VC.toast(`$ ${cmdLine(c)}`, 'Running in Tests mode · 6 tests'); return VC.go('tests'); }
+    if (c.cmd === 'vc run') { VC.toast(`$ ${cmdLine(c)}`, 'Running 6 tests'); return VC.go(VC.screens['runs-live'] ? 'runs-live' : 'runs'); }
     VC.toast(`$ ${cmdLine(c)}`, c.preview);
   }
   A['pal-run'] = (el) => run(+el.dataset.i);
@@ -200,7 +201,7 @@
 
   /* ---- shortcut sheet (?) --------------------------------------------------------- */
   const KEYS = [
-    ['Navigate', [['Command palette', ['⌘', 'K']], ['Client mode', ['⌘', '1']], ['Tests mode', ['⌘', '2']], ['Run tests', ['⌘', 'R']], ['Shortcuts', ['?']], ['Close drawer / menu', ['esc']]]],
+    ['Navigate', [['Command palette', ['⌘', 'K']], ['Client · Tests · Runs · Agents', ['⌘', '1–4']], ['Settings', ['⌘', ',']], ['Run tests', ['⌘', 'R']], ['Shortcuts', ['?']], ['Close drawer / menu', ['esc']]]],
     ['Tabs', [['New scratch tab', ['⌘', 'T']], ['Close tab', ['⌘', 'W']], ['Next tab', ['⌃', 'Tab']], ['Previous tab', ['⌃', '⇧', 'Tab']]]],
     ['Request', [['Send', ['⌘', '↵']], ['Switch tab', ['←', '→']], ['Resize split', ['←', '→']], ['Resize faster', ['⇧', '←']]]],
     ['Tree and lists', [['Move', ['↑', '↓']], ['Expand / collapse', ['→', '←']], ['Open', ['↵']], ['First / last', ['Home', 'End']]]]

@@ -1,8 +1,9 @@
-/* Runs (#runs): the stored-runs list, one stored run (same layout as a live run's drill-down)
-   and Compare two runs. Also owns VC.sh, the small helpers the other shared screens reuse. */
+/* Runs space · All runs (#runs): every API, load, scheduled and ad hoc run, one stored run
+   (same layout as a live run's drill-down) and Compare two runs. Also the Runs sidebar
+   (Overview, All runs, Schedules, Recent) and VC.sh, the helpers the shared screens reuse. */
 (function () {
   'use strict';
-  const VC = window.VC, D = VC.data, X = D.shared, A = VC.actions;
+  const VC = window.VC, D = VC.data, X = D.shared, A = VC.actions, St = VC.state;
   const { $, $$, esc, ic, badge, method } = VC.h;
 
   /* ---- shared helpers (Insights, Agents and Settings use these too) ------------ */
@@ -36,6 +37,8 @@
     set(k, val) { try { const v = JSON.parse(localStorage.getItem('vc-ui-v2-shared') || '{}'); v[k] = val; localStorage.setItem('vc-ui-v2-shared', JSON.stringify(v)); } catch (e) { /* storage may be blocked */ } }
   };
   A['sh-noop'] = () => {};
+  /* the Runs space's one primary, in the top row: opens the Run dialog (⌘R) */
+  SH.runBtn = () => `<button class="btn btn-primary btn-sm" data-action="rn-run" data-fk="top-run">${ic('play', 'ico-sm')}Run…<span class="kbd hide-narrow">⌘R</span></button>`;
 
   /* ---- state --------------------------------------------------------------------- */
   const R = { view: 'list', run: 482, test: 'orders.checkout#rejectsDeclinedCard', dtab: 'checks', show: 'all', q: '', st: 'all', profile: 'all', branch: 'all', kind: 'all', who: 'all', pick: [481, 482], base: 481, head: 482, ctab: 'failing', thr: 20 };
@@ -50,7 +53,7 @@
     if (R.st !== 'all' && (R.st === 'fail' ? r.st === 'pass' : r.st !== 'pass')) return false;
     if (R.profile !== 'all' && r.profile !== R.profile) return false;
     if (R.branch !== 'all' && r.branch !== R.branch) return false;
-    if (R.kind !== 'all' && r.kind !== R.kind) return false;
+    if (R.kind === 'sched' ? !r.sched : R.kind !== 'all' && r.kind !== R.kind) return false;
     if (R.who === 'agents' && !SH.isAgent(r.by)) return false;
     if (R.who === 'people' && (SH.isAgent(r.by) || r.by === 'ci')) return false;
     if (R.who === 'ci' && r.by !== 'ci') return false;
@@ -66,36 +69,48 @@
     if (r.kind === 'adhoc') return badge(r.st, r.st === 'pass' ? 'OK' : 'Error', true);
     return badge(r.st, null, true);
   }
+  const kindTag = (r) => (r.sched ? `<span class="subtle rn-kind" title="Schedule ${esc(r.sched)}">${ic('clock', 'ico-sm')}${esc(r.sched)}</span>` : r.kind === 'test' ? '' : `<span class="subtle">${r.kind === 'load' ? 'load' : 'one call'}</span>`);
+  /* the live run sits on top until it finishes and joins the history */
+  /* the branch rides under the selection, so the table keeps Started in view at any width */
+  const branchLine = (b, c) => `<span class="rn-branch" title="${esc(c ? `${b} @ ${c}` : b)}">${ic('branch', 'ico-sm')}<span class="ellipsis">${esc(b)}</span></span>`;
+  function liveRow() {
+    const L = VC.run;
+    if (!L || !(L.phase === 'running' || L.phase === 'stopping') || (R.kind !== 'all' && R.kind !== 'test') || R.st === 'pass') return '';
+    return `<tr class="rn-row" data-action="rn-recent" data-n="${L.n}"><td class="rn-pickc"></td><td><button class="btn btn-ghost btn-sm mono" data-action="rn-recent" data-n="${L.n}" data-fk="rn-${L.n}" aria-label="Open live run ${L.n}">#${L.n}</button></td>
+      <td><span class="badge badge-sm st-running"><span class="dot is-live" aria-hidden="true"></span>Running</span></td><td><span class="rn-sel2"><span class="rn-sel"><span class="mono ellipsis">${esc(L.opts.selector)}</span></span>${branchLine(D.project.branch)}</span></td>
+      <td class="rn-opt rn-by">${SH.by('you')}</td><td class="rn-opt rn-wide"><span class="mono muted">${esc([L.opts.profile].concat(L.opts.layers).join(' + '))}</span></td>
+      <td><span class="num">${L.results.length} of ${L.plan.length}</span> <span class="subtle">so far</span></td><td class="r mono muted rn-opt">…</td><td class="r muted">now</td><td class="r rn-act"><span class="rn-go rn-go-narrow" aria-hidden="true">${ic('chev-right', 'ico-sm')}</span></td></tr>`;
+  }
   function listRows() {
     const rows = X.runs.filter(matches);
-    if (!rows.length) return '';
-    return rows.map((r) => `<tr class="rn-row" data-action="rn-open" data-n="${r.n}"${R.pick.includes(r.n) ? ' aria-selected="true"' : ''}>
-      <td data-action="sh-noop"><input type="checkbox" class="rn-pick" data-n="${r.n}" aria-label="Pick run ${r.n} to compare" ${R.pick.includes(r.n) ? 'checked' : ''} ${r.kind !== 'test' ? 'disabled' : ''}></td>
+    if (!rows.length) return liveRow();
+    return liveRow() + rows.map((r) => `<tr class="rn-row" data-action="rn-open" data-n="${r.n}"${R.pick.includes(r.n) ? ' aria-selected="true"' : ''}>
+      <td class="rn-pickc" data-action="sh-noop"><input type="checkbox" class="rn-pick" data-n="${r.n}" aria-label="Pick run ${r.n} to compare" ${R.pick.includes(r.n) ? 'checked' : ''} ${r.kind !== 'test' ? 'disabled' : ''}></td>
       <td><button class="btn btn-ghost btn-sm mono" data-action="rn-open" data-n="${r.n}" data-fk="rn-${r.n}" aria-label="Open run ${r.n}" title="${esc(`${r.dur} · ${r.branch} · ${r.when}`)}">#${r.n}</button></td>
       <td>${statusCell(r)}</td>
-      <td><span class="rn-sel" title="${esc(cmdOf(r))}"><span class="mono ellipsis">${esc(r.sel)}</span>${r.kind === 'test' ? '' : `<span class="subtle">${r.kind}</span>`}</span></td>
-      <td class="rn-opt">${SH.by(r.by)}</td>
+      <td><span class="rn-sel2"><span class="rn-sel" title="${esc(cmdOf(r))}"><span class="mono ellipsis">${esc(r.sel)}</span>${kindTag(r)}</span>${branchLine(r.branch, r.commit)}</span></td>
+      <td class="rn-opt rn-by">${SH.by(r.by)}</td>
       <td class="rn-opt rn-wide"><span class="mono muted">${esc([r.profile].concat(r.layers).join(' + '))}</span></td>
-      <td class="hide-narrow"><span class="rn-branch" title="${esc(r.branch)} @ ${esc(r.commit)}">${ic('branch', 'ico-sm')}<span class="ellipsis">${esc(r.branch)}</span></span></td>
       <td>${results(r)}</td>
       <td class="r mono muted rn-opt">${esc(r.dur)}</td>
-      <td class="r muted hide-narrow" title="${esc(r.when)}"><span class="rn-swap"><span class="rn-ago">${esc(r.ago)}</span><span class="rn-go" aria-hidden="true">Open${ic('chev-right', 'ico-sm')}</span></span></td>
+      <td class="r muted" title="${esc(r.when)}"><span class="rn-swap"><span class="rn-ago">${esc(r.ago)}</span><span class="rn-go" aria-hidden="true">Open${ic('chev-right', 'ico-sm')}</span></span></td>
       <td class="r rn-act"><span class="rn-go rn-go-narrow" aria-hidden="true">${ic('chev-right', 'ico-sm')}</span>${VC.moreBtn('rn-row-more', `Run ${r.n} actions`, `rn-m-${r.n}`).replace('data-action', `data-n="${r.n}" data-action`)}</td></tr>`).join('');
   }
   function listBody() {
     const rows = listRows();
     if (!rows) return SH.empty('runs', 'No runs match these filters.', '<button class="link" data-action="rn-clear" data-fk="rn-clear">Clear filters</button>');
-    return SH.table(['<span class="sr-only">Compare</span>', 'Run', 'Status', 'Selection', ['By', 'rn-opt'], ['Profile', 'rn-opt rn-wide'], ['Branch', 'hide-narrow'], 'Results', ['Duration', 'r rn-opt'], ['Started', 'r hide-narrow'], ['<span class="sr-only">Actions</span>', 'r rn-act']], [rows], 'rn-table fade-end' + (R.pick.length === 1 ? ' is-selecting' : ''));
+    return SH.table([['<span class="sr-only">Compare</span>', 'rn-pickc'], 'Run', 'Status', 'Selection', ['By', 'rn-opt rn-by'], ['Profile', 'rn-opt rn-wide'], 'Results', ['Duration', 'r rn-opt'], ['Started', 'r'], ['<span class="sr-only">Actions</span>', 'r rn-act']], [rows], 'rn-table fade-end' + (R.pick.length === 1 ? ' is-selecting' : ''));
   }
   const opt = (v, cur, l) => `<option value="${esc(v)}"${v === cur ? ' selected' : ''}>${esc(l || v)}</option>`;
-  /* D1: search and Status stay visible; kind, profile, branch and who sit behind Filters */
-  const MORE_F = ['kind', 'profile', 'branch', 'who'];
+  /* D1 (round 5): search and kind stay visible; status, profile, branch and who sit behind Filters */
+  const KINDS = [['all', 'All'], ['test', 'API'], ['load', 'Load'], ['sched', 'Scheduled'], ['adhoc', 'Ad hoc']];
+  const MORE_F = ['st', 'profile', 'branch', 'who'];
   const nFilters = () => MORE_F.filter((k) => R[k] !== 'all').length;
   function filters() {
     const n = nFilters();
     return `<div class="sh-filters" role="group" aria-label="Filter runs">
       <div class="input-group rn-search">${ic('search')}<input class="input" id="rn-q" value="${esc(R.q)}" placeholder="Run, selector, commit or agent" aria-label="Search runs" data-fk="rn-q"></div>
-      ${SH.seg('Status', [['all', 'All'], ['fail', 'Not passed'], ['pass', 'Passed']], R.st, 'rn-st')}
+      ${SH.seg('Kind', KINDS, R.kind, 'rn-kind')}
       <button class="btn btn-sm" data-action="rn-filters" aria-haspopup="true" data-fk="rn-filters">${ic('filter')}Filters${n ? ` · ${n}` : ''}</button>
     </div>`;
   }
@@ -105,7 +120,7 @@
     const branches = [...new Set(X.runs.map((r) => r.branch))];
     const field = (k, label, opts) => `<div class="field"><label for="rn-f-${k}">${label}</label><select class="select" id="rn-f-${k}" data-rnf="${k}">${opts.map(([v, l]) => `<option value="${esc(v)}"${R[k] === v ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select></div>`;
     VC.pick(anchor, `<div class="rn-filter" role="group" aria-label="More filters"><div class="form-grid">
-      ${field('kind', 'Kind', [['all', 'Any kind'], ['test', 'Test'], ['load', 'Load'], ['adhoc', 'Adhoc']])}
+      ${field('st', 'Status', [['all', 'Any status'], ['fail', 'Not passed'], ['pass', 'Passed']])}
       ${field('who', 'Run by', [['all', 'Anyone'], ['people', 'People'], ['agents', 'Agents'], ['ci', 'CI']])}
       ${field('profile', 'Profile', [['all', 'Any profile']].concat(D.profiles.map((p) => [p.id, p.id])))}
       ${field('branch', 'Branch', [['all', 'Any branch']].concat(branches.map((x) => [x, x])))}</div>
@@ -115,9 +130,8 @@
   function listView() {
     const [a, b] = R.pick.slice().sort((x, y) => x - y);
     return `<div class="stage-one sh-scope"><section class="glass stage-one" aria-label="Runs">
-      <div class="card-head"><div class="grow"><h2 class="card-title">Runs</h2><div class="card-sub">Test, load and adhoc runs from you, CI and agents.</div></div>
-        <button class="btn btn-sm" data-action="rn-compare" data-fk="rn-compare" ${R.pick.length === 2 ? '' : 'disabled'} title="Pick two test runs with the checkboxes">${ic('columns')}${R.pick.length === 2 ? `Compare #${a} → #${b}` : `Compare · pick ${2 - R.pick.length} more`}</button>
-        <button class="btn btn-primary btn-sm" data-action="rn-run" data-fk="rn-run">${ic('play')}Run…<span class="kbd hide-narrow">⌘R</span></button></div>
+      <div class="card-head"><div class="grow"><h2 class="card-title">All runs</h2><div class="card-sub">API, load, scheduled and ad hoc runs from you, CI, schedules and agents.</div></div>
+        <button class="btn btn-sm" data-action="rn-compare" data-fk="rn-compare" ${R.pick.length === 2 ? '' : 'disabled'} title="Pick two API runs with the checkboxes">${ic('columns')}${R.pick.length === 2 ? `Compare #${a} → #${b}` : `Compare · pick ${2 - R.pick.length} more`}</button></div>
       <div class="card-tabs">${filters()}</div>
       <div class="card-body" data-sk="rn-list" id="rn-list">${listBody()}</div>
       <div class="card-foot">${ic('db', 'ico-sm')}<span title="history.keep: 50 · bodies of failures only">482 runs in history.db</span></div>
@@ -251,7 +265,9 @@
 
   /* ---- screen ---------------------------------------------------------------------------- */
   VC.screens.runs = {
-    crumbs: () => [D.project.name, 'Runs'].concat(R.view === 'run' ? [`#${R.run}`] : R.view === 'compare' ? [`#${R.base} → #${R.head}`] : []),
+    space: 'runs',
+    crumbs: () => [D.project.name, 'Runs'].concat(R.view === 'run' ? [`#${R.run}`] : R.view === 'compare' ? [`#${R.base} → #${R.head}`] : ['All runs']),
+    primary: () => SH.runBtn(),
     status: () => (R.view === 'run' ? `${ic('runs', 'ico-sm')} Stored run` : ''),
     render: () => (R.view === 'run' ? runView() : R.view === 'compare' ? compareView() : listView()),
     mount: (view) => SH.sizes(view),
@@ -261,14 +277,16 @@
   A['rn-open'] = (el) => {
     const r = runOf(el.dataset.n);
     if (r.kind === 'adhoc') return VC.openApi('payments#charge', { toast: `Opened call #${r.n} from history` });
-    if (r.kind === 'load') return VC.toast(`Load run #${r.n} · ${r.sel}`, 'Load reports open in Tests → Load (latency, RPS, breaches).');
+    if (r.kind === 'load') return VC.openLoadRun ? VC.openLoadRun(r.n) : VC.go('runs-load');
+    if (VC.run && r.n === VC.run.n) return VC.go('runs-live');
     R.view = 'run'; R.run = X.runDetail[r.n] ? r.n : 482; if (r.n !== 482) VC.toast(`Run #${r.n}`, 'Sample detail: the mockup stores one full run (#482).');
     R.test = 'orders.checkout#rejectsDeclinedCard'; R.dtab = 'checks'; rerender();
   };
   A['rn-back'] = () => { R.view = 'list'; rerender(); };
   A['rn-st'] = (el) => { R.st = el.dataset.v; rerender(); };
+  A['rn-kind'] = (el) => { R.kind = el.dataset.v; if (R.kind !== 'all' && R.kind !== 'test') R.pick = R.pick.filter((n) => (runOf(n) || {}).kind === 'test'); rerender(); };
   A['rn-filters'] = () => openFilters();
-  A['rn-clear'] = () => { MORE_F.forEach((k) => { R[k] = 'all'; }); R.st = 'all'; R.q = ''; VC.hidePopovers(); rerender(); };
+  A['rn-clear'] = () => { MORE_F.forEach((k) => { R[k] = 'all'; }); R.kind = 'all'; R.q = ''; VC.hidePopovers(); rerender(); };
   /* report and export: the stored-run header and every list row's ⋯ reach the same actions */
   const nOf = (el) => +(el.dataset.n || R.run);
   const EXPORTS = [
@@ -311,11 +329,14 @@
   A['rn-compare'] = () => { if (R.pick.length !== 2) return; [R.base, R.head] = R.pick.slice().sort((x, y) => x - y); R.view = 'compare'; R.ctab = 'failing'; rerender(); };
   A['rn-compare-prev'] = (el) => { const n = nOf(el), p = prevTest(n); if (!p) return; R.base = p.n; R.head = n; R.view = 'compare'; R.ctab = 'failing'; rerender(); };
   A['rn-swap'] = () => { [R.base, R.head] = [R.head, R.base]; rerender(); };
-  A['rn-run'] = () => VC.toast('Run dialog', 'Opens from Tests mode: selector, profiles, seed, repeat, bail, concurrency.');
+  A['rn-run'] = () => VC.openRun();
+  /* other screens (the Tests explorer's "Open the check") land on one stored run */
+  VC.openRunReport = (n, testId) => { R.view = 'run'; R.run = X.runDetail[n] ? +n : 482; if (testId) R.test = testId; R.dtab = 'checks'; VC.go('runs'); };
   A['rn-report'] = (el) => VC.toast(`Opened the report for run #${nOf(el)}`, `.vibranium/reports/${nOf(el)}/index.html · in your browser`);
   A['rn-rerun'] = (el) => {
     const r = runOf(nOf(el)), failed = r.tot ? (r.tot.fail || 0) + (r.tot.blocked || 0) : 0;
-    VC.toast(failed ? `Re-running ${failed} tests from #${r.n}` : `Re-running #${r.n}`, `${failed ? `vc run --failed ${r.n}` : cmdOf(r)} · results stream into a new run #483`);
+    if (r.kind === 'test' && VC.startRun) return VC.startRun(failed ? { failedOnly: true } : { selector: r.sel });
+    VC.toast(`Re-running #${r.n}`, `${cmdOf(r)} · results stream into a new run`);
   };
   A['rn-rerun-one'] = () => VC.toast(`Running ${R.test}`, 'vc run ' + R.test + ' · its beforeAll runs first');
   A['rn-quarantine'] = () => SH.quarantine(R.test);
@@ -332,6 +353,37 @@
       confirm: 'Write and quarantine', callout: 'If the file changed on disk since you opened it, you get Reload or Keep mine.',
       after: () => { if (after) after(); VC.render(); }
     });
+  };
+
+  /* ---- Runs space sidebar: Overview · All runs · Schedules, then the recent runs -------------- */
+  const isLive = () => VC.run && (VC.run.phase === 'running' || VC.run.phase === 'stopping');
+  function recentRow(n, dot, sel, meta, cur, label) {
+    return `<button class="sb-row rn-sbr" data-action="rn-recent" data-n="${n}" data-fk="sbr-${n}"${cur ? ' aria-current="page"' : ''} aria-label="${esc(label)}"><span class="dot ${dot}" aria-hidden="true"></span><span class="title"><span class="mono rn-sbn">#${n}</span>${esc(sel)}</span><span class="meta">${esc(meta)}</span></button>`;
+  }
+  function recentHtml() {
+    const rt = St.route, L = VC.run, lv = VC.rl;
+    const curOf = (r) => (r.kind === 'load' ? rt === 'runs-load' && lv && lv.n === r.n : L && r.n === L.n ? rt === 'runs-live' : rt === 'runs' && R.view === 'run' && R.run === r.n);
+    const live = isLive() ? recentRow(L.n, 'is-live', L.opts.selector, 'live', rt === 'runs-live', `Run ${L.n}, running, ${L.opts.selector}`) : '';
+    const rows = X.runs.slice(0, isLive() ? 7 : 8).map((r) => recentRow(r.n, `st-${r.st === 'pass' ? 'pass' : r.st === 'blocked' ? 'blocked' : r.st === 'skipped' ? 'skipped' : 'fail'}`, r.sel, r.ago.replace(' ago', ''), curOf(r), `Run ${r.n}, ${r.kind === 'load' ? 'load, ' : ''}${STAT[r.st] || r.st}, ${r.sel}, ${r.ago}`));
+    return `<section class="sb-section" aria-labelledby="rn-sb-recent"><h2 class="sb-label" id="rn-sb-recent">Recent</h2>${live}${rows.join('')}</section>`;
+  }
+  function runsSidebar() {
+    const rt = St.route, on = (X.schedules || []).filter((x) => x.on).length;
+    const nav = VC.sbNav([
+      { label: 'Overview', icon: 'chart', current: rt === 'insights', action: 'rn-nav', attrs: 'data-to="insights"', fk: 'sbn-insights' },
+      { label: 'All runs', icon: 'runs', current: rt === 'runs' && R.view !== 'run', action: 'rn-nav', attrs: 'data-to="runs"', fk: 'sbn-runs' },
+      { label: 'Schedules', icon: 'clock', current: rt === 'schedules', action: 'rn-nav', attrs: 'data-to="schedules"', meta: String(on), fk: 'sbn-schedules' }
+    ]);
+    return nav + recentHtml();
+  }
+  if (VC.spaces && VC.spaces.runs) VC.spaces.runs.sidebar = runsSidebar;
+  A['rn-nav'] = (el) => { const to = el.dataset.to; if (to === 'runs') R.view = 'list'; VC.go(to); };
+  A['rn-recent'] = (el) => {
+    const n = +el.dataset.n, r = runOf(n);
+    if (VC.run && n === VC.run.n) return VC.go('runs-live');
+    if (r && r.kind === 'load') return VC.openLoadRun ? VC.openLoadRun(n) : VC.go('runs-load');
+    if (r && r.kind === 'adhoc') return A['rn-open'](el);
+    VC.openRunReport(n);
   };
 
   document.addEventListener('input', (e) => {

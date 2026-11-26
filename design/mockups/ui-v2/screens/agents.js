@@ -1,5 +1,5 @@
-/* Agents (#agents): four views, one job each.
-   Approvals (act) · Permissions (configure) · Connection (read) · Activity (read).
+/* Agents space (#agents): five views, one job each, picked in the space's sidebar.
+   Approvals (act) · Activity (read) · Usage (read) · Permissions (configure) · Connection (read).
    The agent token is never shown: snippets carry $VC_MCP_TOKEN. */
 (function () {
   'use strict';
@@ -8,9 +8,11 @@
   const G = D.shared.agents;
 
   const M = { view: 'approvals', snip: 'claude', open: {}, logWho: 'all', logRes: 'all', logOpen: {}, edits: {}, serving: true };
-  const VIEWS = [['approvals', 'Approvals'], ['permissions', 'Permissions'], ['connection', 'Connection'], ['activity', 'Activity']];
+  const VIEWS = [['approvals', 'Approvals', 'check'], ['activity', 'Activity', 'history'], ['usage', 'Usage', 'chart'], ['permissions', 'Permissions', 'lock'], ['connection', 'Connection', 'plug']];
   const PROFILES = ['local', 'dev', 'staging', 'prod'];
-  const lead = (text, actions) => `<div class="ag-lead"><p class="grow">${text}</p>${actions || ''}</div>`;
+  /* each view names its card subtitle and head actions while it renders; render() draws the body first, then the head */
+  let HEAD = { sub: '', acts: '' };
+  const lead = (sub, acts) => { HEAD = { sub, acts: acts || '' }; return ''; };
 
   /* ---- approvals: what is waiting on you ------------------------------------------ */
   function qBody(q) {
@@ -102,22 +104,55 @@
       + (rows.length ? `<ul class="ag-list" role="list">${rows.map(logRow).join('')}</ul>` : SH.empty('', 'No calls match the filter.'));
   }
 
+  /* ---- usage: what agents did over the last 7 days --------------------------------- */
+  const U = G.usage;
+  const sum = (a) => a.reduce((n, v) => n + v, 0);
+  const MEASURES = [['req', 'Requests'], ['tools', 'Tool calls'], ['runs', 'Runs started']];
+  /* CSS bars: the chart takes the tile's whole width and height; --w is each bar's height in % */
+  function bars(vals, label) {
+    const max = Math.max(1, ...vals);
+    return `<div class="ag-bars" role="img" aria-label="${esc(label)}: ${vals.map((v, i) => `${U.days[i]} ${v}`).join(', ')}">
+      ${vals.map((v, i) => `<span class="ag-bar${i === vals.length - 1 ? ' is-today' : ''}" title="${U.days[i]} · ${v}"><i data-w="${((v / max) * 100).toFixed(1)}"></i><span class="ag-day">${U.days[i]}</span></span>`).join('')}</div>`;
+  }
+  const tile = (a, [k, l]) => `<div class="ag-tile l2"><span class="ag-tile-k">${l}</span><b class="ag-tile-v num">${sum(a[k]).toLocaleString('en')}</b>${bars(a[k], `${a.id} ${l.toLowerCase()} per day`)}</div>`;
+  function agentUsage(a) {
+    return `<section class="ag-use" aria-labelledby="agu-${a.id}"><div class="ag-use-head"><h3 class="ag-use-h grow" id="agu-${a.id}">${SH.by(a.id)}</h3>
+      <span class="subtle num">${esc(a.tokens)} tokens · ${esc(a.time)} of tool time</span></div>
+      <div class="ag-tiles">${MEASURES.map((m) => tile(a, m)).join('')}</div></section>`;
+  }
+  function usage() {
+    const rows = U.byTool.slice().sort((a, b) => b.calls - a.calls).map((t) => `<tr><td>${SH.by(t.agent)}</td><td class="mono">${esc(t.tool)}</td>
+      <td class="r num">${t.calls}</td><td class="r num">${t.ok}</td><td class="r num muted">${t.asked || '–'}</td><td class="r num${t.refused ? ' ag-bad' : ' muted'}">${t.refused || '–'}</td></tr>`);
+    return lead('What agents did in the last 7 days, from the MCP server\'s log. Today is the last bar.')
+      + U.agents.map(agentUsage).join('')
+      + `<section class="ag-sec" aria-labelledby="ag-bytool-t"><h3 class="section-label" id="ag-bytool-t">By tool</h3>
+        ${SH.table(['Agent', 'Tool', ['Calls', 'r'], ['OK', 'r'], ['Asked first', 'r'], ['Refused', 'r']], rows)}</section>`;
+  }
+
   /* ---- screen ------------------------------------------------------------------------- */
-  const BODY = { approvals, permissions, connection, activity };
+  const BODY = { approvals, activity, usage, permissions, connection };
+  const label = () => VIEWS.find(([k]) => k === M.view)[1];
+  const pending = () => `<span class="count${G.queue.length ? '' : ' is-good'}" aria-label="${G.queue.length} waiting">${G.queue.length}</span>`;
+  VC.spaces.agents.sidebar = () => VC.sbNav(VIEWS.map(([k, l, icon]) => ({
+    label: l, icon, action: 'ag-view', attrs: `data-v="${k}"`, fk: `ag-${k}`,
+    current: VC.state.route === 'agents' && M.view === k, meta: k === 'approvals' ? pending() : ''
+  })));
   VC.screens.agents = {
-    crumbs: () => [D.project.name, 'Agents'],
+    space: 'agents',
+    crumbs: () => [D.project.name, 'Agents', label()],
     status: () => '',
     view: (v) => { M.view = BODY[v] ? v : 'approvals'; },
-    /* the views sit in the header band, like Tests (round 4) */
-    subnavLabel: 'Agents views',
-    subnav: () => VIEWS.map(([k, l]) => `<button class="tab" data-action="ag-view" data-v="${k}"${M.view === k ? ' aria-current="page"' : ''} data-fk="ag-${k}">${esc(l)}${k === 'approvals' ? `<span class="count${G.queue.length ? '' : ' is-good'}">${G.queue.length}</span>` : ''}</button>`).join(''),
-    render: () => `<div class="stage-one sh-scope"><section class="glass stage-one" aria-labelledby="ag-title">
-      <div class="card-head"><div class="grow"><h2 class="card-title" id="ag-title">${esc(VIEWS.find(([k]) => k === M.view)[1])}</h2></div></div>
-      <div class="card-body" id="ag-panel"><div class="ag-view" data-view="${M.view}">${BODY[M.view]()}</div></div>
-    </section></div>`
+    mount: (view) => SH.sizes(view),
+    render: () => {
+      const body = BODY[M.view]();
+      return `<div class="stage-one sh-scope"><section class="glass stage-one${M.view === 'usage' ? '' : ' rn-hug'}" aria-labelledby="ag-title">
+      <div class="card-head"><div class="grow"><h2 class="card-title" id="ag-title">${esc(label())}</h2><span class="card-sub">${HEAD.sub}</span></div>${HEAD.acts}</div>
+      <div class="card-body" id="ag-panel"><div class="ag-view" data-view="${M.view}">${body}</div></div>
+    </section></div>`;
+    }
   };
 
-  A['ag-view'] = (el) => { M.view = el.dataset.v; VC.render(); };
+  A['ag-view'] = (el) => { M.view = el.dataset.v; VC.go('agents'); };   /* same route: re-renders and closes the drawer */
   A['ag-snip'] = (el) => { M.snip = el.dataset.v; VC.render(); };
   A['ag-copy'] = (el) => {
     const [k, label, , text] = SNIPS.find((x) => x[0] === el.dataset.k);
@@ -186,7 +221,7 @@
   };
   A['ag-filter-set'] = (el) => { M[el.dataset.k] = el.dataset.v; M.logOpen = {}; VC.hidePopovers(); VC.render(); const b = $('[data-fk="ag-filter"]'); if (b) b.focus(); };
   A['ag-log-toggle'] = (el) => { M.logOpen[el.dataset.i] = !M.logOpen[el.dataset.i]; VC.render(); };
-  A['ag-run-open'] = (el) => { const R = VC.runsState; R.view = 'run'; R.run = 482; VC.toast(`Run #${el.dataset.n}`, 'Sample detail: the mockup stores one full run (#482).'); VC.go('runs'); };
+  A['ag-run-open'] = (el) => VC.openRunReport(+el.dataset.n);
   document.addEventListener('change', (e) => {
     const t = e.target;
     if (!t.classList || !t.classList.contains('ag-perm')) return;

@@ -1,29 +1,39 @@
 /* ==========================================================================
-   Vibranium UI v2 · shell.css: base, sidebar, header, stage, status line
+   Vibranium UI v2 · shell.css: base, app frame, top row, stage, status line
+   (the space switcher and the sidebar are in sidebar.css)
    --------------------------------------------------------------------------
-   Markup skeleton (built by app.js; screens render into #view only):
+   Markup skeleton (app.js + shell-spaces.js; screens render into #view only):
 
-     .app  (container "app"; [data-width] preset from the dev corner)
+     .app  (container "app"; [data-switcher=rail|foot] [data-space]
+            .is-sb-collapsed .is-drawer-open; [data-width] from the dev corner)
        .shell
-         aside.sidebar           L0: traffic, mode switch, Requests | History
-                                 (Client), the tree or history, shared screens
+         nav.rail                L0: traffic lights, four spaces, Settings at the
+                                 bottom (the "Icon rail" switcher). With "Sidebar
+                                 bottom" it is only a strip while the sidebar is
+                                 out of the layout.
+         aside.sidebar#sidebar   L0: .sb-top (space name, hide), .sb-body (the
+                                 space's sidebar: .sb-secs / .sb-nav / .tree),
+                                 nav.sb-spaces (the five icons, "Sidebar bottom")
          .main
-           .topbar               L0: open tabs strip; env pill + search at the right
-           header.header         L0 band: breadcrumb, Tests sub-nav, status, primary
+           .topbar               L0: open tabs (Client) or the title, status and
+                                 primary action; env pill + search at the right
            main.stage#view       screens render here: one or two .glass cards
-           footer.statusline     L0: engine, branch, last check, profile
+           footer.statusline     L0: engine, branch, last check
 
    Responsive (container queries on .app, so the dev-corner width presets
    behave like a real window):
-     > 1100px      sidebar open (--sidebar-w)
-     760-1100px    sidebar collapses to an icon rail (--rail-w);
-                   .app.is-rail-open shows it full width over the stage
-     < 760px       sidebar is a drawer; .app.is-drawer-open slides it in
+     > 1100px      sidebar in the layout; hiding it is a saved pref
+     <= 1100px     sidebar is a drawer over the stage (.is-drawer-open); the
+                   rail, or the foot strip, stays
+     < 760px       tighter top row
 
    Stage layouts a screen can use:
      .stage-one        one card filling the stage
      .split            two cards + .divider; --split sets the first track.
                        [data-orient=stack] or app < 1100px stacks them.
+   A screen whose first row is a band (.band, .reqbar, .ed-head, .ld-head) gets
+   --band-h reserved at the top; any other screen's card starts --sp-2 below
+   the top row.
    ========================================================================== */
 
 /* ---- base ---------------------------------------------------------------- */
@@ -88,155 +98,27 @@ code, kbd, pre, samp { font-family: var(--mono); }
 }
 
 .shell {
-  display: grid;
-  grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
+  display: flex;
   height: 100%;
-  padding-left: max(6px, env(safe-area-inset-left, 0px));
+  min-width: 0;
+  padding-left: env(safe-area-inset-left, 0px);
   padding-right: max(10px, env(safe-area-inset-right, 0px));
 }
-
-/* ---- sidebar (L0) -------------------------------------------------------- */
-.sidebar {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  padding: var(--sp-2) var(--sp-3) var(--sp-3);
-  gap: var(--sp-4);
-  color: var(--l0-ink);   /* R2: straight on L0, no panel background */
-}
-
-.sb-top {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-2);
-  flex: none;
-  height: 28px;   /* fixed, so the controls line up with the URL bar band on every route */
-  padding: 0 0 0 var(--sp-2);
-}
-.sb-top .rail-toggle { margin-left: auto; }
-/* mode switch, profile and search: one compact stack */
-.sb-controls { flex: none; display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; }
-.traffic { display: flex; gap: 8px; align-items: center; }
-.traffic span {
-  width: 12px; height: 12px; border-radius: 50%;
-  box-shadow: inset 0 0 0 0.5px rgb(0 0 0 / 0.25), inset 0 1px 0 rgb(255 255 255 / 0.35);
-}
-.traffic span:nth-child(1) { background: #ff5f57; }
-.traffic span:nth-child(2) { background: #febc2e; }
-.traffic span:nth-child(3) { background: #28c840; }
-
-/* B2: a 24px fade at the bottom edge of every long scroller (.fade-end in components.css) */
-.sb-scroll {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-6);
-  padding: var(--sp-1) 2px var(--fade-h);   /* B2: the last row clears the fade when scrolled to the end */
-  margin-inline: -2px;
-}
-
-.sb-label {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-2);
-  margin: 0;
-  padding: 0 var(--sp-3);
-  min-height: 24px;
-  font-size: var(--fs-1);
-  font-weight: var(--fw-semibold);
-  letter-spacing: var(--tracking-label);
-  text-transform: uppercase;
-  color: var(--l0-ink-3);
-}
-.sb-section { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.sb-section-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); padding-bottom: var(--sp-1); }
-.sb-section-head .btn { margin-right: 2px; color: var(--l0-ink-2); }
-
-/* L0 list rows: flat, highlighted on hover, "selected" is a soft plate */
-.sb-row {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-2);
-  min-height: 32px;
-  padding: 4px var(--sp-3);
-  border: 0;
-  border-radius: var(--r-md);
-  background: transparent;
-  color: var(--l0-ink);
-  text-align: left;
-  text-decoration: none;
-  width: 100%;
-  min-width: 0;
-  font-size: var(--fs-2);
-}
-.sb-row:hover { background: var(--l0-hover); }
-.sb-row[aria-current="page"],
-.sb-row.is-selected {
-  background: var(--l0-selected);
-  box-shadow: inset 0 1px 0 var(--l2-highlight), 0 1px 2px light-dark(rgb(30 24 60 / 0.08), rgb(0 0 0 / 0.25));
-}
-.sb-row .meta { margin-left: auto; color: var(--l0-ink-2); font-size: var(--fs-1); flex: none; }
-.sb-row .title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sb-row .close {
-  flex: none;
-  width: 20px; height: 20px;
-  display: grid; place-items: center;
-  border: 0; border-radius: var(--r-xs);
-  background: transparent; color: var(--l0-ink-2);
-  opacity: 0;
-}
-.sb-row:hover .close, .sb-row:focus-within .close, .sb-row[aria-current="page"] .close { opacity: 1; }
-.sb-row .close:hover { background: var(--l0-hover); color: var(--l0-ink); }
-
-/* the icon rail shows Requests / History buttons in place of the segmented control */
-.rail-only { display: none; }
-
-/* B8: the sidebar filter sits inside the search field, at its right edge */
-.search-field { position: relative; flex: 0 1 260px; min-width: 0; }
-.search-field .search-btn { padding-right: 40px; }
-.search-filter { position: absolute; top: 50%; right: 4px; translate: 0 -50%; color: var(--l0-ink-2); }
-.search-filter.is-on { color: var(--accent); }
-.search-filter.is-on::after { content: ""; position: absolute; top: 4px; right: 4px; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
-
-/* B7: one hue per profile, the same everywhere (local blue, dev teal, staging amber, prod red) */
-.tint-dot[data-p="local"] { --h: 255; }
-.tint-dot[data-p="dev"] { --h: 190; }
-.tint-dot[data-p="staging"] { --h: 70; }
-.tint-dot[data-p="prod"] { --h: 25; }
-
-/* shared screens: a quiet icon nav at the bottom */
-.sb-foot {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: var(--sp-1);
-  padding-top: var(--sp-3);
-  border-top: 1px solid var(--l0-rule);
-}
-.sb-foot .sb-row {
-  flex-direction: column;
-  gap: 2px;
-  justify-content: center;
-  min-height: 52px;
-  font-size: var(--fs-1);
-  padding: 6px 2px;
-  text-align: center;
-}
+.app[data-switcher="foot"] .shell { padding-left: max(6px, env(safe-area-inset-left, 0px)); }
 
 /* ---- main column --------------------------------------------------------- */
 .main {
+  flex: 1 1 auto;
   display: grid;
-  grid-template-rows: var(--topbar-h) var(--header-h) minmax(0, 1fr) var(--statusline-h);
-  grid-template-columns: minmax(0, 1fr);   /* the top row and band never widen the column */
+  grid-template-rows: var(--topbar-h) minmax(0, 1fr) var(--statusline-h);
+  grid-template-columns: minmax(0, 1fr);   /* the top row never widens the column */
   min-width: 0;
   min-height: 0;
   padding-left: var(--sp-2);
 }
 
-/* L0 top row: open tabs (Client) at the left, env pill and search at the right.
-   It is the window drag region in the desktop shell. */
+/* L0 top row: open tabs (Client) or the screen title at the left, env pill and
+   search at the right. It is the window drag region in the desktop shell. */
 .topbar {
   display: flex;
   align-items: center;
@@ -244,16 +126,21 @@ code, kbd, pre, samp { font-family: var(--mono); }
   min-width: 0;
   padding: 0 var(--sp-2) 0 var(--sp-1);
 }
-.topbar .menu-btn { display: none; flex: none; }
+.topbar .sb-show { display: none; flex: none; color: var(--l0-ink-2); }
+.app.is-sb-collapsed .topbar .sb-show { display: inline-flex; }
 .topbar-end { display: flex; align-items: center; gap: var(--sp-2); flex: none; margin-left: auto; }   /* the tabs give way first */
+.tb-title { flex: 0 1 auto; min-width: 0; }
+.tb-status { flex: 0 1 auto; min-width: 0; font-size: var(--fs-2); color: var(--l0-ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tb-primary { flex: none; display: flex; align-items: center; gap: var(--sp-2); }
 
-/* open tabs: browser-like pills; the active one is a raised L2 pill */
+/* open tabs: browser-like pills with a hairline each and no fill; the active one has a stronger line and ink */
 .tabstrip { display: flex; align-items: center; gap: var(--sp-1); flex: 1 1 auto; min-width: 0; }
 .ts-list {
   display: flex; align-items: center; gap: 2px;
   min-width: 0; overflow-x: auto; overflow-y: hidden;
   scrollbar-width: none;
-  padding: 2px;   /* room for the raised pill's shadow */
+  scroll-padding-inline: 36px;   /* the active tab scrolls clear of the edge fades */
+  padding: 2px;   /* room for the focus ring */
 }
 .ts-list::-webkit-scrollbar { display: none; }
 /* more tabs than fit: the strip scrolls; a soft fade marks the hidden side */
@@ -263,20 +150,16 @@ code, kbd, pre, samp { font-family: var(--mono); }
 .ot {
   position: relative;
   display: flex; align-items: center;
-  flex: 0 1 auto; min-width: 112px; max-width: 208px;
+  flex: none; max-width: 232px;   /* never squeezed: the strip scrolls; a long name truncates past ~20 characters */
   height: var(--ctl-h);
-  border: 1px solid transparent;
+  border: 1px solid var(--rule-strong);
   border-radius: var(--r-pill);
+  background: transparent;
   color: var(--l0-ink-2);
-  transition: background-color var(--dur-2) var(--ease), color var(--dur-2) var(--ease);
+  transition: border-color var(--dur-2) var(--ease), color var(--dur-2) var(--ease);
 }
-.ot:hover { background: var(--l0-hover); color: var(--l0-ink); }
-.ot[aria-current="page"] {
-  color: var(--l0-ink);
-  background: var(--l2-bg);
-  border-color: var(--l2-border);
-  box-shadow: var(--sh-l2);
-}
+.ot:hover { border-color: var(--l2-border-hover); color: var(--l0-ink); }
+.ot[aria-current="page"] { color: var(--l0-ink); border-color: var(--tab-border-active); }
 .ot-open {
   display: flex; align-items: center; gap: var(--sp-2);
   flex: 1 1 auto; min-width: 0; height: 100%;
@@ -286,8 +169,8 @@ code, kbd, pre, samp { font-family: var(--mono); }
   font-size: var(--fs-2); font-weight: var(--fw-medium);
 }
 .ot-open:focus-visible { outline-offset: -2px; border-radius: var(--r-pill); }
-.ot-open .title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ot .method { min-width: 0; height: 16px; padding: 0 3px; background: transparent; font-size: 9.5px; }
+.ot-open .title { flex: 1 1 auto; min-width: 0; max-width: 22ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ot .method { flex: none; min-width: 0; height: 16px; padding: 0 3px; background: transparent; font-size: 9.5px; }
 .ot .scratch-ico { color: var(--l0-ink-3); flex: none; }
 .ot .title-input { flex: 1 1 auto; min-width: 0; height: 24px; margin-inline: var(--sp-2); }
 .ot-close {
@@ -301,27 +184,6 @@ code, kbd, pre, samp { font-family: var(--mono); }
 .ot-close:hover { background: var(--l0-hover); color: var(--l0-ink); }
 .ts-new { flex: none; }
 
-/* L0 header band */
-.header {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-4);
-  min-width: 0;
-  padding: 0 var(--sp-2) 0 var(--sp-1);
-  color: var(--l0-ink);
-}
-.crumbs-nav { flex: 0 1 auto; min-width: 0; }
-/* the mode's views: tabs right after the breadcrumb */
-.subnav {
-  display: flex; align-items: center; gap: 2px; flex: 0 1 auto; min-width: 0;
-  padding: 2px 2px 2px var(--sp-4); border-left: 1px solid var(--l0-rule);
-  overflow-x: auto; scrollbar-width: none;   /* narrow: the views scroll rather than wrap */
-}
-.subnav::-webkit-scrollbar { display: none; }
-.subnav .tab { flex: none; }
-.subnav .tab { color: var(--l0-ink-2); text-decoration: none; }
-.subnav .tab:hover { color: var(--l0-ink); background: var(--l0-hover); }
-.subnav .tab[aria-current="page"] { color: var(--l0-ink); }
 .crumbs {
   display: flex;
   align-items: center;
@@ -336,7 +198,8 @@ code, kbd, pre, samp { font-family: var(--mono); }
   white-space: nowrap;
 }
 .crumbs li { display: flex; align-items: center; gap: 6px; min-width: 0; }
-.crumbs li + li::before { content: "/"; color: var(--l0-ink-3); }
+.crumbs .crumb-sep { flex: none; color: var(--l0-ink-3); }
+.crumbs li:not(:last-child) { flex: none; }
 .crumbs li:last-child { color: var(--l0-ink); font-weight: var(--fw-semibold); overflow: hidden; text-overflow: ellipsis; }
 .crumbs a { color: inherit; text-decoration: none; border-radius: var(--r-xs); }
 .crumbs a:hover { color: var(--l0-ink); text-decoration: underline; text-underline-offset: 3px; }
@@ -348,9 +211,11 @@ code, kbd, pre, samp { font-family: var(--mono); }
   display: flex;
   flex-direction: column;
   gap: var(--card-gap);
-  padding-top: var(--band-h);   /* B1: the band is reserved on every route, so the card top never moves */
+  padding-top: var(--sp-2);   /* cards start just under the top row */
   padding-bottom: var(--sp-1);
 }
+/* B1: a screen with a band reserves it, so the card top never moves between such screens */
+.stage:has(.band, .reqbar, > .ed-head, > .ld-head) { padding-top: var(--band-h); }
 /* The band: one L0 toolbar row (URL bar, editor/run/load head) pinned in the
    reserved strip. It never wraps; content that does not fit moves into a ⋯ menu. */
 .band, .stage .reqbar, .stage > .ed-head, .stage > .ld-head {
@@ -437,67 +302,12 @@ code, kbd, pre, samp { font-family: var(--mono); }
   .split:not([data-orient="side"]) .divider::before { width: 36px; height: 4px; }
 }
 
-/* ---- icon rail (760-1100) ------------------------------------------------ */
-/* Anything marked .hide-rail disappears in the rail. Rows keep their icon. */
-@container app (min-width: 760px) and (max-width: 1100px) {
-  .shell { grid-template-columns: var(--rail-w) minmax(0, 1fr); }
-  .app:not(.is-rail-open) .sidebar { align-items: center; padding-inline: 6px; }
-  .app:not(.is-rail-open) .sidebar .hide-rail { display: none; }
-  .app:not(.is-rail-open) .sb-scroll { align-items: center; }
-  .app:not(.is-rail-open) .sb-top { justify-content: center; padding: 0; }
-  .app:not(.is-rail-open) .mode-switch { flex-direction: column; width: 40px; }
-  .app:not(.is-rail-open) .mode-switch { border-radius: var(--r-lg); }
-  .app:not(.is-rail-open) .mode-switch > button { flex: 0 0 auto; width: 100%; padding: 0; border-radius: var(--r-md); }
-  .app:not(.is-rail-open) .sb-controls { align-items: center; }
-  .app:not(.is-rail-open) .sb-section-head { display: none; }
-  .app:not(.is-rail-open) .sb-row { justify-content: center; padding-inline: 0; width: 40px; }
-  .app:not(.is-rail-open) .sb-foot { grid-template-columns: 40px; }
-  .app:not(.is-rail-open) .sb-foot .sb-row { min-height: 36px; }
-  .app:not(.is-rail-open) .sidebar .rail-only { display: flex; }
-  .search-field { flex-basis: 220px; }
-
-  .app.is-rail-open .sidebar {
-    position: absolute;
-    z-index: 30;
-    top: 0; bottom: 0;
-    left: max(6px, env(safe-area-inset-left, 0px));
-    width: var(--sidebar-w);
-    background: var(--l3-bg);
-    -webkit-backdrop-filter: blur(var(--blur-l3));
-    backdrop-filter: blur(var(--blur-l3));
-    box-shadow: var(--sh-l3);
-  }
-}
-
-/* ---- drawer (< 760) ------------------------------------------------------ */
+/* ---- narrow (< 760) ------------------------------------------------------- */
 @container app (max-width: 759px) {
-  .shell {
-    grid-template-columns: minmax(0, 1fr);
-    padding-left: max(8px, env(safe-area-inset-left, 0px));
-    padding-right: max(8px, env(safe-area-inset-right, 0px));
-  }
-  .main { padding-left: 0; }
+  .shell { padding-right: max(8px, env(safe-area-inset-right, 0px)); }
+  .main { padding-left: var(--sp-1); }
   .topbar { gap: var(--sp-2); padding-left: 0; }
-  .topbar .menu-btn { display: inline-flex; }
-  /* the views win over the breadcrumb, which the top row's tab already names */
-  .header:has(.subnav) .crumbs-nav { display: none; }
-  .header .subnav { padding-left: 0; border-left: 0; }
-  .ot { min-width: 96px; max-width: 160px; }
-  .sidebar {
-    position: absolute;
-    z-index: 40;
-    top: 0; bottom: 0; left: 0;
-    width: min(300px, 86%);
-    background: var(--l3-bg);
-    -webkit-backdrop-filter: blur(var(--blur-l3));
-    backdrop-filter: blur(var(--blur-l3));
-    box-shadow: var(--sh-l3);
-    transform: translateX(-105%);
-    visibility: hidden;
-    transition: transform var(--dur-3) var(--ease), visibility var(--dur-3);
-  }
-  .app.is-drawer-open .sidebar { transform: none; visibility: visible; }
-  .scrim-drawer { position: absolute; inset: 0; z-index: 35; background: var(--l3-backdrop); }
+  .ot { max-width: 176px; }   /* still about 13 characters of the name */
   .app .hide-narrow { display: none; }   /* .app: wins over components that set their own display (.kbd) */
 }
 
@@ -509,5 +319,5 @@ code, kbd, pre, samp { font-family: var(--mono); }
   .topbar .env-pill .env-cap, .topbar .env-pill .env-layers { display: none; }
   .topbar .search-field { flex: none; }
   .topbar .search-field .search-btn { width: var(--ctl-h); padding: 0; justify-content: center; }
-  .topbar .search-field :is(.label, .kbd, .search-filter) { display: none; }
+  .topbar .search-field :is(.label, .kbd) { display: none; }
 }

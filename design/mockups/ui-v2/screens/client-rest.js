@@ -412,6 +412,7 @@
 
   const ensureHttp = () => { if (['GQL', 'WS', 'SSE'].includes(VC.api().m)) S.api = 'users#get'; };
   VC.screens['client-rest'] = {
+    space: 'client',
     enter: ensureHttp,
     crumbs: () => [D.project.name, VC.serviceOf(), VC.api().name],
     status: () => '',
@@ -430,6 +431,7 @@
   const scratchTab = () => S.tabs.find((t) => t.id === S.tab && !t.api) || S.tabs.find((t) => !t.api);
   const scratchName = () => { const t = scratchTab(); return (t && (t.title || t.name)) || 'Untitled request'; };
   VC.screens['client-scratch'] = {
+    space: 'client',
     crumbs: () => [D.project.name, 'Scratch', scratchName()],
     status: () => 'Not saved',
     render: () => `<div class="client">${VC.reqbar({ m: 'GET', typeLabel: 'HTTP', url: S.scratchUrl, input: true })}
