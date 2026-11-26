@@ -9,10 +9,12 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use prost::Message;
+use serde::Serialize;
 use tokio::runtime::Handle;
 use tokio::sync::mpsc::{self, Receiver};
 use vc_contracts::engine::v1 as wire;
-use vc_engine::{Interrupter, PlanRequest, ReportFlags, RunFeed, RunRequest, RunWatch};
+use vc_engine::{Interrupter, PlanRequest, ReportFlags, RunRequest, RunWatch};
 
 use crate::engine_api::{EngineApi, Rpcs};
 use crate::project_rpcs::select;
@@ -40,7 +42,10 @@ async fn run(
     let request = run_request(&api, (request, out), RunWatch::new(sender));
     api.runs().open(&handle, &interrupter).await?;
     let running = api.blocking(move |engine| Handle::current().block_on(engine.run(&request, interrupts)));
-    let (ran, relayed) = tokio::join!(running, relay(feed, &sink, &interrupter));
+    let mut wire = WireFeed::default();
+    let responses =
+        |item| wire.events(item).into_iter().map(|event| wire::RunResponse { event: Some(event) }).collect();
+    let (ran, relayed) = tokio::join!(running, relay(feed, (&sink, &interrupter), responses));
     ran?;
     relayed
 }
@@ -75,21 +80,21 @@ fn run_request(api: &EngineApi, (request, out): (wire::RunRequest, Option<PathBu
     }
 }
 
-/// Sends the feed's events to `sink` until every sender has gone, which is once the run has
-/// returned. When the client goes, or an event cannot be sent, the run is interrupted once and
-/// the rest is drained unsent; the error the first unsent event met, if any.
-async fn relay(
-    mut feed: Receiver<RunFeed>,
-    sink: &Sink<wire::RunResponse>,
-    interrupter: &Interrupter,
+/// Sends the messages `messages` makes of each feed item to `sink`, in order, until every
+/// sender has gone, which is once the run has returned. When the client goes, or a message
+/// cannot be sent, the run is interrupted once and the rest is drained unsent; the error the
+/// first unsent message met, if any. `Run` and `RunLoad` share it.
+pub async fn relay<T, R: Message + Serialize>(
+    mut feed: Receiver<T>,
+    (sink, interrupter): (&Sink<R>, &Interrupter),
+    mut messages: impl FnMut(T) -> Vec<R>,
 ) -> Result<(), ConnectError> {
-    let (mut wire, mut unsent) = (WireFeed::default(), Ok(()));
-    let mut open = true;
+    let (mut open, mut unsent) = (true, Ok(()));
     loop {
         tokio::select! {
             item = feed.recv() => {
                 let Some(item) = item else { return unsent };
-                if open && let Err(error) = send(sink, wire.events(item)).await {
+                if open && let Err(error) = send(sink, messages(item)).await {
                     (open, unsent) = (false, Err(error));
                     interrupter.interrupt();
                 }
@@ -102,10 +107,10 @@ async fn relay(
     }
 }
 
-/// Sends `events` in order, stopping at the first that cannot be sent.
-async fn send(sink: &Sink<wire::RunResponse>, events: Vec<wire::RunEvent>) -> Result<(), ConnectError> {
-    for event in events {
-        sink.send(&wire::RunResponse { event: Some(event) }).await?;
+/// Sends `messages` in order, stopping at the first that cannot be sent.
+async fn send<R: Message + Serialize>(sink: &Sink<R>, messages: Vec<R>) -> Result<(), ConnectError> {
+    for message in messages {
+        sink.send(&message).await?;
     }
     Ok(())
 }

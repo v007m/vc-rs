@@ -7,12 +7,13 @@
 use std::sync::Arc;
 
 use tokio::runtime::Handle;
-use tokio::sync::mpsc::{self, Receiver};
+use tokio::sync::mpsc;
 use vc_contracts::engine::v1 as wire;
 use vc_contracts::engine::v1::run_load_response::Kind;
-use vc_engine::{Event, Interrupter, LoadRequest, LoadWatch};
+use vc_engine::{Event, LoadRequest, LoadWatch};
 
 use crate::engine_api::{EngineApi, Rpcs};
+use crate::run_stream::relay;
 use crate::wire_events::load_tick;
 use crate::wire_load::load_report;
 use crate::{ConnectError, Sink};
@@ -37,7 +38,7 @@ async fn run_load(
     let request = load_request(&api, request);
     let watch = LoadWatch { interrupts, ticks: Some(ticks) };
     let running = api.blocking(move |engine| Handle::current().block_on(engine.load(&request, watch)));
-    let (ran, relayed) = tokio::join!(running, relay(heard, &sink, &interrupter));
+    let (ran, relayed) = tokio::join!(running, relay(heard, (&sink, &interrupter), tick_response));
     let report = ran?;
     relayed?;
     sink.send(&wire::RunLoadResponse { kind: Some(Kind::Report(load_report(report))) }).await
@@ -49,31 +50,9 @@ fn load_request(api: &EngineApi, request: wire::RunLoadRequest) -> LoadRequest {
     LoadRequest { scenario: request.scenario, profiles, sets, seed: request.seed }
 }
 
-/// Sends each tick to `sink` until the run has returned and dropped its sender. When the
-/// client goes, or a tick cannot be sent, the run is interrupted once and the rest is drained
-/// unsent; the error the first unsent tick met, if any.
-async fn relay(
-    mut heard: Receiver<Event>,
-    sink: &Sink<wire::RunLoadResponse>,
-    interrupter: &Interrupter,
-) -> Result<(), ConnectError> {
-    let (mut open, mut unsent) = (true, Ok(()));
-    loop {
-        tokio::select! {
-            tick = heard.recv() => {
-                let Some(tick) = tick else { return unsent };
-                let response = wire::RunLoadResponse { kind: Some(Kind::Tick(load_tick(tick))) };
-                if open && let Err(error) = sink.send(&response).await {
-                    (open, unsent) = (false, Err(error));
-                    interrupter.interrupt();
-                }
-            }
-            () = sink.closed(), if open => {
-                open = false;
-                interrupter.interrupt();
-            }
-        }
-    }
+/// The message that streams one tick.
+fn tick_response(tick: Event) -> Vec<wire::RunLoadResponse> {
+    vec![wire::RunLoadResponse { kind: Some(Kind::Tick(load_tick(tick))) }]
 }
 
 #[cfg(test)]
