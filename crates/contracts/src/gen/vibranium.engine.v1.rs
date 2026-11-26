@@ -560,6 +560,161 @@ pub struct RunResponse {
     pub event: ::core::option::Option<RunEvent>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct RunLoadRequest {
+    /// The scenario's ID: its load file's ID, such as `checkout.peak`.
+    #[prost(string, tag="1")]
+    pub scenario: ::prost::alloc::string::String,
+    /// Profiles to layer, in order; the default profile when empty.
+    #[prost(string, repeated, tag="2")]
+    pub profiles: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// `key=value` overrides, as `--set` gives them.
+    #[prost(string, repeated, tag="3")]
+    pub sets: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// The seed the users pick their mix tests and draw generated data with; a fresh one when
+    /// absent, which the report gives.
+    #[prost(uint64, optional, tag="4")]
+    pub seed: ::core::option::Option<u64>,
+    /// A name for `Cancel`, as `RunRequest.handle` takes it. Empty: only closing the stream stops
+    /// the run.
+    #[prost(string, tag="5")]
+    pub handle: ::prost::alloc::string::String,
+}
+/// A closed second while the run runs, then the report last. A tick that finds a slow client
+/// behind is dropped, never queued; the history keeps every second.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RunLoadResponse {
+    #[prost(oneof="run_load_response::Kind", tags="1, 2")]
+    pub kind: ::core::option::Option<run_load_response::Kind>,
+}
+/// Nested message and enum types in `RunLoadResponse`.
+pub mod run_load_response {
+    #[derive(Clone, PartialEq, ::prost::Oneof)]
+    pub enum Kind {
+        #[prost(message, tag="1")]
+        Tick(super::LoadTick),
+        #[prost(message, tag="2")]
+        Report(super::LoadReport),
+    }
+}
+/// What a load run did, as `vc load --json` gives it; latencies in ms.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct LoadReport {
+    /// The exit code `vc load` would have: 0 within thresholds, 1 blocked, 3 a threshold
+    /// breached, 130 cancelled.
+    #[prost(uint32, tag="1")]
+    pub exit: u32,
+    #[prost(string, tag="2")]
+    pub scenario: ::prost::alloc::string::String,
+    /// The scenario's `name`, when its load file gives one.
+    #[prost(string, optional, tag="3")]
+    pub name: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(enumeration="LoadEnding", tag="4")]
+    pub ending: i32,
+    #[prost(uint64, tag="5")]
+    pub seconds: u64,
+    #[prost(uint64, tag="6")]
+    pub iterations: u64,
+    /// Iterations that failed.
+    #[prost(uint64, tag="7")]
+    pub errors: u64,
+    #[prost(double, tag="8")]
+    pub rps: f64,
+    #[prost(double, tag="9")]
+    pub p50_ms: f64,
+    #[prost(double, tag="10")]
+    pub p90_ms: f64,
+    #[prost(double, tag="11")]
+    pub p95_ms: f64,
+    #[prost(double, tag="12")]
+    pub p99_ms: f64,
+    #[prost(double, tag="13")]
+    pub max_ms: f64,
+    /// The thresholds the whole run breached.
+    #[prost(message, repeated, tag="14")]
+    pub breaches: ::prost::alloc::vec::Vec<LoadBreach>,
+    /// Each mix test that ran, in test order.
+    #[prost(message, repeated, tag="15")]
+    pub tests: ::prost::alloc::vec::Vec<LoadTestReport>,
+    /// Failed iterations by kind, most first.
+    #[prost(message, repeated, tag="16")]
+    pub error_kinds: ::prost::alloc::vec::Vec<LoadErrorKind>,
+    /// The shared action's failure that kept the users from starting.
+    #[prost(string, optional, tag="17")]
+    pub blocked: ::core::option::Option<::prost::alloc::string::String>,
+    /// The run's number in the history.
+    #[prost(uint64, optional, tag="18")]
+    pub run: ::core::option::Option<u64>,
+    /// The seed the run used, to replay it.
+    #[prost(uint64, tag="19")]
+    pub seed: u64,
+    /// Problems that did not change the result, such as a history that could not be written.
+    #[prost(string, repeated, tag="20")]
+    pub notices: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+/// A threshold the run breached.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct LoadBreach {
+    /// `p95`, `errorRate`, `rps`, ...
+    #[prost(string, tag="1")]
+    pub metric: ::prost::alloc::string::String,
+    /// The test whose own threshold it is; unset for the scenario's.
+    #[prost(string, optional, tag="2")]
+    pub test: ::core::option::Option<::prost::alloc::string::String>,
+    /// The value measured, in `unit`, not rounded.
+    #[prost(double, tag="3")]
+    pub actual: f64,
+    /// `ms`, `share` (0 to 1) or `perSecond`.
+    #[prost(string, tag="4")]
+    pub unit: ::prost::alloc::string::String,
+    /// The threshold as JSON, in `unit`: `{"lt":30.0}`.
+    #[prost(string, tag="5")]
+    pub limit_json: ::prost::alloc::string::String,
+    /// As the summary shows it: `45.5 ms (lt 30 ms)`.
+    #[prost(string, tag="6")]
+    pub shown: ::prost::alloc::string::String,
+}
+/// One mix test's iterations over the whole run.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct LoadTestReport {
+    /// Its full ID: `checkout.flow#buysOneItem`.
+    #[prost(string, tag="1")]
+    pub test: ::prost::alloc::string::String,
+    #[prost(uint64, tag="2")]
+    pub iterations: u64,
+    #[prost(uint64, tag="3")]
+    pub errors: u64,
+    #[prost(double, tag="4")]
+    pub rps: f64,
+    #[prost(double, tag="5")]
+    pub p50_ms: f64,
+    #[prost(double, tag="6")]
+    pub p90_ms: f64,
+    #[prost(double, tag="7")]
+    pub p95_ms: f64,
+    #[prost(double, tag="8")]
+    pub p99_ms: f64,
+    #[prost(double, tag="9")]
+    pub max_ms: f64,
+}
+/// Failed iterations of one kind.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct LoadErrorKind {
+    /// The api the failing action calls; unset when it calls none.
+    #[prost(string, optional, tag="1")]
+    pub api: ::core::option::Option<::prost::alloc::string::String>,
+    /// The mix test whose iterations failed.
+    #[prost(string, optional, tag="2")]
+    pub test: ::core::option::Option<::prost::alloc::string::String>,
+    /// The failing action's last response status; unset when it got none.
+    #[prost(uint32, optional, tag="3")]
+    pub status: ::core::option::Option<u32>,
+    /// The failure's diagnostic code: `V5101` for a check, `V5105` for the transport, ...
+    #[prost(string, optional, tag="4")]
+    pub code: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(uint64, tag="5")]
+    pub count: u64,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ReadFileRequest {
     /// Relative to the project root.
     #[prost(string, tag="1")]
@@ -1684,6 +1839,46 @@ impl CancelLevel {
             "CANCEL_LEVEL_UNSPECIFIED" => Some(Self::Unspecified),
             "CANCEL_LEVEL_STOP" => Some(Self::Stop),
             "CANCEL_LEVEL_ABANDON" => Some(Self::Abandon),
+            _ => None,
+        }
+    }
+}
+/// How a load run ended.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum LoadEnding {
+    Unspecified = 0,
+    /// Every stage ran.
+    Finished = 1,
+    /// An `abortOn` threshold breached on the rolling window.
+    Aborted = 2,
+    /// Cancelled: the stream closed, or `Cancel`.
+    Cancelled = 3,
+    /// A `beforeRun` or `beforeAll` action failed, so no user started.
+    Blocked = 4,
+}
+impl LoadEnding {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "LOAD_ENDING_UNSPECIFIED",
+            Self::Finished => "LOAD_ENDING_FINISHED",
+            Self::Aborted => "LOAD_ENDING_ABORTED",
+            Self::Cancelled => "LOAD_ENDING_CANCELLED",
+            Self::Blocked => "LOAD_ENDING_BLOCKED",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "LOAD_ENDING_UNSPECIFIED" => Some(Self::Unspecified),
+            "LOAD_ENDING_FINISHED" => Some(Self::Finished),
+            "LOAD_ENDING_ABORTED" => Some(Self::Aborted),
+            "LOAD_ENDING_CANCELLED" => Some(Self::Cancelled),
+            "LOAD_ENDING_BLOCKED" => Some(Self::Blocked),
             _ => None,
         }
     }

@@ -38,6 +38,7 @@ mod fixture;
 mod guard;
 mod history_rpcs;
 mod live_rpcs;
+mod load_stream;
 mod project_rpcs;
 mod run_stream;
 mod service;
@@ -47,6 +48,7 @@ mod vcs_rpcs;
 mod wire_diagnostics;
 mod wire_events;
 mod wire_history;
+mod wire_load;
 mod wire_results;
 
 pub use builder::{LaunchUrl, McpAccess, Server, ServerBuilder};

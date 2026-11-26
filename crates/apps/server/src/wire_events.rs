@@ -111,7 +111,7 @@ fn kind(names: &Names, event: Event) -> Kind {
 }
 
 /// A load run's closed second on the wire, its latencies in ms; any other event is empty.
-fn load_tick(event: Event) -> wire::LoadTick {
+pub fn load_tick(event: Event) -> wire::LoadTick {
     let Event::LoadTick { second, users, rps, p50, p90, p95, p99, errors, breaching, host } = event else {
         return wire::LoadTick::default();
     };

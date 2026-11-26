@@ -22,6 +22,10 @@ service EngineService {
   // Ctrl-C (cleanups run; a second `stop` ends the grace period), `abandon` as the third (the
   // cleanups still to run are skipped). It answers at once; the run's stream tells how it ended.
   rpc Cancel(CancelRequest) returns (CancelResponse);
+  // Runs a load scenario as `vc load` does, streaming a tick as each second closes, then its
+  // report (D678). Closing the stream cancels it as one Ctrl-C does; a run with a `handle` can
+  // also be stopped by `Cancel`.
+  rpc RunLoad(RunLoadRequest) returns (stream RunLoadResponse);
   // A project file's text, for the editor.
   rpc ReadFile(ReadFileRequest) returns (ReadFileResponse);
   // Saves a project file the editor changed, unless it changed on disk since it was read.
@@ -307,6 +311,121 @@ message CancelResponse {}
 
 message RunResponse {
   RunEvent event = 1;
+}
+
+message RunLoadRequest {
+  // The scenario's ID: its load file's ID, such as `checkout.peak`.
+  string scenario = 1;
+  // Profiles to layer, in order; the default profile when empty.
+  repeated string profiles = 2;
+  // `key=value` overrides, as `--set` gives them.
+  repeated string sets = 3;
+  // The seed the users pick their mix tests and draw generated data with; a fresh one when
+  // absent, which the report gives.
+  optional uint64 seed = 4;
+  // A name for `Cancel`, as `RunRequest.handle` takes it. Empty: only closing the stream stops
+  // the run.
+  string handle = 5;
+}
+
+// A closed second while the run runs, then the report last. A tick that finds a slow client
+// behind is dropped, never queued; the history keeps every second.
+message RunLoadResponse {
+  oneof kind {
+    LoadTick tick = 1;
+    LoadReport report = 2;
+  }
+}
+
+// How a load run ended.
+enum LoadEnding {
+  LOAD_ENDING_UNSPECIFIED = 0;
+  // Every stage ran.
+  LOAD_ENDING_FINISHED = 1;
+  // An `abortOn` threshold breached on the rolling window.
+  LOAD_ENDING_ABORTED = 2;
+  // Cancelled: the stream closed, or `Cancel`.
+  LOAD_ENDING_CANCELLED = 3;
+  // A `beforeRun` or `beforeAll` action failed, so no user started.
+  LOAD_ENDING_BLOCKED = 4;
+}
+
+// What a load run did, as `vc load --json` gives it; latencies in ms.
+message LoadReport {
+  // The exit code `vc load` would have: 0 within thresholds, 1 blocked, 3 a threshold
+  // breached, 130 cancelled.
+  uint32 exit = 1;
+  string scenario = 2;
+  // The scenario's `name`, when its load file gives one.
+  optional string name = 3;
+  LoadEnding ending = 4;
+  uint64 seconds = 5;
+  uint64 iterations = 6;
+  // Iterations that failed.
+  uint64 errors = 7;
+  double rps = 8;
+  double p50_ms = 9;
+  double p90_ms = 10;
+  double p95_ms = 11;
+  double p99_ms = 12;
+  double max_ms = 13;
+  // The thresholds the whole run breached.
+  repeated LoadBreach breaches = 14;
+  // Each mix test that ran, in test order.
+  repeated LoadTestReport tests = 15;
+  // Failed iterations by kind, most first.
+  repeated LoadErrorKind error_kinds = 16;
+  // The shared action's failure that kept the users from starting.
+  optional string blocked = 17;
+  // The run's number in the history.
+  optional uint64 run = 18;
+  // The seed the run used, to replay it.
+  uint64 seed = 19;
+  // Problems that did not change the result, such as a history that could not be written.
+  repeated string notices = 20;
+}
+
+// A threshold the run breached.
+message LoadBreach {
+  // `p95`, `errorRate`, `rps`, ...
+  string metric = 1;
+  // The test whose own threshold it is; unset for the scenario's.
+  optional string test = 2;
+  // The value measured, in `unit`, not rounded.
+  double actual = 3;
+  // `ms`, `share` (0 to 1) or `perSecond`.
+  string unit = 4;
+  // The threshold as JSON, in `unit`: `{"lt":30.0}`.
+  string limit_json = 5;
+  // As the summary shows it: `45.5 ms (lt 30 ms)`.
+  string shown = 6;
+}
+
+// One mix test's iterations over the whole run.
+message LoadTestReport {
+  // Its full ID: `checkout.flow#buysOneItem`.
+  string test = 1;
+  uint64 iterations = 2;
+  uint64 errors = 3;
+  double rps = 4;
+  double p50_ms = 5;
+  double p90_ms = 6;
+  double p95_ms = 7;
+  double p99_ms = 8;
+  double max_ms = 9;
+}
+
+// Failed iterations of one kind.
+message LoadErrorKind {
+  // The api the failing action calls; unset when it calls none.
+  optional string api = 1;
+  // The mix test whose iterations failed.
+  optional string test = 2;
+  // The failing action's last response status; unset when it got none.
+  optional uint32 status = 3;
+  // The failure's diagnostic code: `V5101` for a check, `V5105` for the transport, ...
+  optional string code = 4;
+  uint64 count = 5;
 }
 
 message ReadFileRequest {
