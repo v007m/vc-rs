@@ -183,6 +183,11 @@
     gap: 8px;
     align-items: center;
   }
+  /* the same width as New profile, with Add beside it (D616) */
+  .add input {
+    flex: 0 1 320px;
+    min-width: 0;
+  }
   .actions {
     justify-content: flex-end;
   }
