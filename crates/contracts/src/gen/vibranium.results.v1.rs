@@ -208,6 +208,20 @@ pub struct Run {
     pub status: i32,
     #[prost(message, optional, tag="12")]
     pub totals: ::core::option::Option<Totals>,
+    /// For an `adhoc` run, the call it made, from its first exchange (D542).
+    #[prost(message, optional, tag="13")]
+    pub call: ::core::option::Option<CallSummary>,
+}
+/// What an `adhoc` run sent and got: a History row (D542). The URL is masked.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct CallSummary {
+    #[prost(string, tag="1")]
+    pub method: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub url: ::prost::alloc::string::String,
+    /// Absent when no response came back.
+    #[prost(uint32, optional, tag="3")]
+    pub status: ::core::option::Option<u32>,
 }
 /// How a test instance ended.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]

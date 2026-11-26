@@ -1,6 +1,7 @@
 //! The engine service's `Run` stream (C6c): runs a selection and streams its events, then its
 //! report. Closing the stream interrupts the run once, as one Ctrl-C does, so its cleanups still
-//! run; the feed is drained, unsent, until the run returns. A run that cannot start ends the
+//! run; the feed is drained, unsent, until the run returns. A run with a `handle` can also be
+//! stopped or abandoned by `Cancel` while it runs (D551). A run that cannot start ends the
 //! stream with the engine's error. The run, which compiles and plans the project before it
 //! starts, is driven from the blocking pool, so the compile never holds an async worker; the
 //! relay to the client stays on the async side.
@@ -31,9 +32,10 @@ async fn run(
     request: wire::RunRequest,
     sink: Sink<wire::RunResponse>,
 ) -> Result<(), ConnectError> {
+    let (interrupter, interrupts) = vc_engine::interrupts();
+    api.runs().open(&request.handle, &interrupter).await?;
     let (sender, feed) = mpsc::channel(FEED);
     let request = run_request(&api, request, RunWatch::new(sender));
-    let (interrupter, interrupts) = vc_engine::interrupts();
     let running = api.blocking(move |engine| Handle::current().block_on(engine.run(&request, interrupts)));
     let (ran, relayed) = tokio::join!(running, relay(feed, &sink, &interrupter));
     ran?;

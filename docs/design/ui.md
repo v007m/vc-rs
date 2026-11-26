@@ -279,20 +279,20 @@ Five views in the sidebar, each opening with one sentence on what it is for:
 
 | # | RPC or field | For |
 |---|---|---|
-| 1 | Ad hoc `Call` shape (method, URL, headers, body, auth reference, with no api) | Scratch requests |
-| 2 | `CallStream` (server streaming) and `StreamSend` | Live SSE and WS |
-| 3 | `ListRuns(kind=adhoc)` and a history write for each UI call | Call history |
+| 1 | Done (D540, D541): `CallRequest.adhoc`, an `AdhocCall` of `type` (`http`, `sse`, `websocket`), `method`, `url` (whole, or starting with `${`), `headers`, `query`, `body` (JSON text with a map or list goes as JSON, anything else as text) and `auth` (a config auth ID or `none`), sent in place of `api` and `draft`. It compiles as the in-memory api `vc-adhoc#call`, held to no convention lint (D545); a diagnostic of it names `services/vc-adhoc/vc-adhoc.api.yaml`, which the Client shows as "this request" | Scratch requests |
+| 2 | Done (D543, D544): `CallStream(CallRequest)` streams `opened` (the stream ID for `StreamSend`, the run ID, the masked head exchange), then each `message` (`in` or `out`, `at_ms`, the masked fields as JSON), then `ended` (reason, `failed`, the close code). `opened.sends` says whether the stream takes a text. `StreamSend{stream, text}` sends a WebSocket text (on an `sse` stream it is `failed_precondition` and the stream stays open); `StreamSend{stream, close: true}` closes with 1000. Closing `CallStream` closes the stream | Live SSE and WS |
+| 3 | Done (D542): every `Call` and `CallStream` is recorded as an `adhoc` run with its masked exchange (a stream: its head only); `ListRuns{kind: "adhoc"}` lists them and `Run.call` (`CallSummary`: method, masked URL, status) is each History row | Call history |
 | 4 | `Complete`, `Hover`, `ApplyFixes`, `Explain` (already in the LLD table) | YAML editor |
 | 5 | `Plan` | Plan preview |
 | 6 | `CreateFile` (templates), `Rename`, `Format`, `TrashFile` | File operations |
-| 7 | `Cancel {level: stop, abandon}` | Stop, then Skip cleanups |
+| 7 | Done (D551–D553): `Cancel{run, level}`, where `run` is the `handle` the client gave `RunRequest` (its own pick, such as a UUID: at most 64 ASCII letters, digits, `-` and `_`) and `level` is `CANCEL_LEVEL_STOP` (one Ctrl-C: grace period, then cleanups; a second `stop` ends the grace period) or `CANCEL_LEVEL_ABANDON` (the third Ctrl-C: the cleanups still to run are skipped). It answers at once; the run's stream ends with its report (exit 130). A handle a running run holds is `already_exists`; one not running is `not_found` | Stop, then Skip cleanups |
 | 8 | `RunLoad` stream; `load_tick` host stats | Load tests |
 | 9 | `CompareRuns`, `TestHistory` | Compare runs, per-test strip |
 | 10 | `Init`, `Demo` | Onboarding |
 | 11 | `TestAlert`, `PluginList`/`Add`/`Remove` | Settings |
 | 12 | User-config read and write (scoped) | Settings, the "You only" scope |
 | 13 | `RunRequest`: strict and reporters | Run dialog |
-| 14 | `Vcs` status, diff, commit, push and pull (UI only, never agents) | The git pane |
+| 14 | Done (D546–D550): `VcsStatus` (`branch`, `upstream`, `ahead`, `behind`, `files`: each `path`, `change` (`added`, `modified`, `deleted`, `untracked`, `conflicted`), `added`, `removed`, `binary`), `VcsDiff{path}` (a masked unified diff, empty for an unchanged file), `VcsCommit{paths, message}` (the short ID; only those files are committed), `VcsPush` and `VcsPull` (fast-forward only; what git said, masked). UI only, never agents. A git failure is `failed_precondition` with git's message, no URL's credentials in it | The git pane |
 | 15 | Schedules: list, write (through the config diff), the server's scheduler, `ExportSchedule` (GitHub Actions) | Schedules |
 | 16 | `AgentUsage` (per agent and tool, over a window) | Agents › Usage |
 | 17 | A check run: `Run` with `record: false` | Check run in Tests |

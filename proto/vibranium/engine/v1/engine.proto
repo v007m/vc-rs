@@ -18,6 +18,10 @@ service EngineService {
   // Runs a selection and streams its events, then its report. Closing the stream cancels the
   // run as one Ctrl-C does: cleanups still run.
   rpc Run(RunRequest) returns (stream RunResponse);
+  // Stops a running `Run` by the `handle` it was started with (D551–D553): `stop` as one
+  // Ctrl-C (cleanups run; a second `stop` ends the grace period), `abandon` as the third (the
+  // cleanups still to run are skipped). It answers at once; the run's stream tells how it ended.
+  rpc Cancel(CancelRequest) returns (CancelResponse);
   // A project file's text, for the editor.
   rpc ReadFile(ReadFileRequest) returns (ReadFileResponse);
   // Saves a project file the editor changed, unless it changed on disk since it was read.
@@ -35,6 +39,13 @@ service EngineService {
   // Sends one api's request, as `vc call` does. The person at the browser is no agent, so the
   // profiles' agent policy and the agent log do not apply (D241).
   rpc Call(CallRequest) returns (CallResponse);
+  // Opens an `sse` or `websocket` call and streams its messages as they arrive, each masked
+  // (D543). The first event names the stream for `StreamSend`; the last says how it ended.
+  // Closing this stream closes the call.
+  rpc CallStream(CallStreamRequest) returns (stream CallStreamResponse);
+  // Sends one WebSocket message on a stream `CallStream` opened, or closes the stream (D544). A
+  // message on an `sse` stream fails with `failed_precondition`; the stream stays open.
+  rpc StreamSend(StreamSendRequest) returns (StreamSendResponse);
   // An api or test as its file writes it, for the Client's forms to edit (D245, D251).
   rpc ReadDefinition(ReadDefinitionRequest) returns (ReadDefinitionResponse);
   // How the API client would send an api: its vars, inherited headers, auth and curl (D245).
@@ -69,6 +80,22 @@ service EngineService {
   // Where an MCP client connects and the agent token it sends, for the Connect panel. Only the
   // browser's session cookie reaches it, never the agent token (D239).
   rpc Connection(ConnectionRequest) returns (ConnectionResponse);
+  // The git pane (D546–D550): the branch, how far it is from its upstream, and each changed file
+  // under the project root with its kind and line counts. Only the web UI calls the `Vcs*` rpcs;
+  // no MCP tool does. A git failure is `failed_precondition`, its message holding no URL's
+  // credentials.
+  rpc VcsStatus(VcsStatusRequest) returns (VcsStatusResponse);
+  // One file's unified diff against the last commit, the whole file when it is untracked; masked.
+  rpc VcsDiff(VcsDiffRequest) returns (VcsDiffResponse);
+  // Commits the named files as they are now, and nothing else staged.
+  rpc VcsCommit(VcsCommitRequest) returns (VcsCommitResponse);
+  // Pushes the branch to its upstream with the user's own git credentials, never asking for any.
+  // A push or pull still running after 120 s is stopped: `failed_precondition`, saying it may be
+  // waiting for an SSH passphrase (D554).
+  rpc VcsPush(VcsPushRequest) returns (VcsPushResponse);
+  // Fast-forwards the branch to its upstream with the user's own git credentials; refused when
+  // the branches have diverged.
+  rpc VcsPull(VcsPullRequest) returns (VcsPullResponse);
 }
 
 // Which tests or apis to act on, as `vc run` selects them.
@@ -233,7 +260,29 @@ message RunRequest {
   bool failed = 8;
   // Ignore the action cache.
   bool no_cache = 9;
+  // A name the client picks for the run, such as a UUID, for `Cancel`: at most 64 ASCII
+  // letters, digits, `-` and `_`, and held by no other running run. Empty: only closing the
+  // stream stops the run.
+  string handle = 10;
 }
+
+// How far `Cancel` stops a run.
+enum CancelLevel {
+  CANCEL_LEVEL_UNSPECIFIED = 0;
+  // As one Ctrl-C: work in flight gets its grace period, then the cleanups run.
+  CANCEL_LEVEL_STOP = 1;
+  // As the third Ctrl-C: work in flight stops at once and the cleanups still to run are
+  // abandoned.
+  CANCEL_LEVEL_ABANDON = 2;
+}
+
+message CancelRequest {
+  // The `handle` of the running run.
+  string run = 1;
+  CancelLevel level = 2;
+}
+
+message CancelResponse {}
 
 message RunResponse {
   RunEvent event = 1;
@@ -401,7 +450,87 @@ message CallRequest {
   // Edits to the api's file that are not saved: the call sends the api as edited, and the
   // file is left as it is.
   optional ApiDraft draft = 6;
+  // A request with no api in a `*.api.yaml`, sent in place of `api`, which is then empty; no
+  // `draft` goes with it (D540, D541).
+  optional AdhocCall adhoc = 7;
 }
+
+// A scratch request the API client sends with no api file (D540, D541). Its values may hold
+// `${…}` templates, which render as an api's do under the active profiles.
+message AdhocCall {
+  // `http` (when empty), `sse` or `websocket`.
+  string type = 1;
+  // `GET` when empty; a `websocket` call takes none.
+  string method = 2;
+  // The full URL, or one starting with a template: `${var.usersUrl}/users`.
+  string url = 3;
+  repeated vibranium.results.v1.Header headers = 4;
+  // Added to the URL's own query.
+  repeated vibranium.results.v1.Header query = 5;
+  // As the editor holds it: JSON text with a map or a list is sent as JSON, any other text as
+  // written. A `websocket` call takes none.
+  optional string body = 6;
+  // An auth ID from the project's config, or `none`; no auth when absent. Never a credential.
+  optional string auth = 7;
+}
+
+message CallStreamRequest {
+  // The api, or the ad hoc request, to open; its `keep` is not used, as a stream registers no
+  // cleanup.
+  CallRequest call = 1;
+}
+
+message CallStreamResponse {
+  oneof event {
+    StreamOpened opened = 1;
+    StreamMessage message = 2;
+    StreamEnded ended = 3;
+  }
+}
+
+// The stream's opening answer, sent first.
+message StreamOpened {
+  // Names the stream for `StreamSend` while it is open.
+  string stream = 1;
+  // The history run the call is recorded as; 0 when the history could not be written.
+  uint64 run_id = 2;
+  // The request as sent and the opening response, masked; no messages.
+  vibranium.results.v1.Exchange head = 3;
+  // Whether `StreamSend` can send a message on it: a `websocket` stream can; an `sse` one only
+  // reads, and a send on it fails with `failed_precondition` and leaves it open (D544).
+  bool sends = 4;
+}
+
+// One message, as a `receive` item matches it, masked: `{event, data, id, text}` for `sse`,
+// `{type, data, text}` for `websocket`.
+message StreamMessage {
+  // `in` for one the server sent, `out` for one `StreamSend` sent.
+  string direction = 1;
+  uint64 at_ms = 2;
+  // The message's fields, as JSON text.
+  string json = 3;
+}
+
+// How the stream ended, sent last.
+message StreamEnded {
+  // Why: `the stream closed`, `the server answered 404`, `the connection dropped (…)`.
+  string reason = 1;
+  // It ended on an error rather than a close.
+  bool failed = 2;
+  // The WebSocket close code, when the server sent one.
+  optional uint32 code = 3;
+}
+
+message StreamSendRequest {
+  // As `StreamOpened` named it.
+  string stream = 1;
+  // The text to send as one message; a `${…}` in it is sent as written.
+  optional string text = 2;
+  // Closes the stream, with code 1000, instead of sending.
+  bool close = 3;
+}
+
+message StreamSendResponse {}
 
 // Pointer edits to an api file, made over it as it was opened; nothing is written.
 message ApiDraft {
@@ -604,7 +733,8 @@ message UnskipResponse {
 message ListRunsRequest {
   // At most this many; all when 0.
   uint32 limit = 1;
-  // Only runs of this kind (`run`, `load`), the limit counted among them; every kind when absent.
+  // Only runs of this kind (`run`, `load`, `adhoc` for the calls the History lists), the limit
+  // counted among them; every kind when absent (D542).
   optional string kind = 2;
   // Only runs under this profile; every profile when absent.
   optional string profile = 3;
@@ -788,4 +918,78 @@ message ConnectionResponse {
   string mcp_url = 1;
   // The bearer token `/mcp` accepts, and nothing else does.
   string agent_token = 2;
+}
+
+message VcsStatusRequest {}
+
+// How a file changed since the last commit, staged or not.
+enum VcsChange {
+  VCS_CHANGE_UNSPECIFIED = 0;
+  VCS_CHANGE_ADDED = 1;
+  VCS_CHANGE_MODIFIED = 2;
+  VCS_CHANGE_DELETED = 3;
+  // New and not yet added; not ignored.
+  VCS_CHANGE_UNTRACKED = 4;
+  // Left with merge conflicts.
+  VCS_CHANGE_CONFLICTED = 5;
+}
+
+message VcsFile {
+  // Relative to the project root.
+  string path = 1;
+  VcsChange change = 2;
+  // Lines added since the last commit; every line of an untracked file.
+  uint32 added = 3;
+  uint32 removed = 4;
+  // A binary file has no line counts.
+  bool binary = 5;
+}
+
+message VcsStatusResponse {
+  // The checked-out branch; empty when `HEAD` is detached.
+  string branch = 1;
+  // The branch it tracks, `origin/main`; empty when it tracks none.
+  string upstream = 2;
+  // Commits the upstream lacks.
+  uint32 ahead = 3;
+  // Commits the branch lacks.
+  uint32 behind = 4;
+  // By path.
+  repeated VcsFile files = 5;
+}
+
+message VcsDiffRequest {
+  // Relative to the project root.
+  string path = 1;
+}
+
+message VcsDiffResponse {
+  // Empty when the file did not change or is ignored.
+  string diff = 1;
+}
+
+message VcsCommitRequest {
+  // Relative to the project root; at least one.
+  repeated string paths = 1;
+  // Not blank.
+  string message = 2;
+}
+
+message VcsCommitResponse {
+  // The new commit's short ID.
+  string commit = 1;
+}
+
+message VcsPushRequest {}
+
+message VcsPushResponse {
+  // What git said, masked.
+  string output = 1;
+}
+
+message VcsPullRequest {}
+
+message VcsPullResponse {
+  // What git said, masked.
+  string output = 1;
 }

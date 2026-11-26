@@ -37,6 +37,7 @@ host! {
     mod config_sources;
     mod environment;
     mod git;
+    mod git_pane;
     mod root;
     mod sources;
     mod user_config;

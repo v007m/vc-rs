@@ -21,6 +21,11 @@ pub fn run(row: &RunRow) -> wire::Run {
         vc_version: start.vc_version.clone(),
         status: row.status.map_or(wire::RunStatus::Unspecified, wire::RunStatus::from).into(),
         totals: Some(row.totals.into()),
+        call: row.call.as_ref().map(|call| wire::CallSummary {
+            method: call.method.clone(),
+            url: call.url.clone(),
+            status: call.status.map(u32::from),
+        }),
     }
 }
 

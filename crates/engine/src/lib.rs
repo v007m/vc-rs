@@ -31,6 +31,7 @@
 //! assert_eq!(schemas[0].file_name, "config.schema.json");
 //! ```
 
+mod adhoc;
 mod agent_gate;
 mod agent_write;
 mod alert_samples;
@@ -81,6 +82,7 @@ mod init;
 mod interrupt;
 mod list;
 mod list_detail;
+mod live_call;
 mod load;
 mod load_findings;
 mod load_live;
@@ -125,6 +127,7 @@ mod sync_rules;
 mod sync_snapshot;
 mod test_auth;
 mod user;
+mod vcs_pane;
 mod wanted;
 mod watch;
 mod yaml_out;
@@ -156,6 +159,7 @@ pub use init::INIT_FOLDERS;
 pub use interrupt::{Interrupter, Interrupts, interrupts};
 pub use list::{ListReport, Listed};
 pub use list_detail::{ApiCall, action_call};
+pub use live_call::{LiveEvent, LiveIo, LiveSend};
 pub use load_report::{ErrorKind, LoadBreach, LoadEnding, LoadReport, LoadRequest, LoadTestReport, LoadWatch};
 pub use paths::under;
 pub use plan::PlanReport;
@@ -164,7 +168,7 @@ pub use plugins::{PluginListing, PluginOffer, PluginState};
 pub use policy::{AgentCall, Permission};
 pub use project_info::ProjectInfo;
 pub use request::{
-    CallRequest, ExplainRequest, ListKind, ListRequest, PlanRequest, ReportFlags, RunRequest, SelectRequest,
+    AdhocCall, CallRequest, ExplainRequest, ListKind, ListRequest, PlanRequest, ReportFlags, RunRequest, SelectRequest,
 };
 pub use run::RunReport;
 pub use run_feed::{RunFeed, RunWatch};
@@ -181,7 +185,7 @@ pub use vc_diagnostics::{
 pub use vc_interfaces::{
     AgentAction, ApiTrend, Approval, ApprovalId, ApprovalRequest, ApprovalStatus, CheckRow, Decided, ExchangeRow,
     LoggedAction, PluginKind, PluginManifest, PluginPermissions, PluginStderr, RunFilter, RunId, RunRow, RunStart,
-    TestRow, TestTrend, Verdict,
+    TestRow, TestTrend, VcsChange, VcsCommit, VcsFile, VcsStatus, Verdict,
 };
 pub use vc_model::{
     ActionId, Bodies, CheckKind, CheckResult, CleanupRecord, Event, Exchange, Failure, FileKind, InstanceId, Location,

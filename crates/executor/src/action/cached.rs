@@ -4,9 +4,9 @@ use async_trait::async_trait;
 use serde_json::Value;
 use tokio::sync::mpsc::UnboundedSender;
 use vc_interfaces::{CacheEntry, CacheKey, CacheListing, CacheStore, CacheStoreError, CachedCleanup, Clock};
-use vc_model::{Action, ActionId, ActionKind, ActionOutcome, CacheSpec, Exchange, Program};
+use vc_model::{Action, ActionId, ActionKind, ActionOutcome, CacheSpec, Exchange, Failure, Program};
 
-use super::{ActionExecutor, ActionRequest};
+use super::{ActionExecutor, ActionRequest, LiveStream};
 use crate::{ActionReport, CleanupCollector, PendingCleanup, Render, Saved};
 
 /// A run's cross-run cache.
@@ -187,6 +187,11 @@ impl ActionExecutor for CachedExecutor {
     fn follows(&self, program: &Program, action: &Action) -> Vec<ActionId> {
         let check = action.cache.as_ref().and_then(|spec| spec.check);
         self.inner.follows(program, action).into_iter().chain(check).collect()
+    }
+
+    /// A live stream is never cached: it opens through `inner`.
+    async fn open_live(&self, request: ActionRequest) -> Result<LiveStream, Failure> {
+        self.inner.open_live(request).await
     }
 }
 

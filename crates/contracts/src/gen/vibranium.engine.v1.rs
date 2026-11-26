@@ -496,6 +496,22 @@ pub struct RunRequest {
     /// Ignore the action cache.
     #[prost(bool, tag="9")]
     pub no_cache: bool,
+    /// A name the client picks for the run, such as a UUID, for `Cancel`: at most 64 ASCII
+    /// letters, digits, `-` and `_`, and held by no other running run. Empty: only closing the
+    /// stream stops the run.
+    #[prost(string, tag="10")]
+    pub handle: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct CancelRequest {
+    /// The `handle` of the running run.
+    #[prost(string, tag="1")]
+    pub run: ::prost::alloc::string::String,
+    #[prost(enumeration="CancelLevel", tag="2")]
+    pub level: i32,
+}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct CancelResponse {
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct RunResponse {
@@ -684,6 +700,118 @@ pub struct CallRequest {
     /// file is left as it is.
     #[prost(message, optional, tag="6")]
     pub draft: ::core::option::Option<ApiDraft>,
+    /// A request with no api in a `*.api.yaml`, sent in place of `api`, which is then empty; no
+    /// `draft` goes with it (D540, D541).
+    #[prost(message, optional, tag="7")]
+    pub adhoc: ::core::option::Option<AdhocCall>,
+}
+/// A scratch request the API client sends with no api file (D540, D541). Its values may hold
+/// `${…}` templates, which render as an api's do under the active profiles.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AdhocCall {
+    /// `http` (when empty), `sse` or `websocket`.
+    #[prost(string, tag="1")]
+    pub r#type: ::prost::alloc::string::String,
+    /// `GET` when empty; a `websocket` call takes none.
+    #[prost(string, tag="2")]
+    pub method: ::prost::alloc::string::String,
+    /// The full URL, or one starting with a template: `${var.usersUrl}/users`.
+    #[prost(string, tag="3")]
+    pub url: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag="4")]
+    pub headers: ::prost::alloc::vec::Vec<super::super::results::v1::Header>,
+    /// Added to the URL's own query.
+    #[prost(message, repeated, tag="5")]
+    pub query: ::prost::alloc::vec::Vec<super::super::results::v1::Header>,
+    /// As the editor holds it: JSON text with a map or a list is sent as JSON, any other text as
+    /// written. A `websocket` call takes none.
+    #[prost(string, optional, tag="6")]
+    pub body: ::core::option::Option<::prost::alloc::string::String>,
+    /// An auth ID from the project's config, or `none`; no auth when absent. Never a credential.
+    #[prost(string, optional, tag="7")]
+    pub auth: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CallStreamRequest {
+    /// The api, or the ad hoc request, to open; its `keep` is not used, as a stream registers no
+    /// cleanup.
+    #[prost(message, optional, tag="1")]
+    pub call: ::core::option::Option<CallRequest>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CallStreamResponse {
+    #[prost(oneof="call_stream_response::Event", tags="1, 2, 3")]
+    pub event: ::core::option::Option<call_stream_response::Event>,
+}
+/// Nested message and enum types in `CallStreamResponse`.
+pub mod call_stream_response {
+    #[derive(Clone, PartialEq, ::prost::Oneof)]
+    pub enum Event {
+        #[prost(message, tag="1")]
+        Opened(super::StreamOpened),
+        #[prost(message, tag="2")]
+        Message(super::StreamMessage),
+        #[prost(message, tag="3")]
+        Ended(super::StreamEnded),
+    }
+}
+/// The stream's opening answer, sent first.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct StreamOpened {
+    /// Names the stream for `StreamSend` while it is open.
+    #[prost(string, tag="1")]
+    pub stream: ::prost::alloc::string::String,
+    /// The history run the call is recorded as; 0 when the history could not be written.
+    #[prost(uint64, tag="2")]
+    pub run_id: u64,
+    /// The request as sent and the opening response, masked; no messages.
+    #[prost(message, optional, tag="3")]
+    pub head: ::core::option::Option<super::super::results::v1::Exchange>,
+    /// Whether `StreamSend` can send a message on it: a `websocket` stream can; an `sse` one only
+    /// reads, and a send on it fails with `failed_precondition` and leaves it open (D544).
+    #[prost(bool, tag="4")]
+    pub sends: bool,
+}
+/// One message, as a `receive` item matches it, masked: `{event, data, id, text}` for `sse`,
+/// `{type, data, text}` for `websocket`.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct StreamMessage {
+    /// `in` for one the server sent, `out` for one `StreamSend` sent.
+    #[prost(string, tag="1")]
+    pub direction: ::prost::alloc::string::String,
+    #[prost(uint64, tag="2")]
+    pub at_ms: u64,
+    /// The message's fields, as JSON text.
+    #[prost(string, tag="3")]
+    pub json: ::prost::alloc::string::String,
+}
+/// How the stream ended, sent last.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct StreamEnded {
+    /// Why: `the stream closed`, `the server answered 404`, `the connection dropped (…)`.
+    #[prost(string, tag="1")]
+    pub reason: ::prost::alloc::string::String,
+    /// It ended on an error rather than a close.
+    #[prost(bool, tag="2")]
+    pub failed: bool,
+    /// The WebSocket close code, when the server sent one.
+    #[prost(uint32, optional, tag="3")]
+    pub code: ::core::option::Option<u32>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct StreamSendRequest {
+    /// As `StreamOpened` named it.
+    #[prost(string, tag="1")]
+    pub stream: ::prost::alloc::string::String,
+    /// The text to send as one message; a `${…}` in it is sent as written.
+    #[prost(string, optional, tag="2")]
+    pub text: ::core::option::Option<::prost::alloc::string::String>,
+    /// Closes the stream, with code 1000, instead of sending.
+    #[prost(bool, tag="3")]
+    pub close: bool,
+}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct StreamSendResponse {
 }
 /// Pointer edits to an api file, made over it as it was opened; nothing is written.
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -966,7 +1094,8 @@ pub struct ListRunsRequest {
     /// At most this many; all when 0.
     #[prost(uint32, tag="1")]
     pub limit: u32,
-    /// Only runs of this kind (`run`, `load`), the limit counted among them; every kind when absent.
+    /// Only runs of this kind (`run`, `load`, `adhoc` for the calls the History lists), the limit
+    /// counted among them; every kind when absent (D542).
     #[prost(string, optional, tag="2")]
     pub kind: ::core::option::Option<::prost::alloc::string::String>,
     /// Only runs under this profile; every profile when absent.
@@ -1219,6 +1348,88 @@ pub struct ConnectionResponse {
     #[prost(string, tag="2")]
     pub agent_token: ::prost::alloc::string::String,
 }
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct VcsStatusRequest {
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct VcsFile {
+    /// Relative to the project root.
+    #[prost(string, tag="1")]
+    pub path: ::prost::alloc::string::String,
+    #[prost(enumeration="VcsChange", tag="2")]
+    pub change: i32,
+    /// Lines added since the last commit; every line of an untracked file.
+    #[prost(uint32, tag="3")]
+    pub added: u32,
+    #[prost(uint32, tag="4")]
+    pub removed: u32,
+    /// A binary file has no line counts.
+    #[prost(bool, tag="5")]
+    pub binary: bool,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct VcsStatusResponse {
+    /// The checked-out branch; empty when `HEAD` is detached.
+    #[prost(string, tag="1")]
+    pub branch: ::prost::alloc::string::String,
+    /// The branch it tracks, `origin/main`; empty when it tracks none.
+    #[prost(string, tag="2")]
+    pub upstream: ::prost::alloc::string::String,
+    /// Commits the upstream lacks.
+    #[prost(uint32, tag="3")]
+    pub ahead: u32,
+    /// Commits the branch lacks.
+    #[prost(uint32, tag="4")]
+    pub behind: u32,
+    /// By path.
+    #[prost(message, repeated, tag="5")]
+    pub files: ::prost::alloc::vec::Vec<VcsFile>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct VcsDiffRequest {
+    /// Relative to the project root.
+    #[prost(string, tag="1")]
+    pub path: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct VcsDiffResponse {
+    /// Empty when the file did not change or is ignored.
+    #[prost(string, tag="1")]
+    pub diff: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct VcsCommitRequest {
+    /// Relative to the project root; at least one.
+    #[prost(string, repeated, tag="1")]
+    pub paths: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Not blank.
+    #[prost(string, tag="2")]
+    pub message: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct VcsCommitResponse {
+    /// The new commit's short ID.
+    #[prost(string, tag="1")]
+    pub commit: ::prost::alloc::string::String,
+}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct VcsPushRequest {
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct VcsPushResponse {
+    /// What git said, masked.
+    #[prost(string, tag="1")]
+    pub output: ::prost::alloc::string::String,
+}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct VcsPullRequest {
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct VcsPullResponse {
+    /// What git said, masked.
+    #[prost(string, tag="1")]
+    pub output: ::prost::alloc::string::String,
+}
 /// What to list.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
@@ -1281,6 +1492,39 @@ impl Severity {
             "SEVERITY_INFO" => Some(Self::Info),
             "SEVERITY_WARNING" => Some(Self::Warning),
             "SEVERITY_ERROR" => Some(Self::Error),
+            _ => None,
+        }
+    }
+}
+/// How far `Cancel` stops a run.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum CancelLevel {
+    Unspecified = 0,
+    /// As one Ctrl-C: work in flight gets its grace period, then the cleanups run.
+    Stop = 1,
+    /// As the third Ctrl-C: work in flight stops at once and the cleanups still to run are
+    /// abandoned.
+    Abandon = 2,
+}
+impl CancelLevel {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "CANCEL_LEVEL_UNSPECIFIED",
+            Self::Stop => "CANCEL_LEVEL_STOP",
+            Self::Abandon => "CANCEL_LEVEL_ABANDON",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "CANCEL_LEVEL_UNSPECIFIED" => Some(Self::Unspecified),
+            "CANCEL_LEVEL_STOP" => Some(Self::Stop),
+            "CANCEL_LEVEL_ABANDON" => Some(Self::Abandon),
             _ => None,
         }
     }
@@ -1392,6 +1636,47 @@ impl Verdict {
             "VERDICT_APPROVE" => Some(Self::Approve),
             "VERDICT_ALWAYS_ALLOW" => Some(Self::AlwaysAllow),
             "VERDICT_DENY" => Some(Self::Deny),
+            _ => None,
+        }
+    }
+}
+/// How a file changed since the last commit, staged or not.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum VcsChange {
+    Unspecified = 0,
+    Added = 1,
+    Modified = 2,
+    Deleted = 3,
+    /// New and not yet added; not ignored.
+    Untracked = 4,
+    /// Left with merge conflicts.
+    Conflicted = 5,
+}
+impl VcsChange {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "VCS_CHANGE_UNSPECIFIED",
+            Self::Added => "VCS_CHANGE_ADDED",
+            Self::Modified => "VCS_CHANGE_MODIFIED",
+            Self::Deleted => "VCS_CHANGE_DELETED",
+            Self::Untracked => "VCS_CHANGE_UNTRACKED",
+            Self::Conflicted => "VCS_CHANGE_CONFLICTED",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "VCS_CHANGE_UNSPECIFIED" => Some(Self::Unspecified),
+            "VCS_CHANGE_ADDED" => Some(Self::Added),
+            "VCS_CHANGE_MODIFIED" => Some(Self::Modified),
+            "VCS_CHANGE_DELETED" => Some(Self::Deleted),
+            "VCS_CHANGE_UNTRACKED" => Some(Self::Untracked),
+            "VCS_CHANGE_CONFLICTED" => Some(Self::Conflicted),
             _ => None,
         }
     }

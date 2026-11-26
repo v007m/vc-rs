@@ -58,6 +58,9 @@ impl MessageStream for BodyStream {
         Err(TransportError::InvalidRequest { reason: "a body stream only reads; it sends nothing".to_owned() })
     }
 
+    // Cancel-safe, as the trait asks: its one await is `BodyExt::frame`, whose future only
+    // polls `Incoming::poll_frame`; hyper keeps what is not yet a whole frame in the body, and a
+    // frame is returned in the same poll that took it.
     async fn next(&mut self) -> Option<Result<StreamFrame, TransportError>> {
         let body = self.body.as_mut()?;
         loop {
