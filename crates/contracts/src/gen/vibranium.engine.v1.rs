@@ -1130,6 +1130,60 @@ pub struct ApplyFixesResponse {
     #[prost(string, tag="3")]
     pub digest: ::prost::alloc::string::String,
 }
+/// A cursor in a file the editor holds, saved or not.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct CompleteRequest {
+    /// The file's path, relative to the project root; only its kind is read from it.
+    #[prost(string, tag="1")]
+    pub path: ::prost::alloc::string::String,
+    /// The text as the editor holds it.
+    #[prost(string, tag="2")]
+    pub text: ::prost::alloc::string::String,
+    /// The cursor, in UTF-16 code units from the start of `text`, as a browser counts.
+    #[prost(uint32, tag="3")]
+    pub offset: u32,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CompleteResponse {
+    /// Each completion that starts with what is written before the cursor.
+    #[prost(message, repeated, tag="1")]
+    pub items: ::prost::alloc::vec::Vec<Completion>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct Completion {
+    /// The text it writes.
+    #[prost(string, tag="1")]
+    pub label: ::prost::alloc::string::String,
+    #[prost(enumeration="CompletionKind", tag="2")]
+    pub kind: i32,
+    /// A short note: a key's type, where a var is set (never its value), "api" or "test".
+    #[prost(string, tag="3")]
+    pub detail: ::prost::alloc::string::String,
+    /// A key's docs.
+    #[prost(string, tag="4")]
+    pub doc: ::prost::alloc::string::String,
+}
+/// A cursor, as `CompleteRequest`, under the profiles and sets an explained reference uses.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct HoverRequest {
+    #[prost(string, tag="1")]
+    pub path: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub text: ::prost::alloc::string::String,
+    #[prost(uint32, tag="3")]
+    pub offset: u32,
+    #[prost(string, repeated, tag="4")]
+    pub profiles: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, repeated, tag="5")]
+    pub sets: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct HoverResponse {
+    /// The key's docs as Markdown, then the reference its value names explained, masked; unset
+    /// when the cursor is on no declared key.
+    #[prost(string, optional, tag="1")]
+    pub markdown: ::core::option::Option<::prost::alloc::string::String>,
+}
 /// A header an api is sent with that it does not write itself.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct InheritedHeader {
@@ -2043,6 +2097,45 @@ impl Verdict {
             "VERDICT_APPROVE" => Some(Self::Approve),
             "VERDICT_ALWAYS_ALLOW" => Some(Self::AlwaysAllow),
             "VERDICT_DENY" => Some(Self::Deny),
+            _ => None,
+        }
+    }
+}
+/// What a completion is.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum CompletionKind {
+    Unspecified = 0,
+    Key = 1,
+    Value = 2,
+    Reference = 3,
+    Var = 4,
+    Matcher = 5,
+}
+impl CompletionKind {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "COMPLETION_KIND_UNSPECIFIED",
+            Self::Key => "COMPLETION_KIND_KEY",
+            Self::Value => "COMPLETION_KIND_VALUE",
+            Self::Reference => "COMPLETION_KIND_REFERENCE",
+            Self::Var => "COMPLETION_KIND_VAR",
+            Self::Matcher => "COMPLETION_KIND_MATCHER",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "COMPLETION_KIND_UNSPECIFIED" => Some(Self::Unspecified),
+            "COMPLETION_KIND_KEY" => Some(Self::Key),
+            "COMPLETION_KIND_VALUE" => Some(Self::Value),
+            "COMPLETION_KIND_REFERENCE" => Some(Self::Reference),
+            "COMPLETION_KIND_VAR" => Some(Self::Var),
+            "COMPLETION_KIND_MATCHER" => Some(Self::Matcher),
             _ => None,
         }
     }

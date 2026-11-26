@@ -92,6 +92,21 @@ impl core::fmt::Debug for vc_engine::CompleteKind
 pub fn vc_engine::CompleteKind::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Copy for vc_engine::CompleteKind
 impl core::marker::StructuralPartialEq for vc_engine::CompleteKind
+#[non_exhaustive] pub enum vc_engine::CompletionKind
+pub vc_engine::CompletionKind::Key
+pub vc_engine::CompletionKind::Matcher
+pub vc_engine::CompletionKind::Reference
+pub vc_engine::CompletionKind::Value
+pub vc_engine::CompletionKind::Var
+impl core::clone::Clone for vc_engine::CompletionKind
+pub fn vc_engine::CompletionKind::clone(&self) -> Self
+impl core::cmp::Eq for vc_engine::CompletionKind
+impl core::cmp::PartialEq for vc_engine::CompletionKind
+pub fn vc_engine::CompletionKind::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_engine::CompletionKind
+pub fn vc_engine::CompletionKind::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for vc_engine::CompletionKind
+impl core::marker::StructuralPartialEq for vc_engine::CompletionKind
 #[non_exhaustive] pub enum vc_engine::EditOp
 pub vc_engine::EditOp::Insert
 pub vc_engine::EditOp::Move
@@ -552,6 +567,19 @@ pub fn vc_engine::CheckRequest::default() -> Self
 impl core::fmt::Debug for vc_engine::CheckRequest
 pub fn vc_engine::CheckRequest::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_engine::CheckRequest
+#[non_exhaustive] pub struct vc_engine::Completion
+pub vc_engine::Completion::detail: alloc::string::String
+pub vc_engine::Completion::doc: alloc::string::String
+pub vc_engine::Completion::kind: vc_engine::CompletionKind
+pub vc_engine::Completion::label: alloc::string::String
+impl core::clone::Clone for vc_engine::Completion
+pub fn vc_engine::Completion::clone(&self) -> Self
+impl core::cmp::Eq for vc_engine::Completion
+impl core::cmp::PartialEq for vc_engine::Completion
+pub fn vc_engine::Completion::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_engine::Completion
+pub fn vc_engine::Completion::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_engine::Completion
 #[non_exhaustive] pub struct vc_engine::ConfigLayer
 pub vc_engine::ConfigLayer::source: alloc::string::String
 pub vc_engine::ConfigLayer::value: alloc::string::String
@@ -632,6 +660,20 @@ pub fn vc_engine::EditedFile::eq(&self, &Self) -> bool
 impl core::fmt::Debug for vc_engine::EditedFile
 pub fn vc_engine::EditedFile::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_engine::EditedFile
+#[non_exhaustive] pub struct vc_engine::EditorRequest
+pub vc_engine::EditorRequest::offset: usize
+pub vc_engine::EditorRequest::path: alloc::string::String
+pub vc_engine::EditorRequest::text: alloc::string::String
+impl core::clone::Clone for vc_engine::EditorRequest
+pub fn vc_engine::EditorRequest::clone(&self) -> Self
+impl core::cmp::Eq for vc_engine::EditorRequest
+impl core::cmp::PartialEq for vc_engine::EditorRequest
+pub fn vc_engine::EditorRequest::eq(&self, &Self) -> bool
+impl core::default::Default for vc_engine::EditorRequest
+pub fn vc_engine::EditorRequest::default() -> Self
+impl core::fmt::Debug for vc_engine::EditorRequest
+pub fn vc_engine::EditorRequest::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_engine::EditorRequest
 pub struct vc_engine::Engine
 impl vc_engine::Engine
 pub async fn vc_engine::Engine::admit(&self, &vc_engine::AgentCall, core::time::Duration) -> core::result::Result<vc_engine::Admission, vc_engine::EngineError>
@@ -668,6 +710,8 @@ impl vc_engine::Engine
 pub fn vc_engine::Engine::compare_runs(&self, (&str, &str), f64) -> core::result::Result<vc_engine::RunComparison, vc_engine::EngineError>
 impl vc_engine::Engine
 pub fn vc_engine::Engine::complete(&self, vc_engine::CompleteKind, &str) -> alloc::vec::Vec<alloc::string::String>
+impl vc_engine::Engine
+pub fn vc_engine::Engine::complete_at(&self, &vc_engine::EditorRequest) -> alloc::vec::Vec<vc_engine::Completion>
 impl vc_engine::Engine
 pub async fn vc_engine::Engine::config_explain(&self, &str, &vc_engine::ExplainRequest) -> core::result::Result<vc_engine::ExplainReport, vc_engine::EngineError>
 impl vc_engine::Engine
@@ -876,6 +920,19 @@ pub fn vc_engine::HistoryReport::eq(&self, &Self) -> bool
 impl core::fmt::Debug for vc_engine::HistoryReport
 pub fn vc_engine::HistoryReport::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_engine::HistoryReport
+#[non_exhaustive] pub struct vc_engine::Hover
+pub vc_engine::Hover::markdown: alloc::string::String
+pub vc_engine::Hover::reference: core::option::Option<alloc::string::String>
+impl core::clone::Clone for vc_engine::Hover
+pub fn vc_engine::Hover::clone(&self) -> Self
+impl core::cmp::Eq for vc_engine::Hover
+impl core::cmp::PartialEq for vc_engine::Hover
+pub fn vc_engine::Hover::eq(&self, &Self) -> bool
+impl core::default::Default for vc_engine::Hover
+pub fn vc_engine::Hover::default() -> Self
+impl core::fmt::Debug for vc_engine::Hover
+pub fn vc_engine::Hover::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_engine::Hover
 pub struct vc_engine::ImportRequest
 pub vc_engine::ImportRequest::auth: bool
 pub vc_engine::ImportRequest::file_id: core::option::Option<alloc::string::String>
@@ -1598,6 +1655,7 @@ pub const vc_engine::SLOWER: f64
 pub fn vc_engine::action_call(&vc_model::names::Names, vc_model::ids::ActionId) -> core::option::Option<vc_engine::ApiCall>
 pub fn vc_engine::auth_fields(&str) -> alloc::vec::Vec<&'static str>
 pub fn vc_engine::compare_tests((u64, u64), (&[vc_interfaces::history_rows::TestRow], &[vc_interfaces::history_rows::TestRow]), f64) -> vc_engine::RunComparison
+pub fn vc_engine::hover_at(&vc_engine::EditorRequest) -> core::option::Option<vc_engine::Hover>
 pub fn vc_engine::instance_label(&vc_interfaces::history_rows::TestRow) -> alloc::string::String
 pub fn vc_engine::interrupts() -> (vc_engine::Interrupter, vc_engine::Interrupts)
 pub fn vc_engine::launch_plugin(impl core::iter::traits::iterator::Iterator<Item = std::ffi::os_str::OsString>) -> core::option::Option<alloc::string::String>

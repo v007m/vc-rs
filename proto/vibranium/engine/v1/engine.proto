@@ -60,6 +60,10 @@ service EngineService {
   // The certain fixes of the project's diagnostics, as `vc check --fix` makes them: a preview
   // with the diff, or the files written. Refused when the result adds an error (D107, D680).
   rpc ApplyFixes(ApplyFixesRequest) returns (ApplyFixesResponse);
+  // The YAML editor's completions at a cursor: keys, values, IDs, matchers and var names (D681).
+  rpc Complete(CompleteRequest) returns (CompleteResponse);
+  // The YAML editor's hover at a cursor: a key's docs, and the explained reference (D681).
+  rpc Hover(HoverRequest) returns (HoverResponse);
   // Writes a call as a test, as `vc call --save-as` does.
   rpc SaveCallAsTest(SaveCallAsTestRequest) returns (SaveCallAsTestResponse);
   // Imports a spec or recording, as `vc import` does: a preview, or the files written.
@@ -766,6 +770,56 @@ message ApplyFixesResponse {
   repeated string titles = 2;
   // The digest of the files as previewed, which the write passes back.
   string digest = 3;
+}
+
+// A cursor in a file the editor holds, saved or not.
+message CompleteRequest {
+  // The file's path, relative to the project root; only its kind is read from it.
+  string path = 1;
+  // The text as the editor holds it.
+  string text = 2;
+  // The cursor, in UTF-16 code units from the start of `text`, as a browser counts.
+  uint32 offset = 3;
+}
+
+message CompleteResponse {
+  // Each completion that starts with what is written before the cursor.
+  repeated Completion items = 1;
+}
+
+// What a completion is.
+enum CompletionKind {
+  COMPLETION_KIND_UNSPECIFIED = 0;
+  COMPLETION_KIND_KEY = 1;
+  COMPLETION_KIND_VALUE = 2;
+  COMPLETION_KIND_REFERENCE = 3;
+  COMPLETION_KIND_VAR = 4;
+  COMPLETION_KIND_MATCHER = 5;
+}
+
+message Completion {
+  // The text it writes.
+  string label = 1;
+  CompletionKind kind = 2;
+  // A short note: a key's type, where a var is set (never its value), "api" or "test".
+  string detail = 3;
+  // A key's docs.
+  string doc = 4;
+}
+
+// A cursor, as `CompleteRequest`, under the profiles and sets an explained reference uses.
+message HoverRequest {
+  string path = 1;
+  string text = 2;
+  uint32 offset = 3;
+  repeated string profiles = 4;
+  repeated string sets = 5;
+}
+
+message HoverResponse {
+  // The key's docs as Markdown, then the reference its value names explained, masked; unset
+  // when the cursor is on no declared key.
+  optional string markdown = 1;
 }
 
 // A header an api is sent with that it does not write itself.

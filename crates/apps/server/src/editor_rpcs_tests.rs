@@ -2,9 +2,9 @@ use std::fs;
 
 use vc_contracts::engine::v1 as wire;
 
-use super::{apply_fixes, explain};
+use super::{apply_fixes, byte_offset, complete, explain, hover};
 use crate::Code;
-use crate::engine_fixture::{CRUD, SECRET, TESTS, project};
+use crate::engine_fixture::{API, CRUD, SECRET, TESTS, project};
 
 fn target(target: &str) -> wire::ExplainRequest {
     wire::ExplainRequest { target: target.into(), ..wire::ExplainRequest::default() }
@@ -61,4 +61,52 @@ async fn fixes_are_limited_to_the_codes_asked_and_a_bad_code_is_refused_by_its_p
     let refused = apply_fixes(api, bad).await.unwrap_err();
     assert_eq!(refused.code, Code::InvalidArgument, "{refused:?}");
     assert!(refused.message.contains("code 2") && !refused.message.contains("etc"), "{refused:?}");
+}
+
+/// The text with `^` taken out, and the cursor where it was in UTF-16 code units.
+fn cursor_in(text: &str) -> (String, u32) {
+    let before = text.find('^').unwrap();
+    (text.replace('^', ""), u32::try_from(text[..before].encode_utf16().count()).unwrap())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn completion_counts_the_cursor_as_a_browser_does_and_offers_var_names_only() {
+    let (_dir, api) = project();
+    let (text, offset) = cursor_in("tests:\n  - id: a\n    name: 'é 😀'\n    ca^\n");
+    let request = wire::CompleteRequest { path: TESTS.into(), text, offset };
+    let found = complete(api.clone(), request).await.unwrap();
+    let [call] = found.items.as_slice() else { panic!("{found:?}") };
+    assert_eq!((call.label.as_str(), call.kind()), ("call", wire::CompletionKind::Key));
+    let (text, offset) = cursor_in("apis:\n  - id: a\n    path: /x?n=${var.no^\n");
+    let vars = complete(api, wire::CompleteRequest { path: API.into(), text, offset }).await.unwrap();
+    let [note] = vars.items.as_slice() else { panic!("{vars:?}") };
+    assert_eq!((note.label.as_str(), note.detail.as_str()), ("var.note", "config"));
+    assert!(!format!("{vars:?}").contains(SECRET), "{vars:?}");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn hover_shows_a_keys_docs_and_the_api_a_call_names_masked() {
+    let (_dir, api) = project();
+    let hovering = |text: &str| {
+        let (text, offset) = cursor_in(text);
+        wire::HoverRequest { path: TESTS.into(), text, offset, ..wire::HoverRequest::default() }
+    };
+    let key = hover(api.clone(), hovering("tests:\n  - id: a\n    ta^gs: [x]\n")).await.unwrap();
+    assert!(key.markdown.as_deref().is_some_and(|text| text.starts_with("**`tags`**")), "{key:?}");
+    let call = hover(api.clone(), hovering("tests:\n  - id: a\n    call: users#li^st\n")).await.unwrap();
+    let shown = call.markdown.unwrap_or_default();
+    assert!(shown.starts_with("**`call`**") && shown.contains("```text\nusers#list  List users"), "{shown}");
+    assert!(!shown.contains(SECRET), "{shown}");
+    let unknown = hover(api.clone(), hovering("tests:\n  - id: a\n    call: users#no^ne\n")).await.unwrap();
+    assert!(unknown.markdown.is_some_and(|text| !text.contains("```")), "the key's docs alone");
+    assert_eq!(hover(api, hovering("tests:\n  - id: a\n    nothing^: 1\n")).await.unwrap().markdown, None);
+}
+
+#[test]
+fn a_utf16_offset_lands_on_a_character_boundary() {
+    assert_eq!(byte_offset("aé😀b", 0), 0);
+    assert_eq!(byte_offset("aé😀b", 2), 3);
+    assert_eq!(byte_offset("aé😀b", 3), 7, "inside a surrogate pair is after it");
+    assert_eq!(byte_offset("aé😀b", 4), 7);
+    assert_eq!(byte_offset("aé😀b", 99), 8);
 }

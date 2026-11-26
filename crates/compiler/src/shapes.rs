@@ -63,13 +63,25 @@ pub fn reachable(root: &'static Shape) -> Vec<&'static Shape> {
 /// (`vars`, `query`, `body`), which keeps the author's order, or a path the shapes do not reach.
 #[must_use]
 pub fn key_order(kind: FileKind, path: &[&str]) -> Option<Vec<&'static str>> {
-    let start = ROOTS.iter().find(|(k, _)| *k == kind).map_or(Ty::Obj(config::config), |(_, shape)| Ty::Obj(*shape));
-    let shape = match path.iter().try_fold(start, |ty, segment| step(ty, segment))? {
+    Some(shape_at(kind, path)?.all_keys().map(|key| key.name).collect())
+}
+
+/// The shape of the map at `path` in a file of `kind`, as [`key_order`] reads the path.
+#[must_use]
+pub fn shape_at(kind: FileKind, path: &[&str]) -> Option<&'static Shape> {
+    let shape = match ty_at(kind, path)? {
         Ty::Obj(shape) => shape,
         Ty::Either(alternatives) => alternatives.iter().find_map(|ty| object(*ty))?,
         _ => return None,
     };
-    Some(shape().all_keys().map(|key| key.name).collect())
+    Some(shape())
+}
+
+/// The type of the value at `path` in a file of `kind`; the whole file's for no path.
+#[must_use]
+pub fn ty_at(kind: FileKind, path: &[&str]) -> Option<Ty> {
+    let start = ROOTS.iter().find(|(k, _)| *k == kind).map_or(Ty::Obj(config::config), |(_, shape)| Ty::Obj(*shape));
+    path.iter().try_fold(start, |ty, segment| step(ty, segment))
 }
 
 /// The shape of `ty` when it is a map with declared keys.
