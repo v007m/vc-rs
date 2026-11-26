@@ -22,34 +22,36 @@ The UI is built on the Strata design system (D590), adopted at Sarath's request 
 
 ### Sources
 - `web/src/lib/styles/strata/tokens.css` and `strata.css` are Strata 1.0.0, vendored verbatim. Each has a three-line header with the upstream file's SHA-256, and Prettier skips them. They are never edited; an update is a plain copy (D592).
-- `strata/vibranium.css` holds everything Vibranium changes or adds: token overrides, the `--vc-*` tokens (status, methods, YAML, diffs, waterfall), recipe overrides and the recipes Strata lacks. `shell.css` and `sidebar.css` lay out the shell with Strata recipes.
+- `strata/vibranium.css` holds everything Vibranium changes or adds: token overrides, the `--vc-*` tokens (status, methods, YAML, diffs, waterfall), recipe overrides and the recipes Strata lacks. Its part 5 holds Sarath's Strata 1.1 deltas until upstream 1.1 tokens land (D624). `shell.css` and `sidebar.css` lay out the shell with Strata recipes.
 - Components use tokens only: `--st-*` from Strata, `--vc-*` from Vibranium.
 
 ### Layers
 | Layer | What sits on it | Treatment |
 |---|---|---|
 | Canvas (`.st-canvas`) | rail, sidebar, top row, section labels, status line | Four soft colour blobs over the base, under a matte grain (a local `grain.svg`, since the CSP blocks `data:`; D602). Pastel in light; charcoal with deep blue, slate and burnt orange in dark. Chrome has no boxes: no panel, border or fill on the sidebar, tabs, labels, icons or toolbar |
-| Card (`.st-card`) | the main content (one per view; a split shows two) | Glass by default, solid as a viewer option (`data-cards="solid"`). Dark cards are a slate (`#253137` solid), never black or neutral grey (D601). Never a card inside a card (D594) |
-| Overlay (`.st-overlay`) | menus, popovers, dialogs, toasts, the palette | The strongest surface, 14 px corners, as native `<dialog>` and `[popover]` elements |
+| Card (`.st-card`) | the main content (one per view; a split shows two) | Glass that shows the canvas (white at 42 % in light, the slate at 45 % in dark; D608), solid as a viewer option (`data-cards="solid"`) or with reduced transparency. Dark cards are a slate (`#253137` solid), never black or neutral grey (D601). Never a card inside a card: a surface inside a card is a wash with no border (D609) |
+| Overlay (`.st-overlay`) | menus, popovers, dialogs, toasts, the palette | The strongest surface, as native `<dialog>` and `[popover]` elements. It grows out of what opened it (D618) |
 
 ### Spaces
 Each space sets `data-space` on the app, which picks the blobs and the accent (D591): Tests lilac, Client tide, Runs ember, Agents grove, Settings graphite. The primary button, focus rings, selected controls and native checkboxes take the space's accent.
 
 ### Layout and shape
 - Cards sit 8 px from the window on the top, right and bottom (10 px above 1600 px wide), and 0 on the sidebar side. A split has an 8 px gap with its handle in the gap (D594).
-- Corners are smooth and concentric: cards 10 px, overlays 14 px; buttons, icon buttons, rows and tabs 8 px; a shape nested in a padded one uses the outer radius minus the padding (D593).
-- Search and single-line fields are capsules; forms and multi-line fields are 8 px rounded rects (`.st-input--rect`). A single-line field never grows taller than its height.
+- Corners are concentric, inner = outer − gap: window 20 px, cards 12, overlays 18 with 12 px items, the palette 22 with 14 px items, dialogs 28; a surface on a card takes 8 (D610).
+- Every single-line control is a capsule: fields, selects (with a gradient-drawn chevron, D621), the Env control and search. Multi-line fields are 8 px rounded rects. Controls are 28, 32 (default) or 40 px, border-box, and a row's items share one height; badges never sit in a control row (D611).
+- Empty panes show the empty state: icon, Title3 title and caption, centred in a wash (D609).
 - In a row every item has the same height, with icon and text centred; icons have no border or background (D596).
-- Buttons are 24, 30 or 36 px tall with one emboss, and a long label wraps instead of clipping. The primary button is the space's accent, one per view, at the bottom right (D597).
-- The segmented control, switch and slider are iOS liquid glass: a capsule track and a glassy debossed thumb. Badges are capsules, larger than 18 px (D598).
-- Settings rows are left aligned, at least 44 px tall, with separators inset equally at both ends (D603).
+- Buttons have one emboss, and a long label wraps instead of clipping. The primary button is the space's accent, one per view, last at the bottom right with Cancel-like actions before it; Settings keeps them in a sticky footer. Fields are capped in width, not stretched (D597, D616).
+- The switch and slider are iOS liquid glass: a capsule track and a glassy debossed thumb. The segmented control has one glass lens that springs between options (D598, D615). Badges are capsules, larger than 18 px.
+- Focus: buttons and toggles get a 2 px accent outline at 2 px offset; a text field gets a 1.5 px accent ring on itself (D612).
+- Settings rows are left aligned, at least 44 px tall. Separators stop 12 px short of both ends everywhere (D603, D614).
 - Dialogs have a Title2 heading and actions at the bottom right, Cancel first; focus stays inside and Esc cancels. Toasts are capsules at the bottom centre for about 3 s, with an optional Undo (D604).
-- The command and URL capsule in the top row is embossed and shows its shortcut (D595).
+- The search capsule in the top row is embossed, shows its shortcut and opens the command palette (D595, D620).
 
 ### Type, motion and preferences
 - **Type:** Strata's SF Pro-first stack, with Inter (variable, OFL 1.1) bundled as the fallback off Apple platforms; the mono stack is Strata's (SF Mono, then the system monospace). Roles are Strata's (`--st-type-*`): micro, caption, label, body, Title3, Title2 (D599).
 - **Themes:** the OS setting by default; `data-theme` forces light or dark.
-- **Motion** stays under 250 ms. Reduced motion stops the blobs and transitions. `data-transparency="reduced"` makes cards and overlays solid; `data-density="compact"` tightens rows. The Appearance settings that set these come later (D605).
+- **Motion** uses two springs as `linear()` curves, 480 ms with a little overshoot and 280 ms critically damped for closing (D617). Overlays grow out of their anchor with a translate and a clip, never a scale (D618); symbols are written on, rotate, bounce or wiggle like SF Symbols (D619). Reduced motion stops the blobs and transitions and shows end states. `data-transparency="reduced"` makes cards and overlays solid; `data-density="compact"` tightens rows. The Appearance settings that set these come later (D605).
 - **Keyboard hints** are plain tertiary text, never keycaps: `⌘K` on Apple platforms, `Ctrl+K` elsewhere. Holding the modifier alone for 450 ms shows each space's shortcut beside its rail button. F6 and Shift+F6 move between the regions: rail, sidebar, top row and main (D600).
 
 ### Status language
@@ -257,6 +259,7 @@ Five views in the sidebar, each opening with one sentence on what it is for:
 ## 8. Shared overlays
 
 ### Command palette (⌘K)
+Built so far (D620): ⌘K or the top row's search opens it, grown out of the search field; it lists every screen grouped by space, filtered by word prefix, with arrows, Enter and Esc. The rest of this list comes later.
 - Jump to any api, test, file, run or setting.
 - Run any `vc` command with typed arguments and a preview: check, run with a selector, plan, fmt, rename, import, sync, explain a code, and new.
 - Recent items come first.

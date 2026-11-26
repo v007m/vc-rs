@@ -1027,7 +1027,7 @@ Round 93 (26 November 2026; the UI v2 build, batch B: the Client space, web side
 
 Deferred from batch B: save a value as a var, CEL evaluation in the filter, GraphQL bodies and the schema explorer, Test auth, the engine's events list in Timing, the full Import wizard (HAR import stays), WebSocket snippets and the exchange check.
 
-Round 95 (26–27 November 2026; the Strata restyle of the web UI for #95, at Sarath's request; D590 set by Sarath, the rest in-design refinements decided by the web worker; D608–D609 are not used):
+Round 95 (26–27 November 2026; the Strata restyle of the web UI for #95, at Sarath's request; D590 set by Sarath, the rest in-design refinements decided by the web worker; D608–D624 are the coordinator's review fixes and Sarath's Strata 1.1 deltas; D625–D629 are not used):
 
 | # | Topic | Decision | Supersedes |
 | --- | --- | --- | --- |
@@ -1049,8 +1049,25 @@ Round 95 (26–27 November 2026; the Strata restyle of the web UI for #95, at Sa
 | D605 | Motion and prefs | Motion stays under 250 ms. Reduced motion stops the blobs and transitions; `data-transparency`, `data-density` and `data-cards` are honoured, and the Appearance settings that set them come later | — |
 | D606 | Report bridge | The HTML report keeps its own look (D531) and does not load Strata. `web/src/report/shared-names.css` maps the Strata and `--vc-*` names used by the components it shares with the app (results, timing, run progress) onto its v1 tokens | D531 (the app-side bridge) |
 | D607 | Lint tooltips | A CodeMirror diagnostic has no leading-edge bar; its tone is a dot before the message (D506) | — |
+| D608 | Glass shows the canvas | Glass cards let the canvas through: white at 42 % in light, the slate `#253137` at 45 % in dark, blurred 24 px. Reduced transparency still makes them solid. The screenshots emulate `prefers-reduced-transparency: no-preference`, since headless Chromium reports `reduce` | D601 (glass at 62 %) |
+| D609 | Empty states, no card on a card | An empty pane shows Strata's empty state (`EmptyState.svelte`): a 28 px icon, a Title3 title and a caption, centred in a wash at most 400 px wide. A surface inside a card is a wash (`--st-surface-wash`, the inner radius, no border or shadow), never a bordered box: KPIs, the exchange, diffs, curl, HAR file, the YAML editor | D594 (bordered wells) |
+| D610 | Shape | Radii are concentric, inner = outer − gap: window 20 with an 8 px inset, cards 12, overlays 18 with 12 px items at 6 px padding, the palette 22 with 14 px items at 8 px, dialogs 28. A surface on a card's 24 px padding would come out below zero, so it takes 8 px | D593 (the radii) |
+| D611 | Heights and capsules | One row, one height, border-box: controls are 28, 32 (default) or 40 px. Every single-line control is a capsule: fields, selects, the Env control and search in the top row. Badges never sit in a control row; save state and check results there are text in a tone | D597 (24/30/36 px) |
+| D612 | Focus | Buttons and toggles get a 2 px accent outline at 2 px offset. A text field gets a 1.5 px ring at about 40 % accent on the field itself, never a box inside it; CodeMirror takes the same ring | — |
+| D613 | Surfaces | Dark cards stay the slate; the matte grain is the canvas gradient itself, darker in light and lighter in dark and more saturated, seen through the noise | D602 (grey grain) |
+| D614 | Separators | Separators stop 12 px short of both ends, in rows, footers and the palette | D603 (inset only in settings) |
+| D615 | Segmented lens | The segmented control is a 32 px capsule track with one glass lens, the track's `::before`, that springs between options (`segmented.ts` places it through `--lens-x` and `--lens-w`). Without layout the pressed option draws its own lens | D598 (the thumb per option) |
+| D616 | Actions and fields | The primary action sits at the bottom right, last, with Cancel-like actions before it. Settings has a sticky footer on the overlay surface (status, Review changes, Discard changes, Save), so fields scrolling under it never read as part of it. Fields are capped (add fields 200 px, selects 240 px, values 320 px) instead of stretching across the card | D597 (where the primary sits) |
+| D617 | Springs | Motion uses two springs written as CSS `linear()` curves: a standard one with a little overshoot (480 ms) and a quicker, critically damped one for closing (280 ms), with a 90 ms content fade. Reduced motion sets their durations to 0 | D605 (motion under 250 ms) |
+| D618 | Anchored overlays | Menus, dialogs and the palette grow out of what opened them and shrink back into it (`anchor.ts`): a translate and a clip-path, never a scale, so text stays crisp. A reopen mid-close reverses from where the frame is; with no usable anchor the overlay only fades. A menu that would run off the bottom of the window opens upward | — |
+| D619 | Symbol motion | SVG takes on SF Symbols' effects (`symbols.ts`, `Glyph.svelte`): a check is written on (copy buttons turn into it), refresh rotates, confirm bounces, a refused add wiggles, and a struck label draws and erases line by line through one sliced inline background. Reduced motion shows the end state | — |
+| D620 | Palette shell | ⌘K (Ctrl+K elsewhere) or the top row's search opens the command palette: a modal 12 % from the top, 620 px wide, a 40 px field over results grouped by space and a key-help footer. For now it lists every screen, filtered by word prefix, with each space's shortcut on its home; running commands comes later (§8 of ui.md) | D595 (the palette comes later) |
+| D621 | Select chevron | A select is a capsule with its native box removed and a chevron drawn with two gradients, because the CSP (`img-src 'self'`) blocks a `data:` SVG | — |
+| D622 | Report waterfall names | `shared-names.css` also maps the `--vc-wf-*` waterfall names, so the report's timing bars keep their colours | D606 (the names it maps) |
+| D623 | CSP and motion values | Motion and placement values reach CSS as custom properties through CSSOM (`style.setProperty`, Svelte `style:`), which the CSP allows. No inline `style` attributes, no `data:` URIs, and the CSP in `vite.config.ts` is unchanged | — |
+| D624 | Where 1.1 lives | The 1.1 deltas are part 5 of `strata/vibranium.css`, headed "Strata 1.1 deltas until upstream 1.1 tokens land"; the vendored 1.0.0 files stay untouched. When upstream 1.1 ships its tokens, part 5 shrinks to what 1.1 still leaves out | — |
 
-Deferred from the restyle: the Appearance settings (cards, transparency, density, custom OKLCH seeds), the command palette and toasts in use, and moving each screen's primary action to the bottom right.
+Deferred from the restyle: the Appearance settings (cards, transparency, density, custom OKLCH seeds), toasts in use, the palette's commands and recents, and moving every other screen's primary action to the bottom right.
 
 ## Open
 
