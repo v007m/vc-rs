@@ -277,9 +277,9 @@ Five views in the sidebar, each opening with one sentence on what it is for:
 
 | # | RPC or field | For |
 |---|---|---|
-| 1 | Ad hoc `Call` shape (method, URL, headers, body, auth reference, with no api) | Scratch requests |
-| 2 | `CallStream` (server streaming) and `StreamSend` | Live SSE and WS |
-| 3 | `ListRuns(kind=adhoc)` and a history write for each UI call | Call history |
+| 1 | Done (D540, D541): `CallRequest.adhoc`, an `AdhocCall` of `type` (`http`, `sse`, `websocket`), `method`, `url` (whole, or starting with `${`), `headers`, `query`, `body` (JSON text with a map or list goes as JSON, anything else as text) and `auth` (a config auth ID or `none`), sent in place of `api` and `draft`. It compiles as the in-memory api `vc-adhoc#call` | Scratch requests |
+| 2 | Done (D543, D544): `CallStream(CallRequest)` streams `opened` (the stream ID for `StreamSend`, the run ID, the masked head exchange), then each `message` (`in` or `out`, `at_ms`, the masked fields as JSON), then `ended` (reason, `failed`, the close code). `StreamSend{stream, text}` sends a WebSocket text; `StreamSend{stream, close: true}` closes with 1000. Closing `CallStream` closes the stream | Live SSE and WS |
+| 3 | Done (D542): every `Call` and `CallStream` is recorded as an `adhoc` run with its masked exchange (a stream: its head only); `ListRuns{kind: "adhoc"}` lists them and `Run.call` (`CallSummary`: method, masked URL, status) is each History row | Call history |
 | 4 | `Complete`, `Hover`, `ApplyFixes`, `Explain` (already in the LLD table) | YAML editor |
 | 5 | `Plan` | Plan preview |
 | 6 | `CreateFile` (templates), `Rename`, `Format`, `TrashFile` | File operations |

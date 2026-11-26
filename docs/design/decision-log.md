@@ -994,6 +994,16 @@ Round 91 (26 November 2026; Sarath's fifth mockup review of UI v2, the five-spac
 | D524 | Open tabs | Each open tab in the top strip has a 1 px hairline border and no fill; the current tab has a stronger border and full-ink text | D507 (raised pill in the top strip) |
 | D525 | Graphs fill | Status strips, sparklines and charts stretch to their card's width and height; no fixed small chart sizes or max-width caps leave empty space | D511 (extends) |
 
+Round 93 (26 November 2026; UI v2 batch B, the engine work for the Client's scratch requests, live streams and call history, ui.md §10 rows 1–3; in-design refinements decided by the engine lane):
+
+| # | Topic | Decision | Supersedes |
+| --- | --- | --- | --- |
+| D540 | Ad hoc call | `CallRequest.adhoc` (field 7) is an `AdhocCall`: `type` (`http` when empty, `sse`, `websocket`), `method` (`GET` when empty), `url`, `headers`, `query`, `body` and `auth`. It is an optional field beside `api` and `draft`, not a oneof, and a request that sets it with either is refused (`invalid_argument`) | — |
+| D541 | Ad hoc compile | The engine writes an ad hoc call as the in-memory file `services/vc-adhoc/vc-adhoc.api.yaml` with one api, `vc-adhoc#call`, and calls it as any api: the default 2xx `expect` applies and its diagnostics are the call's. The URL must be whole or start with `${`; JSON text holding a map or list is sent as JSON, any other body as text, and a `$` key in it is refused; a `websocket` call takes no method or body; no `auth` means `auth: none`, and an unknown one is an error; of repeated header or query names the last wins | — |
+| D542 | Call history | Every `Call` records its masked last exchange in its `adhoc` run (`Row::Exchange`). `RunRow.call` and `Run.call` (`CallSummary`: method, masked URL, status) give the History row, and `ListRuns{kind: "adhoc"}` lists the calls | — |
+| D543 | Live stream | `CallStream(CallRequest)` opens an `sse` or `websocket` api (or ad hoc call) through `open_live`, which reuses the stream call's `begin`, `Flight::open`, decoders and refusal check. It streams `opened` (stream ID, run ID, masked head), each `message` (`in` or `out`, `at_ms`, masked fields as JSON) and `ended` (reason, `failed`, close code). There is no script, deadline or size cap, and `afterResponse` hooks do not run. Closing the RPC closes the stream. The run is recorded as `adhoc` with the head exchange only; messages are not stored. The server keeps open streams in a task of their own as `live-<n>` and forgets each once its call returns | — |
+| D544 | Stream send | `StreamSend{stream, text}` sends a WebSocket text as written (`${…}` is not rendered); `StreamSend{stream, close: true}` closes with 1000. A send the stream cannot make (an `sse` stream, a dropped connection) ends it, failed. An unknown or ended stream is `not_found`; a send with neither text nor close is `invalid_argument` | — |
+
 ## Open
 
 All decisions needed for the PRD and technical design are settled. The language is decided by the spike (D6, D36, D37, D41).
