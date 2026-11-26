@@ -26,6 +26,7 @@ describe('ProjectStatus', () => {
     );
     await project.load();
     expect(project).toMatchObject({ name: 'shop', version: '2.0.0', profile: 'prod' });
+    expect(project.profiles).toEqual(['dev', 'prod']);
     expect(project.check).toEqual({ errors: 2, warnings: 1, files: 4 });
   });
 

@@ -98,7 +98,7 @@ export const spaces: readonly Space[] = [
         label: 'Runs',
         views: [
           view('/runs/overview', 'Overview', 'Runs overview'),
-          view('/runs', 'History', 'Runs'),
+          view('/runs', 'All runs', 'All runs'),
         ],
       },
     ],

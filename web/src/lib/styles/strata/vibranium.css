@@ -878,3 +878,55 @@ dialog.st-overlay.vc-anchored.is-rest[open] {
     transition: none;
   }
 }
+
+/* Tables in the Runs space (D640): hairline rows inset like separators, tabular figures,
+   secondary column heads. */
+.vc-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+.vc-table th,
+.vc-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--st-chrome-separator);
+  text-align: left;
+  vertical-align: middle;
+}
+.vc-table thead th {
+  color: var(--st-text-secondary);
+  font-weight: 500;
+  font-size: var(--vc-size-caption);
+}
+.vc-table tbody th {
+  font-weight: 400;
+}
+.vc-table tr:last-child > * {
+  border-bottom: 0;
+}
+.vc-table .r {
+  text-align: right;
+}
+
+/* Status counts beside a status glyph, never colour alone (D624). */
+.vc-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-variant-numeric: tabular-nums;
+}
+.vc-count[data-st='passed'] {
+  color: var(--vc-pass-ink);
+}
+.vc-count[data-st='failed'] {
+  color: var(--vc-fail-ink);
+}
+.vc-count[data-st='blocked'] {
+  color: var(--vc-blocked-ink);
+}
+.vc-count[data-st='flaky'] {
+  color: var(--vc-flaky-ink);
+}
+.vc-count[data-st='skipped'] {
+  color: var(--vc-skipped-ink);
+}
