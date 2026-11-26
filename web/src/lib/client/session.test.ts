@@ -188,3 +188,62 @@ describe('ClientSession', () => {
     expect(calls).toBe(1);
   });
 });
+
+describe('ClientSession tabs', () => {
+  it('opens a tab per api, brings an open one back to the front, and closes to a neighbour', async () => {
+    const session = await opened(fakePort(), 'users#listUsers');
+    await session.open('users#createUser');
+    await session.open('users#listUsers');
+    expect(session.tabs.map((t) => t.title)).toEqual(['List users', 'Create a user']);
+    expect(session.current?.id).toBe('users#listUsers');
+    session.close(session.tabs[0]?.id ?? '');
+    expect(session.current?.id).toBe('users#createUser');
+    session.close(session.tabs[0]?.id ?? '');
+    expect([session.tab, session.request, session.vars]).toEqual([undefined, undefined, []]);
+  });
+
+  it('keeps each tab its own vars and result', async () => {
+    const session = await opened(fakePort());
+    session.vars[0] = { name: 'name', value: 'Ada' };
+    await session.send();
+    const first = session.tab?.id ?? '';
+    await session.open('users#listUsers');
+    expect([session.vars, session.result]).toEqual([[], undefined]);
+    session.activate(first);
+    expect(session.vars[0]?.value).toBe('Ada');
+    expect(session.result?.response?.status).toBe(201);
+  });
+
+  it('sends a scratch tab through the ad hoc seam and says when it is not available yet', async () => {
+    const asked: unknown[] = [];
+    const session = new ClientSession(fakePort(), {
+      callAdhoc: (request) => {
+        asked.push(request);
+        return Promise.resolve({ available: false, reason: 'Not available yet.' });
+      },
+    });
+    const tab = session.scratch();
+    await tab.send();
+    expect(asked).toEqual([]);
+    tab.method = 'POST';
+    tab.url = ' https://api.example.com/users ';
+    tab.addHeader();
+    tab.headers[0] = { name: 'X-Trace', value: '1', on: true };
+    tab.body = '{}';
+    await session.send();
+    expect(asked).toEqual([
+      {
+        method: 'POST',
+        url: 'https://api.example.com/users',
+        headers: [['X-Trace', '1']],
+        body: '{}',
+        vars: [],
+      },
+    ]);
+    expect([tab.unavailable, session.current, session.sending]).toEqual([
+      'Not available yet.',
+      undefined,
+      false,
+    ]);
+  });
+});

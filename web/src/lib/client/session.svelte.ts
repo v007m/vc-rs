@@ -1,135 +1,146 @@
-import { Code, ConnectError } from '@connectrpc/connect';
-import type { ApiInfo, CallInput, CallOutput, ClientPort, FlowInfo } from './port.ts';
-import { ApiRequest } from './request.svelte.ts';
-import { parseResponse, scalarFields, varArg, type CallResponse } from './response.ts';
+import type { ApiInfo, CallInput, ClientPort, FlowInfo } from './port.ts';
+import type { ApiRequest } from './request.svelte.ts';
+import { ScratchTab } from './scratch.svelte.ts';
+import { noSeams, type AdhocPort } from './seams.ts';
+import { CallTab, message, type CallResult, type VarRow } from './tab.svelte.ts';
 
-/** A var row in the request: a name the api declares, or one the user added. */
-export type VarRow = { name: string; value: string };
+export type { CallResult, VarRow } from './tab.svelte.ts';
 
-/** The last call's result, with its response read. */
-export type CallResult = Readonly<{
-  input: CallInput;
-  output: CallOutput;
-  response: CallResponse | undefined;
-  /** The body fields a test saved from this call can expect. */
-  fields: readonly string[];
-}>;
-
-function message(error: unknown): string {
-  return ConnectError.from(error).rawMessage;
-}
+export type ClientTab = CallTab | ScratchTab;
 
 /**
- * The API client's state: the project's apis, the open one's vars and request, and the last
- * call. A call goes through the engine like `vc call`, so it uses the project's auth and active
- * profile, with the api as the request edited it.
+ * The Client space's state: the project's apis and flows, and the open tabs (D539). The call
+ * members act on the active tab when it is an api tab, so a screen reads `client.request`,
+ * `client.result` and so on for whatever tab is in front.
  */
 export class ClientSession {
   apis: readonly ApiInfo[] = $state([]);
   flows: readonly FlowInfo[] = $state([]);
-  current: ApiInfo | undefined = $state();
-  request: ApiRequest | undefined = $state();
-  vars: VarRow[] = $state([]);
-  keep = $state(false);
-  sending = $state(false);
-  result: CallResult | undefined = $state();
-  error: string | undefined = $state();
+  tabs: ClientTab[] = $state([]);
+  activeId: string | undefined = $state();
+  #error: string | undefined = $state();
+  #next = 1;
   readonly #port: ClientPort;
+  readonly #adhoc: AdhocPort;
 
-  constructor(port: ClientPort) {
+  constructor(port: ClientPort, adhoc: AdhocPort = noSeams) {
     this.#port = port;
+    this.#adhoc = adhoc;
+  }
+
+  get tab(): ClientTab | undefined {
+    return this.tabs.find((t) => t.id === this.activeId);
+  }
+
+  /** The active tab when it is on an api. */
+  get call(): CallTab | undefined {
+    const tab = this.tab;
+    return tab?.kind === 'api' ? tab : undefined;
+  }
+
+  get current(): ApiInfo | undefined {
+    return this.call?.api;
+  }
+
+  get request(): ApiRequest | undefined {
+    return this.call?.request;
+  }
+
+  get vars(): VarRow[] {
+    return this.call?.vars ?? [];
+  }
+
+  get keep(): boolean {
+    return this.call?.keep ?? false;
+  }
+
+  set keep(keep: boolean) {
+    if (this.call) this.call.keep = keep;
+  }
+
+  get sending(): boolean {
+    return this.tab?.sending ?? false;
+  }
+
+  get result(): CallResult | undefined {
+    return this.call?.result;
+  }
+
+  get error(): string | undefined {
+    return this.#error ?? this.tab?.error;
+  }
+
+  get input(): CallInput | undefined {
+    return this.call?.input;
   }
 
   async load(): Promise<void> {
     try {
       [this.apis, this.flows] = await Promise.all([this.#port.apis(), this.#port.flows()]);
-      this.error = undefined;
+      this.#error = undefined;
     } catch (error) {
-      this.error = message(error);
+      this.#error = message(error);
     }
   }
 
-  /** Opens the api `id` with an empty row for each var it declares, and reads its request. */
+  /** Brings the api's tab to the front, opening a tab for it when there is none. */
   async open(id: string): Promise<void> {
     const api = this.apis.find((a) => a.id === id);
     if (!api || api.id === this.current?.id) return;
-    this.current = api;
-    this.vars = api.vars.map((name) => ({ name, value: '' }));
-    this.result = undefined;
-    this.error = undefined;
-    this.request = new ApiRequest(this.#port, api.id);
-    await this.request.load();
+    const open = this.tabs.find((t) => t.kind === 'api' && t.api.id === id);
+    if (open) {
+      this.activeId = open.id;
+      return;
+    }
+    const tab = new CallTab(this.#port, this.#id(), api);
+    this.tabs.push(tab);
+    this.activeId = tab.id;
+    this.#error = undefined;
+    await tab.load();
+  }
+
+  /** Opens a scratch tab with no api and brings it to the front. */
+  scratch(): ScratchTab {
+    const tab = new ScratchTab(this.#adhoc, this.#id());
+    this.tabs.push(tab);
+    this.activeId = tab.id;
+    return tab;
+  }
+
+  activate(id: string): void {
+    if (this.tabs.some((t) => t.id === id)) this.activeId = id;
+  }
+
+  /** Closes a tab; when it was in front, the tab that takes its place comes to the front. */
+  close(id: string): void {
+    const at = this.tabs.findIndex((t) => t.id === id);
+    if (at < 0) return;
+    this.tabs.splice(at, 1);
+    if (this.activeId !== id) return;
+    this.activeId = this.tabs[Math.min(at, this.tabs.length - 1)]?.id;
   }
 
   addVar(): void {
-    this.vars.push({ name: '', value: '' });
+    this.call?.addVar();
   }
 
   removeVar(index: number): void {
-    this.vars.splice(index, 1);
+    this.call?.removeVar(index);
   }
 
-  /** The call the request describes; vars left empty keep the api's defaults. */
-  get input(): CallInput | undefined {
-    if (!this.current) return undefined;
-    const vars = this.vars
-      .filter((v) => v.name.trim() && v.value !== '')
-      .map((v) => varArg(v.name.trim(), v.value));
-    const draft = this.request?.draft;
-    const input = { api: this.current.id, vars, keep: this.keep };
-    return draft ? { ...input, draft } : input;
-  }
-
-  /** Explains the open request as `send` would send it now; whether it could. */
   async explain(): Promise<boolean> {
-    const [input, request] = [this.input, this.request];
-    if (!input || !request) return false;
-    try {
-      await request.explain(input.vars);
-      this.error = undefined;
-      return true;
-    } catch (error) {
-      if (ConnectError.from(error).code === Code.Aborted) request.stale();
-      this.error = message(error);
-      return false;
-    }
+    return (await this.call?.explain()) ?? false;
   }
 
-  async send(): Promise<void> {
-    const input = this.input;
-    if (!input || this.sending || this.request?.problem !== undefined) return;
-    this.sending = true;
-    try {
-      const output = await this.#port.call(input);
-      const response = parseResponse(output.responseJson);
-      const fields = response ? scalarFields(response.body) : [];
-      this.result = { input, output, response, fields };
-      this.error = undefined;
-    } catch (error) {
-      if (ConnectError.from(error).code === Code.Aborted) this.request?.stale();
-      this.error = message(error);
-    } finally {
-      this.sending = false;
-    }
+  async send(keep?: boolean): Promise<void> {
+    await this.tab?.send(keep);
   }
 
-  /** Saves the last call as the test `testId`; resolves to what was added, or `undefined`. */
   async saveAsTest(testId: string, fields: readonly string[]): Promise<string | undefined> {
-    if (!this.result) return undefined;
-    try {
-      const { input, output } = this.result;
-      const changes = await this.#port.saveCallAsTest({
-        testId,
-        api: input.api,
-        vars: input.vars,
-        responseJson: output.responseJson,
-        fields,
-      });
-      this.error = undefined;
-      return changes.titles.join(' · ') || `Added ${testId}`;
-    } catch (error) {
-      this.error = message(error);
-      return undefined;
-    }
+    return this.call?.saveAsTest(testId, fields);
+  }
+
+  #id(): string {
+    return `t${this.#next++}`;
   }
 }
