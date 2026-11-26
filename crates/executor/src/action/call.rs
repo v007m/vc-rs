@@ -78,7 +78,9 @@ impl CallExecutor {
         self.runtimes.get(api.protocol).ok_or_else(missing)
     }
 
-    async fn call(&self, request: &ActionRequest) -> Result<ActionReport, Halted> {
+    /// What sending `request` needs: its action and api, the render of its scope, the call
+    /// rendered for the api's runtime, and its flight, with the api's auth and hooks.
+    pub(super) fn begin<'r>(&self, request: &'r ActionRequest) -> Result<Begun<'r>, Failure> {
         let action =
             request.cx.action(request.action).ok_or_else(|| Failure::new("the action is not in the program"))?;
         let api = called(&request.cx.program, action)
@@ -93,6 +95,11 @@ impl CallExecutor {
             ctx: SendContext { client_cert, ..SendContext::default() },
         };
         let trip = self.flight(request, &mut render, (api, action, Arc::clone(&runtime)))?;
+        Ok(Begun { action, api, render, runtime, call, trip })
+    }
+
+    async fn call(&self, request: &ActionRequest) -> Result<ActionReport, Halted> {
+        let Begun { action, api, mut render, runtime, call, trip } = self.begin(request)?;
         let asked = Asked { action: (request.action, action), api };
         let answer = match (runtime.stream(), &action.poll) {
             (Some(_), _) => stream_call::run(&trip, &mut render, (call, asked)).await?,
@@ -174,6 +181,16 @@ impl CallExecutor {
         let read = (Arc::clone(&self.matchers), runtime);
         Ok(Flight::new(parts, (hooks::request_hooks(program, api), bridge), read))
     }
+}
+
+/// A call about to be sent: what [`CallExecutor::begin`] gives.
+pub(super) struct Begun<'r> {
+    pub action: &'r Action,
+    pub api: &'r Api,
+    pub render: Render<'r>,
+    pub runtime: Arc<dyn ProtocolRuntime>,
+    pub call: Call,
+    pub trip: Flight,
 }
 
 /// A call that got its answer: what it ran, as run.

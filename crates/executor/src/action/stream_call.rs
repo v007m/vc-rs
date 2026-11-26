@@ -183,7 +183,7 @@ impl<'a> Session<'a> {
         (flight, render): (&Flight, &mut Render<'_>),
         opening: &mut Opening,
     ) -> Result<Ended, Failure> {
-        if let Some(reason) = self.refusal(opening) {
+        if let Some(reason) = refusal(self.runtime, opening) {
             return Ok(Ended::Refused(reason));
         }
         let Some(stream) = opening.stream.as_deref_mut() else { return Ok(Ended::Closed) };
@@ -199,14 +199,6 @@ impl<'a> Session<'a> {
                 Ok(Some(Ok(frame))) => frame,
             };
             self.frame(&Judge::new(flight.matchers(), &*render), frame)?;
-        }
-    }
-
-    /// Why `opening` is not a stream this type reads, if it is not.
-    fn refusal(&self, opening: &Opening) -> Option<String> {
-        match opening.stream {
-            None => Some(format!("the server answered {}", opening.head.response.status.as_u16())),
-            Some(_) => self.runtime.opened(&opening.head).err(),
         }
     }
 
@@ -340,6 +332,14 @@ impl<'a> Session<'a> {
             if shape.grouped { Value::Array(expected.collect()) } else { expected.next().unwrap_or_default() };
         result.actual = Some(self.messages.get(since..).unwrap_or_default().iter().map(object).collect());
         Some(result)
+    }
+}
+
+/// Why `opening` is not a stream `runtime` reads, if it is not.
+pub fn refusal(runtime: &dyn StreamRuntime, opening: &Opening) -> Option<String> {
+    match opening.stream {
+        None => Some(format!("the server answered {}", opening.head.response.status.as_u16())),
+        Some(_) => runtime.opened(&opening.head).err(),
     }
 }
 
