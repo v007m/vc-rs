@@ -14,7 +14,7 @@ use crate::cancel_rpcs::Runs;
 use crate::live_rpcs::LiveStreams;
 use crate::{
     Code, ConnectError, ConnectService, McpAccess, Sink, authoring_rpcs, cancel_rpcs, client_rpcs, compare_rpcs,
-    edit_rpcs, history_rpcs, live_rpcs, load_stream, project_rpcs, run_stream, vcs_rpcs,
+    edit_rpcs, editor_rpcs, history_rpcs, live_rpcs, load_stream, project_rpcs, run_stream, vcs_rpcs,
 };
 
 /// The service's full protobuf name.
@@ -46,7 +46,7 @@ impl EngineApi {
         let rpcs = project_rpcs::register(client_rpcs::register(edit_rpcs::register(rpcs)));
         let rpcs = run_stream::register(authoring_rpcs::register(history_rpcs::register(cancel_rpcs::register(rpcs))));
         let rpcs = load_stream::register(compare_rpcs::register(vcs_rpcs::register(live_rpcs::register(rpcs))));
-        rpcs.service
+        editor_rpcs::register(rpcs).service
     }
 
     /// The engine.

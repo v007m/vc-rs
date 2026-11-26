@@ -1,6 +1,6 @@
 //! `vc check --fix`: the certain fixes of the selected diagnostics, as one guarded change.
 
-use vc_diagnostics::{Diagnostics, TextEdit};
+use vc_diagnostics::{Code, Diagnostics, TextEdit};
 use vc_model::{SourceFileId, SourceFiles};
 use vc_parser::{Document, Syntax};
 
@@ -27,10 +27,20 @@ impl Engine {
     ///
     /// As [`Engine::check`]; [`EngineError::Edit`] when the fixes together would add an error.
     pub fn fix(&self, request: &CheckRequest) -> Result<FixReport, EngineError> {
+        self.fix_codes(request, &[])
+    }
+
+    /// As [`Engine::fix`], with only the fixes of diagnostics whose code is in `codes`; every
+    /// code when it is empty, as the Problems panel's "Fix all" and its per-code fix ask (D680).
+    ///
+    /// # Errors
+    ///
+    /// As [`Engine::fix`].
+    pub fn fix_codes(&self, request: &CheckRequest, codes: &[Code]) -> Result<FixReport, EngineError> {
         let compiled = self.with_check_findings(self.compiled()?, &request.paths);
         let before = compiled.diagnostics.clone();
         let report = Self::selected(compiled, request)?;
-        let changes = certain_fixes(&report.diagnostics, &report.files)?;
+        let changes = certain_fixes(&report.diagnostics, &report.files, codes)?;
         if !changes.is_empty() {
             self.guard(&before, &changes)?;
         }
@@ -38,11 +48,13 @@ impl Engine {
     }
 }
 
-/// The first certain fix of each diagnostic, skipping one that overlaps a fix already taken.
-fn certain_fixes(diagnostics: &Diagnostics, files: &SourceFiles) -> Result<Changes, EngineError> {
+/// The first certain fix of each diagnostic with a code in `codes` (any, when empty), skipping
+/// one that overlaps a fix already taken.
+fn certain_fixes(diagnostics: &Diagnostics, files: &SourceFiles, codes: &[Code]) -> Result<Changes, EngineError> {
     let mut taken: Vec<&TextEdit> = Vec::new();
     let mut titles = Vec::new();
-    for fix in diagnostics.iter().filter_map(|d| d.fixes.iter().find(|fix| fix.certain)) {
+    let wanted = diagnostics.iter().filter(|d| codes.is_empty() || codes.contains(&d.code));
+    for fix in wanted.filter_map(|d| d.fixes.iter().find(|fix| fix.certain)) {
         if fix.edits.iter().any(|edit| taken.iter().any(|done| overlaps(done, edit))) {
             continue;
         }

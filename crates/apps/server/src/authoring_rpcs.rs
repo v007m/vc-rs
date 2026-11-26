@@ -153,7 +153,11 @@ async fn unskip(api: Arc<EngineApi>, request: wire::UnskipRequest) -> Result<wir
 
 /// `changes` with the digest of their files as previewed; written first when `expected` holds
 /// the digest a preview gave and the files are still those.
-fn previewed(engine: &Engine, changes: Changes, expected: Option<String>) -> Result<(Changes, String), EngineError> {
+pub fn previewed(
+    engine: &Engine,
+    changes: Changes,
+    expected: Option<String>,
+) -> Result<(Changes, String), EngineError> {
     let digest = engine.preview_digest(&changes)?;
     if let Some(expected) = expected {
         engine.write_previewed(&changes, &expected)?;
@@ -161,7 +165,7 @@ fn previewed(engine: &Engine, changes: Changes, expected: Option<String>) -> Res
     Ok((changes, digest))
 }
 
-fn response(changes: Changes) -> wire::ImportResponse {
+pub fn response(changes: Changes) -> wire::ImportResponse {
     wire::ImportResponse { files: changes.files.into_iter().map(file_change).collect(), titles: changes.titles }
 }
 

@@ -1077,6 +1077,59 @@ pub struct ExplainApiResponse {
     #[prost(string, repeated, tag="5")]
     pub notices: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ExplainRequest {
+    /// A full test or api ID (`users.crud#listsUsers`, `users#list`), or a diagnostic code
+    /// (`V2003`, any case).
+    #[prost(string, tag="1")]
+    pub target: ::prost::alloc::string::String,
+    /// Profiles to layer, in order; the default profile when empty. Unused for a code.
+    #[prost(string, repeated, tag="2")]
+    pub profiles: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// `key=value` overrides, as `--set` gives them. Unused for a code.
+    #[prost(string, repeated, tag="3")]
+    pub sets: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ExplainResponse {
+    /// A code's page as Markdown (a `# V2003: …` heading, a paragraph, `## Wrong` and `## Right`
+    /// examples), or a test's or api's explanation as plain text, one item per line, masked.
+    #[prost(string, tag="1")]
+    pub text: ::prost::alloc::string::String,
+    /// Whether `text` is a code's Markdown page.
+    #[prost(bool, tag="2")]
+    pub markdown: bool,
+    /// Problems that did not stop it, masked.
+    #[prost(string, repeated, tag="3")]
+    pub notices: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ApplyFixesRequest {
+    /// Fix only the diagnostics with these codes (`V2011`); every certain fix when empty.
+    #[prost(string, repeated, tag="1")]
+    pub codes: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Fix only the diagnostics on files at or under these paths; every file when empty.
+    #[prost(string, repeated, tag="2")]
+    pub paths: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Write the files; a preview when false.
+    #[prost(bool, tag="3")]
+    pub write: bool,
+    /// The digest the preview gave; a write is aborted when a file changed since, or without it.
+    #[prost(string, optional, tag="4")]
+    pub expected_digest: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ApplyFixesResponse {
+    /// Each file the fixes change, before and after; empty when there is nothing to fix.
+    #[prost(message, repeated, tag="1")]
+    pub files: ::prost::alloc::vec::Vec<FileChange>,
+    /// Each fix's title, in the order taken.
+    #[prost(string, repeated, tag="2")]
+    pub titles: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// The digest of the files as previewed, which the write passes back.
+    #[prost(string, tag="3")]
+    pub digest: ::prost::alloc::string::String,
+}
 /// A header an api is sent with that it does not write itself.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct InheritedHeader {
