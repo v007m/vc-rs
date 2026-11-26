@@ -66,14 +66,14 @@ function later<T>() {
 }
 
 describe('EditorSession', () => {
-  it('checks the unsaved text once typing pauses and blocks saving while it has errors', async () => {
+  it('checks the unsaved text once typing pauses, and lets it be saved with errors', async () => {
     const { overlays, editor } = overlayDisk();
     await editor.open(path);
     editor.edit('name: b');
     editor.edit('name: bad');
     await vi.waitFor(() => expect(editor.errorCount).toBe(1));
     expect(overlays).toEqual(['name: bad']);
-    expect(editor.canSave).toBe(false);
+    expect(editor.canSave).toBe(true);
     editor.edit('name: good');
     await vi.waitFor(() => expect(editor.errorCount).toBe(0));
     expect(editor.canSave).toBe(true);
@@ -143,16 +143,92 @@ describe('EditorSession', () => {
     expect(state.writes).toBe(0);
   });
 
-  it('checks the text again on save and refuses it when the last check is out of date', async () => {
+  it('checks the text again on save and asks before writing it with errors', async () => {
     const { writes, editor } = overlayDisk(60_000);
     await editor.open(path);
     editor.edit('name: bad');
-    expect(editor.canSave).toBe(true);
     await editor.save();
     expect(writes).toEqual([]);
     expect(editor.errorCount).toBe(1);
-    expect(editor.state).toBe('idle');
+    expect(editor.confirming).toBe(true);
     expect(editor.dirty).toBe(true);
+    await editor.saveAnyway();
+    expect(writes).toEqual(['name: bad']);
+    expect(editor.confirming).toBe(false);
+    expect(editor.dirty).toBe(false);
+  });
+
+  it('drops the save-anyway prompt on the next edit or on cancel', async () => {
+    const { writes, editor } = overlayDisk(60_000);
+    await editor.open(path);
+    editor.edit('name: bad');
+    await editor.save();
+    expect(editor.confirming).toBe(true);
+    editor.edit('name: bad, more');
+    expect(editor.confirming).toBe(false);
+    await editor.save();
+    editor.cancelSave();
+    expect(editor.confirming).toBe(false);
+    expect(writes).toEqual([]);
+  });
+
+  it('checks the typed text at once on Check', async () => {
+    const { overlays, editor } = overlayDisk(60_000);
+    await editor.open(path);
+    editor.edit('name: bad');
+    await editor.check();
+    expect(overlays).toEqual(['name: bad']);
+    expect(editor.errorCount).toBe(1);
+  });
+
+  it('applies each first certain fix on Fix all, skipping overlaps and other files', async () => {
+    const fix = (start: number, end: number, newText: string, file = path) => ({
+      title: newText,
+      certain: true,
+      edits: [{ file, start, end, newText }],
+    });
+    const client = fakeEngine({
+      readFile: () => ({ text: 'a: 1\nb: 2\n', digest: 'd1' }),
+      check: () => ({
+        diagnostics: [
+          { ...diagnostic(path, 'V4001'), fixes: [fix(0, 1, 'x')] },
+          { ...diagnostic(path, 'V4002'), fixes: [fix(5, 6, 'z'), fix(0, 1, 'y')] },
+          { ...diagnostic(path, 'V4005'), fixes: [fix(0, 1, 'y')] },
+          { ...diagnostic(path, 'V4003'), fixes: [fix(0, 1, 'w', 'other.yaml')] },
+          { ...diagnostic(path, 'V4004'), fixes: [{ ...fix(8, 9, '9'), certain: false }] },
+        ],
+      }),
+    });
+    const editor = new EditorSession(client, 60_000);
+    await editor.open(path);
+    expect(editor.fixableCount).toBe(2);
+    expect(editor.fixAll()).toBe(2);
+    expect(editor.buffer?.text).toBe('x: 1\nz: 2\n');
+  });
+
+  it('offers no fixes once the text moved on from the text that was checked', async () => {
+    const fix = {
+      title: 'x',
+      certain: true,
+      edits: [{ file: path, start: 0, end: 1, newText: 'x' }],
+    };
+    const editor = new EditorSession(
+      fakeEngine({
+        readFile: () => ({ text: 'a: 1\n', digest: 'd1' }),
+        check: () => ({ diagnostics: [{ ...diagnostic(path, 'V4001'), fixes: [fix] }] }),
+      }),
+      60_000,
+    );
+    await editor.open(path);
+    expect(editor.fixable).toBe(true);
+    editor.edit('# note\na: 1\n');
+    expect(editor.fixable).toBe(false);
+    expect(editor.fixableCount).toBe(0);
+    expect(editor.fixAll()).toBe(0);
+    editor.applyFix(create(FixSchema, fix));
+    expect(editor.buffer?.text).toBe('# note\na: 1\n');
+    await editor.check();
+    expect(editor.fixable).toBe(true);
   });
 
   it('keeps keys typed while a save is in flight, unsaved', async () => {
