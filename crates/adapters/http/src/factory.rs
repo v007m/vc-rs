@@ -14,7 +14,7 @@ use zeroize::Zeroizing;
 use crate::hosts::HostRules;
 use crate::material::read_material;
 use crate::tls::{add_ca, with_native};
-use crate::{ClientIdentity, HttpAdapterError, HttpOptions, HttpTransport, ProxyConfig};
+use crate::{ClientIdentity, Connections, HttpAdapterError, HttpOptions, HttpTransport, ProxyConfig};
 
 /// Builds the [`HttpTransport`] for a run's `http.tls`, through the proxy its environment names;
 /// or, made [`fixed`](Self::fixed), checks the material the same way and gives the one transport
@@ -22,6 +22,7 @@ use crate::{ClientIdentity, HttpAdapterError, HttpOptions, HttpTransport, ProxyC
 #[derive(Clone, Default)]
 pub struct HttpTransports {
     fixed: Option<Arc<dyn Transport>>,
+    connections: Connections,
 }
 
 impl HttpTransports {
@@ -35,13 +36,14 @@ impl HttpTransports {
     /// that cannot be used still stops a run (V5125, V5126), then gives `transport`.
     #[must_use]
     pub fn fixed(transport: Arc<dyn Transport>) -> Self {
-        Self { fixed: Some(transport) }
+        Self { fixed: Some(transport), connections: Connections::new() }
     }
 }
 
 impl fmt::Debug for HttpTransports {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("HttpTransports").field("fixed", &self.fixed.is_some()).finish()
+        let fixed = self.fixed.is_some();
+        f.debug_struct("HttpTransports").field("fixed", &fixed).field("connections", &self.connections).finish()
     }
 }
 
@@ -52,7 +54,7 @@ impl TransportFactory for HttpTransports {
             return Ok(TransportPorts::from(Arc::clone(transport)));
         }
         let proxy = ProxyConfig::from_env(|name| environment.var(name));
-        let options = HttpOptions { proxy, ..HttpOptions::default() };
+        let options = HttpOptions { proxy, connections: self.connections.clone(), ..HttpOptions::default() };
         let transport = HttpTransport::with_roots(&with_native(roots), &options, checked);
         let http = Arc::new(transport.map_err(|error| refused(error, None))?);
         Ok(TransportPorts { transport: Arc::clone(&http) as Arc<dyn Transport>, streams: Some(http) })
@@ -60,6 +62,11 @@ impl TransportFactory for HttpTransports {
 
     fn inspect(&self, probes: &[TlsProbe]) -> Vec<TlsFinding> {
         crate::inspect::inspect(probes)
+    }
+
+    /// The connections every transport it built holds open; a fixed transport's are not known.
+    fn open_connections(&self) -> Option<u64> {
+        self.fixed.is_none().then(|| self.connections.count())
     }
 }
 
