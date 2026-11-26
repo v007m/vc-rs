@@ -1,5 +1,5 @@
+use std::io;
 use std::net::TcpListener;
-use std::sync::mpsc::{self, Receiver};
 use std::thread;
 use std::time::Duration;
 
@@ -9,11 +9,12 @@ use axum::http::{Method, Request, StatusCode, header};
 use http_body_util::BodyExt as _;
 use prost::Message as _;
 use serde_json::Value;
+use tokio::sync::mpsc::{self, UnboundedReceiver};
 use tower::ServiceExt as _;
 use vc_contracts::engine::v1 as wire;
 use vc_contracts::engine::v1::run_event::Kind;
 
-use super::{Runs, cancel};
+use super::{Runs, cancel, named};
 use crate::engine_fixture::{CONFIG, project};
 use crate::{Code, envelope};
 
@@ -21,15 +22,14 @@ const SERVICE: &str = "/api/vibranium.engine.v1.EngineService";
 
 /// A server on a free local port that takes every connection, says so, and never answers;
 /// its base URL, and where it says so.
-fn hanging_server() -> (String, Receiver<()>) {
+fn hanging_server() -> (String, UnboundedReceiver<()>) {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let url = format!("http://{}", listener.local_addr().unwrap());
-    let (tell, told) = mpsc::channel();
+    let (tell, told) = mpsc::unbounded_channel();
     thread::spawn(move || {
-        let mut held = Vec::new();
-        for socket in listener.incoming().flatten() {
-            held.push(socket);
-            drop(tell.send(()));
+        for mut socket in listener.incoming().flatten() {
+            tell.send(()).ok();
+            thread::spawn(move || io::copy(&mut socket, &mut io::sink()));
         }
     });
     (url, told)
@@ -37,7 +37,7 @@ fn hanging_server() -> (String, Receiver<()>) {
 
 /// The service over the fixture project, its api on a server that never answers, and where
 /// that server says a request has reached it.
-fn hanging() -> (tempfile::TempDir, Router, Receiver<()>) {
+fn hanging() -> (tempfile::TempDir, Router, UnboundedReceiver<()>) {
     let (dir, api) = project();
     let (url, reached) = hanging_server();
     std::fs::write(dir.path().join("vibranium.config.yaml"), CONFIG.replace("http://127.0.0.1:9", &url)).unwrap();
@@ -45,14 +45,9 @@ fn hanging() -> (tempfile::TempDir, Router, Receiver<()>) {
 }
 
 /// Waits until a run's request has reached the hanging server, so the run is in flight.
-async fn in_flight(reached: &Receiver<()>) {
-    for _ in 0..400 {
-        if reached.try_recv().is_ok() {
-            return;
-        }
-        tokio::time::sleep(Duration::from_millis(25)).await;
-    }
-    panic!("no request reached the server");
+async fn in_flight(reached: &mut UnboundedReceiver<()>) {
+    let arrived = tokio::time::timeout(Duration::from_secs(10), reached.recv()).await;
+    assert!(matches!(arrived, Ok(Some(()))), "no request reached the server");
 }
 
 /// `Run` with `handle`, to its end: its events and its end-stream JSON.
@@ -102,9 +97,9 @@ fn exit(events: &[wire::RunEvent]) -> u32 {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn an_abandon_ends_a_hung_run_at_once_as_cancelled() {
-    let (_dir, router, reached) = hanging();
+    let (_dir, router, mut reached) = hanging();
     let running = tokio::spawn(run(router.clone(), "run-1"));
-    in_flight(&reached).await;
+    in_flight(&mut reached).await;
     assert_eq!(cancelled(&router, "run-1", wire::CancelLevel::Abandon).await, StatusCode::OK);
     let (events, end) = tokio::time::timeout(Duration::from_secs(4), running).await.unwrap().unwrap();
     assert_eq!((exit(&events), end), (130, serde_json::json!({})), "inside the 5 s grace period");
@@ -112,9 +107,9 @@ async fn an_abandon_ends_a_hung_run_at_once_as_cancelled() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn a_second_stop_ends_the_grace_period_as_a_second_ctrl_c() {
-    let (_dir, router, reached) = hanging();
+    let (_dir, router, mut reached) = hanging();
     let running = tokio::spawn(run(router.clone(), "run-2"));
-    in_flight(&reached).await;
+    in_flight(&mut reached).await;
     assert_eq!(cancelled(&router, "run-2", wire::CancelLevel::Stop).await, StatusCode::OK);
     assert_eq!(cancelled(&router, "run-2", wire::CancelLevel::Stop).await, StatusCode::OK);
     let (events, _) = tokio::time::timeout(Duration::from_secs(4), running).await.unwrap().unwrap();
@@ -124,16 +119,16 @@ async fn a_second_stop_ends_the_grace_period_as_a_second_ctrl_c() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn a_handle_a_running_run_holds_is_refused_and_a_finished_one_is_free_again() {
-    let (_dir, router, reached) = hanging();
+    let (_dir, router, mut reached) = hanging();
     let running = tokio::spawn(run(router.clone(), "twice"));
-    in_flight(&reached).await;
+    in_flight(&mut reached).await;
     let (events, end) = run(router.clone(), "twice").await;
     assert!(events.is_empty(), "{events:?}");
     assert_eq!(end["error"]["code"], "already_exists", "{end}");
     assert_eq!(cancelled(&router, "twice", wire::CancelLevel::Abandon).await, StatusCode::OK);
     drop(tokio::time::timeout(Duration::from_secs(4), running).await.unwrap().unwrap());
     let again = tokio::spawn(run(router.clone(), "twice"));
-    in_flight(&reached).await;
+    in_flight(&mut reached).await;
     assert_eq!(cancelled(&router, "twice", wire::CancelLevel::Abandon).await, StatusCode::OK);
     assert_eq!(exit(&again.await.unwrap().0), 130);
 }
@@ -178,4 +173,31 @@ fn outside_a_runtime_no_run_is_kept() {
     let (interrupter, _interrupts) = vc_engine::interrupts();
     let opened = tokio::runtime::Builder::new_current_thread().build().unwrap().block_on(runs.open("a", &interrupter));
     assert_eq!(opened.unwrap_err().code, Code::Unavailable);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn one_stop_leaves_a_hung_run_its_grace_period_and_an_abandon_then_ends_it() {
+    let (_dir, router, mut reached) = hanging();
+    let mut running = tokio::spawn(run(router.clone(), "run-3"));
+    in_flight(&mut reached).await;
+    assert_eq!(cancelled(&router, "run-3", wire::CancelLevel::Stop).await, StatusCode::OK);
+    let graced = tokio::time::timeout(Duration::from_secs(1), &mut running).await;
+    assert!(graced.is_err(), "a stop waits up to 5 s for the run to finish its request");
+    assert_eq!(cancelled(&router, "run-3", wire::CancelLevel::Abandon).await, StatusCode::OK);
+    let (events, _) = tokio::time::timeout(Duration::from_secs(4), running).await.unwrap().unwrap();
+    assert_eq!(exit(&events), 130);
+}
+
+#[test]
+fn a_handle_is_at_most_64_ascii_letters_digits_dashes_and_underscores() {
+    let longest = "a".repeat(64);
+    for handle in ["", "run-1", "Run_2", "0", longest.as_str()] {
+        assert!(named(handle).is_ok(), "{handle}");
+    }
+    let too_long = "a".repeat(65);
+    for handle in ["a.b", "a/b", "../a", "a b", "é", "run\n", too_long.as_str()] {
+        let refused = named(handle).unwrap_err();
+        assert_eq!(refused.code, Code::InvalidArgument, "{handle}");
+        assert_eq!(refused.message, "a run's `handle` is at most 64 ASCII letters, digits, `-` and `_`");
+    }
 }

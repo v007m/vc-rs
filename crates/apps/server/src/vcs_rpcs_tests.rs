@@ -4,7 +4,7 @@ use std::process::Command;
 
 use vc_contracts::engine::v1 as wire;
 
-use super::{commit, diff, push, status};
+use super::{commit, diff, pull, push, status};
 use crate::Code;
 use crate::engine_fixture::{CONFIG, SECRET, project};
 
@@ -66,4 +66,67 @@ async fn outside_a_repository_the_status_fails_its_precondition() {
     let (_dir, api) = project();
     let refused = status(api, wire::VcsStatusRequest {}).await;
     assert!(matches!(&refused, Err(error) if error.code == Code::FailedPrecondition), "{refused:?}");
+}
+
+/// `root` committed, with an `origin` remote in `remotes` it tracks and a clone of that remote,
+/// which is returned.
+fn tracked(root: &Path, remotes: &Path) -> std::path::PathBuf {
+    committed(root);
+    let (bare, other) = (remotes.join("origin.git"), remotes.join("other"));
+    git(remotes, &["init", "-q", "--bare", "-b", "main", bare.to_str().unwrap()]);
+    git(root, &["remote", "add", "origin", bare.to_str().unwrap()]);
+    git(root, &["push", "-q", "-u", "origin", "main"]);
+    git(remotes, &["clone", "-q", bare.to_str().unwrap(), other.to_str().unwrap()]);
+    for (key, value) in [("user.name", "vc"), ("user.email", "vc@example.test"), ("commit.gpgsign", "false")] {
+        git(&other, &["config", key, value]);
+    }
+    other
+}
+
+#[tokio::test]
+async fn a_push_sends_the_commit_upstream_and_a_pull_fast_forwards_what_another_clone_pushed() {
+    let (dir, api) = project();
+    let remotes = tempfile::TempDir::new().unwrap();
+    let other = tracked(dir.path(), remotes.path());
+    let request = wire::VcsCommitRequest { paths: vec!["notes.txt".into()], message: "notes".into() };
+    commit(api.clone(), request).await.unwrap();
+    assert_eq!(status(api.clone(), wire::VcsStatusRequest {}).await.unwrap().ahead, 1);
+    push(api.clone(), wire::VcsPushRequest {}).await.unwrap();
+    let shown = status(api.clone(), wire::VcsStatusRequest {}).await.unwrap();
+    assert_eq!((shown.upstream.as_str(), shown.ahead), ("origin/main", 0));
+    git(&other, &["pull", "-q"]);
+    fs::write(other.join("more.txt"), "more\n").unwrap();
+    git(&other, &["add", "more.txt"]);
+    git(&other, &["commit", "-q", "-m", "more"]);
+    git(&other, &["push", "-q"]);
+    pull(api, wire::VcsPullRequest {}).await.unwrap();
+    assert_eq!(fs::read_to_string(dir.path().join("more.txt")).unwrap(), "more\n");
+}
+
+#[tokio::test]
+async fn a_failed_push_or_pull_is_a_failed_precondition_whose_message_holds_no_credentials() {
+    let (dir, api) = project();
+    committed(dir.path());
+    git(dir.path(), &["remote", "add", "origin", "http://sam:s3cr3t-token@127.0.0.1:9/r.git"]);
+    git(dir.path(), &["config", "branch.main.remote", "origin"]);
+    git(dir.path(), &["config", "branch.main.merge", "refs/heads/main"]);
+    let pushed = push(api.clone(), wire::VcsPushRequest {}).await.unwrap_err();
+    let pulled = pull(api, wire::VcsPullRequest {}).await.unwrap_err();
+    for (refused, said) in [(pushed, "cannot push: "), (pulled, "cannot pull: ")] {
+        assert_eq!(refused.code, Code::FailedPrecondition, "{refused:?}");
+        assert!(refused.message.starts_with(said), "{refused:?}");
+        assert!(!refused.message.contains("s3cr3t") && !refused.message.contains("sam:"), "{refused:?}");
+    }
+}
+
+#[tokio::test]
+async fn a_commit_of_a_path_outside_the_project_or_of_no_path_is_refused_and_commits_nothing() {
+    let (dir, api) = project();
+    committed(dir.path());
+    let head = git(dir.path(), &["rev-parse", "HEAD"]);
+    let outside = wire::VcsCommitRequest { paths: vec!["../x".into()], message: "m".into() };
+    assert_eq!(commit(api.clone(), outside).await.unwrap_err().code, Code::InvalidArgument);
+    let none = wire::VcsCommitRequest { paths: Vec::new(), message: "m".into() };
+    assert_eq!(commit(api, none).await.unwrap_err().code, Code::FailedPrecondition);
+    assert_eq!(git(dir.path(), &["rev-parse", "HEAD"]), head);
 }

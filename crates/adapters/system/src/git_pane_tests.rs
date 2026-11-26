@@ -235,20 +235,46 @@ fn outside_a_repository_the_status_fails_with_gits_message() {
     assert!(matches!(&status, Err(VcsError::Action { action, reason }) if action == "read the status" && !reason.is_empty()), "{status:?}");
 }
 
+/// Whether process `pid` still runs.
+fn alive(pid: &str) -> bool {
+    Command::new("kill").args(["-0", pid]).output().unwrap().status.success()
+}
+
+/// A committed repository whose `origin` is an SSH remote that hangs, as SSH does when it asks for
+/// a key's passphrase; the hanging process writes its ID to the returned file.
+fn hanging(repo: &Path) -> std::path::PathBuf {
+    repository(repo);
+    write(repo, &[("a.yaml", "one\n")]);
+    git(repo, &["add", "-A"]);
+    git(repo, &["commit", "-q", "-m", "start"]);
+    git(repo, &["remote", "add", "origin", "ssh://vc.invalid/r.git"]);
+    git(repo, &["config", "branch.main.remote", "origin"]);
+    git(repo, &["config", "branch.main.merge", "refs/heads/main"]);
+    let pid = repo.join(".git").join("ssh.pid");
+    let ssh = format!("sh -c 'echo $$ > \"$0\"; exec sleep 30' {}", pid.display());
+    git(repo, &["config", "core.sshCommand", &ssh]);
+    pid
+}
+
+#[cfg(unix)]
 #[test]
-fn a_push_still_running_at_its_limit_is_killed_and_says_it_may_wait_for_a_passphrase() {
+fn a_push_or_pull_still_running_at_its_limit_is_killed_with_its_ssh_and_says_it_may_wait_for_a_passphrase() {
     let repo = TempDir::new().unwrap();
-    repository(repo.path());
-    write(repo.path(), &[("a.yaml", "one\n")]);
-    git(repo.path(), &["add", "-A"]);
-    git(repo.path(), &["commit", "-q", "-m", "start"]);
-    git(repo.path(), &["remote", "add", "origin", "ssh://vc.invalid/r.git"]);
-    git(repo.path(), &["config", "core.sshCommand", "sh -c 'sleep 30'"]);
-    let started = Instant::now();
-    let pushed = crate::git_pane::timed(repo.path(), ("push", &["push", "origin", "main"]), Duration::from_secs(1));
-    assert!(started.elapsed() < Duration::from_secs(10), "stopped at its limit, not after the 30 s an ssh waits");
-    let Err(VcsError::Action { action, reason }) = pushed else { panic!("{pushed:?}") };
-    assert_eq!(action, "push");
-    let said = "git push timed out after 1 s; it may be waiting for an SSH passphrase. Run it in a terminal or add the key to ssh-agent";
-    assert_eq!(reason, said);
+    let pid = hanging(repo.path());
+    for (action, args) in [("push", ["push", "origin", "main"].as_slice()), ("pull", &["pull", "--ff-only"])] {
+        let started = Instant::now();
+        let ran = crate::git_pane::timed(repo.path(), (action, args), Duration::from_secs(1));
+        assert!(started.elapsed() < Duration::from_secs(10), "{action}: stopped at its limit, not after 30 s");
+        let Err(VcsError::Action { action: said_action, reason }) = ran else { panic!("{ran:?}") };
+        assert_eq!(said_action, action);
+        let hint = "it may be waiting for an SSH passphrase. Run it in a terminal or add the key to ssh-agent";
+        assert_eq!(reason, format!("git {action} timed out after 1 s; {hint}"));
+        let ssh = std::fs::read_to_string(&pid).unwrap();
+        let gone = Instant::now() + Duration::from_secs(5);
+        while alive(ssh.trim()) && Instant::now() < gone {
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        assert!(!alive(ssh.trim()), "{action}: the ssh git started was killed with it");
+        std::fs::remove_file(&pid).unwrap();
+    }
 }
