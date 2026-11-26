@@ -506,6 +506,20 @@ pub struct RunRequest {
     /// events still stream and its report comes last, with no `run`.
     #[prost(bool, optional, tag="11")]
     pub record: ::core::option::Option<bool>,
+    /// `--strict`: every failure fails the run, whatever `allowFailure` says (D248).
+    #[prost(bool, tag="12")]
+    pub strict: bool,
+    /// `--report`: the report formats (`ctrf`, `junit`, `html`), each may be a comma list; over
+    /// `reports.formats`. An unknown format fails the run before it starts (D671).
+    #[prost(string, repeated, tag="13")]
+    pub reports: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// `--out`: the folder the report files go in, as they are, over `reports.dir`; relative to
+    /// the project root, or absolute. Empty: each run's files go in `<reports.dir>/<run>/`.
+    #[prost(string, tag="14")]
+    pub out: ::prost::alloc::string::String,
+    /// `--single-file`: the HTML report as one self-contained file, over `reports.html.layout`.
+    #[prost(bool, tag="15")]
+    pub single_file: bool,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct CancelRequest {

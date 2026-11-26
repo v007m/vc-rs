@@ -295,7 +295,7 @@ Built so far (D620): ⌘K or the top row's search opens it, grown out of the sea
 | 10 | `Init`, `Demo` | Onboarding |
 | 11 | `TestAlert`, `PluginList`/`Add`/`Remove` | Settings |
 | 12 | User-config read and write (scoped) | Settings, the "You only" scope |
-| 13 | `RunRequest`: strict and reporters | Run dialog |
+| 13 | Done (D671): `RunRequest` carries `strict`, `reports`, `out` and `single_file`, as `vc run --strict --report --out --single-file`. `out` is relative to the project root or absolute; an unknown format ends the stream with an error before the run starts | Run dialog |
 | 14 | Done (D546–D550): `VcsStatus` (`branch`, `upstream`, `ahead`, `behind`, `files`: each `path`, `change` (`added`, `modified`, `deleted`, `untracked`, `conflicted`), `added`, `removed`, `binary`), `VcsDiff{path}` (a masked unified diff, empty for an unchanged file), `VcsCommit{paths, message}` (the short ID; only those files are committed), `VcsPush` and `VcsPull` (fast-forward only; what git said, masked). UI only, never agents. A git failure is `failed_precondition` with git's message, no URL's credentials in it | The git pane |
 | 15 | Schedules: list, write (through the config diff), the server's scheduler, `ExportSchedule` (GitHub Actions) | Schedules |
 | 16 | `AgentUsage` (per agent and tool, over a window) | Agents › Usage |

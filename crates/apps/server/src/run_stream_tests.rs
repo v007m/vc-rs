@@ -259,3 +259,44 @@ async fn a_run_that_asks_to_be_recorded_or_says_nothing_is_kept_in_the_history()
         assert_eq!(report.run, Some(1), "{record:?}");
     }
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_run_writes_the_report_files_it_asks_for_in_the_folder_it_names() {
+    let (root, api) = project();
+    let request = wire::RunRequest {
+        reports: vec!["junit,html".to_owned()],
+        out: "custom".to_owned(),
+        single_file: true,
+        ..Default::default()
+    };
+    let (events, _) = parse(&stream_from(api, &request).await);
+    let Some(Kind::Report(report)) = events.last().and_then(|event| event.kind.clone()) else { panic!("{events:?}") };
+    let mut written: Vec<String> = std::fs::read_dir(root.path().join("custom"))
+        .unwrap()
+        .filter_map(|entry| entry.unwrap().path().extension().map(|found| found.to_string_lossy().into_owned()))
+        .collect();
+    written.sort();
+    assert_eq!(written, ["html", "xml"], "the formats asked for, the HTML as one self-contained file");
+    let Some(path) = report.html_report else { panic!("the HTML file is inside the project") };
+    assert!(path.starts_with("custom/"), "{path}");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_strict_run_fails_on_an_allowed_failure() {
+    for (strict, exit) in [(false, 0), (true, 1)] {
+        let (root, api) = project();
+        let tests = format!("allowFailure: true\n{}", crate::engine_fixture::CRUD);
+        std::fs::write(root.path().join(crate::engine_fixture::TESTS), tests).unwrap();
+        let (events, _) = parse(&stream_from(api, &wire::RunRequest { strict, ..Default::default() }).await);
+        let Some(Kind::Report(report)) = events.last().and_then(|event| event.kind.clone()) else { panic!() };
+        assert_eq!(report.exit, exit, "strict: {strict}");
+    }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_run_that_asks_for_an_unknown_report_format_ends_with_an_error() {
+    let request = wire::RunRequest { reports: vec!["pdf".to_owned()], ..Default::default() };
+    let (events, end) = parse(&stream(&request).await);
+    assert!(events.iter().all(|event| !matches!(event.kind, Some(Kind::Report(_)))), "{events:?}");
+    assert!(end["error"]["message"].as_str().is_some_and(|message| message.contains("pdf")), "{end}");
+}

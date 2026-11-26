@@ -1131,6 +1131,7 @@ Round 101 (27 November 2026; UI v2 batch D, the engine work for the Runs space a
 | # | Topic | Decision | Supersedes |
 | --- | --- | --- | --- |
 | D670 | Check runs | `RunRequest.record` is an `optional bool`, `true` when absent, so every client that does not know it still records. `false` (the engine's `RunRequest.unrecorded`) leaves no trace a recorded run would: no history entry, no report files, no reporter plugin and no alert, as nothing would point back to them. The events still stream and the report still comes last, with no `run` | — |
+| D671 | Run flags over the wire | `RunRequest` gains `strict`, `reports`, `out` and `single_file`, mapped one to one onto the engine's `strict` and `ReportFlags`, so the Run dialog and `vc run` share one meaning. A relative `out` is under the project root, not the server's working directory, since the browser has none; an absolute one is allowed, as `reports.dir` through `sets` already is (D327), and its HTML path is then not sent. The console `--reporter` is left out: a watched run prints nothing. An unknown format is the engine's reporter error, which ends the stream before the run starts | — |
 
 ## Open
 
