@@ -6,29 +6,14 @@ import type {
   EngineService,
 } from '#lib/gen/vibranium/engine/v1/engine_pb.ts';
 import type { Run } from '#lib/gen/vibranium/results/v1/results_pb.ts';
-import { exchangeLine } from '#lib/api/results.ts';
 import { outcomes, type RunOutcome } from '#lib/history/port.ts';
 import type { ExchangeLine } from '#lib/results/types.ts';
+import { exchangeLine } from '#lib/api/results.ts';
+import { notYet, unlessMissing, type Maybe } from '#lib/api/maybe.ts';
 import { callOutput, type CallOutput } from './port.ts';
 
-/**
- * The Client's seams over the RPCs added for it (D538): ad hoc calls, streams and call
- * history. An engine without one answers `unimplemented`; the seam turns that into
- * `Unavailable` with the reason, and the screen shows a quiet empty state, not an error.
- */
-export type Unavailable = Readonly<{ available: false; reason: string }>;
-
-export type Available<T> = Readonly<{ available: true; value: T }>;
-
-export type Maybe<T> = Available<T> | Unavailable;
-
-export function notYet(reason: string): Unavailable {
-  return { available: false, reason };
-}
-
-export function available<T>(value: T): Available<T> {
-  return { available: true, value };
-}
+/** The Client's seams over the RPCs added for it (D538): ad hoc calls, streams and call history. */
+export { available, notYet, type Available, type Maybe, type Unavailable } from '#lib/api/maybe.ts';
 
 export type Pair = readonly [name: string, value: string];
 
@@ -128,15 +113,6 @@ export function callRequest(call: StreamCall): MessageInitShape<typeof CallReque
 }
 
 /** The value of `work`, or `Unavailable` when the engine has no such RPC. */
-async function unlessMissing<T>(reason: string, work: () => Promise<T>): Promise<Maybe<T>> {
-  try {
-    return available(await work());
-  } catch (error) {
-    if (ConnectError.from(error).code === Code.Unimplemented) return notYet(reason);
-    throw error;
-  }
-}
-
 function streamEvent({ event }: CallStreamResponse): StreamEvent | undefined {
   switch (event.case) {
     case 'opened': {
