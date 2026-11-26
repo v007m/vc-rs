@@ -197,6 +197,7 @@ A wizard with six steps: Source (OpenAPI, HAR, Postman, Bruno, .http, cURL paste
   - Format uses `vc fmt`.
   - Delete moves the file to the OS trash, after a confirmation that lists the tests that reference it.
 - **Plan preview** (`vc plan --explain`) for the selection shows the instances, the lifecycle order and the merged expects.
+- **Built so far (Round 98):** the YAML view only; the form view and Split come with the form editors. The view lives in a shadow root so its styles pass the CSP (D568). The editor bar holds Diff, Revert, Fix all, Check, Run file (Stop while it runs), Save and the file menu (D573). The plan preview covers the open file, not yet a selection (D576). Run file is a recorded run until the check run's `record: false` lands (D574).
 
 ## 6. Runs space (D519)
 
@@ -438,6 +439,15 @@ Each step is one or two PRs, and each RPC gets its own small engine PR first.
 - **Step 4.** SSE and WebSocket scratch tabs connect through CallStream; the message card filters, pauses and (WebSocket) sends (D564).
 - **Needs the engine.** Ad hoc calls, streams and history use the RPCs of D540–D542; against an older engine each shows "needs a newer engine".
 - **Not built yet:** save as var, CEL in the filter, GraphQL, Test auth, the engine events list, the full Import wizard, WebSocket snippets and the exchange check (listed in Round 93).
+
+**Done so far (batch C, Round 98):**
+
+- **Step 5, YAML part.** The editor at `/tests/editor` has the YAML view on CodeMirror 6 in a shadow root, so the CSP holds (D568, D569); squiggles with their certain fixes, a live check of the unsaved text, Fix all and Save anyway (D570–D572); and its bar with Check and Run file (D573, D574). Completion and hover sit behind `EditorAssist` (D567).
+- **Step 6.** New file, Rename or move with its preview, Format, Move to trash and the plan preview are built behind `FileOps` and `PlanPort` (D575, D576).
+- **Step 7, Cancel part.** Stop, Stop now and Skip cleanups cancel a run by its handle (D577).
+- **Step 9, git part.** The Changes section of the Tests sidebar commits, pushes and pulls through the Vcs RPCs, with each file's diff (D578–D580), and the status line shows the branch (D581).
+- **Needs the engine.** Completion, hover, the file operations and the plan wait for `Complete` and `Hover`, `CreateFile`, `Rename` (with its preview), `Format`, the references list, `TrashFile`, `Plan` and `ApplyFixes` (§10, rows 4–6); against today's engine each says "needs a newer engine". Run file is recorded until `Run` takes `record: false` (row 17).
+- **Not built yet:** the form view and Split, Explain in a side panel, the Tests table's bulk actions and saved views, test detail, Quarantine and the per-test history strip (listed in Round 98).
 
 **Strata restyle (Round 99):**
 
