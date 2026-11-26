@@ -501,6 +501,11 @@ pub struct RunRequest {
     /// stream stops the run.
     #[prost(string, tag="10")]
     pub handle: ::prost::alloc::string::String,
+    /// Whether the run is kept in the run history; `true` when absent. `false` is a check run
+    /// (D670): no history entry, no report files or reporter plugins and no alerts, while its
+    /// events still stream and its report comes last, with no `run`.
+    #[prost(bool, optional, tag="11")]
+    pub record: ::core::option::Option<bool>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct CancelRequest {

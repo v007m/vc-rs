@@ -10666,6 +10666,9 @@ impl serde::Serialize for RunRequest {
         if !self.handle.is_empty() {
             len += 1;
         }
+        if self.record.is_some() {
+            len += 1;
+        }
         let mut struct_ser = serializer.serialize_struct("vibranium.engine.v1.RunRequest", len)?;
         if let Some(v) = self.selection.as_ref() {
             struct_ser.serialize_field("selection", v)?;
@@ -10699,6 +10702,9 @@ impl serde::Serialize for RunRequest {
         if !self.handle.is_empty() {
             struct_ser.serialize_field("handle", &self.handle)?;
         }
+        if let Some(v) = self.record.as_ref() {
+            struct_ser.serialize_field("record", v)?;
+        }
         struct_ser.end()
     }
 }
@@ -10720,6 +10726,7 @@ impl<'de> serde::Deserialize<'de> for RunRequest {
             "no_cache",
             "noCache",
             "handle",
+            "record",
         ];
 
         #[allow(clippy::enum_variant_names)]
@@ -10734,6 +10741,7 @@ impl<'de> serde::Deserialize<'de> for RunRequest {
             Failed,
             NoCache,
             Handle,
+            Record,
         }
         impl<'de> serde::Deserialize<'de> for GeneratedField {
             fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
@@ -10765,6 +10773,7 @@ impl<'de> serde::Deserialize<'de> for RunRequest {
                             "failed" => Ok(GeneratedField::Failed),
                             "noCache" | "no_cache" => Ok(GeneratedField::NoCache),
                             "handle" => Ok(GeneratedField::Handle),
+                            "record" => Ok(GeneratedField::Record),
                             _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
                         }
                     }
@@ -10794,6 +10803,7 @@ impl<'de> serde::Deserialize<'de> for RunRequest {
                 let mut failed__ = None;
                 let mut no_cache__ = None;
                 let mut handle__ = None;
+                let mut record__ = None;
                 while let Some(k) = map_.next_key()? {
                     match k {
                         GeneratedField::Selection => {
@@ -10862,6 +10872,12 @@ impl<'de> serde::Deserialize<'de> for RunRequest {
                             }
                             handle__ = Some(map_.next_value()?);
                         }
+                        GeneratedField::Record => {
+                            if record__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("record"));
+                            }
+                            record__ = map_.next_value()?;
+                        }
                     }
                 }
                 Ok(RunRequest {
@@ -10875,6 +10891,7 @@ impl<'de> serde::Deserialize<'de> for RunRequest {
                     failed: failed__.unwrap_or_default(),
                     no_cache: no_cache__.unwrap_or_default(),
                     handle: handle__.unwrap_or_default(),
+                    record: record__,
                 })
             }
         }

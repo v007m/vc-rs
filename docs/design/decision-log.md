@@ -1126,6 +1126,12 @@ Round 99 (26–27 November 2026; the Strata restyle of the web UI for #95, at Sa
 
 Deferred from the restyle: the Appearance settings (cards, transparency, density, custom OKLCH seeds), toasts in use, the palette's commands and recents, and moving every other screen's primary action to the bottom right.
 
+Round 101 (27 November 2026; UI v2 batch D, the engine work for the Runs space and the editor, ui.md §10 rows 17, 13, 9, 8 and 4–6; in-design refinements decided by the engine lane):
+
+| # | Topic | Decision | Supersedes |
+| --- | --- | --- | --- |
+| D670 | Check runs | `RunRequest.record` is an `optional bool`, `true` when absent, so every client that does not know it still records. `false` (the engine's `RunRequest.unrecorded`) leaves no trace a recorded run would: no history entry, no report files, no reporter plugin and no alert, as nothing would point back to them. The events still stream and the report still comes last, with no `run` | — |
+
 ## Open
 
 All decisions needed for the PRD and technical design are settled. The language is decided by the spike (D6, D36, D37, D41).

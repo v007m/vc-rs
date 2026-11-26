@@ -54,6 +54,7 @@ fn run_request(api: &EngineApi, request: wire::RunRequest, watch: RunWatch) -> R
         concurrency: request.concurrency,
         failed: request.failed,
         no_cache: request.no_cache,
+        unrecorded: request.record == Some(false),
         watch: Some(watch),
         ..RunRequest::default()
     }
