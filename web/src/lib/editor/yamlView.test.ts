@@ -1,0 +1,37 @@
+import { create } from '@bufbuild/protobuf';
+import { FixSchema } from '#lib/gen/vibranium/engine/v1/engine_pb.ts';
+import { describe, expect, it, vi } from 'vitest';
+import { completions, hoverDom, lintMarks } from './yamlView.ts';
+
+describe('the YAML view adapters', () => {
+  it('turns marks into lint diagnostics, clamped to the text, each fix an action', () => {
+    const fix = create(FixSchema, { title: 'use getsUser', certain: true });
+    const onfix = vi.fn();
+    const [lint] = lintMarks(
+      [{ from: 4, to: 99, severity: 'error', code: 'V2001', message: 'unknown id', fixes: [fix] }],
+      10,
+      onfix,
+    );
+    expect(lint).toMatchObject({ from: 4, to: 10, severity: 'error', source: 'V2001' });
+    expect(lint?.actions?.map((a) => a.name)).toEqual(['use getsUser']);
+    lint?.actions?.[0]?.apply(undefined as never, 4, 10);
+    expect(onfix).toHaveBeenCalledWith(fix);
+  });
+
+  it('maps suggestions to completions, inserting the label unless told otherwise', () => {
+    const got = completions([
+      { label: 'userId', kind: 'var', detail: 'string' },
+      { label: 'eq', kind: 'matcher', insert: 'eq: ' },
+    ]);
+    expect(got).toEqual([
+      { label: 'userId', type: 'variable', detail: 'string' },
+      { label: 'eq', type: 'method', apply: 'eq: ' },
+    ]);
+  });
+
+  it('builds the hover card from text only, so a value cannot become markup', () => {
+    const dom = hoverDom({ title: 'baseUrl', type: 'url', value: '<img src=x onerror=alert(1)>' });
+    expect(dom.textContent).toBe('baseUrl: url= <img src=x onerror=alert(1)>');
+    expect(dom.querySelector('img')).toBeNull();
+  });
+});
