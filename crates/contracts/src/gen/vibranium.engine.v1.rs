@@ -751,6 +751,10 @@ pub struct StreamOpened {
     /// The request as sent and the opening response, masked; no messages.
     #[prost(message, optional, tag="3")]
     pub head: ::core::option::Option<super::super::results::v1::Exchange>,
+    /// Whether `StreamSend` can send a message on it: a `websocket` stream can; an `sse` one only
+    /// reads, and a send on it fails with `failed_precondition` and leaves it open (D544).
+    #[prost(bool, tag="4")]
+    pub sends: bool,
 }
 /// One message, as a `receive` item matches it, masked: `{event, data, id, text}` for `sse`,
 /// `{type, data, text}` for `websocket`.

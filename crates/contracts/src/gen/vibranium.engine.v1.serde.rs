@@ -12276,6 +12276,9 @@ impl serde::Serialize for StreamOpened {
         if self.head.is_some() {
             len += 1;
         }
+        if self.sends {
+            len += 1;
+        }
         let mut struct_ser = serializer.serialize_struct("vibranium.engine.v1.StreamOpened", len)?;
         if !self.stream.is_empty() {
             struct_ser.serialize_field("stream", &self.stream)?;
@@ -12287,6 +12290,9 @@ impl serde::Serialize for StreamOpened {
         }
         if let Some(v) = self.head.as_ref() {
             struct_ser.serialize_field("head", v)?;
+        }
+        if self.sends {
+            struct_ser.serialize_field("sends", &self.sends)?;
         }
         struct_ser.end()
     }
@@ -12302,6 +12308,7 @@ impl<'de> serde::Deserialize<'de> for StreamOpened {
             "run_id",
             "runId",
             "head",
+            "sends",
         ];
 
         #[allow(clippy::enum_variant_names)]
@@ -12309,6 +12316,7 @@ impl<'de> serde::Deserialize<'de> for StreamOpened {
             Stream,
             RunId,
             Head,
+            Sends,
         }
         impl<'de> serde::Deserialize<'de> for GeneratedField {
             fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
@@ -12333,6 +12341,7 @@ impl<'de> serde::Deserialize<'de> for StreamOpened {
                             "stream" => Ok(GeneratedField::Stream),
                             "runId" | "run_id" => Ok(GeneratedField::RunId),
                             "head" => Ok(GeneratedField::Head),
+                            "sends" => Ok(GeneratedField::Sends),
                             _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
                         }
                     }
@@ -12355,6 +12364,7 @@ impl<'de> serde::Deserialize<'de> for StreamOpened {
                 let mut stream__ = None;
                 let mut run_id__ = None;
                 let mut head__ = None;
+                let mut sends__ = None;
                 while let Some(k) = map_.next_key()? {
                     match k {
                         GeneratedField::Stream => {
@@ -12377,12 +12387,19 @@ impl<'de> serde::Deserialize<'de> for StreamOpened {
                             }
                             head__ = map_.next_value()?;
                         }
+                        GeneratedField::Sends => {
+                            if sends__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("sends"));
+                            }
+                            sends__ = Some(map_.next_value()?);
+                        }
                     }
                 }
                 Ok(StreamOpened {
                     stream: stream__.unwrap_or_default(),
                     run_id: run_id__.unwrap_or_default(),
                     head: head__,
+                    sends: sends__.unwrap_or_default(),
                 })
             }
         }

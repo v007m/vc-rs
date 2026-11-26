@@ -165,6 +165,9 @@ impl MessageStream for WebSocket {
         socket.send(message).await.map_err(|error| failed(error, self.limit))
     }
 
+    // Cancel-safe, as the trait asks: its one await is `StreamExt::next` on the socket, whose
+    // `poll_next` keeps a partly read frame in tungstenite's read buffer, and the pong for a
+    // ping it passes over is queued in the same poll. Dropped at that await, nothing is lost.
     async fn next(&mut self) -> Option<Result<StreamFrame, TransportError>> {
         loop {
             let read = self.socket.as_mut()?.next().await;

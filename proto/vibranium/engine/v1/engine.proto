@@ -39,7 +39,8 @@ service EngineService {
   // (D543). The first event names the stream for `StreamSend`; the last says how it ended.
   // Closing this stream closes the call.
   rpc CallStream(CallStreamRequest) returns (stream CallStreamResponse);
-  // Sends one WebSocket message on a stream `CallStream` opened, or closes the stream (D544).
+  // Sends one WebSocket message on a stream `CallStream` opened, or closes the stream (D544). A
+  // message on an `sse` stream fails with `failed_precondition`; the stream stays open.
   rpc StreamSend(StreamSendRequest) returns (StreamSendResponse);
   // An api or test as its file writes it, for the Client's forms to edit (D245, D251).
   rpc ReadDefinition(ReadDefinitionRequest) returns (ReadDefinitionResponse);
@@ -453,6 +454,9 @@ message StreamOpened {
   uint64 run_id = 2;
   // The request as sent and the opening response, masked; no messages.
   vibranium.results.v1.Exchange head = 3;
+  // Whether `StreamSend` can send a message on it: a `websocket` stream can; an `sse` one only
+  // reads, and a send on it fails with `failed_precondition` and leaves it open (D544).
+  bool sends = 4;
 }
 
 // One message, as a `receive` item matches it, masked: `{event, data, id, text}` for `sse`,

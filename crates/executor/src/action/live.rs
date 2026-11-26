@@ -9,7 +9,7 @@ use std::time::Duration;
 
 use serde_json::Value;
 use tokio::time;
-use vc_interfaces::{StreamFrame, TransportError};
+use vc_interfaces::{StreamFrame, StreamMode, TransportError};
 use vc_model::{Exchange, Failure, StreamMessage};
 
 use super::ActionRequest;
@@ -88,8 +88,10 @@ impl LiveStream {
         &self.opening.head
     }
 
-    /// The next message, or how the stream ended. It waits only on the stream itself, so a
-    /// read dropped in a `select!` loses no message this stream had decoded.
+    /// The next message, or how the stream ended. Cancel-safe: its one await is
+    /// [`MessageStream::next`](vc_interfaces::MessageStream::next), which is cancel-safe, and a
+    /// frame it took is decoded into `pending` before anything else awaits, so a read dropped in
+    /// a `select!` loses no frame or message.
     pub async fn next(&mut self) -> LiveRead {
         loop {
             if let Some(message) = self.pending.pop_front() {
@@ -106,6 +108,12 @@ impl LiveStream {
                 Some(Ok(frame)) => self.took(frame),
             }
         }
+    }
+
+    /// Whether the stream can send: a `websocket` one can, an `sse` one only reads.
+    #[must_use]
+    pub fn sends(&self) -> bool {
+        self.runtime.stream().is_some_and(|stream| stream.mode() == StreamMode::WebSocket)
     }
 
     /// Sends `value` as the api's type encodes a `send` (a string as its text).

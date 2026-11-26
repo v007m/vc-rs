@@ -94,7 +94,7 @@ async fn a_live_websocket_tells_what_is_sent_and_echoed_until_the_server_closes_
         seen
     })
     .await;
-    let LiveEvent::Opened { run_id, head, .. } = &seen[0] else { panic!("{seen:?}") };
+    let LiveEvent::Opened { run_id, head, sends: true, .. } = &seen[0] else { panic!("{seen:?}") };
     assert_eq!(head.response.status.as_u16(), 101);
     let echoed = json!({"type": "text", "data": "hi", "text": "hi"});
     let messages: Vec<_> = seen.iter().filter_map(message).collect();
@@ -137,6 +137,37 @@ async fn a_live_stream_ends_when_its_caller_closes_it_or_leaves() {
     assert_eq!(reason, "the client closed the stream");
     let left = live(&engine, &chat(), |mut told, _asks| async move { vec![told.recv().await.unwrap()] }).await;
     assert!(matches!(left[..], [LiveEvent::Opened { .. }]), "it returned once its caller left: {left:?}");
+}
+
+#[tokio::test]
+async fn a_live_websocket_opens_at_a_full_url() {
+    let (engine, _) = engine();
+    let call = AdhocCall { kind: "websocket".into(), url: "ws://127.0.0.1:4010/ws".into(), ..AdhocCall::default() };
+    let request = CallRequest { adhoc: Some(call), ..CallRequest::default() };
+    let seen = live(&engine, &request, |mut told, _asks| async move { vec![told.recv().await.unwrap()] }).await;
+    let LiveEvent::Opened { head, .. } = &seen[0] else { panic!("{seen:?}") };
+    assert_eq!(head.request.uri.to_string(), "ws://127.0.0.1:4010/ws");
+}
+
+#[tokio::test]
+async fn a_live_event_stream_takes_no_sends_and_a_text_sent_on_it_leaves_it_open() {
+    let (engine, _) = engine();
+    let (kind, url, query) = ("sse".into(), "${var.baseUrl}/events".into(), vec![("count".into(), "2".into())]);
+    let call = AdhocCall { kind, url, query, ..AdhocCall::default() };
+    let request = CallRequest { adhoc: Some(call), ..CallRequest::default() };
+    let seen = live(&engine, &request, |mut told, asks| async move {
+        let mut seen = vec![told.recv().await.unwrap(), told.recv().await.unwrap()];
+        drop(asks.send(LiveSend::Text("hi".into())).await);
+        drained(told, &mut seen).await;
+        seen
+    })
+    .await;
+    assert!(matches!(seen[0], LiveEvent::Opened { sends: false, .. }), "{seen:?}");
+    let read: Vec<_> = seen.iter().filter_map(message).collect();
+    assert!(read.len() == 2 && read.iter().all(|(outgoing, _)| !outgoing), "both read, none sent: {seen:?}");
+    let Some(LiveEvent::Ended { failed: false, .. }) = seen.last() else {
+        panic!("it ended as the server did: {seen:?}")
+    };
 }
 
 #[tokio::test]

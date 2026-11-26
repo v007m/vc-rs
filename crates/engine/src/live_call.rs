@@ -40,6 +40,9 @@ pub enum LiveEvent {
         action: ActionId,
         /// The opening request and response, masked.
         head: Exchange,
+        /// Whether the stream takes sends: a `websocket` one does, an `sse` one only reads
+        /// (D544).
+        sends: bool,
     },
     /// A message received or sent.
     Message {
@@ -109,7 +112,8 @@ async fn live((ready, names): (&Ready, &Names), io: LiveIo, clock: &dyn Clock) -
         Ok(stream) => {
             let head = redactor.exchange(stream.head().clone()).await;
             let (run_id, action) = (ready.run_id, ready.action);
-            let opened = LiveEvent::Opened { run_id, names: names.clone(), action, head: head.clone() };
+            let sends = stream.sends();
+            let opened = LiveEvent::Opened { run_id, names: names.clone(), action, head: head.clone(), sends };
             drop(events.send(opened).await);
             let talk = Talk { stream, events: &events, redactor, clock, started_ms: clock.now_ms() };
             (Some(head), talk.converse(&mut sends).await)
@@ -169,8 +173,12 @@ impl Talk<'_> {
         }
     }
 
-    /// Sends `text` and tells it as an outgoing message; a failed send ends the stream.
+    /// Sends `text` and tells it as an outgoing message; a failed send ends the stream. A stream
+    /// that only reads (`sse`) ignores it and stays open: its caller refuses such a send (D544).
     async fn send(&mut self, text: String) -> Option<LiveEnd> {
+        if !self.stream.sends() {
+            return None;
+        }
         let data = serde_json::from_str(&text).unwrap_or_else(|_| Value::String(text.clone()));
         let text = Value::String(text);
         if let Err(failure) = self.stream.send(&text).await {

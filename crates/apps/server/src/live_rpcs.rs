@@ -1,6 +1,7 @@
 //! The live stream RPCs (D543, D544). `CallStream` opens a call of an `sse` or `websocket` api,
 //! or an ad hoc one, and streams what it reads as it reads it, masked, until it ends; closing
-//! `CallStream` closes the stream. `StreamSend` sends a text on an open WebSocket, or closes it.
+//! `CallStream` closes the stream. `StreamSend` sends a text on an open WebSocket, or closes it;
+//! a text on an `sse` stream, which only reads, is refused and the stream stays open.
 //! The open streams are known by an ID that a task of their own hands out and looks up, so no
 //! state is shared; the call, which compiles the project first, runs on the blocking pool.
 
@@ -41,8 +42,17 @@ pub struct LiveStreams {
 enum Ask {
     /// Keep a new stream's sends; its ID is the answer.
     Open(mpsc::Sender<LiveSend>, oneshot::Sender<String>),
-    /// The sends of the stream with this ID, while it is open.
-    Find(String, oneshot::Sender<Option<mpsc::Sender<LiveSend>>>),
+    /// The stream with this ID only reads: it takes a close but no text.
+    ReadsOnly(String),
+    /// The stream with this ID, while it is open.
+    Find(String, oneshot::Sender<Option<Kept>>),
+}
+
+/// An open stream, as the keeper keeps it.
+#[derive(Clone)]
+struct Kept {
+    sends: mpsc::Sender<LiveSend>,
+    reads_only: bool,
 }
 
 impl LiveStreams {
@@ -63,8 +73,14 @@ impl LiveStreams {
         id.await.map_err(|_| unavailable())
     }
 
-    /// The sends of the open stream `stream`.
-    async fn find(&self, stream: String) -> Option<mpsc::Sender<LiveSend>> {
+    /// Marks the open stream `stream` as one that only reads. The keeper takes asks in order,
+    /// so a `find` asked after this returns finds it marked.
+    fn reads_only(&self, stream: &str) {
+        drop(self.asks.send(Ask::ReadsOnly(stream.to_owned())));
+    }
+
+    /// The open stream `stream`.
+    async fn find(&self, stream: String) -> Option<Kept> {
         let (reply, found) = oneshot::channel();
         self.asks.send(Ask::Find(stream, reply)).ok()?;
         found.await.ok().flatten()
@@ -74,16 +90,21 @@ impl LiveStreams {
 /// Answers `asks` until the API that asks them has gone. A stream whose call has returned is
 /// forgotten at the next ask.
 async fn keep(mut asks: mpsc::UnboundedReceiver<Ask>) {
-    let mut open: HashMap<String, mpsc::Sender<LiveSend>> = HashMap::new();
+    let mut open: HashMap<String, Kept> = HashMap::new();
     let mut opened: u64 = 0;
     while let Some(ask) = asks.recv().await {
-        open.retain(|_, sends| !sends.is_closed());
+        open.retain(|_, kept| !kept.sends.is_closed());
         match ask {
             Ask::Open(sends, reply) => {
                 opened += 1;
                 let id = format!("live-{opened}");
-                drop(open.insert(id.clone(), sends));
+                drop(open.insert(id.clone(), Kept { sends, reads_only: false }));
                 drop(reply.send(id));
+            }
+            Ask::ReadsOnly(stream) => {
+                if let Some(kept) = open.get_mut(&stream) {
+                    kept.reads_only = true;
+                }
             }
             Ask::Find(stream, reply) => drop(reply.send(open.get(&stream).cloned())),
         }
@@ -103,17 +124,18 @@ async fn call_stream(
     let (events, told) = mpsc::channel(EVENTS);
     let io = LiveIo::new(events, sends);
     let running = api.blocking(move |engine| Handle::current().block_on(engine.call_stream(&call, io)));
-    let (ran, relayed) = tokio::join!(running, relay(told, &sink, &stream));
+    let (ran, relayed) = tokio::join!(running, relay(told, &sink, (api.live(), &stream)));
     ran?;
     relayed
 }
 
-/// Sends the stream's events to `sink` until it ends. When the client goes, or an event cannot
-/// be sent, it stops reading, which closes the stream.
+/// Sends the stream's events to `sink` until it ends, marking it in `live` as one that only
+/// reads before the client hears it opened. When the client goes, or an event cannot be sent,
+/// it stops reading, which closes the stream.
 async fn relay(
     mut told: mpsc::Receiver<LiveEvent>,
     sink: &Sink<wire::CallStreamResponse>,
-    stream: &str,
+    (live, stream): (&LiveStreams, &str),
 ) -> Result<(), ConnectError> {
     loop {
         let event = tokio::select! {
@@ -121,6 +143,9 @@ async fn relay(
             () = sink.closed() => None,
         };
         let Some(event) = event else { return Ok(()) };
+        if matches!(event, LiveEvent::Opened { sends: false, .. }) {
+            live.reads_only(stream);
+        }
         if let Some(event) = wire_event(event, stream) {
             sink.send(&wire::CallStreamResponse { event: Some(event) }).await?;
         }
@@ -130,10 +155,11 @@ async fn relay(
 /// `event` of the stream `stream` in its wire form.
 fn wire_event(event: LiveEvent, stream: &str) -> Option<Event> {
     Some(match event {
-        LiveEvent::Opened { run_id, names, action, head } => Event::Opened(wire::StreamOpened {
+        LiveEvent::Opened { run_id, names, action, head, sends } => Event::Opened(wire::StreamOpened {
             stream: stream.to_owned(),
             run_id,
             head: Some(wire_results::exchange(&names, action, &head)),
+            sends,
         }),
         LiveEvent::Message { outgoing, at_ms, fields } => Event::Message(wire::StreamMessage {
             direction: (if outgoing { "out" } else { "in" }).to_owned(),
@@ -148,6 +174,7 @@ fn wire_event(event: LiveEvent, stream: &str) -> Option<Event> {
 }
 
 /// Sends `request.text` on the open stream `request.stream`, or closes it when `request.close`.
+/// A text on a stream that only reads fails with `failed_precondition` and leaves it open.
 async fn stream_send(
     api: Arc<EngineApi>,
     request: wire::StreamSendRequest,
@@ -158,8 +185,12 @@ async fn stream_send(
         (false, None) => return Err(ConnectError::new(Code::InvalidArgument, "send a `text` or `close: true`")),
     };
     let gone = ConnectError::new(Code::NotFound, format!("no live stream `{}` is open", request.stream));
-    let sends = api.live().find(request.stream).await.ok_or_else(|| gone.clone())?;
-    sends.send(send).await.map_err(|_| gone)?;
+    let kept = api.live().find(request.stream.clone()).await.ok_or_else(|| gone.clone())?;
+    if kept.reads_only && matches!(send, LiveSend::Text(_)) {
+        let reads = format!("the stream `{}` only reads; it sends nothing", request.stream);
+        return Err(ConnectError::new(Code::FailedPrecondition, reads));
+    }
+    kept.sends.send(send).await.map_err(|_| gone)?;
     Ok(wire::StreamSendResponse {})
 }
 

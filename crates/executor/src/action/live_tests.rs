@@ -40,6 +40,7 @@ fn fields(read: &LiveRead) -> Value {
 #[tokio::test]
 async fn a_live_websocket_echoes_what_is_sent_until_the_server_closes_it() {
     let mut live = opened(Protocol::Websocket, "/ws", FakeStreamTransport::contract()).await.unwrap();
+    assert!(live.sends(), "a websocket sends");
     assert_eq!(live.head().response.status.as_u16(), 101);
     live.send(&json!("hi")).await.unwrap();
     assert_eq!(fields(&live.next().await), json!({"type": "text", "data": "hi", "text": "hi"}));
@@ -68,6 +69,7 @@ async fn a_live_event_stream_reads_its_events_and_cannot_send() {
     let chunk = StreamFrame::Chunk(Bytes::from_static(b"event: tick\ndata: 1\n\nevent: tick\ndata: 2\n\n"));
     let streams = FakeStreamTransport::scripted(vec![Ok(StreamAnswer::stream(head, vec![Ok(chunk)]))]);
     let mut live = opened(Protocol::Sse, "/ticks", streams).await.unwrap();
+    assert!(!live.sends(), "an event stream says it only reads");
     assert!(live.send(&json!("hi")).await.is_err(), "an event stream only reads");
     assert_eq!(fields(&live.next().await), json!({"event": "tick", "data": 1, "text": "1"}));
     assert_eq!(fields(&live.next().await)["data"], json!(2), "one chunk can carry two events");

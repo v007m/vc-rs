@@ -107,17 +107,20 @@ async fn send(router: &Router, request: &Value) -> (StatusCode, Value) {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn a_live_event_stream_streams_its_events_masked_until_stream_send_closes_it() {
+async fn a_live_event_stream_streams_its_events_masked_refuses_a_text_and_closes_on_stream_send() {
     let (_dir, router) = router();
     let mut body = opened(&router, &ticks(&ticking())).await;
     let (mut buffer, mut seen) = (BytesMut::new(), Vec::new());
     let Event::Opened(open) = event(&mut body, (&mut buffer, &mut seen)).await else { panic!("opened first") };
     let head = open.head.unwrap();
-    assert!(open.stream.starts_with("live-") && head.url.ends_with("/ticks"), "{open:?}");
+    assert!(open.stream.starts_with("live-") && head.url.ends_with("/ticks") && !open.sends, "{open:?}");
     assert_eq!(head.status, Some(200));
     let Event::Message(message) = event(&mut body, (&mut buffer, &mut seen)).await else { panic!("a message") };
     assert_eq!(message.direction, "in");
     assert_eq!(serde_json::from_str::<Value>(&message.json).unwrap()["data"], json!(1));
+    let (status, error) = send(&router, &json!({"stream": open.stream, "text": "hi"})).await;
+    assert_eq!((status, error["code"].as_str()), (StatusCode::BAD_REQUEST, Some("failed_precondition")));
+    assert!(error["message"].as_str().unwrap().contains("only reads"), "{error}");
     assert_eq!(send(&router, &json!({"stream": open.stream, "close": true})).await, (StatusCode::OK, json!({})));
     let Event::Ended(ended) = event(&mut body, (&mut buffer, &mut seen)).await else { panic!("ended last") };
     assert_eq!((ended.reason.as_str(), ended.failed), ("the client closed the stream", false));

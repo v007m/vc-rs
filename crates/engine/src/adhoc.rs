@@ -5,6 +5,8 @@
 use std::borrow::Cow;
 
 use serde_json::{Map, Value};
+use vc_diagnostics::{Category, Diagnostics};
+use vc_model::SourceFiles;
 
 use crate::yaml_out::fields_item;
 use crate::{AdhocCall, CallRequest, EngineError, FileChange};
@@ -17,6 +19,22 @@ pub const API_ID: &str = "vc-adhoc#call";
 
 /// What the call may speak; the first is the default.
 const KINDS: [&str; 3] = ["http", "sse", "websocket"];
+
+/// `diagnostics` without the convention lints (V4xxx) of the ad hoc call's file, when `changes`
+/// compiled one in: nobody wrote that file, so its names and URL style are nobody's to fix
+/// (D545). Every other diagnostic of it stays, as the call's own.
+pub fn unlinted(diagnostics: Diagnostics, (files, changes): (&SourceFiles, &[FileChange])) -> Diagnostics {
+    if !changes.iter().any(|change| change.path == PATH) {
+        return diagnostics;
+    }
+    let ours = |diagnostic: &vc_diagnostics::Diagnostic| {
+        files.get(diagnostic.primary.span.file).is_some_and(|file| file.path.as_str() == PATH)
+    };
+    diagnostics
+        .into_iter()
+        .filter(|diagnostic| diagnostic.code.category() != Category::Convention || !ours(diagnostic))
+        .collect()
+}
 
 /// `request`, an ad hoc call's naming its api; any other as it is.
 ///

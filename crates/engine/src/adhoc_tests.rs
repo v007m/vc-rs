@@ -5,6 +5,7 @@ use std::sync::Arc;
 
 use serde_json::{Value, json};
 use tokio::sync::mpsc;
+use vc_diagnostics::{Category, Code};
 use vc_interfaces::{HistoryError, HistoryReader as _, HistoryWriter, Row, RunEnd, RunFilter, RunId, RunStart};
 use vc_model::{Keep, RenderedRequest};
 use vc_testkit::{
@@ -13,7 +14,7 @@ use vc_testkit::{
 
 use super::{API_ID, file, resolved};
 use crate::sample::builder;
-use crate::{AdhocCall, CallRequest, EngineBuilder, EngineError};
+use crate::{AdhocCall, CallRequest, EngineBuilder, EngineError, FileChange};
 
 /// The value of the secret `API_TOKEN`, the auth `svc`'s token.
 const TOKEN: &str = "tok-Kd4R-8wNq-Yb6T";
@@ -189,4 +190,33 @@ async fn a_bad_ad_hoc_call_is_refused_before_anything_is_sent() {
     let unknown = engine.call(&adhoc(AdhocCall { auth: Some("nope".into()), ..post() })).await;
     assert!(unknown.is_err(), "an auth the project does not define is an error, as in an api file");
     assert!(recordings.take().is_empty());
+}
+
+#[tokio::test]
+async fn an_ad_hoc_call_to_a_full_url_is_sent_there() {
+    let (engine, recordings) = project();
+    let history = Arc::new(MemoryHistory::new());
+    let engine = engine.history(history.clone(), history).build().unwrap();
+    let call = AdhocCall { url: "http://127.0.0.1:4010/echo".into(), ..post() };
+    assert_eq!(engine.call(&adhoc(call)).await.unwrap().exit, 0);
+    let sent = recordings.take();
+    assert_eq!(sent[0].request.uri.to_string(), "http://127.0.0.1:4010/echo?q=1");
+}
+
+#[test]
+fn the_ad_hoc_file_is_held_to_no_naming_or_url_convention() {
+    let (engine, _) = project();
+    let engine = engine.history(Arc::new(MemoryHistory::new()), Arc::new(MemoryHistory::new())).build().unwrap();
+    let conventions = |call: &AdhocCall, path: Option<&str>| {
+        let written = file(call).unwrap();
+        let change = FileChange { path: path.map_or(written.path.clone(), str::to_owned), ..written };
+        let compiled = engine.compiled_with(&[change]).unwrap();
+        let codes = compiled.diagnostics.iter().map(|diagnostic| diagnostic.code);
+        codes.filter(|code| code.category() == Category::Convention).collect::<Vec<_>>()
+    };
+    let full = AdhocCall { url: "http://127.0.0.1:4010/users".into(), auth: None, ..post() };
+    assert_eq!(conventions(&full, Some("services/other/other.api.yaml")), [], "a full URL breaks no convention");
+    let placeholder = AdhocCall { url: "http://127.0.0.1:4010/users/{id}".into(), ..full };
+    assert_eq!(conventions(&placeholder, Some("services/other/other.api.yaml")), [Code::V4006], "in a user's file");
+    assert_eq!(conventions(&placeholder, None), [], "not in the file nobody wrote (D545)");
 }
