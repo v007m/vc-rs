@@ -86,6 +86,13 @@ fn encodes_totals_and_run_statuses() {
     assert_eq!(run_status(RunStatus::Cancelled), "cancelled");
 }
 
+/// A generator on 1.4 cores holding 8 connections, its memory not told, 2 iterations late.
+fn host_stats() -> vc_model::HostStats {
+    let mut host = vc_model::HostStats::default();
+    (host.cpu_percent, host.connections, host.late) = (Some(140), Some(8), 2);
+    host
+}
+
 #[test]
 fn encodes_a_load_tick_in_milliseconds() {
     let ms = std::time::Duration::from_micros;
@@ -99,9 +106,11 @@ fn encodes_a_load_tick_in_milliseconds() {
         p99: ms(81_000),
         errors: 1,
         breaching: vec!["p95".to_owned()],
+        host: host_stats(),
     };
+    let host = json!({"cpuPercent": 140, "memoryBytes": null, "connections": 8, "lateIterations": 2});
     let encoded = json!({"second": 4, "users": 20, "rps": 57, "p50Ms": 12.5, "p90Ms": 30.0, "p95Ms": 40.0, "p99Ms": 81.0,
-        "errors": 1, "breaching": ["p95"]});
+        "errors": 1, "breaching": ["p95"], "host": host});
     assert_eq!(tick(&event), encoded);
     assert_eq!(tick(&Event::RunStarted { files: 1, instances: 1 }), json!({}));
 }

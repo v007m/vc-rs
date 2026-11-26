@@ -88,6 +88,7 @@ mod list_detail;
 mod live_call;
 mod load;
 mod load_findings;
+mod load_gauges;
 mod load_live;
 mod load_report;
 mod migrate;
@@ -195,7 +196,7 @@ pub use vc_interfaces::{
     TestRow, TestTrend, VcsChange, VcsCommit, VcsFile, VcsStatus, Verdict,
 };
 pub use vc_model::{
-    ActionId, Bodies, CheckKind, CheckResult, CleanupRecord, Event, Exchange, Failure, FileKind, InstanceId, Location,
-    Method, Names, Origin, OwnerKey, Planned, RunStatus, Sequenced, SourceFileId, SourceFiles, SourcePath, SourceSpan,
-    TestResult, TestStatus, Totals, check_label, check_parts, cut_body,
+    ActionId, Bodies, CheckKind, CheckResult, CleanupRecord, Event, Exchange, Failure, FileKind, HostStats, InstanceId,
+    Location, Method, Names, Origin, OwnerKey, Planned, RunStatus, Sequenced, SourceFileId, SourceFiles, SourcePath,
+    SourceSpan, TestResult, TestStatus, Totals, check_label, check_parts, cut_body,
 };

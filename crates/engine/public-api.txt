@@ -22,6 +22,7 @@ pub use vc_engine::ExchangeRow
 pub use vc_engine::Failure
 pub use vc_engine::FileKind
 pub use vc_engine::Fix
+pub use vc_engine::HostStats
 pub use vc_engine::InstanceId
 pub use vc_engine::JsonRenderer
 pub use vc_engine::Label
@@ -773,6 +774,7 @@ pub fn vc_engine::EngineBuilder::environment(self, alloc::rcs::arc::Arc<dyn vc_i
 pub fn vc_engine::EngineBuilder::for_project(&std::path::Path) -> core::result::Result<Self, vc_engine::EngineError>
 pub fn vc_engine::EngineBuilder::history(self, alloc::rcs::arc::Arc<dyn vc_interfaces::history::HistoryWriter>, alloc::rcs::arc::Arc<dyn vc_interfaces::history::HistoryReader>) -> Self
 pub fn vc_engine::EngineBuilder::hooks(self, alloc::rcs::arc::Arc<dyn vc_interfaces::hooks::HookRunner>) -> Self
+pub fn vc_engine::EngineBuilder::host_probe(self, alloc::rcs::arc::Arc<dyn vc_interfaces::host::HostProbe>) -> Self
 pub fn vc_engine::EngineBuilder::keychain(self, alloc::rcs::arc::Arc<dyn vc_interfaces::keychain::Keychain>) -> Self
 pub const fn vc_engine::EngineBuilder::new(std::path::PathBuf) -> Self
 pub fn vc_engine::EngineBuilder::notifiers(self, alloc::rcs::arc::Arc<dyn vc_interfaces::notifier::NotifierFactory>) -> Self

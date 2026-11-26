@@ -19,8 +19,8 @@ use vc_contracts::engine::v1::run_event::Kind;
 use vc_contracts::results::v1 as results;
 use vc_contracts::{count, millis};
 use vc_engine::{
-    ActionId, CleanupRecord, Event, Failure, InstanceId, Names, OwnerKey, Planned, RunFeed, RunReport, RunStatus,
-    Sequenced, Totals, action_call,
+    ActionId, CleanupRecord, Event, Failure, HostStats, InstanceId, Names, OwnerKey, Planned, RunFeed, RunReport,
+    RunStatus, Sequenced, Totals, action_call,
 };
 
 use crate::wire_results;
@@ -112,11 +112,18 @@ fn kind(names: &Names, event: Event) -> Kind {
 
 /// A load run's closed second on the wire, its latencies in ms; any other event is empty.
 fn load_tick(event: Event) -> wire::LoadTick {
-    let Event::LoadTick { second, users, rps, p50, p90, p95, p99, errors, breaching } = event else {
+    let Event::LoadTick { second, users, rps, p50, p90, p95, p99, errors, breaching, host } = event else {
         return wire::LoadTick::default();
     };
     let (p50_ms, p90_ms, p95_ms, p99_ms) = (millis(p50), millis(p90), millis(p95), millis(p99));
-    wire::LoadTick { second, users, rps, p50_ms, p90_ms, p95_ms, p99_ms, errors, breaching }
+    let host = Some(host_stats(host));
+    wire::LoadTick { second, users, rps, p50_ms, p90_ms, p95_ms, p99_ms, errors, breaching, host }
+}
+
+/// The generator's own use of the machine on the wire (D676, D677).
+const fn host_stats(host: HostStats) -> wire::HostStats {
+    let HostStats { cpu_percent, memory_bytes, connections, late, .. } = host;
+    wire::HostStats { cpu_percent, memory_bytes, connections, late_iterations: late }
 }
 
 /// `kind` under `seq`.

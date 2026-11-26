@@ -5,11 +5,13 @@ use std::sync::Arc;
 use vc_adapter_http::HttpTransports;
 use vc_adapter_plugins::{Confiner, FsPluginStore};
 use vc_adapter_secrets::OsKeychain;
-use vc_adapter_system::{FsCompileCache, FsSources, GitVcs, NotifyWatcher, ProcessRunner, SystemClock};
+use vc_adapter_system::{
+    FsCompileCache, FsSources, GitVcs, NotifyWatcher, ProcessRunner, SystemClock, SystemHostProbe,
+};
 use vc_interfaces::{
     AgentActionLog, Approvals, AuthProvider, Browser, CacheStore, Clock, CommandRunner, CompileCacheStore, Environment,
-    FileWatcher, HistoryReader, HistoryWriter, HookRunner, Keychain, NotifierFactory, PluginStderr, PluginStore,
-    SourceProvider, SourceWriter, StreamTransport, Transport, TransportFactory, Vcs,
+    FileWatcher, HistoryReader, HistoryWriter, HookRunner, HostProbe, Keychain, NotifierFactory, PluginStderr,
+    PluginStore, SourceProvider, SourceWriter, StreamTransport, Transport, TransportFactory, Vcs,
 };
 
 use crate::{Engine, EngineError};
@@ -40,6 +42,7 @@ pub struct EngineBuilder {
     notifiers: Option<Arc<dyn NotifierFactory>>,
     plugins: Option<Arc<dyn PluginStore>>,
     plugin_processes: PluginProcesses,
+    host: Option<Arc<dyn HostProbe>>,
 }
 
 /// How the engine starts plugin processes: where their stderr goes, and the program that confines
@@ -83,6 +86,7 @@ impl EngineBuilder {
             notifiers: None,
             plugins: None,
             plugin_processes: PluginProcesses { stderr: PluginStderr::Inherit, launcher: None },
+            host: None,
         }
     }
 
@@ -273,18 +277,20 @@ impl EngineBuilder {
         self
     }
 
+    /// Reads the process's use of the machine through `probe` instead of the system's.
+    #[must_use]
+    pub fn host_probe(mut self, probe: Arc<dyn HostProbe>) -> Self {
+        self.host = Some(probe);
+        self
+    }
+
     /// The engine.
     ///
     /// # Errors
     ///
     /// [`EngineError::Sources`] when the project folder cannot be opened.
     pub fn build(self) -> Result<Engine, EngineError> {
-        let folder = FsSources::new(&self.root);
-        let sources: Arc<dyn SourceProvider> = match self.sources {
-            Some(sources) => sources,
-            None => Arc::new(folder.clone().map_err(|error| EngineError::Sources { reason: error.to_string() })?),
-        };
-        let writer = self.writer.or_else(|| folder.ok().map(|folder| Arc::new(folder) as Arc<dyn SourceWriter>));
+        let (sources, writer) = source_ports(&self.root, self.sources, self.writer)?;
         let compile_cache = self.compile_cache.unwrap_or_else(|| Arc::new(FsCompileCache::new(&self.root)));
         let clock = self.clock.unwrap_or_else(|| Arc::new(SystemClock));
         let vcs = self.vcs.unwrap_or_else(|| Arc::new(GitVcs::new(&self.root)));
@@ -318,8 +324,27 @@ impl EngineBuilder {
             auth,
             browser,
             notifiers: self.notifiers,
+            host: self.host.unwrap_or_else(|| Arc::new(SystemHostProbe)),
         })
     }
+}
+
+/// The project's sources, and the writer for them when there is one.
+type SourcePorts = (Arc<dyn SourceProvider>, Option<Arc<dyn SourceWriter>>);
+
+/// The project's sources and writer: those given, else the project folder's.
+fn source_ports(
+    root: &Path,
+    sources: Option<Arc<dyn SourceProvider>>,
+    writer: Option<Arc<dyn SourceWriter>>,
+) -> Result<SourcePorts, EngineError> {
+    let folder = FsSources::new(root);
+    let sources: Arc<dyn SourceProvider> = match sources {
+        Some(sources) => sources,
+        None => Arc::new(folder.clone().map_err(|error| EngineError::Sources { reason: error.to_string() })?),
+    };
+    let writer = writer.or_else(|| folder.ok().map(|folder| Arc::new(folder) as Arc<dyn SourceWriter>));
+    Ok((sources, writer))
 }
 
 /// The factory each run's transport comes from: `factory`, else one that checks `http.tls` and

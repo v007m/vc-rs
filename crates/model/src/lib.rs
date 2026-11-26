@@ -64,7 +64,7 @@ pub use defs::{
     RunBlocks, SaveSpec, Skip, Tag, VarDefs,
 };
 pub use error::ModelError;
-pub use event::{Event, Feed, Sequenced};
+pub use event::{Event, Feed, HostStats, Sequenced};
 pub use exchange::{
     ConnectionInfo, Exchange, HttpResponse, HttpVersion, RenderedRequest, StreamMessage, Timing, wire_host,
 };

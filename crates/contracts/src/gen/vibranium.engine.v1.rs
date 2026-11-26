@@ -259,6 +259,26 @@ pub struct LoadTick {
     /// The thresholds failing, such as `p95` or `<test>: errorRate`.
     #[prost(string, repeated, tag="8")]
     pub breaching: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// What the generator itself uses as the second closes, for the Hosts panel.
+    #[prost(message, optional, tag="10")]
+    pub host: ::core::option::Option<HostStats>,
+}
+/// The `vc` process generating the load: a slow p99 from a busy generator is the generator's.
+/// A figure the platform or transport does not tell is unset.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct HostStats {
+    /// CPU over the last second, in percent of one core: four busy cores read 400.
+    #[prost(uint32, optional, tag="1")]
+    pub cpu_percent: ::core::option::Option<u32>,
+    /// Resident memory, in bytes.
+    #[prost(uint64, optional, tag="2")]
+    pub memory_bytes: ::core::option::Option<u64>,
+    /// The connections the run's transports hold open.
+    #[prost(uint64, optional, tag="3")]
+    pub connections: ::core::option::Option<u64>,
+    /// The iterations so far that started more than 50 ms after their schedule.
+    #[prost(uint64, tag="4")]
+    pub late_iterations: u64,
 }
 /// The stream fell behind and dropped `count` events; the run's history has them.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]

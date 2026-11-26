@@ -7530,6 +7530,165 @@ impl<'de> serde::Deserialize<'de> for GetRunResponse {
         deserializer.deserialize_struct("vibranium.engine.v1.GetRunResponse", FIELDS, GeneratedVisitor)
     }
 }
+impl serde::Serialize for HostStats {
+    #[allow(deprecated)]
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let mut len = 0;
+        if self.cpu_percent.is_some() {
+            len += 1;
+        }
+        if self.memory_bytes.is_some() {
+            len += 1;
+        }
+        if self.connections.is_some() {
+            len += 1;
+        }
+        if self.late_iterations != 0 {
+            len += 1;
+        }
+        let mut struct_ser = serializer.serialize_struct("vibranium.engine.v1.HostStats", len)?;
+        if let Some(v) = self.cpu_percent.as_ref() {
+            struct_ser.serialize_field("cpuPercent", v)?;
+        }
+        if let Some(v) = self.memory_bytes.as_ref() {
+            #[allow(clippy::needless_borrow)]
+            #[allow(clippy::needless_borrows_for_generic_args)]
+            struct_ser.serialize_field("memoryBytes", ToString::to_string(&v).as_str())?;
+        }
+        if let Some(v) = self.connections.as_ref() {
+            #[allow(clippy::needless_borrow)]
+            #[allow(clippy::needless_borrows_for_generic_args)]
+            struct_ser.serialize_field("connections", ToString::to_string(&v).as_str())?;
+        }
+        if self.late_iterations != 0 {
+            #[allow(clippy::needless_borrow)]
+            #[allow(clippy::needless_borrows_for_generic_args)]
+            struct_ser.serialize_field("lateIterations", ToString::to_string(&self.late_iterations).as_str())?;
+        }
+        struct_ser.end()
+    }
+}
+impl<'de> serde::Deserialize<'de> for HostStats {
+    #[allow(deprecated)]
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        const FIELDS: &[&str] = &[
+            "cpu_percent",
+            "cpuPercent",
+            "memory_bytes",
+            "memoryBytes",
+            "connections",
+            "late_iterations",
+            "lateIterations",
+        ];
+
+        #[allow(clippy::enum_variant_names)]
+        enum GeneratedField {
+            CpuPercent,
+            MemoryBytes,
+            Connections,
+            LateIterations,
+        }
+        impl<'de> serde::Deserialize<'de> for GeneratedField {
+            fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                struct GeneratedVisitor;
+
+                impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+                    type Value = GeneratedField;
+
+                    fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                        write!(formatter, "expected one of: {:?}", &FIELDS)
+                    }
+
+                    #[allow(unused_variables)]
+                    fn visit_str<E>(self, value: &str) -> std::result::Result<GeneratedField, E>
+                    where
+                        E: serde::de::Error,
+                    {
+                        match value {
+                            "cpuPercent" | "cpu_percent" => Ok(GeneratedField::CpuPercent),
+                            "memoryBytes" | "memory_bytes" => Ok(GeneratedField::MemoryBytes),
+                            "connections" => Ok(GeneratedField::Connections),
+                            "lateIterations" | "late_iterations" => Ok(GeneratedField::LateIterations),
+                            _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
+                        }
+                    }
+                }
+                deserializer.deserialize_identifier(GeneratedVisitor)
+            }
+        }
+        struct GeneratedVisitor;
+        impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+            type Value = HostStats;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("struct vibranium.engine.v1.HostStats")
+            }
+
+            fn visit_map<V>(self, mut map_: V) -> std::result::Result<HostStats, V::Error>
+                where
+                    V: serde::de::MapAccess<'de>,
+            {
+                let mut cpu_percent__ = None;
+                let mut memory_bytes__ = None;
+                let mut connections__ = None;
+                let mut late_iterations__ = None;
+                while let Some(k) = map_.next_key()? {
+                    match k {
+                        GeneratedField::CpuPercent => {
+                            if cpu_percent__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("cpuPercent"));
+                            }
+                            cpu_percent__ = 
+                                map_.next_value::<::std::option::Option<::pbjson::private::NumberDeserialize<_>>>()?.map(|x| x.0)
+                            ;
+                        }
+                        GeneratedField::MemoryBytes => {
+                            if memory_bytes__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("memoryBytes"));
+                            }
+                            memory_bytes__ = 
+                                map_.next_value::<::std::option::Option<::pbjson::private::NumberDeserialize<_>>>()?.map(|x| x.0)
+                            ;
+                        }
+                        GeneratedField::Connections => {
+                            if connections__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("connections"));
+                            }
+                            connections__ = 
+                                map_.next_value::<::std::option::Option<::pbjson::private::NumberDeserialize<_>>>()?.map(|x| x.0)
+                            ;
+                        }
+                        GeneratedField::LateIterations => {
+                            if late_iterations__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("lateIterations"));
+                            }
+                            late_iterations__ = 
+                                Some(map_.next_value::<::pbjson::private::NumberDeserialize<_>>()?.0)
+                            ;
+                        }
+                    }
+                }
+                Ok(HostStats {
+                    cpu_percent: cpu_percent__,
+                    memory_bytes: memory_bytes__,
+                    connections: connections__,
+                    late_iterations: late_iterations__.unwrap_or_default(),
+                })
+            }
+        }
+        deserializer.deserialize_struct("vibranium.engine.v1.HostStats", FIELDS, GeneratedVisitor)
+    }
+}
 impl serde::Serialize for ImportKeep {
     #[allow(deprecated)]
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
@@ -9130,6 +9289,9 @@ impl serde::Serialize for LoadTick {
         if !self.breaching.is_empty() {
             len += 1;
         }
+        if self.host.is_some() {
+            len += 1;
+        }
         let mut struct_ser = serializer.serialize_struct("vibranium.engine.v1.LoadTick", len)?;
         if self.second != 0 {
             #[allow(clippy::needless_borrow)]
@@ -9164,6 +9326,9 @@ impl serde::Serialize for LoadTick {
         if !self.breaching.is_empty() {
             struct_ser.serialize_field("breaching", &self.breaching)?;
         }
+        if let Some(v) = self.host.as_ref() {
+            struct_ser.serialize_field("host", v)?;
+        }
         struct_ser.end()
     }
 }
@@ -9187,6 +9352,7 @@ impl<'de> serde::Deserialize<'de> for LoadTick {
             "p99Ms",
             "errors",
             "breaching",
+            "host",
         ];
 
         #[allow(clippy::enum_variant_names)]
@@ -9200,6 +9366,7 @@ impl<'de> serde::Deserialize<'de> for LoadTick {
             P99Ms,
             Errors,
             Breaching,
+            Host,
         }
         impl<'de> serde::Deserialize<'de> for GeneratedField {
             fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
@@ -9230,6 +9397,7 @@ impl<'de> serde::Deserialize<'de> for LoadTick {
                             "p99Ms" | "p99_ms" => Ok(GeneratedField::P99Ms),
                             "errors" => Ok(GeneratedField::Errors),
                             "breaching" => Ok(GeneratedField::Breaching),
+                            "host" => Ok(GeneratedField::Host),
                             _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
                         }
                     }
@@ -9258,6 +9426,7 @@ impl<'de> serde::Deserialize<'de> for LoadTick {
                 let mut p99_ms__ = None;
                 let mut errors__ = None;
                 let mut breaching__ = None;
+                let mut host__ = None;
                 while let Some(k) = map_.next_key()? {
                     match k {
                         GeneratedField::Second => {
@@ -9330,6 +9499,12 @@ impl<'de> serde::Deserialize<'de> for LoadTick {
                             }
                             breaching__ = Some(map_.next_value()?);
                         }
+                        GeneratedField::Host => {
+                            if host__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("host"));
+                            }
+                            host__ = map_.next_value()?;
+                        }
                     }
                 }
                 Ok(LoadTick {
@@ -9342,6 +9517,7 @@ impl<'de> serde::Deserialize<'de> for LoadTick {
                     p99_ms: p99_ms__.unwrap_or_default(),
                     errors: errors__.unwrap_or_default(),
                     breaching: breaching__.unwrap_or_default(),
+                    host: host__,
                 })
             }
         }
