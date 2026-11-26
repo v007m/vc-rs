@@ -144,4 +144,28 @@ describe('Shell', () => {
     expect(screen.getByRole('link', { name: 'Request' })).toBeTruthy();
     expect(container.querySelector('.stage > .card')).not.toBeNull();
   });
+
+  it('keeps the screen mounted when it asks for a bare stage', async () => {
+    let mounts = 0;
+    const counted = createRawSnippet(() => ({
+      render: () => '<p>counted screen</p>',
+      setup: () => void (mounts += 1),
+    }));
+    const slots = new ShellSlots();
+    const engine = fakeEngine({});
+    render(Shell, {
+      shell: new ShellState(memory()),
+      session: new RunSession(engine),
+      project: new ProjectStatus(engine),
+      pathname: '/client',
+      navigate: vi.fn<(href: string) => void>(),
+      slots,
+      children: counted,
+    });
+    const before = screen.getByText('counted screen');
+    slots.fill({ bare: true });
+    await tick();
+    expect(mounts).toBe(1);
+    expect(screen.getByText('counted screen')).toBe(before);
+  });
 });

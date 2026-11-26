@@ -81,24 +81,22 @@
     <div class="main">
       <TopBar {title} {session} {project} {sidebarShown} left={slots.top} ontoggle={toggle} />
       <main class="stage" id="view" tabindex="-1">
-        {#if slots.bare}
+        <!-- One wrapper either way: switching to a bare stage must not remount the screen. -->
+        <div class={slots.bare ? 'bare' : 'glass card'}>
           {@render children()}
-        {:else}
-          <div class="glass card">
-            {@render children()}
-          </div>
-        {/if}
+        </div>
       </main>
       <StatusLine {project} />
     </div>
+    <!-- Inside .shell, its stacking context, so the drawer and rail stack above the scrim. -->
+    {#if shell.drawer && !inLayout}
+      <button
+        type="button"
+        class="scrim-drawer"
+        aria-label="Close sidebar"
+        tabindex="-1"
+        onclick={() => (shell.drawer = false)}
+      ></button>
+    {/if}
   </div>
-  {#if shell.drawer && !inLayout}
-    <button
-      type="button"
-      class="scrim-drawer"
-      aria-label="Close sidebar"
-      tabindex="-1"
-      onclick={() => (shell.drawer = false)}
-    ></button>
-  {/if}
 </div>
