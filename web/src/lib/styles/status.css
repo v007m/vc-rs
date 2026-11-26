@@ -1,0 +1,105 @@
+/* The status language of UI v2, from design/mockups/ui-v2/components.css (docs/design/ui.md §4,
+   D41): badges and pills carry a word or an icon beside the colour, and dots differ in shape
+   (filled, ring, half), so status never rests on colour alone. The v1 spellings (.pill.pass,
+   .dot.fail) keep working beside the v2 ones (.badge.st-pass, .dot.st-fail). */
+
+.badge,
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: var(--r-pill);
+  font-size: var(--fs-1);
+  font-weight: var(--fw-medium);
+  white-space: nowrap;
+  flex: none;
+  color: var(--ink-2);
+  background: var(--l2-bg);
+  box-shadow: inset 0 0 0 1px var(--l2-border);
+}
+.badge.st-pass,
+.pill.pass {
+  color: var(--st-pass-ink);
+  background: var(--st-pass-soft);
+  box-shadow: none;
+}
+.badge.st-fail,
+.pill.fail {
+  color: var(--st-fail-ink);
+  background: var(--st-fail-soft);
+  box-shadow: none;
+}
+.badge.st-blocked,
+.pill.block {
+  color: var(--st-blocked-ink);
+  background: var(--st-blocked-soft);
+  box-shadow: none;
+}
+.badge.st-skipped {
+  color: var(--st-skipped-ink);
+  background: var(--st-skipped-soft);
+  box-shadow: none;
+}
+.badge.st-flaky {
+  color: var(--st-flaky-ink);
+  background: var(--st-flaky-soft);
+  box-shadow: none;
+}
+.badge.st-accent,
+.badge.st-running,
+.pill.accent {
+  color: var(--accent-ink);
+  background: var(--accent-soft);
+  box-shadow: none;
+}
+
+.dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+  background: var(--ink-3);
+}
+.dot.st-pass,
+.dot.pass {
+  background: var(--st-pass);
+}
+.dot.st-fail,
+.dot.fail {
+  background: var(--st-fail);
+}
+.dot.st-blocked,
+.dot.block {
+  background: var(--st-blocked);
+}
+.dot.st-skipped,
+.dot.skip {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--st-skipped);
+}
+.dot.st-flaky,
+.dot.flaky {
+  background: conic-gradient(var(--st-flaky) 0 50%, transparent 0);
+  box-shadow: inset 0 0 0 1.5px var(--st-flaky);
+}
+.dot.is-live {
+  background: var(--st-pass);
+  box-shadow: 0 0 0 3px var(--st-pass-soft);
+  animation: pulse 1.6s ease-in-out infinite;
+}
+@keyframes pulse {
+  50% {
+    box-shadow: 0 0 0 6px transparent;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion='full']) .dot.is-live {
+    animation: none;
+  }
+}
+:root[data-motion='reduce'] .dot.is-live {
+  animation: none;
+}
