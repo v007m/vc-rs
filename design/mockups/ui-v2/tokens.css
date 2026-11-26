@@ -14,9 +14,9 @@
    Tint model (the L0 blob palette follows the profile; the accent is fixed)
    - [data-tint=graphite|blue|teal|amber|red] on <html> sets --h (main hue),
      --h2 (companion), --h3 (cool) and --h4 (warm). Blobs are oklch() of those.
-   - Project default: graphite: a blue pool, near-black graphite pools and a
-     warm orange spark, no purple. The graphite pools are --blob-2/3-graphite;
-     the colourful tints swap in --blob-2/3-color.
+   - Project default: graphite: a blackish-grey base with dark and light blue
+     blobs, grey and near-black blobs and a warm orange spark, no purple. The
+     colourful tints swap --blob-2 to --blob-2-color.
    - Profile prod: red. Profile staging: amber. A saved "violet" reads as
      graphite (app.js).
    - Swatches for pickers: --sw-<tint>.
@@ -50,12 +50,12 @@
      the most muted so nothing reads as neon */
   --blob-1: light-dark(oklch(0.82 0.10 var(--h)), oklch(0.40 0.105 var(--h)));
   --blob-2-color: light-dark(oklch(0.85 0.075 var(--h2)), oklch(0.33 0.065 var(--h2)));
-  --blob-2-graphite: light-dark(oklch(0.80 0.012 var(--h2)), oklch(0.14 0.005 var(--h2)));
+  --blob-2-graphite: light-dark(oklch(0.80 0.012 var(--h2)), oklch(0.31 0.006 var(--h2)));
   --blob-2: var(--blob-2-graphite);
-  --blob-3-color: light-dark(oklch(0.83 0.085 var(--h3)), oklch(0.37 0.085 var(--h3)));
-  --blob-3-graphite: light-dark(oklch(0.83 0.085 var(--h3)), oklch(0.17 0.006 var(--h2)));
-  --blob-3: var(--blob-3-graphite);
+  --blob-3: light-dark(oklch(0.83 0.085 var(--h3)), oklch(0.37 0.085 var(--h3)));
   --blob-4: light-dark(oklch(0.86 0.07 var(--h4)), oklch(0.36 0.075 var(--h4)));
+  --blob-5: color-mix(in oklab, var(--blob-1) 80%, var(--blob-3));   /* under the main card */
+  --blob-6: color-mix(in oklab, var(--blob-3) 75%, var(--blob-2));   /* under the right-hand card */
   /* matte metallic: a dimming film over the blobs, then grain and sheen */
   --l0-film: light-dark(rgb(249 250 251 / 0.30), rgb(8 9 11 / 0.30));
   --l0-sheen: light-dark(rgb(255 255 255 / 0.30), rgb(255 255 255 / 0.04));
@@ -321,17 +321,22 @@
 :root[data-theme="dark"] { color-scheme: dark; --grain-opacity: 0.55; --grain-blend: soft-light; --glass-l1: 0.20; }
 
 /* ---- tints --------------------------------------------------------------- */
-/* graphite: in dark, one dimmed blue pool top left, the orange spark, and
-   near-black graphite everywhere else */
+/* graphite: in dark, a blackish-grey base with separate blobs: dark blue
+   (top left), light blue (top right), lighter greys (mid right, bottom right),
+   near-black grey (centre) and the orange spark (bottom left) */
 :root[data-tint="graphite"] {
   --h: 250; --h2: 255; --h3: 225; --h4: 55;
-  --blob-1: light-dark(oklch(0.82 0.10 var(--h)), oklch(0.31 0.075 var(--h)));
-  --l0-film: light-dark(rgb(249 250 251 / 0.30), rgb(6 7 9 / 0.42));
+  --l0-base: light-dark(#e3e5ea, oklch(0.21 0.004 255));
+  --blob-1: light-dark(oklch(0.82 0.10 var(--h)), oklch(0.29 0.10 262));
+  --blob-3: light-dark(oklch(0.83 0.085 var(--h3)), oklch(0.40 0.09 246));
+  --blob-5: light-dark(color-mix(in oklab, var(--blob-1) 80%, var(--blob-3)), oklch(0.135 0.004 255));
+  --blob-6: light-dark(color-mix(in oklab, var(--blob-3) 75%, var(--blob-2)), oklch(0.35 0.007 255));
+  --l0-film: light-dark(rgb(249 250 251 / 0.30), rgb(16 17 20 / 0.28));
 }
-:root[data-tint="blue"]   { --h: 255; --h2: 215; --h3: 235; --h4: 55;  --blob-2: var(--blob-2-color); --blob-3: var(--blob-3-color); }
-:root[data-tint="teal"]   { --h: 185; --h2: 150; --h3: 230; --h4: 95;  --blob-2: var(--blob-2-color); --blob-3: var(--blob-3-color); }
-:root[data-tint="amber"]  { --h: 70;  --h2: 40;  --h3: 15;  --h4: 110; --blob-2: var(--blob-2-color); --blob-3: var(--blob-3-color); }
-:root[data-tint="red"]    { --h: 25;  --h2: 5;   --h3: 345; --h4: 55;  --blob-2: var(--blob-2-color); --blob-3: var(--blob-3-color); }
+:root[data-tint="blue"]   { --h: 255; --h2: 215; --h3: 235; --h4: 55;  --blob-2: var(--blob-2-color); }
+:root[data-tint="teal"]   { --h: 185; --h2: 150; --h3: 230; --h4: 95;  --blob-2: var(--blob-2-color); }
+:root[data-tint="amber"]  { --h: 70;  --h2: 40;  --h3: 15;  --h4: 110; --blob-2: var(--blob-2-color); }
+:root[data-tint="red"]    { --h: 25;  --h2: 5;   --h3: 345; --h4: 55;  --blob-2: var(--blob-2-color); }
 
 /* ---- reduce transparency: glass becomes solid --------------------------- */
 @media (prefers-reduced-transparency: reduce) {

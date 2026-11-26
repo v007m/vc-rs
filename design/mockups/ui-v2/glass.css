@@ -102,7 +102,7 @@
 .l0-blob--5 {
   width: 56vmax; height: 56vmax;
   left: 20vw; top: 4vh;
-  background: radial-gradient(closest-side, color-mix(in oklab, var(--blob-1) 80%, var(--blob-3)), color-mix(in oklab, var(--blob-1) 50%, transparent) 58%, transparent);
+  background: radial-gradient(closest-side, var(--blob-5), color-mix(in oklab, var(--blob-5) 50%, transparent) 58%, transparent);
   opacity: 0.85;
   animation-name: drift-e;
   animation-duration: 72s;
@@ -112,7 +112,7 @@
 .l0-blob--6 {
   width: 46vmax; height: 46vmax;
   left: 58vw; top: 34vh;
-  background: radial-gradient(closest-side, color-mix(in oklab, var(--blob-3) 75%, var(--blob-2)), color-mix(in oklab, var(--blob-3) 50%, transparent) 58%, transparent);
+  background: radial-gradient(closest-side, var(--blob-6), color-mix(in oklab, var(--blob-6) 50%, transparent) 58%, transparent);
   opacity: 0.9;
   animation-name: drift-c;
   animation-duration: 80s;
