@@ -1,6 +1,6 @@
 # Vibranium UI v2: design plan (#95, #98)
 
-Status: draft for Sarath's review. The decisions are from the 2026-11-23 grilling and are logged as Round 88 (D470–D494) in `decision-log.md`. The mockups in `design/mockups/ui-v2/` follow this plan, and the build starts only after Sarath reviews both.
+Status: approved by Sarath; the build is under way (§13). The decisions are from the 2026-11-23 grilling and the mockup reviews, logged as Rounds 88–92 (D470–D536) in `decision-log.md`. The mockups in `design/mockups/ui-v2/` follow this plan.
 
 ## 1. Goals
 
@@ -84,10 +84,12 @@ These colours are shared with the CLI, TUI and HTML report: pass, fail, blocked,
 - **Search** (⌘K), top right, has a filter icon inside the field that opens its own popover (All / REST / GraphQL / Streams); the icon gets a dot while a filter is on.
 - **Rename** (D500): request, scratch and tab names are edited in place (pencil on hover, Enter saves, Esc cancels); double-click an open tab to rename it.
 - **Responsive:**
-  - Above 1100 px the sidebar is open.
-  - From 760 to 1100 px the sidebar collapses; the rail stays.
+  - Widths are those of the app, not the window: the shell uses container queries (D530).
+  - Above 1100 px the sidebar is open, and hiding it is a saved pref.
+  - At 1100 px and below, the sidebar is a drawer over the stage, opened from the top row. The rail stays, so a space is always one click away.
   - Below 900 px search collapses to an icon.
-  - Below 760 px the sidebar is a drawer. This is web only and read-mostly.
+  - Below 760 px the margins tighten. This is web only and read-mostly.
+  - Screens size their own layouts with `@container card`, the L1 card's width.
 - **Desktop shell:** the traffic lights sit at the top of the rail, or of the sidebar with Sidebar bottom. The window can be dragged from the top row. Native menus mirror the palette commands.
 
 ## 4. Client space (R43)
@@ -414,3 +416,13 @@ Round 91 (the fifth mockup review: five spaces):
 12. The Tauri shell (#98).
 
 Each step is one or two PRs, and each RPC gets its own small engine PR first.
+
+**Done so far (batch A, Round 92):**
+
+- **Step 1.** The tokens, the L0 background, the glass and the controls are in `web/src/lib/styles/` (`tokens`, `glass`, `controls`, `status`, `shell`, `sidebar`). `legacy.css` maps the v1 token names onto v2 ones until each screen is redesigned. Geist and Geist Mono are bundled (D526), and #114 is fixed (D534).
+- **Step 2, shell part.** The five-space shell is in `web/src/lib/shell/`: the rail, sidebars, top row and status line, saved UI prefs, and the shortcuts. The existing screens sit inside it at the routes in D527. Each sidebar lists only the views that exist today, one section per space.
+- **Not built yet.** These come in later steps:
+  - the Client tab strip and the per-space designs (the Tests tree in its sidebar, the git pane, the Runs sidebar and schedules)
+  - the env pill popover and the search palette
+  - the Appearance setting for the tint and the switcher
+  - the branch in the status line (D532)
