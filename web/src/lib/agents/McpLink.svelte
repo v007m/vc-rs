@@ -1,11 +1,14 @@
 <script lang="ts">
   import { MASKED } from '#lib/settings/port.ts';
+  import Glyph from '#lib/ui/Glyph.svelte';
   import { copyText } from './clipboard.ts';
   import type { McpLink } from './desk.svelte.ts';
 
   let { link, error }: { link: McpLink | undefined; error: string | undefined } = $props();
   let shown = $state(false);
   let copied = $state('');
+  /** Which value was copied last, so its button shows the check. */
+  let which = $state('');
 
   /** The MCP server entry for this vc ui, as Claude Code's `.mcp.json` takes it. */
   function config(url: string, token: string): string {
@@ -13,8 +16,9 @@
     return JSON.stringify({ mcpServers: { vibranium: server } }, null, 2);
   }
 
-  async function copy(text: string): Promise<void> {
+  async function copy(key: string, text: string): Promise<void> {
     copied = await copyText(text);
+    which = copied === 'Copied.' ? key : '';
   }
 </script>
 
@@ -22,36 +26,42 @@
   <dl class="fields">
     <dt>MCP URL</dt>
     <dd>
-      <code class="mono">{link.url}</code>
+      <code class="vc-mono">{link.url}</code>
       <button
-        class="btn sm"
+        class="st-btn st-btn--sm"
         type="button"
         aria-label="Copy the MCP URL"
-        onclick={() => copy(link.url)}>Copy</button
+        onclick={() => copy('url', link.url)}
+        ><Glyph name={which === 'url' ? 'check' : 'copy'} />Copy</button
       >
     </dd>
     <dt>Agent token</dt>
     <dd>
-      <code class="mono">{shown ? link.token : MASKED}</code>
-      <button class="btn sm" type="button" aria-pressed={shown} onclick={() => (shown = !shown)}
-        >Show token</button
+      <code class="vc-mono">{shown ? link.token : MASKED}</code>
+      <button
+        class="st-btn st-btn--sm"
+        type="button"
+        aria-pressed={shown}
+        onclick={() => (shown = !shown)}>Show token</button
       >
       <button
-        class="btn sm"
+        class="st-btn st-btn--sm"
         type="button"
         aria-label="Copy the agent token"
-        onclick={() => copy(link.token)}>Copy</button
+        onclick={() => copy('token', link.token)}
+        ><Glyph name={which === 'token' ? 'check' : 'copy'} />Copy</button
       >
     </dd>
   </dl>
   <p>Add this server to the agent’s MCP config, such as <code>.mcp.json</code> for Claude Code:</p>
   <div class="code">
-    <pre class="mono">{config(link.url, shown ? link.token : MASKED)}</pre>
+    <pre class="vc-mono">{config(link.url, shown ? link.token : MASKED)}</pre>
     <button
-      class="btn sm"
+      class="st-btn st-btn--sm"
       type="button"
       aria-label="Copy the MCP config"
-      onclick={() => copy(config(link.url, link.token))}>Copy</button
+      onclick={() => copy('config', config(link.url, link.token))}
+      ><Glyph name={which === 'config' ? 'check' : 'copy'} />Copy</button
     >
   </div>
   <p class="lead">
@@ -71,10 +81,10 @@
   }
   .lead,
   .note {
-    color: var(--ink2);
+    color: var(--st-text-secondary);
   }
   .error {
-    color: var(--fail);
+    color: var(--vc-fail);
   }
   .fields {
     display: grid;
@@ -105,7 +115,7 @@
     margin: 0;
     padding: 12px;
     border-radius: 8px;
-    background: var(--panel2);
+    background: var(--st-surface-wash);
     white-space: pre-wrap;
     overflow-wrap: anywhere;
   }

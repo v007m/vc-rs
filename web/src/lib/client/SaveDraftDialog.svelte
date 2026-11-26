@@ -44,8 +44,10 @@
   <p class="help">{@render children(path)}</p>
   {#if request.state === 'conflict'}
     <div class="banner" role="alert">
-      <span class="grow">Not saved: <code>{path}</code> changed on disk since you opened it.</span>
-      <button type="button" class="btn sm" onclick={() => void request.load()}
+      <span class="vc-grow"
+        >Not saved: <code>{path}</code> changed on disk since you opened it.</span
+      >
+      <button type="button" class="st-btn st-btn--sm" onclick={() => void request.load()}
         >Reload from disk</button
       >
     </div>
@@ -54,16 +56,16 @@
     <p class="error" role="alert">{request.error}</p>
   {/if}
   {#if request.diff !== undefined}
-    <pre class="diff mono" aria-label="Changes to {path}">{request.diff ||
+    <pre class="diff vc-mono" aria-label="Changes to {path}">{request.diff ||
         'No change to the file.'}</pre>
   {:else if request.state === 'reviewing'}
     <p class="help">Reviewing…</p>
   {/if}
   <div class="actions">
-    <button type="button" class="btn" onclick={onclose}>Cancel</button>
+    <button type="button" class="st-btn" onclick={onclose}>Cancel</button>
     <button
       type="button"
-      class="btn primary"
+      class="st-btn st-btn--primary"
       disabled={busy || !request.dirty || request.state === 'conflict'}
       onclick={() => void save()}>{request.state === 'saving' ? 'Saving…' : 'Save'}</button
     >
@@ -73,7 +75,7 @@
 <style>
   .help {
     margin: 0 0 10px;
-    color: var(--ink2);
+    color: var(--st-text-secondary);
   }
   .banner,
   .actions {
@@ -85,7 +87,7 @@
   .banner {
     margin-bottom: 10px;
     padding: 8px 12px;
-    border: 1px solid var(--fail);
+    border: 1px solid var(--vc-fail);
     border-radius: 6px;
   }
   .actions {
@@ -97,12 +99,12 @@
     margin: 0;
     padding: 8px 12px;
     overflow: auto;
-    border: 1px solid var(--line);
-    border-radius: 6px;
+    border-radius: var(--vc-radius-inner);
+    background: var(--st-surface-wash);
     white-space: pre;
   }
   .error {
     margin: 0 0 10px;
-    color: var(--fail);
+    color: var(--vc-fail);
   }
 </style>

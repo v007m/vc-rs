@@ -27,7 +27,7 @@
     <label class="field">
       <span>Test ID</span>
       <input
-        class="input mono"
+        class="st-input vc-mono"
         required
         placeholder="users.crud#createsUser"
         aria-describedby="save-id-help"
@@ -41,7 +41,7 @@
     <fieldset class="fields">
       <legend>Expect status {status} and these body fields at the values that came back</legend>
       {#each client.result?.fields ?? [] as field (field)}
-        <label class="check mono">
+        <label class="check vc-mono">
           <input type="checkbox" value={field} bind:group={fields} />
           {field}
         </label>
@@ -53,8 +53,10 @@
       <p class="error" role="alert">{client.error}</p>
     {/if}
     <div class="actions">
-      <button type="button" class="btn" onclick={onclose}>Cancel</button>
-      <button type="submit" class="btn primary" disabled={saving || !testId.trim()}>Save</button>
+      <button type="button" class="st-btn" onclick={onclose}>Cancel</button>
+      <button type="submit" class="st-btn st-btn--primary" disabled={saving || !testId.trim()}
+        >Save</button
+      >
     </div>
   </form>
 </Dialog>
@@ -71,15 +73,15 @@
   }
   .help {
     margin: 0;
-    color: var(--ink2);
+    color: var(--st-text-secondary);
   }
   .fields {
     display: grid;
     gap: 4px;
     max-height: 240px;
     overflow: auto;
-    border: 1px solid var(--line);
-    border-radius: 9px;
+    border-radius: var(--vc-radius-inner);
+    background: var(--st-surface-wash);
   }
   .check {
     display: flex;
@@ -88,7 +90,7 @@
   }
   .error {
     margin: 0;
-    color: var(--fail);
+    color: var(--vc-fail);
   }
   .actions {
     display: flex;

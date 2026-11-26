@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { lens } from '#lib/ui/segmented.ts';
   import { SvelteMap } from 'svelte/reactivity';
   import type { SkipPort } from '#lib/skip/port.ts';
   import SkipForm from '#lib/skip/SkipForm.svelte';
@@ -66,7 +67,7 @@
 </script>
 
 <div class="insights">
-  <div class="seg" role="group" aria-label="Time range">
+  <div class="st-segmented" role="group" {@attach lens} aria-label="Time range">
     {#each windows as w (w)}
       <button
         type="button"
@@ -132,7 +133,7 @@
   </div>
 
   <table>
-    <caption class="h2">Last 10 runs in the range</caption>
+    <caption class="st-title3">Last 10 runs in the range</caption>
     <thead>
       <tr>
         <th scope="col">Run</th><th scope="col">Date</th><th scope="col">Pass rate</th><th
@@ -150,36 +151,39 @@
           <td>{run.blocked}</td>
         </tr>
       {:else}
-        <tr><td colspan="5" class="muted">No runs yet. Start one from Tests or Runs.</td></tr>
+        <tr><td colspan="5" class="st-secondary">No runs yet. Start one from Tests or Runs.</td></tr
+        >
       {/each}
     </tbody>
   </table>
 
   <section aria-labelledby="flakiest" class="flakiest">
-    <h2 class="h2" id="flakiest">Flakiest tests</h2>
-    <p class="muted">Flaky or failed results per test · {rangeLabel}</p>
+    <h2 class="st-title3" id="flakiest">Flakiest tests</h2>
+    <p class="st-secondary">Flaky or failed results per test · {rangeLabel}</p>
     {#if worst.length === 0}
-      <p class="muted">No flaky or failing tests in this range.</p>
+      <p class="st-secondary">No flaky or failing tests in this range.</p>
     {:else}
       <ol>
         {#each worst as t (t.testId)}
           {@const done = skipped.get(t.testId)}
           <li>
-            <span class="mono">{t.testId}</span>
-            <span class="muted">{t.flaky} flaky · {t.failed} failed of {t.results} results</span>
+            <span class="vc-mono">{t.testId}</span>
+            <span class="st-secondary"
+              >{t.flaky} flaky · {t.failed} failed of {t.results} results</span
+            >
             <span class="acts">
               {#if done}
-                <span class="pill">{done}</span>
+                <span class="st-badge">{done}</span>
                 <button
                   type="button"
-                  class="btn sm"
+                  class="st-btn st-btn--sm"
                   aria-label="Undo the skip of {t.testId}"
                   onclick={() => openSkip(t.testId, true)}>Undo</button
                 >
               {:else}
                 <button
                   type="button"
-                  class="btn sm"
+                  class="st-btn st-btn--sm"
                   aria-label="Skip {t.testId} until…"
                   aria-expanded={skipping?.target === t.testId}
                   onclick={() => openSkip(t.testId)}>Skip until…</button
@@ -197,7 +201,7 @@
           </li>
         {/each}
       </ol>
-      <p class="muted note">
+      <p class="st-secondary note">
         Skip writes <code>skip: &lbrace; reason, until &rbrace;</code> into the test: it is reported as
         skipped with its reason, and runs again after the date.
       </p>
@@ -222,7 +226,7 @@
     gap: 20px;
     max-width: 1100px;
   }
-  .seg {
+  .st-segmented {
     justify-self: start;
   }
   .kpis {
@@ -233,13 +237,12 @@
   }
   .kpis div {
     padding: 12px;
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    background: var(--panel2);
+    border-radius: var(--vc-radius-inner);
+    background: var(--st-surface-wash);
   }
   dt {
     font-size: 13px;
-    color: var(--ink2);
+    color: var(--st-text-secondary);
   }
   dd {
     margin: 4px 0 0;
@@ -258,13 +261,13 @@
     align-items: center;
     margin: 0;
     font-size: 13px;
-    color: var(--ink2);
+    color: var(--st-text-secondary);
   }
   .swatch {
     width: 10px;
     height: 10px;
     border-radius: 2px;
-    background: var(--block);
+    background: var(--vc-blocked);
   }
   table {
     width: 100%;
@@ -278,11 +281,11 @@
   th,
   td {
     padding: 6px 8px;
-    border-bottom: 1px solid var(--line);
+    border-bottom: 1px solid var(--st-chrome-separator);
     text-align: left;
   }
   thead th {
-    color: var(--ink2);
+    color: var(--st-text-secondary);
     font-weight: 500;
   }
   tbody th {
@@ -313,11 +316,11 @@
   .flakiest p {
     margin: 4px 0 0;
   }
-  .muted {
-    color: var(--ink2);
+  .st-secondary {
+    color: var(--st-text-secondary);
   }
   .error {
     margin: 0;
-    color: var(--fail);
+    color: var(--vc-fail);
   }
 </style>

@@ -27,12 +27,12 @@
   <div class="form">
     <label class="field">
       <span>HAR file</span>
-      <input class="input" type="file" accept=".har,application/json" onchange={chosen} />
+      <input class="st-input" type="file" accept=".har,application/json" onchange={chosen} />
     </label>
     <label class="field">
       <span>Flow test</span>
       <input
-        class="input mono"
+        class="st-input vc-mono"
         placeholder="users.recorded#replaysSession"
         aria-describedby="har-flow-help"
         value={har.flow}
@@ -48,7 +48,7 @@
     {/if}
     {#if har.preview}
       {#each har.preview.titles as notice, i (i)}
-        <p class="mono notice">{notice}</p>
+        <p class="vc-mono notice">{notice}</p>
       {/each}
       <ul class="changes" aria-label="Changes">
         {#each har.preview.files as file (file.path)}
@@ -59,8 +59,8 @@
               aria-expanded={open === file.path}
               onclick={() => (open = open === file.path ? undefined : file.path)}
             >
-              <span class="mono">{file.path}</span>
-              <span class="pill {file.before ? 'accent' : 'pass'}"
+              <span class="vc-mono">{file.path}</span>
+              <span class="st-badge {file.before ? 'vc-accent' : 'vc-pass'}"
                 >{file.before ? 'changed' : 'new'}</span
               >
             </button>
@@ -77,12 +77,15 @@
       </ul>
     {/if}
     <div class="actions">
-      <button type="button" class="btn" onclick={onclose}>Cancel</button>
-      <button type="button" class="btn" disabled={!har.ready} onclick={() => har.showPreview()}
+      <button type="button" class="st-btn" onclick={onclose}>Cancel</button>
+      <button type="button" class="st-btn" disabled={!har.ready} onclick={() => har.showPreview()}
         >Preview</button
       >
-      <button type="button" class="btn primary" disabled={!har.preview || har.busy} onclick={write}
-        >Write files</button
+      <button
+        type="button"
+        class="st-btn st-btn--primary"
+        disabled={!har.preview || har.busy}
+        onclick={write}>Write files</button
       >
     </div>
   </div>
@@ -101,11 +104,11 @@
   .help,
   .notice {
     margin: 0;
-    color: var(--ink2);
+    color: var(--st-text-secondary);
   }
   .error {
     margin: 0;
-    color: var(--fail);
+    color: var(--vc-fail);
   }
   .changes {
     display: grid;
@@ -120,10 +123,10 @@
     justify-content: space-between;
     width: 100%;
     padding: 6px 10px;
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    background: var(--panel);
-    color: var(--ink);
+    border: 0;
+    border-radius: var(--vc-radius-inner);
+    background: var(--st-surface-wash);
+    color: var(--st-text-primary);
     cursor: pointer;
   }
   .actions {

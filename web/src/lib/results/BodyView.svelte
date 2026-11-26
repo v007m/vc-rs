@@ -8,9 +8,9 @@
 
 <div class="label">{title}</div>
 {#await text}
-  <pre class="mono">…</pre>
+  <pre class="vc-mono">…</pre>
 {:then body}
-  <pre class="mono">{pretty(body)}</pre>
+  <pre class="vc-mono">{pretty(body)}</pre>
 {:catch}
   <p class="label">The body could not be loaded.</p>
 {/await}
@@ -19,7 +19,7 @@
   .label {
     margin: 10px 0 4px;
     font-size: 12px;
-    color: var(--ink2);
+    color: var(--st-text-secondary);
   }
   pre {
     margin: 0;
@@ -27,7 +27,7 @@
     max-height: 360px;
     overflow: auto;
     border-radius: 8px;
-    background: var(--panel3);
+    background: var(--st-surface-input-on-card);
     white-space: pre-wrap;
     overflow-wrap: anywhere;
   }

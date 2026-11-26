@@ -1,15 +1,16 @@
-/* The app frame of UI v2, from design/mockups/ui-v2/shell.css (docs/design/ui.md §3): base
-   rules, the five-space shell, the one top row, the stage with its L1 card and the status line.
-   The rail and the sidebar are in sidebar.css.
+/* The app frame of UI v2 on Strata (docs/design/ui.md §3, D590): base rules, the five-space
+   shell, the one top row, the stage with its card and the status line. The rail and the sidebar
+   are in sidebar.css. Chrome (rail, sidebar, top row, status line) sits on the canvas with no
+   box; only the screen's card and the search capsule are raised.
 
-     .app (container "app"; [data-switcher=rail|foot] .is-sb-collapsed .is-drawer-open)
-       .l0                     the background (glass.css)
+     .app.st-root.st-canvas (container "app"; [data-space] [data-switcher=rail|foot]
+                             .is-sb-collapsed .is-drawer-open .is-hints)
        .shell
          nav.rail              the space switcher
          aside.sidebar         the space's views and sections
          .main
            header.topbar       title · status · primary action ·· env pill, search
-           main.stage          > .glass.card, the screen
+           main.stage          > .st-card.card, the screen
            footer.statusline   version · branch · vc check
 
    Widths are container queries on .app: above 1100px the sidebar is in the layout (hiding it is
@@ -30,11 +31,11 @@ body {
 }
 body {
   margin: 0;
-  background: var(--l0-base);
-  color: var(--l0-ink);
-  font-family: var(--font);
-  font-size: var(--fs-3);
-  line-height: var(--lh);
+  background: var(--st-canvas-base);
+  color: var(--st-text-primary);
+  font-family: var(--st-font-sans);
+  font-size: var(--vc-size-callout);
+  line-height: var(--vc-lh);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow: hidden;
@@ -53,21 +54,21 @@ code,
 kbd,
 pre,
 samp {
-  font-family: var(--mono);
+  font-family: var(--st-font-mono);
 }
 ::selection {
-  background: var(--accent-soft);
-  color: var(--ink);
+  background: var(--st-accent-soft);
+  color: var(--st-text-primary);
 }
 * {
   scrollbar-width: thin;
-  scrollbar-color: var(--rule-strong) transparent;
+  scrollbar-color: var(--vc-rule-strong) transparent;
 }
 a {
-  color: var(--accent-ink);
+  color: var(--st-accent);
 }
 a:hover {
-  color: var(--accent);
+  color: var(--st-accent);
 }
 /* app.html's root holder; a class, not a style attribute, so the CSP needs no unsafe-inline. */
 .sveltekit-body {
@@ -87,7 +88,7 @@ a:hover {
   display: flex;
   height: 100%;
   min-width: 0;
-  padding-right: max(10px, env(safe-area-inset-right, 0px));
+  padding-right: max(var(--st-window-inset), env(safe-area-inset-right, 0px));
 }
 .app[data-switcher='foot'] .shell {
   padding-left: max(6px, env(safe-area-inset-left, 0px));
@@ -95,25 +96,24 @@ a:hover {
 .main {
   flex: 1 1 auto;
   display: grid;
-  grid-template-rows: var(--topbar-h) minmax(0, 1fr) var(--statusline-h);
+  grid-template-rows: var(--st-titlebar-height) minmax(0, 1fr) var(--vc-statusline-h);
   grid-template-columns: minmax(0, 1fr);
   min-width: 0;
   min-height: 0;
-  padding-left: var(--sp-2);
 }
 
-/* ---- the one top row (D514): L0, no panel ---------------------------------- */
+/* ---- the one top row (D514): chrome on the canvas, no panel ------------------ */
 .topbar {
   display: flex;
   align-items: center;
-  gap: var(--sp-3);
+  gap: var(--st-space-12);
   min-width: 0;
-  padding: 0 var(--sp-2) 0 var(--sp-1);
+  padding: 0 var(--st-space-8) 0 var(--st-space-4);
 }
 .topbar .sb-show {
   display: none;
   flex: none;
-  color: var(--l0-ink-2);
+  color: var(--st-text-secondary);
 }
 .app.is-sb-collapsed .topbar .sb-show {
   display: inline-flex;
@@ -122,9 +122,9 @@ a:hover {
   flex: 0 1 auto;
   min-width: 0;
   margin: 0;
-  font-size: var(--fs-3);
-  font-weight: var(--fw-semibold);
-  color: var(--l0-ink);
+  font: var(--st-type-title3);
+  letter-spacing: var(--st-tracking-title3);
+  color: var(--st-text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -135,8 +135,8 @@ a:hover {
   gap: 6px;
   flex: 0 1 auto;
   min-width: 0;
-  font-size: var(--fs-2);
-  color: var(--l0-ink-2);
+  font-size: var(--vc-size-body);
+  color: var(--st-text-secondary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -144,41 +144,47 @@ a:hover {
 .topbar-end {
   display: flex;
   align-items: center;
-  gap: var(--sp-2);
+  gap: var(--st-space-8);
   flex: none;
   margin-left: auto;
 }
 
-/* the environment pill: caption, profile dot, profile; a prod profile reads as live data */
+/* the environment control: the search field's capsule and height, no button box and no inner
+   box (D611); caption, profile dot, profile. A prod profile reads as live data. */
 .env-pill {
-  flex: 0 1 auto;
-  min-width: 0;
-  gap: var(--sp-2);
-  padding: 0 var(--sp-3);
-  color: var(--l0-ink);
-}
-.env-pill:hover {
-  color: var(--l0-ink);
-}
-.env-pill .env-cap {
   display: inline-flex;
   align-items: center;
+  flex: 0 1 auto;
+  min-width: 0;
+  height: var(--st-size-control-md);
+  gap: var(--st-space-8);
+  padding: 0 var(--st-space-16) 0 var(--st-space-12);
+  border-radius: var(--st-radius-capsule);
+  background: var(--st-surface-input);
+  box-shadow: var(--st-emboss);
+  font: var(--st-type-body);
+  color: var(--st-text-primary);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.env-pill:hover {
+  color: var(--st-text-primary);
+  background: color-mix(in srgb, var(--st-surface-input), var(--st-chrome-hover));
+}
+.env-pill .env-cap {
   flex: none;
-  padding-right: var(--sp-2);
-  border-right: 1px solid var(--l0-rule);
-  font-size: var(--fs-0);
-  font-weight: var(--fw-semibold);
-  letter-spacing: var(--tracking-label);
-  text-transform: uppercase;
-  color: var(--l0-ink-2);
+  font: var(--st-type-caption);
+  color: var(--st-text-secondary);
 }
 .env-pill .env-name {
-  font-weight: var(--fw-semibold);
+  font-weight: var(--st-weight-semibold);
 }
 .env-pill:has(.tint-dot[data-p='prod']) {
-  color: var(--prod-ink);
-  background: var(--prod-bg);
-  border-color: var(--prod-border);
+  color: var(--vc-prod-ink);
+  background: var(--vc-prod-bg);
+  box-shadow:
+    var(--st-emboss),
+    inset 0 0 0 1px var(--vc-prod-border);
 }
 .tint-dot {
   --h: 255;
@@ -189,17 +195,28 @@ a:hover {
   background: oklch(0.66 0.19 var(--h));
   box-shadow: 0 0 0 3px color-mix(in oklab, oklch(0.66 0.19 var(--h)) 25%, transparent);
 }
-/* the search field: a debossed field, not a raised pill */
+/* the search field: the command capsule, embossed on the canvas (D594); its hint is plain text */
 .search-btn {
+  display: inline-flex;
+  align-items: center;
   width: 240px;
-  justify-content: flex-start;
-  gap: var(--sp-2);
-  padding: 0 10px 0 12px;
-  color: var(--l0-ink-2);
-  font-weight: var(--fw-regular);
-  border-color: transparent;
-  background: var(--field-bg);
-  box-shadow: var(--sh-deboss);
+  height: var(--st-size-control-md);
+  gap: var(--st-space-8);
+  padding: 0 var(--st-space-16) 0 var(--st-space-12);
+  border: 0;
+  border-radius: var(--st-radius-capsule);
+  background: var(--st-surface-input);
+  box-shadow: var(--st-emboss);
+  font: var(--st-type-body);
+  color: var(--st-text-secondary);
+  cursor: default;
+}
+.search-btn:hover {
+  background: color-mix(in srgb, var(--st-surface-input), var(--st-chrome-hover));
+}
+.search-btn .st-kbd {
+  flex: none;
+  color: var(--st-text-tertiary);
 }
 .search-btn .label {
   flex: 1 1 auto;
@@ -209,16 +226,14 @@ a:hover {
   text-align: left;
 }
 
-/* ---- stage and the L1 card ------------------------------------------------- */
+/* ---- stage and the card ------------------------------------------------------ */
 .stage {
   position: relative;
   min-height: 0;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--card-gap);
-  padding-top: var(--sp-2);
-  padding-bottom: var(--sp-1);
+  gap: var(--st-card-gap);
 }
 /* .stage > .card, not .card: screens keep using .card for their own panels (ApprovalQueue).
    Screens size their layouts with @container card (...), so the sidebar and drawer count. */
@@ -238,21 +253,21 @@ a:hover {
   flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
-  padding: var(--card-pad);
+  padding: var(--st-card-padding);
   display: flex;
   flex-direction: column;
-  gap: var(--sp-5);
-  font-size: var(--fs-2);
+  gap: var(--st-space-20);
+  font-size: var(--vc-size-body);
 }
 
-/* ---- L0 status line -------------------------------------------------------- */
+/* ---- status line: chrome on the canvas ---------------------------------------- */
 .statusline {
   display: flex;
   align-items: center;
-  gap: var(--sp-6);
-  padding: 0 var(--sp-3);
-  font-size: var(--fs-1);
-  color: var(--l0-ink-2);
+  gap: var(--st-space-24);
+  padding: 0 var(--st-space-12);
+  font-size: var(--vc-size-caption);
+  color: var(--st-text-secondary);
   white-space: nowrap;
   overflow: hidden;
   min-width: 0;
@@ -264,38 +279,32 @@ a:hover {
   flex-shrink: 0;
 }
 .statusline .item b {
-  color: var(--l0-ink);
-  font-weight: var(--fw-medium);
+  color: var(--st-text-primary);
+  font-weight: var(--st-weight-medium);
 }
 
 /* ---- widths ---------------------------------------------------------------- */
 @container app (max-width: 1024px) {
   .shell {
-    --card-pad: 20px;
+    --st-card-padding: 20px;
   }
 }
 @container app (max-width: 900px) {
   .topbar .search-btn {
-    width: var(--ctl-h);
+    width: var(--st-size-control-md);
     padding: 0;
     justify-content: center;
   }
   .topbar .env-pill .env-cap {
     display: none;
   }
-  .topbar .search-btn :is(.label, .kbd) {
+  .topbar .search-btn :is(.label, .st-kbd) {
     display: none;
   }
 }
 @container app (max-width: 759px) {
-  .shell {
-    padding-right: max(8px, env(safe-area-inset-right, 0px));
-  }
-  .main {
-    padding-left: var(--sp-1);
-  }
   .topbar {
-    gap: var(--sp-2);
+    gap: var(--st-space-8);
     padding-left: 0;
   }
   .app .hide-narrow {

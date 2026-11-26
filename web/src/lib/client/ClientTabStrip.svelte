@@ -46,7 +46,7 @@
   </ul>
   <button
     type="button"
-    class="btn btn-ghost btn-icon on-l0 ts-new"
+    class="st-icon-btn ts-new"
     aria-label="New request"
     title="New request"
     onclick={fresh}><Icon name="plus" /></button
@@ -57,7 +57,7 @@
   .tabstrip {
     display: flex;
     align-items: center;
-    gap: var(--sp-1);
+    gap: var(--st-space-4);
     flex: 1 1 auto;
     min-width: 0;
   }
@@ -77,43 +77,43 @@
   .ts-list::-webkit-scrollbar {
     display: none;
   }
+  /* tabs are chrome on the canvas: no box until hovered; the open one is a raised plate */
   .ot {
     position: relative;
     display: flex;
     align-items: center;
     flex: none;
     max-width: 232px;
-    height: var(--ctl-h);
-    border: 1px solid var(--rule-strong);
-    border-radius: var(--r-pill);
-    color: var(--l0-ink-2);
+    height: var(--st-size-control-md);
+    border-radius: var(--st-radius-md);
+    color: var(--st-text-secondary);
     transition:
-      border-color var(--dur-2) var(--ease),
-      color var(--dur-2) var(--ease);
+      background var(--st-duration-fast) var(--st-ease-standard),
+      color var(--st-duration-fast) var(--st-ease-standard);
   }
   .ot:hover {
-    border-color: var(--l2-border-hover);
-    color: var(--l0-ink);
+    background: var(--st-chrome-hover);
+    color: var(--st-text-primary);
   }
   .ot:has([aria-current='page']) {
-    color: var(--l0-ink);
-    border-color: var(--tab-border-active);
+    color: var(--st-text-primary);
+    background: var(--st-chrome-selected);
+    box-shadow: var(--st-shadow-xs);
   }
   .ot-open {
     display: flex;
     align-items: center;
-    gap: var(--sp-2);
+    gap: var(--st-space-8);
     flex: 1 1 auto;
     min-width: 0;
     height: 100%;
-    padding: 0 var(--sp-1) 0 var(--sp-3);
+    padding: 0 var(--st-space-4) 0 var(--st-space-12);
     border: 0;
-    border-radius: var(--r-pill);
+    border-radius: var(--st-radius-md);
     background: transparent;
     color: inherit;
     text-align: left;
-    font-size: var(--fs-2);
-    font-weight: var(--fw-medium);
+    font: var(--st-type-body-strong);
   }
   .ot-open:focus-visible {
     outline-offset: -2px;
@@ -143,7 +143,7 @@
     border: 0;
     border-radius: 50%;
     background: transparent;
-    color: var(--l0-ink-2);
+    color: var(--st-text-secondary);
     opacity: 0;
   }
   .ot:hover .ot-close,
@@ -152,7 +152,6 @@
     opacity: 1;
   }
   .ot-close:hover {
-    background: var(--l0-hover);
-    color: var(--l0-ink);
+    color: var(--st-text-primary);
   }
 </style>

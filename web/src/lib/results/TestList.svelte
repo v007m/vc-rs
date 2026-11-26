@@ -86,11 +86,11 @@
           title={row.label}
         >
           <span class="name">
-            <span class="dot {statusClass[row.status]}" aria-hidden="true"></span>
+            <span class="st-dot {statusClass[row.status]}" aria-hidden="true"></span>
             <span class="text">{row.label}</span>
-            <span class="sr">, {row.status}</span>
+            <span class="vc-sr">, {row.status}</span>
           </span>
-          <span class="file mono">{row.file}</span>
+          <span class="file vc-mono">{row.file}</span>
           <span class="num">{ms(row.ms)}</span>
         </div>
       {/each}
@@ -116,22 +116,22 @@
     align-items: center;
     height: 32px;
     padding: 0 12px;
-    border-bottom: 1px solid var(--line);
+    border-bottom: 1px solid var(--st-chrome-separator);
     cursor: pointer;
     font-size: 13px;
   }
   .row:hover {
-    background: var(--panel2);
+    background: var(--st-surface-wash);
   }
   .row.active {
-    box-shadow: inset 2px 0 0 var(--accent);
+    box-shadow: inset 2px 0 0 var(--st-accent);
   }
   .viewport:focus-visible .row.active {
-    background: var(--panel3);
+    background: var(--st-surface-input-on-card);
   }
   .row[aria-selected='true'] {
-    background: var(--accentSoft);
-    color: var(--accentInk);
+    background: var(--st-accent-soft);
+    color: var(--st-accent);
   }
   .name {
     display: flex;
@@ -146,11 +146,11 @@
     white-space: nowrap;
   }
   .file {
-    color: var(--ink2);
+    color: var(--st-text-secondary);
   }
   .num {
     text-align: right;
     font-variant-numeric: tabular-nums;
-    color: var(--ink2);
+    color: var(--st-text-secondary);
   }
 </style>

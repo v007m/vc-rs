@@ -42,7 +42,7 @@
     >
       <span class="row folder">
         <span class="chev" aria-hidden="true">{open ? '▾' : '▸'}</span>
-        <span class="mono name">{group.label}</span>
+        <span class="vc-mono name">{group.label}</span>
         <span class="count">{group.leaves.length}</span>
       </span>
       {#if open}
@@ -64,7 +64,7 @@
               onkeydown={focus.onkeydown}
             >
               <span class="row file" class:current={current === leaf.key}>
-                <span class="name" class:mono>{leaf.label}</span>
+                <span class="name" class:vc-mono={mono}>{leaf.label}</span>
               </span>
             </li>
           {/each}
@@ -94,7 +94,7 @@
     border-radius: 8px;
   }
   .row:hover {
-    background: var(--panel2);
+    background: var(--st-surface-wash);
   }
   .folder {
     font-weight: 600;
@@ -103,12 +103,12 @@
     padding-left: 28px;
   }
   .file.current {
-    background: var(--accentSoft);
-    color: var(--accentInk);
+    background: var(--st-accent-soft);
+    color: var(--st-accent);
   }
   .chev {
     width: 12px;
-    color: var(--ink3);
+    color: var(--st-text-tertiary);
   }
   .name {
     overflow: hidden;
@@ -117,7 +117,7 @@
   }
   .count {
     margin-left: auto;
-    color: var(--ink3);
+    color: var(--st-text-tertiary);
     font-weight: 400;
   }
 </style>

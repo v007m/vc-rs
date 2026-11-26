@@ -1,6 +1,7 @@
 <script lang="ts">
   import { FIELDS } from './configEdits.ts';
   import type { ConfigForm } from './configForm.svelte.ts';
+  import { play } from '#lib/ui/symbols.ts';
   import { MASKED } from './port.ts';
 
   /**
@@ -15,22 +16,38 @@
   let varValue = $state('');
   let varError: string | undefined = $state();
   let busy = $derived(form.state !== 'idle' && form.state !== 'conflict');
+  let profileInput: HTMLInputElement | undefined = $state();
+  let varInput: HTMLInputElement | undefined = $state();
+  let status: HTMLElement | undefined = $state();
+
+  /** A refused add shakes the field it came from (Strata 1.1 attention wiggle). */
+  function refuse(input: HTMLInputElement | undefined, error: string | undefined): void {
+    if (error !== undefined && input) play(input, 'wiggle');
+  }
+
+  /** A clean save bounces its confirmation once (Strata 1.1 confirm bounce). */
+  async function save(): Promise<void> {
+    await form.save();
+    if (form.saved && !form.dirty && status) play(status, 'bounce');
+  }
 
   function addProfile(event: SubmitEvent): void {
     event.preventDefault();
     profileError = form.addProfile(profile.trim());
+    refuse(profileInput, profileError);
     if (profileError === undefined) profile = '';
   }
 
   function addVar(event: SubmitEvent): void {
     event.preventDefault();
     varError = form.addVar(varName.trim(), varValue);
+    refuse(varInput, varError);
     if (varError === undefined) [varName, varValue] = ['', ''];
   }
 </script>
 
 <section class="form" aria-labelledby="config-h" aria-busy={busy}>
-  <h2 id="config-h" class="h2">Project config</h2>
+  <h2 id="config-h" class="st-title3">Project config</h2>
   <p class="intro">
     What <code>vibranium.config.yaml</code> itself sets; profiles and <code>.env</code> may override it.
     Saving edits the file in place and keeps its comments.
@@ -40,10 +57,11 @@
   {/if}
   {#if form.state === 'conflict'}
     <div class="banner" role="alert">
-      <span class="grow"
+      <span class="vc-grow"
         >Not saved: <code>vibranium.config.yaml</code> changed on disk since you opened it.</span
       >
-      <button type="button" class="btn sm" onclick={() => void form.load()}>Reload from disk</button
+      <button type="button" class="st-btn st-btn--sm" onclick={() => void form.load()}
+        >Reload from disk</button
       >
     </div>
   {/if}
@@ -52,13 +70,13 @@
     <legend>General</legend>
     <label class="field">
       <span>Project</span>
-      <input class="input" autocomplete="off" disabled={busy} bind:value={form.draft.project} />
+      <input class="st-input" autocomplete="off" disabled={busy} bind:value={form.draft.project} />
     </label>
     {#each FIELDS as field (field.key)}
       <label class="field">
         <span>{field.label}</span>
         <input
-          class="input mono"
+          class="st-input vc-mono"
           autocomplete="off"
           inputmode={field.kind === 'number' ? 'numeric' : 'text'}
           placeholder={field.hint}
@@ -74,7 +92,7 @@
     <ul class="rows">
       {#each form.draft.profiles as entry (entry.id)}
         <li>
-          <label class="grow">
+          <label class="pick">
             <input
               type="radio"
               name="default-profile"
@@ -82,12 +100,12 @@
               disabled={busy}
               onchange={() => form.makeDefault(entry.id)}
             />
-            <span class="mono">{entry.id}</span>
+            <span class="vc-mono">{entry.id}</span>
             {#if entry.isDefault}<span class="tag">default</span>{/if}
           </label>
           <button
             type="button"
-            class="btn sm"
+            class="st-btn st-btn--sm"
             aria-label="Remove profile {entry.id}"
             disabled={busy}
             onclick={() => form.removeProfile(entry.id)}>Remove</button
@@ -101,7 +119,8 @@
       <label for="profile-id">New profile</label>
       <input
         id="profile-id"
-        class="input mono"
+        class="st-input vc-mono"
+        bind:this={profileInput}
         autocomplete="off"
         spellcheck="false"
         placeholder="staging"
@@ -110,7 +129,8 @@
         bind:value={profile}
         oninput={() => (profileError = undefined)}
       />
-      <button type="submit" class="btn sm" disabled={busy || !profile.trim()}>Add</button>
+      <button type="submit" class="st-btn st-btn--sm" disabled={busy || !profile.trim()}>Add</button
+      >
       {#if profileError}<p id="profile-id-problem" class="error">{profileError}</p>{/if}
     </form>
   </fieldset>
@@ -120,17 +140,17 @@
     <ul class="rows">
       {#each Object.keys(form.draft.vars) as name (name)}
         <li>
-          <label class="var grow">
-            <span class="mono">{name}</span>
+          <label class="var">
+            <span class="vc-mono">{name}</span>
             {#if form.draft.vars[name]?.includes(MASKED)}
               <span class="masked"
-                >{form.draft.vars[name]}<span class="sr">
+                >{form.draft.vars[name]}<span class="vc-sr">
                   (reads a secret; change it in the editor)</span
                 ></span
               >
             {:else}
               <input
-                class="input mono"
+                class="st-input vc-mono"
                 autocomplete="off"
                 spellcheck="false"
                 disabled={busy}
@@ -138,7 +158,7 @@
               />
               {#if form.draft.resolved.includes(name)}
                 <span class="tag"
-                  >resolved<span class="sr">
+                  >resolved<span class="vc-sr">
                     (shown with its references filled in; a change is written as typed)</span
                   ></span
                 >
@@ -147,7 +167,7 @@
           </label>
           <button
             type="button"
-            class="btn sm"
+            class="st-btn st-btn--sm"
             aria-label="Remove variable {name}"
             disabled={busy}
             onclick={() => form.removeVar(name)}>Remove</button
@@ -161,7 +181,8 @@
       <label for="var-name">New variable</label>
       <input
         id="var-name"
-        class="input mono"
+        class="st-input vc-mono"
+        bind:this={varInput}
         autocomplete="off"
         spellcheck="false"
         placeholder="ordersUrl"
@@ -170,38 +191,28 @@
         bind:value={varName}
         oninput={() => (varError = undefined)}
       />
-      <label for="var-value" class="sr">Value</label>
+      <label for="var-value" class="vc-sr">Value</label>
       <input
         id="var-value"
-        class="input mono"
+        class="st-input vc-mono"
         autocomplete="off"
         spellcheck="false"
         placeholder="http://localhost:8081"
         bind:value={varValue}
       />
-      <button type="submit" class="btn sm" disabled={busy || !varName.trim()}>Add</button>
+      <button type="submit" class="st-btn st-btn--sm" disabled={busy || !varName.trim()}>Add</button
+      >
       {#if varError}<p id="var-name-problem" class="error">{varError}</p>{/if}
     </form>
   </fieldset>
 
+  {#if form.diff !== undefined}
+    <pre class="diff vc-mono" aria-label="Changes to vibranium.config.yaml">{form.diff ||
+        'No change to the file.'}</pre>
+  {/if}
+  <!-- the section's footer: Cancel-like actions first, the primary last at the right (D616) -->
   <div class="actions">
-    <button
-      type="button"
-      class="btn"
-      disabled={busy || !form.dirty}
-      onclick={() => void form.review()}
-      >{form.state === 'reviewing' ? 'Reviewing…' : 'Review changes'}</button
-    >
-    <button
-      type="button"
-      class="btn primary"
-      disabled={busy || !form.dirty}
-      onclick={() => void form.save()}>{form.state === 'saving' ? 'Saving…' : 'Save'}</button
-    >
-    <button type="button" class="btn" disabled={busy || !form.dirty} onclick={() => form.discard()}
-      >Discard changes</button
-    >
-    <p class="status" role="status">
+    <p class="status" role="status" bind:this={status}>
       {#if form.dirty}
         {form.edits.length} unsaved change{form.edits.length === 1 ? '' : 's'}.
       {:else if form.saved?.checkError}
@@ -212,11 +223,26 @@
           : `The project has ${form.saved.problems} problem${form.saved.problems === 1 ? '' : 's'}; see them in the editor.`}
       {/if}
     </p>
+    <button
+      type="button"
+      class="st-btn"
+      disabled={busy || !form.dirty}
+      onclick={() => void form.review()}
+      >{form.state === 'reviewing' ? 'Reviewing…' : 'Review changes'}</button
+    >
+    <button
+      type="button"
+      class="st-btn"
+      disabled={busy || !form.dirty}
+      onclick={() => form.discard()}>Discard changes</button
+    >
+    <button
+      type="button"
+      class="st-btn st-btn--primary"
+      disabled={busy || !form.dirty}
+      onclick={() => void save()}>{form.state === 'saving' ? 'Saving…' : 'Save'}</button
+    >
   </div>
-  {#if form.diff !== undefined}
-    <pre class="diff mono" aria-label="Changes to vibranium.config.yaml">{form.diff ||
-        'No change to the file.'}</pre>
-  {/if}
 </section>
 
 <style>
@@ -228,33 +254,65 @@
   .empty,
   .status {
     margin: 0;
-    color: var(--ink2);
+    color: var(--st-text-secondary);
   }
+  /* Settings rows (D603): a group is a section label over left-aligned rows, no box; the rule
+     between two rows is inset by the same 12px at both ends. */
   fieldset {
     display: grid;
-    gap: 8px;
     margin: 0;
-    padding: 12px;
-    border: 1px solid var(--line);
-    border-radius: 6px;
+    padding: 0;
+    border: 0;
   }
   legend {
-    padding: 0 4px;
-    font-weight: 500;
+    padding: 0 0 4px;
+    font: var(--st-type-label);
+    letter-spacing: var(--st-tracking-label);
+    color: var(--st-text-tertiary);
   }
+  .field,
+  .rows li,
+  .add {
+    position: relative;
+    min-height: 44px;
+    padding: 7px 12px;
+  }
+  .field + .field::before,
+  .rows + .add::before,
+  .rows li + li::before {
+    content: '';
+    position: absolute;
+    inset: 0 12px auto;
+    border-top: 1px solid var(--st-chrome-separator);
+  }
+  .rows {
+    position: relative;
+    display: grid;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  /* fields keep their own width (at most 320px) and never stretch across the card */
   .field {
     display: grid;
     grid-template-columns: 120px minmax(0, 320px);
     gap: 8px;
     align-items: center;
-    color: var(--ink2);
+    color: var(--st-text-secondary);
   }
-  .rows {
-    display: grid;
-    gap: 4px;
-    margin: 0;
-    padding: 0;
-    list-style: none;
+  .rows li {
+    justify-content: flex-start;
+  }
+  .add input {
+    flex: 0 1 200px;
+    min-width: 0;
+  }
+  .add #profile-id {
+    flex-basis: 320px;
+  }
+  .var .st-input {
+    flex: 0 1 320px;
+    min-width: 0;
   }
   .rows li,
   .rows label,
@@ -266,15 +324,38 @@
     gap: 8px;
     align-items: center;
   }
-  .grow {
+  .vc-grow {
     flex: 1;
   }
-  .var .mono:first-child {
+  .pick,
+  .var {
+    min-width: 0;
+  }
+  /* The section's footer, on the card's own surface: no fill, a hairline that stops 12px short
+     of both ends (D614), Cancel-like actions first and Save last (D616). It stays in the flow:
+     Secrets and Auth follow, so a sticky footer would always cover the rows scrolling under
+     it, and a translucent one either shows them through or reads as a panel. */
+  .actions {
+    position: relative;
+    justify-content: flex-end;
+    margin: 0 -12px;
+    padding: 12px 12px 0;
+  }
+  .actions::before {
+    content: '';
+    position: absolute;
+    inset: 0 12px auto;
+    border-top: 1px solid var(--st-chrome-separator);
+  }
+  .actions .status {
+    flex: 1 1 200px;
+  }
+  .var .vc-mono:first-child {
     min-width: 120px;
   }
   .tag {
     font-size: 12px;
-    color: var(--ink2);
+    color: var(--st-text-secondary);
   }
   .masked {
     letter-spacing: 1px;
@@ -284,19 +365,19 @@
   }
   .banner {
     padding: 8px 12px;
-    border: 1px solid var(--fail);
-    border-radius: 6px;
+    border-radius: var(--st-radius-md);
+    background: var(--vc-fail-soft);
   }
   .diff {
     margin: 0;
     padding: 8px 12px;
     overflow-x: auto;
-    border: 1px solid var(--line);
-    border-radius: 6px;
+    border-radius: var(--st-radius-md);
+    background: var(--st-surface-wash);
     white-space: pre;
   }
   .error {
     margin: 0;
-    color: var(--fail);
+    color: var(--vc-fail);
   }
 </style>

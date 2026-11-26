@@ -1,4 +1,4 @@
-/* The Client space (ui.md §4, D560): the request bar on L0, and the request and response cards
+/* The Client space (ui.md §4, D560): the request bar on the canvas, and the request and response cards
    on a resizable split. Ported from the ui-v2 mockup; the tab strip styles itself. */
 
 /* ---- method pill and status code --------------------------------------------- */
@@ -10,100 +10,100 @@
   height: 18px;
   padding: 0 4px;
   border-radius: 5px;
-  font-family: var(--mono);
+  font-family: var(--st-font-mono);
   font-size: 10px;
-  font-weight: var(--fw-semibold);
+  font-weight: var(--st-weight-semibold);
   letter-spacing: 0.02em;
-  color: var(--m-get);
-  background: color-mix(in oklab, var(--m-get) 14%, transparent);
+  color: var(--vc-m-get);
+  background: color-mix(in oklab, var(--vc-m-get) 14%, transparent);
 }
 .method[data-m='POST'] {
-  color: var(--m-post);
-  background: color-mix(in oklab, var(--m-post) 14%, transparent);
+  color: var(--vc-m-post);
+  background: color-mix(in oklab, var(--vc-m-post) 14%, transparent);
 }
 .method[data-m='PUT'] {
-  color: var(--m-put);
-  background: color-mix(in oklab, var(--m-put) 14%, transparent);
+  color: var(--vc-m-put);
+  background: color-mix(in oklab, var(--vc-m-put) 14%, transparent);
 }
 .method[data-m='PATCH'] {
-  color: var(--m-patch);
-  background: color-mix(in oklab, var(--m-patch) 14%, transparent);
+  color: var(--vc-m-patch);
+  background: color-mix(in oklab, var(--vc-m-patch) 14%, transparent);
 }
 .method[data-m='DELETE'] {
-  color: var(--m-delete);
-  background: color-mix(in oklab, var(--m-delete) 14%, transparent);
+  color: var(--vc-m-delete);
+  background: color-mix(in oklab, var(--vc-m-delete) 14%, transparent);
 }
 .method:is([data-m='WS'], [data-m='SSE']) {
-  color: var(--m-stream);
-  background: color-mix(in oklab, var(--m-stream) 14%, transparent);
+  color: var(--vc-m-stream);
+  background: color-mix(in oklab, var(--vc-m-stream) 14%, transparent);
 }
 .hs {
-  font-family: var(--mono);
-  font-weight: var(--fw-semibold);
+  font-family: var(--st-font-mono);
+  font-weight: var(--st-weight-semibold);
   font-variant-numeric: tabular-nums;
 }
 .hs[data-class='2'] {
-  color: var(--st-pass-ink);
+  color: var(--vc-pass-ink);
 }
 .hs[data-class='3'] {
-  color: var(--st-flaky-ink);
+  color: var(--vc-flaky-ink);
 }
 .hs[data-class='4'] {
-  color: var(--st-blocked-ink);
+  color: var(--vc-blocked-ink);
 }
 .hs[data-class='5'] {
-  color: var(--st-fail-ink);
+  color: var(--vc-fail-ink);
 }
 
-/* ---- the screen: request bar on L0, then the split --------------------------- */
+/* ---- the screen: request bar on the canvas, then the split --------------------------- */
 .client {
   flex: 1 1 auto;
   display: flex;
   flex-direction: column;
-  gap: var(--sp-3);
+  gap: var(--st-space-12);
   min-height: 0;
   min-width: 0;
 }
 .reqbar {
   display: flex;
   align-items: center;
-  gap: var(--sp-2);
+  gap: var(--st-space-8);
   flex: none;
   min-width: 0;
 }
-.reqbar > :is(.btn, .select, .url),
-.reqbar .btn-split .btn {
-  height: var(--ctl-h-lg);
+.reqbar > :is(.st-btn, .st-input, .url),
+.reqbar .btn-split .st-btn {
+  height: var(--st-size-control-lg);
 }
-.reqbar .select {
+.reqbar .st-input {
   flex: none;
   width: auto;
-  border-radius: var(--r-pill);
-  font-family: var(--mono);
-  font-weight: var(--fw-semibold);
+  border-radius: var(--st-radius-capsule);
+  font-family: var(--st-font-mono);
+  font-weight: var(--st-weight-semibold);
 }
 .url {
   flex: 1 1 auto;
   display: flex;
   align-items: center;
   min-width: 0;
-  padding: 0 var(--sp-3);
-  border: 1px solid transparent;
-  border-radius: var(--r-pill);
-  background: var(--field-bg);
-  box-shadow: var(--sh-deboss);
-  font-family: var(--mono);
-  font-size: 13px;
-  color: var(--ink);
+  padding: 0 var(--st-space-16);
+  border-radius: var(--st-radius-capsule);
+  background: var(--st-surface-input);
+  box-shadow: var(--st-emboss);
+  font-family: var(--st-font-mono);
+  font-size: var(--vc-size-body);
+  color: var(--st-text-primary);
   white-space: nowrap;
   overflow: hidden;
 }
 .url:focus-within {
-  border-color: var(--focus);
+  background: var(--st-surface-input-focus);
+  box-shadow: var(--st-emboss), var(--st-focus-ring);
 }
 .url .q {
   flex: none;
-  color: var(--ink-3);
+  color: var(--st-text-tertiary);
 }
 .url input {
   flex: 1 1 auto;
@@ -115,21 +115,23 @@
   color: inherit;
 }
 .url input::placeholder {
-  color: var(--ink-3);
+  color: var(--st-text-tertiary);
 }
 .btn-split {
   position: relative;
   display: inline-flex;
   align-items: stretch;
 }
-.btn-split > .btn:first-child {
-  border-radius: var(--r-pill) 0 0 var(--r-pill);
-  padding-right: var(--sp-3);
+.btn-split > .st-btn:first-child {
+  border-radius: var(--st-radius-md) 0 0 var(--st-radius-md);
+  padding-right: var(--st-space-12);
 }
-.btn-split > :nth-child(2) > .btn {
-  border-radius: 0 var(--r-pill) var(--r-pill) 0;
+.btn-split > :nth-child(2) > .st-btn {
+  border-radius: 0 var(--st-radius-md) var(--st-radius-md) 0;
   padding: 0 10px;
-  border-left-color: color-mix(in oklab, var(--primary-ink) 20%, transparent);
+  box-shadow:
+    var(--st-emboss),
+    inset 1px 0 0 color-mix(in srgb, var(--st-text-on-accent) 28%, transparent);
 }
 
 /* ---- split: request | response ------------------------------------------------ */
@@ -137,12 +139,12 @@
   --split: 50%;
   flex: 1 1 auto;
   display: grid;
-  grid-template-columns: minmax(280px, var(--split)) 12px minmax(280px, 1fr);
+  grid-template-columns: minmax(280px, var(--split)) var(--st-card-gap) minmax(280px, 1fr);
   grid-template-rows: minmax(0, 1fr);
   min-height: 0;
   min-width: 0;
 }
-.split > .glass {
+.split > .st-card {
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -155,18 +157,18 @@
   place-items: center;
   cursor: col-resize;
   touch-action: none;
-  border-radius: var(--r-sm);
+  border-radius: var(--st-radius-sm);
 }
 .divider::before {
   content: '';
   width: 4px;
   height: 36px;
-  border-radius: var(--r-pill);
-  background: var(--l0-ink-3);
+  border-radius: var(--st-radius-capsule);
+  background: var(--st-text-tertiary);
   opacity: 0.45;
   transition:
-    opacity var(--dur-2) var(--ease),
-    height var(--dur-2) var(--ease);
+    opacity var(--st-duration-fast) var(--st-ease-standard),
+    height var(--st-duration-fast) var(--st-ease-standard);
 }
 .divider:is(:hover, :focus-visible)::before {
   opacity: 0.9;
@@ -174,7 +176,7 @@
 }
 .split[data-orient='stack'] {
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: minmax(160px, var(--split)) 12px minmax(160px, 1fr);
+  grid-template-rows: minmax(160px, var(--split)) var(--st-card-gap) minmax(160px, 1fr);
 }
 .split[data-orient='stack'] .divider {
   cursor: row-resize;
@@ -186,7 +188,7 @@
 @container app (max-width: 1100px) {
   .split:not([data-orient='side']) {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: minmax(160px, var(--split)) 12px minmax(160px, 1fr);
+    grid-template-rows: minmax(160px, var(--split)) var(--st-card-gap) minmax(160px, 1fr);
   }
   .split:not([data-orient='side']) .divider {
     cursor: row-resize;
@@ -201,10 +203,10 @@
 .card-head {
   display: flex;
   align-items: center;
-  gap: var(--sp-2);
+  gap: var(--st-space-8);
   flex-wrap: wrap;
   min-width: 0;
-  padding: var(--card-pad) var(--card-pad) var(--sp-3);
+  padding: var(--st-card-padding) var(--st-card-padding) var(--st-space-12);
 }
 .card-title {
   margin: 0;
@@ -212,63 +214,60 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: var(--fs-4);
-  font-weight: var(--fw-semibold);
-  letter-spacing: var(--tracking-title);
+  font: var(--st-type-title3);
+  letter-spacing: var(--st-tracking-title3);
 }
 .file-ref {
-  font-family: var(--mono);
-  font-size: var(--fs-1);
-  color: var(--ink-3);
+  font-family: var(--st-font-mono);
+  font-size: var(--vc-size-caption);
+  color: var(--st-text-tertiary);
 }
-.split > .glass > [role='tablist'] {
+.split > .st-card > [role='tablist'] {
   flex: none;
-  padding: 0 var(--card-pad) var(--sp-3);
-  border-bottom: 1px solid var(--rule);
+  padding: 0 var(--st-card-padding) var(--st-space-12);
+  border-bottom: 1px solid var(--st-chrome-separator);
 }
-.split > .glass > [role='tabpanel'] {
+.split > .st-card > [role='tabpanel'] {
   flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
   display: flex;
   flex-direction: column;
-  gap: var(--sp-4);
-  padding: var(--card-pad);
-  font-size: var(--fs-2);
+  gap: var(--st-space-16);
+  padding: var(--st-card-padding);
+  font-size: var(--vc-size-body);
 }
 .resp-empty {
-  display: grid;
-  place-items: center;
-  padding: var(--card-pad);
-  color: var(--ink-2);
-  text-align: center;
+  display: flex;
+  flex-direction: column;
+  padding: var(--st-space-12);
 }
 .resp-meta {
   display: flex;
   align-items: center;
-  gap: var(--sp-2);
+  gap: var(--st-space-8);
   flex-wrap: wrap;
   min-width: 0;
-  color: var(--ink-2);
+  color: var(--st-text-secondary);
 }
 .resp-meta .hs {
-  font-size: var(--fs-3);
+  font-size: var(--vc-size-callout);
 }
 .resp-meta b {
-  color: var(--ink);
-  font-weight: var(--fw-semibold);
+  color: var(--st-text-primary);
+  font-weight: var(--st-weight-semibold);
   font-variant-numeric: tabular-nums;
 }
 .body-tools {
   display: flex;
   align-items: center;
-  gap: var(--sp-2);
+  gap: var(--st-space-8);
   flex-wrap: wrap;
 }
-.body-tools .input {
+.body-tools .st-input {
   flex: 1 1 220px;
   width: auto;
-  font-family: var(--mono);
+  font-family: var(--st-font-mono);
 }
 .body-view {
   flex: 1 1 auto;
@@ -278,32 +277,30 @@
 .client-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: var(--fs-2);
+  font-size: var(--vc-size-body);
   font-variant-numeric: tabular-nums;
 }
 .client-table th {
-  padding: 8px var(--sp-3);
-  border-bottom: 1px solid var(--rule-strong);
-  color: var(--ink-3);
-  font-size: 11px;
-  font-weight: var(--fw-semibold);
-  letter-spacing: var(--tracking-label);
+  padding: 8px var(--st-space-12);
+  border-bottom: 1px solid var(--vc-rule-strong);
+  color: var(--st-text-tertiary);
+  font: var(--st-type-label);
+  letter-spacing: var(--st-tracking-label);
   text-align: left;
-  text-transform: uppercase;
 }
 .client-table tbody th {
-  color: var(--ink);
-  font-size: var(--fs-2);
+  color: var(--st-text-primary);
+  font-size: var(--vc-size-body);
+  font-weight: var(--st-weight-regular);
   letter-spacing: 0;
-  text-transform: none;
   border-bottom: 0;
 }
 .client-table :is(td, tbody th) {
-  padding: 6px var(--sp-3);
-  border-top: 1px solid var(--rule);
+  padding: 6px var(--st-space-12);
+  border-top: 1px solid var(--st-chrome-separator);
   vertical-align: top;
   overflow-wrap: anywhere;
 }
 .client-table.readonly :is(td, th) {
-  color: var(--ink-2);
+  color: var(--st-text-secondary);
 }

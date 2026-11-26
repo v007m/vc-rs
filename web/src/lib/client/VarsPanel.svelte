@@ -8,28 +8,34 @@
   const layered = $derived(client.request?.explained?.vars ?? []);
 </script>
 
-<p class="muted">Empty vars keep the api's defaults. Vars are sent like <code>--var</code>.</p>
+<p class="st-secondary">
+  Empty vars keep the api's defaults. Vars are sent like <code>--var</code>.
+</p>
 <ul class="vars">
   {#each client.vars as row, i (i)}
     <li>
       {#if declared.has(row.name)}
-        <label class="mono name" for="var-{i}">{row.name}</label>
+        <label class="vc-mono name" for="var-{i}">{row.name}</label>
       {:else}
-        <input class="input mono name" aria-label="Var name" bind:value={row.name} />
+        <input class="st-input vc-mono name" aria-label="Var name" bind:value={row.name} />
       {/if}
       <input
-        class="input mono grow"
+        class="st-input vc-mono vc-grow"
         id="var-{i}"
         aria-label={declared.has(row.name) ? undefined : 'Var value'}
         bind:value={row.value}
       />
       {#if !declared.has(row.name)}
-        <button type="button" class="btn btn-sm" onclick={() => client.removeVar(i)}>Remove</button>
+        <button type="button" class="st-btn st-btn--sm" onclick={() => client.removeVar(i)}
+          >Remove</button
+        >
       {/if}
     </li>
   {/each}
 </ul>
-<div><button type="button" class="btn btn-sm" onclick={() => client.addVar()}>Add var</button></div>
+<div>
+  <button type="button" class="st-btn st-btn--sm" onclick={() => client.addVar()}>Add var</button>
+</div>
 {#if layered.length > 0}
   <table class="client-table readonly" aria-label="Vars from the project">
     <thead>
@@ -42,8 +48,8 @@
     <tbody>
       {#each layered as v (v.key)}
         <tr>
-          <th scope="row" class="mono">{v.key}</th>
-          <td class="mono">{v.layers[0]?.value ?? ''}</td>
+          <th scope="row" class="vc-mono">{v.key}</th>
+          <td class="vc-mono">{v.layers[0]?.value ?? ''}</td>
           <td>{v.layers[0]?.source ?? ''}</td>
         </tr>
       {/each}

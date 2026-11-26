@@ -81,7 +81,7 @@
   <ClientTabStrip {client} onpick={() => (mode = 'request')} />
 {/snippet}
 
-<h1 class="sr">API client</h1>
+<h1 class="vc-sr">API client</h1>
 {#if client.error && !client.current && !dialog}
   <p class="error" role="alert">{client.error}</p>
 {/if}
@@ -114,39 +114,41 @@
   </div>
 {:else}
   <div class="flows-view">
-    <section class="glass flows-card" aria-labelledby="flows-title">
+    <section class="st-card st-card--glass flows-card" aria-labelledby="flows-title">
       <div class="card-head">
-        <h2 class="card-title grow" id="flows-title">Flow tests</h2>
-        <button type="button" class="btn btn-sm" onclick={() => (mode = 'request')}
+        <h2 class="card-title vc-grow" id="flows-title">Flow tests</h2>
+        <button type="button" class="st-btn st-btn--sm" onclick={() => (mode = 'request')}
           >Back to requests</button
         >
       </div>
-      <p class="muted pad">
+      <p class="st-secondary pad">
         A flow is a test whose <code>steps</code> call apis in order, saving values between them.
       </p>
       <ul class="flows pad" aria-label="Flow tests">
         {#each client.flows as listed (listed.id)}
           <li>
-            <span class="grow"
-              ><span class="mono">{listed.id}</span> · {listed.name} · {listed.steps} steps</span
+            <span class="vc-grow"
+              ><span class="vc-mono">{listed.id}</span> · {listed.name} · {listed.steps} steps</span
             >
             <button
               type="button"
-              class="btn btn-sm"
+              class="st-btn st-btn--sm"
               aria-label="Edit {listed.id}"
               aria-pressed={flow?.id === listed.id}
               onclick={() => edit(listed.id)}>Edit</button
             >
             <button
               type="button"
-              class="btn btn-sm"
+              class="st-btn st-btn--sm"
               aria-label="Run {listed.id}"
               disabled={session.running || (flow?.id === listed.id && flow.dirty)}
               onclick={() => session.start({ selection: { ids: [listed.id] } })}>Run</button
             >
           </li>
         {:else}
-          <li class="muted">No flow tests yet. Import a HAR with a flow test to record one.</li>
+          <li class="st-secondary">
+            No flow tests yet. Import a HAR with a flow test to record one.
+          </li>
         {/each}
       </ul>
       {#if session.running}
@@ -154,7 +156,7 @@
       {/if}
     </section>
     {#if flow}
-      <div class="glass flow-card">
+      <div class="st-card st-card--glass flow-card">
         <FlowPanel
           {flow}
           apis={client.apis}
@@ -185,11 +187,11 @@
 <style>
   .error {
     margin: 0;
-    color: var(--st-fail-ink);
+    color: var(--vc-fail-ink);
   }
   .said {
     margin: 0;
-    color: var(--ink-2);
+    color: var(--st-text-secondary);
   }
   .said:empty {
     display: none;
@@ -197,25 +199,25 @@
   .flows-view {
     display: grid;
     align-content: start;
-    gap: var(--sp-4);
+    gap: var(--st-space-16);
     min-width: 0;
     overflow: auto;
   }
   .flow-card {
-    padding: var(--card-pad);
+    padding: var(--st-card-padding);
   }
   .pad {
     margin: 0;
-    padding: 0 var(--card-pad) var(--sp-3);
+    padding: 0 var(--st-card-padding) var(--st-space-12);
   }
   .flows {
     display: grid;
-    gap: var(--sp-2);
+    gap: var(--st-space-8);
     list-style: none;
   }
   .flows li {
     display: flex;
     align-items: center;
-    gap: var(--sp-2);
+    gap: var(--st-space-8);
   }
 </style>

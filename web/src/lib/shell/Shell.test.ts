@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/svelte';
+import { fireEvent, render, screen, within } from '@testing-library/svelte';
 import { userEvent } from '@testing-library/user-event';
 import { createRawSnippet, tick } from 'svelte';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
@@ -94,6 +94,50 @@ describe('Shell', () => {
     expect(navigate).toHaveBeenCalledTimes(3);
   });
 
+  it('paints each space in its Strata preset (D591)', async () => {
+    const { container, rerender, props } = setup('/client');
+    const app = () => container.querySelector('.app');
+    expect(app()?.classList.contains('st-canvas')).toBe(true);
+    const presets: string[] = [];
+    for (const pathname of ['/client', '/tests', '/runs', '/agents', '/settings']) {
+      await rerender({ ...props, pathname });
+      presets.push(app()?.getAttribute('data-space') ?? '');
+    }
+    expect(presets).toEqual(['tide', 'lilac', 'ember', 'grove', 'graphite']);
+  });
+
+  it('shows the space shortcuts while the modifier is held, as plain text (D600)', async () => {
+    vi.useFakeTimers();
+    try {
+      const { container, rail } = setup('/client');
+      const app = container.querySelector('.app');
+      const hints = [...rail().querySelectorAll('.sp-hint')].map((hint) => hint.textContent);
+      expect(hints).toEqual(['Ctrl+1', 'Ctrl+2', 'Ctrl+3', 'Ctrl+4', 'Ctrl+,']);
+      expect(rail().querySelector('.st-kbd')).toBeNull();
+      await fireEvent.keyDown(window, { key: 'Control' });
+      vi.advanceTimersByTime(450);
+      await tick();
+      expect(app?.classList.contains('is-hints')).toBe(true);
+      await fireEvent.keyUp(window, { key: 'Control' });
+      expect(app?.classList.contains('is-hints')).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('cycles the rail, sidebar, top row and screen with F6 and Shift+F6', async () => {
+    const { rail, user } = setup('/tests');
+    const sidebar = screen.getByRole('complementary', { name: 'Tests sidebar' });
+    await user.keyboard('{F6}');
+    expect(rail().contains(document.activeElement)).toBe(true);
+    await user.keyboard('{F6}');
+    expect(sidebar.contains(document.activeElement)).toBe(true);
+    await user.keyboard('{Shift>}{F6}{/Shift}');
+    expect(rail().contains(document.activeElement)).toBe(true);
+    await user.keyboard('{Shift>}{F6}{/Shift}');
+    expect(document.activeElement).toBe(screen.getByRole('main'));
+  });
+
   it('closes a sidebar section and keeps it closed on the next visit', async () => {
     const { user, store, unmount } = setup('/tests');
     const head = screen.getByRole('button', { name: 'Tests' });
@@ -136,7 +180,7 @@ describe('Shell', () => {
     const { container } = setup('/client', memory(), slots);
     expect(screen.getByText('own sidebar')).toBeTruthy();
     expect(screen.getByRole('navigation', { name: 'Open tabs' })).toBeTruthy();
-    expect(screen.getByRole('heading', { level: 1 }).className).toBe('sr');
+    expect(screen.getByRole('heading', { level: 1 }).className).toBe('vc-sr');
     expect(container.querySelector('.stage > .card')).toBeNull();
     empty();
     await tick();
@@ -167,5 +211,25 @@ describe('Shell', () => {
     await tick();
     expect(mounts).toBe(1);
     expect(screen.getByText('counted screen')).toBe(before);
+  });
+  it('opens the palette from the search field or ⌘K and goes to the picked screen', async () => {
+    const { user, navigate } = setup('/client');
+    await user.click(screen.getByRole('button', { name: /Search or run/ }));
+    const palette = screen.getByRole('dialog', { name: 'Search or run' });
+    const field = within(palette).getByRole('combobox', { name: 'Search or run' });
+    expect(within(palette).getAllByRole('group').length).toBe(5);
+    await user.type(field, 'edit');
+    expect(
+      within(palette).getByRole('option', { name: 'Editor' }).getAttribute('aria-selected'),
+    ).toBe('true');
+    await user.keyboard('{Enter}');
+    expect(navigate).toHaveBeenCalledWith('/tests/editor');
+    expect(screen.queryByRole('dialog', { name: 'Search or run' })).toBeNull();
+
+    await fireEvent.keyDown(window, { key: 'k', metaKey: true });
+    const again = screen.getByRole('dialog', { name: 'Search or run' });
+    await user.keyboard('{ArrowDown}{ArrowUp}{ArrowUp}{Enter}');
+    expect(navigate).toHaveBeenLastCalledWith('/settings');
+    expect(again.isConnected).toBe(false);
   });
 });

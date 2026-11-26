@@ -22,18 +22,18 @@
 </script>
 
 <section class="log" aria-labelledby="log-h">
-  <h2 id="log-h" class="h2">Activity</h2>
+  <h2 id="log-h" class="st-title3">Activity</h2>
   <div class="filters">
     <label>
       Agent
-      <select class="input" bind:value={agent}>
+      <select class="st-input" bind:value={agent}>
         <option value="">All agents</option>
         {#each agents as name (name)}<option value={name}>{name}</option>{/each}
       </select>
     </label>
-    <label class="grow">
-      <span class="sr">Filter activity</span>
-      <input class="input" type="search" placeholder="Filter activity" bind:value={text} />
+    <label class="vc-grow">
+      <span class="vc-sr">Filter activity</span>
+      <input class="st-input" type="search" placeholder="Filter activity" bind:value={text} />
     </label>
   </div>
   {#if shown.length}
@@ -50,7 +50,7 @@
           <tr>
             <td>
               <button
-                class="row mono"
+                class="row vc-mono"
                 type="button"
                 aria-expanded={open === index}
                 aria-controls="act-{index}"
@@ -70,9 +70,9 @@
             <tr id="act-{index}">
               <td colspan="5">
                 <h3 class="sub">Arguments</h3>
-                <pre class="mono">{action.arguments}</pre>
+                <pre class="vc-mono">{action.arguments}</pre>
                 <h3 class="sub">Result returned to {action.agent}</h3>
-                <pre class="mono">{action.result}</pre>
+                <pre class="vc-mono">{action.result}</pre>
               </td>
             </tr>
           {/if}
@@ -100,7 +100,7 @@
     display: flex;
     gap: 8px;
     align-items: center;
-    color: var(--ink2);
+    color: var(--st-text-secondary);
   }
   table {
     width: 100%;
@@ -109,37 +109,37 @@
   th,
   td {
     padding: 6px 8px;
-    border-bottom: 1px solid var(--line);
+    border-bottom: 1px solid var(--st-chrome-separator);
     text-align: left;
     vertical-align: top;
   }
   th {
-    color: var(--ink2);
+    color: var(--st-text-secondary);
     font-weight: 500;
   }
   .row {
     padding: 0;
     border: 0;
     background: none;
-    color: var(--accentInk);
+    color: var(--st-accent);
     font: inherit;
     cursor: pointer;
   }
   .sub {
     margin: 8px 0 4px;
     font-size: 13px;
-    color: var(--ink2);
+    color: var(--st-text-secondary);
   }
   pre {
     margin: 0;
     padding: 10px;
     border-radius: 8px;
-    background: var(--panel2);
+    background: var(--st-surface-wash);
     white-space: pre-wrap;
     overflow-wrap: anywhere;
   }
   .empty {
     margin: 0;
-    color: var(--ink2);
+    color: var(--st-text-secondary);
   }
 </style>

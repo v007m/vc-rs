@@ -14,13 +14,13 @@ export function doneCount(counts: Counts): number {
   return counts.passed + counts.failed + counts.blocked + counts.flaky + counts.skipped;
 }
 
-/** The `dot` and `pill` modifier class of each outcome (controls.css). */
+/** The `st-dot` and `st-badge` modifier class of each outcome (strata/vibranium.css). */
 export const statusClass: Readonly<Record<Status, string>> = {
-  passed: 'pass',
-  failed: 'fail',
-  blocked: 'block',
-  flaky: 'flaky',
-  skipped: 'skip',
+  passed: 'vc-pass',
+  failed: 'vc-fail',
+  blocked: 'vc-blocked',
+  flaky: 'vc-flaky',
+  skipped: 'vc-skipped',
 };
 
 /** `12.0`, `9.5`, `1234`: a duration in ms, finer below 10 ms; empty when unknown. */

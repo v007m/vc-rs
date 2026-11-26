@@ -23,6 +23,6 @@
   }
 </script>
 
-<Menu label="Layout" {items} button="btn btn-ghost btn-icon" onpick={pick}>
+<Menu label="Layout" {items} button="st-icon-btn" onpick={pick}>
   <Icon name={layout.orient === 'stack' ? 'rows' : 'columns'} small />
 </Menu>

@@ -62,7 +62,7 @@
           onclick={() => reopen(entry)}
         >
           <span class="method" data-m={entry.method}>{entry.method ?? 'RUN'}</span>
-          <span class="title mono">{entry.label}</span>
+          <span class="title vc-mono">{entry.label}</span>
           {#if entry.status}
             <span class="hs" data-class={statusClass(entry.status)}>{entry.status}</span>
           {:else}
@@ -79,29 +79,27 @@
 <style>
   .hist-quiet {
     margin: 0;
-    padding: var(--sp-1) var(--sp-3) var(--sp-2);
-    color: var(--l0-ink-2);
-    font-size: var(--fs-1);
+    padding: var(--st-space-4) var(--st-space-12) var(--st-space-8);
+    color: var(--st-text-secondary);
+    font-size: var(--vc-size-caption);
   }
   .hist-row {
     width: 100%;
-    min-height: 30px;
     border: 0;
     background: transparent;
     text-align: left;
-    font: inherit;
   }
   .hist-row .title {
-    font-size: var(--fs-1);
+    font-size: var(--vc-size-caption);
   }
   .hist-row .hs {
-    font-size: var(--fs-1);
+    font-size: var(--vc-size-caption);
   }
   .hist-row:disabled {
     cursor: default;
   }
   .hist-all {
-    margin-top: var(--sp-2);
-    color: var(--l0-ink-2);
+    margin-top: var(--st-space-8);
+    color: var(--st-text-secondary);
   }
 </style>

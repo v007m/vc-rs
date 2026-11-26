@@ -47,7 +47,7 @@
     >
       <span class="row file">
         <span class="chev" aria-hidden="true">{open ? '▾' : '▸'}</span>
-        <span class="mono">{group.fileId}</span>
+        <span class="vc-mono">{group.fileId}</span>
         <span class="count">{group.tests.length}</span>
       </span>
       {#if open}
@@ -79,10 +79,10 @@
                     ontoggle(test.id);
                   }}
                 ></span>
-                <span class="mono">{test.local}</span>
+                <span class="vc-mono">{test.local}</span>
                 <span class="name">{test.name}</span>
-                {#if test.skipped}<span class="pill block">skipped</span>{/if}
-                {#each test.tags as tag (tag)}<span class="pill">{tag}</span>{/each}
+                {#if test.skipped}<span class="st-badge vc-blocked">skipped</span>{/if}
+                {#each test.tags as tag (tag)}<span class="st-badge">{tag}</span>{/each}
               </span>
             </li>
           {/each}
@@ -113,7 +113,7 @@
     border-radius: 8px;
   }
   .row:hover {
-    background: var(--panel2);
+    background: var(--st-surface-wash);
   }
   .file {
     font-weight: 600;
@@ -122,31 +122,31 @@
     padding-left: 28px;
   }
   .test.current {
-    background: var(--accentSoft);
+    background: var(--st-accent-soft);
   }
   .chev {
     width: 12px;
-    color: var(--ink3);
+    color: var(--st-text-tertiary);
   }
   .count {
     margin-left: auto;
-    color: var(--ink3);
+    color: var(--st-text-tertiary);
     font-weight: 400;
   }
-  .row .mono {
+  .row .vc-mono {
     flex: 0 1 auto;
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .row .pill {
+  .row .st-badge {
     flex: none;
   }
   .name {
     flex: 1 1 auto;
     min-width: 0;
-    color: var(--ink2);
+    color: var(--st-text-secondary);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -155,12 +155,12 @@
     width: 14px;
     height: 14px;
     flex: none;
-    border: 1.5px solid var(--ink3);
+    border: 1.5px solid var(--st-text-tertiary);
     border-radius: 4px;
   }
   .check.on {
-    background: var(--accent);
-    border-color: var(--accent);
-    box-shadow: inset 0 0 0 2px var(--panel);
+    background: var(--st-accent);
+    border-color: var(--st-accent);
+    box-shadow: inset 0 0 0 2px var(--st-surface-wash);
   }
 </style>

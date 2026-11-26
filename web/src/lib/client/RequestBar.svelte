@@ -48,10 +48,10 @@
 <svelte:window {onkeydown} />
 
 {#if tab}
-  <div class="reqbar on-l0" role="group" aria-label="Request">
+  <div class="reqbar" role="group" aria-label="Request">
     {#if scratch}
-      <label class="sr" for="request-type">Request type</label>
-      <select id="request-type" class="select" bind:value={scratch.type} disabled={stream?.live}>
+      <label class="vc-sr" for="request-type">Request type</label>
+      <select id="request-type" class="st-input" bind:value={scratch.type} disabled={stream?.live}>
         {#each types as type (type.id)}<option value={type.id}>{type.label}</option>{/each}
       </select>
       {#if scratch.type === 'http'}
@@ -70,7 +70,7 @@
       {@const form = client.request.form}
       {@render methods(form.method, (m) => (form.method = m))}
       <div class="url">
-        <label class="sr" for="request-path">Path</label>
+        <label class="vc-sr" for="request-path">Path</label>
         <input
           id="request-path"
           autocomplete="off"
@@ -82,11 +82,11 @@
     {/if}
     {#if stream}
       {#if stream.live}
-        <button type="button" class="btn" onclick={() => void stream.close()}>Disconnect</button>
+        <button type="button" class="st-btn" onclick={() => void stream.close()}>Disconnect</button>
       {:else}
         <button
           type="button"
-          class="btn primary"
+          class="st-btn st-btn--primary"
           disabled={!scratch?.url.trim()}
           onclick={() => void client.send()}>Connect</button
         >
@@ -95,17 +95,22 @@
       <div class="btn-split">
         <button
           type="button"
-          class="btn primary"
+          class="st-btn st-btn--primary"
           title="Send (Ctrl+Enter or Cmd+Enter)"
           disabled={client.sending}
           aria-busy={client.sending}
           onclick={() => void client.send()}
           ><Icon name="send" small />{client.sending ? 'Sending…' : 'Send'}<span
-            class="kbd"
+            class="st-kbd"
             aria-hidden="true">⌘↵</span
           ></button
         >
-        <Menu label="More send options" {items} button="btn primary" onpick={(id) => void pick(id)}>
+        <Menu
+          label="More send options"
+          {items}
+          button="st-btn st-btn--primary"
+          onpick={(id) => void pick(id)}
+        >
           <Icon name="chevron" small />
         </Menu>
       </div>
@@ -115,10 +120,10 @@
 {/if}
 
 {#snippet methods(value: string, set: (method: string) => void)}
-  <label class="sr" for="request-method">Method</label>
+  <label class="vc-sr" for="request-method">Method</label>
   <select
     id="request-method"
-    class="select"
+    class="st-input"
     {value}
     onchange={(event) => set(event.currentTarget.value)}
   >

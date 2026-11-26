@@ -18,39 +18,41 @@ Status: approved by Sarath; the build is under way (§13). The decisions are fro
 
 ## 2. Visual system
 
-The style follows the Arc browser.
+The UI is built on the Strata design system (D590), adopted at Sarath's request on 2026-11-26. It replaces the earlier Arc-style graphite look (Rounds 88–92). Where Sarath's rules and Strata differ, Sarath's rules win, and the difference lives in one file.
+
+### Sources
+- `web/src/lib/styles/strata/tokens.css` and `strata.css` are Strata 1.0.0, vendored verbatim. Each has a three-line header with the upstream file's SHA-256, and Prettier skips them. They are never edited; an update is a plain copy (D592).
+- `strata/vibranium.css` holds everything Vibranium changes or adds: token overrides, the `--vc-*` tokens (status, methods, YAML, diffs, waterfall), recipe overrides and the recipes Strata lacks. Its part 5 holds Sarath's Strata 1.1 deltas until upstream 1.1 tokens land (D624). `shell.css` and `sidebar.css` lay out the shell with Strata recipes.
+- Components use tokens only: `--st-*` from Strata, `--vc-*` from Vibranium.
 
 ### Layers
 | Layer | What sits on it | Treatment |
 |---|---|---|
-| L0 background | sidebar, header, breadcrumbs, section labels, secondary text, status line | Muted colour blobs blended into the near-black (or pale) base, drifting slowly under a visible film grain. It looks matte metallic, not neon. The sidebar, header and status line have no panel of their own: their text sits straight on L0 |
-| L1 glass card | the main content card (one per view; a split shows two) | Liquid glass: a light frost over a tinted base (about 20% in dark, 25% in light), so the blobs clearly show through, with a strong blur and saturation, a soft specular top edge, an inner rim and a soft outer shadow (D505) |
-| L2 raised control | buttons, segmented controls, chips, tabs | A smaller glass "pill" that is lifted on hover and debossed (inset shadow) when pressed or active |
-| L3 overlay | command palette, popovers, dialogs, toasts | The strongest glass (about 62%), with a backdrop dim |
+| Canvas (`.st-canvas`) | rail, sidebar, top row, section labels, status line | Four soft colour blobs over the base, under a matte grain (a local `grain.svg`, since the CSP blocks `data:`; D602). Pastel in light; charcoal with deep blue, slate and burnt orange in dark. Chrome has no boxes: no panel, border or fill on the sidebar, tabs, labels, icons or toolbar |
+| Card (`.st-card`) | the main content (one per view; a split shows two) | Glass that shows the canvas (white at 42 % in light, the slate at 45 % in dark; D608), solid as a viewer option (`data-cards="solid"`) or with reduced transparency. Dark cards are a slate (`#253137` solid), never black or neutral grey (D601). Never a card inside a card: a surface inside a card is a wash with no border (D609) |
+| Overlay (`.st-overlay`) | menus, popovers, dialogs, toasts, the palette | The strongest surface, as native `<dialog>` and `[popover]` elements. It grows out of what opened it (D618) |
 
-Inside a card:
-- **One card level.** Nothing inside a card gets its own box. Group with spacing, section labels and hairline rules; tables are a header row plus row rules.
-- **Only inputs are filled.** Text inputs, selects, the URL field, key/value cells and the YAML editor are debossed: darker than the card, with an inset top shadow. Read-only values are plain text.
-- **Viewers are wells.** Read-only code, JSON, diffs and logs sit in a padded debossed well, like an input.
-- Wrappers that are not cards, such as the URL bar row, have no background or border.
-- **Selection** is a faint tint, never a filled box. No component has a leading-edge bar; a changed field shows a small dot (D506).
-- **Focus rings** show for keyboard use only (`:focus-visible`).
-- **Tabs** (D507) have one style everywhere: the selected tab is a raised L2 pill, with no underline.
+### Spaces
+Each space sets `data-space` on the app, which picks the blobs and the accent (D591): Tests lilac, Client tide, Runs ember, Agents grove, Settings graphite. The primary button, focus rings, selected controls and native checkboxes take the space's accent.
 
-Density (D497):
-- Spacing comes from one scale: 4/8/12/16/24/32. Cards have 24 px padding; rows are 40–44 px.
-- At most one chip per row and at most three visible actions per area; the rest go in a ⋯ menu.
-- Paths, file IDs and other secondary detail live in tooltips. Detail sections start collapsed. Log and run rows are one line.
-- An empty pane keeps its place and shows one quiet line, with at most one action.
+### Layout and shape
+- Cards sit 8 px from the window on the top, right and bottom (10 px above 1600 px wide), and 0 on the sidebar side. A split has an 8 px gap with its handle in the gap (D594).
+- Corners are concentric, inner = outer − gap: window 20 px, cards 12, overlays 18 with 12 px items, the palette 22 with 14 px items, dialogs 28; a surface on a card takes 8 (D610).
+- Every single-line control is a capsule: fields, selects (with a gradient-drawn chevron, D621), the Env control and search. Multi-line fields are 8 px rounded rects. Controls are 28, 32 (default) or 40 px, border-box, and a row's items share one height; badges never sit in a control row (D611).
+- Empty panes show the empty state: icon, Title3 title and caption, centred in a wash (D609).
+- In a row every item has the same height, with icon and text centred; icons have no border or background (D596).
+- Buttons have one emboss, and a long label wraps instead of clipping. The primary button is the space's accent, one per view, last at the bottom right with Cancel-like actions before it; each Settings section ends in a footer on the card's own surface. Fields are capped in width, not stretched (D597, D616).
+- The switch and slider are iOS liquid glass: a capsule track and a glassy debossed thumb. The segmented control has one glass lens that springs between options (D598, D615). Badges are capsules, larger than 18 px.
+- Focus: buttons and toggles get a 2 px accent outline at 2 px offset; a text field gets a 1.5 px accent ring on itself (D612).
+- Settings rows are left aligned, at least 44 px tall. Separators stop 12 px short of both ends everywhere (D603, D614).
+- Dialogs have a Title2 heading and actions at the bottom right, Cancel first; focus stays inside and Esc cancels. Toasts are capsules at the bottom centre for about 3 s, with an optional Undo (D604).
+- The search capsule in the top row is embossed, shows its shortcut and opens the command palette (D595, D620).
 
-### Tokens
-- Every colour, radius, blur, shadow, space and type size is a CSS custom property in `tokens.css`. Components use tokens only.
-- **Accent and buttons (D496):** primary buttons are monochrome: near-white in dark, near-black in light. The accent is a calm blue, used only for focus rings, links, progress and toggles. Profile dots: local blue, dev teal, staging amber, prod red.
-- **Tint:** the blob palette is picked per project, and overridden per profile. Prod defaults to a red or amber tint, so a dangerous profile is visible at a glance. Tints are stored in UI prefs.
-- **Themes:** dark is the default. Light is the alternative. Both are checked for AA on every layer pair, including text on L0 over the brightest blob.
-- **Reduce motion:** the blobs stop drifting. **Reduce transparency** (or the in-app switch) makes L1 and L2 solid.
-- **Type:** Geist and Geist Mono, self-hosted under the CSP. Their licence is OFL 1.1, which must be checked against JSLICENSE. The scale is 12/13/14/16/20/24 with tokens for each.
-- **Grain:** visible at 100% zoom in both themes; a tiny tiled noise PNG, or an SVG `feTurbulence` baked to a data URI at build time (the CSP forbids inline styles but allows hashed CSS).
+### Type, motion and preferences
+- **Type:** Strata's SF Pro-first stack, with Inter (variable, OFL 1.1) bundled as the fallback off Apple platforms; the mono stack is Strata's (SF Mono, then the system monospace). Roles are Strata's (`--st-type-*`): micro, caption, label, body, Title3, Title2 (D599).
+- **Themes:** the OS setting by default; `data-theme` forces light or dark.
+- **Motion** uses two springs as `linear()` curves, 480 ms with a little overshoot and 280 ms critically damped for closing (D617). Overlays grow out of their anchor with a translate and a clip, never a scale (D618); symbols are written on, rotate, bounce or wiggle like SF Symbols (D619). Reduced motion stops the blobs and transitions and shows end states. `data-transparency="reduced"` makes cards and overlays solid; `data-density="compact"` tightens rows. The Appearance settings that set these come later (D605).
+- **Keyboard hints** are plain tertiary text, never keycaps: `⌘K` on Apple platforms, `Ctrl+K` elsewhere. Holding the modifier alone for 450 ms shows each space's shortcut beside its rail button. F6 and Shift+F6 move between the regions: rail, sidebar, top row and main (D600).
 
 ### Status language
 These colours are shared with the CLI, TUI and HTML report: pass, fail, blocked, skipped, flaky and allowFailure. Every status has an icon as well as a colour, so status never relies on colour alone.
@@ -58,13 +60,13 @@ These colours are shared with the CLI, TUI and HTML report: pass, fail, blocked,
 ## 3. Shell and spaces
 
 ```
-┌ rail ┬ L0: sidebar ─────────┬─ L0 top row: tabs, or title · status · primary ·· ENV ● local ▾  ⌕ Search ⌘K ┐
-│ ●●●  │ space's views,       │ ┌ L1 glass card ─────────────────────────────────────────────────────────┐ │
+┌ rail ┬ canvas: sidebar ─────┬─ top row: tabs, or title · status · primary ·· ENV ● local ▾  ⌕ Search ⌘K    ┐
+│ ●●●  │ space's views,       │ ┌ glass card ────────────────────────────────────────────────────────────┐ │
 │ ⇢ Cl │ filters and          │ │   the selected screen (fills to the status line)                      │ │
 │ ▤ Te │ collapsible sections │ │                                                                       │ │
 │ ▶ Ru │ (Requests / History, │ │                                                                       │ │
 │ ⚇ Ag │  Tests / Changes)    │ └───────────────────────────────────────────────────────────────────────┘ │
-│ ⚙ Se │                      │  L0 status line: version · branch · vc check                               │
+│ ⚙ Se │                      │  canvas status line: version · branch · vc check                           │
 └──────┴──────────────────────┴────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -74,7 +76,7 @@ These colours are shared with the CLI, TUI and HTML report: pass, fail, blocked,
   - **Runs:** every run, live and stored, API and load; reports, compare, schedules and the Overview (the former Insights).
   - **Agents:** approvals, activity, usage, permissions and connection.
   - **Settings:** every setting, by scope.
-- **Space switcher** (D513): a left icon rail on L0 by default, with the traffic lights on top, the five spaces with small labels (⌘1–⌘5) and Settings pinned at the bottom (⌘,). It stays when the sidebar is collapsed. Settings › This app › Appearance offers **Sidebar bottom** instead: the five icons in one row at the sidebar's foot.
+- **Space switcher** (D513): a left icon rail on the canvas by default, with the traffic lights on top, the five spaces with small labels (⌘1–⌘5) and Settings pinned at the bottom (⌘,). It stays when the sidebar is collapsed. Settings › This app › Appearance offers **Sidebar bottom** instead: the five icons in one row at the sidebar's foot.
 - **One bar** (D514): the 44 px top row is the only bar above the cards. Client shows its tab strip there; other spaces show the screen title (the crumbs without the project), at most one status and one primary action. The env pill and search sit at its right in every space. There is no header band or sub-nav: a space's views live in its sidebar.
 - **Sidebar sections** (D515): a sidebar stacks collapsible sections. A closed section keeps only its header; open sections share the height equally.
 - **Pinned and temporary tabs.** Pinned tabs stay. Other tabs close themselves after 12 h idle; the time can be changed. A closed scratch request stays in history.
@@ -89,7 +91,7 @@ These colours are shared with the CLI, TUI and HTML report: pass, fail, blocked,
   - At 1100 px and below, the sidebar is a drawer over the stage, opened from the top row. The rail stays, so a space is always one click away.
   - Below 900 px search collapses to an icon.
   - Below 760 px the margins tighten. This is web only and read-mostly.
-  - Screens size their own layouts with `@container card`, the L1 card's width.
+  - Screens size their own layouts with `@container card`, the card's width.
 - **Desktop shell:** the traffic lights sit at the top of the rail, or of the sidebar with Sidebar bottom. The window can be dragged from the top row. Native menus mirror the palette commands.
 
 ## 4. Client space (R43)
@@ -155,7 +157,7 @@ A wizard with six steps: Source (OpenAPI, HAR, Postman, Bruno, .http, cURL paste
   - the **Changes** section (the git pane, below).
 - **Query syntax** in the table and the popover: `tag:smoke status:failed api:orders`, with OR, `-` to exclude, and saved views.
 - **All tests** opens the table, with bulk actions: Run, Skip until, Tag, Quarantine, each with Undo.
-- **Test detail** (one L1 card at full width):
+- **Test detail** (one card at full width):
   - id, `path:line`, tags;
   - the lifecycle it inherits (beforeAll/afterAll and cleanups);
   - the apis it calls;
@@ -195,6 +197,7 @@ A wizard with six steps: Source (OpenAPI, HAR, Postman, Bruno, .http, cURL paste
   - Format uses `vc fmt`.
   - Delete moves the file to the OS trash, after a confirmation that lists the tests that reference it.
 - **Plan preview** (`vc plan --explain`) for the selection shows the instances, the lifecycle order and the merged expects.
+- **Built so far (Round 98):** the YAML view only; the form view and Split come with the form editors. The view lives in a shadow root so its styles pass the CSP (D568). The editor bar holds Diff, Revert, Fix all, Check, Run file (Stop while it runs), Save and the file menu (D573). The plan preview covers the open file, not yet a selection (D576). Run file is a recorded run until the check run's `record: false` lands (D574).
 
 ## 6. Runs space (D519)
 
@@ -252,11 +255,12 @@ Five views in the sidebar, each opening with one sentence on what it is for:
   - general, paths, defaults, profiles, vars per profile, http, tls, auth (with Test), secrets (`.env.schema`), reports and history, alerts (with Send test alert), agent access and plugins.
   - Each has a form, plus a pending-changes bar with a diff.
 - **You only** (`~/.config/vibranium`): the same form, clearly badged.
-- **This app:** theme, tint for each project and profile, motion and transparency, density, the tab idle time and the space switcher (Icon rail or Sidebar bottom).
+- **This app:** theme, cards (glass or solid), motion and transparency, density, the tab idle time and the space switcher (Icon rail or Sidebar bottom).
 
 ## 8. Shared overlays
 
 ### Command palette (⌘K)
+Built so far (D620): ⌘K or the top row's search opens it, grown out of the search field; it lists every screen grouped by space, filtered by word prefix, with arrows, Enter and Esc. The rest of this list comes later.
 - Jump to any api, test, file, run or setting.
 - Run any `vc` command with typed arguments and a preview: check, run with a selector, plan, fmt, rename, import, sync, explain a code, and new.
 - Recent items come first.
@@ -377,6 +381,7 @@ Round 91 (the fifth mockup review: five spaces):
 
 - Static HTML, CSS and JS with fake data. There's no framework or CDN, and the CSP-style rules apply: no inline `style=`.
 - One shared `tokens.css`, `shell.css` and `glass.css`. A theme and tint switcher sits in a dev corner.
+- The mockups predate the Strata restyle (D590); the built UI and §2 are the reference for the look.
 - Published as a private artifact for review.
 
 **Screens**, each with its key states:
@@ -419,7 +424,7 @@ Each step is one or two PRs, and each RPC gets its own small engine PR first.
 
 **Done so far (batch A, Round 92):**
 
-- **Step 1.** The tokens, the L0 background, the glass and the controls are in `web/src/lib/styles/` (`tokens`, `glass`, `controls`, `status`, `shell`, `sidebar`). `legacy.css` maps the v1 token names onto v2 ones until each screen is redesigned. Geist and Geist Mono are bundled (D526), and #114 is fixed (D534).
+- **Step 1.** (Replaced by the Strata restyle, Round 99.) The tokens, the L0 background, the glass and the controls were in `web/src/lib/styles/` (`tokens`, `glass`, `controls`, `status`, `shell`, `sidebar`). `legacy.css` mapped the v1 token names onto v2 ones. Geist and Geist Mono were bundled (D526), and #114 is fixed (D534).
 - **Step 2, shell part.** The five-space shell is in `web/src/lib/shell/`: the rail, sidebars, top row and status line, saved UI prefs, and the shortcuts. The existing screens sit inside it at the routes in D527. Each sidebar lists only the views that exist today, one section per space.
 - **Not built yet.** These come in later steps:
   - the Client tab strip and the per-space designs (the Tests tree in its sidebar, the git pane, the Runs sidebar and schedules)
@@ -434,3 +439,18 @@ Each step is one or two PRs, and each RPC gets its own small engine PR first.
 - **Step 4.** SSE and WebSocket scratch tabs connect through CallStream; the message card filters, pauses and (WebSocket) sends (D564).
 - **Needs the engine.** Ad hoc calls, streams and history use the RPCs of D540–D542; against an older engine each shows "needs a newer engine".
 - **Not built yet:** save as var, CEL in the filter, GraphQL, Test auth, the engine events list, the full Import wizard, WebSocket snippets and the exchange check (listed in Round 93).
+
+**Done so far (batch C, Round 98):**
+
+- **Step 5, YAML part.** The editor at `/tests/editor` has the YAML view on CodeMirror 6 in a shadow root, so the CSP holds (D568, D569); squiggles with their certain fixes, a live check of the unsaved text, Fix all and Save anyway (D570–D572); and its bar with Check and Run file (D573, D574). Completion and hover sit behind `EditorAssist` (D567).
+- **Step 6.** New file, Rename or move with its preview, Format, Move to trash and the plan preview are built behind `FileOps` and `PlanPort` (D575, D576).
+- **Step 7, Cancel part.** Stop, Stop now and Skip cleanups cancel a run by its handle (D577).
+- **Step 9, git part.** The Changes section of the Tests sidebar commits, pushes and pulls through the Vcs RPCs, with each file's diff (D578–D580), and the status line shows the branch (D581).
+- **Needs the engine.** Completion, hover, the file operations and the plan wait for `Complete` and `Hover`, `CreateFile`, `Rename` (with its preview), `Format`, the references list, `TrashFile`, `Plan` and `ApplyFixes` (§10, rows 4–6); against today's engine each says "needs a newer engine". Run file is recorded until `Run` takes `record: false` (row 17).
+- **Not built yet:** the form view and Split, Explain in a side panel, the Tests table's bulk actions and saved views, test detail, Quarantine and the per-test history strip (listed in Round 98).
+
+**Strata restyle (Round 99):**
+
+- The whole UI moved to Strata (D590–D607): the vendored `strata/` files plus `vibranium.css`, the space colours, chrome without boxes, one card level, capsule fields, keyboard hints and F6 regions. The old `tokens`, `legacy`, `glass`, `controls` and `status` styles and `Background.svelte` are gone, and Inter replaces Geist.
+- The HTML report keeps its own look (D531); `web/src/report/shared-names.css` gives the components it shares with the app their Strata names (D606).
+- **Not built yet:** the Appearance settings (cards, transparency, density), the command palette and toasts in use, and custom space colours from OKLCH seeds.

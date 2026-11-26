@@ -1,0 +1,880 @@
+/* Vibranium's layer over Strata 1.0.0 (docs/design/ui.md §2, Round 99). It loads after the
+   vendored strata/tokens.css and strata/strata.css, which are never edited, so a Strata update
+   is a plain copy. Everything Vibranium changes or adds is here, in five parts:
+     1. Strata token overrides: the font stack with the bundled Inter, the input height and
+        the slate dark surfaces.
+     2. Vibranium tokens (--vc-*): the status language shared with the CLI, TUI and report, HTTP
+        methods, YAML syntax, diffs, the waterfall, the prod profile and the shell's sizes.
+     3. Strata recipe overrides where Sarath's rules differ: switch and slider with a glassy
+        thumb, capsule badges, dialogs, toasts and overlays as native <dialog> and [popover].
+     4. Vibranium recipes Strata lacks: status badges and dots, tabs, wells and utilities.
+     5. The Strata 1.1 deltas, until upstream 1.1 tokens land: radii, heights, focus, surfaces,
+        the segmented lens, springs, anchored overlays and symbol motion.
+   Shapes (one rule per element kind): every single-line control (button, field, select,
+   search, segmented, tab, switch, badge) is a capsule; taller things are smooth rounded rects
+   (window 20, card 12, overlay 18, palette 22, dialog 28, rows and menu items 8-14), and a
+   shape nested in a padded one takes the outer radius minus the gap (--vc-radius-inner). */
+
+/* ---- 1. token overrides ---------------------------------------------------------------- */
+:root {
+  --st-font-sans:
+    'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Inter Variable', Inter, 'Segoe UI Variable',
+    'Segoe UI', system-ui, sans-serif;
+  --st-font-display:
+    'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Inter Variable', Inter,
+    'Segoe UI Variable', system-ui, sans-serif;
+  /* one row height: a field beside a button is as tall as the button (24/30/36) */
+  --st-size-input-height: var(--st-size-control-md);
+  /* a page has no desktop behind it, so the canvas is opaque */
+  --st-window-opacity: 1;
+}
+/* Dark cards are a quiet slate, never black or neutral grey. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --st-surface-solid: #253137;
+    --st-surface-glass: #2531379e;
+    --st-surface-overlay: #27343aeb;
+    --st-surface-input-on-card: #1c262b;
+  }
+}
+:root[data-theme='dark'] {
+  --st-surface-solid: #253137;
+  --st-surface-glass: #2531379e;
+  --st-surface-overlay: #27343aeb;
+  --st-surface-input-on-card: #1c262b;
+}
+/* Reduced transparency again, after the slate: Strata's own rule loses to its dark blocks. */
+@media (prefers-reduced-transparency: reduce) {
+  :root:not([data-transparency='full']) {
+    --st-surface-glass: var(--st-surface-solid);
+    --st-surface-overlay: var(--st-surface-solid);
+    --st-surface-input: var(--st-surface-input-on-card);
+    --st-blur-glass: 0px;
+    --st-blur-overlay: 0px;
+    --st-blur-chrome: 0px;
+  }
+}
+:root[data-transparency='reduced'] {
+  --st-surface-glass: var(--st-surface-solid);
+  --st-surface-overlay: var(--st-surface-solid);
+  --st-surface-input: var(--st-surface-input-on-card);
+  --st-blur-glass: 0px;
+  --st-blur-overlay: 0px;
+  --st-blur-chrome: 0px;
+}
+
+/* ---- 2. Vibranium tokens ------------------------------------------------------------------ */
+/* light-dark(LIGHT, DARK) follows the color-scheme that Strata's mode blocks set. */
+:root {
+  /* status (D41): each has a mark colour, a soft fill and an ink that passes AA on that fill */
+  --vc-pass: light-dark(#0f6039, #55d99a);
+  --vc-pass-soft: light-dark(#ddf3e7, rgb(70 208 143 / 0.15));
+  --vc-pass-ink: light-dark(#0f5c37, #7fe2b3);
+  --vc-fail: light-dark(#a01c1c, #ffa8aa);
+  --vc-fail-soft: light-dark(#fde5e4, rgb(255 107 112 / 0.15));
+  --vc-fail-ink: light-dark(#9c1f1f, #ff9ea1);
+  --vc-blocked: light-dark(#7a4600, #f5b75a);
+  --vc-blocked-soft: light-dark(#fbefd9, rgb(243 173 69 / 0.15));
+  --vc-blocked-ink: light-dark(#784600, #f8c57a);
+  --vc-skipped: light-dark(#4c5260, #c0c5ce);
+  --vc-skipped-soft: light-dark(#eaecef, rgb(160 166 178 / 0.15));
+  --vc-skipped-ink: light-dark(#434956, #c5cad3);
+  --vc-flaky: light-dark(#204caa, #a2c3ff);
+  --vc-flaky-soft: light-dark(#e3ebfc, rgb(126 170 255 / 0.15));
+  --vc-flaky-ink: light-dark(#1f4699, #a9c6ff);
+  --vc-allow: light-dark(#8c2c67, #f6a8d3);
+  --vc-allow-soft: light-dark(#f9e4f0, rgb(240 143 196 / 0.15));
+  --vc-allow-ink: light-dark(#80285f, #f6b5d9);
+  --vc-warn: var(--vc-blocked);
+  --vc-info: var(--vc-flaky);
+  /* a live data profile reads as a warning everywhere it shows */
+  --vc-prod-bg: light-dark(oklch(0.93 0.05 25 / 0.9), oklch(0.42 0.15 25 / 0.55));
+  --vc-prod-border: light-dark(oklch(0.62 0.18 25 / 0.5), oklch(0.72 0.16 25 / 0.5));
+  --vc-prod-ink: light-dark(#8f1d1d, #ffe1e1);
+  /* one hue per profile, the same everywhere (local blue, dev teal, staging amber, prod red) */
+  --vc-profile-hue: 255;
+  /* HTTP methods */
+  --vc-m-get: light-dark(#0f5e39, #6ee0aa);
+  --vc-m-post: light-dark(#214ca6, #a3c2ff);
+  --vc-m-put: light-dark(#7a4600, #f3b860);
+  --vc-m-patch: light-dark(#6436ab, #d2b8ff);
+  --vc-m-delete: light-dark(#9e1e1e, #ffa3a6);
+  --vc-m-stream: light-dark(#095863, #6fdde8);
+  /* YAML and JSON syntax */
+  --vc-syn-key: light-dark(#5038c0, #b9a8ff);
+  --vc-syn-string: light-dark(#0f5e39, #8fe0b0);
+  --vc-syn-number: light-dark(#862a63, #f5a3cf);
+  --vc-syn-bool: light-dark(#7a4600, #f3c06b);
+  --vc-syn-null: light-dark(#4a4f5d, #adb2bd);
+  --vc-syn-punct: light-dark(#636976, #8a909b);
+  --vc-syn-var: var(--st-accent);
+  --vc-syn-var-bg: var(--st-accent-soft);
+  /* diffs */
+  --vc-diff-add-bg: light-dark(#e3f5ea, rgb(70 208 143 / 0.13));
+  --vc-diff-add-ink: light-dark(#0f5c37, #8fe6b9);
+  --vc-diff-del-bg: light-dark(#fde8e7, rgb(255 107 112 / 0.13));
+  --vc-diff-del-ink: light-dark(#9c1f1f, #ffa4a7);
+  /* the timing waterfall */
+  --vc-wf-dns: oklch(0.7 0.1 230);
+  --vc-wf-connect: oklch(0.68 0.13 200);
+  --vc-wf-tls: oklch(0.72 0.12 175);
+  --vc-wf-wait: oklch(0.74 0.14 75);
+  --vc-wf-down: oklch(0.66 0.16 25);
+  /* surfaces Strata has no name for */
+  --vc-rule-strong: color-mix(in srgb, var(--st-text-primary) 18%, transparent);
+  --vc-deboss: inset 0 1px 2px var(--st-shadow-ink), inset 0 0 0 0.5px var(--st-edge-hairline);
+  --vc-accent-mid: color-mix(in srgb, var(--st-accent) 45%, transparent);
+  --vc-shadow-overlay: var(--st-edge-card), var(--st-shadow-lg);
+  /* the type sizes of Strata's roles, for rules that set only a size */
+  --vc-size-micro: 11px;
+  --vc-size-caption: 12px;
+  --vc-size-body: 13px;
+  --vc-size-callout: 14px;
+  --vc-size-title3: 15px;
+  --vc-size-title2: 17px;
+  --vc-size-title1: 20px;
+  --vc-size-large-title: 26px;
+  --vc-lh: 1.45;
+  --vc-lh-code: 1.5;
+  /* the shell */
+  --vc-rail-w: 64px;
+  --vc-strip-w: 64px;
+  --vc-statusline-h: 28px;
+}
+
+/* ---- 3. recipe overrides ------------------------------------------------------------------ */
+/* cards are glass unless the viewer chose solid ones */
+[data-cards='solid'] .st-card--glass {
+  background: var(--st-surface-solid);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+/* buttons: links styled as buttons lose the underline; heights and shape are in part 5 */
+.st-btn {
+  text-align: center;
+  text-decoration: none;
+  user-select: none;
+  cursor: pointer;
+}
+.st-btn[aria-pressed='true'],
+.st-btn[aria-expanded='true'] {
+  box-shadow: var(--vc-deboss);
+}
+.st-btn[aria-disabled='true'] {
+  opacity: var(--st-opacity-disabled);
+  pointer-events: none;
+}
+.st-btn--ghost[aria-pressed='true'],
+.st-btn--ghost[aria-expanded='true'] {
+  background: var(--st-surface-wash);
+  box-shadow: none;
+}
+/* a destructive action that is not the view's primary one: red text on a normal button */
+.vc-btn--destructive,
+.st-card .vc-btn--destructive {
+  color: var(--vc-fail-ink);
+}
+/* icon buttons: as tall as the buttons beside them; never a fill or a border */
+.st-icon-btn {
+  width: var(--st-size-control-md);
+  height: var(--st-size-control-md);
+  text-decoration: none;
+  cursor: pointer;
+}
+.st-icon-btn--sm {
+  width: var(--st-size-control-sm);
+  height: var(--st-size-control-sm);
+}
+.st-icon-btn[aria-disabled='true'] {
+  opacity: var(--st-opacity-disabled);
+  pointer-events: none;
+}
+
+/* fields: select and the class on a bare control share the input shape (the capsule select
+   and the deboss are in part 5) */
+select.st-input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  font: var(--st-type-body);
+}
+textarea.st-input {
+  min-height: 96px;
+  font: var(--st-type-code);
+}
+
+/* segmented: a capsule track (the lens is in part 5) */
+.st-segmented {
+  align-items: center;
+  max-width: 100%;
+  border-radius: var(--st-radius-capsule);
+}
+.st-segmented button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--st-space-6);
+  border-radius: var(--st-radius-capsule);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.st-segmented button:disabled {
+  opacity: var(--st-opacity-disabled);
+  pointer-events: none;
+}
+/* the switch and the slider match it: the same track, the same thumb */
+.st-switch::after,
+.st-slider::-webkit-slider-thumb {
+  background: light-dark(#ffffff, #e9eef0);
+  box-shadow:
+    0 1px 2px var(--st-shadow-ink),
+    inset 0 -1px 0 var(--st-edge-lowlight);
+}
+.st-slider::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: var(--st-radius-capsule);
+  box-shadow: var(--vc-deboss);
+}
+.st-slider::-webkit-slider-thumb {
+  margin-top: -5px;
+}
+
+/* badges: capsules, a little larger than Strata's, with room around the word */
+.st-badge {
+  height: 22px;
+  padding: 0 var(--st-space-10);
+  gap: var(--st-space-4);
+  border-radius: var(--st-radius-capsule);
+  font: var(--st-type-caption);
+  font-weight: var(--st-weight-medium);
+  white-space: nowrap;
+  flex: none;
+  background: var(--st-surface-wash);
+  color: var(--st-text-secondary);
+}
+
+/* overlays as native elements: <dialog> and [popover] bring their own borders and margins */
+dialog.st-overlay,
+[popover].st-overlay {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+dialog.st-overlay {
+  margin: auto;
+  max-width: min(720px, calc(100vw - 32px));
+  max-height: min(86vh, 820px);
+  overflow: hidden;
+}
+dialog.st-overlay::backdrop {
+  background: var(--st-scrim);
+}
+/* component display rules must not keep a closed popover on screen */
+[popover]:not(:popover-open) {
+  display: none !important;
+}
+/* dialogs: a Title2 heading; actions at the bottom right, Cancel first */
+.st-dialog {
+  width: min(480px, calc(100vw - 32px));
+}
+.st-dialog > :is(h1, h2, h3):first-child,
+.st-dialog .st-dialog-title {
+  font: var(--st-type-title2);
+  letter-spacing: var(--st-tracking-title2);
+  margin: 0;
+}
+/* toasts: a capsule at the bottom centre, centred text, an optional Undo capsule */
+.st-toast {
+  position: fixed;
+  left: 50%;
+  bottom: var(--st-space-24);
+  translate: -50% 0;
+  justify-content: center;
+  max-width: calc(100vw - 32px);
+  text-align: center;
+  background: var(--st-surface-overlay);
+  -webkit-backdrop-filter: var(--st-overlay-filter);
+  backdrop-filter: var(--st-overlay-filter);
+  animation: st-rise var(--st-duration-base) var(--st-ease-standard) both;
+}
+.st-toast .st-btn {
+  border-radius: var(--st-radius-capsule);
+}
+/* a section label on the canvas or a card: Strata's role, never upper case */
+.st-section-label {
+  margin: 0;
+}
+/* native radios and checkboxes not drawn as .st-check take the space's accent */
+input:is([type='radio'], [type='checkbox']) {
+  accent-color: var(--st-accent);
+}
+/* strata.css gives a bare input.st-input `flex: 1` so it fills a row; in a column it would
+   stretch into a tall oval, so a single-line field never grows past its height */
+input.st-input {
+  max-block-size: var(--st-size-input-height);
+}
+
+/* ---- 4. Vibranium recipes ----------------------------------------------------------------- */
+/* status badges and dots carry a word or a shape beside the colour (D41) */
+.st-badge.vc-pass {
+  color: var(--vc-pass-ink);
+  background: var(--vc-pass-soft);
+}
+.st-badge.vc-fail {
+  color: var(--vc-fail-ink);
+  background: var(--vc-fail-soft);
+}
+.st-badge.vc-blocked {
+  color: var(--vc-blocked-ink);
+  background: var(--vc-blocked-soft);
+}
+.st-badge.vc-skipped {
+  color: var(--vc-skipped-ink);
+  background: var(--vc-skipped-soft);
+}
+.st-badge.vc-flaky {
+  color: var(--vc-flaky-ink);
+  background: var(--vc-flaky-soft);
+}
+.st-badge.vc-accent {
+  color: var(--st-text-primary);
+  background: var(--st-accent-soft);
+}
+.st-dot {
+  display: inline-block;
+  background: var(--st-text-tertiary);
+}
+.st-dot.vc-pass {
+  background: var(--vc-pass);
+}
+.st-dot.vc-fail {
+  background: var(--vc-fail);
+}
+.st-dot.vc-blocked {
+  background: var(--vc-blocked);
+}
+.st-dot.vc-skipped {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--vc-skipped);
+}
+.st-dot.vc-flaky {
+  background: conic-gradient(var(--vc-flaky) 0 50%, transparent 0);
+  box-shadow: inset 0 0 0 1.5px var(--vc-flaky);
+}
+.st-dot.vc-live {
+  background: var(--vc-pass);
+  box-shadow: 0 0 0 3px var(--vc-pass-soft);
+  animation: vc-pulse 1.6s ease-in-out infinite;
+}
+@keyframes vc-pulse {
+  50% {
+    box-shadow: 0 0 0 6px transparent;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .st-dot.vc-live {
+    animation: none;
+  }
+}
+
+/* tabs: one component everywhere; on the canvas the open tab is a chrome plate, on a card a wash */
+.vc-tabs {
+  display: flex;
+  align-items: center;
+  gap: var(--st-space-2);
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.vc-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--st-space-6);
+  flex: none;
+  height: var(--st-size-control-md);
+  padding: 0 var(--st-space-12);
+  border: 0;
+  border-radius: var(--st-radius-md);
+  background: transparent;
+  color: var(--st-text-secondary);
+  font: var(--st-type-body-strong);
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background var(--st-duration-fast) var(--st-ease-standard),
+    color var(--st-duration-fast);
+}
+.vc-tab:hover {
+  color: var(--st-text-primary);
+  background: var(--st-chrome-hover);
+}
+.vc-tab:is([aria-selected='true'], [aria-current='page']) {
+  color: var(--st-text-primary);
+  background: var(--st-chrome-selected);
+  box-shadow: var(--st-shadow-xs);
+}
+.st-card .vc-tab:hover {
+  background: var(--st-surface-wash);
+}
+.st-card .vc-tab:is([aria-selected='true'], [aria-current='page']) {
+  background: var(--st-accent-soft);
+  box-shadow: none;
+}
+
+/* a well inside a card, for code, logs and read-only viewers: the wash, never a card on a
+   card (no border, no shadow; D609) */
+.vc-well {
+  min-width: 0;
+  border-radius: var(--vc-radius-inner);
+  background: var(--st-surface-wash);
+}
+
+/* utilities */
+.vc-grow {
+  flex: 1 1 auto;
+}
+.vc-mono {
+  font-family: var(--st-font-mono);
+  font-size: var(--vc-size-caption);
+}
+.vc-icon-sm {
+  width: var(--st-size-icon-sm);
+  height: var(--st-size-icon-sm);
+}
+.vc-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ---- 5. Strata 1.1 deltas until upstream 1.1 tokens land (Round 99, D608-D624) ---------------
+   Sarath's 1.1 rules on top of 1.0.0; each block names its rule. When upstream 1.1 ships its
+   tokens, this part shrinks to whatever 1.1 still leaves out. */
+
+/* SHAPE (D610): concentric radii, inner = outer - gap: the window 20 minus its 8px inset is the
+   card's 12; an overlay 18 holds items of 12 at 6px padding, the palette 22 items of 14 at 8px;
+   a dialog is 28. A well on a card's 24px padding would come out below zero, so it takes 8. */
+:root {
+  --st-radius-window: 20px;
+  --st-window-inset: 8px;
+  --st-radius-card: 12px;
+  --st-radius-overlay: 18px;
+  --vc-radius-overlay-item: 12px;
+  --vc-radius-palette: 22px;
+  --vc-radius-palette-item: 14px;
+  --vc-radius-dialog: 28px;
+  --vc-radius-inner: 8px;
+  /* HEIGHT (D611): one row, one height, border-box: 28, 32 (the default) or 40 */
+  --st-size-control-sm: 28px;
+  --st-size-control-md: 32px;
+  --st-size-control-lg: 40px;
+  --st-size-input-height: var(--st-size-control-md);
+  /* FOCUS (D612): Strata's ring token becomes the field ring, 1.5px at about 40% accent */
+  --st-focus-ring: 0 0 0 1.5px color-mix(in srgb, var(--st-accent) 40%, transparent);
+  --vc-focus-outline: 2px solid var(--st-accent);
+  /* MOTION (D617): two springs as linear() curves, the standard one with a little overshoot
+     and a quicker, critically damped one for closing */
+  --vc-spring: linear(
+    0,
+    0.084,
+    0.266,
+    0.471,
+    0.657,
+    0.805,
+    0.911,
+    0.979,
+    1.017,
+    1.035,
+    1.038,
+    1.034,
+    1.027,
+    1.019,
+    1.012,
+    1.007,
+    1.003,
+    1.001,
+    0.999,
+    1
+  );
+  --vc-spring-dur: 480ms;
+  --vc-spring-quick: linear(
+    0,
+    0.11,
+    0.31,
+    0.503,
+    0.657,
+    0.771,
+    0.85,
+    0.904,
+    0.939,
+    0.962,
+    0.976,
+    0.985,
+    0.991,
+    0.994,
+    0.997,
+    0.998,
+    1
+  );
+  --vc-spring-quick-dur: 280ms;
+  --vc-fade-dur: 90ms;
+  /* SURFACES (D608, D613): glass that shows the canvas, a light near-white lens for segmented */
+  --st-surface-glass: #ffffff6b;
+  --vc-lens-bg: #fffffff0;
+  --vc-grain: 0.32;
+  --vc-grain-filter: saturate(1.8) brightness(0.78);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --st-surface-glass: #25313773;
+    --vc-lens-bg: #41525a;
+    --vc-grain: 0.28;
+    --vc-grain-filter: saturate(1.6) brightness(1.7);
+  }
+}
+:root[data-theme='dark'] {
+  --st-surface-glass: #25313773;
+  --vc-lens-bg: #41525a;
+  --vc-grain: 0.28;
+  --vc-grain-filter: saturate(1.6) brightness(1.7);
+}
+@media (prefers-reduced-transparency: reduce) {
+  :root:not([data-transparency='full']) {
+    --st-surface-glass: var(--st-surface-solid);
+  }
+}
+:root[data-transparency='reduced'] {
+  --st-surface-glass: var(--st-surface-solid);
+}
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --vc-spring-dur: 0ms;
+    --vc-spring-quick-dur: 0ms;
+    --vc-fade-dur: 0ms;
+  }
+}
+
+/* SHAPE: smooth corners where the engine has them (WebKit and so Tauri do not yet; plain
+   border-radius is the fallback). Capsules stay true capsules. */
+@supports (corner-shape: superellipse(2)) {
+  .st-card,
+  .st-overlay,
+  .vc-well,
+  .vc-wash,
+  .st-input--rect,
+  textarea.st-input,
+  .st-row,
+  .st-menu-item,
+  .vc-palette-item {
+    corner-shape: superellipse(2);
+  }
+}
+.st-menu.st-overlay {
+  padding: var(--st-space-6);
+}
+.st-menu-item {
+  border-radius: var(--vc-radius-overlay-item);
+}
+dialog.st-overlay,
+.st-dialog {
+  border-radius: var(--vc-radius-dialog);
+}
+
+/* SHAPE + HEIGHT: every single-line control is a capsule at the row height; a button is as
+   wide as its label and never clips or wraps it (a row wraps instead) */
+.st-btn {
+  height: var(--st-size-control-md);
+  min-height: 0;
+  max-width: none;
+  flex-shrink: 0;
+  padding-block: 0;
+  border-radius: var(--st-radius-capsule);
+  white-space: nowrap;
+}
+.st-btn--sm {
+  height: var(--st-size-control-sm);
+  min-height: 0;
+  padding-block: 0;
+}
+.st-btn--lg {
+  height: var(--st-size-control-lg);
+  min-height: 0;
+}
+.st-icon-btn {
+  border-radius: var(--st-radius-capsule);
+}
+.vc-tab {
+  border-radius: var(--st-radius-capsule);
+}
+/* fields are debossed capsules (glass is the option, .vc-field--glass) */
+.st-input,
+.st-card .st-input {
+  box-shadow: var(--vc-deboss);
+}
+.vc-field--glass.st-input {
+  background: var(--st-surface-glass);
+  -webkit-backdrop-filter: var(--st-glass-filter);
+  backdrop-filter: var(--st-glass-filter);
+}
+.st-input[aria-invalid='true'] {
+  box-shadow:
+    var(--vc-deboss),
+    0 0 0 1px var(--vc-fail);
+}
+/* a select is a capsule too: the native box goes, a drawn chevron stays */
+select.st-input {
+  appearance: none;
+  -webkit-appearance: none;
+  height: var(--st-size-input-height);
+  padding: 0 calc(var(--st-space-12) + 14px) 0 var(--st-space-12);
+  border-radius: var(--st-radius-capsule);
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--st-text-tertiary) 50%),
+    linear-gradient(135deg, var(--st-text-tertiary) 50%, transparent 50%);
+  background-position:
+    right 17px center,
+    right 12px center;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+  color: var(--st-text-primary);
+  text-overflow: ellipsis;
+}
+select.st-input:disabled {
+  opacity: var(--st-opacity-disabled);
+}
+
+/* FOCUS (D612): buttons and toggles get a 2px accent ring at 2px offset; text fields a 1.5px
+   ring on the field itself, never a box inside it */
+.st-root :focus-visible {
+  outline: var(--vc-focus-outline);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+.st-root .st-btn:focus-visible {
+  box-shadow: var(--st-emboss);
+}
+.st-root .st-btn--ghost:focus-visible {
+  box-shadow: none;
+}
+.st-root
+  :is(
+    input:not([type='checkbox'], [type='radio'], [type='range']),
+    select,
+    textarea
+  ):focus-visible {
+  outline: none;
+  box-shadow: var(--vc-deboss), var(--st-focus-ring);
+}
+.st-root .st-input:is(:focus, :focus-within) {
+  outline: none;
+  box-shadow: var(--vc-deboss), var(--st-focus-ring);
+}
+.st-root .st-input :is(input, select, textarea):focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+/* SURFACES (D613, D614): the matte grain is the canvas gradient itself, darker (lighter in
+   dark) and more saturated, shown through the noise; separators stop 12px short of both ends */
+.st-canvas::after {
+  opacity: var(--vc-grain);
+  mix-blend-mode: normal;
+  background: var(--st-canvas);
+  filter: var(--vc-grain-filter);
+  -webkit-mask: url('../grain.svg') 0 0 / 200px 200px;
+  mask: url('../grain.svg') 0 0 / 200px 200px luminance;
+}
+.st-divider,
+.st-menu-sep {
+  margin-inline: var(--st-space-12);
+}
+/* a surface on a card that is not a card: the wash, no border, no shadow, the inner radius */
+.vc-wash {
+  min-width: 0;
+  border: 0;
+  border-radius: var(--vc-radius-inner);
+  background: var(--st-surface-wash);
+  box-shadow: none;
+}
+
+/* CONTROLS (D615): segmented is a 32px capsule track with one sliding glass lens; the lens
+   is the track's ::before, placed by segmented.ts through --lens-x/-w (CSSOM) */
+.st-segmented {
+  position: relative;
+  isolation: isolate;
+  height: var(--st-size-control-md);
+  padding: 2px;
+  flex-wrap: nowrap;
+}
+.st-segmented button {
+  position: relative;
+  height: 100%;
+  padding: 0 var(--st-space-12);
+  font: var(--st-type-body);
+  font-weight: var(--st-weight-medium);
+  color: color-mix(in srgb, var(--st-text-primary) 78%, transparent);
+}
+.st-segmented button[aria-pressed='true'] {
+  color: var(--st-text-primary);
+  background: var(--vc-lens-bg);
+  box-shadow: var(--st-emboss), var(--st-shadow-xs);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.st-segmented[data-lens] button[aria-pressed='true'] {
+  background: transparent;
+  box-shadow: none;
+}
+.st-segmented[data-lens]::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  top: 2px;
+  bottom: 2px;
+  left: 0;
+  width: var(--lens-w, 0px);
+  translate: var(--lens-x, 0px) 0;
+  border-radius: var(--st-radius-capsule);
+  background: var(--vc-lens-bg);
+  box-shadow: var(--st-emboss), var(--st-shadow-xs);
+  -webkit-backdrop-filter: var(--st-glass-filter);
+  backdrop-filter: var(--st-glass-filter);
+  transition:
+    translate var(--vc-spring-dur) var(--vc-spring),
+    width var(--vc-spring-dur) var(--vc-spring);
+}
+.st-segmented[data-lens='none']::before {
+  display: none;
+}
+
+/* MOTION (D617, D618): an overlay grows out of its anchor (anchor.ts): moved onto the anchor
+   and clipped to its size, it springs to its place while the content stays full size. The
+   clip's edges and corners morph together, from the anchor's capsule radius to the frame's
+   own (--vc-to-clip), so every frame is concentric; at rest (is-rest) the clip goes and the
+   shadow fades in. Closing fades the content first, then shrinks the frame on the quicker
+   spring; CSS transitions make a reopen reverse in place. */
+dialog.st-overlay[open],
+[popover].st-overlay:popover-open {
+  animation: vc-fade var(--st-duration-fast) var(--st-ease-standard) both;
+}
+/* the dialog selector beats Strata's own overlay entrance; the states below repeat it to win */
+.vc-anchored,
+dialog.st-overlay.vc-anchored[open] {
+  animation: none;
+  translate: 0 0;
+  clip-path: var(--vc-to-clip, none);
+  transition:
+    translate var(--vc-spring-dur) var(--vc-spring),
+    clip-path var(--vc-spring-dur) var(--vc-spring);
+}
+.vc-anchored > * {
+  transition: opacity var(--vc-fade-dur) var(--st-ease-standard) var(--vc-fade-dur);
+}
+.vc-anchored.is-from,
+dialog.st-overlay.vc-anchored.is-from[open] {
+  translate: var(--vc-from-x) var(--vc-from-y);
+  clip-path: var(--vc-from-clip);
+}
+.vc-anchored.is-from > * {
+  opacity: 0;
+}
+.vc-anchored.is-closing,
+dialog.st-overlay.vc-anchored.is-closing[open] {
+  transition:
+    translate var(--vc-spring-quick-dur) var(--vc-spring-quick) var(--vc-fade-dur),
+    clip-path var(--vc-spring-quick-dur) var(--vc-spring-quick) var(--vc-fade-dur);
+}
+.vc-anchored.is-closing > * {
+  transition-delay: 0ms;
+}
+.vc-anchored.is-rest,
+dialog.st-overlay.vc-anchored.is-rest[open] {
+  clip-path: none;
+  animation: vc-shadow-in var(--vc-fade-dur) var(--st-ease-standard);
+}
+.vc-anchored.is-snap,
+.vc-anchored.is-snap > * {
+  transition: none !important;
+}
+@keyframes vc-fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes vc-shadow-in {
+  from {
+    box-shadow: none;
+  }
+}
+
+/* SYMBOL MOTION (D619): SVG takes on SF Symbols' effects (symbols.ts, Glyph.svelte). A check
+   is written on; a struck label draws left to right, line by line (one inline background,
+   sliced per line), and erases in reverse; refresh rotates, confirm bounces, attention wiggles.
+   Reduced motion shows the end state at once. */
+.vc-sym-write {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+  animation: vc-write 280ms var(--st-ease-decelerate) both;
+}
+@keyframes vc-write {
+  from {
+    stroke-dashoffset: 1;
+  }
+}
+.vc-strike {
+  background-image: linear-gradient(currentColor, currentColor);
+  background-repeat: no-repeat;
+  background-position: 0 55%;
+  background-size: 0% 1.5px;
+  transition: background-size 360ms var(--st-ease-standard);
+}
+.vc-strike.is-struck {
+  background-size: 100% 1.5px;
+}
+.vc-sym-rotate {
+  animation: vc-rotate 520ms var(--vc-spring) both;
+}
+.vc-sym-bounce {
+  animation: vc-bounce 420ms var(--vc-spring) both;
+}
+.vc-sym-wiggle {
+  animation: vc-wiggle 380ms var(--st-ease-standard) both;
+}
+@keyframes vc-rotate {
+  to {
+    rotate: 1turn;
+  }
+}
+@keyframes vc-bounce {
+  35% {
+    translate: 0 -3px;
+  }
+}
+@keyframes vc-wiggle {
+  20%,
+  60% {
+    translate: -3px 0;
+  }
+  40%,
+  80% {
+    translate: 3px 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .vc-sym-write,
+  .vc-sym-rotate,
+  .vc-sym-bounce,
+  .vc-sym-wiggle,
+  .vc-strike,
+  .st-segmented[data-lens]::before,
+  .vc-anchored,
+  .vc-anchored > * {
+    animation: none;
+    transition: none;
+  }
+}

@@ -1,6 +1,7 @@
 <script lang="ts">
   import CheckList from '#lib/results/CheckList.svelte';
   import Waterfall from '#lib/results/Waterfall.svelte';
+  import EmptyState from '#lib/ui/EmptyState.svelte';
   import Tabs from '#lib/ui/Tabs.svelte';
   import type { AddedCheck } from './apiForm.ts';
   import BodyView from './BodyView.svelte';
@@ -56,33 +57,34 @@
   }
 </script>
 
-<section class="glass" aria-label="Response">
+<section class="st-card st-card--glass" aria-label="Response">
   {#if !output}
-    <div class="resp-empty grow">
-      <p>
-        {sending ? 'Sending…' : 'Send the request to see the response.'}
-        {#if !sending}<span class="kbd" aria-hidden="true">⌘↵</span>{/if}
-      </p>
+    <div class="resp-empty vc-grow">
+      <EmptyState
+        icon="send"
+        title={sending ? 'Sending…' : 'No response yet'}
+        caption={sending ? undefined : 'Send the request to see the response (⌘↵).'}
+      />
     </div>
   {:else}
     <div class="card-head">
-      <p class="resp-meta grow">
+      <p class="resp-meta vc-grow">
         {#if response}<span class="hs" data-class={statusClass(response.status)}
             >{response.status}</span
           >{/if}
         <span>{rest(output.text, response?.status)}</span>
         {#if output.wire}
           <span><b>{size(output.wire.size)}</b></span>
-          {#if output.wire.protocol}<span class="mono">{output.wire.protocol}</span>{/if}
+          {#if output.wire.protocol}<span class="vc-mono">{output.wire.protocol}</span>{/if}
         {/if}
         {#if output.checks.length}
-          <span class="badge {failed ? 'st-fail' : 'st-pass'}"
+          <span class="checks" class:is-fail={failed > 0}
             >{failed ? `${failed} failed` : 'checks pass'}</span
           >
         {/if}
       </p>
       {#if onsave}
-        <button type="button" class="btn btn-sm" disabled={!response} onclick={onsave}
+        <button type="button" class="st-btn st-btn--sm" disabled={!response} onclick={onsave}
           >Save as test</button
         >
       {/if}
@@ -94,7 +96,7 @@
     >
       {#snippet panel(id)}
         {#if !response && !reported.has(id)}
-          <p class="muted">No response came back; the Output tab says why.</p>
+          <p class="st-secondary">No response came back; the Output tab says why.</p>
         {:else if id === 'body' && response}
           <BodyView {response} {oncheck} />
         {:else if id === 'headers' && response}
@@ -107,7 +109,7 @@
               jar.map((c) => [c.name, c.value, c.domain, c.path, c.expires, c.flags]),
             )}
           {:else}
-            <p class="muted">The response set no cookies.</p>
+            <p class="st-secondary">The response set no cookies.</p>
           {/if}
         {:else if id === 'timing' && timing}
           <Waterfall {timing} />
@@ -115,7 +117,7 @@
           {#if output.checks.length}
             <CheckList checks={output.checks} />
           {:else}
-            <p class="muted">
+            <p class="st-secondary">
               No checks ran. Add one on the Expect tab, or click a value in the body.
             </p>
           {/if}
@@ -127,12 +129,12 @@
               output.saved.map((s) => [s.name, s.from, s.value]),
             )}
           {:else}
-            <p class="muted">The api saves nothing from its response.</p>
+            <p class="st-secondary">The api saves nothing from its response.</p>
           {/if}
         {:else}
-          <pre class="out mono">{output.text}</pre>
+          <pre class="out vc-mono">{output.text}</pre>
           {#each output.notices as notice, i (i)}
-            <p class="muted">{notice}</p>
+            <p class="st-secondary">{notice}</p>
           {/each}
         {/if}
       {/snippet}
@@ -150,8 +152,8 @@
     <tbody>
       {#each rows as [first, ...more], i (i)}
         <tr>
-          <th scope="row" class="mono">{first}</th>
-          {#each more as cell, j (j)}<td class="mono">{cell}</td>{/each}
+          <th scope="row" class="vc-mono">{first}</th>
+          {#each more as cell, j (j)}<td class="vc-mono">{cell}</td>{/each}
         </tr>
       {/each}
     </tbody>
@@ -159,11 +161,13 @@
 {/snippet}
 
 <style>
-  .resp-empty p {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-2);
-    margin: 0;
+  /* a status word in the text line, not a badge: badges never sit in a control row (D611) */
+  .checks {
+    color: var(--vc-pass-ink);
+    font-weight: var(--st-weight-medium);
+  }
+  .checks.is-fail {
+    color: var(--vc-fail-ink);
   }
   .out {
     margin: 0;

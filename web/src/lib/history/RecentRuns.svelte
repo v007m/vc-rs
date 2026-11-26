@@ -25,7 +25,7 @@
 </script>
 
 <section aria-labelledby="recent-title">
-  <h2 class="h2" id="recent-title">Recent runs</h2>
+  <h2 class="st-title3" id="recent-title">Recent runs</h2>
   <ul class="runs" aria-label="Recent runs">
     {#each runs as run (run.id)}
       <li>
@@ -36,17 +36,17 @@
           aria-label="Run #{run.id}, {run.outcome}"
           onclick={() => onopen(run.id)}
         >
-          <span class="dot {outcomeClass[run.outcome]}" aria-hidden="true"></span>
+          <span class="st-dot {outcomeClass[run.outcome]}" aria-hidden="true"></span>
           <span class="what">
-            <span class="mono">#{run.id}</span>
+            <span class="vc-mono">#{run.id}</span>
             {#if run.profiles.length}· {run.profiles.join(', ')}{/if}
-            <span class="muted meta">{meta(run)}</span>
+            <span class="st-secondary meta">{meta(run)}</span>
           </span>
-          <span class="muted">{rate(run)}</span>
+          <span class="st-secondary">{rate(run)}</span>
         </button>
       </li>
     {:else}
-      <li class="muted">No runs in the history yet.</li>
+      <li class="st-secondary">No runs in the history yet.</li>
     {/each}
   </ul>
 </section>
@@ -75,7 +75,7 @@
   }
   .run:hover,
   .run[aria-pressed='true'] {
-    background: var(--row-hover);
+    background: var(--st-surface-wash);
   }
   .what {
     flex: 1;

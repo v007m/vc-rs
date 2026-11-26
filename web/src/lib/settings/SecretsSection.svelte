@@ -23,7 +23,7 @@
 </script>
 
 <section class="secrets" aria-labelledby="secrets-h">
-  <h2 id="secrets-h" class="h2">Secrets</h2>
+  <h2 id="secrets-h" class="st-title3">Secrets</h2>
   <p class="intro">
     The names <code>.env.schema</code> declares. A <code>{'${secret.NAME}'}</code> must be declared
     here; its value comes from <code>.env</code> or your secrets provider, never from this page.
@@ -33,28 +33,28 @@
   {/if}
   {#if schema.state === 'conflict'}
     <div class="banner" role="alert">
-      <span class="grow"
+      <span class="vc-grow"
         >Not saved: <code>.env.schema</code> changed on disk since you opened it.</span
       >
-      <button type="button" class="btn sm" onclick={() => void schema.load()}
+      <button type="button" class="st-btn st-btn--sm" onclick={() => void schema.load()}
         >Reload from disk</button
       >
     </div>
   {/if}
   <table aria-busy={busy}>
-    <caption class="sr">Declared secrets</caption>
+    <caption class="vc-sr">Declared secrets</caption>
     <thead>
       <tr>
         <th scope="col">Name</th><th scope="col">Annotations</th><th scope="col">Note</th>
-        {#each columns as profile (profile)}<th scope="col" class="mono">{profile}</th>{/each}
-        <th scope="col"><span class="sr">Actions</span></th>
+        {#each columns as profile (profile)}<th scope="col" class="vc-mono">{profile}</th>{/each}
+        <th scope="col"><span class="vc-sr">Actions</span></th>
       </tr>
     </thead>
     <tbody>
       {#each schema.entries as entry (entry.name)}
         <tr>
-          <th scope="row" class="mono">{entry.name}</th>
-          <td class="mono">{entry.annotations.join(' ')}</td>
+          <th scope="row" class="vc-mono">{entry.name}</th>
+          <td class="vc-mono">{entry.annotations.join(' ')}</td>
           <td>{entry.notes.join(' ')}</td>
           {#each columns as profile (profile)}
             {@const state = check?.state(entry.name, profile) ?? 'not checked'}
@@ -66,7 +66,7 @@
           <td class="act">
             <button
               type="button"
-              class="btn sm"
+              class="st-btn st-btn--sm"
               aria-label="Remove {entry.name}"
               disabled={busy}
               onclick={() => schema.remove(entry.name)}>Remove</button
@@ -86,7 +86,7 @@
     <div class="check">
       <button
         type="button"
-        class="btn sm"
+        class="st-btn st-btn--sm"
         disabled={check.checking}
         onclick={() => void check.check(profiles)}
         >{check.checking ? 'Checking…' : 'Check secrets'}</button
@@ -100,7 +100,7 @@
     <label for="secret-name">New secret name</label>
     <input
       id="secret-name"
-      class="input mono"
+      class="st-input vc-mono"
       autocomplete="off"
       spellcheck="false"
       placeholder="SHOP_TOKEN"
@@ -109,22 +109,11 @@
       bind:value={name}
       oninput={() => (problem = undefined)}
     />
-    <button type="submit" class="btn sm" disabled={busy || !name.trim()}>Add</button>
+    <button type="submit" class="st-btn st-btn--sm" disabled={busy || !name.trim()}>Add</button>
     {#if problem}<p id="secret-name-problem" class="error">{problem}</p>{/if}
   </form>
+  <!-- the status, then Discard, then the primary last at the right (D616) -->
   <div class="actions">
-    <button
-      type="button"
-      class="btn primary"
-      disabled={busy || !schema.dirty}
-      onclick={() => void schema.save()}>{schema.state === 'saving' ? 'Saving…' : 'Save'}</button
-    >
-    <button
-      type="button"
-      class="btn"
-      disabled={busy || !schema.dirty}
-      onclick={() => schema.discard()}>Discard changes</button
-    >
     <p class="status" role="status">
       {#if schema.dirty}
         Unsaved changes.
@@ -136,6 +125,18 @@
           : `The project has ${schema.saved.problems} problem${schema.saved.problems === 1 ? '' : 's'}; see them in the editor.`}
       {/if}
     </p>
+    <button
+      type="button"
+      class="st-btn"
+      disabled={busy || !schema.dirty}
+      onclick={() => schema.discard()}>Discard changes</button
+    >
+    <button
+      type="button"
+      class="st-btn st-btn--primary"
+      disabled={busy || !schema.dirty}
+      onclick={() => void schema.save()}>{schema.state === 'saving' ? 'Saving…' : 'Save'}</button
+    >
   </div>
 </section>
 
@@ -149,7 +150,7 @@
   .note,
   .status {
     margin: 0;
-    color: var(--ink2);
+    color: var(--st-text-secondary);
   }
   table {
     width: 100%;
@@ -158,12 +159,12 @@
   th,
   td {
     padding: 6px 8px;
-    border-bottom: 1px solid var(--line);
+    border-bottom: 1px solid var(--st-chrome-separator);
     text-align: left;
     vertical-align: top;
   }
   thead th {
-    color: var(--ink2);
+    color: var(--st-text-secondary);
     font-weight: 500;
   }
   tbody th {
@@ -182,26 +183,37 @@
     gap: 8px;
     align-items: center;
   }
+  /* the same width as New profile, with Add beside it (D616) */
+  .add input {
+    flex: 0 1 320px;
+    min-width: 0;
+  }
+  .actions {
+    justify-content: flex-end;
+  }
+  .actions .status {
+    flex: 1 1 200px;
+  }
   .add .error,
   .check .error {
     flex-basis: 100%;
   }
   .state.resolved {
-    color: var(--pass);
+    color: var(--vc-pass);
   }
   .state.not-set {
-    color: var(--fail);
+    color: var(--vc-fail);
   }
   .state.not-checked {
-    color: var(--ink2);
+    color: var(--st-text-secondary);
   }
   .banner {
     padding: 8px 12px;
-    border: 1px solid var(--fail);
+    border: 1px solid var(--vc-fail);
     border-radius: 6px;
   }
   .error {
     margin: 0;
-    color: var(--fail);
+    color: var(--vc-fail);
   }
 </style>

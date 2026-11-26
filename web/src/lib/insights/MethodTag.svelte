@@ -16,23 +16,23 @@
     border-radius: 5px;
     font-size: 10.5px;
     font-weight: 600;
-    background: var(--accentSoft);
-    color: var(--accentInk);
+    background: var(--st-accent-soft);
+    color: var(--st-accent);
   }
   .m-get {
-    background: var(--passSoft);
-    color: var(--pass);
+    background: var(--vc-pass-soft);
+    color: var(--vc-pass);
   }
   .m-post {
-    background: var(--flakySoft);
-    color: var(--flaky);
+    background: var(--vc-flaky-soft);
+    color: var(--vc-flaky);
   }
   .m-put {
-    background: var(--blockSoft);
-    color: var(--block);
+    background: var(--vc-blocked-soft);
+    color: var(--vc-blocked);
   }
   .m-delete {
-    background: var(--failSoft);
-    color: var(--fail);
+    background: var(--vc-fail-soft);
+    color: var(--vc-fail);
   }
 </style>

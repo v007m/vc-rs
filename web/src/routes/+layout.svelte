@@ -1,12 +1,10 @@
 <script lang="ts">
   import '#lib/fonts/fonts.css';
-  import '#lib/styles/tokens.css';
-  import '#lib/styles/legacy.css';
-  import '#lib/styles/glass.css';
+  import '#lib/styles/strata/tokens.css';
+  import '#lib/styles/strata/strata.css';
+  import '#lib/styles/strata/vibranium.css';
   import '#lib/styles/shell.css';
   import '#lib/styles/sidebar.css';
-  import '#lib/styles/controls.css';
-  import '#lib/styles/status.css';
   import '#lib/styles/client.css';
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
@@ -17,7 +15,10 @@
   import Shell from '#lib/shell/Shell.svelte';
   import { setShellSlots, ShellSlots } from '#lib/shell/slots.svelte.ts';
   import { setShellState, ShellState } from '#lib/shell/state.svelte.ts';
-  import type { Snippet } from 'svelte';
+  import { setVcsSession } from '#lib/vcs/context.ts';
+  import { enginePort as vcsPort } from '#lib/vcs/port.ts';
+  import { VcsSession } from '#lib/vcs/session.svelte.ts';
+  import { untrack, type Snippet } from 'svelte';
 
   let { children }: { children: Snippet } = $props();
   // One run at a time for the whole app, so a run started on any screen shows on Runs.
@@ -27,6 +28,12 @@
   const slots = setShellSlots(new ShellSlots());
   const project = new ProjectStatus(engine);
   void project.load();
+  const vcs = setVcsSession(new VcsSession(vcsPort(engine)));
+  void vcs.refresh();
+  // A pull changed the files on disk, so the project's check is stale.
+  $effect(() => {
+    if (vcs.revision > 0) untrack(() => void project.load());
+  });
 
   function navigate(href: string): void {
     // eslint-disable-next-line svelte/no-navigation-without-resolve -- href is a space's resolved route, or one the shell remembered
@@ -42,6 +49,7 @@
   search={page.url.search}
   {navigate}
   {slots}
+  branch={vcs.branch}
 >
   {@render children()}
 </Shell>

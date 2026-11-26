@@ -26,22 +26,24 @@
 </script>
 
 <section aria-labelledby="expiring" class="expiring">
-  <h2 class="h2" id="expiring">Skips expiring soon</h2>
-  <p class="muted">Skipped tests whose <code>until</code> date is within 14 days or has passed</p>
+  <h2 class="st-title3" id="expiring">Skips expiring soon</h2>
+  <p class="st-secondary">
+    Skipped tests whose <code>until</code> date is within 14 days or has passed
+  </p>
   {#if soon.length === 0}
-    <p class="muted">No skip ends in the next 14 days.</p>
+    <p class="st-secondary">No skip ends in the next 14 days.</p>
   {:else}
     <ol>
       {#each soon as skip (skip.id)}
         <li>
-          <span class="mono">{skip.id}</span>
-          <span class="pill {skip.ended ? 'fail' : 'block'}"
+          <span class="vc-mono">{skip.id}</span>
+          <span class="st-badge {skip.ended ? 'vc-fail' : 'vc-blocked'}"
             >{skip.ended ? `ended ${skip.until}` : `until ${skip.until}`}</span
           >
-          {#if skip.reason}<span class="muted">{skip.reason}</span>{/if}
+          {#if skip.reason}<span class="st-secondary">{skip.reason}</span>{/if}
           <button
             type="button"
-            class="btn sm"
+            class="st-btn st-btn--sm"
             aria-label="Unskip {skip.id}"
             aria-expanded={removing?.target === skip.id}
             onclick={() => toggle(skip.id)}>Unskip…</button
@@ -80,10 +82,10 @@
   .expiring p {
     margin: 4px 0 0;
   }
-  .btn {
+  .st-btn {
     margin-left: auto;
   }
-  .muted {
-    color: var(--ink2);
+  .st-secondary {
+    color: var(--st-text-secondary);
   }
 </style>

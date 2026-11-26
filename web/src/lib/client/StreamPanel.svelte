@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { lens } from '#lib/ui/segmented.ts';
   import {
     frameBody,
     frameKind,
@@ -26,14 +27,14 @@
     { id: 'out', label: 'Out' },
   ];
   const states = {
-    idle: ['Not connected', 'st-skipped'],
+    idle: ['Not connected', 'vc-skipped'],
     connecting: ['Connecting…', 'is-live'],
-    open: ['Open', 'st-pass'],
-    ended: ['Closed', 'st-skipped'],
+    open: ['Open', 'vc-pass'],
+    ended: ['Closed', 'vc-skipped'],
   } as const;
   const conn = $derived(
     stream.status === 'ended' && (stream.ended?.failed || stream.error)
-      ? (['Failed', 'st-fail'] as const)
+      ? (['Failed', 'vc-fail'] as const)
       : states[stream.status],
   );
 
@@ -45,29 +46,29 @@
   }
 </script>
 
-<section class="glass" aria-label="Messages">
+<section class="st-card st-card--glass" aria-label="Messages">
   <div class="card-head">
-    <p class="resp-meta grow">
-      <span class="dot {conn[1]}" aria-hidden="true"></span><b>{conn[0]}</b>
+    <p class="resp-meta vc-grow">
+      <span class="st-dot {conn[1]}" aria-hidden="true"></span><b>{conn[0]}</b>
       <span>{stream.frames.length} {stream.frames.length === 1 ? 'message' : 'messages'}</span>
       {#if stream.held.length}<span>{stream.held.length} held</span>{/if}
     </p>
     <button
       type="button"
-      class="btn btn-sm"
+      class="st-btn st-btn--sm"
       aria-pressed={stream.paused}
       onclick={() => stream.setPaused(!stream.paused)}>{stream.paused ? 'Resume' : 'Pause'}</button
     >
     <button
       type="button"
-      class="btn btn-sm"
+      class="st-btn st-btn--sm"
       disabled={stream.frames.length === 0}
       onclick={() => stream.clear()}>Clear</button
     >
   </div>
   <div class="body-tools pad">
     {#if websocket}
-      <div class="seg" role="group" aria-label="Direction">
+      <div class="st-segmented" role="group" {@attach lens} aria-label="Direction">
         {#each directions as d (d.id)}
           <button type="button" aria-pressed={direction === d.id} onclick={() => (direction = d.id)}
             >{d.label}</button
@@ -76,7 +77,7 @@
       </div>
     {/if}
     <input
-      class="input"
+      class="st-input"
       type="search"
       autocomplete="off"
       aria-label="Filter messages"
@@ -93,12 +94,12 @@
         <details>
           <summary>
             <span class="arrow" aria-hidden="true">{frame.direction === 'in' ? '↓' : '↑'}</span>
-            <span class="sr">{frame.direction === 'in' ? 'Received' : 'Sent'}</span>
-            <span class="mono at">{frameTime(frame.atMs)}</span>
-            <span class="kind mono">{frameKind(frame.json)}</span>
-            <span class="mono size">{size(frame.size)}</span>
+            <span class="vc-sr">{frame.direction === 'in' ? 'Received' : 'Sent'}</span>
+            <span class="vc-mono at">{frameTime(frame.atMs)}</span>
+            <span class="kind vc-mono">{frameKind(frame.json)}</span>
+            <span class="vc-mono size">{size(frame.size)}</span>
           </summary>
-          <pre class="mono">{frameBody(frame.json)}</pre>
+          <pre class="vc-mono">{frameBody(frame.json)}</pre>
         </details>
       </li>
     {:else}
@@ -118,17 +119,19 @@
   {/if}
   {#if websocket}
     <form class="composer pad" onsubmit={send}>
-      <label class="section-label" for="ws-draft">Message</label>
+      <label class="st-section-label" for="ws-draft">Message</label>
       <textarea
         id="ws-draft"
-        class="textarea mono"
+        class="st-input st-input--rect vc-mono"
         rows="3"
         spellcheck="false"
         disabled={stream.status !== 'open'}
         placeholder={'{ "type": "ping" }'}
         bind:value={draft}></textarea>
-      <button type="submit" class="btn primary btn-sm" disabled={stream.status !== 'open'}
-        >Send message</button
+      <button
+        type="submit"
+        class="st-btn st-btn--primary st-btn--sm"
+        disabled={stream.status !== 'open'}>Send message</button
       >
     </form>
   {/if}
@@ -136,68 +139,68 @@
 
 <style>
   .pad {
-    padding: 0 var(--card-pad) var(--sp-3);
+    padding: 0 var(--st-card-padding) var(--st-space-12);
   }
   .note {
     margin: 0;
-    color: var(--ink-2);
+    color: var(--st-text-secondary);
   }
   .error {
-    color: var(--st-fail-ink);
+    color: var(--vc-fail-ink);
   }
   .msgs {
     flex: 1 1 auto;
     min-height: 0;
     margin: 0;
-    padding: 0 var(--card-pad) var(--sp-3);
+    padding: 0 var(--st-card-padding) var(--st-space-12);
     overflow: auto;
     list-style: none;
-    border-top: 1px solid var(--rule);
+    border-top: 1px solid var(--st-chrome-separator);
   }
   .msg {
-    border-bottom: 1px solid var(--rule);
+    border-bottom: 1px solid var(--st-chrome-separator);
   }
   summary {
     display: flex;
     align-items: center;
-    gap: var(--sp-3);
+    gap: var(--st-space-12);
     min-height: 32px;
     cursor: pointer;
-    font-size: var(--fs-2);
+    font-size: var(--vc-size-body);
   }
   .arrow {
     width: 14px;
-    color: var(--st-pass-ink);
+    color: var(--vc-pass-ink);
     text-align: center;
   }
   .msg[data-dir='out'] .arrow {
-    color: var(--accent);
+    color: var(--st-accent);
   }
   .at,
   .size {
-    color: var(--ink-3);
-    font-size: var(--fs-1);
+    color: var(--st-text-tertiary);
+    font-size: var(--vc-size-caption);
   }
   .kind {
     flex: 1 1 auto;
     min-width: 0;
   }
   pre {
-    margin: 0 0 var(--sp-2) 26px;
-    font-size: var(--fs-1);
+    margin: 0 0 var(--st-space-8) 26px;
+    font-size: var(--vc-size-caption);
     white-space: pre-wrap;
     overflow-wrap: anywhere;
   }
   .empty {
-    padding: var(--sp-4) 0;
-    color: var(--ink-2);
+    padding: var(--st-space-16) 0;
+    color: var(--st-text-secondary);
   }
   .composer {
     display: grid;
-    gap: var(--sp-2);
+    gap: var(--st-space-8);
     justify-items: end;
-    padding-top: var(--sp-3);
-    border-top: 1px solid var(--rule);
+    padding-top: var(--st-space-12);
+    border-top: 1px solid var(--st-chrome-separator);
   }
   .composer label,
   .composer textarea {

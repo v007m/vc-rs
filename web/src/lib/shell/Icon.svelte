@@ -43,7 +43,7 @@
   }: { name: IconName; small?: boolean; class?: string } = $props();
 </script>
 
-<svg class="ico {extra}" class:ico-sm={small} viewBox="0 0 24 24" aria-hidden="true">
+<svg class="st-icon {extra}" class:vc-icon-sm={small} viewBox="0 0 24 24" aria-hidden="true">
   {#each paths[name] as d (d)}
     <path {d} />
   {/each}

@@ -36,13 +36,13 @@
 </script>
 
 <div class="head">
-  <h2 class="h2">Run #{run.id}</h2>
-  <span class="pill {outcomeClass[run.outcome]}">{outcomeLabel[run.outcome]}</span>
-  <span class="grow"></span>
+  <h2 class="st-title3">Run #{run.id}</h2>
+  <span class="st-badge {outcomeClass[run.outcome]}">{outcomeLabel[run.outcome]}</span>
+  <span class="vc-grow"></span>
   {#if failed.length}
     <button
       type="button"
-      class="btn"
+      class="st-btn"
       disabled={session.running}
       onclick={() => {
         const ids = failed;
@@ -51,9 +51,11 @@
       }}>Re-run failed</button
     >
   {/if}
-  <button type="button" class="btn" onclick={() => history.close()}>Back to the current run</button>
+  <button type="button" class="st-btn" onclick={() => history.close()}
+    >Back to the current run</button
+  >
 </div>
-<p class="muted meta">{meta}</p>
+<p class="st-secondary meta">{meta}</p>
 <RunProgress counts={run.counts} planned={0} />
 {#if rows.length}
   <div class="layout">
@@ -69,14 +71,14 @@
       {@const test = history.opened}
       <section class="detail" aria-labelledby="{uid}-test">
         <h3 class="h3" id="{uid}-test">{test.row.label}</h3>
-        <p class="muted mono">
+        <p class="st-secondary vc-mono">
           {test.id} · {test.row.status} · {ms(test.row.ms)} ms{test.attempts > 1
             ? ` · ${test.attempts} attempts`
             : ''}
         </p>
         {#if test.blockedBy}<p>Blocked by {test.blockedBy}</p>{/if}
         {#if test.skipReason}<p>Skipped: {test.skipReason}</p>{/if}
-        {#if test.failure}<pre class="message mono">{test.failure}</pre>{/if}
+        {#if test.failure}<pre class="message vc-mono">{test.failure}</pre>{/if}
         {#if test.checks.length}
           <h4>Checks</h4>
           <CheckList checks={test.checks} />
@@ -89,7 +91,7 @@
     {/if}
   </div>
 {:else}
-  <p class="muted">This run kept no test results.</p>
+  <p class="st-secondary">This run kept no test results.</p>
 {/if}
 
 <style>
@@ -127,7 +129,7 @@
   }
   .message {
     white-space: pre-wrap;
-    color: var(--fail);
+    color: var(--vc-fail);
   }
   @container card (width < 620px) {
     .layout {

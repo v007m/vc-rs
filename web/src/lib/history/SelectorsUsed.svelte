@@ -10,7 +10,7 @@
 
 {#if history.selectors.length > 1}
   <section aria-labelledby="selectors-title">
-    <h2 class="h2" id="selectors-title">Selectors used</h2>
+    <h2 class="st-title3" id="selectors-title">Selectors used</h2>
     <ul class="selectors" aria-label="Selectors used">
       {#each history.selectors as use (use.selector)}
         {@const name = use.selector || 'all tests'}
@@ -22,8 +22,8 @@
             aria-label="{name}, {use.runs} {use.runs === 1 ? 'run' : 'runs'}"
             onclick={() => history.filter(use.selector)}
           >
-            <span class="what" class:mono={use.selector !== ''}>{name}</span>
-            <span class="muted">{use.runs}</span>
+            <span class="what" class:vc-mono={use.selector !== ''}>{name}</span>
+            <span class="st-secondary">{use.runs}</span>
           </button>
         </li>
       {/each}
@@ -55,7 +55,7 @@
   }
   .selector:hover,
   .selector[aria-pressed='true'] {
-    background: var(--row-hover);
+    background: var(--st-surface-wash);
   }
   .what {
     flex: 1;
