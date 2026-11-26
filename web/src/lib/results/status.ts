@@ -23,6 +23,15 @@ export const statusClass: Readonly<Record<Status, string>> = {
   skipped: 'vc-skipped',
 };
 
+/** A mark for each outcome, shown beside its colour so a count never rests on colour alone (D640). */
+export const statusGlyph: Readonly<Record<Status, string>> = {
+  passed: '✓',
+  failed: '✕',
+  blocked: '⊘',
+  flaky: '≈',
+  skipped: '–',
+};
+
 /** `12.0`, `9.5`, `1234`: a duration in ms, finer below 10 ms; empty when unknown. */
 export function ms(value: number | null | undefined): string {
   if (value === null || value === undefined) return '';

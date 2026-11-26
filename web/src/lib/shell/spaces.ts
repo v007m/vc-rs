@@ -1,11 +1,14 @@
 import type { RouteId } from '$app/types';
 
+/** A route with no params, so a sidebar row or a space's home links to it as it is. */
+export type PlainRoute = Exclude<RouteId, `${string}[${string}`>;
+
 /** The five spaces of the shell (D512), in rail order; ⌘1–⌘5 pick them in this order. */
 export type SpaceKey = 'client' | 'tests' | 'runs' | 'agents' | 'settings';
 
 /** One screen of a space, as its sidebar row and the top row's title. */
 export interface View {
-  readonly route: RouteId;
+  readonly route: PlainRoute;
   /** The sidebar row. */
   readonly label: string;
   /** The top row's title and the page title. */
@@ -26,7 +29,7 @@ export interface Space {
   readonly label: string;
   /** An icon name of `Icon.svelte`. */
   readonly icon: IconName;
-  readonly home: RouteId;
+  readonly home: PlainRoute;
   /** Its shortcut with ⌘ (or Ctrl): `1`–`4`, and `,` for Settings. */
   readonly shortcut: string;
   /** Its Strata colour preset, the canvas and accent of `data-space` (D591). */
@@ -55,7 +58,7 @@ export type IconName =
   | 'history'
   | 'import';
 
-const view = (route: RouteId, label: string, title = label): View => ({ route, label, title });
+const view = (route: PlainRoute, label: string, title = label): View => ({ route, label, title });
 
 /** The spaces in rail order; Settings is pinned at the bottom of the rail. */
 export const spaces: readonly Space[] = [

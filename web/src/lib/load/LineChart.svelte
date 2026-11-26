@@ -12,7 +12,7 @@
   /**
    * One live load chart, drawn by hand in SVG at its plot's measured width (ui.md §6): a line per
    * series, the threshold as a dashed line with its label, and each breach as a shaded band with a
-   * ✕ marker at its peak, so a breach never rests on colour alone (D624). **Table** shows the
+   * ✕ marker at its peak, so a breach never rests on colour alone (D641). **Table** shows the
    * same numbers every 30 s.
    */
   let {

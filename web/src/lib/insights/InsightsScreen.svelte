@@ -13,7 +13,19 @@
   import type { RunSummary } from './port.ts';
   import { duration, flakiest, mean, median, niceMax, passRate, when } from './stats.ts';
 
-  let { insights, skips }: { insights: Insights; skips: SkipPort } = $props();
+  let {
+    insights,
+    skips,
+    profiles = [],
+    branches = [],
+  }: {
+    insights: Insights;
+    skips: SkipPort;
+    /** The scope's choices (D643): the project's profiles and the branches in the history. */
+    profiles?: readonly string[];
+    branches?: readonly string[];
+  } = $props();
+  const uid = $props.id();
 
   /** The skip being written or removed, one at a time. */
   let skipping: SkipChange | undefined = $state();
@@ -75,6 +87,30 @@
         onclick={() => void insights.choose(w)}>Last {w} runs</button
       >
     {/each}
+  </div>
+  <div class="scope">
+    <label for="{uid}-profile">Profile</label>
+    <select
+      id="{uid}-profile"
+      class="st-input"
+      value={insights.scope.profile ?? ''}
+      onchange={(e) =>
+        void insights.rescope({ ...insights.scope, profile: e.currentTarget.value || undefined })}
+    >
+      <option value="">Every profile</option>
+      {#each profiles as p (p)}<option value={p}>{p}</option>{/each}
+    </select>
+    <label for="{uid}-branch">Branch</label>
+    <select
+      id="{uid}-branch"
+      class="st-input"
+      value={insights.scope.branch ?? ''}
+      onchange={(e) =>
+        void insights.rescope({ ...insights.scope, branch: e.currentTarget.value || undefined })}
+    >
+      <option value="">Every branch</option>
+      {#each branches as b (b)}<option value={b}>{b}</option>{/each}
+    </select>
   </div>
   {#if insights.error}
     <p class="error" role="alert">{insights.error}</p>
@@ -221,6 +257,16 @@
 </div>
 
 <style>
+  .scope {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 10px;
+  }
+  .scope select {
+    width: auto;
+    min-width: 160px;
+  }
   .insights {
     display: grid;
     gap: 20px;

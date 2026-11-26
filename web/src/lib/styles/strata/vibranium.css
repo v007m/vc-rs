@@ -908,7 +908,7 @@ dialog.st-overlay.vc-anchored.is-rest[open] {
   text-align: right;
 }
 
-/* Status counts beside a status glyph, never colour alone (D624). */
+/* Status counts beside a status glyph, never colour alone (D640). */
 .vc-count {
   display: inline-flex;
   align-items: center;

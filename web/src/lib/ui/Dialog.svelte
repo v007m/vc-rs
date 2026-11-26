@@ -3,8 +3,18 @@
   import Icon from '#lib/shell/Icon.svelte';
   import { growFrom, shrinkInto } from './anchor.ts';
 
-  let { title, onclose, children }: { title: string; onclose: () => void; children: Snippet } =
-    $props();
+  let {
+    title,
+    onclose,
+    width = 640,
+    children,
+  }: {
+    title: string;
+    onclose: () => void;
+    /** Its width in px, at most the window less 32px (the Run dialog is 560, D632). */
+    width?: number;
+    children: Snippet;
+  } = $props();
 
   const uid = $props.id();
   let frame: HTMLDialogElement | undefined;
@@ -31,6 +41,7 @@
 <dialog
   class="dialog st-overlay vc-anchored"
   aria-labelledby="{uid}-title"
+  style:--dialog-w="{width}px"
   {@attach modal}
   oncancel={(event) => {
     event.preventDefault();
@@ -54,7 +65,7 @@
   /* A Strata overlay over the scrim (dialog.st-overlay in vibranium.css): a Title2 title, the
      content, and the caller's actions at the bottom right, Cancel first. */
   .dialog {
-    width: min(640px, calc(100vw - 32px));
+    width: min(var(--dialog-w), calc(100vw - 32px));
     max-height: calc(100vh - 64px);
     padding: var(--st-space-24);
     overflow: auto;

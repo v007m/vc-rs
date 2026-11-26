@@ -1,5 +1,5 @@
 import type { RunEvent } from '#lib/gen/vibranium/engine/v1/events_pb.ts';
-import { RunStatus, type Totals } from '#lib/gen/vibranium/results/v1/results_pb.ts';
+import { RunStatus, type Test, type Totals } from '#lib/gen/vibranium/results/v1/results_pb.ts';
 import { doneCount, noCounts, type Counts } from '#lib/results/status.ts';
 import { describe, type EventLine } from './events.ts';
 import {
@@ -30,6 +30,8 @@ export type RunView = Readonly<{
   /** When the run started, in ms since the epoch. */
   startedMs?: bigint;
   counts: Counts;
+  /** Each finished test with its checks and exchanges, in the order they finished (D634). */
+  finished: readonly Test[];
   /** The last `eventCap` event lines, oldest first. */
   events: readonly EventLine[];
   /** How many older lines were let go to keep `events` at `eventCap`. */
@@ -55,6 +57,7 @@ export const idleRun: RunView = {
   plan: [],
   planIndex: noPlanIndex,
   counts: zero,
+  finished: [],
   events: [],
   dropped: 0,
 };
@@ -105,7 +108,8 @@ const steps: Partial<Record<NonNullable<RunEvent['kind']['case']>, Step>> = {
     const key = test && outcomeOf(test.status);
     if (!key) return view;
     const counts = { ...view.counts, [key]: view.counts[key] + 1 };
-    return { ...view, counts, plan: markFinished(view.plan, view.planIndex, kind.value) };
+    const finished = [...view.finished, test];
+    return { ...view, counts, finished, plan: markFinished(view.plan, view.planIndex, kind.value) };
   },
   runFinished: (view, { kind }) =>
     kind.case === 'runFinished'

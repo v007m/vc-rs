@@ -1,5 +1,4 @@
-import type { RouteId } from '$app/types';
-import type { Space } from './spaces.ts';
+import type { PlainRoute, Space } from './spaces.ts';
 
 /** One result of the command palette: a screen to open, under its space. */
 export interface PaletteItem {
@@ -21,7 +20,7 @@ export interface PaletteGroup {
 /** Every screen of every space as a palette item; `href` resolves a route (SvelteKit's resolve). */
 export function paletteItems(
   spaces: readonly Space[],
-  href: (route: RouteId) => string,
+  href: (route: PlainRoute) => string,
 ): PaletteItem[] {
   return spaces.flatMap((space) =>
     space.sections.flatMap((section) =>

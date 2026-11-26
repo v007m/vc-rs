@@ -8,6 +8,9 @@ import {
 } from '#lib/gen/vibranium/engine/v1/engine_pb.ts';
 import { apply, broken, idleRun, startingRun, type RunView } from './model.ts';
 
+/** What starts a run: the fields of a `Run` request, the handle aside. */
+export type RunInit = MessageInitShape<typeof RunRequestSchema>;
+
 /** The part of the engine client a run needs, so tests can pass a fake. */
 export type RunClient = Pick<Client<typeof EngineService>, 'run' | 'cancel'>;
 
@@ -39,7 +42,7 @@ export class RunSession {
   }
 
   /** Starts a run, unless one is running, and resolves when its stream ends. */
-  async start(init: MessageInitShape<typeof RunRequestSchema>): Promise<void> {
+  async start(init: RunInit): Promise<void> {
     if (this.running) return;
     const request = create(RunRequestSchema, { ...init, handle: crypto.randomUUID() });
     const abort = new AbortController();

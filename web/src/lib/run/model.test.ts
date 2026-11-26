@@ -43,6 +43,12 @@ describe('run model', () => {
       [5, 'same', 'passed', 7],
     ]);
     expect(view.counts.passed).toBe(4);
+    expect(view.finished.map((test) => test.id)).toEqual([
+      'users.crud#rejects',
+      'users.crud#lists',
+      'orders.crud#lists',
+      'orders.crud#skipped',
+    ]);
   });
 
   it('takes the history id and the HTML report path from the report, and a new run forgets them', () => {
