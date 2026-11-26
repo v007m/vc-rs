@@ -13,7 +13,7 @@ use vc_engine::{Engine, EngineError};
 use crate::live_rpcs::LiveStreams;
 use crate::{
     Code, ConnectError, ConnectService, McpAccess, Sink, authoring_rpcs, client_rpcs, edit_rpcs, history_rpcs,
-    live_rpcs, project_rpcs, run_stream,
+    live_rpcs, project_rpcs, run_stream, vcs_rpcs,
 };
 
 /// The service's full protobuf name.
@@ -42,7 +42,7 @@ impl EngineApi {
         let rpcs = Rpcs { service: ConnectService::new(SERVICE), api: Arc::new(self) };
         let rpcs = project_rpcs::register(client_rpcs::register(edit_rpcs::register(rpcs)));
         let rpcs = run_stream::register(authoring_rpcs::register(history_rpcs::register(rpcs)));
-        live_rpcs::register(rpcs).service
+        vcs_rpcs::register(live_rpcs::register(rpcs)).service
     }
 
     /// The engine.

@@ -75,7 +75,7 @@ pub use fake_random::{MemoryEnvironment, ScriptedRandom};
 pub use fake_secrets::{Answer, FakeCommands, MemorySecrets};
 pub use fake_stream_transport::{FakeStreamTransport, Opens, StreamAnswer};
 pub use fake_transport::{FakeTransport, Respond, status};
-pub use fake_vcs::FakeVcs;
+pub use fake_vcs::{FakeVcs, VcsAsk, VcsAsks};
 pub use faulty_action_cache::{CacheFault, FaultyCacheStore};
 pub use faulty_transport::{Fault, FaultyTransport};
 pub use fixed_clock::FixedClock;

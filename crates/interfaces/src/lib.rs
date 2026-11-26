@@ -88,6 +88,7 @@ mod tls;
 mod transport;
 mod trend;
 mod vcs;
+mod vcs_pane;
 mod watch;
 
 pub use action_cache::{
@@ -138,4 +139,5 @@ pub use tls::{
 pub use transport::{CertChoice, CertId, SendContext, SentCert, Transport, TransportError};
 pub use trend::{ApiTrend, TestTrend, api_trends};
 pub use vcs::{Vcs, VcsError, checked_ref};
+pub use vcs_pane::{VcsChange, VcsCommit, VcsFile, VcsStatus, without_credentials};
 pub use watch::{FileWatcher, WatchError};

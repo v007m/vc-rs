@@ -127,6 +127,7 @@ mod sync_rules;
 mod sync_snapshot;
 mod test_auth;
 mod user;
+mod vcs_pane;
 mod wanted;
 mod watch;
 mod yaml_out;
@@ -184,7 +185,7 @@ pub use vc_diagnostics::{
 pub use vc_interfaces::{
     AgentAction, ApiTrend, Approval, ApprovalId, ApprovalRequest, ApprovalStatus, CheckRow, Decided, ExchangeRow,
     LoggedAction, PluginKind, PluginManifest, PluginPermissions, PluginStderr, RunFilter, RunId, RunRow, RunStart,
-    TestRow, TestTrend, Verdict,
+    TestRow, TestTrend, VcsChange, VcsCommit, VcsFile, VcsStatus, Verdict,
 };
 pub use vc_model::{
     ActionId, Bodies, CheckKind, CheckResult, CleanupRecord, Event, Exchange, Failure, FileKind, InstanceId, Location,

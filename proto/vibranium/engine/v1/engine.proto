@@ -76,6 +76,20 @@ service EngineService {
   // Where an MCP client connects and the agent token it sends, for the Connect panel. Only the
   // browser's session cookie reaches it, never the agent token (D239).
   rpc Connection(ConnectionRequest) returns (ConnectionResponse);
+  // The git pane (D546–D550): the branch, how far it is from its upstream, and each changed file
+  // under the project root with its kind and line counts. Only the web UI calls the `Vcs*` rpcs;
+  // no MCP tool does. A git failure is `failed_precondition`, its message holding no URL's
+  // credentials.
+  rpc VcsStatus(VcsStatusRequest) returns (VcsStatusResponse);
+  // One file's unified diff against the last commit, the whole file when it is untracked; masked.
+  rpc VcsDiff(VcsDiffRequest) returns (VcsDiffResponse);
+  // Commits the named files as they are now, and nothing else staged.
+  rpc VcsCommit(VcsCommitRequest) returns (VcsCommitResponse);
+  // Pushes the branch to its upstream with the user's own git credentials, never asking for any.
+  rpc VcsPush(VcsPushRequest) returns (VcsPushResponse);
+  // Fast-forwards the branch to its upstream with the user's own git credentials; refused when
+  // the branches have diverged.
+  rpc VcsPull(VcsPullRequest) returns (VcsPullResponse);
 }
 
 // Which tests or apis to act on, as `vc run` selects them.
@@ -876,4 +890,78 @@ message ConnectionResponse {
   string mcp_url = 1;
   // The bearer token `/mcp` accepts, and nothing else does.
   string agent_token = 2;
+}
+
+message VcsStatusRequest {}
+
+// How a file changed since the last commit, staged or not.
+enum VcsChange {
+  VCS_CHANGE_UNSPECIFIED = 0;
+  VCS_CHANGE_ADDED = 1;
+  VCS_CHANGE_MODIFIED = 2;
+  VCS_CHANGE_DELETED = 3;
+  // New and not yet added; not ignored.
+  VCS_CHANGE_UNTRACKED = 4;
+  // Left with merge conflicts.
+  VCS_CHANGE_CONFLICTED = 5;
+}
+
+message VcsFile {
+  // Relative to the project root.
+  string path = 1;
+  VcsChange change = 2;
+  // Lines added since the last commit; every line of an untracked file.
+  uint32 added = 3;
+  uint32 removed = 4;
+  // A binary file has no line counts.
+  bool binary = 5;
+}
+
+message VcsStatusResponse {
+  // The checked-out branch; empty when `HEAD` is detached.
+  string branch = 1;
+  // The branch it tracks, `origin/main`; empty when it tracks none.
+  string upstream = 2;
+  // Commits the upstream lacks.
+  uint32 ahead = 3;
+  // Commits the branch lacks.
+  uint32 behind = 4;
+  // By path.
+  repeated VcsFile files = 5;
+}
+
+message VcsDiffRequest {
+  // Relative to the project root.
+  string path = 1;
+}
+
+message VcsDiffResponse {
+  // Empty when the file did not change or is ignored.
+  string diff = 1;
+}
+
+message VcsCommitRequest {
+  // Relative to the project root; at least one.
+  repeated string paths = 1;
+  // Not blank.
+  string message = 2;
+}
+
+message VcsCommitResponse {
+  // The new commit's short ID.
+  string commit = 1;
+}
+
+message VcsPushRequest {}
+
+message VcsPushResponse {
+  // What git said, masked.
+  string output = 1;
+}
+
+message VcsPullRequest {}
+
+message VcsPullResponse {
+  // What git said, masked.
+  string output = 1;
 }

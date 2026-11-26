@@ -41,6 +41,7 @@ mod run_stream;
 mod service;
 mod site;
 mod token;
+mod vcs_rpcs;
 mod wire_diagnostics;
 mod wire_events;
 mod wire_history;

@@ -73,7 +73,7 @@ async fn the_agent_token_opens_no_engine_rpc_and_the_cookie_does_not_open_mcp() 
     let token = Arc::new(Token::generate().unwrap());
     let app = served(&api, &token, true);
     let agent = format!("Bearer {}", token.agent());
-    for method in ["DecideApproval", "WriteFile", "Import", "Run", "Connection"] {
+    for method in ["DecideApproval", "WriteFile", "Import", "Run", "Connection", "VcsCommit", "VcsPush"] {
         let alone = rpc(method).header(header::AUTHORIZATION, &agent);
         assert_eq!(status(&app, alone).await, StatusCode::UNAUTHORIZED, "{method}");
         let both = rpc(method).header(header::AUTHORIZATION, &agent).header(header::COOKIE, cookie(&token));

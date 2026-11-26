@@ -1332,6 +1332,88 @@ pub struct ConnectionResponse {
     #[prost(string, tag="2")]
     pub agent_token: ::prost::alloc::string::String,
 }
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct VcsStatusRequest {
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct VcsFile {
+    /// Relative to the project root.
+    #[prost(string, tag="1")]
+    pub path: ::prost::alloc::string::String,
+    #[prost(enumeration="VcsChange", tag="2")]
+    pub change: i32,
+    /// Lines added since the last commit; every line of an untracked file.
+    #[prost(uint32, tag="3")]
+    pub added: u32,
+    #[prost(uint32, tag="4")]
+    pub removed: u32,
+    /// A binary file has no line counts.
+    #[prost(bool, tag="5")]
+    pub binary: bool,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct VcsStatusResponse {
+    /// The checked-out branch; empty when `HEAD` is detached.
+    #[prost(string, tag="1")]
+    pub branch: ::prost::alloc::string::String,
+    /// The branch it tracks, `origin/main`; empty when it tracks none.
+    #[prost(string, tag="2")]
+    pub upstream: ::prost::alloc::string::String,
+    /// Commits the upstream lacks.
+    #[prost(uint32, tag="3")]
+    pub ahead: u32,
+    /// Commits the branch lacks.
+    #[prost(uint32, tag="4")]
+    pub behind: u32,
+    /// By path.
+    #[prost(message, repeated, tag="5")]
+    pub files: ::prost::alloc::vec::Vec<VcsFile>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct VcsDiffRequest {
+    /// Relative to the project root.
+    #[prost(string, tag="1")]
+    pub path: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct VcsDiffResponse {
+    /// Empty when the file did not change or is ignored.
+    #[prost(string, tag="1")]
+    pub diff: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct VcsCommitRequest {
+    /// Relative to the project root; at least one.
+    #[prost(string, repeated, tag="1")]
+    pub paths: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Not blank.
+    #[prost(string, tag="2")]
+    pub message: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct VcsCommitResponse {
+    /// The new commit's short ID.
+    #[prost(string, tag="1")]
+    pub commit: ::prost::alloc::string::String,
+}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct VcsPushRequest {
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct VcsPushResponse {
+    /// What git said, masked.
+    #[prost(string, tag="1")]
+    pub output: ::prost::alloc::string::String,
+}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct VcsPullRequest {
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct VcsPullResponse {
+    /// What git said, masked.
+    #[prost(string, tag="1")]
+    pub output: ::prost::alloc::string::String,
+}
 /// What to list.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
@@ -1505,6 +1587,47 @@ impl Verdict {
             "VERDICT_APPROVE" => Some(Self::Approve),
             "VERDICT_ALWAYS_ALLOW" => Some(Self::AlwaysAllow),
             "VERDICT_DENY" => Some(Self::Deny),
+            _ => None,
+        }
+    }
+}
+/// How a file changed since the last commit, staged or not.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum VcsChange {
+    Unspecified = 0,
+    Added = 1,
+    Modified = 2,
+    Deleted = 3,
+    /// New and not yet added; not ignored.
+    Untracked = 4,
+    /// Left with merge conflicts.
+    Conflicted = 5,
+}
+impl VcsChange {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "VCS_CHANGE_UNSPECIFIED",
+            Self::Added => "VCS_CHANGE_ADDED",
+            Self::Modified => "VCS_CHANGE_MODIFIED",
+            Self::Deleted => "VCS_CHANGE_DELETED",
+            Self::Untracked => "VCS_CHANGE_UNTRACKED",
+            Self::Conflicted => "VCS_CHANGE_CONFLICTED",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "VCS_CHANGE_UNSPECIFIED" => Some(Self::Unspecified),
+            "VCS_CHANGE_ADDED" => Some(Self::Added),
+            "VCS_CHANGE_MODIFIED" => Some(Self::Modified),
+            "VCS_CHANGE_DELETED" => Some(Self::Deleted),
+            "VCS_CHANGE_UNTRACKED" => Some(Self::Untracked),
+            "VCS_CHANGE_CONFLICTED" => Some(Self::Conflicted),
             _ => None,
         }
     }
