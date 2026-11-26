@@ -189,7 +189,7 @@ async fn a_bad_ad_hoc_call_is_refused_before_anything_is_sent() {
     }
     let unknown = engine.call(&adhoc(AdhocCall { auth: Some("nope".into()), ..post() })).await;
     assert!(unknown.is_err(), "an auth the project does not define is an error, as in an api file");
-    assert!(recordings.take().is_empty());
+    assert_eq!(recordings.take(), []);
 }
 
 #[tokio::test]
@@ -209,7 +209,7 @@ fn the_ad_hoc_file_is_held_to_no_naming_or_url_convention() {
     let engine = engine.history(Arc::new(MemoryHistory::new()), Arc::new(MemoryHistory::new())).build().unwrap();
     let conventions = |call: &AdhocCall, path: Option<&str>| {
         let written = file(call).unwrap();
-        let change = FileChange { path: path.map_or(written.path.clone(), str::to_owned), ..written };
+        let change = FileChange { path: path.map_or_else(|| written.path.clone(), str::to_owned), ..written };
         let compiled = engine.compiled_with(&[change]).unwrap();
         let codes = compiled.diagnostics.iter().map(|diagnostic| diagnostic.code);
         codes.filter(|code| code.category() == Category::Convention).collect::<Vec<_>>()

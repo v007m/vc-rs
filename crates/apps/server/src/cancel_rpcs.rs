@@ -93,9 +93,11 @@ async fn keep(mut asks: mpsc::UnboundedReceiver<Ask>) {
                 if free {
                     drop(running.insert(handle, run));
                 }
-                drop(reply.send(free));
+                reply.send(free).ok();
             }
-            Ask::Find(handle, reply) => drop(reply.send(running.get(&handle).cloned())),
+            Ask::Find(handle, reply) => {
+                reply.send(running.get(&handle).cloned()).ok();
+            }
         }
     }
 }

@@ -55,6 +55,10 @@ pub use vc_engine::TestStatus
 pub use vc_engine::TestTrend
 pub use vc_engine::TextRenderer
 pub use vc_engine::Totals
+pub use vc_engine::VcsChange
+pub use vc_engine::VcsCommit
+pub use vc_engine::VcsFile
+pub use vc_engine::VcsStatus
 pub use vc_engine::Verdict
 pub use vc_engine::check_label
 pub use vc_engine::check_parts
@@ -139,6 +143,9 @@ pub vc_engine::EngineError::Sources
 pub vc_engine::EngineError::Sources::reason: alloc::string::String
 pub vc_engine::EngineError::Stale
 pub vc_engine::EngineError::Stale::reason: alloc::string::String
+pub vc_engine::EngineError::Vcs
+pub vc_engine::EngineError::Vcs::help: core::option::Option<alloc::string::String>
+pub vc_engine::EngineError::Vcs::reason: alloc::string::String
 impl vc_engine::EngineError
 pub fn vc_engine::EngineError::help(&self) -> core::option::Option<alloc::string::String>
 pub const fn vc_engine::EngineError::is_internal(&self) -> bool
@@ -168,6 +175,36 @@ impl core::fmt::Debug for vc_engine::ListKind
 pub fn vc_engine::ListKind::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Copy for vc_engine::ListKind
 impl core::marker::StructuralPartialEq for vc_engine::ListKind
+#[non_exhaustive] pub enum vc_engine::LiveEvent
+pub vc_engine::LiveEvent::Ended
+pub vc_engine::LiveEvent::Ended::code: core::option::Option<u16>
+pub vc_engine::LiveEvent::Ended::failed: bool
+pub vc_engine::LiveEvent::Ended::reason: alloc::string::String
+pub vc_engine::LiveEvent::Message
+pub vc_engine::LiveEvent::Message::at_ms: u64
+pub vc_engine::LiveEvent::Message::fields: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub vc_engine::LiveEvent::Message::outgoing: bool
+pub vc_engine::LiveEvent::Opened
+pub vc_engine::LiveEvent::Opened::action: vc_model::ids::ActionId
+pub vc_engine::LiveEvent::Opened::head: alloc::boxed::Box<vc_model::exchange::Exchange>
+pub vc_engine::LiveEvent::Opened::names: vc_model::names::Names
+pub vc_engine::LiveEvent::Opened::run_id: u64
+pub vc_engine::LiveEvent::Opened::sends: bool
+impl core::clone::Clone for vc_engine::LiveEvent
+pub fn vc_engine::LiveEvent::clone(&self) -> Self
+impl core::fmt::Debug for vc_engine::LiveEvent
+pub fn vc_engine::LiveEvent::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+#[non_exhaustive] pub enum vc_engine::LiveSend
+pub vc_engine::LiveSend::Close(u16)
+pub vc_engine::LiveSend::Text(alloc::string::String)
+impl core::clone::Clone for vc_engine::LiveSend
+pub fn vc_engine::LiveSend::clone(&self) -> Self
+impl core::cmp::Eq for vc_engine::LiveSend
+impl core::cmp::PartialEq for vc_engine::LiveSend
+pub fn vc_engine::LiveSend::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_engine::LiveSend
+pub fn vc_engine::LiveSend::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_engine::LiveSend
 #[non_exhaustive] pub enum vc_engine::LoadEnding
 pub vc_engine::LoadEnding::Aborted
 pub vc_engine::LoadEnding::Blocked
@@ -613,6 +650,8 @@ pub fn vc_engine::Engine::cache_list(&self) -> core::result::Result<vc_engine::C
 impl vc_engine::Engine
 pub async fn vc_engine::Engine::call(&self, &vc_engine::CallRequest) -> core::result::Result<vc_engine::CallReport, vc_engine::EngineError>
 impl vc_engine::Engine
+pub async fn vc_engine::Engine::call_stream(&self, &vc_engine::CallRequest, vc_engine::LiveIo) -> core::result::Result<(), vc_engine::EngineError>
+impl vc_engine::Engine
 pub fn vc_engine::Engine::catalog(&self, &vc_engine::SelectRequest) -> core::result::Result<vc_engine::ListReport, vc_engine::EngineError>
 pub fn vc_engine::Engine::list(&self, &vc_engine::ListRequest) -> core::result::Result<vc_engine::ListReport, vc_engine::EngineError>
 impl vc_engine::Engine
@@ -700,6 +739,12 @@ impl vc_engine::Engine
 pub async fn vc_engine::Engine::test_alerts(&self, &vc_engine::ExplainRequest) -> core::result::Result<alloc::vec::Vec<vc_engine::AlertSent>, vc_engine::EngineError>
 impl vc_engine::Engine
 pub async fn vc_engine::Engine::test_auth(&self, &vc_engine::TestAuthRequest) -> core::result::Result<vc_engine::AuthTested, vc_engine::EngineError>
+impl vc_engine::Engine
+pub fn vc_engine::Engine::vcs_commit(&self, (&[alloc::string::String], &str)) -> core::result::Result<alloc::string::String, vc_engine::EngineError>
+pub async fn vc_engine::Engine::vcs_diff(&self, &str) -> core::result::Result<alloc::string::String, vc_engine::EngineError>
+pub async fn vc_engine::Engine::vcs_pull(&self) -> core::result::Result<alloc::string::String, vc_engine::EngineError>
+pub async fn vc_engine::Engine::vcs_push(&self) -> core::result::Result<alloc::string::String, vc_engine::EngineError>
+pub fn vc_engine::Engine::vcs_status(&self) -> core::result::Result<vc_interfaces::vcs_pane::VcsStatus, vc_engine::EngineError>
 impl vc_engine::Engine
 pub fn vc_engine::Engine::watch(&self) -> core::result::Result<std::sync::mpsc::Receiver<alloc::vec::Vec<vc_model::source::SourcePath>>, vc_engine::EngineError>
 impl vc_engine::Engine
@@ -847,7 +892,9 @@ pub fn vc_engine::ImportRequest::fmt(&self, &mut core::fmt::Formatter<'_>) -> co
 impl core::marker::StructuralPartialEq for vc_engine::ImportRequest
 pub struct vc_engine::Interrupter
 impl vc_engine::Interrupter
+pub fn vc_engine::Interrupter::abandon(&self)
 pub fn vc_engine::Interrupter::interrupt(&self)
+pub fn vc_engine::Interrupter::is_finished(&self) -> bool
 impl core::clone::Clone for vc_engine::Interrupter
 pub fn vc_engine::Interrupter::clone(&self) -> Self
 impl core::fmt::Debug for vc_engine::Interrupter
@@ -921,6 +968,13 @@ pub fn vc_engine::Listed::eq(&self, &Self) -> bool
 impl core::fmt::Debug for vc_engine::Listed
 pub fn vc_engine::Listed::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_engine::Listed
+#[non_exhaustive] pub struct vc_engine::LiveIo
+pub vc_engine::LiveIo::events: tokio::sync::mpsc::bounded::Sender<vc_engine::LiveEvent>
+pub vc_engine::LiveIo::sends: tokio::sync::mpsc::bounded::Receiver<vc_engine::LiveSend>
+impl vc_engine::LiveIo
+pub const fn vc_engine::LiveIo::new(tokio::sync::mpsc::bounded::Sender<vc_engine::LiveEvent>, tokio::sync::mpsc::bounded::Receiver<vc_engine::LiveSend>) -> Self
+impl core::fmt::Debug for vc_engine::LiveIo
+pub fn vc_engine::LiveIo::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 #[non_exhaustive] pub struct vc_engine::LoadBreach
 pub vc_engine::LoadBreach::actual: f64
 pub vc_engine::LoadBreach::limit: serde_json::value::Value

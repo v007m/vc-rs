@@ -20,6 +20,9 @@ pub const API_ID: &str = "vc-adhoc#call";
 /// What the call may speak; the first is the default.
 const KINDS: [&str; 3] = ["http", "sse", "websocket"];
 
+/// One key of the api and its value.
+type Field = (&'static str, Value);
+
 /// `diagnostics` without the convention lints (V4xxx) of the ad hoc call's file, when `changes`
 /// compiled one in: nobody wrote that file, so its names and URL style are nobody's to fix
 /// (D545). Every other diagnostic of it stays, as the call's own.
@@ -71,7 +74,7 @@ pub fn file(call: &AdhocCall) -> Result<FileChange, EngineError> {
 
 /// The api's keys, `id` first. No auth is `auth: none`, so the project's default auth is never
 /// sent to a URL it was not written for.
-fn fields(call: &AdhocCall) -> Result<Vec<(&'static str, Value)>, EngineError> {
+fn fields(call: &AdhocCall) -> Result<Vec<Field>, EngineError> {
     let kind = kind(call)?;
     let mut fields = vec![("id", Value::from("call"))];
     if kind != KINDS[0] {

@@ -39,7 +39,7 @@ pub enum LiveEvent {
         /// The action it sent.
         action: ActionId,
         /// The opening request and response, masked.
-        head: Exchange,
+        head: Box<Exchange>,
         /// Whether the stream takes sends: a `websocket` one does, an `sse` one only reads
         /// (D544).
         sends: bool,
@@ -105,18 +105,18 @@ impl Engine {
 /// Opens `ready`'s call, which `names` names, and talks through `io`: the masked head it opened
 /// with, and whether it ended without a failure.
 async fn live((ready, names): (&Ready, &Names), io: LiveIo, clock: &dyn Clock) -> (Option<Exchange>, bool) {
-    let LiveIo { events, mut sends } = io;
+    let LiveIo { events, sends: mut asked } = io;
     let redactor = &*ready.cx.redactor;
-    let opened = ready.cx.executors.open_live(sent(&ready.cx, ready.action, ready.given.clone())).await;
-    let (head, end) = match opened {
+    let (head, end) = match ready.cx.executors.open_live(sent(&ready.cx, ready.action, ready.given.clone())).await {
         Ok(stream) => {
             let head = redactor.exchange(stream.head().clone()).await;
             let (run_id, action) = (ready.run_id, ready.action);
             let sends = stream.sends();
-            let opened = LiveEvent::Opened { run_id, names: names.clone(), action, head: head.clone(), sends };
+            let opened =
+                LiveEvent::Opened { run_id, names: names.clone(), action, head: Box::new(head.clone()), sends };
             drop(events.send(opened).await);
             let talk = Talk { stream, events: &events, redactor, clock, started_ms: clock.now_ms() };
-            (Some(head), talk.converse(&mut sends).await)
+            (Some(head), talk.converse(&mut asked).await)
         }
         Err(failure) => (None, LiveEnd::new(failure.message, true)),
     };
@@ -142,7 +142,7 @@ struct Talk<'a> {
     started_ms: u64,
 }
 
-impl Talk<'_> {
+impl<'a> Talk<'a> {
     /// Reads, sends and closes as the stream and the caller say, until it ends.
     async fn converse(mut self, sends: &mut mpsc::Receiver<LiveSend>) -> LiveEnd {
         let events = self.events;
@@ -195,11 +195,15 @@ impl Talk<'_> {
         LiveEnd::new(reason, false)
     }
 
-    /// Tells the caller of a message, masked.
-    async fn tell(&self, outgoing: bool, fields: Map<String, Value>) {
-        let Value::Object(fields) = self.redactor.masked(Value::Object(fields)).await else { return };
-        let at_ms = self.clock.now_ms().saturating_sub(self.started_ms);
-        drop(self.events.send(LiveEvent::Message { outgoing, at_ms, fields }).await);
+    /// Tells the caller of a message, masked. The telling holds no borrow of the stream, which
+    /// is not `Sync`, so the call's future stays `Send`.
+    fn tell(&self, outgoing: bool, fields: Map<String, Value>) -> impl Future<Output = ()> + Send + 'a {
+        let (events, redactor, at_ms) =
+            (self.events, self.redactor, self.clock.now_ms().saturating_sub(self.started_ms));
+        async move {
+            let Value::Object(fields) = redactor.masked(Value::Object(fields)).await else { return };
+            drop(events.send(LiveEvent::Message { outgoing, at_ms, fields }).await);
+        }
     }
 }
 

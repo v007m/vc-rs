@@ -114,7 +114,7 @@ impl Drop for Group {
 
 /// Kills the process group `leader` leads, as a timeout does; the git pane's too (D554).
 #[cfg(unix)]
-pub(crate) fn kill_group(leader: u32) {
+pub fn kill_group(leader: u32) {
     use rustix::process::{Pid, Signal, kill_process_group};
     if let Some(pid) = i32::try_from(leader).ok().and_then(Pid::from_raw) {
         kill_process_group(pid, Signal::KILL).ok();
@@ -123,7 +123,7 @@ pub(crate) fn kill_group(leader: u32) {
 
 /// Without process groups, `kill_on_drop` ends the program itself.
 #[cfg(not(unix))]
-pub(crate) const fn kill_group(_leader: u32) {}
+pub const fn kill_group(_leader: u32) {}
 
 /// Reads both streams while the program runs, and what they hold once it exits.
 async fn collect(child: &mut Child, cap: usize) -> std::io::Result<CommandOutput> {

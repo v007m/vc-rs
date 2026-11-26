@@ -112,7 +112,7 @@ async fn a_live_event_stream_streams_its_events_masked_refuses_a_text_and_closes
     let mut body = opened(&router, &ticks(&ticking())).await;
     let (mut buffer, mut seen) = (BytesMut::new(), Vec::new());
     let Event::Opened(open) = event(&mut body, (&mut buffer, &mut seen)).await else { panic!("opened first") };
-    let head = open.head.unwrap();
+    let head = open.head.clone().unwrap();
     assert!(open.stream.starts_with("live-") && head.url.ends_with("/ticks") && !open.sends, "{open:?}");
     assert_eq!(head.status, Some(200));
     let Event::Message(message) = event(&mut body, (&mut buffer, &mut seen)).await else { panic!("a message") };

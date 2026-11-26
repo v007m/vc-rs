@@ -33,6 +33,9 @@ const DRAIN: Duration = Duration::from_millis(200);
 /// A file's line counts: added, removed, and whether it is binary.
 type Counts = (u32, u32, bool);
 
+/// A tracked file and its line counts.
+type Counted = (SourcePath, Counts);
+
 /// `git args` in `root`, every argument on its own and never through a shell, with no hook from
 /// `core.fsmonitor`, paths printed as they are, pathspecs taken literally, and no prompt.
 pub fn run(root: &Path, args: &[&str]) -> Result<Output, VcsError> {
@@ -53,6 +56,7 @@ fn unavailable(error: &io::Error) -> VcsError {
 }
 
 /// The branch, its upstream, how far apart they are, and the changed files (D546).
+#[expect(clippy::literal_string_with_formatting_args, reason = "`@{upstream}` is git's revision syntax")]
 pub fn status(root: &Path) -> Result<VcsStatus, VcsError> {
     ran(root, (STATUS, &["rev-parse", "--git-dir"]))?;
     let branch = optional(root, &["symbolic-ref", "--quiet", "--short", "HEAD"])?;
@@ -175,10 +179,8 @@ fn files(root: &Path) -> Result<Vec<VcsFile>, VcsError> {
     let base = base(root)?;
     let mut files = BTreeMap::new();
     let changes = listed(root, (STATUS, &["diff", "--name-status", "-z", "--no-renames", "--relative", &base, "--"]))?;
-    for pair in changes.chunks_exact(2) {
-        if let [letter, path] = pair {
-            add(&mut files, (path, change(letter)), (0, 0, false));
-        }
+    for [letter, path] in changes.as_chunks::<2>().0 {
+        add(&mut files, (path, change(letter)), (0, 0, false));
     }
     for path in listed(root, (STATUS, &["diff", "--name-only", "--diff-filter=U", "-z", "--relative", "--"]))? {
         add(&mut files, (&path, VcsChange::Conflicted), (0, 0, false));
@@ -201,7 +203,7 @@ fn add(files: &mut BTreeMap<SourcePath, VcsFile>, (path, change): (&str, VcsChan
     }
 }
 
-fn file(path: SourcePath, (change, (added, removed, binary)): (VcsChange, Counts)) -> VcsFile {
+const fn file(path: SourcePath, (change, (added, removed, binary)): (VcsChange, Counts)) -> VcsFile {
     VcsFile { path, change, added, removed, binary }
 }
 
@@ -216,7 +218,7 @@ fn change(letter: &str) -> VcsChange {
 }
 
 /// Each tracked file's line counts since `base`, from `--numstat` (`-` counts mean binary).
-fn counts(root: &Path, base: &str) -> Result<Vec<(SourcePath, Counts)>, VcsError> {
+fn counts(root: &Path, base: &str) -> Result<Vec<Counted>, VcsError> {
     let lines = listed(root, (STATUS, &["diff", "--numstat", "-z", "--no-renames", "--relative", base, "--"]))?;
     Ok(lines
         .iter()
@@ -238,9 +240,9 @@ fn lines(path: &Path) -> Counts {
     if bytes.iter().take(8000).any(|byte| *byte == 0) {
         return (0, 0, true);
     }
-    let newlines = bytes.iter().filter(|byte| **byte == b'\n').count();
-    let unended = usize::from(bytes.last().is_some_and(|byte| *byte != b'\n'));
-    (u32::try_from(newlines + unended).unwrap_or(u32::MAX), 0, false)
+    let pieces = bytes.split(|byte| *byte == b'\n').count();
+    let ended = usize::from(bytes.is_empty() || bytes.ends_with(b"\n"));
+    (u32::try_from(pieces - ended).unwrap_or(u32::MAX), 0, false)
 }
 
 /// `HEAD`, or the empty tree before the first commit.

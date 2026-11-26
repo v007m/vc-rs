@@ -57,7 +57,7 @@ impl FakeVcs {
     #[must_use]
     pub fn of(history: &crate::VcsHistory) -> Self {
         let changes = BTreeMap::from([(crate::VcsHistory::BASE.to_owned(), history.changed())]);
-        Self { changes, recent: history.recent() }
+        Self { changes, recent: history.recent(), ..Self::default() }
     }
 
     /// Also knows that `paths` changed since `base`.
@@ -108,10 +108,8 @@ impl FakeVcs {
         if let Some(asks) = &self.asks {
             asks.send(ask).ok();
         }
-        match &self.failure {
-            Some(reason) => Err(VcsError::Action { action: action.to_owned(), reason: reason.clone() }),
-            None => Ok(said.to_owned()),
-        }
+        let refused = |reason: &String| Err(VcsError::Action { action: action.to_owned(), reason: reason.clone() });
+        self.failure.as_ref().map_or_else(|| Ok(said.to_owned()), refused)
     }
 }
 

@@ -135,10 +135,10 @@ impl LiveStream {
     /// When the close could not be sent or answered.
     pub async fn close(&mut self, code: u16) -> Result<(), Failure> {
         let Some(mut stream) = self.opening.stream.take() else { return Ok(()) };
-        match time::timeout(CLOSE_WAIT, stream.close(code)).await {
-            Ok(closed) => closed.map_err(|error| failure(&error)),
-            Err(_) => Err(Failure::new(format!("the server did not answer the close within {CLOSE_WAIT:?}"))),
-        }
+        let unanswered = |_| Err(Failure::new(format!("the server did not answer the close within {CLOSE_WAIT:?}")));
+        time::timeout(CLOSE_WAIT, stream.close(code))
+            .await
+            .map_or_else(unanswered, |closed| closed.map_err(|error| failure(&error)))
     }
 
     /// Decodes `frame`, keeping a close's code.

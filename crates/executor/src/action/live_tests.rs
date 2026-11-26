@@ -51,7 +51,9 @@ async fn a_live_websocket_echoes_what_is_sent_until_the_server_closes_it() {
     let ended = LiveEnd { code: Some(1000), ..LiveEnd::new("the stream closed", false) };
     assert_eq!(live.next().await, LiveRead::Ended(ended.clone()));
     assert_eq!(live.next().await, LiveRead::Ended(ended), "every later read ends it again");
-    assert!(live.send(&json!("late")).await.is_err(), "nothing goes out once it ended");
+    let late = live.send(&json!("late")).await;
+    drop(live);
+    assert!(late.is_err(), "nothing goes out once it ended");
 }
 
 #[tokio::test]
@@ -59,6 +61,7 @@ async fn a_live_websocket_closed_by_its_caller_ends() {
     let mut live = opened(Protocol::Websocket, "/ws", FakeStreamTransport::contract()).await.unwrap();
     live.close(1000).await.unwrap();
     let LiveRead::Ended(end) = live.next().await else { panic!("ended") };
+    drop(live);
     assert!(!end.failed, "{end:?}");
 }
 
@@ -82,6 +85,7 @@ async fn an_answer_that_opens_no_stream_ends_it_failed_at_the_first_read() {
     let mut live = opened(Protocol::Websocket, "/ws", streams).await.unwrap();
     assert_eq!(live.head().response.status.as_u16(), 401, "the head is still shown");
     let LiveRead::Ended(end) = live.next().await else { panic!("ended") };
+    drop(live);
     assert!(end.failed && end.reason.contains("did not open: the server answered 401"), "{end:?}");
 }
 
