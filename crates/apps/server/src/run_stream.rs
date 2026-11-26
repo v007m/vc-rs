@@ -6,12 +6,13 @@
 //! starts, is driven from the blocking pool, so the compile never holds an async worker; the
 //! relay to the client stays on the async side.
 
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use tokio::runtime::Handle;
 use tokio::sync::mpsc::{self, Receiver};
 use vc_contracts::engine::v1 as wire;
-use vc_engine::{Interrupter, PlanRequest, RunFeed, RunRequest, RunWatch};
+use vc_engine::{Interrupter, PlanRequest, ReportFlags, RunFeed, RunRequest, RunWatch};
 
 use crate::engine_api::{EngineApi, Rpcs};
 use crate::project_rpcs::select;
@@ -55,9 +56,18 @@ fn run_request(api: &EngineApi, request: wire::RunRequest, watch: RunWatch) -> R
         failed: request.failed,
         no_cache: request.no_cache,
         unrecorded: request.record == Some(false),
+        strict: request.strict,
+        files: report_flags(request.reports, request.out, request.single_file),
         watch: Some(watch),
         ..RunRequest::default()
     }
+}
+
+/// `--report`, `--out` and `--single-file` as the run request carries them; an empty `out` is
+/// none, and a relative one is under the project root (D671).
+fn report_flags(formats: Vec<String>, out: String, single_file: bool) -> ReportFlags {
+    let out = (!out.is_empty()).then(|| PathBuf::from(out));
+    ReportFlags { formats, out, single_file }
 }
 
 /// Sends the feed's events to `sink` until every sender has gone, which is once the run has
