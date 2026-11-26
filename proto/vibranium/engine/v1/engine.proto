@@ -90,6 +90,8 @@ service EngineService {
   // Commits the named files as they are now, and nothing else staged.
   rpc VcsCommit(VcsCommitRequest) returns (VcsCommitResponse);
   // Pushes the branch to its upstream with the user's own git credentials, never asking for any.
+  // A push or pull still running after 120 s is stopped: `failed_precondition`, saying it may be
+  // waiting for an SSH passphrase (D554).
   rpc VcsPush(VcsPushRequest) returns (VcsPushResponse);
   // Fast-forwards the branch to its upstream with the user's own git credentials; refused when
   // the branches have diverged.

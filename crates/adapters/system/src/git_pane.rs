@@ -2,12 +2,16 @@
 //! commit, push or pull (D546–D550).
 //!
 //! Each runs as [`run`] does. Push and pull use the user's own credentials, from their helper or
-//! agent, and never ask for them on a terminal (`GIT_TERMINAL_PROMPT=0`, no stdin). Every
+//! agent, and never ask for them on a terminal (`GIT_TERMINAL_PROMPT=0`, no stdin); one that
+//! still waits, as SSH does for a key's passphrase, is stopped after two minutes (D554). Every
 //! message has the credentials of any URL in it hidden ([`without_credentials`]).
 
 use std::collections::BTreeMap;
 use std::path::Path;
-use std::process::{Command, Output};
+use std::process::{Child, Command, ExitStatus, Output, Stdio};
+use std::sync::mpsc::{self, Receiver};
+use std::time::{Duration, Instant};
+use std::{io, thread};
 
 use vc_interfaces::{VcsChange, VcsCommit, VcsError, VcsFile, VcsStatus, without_credentials};
 use vc_model::SourcePath;
@@ -16,16 +20,36 @@ const STATUS: &str = "read the status";
 const DIFF: &str = "diff";
 const COMMIT: &str = "commit";
 
+/// How long a push or pull may run before it is stopped (D554).
+const LIMIT: Duration = Duration::from_secs(120);
+
+/// How often a push or pull is checked on while it runs.
+const POLL: Duration = Duration::from_millis(20);
+
+/// How long a stream of a push or pull that has exited is still read, so a process it left
+/// behind holding the stream never holds the pane up.
+const DRAIN: Duration = Duration::from_millis(200);
+
 /// A file's line counts: added, removed, and whether it is binary.
 type Counts = (u32, u32, bool);
 
 /// `git args` in `root`, every argument on its own and never through a shell, with no hook from
 /// `core.fsmonitor`, paths printed as they are, pathspecs taken literally, and no prompt.
 pub fn run(root: &Path, args: &[&str]) -> Result<Output, VcsError> {
+    git(root, args).output().map_err(|error| unavailable(&error))
+}
+
+/// The `git args` command [`run`] runs.
+fn git(root: &Path, args: &[&str]) -> Command {
     let mut command = Command::new("git");
     command.arg("-C").arg(root).args(["-c", "core.fsmonitor=false", "-c", "core.quotePath=false"]);
-    command.arg("--literal-pathspecs").env("GIT_TERMINAL_PROMPT", "0");
-    command.args(args).output().map_err(|error| VcsError::Unavailable { reason: without_credentials(&error.to_string()) })
+    command.arg("--literal-pathspecs").env("GIT_TERMINAL_PROMPT", "0").args(args);
+    command
+}
+
+/// git could not be started.
+fn unavailable(error: &io::Error) -> VcsError {
+    VcsError::Unavailable { reason: without_credentials(&error.to_string()) }
 }
 
 /// The branch, its upstream, how far apart they are, and the changed files (D546).
@@ -68,12 +92,74 @@ pub fn commit(root: &Path, commit: &VcsCommit) -> Result<String, VcsError> {
 
 /// Pushes the branch to its upstream; what git said (D549).
 pub fn push(root: &Path) -> Result<String, VcsError> {
-    ran(root, ("push", &["push"])).map(|output| message(&output))
+    timed(root, ("push", &["push"]), LIMIT)
 }
 
 /// Fast-forwards the branch to its upstream, never merging or rebasing; what git said (D549).
 pub fn pull(root: &Path) -> Result<String, VcsError> {
-    ran(root, ("pull", &["pull", "--no-rebase", "--ff-only"])).map(|output| message(&output))
+    timed(root, ("pull", &["pull", "--no-rebase", "--ff-only"]), LIMIT)
+}
+
+/// What `git args` said, run as [`run`] runs it with no stdin; once it has run for `limit`, it
+/// and every process it started (on unix, its process group, such as `ssh`) are killed and it
+/// fails as timed out (D554).
+pub fn timed(root: &Path, (action, args): (&str, &[&str]), limit: Duration) -> Result<String, VcsError> {
+    let mut command = git(root, args);
+    command.stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped());
+    #[cfg(unix)]
+    std::os::unix::process::CommandExt::process_group(&mut command, 0);
+    let mut child = command.spawn().map_err(|error| unavailable(&error))?;
+    let (stdout, stderr) = (drained(child.stdout.take()), drained(child.stderr.take()));
+    let Some(status) = waited(&mut child, limit).map_err(|error| unavailable(&error))? else {
+        return Err(stopped(&mut child, (action, limit)));
+    };
+    let output = Output { status, stdout: read(&stdout), stderr: read(&stderr) };
+    if status.success() { Ok(message(&output)) } else { Err(failed(action, &message(&output))) }
+}
+
+/// Kills `child` and what it started, which ran past `limit`, and says why it was stopped.
+fn stopped(child: &mut Child, (action, limit): (&str, Duration)) -> VcsError {
+    crate::command::kill_group(child.id());
+    child.kill().ok();
+    child.wait().ok();
+    let reason = format!(
+        "git {action} timed out after {} s; it may be waiting for an SSH passphrase. Run it in a terminal or add the key to ssh-agent",
+        limit.as_secs()
+    );
+    failed(action, &reason)
+}
+
+/// The exit status of `child` once it has exited, or `None` once it has run for `limit`.
+fn waited(child: &mut Child, limit: Duration) -> io::Result<Option<ExitStatus>> {
+    let started = Instant::now();
+    loop {
+        if let Some(status) = child.try_wait()? {
+            return Ok(Some(status));
+        }
+        if started.elapsed() >= limit {
+            return Ok(None);
+        }
+        thread::sleep(POLL);
+    }
+}
+
+/// Everything `stream` gives until it ends, read on a thread of its own so a full pipe never
+/// stops git.
+fn drained(stream: Option<impl io::Read + Send + 'static>) -> Receiver<Vec<u8>> {
+    let (send, read) = mpsc::channel();
+    if let Some(mut stream) = stream {
+        drop(thread::spawn(move || {
+            let mut bytes = Vec::new();
+            drop(stream.read_to_end(&mut bytes));
+            drop(send.send(bytes));
+        }));
+    }
+    read
+}
+
+/// What a stream gave, waiting at most [`DRAIN`] for it to end.
+fn read(stream: &Receiver<Vec<u8>>) -> Vec<u8> {
+    stream.recv_timeout(DRAIN).unwrap_or_default()
 }
 
 /// Commits behind and ahead of the upstream.

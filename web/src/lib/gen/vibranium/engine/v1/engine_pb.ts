@@ -3769,6 +3769,8 @@ export const EngineService: GenService<{
   },
   /**
    * Pushes the branch to its upstream with the user's own git credentials, never asking for any.
+   * A push or pull still running after 120 s is stopped: `failed_precondition`, saying it may be
+   * waiting for an SSH passphrase (D554).
    *
    * @generated from rpc vibranium.engine.v1.EngineService.VcsPush
    */
