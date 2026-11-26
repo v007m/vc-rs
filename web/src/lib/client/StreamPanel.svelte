@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { lens } from '#lib/ui/segmented.ts';
   import {
     frameBody,
     frameKind,
@@ -67,7 +68,7 @@
   </div>
   <div class="body-tools pad">
     {#if websocket}
-      <div class="st-segmented" role="group" aria-label="Direction">
+      <div class="st-segmented" role="group" {@attach lens} aria-label="Direction">
         {#each directions as d (d.id)}
           <button type="button" aria-pressed={direction === d.id} onclick={() => (direction = d.id)}
             >{d.label}</button

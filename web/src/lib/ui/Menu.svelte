@@ -4,10 +4,12 @@
 
 <script lang="ts">
   import { tick, type Snippet } from 'svelte';
+  import { growFrom, shrinkInto } from './anchor.ts';
 
   /**
    * A button that opens a short menu of actions (WAI-ARIA menu button): arrows move, Enter
-   * picks, Escape closes and gives focus back to the button.
+   * picks, Escape closes and gives focus back to the button. The menu grows out of its button
+   * and shrinks back into it (Strata 1.1, D618).
    */
   let {
     label,
@@ -28,20 +30,44 @@
   let open = $state(false);
   let root: HTMLElement | undefined = $state();
   let trigger: HTMLButtonElement | undefined = $state();
+  let pop: HTMLElement | undefined = $state();
+  /** Shrinking back into the button: still shown, but already closed for the button and keys. */
+  let closing = $state(false);
+  let up = $state(false);
 
   function entries(): HTMLElement[] {
     return [...(root?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? [])];
   }
 
   async function show(): Promise<void> {
+    const fresh = !pop;
     open = true;
+    closing = false;
     await tick();
+    if (fresh) await flip();
+    if (pop) growFrom(pop, trigger);
     entries()[0]?.focus();
   }
 
+  /** Opens upward when the menu would run off the bottom of the window (a trigger low on the page). */
+  async function flip(): Promise<void> {
+    up = false;
+    await tick();
+    up = !!pop && pop.getBoundingClientRect().bottom > window.innerHeight - 8;
+    await tick();
+  }
+
   function hide(refocus = true): void {
-    open = false;
     if (refocus) trigger?.focus();
+    if (!pop) {
+      open = false;
+      return;
+    }
+    closing = true;
+    shrinkInto(pop, trigger, () => {
+      open = false;
+      closing = false;
+    });
   }
 
   function pick(item: MenuItem): void {
@@ -64,7 +90,7 @@
 
 <svelte:window
   onpointerdown={(event) => {
-    if (open && !root?.contains(event.target as Node)) hide(false);
+    if (open && !closing && !root?.contains(event.target as Node)) hide(false);
   }}
 />
 
@@ -74,17 +100,20 @@
     class={button}
     aria-label={label}
     aria-haspopup="menu"
-    aria-expanded={open}
+    aria-expanded={open && !closing}
     aria-controls="{uid}-menu"
     bind:this={trigger}
-    onclick={() => (open ? hide() : void show())}
+    onclick={() => (open && !closing ? hide() : void show())}
   >
     {@render children()}
   </button>
   {#if open}
     <div
-      class="pop st-overlay st-menu"
+      class="pop st-overlay st-menu vc-anchored"
+      class:up
       role="menu"
+      bind:this={pop}
+      inert={closing}
       id="{uid}-menu"
       aria-label={label}
       tabindex="-1"
@@ -119,6 +148,10 @@
     right: 0;
     width: max-content;
     max-width: min(320px, calc(100vw - 24px));
+  }
+  .pop.up {
+    top: auto;
+    bottom: calc(100% + 6px);
   }
   .st-menu-item:focus-visible {
     background: var(--st-accent-soft);

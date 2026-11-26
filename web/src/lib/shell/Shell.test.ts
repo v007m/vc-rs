@@ -212,4 +212,24 @@ describe('Shell', () => {
     expect(mounts).toBe(1);
     expect(screen.getByText('counted screen')).toBe(before);
   });
+  it('opens the palette from the search field or ⌘K and goes to the picked screen', async () => {
+    const { user, navigate } = setup('/client');
+    await user.click(screen.getByRole('button', { name: /Search or run/ }));
+    const palette = screen.getByRole('dialog', { name: 'Search or run' });
+    const field = within(palette).getByRole('combobox', { name: 'Search or run' });
+    expect(within(palette).getAllByRole('group').length).toBe(5);
+    await user.type(field, 'edit');
+    expect(
+      within(palette).getByRole('option', { name: 'Editor' }).getAttribute('aria-selected'),
+    ).toBe('true');
+    await user.keyboard('{Enter}');
+    expect(navigate).toHaveBeenCalledWith('/tests/editor');
+    expect(screen.queryByRole('dialog', { name: 'Search or run' })).toBeNull();
+
+    await fireEvent.keyDown(window, { key: 'k', metaKey: true });
+    const again = screen.getByRole('dialog', { name: 'Search or run' });
+    await user.keyboard('{ArrowDown}{ArrowUp}{ArrowUp}{Enter}');
+    expect(navigate).toHaveBeenLastCalledWith('/settings');
+    expect(again.isConnected).toBe(false);
+  });
 });

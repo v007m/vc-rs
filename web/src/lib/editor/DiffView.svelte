@@ -43,8 +43,7 @@
   }
   .scroll {
     overflow: auto;
-    border: 1px solid var(--vc-rule-strong);
-    border-radius: 10px;
+    border-radius: var(--vc-radius-inner);
     background: var(--st-surface-wash);
     padding: 6px 0;
   }

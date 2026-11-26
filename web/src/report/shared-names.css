@@ -16,6 +16,12 @@
   --vc-blocked: var(--block);
   --vc-flaky: var(--flaky);
   --vc-skipped: var(--skip);
+  /* the timing waterfall's phases, the app's own names (vibranium.css) */
+  --vc-wf-dns: oklch(0.7 0.1 230);
+  --vc-wf-connect: oklch(0.68 0.13 200);
+  --vc-wf-tls: oklch(0.72 0.12 175);
+  --vc-wf-wait: oklch(0.74 0.14 75);
+  --vc-wf-down: oklch(0.66 0.16 25);
 }
 .vc-mono {
   font-family: var(--mono);

@@ -18,6 +18,7 @@
     sidebarShown,
     left,
     ontoggle,
+    onsearch,
   }: {
     title: string;
     session: RunSession;
@@ -26,6 +27,8 @@
     /** The screen's own left side (the Client tabs, D537), in place of the title and status. */
     left?: Snippet | undefined;
     ontoggle: () => void;
+    /** Opens the command palette out of the search field (D620). */
+    onsearch: (field: HTMLElement) => void;
   } = $props();
 
   let view = $derived(session.view);
@@ -62,7 +65,7 @@
   {/if}
   {#if !left}<span class="vc-grow"></span>{/if}
   <div class="topbar-end">
-    <a class="st-btn env-pill" href={resolve('/settings')} title={envTitle}>
+    <a class="env-pill" href={resolve('/settings')} title={envTitle}>
       <span class="env-cap">Env</span>
       <span class="tint-dot" data-p={project.profile} aria-hidden="true"></span>
       <span class="env-name">{project.profile ?? '—'}</span>
@@ -70,9 +73,10 @@
     <button
       type="button"
       class="search-btn"
-      aria-disabled="true"
+      aria-haspopup="dialog"
       aria-keyshortcuts={modAria('K')}
-      title="Search or run ({modHint('K')}), coming soon"
+      title="Search or run ({modHint('K')})"
+      onclick={(event) => onsearch(event.currentTarget)}
     >
       <Icon name="search" />
       <span class="label">Search or run…</span>

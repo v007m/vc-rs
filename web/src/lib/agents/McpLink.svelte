@@ -1,11 +1,14 @@
 <script lang="ts">
   import { MASKED } from '#lib/settings/port.ts';
+  import Glyph from '#lib/ui/Glyph.svelte';
   import { copyText } from './clipboard.ts';
   import type { McpLink } from './desk.svelte.ts';
 
   let { link, error }: { link: McpLink | undefined; error: string | undefined } = $props();
   let shown = $state(false);
   let copied = $state('');
+  /** Which value was copied last, so its button shows the check. */
+  let which = $state('');
 
   /** The MCP server entry for this vc ui, as Claude Code's `.mcp.json` takes it. */
   function config(url: string, token: string): string {
@@ -13,8 +16,9 @@
     return JSON.stringify({ mcpServers: { vibranium: server } }, null, 2);
   }
 
-  async function copy(text: string): Promise<void> {
+  async function copy(key: string, text: string): Promise<void> {
     copied = await copyText(text);
+    which = copied === 'Copied.' ? key : '';
   }
 </script>
 
@@ -27,7 +31,8 @@
         class="st-btn st-btn--sm"
         type="button"
         aria-label="Copy the MCP URL"
-        onclick={() => copy(link.url)}>Copy</button
+        onclick={() => copy('url', link.url)}
+        ><Glyph name={which === 'url' ? 'check' : 'copy'} />Copy</button
       >
     </dd>
     <dt>Agent token</dt>
@@ -43,7 +48,8 @@
         class="st-btn st-btn--sm"
         type="button"
         aria-label="Copy the agent token"
-        onclick={() => copy(link.token)}>Copy</button
+        onclick={() => copy('token', link.token)}
+        ><Glyph name={which === 'token' ? 'check' : 'copy'} />Copy</button
       >
     </dd>
   </dl>
@@ -54,7 +60,8 @@
       class="st-btn st-btn--sm"
       type="button"
       aria-label="Copy the MCP config"
-      onclick={() => copy(config(link.url, link.token))}>Copy</button
+      onclick={() => copy('config', config(link.url, link.token))}
+      ><Glyph name={which === 'config' ? 'check' : 'copy'} />Copy</button
     >
   </div>
   <p class="lead">

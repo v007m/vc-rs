@@ -1,4 +1,5 @@
 <script lang="ts">
+  import EmptyState from '#lib/ui/EmptyState.svelte';
   import Tabs from '#lib/ui/Tabs.svelte';
   import ChecksEditor from './ChecksEditor.svelte';
   import RequestForm from './RequestForm.svelte';
@@ -85,9 +86,13 @@
     </Tabs>
   {:else}
     <h2 class="vc-sr" id="request-title">Request</h2>
-    <p class="resp-empty vc-grow">
-      Pick an api to call it with the project's auth and active profile.
-    </p>
+    <div class="resp-empty vc-grow">
+      <EmptyState
+        icon="flow"
+        title="No api picked"
+        caption="Pick an api to call it with the project's auth and active profile."
+      />
+    </div>
   {/if}
 </section>
 

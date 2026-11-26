@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { lens } from '#lib/ui/segmented.ts';
   import type { AddedCheck } from './apiForm.ts';
   import { filterBody, jsonRows } from './json.ts';
   import JsonTree from './JsonTree.svelte';
@@ -39,7 +40,7 @@
 </script>
 
 <div class="body-tools">
-  <div class="st-segmented" role="group" aria-label="Body view">
+  <div class="st-segmented" role="group" {@attach lens} aria-label="Body view">
     {#each views as v (v.id)}
       <button type="button" aria-pressed={view === v.id} onclick={() => (view = v.id)}
         >{v.label}</button

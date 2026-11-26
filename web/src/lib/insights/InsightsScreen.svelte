@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { lens } from '#lib/ui/segmented.ts';
   import { SvelteMap } from 'svelte/reactivity';
   import type { SkipPort } from '#lib/skip/port.ts';
   import SkipForm from '#lib/skip/SkipForm.svelte';
@@ -66,7 +67,7 @@
 </script>
 
 <div class="insights">
-  <div class="st-segmented" role="group" aria-label="Time range">
+  <div class="st-segmented" role="group" {@attach lens} aria-label="Time range">
     {#each windows as w (w)}
       <button
         type="button"
@@ -236,8 +237,7 @@
   }
   .kpis div {
     padding: 12px;
-    border: 1px solid var(--st-chrome-separator);
-    border-radius: 10px;
+    border-radius: var(--vc-radius-inner);
     background: var(--st-surface-wash);
   }
   dt {

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Glyph from '#lib/ui/Glyph.svelte';
   import EventLog from './EventLog.svelte';
   import PlanTable from './PlanTable.svelte';
   import RunProgress from '#lib/results/RunProgress.svelte';
@@ -84,7 +85,8 @@
         type="button"
         class="st-btn"
         onclick={() => void copy(path)}
-        onblur={() => (copied = false)}>{copied ? 'Copied' : 'Copy path'}</button
+        onblur={() => (copied = false)}
+        ><Glyph name={copied ? 'check' : 'copy'} />{copied ? 'Copied' : 'Copy path'}</button
       >
     </p>
   {/if}

@@ -238,11 +238,9 @@
   font-size: var(--vc-size-body);
 }
 .resp-empty {
-  display: grid;
-  place-items: center;
-  padding: var(--st-card-padding);
-  color: var(--st-text-secondary);
-  text-align: center;
+  display: flex;
+  flex-direction: column;
+  padding: var(--st-space-12);
 }
 .resp-meta {
   display: flex;

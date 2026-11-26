@@ -12,13 +12,18 @@ const theme = EditorView.theme({
   '&': {
     height: '100%',
     minHeight: '420px',
-    border: '1px solid var(--st-edge-hairline)',
-    borderRadius: 'var(--st-radius-md)',
-    background: 'var(--st-surface-input-on-card)',
+    border: '0',
+    borderRadius: 'var(--vc-radius-inner)',
+    background: 'var(--st-surface-wash)',
     color: 'var(--st-text-primary)',
     fontSize: '12.5px',
   },
-  '&.cm-focused': { outline: '2px solid var(--st-accent)', outlineOffset: '0' },
+  // A wash on the card, never a box in a box (D609); focus is the field ring on the wash itself.
+  '&.cm-focused': {
+    outline: 'none',
+    boxShadow: '0 0 0 1.5px color-mix(in srgb, var(--st-accent) 40%, transparent)',
+  },
+  '.cm-content:focus-visible': { outline: 'none', boxShadow: 'none' },
   '.cm-scroller': { fontFamily: 'var(--st-font-mono)', lineHeight: '20px' },
   '.cm-content': { padding: '10px 0', caretColor: 'var(--st-text-primary)' },
   '.cm-gutters': {
@@ -32,8 +37,8 @@ const theme = EditorView.theme({
   },
   '.cm-cursor': { borderLeftColor: 'var(--st-text-primary)' },
   '.cm-tooltip': {
-    border: '1px solid var(--st-edge-rim)',
-    borderRadius: 'var(--st-radius-md)',
+    border: '0',
+    borderRadius: 'var(--vc-radius-overlay-item)',
     background: 'var(--st-surface-overlay)',
     color: 'var(--st-text-primary)',
     boxShadow: 'var(--vc-shadow-overlay)',

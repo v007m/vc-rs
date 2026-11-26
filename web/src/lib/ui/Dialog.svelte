@@ -1,27 +1,40 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
   import Icon from '#lib/shell/Icon.svelte';
+  import { growFrom, shrinkInto } from './anchor.ts';
 
   let { title, onclose, children }: { title: string; onclose: () => void; children: Snippet } =
     $props();
 
   const uid = $props.id();
+  let frame: HTMLDialogElement | undefined;
+  /** What opened the dialog: it grows out of it and shrinks back into it (D618). */
+  let anchor: Element | null = null;
 
   /** Opens the dialog modally, so focus stays inside it and Escape closes it. */
   function modal(dialog: HTMLDialogElement): () => void {
+    frame = dialog;
+    anchor = document.activeElement;
     if (typeof dialog.showModal === 'function') dialog.showModal();
     else dialog.setAttribute('open', '');
+    growFrom(dialog, anchor);
     return () => dialog.close?.();
+  }
+
+  /** The close button and Escape shrink the dialog into its anchor first. */
+  function close(): void {
+    if (frame) shrinkInto(frame, anchor, onclose);
+    else onclose();
   }
 </script>
 
 <dialog
-  class="dialog st-overlay"
+  class="dialog st-overlay vc-anchored"
   aria-labelledby="{uid}-title"
   {@attach modal}
   oncancel={(event) => {
     event.preventDefault();
-    onclose();
+    close();
   }}
 >
   <div class="head">
@@ -31,7 +44,7 @@
       class="st-icon-btn st-icon-btn--sm"
       aria-label="Close"
       title="Close"
-      onclick={onclose}><Icon name="x" /></button
+      onclick={close}><Icon name="x" /></button
     >
   </div>
   {@render children()}

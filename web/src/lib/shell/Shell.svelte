@@ -1,13 +1,16 @@
 <script lang="ts">
+  import { resolve } from '$app/paths';
   import type { RunSession } from '#lib/run/session.svelte.ts';
   import type { Snippet } from 'svelte';
-  import { cycleRegion, watchModifier } from './keys.ts';
+  import { cycleRegion, isPaletteKey, watchModifier } from './keys.ts';
+  import Palette from './Palette.svelte';
+  import { paletteItems } from './palette.ts';
   import type { ProjectStatus } from './project.svelte.ts';
   import Rail from './Rail.svelte';
   import { drawerWidth, shortcutSpace, type ShellState } from './state.svelte.ts';
   import Sidebar from './Sidebar.svelte';
   import { ShellSlots } from './slots.svelte.ts';
-  import { spaceOf, viewOf } from './spaces.ts';
+  import { spaceOf, spaces, viewOf } from './spaces.ts';
   import StatusLine from './StatusLine.svelte';
   import TopBar from './TopBar.svelte';
 
@@ -47,6 +50,13 @@
   let sidebarShown = $derived(inLayout ? !shell.prefs.sbCollapsed : shell.drawer);
   let hints = $state(false);
   let app: HTMLElement | undefined = $state();
+  /** The command palette, open with what it grows from (D620). */
+  let palette: { anchor: Element | null } | undefined = $state();
+  const items = paletteItems(spaces, (route) => resolve(route));
+
+  function openPalette(anchor: Element | null): void {
+    palette ??= { anchor };
+  }
 
   $effect(() => shell.remember(pathname, search));
   $effect(() => watchModifier(window, (held) => (hints = held)));
@@ -60,6 +70,11 @@
   }
 
   function onkeydown(event: KeyboardEvent): void {
+    if (isPaletteKey(event)) {
+      event.preventDefault();
+      openPalette(app?.querySelector('.search-btn') ?? null);
+      return;
+    }
     if (event.key === 'Escape' && shell.drawer) {
       shell.drawer = false;
       return;
@@ -91,7 +106,15 @@
     <Rail {shell} {pathname} />
     <Sidebar {shell} {space} {pathname} body={slots.sidebar} ontoggle={toggle} />
     <div class="main">
-      <TopBar {title} {session} {project} {sidebarShown} left={slots.top} ontoggle={toggle} />
+      <TopBar
+        {title}
+        {session}
+        {project}
+        {sidebarShown}
+        left={slots.top}
+        ontoggle={toggle}
+        onsearch={openPalette}
+      />
       <main class="stage" id="view" tabindex="-1" data-region>
         <!-- One wrapper either way: switching to a bare stage must not remount the screen. -->
         <div class={slots.bare ? 'bare' : 'st-card st-card--glass card'}>
@@ -101,6 +124,14 @@
       <StatusLine {project} {branch} />
     </div>
     <!-- Inside .shell, its stacking context, so the drawer and rail stack above the scrim. -->
+    {#if palette}
+      <Palette
+        {items}
+        anchor={palette.anchor}
+        onpick={navigate}
+        onclose={() => (palette = undefined)}
+      />
+    {/if}
     {#if shell.drawer && !inLayout}
       <button
         type="button"

@@ -1,5 +1,6 @@
 <script lang="ts">
   import Dialog from '#lib/ui/Dialog.svelte';
+  import Glyph from '#lib/ui/Glyph.svelte';
 
   /** The request as a curl command, resolved by the engine, its auth left out. */
   let { curl, onclose }: { curl: string; onclose: () => void } = $props();
@@ -25,7 +26,9 @@
   <div class="actions">
     <p class="help vc-grow" role="status">{copied}</p>
     <button type="button" class="st-btn" onclick={onclose}>Close</button>
-    <button type="button" class="st-btn st-btn--primary" onclick={() => void copy()}>Copy</button>
+    <button type="button" class="st-btn st-btn--primary" onclick={() => void copy()}
+      ><Glyph name={copied === 'Copied.' ? 'check' : 'copy'} />Copy</button
+    >
   </div>
 </Dialog>
 
@@ -38,8 +41,8 @@
     margin: 0;
     padding: 8px 12px;
     overflow-x: auto;
-    border: 1px solid var(--st-chrome-separator);
-    border-radius: 6px;
+    border-radius: var(--vc-radius-inner);
+    background: var(--st-surface-wash);
     white-space: pre-wrap;
     word-break: break-all;
   }

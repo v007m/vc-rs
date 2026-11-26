@@ -149,23 +149,30 @@ a:hover {
   margin-left: auto;
 }
 
-/* the environment pill: caption, profile dot, profile; a prod profile reads as live data */
+/* the environment control: the search field's capsule and height, no button box and no inner
+   box (D611); caption, profile dot, profile. A prod profile reads as live data. */
 .env-pill {
+  display: inline-flex;
+  align-items: center;
   flex: 0 1 auto;
   min-width: 0;
+  height: var(--st-size-control-md);
   gap: var(--st-space-8);
-  padding: 0 var(--st-space-12);
+  padding: 0 var(--st-space-16) 0 var(--st-space-12);
+  border-radius: var(--st-radius-capsule);
+  background: var(--st-surface-input);
+  box-shadow: var(--st-emboss);
+  font: var(--st-type-body);
   color: var(--st-text-primary);
+  text-decoration: none;
+  white-space: nowrap;
 }
 .env-pill:hover {
   color: var(--st-text-primary);
+  background: color-mix(in srgb, var(--st-surface-input), var(--st-chrome-hover));
 }
 .env-pill .env-cap {
-  display: inline-flex;
-  align-items: center;
   flex: none;
-  padding-right: var(--st-space-8);
-  border-right: 1px solid var(--st-chrome-separator);
   font: var(--st-type-caption);
   color: var(--st-text-secondary);
 }
@@ -175,7 +182,9 @@ a:hover {
 .env-pill:has(.tint-dot[data-p='prod']) {
   color: var(--vc-prod-ink);
   background: var(--vc-prod-bg);
-  border-color: var(--vc-prod-border);
+  box-shadow:
+    var(--st-emboss),
+    inset 0 0 0 1px var(--vc-prod-border);
 }
 .tint-dot {
   --h: 255;
@@ -201,6 +210,9 @@ a:hover {
   font: var(--st-type-body);
   color: var(--st-text-secondary);
   cursor: default;
+}
+.search-btn:hover {
+  background: color-mix(in srgb, var(--st-surface-input), var(--st-chrome-hover));
 }
 .search-btn .st-kbd {
   flex: none;

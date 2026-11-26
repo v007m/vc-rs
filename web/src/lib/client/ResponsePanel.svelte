@@ -1,6 +1,7 @@
 <script lang="ts">
   import CheckList from '#lib/results/CheckList.svelte';
   import Waterfall from '#lib/results/Waterfall.svelte';
+  import EmptyState from '#lib/ui/EmptyState.svelte';
   import Tabs from '#lib/ui/Tabs.svelte';
   import type { AddedCheck } from './apiForm.ts';
   import BodyView from './BodyView.svelte';
@@ -59,10 +60,11 @@
 <section class="st-card st-card--glass" aria-label="Response">
   {#if !output}
     <div class="resp-empty vc-grow">
-      <p>
-        {sending ? 'Sending…' : 'Send the request to see the response.'}
-        {#if !sending}<span class="st-kbd" aria-hidden="true">⌘↵</span>{/if}
-      </p>
+      <EmptyState
+        icon="send"
+        title={sending ? 'Sending…' : 'No response yet'}
+        caption={sending ? undefined : 'Send the request to see the response (⌘↵).'}
+      />
     </div>
   {:else}
     <div class="card-head">
@@ -76,7 +78,7 @@
           {#if output.wire.protocol}<span class="vc-mono">{output.wire.protocol}</span>{/if}
         {/if}
         {#if output.checks.length}
-          <span class="st-badge {failed ? 'vc-fail' : 'vc-pass'}"
+          <span class="checks" class:is-fail={failed > 0}
             >{failed ? `${failed} failed` : 'checks pass'}</span
           >
         {/if}
@@ -159,11 +161,13 @@
 {/snippet}
 
 <style>
-  .resp-empty p {
-    display: flex;
-    align-items: center;
-    gap: var(--st-space-8);
-    margin: 0;
+  /* a status word in the text line, not a badge: badges never sit in a control row (D611) */
+  .checks {
+    color: var(--vc-pass-ink);
+    font-weight: var(--st-weight-medium);
+  }
+  .checks.is-fail {
+    color: var(--vc-fail-ink);
   }
   .out {
     margin: 0;

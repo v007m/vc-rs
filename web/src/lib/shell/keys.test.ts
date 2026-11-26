@@ -1,5 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cycleRegion, holdDelay, isApple, modAria, modHint, watchModifier } from './keys.ts';
+import {
+  cycleRegion,
+  holdDelay,
+  isApple,
+  isPaletteKey,
+  modAria,
+  modHint,
+  watchModifier,
+} from './keys.ts';
 
 describe('modifier hints', () => {
   it('reads Apple platforms from the platform string, then the user agent', () => {
@@ -14,6 +22,14 @@ describe('modifier hints', () => {
   it('writes ⌘K on Apple and Ctrl+K elsewhere, in text and for aria-keyshortcuts', () => {
     expect([modHint('K', true), modHint('K', false)]).toEqual(['⌘K', 'Ctrl+K']);
     expect([modAria('1', true), modAria(',', false)]).toEqual(['Meta+1', 'Control+Comma']);
+  });
+
+  it('opens the palette on ⌘K or Ctrl+K only', () => {
+    const key = { key: 'k', metaKey: false, ctrlKey: false, altKey: false, shiftKey: false };
+    expect(isPaletteKey({ ...key, metaKey: true })).toBe(true);
+    expect(isPaletteKey({ ...key, ctrlKey: true, key: 'K' })).toBe(true);
+    expect(isPaletteKey(key)).toBe(false);
+    expect(isPaletteKey({ ...key, metaKey: true, shiftKey: true })).toBe(false);
   });
 });
 

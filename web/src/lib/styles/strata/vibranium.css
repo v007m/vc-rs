@@ -1,18 +1,19 @@
 /* Vibranium's layer over Strata 1.0.0 (docs/design/ui.md §2, Round 95). It loads after the
    vendored strata/tokens.css and strata/strata.css, which are never edited, so a Strata update
-   is a plain copy. Everything Vibranium changes or adds is here, in four parts:
-     1. Strata token overrides: the font stack with the bundled Inter, the input height, the
-        window inset, the matte grain and the slate dark surfaces.
+   is a plain copy. Everything Vibranium changes or adds is here, in five parts:
+     1. Strata token overrides: the font stack with the bundled Inter, the input height and
+        the slate dark surfaces.
      2. Vibranium tokens (--vc-*): the status language shared with the CLI, TUI and report, HTTP
         methods, YAML syntax, diffs, the waterfall, the prod profile and the shell's sizes.
-     3. Strata recipe overrides where Sarath's rules differ: capsule segmented, switch and slider
-        with a glassy debossed thumb, capsule badges, buttons that wrap instead of clipping,
-        dialogs, toasts and overlays as native <dialog> and [popover] elements.
+     3. Strata recipe overrides where Sarath's rules differ: switch and slider with a glassy
+        thumb, capsule badges, dialogs, toasts and overlays as native <dialog> and [popover].
      4. Vibranium recipes Strata lacks: status badges and dots, tabs, wells and utilities.
-   Shapes (one rule per element kind): cards 10px and overlays 14px; buttons, icon buttons, rows
-   and tabs 8px; single-line fields, search, segmented controls, switches and badges are
-   capsules; form fields and multi-line fields are 8px rounded rects (.st-input--rect). A shape
-   nested in a padded one uses the outer radius minus the padding (--vc-radius-inner). */
+     5. The Strata 1.1 deltas, until upstream 1.1 tokens land: radii, heights, focus, surfaces,
+        the segmented lens, springs, anchored overlays and symbol motion.
+   Shapes (one rule per element kind): every single-line control (button, field, select,
+   search, segmented, tab, switch, badge) is a capsule; taller things are smooth rounded rects
+   (window 20, card 12, overlay 18, palette 22, dialog 28, rows and menu items 8-14), and a
+   shape nested in a padded one takes the outer radius minus the gap (--vc-radius-inner). */
 
 /* ---- 1. token overrides ---------------------------------------------------------------- */
 :root {
@@ -26,13 +27,6 @@
   --st-size-input-height: var(--st-size-control-md);
   /* a page has no desktop behind it, so the canvas is opaque */
   --st-window-opacity: 1;
-  --vc-grain: 0.12;
-  --vc-grain-blend: multiply;
-}
-@media (min-width: 1601px) {
-  :root {
-    --st-window-inset: 10px;
-  }
 }
 /* Dark cards are a quiet slate, never black or neutral grey. */
 @media (prefers-color-scheme: dark) {
@@ -41,8 +35,6 @@
     --st-surface-glass: #2531379e;
     --st-surface-overlay: #27343aeb;
     --st-surface-input-on-card: #1c262b;
-    --vc-grain: 0.4;
-    --vc-grain-blend: soft-light;
   }
 }
 :root[data-theme='dark'] {
@@ -50,8 +42,6 @@
   --st-surface-glass: #2531379e;
   --st-surface-overlay: #27343aeb;
   --st-surface-input-on-card: #1c262b;
-  --vc-grain: 0.4;
-  --vc-grain-blend: soft-light;
 }
 /* Reduced transparency again, after the slate: Strata's own rule loses to its dark blocks. */
 @media (prefers-reduced-transparency: reduce) {
@@ -133,11 +123,6 @@
   /* surfaces Strata has no name for */
   --vc-rule-strong: color-mix(in srgb, var(--st-text-primary) 18%, transparent);
   --vc-deboss: inset 0 1px 2px var(--st-shadow-ink), inset 0 0 0 0.5px var(--st-edge-hairline);
-  --vc-thumb-bg: light-dark(#ffffffd9, #ffffff29);
-  --vc-thumb-shadow:
-    inset 0 1px 1px var(--st-shadow-ink), inset 0 0 0 0.5px var(--st-edge-hairline),
-    0 0.5px 0 var(--st-edge-highlight);
-  --vc-radius-inner: var(--st-radius-sm);
   --vc-accent-mid: color-mix(in srgb, var(--st-accent) 45%, transparent);
   --vc-shadow-overlay: var(--st-edge-card), var(--st-shadow-lg);
   /* the type sizes of Strata's roles, for rules that set only a size */
@@ -158,13 +143,6 @@
 }
 
 /* ---- 3. recipe overrides ------------------------------------------------------------------ */
-/* the matte grain as a file: vc ui's CSP (img-src 'self') blocks Strata's data: URI */
-.st-canvas::after {
-  opacity: var(--vc-grain);
-  mix-blend-mode: var(--vc-grain-blend);
-  background-image: url('../grain.svg');
-  background-size: 200px 200px;
-}
 /* cards are glass unless the viewer chose solid ones */
 [data-cards='solid'] .st-card--glass {
   background: var(--st-surface-solid);
@@ -172,24 +150,12 @@
   backdrop-filter: none;
 }
 
-/* buttons: one emboss, the 24/30/36 scale as a floor, and a long label wraps, never clips */
+/* buttons: links styled as buttons lose the underline; heights and shape are in part 5 */
 .st-btn {
-  height: auto;
-  min-height: var(--st-size-control-md);
-  max-width: 100%;
-  padding-block: var(--st-space-4);
-  white-space: normal;
   text-align: center;
   text-decoration: none;
   user-select: none;
   cursor: pointer;
-}
-.st-btn--sm {
-  min-height: var(--st-size-control-sm);
-  padding-block: var(--st-space-2);
-}
-.st-btn--lg {
-  min-height: var(--st-size-control-lg);
 }
 .st-btn[aria-pressed='true'],
 .st-btn[aria-expanded='true'] {
@@ -225,11 +191,11 @@
   pointer-events: none;
 }
 
-/* fields: select and the class on a bare control share the input shape */
+/* fields: select and the class on a bare control share the input shape (the capsule select
+   and the deboss are in part 5) */
 select.st-input {
   width: 100%;
   min-width: 0;
-  padding: 0 var(--st-space-12);
   border: 0;
   outline: 0;
   font: var(--st-type-body);
@@ -238,15 +204,9 @@ textarea.st-input {
   min-height: 96px;
   font: var(--st-type-code);
 }
-.st-input[aria-invalid='true'] {
-  box-shadow:
-    var(--st-emboss),
-    0 0 0 1px var(--vc-fail);
-}
 
-/* segmented: a capsule track with a glassy, debossed capsule thumb (iOS-style) */
+/* segmented: a capsule track (the lens is in part 5) */
 .st-segmented {
-  flex-wrap: wrap;
   align-items: center;
   max-width: 100%;
   border-radius: var(--st-radius-capsule);
@@ -256,16 +216,9 @@ textarea.st-input {
   align-items: center;
   justify-content: center;
   gap: var(--st-space-6);
-  height: calc(var(--st-size-control-md) - 4px);
   border-radius: var(--st-radius-capsule);
   white-space: nowrap;
   cursor: pointer;
-}
-.st-segmented button[aria-pressed='true'] {
-  background: var(--vc-thumb-bg);
-  box-shadow: var(--vc-thumb-shadow);
-  -webkit-backdrop-filter: var(--st-glass-filter);
-  backdrop-filter: var(--st-glass-filter);
 }
 .st-segmented button:disabled {
   opacity: var(--st-opacity-disabled);
@@ -317,10 +270,6 @@ dialog.st-overlay {
 }
 dialog.st-overlay::backdrop {
   background: var(--st-scrim);
-}
-dialog.st-overlay[open],
-[popover].st-overlay:popover-open {
-  animation: st-pop var(--st-duration-fast) var(--st-ease-standard) both;
 }
 /* component display rules must not keep a closed popover on screen */
 [popover]:not(:popover-open) {
@@ -474,12 +423,12 @@ input.st-input {
   box-shadow: none;
 }
 
-/* a debossed well inside a card, for code, logs and read-only viewers */
+/* a well inside a card, for code, logs and read-only viewers: the wash, never a card on a
+   card (no border, no shadow; D609) */
 .vc-well {
   min-width: 0;
   border-radius: var(--vc-radius-inner);
-  background: var(--st-surface-input-on-card);
-  box-shadow: var(--vc-deboss);
+  background: var(--st-surface-wash);
 }
 
 /* utilities */
@@ -501,4 +450,419 @@ input.st-input {
   overflow: hidden;
   clip-path: inset(50%);
   white-space: nowrap;
+}
+
+/* ---- 5. Strata 1.1 deltas until upstream 1.1 tokens land (Round 95, D608-D624) ---------------
+   Sarath's 1.1 rules on top of 1.0.0; each block names its rule. When upstream 1.1 ships its
+   tokens, this part shrinks to whatever 1.1 still leaves out. */
+
+/* SHAPE (D610): concentric radii, inner = outer - gap: the window 20 minus its 8px inset is the
+   card's 12; an overlay 18 holds items of 12 at 6px padding, the palette 22 items of 14 at 8px;
+   a dialog is 28. A well on a card's 24px padding would come out below zero, so it takes 8. */
+:root {
+  --st-radius-window: 20px;
+  --st-window-inset: 8px;
+  --st-radius-card: 12px;
+  --st-radius-overlay: 18px;
+  --vc-radius-overlay-item: 12px;
+  --vc-radius-palette: 22px;
+  --vc-radius-palette-item: 14px;
+  --vc-radius-dialog: 28px;
+  --vc-radius-inner: 8px;
+  /* HEIGHT (D611): one row, one height, border-box: 28, 32 (the default) or 40 */
+  --st-size-control-sm: 28px;
+  --st-size-control-md: 32px;
+  --st-size-control-lg: 40px;
+  --st-size-input-height: var(--st-size-control-md);
+  /* FOCUS (D612): Strata's ring token becomes the field ring, 1.5px at about 40% accent */
+  --st-focus-ring: 0 0 0 1.5px color-mix(in srgb, var(--st-accent) 40%, transparent);
+  --vc-focus-outline: 2px solid var(--st-accent);
+  /* MOTION (D617): two springs as linear() curves, the standard one with a little overshoot
+     and a quicker, critically damped one for closing */
+  --vc-spring: linear(
+    0,
+    0.084,
+    0.266,
+    0.471,
+    0.657,
+    0.805,
+    0.911,
+    0.979,
+    1.017,
+    1.035,
+    1.038,
+    1.034,
+    1.027,
+    1.019,
+    1.012,
+    1.007,
+    1.003,
+    1.001,
+    0.999,
+    1
+  );
+  --vc-spring-dur: 480ms;
+  --vc-spring-quick: linear(
+    0,
+    0.11,
+    0.31,
+    0.503,
+    0.657,
+    0.771,
+    0.85,
+    0.904,
+    0.939,
+    0.962,
+    0.976,
+    0.985,
+    0.991,
+    0.994,
+    0.997,
+    0.998,
+    1
+  );
+  --vc-spring-quick-dur: 280ms;
+  --vc-fade-dur: 90ms;
+  /* SURFACES (D608, D613): glass that shows the canvas, a light near-white lens for segmented */
+  --st-surface-glass: #ffffff6b;
+  --vc-lens-bg: #fffffff0;
+  --vc-grain: 0.32;
+  --vc-grain-filter: saturate(1.8) brightness(0.78);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --st-surface-glass: #25313773;
+    --vc-lens-bg: #41525a;
+    --vc-grain: 0.28;
+    --vc-grain-filter: saturate(1.6) brightness(1.7);
+  }
+}
+:root[data-theme='dark'] {
+  --st-surface-glass: #25313773;
+  --vc-lens-bg: #41525a;
+  --vc-grain: 0.28;
+  --vc-grain-filter: saturate(1.6) brightness(1.7);
+}
+@media (prefers-reduced-transparency: reduce) {
+  :root:not([data-transparency='full']) {
+    --st-surface-glass: var(--st-surface-solid);
+  }
+}
+:root[data-transparency='reduced'] {
+  --st-surface-glass: var(--st-surface-solid);
+}
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --vc-spring-dur: 0ms;
+    --vc-spring-quick-dur: 0ms;
+    --vc-fade-dur: 0ms;
+  }
+}
+
+/* SHAPE: smooth corners where the engine has them (WebKit and so Tauri do not yet; plain
+   border-radius is the fallback). Capsules stay true capsules. */
+@supports (corner-shape: superellipse(2)) {
+  .st-card,
+  .st-overlay,
+  .vc-well,
+  .vc-wash,
+  .st-input--rect,
+  textarea.st-input,
+  .st-row,
+  .st-menu-item,
+  .vc-palette-item {
+    corner-shape: superellipse(2);
+  }
+}
+.st-menu.st-overlay {
+  padding: var(--st-space-6);
+}
+.st-menu-item {
+  border-radius: var(--vc-radius-overlay-item);
+}
+dialog.st-overlay,
+.st-dialog {
+  border-radius: var(--vc-radius-dialog);
+}
+
+/* SHAPE + HEIGHT: every single-line control is a capsule at the row height; a button is as
+   wide as its label and never clips or wraps it (a row wraps instead) */
+.st-btn {
+  height: var(--st-size-control-md);
+  min-height: 0;
+  max-width: none;
+  flex-shrink: 0;
+  padding-block: 0;
+  border-radius: var(--st-radius-capsule);
+  white-space: nowrap;
+}
+.st-btn--sm {
+  height: var(--st-size-control-sm);
+  min-height: 0;
+  padding-block: 0;
+}
+.st-btn--lg {
+  height: var(--st-size-control-lg);
+  min-height: 0;
+}
+.st-icon-btn {
+  border-radius: var(--st-radius-capsule);
+}
+.vc-tab {
+  border-radius: var(--st-radius-capsule);
+}
+/* fields are debossed capsules (glass is the option, .vc-field--glass) */
+.st-input,
+.st-card .st-input {
+  box-shadow: var(--vc-deboss);
+}
+.vc-field--glass.st-input {
+  background: var(--st-surface-glass);
+  -webkit-backdrop-filter: var(--st-glass-filter);
+  backdrop-filter: var(--st-glass-filter);
+}
+.st-input[aria-invalid='true'] {
+  box-shadow:
+    var(--vc-deboss),
+    0 0 0 1px var(--vc-fail);
+}
+/* a select is a capsule too: the native box goes, a drawn chevron stays */
+select.st-input {
+  appearance: none;
+  -webkit-appearance: none;
+  height: var(--st-size-input-height);
+  padding: 0 calc(var(--st-space-12) + 14px) 0 var(--st-space-12);
+  border-radius: var(--st-radius-capsule);
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--st-text-tertiary) 50%),
+    linear-gradient(135deg, var(--st-text-tertiary) 50%, transparent 50%);
+  background-position:
+    right 17px center,
+    right 12px center;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+  color: var(--st-text-primary);
+  text-overflow: ellipsis;
+}
+select.st-input:disabled {
+  opacity: var(--st-opacity-disabled);
+}
+
+/* FOCUS (D612): buttons and toggles get a 2px accent ring at 2px offset; text fields a 1.5px
+   ring on the field itself, never a box inside it */
+.st-root :focus-visible {
+  outline: var(--vc-focus-outline);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+.st-root .st-btn:focus-visible {
+  box-shadow: var(--st-emboss);
+}
+.st-root .st-btn--ghost:focus-visible {
+  box-shadow: none;
+}
+.st-root
+  :is(
+    input:not([type='checkbox'], [type='radio'], [type='range']),
+    select,
+    textarea
+  ):focus-visible {
+  outline: none;
+  box-shadow: var(--vc-deboss), var(--st-focus-ring);
+}
+.st-root .st-input:is(:focus, :focus-within) {
+  outline: none;
+  box-shadow: var(--vc-deboss), var(--st-focus-ring);
+}
+.st-root .st-input :is(input, select, textarea):focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+/* SURFACES (D613, D614): the matte grain is the canvas gradient itself, darker (lighter in
+   dark) and more saturated, shown through the noise; separators stop 12px short of both ends */
+.st-canvas::after {
+  opacity: var(--vc-grain);
+  mix-blend-mode: normal;
+  background: var(--st-canvas);
+  filter: var(--vc-grain-filter);
+  -webkit-mask: url('../grain.svg') 0 0 / 200px 200px;
+  mask: url('../grain.svg') 0 0 / 200px 200px luminance;
+}
+.st-divider,
+.st-menu-sep {
+  margin-inline: var(--st-space-12);
+}
+/* a surface on a card that is not a card: the wash, no border, no shadow, the inner radius */
+.vc-wash {
+  min-width: 0;
+  border: 0;
+  border-radius: var(--vc-radius-inner);
+  background: var(--st-surface-wash);
+  box-shadow: none;
+}
+
+/* CONTROLS (D615): segmented is a 32px capsule track with one sliding glass lens; the lens
+   is the track's ::before, placed by segmented.ts through --lens-x/-w (CSSOM) */
+.st-segmented {
+  position: relative;
+  isolation: isolate;
+  height: var(--st-size-control-md);
+  padding: 2px;
+  flex-wrap: nowrap;
+}
+.st-segmented button {
+  position: relative;
+  height: 100%;
+  padding: 0 var(--st-space-12);
+  font: var(--st-type-body);
+  font-weight: var(--st-weight-medium);
+  color: color-mix(in srgb, var(--st-text-primary) 78%, transparent);
+}
+.st-segmented button[aria-pressed='true'] {
+  color: var(--st-text-primary);
+  background: var(--vc-lens-bg);
+  box-shadow: var(--st-emboss), var(--st-shadow-xs);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.st-segmented[data-lens] button[aria-pressed='true'] {
+  background: transparent;
+  box-shadow: none;
+}
+.st-segmented[data-lens]::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  top: 2px;
+  bottom: 2px;
+  left: 0;
+  width: var(--lens-w, 0px);
+  translate: var(--lens-x, 0px) 0;
+  border-radius: var(--st-radius-capsule);
+  background: var(--vc-lens-bg);
+  box-shadow: var(--st-emboss), var(--st-shadow-xs);
+  -webkit-backdrop-filter: var(--st-glass-filter);
+  backdrop-filter: var(--st-glass-filter);
+  transition:
+    translate var(--vc-spring-dur) var(--vc-spring),
+    width var(--vc-spring-dur) var(--vc-spring);
+}
+.st-segmented[data-lens='none']::before {
+  display: none;
+}
+
+/* MOTION (D617, D618): an overlay grows out of its anchor (anchor.ts): moved onto the anchor
+   and clipped to its size, it springs to its place while the content stays full size. The
+   rest clip reaches past the frame so its shadow shows. Closing fades the content first, then
+   shrinks the frame on the quicker spring; CSS transitions make a reopen reverse in place. */
+dialog.st-overlay[open],
+[popover].st-overlay:popover-open {
+  animation: vc-fade var(--st-duration-fast) var(--st-ease-standard) both;
+}
+/* the dialog selector beats Strata's own overlay entrance; the states below repeat it to win */
+.vc-anchored,
+dialog.st-overlay.vc-anchored[open] {
+  animation: none;
+  translate: 0 0;
+  clip-path: inset(-48px round 64px);
+  transition:
+    translate var(--vc-spring-dur) var(--vc-spring),
+    clip-path var(--vc-spring-dur) var(--vc-spring);
+}
+.vc-anchored > * {
+  transition: opacity var(--vc-fade-dur) var(--st-ease-standard) var(--vc-fade-dur);
+}
+.vc-anchored.is-from,
+dialog.st-overlay.vc-anchored.is-from[open] {
+  translate: var(--vc-from-x) var(--vc-from-y);
+  clip-path: var(--vc-from-clip);
+}
+.vc-anchored.is-from > * {
+  opacity: 0;
+}
+.vc-anchored.is-closing,
+dialog.st-overlay.vc-anchored.is-closing[open] {
+  transition:
+    translate var(--vc-spring-quick-dur) var(--vc-spring-quick) var(--vc-fade-dur),
+    clip-path var(--vc-spring-quick-dur) var(--vc-spring-quick) var(--vc-fade-dur);
+}
+.vc-anchored.is-closing > * {
+  transition-delay: 0ms;
+}
+.vc-anchored.is-snap,
+.vc-anchored.is-snap > * {
+  transition: none !important;
+}
+@keyframes vc-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+/* SYMBOL MOTION (D619): SVG takes on SF Symbols' effects (symbols.ts, Glyph.svelte). A check
+   is written on; a struck label draws left to right, line by line (one inline background,
+   sliced per line), and erases in reverse; refresh rotates, confirm bounces, attention wiggles.
+   Reduced motion shows the end state at once. */
+.vc-sym-write {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+  animation: vc-write 280ms var(--st-ease-decelerate) both;
+}
+@keyframes vc-write {
+  from {
+    stroke-dashoffset: 1;
+  }
+}
+.vc-strike {
+  background-image: linear-gradient(currentColor, currentColor);
+  background-repeat: no-repeat;
+  background-position: 0 55%;
+  background-size: 0% 1.5px;
+  transition: background-size 360ms var(--st-ease-standard);
+}
+.vc-strike.is-struck {
+  background-size: 100% 1.5px;
+}
+.vc-sym-rotate {
+  animation: vc-rotate 520ms var(--vc-spring) both;
+}
+.vc-sym-bounce {
+  animation: vc-bounce 420ms var(--vc-spring) both;
+}
+.vc-sym-wiggle {
+  animation: vc-wiggle 380ms var(--st-ease-standard) both;
+}
+@keyframes vc-rotate {
+  to {
+    rotate: 1turn;
+  }
+}
+@keyframes vc-bounce {
+  35% {
+    translate: 0 -3px;
+  }
+}
+@keyframes vc-wiggle {
+  20%,
+  60% {
+    translate: -3px 0;
+  }
+  40%,
+  80% {
+    translate: 3px 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .vc-sym-write,
+  .vc-sym-rotate,
+  .vc-sym-bounce,
+  .vc-sym-wiggle,
+  .vc-strike,
+  .st-segmented[data-lens]::before,
+  .vc-anchored,
+  .vc-anchored > * {
+    animation: none;
+    transition: none;
+  }
 }

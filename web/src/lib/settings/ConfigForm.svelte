@@ -1,6 +1,7 @@
 <script lang="ts">
   import { FIELDS } from './configEdits.ts';
   import type { ConfigForm } from './configForm.svelte.ts';
+  import { play } from '#lib/ui/symbols.ts';
   import { MASKED } from './port.ts';
 
   /**
@@ -15,16 +16,32 @@
   let varValue = $state('');
   let varError: string | undefined = $state();
   let busy = $derived(form.state !== 'idle' && form.state !== 'conflict');
+  let profileInput: HTMLInputElement | undefined = $state();
+  let varInput: HTMLInputElement | undefined = $state();
+  let status: HTMLElement | undefined = $state();
+
+  /** A refused add shakes the field it came from (Strata 1.1 attention wiggle). */
+  function refuse(input: HTMLInputElement | undefined, error: string | undefined): void {
+    if (error !== undefined && input) play(input, 'wiggle');
+  }
+
+  /** A clean save bounces its confirmation once (Strata 1.1 confirm bounce). */
+  async function save(): Promise<void> {
+    await form.save();
+    if (form.saved && !form.dirty && status) play(status, 'bounce');
+  }
 
   function addProfile(event: SubmitEvent): void {
     event.preventDefault();
     profileError = form.addProfile(profile.trim());
+    refuse(profileInput, profileError);
     if (profileError === undefined) profile = '';
   }
 
   function addVar(event: SubmitEvent): void {
     event.preventDefault();
     varError = form.addVar(varName.trim(), varValue);
+    refuse(varInput, varError);
     if (varError === undefined) [varName, varValue] = ['', ''];
   }
 </script>
@@ -75,7 +92,7 @@
     <ul class="rows">
       {#each form.draft.profiles as entry (entry.id)}
         <li>
-          <label class="vc-grow">
+          <label class="pick">
             <input
               type="radio"
               name="default-profile"
@@ -103,6 +120,7 @@
       <input
         id="profile-id"
         class="st-input vc-mono"
+        bind:this={profileInput}
         autocomplete="off"
         spellcheck="false"
         placeholder="staging"
@@ -122,7 +140,7 @@
     <ul class="rows">
       {#each Object.keys(form.draft.vars) as name (name)}
         <li>
-          <label class="var vc-grow">
+          <label class="var">
             <span class="vc-mono">{name}</span>
             {#if form.draft.vars[name]?.includes(MASKED)}
               <span class="masked"
@@ -164,6 +182,7 @@
       <input
         id="var-name"
         class="st-input vc-mono"
+        bind:this={varInput}
         autocomplete="off"
         spellcheck="false"
         placeholder="ordersUrl"
@@ -187,27 +206,13 @@
     </form>
   </fieldset>
 
+  {#if form.diff !== undefined}
+    <pre class="diff vc-mono" aria-label="Changes to vibranium.config.yaml">{form.diff ||
+        'No change to the file.'}</pre>
+  {/if}
+  <!-- the card's sticky footer: Cancel-like actions first, the primary last at the right (D616) -->
   <div class="actions">
-    <button
-      type="button"
-      class="st-btn"
-      disabled={busy || !form.dirty}
-      onclick={() => void form.review()}
-      >{form.state === 'reviewing' ? 'Reviewing…' : 'Review changes'}</button
-    >
-    <button
-      type="button"
-      class="st-btn st-btn--primary"
-      disabled={busy || !form.dirty}
-      onclick={() => void form.save()}>{form.state === 'saving' ? 'Saving…' : 'Save'}</button
-    >
-    <button
-      type="button"
-      class="st-btn"
-      disabled={busy || !form.dirty}
-      onclick={() => form.discard()}>Discard changes</button
-    >
-    <p class="status" role="status">
+    <p class="status" role="status" bind:this={status}>
       {#if form.dirty}
         {form.edits.length} unsaved change{form.edits.length === 1 ? '' : 's'}.
       {:else if form.saved?.checkError}
@@ -218,11 +223,26 @@
           : `The project has ${form.saved.problems} problem${form.saved.problems === 1 ? '' : 's'}; see them in the editor.`}
       {/if}
     </p>
+    <button
+      type="button"
+      class="st-btn"
+      disabled={busy || !form.dirty}
+      onclick={() => void form.review()}
+      >{form.state === 'reviewing' ? 'Reviewing…' : 'Review changes'}</button
+    >
+    <button
+      type="button"
+      class="st-btn"
+      disabled={busy || !form.dirty}
+      onclick={() => form.discard()}>Discard changes</button
+    >
+    <button
+      type="button"
+      class="st-btn st-btn--primary"
+      disabled={busy || !form.dirty}
+      onclick={() => void save()}>{form.state === 'saving' ? 'Saving…' : 'Save'}</button
+    >
   </div>
-  {#if form.diff !== undefined}
-    <pre class="diff vc-mono" aria-label="Changes to vibranium.config.yaml">{form.diff ||
-        'No change to the file.'}</pre>
-  {/if}
 </section>
 
 <style>
@@ -272,12 +292,27 @@
     padding: 0;
     list-style: none;
   }
+  /* fields keep their own width (at most 320px) and never stretch across the card */
   .field {
     display: grid;
     grid-template-columns: 120px minmax(0, 320px);
     gap: 8px;
     align-items: center;
     color: var(--st-text-secondary);
+  }
+  .rows li {
+    justify-content: flex-start;
+  }
+  .add input {
+    flex: 0 1 200px;
+    min-width: 0;
+  }
+  .add #profile-id {
+    flex-basis: 320px;
+  }
+  .var .st-input {
+    flex: 0 1 320px;
+    min-width: 0;
   }
   .rows li,
   .rows label,
@@ -291,6 +326,32 @@
   }
   .vc-grow {
     flex: 1;
+  }
+  .pick,
+  .var {
+    min-width: 0;
+  }
+  .actions {
+    position: sticky;
+    /* down into the card's padding, so nothing scrolls by under the footer */
+    bottom: calc(-1 * var(--st-card-padding));
+    z-index: 1;
+    justify-content: flex-end;
+    margin: 0 -12px;
+    padding: 12px 12px calc(12px + var(--st-card-padding));
+    /* the overlay surface, so fields scrolling under the footer don't read as part of it */
+    background: var(--st-surface-overlay);
+    backdrop-filter: var(--st-overlay-filter);
+    -webkit-backdrop-filter: var(--st-overlay-filter);
+  }
+  .actions::before {
+    content: '';
+    position: absolute;
+    inset: 0 12px auto;
+    border-top: 1px solid var(--st-chrome-separator);
+  }
+  .actions .status {
+    flex: 1 1 200px;
   }
   .var .vc-mono:first-child {
     min-width: 120px;

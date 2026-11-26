@@ -118,6 +118,10 @@
     align-items: center;
     color: var(--st-text-secondary);
   }
+  .profile select {
+    flex: 0 1 240px;
+    min-width: 0;
+  }
   table {
     width: 100%;
     border-collapse: collapse;

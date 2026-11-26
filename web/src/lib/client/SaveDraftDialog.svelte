@@ -99,8 +99,8 @@
     margin: 0;
     padding: 8px 12px;
     overflow: auto;
-    border: 1px solid var(--st-chrome-separator);
-    border-radius: 6px;
+    border-radius: var(--vc-radius-inner);
+    background: var(--st-surface-wash);
     white-space: pre;
   }
   .error {

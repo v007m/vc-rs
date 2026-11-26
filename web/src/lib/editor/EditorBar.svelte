@@ -56,9 +56,9 @@
     <span class="dir">{dirName(path) && `${dirName(path)}/`}</span>{baseName(path)}
   </p>
   <span
-    class="st-badge"
-    class:vc-accent={editor.dirty && !errors}
-    class:vc-fail={errors > 0}
+    class="state"
+    class:is-dirty={editor.dirty && !errors}
+    class:is-fail={errors > 0}
     role="status">{status}</span
   >
   <span class="vc-grow"></span>
@@ -120,6 +120,18 @@
   }
   .dir {
     color: var(--st-text-tertiary);
+  }
+  /* save state as text in the bar, not a badge: badges never sit in a control row (D611) */
+  .state {
+    color: var(--st-text-secondary);
+    font-size: var(--vc-size-caption);
+    white-space: nowrap;
+  }
+  .state.is-dirty {
+    color: var(--st-accent);
+  }
+  .state.is-fail {
+    color: var(--vc-fail-ink);
   }
   .plus {
     color: var(--vc-pass);

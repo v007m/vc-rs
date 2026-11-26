@@ -123,8 +123,8 @@
     justify-content: space-between;
     width: 100%;
     padding: 6px 10px;
-    border: 1px solid var(--st-chrome-separator);
-    border-radius: 8px;
+    border: 0;
+    border-radius: var(--vc-radius-inner);
     background: var(--st-surface-wash);
     color: var(--st-text-primary);
     cursor: pointer;

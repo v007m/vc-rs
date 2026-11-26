@@ -89,3 +89,11 @@ export function cycleRegion(root: ParentNode, active: Element | null, back = fal
   entry(regions[next] as HTMLElement)?.focus();
   return true;
 }
+
+/** ⌘K (Ctrl+K off Apple), the chord that opens the command palette from anywhere (D620). */
+export function isPaletteKey(
+  event: Pick<KeyboardEvent, 'key' | 'metaKey' | 'ctrlKey' | 'altKey' | 'shiftKey'>,
+): boolean {
+  const mod = event.metaKey || event.ctrlKey;
+  return mod && !event.altKey && !event.shiftKey && event.key.toLowerCase() === 'k';
+}

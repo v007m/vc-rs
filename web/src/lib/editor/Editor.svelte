@@ -231,6 +231,10 @@
   .files .st-btn {
     align-self: flex-start;
   }
+  /* a flex column would squash the field below its height */
+  .files > .st-input {
+    flex: none;
+  }
   .st-secondary,
   .empty {
     color: var(--st-text-tertiary);

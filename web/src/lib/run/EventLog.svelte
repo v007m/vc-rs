@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { lens } from '#lib/ui/segmented.ts';
   import { levelFilters, visibleLines, type EventLine, type Level } from './events.ts';
 
   let { events, dropped = 0 }: { events: readonly EventLine[]; dropped?: number } = $props();
@@ -20,7 +21,7 @@
     >
   </div>
   <div class="evtools">
-    <div class="st-segmented" role="group" aria-label="Level">
+    <div class="st-segmented" role="group" {@attach lens} aria-label="Level">
       {#each levelFilters as f (f.min)}
         <button type="button" aria-pressed={min === f.min} onclick={() => (min = f.min)}>
           {f.label}

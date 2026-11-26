@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { lens } from '#lib/ui/segmented.ts';
   import { MASKED } from '#lib/settings/port.ts';
   import type { BodyMode } from './apiForm.ts';
   import type { ApiRequest } from './request.svelte.ts';
@@ -60,7 +61,7 @@
     onremove={(at) => request.removeRow('headers', at)}
   />
 {:else}
-  <div class="st-segmented" role="group" aria-label="Body">
+  <div class="st-segmented" role="group" {@attach lens} aria-label="Body">
     {#each modes as mode (mode.id)}
       <button
         type="button"

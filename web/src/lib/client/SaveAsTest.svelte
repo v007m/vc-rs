@@ -80,8 +80,8 @@
     gap: 4px;
     max-height: 240px;
     overflow: auto;
-    border: 1px solid var(--st-chrome-separator);
-    border-radius: 9px;
+    border-radius: var(--vc-radius-inner);
+    background: var(--st-surface-wash);
   }
   .check {
     display: flex;

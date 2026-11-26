@@ -44,9 +44,8 @@
 
 <style>
   .exchange {
-    border: 1px solid var(--st-chrome-separator);
-    border-radius: 10px;
     padding: 8px 12px;
+    border-radius: var(--vc-radius-inner);
     background: var(--st-surface-wash);
   }
   summary {
