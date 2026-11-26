@@ -15,6 +15,8 @@ service EngineService {
   rpc ListDefinitions(ListDefinitionsRequest) returns (ListDefinitionsResponse);
   // The project's diagnostics, as `vc check` reports them.
   rpc Check(CheckRequest) returns (CheckResponse);
+  // What a run of the selection would do, as `vc plan` shows it, without sending a request (D682).
+  rpc Plan(PlanRequest) returns (PlanResponse);
   // Runs a selection and streams its events, then its report. Closing the stream cancels the
   // run as one Ctrl-C does: cleanups still run.
   rpc Run(RunRequest) returns (stream RunResponse);
@@ -260,6 +262,29 @@ message CheckResponse {
   // How many files were checked.
   uint32 checked = 2;
   repeated string notices = 3;
+}
+
+// What `vc plan` takes: `Run`'s selection, profiles, sets and repeat.
+message PlanRequest {
+  Selection selection = 1;
+  repeated string profiles = 2;
+  repeated string sets = 3;
+  optional uint32 repeat = 4;
+}
+
+// The plan, as `vc plan` prints it. Its rows are labelled offline and masked by the config's
+// rules; no secret is loaded and no value drawn from the environment is shown (D316).
+message PlanResponse {
+  // `4 tests (6 instances) in 2 files · beforeEach ×3 actions · profile dev`.
+  string line = 1;
+  // The lifecycle blocks and test instances in run order, indented.
+  string tree = 2;
+  // The plan as `vc plan --json` gives it (D130), as JSON text.
+  string plan_json = 3;
+  // How many test instances it runs.
+  uint32 instances = 4;
+  // Problems that did not stop the plan, one line each.
+  repeated string notices = 5;
 }
 
 message RunRequest {

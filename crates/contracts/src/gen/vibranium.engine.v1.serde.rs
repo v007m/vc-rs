@@ -12103,6 +12103,312 @@ impl<'de> serde::Deserialize<'de> for Owner {
         deserializer.deserialize_struct("vibranium.engine.v1.Owner", FIELDS, GeneratedVisitor)
     }
 }
+impl serde::Serialize for PlanRequest {
+    #[allow(deprecated)]
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let mut len = 0;
+        if self.selection.is_some() {
+            len += 1;
+        }
+        if !self.profiles.is_empty() {
+            len += 1;
+        }
+        if !self.sets.is_empty() {
+            len += 1;
+        }
+        if self.repeat.is_some() {
+            len += 1;
+        }
+        let mut struct_ser = serializer.serialize_struct("vibranium.engine.v1.PlanRequest", len)?;
+        if let Some(v) = self.selection.as_ref() {
+            struct_ser.serialize_field("selection", v)?;
+        }
+        if !self.profiles.is_empty() {
+            struct_ser.serialize_field("profiles", &self.profiles)?;
+        }
+        if !self.sets.is_empty() {
+            struct_ser.serialize_field("sets", &self.sets)?;
+        }
+        if let Some(v) = self.repeat.as_ref() {
+            struct_ser.serialize_field("repeat", v)?;
+        }
+        struct_ser.end()
+    }
+}
+impl<'de> serde::Deserialize<'de> for PlanRequest {
+    #[allow(deprecated)]
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        const FIELDS: &[&str] = &[
+            "selection",
+            "profiles",
+            "sets",
+            "repeat",
+        ];
+
+        #[allow(clippy::enum_variant_names)]
+        enum GeneratedField {
+            Selection,
+            Profiles,
+            Sets,
+            Repeat,
+        }
+        impl<'de> serde::Deserialize<'de> for GeneratedField {
+            fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                struct GeneratedVisitor;
+
+                impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+                    type Value = GeneratedField;
+
+                    fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                        write!(formatter, "expected one of: {:?}", &FIELDS)
+                    }
+
+                    #[allow(unused_variables)]
+                    fn visit_str<E>(self, value: &str) -> std::result::Result<GeneratedField, E>
+                    where
+                        E: serde::de::Error,
+                    {
+                        match value {
+                            "selection" => Ok(GeneratedField::Selection),
+                            "profiles" => Ok(GeneratedField::Profiles),
+                            "sets" => Ok(GeneratedField::Sets),
+                            "repeat" => Ok(GeneratedField::Repeat),
+                            _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
+                        }
+                    }
+                }
+                deserializer.deserialize_identifier(GeneratedVisitor)
+            }
+        }
+        struct GeneratedVisitor;
+        impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+            type Value = PlanRequest;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("struct vibranium.engine.v1.PlanRequest")
+            }
+
+            fn visit_map<V>(self, mut map_: V) -> std::result::Result<PlanRequest, V::Error>
+                where
+                    V: serde::de::MapAccess<'de>,
+            {
+                let mut selection__ = None;
+                let mut profiles__ = None;
+                let mut sets__ = None;
+                let mut repeat__ = None;
+                while let Some(k) = map_.next_key()? {
+                    match k {
+                        GeneratedField::Selection => {
+                            if selection__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("selection"));
+                            }
+                            selection__ = map_.next_value()?;
+                        }
+                        GeneratedField::Profiles => {
+                            if profiles__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("profiles"));
+                            }
+                            profiles__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::Sets => {
+                            if sets__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("sets"));
+                            }
+                            sets__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::Repeat => {
+                            if repeat__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("repeat"));
+                            }
+                            repeat__ = 
+                                map_.next_value::<::std::option::Option<::pbjson::private::NumberDeserialize<_>>>()?.map(|x| x.0)
+                            ;
+                        }
+                    }
+                }
+                Ok(PlanRequest {
+                    selection: selection__,
+                    profiles: profiles__.unwrap_or_default(),
+                    sets: sets__.unwrap_or_default(),
+                    repeat: repeat__,
+                })
+            }
+        }
+        deserializer.deserialize_struct("vibranium.engine.v1.PlanRequest", FIELDS, GeneratedVisitor)
+    }
+}
+impl serde::Serialize for PlanResponse {
+    #[allow(deprecated)]
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let mut len = 0;
+        if !self.line.is_empty() {
+            len += 1;
+        }
+        if !self.tree.is_empty() {
+            len += 1;
+        }
+        if !self.plan_json.is_empty() {
+            len += 1;
+        }
+        if self.instances != 0 {
+            len += 1;
+        }
+        if !self.notices.is_empty() {
+            len += 1;
+        }
+        let mut struct_ser = serializer.serialize_struct("vibranium.engine.v1.PlanResponse", len)?;
+        if !self.line.is_empty() {
+            struct_ser.serialize_field("line", &self.line)?;
+        }
+        if !self.tree.is_empty() {
+            struct_ser.serialize_field("tree", &self.tree)?;
+        }
+        if !self.plan_json.is_empty() {
+            struct_ser.serialize_field("planJson", &self.plan_json)?;
+        }
+        if self.instances != 0 {
+            struct_ser.serialize_field("instances", &self.instances)?;
+        }
+        if !self.notices.is_empty() {
+            struct_ser.serialize_field("notices", &self.notices)?;
+        }
+        struct_ser.end()
+    }
+}
+impl<'de> serde::Deserialize<'de> for PlanResponse {
+    #[allow(deprecated)]
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        const FIELDS: &[&str] = &[
+            "line",
+            "tree",
+            "plan_json",
+            "planJson",
+            "instances",
+            "notices",
+        ];
+
+        #[allow(clippy::enum_variant_names)]
+        enum GeneratedField {
+            Line,
+            Tree,
+            PlanJson,
+            Instances,
+            Notices,
+        }
+        impl<'de> serde::Deserialize<'de> for GeneratedField {
+            fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                struct GeneratedVisitor;
+
+                impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+                    type Value = GeneratedField;
+
+                    fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                        write!(formatter, "expected one of: {:?}", &FIELDS)
+                    }
+
+                    #[allow(unused_variables)]
+                    fn visit_str<E>(self, value: &str) -> std::result::Result<GeneratedField, E>
+                    where
+                        E: serde::de::Error,
+                    {
+                        match value {
+                            "line" => Ok(GeneratedField::Line),
+                            "tree" => Ok(GeneratedField::Tree),
+                            "planJson" | "plan_json" => Ok(GeneratedField::PlanJson),
+                            "instances" => Ok(GeneratedField::Instances),
+                            "notices" => Ok(GeneratedField::Notices),
+                            _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
+                        }
+                    }
+                }
+                deserializer.deserialize_identifier(GeneratedVisitor)
+            }
+        }
+        struct GeneratedVisitor;
+        impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+            type Value = PlanResponse;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("struct vibranium.engine.v1.PlanResponse")
+            }
+
+            fn visit_map<V>(self, mut map_: V) -> std::result::Result<PlanResponse, V::Error>
+                where
+                    V: serde::de::MapAccess<'de>,
+            {
+                let mut line__ = None;
+                let mut tree__ = None;
+                let mut plan_json__ = None;
+                let mut instances__ = None;
+                let mut notices__ = None;
+                while let Some(k) = map_.next_key()? {
+                    match k {
+                        GeneratedField::Line => {
+                            if line__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("line"));
+                            }
+                            line__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::Tree => {
+                            if tree__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("tree"));
+                            }
+                            tree__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::PlanJson => {
+                            if plan_json__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("planJson"));
+                            }
+                            plan_json__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::Instances => {
+                            if instances__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("instances"));
+                            }
+                            instances__ = 
+                                Some(map_.next_value::<::pbjson::private::NumberDeserialize<_>>()?.0)
+                            ;
+                        }
+                        GeneratedField::Notices => {
+                            if notices__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("notices"));
+                            }
+                            notices__ = Some(map_.next_value()?);
+                        }
+                    }
+                }
+                Ok(PlanResponse {
+                    line: line__.unwrap_or_default(),
+                    tree: tree__.unwrap_or_default(),
+                    plan_json: plan_json__.unwrap_or_default(),
+                    instances: instances__.unwrap_or_default(),
+                    notices: notices__.unwrap_or_default(),
+                })
+            }
+        }
+        deserializer.deserialize_struct("vibranium.engine.v1.PlanResponse", FIELDS, GeneratedVisitor)
+    }
+}
 impl serde::Serialize for PlannedInstance {
     #[allow(deprecated)]
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>

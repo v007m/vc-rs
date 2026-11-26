@@ -489,6 +489,38 @@ pub struct CheckResponse {
     #[prost(string, repeated, tag="3")]
     pub notices: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
+/// What `vc plan` takes: `Run`'s selection, profiles, sets and repeat.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct PlanRequest {
+    #[prost(message, optional, tag="1")]
+    pub selection: ::core::option::Option<Selection>,
+    #[prost(string, repeated, tag="2")]
+    pub profiles: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, repeated, tag="3")]
+    pub sets: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(uint32, optional, tag="4")]
+    pub repeat: ::core::option::Option<u32>,
+}
+/// The plan, as `vc plan` prints it. Its rows are labelled offline and masked by the config's
+/// rules; no secret is loaded and no value drawn from the environment is shown (D316).
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct PlanResponse {
+    /// `4 tests (6 instances) in 2 files · beforeEach ×3 actions · profile dev`.
+    #[prost(string, tag="1")]
+    pub line: ::prost::alloc::string::String,
+    /// The lifecycle blocks and test instances in run order, indented.
+    #[prost(string, tag="2")]
+    pub tree: ::prost::alloc::string::String,
+    /// The plan as `vc plan --json` gives it (D130), as JSON text.
+    #[prost(string, tag="3")]
+    pub plan_json: ::prost::alloc::string::String,
+    /// How many test instances it runs.
+    #[prost(uint32, tag="4")]
+    pub instances: u32,
+    /// Problems that did not stop the plan, one line each.
+    #[prost(string, repeated, tag="5")]
+    pub notices: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct RunRequest {
     #[prost(message, optional, tag="1")]
