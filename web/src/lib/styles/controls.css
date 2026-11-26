@@ -141,6 +141,20 @@
   background: var(--primary-bg-pressed);
   box-shadow: inset 0 2px 4px var(--primary-shadow);
 }
+.btn-danger {
+  color: var(--st-fail-ink);
+}
+
+.btn-danger.btn-primary {
+  color: #fff;
+  background: linear-gradient(
+    180deg,
+    var(--danger-fill),
+    color-mix(in oklab, var(--danger-fill) 86%, black)
+  );
+  border-color: color-mix(in oklab, var(--danger-fill) 70%, black);
+}
+
 .btn-ghost {
   background: transparent;
   border-color: transparent;

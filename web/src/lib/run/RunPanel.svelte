@@ -2,6 +2,7 @@
   import EventLog from './EventLog.svelte';
   import PlanTable from './PlanTable.svelte';
   import RunProgress from '#lib/results/RunProgress.svelte';
+  import StopControls from './StopControls.svelte';
   import type { RunPhase } from './model.ts';
   import type { RunSession } from './session.svelte.ts';
 
@@ -54,7 +55,7 @@
     {#if view.error}<span class="muted">{view.error}</span>{/if}
     <span class="grow"></span>
     {#if session.running}
-      <button type="button" class="btn" onclick={() => session.stop()}>Stop and tear down</button>
+      <StopControls {session} />
     {:else}
       {#if onopen && view.runId !== undefined}
         {@const id = Number(view.runId)}
