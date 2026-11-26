@@ -146,7 +146,7 @@ pub use call_draft::{CallDraft, WrittenNode};
 pub use call_report::{CallReport, SavedValue};
 pub use check::{CheckReport, CheckRequest};
 pub use check_secrets::{SecretCheck, SecretsChecked};
-pub use compare::{RunComparison, SLOWER, TestChange, compare_tests, failing};
+pub use compare::{RunComparison, SLOWER, TestChange, compare_tests};
 pub use complete::CompleteKind;
 pub use config_values::{ConfigLayer, ConfigValue, ConfigValues};
 pub use coverage::{Coverage, CoveredApi};

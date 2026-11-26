@@ -162,7 +162,7 @@ const fn key(test: &TestRow) -> Key<'_> {
 
 /// Whether `status` is a failure that fails the run: failed or blocked.
 #[must_use]
-pub const fn failing(status: TestStatus) -> bool {
+const fn failing(status: TestStatus) -> bool {
     matches!(status, TestStatus::Failed | TestStatus::Blocked)
 }
 
