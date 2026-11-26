@@ -227,15 +227,21 @@ describe('ClientSession tabs', () => {
     expect(asked).toEqual([]);
     tab.method = 'POST';
     tab.url = ' https://api.example.com/users ';
-    tab.addHeader();
+    tab.addRow('headers');
     tab.headers[0] = { name: 'X-Trace', value: '1', on: true };
+    tab.addRow('query');
+    tab.addRow('query');
+    tab.query[0] = { name: 'page', value: '2', on: true };
+    tab.removeRow('query', 1);
     tab.body = '{}';
     await session.send();
     expect(asked).toEqual([
       {
+        type: 'http',
         method: 'POST',
         url: 'https://api.example.com/users',
         headers: [['X-Trace', '1']],
+        query: [['page', '2']],
         body: '{}',
         vars: [],
       },
