@@ -1,5 +1,5 @@
 import type { ExchangeLine } from '#lib/results/types.ts';
-import type { StreamCall, StreamEvent, StreamPort } from './seams.ts';
+import { adhocWords, type StreamCall, type StreamEvent, type StreamPort } from './seams.ts';
 import { message } from './tab.svelte.ts';
 
 export type StreamStatus = 'idle' | 'connecting' | 'open' | 'ended';
@@ -60,7 +60,7 @@ export class StreamSession {
     try {
       for await (const event of this.#port.openStream(call, abort.signal)) this.#take(event);
     } catch (error) {
-      if (!abort.signal.aborted) this.error = message(error);
+      if (!abort.signal.aborted) this.error = adhocWords(message(error));
     } finally {
       if (this.#abort === abort) this.#abort = undefined;
       this.status = 'ended';
@@ -127,7 +127,8 @@ export class StreamSession {
       return;
     }
     if (event.kind === 'ended') {
-      const { reason, failed, code } = event;
+      const { failed, code } = event;
+      const reason = adhocWords(event.reason);
       this.ended = code === undefined ? { reason, failed } : { reason, failed, code };
       return;
     }
@@ -197,4 +198,17 @@ function pretty(text: string): string {
   } catch {
     return text;
   }
+}
+
+const timeOfDay = new Intl.DateTimeFormat('en-GB', {
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  fractionalSecondDigits: 3,
+  hour12: false,
+});
+
+/** When a frame came: a time of day with milliseconds, or an offset when the stamp is relative. */
+export function frameTime(atMs: number): string {
+  return atMs < 1e11 ? `+${atMs} ms` : timeOfDay.format(atMs);
 }

@@ -8,6 +8,7 @@ import type {
 } from '#lib/gen/vibranium/engine/v1/engine_pb.ts';
 import { fakeEngine } from '#lib/testing/engine.ts';
 import {
+  adhocWords,
   engineSeams,
   historyEntry,
   noSeams,
@@ -34,6 +35,14 @@ const exchange = {
 };
 
 describe('client seams', () => {
+  it('names the stand-in api file of an ad hoc call as this request', () => {
+    expect(
+      adhocWords(
+        'V2001 services/vc-adhoc/vc-adhoc.api.yaml:3: no var userId in services/vc-adhoc/vc-adhoc.api.yaml',
+      ),
+    ).toBe('V2001 this request:3: no var userId in this request');
+  });
+
   it('reads a history line from the call summary, or from the selector when there is none', () => {
     const run = { id: 1n, status: RunStatus.PASSED, startedMs: 5n, selector: 'vc-adhoc#call' };
     const at = { id: 1, outcome: 'passed', startedMs: 5 };

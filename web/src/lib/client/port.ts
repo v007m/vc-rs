@@ -70,13 +70,13 @@ export type ExplainedApi = Readonly<{
 /** A value the api's `save` took from the response: `from` as written, `value` masked. */
 export type SavedLine = Readonly<{ name: string; from: string; value: string }>;
 
+/** How the response came over the wire: its size, protocol and whether a connection was reused. */
+export type WireInfo = Readonly<{ size: number; protocol?: string; reused: boolean }>;
+
 /**
  * What a call gave back; `responseJson` is the masked `status`/`headers`/`body` value, and
  * `exchange` the request as sent and the response with its timing, absent when none came.
  */
-/** How the response came over the wire: its size, protocol and whether a connection was reused. */
-export type WireInfo = Readonly<{ size: number; protocol?: string; reused: boolean }>;
-
 export type CallOutput = Readonly<{
   exit: number;
   text: string;

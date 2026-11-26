@@ -3,8 +3,8 @@ import { render, screen, within } from '@testing-library/svelte';
 import { userEvent } from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { MASKED } from '#lib/settings/port.ts';
+import RequestHost from '#lib/testing/RequestHost.svelte';
 import type { ApiDraft, CallInput, ClientPort, ExplainedApi, WrittenDefinition } from './port.ts';
-import RequestPanel from './RequestPanel.svelte';
 import { ClientSession } from './session.svelte.ts';
 
 const WRITTEN: WrittenDefinition = {
@@ -60,8 +60,19 @@ async function rendered(overrides: Partial<ClientPort> = {}) {
   await client.load();
   await client.open('users#createUser');
   const said: string[] = [];
-  render(RequestPanel, { client, onsaved: (what: string) => said.push(what) });
+  render(RequestHost, { client, onsaved: (what: string) => said.push(what) });
   return { ...s, client, said };
+}
+
+/** Opens one of the request card's tabs, whose name may carry a count. */
+async function part(user: ReturnType<typeof userEvent.setup>, name: string): Promise<void> {
+  await user.click(screen.getByRole('tab', { name: new RegExp(`^${name}`) }));
+}
+
+/** Picks Copy as cURL from the Send button's menu. */
+async function copyCurl(user: ReturnType<typeof userEvent.setup>): Promise<void> {
+  await user.click(screen.getByRole('button', { name: 'More send options' }));
+  await user.click(screen.getByRole('menuitem', { name: /Copy as cURL/ }));
 }
 
 describe('RequestPanel', () => {
@@ -70,6 +81,7 @@ describe('RequestPanel', () => {
     await user.selectOptions(screen.getByRole('combobox', { name: 'Method' }), 'PUT');
     await user.clear(screen.getByRole('textbox', { name: 'Path' }));
     await user.type(screen.getByRole('textbox', { name: 'Path' }), '/people');
+    await part(user, 'Headers');
     expect(screen.getByRole('textbox', { name: 'Header name' }).hasAttribute('readonly')).toBe(
       true,
     );
@@ -102,6 +114,7 @@ describe('RequestPanel', () => {
 
   it('will not send a JSON body that does not parse', async () => {
     const { user, sent } = await rendered();
+    await part(user, 'Body');
     const body = screen.getByRole('textbox', { name: 'JSON body' });
     await user.type(body, '{{');
     expect(screen.getByText('The body is not JSON. Fix it, or send it as text.')).toBeTruthy();
@@ -115,7 +128,7 @@ describe('RequestPanel', () => {
 
   it('adds a check for this request alone and lists the api’s own', async () => {
     const { user, sent } = await rendered();
-    await user.click(screen.getByRole('tab', { name: 'Checks' }));
+    await part(user, 'Expect');
     expect(screen.getByRole('list', { name: 'Api checks' }).textContent).toContain('status: 201');
     await user.type(screen.getByRole('textbox', { name: 'Expected value' }), 'ok');
     await user.click(screen.getByRole('button', { name: 'Add check' }));
@@ -181,10 +194,10 @@ describe('RequestPanel', () => {
       },
     });
     await user.selectOptions(screen.getByRole('combobox', { name: 'Method' }), 'PUT');
-    await user.click(screen.getByRole('tab', { name: 'Vars' }));
+    await part(user, 'Vars');
     const layers = screen.getByRole('table', { name: 'Vars from the project' });
     expect(layers.textContent).toContain('profile dev');
-    await user.click(screen.getByRole('button', { name: 'Copy as cURL' }));
+    await copyCurl(user);
     const dialog = screen.getByRole('dialog', { name: 'Copy as cURL' });
     expect(within(dialog).getByLabelText('cURL command').textContent).toContain('curl -X PUT');
     expect(within(dialog).getByText('vc call')).toBeTruthy();
@@ -201,7 +214,7 @@ describe('RequestPanel', () => {
           ? Promise.resolve({ ...EXPLAINED, curl: 'curl -X POST' })
           : Promise.reject(new ConnectError('changed', Code.Aborted)),
     });
-    await user.click(screen.getByRole('button', { name: 'Copy as cURL' }));
+    await copyCurl(user);
     expect(screen.queryByRole('dialog', { name: 'Copy as cURL' })).toBeNull();
     expect(client.error).toContain('changed');
     expect(client.request?.state).toBe('conflict');

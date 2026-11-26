@@ -1,7 +1,7 @@
 import type { ApiInfo, CallInput, ClientPort, FlowInfo } from './port.ts';
 import type { ApiRequest } from './request.svelte.ts';
 import { ScratchTab } from './scratch.svelte.ts';
-import { noSeams, type AdhocPort } from './seams.ts';
+import { noSeams, type AdhocPort, type StreamPort } from './seams.ts';
 import { CallTab, message, type CallResult, type VarRow } from './tab.svelte.ts';
 
 export type { CallResult, VarRow } from './tab.svelte.ts';
@@ -18,12 +18,14 @@ export class ClientSession {
   flows: readonly FlowInfo[] = $state([]);
   tabs: ClientTab[] = $state([]);
   activeId: string | undefined = $state();
+  /** How many sends this session made, so a history view knows to read again. */
+  sent = $state(0);
   #error: string | undefined = $state();
   #next = 1;
   readonly #port: ClientPort;
-  readonly #adhoc: AdhocPort;
+  readonly #adhoc: AdhocPort & StreamPort;
 
-  constructor(port: ClientPort, adhoc: AdhocPort = noSeams) {
+  constructor(port: ClientPort, adhoc: AdhocPort & StreamPort = noSeams) {
     this.#port = port;
     this.#adhoc = adhoc;
   }
@@ -99,9 +101,10 @@ export class ClientSession {
     await tab.load();
   }
 
-  /** Opens a scratch tab with no api and brings it to the front. */
-  scratch(): ScratchTab {
+  /** Opens a scratch tab with no api, or one from history, and brings it to the front. */
+  scratch(from?: Readonly<{ method: string; url: string }>): ScratchTab {
     const tab = new ScratchTab(this.#adhoc, this.#id());
+    if (from) [tab.method, tab.url, tab.title] = [from.method, from.url, from.url];
     this.tabs.push(tab);
     this.activeId = tab.id;
     return tab;
@@ -115,7 +118,8 @@ export class ClientSession {
   close(id: string): void {
     const at = this.tabs.findIndex((t) => t.id === id);
     if (at < 0) return;
-    this.tabs.splice(at, 1);
+    const [gone] = this.tabs.splice(at, 1);
+    if (gone?.kind === 'scratch') gone.stream.abort();
     if (this.activeId !== id) return;
     this.activeId = this.tabs[Math.min(at, this.tabs.length - 1)]?.id;
   }
@@ -133,7 +137,10 @@ export class ClientSession {
   }
 
   async send(keep?: boolean): Promise<void> {
-    await this.tab?.send(keep);
+    const tab = this.tab;
+    if (!tab) return;
+    await tab.send(keep);
+    this.sent++;
   }
 
   async saveAsTest(testId: string, fields: readonly string[]): Promise<string | undefined> {

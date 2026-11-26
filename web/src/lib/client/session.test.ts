@@ -1,6 +1,7 @@
 import { Code, ConnectError } from '@connectrpc/connect';
 import { describe, expect, it } from 'vitest';
 import type { ApiDraft, CallInput, ClientPort, SaveCallInput } from './port.ts';
+import { noSeams } from './seams.ts';
 import { ClientSession } from './session.svelte.ts';
 
 const apis = [
@@ -217,6 +218,7 @@ describe('ClientSession tabs', () => {
   it('sends a scratch tab through the ad hoc seam and says when it is not available yet', async () => {
     const asked: unknown[] = [];
     const session = new ClientSession(fakePort(), {
+      ...noSeams,
       callAdhoc: (request) => {
         asked.push(request);
         return Promise.resolve({ available: false, reason: 'Not available yet.' });

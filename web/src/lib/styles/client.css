@@ -1,0 +1,309 @@
+/* The Client space (ui.md §4, D560): the request bar on L0, and the request and response cards
+   on a resizable split. Ported from the ui-v2 mockup; the tab strip styles itself. */
+
+/* ---- method pill and status code --------------------------------------------- */
+.method {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  min-width: 34px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 5px;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: var(--fw-semibold);
+  letter-spacing: 0.02em;
+  color: var(--m-get);
+  background: color-mix(in oklab, var(--m-get) 14%, transparent);
+}
+.method[data-m='POST'] {
+  color: var(--m-post);
+  background: color-mix(in oklab, var(--m-post) 14%, transparent);
+}
+.method[data-m='PUT'] {
+  color: var(--m-put);
+  background: color-mix(in oklab, var(--m-put) 14%, transparent);
+}
+.method[data-m='PATCH'] {
+  color: var(--m-patch);
+  background: color-mix(in oklab, var(--m-patch) 14%, transparent);
+}
+.method[data-m='DELETE'] {
+  color: var(--m-delete);
+  background: color-mix(in oklab, var(--m-delete) 14%, transparent);
+}
+.method:is([data-m='WS'], [data-m='SSE']) {
+  color: var(--m-stream);
+  background: color-mix(in oklab, var(--m-stream) 14%, transparent);
+}
+.hs {
+  font-family: var(--mono);
+  font-weight: var(--fw-semibold);
+  font-variant-numeric: tabular-nums;
+}
+.hs[data-class='2'] {
+  color: var(--st-pass-ink);
+}
+.hs[data-class='3'] {
+  color: var(--st-flaky-ink);
+}
+.hs[data-class='4'] {
+  color: var(--st-blocked-ink);
+}
+.hs[data-class='5'] {
+  color: var(--st-fail-ink);
+}
+
+/* ---- the screen: request bar on L0, then the split --------------------------- */
+.client {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  min-height: 0;
+  min-width: 0;
+}
+.reqbar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex: none;
+  min-width: 0;
+}
+.reqbar > :is(.btn, .select, .url),
+.reqbar .btn-split .btn {
+  height: var(--ctl-h-lg);
+}
+.reqbar .select {
+  flex: none;
+  width: auto;
+  border-radius: var(--r-pill);
+  font-family: var(--mono);
+  font-weight: var(--fw-semibold);
+}
+.url {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  padding: 0 var(--sp-3);
+  border: 1px solid transparent;
+  border-radius: var(--r-pill);
+  background: var(--field-bg);
+  box-shadow: var(--sh-deboss);
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+}
+.url:focus-within {
+  border-color: var(--focus);
+}
+.url .q {
+  flex: none;
+  color: var(--ink-3);
+}
+.url input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+}
+.url input::placeholder {
+  color: var(--ink-3);
+}
+.btn-split {
+  position: relative;
+  display: inline-flex;
+  align-items: stretch;
+}
+.btn-split > .btn:first-child {
+  border-radius: var(--r-pill) 0 0 var(--r-pill);
+  padding-right: var(--sp-3);
+}
+.btn-split > :nth-child(2) > .btn {
+  border-radius: 0 var(--r-pill) var(--r-pill) 0;
+  padding: 0 10px;
+  border-left-color: color-mix(in oklab, var(--primary-ink) 20%, transparent);
+}
+
+/* ---- split: request | response ------------------------------------------------ */
+.split {
+  --split: 50%;
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-columns: minmax(280px, var(--split)) 12px minmax(280px, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  min-height: 0;
+  min-width: 0;
+}
+.split > .glass {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  container: card / inline-size;
+}
+.divider {
+  display: grid;
+  place-items: center;
+  cursor: col-resize;
+  touch-action: none;
+  border-radius: var(--r-sm);
+}
+.divider::before {
+  content: '';
+  width: 4px;
+  height: 36px;
+  border-radius: var(--r-pill);
+  background: var(--l0-ink-3);
+  opacity: 0.45;
+  transition:
+    opacity var(--dur-2) var(--ease),
+    height var(--dur-2) var(--ease);
+}
+.divider:is(:hover, :focus-visible)::before {
+  opacity: 0.9;
+  height: 56px;
+}
+.split[data-orient='stack'] {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(160px, var(--split)) 12px minmax(160px, 1fr);
+}
+.split[data-orient='stack'] .divider {
+  cursor: row-resize;
+}
+.split[data-orient='stack'] .divider::before {
+  width: 36px;
+  height: 4px;
+}
+@container app (max-width: 1100px) {
+  .split:not([data-orient='side']) {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(160px, var(--split)) 12px minmax(160px, 1fr);
+  }
+  .split:not([data-orient='side']) .divider {
+    cursor: row-resize;
+  }
+  .split:not([data-orient='side']) .divider::before {
+    width: 36px;
+    height: 4px;
+  }
+}
+
+/* ---- inside a card: head, tabs, body ------------------------------------------- */
+.card-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  min-width: 0;
+  padding: var(--card-pad) var(--card-pad) var(--sp-3);
+}
+.card-title {
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--fs-4);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-title);
+}
+.file-ref {
+  font-family: var(--mono);
+  font-size: var(--fs-1);
+  color: var(--ink-3);
+}
+.split > .glass > [role='tablist'] {
+  flex: none;
+  padding: 0 var(--card-pad) var(--sp-3);
+  border-bottom: 1px solid var(--rule);
+}
+.split > .glass > [role='tabpanel'] {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  padding: var(--card-pad);
+  font-size: var(--fs-2);
+}
+.resp-empty {
+  display: grid;
+  place-items: center;
+  padding: var(--card-pad);
+  color: var(--ink-2);
+  text-align: center;
+}
+.resp-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  min-width: 0;
+  color: var(--ink-2);
+}
+.resp-meta .hs {
+  font-size: var(--fs-3);
+}
+.resp-meta b {
+  color: var(--ink);
+  font-weight: var(--fw-semibold);
+  font-variant-numeric: tabular-nums;
+}
+.body-tools {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+.body-tools .input {
+  flex: 1 1 220px;
+  width: auto;
+  font-family: var(--mono);
+}
+.body-view {
+  flex: 1 1 auto;
+  min-height: 140px;
+  overflow: auto;
+}
+.client-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-2);
+  font-variant-numeric: tabular-nums;
+}
+.client-table th {
+  padding: 8px var(--sp-3);
+  border-bottom: 1px solid var(--rule-strong);
+  color: var(--ink-3);
+  font-size: 11px;
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-label);
+  text-align: left;
+  text-transform: uppercase;
+}
+.client-table tbody th {
+  color: var(--ink);
+  font-size: var(--fs-2);
+  letter-spacing: 0;
+  text-transform: none;
+  border-bottom: 0;
+}
+.client-table :is(td, tbody th) {
+  padding: 6px var(--sp-3);
+  border-top: 1px solid var(--rule);
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+.client-table.readonly :is(td, th) {
+  color: var(--ink-2);
+}

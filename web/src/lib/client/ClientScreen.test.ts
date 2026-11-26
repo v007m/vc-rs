@@ -1,10 +1,14 @@
 import { render, screen, within } from '@testing-library/svelte';
 import { userEvent } from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { RunSession } from '#lib/run/session.svelte.ts';
 import { fakeEngine } from '#lib/testing/engine.ts';
+import { stubResizeObserver } from '#lib/testing/layout.ts';
+import SlotHost from '#lib/testing/SlotHost.svelte';
 import ClientScreen from './ClientScreen.svelte';
+import { ClientLayout } from './layout.svelte.ts';
 import type { CallInput, ClientPort, HarInput, SaveCallInput } from './port.ts';
+import { noSeams } from './seams.ts';
 import { ClientSession } from './session.svelte.ts';
 
 const body = { id: 'u_1', email: 'grace@example.com' };
@@ -90,12 +94,31 @@ function setup() {
   return { client, port, session: new RunSession(engine), sent, runs, user: userEvent.setup() };
 }
 
+function show(s: ReturnType<typeof setup>): void {
+  const layout = new ClientLayout(undefined);
+  const args = { client: s.client, port: s.port, session: s.session, layout, history: noSeams };
+  render(SlotHost<typeof args>, { screen: ClientScreen, args });
+}
+
 async function rendered() {
   const s = setup();
   await s.client.load();
-  render(ClientScreen, { client: s.client, port: s.port, session: s.session });
+  show(s);
   return s;
 }
+
+/** What the screen's live status lines say. */
+function said(): string[] {
+  return screen.getAllByRole('status').map((line) => line.textContent ?? '');
+}
+
+/** Opens a flow test from the sidebar's Flows section. */
+async function openFlow(user: ReturnType<typeof userEvent.setup>): Promise<void> {
+  const flows = screen.getByRole('list', { name: 'Flows' });
+  await user.click(within(flows).getByRole('button', { name: /^Replays/ }));
+}
+
+beforeAll(stubResizeObserver);
 
 describe('ClientScreen', () => {
   it('calls an api with a var and shows the status, body and headers', async () => {
@@ -108,7 +131,7 @@ describe('ClientScreen', () => {
       { api: 'users#createUser', vars: ['email=grace@example.com'], keep: false },
     ]);
     const response = screen.getByRole('region', { name: 'Response' });
-    expect(within(response).getByText('201 Created · 9 ms · api expect passed')).toBeTruthy();
+    expect(within(response).getByText('Created · 9 ms · api expect passed')).toBeTruthy();
     expect(within(response).getByText(/"u_1"/)).toBeTruthy();
     await user.click(within(response).getByRole('tab', { name: 'Headers' }));
     expect(within(response).getByText('x-id')).toBeTruthy();
@@ -125,7 +148,7 @@ describe('ClientScreen', () => {
       .getAllByRole('rowheader')
       .map((th) => th.textContent);
     expect(phases).toEqual(['dns', 'connect', 'firstByte', 'download', 'total']);
-    await user.click(within(response).getByRole('tab', { name: 'Checks' }));
+    await user.click(within(response).getByRole('tab', { name: /^Checks/ }));
     const checks = within(response).getByRole('list', { name: 'Checks' });
     expect(checks.textContent?.replace(/\s+/g, ' ')).toContain('status held');
     await user.click(within(response).getByRole('tab', { name: 'Saved' }));
@@ -148,7 +171,7 @@ describe('ClientScreen', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Save' }));
     expect(sent.saves[0]).toMatchObject({ testId: 'users.crud#listsOne', fields: ['body.email'] });
     expect(screen.queryByRole('dialog')).toBeNull();
-    expect(screen.getByRole('status').textContent).toBe('Add users.crud#listsOne');
+    expect(said()).toContain('Add users.crud#listsOne');
   });
 
   it('previews a HAR import, shows a file diff and writes it', async () => {
@@ -169,14 +192,12 @@ describe('ClientScreen', () => {
     expect(within(dialog).getByText(/filtered 1 static/)).toBeTruthy();
     await user.click(within(dialog).getByRole('button', { name: 'Write files' }));
     expect(sent.imports.map((i) => i.write)).toEqual([false, true]);
-    expect(screen.getByRole('status').textContent).toContain('Add users.recorded#replaysSession');
+    expect(said().join(' ')).toContain('Add users.recorded#replaysSession');
   });
 
   it('lists flow tests in Flow mode and runs one', async () => {
     const { user, runs } = await rendered();
-    await user.click(
-      within(screen.getByRole('group', { name: 'Mode' })).getByRole('button', { name: 'Flow' }),
-    );
+    await openFlow(user);
     const flows = screen.getByRole('list', { name: 'Flow tests' });
     await user.click(
       within(flows).getByRole('button', { name: 'Run users.recorded#replaysSession' }),
@@ -194,14 +215,9 @@ describe('ClientScreen', () => {
         node: { id: 'replaysSession', steps: [{ call: 'users#listUsers' }] },
       });
     await s.client.load();
-    render(ClientScreen, { client: s.client, port: s.port, session: s.session });
-    await s.user.click(
-      within(screen.getByRole('group', { name: 'Mode' })).getByRole('button', { name: 'Flow' }),
-    );
+    show(s);
+    await openFlow(s.user);
     const flows = screen.getByRole('list', { name: 'Flow tests' });
-    await s.user.click(
-      within(flows).getByRole('button', { name: 'Edit users.recorded#replaysSession' }),
-    );
     const api = await screen.findByRole('combobox', { name: 'Stage 1 api' });
     await s.user.selectOptions(api, 'users#createUser');
     const run = within(flows).getByRole('button', { name: 'Run users.recorded#replaysSession' });

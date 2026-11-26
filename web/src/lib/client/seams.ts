@@ -50,6 +50,11 @@ export type AdhocRequest = Readonly<{
 /** The file the engine names in a diagnostic about an ad hoc request. */
 export const adhocFile = 'services/vc-adhoc/vc-adhoc.api.yaml';
 
+/** `text` with the ad hoc request's stand-in file named as people see it: "this request". */
+export function adhocWords(text: string): string {
+  return text.replaceAll(adhocFile, 'this request');
+}
+
 export interface AdhocPort {
   callAdhoc(request: AdhocRequest): Promise<Maybe<CallOutput>>;
 }
