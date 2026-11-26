@@ -74,6 +74,7 @@ mod examples;
 mod explain;
 mod failed;
 mod fetch;
+mod file_refs;
 mod fix;
 mod format;
 mod history;
@@ -162,6 +163,7 @@ pub use editor_help::{Completion, CompletionKind, EditorRequest, Hover, hover_at
 pub use engine::Engine;
 pub use error::EngineError;
 pub use explain::{ApiExplained, AuthShown, ExplainReport, SentHeader};
+pub use file_refs::{FileReference, FileReferences};
 pub use fix::FixReport;
 pub use import::{ImportRequest, Keep};
 pub use init::INIT_FOLDERS;

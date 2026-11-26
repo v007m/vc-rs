@@ -202,6 +202,10 @@ mod tests {
             self.0.remove(path)
         }
 
+        fn trash(&self, path: &SourcePath, was: ContentHash) -> Result<String, SourceError> {
+            self.0.trash(path, was)
+        }
+
         fn write_unchanged(&self, path: &SourcePath, text: &str, was: Option<ContentHash>) -> Result<(), SourceError> {
             fs::write(self.1.join(path.as_str()), ELSEWHERE).unwrap();
             self.0.write_unchanged(path, text, was)

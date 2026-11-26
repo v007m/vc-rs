@@ -66,6 +66,17 @@ service EngineService {
   rpc Complete(CompleteRequest) returns (CompleteResponse);
   // The YAML editor's hover at a cursor: a key's docs, and the explained reference (D681).
   rpc Hover(HoverRequest) returns (HoverResponse);
+  // A new api, test or load file from `vc new file`'s template, previewed or written (D683).
+  rpc CreateFile(CreateFileRequest) returns (CreateFileResponse);
+  // `vc rename`: an item, a file (which moves) or a var, auth or dataset, with every file it
+  // changes previewed, then written (D683).
+  rpc Rename(RenameRequest) returns (RenameResponse);
+  // The editor's unsaved text in `vc fmt`'s house style, never written (D684).
+  rpc Format(FormatRequest) returns (FormatResponse);
+  // The `call:` and `test:` references in other files to one file's items (D683).
+  rpc FileReferences(FileReferencesRequest) returns (FileReferencesResponse);
+  // Moves a definition file into the project's trash, `.vibranium/trash/` (D683).
+  rpc TrashFile(TrashFileRequest) returns (TrashFileResponse);
   // Writes a call as a test, as `vc call --save-as` does.
   rpc SaveCallAsTest(SaveCallAsTestRequest) returns (SaveCallAsTestResponse);
   // Imports a spec or recording, as `vc import` does: a preview, or the files written.
@@ -845,6 +856,93 @@ message HoverResponse {
   // The key's docs as Markdown, then the reference its value names explained, masked; unset
   // when the cursor is on no declared key.
   optional string markdown = 1;
+}
+
+message CreateFileRequest {
+  // `api`, `test` or `load`; anything else is `invalid_argument`.
+  string kind = 1;
+  // The file ID, such as `users` (a new service's api file) or `users.crud`.
+  string id = 2;
+  // Write the file; a preview when false.
+  bool write = 3;
+  // The digest the preview gave; a write is aborted when the project changed since, or without it.
+  optional string expected_digest = 4;
+}
+
+message CreateFileResponse {
+  repeated FileChange files = 1;
+  repeated string titles = 2;
+  // The digest of the files as previewed, which the write passes back.
+  string digest = 3;
+  // The new file's path, relative to the project root.
+  string path = 4;
+}
+
+message RenameRequest {
+  // A full ID (`users#list`), a file ID (`users.crud`) or `var.`, `auth.` or `dataset.` and a name.
+  string from = 1;
+  string to = 2;
+  // Write the files; a preview when false.
+  bool write = 3;
+  // The digest the preview gave; a write is aborted when a file changed since, or without it.
+  optional string expected_digest = 4;
+}
+
+message RenameResponse {
+  // Every file the rename changes, references included; a moved file names `moved_from`.
+  repeated FileChange files = 1;
+  repeated string titles = 2;
+  string digest = 3;
+}
+
+message FormatRequest {
+  // The config or an api, test or load file the editor opens.
+  string path = 1;
+  // The editor's text, saved or not.
+  string text = 2;
+  // Drop the one-line comments `vc new` wrote, as `vc fmt --strip-comments` does.
+  bool strip_comments = 3;
+}
+
+message FormatResponse {
+  // The text in the house style, for the editor to put in place unsaved.
+  string text = 1;
+  // Whether it differs from the request's text.
+  bool changed = 2;
+}
+
+message FileReferencesRequest {
+  // An api, test or load file.
+  string path = 1;
+}
+
+// One `call:` or `test:` in another file naming an item of the file asked about.
+message FileReference {
+  string path = 1;
+  // From 1.
+  uint32 line = 2;
+  // The full ID of the test, api or action that holds it, or its top-level key (`beforeRun`).
+  string from = 3;
+  // The item it names, by full ID.
+  string target = 4;
+}
+
+message FileReferencesResponse {
+  repeated FileReference references = 1;
+  // Definition files that do not parse, so were not searched.
+  repeated string unread = 2;
+}
+
+message TrashFileRequest {
+  // An api, test or load file; never the config or `.env.schema`.
+  string path = 1;
+  // The digest `ReadFile` gave; the file is not moved when it changed since.
+  string expected_digest = 2;
+}
+
+message TrashFileResponse {
+  // Where it went, relative to the project root: `.vibranium/trash/<stamp>/<path>`.
+  string trashed_to = 1;
 }
 
 // A header an api is sent with that it does not write itself.

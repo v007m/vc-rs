@@ -101,7 +101,20 @@ pub trait SourceWriter: Send + Sync {
     ///
     /// As [`SourceWriter::write`].
     fn remove(&self, path: &SourcePath) -> Result<(), SourceError>;
+
+    /// Moves the file at `path` into a fresh `<stamp>/` folder under the project's [`TRASH`],
+    /// at its own path there, only while it still hashes to `was`, and gives the place it went, relative to the root (D683). The
+    /// file is kept, never deleted; a person restores it by moving it back.
+    ///
+    /// # Errors
+    ///
+    /// [`SourceError::Changed`] when the file is not the one read, and nothing is moved; as
+    /// [`SourceWriter::write`] otherwise, the trash folder included.
+    fn trash(&self, path: &SourcePath, was: ContentHash) -> Result<String, SourceError>;
 }
+
+/// The folder, relative to the project root, a trashed definition file is moved into (D683).
+pub const TRASH: &str = ".vibranium/trash";
 
 /// What one discovery found.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]

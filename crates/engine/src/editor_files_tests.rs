@@ -143,6 +143,11 @@ impl SourceWriter for Raced {
     fn remove(&self, path: &SourcePath) -> Result<(), SourceError> {
         self.0.remove(path)
     }
+
+    fn trash(&self, path: &SourcePath, was: ContentHash) -> Result<String, SourceError> {
+        self.0.write(path, OTHER)?;
+        self.0.trash(path, was)
+    }
 }
 
 #[test]
@@ -158,6 +163,19 @@ fn a_save_over_a_file_changed_after_its_digest_was_compared_keeps_the_other_text
     let created = engine.save_file(&save(NEW, BROKEN, None));
     assert!(matches!(&created, Err(EngineError::Stale { .. })), "{created:?}");
     assert_eq!(fs::read_to_string(dir.path().join(NEW)).unwrap(), OTHER);
+}
+
+#[test]
+fn a_trash_over_a_file_changed_after_its_digest_was_compared_moves_nothing() {
+    let (dir, _) = project();
+    let folder = Arc::new(FsSources::new(dir.path()).unwrap());
+    let raced = Arc::new(Raced(FsSources::new(dir.path()).unwrap()));
+    let engine = builder(FakeVcs::default()).sources(folder).writer(raced).build().unwrap();
+    let opened = engine.read_file(API).unwrap();
+    let stale = engine.trash_file(API, &opened.digest);
+    assert!(matches!(&stale, Err(EngineError::Stale { reason }) if reason.contains("changed since")), "{stale:?}");
+    assert_eq!(fs::read_to_string(dir.path().join(API)).unwrap(), OTHER);
+    assert!(!dir.path().join(".vibranium").exists());
 }
 
 #[test]

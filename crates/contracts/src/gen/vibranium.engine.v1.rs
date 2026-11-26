@@ -1216,6 +1216,123 @@ pub struct HoverResponse {
     #[prost(string, optional, tag="1")]
     pub markdown: ::core::option::Option<::prost::alloc::string::String>,
 }
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct CreateFileRequest {
+    /// `api`, `test` or `load`; anything else is `invalid_argument`.
+    #[prost(string, tag="1")]
+    pub kind: ::prost::alloc::string::String,
+    /// The file ID, such as `users` (a new service's api file) or `users.crud`.
+    #[prost(string, tag="2")]
+    pub id: ::prost::alloc::string::String,
+    /// Write the file; a preview when false.
+    #[prost(bool, tag="3")]
+    pub write: bool,
+    /// The digest the preview gave; a write is aborted when the project changed since, or without it.
+    #[prost(string, optional, tag="4")]
+    pub expected_digest: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CreateFileResponse {
+    #[prost(message, repeated, tag="1")]
+    pub files: ::prost::alloc::vec::Vec<FileChange>,
+    #[prost(string, repeated, tag="2")]
+    pub titles: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// The digest of the files as previewed, which the write passes back.
+    #[prost(string, tag="3")]
+    pub digest: ::prost::alloc::string::String,
+    /// The new file's path, relative to the project root.
+    #[prost(string, tag="4")]
+    pub path: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct RenameRequest {
+    /// A full ID (`users#list`), a file ID (`users.crud`) or `var.`, `auth.` or `dataset.` and a name.
+    #[prost(string, tag="1")]
+    pub from: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub to: ::prost::alloc::string::String,
+    /// Write the files; a preview when false.
+    #[prost(bool, tag="3")]
+    pub write: bool,
+    /// The digest the preview gave; a write is aborted when a file changed since, or without it.
+    #[prost(string, optional, tag="4")]
+    pub expected_digest: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RenameResponse {
+    /// Every file the rename changes, references included; a moved file names `moved_from`.
+    #[prost(message, repeated, tag="1")]
+    pub files: ::prost::alloc::vec::Vec<FileChange>,
+    #[prost(string, repeated, tag="2")]
+    pub titles: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, tag="3")]
+    pub digest: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct FormatRequest {
+    /// The config or an api, test or load file the editor opens.
+    #[prost(string, tag="1")]
+    pub path: ::prost::alloc::string::String,
+    /// The editor's text, saved or not.
+    #[prost(string, tag="2")]
+    pub text: ::prost::alloc::string::String,
+    /// Drop the one-line comments `vc new` wrote, as `vc fmt --strip-comments` does.
+    #[prost(bool, tag="3")]
+    pub strip_comments: bool,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct FormatResponse {
+    /// The text in the house style, for the editor to put in place unsaved.
+    #[prost(string, tag="1")]
+    pub text: ::prost::alloc::string::String,
+    /// Whether it differs from the request's text.
+    #[prost(bool, tag="2")]
+    pub changed: bool,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct FileReferencesRequest {
+    /// An api, test or load file.
+    #[prost(string, tag="1")]
+    pub path: ::prost::alloc::string::String,
+}
+/// One `call:` or `test:` in another file naming an item of the file asked about.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct FileReference {
+    #[prost(string, tag="1")]
+    pub path: ::prost::alloc::string::String,
+    /// From 1.
+    #[prost(uint32, tag="2")]
+    pub line: u32,
+    /// The full ID of the test, api or action that holds it, or its top-level key (`beforeRun`).
+    #[prost(string, tag="3")]
+    pub from: ::prost::alloc::string::String,
+    /// The item it names, by full ID.
+    #[prost(string, tag="4")]
+    pub target: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct FileReferencesResponse {
+    #[prost(message, repeated, tag="1")]
+    pub references: ::prost::alloc::vec::Vec<FileReference>,
+    /// Definition files that do not parse, so were not searched.
+    #[prost(string, repeated, tag="2")]
+    pub unread: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct TrashFileRequest {
+    /// An api, test or load file; never the config or `.env.schema`.
+    #[prost(string, tag="1")]
+    pub path: ::prost::alloc::string::String,
+    /// The digest `ReadFile` gave; the file is not moved when it changed since.
+    #[prost(string, tag="2")]
+    pub expected_digest: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct TrashFileResponse {
+    /// Where it went, relative to the project root: `.vibranium/trash/<stamp>/<path>`.
+    #[prost(string, tag="1")]
+    pub trashed_to: ::prost::alloc::string::String,
+}
 /// A header an api is sent with that it does not write itself.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct InheritedHeader {

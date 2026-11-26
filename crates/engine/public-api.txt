@@ -722,16 +722,21 @@ impl vc_engine::Engine
 pub fn vc_engine::Engine::edit_file(&self, &vc_engine::SaveFile) -> core::result::Result<vc_engine::Changes, vc_engine::EngineError>
 pub fn vc_engine::Engine::read_file(&self, &str) -> core::result::Result<vc_engine::OpenedFile, vc_engine::EngineError>
 pub fn vc_engine::Engine::save_file(&self, &vc_engine::SaveFile) -> core::result::Result<vc_engine::SavedFile, vc_engine::EngineError>
+pub fn vc_engine::Engine::trash_file(&self, &str, &str) -> core::result::Result<alloc::string::String, vc_engine::EngineError>
 impl vc_engine::Engine
 pub fn vc_engine::Engine::explain(&self, &str, &vc_engine::ExplainRequest) -> core::result::Result<vc_engine::ExplainReport, vc_engine::EngineError>
 pub async fn vc_engine::Engine::explain_masked(&self, &str, &vc_engine::ExplainRequest) -> core::result::Result<vc_engine::ExplainReport, vc_engine::EngineError>
 impl vc_engine::Engine
 pub async fn vc_engine::Engine::explain_api(&self, &vc_engine::CallRequest) -> core::result::Result<vc_engine::ApiExplained, vc_engine::EngineError>
 impl vc_engine::Engine
+pub fn vc_engine::Engine::file_references(&self, &str) -> core::result::Result<vc_engine::FileReferences, vc_engine::EngineError>
+impl vc_engine::Engine
 pub fn vc_engine::Engine::fix(&self, &vc_engine::CheckRequest) -> core::result::Result<vc_engine::FixReport, vc_engine::EngineError>
 pub fn vc_engine::Engine::fix_codes(&self, &vc_engine::CheckRequest, &[vc_diagnostics::code::Code]) -> core::result::Result<vc_engine::FixReport, vc_engine::EngineError>
 impl vc_engine::Engine
 pub fn vc_engine::Engine::fmt(&self, &[alloc::string::String], bool) -> core::result::Result<vc_engine::Changes, vc_engine::EngineError>
+impl vc_engine::Engine
+pub fn vc_engine::Engine::format_text(&self, &str, &str, bool) -> core::result::Result<alloc::string::String, vc_engine::EngineError>
 impl vc_engine::Engine
 pub async fn vc_engine::Engine::import(&self, &vc_engine::ImportRequest) -> core::result::Result<vc_engine::Changes, vc_engine::EngineError>
 pub fn vc_engine::Engine::importers() -> alloc::vec::Vec<alloc::string::String>
@@ -894,6 +899,34 @@ pub fn vc_engine::FileChange::eq(&self, &Self) -> bool
 impl core::fmt::Debug for vc_engine::FileChange
 pub fn vc_engine::FileChange::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_engine::FileChange
+#[non_exhaustive] pub struct vc_engine::FileReference
+pub vc_engine::FileReference::from: alloc::string::String
+pub vc_engine::FileReference::line: u32
+pub vc_engine::FileReference::path: alloc::string::String
+pub vc_engine::FileReference::target: alloc::string::String
+impl core::clone::Clone for vc_engine::FileReference
+pub fn vc_engine::FileReference::clone(&self) -> Self
+impl core::cmp::Eq for vc_engine::FileReference
+impl core::cmp::PartialEq for vc_engine::FileReference
+pub fn vc_engine::FileReference::eq(&self, &Self) -> bool
+impl core::default::Default for vc_engine::FileReference
+pub fn vc_engine::FileReference::default() -> Self
+impl core::fmt::Debug for vc_engine::FileReference
+pub fn vc_engine::FileReference::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_engine::FileReference
+#[non_exhaustive] pub struct vc_engine::FileReferences
+pub vc_engine::FileReferences::references: alloc::vec::Vec<vc_engine::FileReference>
+pub vc_engine::FileReferences::unread: alloc::vec::Vec<alloc::string::String>
+impl core::clone::Clone for vc_engine::FileReferences
+pub fn vc_engine::FileReferences::clone(&self) -> Self
+impl core::cmp::Eq for vc_engine::FileReferences
+impl core::cmp::PartialEq for vc_engine::FileReferences
+pub fn vc_engine::FileReferences::eq(&self, &Self) -> bool
+impl core::default::Default for vc_engine::FileReferences
+pub fn vc_engine::FileReferences::default() -> Self
+impl core::fmt::Debug for vc_engine::FileReferences
+pub fn vc_engine::FileReferences::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_engine::FileReferences
 #[non_exhaustive] pub struct vc_engine::FixReport
 pub vc_engine::FixReport::changes: vc_engine::Changes
 pub vc_engine::FixReport::report: vc_engine::CheckReport

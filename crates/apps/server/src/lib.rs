@@ -34,6 +34,7 @@ mod engine_api;
 mod engine_fixture;
 mod envelope;
 mod error;
+mod file_rpcs;
 #[cfg(test)]
 mod fixture;
 mod guard;
