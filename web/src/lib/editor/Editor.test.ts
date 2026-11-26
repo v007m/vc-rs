@@ -32,6 +32,7 @@ async function setup(conflict = { next: false }) {
     [api, 'name: users\n'],
   ]);
   const runs: string[][] = [];
+  const records: (boolean | undefined)[] = [];
   const engine = fakeEngine({
     listDefinitions: () => ({ definitions: [...disk.keys()].map((path) => ({ path })) }),
     readFile: ({ path }) => ({ text: disk.get(path) ?? '', digest: 'd' }),
@@ -51,6 +52,7 @@ async function setup(conflict = { next: false }) {
     // eslint-disable-next-line require-yield -- the run ends without events
     async *run(request) {
       runs.push(request.selection?.paths ?? []);
+      records.push(request.record);
     },
   });
   const editor = new EditorSession(engine, 0);
@@ -60,7 +62,7 @@ async function setup(conflict = { next: false }) {
   const open = async (name: string) => {
     await user.click(within(screen.getByRole('tree', { name: 'Files' })).getByText(name));
   };
-  return { disk, runs, user, open };
+  return { disk, runs, records, user, open };
 }
 
 describe('Editor', () => {
@@ -148,8 +150,8 @@ describe('Editor', () => {
     expect(within(diff).getByText('No changes since the last save.')).toBeTruthy();
   });
 
-  it('runs a test file, and offers no run for an api file', async () => {
-    const { runs, user, open } = await setup();
+  it('runs a test file as a check run, and offers no run for an api file', async () => {
+    const { runs, records, user, open } = await setup();
     await open('users.api.yaml');
     await findCodeView(api);
     expect(screen.queryByRole('button', { name: 'Run file' })).toBeNull();
@@ -157,6 +159,7 @@ describe('Editor', () => {
     await findCodeView(crud);
     await user.click(screen.getByRole('button', { name: 'Run file' }));
     expect(runs).toEqual([[crud]]);
+    expect(records).toEqual([false]);
   });
 
   it('moves through the file tree with the keyboard', async () => {
