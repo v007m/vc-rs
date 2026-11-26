@@ -2704,6 +2704,261 @@ impl<'de> serde::Deserialize<'de> for CallStreamResponse {
         deserializer.deserialize_struct("vibranium.engine.v1.CallStreamResponse", FIELDS, GeneratedVisitor)
     }
 }
+impl serde::Serialize for CancelLevel {
+    #[allow(deprecated)]
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let variant = match self {
+            Self::Unspecified => "CANCEL_LEVEL_UNSPECIFIED",
+            Self::Stop => "CANCEL_LEVEL_STOP",
+            Self::Abandon => "CANCEL_LEVEL_ABANDON",
+        };
+        serializer.serialize_str(variant)
+    }
+}
+impl<'de> serde::Deserialize<'de> for CancelLevel {
+    #[allow(deprecated)]
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        const FIELDS: &[&str] = &[
+            "CANCEL_LEVEL_UNSPECIFIED",
+            "CANCEL_LEVEL_STOP",
+            "CANCEL_LEVEL_ABANDON",
+        ];
+
+        struct GeneratedVisitor;
+
+        impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+            type Value = CancelLevel;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                write!(formatter, "expected one of: {:?}", &FIELDS)
+            }
+
+            fn visit_i64<E>(self, v: i64) -> std::result::Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                i32::try_from(v)
+                    .ok()
+                    .and_then(|x| x.try_into().ok())
+                    .ok_or_else(|| {
+                        serde::de::Error::invalid_value(serde::de::Unexpected::Signed(v), &self)
+                    })
+            }
+
+            fn visit_u64<E>(self, v: u64) -> std::result::Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                i32::try_from(v)
+                    .ok()
+                    .and_then(|x| x.try_into().ok())
+                    .ok_or_else(|| {
+                        serde::de::Error::invalid_value(serde::de::Unexpected::Unsigned(v), &self)
+                    })
+            }
+
+            fn visit_str<E>(self, value: &str) -> std::result::Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                match value {
+                    "CANCEL_LEVEL_UNSPECIFIED" => Ok(CancelLevel::Unspecified),
+                    "CANCEL_LEVEL_STOP" => Ok(CancelLevel::Stop),
+                    "CANCEL_LEVEL_ABANDON" => Ok(CancelLevel::Abandon),
+                    _ => Err(serde::de::Error::unknown_variant(value, FIELDS)),
+                }
+            }
+        }
+        deserializer.deserialize_any(GeneratedVisitor)
+    }
+}
+impl serde::Serialize for CancelRequest {
+    #[allow(deprecated)]
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let mut len = 0;
+        if !self.run.is_empty() {
+            len += 1;
+        }
+        if self.level != 0 {
+            len += 1;
+        }
+        let mut struct_ser = serializer.serialize_struct("vibranium.engine.v1.CancelRequest", len)?;
+        if !self.run.is_empty() {
+            struct_ser.serialize_field("run", &self.run)?;
+        }
+        if self.level != 0 {
+            let v = CancelLevel::try_from(self.level)
+                .map_err(|_| serde::ser::Error::custom(format!("Invalid variant {}", self.level)))?;
+            struct_ser.serialize_field("level", &v)?;
+        }
+        struct_ser.end()
+    }
+}
+impl<'de> serde::Deserialize<'de> for CancelRequest {
+    #[allow(deprecated)]
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        const FIELDS: &[&str] = &[
+            "run",
+            "level",
+        ];
+
+        #[allow(clippy::enum_variant_names)]
+        enum GeneratedField {
+            Run,
+            Level,
+        }
+        impl<'de> serde::Deserialize<'de> for GeneratedField {
+            fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                struct GeneratedVisitor;
+
+                impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+                    type Value = GeneratedField;
+
+                    fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                        write!(formatter, "expected one of: {:?}", &FIELDS)
+                    }
+
+                    #[allow(unused_variables)]
+                    fn visit_str<E>(self, value: &str) -> std::result::Result<GeneratedField, E>
+                    where
+                        E: serde::de::Error,
+                    {
+                        match value {
+                            "run" => Ok(GeneratedField::Run),
+                            "level" => Ok(GeneratedField::Level),
+                            _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
+                        }
+                    }
+                }
+                deserializer.deserialize_identifier(GeneratedVisitor)
+            }
+        }
+        struct GeneratedVisitor;
+        impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+            type Value = CancelRequest;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("struct vibranium.engine.v1.CancelRequest")
+            }
+
+            fn visit_map<V>(self, mut map_: V) -> std::result::Result<CancelRequest, V::Error>
+                where
+                    V: serde::de::MapAccess<'de>,
+            {
+                let mut run__ = None;
+                let mut level__ = None;
+                while let Some(k) = map_.next_key()? {
+                    match k {
+                        GeneratedField::Run => {
+                            if run__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("run"));
+                            }
+                            run__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::Level => {
+                            if level__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("level"));
+                            }
+                            level__ = Some(map_.next_value::<CancelLevel>()? as i32);
+                        }
+                    }
+                }
+                Ok(CancelRequest {
+                    run: run__.unwrap_or_default(),
+                    level: level__.unwrap_or_default(),
+                })
+            }
+        }
+        deserializer.deserialize_struct("vibranium.engine.v1.CancelRequest", FIELDS, GeneratedVisitor)
+    }
+}
+impl serde::Serialize for CancelResponse {
+    #[allow(deprecated)]
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let len = 0;
+        let struct_ser = serializer.serialize_struct("vibranium.engine.v1.CancelResponse", len)?;
+        struct_ser.end()
+    }
+}
+impl<'de> serde::Deserialize<'de> for CancelResponse {
+    #[allow(deprecated)]
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        const FIELDS: &[&str] = &[
+        ];
+
+        #[allow(clippy::enum_variant_names)]
+        enum GeneratedField {
+        }
+        impl<'de> serde::Deserialize<'de> for GeneratedField {
+            fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                struct GeneratedVisitor;
+
+                impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+                    type Value = GeneratedField;
+
+                    fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                        write!(formatter, "expected one of: {:?}", &FIELDS)
+                    }
+
+                    #[allow(unused_variables)]
+                    fn visit_str<E>(self, value: &str) -> std::result::Result<GeneratedField, E>
+                    where
+                        E: serde::de::Error,
+                    {
+                            Err(serde::de::Error::unknown_field(value, FIELDS))
+                    }
+                }
+                deserializer.deserialize_identifier(GeneratedVisitor)
+            }
+        }
+        struct GeneratedVisitor;
+        impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+            type Value = CancelResponse;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("struct vibranium.engine.v1.CancelResponse")
+            }
+
+            fn visit_map<V>(self, mut map_: V) -> std::result::Result<CancelResponse, V::Error>
+                where
+                    V: serde::de::MapAccess<'de>,
+            {
+                while map_.next_key::<GeneratedField>()?.is_some() {
+                    let _ = map_.next_value::<serde::de::IgnoredAny>()?;
+                }
+                Ok(CancelResponse {
+                })
+            }
+        }
+        deserializer.deserialize_struct("vibranium.engine.v1.CancelResponse", FIELDS, GeneratedVisitor)
+    }
+}
 impl serde::Serialize for CheckEvaluated {
     #[allow(deprecated)]
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
@@ -10408,6 +10663,9 @@ impl serde::Serialize for RunRequest {
         if self.no_cache {
             len += 1;
         }
+        if !self.handle.is_empty() {
+            len += 1;
+        }
         let mut struct_ser = serializer.serialize_struct("vibranium.engine.v1.RunRequest", len)?;
         if let Some(v) = self.selection.as_ref() {
             struct_ser.serialize_field("selection", v)?;
@@ -10438,6 +10696,9 @@ impl serde::Serialize for RunRequest {
         if self.no_cache {
             struct_ser.serialize_field("noCache", &self.no_cache)?;
         }
+        if !self.handle.is_empty() {
+            struct_ser.serialize_field("handle", &self.handle)?;
+        }
         struct_ser.end()
     }
 }
@@ -10458,6 +10719,7 @@ impl<'de> serde::Deserialize<'de> for RunRequest {
             "failed",
             "no_cache",
             "noCache",
+            "handle",
         ];
 
         #[allow(clippy::enum_variant_names)]
@@ -10471,6 +10733,7 @@ impl<'de> serde::Deserialize<'de> for RunRequest {
             Concurrency,
             Failed,
             NoCache,
+            Handle,
         }
         impl<'de> serde::Deserialize<'de> for GeneratedField {
             fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
@@ -10501,6 +10764,7 @@ impl<'de> serde::Deserialize<'de> for RunRequest {
                             "concurrency" => Ok(GeneratedField::Concurrency),
                             "failed" => Ok(GeneratedField::Failed),
                             "noCache" | "no_cache" => Ok(GeneratedField::NoCache),
+                            "handle" => Ok(GeneratedField::Handle),
                             _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
                         }
                     }
@@ -10529,6 +10793,7 @@ impl<'de> serde::Deserialize<'de> for RunRequest {
                 let mut concurrency__ = None;
                 let mut failed__ = None;
                 let mut no_cache__ = None;
+                let mut handle__ = None;
                 while let Some(k) = map_.next_key()? {
                     match k {
                         GeneratedField::Selection => {
@@ -10591,6 +10856,12 @@ impl<'de> serde::Deserialize<'de> for RunRequest {
                             }
                             no_cache__ = Some(map_.next_value()?);
                         }
+                        GeneratedField::Handle => {
+                            if handle__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("handle"));
+                            }
+                            handle__ = Some(map_.next_value()?);
+                        }
                     }
                 }
                 Ok(RunRequest {
@@ -10603,6 +10874,7 @@ impl<'de> serde::Deserialize<'de> for RunRequest {
                     concurrency: concurrency__,
                     failed: failed__.unwrap_or_default(),
                     no_cache: no_cache__.unwrap_or_default(),
+                    handle: handle__.unwrap_or_default(),
                 })
             }
         }

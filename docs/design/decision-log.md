@@ -1015,6 +1015,14 @@ Round 94 (26 November 2026; UI v2 batch B, the engine work for the git pane, ui.
 | D549 | Git pane push and pull, credentials | `push` is a plain `git push` to the branch's upstream; `pull` is `git pull --no-rebase --ff-only`, so it never merges or rebases and is refused once the branches diverge. Both use the user's own git credentials (their helper or SSH agent) and never ask for any: `GIT_TERMINAL_PROMPT=0` and no stdin. Every message the `Vcs` port gives or fails with, `--changed`'s too, has the user and password of each URL in it replaced by `***` (`without_credentials`), so a remote such as `https://user:token@host/repo.git` is never shown; the engine also masks what a push or pull said. A git failure is `EngineError::Vcs` (`failed_precondition` on the wire) | — |
 | D550 | Git pane reach | The `VcsStatus`, `VcsDiff`, `VcsCommit`, `VcsPush` and `VcsPull` RPCs are served on `/api` only, to the browser's session; the MCP server has no tool for them, so no agent can read the status, commit, push or pull through Vibranium | — |
 
+Round 95 (26 November 2026; UI v2 batch B, the engine work for cancelling a run from the web UI, ui.md §10 row 7; in-design refinements decided by the engine lane):
+
+| # | Topic | Decision | Supersedes |
+| --- | --- | --- | --- |
+| D551 | Naming a run to cancel | The client names a run it starts with `RunRequest.handle`, its own pick (such as a UUID), so it can cancel the run from the first moment, before `RunStarted` and before any history number exists. A handle is at most 64 ASCII letters, digits, `-` and `_` (else `invalid_argument`); one a running run holds is refused before the run starts (`already_exists`), and it is free again once that run has returned. With an empty handle a run is stopped as before, only by closing its stream. The server keeps the running runs in a task of their own (`Runs`), as it keeps the live streams (D543), so no state is shared | — |
+| D552 | Cancel levels | `Cancel{run, level}` reuses the Ctrl-C interrupts (D127, the cancellation tree): `stop` is one interrupt, so work in flight gets its grace period and the cleanups run, and a second `stop` ends the grace period, as a second Ctrl-C; `abandon` is the third interrupt at once (`Interrupter::abandon` sends what is left of three), so work in flight stops and the cleanups still to run are abandoned, whatever came before. A level left unset is `invalid_argument` | — |
+| D553 | Cancel reply | `Cancel` answers as soon as the interrupt is sent, with nothing; the run's own stream says how it ended (its report, exit 130). A run that is not running, or has returned, is `not_found`. Like every `/api` RPC it is the browser's alone: the agent token is refused, and MCP has no tool for it | — |
+
 ## Open
 
 All decisions needed for the PRD and technical design are settled. The language is decided by the spike (D6, D36, D37, D41).

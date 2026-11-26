@@ -496,6 +496,22 @@ pub struct RunRequest {
     /// Ignore the action cache.
     #[prost(bool, tag="9")]
     pub no_cache: bool,
+    /// A name the client picks for the run, such as a UUID, for `Cancel`: at most 64 ASCII
+    /// letters, digits, `-` and `_`, and held by no other running run. Empty: only closing the
+    /// stream stops the run.
+    #[prost(string, tag="10")]
+    pub handle: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct CancelRequest {
+    /// The `handle` of the running run.
+    #[prost(string, tag="1")]
+    pub run: ::prost::alloc::string::String,
+    #[prost(enumeration="CancelLevel", tag="2")]
+    pub level: i32,
+}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct CancelResponse {
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct RunResponse {
@@ -1476,6 +1492,39 @@ impl Severity {
             "SEVERITY_INFO" => Some(Self::Info),
             "SEVERITY_WARNING" => Some(Self::Warning),
             "SEVERITY_ERROR" => Some(Self::Error),
+            _ => None,
+        }
+    }
+}
+/// How far `Cancel` stops a run.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum CancelLevel {
+    Unspecified = 0,
+    /// As one Ctrl-C: work in flight gets its grace period, then the cleanups run.
+    Stop = 1,
+    /// As the third Ctrl-C: work in flight stops at once and the cleanups still to run are
+    /// abandoned.
+    Abandon = 2,
+}
+impl CancelLevel {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "CANCEL_LEVEL_UNSPECIFIED",
+            Self::Stop => "CANCEL_LEVEL_STOP",
+            Self::Abandon => "CANCEL_LEVEL_ABANDON",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "CANCEL_LEVEL_UNSPECIFIED" => Some(Self::Unspecified),
+            "CANCEL_LEVEL_STOP" => Some(Self::Stop),
+            "CANCEL_LEVEL_ABANDON" => Some(Self::Abandon),
             _ => None,
         }
     }

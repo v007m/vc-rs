@@ -18,6 +18,10 @@ service EngineService {
   // Runs a selection and streams its events, then its report. Closing the stream cancels the
   // run as one Ctrl-C does: cleanups still run.
   rpc Run(RunRequest) returns (stream RunResponse);
+  // Stops a running `Run` by the `handle` it was started with (D551–D553): `stop` as one
+  // Ctrl-C (cleanups run; a second `stop` ends the grace period), `abandon` as the third (the
+  // cleanups still to run are skipped). It answers at once; the run's stream tells how it ended.
+  rpc Cancel(CancelRequest) returns (CancelResponse);
   // A project file's text, for the editor.
   rpc ReadFile(ReadFileRequest) returns (ReadFileResponse);
   // Saves a project file the editor changed, unless it changed on disk since it was read.
@@ -254,7 +258,29 @@ message RunRequest {
   bool failed = 8;
   // Ignore the action cache.
   bool no_cache = 9;
+  // A name the client picks for the run, such as a UUID, for `Cancel`: at most 64 ASCII
+  // letters, digits, `-` and `_`, and held by no other running run. Empty: only closing the
+  // stream stops the run.
+  string handle = 10;
 }
+
+// How far `Cancel` stops a run.
+enum CancelLevel {
+  CANCEL_LEVEL_UNSPECIFIED = 0;
+  // As one Ctrl-C: work in flight gets its grace period, then the cleanups run.
+  CANCEL_LEVEL_STOP = 1;
+  // As the third Ctrl-C: work in flight stops at once and the cleanups still to run are
+  // abandoned.
+  CANCEL_LEVEL_ABANDON = 2;
+}
+
+message CancelRequest {
+  // The `handle` of the running run.
+  string run = 1;
+  CancelLevel level = 2;
+}
+
+message CancelResponse {}
 
 message RunResponse {
   RunEvent event = 1;

@@ -10,10 +10,11 @@ use serde::de::DeserializeOwned;
 use vc_contracts::engine::v1 as wire;
 use vc_engine::{Engine, EngineError};
 
+use crate::cancel_rpcs::Runs;
 use crate::live_rpcs::LiveStreams;
 use crate::{
-    Code, ConnectError, ConnectService, McpAccess, Sink, authoring_rpcs, client_rpcs, edit_rpcs, history_rpcs,
-    live_rpcs, project_rpcs, run_stream, vcs_rpcs,
+    Code, ConnectError, ConnectService, McpAccess, Sink, authoring_rpcs, cancel_rpcs, client_rpcs, edit_rpcs,
+    history_rpcs, live_rpcs, project_rpcs, run_stream, vcs_rpcs,
 };
 
 /// The service's full protobuf name.
@@ -25,15 +26,17 @@ pub struct EngineApi {
     profiles: Vec<String>,
     sets: Vec<String>,
     live: LiveStreams,
+    runs: Runs,
 }
 
 impl EngineApi {
     /// The API over `engine`. A call that names no profile uses `profiles` (the config's default
     /// ones when empty), and every call's `--set` values come after `sets`. Built on a Tokio
-    /// runtime, it keeps its live streams there (D543); built outside one, it opens none.
+    /// runtime, it keeps its live streams and running runs there (D543, D551); built outside one, it
+    /// opens none and cancels none.
     #[must_use]
     pub fn new(engine: Arc<Engine>, profiles: Vec<String>, sets: Vec<String>) -> Self {
-        Self { engine, profiles, sets, live: LiveStreams::spawn() }
+        Self { engine, profiles, sets, live: LiveStreams::spawn(), runs: Runs::spawn() }
     }
 
     /// The Connect service that serves every RPC.
@@ -41,7 +44,7 @@ impl EngineApi {
     pub fn into_service(self) -> ConnectService {
         let rpcs = Rpcs { service: ConnectService::new(SERVICE), api: Arc::new(self) };
         let rpcs = project_rpcs::register(client_rpcs::register(edit_rpcs::register(rpcs)));
-        let rpcs = run_stream::register(authoring_rpcs::register(history_rpcs::register(rpcs)));
+        let rpcs = run_stream::register(authoring_rpcs::register(history_rpcs::register(cancel_rpcs::register(rpcs))));
         vcs_rpcs::register(live_rpcs::register(rpcs)).service
     }
 
@@ -54,6 +57,11 @@ impl EngineApi {
     /// The open live streams.
     pub(crate) const fn live(&self) -> &LiveStreams {
         &self.live
+    }
+
+    /// The running runs a `Cancel` can stop.
+    pub(crate) const fn runs(&self) -> &Runs {
+        &self.runs
     }
 
     /// A call's profiles and `--set` values over the server's.

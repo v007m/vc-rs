@@ -283,7 +283,7 @@ Five views in the sidebar, each opening with one sentence on what it is for:
 | 4 | `Complete`, `Hover`, `ApplyFixes`, `Explain` (already in the LLD table) | YAML editor |
 | 5 | `Plan` | Plan preview |
 | 6 | `CreateFile` (templates), `Rename`, `Format`, `TrashFile` | File operations |
-| 7 | `Cancel {level: stop, abandon}` | Stop, then Skip cleanups |
+| 7 | Done (D551–D553): `Cancel{run, level}`, where `run` is the `handle` the client gave `RunRequest` (its own pick, such as a UUID: at most 64 ASCII letters, digits, `-` and `_`) and `level` is `CANCEL_LEVEL_STOP` (one Ctrl-C: grace period, then cleanups; a second `stop` ends the grace period) or `CANCEL_LEVEL_ABANDON` (the third Ctrl-C: the cleanups still to run are skipped). It answers at once; the run's stream ends with its report (exit 130). A handle a running run holds is `already_exists`; one not running is `not_found` | Stop, then Skip cleanups |
 | 8 | `RunLoad` stream; `load_tick` host stats | Load tests |
 | 9 | `CompareRuns`, `TestHistory` | Compare runs, per-test strip |
 | 10 | `Init`, `Demo` | Onboarding |
