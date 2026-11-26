@@ -6,19 +6,22 @@ use std::iter;
 use std::sync::Arc;
 
 use serde_json::{Map, Value, json};
+use vc_adapter_reporters::history_exchange;
 use vc_executor::{ActionCx, ActionReport, ActionRequest, Frame, Saved};
-use vc_interfaces::{ConfigEntry, RunEnd, RunStart};
+use vc_interfaces::{ConfigEntry, Row, RunEnd, RunStart};
 use vc_model::{
-    Action, ActionId, ActionKind, ActionOutcome, Api, Names, Owner, Program, RunStatus, SaveSpec, TestStatus, Totals,
-    VarDefs,
+    Action, ActionId, ActionKind, ActionOutcome, Api, Exchange, Names, Owner, Program, RunStatus, SaveSpec, TestStatus,
+    Totals, VarDefs,
 };
 
+use crate::adhoc;
 use crate::agent_gate::{Gated, call_reach};
 use crate::call_report::CallReport;
 use crate::examples::Draw;
 use crate::explain::did_you_mean;
 use crate::history::Recording;
 use crate::plan::{self, Prepared, profile_flag};
+use crate::plugin_hosts::Hosts;
 use crate::policy::AgentCall;
 use crate::ports::Layered;
 use crate::{CallRequest, Engine, EngineError};
@@ -38,6 +41,21 @@ impl Engine {
     /// [`EngineError::Selection`] when no api has that ID, [`EngineError::Setting`] for a
     /// `--var` that is not `name=value` or a bad setting, and the errors of loading the project.
     pub async fn call(&self, request: &CallRequest) -> Result<CallReport, EngineError> {
+        let request = adhoc::resolved(request)?;
+        let Ready { given, prepared, action, admitted, mut notices, recording, cx, plugins, .. } =
+            self.ready(request.as_ref()).await?;
+        let (report, failed) = plugins.around(sent_once(&cx, action, given)).await;
+        notices.extend(failed);
+        let names = Names::new(Arc::clone(&prepared.program), &prepared.plan);
+        let mut called = CallReport::masked(&cx, (names, action), report).await;
+        notices.extend(self.closed(recording, &called).await);
+        self.settle(admitted, called.exit == 0).await?;
+        called.notices = notices;
+        Ok(called)
+    }
+
+    /// `request` compiled, gated, secured and begun in the history: everything but the send.
+    pub(crate) async fn ready(&self, request: &CallRequest) -> Result<Ready, EngineError> {
         let (given, mut prepared, action) =
             self.before_gate(agent_call(request).as_ref(), self.adhoc_call(request)).await?;
         let admitted = self.gate(request, &prepared.program, action).await?;
@@ -48,15 +66,7 @@ impl Engine {
         let recording = self.call_recording(&prepared, &request.api, &mut notices);
         let run_id = recording.as_ref().map_or(0, |recording| recording.id().get());
         let (cx, plugins) = self.adhoc_cx(&prepared, (&[action], run_id), secured).await;
-        let (report, failed) = plugins.around(sent_once(&cx, action, given)).await;
-        notices.extend(failed);
-        let passed = matches!(report.outcome, ActionOutcome::Passed);
-        notices.extend(self.closed(recording, passed, &prepared.program).await);
-        self.settle(admitted, passed).await?;
-        let names = Names::new(Arc::clone(&prepared.program), &prepared.plan);
-        let mut called = CallReport::masked(&cx, (names, action), report).await;
-        called.notices = notices;
-        Ok(called)
+        Ok(Ready { given, prepared, action, admitted, notices, recording, run_id, cx, plugins })
     }
 
     /// For an agent's call, the agent policy's gate on what `action` reaches: the api's method,
@@ -74,7 +84,8 @@ impl Engine {
     ) -> Result<Option<Gated>, EngineError> {
         let Some(call) = agent_call(request) else { return Ok(None) };
         let reached = call_reach(program, action, request.keep);
-        let summary = format!("{} {}", reached.methods.first().map_or("GET", |method| method.name()), request.api);
+        let method = reached.methods.first().map_or("GET", |method| method.name());
+        let summary = format!("{method} {}", adhoc::target(request));
         self.gated(AgentCall { summary, methods: reached.methods, code: reached.code, ..call }).await.map(Some)
     }
 
@@ -99,8 +110,9 @@ impl Engine {
     /// the file it edits.
     pub(crate) fn call_layered(&self, request: &CallRequest) -> Result<Layered, EngineError> {
         let flags: Vec<ConfigEntry> = profile_flag(&request.profiles).into_iter().collect();
-        let draft = request.draft.iter().map(|draft| self.draft_change(draft)).collect::<Result<Vec<_>, _>>()?;
-        self.layered_with(&request.sets, &flags, &draft)
+        let mut changes = request.draft.iter().map(|draft| self.draft_change(draft)).collect::<Result<Vec<_>, _>>()?;
+        changes.extend(request.adhoc.as_ref().map(adhoc::file).transpose()?);
+        self.layered_with(&request.sets, &flags, &changes)
     }
 
     /// The history entry of the call, or `None` and a notice that it is not recorded.
@@ -118,16 +130,52 @@ impl Engine {
             .ok()
     }
 
-    /// Closes the call's history record, when it has one; a notice when that fails.
-    async fn closed(&self, recording: Option<Recording>, passed: bool, program: &Program) -> Option<String> {
+    /// Records the call's masked exchange and closes its history record, when it has one; a
+    /// notice when that fails. The exchange's bodies are kept as a test's are (D542).
+    pub(crate) async fn closed(&self, recording: Option<Recording>, called: &CallReport) -> Option<String> {
+        let exchange = called.exchange.as_ref();
+        self.recorded(recording, (&called.names, called.action), (exchange, called.exit == 0)).await
+    }
+
+    /// Records `exchange`, the call's last, sent by `action`, and closes the run as `passed`
+    /// says; a history that fails is a notice.
+    pub(crate) async fn recorded(
+        &self,
+        recording: Option<Recording>,
+        (names, action): (&Names, ActionId),
+        (exchange, passed): (Option<&Exchange>, bool),
+    ) -> Option<String> {
         let recording = recording?;
+        let row = exchange.map(|exchange| history_exchange(names, (Some(action), exchange), !passed));
+        let recorded = recording.record(row.into_iter().map(Row::Exchange).collect());
         let mut totals = Totals::default();
         totals.add(if passed { TestStatus::Passed } else { TestStatus::Failed });
         let status = if passed { RunStatus::Passed } else { RunStatus::Failed };
         let end = RunEnd { status, totals, finished_ms: self.clock.now_ms(), snapshot: Vec::new() };
-        let closed = recording.close(end, program.config.history.keep).await;
-        closed.err().map(|error| format!("history: {error}; this call is not recorded"))
+        let closed = recording.close(end, names.program().config.history.keep).await;
+        recorded.and(closed).err().map(|error| format!("history: {error}; this call is not recorded"))
     }
+}
+
+/// A call ready to send: what [`Engine::ready`] gives.
+pub struct Ready {
+    pub given: Saved,
+    pub prepared: Prepared,
+    pub action: ActionId,
+    pub admitted: Option<Gated>,
+    pub notices: Vec<String>,
+    pub recording: Option<Recording>,
+    pub run_id: u64,
+    pub cx: Arc<ActionCx>,
+    pub plugins: Hosts,
+}
+
+/// The run-level request that sends `action` with the vars `given`, outside any test.
+pub fn sent(cx: &Arc<ActionCx>, action: ActionId, given: Saved) -> ActionRequest {
+    let mut sent = ActionRequest::cleanup(cx, action, &Arc::new(Saved::new()));
+    sent.frame = Frame::default();
+    sent.frame.saved = Arc::new(given);
+    sent
 }
 
 /// `--var name=value`, each as a string value.
@@ -144,7 +192,7 @@ fn agent_call(request: &CallRequest) -> Option<AgentCall> {
         agent: agent.clone(),
         tool: CALL_TOOL.to_owned(),
         profiles: request.profiles.clone(),
-        summary: request.api.clone(),
+        summary: adhoc::target(request).to_owned(),
         arguments: json!({"api": request.api, "vars": vars, "keep": request.keep}),
         ..AgentCall::default()
     })
@@ -221,10 +269,7 @@ pub fn unknown(program: &Program, id: &str) -> EngineError {
 /// Sends `action` once with the `--var` values `given`, then runs the cleanups it registered;
 /// gives its report and a notice for each cleanup that failed.
 async fn sent_once(cx: &Arc<ActionCx>, action: ActionId, given: Saved) -> (ActionReport, Vec<String>) {
-    let mut sent = ActionRequest::cleanup(cx, action, &Arc::new(Saved::new()));
-    sent.frame = Frame::default();
-    sent.frame.saved = Arc::new(given);
-    let report = cx.executors.execute(sent).await;
+    let report = cx.executors.execute(sent(cx, action, given)).await;
     let failed = clean(cx, &report).await;
     (report, failed)
 }

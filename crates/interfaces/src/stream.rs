@@ -86,6 +86,10 @@ pub trait MessageStream: Send {
     /// is open and nothing arrives, it waits as a silent server would; the caller's timeout ends
     /// it. A server's WebSocket close is one final [`StreamFrame::Close`]; an `Err` ends the
     /// stream too. Nothing follows a `Close` or an `Err`: every later call returns `None`.
+    ///
+    /// Cancel-safe: a call dropped before it returns loses no frame, as a `select!` loop that
+    /// also waits on something else drops it. A partly read frame stays in the stream and the
+    /// next call goes on with it.
     async fn next(&mut self) -> Option<Result<StreamFrame, TransportError>>;
 
     /// Ends the stream: a WebSocket sends a close with `code` and waits for the server's; a body

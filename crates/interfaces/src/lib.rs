@@ -88,6 +88,7 @@ mod tls;
 mod transport;
 mod trend;
 mod vcs;
+mod vcs_pane;
 mod watch;
 
 pub use action_cache::{
@@ -111,7 +112,7 @@ pub use held_sources::{MemorySources, secret_schema};
 pub use history::{
     HistoryError, HistoryReader, HistoryWriter, IntervalRow, Row, RunEnd, RunId, RunRef, RunRow, RunStart,
 };
-pub use history_rows::{CheckRow, ExchangeRow, FindingKind, FindingRow, TestRow, TimingRow};
+pub use history_rows::{CallSummary, CheckRow, ExchangeRow, FindingKind, FindingRow, TestRow, TimingRow};
 pub use hooks::{Budget, HookCall, HookError, HookOutput, HookRunner, Limit};
 pub use import::{
     DraftApi, DraftBefore, DraftCleanup, DraftExample, DraftFlow, DraftGroup, DraftStep, DraftTest, ImportDraft,
@@ -138,4 +139,5 @@ pub use tls::{
 pub use transport::{CertChoice, CertId, SendContext, SentCert, Transport, TransportError};
 pub use trend::{ApiTrend, TestTrend, api_trends};
 pub use vcs::{Vcs, VcsError, checked_ref};
+pub use vcs_pane::{VcsChange, VcsCommit, VcsFile, VcsStatus, without_credentials};
 pub use watch::{FileWatcher, WatchError};

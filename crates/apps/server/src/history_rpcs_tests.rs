@@ -6,7 +6,8 @@ use vc_engine::{PlanRequest, RunRequest, interrupts};
 
 use super::{api_coverage, api_trends, decide_approval, get_run, list_approvals, list_runs, trends};
 use crate::Code;
-use crate::engine_fixture::{CONFIG, project, serving};
+use crate::authoring_rpcs::call;
+use crate::engine_fixture::{CONFIG, SECRET, project, serving};
 
 #[tokio::test]
 async fn an_empty_history_lists_no_run_and_has_no_last_one() {
@@ -137,4 +138,21 @@ async fn a_decision_needs_a_verdict_and_a_known_approval() {
     assert_eq!(none.code, Code::InvalidArgument);
     let unknown = wire::DecideApprovalRequest { id: 7, verdict: wire::Verdict::Approve.into() };
     assert_ne!(decide_approval(api, unknown).await.unwrap_err().code, Code::Internal);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn the_history_lists_ad_hoc_calls_by_method_url_and_status_their_secrets_masked() {
+    let (_dir, api) = project();
+    let url = format!("{}/ping?key=${{secret.SHOP_TOKEN}}", serving(204, Vec::new()));
+    let adhoc = wire::AdhocCall { method: "DELETE".into(), url, ..wire::AdhocCall::default() };
+    call(api.clone(), wire::CallRequest { adhoc: Some(adhoc), ..wire::CallRequest::default() }).await.unwrap();
+    api.engine().run(&RunRequest::default(), interrupts().1).await.unwrap();
+    let calls = wire::ListRunsRequest { kind: Some("adhoc".into()), ..wire::ListRunsRequest::default() };
+    let runs = list_runs(api.clone(), calls).await.unwrap();
+    let [listed] = runs.runs.as_slice() else { panic!("{runs:?}") };
+    let summary = listed.call.as_ref().unwrap();
+    assert_eq!((summary.method.as_str(), summary.status), ("DELETE", Some(204)));
+    assert!(summary.url.contains("/ping?key=") && !summary.url.contains(SECRET), "{summary:?}");
+    let all = list_runs(api, wire::ListRunsRequest::default()).await.unwrap();
+    assert!(all.runs.iter().any(|run| run.kind == "run" && run.call.is_none()), "{all:?}");
 }

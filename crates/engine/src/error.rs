@@ -101,6 +101,15 @@ pub enum EngineError {
         /// What a person can change to let it through.
         help: Option<String>,
     },
+    /// Version control could not give the git pane what it asked for, or refused a commit, push
+    /// or pull (D546–D550). The reason never holds a URL's credentials.
+    #[error("{reason}")]
+    Vcs {
+        /// What git said, or why it could not be asked.
+        reason: String,
+        /// What to do instead, when the engine knows.
+        help: Option<String>,
+    },
     /// The feature is designed but not built yet.
     #[error("{feature} is not built yet")]
     NotBuilt {
@@ -129,7 +138,8 @@ impl EngineError {
             | Self::History { help, .. }
             | Self::Cache { help, .. }
             | Self::Edit { help, .. }
-            | Self::Refused { help, .. } => help.clone(),
+            | Self::Refused { help, .. }
+            | Self::Vcs { help, .. } => help.clone(),
             Self::Stale { .. } => {
                 Some("open the file again to see it as it is now, then make the change there".to_owned())
             }

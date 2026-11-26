@@ -1,6 +1,6 @@
 use vc_interfaces::{
-    ApiTrend, CheckRow, ExchangeRow, FindingKind, FindingRow, HistoryReader, HistoryWriter, Row, RunEnd, RunFilter,
-    RunId, RunRef, RunStart, TestRow, TestTrend, TimingRow,
+    ApiTrend, CallSummary, CheckRow, ExchangeRow, FindingKind, FindingRow, HistoryReader, HistoryWriter, Row, RunEnd,
+    RunFilter, RunId, RunRef, RunStart, TestRow, TestTrend, TimingRow,
 };
 use vc_model::{Keep, RunStatus, TestStatus, Totals};
 
@@ -20,6 +20,7 @@ pub fn history_reader_suite(make: &mut MakeHistory<'_>) {
     knows_nothing_at_first(make);
     lists_the_newest_runs_first(make);
     takes_the_last_run_to_be_no_ad_hoc_call(make);
+    sums_up_an_ad_hoc_call_by_its_first_exchange(make);
     leaves_exchanges_out_of_tests(make);
     sums_up_each_test_over_the_newest_runs(make);
     counts_only_the_runs_a_filter_matches(make);
@@ -193,6 +194,27 @@ fn takes_the_last_run_to_be_no_ad_hoc_call(make: &mut MakeHistory<'_>) {
     assert_eq!(last, Some(tests), "a `vc call` is not the last run");
     let named = reader.run(RunRef::Id(call)).ok().flatten().map(|row| row.id);
     assert_eq!(named, Some(call), "it is still found by its number");
+}
+
+fn sums_up_an_ad_hoc_call_by_its_first_exchange(make: &mut MakeHistory<'_>) {
+    let (writer, reader) = make();
+    let stored = |kind: &str, rows: Vec<Row>| {
+        let run = writer.begin(&RunStart { kind: kind.into(), ..start(&["dev"]) }).unwrap_or(RunId::new(0));
+        assert_eq!(writer.record(run, rows), Ok(()));
+        assert_eq!(writer.finish(run, end(b"")), Ok(()));
+        run
+    };
+    let (sent, retried) = (call(("vc-adhoc#call", "POST"), Some(201), 5.0), call(("users#get", "GET"), None, 1.0));
+    let adhoc = stored("adhoc", vec![Row::Exchange(sent), Row::Exchange(retried.clone())]);
+    let tests = stored("run", vec![Row::Exchange(retried)]);
+    let unsent = stored("adhoc", Vec::new());
+    let summary = |run| reader.run(RunRef::Id(run)).ok().flatten().and_then(|row| row.call);
+    let expected = CallSummary { method: "POST".into(), url: "https://api.test/x".into(), status: Some(201) };
+    assert_eq!(summary(adhoc), Some(expected.clone()), "the first exchange, masked as stored");
+    assert_eq!((summary(tests), summary(unsent)), (None, None), "only an ad hoc call that sent one has it");
+    let listed = reader.runs(9, &filter(Some("adhoc"), None, None)).unwrap_or_default();
+    let listed: Vec<(RunId, Option<CallSummary>)> = listed.into_iter().map(|row| (row.id, row.call)).collect();
+    assert_eq!(listed, vec![(unsent, None), (adhoc, Some(expected))], "the History lists the calls alone");
 }
 
 fn leaves_exchanges_out_of_tests(make: &mut MakeHistory<'_>) {

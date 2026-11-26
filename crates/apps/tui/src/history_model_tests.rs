@@ -72,6 +72,7 @@ fn a_runs_figures_read_as_its_row_shows_them() {
         finished_ms: None,
         status: None,
         totals: Totals::default(),
+        call: None,
     };
     assert_eq!((percent(&run.totals), took(&run), checkout(&run)), ("–".to_owned(), None, "–".to_owned()));
     run.totals = Totals { passed: 960, flaky: 1, failed: 30, blocked: 9, skipped: 5, allowed_failures: 0 };

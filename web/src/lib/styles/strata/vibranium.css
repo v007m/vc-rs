@@ -1,4 +1,4 @@
-/* Vibranium's layer over Strata 1.0.0 (docs/design/ui.md §2, Round 95). It loads after the
+/* Vibranium's layer over Strata 1.0.0 (docs/design/ui.md §2, Round 99). It loads after the
    vendored strata/tokens.css and strata/strata.css, which are never edited, so a Strata update
    is a plain copy. Everything Vibranium changes or adds is here, in five parts:
      1. Strata token overrides: the font stack with the bundled Inter, the input height and
@@ -452,7 +452,7 @@ input.st-input {
   white-space: nowrap;
 }
 
-/* ---- 5. Strata 1.1 deltas until upstream 1.1 tokens land (Round 95, D608-D624) ---------------
+/* ---- 5. Strata 1.1 deltas until upstream 1.1 tokens land (Round 99, D608-D624) ---------------
    Sarath's 1.1 rules on top of 1.0.0; each block names its rule. When upstream 1.1 ships its
    tokens, this part shrinks to whatever 1.1 still leaves out. */
 

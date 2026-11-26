@@ -144,3 +144,6 @@ fn a_git_older_than_2_37_is_named_as_the_reason_and_other_failures_keep_gits_mes
     let other = VcsError::Failed { base, reason: "fatal: not a git repository".to_owned() };
     assert_eq!(older_git(other.clone()), other);
 }
+
+#[path = "git_pane_tests.rs"]
+mod pane;

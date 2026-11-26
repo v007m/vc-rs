@@ -183,4 +183,33 @@ pub struct CallRequest {
     /// Edits the web UI's API client made to the api's file and has not saved: the call sends
     /// the api as edited, and the file is left as it is (D245).
     pub draft: Option<CallDraft>,
+    /// A call the web UI's Client describes in full, sent in place of an api: `api` and `draft`
+    /// are then empty (D540, D541).
+    pub adhoc: Option<AdhocCall>,
+}
+
+/// A call made with no api in a `*.api.yaml`: it is compiled as one, so its `${…}` templates,
+/// auth and redaction work as an api's do, and the file is never written (D541).
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "built by the apps with `..Default::default()`; every user is in this repo (D160)"
+)]
+pub struct AdhocCall {
+    /// `http`, `sse` or `websocket`; `http` when empty.
+    pub kind: String,
+    /// The HTTP method; `GET` when empty. A `websocket` call takes none.
+    pub method: String,
+    /// The whole URL, `https://api.test/users`, or one that starts with a template,
+    /// `${var.usersUrl}/users`.
+    pub url: String,
+    /// Headers, in order; a later one of the same name wins. Values may be templates.
+    pub headers: Vec<(String, String)>,
+    /// Query entries, in order; a later one of the same name wins. Values may be templates.
+    pub query: Vec<(String, String)>,
+    /// The body: a JSON map or list is sent as JSON, other text as written. A `websocket` call
+    /// takes none.
+    pub body: Option<String>,
+    /// The ID of one of the project's auths; `None` sends no auth (D541).
+    pub auth: Option<String>,
 }

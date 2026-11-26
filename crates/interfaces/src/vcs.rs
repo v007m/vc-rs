@@ -1,14 +1,18 @@
 //! The version control the engine asks which files changed, for `vc run --changed` (D130) and
-//! `--changed-since` (D249).
+//! `--changed-since` (D249), and that the web UI's git pane reads and writes (D546–D550).
 
 use std::time::Duration;
 
 use vc_model::SourcePath;
 
-/// Lists the project's files that changed since a base ref (D130, D133), or lately (D249).
+use crate::{VcsCommit, VcsStatus};
+
+/// Lists the project's files that changed since a base ref (D130, D133), or lately (D249); for
+/// the git pane, the status, a file's diff, and a commit, push or pull (D546–D550).
 ///
 /// The engine maps the paths to file IDs ([`SourcePath::file_id`]) for the planner's
-/// `Selection::changed`.
+/// `Selection::changed`. Every message a method returns or fails with has the credentials of any
+/// URL in it hidden ([`crate::without_credentials`]).
 pub trait Vcs: Send + Sync {
     /// The files that differ from `base` (committed since it, staged or only in the working tree,
     /// deleted ones included) and the untracked files that are not ignored, relative to the
@@ -30,6 +34,49 @@ pub trait Vcs: Send + Sync {
     /// [`VcsError::Unavailable`] when there is no tool to ask, and [`VcsError::Failed`] when it
     /// fails, as outside a repository or in one with no commits.
     fn changed_within(&self, window: Duration) -> Result<Vec<SourcePath>, VcsError>;
+
+    /// The branch, its upstream, how far apart they are, and every changed file under the
+    /// project root that is not ignored, with its line counts (D546).
+    ///
+    /// # Errors
+    ///
+    /// [`VcsError::Unavailable`] when there is no tool to ask, and [`VcsError::Action`] when it
+    /// fails, as outside a repository.
+    fn status(&self) -> Result<VcsStatus, VcsError>;
+
+    /// The unified diff of `path` against the last commit, staged and unstaged changes alike; a
+    /// whole-file diff for an untracked file, and nothing for a file that did not change or is
+    /// ignored (D547).
+    ///
+    /// # Errors
+    ///
+    /// As [`Vcs::status`].
+    fn diff(&self, path: &SourcePath) -> Result<String, VcsError>;
+
+    /// Commits `commit.paths` as they are now, and only them, with `commit.message`; the new
+    /// commit's short ID (D548).
+    ///
+    /// # Errors
+    ///
+    /// As [`Vcs::status`], and [`VcsError::Action`] when the commit fails, as with no identity
+    /// set or a hook that refuses it.
+    fn commit(&self, commit: &VcsCommit) -> Result<String, VcsError>;
+
+    /// Pushes the branch to its upstream with the user's own credentials, never asking for
+    /// them; what the tool said (D549).
+    ///
+    /// # Errors
+    ///
+    /// As [`Vcs::status`], and [`VcsError::Action`] when the push fails, as with no upstream.
+    fn push(&self) -> Result<String, VcsError>;
+
+    /// Pulls the upstream into the branch when that is a fast-forward, with the user's own
+    /// credentials, never asking for them; what the tool said (D549).
+    ///
+    /// # Errors
+    ///
+    /// As [`Vcs::push`], and [`VcsError::Action`] when the branches have diverged.
+    fn pull(&self) -> Result<String, VcsError>;
 }
 
 /// `base` when it is a plain ref such as `origin/main`, `HEAD~1` or `main@{1}`.
@@ -69,6 +116,14 @@ pub enum VcsError {
         /// The ref compared against.
         base: String,
         /// The tool's own message.
+        reason: String,
+    },
+    /// A git pane action failed (D546–D550).
+    #[error("cannot {action}: {reason}")]
+    Action {
+        /// What was asked: `read the status`, `diff`, `commit`, `push` or `pull`.
+        action: String,
+        /// The tool's own message, without credentials.
         reason: String,
     },
 }

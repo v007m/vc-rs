@@ -19,6 +19,7 @@
 
 mod authoring_rpcs;
 mod builder;
+mod cancel_rpcs;
 mod client_rpcs;
 mod code;
 mod codec;
@@ -35,11 +36,13 @@ mod error;
 mod fixture;
 mod guard;
 mod history_rpcs;
+mod live_rpcs;
 mod project_rpcs;
 mod run_stream;
 mod service;
 mod site;
 mod token;
+mod vcs_rpcs;
 mod wire_diagnostics;
 mod wire_events;
 mod wire_history;

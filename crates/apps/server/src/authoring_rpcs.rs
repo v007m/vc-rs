@@ -32,10 +32,7 @@ pub fn register(rpcs: Rpcs) -> Rpcs {
 }
 
 pub async fn call(api: Arc<EngineApi>, request: wire::CallRequest) -> Result<wire::CallResponse, ConnectError> {
-    let (profiles, sets) = api.layers(request.profiles, request.sets);
-    let draft = request.draft.as_ref().map(client_rpcs::draft).transpose()?;
-    let call =
-        CallRequest { api: request.api, vars: request.vars, keep: request.keep, profiles, sets, agent: None, draft };
+    let call = call_request(&api, request)?;
     let report = api.blocking(move |engine| Handle::current().block_on(engine.call(&call))).await?;
     let exchange = report.exchange.as_ref().map(|exchange| bodied(&report, exchange));
     let checks = report.checks.iter().map(|check| wire_results::check(&report.names, check)).collect();
@@ -53,6 +50,16 @@ pub async fn call(api: Arc<EngineApi>, request: wire::CallRequest) -> Result<wir
         checks,
         saved: saved.collect(),
     })
+}
+
+/// The engine's request for `request`, a person's call over the server's profiles and `--set`
+/// values.
+pub fn call_request(api: &EngineApi, request: wire::CallRequest) -> Result<CallRequest, ConnectError> {
+    let (profiles, sets) = api.layers(request.profiles, request.sets);
+    let draft = request.draft.as_ref().map(client_rpcs::draft).transpose()?;
+    let adhoc = request.adhoc.as_ref().map(client_rpcs::adhoc);
+    let (api_id, vars, keep) = (request.api, request.vars, request.keep);
+    Ok(CallRequest { api: api_id, vars, keep, profiles, sets, agent: None, draft, adhoc })
 }
 
 /// The call's exchange with both bodies, whatever `history.bodies` says: the Client shows the
