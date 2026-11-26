@@ -27,6 +27,19 @@ impl Iterations for Takes {
     }
 }
 
+/// Every iteration holds its thread for `took`, so the other users wake late.
+struct Blocks {
+    took: StdDuration,
+}
+
+#[async_trait]
+impl Iterations for Blocks {
+    async fn iterate(&self, _test: TestId, _user: u32) -> IterationReport {
+        std::thread::sleep(self.took);
+        IterationReport { passed: true, ..IterationReport::default() }
+    }
+}
+
 fn takes(millis: u64, passed: bool) -> Takes {
     Takes { took: StdDuration::from_millis(millis), passed }
 }
@@ -57,7 +70,7 @@ fn scenario(stages: Vec<LoadStage>, limits: IndexMap<String, Matcher>, abort_on:
 type Ran = (Result<LoadOutcome, LoadError>, Vec<Second>, u64);
 
 /// Runs `scenario` with `iterations` under `cancel`.
-async fn run(scenario: &LoadScenario, iterations: Takes, cancel: CancelTree) -> Ran {
+async fn run(scenario: &LoadScenario, iterations: impl Iterations + 'static, cancel: CancelTree) -> Ran {
     let (seconds, mut sent) = mpsc::channel(64);
     let (failed, mut failures) = mpsc::unbounded_channel();
     let random = Arc::new(ScriptedRandom::seeded(7));
@@ -106,6 +119,19 @@ async fn users_follow_the_stages_and_every_iteration_lands_in_the_second_it_ende
     assert_eq!((outcome.totals.all().count(), outcome.totals.seconds()), (15, 4));
     assert!((outcome.totals.all().latencies().quantile_ms(0.5) - 350.0).abs() < 1.0);
     assert_eq!(outcome.breaches, vec![]);
+    assert!(sent.iter().all(|second| second.late == 0), "users that wake on time start on time");
+}
+
+#[tokio::test]
+async fn iterations_that_start_well_after_their_schedule_count_as_late() {
+    let mut scenario = scenario(vec![stage(1, 2), stage(1, 2)], IndexMap::new(), &[]);
+    let pause = Duration::new(StdDuration::from_millis(10));
+    scenario.think_time = (pause, pause);
+    let (outcome, sent, _) = run(&scenario, Blocks { took: StdDuration::from_millis(80) }, root()).await;
+    let iterations = outcome.unwrap().totals.all().count();
+    let late = sent.last().map_or(0, |second| second.late);
+    assert!(late > 0 && late <= iterations, "{late} of {iterations} late: each waited on the other user's thread");
+    assert!(sent.windows(2).all(|pair| pair[0].late <= pair[1].late), "the count only grows");
 }
 
 #[tokio::test(start_paused = true)]

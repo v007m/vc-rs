@@ -43,7 +43,9 @@ fn totals(fixture: &Fixture) -> Totals {
     let mut recorder = Recorder::new();
     for i in 0..40_u64 {
         let (test, millis, failed) = if i % 4 == 3 { (fixture.slow, 400, i < 8) } else { (fixture.fast, 10, false) };
-        recorder.record(Sample { test, second: i % 2, latency: StdDuration::from_millis(millis), failed }).unwrap();
+        recorder
+            .record(Sample { test, second: i % 2, latency: StdDuration::from_millis(millis), failed, late: false })
+            .unwrap();
     }
     let mut totals = Totals::new().unwrap();
     for row in recorder.close(2) {
@@ -134,7 +136,13 @@ fn the_window_keeps_the_last_ten_seconds() {
     let mut window = Window::new();
     for second in 0..15 {
         recorder
-            .record(Sample { test: fixture.fast, second, latency: StdDuration::from_millis(second + 1), failed: false })
+            .record(Sample {
+                test: fixture.fast,
+                second,
+                latency: StdDuration::from_millis(second + 1),
+                failed: false,
+                late: false,
+            })
             .unwrap();
         let rows: Vec<Interval> = recorder.close(second + 1);
         window.advance(second + 1, rows);
@@ -157,7 +165,7 @@ fn the_live_rate_follows_the_last_three_seconds() {
     for second in 0..6 {
         for _ in 0..=second {
             let latency = StdDuration::from_millis(1);
-            recorder.record(Sample { test: fixture.fast, second, latency, failed: false }).unwrap();
+            recorder.record(Sample { test: fixture.fast, second, latency, failed: false, late: false }).unwrap();
         }
         window.advance(second + 1, recorder.close(second + 1));
         rates.push(window.rps());
@@ -172,7 +180,7 @@ fn the_window_takes_in_no_row_for_a_second_still_open() {
     let mut recorder = Recorder::new();
     for second in 0..3 {
         let latency = StdDuration::from_millis(1);
-        recorder.record(Sample { test: fixture.fast, second, latency, failed: false }).unwrap();
+        recorder.record(Sample { test: fixture.fast, second, latency, failed: false, late: false }).unwrap();
     }
     let mut window = Window::new();
     window.advance(2, recorder.close(3));
