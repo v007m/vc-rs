@@ -222,6 +222,10 @@ a:hover {
 }
 /* .stage > .card, not .card: screens keep using .card for their own panels (ApprovalQueue).
    Screens size their layouts with @container card (...), so the sidebar and drawer count. */
+/* A screen that fills the stage itself (D537) lays its cards out in the stage. */
+.stage > .bare {
+  display: contents;
+}
 .stage > .card {
   flex: 1 1 auto;
   display: flex;

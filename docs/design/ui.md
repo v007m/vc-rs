@@ -426,3 +426,11 @@ Each step is one or two PRs, and each RPC gets its own small engine PR first.
   - the env pill popover and the search palette
   - the Appearance setting for the tint and the switcher
   - the branch in the status line (D532)
+
+**Done so far (batch B, Round 93):**
+
+- **Step 2, Client part.** The Client fills the shell's slots (D537): the tab strip in the top row (D539), and a sidebar with Requests (the api tree, New request, Import HAR), Flows and History (D565). The stage has the request bar over the request and response cards with a divider, and a Layout menu for the orientation (D561). The code sits in `web/src/lib/client/` behind `ClientPort` and `ClientSeams` (D538).
+- **Step 3.** The response card has Body as Tree, Raw and Preview with a JSONPath filter (D560), Headers, Cookies, Timing, Checks, Saved and Output, and click-to-check from the tree (D562). Send has its menu, with Copy as cURL (D563).
+- **Step 4.** SSE and WebSocket scratch tabs connect through CallStream; the message card filters, pauses and (WebSocket) sends (D564).
+- **Needs the engine.** Ad hoc calls, streams and history use the RPCs of D540–D542; against an older engine each shows "needs a newer engine".
+- **Not built yet:** save as var, CEL in the filter, GraphQL, Test auth, the engine events list, the full Import wizard, WebSocket snippets and the exchange check (listed in Round 93).

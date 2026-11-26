@@ -1,3 +1,4 @@
+import { getContext, setContext } from 'svelte';
 import { resolve } from '$app/paths';
 import {
   browserStore,
@@ -92,4 +93,15 @@ export function shortcutSpace(event: ShortcutKey): SpaceKey | undefined {
   if (event.key === ',') return 'settings';
   const digit = /^Digit([1-5])$/.exec(event.code)?.[1];
   return digit ? order[Number(digit) - 1] : undefined;
+}
+
+const key = Symbol('shell-state');
+
+export function setShellState(shell: ShellState): ShellState {
+  return setContext(key, shell);
+}
+
+/** The shell's state, for a screen's own sidebar sections (D537); outside the shell, unsaved. */
+export function getShellState(): ShellState {
+  return getContext<ShellState | undefined>(key) ?? new ShellState(undefined);
 }

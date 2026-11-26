@@ -33,7 +33,22 @@ export interface Space {
 }
 
 /** The icons the shell draws (Icon.svelte holds their paths). */
-export type IconName = 'send' | 'flow' | 'runs' | 'bot' | 'gear' | 'columns' | 'search' | 'chevron';
+export type IconName =
+  | 'send'
+  | 'flow'
+  | 'runs'
+  | 'bot'
+  | 'gear'
+  | 'columns'
+  | 'rows'
+  | 'search'
+  | 'chevron'
+  | 'x'
+  | 'plus'
+  | 'dots'
+  | 'filter'
+  | 'history'
+  | 'import';
 
 const view = (route: RouteId, label: string, title = label): View => ({ route, label, title });
 

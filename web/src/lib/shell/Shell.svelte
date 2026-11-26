@@ -6,6 +6,7 @@
   import Rail from './Rail.svelte';
   import { drawerWidth, shortcutSpace, type ShellState } from './state.svelte.ts';
   import Sidebar from './Sidebar.svelte';
+  import { ShellSlots } from './slots.svelte.ts';
   import { spaceOf, viewOf } from './spaces.ts';
   import StatusLine from './StatusLine.svelte';
   import TopBar from './TopBar.svelte';
@@ -22,6 +23,7 @@
     pathname,
     search = '',
     navigate,
+    slots = new ShellSlots(),
     children,
   }: {
     shell: ShellState;
@@ -30,6 +32,7 @@
     pathname: string;
     search?: string;
     navigate: (href: string) => void;
+    slots?: ShellSlots;
     children: Snippet;
   } = $props();
 
@@ -74,24 +77,26 @@
   <Background />
   <div class="shell">
     <Rail {shell} {pathname} />
-    <Sidebar {shell} {space} {pathname} ontoggle={toggle} />
+    <Sidebar {shell} {space} {pathname} body={slots.sidebar} ontoggle={toggle} />
     <div class="main">
-      <TopBar {title} {session} {project} {sidebarShown} ontoggle={toggle} />
+      <TopBar {title} {session} {project} {sidebarShown} left={slots.top} ontoggle={toggle} />
       <main class="stage" id="view" tabindex="-1">
-        <div class="glass card">
+        <!-- One wrapper either way: switching to a bare stage must not remount the screen. -->
+        <div class={slots.bare ? 'bare' : 'glass card'}>
           {@render children()}
         </div>
       </main>
       <StatusLine {project} />
     </div>
+    <!-- Inside .shell, its stacking context, so the drawer and rail stack above the scrim. -->
+    {#if shell.drawer && !inLayout}
+      <button
+        type="button"
+        class="scrim-drawer"
+        aria-label="Close sidebar"
+        tabindex="-1"
+        onclick={() => (shell.drawer = false)}
+      ></button>
+    {/if}
   </div>
-  {#if shell.drawer && !inLayout}
-    <button
-      type="button"
-      class="scrim-drawer"
-      aria-label="Close sidebar"
-      tabindex="-1"
-      onclick={() => (shell.drawer = false)}
-    ></button>
-  {/if}
 </div>

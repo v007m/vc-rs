@@ -52,7 +52,7 @@ export interface HistoryPort {
   run(id: number): Promise<StoredRun>;
 }
 
-const outcomes: Readonly<Record<RunStatus, RunOutcome>> = {
+export const outcomes: Readonly<Record<RunStatus, RunOutcome>> = {
   [RunStatus.UNSPECIFIED]: 'unfinished',
   [RunStatus.PASSED]: 'passed',
   [RunStatus.FAILED]: 'failed',
