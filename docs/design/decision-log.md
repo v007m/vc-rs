@@ -1027,6 +1027,31 @@ Round 93 (26 November 2026; the UI v2 build, batch B: the Client space, web side
 
 Deferred from batch B: save a value as a var, CEL evaluation in the filter, GraphQL bodies and the schema explorer, Test auth, the engine's events list in Timing, the full Import wizard (HAR import stays), WebSocket snippets and the exchange check.
 
+Round 95 (26–27 November 2026; the Strata restyle of the web UI for #95, at Sarath's request; D590 set by Sarath, the rest in-design refinements decided by the web worker; D608–D609 are not used):
+
+| # | Topic | Decision | Supersedes |
+| --- | --- | --- | --- |
+| D590 | Strata | Strata design system adopted for the web UI at Sarath's request (2026-11-26); supersedes the visual decisions D523, D526 and any graphite/Geist token decisions. Where Sarath's rules and Strata differ, his rules win, written as overrides in one file (D592) | D471 (the Arc-style look of the layers; canvas, card and overlay stay), D480 (the tint follows the profile), D483 (glass level), D495 and D505 (glass values), D496 (monochrome primary, blue accent), D507 and D524 (tab styles), D523 (graphite palette), D526 (Geist fonts), D531 (the `legacy.css` bridge only; the report keeps its look) |
+| D591 | Space colours | Each space sets `data-space`, which picks the canvas blobs and the accent: Tests lilac, Client tide, Runs ember, Agents grove, Settings graphite. The primary button, focus rings, selected controls and native checkboxes take the accent. A custom colour from OKLCH seeds comes with the Appearance settings | D496 (accent colour) |
+| D592 | Sources | `web/src/lib/styles/strata/tokens.css` and `strata.css` are Strata 1.0.0 verbatim under a three-line header with the upstream SHA-256, skipped by Prettier and never edited. `strata/vibranium.css` holds the token overrides, the `--vc-*` tokens, the recipe overrides and the recipes Strata lacks. The graphite layer (`tokens`, `legacy`, `glass`, `controls`, `status` CSS and `Background.svelte`) is removed, with no shim | — |
+| D593 | Shapes | One radius per element kind, concentric when nested: cards 10 px, overlays 14 px; buttons, icon buttons, rows and tabs 8 px; search, single-line fields, segmented controls, switches and badges are capsules; form and multi-line fields are 8 px rounded rects. A single-line field never grows taller than its height | — |
+| D594 | Chrome and cards | The rail, sidebar, tabs, section labels, icons and toolbar sit on the canvas with no box. Only the main content and the command capsule are raised. Never a card in a card: the Agents approval items are separated rows. Cards sit 8 px from the window on three sides (10 px above 1600 px) and 0 on the sidebar side; a split has an 8 px gap with its handle in the gap | D506 (selection now a chrome plate, still no edge bar) |
+| D595 | Command capsule | The top row's search is an embossed capsule with a plain `⌘K` hint; the palette it opens comes later (D533 stands) | — |
+| D596 | Rows | Sidebar rows share one height (`--st-row`) with icon and text centred; the selected row is a raised chrome plate in full-ink text. Section headers use the label role, never upper case | — |
+| D597 | Buttons | Buttons are 24, 30 or 36 px with one emboss, and a long label wraps instead of clipping. The primary is the space's accent, one per view, at the bottom right as each screen is redesigned. A destructive action that is not the primary is red text on a normal button | D496 (primary colour) |
+| D598 | Controls | The segmented control, switch and slider share a capsule track and a glassy debossed capsule thumb (iOS liquid glass). Badges are capsules a little larger than Strata's, with room around the word | — |
+| D599 | Fonts | Strata's SF Pro-first stack, with Inter from `@fontsource-variable/inter` 5.3.0 (OFL-1.1, text in `web/src/lib/fonts/OFL.txt` and `NOTICE`) bundled as the fallback off Apple platforms. Mono is Strata's stack (SF Mono, then the system monospace), with no bundled mono font | D526 |
+| D600 | Keyboard hints | Hints are plain tertiary text, never keycaps: `⌘K` on Apple platforms, `Ctrl+K` elsewhere, with `aria-keyshortcuts` to match. Holding the modifier alone for 450 ms shows each space's shortcut beside its rail button; another key cancels the hold. F6 and Shift+F6 cycle the regions marked `data-region` (rail, sidebar, top row, main) | — |
+| D601 | Dark slate | Dark cards are a quiet slate: `#253137` solid, the same at 62 % for glass, a near-opaque overlay and a darker input on cards. Reduced transparency makes cards, overlays and inputs solid again | — |
+| D602 | Grain | The matte grain is `web/src/lib/styles/grain.svg`, because the CSP (`img-src 'self'`) blocks Strata's `data:` URI; its opacity and blend are tokens per mode | — |
+| D603 | Settings rows | A settings form is left-aligned rows at least 44 px tall, label then control, with hairline separators inset 12 px at both ends; a fieldset has no box and its legend is a section label | — |
+| D604 | Dialogs and toasts | Dialogs have a Title2 heading, a close icon button and actions at the bottom right, Cancel first; they are native modal `<dialog>` elements, so focus stays inside and Esc cancels. Toasts are capsules at the bottom centre for about 3 s, with an optional Undo | — |
+| D605 | Motion and prefs | Motion stays under 250 ms. Reduced motion stops the blobs and transitions; `data-transparency`, `data-density` and `data-cards` are honoured, and the Appearance settings that set them come later | — |
+| D606 | Report bridge | The HTML report keeps its own look (D531) and does not load Strata. `web/src/report/shared-names.css` maps the Strata and `--vc-*` names used by the components it shares with the app (results, timing, run progress) onto its v1 tokens | D531 (the app-side bridge) |
+| D607 | Lint tooltips | A CodeMirror diagnostic has no leading-edge bar; its tone is a dot before the message (D506) | — |
+
+Deferred from the restyle: the Appearance settings (cards, transparency, density, custom OKLCH seeds), the command palette and toasts in use, and moving each screen's primary action to the bottom right.
+
 ## Open
 
 All decisions needed for the PRD and technical design are settled. The language is decided by the spike (D6, D36, D37, D41).
