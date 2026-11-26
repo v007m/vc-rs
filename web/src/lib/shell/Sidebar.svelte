@@ -4,14 +4,25 @@
   import type { ShellState } from './state.svelte.ts';
   import SidebarSection from './SidebarSection.svelte';
   import type { Space } from './spaces.ts';
+  import type { Snippet } from 'svelte';
 
-  /** The current space's sidebar on L0: its title, its sections, and the foot switcher if chosen. */
+  /**
+   * The current space's sidebar on L0: its title, its sections (or the screen's own `body`, D537),
+   * and the foot switcher if chosen.
+   */
   let {
     shell,
     space,
     pathname,
+    body,
     ontoggle,
-  }: { shell: ShellState; space: Space; pathname: string; ontoggle: () => void } = $props();
+  }: {
+    shell: ShellState;
+    space: Space;
+    pathname: string;
+    body?: Snippet | undefined;
+    ontoggle: () => void;
+  } = $props();
 </script>
 
 <aside class="sidebar" id="sidebar" aria-label="{space.label} sidebar">
@@ -30,9 +41,13 @@
   </div>
   <div class="sb-body">
     <div class="sb-secs">
-      {#each space.sections as section (section.id)}
-        <SidebarSection {shell} space={space.key} {section} {pathname} />
-      {/each}
+      {#if body}
+        {@render body()}
+      {:else}
+        {#each space.sections as section (section.id)}
+          <SidebarSection {shell} space={space.key} {section} {pathname} />
+        {/each}
+      {/if}
     </div>
   </div>
   {#if shell.prefs.switcher === 'foot'}

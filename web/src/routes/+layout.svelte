@@ -14,6 +14,7 @@
   import { RunSession } from '#lib/run/session.svelte.ts';
   import { ProjectStatus } from '#lib/shell/project.svelte.ts';
   import Shell from '#lib/shell/Shell.svelte';
+  import { setShellSlots, ShellSlots } from '#lib/shell/slots.svelte.ts';
   import { ShellState } from '#lib/shell/state.svelte.ts';
   import type { Snippet } from 'svelte';
 
@@ -22,6 +23,7 @@
   const session = new RunSession(engine);
   setRunSession(session);
   const shell = new ShellState();
+  const slots = setShellSlots(new ShellSlots());
   const project = new ProjectStatus(engine);
   void project.load();
 
@@ -31,6 +33,14 @@
   }
 </script>
 
-<Shell {shell} {session} {project} pathname={page.url.pathname} search={page.url.search} {navigate}>
+<Shell
+  {shell}
+  {session}
+  {project}
+  pathname={page.url.pathname}
+  search={page.url.search}
+  {navigate}
+  {slots}
+>
   {@render children()}
 </Shell>

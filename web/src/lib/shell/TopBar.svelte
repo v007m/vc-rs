@@ -4,6 +4,7 @@
   import type { RunSession } from '#lib/run/session.svelte.ts';
   import Icon from './Icon.svelte';
   import type { ProjectStatus } from './project.svelte.ts';
+  import type { Snippet } from 'svelte';
 
   /** The one top row (D514), on L0: title · status on the left; env pill and search on the right. */
   let {
@@ -11,12 +12,15 @@
     session,
     project,
     sidebarShown,
+    left,
     ontoggle,
   }: {
     title: string;
     session: RunSession;
     project: ProjectStatus;
     sidebarShown: boolean;
+    /** The screen's own left side (the Client tabs, D537), in place of the title and status. */
+    left?: Snippet | undefined;
     ontoggle: () => void;
   } = $props();
 
@@ -40,14 +44,19 @@
   >
     <Icon name="columns" />
   </button>
-  <h1 class="tb-title">{title}</h1>
-  {#if session.running}
+  {#if left}
+    <h1 class="sr">{title}</h1>
+    {@render left()}
+  {:else}
+    <h1 class="tb-title">{title}</h1>
+  {/if}
+  {#if session.running && !left}
     <span class="tb-status hide-narrow" role="status">
       <span class="dot is-live" aria-hidden="true"></span>
       Running · {doneCount(view.counts)} of {view.planned || '…'}
     </span>
   {/if}
-  <span class="grow"></span>
+  {#if !left}<span class="grow"></span>{/if}
   <div class="topbar-end">
     <a class="btn env-pill on-l0" href={resolve('/settings')} title={envTitle}>
       <span class="env-cap">Env</span>

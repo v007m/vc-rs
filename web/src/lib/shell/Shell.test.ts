@@ -1,12 +1,13 @@
 import { render, screen, within } from '@testing-library/svelte';
 import { userEvent } from '@testing-library/user-event';
-import { createRawSnippet } from 'svelte';
+import { createRawSnippet, tick } from 'svelte';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { RunSession } from '#lib/run/session.svelte.ts';
 import { fakeEngine } from '#lib/testing/engine.ts';
 import type { PrefStore } from './prefs.ts';
 import { ProjectStatus } from './project.svelte.ts';
 import Shell from './Shell.svelte';
+import { ShellSlots } from './slots.svelte.ts';
 import { ShellState } from './state.svelte.ts';
 
 function memory(): PrefStore {
@@ -31,7 +32,7 @@ beforeAll(() => {
 
 const body = createRawSnippet(() => ({ render: () => '<p>screen body</p>' }));
 
-function setup(pathname: string, store: PrefStore = memory()) {
+function setup(pathname: string, store: PrefStore = memory(), slots = new ShellSlots()) {
   const engine = fakeEngine({});
   const shell = new ShellState(store);
   const navigate = vi.fn<(href: string) => void>();
@@ -41,6 +42,7 @@ function setup(pathname: string, store: PrefStore = memory()) {
     project: new ProjectStatus(engine),
     pathname,
     navigate,
+    slots,
     children: body,
   };
   const view = render(Shell, props);
@@ -122,5 +124,24 @@ describe('Shell', () => {
     new ShellState(store).setSwitcher('foot');
     setup('/client', store);
     expect(screen.getAllByRole('navigation', { name: 'Spaces' })).toHaveLength(2);
+  });
+
+  it("puts a screen's sidebar, top row and bare stage in place, and gives them back", async () => {
+    const slots = new ShellSlots();
+    const empty = slots.fill({
+      sidebar: createRawSnippet(() => ({ render: () => '<p>own sidebar</p>' })),
+      top: createRawSnippet(() => ({ render: () => '<nav aria-label="Open tabs"></nav>' })),
+      bare: true,
+    });
+    const { container } = setup('/client', memory(), slots);
+    expect(screen.getByText('own sidebar')).toBeTruthy();
+    expect(screen.getByRole('navigation', { name: 'Open tabs' })).toBeTruthy();
+    expect(screen.getByRole('heading', { level: 1 }).className).toBe('sr');
+    expect(container.querySelector('.stage > .card')).toBeNull();
+    empty();
+    await tick();
+    expect(screen.queryByText('own sidebar')).toBeNull();
+    expect(screen.getByRole('link', { name: 'Request' })).toBeTruthy();
+    expect(container.querySelector('.stage > .card')).not.toBeNull();
   });
 });
