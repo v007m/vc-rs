@@ -12,7 +12,7 @@ async function runOnce(page: Page): Promise<void> {
 
 test('shows pass rate and duration per stored run', async ({ page }) => {
   await runOnce(page);
-  await page.goto('/insights');
+  await page.goto('/runs/overview');
   const passRate = page.getByRole('region', { name: 'Pass rate per run' });
   await expect(passRate.getByRole('img', { name: /run #\d+: \d+% passed/i }).first()).toBeVisible();
   const duration = page.getByRole('region', { name: 'Run duration' });
@@ -21,14 +21,14 @@ test('shows pass rate and duration per stored run', async ({ page }) => {
 
 test('lists the flakiest tests, or says there are none', async ({ page }) => {
   await runOnce(page);
-  await page.goto('/insights');
+  await page.goto('/runs/overview');
   const flaky = page.getByRole('region', { name: 'Flakiest tests' });
   await expect(flaky.getByText(/No flaky or failing tests|users\.crud#/).first()).toBeVisible();
 });
 
 test('shows the slowest apis by p50 and p95', async ({ page }) => {
   await runOnce(page);
-  await page.goto('/insights');
+  await page.goto('/runs/overview');
   const slowest = page.getByRole('region', { name: 'Slowest APIs' });
   await expect(
     slowest.getByRole('img', { name: /#\w+: p50 [\d.]+ m?s, p95 / }).first(),
@@ -37,7 +37,7 @@ test('shows the slowest apis by p50 and p95', async ({ page }) => {
 
 test('narrows the window with the time range', async ({ page }) => {
   await runOnce(page);
-  await page.goto('/insights');
+  await page.goto('/runs/overview');
   const range = page.getByRole('group', { name: 'Time range' });
   await range.getByRole('button', { name: 'Last 10 runs' }).click();
   await expect(range.getByRole('button', { name: 'Last 10 runs' })).toHaveAttribute(
@@ -48,7 +48,7 @@ test('narrows the window with the time range', async ({ page }) => {
 
 test('lists every api with its tests and statuses', async ({ page }) => {
   await runOnce(page);
-  await page.goto('/insights');
+  await page.goto('/runs/overview');
   const coverage = page.getByRole('region', { name: 'API coverage' });
   await expect(coverage.getByRole('rowheader', { name: /\w+#\w+/ }).first()).toBeVisible();
   // A status chip's screen-reader text; the legend has no colon.

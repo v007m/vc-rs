@@ -26,7 +26,7 @@ test('explains the settings under the chosen profile', async ({ page }) => {
 test('opens the config in the editor', async ({ page }) => {
   await page.goto('/settings');
   await page.getByRole('link', { name: 'Open vibranium.config.yaml in the editor' }).click();
-  await expect(page).toHaveURL(/\/editor\?file=vibranium\.config\.yaml$/);
+  await expect(page).toHaveURL(/\/tests\/editor\?file=vibranium\.config\.yaml$/);
 });
 
 test('reviews a config change as a diff before anything is written', async ({ page }) => {

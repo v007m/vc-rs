@@ -6,7 +6,7 @@ requiresVcUi();
 const crud = 'services/users/crud.test.yaml';
 
 test('opens a project file from the tree', async ({ page }) => {
-  await page.goto('/editor');
+  await page.goto('/tests/editor');
   const tree = page.getByRole('tree', { name: 'Files' });
   await tree.getByRole('treeitem', { name: 'crud.test.yaml' }).click();
   await expect(page.getByRole('textbox', { name: crud })).toHaveValue(/id:/);
@@ -14,7 +14,7 @@ test('opens a project file from the tree', async ({ page }) => {
 });
 
 test('saves an edit and keeps it after a reload', async ({ page }) => {
-  await page.goto(`/editor?file=${encodeURIComponent(crud)}`);
+  await page.goto(`/tests/editor?file=${encodeURIComponent(crud)}`);
   const text = page.getByRole('textbox', { name: crud });
   await expect(text).toHaveValue(/id:/);
   await text.press('ControlOrMeta+End');
@@ -27,7 +27,7 @@ test('saves an edit and keeps it after a reload', async ({ page }) => {
 });
 
 test('shows the diff of unsaved edits and reverts them', async ({ page }) => {
-  await page.goto(`/editor?file=${encodeURIComponent(crud)}`);
+  await page.goto(`/tests/editor?file=${encodeURIComponent(crud)}`);
   const text = page.getByRole('textbox', { name: crud });
   await expect(text).toHaveValue(/id:/);
   await text.press('ControlOrMeta+End');

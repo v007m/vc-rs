@@ -1,0 +1,126 @@
+import { render, screen, within } from '@testing-library/svelte';
+import { userEvent } from '@testing-library/user-event';
+import { createRawSnippet } from 'svelte';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { RunSession } from '#lib/run/session.svelte.ts';
+import { fakeEngine } from '#lib/testing/engine.ts';
+import type { PrefStore } from './prefs.ts';
+import { ProjectStatus } from './project.svelte.ts';
+import Shell from './Shell.svelte';
+import { ShellState } from './state.svelte.ts';
+
+function memory(): PrefStore {
+  const items = new Map<string, string>();
+  return {
+    getItem: (key) => items.get(key) ?? null,
+    setItem: (key, value) => void items.set(key, value),
+  };
+}
+
+// jsdom has no layout, so `bind:clientWidth` needs a ResizeObserver that never fires.
+beforeAll(() => {
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      observe(): void {}
+      unobserve(): void {}
+      disconnect(): void {}
+    },
+  );
+});
+
+const body = createRawSnippet(() => ({ render: () => '<p>screen body</p>' }));
+
+function setup(pathname: string, store: PrefStore = memory()) {
+  const engine = fakeEngine({});
+  const shell = new ShellState(store);
+  const navigate = vi.fn<(href: string) => void>();
+  const props = {
+    shell,
+    session: new RunSession(engine),
+    project: new ProjectStatus(engine),
+    pathname,
+    navigate,
+    children: body,
+  };
+  const view = render(Shell, props);
+  const rail = () => screen.getByRole('navigation', { name: 'Spaces' });
+  return { ...view, shell, navigate, rail, user: userEvent.setup(), props, store };
+}
+
+describe('Shell', () => {
+  it('shows the five spaces, marks the current one and titles the view', () => {
+    const { rail } = setup('/runs/overview');
+    const links = within(rail()).getAllByRole('link').slice(1);
+    expect(links.map((a) => a.getAttribute('aria-label'))).toEqual([
+      'Client',
+      'Tests',
+      'Runs',
+      'Agents',
+      'Settings',
+    ]);
+    expect(within(rail()).getByRole('link', { name: 'Runs' }).getAttribute('aria-current')).toBe(
+      'page',
+    );
+    expect(within(rail()).getByRole('link', { name: 'Tests' }).hasAttribute('aria-current')).toBe(
+      false,
+    );
+    expect(screen.getByRole('heading', { level: 1, name: 'Runs overview' })).toBeTruthy();
+    expect(screen.getByRole('main').textContent).toContain('screen body');
+  });
+
+  it('links each space to its last screen, and the current one to its home', async () => {
+    const { rail, rerender, props } = setup('/tests/editor');
+    await rerender({ ...props, pathname: '/client' });
+    expect(within(rail()).getByRole('link', { name: 'Tests' }).getAttribute('href')).toBe(
+      '/tests/editor',
+    );
+    expect(within(rail()).getByRole('link', { name: 'Client' }).getAttribute('href')).toBe(
+      '/client',
+    );
+  });
+
+  it('switches spaces with ⌘1–⌘5 and ⌘,', async () => {
+    const { navigate, user } = setup('/client');
+    await user.keyboard('{Meta>}2{/Meta}');
+    expect(navigate).toHaveBeenLastCalledWith('/tests');
+    await user.keyboard('{Control>}4{/Control}');
+    expect(navigate).toHaveBeenLastCalledWith('/agents');
+    await user.keyboard('{Meta>},{/Meta}');
+    expect(navigate).toHaveBeenLastCalledWith('/settings');
+    await user.keyboard('3');
+    expect(navigate).toHaveBeenCalledTimes(3);
+  });
+
+  it('closes a sidebar section and keeps it closed on the next visit', async () => {
+    const { user, store, unmount } = setup('/tests');
+    const head = screen.getByRole('button', { name: 'Tests' });
+    expect(head.getAttribute('aria-expanded')).toBe('true');
+    await user.click(head);
+    expect(head.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryByRole('link', { name: 'Editor' })).toBeNull();
+    unmount();
+    setup('/tests', store);
+    expect(screen.getByRole('button', { name: 'Tests' }).getAttribute('aria-expanded')).toBe(
+      'false',
+    );
+  });
+
+  it('hides and shows the sidebar', async () => {
+    const { user, shell } = setup('/agents');
+    await user.click(screen.getByRole('button', { name: 'Hide sidebar' }));
+    expect(shell.prefs.sbCollapsed).toBe(true);
+    expect(screen.getByRole('button', { name: 'Show sidebar' }).getAttribute('aria-expanded')).toBe(
+      'false',
+    );
+    await user.click(screen.getByRole('button', { name: 'Show sidebar' }));
+    expect(shell.prefs.sbCollapsed).toBe(false);
+  });
+
+  it('moves the switcher to the sidebar foot when chosen', () => {
+    const store = memory();
+    new ShellState(store).setSwitcher('foot');
+    setup('/client', store);
+    expect(screen.getAllByRole('navigation', { name: 'Spaces' })).toHaveLength(2);
+  });
+});
