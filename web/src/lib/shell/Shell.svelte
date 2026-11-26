@@ -24,6 +24,7 @@
     search = '',
     navigate,
     slots = new ShellSlots(),
+    branch,
     children,
   }: {
     shell: ShellState;
@@ -33,6 +34,8 @@
     search?: string;
     navigate: (href: string) => void;
     slots?: ShellSlots;
+    /** The git branch for the status line, when the engine gives it. */
+    branch?: string | undefined;
     children: Snippet;
   } = $props();
 
@@ -86,7 +89,7 @@
           {@render children()}
         </div>
       </main>
-      <StatusLine {project} />
+      <StatusLine {project} {branch} />
     </div>
     <!-- Inside .shell, its stacking context, so the drawer and rail stack above the scrim. -->
     {#if shell.drawer && !inLayout}
