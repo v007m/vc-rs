@@ -162,15 +162,39 @@
 </div>
 
 <style>
+  /* Sized by the card, not the viewport (#114): with the sidebar open the card is far narrower
+     than the window, so the three columns give way before the tree runs under the detail. */
   .explorer {
     display: grid;
     grid-template-columns: 200px minmax(0, 1fr) minmax(0, 320px);
     gap: 24px;
     align-items: start;
   }
-  @media (max-width: 960px) {
+  @container card (width < 1040px) {
+    .explorer {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 300px);
+    }
+    /* the filters become a row of short columns above the list and the detail */
+    .facets {
+      grid-column: 1 / -1;
+      display: grid;
+      grid-auto-flow: column;
+      grid-template-rows: auto auto;
+      justify-content: start;
+      column-gap: 32px;
+    }
+    .facets ul {
+      max-height: 120px;
+      margin-bottom: 0;
+      overflow-y: auto;
+    }
+  }
+  @container card (width < 640px) {
     .explorer {
       grid-template-columns: minmax(0, 1fr);
+    }
+    .facets {
+      display: block;
     }
   }
   .facets ul {
@@ -201,6 +225,7 @@
   .list {
     display: grid;
     gap: 8px;
+    min-width: 0;
   }
   .summary,
   .hint,
