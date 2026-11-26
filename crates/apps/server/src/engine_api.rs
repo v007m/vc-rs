@@ -10,9 +10,10 @@ use serde::de::DeserializeOwned;
 use vc_contracts::engine::v1 as wire;
 use vc_engine::{Engine, EngineError};
 
+use crate::live_rpcs::LiveStreams;
 use crate::{
     Code, ConnectError, ConnectService, McpAccess, Sink, authoring_rpcs, client_rpcs, edit_rpcs, history_rpcs,
-    project_rpcs, run_stream,
+    live_rpcs, project_rpcs, run_stream,
 };
 
 /// The service's full protobuf name.
@@ -23,14 +24,16 @@ pub struct EngineApi {
     engine: Arc<Engine>,
     profiles: Vec<String>,
     sets: Vec<String>,
+    live: LiveStreams,
 }
 
 impl EngineApi {
     /// The API over `engine`. A call that names no profile uses `profiles` (the config's default
-    /// ones when empty), and every call's `--set` values come after `sets`.
+    /// ones when empty), and every call's `--set` values come after `sets`. Built on a Tokio
+    /// runtime, it keeps its live streams there (D543); built outside one, it opens none.
     #[must_use]
-    pub const fn new(engine: Arc<Engine>, profiles: Vec<String>, sets: Vec<String>) -> Self {
-        Self { engine, profiles, sets }
+    pub fn new(engine: Arc<Engine>, profiles: Vec<String>, sets: Vec<String>) -> Self {
+        Self { engine, profiles, sets, live: LiveStreams::spawn() }
     }
 
     /// The Connect service that serves every RPC.
@@ -39,13 +42,18 @@ impl EngineApi {
         let rpcs = Rpcs { service: ConnectService::new(SERVICE), api: Arc::new(self) };
         let rpcs = project_rpcs::register(client_rpcs::register(edit_rpcs::register(rpcs)));
         let rpcs = run_stream::register(authoring_rpcs::register(history_rpcs::register(rpcs)));
-        rpcs.service
+        live_rpcs::register(rpcs).service
     }
 
     /// The engine.
     #[cfg(test)]
     pub(crate) fn engine(&self) -> &Engine {
         &self.engine
+    }
+
+    /// The open live streams.
+    pub(crate) const fn live(&self) -> &LiveStreams {
+        &self.live
     }
 
     /// A call's profiles and `--set` values over the server's.

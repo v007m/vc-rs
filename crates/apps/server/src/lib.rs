@@ -35,6 +35,7 @@ mod error;
 mod fixture;
 mod guard;
 mod history_rpcs;
+mod live_rpcs;
 mod project_rpcs;
 mod run_stream;
 mod service;
