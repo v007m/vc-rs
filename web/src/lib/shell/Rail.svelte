@@ -1,10 +1,14 @@
 <script lang="ts">
   import { resolve } from '$app/paths';
   import Icon from './Icon.svelte';
+  import { modAria, modHint } from './keys.ts';
   import type { ShellState } from './state.svelte.ts';
   import { spaceOf, spaces, type Space } from './spaces.ts';
 
-  /** The space switcher (D512): an icon rail on L0, or the row at the sidebar foot. */
+  /**
+   * The space switcher (D512): an icon rail on the canvas, or the row at the sidebar foot. While
+   * the modifier is held, each space shows its shortcut (D600).
+   */
   let {
     shell,
     pathname,
@@ -14,7 +18,7 @@
   let current = $derived(spaceOf(pathname).key);
   const top = spaces.filter((space) => space.key !== 'settings');
   const end = spaces.filter((space) => space.key === 'settings');
-  const keyHint = (space: Space) => `⌘${space.shortcut}`;
+  const keyHint = (space: Space) => modHint(space.shortcut);
 </script>
 
 {#snippet item(space: Space)}
@@ -26,17 +30,18 @@
       aria-label={space.label}
       aria-current={space.key === current ? 'page' : undefined}
       title="{space.label} ({keyHint(space)})"
-      aria-keyshortcuts={space.shortcut === ',' ? 'Meta+Comma' : `Meta+${space.shortcut}`}
+      aria-keyshortcuts={modAria(space.shortcut)}
     >
       <Icon name={space.icon} />
       <span class="sp-label" aria-hidden="true">{space.label}</span>
+      <span class="sp-hint" aria-hidden="true">{keyHint(space)}</span>
     </a>
     <!-- eslint-enable svelte/no-navigation-without-resolve -->
   </li>
 {/snippet}
 
 {#if where === 'rail'}
-  <nav class="rail" aria-label="Spaces">
+  <nav class="rail" aria-label="Spaces" data-region>
     <a class="rail-brand" href={resolve('/client')} aria-label="Vibranium" title="Vibranium">
       <svg class="mark" viewBox="0 0 28 28" aria-hidden="true">
         <path class="hex" d="M14 2 25 8.5v11L14 26 3 19.5v-11Z" />

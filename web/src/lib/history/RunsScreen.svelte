@@ -56,7 +56,7 @@
   }
   .error {
     margin: 0;
-    color: var(--fail);
+    color: var(--vc-fail);
   }
   @container card (width < 620px) {
     .runs {

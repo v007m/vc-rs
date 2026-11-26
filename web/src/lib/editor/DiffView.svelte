@@ -17,7 +17,7 @@
   {#if !lines.some((l) => l.kind === 'add' || l.kind === 'del')}
     <p class="none">{empty}</p>
   {:else}
-    <div class="scroll mono">
+    <div class="scroll vc-mono">
       {#each lines as line, i (i)}
         {#if line.kind === 'gap'}
           <div class="gap">{line.count} unchanged line{line.count === 1 ? '' : 's'}</div>
@@ -26,7 +26,7 @@
             <span class="no" aria-hidden="true">{line.oldNo ?? ''}</span>
             <span class="no" aria-hidden="true">{line.newNo ?? ''}</span>
             <span class="sign" aria-hidden="true">{sign[line.kind]}</span>
-            <span class="text"><span class="sr">{said[line.kind]}</span>{line.text}</span>
+            <span class="text"><span class="vc-sr">{said[line.kind]}</span>{line.text}</span>
           </div>
         {/if}
       {/each}
@@ -43,9 +43,9 @@
   }
   .scroll {
     overflow: auto;
-    border: 1px solid var(--line2);
+    border: 1px solid var(--vc-rule-strong);
     border-radius: 10px;
-    background: var(--panel);
+    background: var(--st-surface-wash);
     padding: 6px 0;
   }
   .ln {
@@ -55,7 +55,7 @@
     line-height: 20px;
   }
   .no {
-    color: var(--ink3);
+    color: var(--st-text-tertiary);
     text-align: right;
     padding-right: 6px;
   }
@@ -63,21 +63,21 @@
     text-align: center;
   }
   .add {
-    background: var(--passSoft);
-    color: var(--pass);
+    background: var(--vc-pass-soft);
+    color: var(--vc-pass);
   }
   .del {
-    background: var(--failSoft);
-    color: var(--fail);
+    background: var(--vc-fail-soft);
+    color: var(--vc-fail);
   }
   .gap {
     padding: 2px 12px;
-    color: var(--ink3);
-    background: var(--panel2);
-    font-family: var(--font);
+    color: var(--st-text-tertiary);
+    background: var(--st-surface-wash);
+    font-family: var(--st-font-sans);
     font-size: 12px;
   }
   .none {
-    color: var(--ink3);
+    color: var(--st-text-tertiary);
   }
 </style>

@@ -27,7 +27,7 @@
       <th scope="col">On</th>
       <th scope="col">Name</th>
       <th scope="col">Value</th>
-      <th><span class="sr">Actions</span></th>
+      <th><span class="vc-sr">Actions</span></th>
     </tr>
   </thead>
   <tbody>
@@ -38,7 +38,7 @@
         </td>
         <td>
           <input
-            class="input mono"
+            class="st-input vc-mono"
             autocomplete="off"
             spellcheck="false"
             aria-label="{noun} name"
@@ -48,12 +48,14 @@
         </td>
         <td>
           {#if row.value.includes(MASKED)}
-            <span class="mono masked"
-              >{row.value}<span class="sr"> (reads a secret; change it in the api file)</span></span
+            <span class="vc-mono masked"
+              >{row.value}<span class="vc-sr">
+                (reads a secret; change it in the api file)</span
+              ></span
             >
           {:else}
             <input
-              class="input mono"
+              class="st-input vc-mono"
               autocomplete="off"
               spellcheck="false"
               aria-label="{row.name || noun} value"
@@ -64,7 +66,7 @@
         <td>
           <button
             type="button"
-            class="btn sm"
+            class="st-btn st-btn--sm"
             aria-label="Remove {row.name || noun}"
             onclick={() => onremove(i)}>Remove</button
           >
@@ -75,7 +77,7 @@
     {/each}
   </tbody>
 </table>
-<button type="button" class="btn sm" onclick={onadd}>Add {noun}</button>
+<button type="button" class="st-btn st-btn--sm" onclick={onadd}>Add {noun}</button>
 
 <style>
   .rows {
@@ -86,19 +88,19 @@
   th {
     font-weight: 500;
     text-align: left;
-    color: var(--ink-3);
-    font-size: var(--fs-1);
+    color: var(--st-text-tertiary);
+    font-size: var(--vc-size-caption);
   }
   td {
     padding: 2px 6px 2px 0;
   }
-  td .input {
+  td .st-input {
     width: 100%;
   }
   .masked {
     letter-spacing: 1px;
   }
   .empty {
-    color: var(--ink-2);
+    color: var(--st-text-secondary);
   }
 </style>

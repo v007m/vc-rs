@@ -22,9 +22,9 @@
   <dl class="fields">
     <dt>MCP URL</dt>
     <dd>
-      <code class="mono">{link.url}</code>
+      <code class="vc-mono">{link.url}</code>
       <button
-        class="btn sm"
+        class="st-btn st-btn--sm"
         type="button"
         aria-label="Copy the MCP URL"
         onclick={() => copy(link.url)}>Copy</button
@@ -32,12 +32,15 @@
     </dd>
     <dt>Agent token</dt>
     <dd>
-      <code class="mono">{shown ? link.token : MASKED}</code>
-      <button class="btn sm" type="button" aria-pressed={shown} onclick={() => (shown = !shown)}
-        >Show token</button
+      <code class="vc-mono">{shown ? link.token : MASKED}</code>
+      <button
+        class="st-btn st-btn--sm"
+        type="button"
+        aria-pressed={shown}
+        onclick={() => (shown = !shown)}>Show token</button
       >
       <button
-        class="btn sm"
+        class="st-btn st-btn--sm"
         type="button"
         aria-label="Copy the agent token"
         onclick={() => copy(link.token)}>Copy</button
@@ -46,9 +49,9 @@
   </dl>
   <p>Add this server to the agent’s MCP config, such as <code>.mcp.json</code> for Claude Code:</p>
   <div class="code">
-    <pre class="mono">{config(link.url, shown ? link.token : MASKED)}</pre>
+    <pre class="vc-mono">{config(link.url, shown ? link.token : MASKED)}</pre>
     <button
-      class="btn sm"
+      class="st-btn st-btn--sm"
       type="button"
       aria-label="Copy the MCP config"
       onclick={() => copy(config(link.url, link.token))}>Copy</button
@@ -71,10 +74,10 @@
   }
   .lead,
   .note {
-    color: var(--ink2);
+    color: var(--st-text-secondary);
   }
   .error {
-    color: var(--fail);
+    color: var(--vc-fail);
   }
   .fields {
     display: grid;
@@ -105,7 +108,7 @@
     margin: 0;
     padding: 12px;
     border-radius: 8px;
-    background: var(--panel2);
+    background: var(--st-surface-wash);
     white-space: pre-wrap;
     overflow-wrap: anywhere;
   }

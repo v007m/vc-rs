@@ -44,24 +44,24 @@
 <Dialog title="New file" {onclose}>
   <div class="form">
     <label for="{uid}-kind">Kind</label>
-    <select id="{uid}-kind" class="select" bind:value={template}>
+    <select id="{uid}-kind" class="st-input" bind:value={template}>
       <option value="test">Test file</option>
       <option value="api">Api file</option>
       <option value="service">Service</option>
     </select>
     {#if template !== 'service'}
       <label for="{uid}-service">Service</label>
-      <input id="{uid}-service" class="input mono" bind:value={service} />
+      <input id="{uid}-service" class="st-input vc-mono" bind:value={service} />
     {/if}
     <label for="{uid}-name">{template === 'test' ? 'Area' : 'Name'}</label>
-    <input id="{uid}-name" class="input mono" bind:value={name} placeholder="crud" />
+    <input id="{uid}-name" class="st-input vc-mono" bind:value={name} placeholder="crud" />
   </div>
-  {#if note}<p class="muted" role="status">{note}</p>{/if}
+  {#if note}<p class="st-secondary" role="status">{note}</p>{/if}
   <div class="actions">
-    <button type="button" class="btn" onclick={onclose}>Cancel</button>
+    <button type="button" class="st-btn" onclick={onclose}>Cancel</button>
     <button
       type="button"
-      class="btn primary"
+      class="st-btn st-btn--primary"
       disabled={!ready || busy}
       onclick={() => void create()}>{busy ? 'Creating…' : 'Create'}</button
     >

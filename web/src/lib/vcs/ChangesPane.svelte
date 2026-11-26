@@ -38,7 +38,7 @@
 {:else if status}
   <div class="tg">
     <div class="tg-branch" title={status.upstream ? `Tracking ${status.upstream}` : 'No upstream'}>
-      <span class="mono ellipsis grow">{status.branch || 'detached HEAD'}</span>
+      <span class="vc-mono ellipsis vc-grow">{status.branch || 'detached HEAD'}</span>
       <span
         class="tg-ab num"
         aria-label="{plural(status.ahead, 'commit')} to push, {plural(
@@ -87,7 +87,7 @@
         {/each}
       </ul>
       <textarea
-        class="textarea tg-text"
+        class="st-input st-input--rect tg-text"
         rows="2"
         placeholder="Commit message"
         aria-label="Commit message"
@@ -99,20 +99,24 @@
       {#if status.files.length}
         <button
           type="button"
-          class="btn btn-primary btn-sm grow"
+          class="st-btn st-btn--primary st-btn--sm vc-grow"
           disabled={!vcs.canCommit}
           onclick={() => void vcs.commit()}
         >
           Commit {count ? plural(count, 'file') : ''}
         </button>
       {:else if status.ahead}
-        <button type="button" class="btn btn-primary btn-sm grow" onclick={() => void vcs.push()}>
+        <button
+          type="button"
+          class="st-btn st-btn--primary st-btn--sm vc-grow"
+          onclick={() => void vcs.push()}
+        >
           Push {plural(status.ahead, 'commit')}
         </button>
       {:else}
-        <span class="grow"></span>
+        <span class="vc-grow"></span>
       {/if}
-      <Menu label="More git actions" {items} button="btn btn-ghost btn-icon btn-sm" onpick={pick}>
+      <Menu label="More git actions" {items} button="st-icon-btn st-icon-btn--sm" onpick={pick}>
         <span aria-hidden="true">⋯</span>
       </Menu>
     </div>
@@ -120,7 +124,7 @@
       {#if vcs.busy}Working…{:else if vcs.note}{vcs.note.text}{/if}
     </div>
     {#if !vcs.busy && vcs.note?.output}
-      <pre class="tg-out mono" aria-label="What git said">{vcs.note.output}</pre>
+      <pre class="tg-out vc-mono" aria-label="What git said">{vcs.note.output}</pre>
     {/if}
   </div>
 {:else}
@@ -135,40 +139,40 @@
   .tg {
     display: flex;
     flex-direction: column;
-    gap: var(--sp-2);
+    gap: var(--st-space-8);
     min-width: 0;
-    padding: 0 var(--sp-1) var(--sp-3);
-    font-size: var(--fs-2);
-    color: var(--l0-ink);
+    padding: 0 var(--st-space-4) var(--st-space-12);
+    font-size: var(--vc-size-body);
+    color: var(--st-text-primary);
   }
   .tg-branch {
     display: flex;
     align-items: center;
-    gap: var(--sp-2);
+    gap: var(--st-space-8);
     min-width: 0;
     min-height: 28px;
-    padding: 0 var(--sp-2);
-    color: var(--l0-ink-2);
-    font-size: var(--fs-1);
+    padding: 0 var(--st-space-8);
+    color: var(--st-text-secondary);
+    font-size: var(--vc-size-caption);
   }
   .tg-ab {
     display: inline-flex;
     flex: none;
-    gap: var(--sp-2);
-    color: var(--l0-ink-3);
+    gap: var(--st-space-8);
+    color: var(--st-text-tertiary);
   }
   .tg-ab .is-on {
-    color: var(--l0-ink);
-    font-weight: var(--fw-semibold);
+    color: var(--st-text-primary);
+    font-weight: var(--st-weight-semibold);
   }
   .tg-head {
     display: flex;
     align-items: center;
-    gap: var(--sp-2);
+    gap: var(--st-space-8);
     min-height: 28px;
-    padding: 0 var(--sp-2);
-    color: var(--l0-ink-3);
-    font-size: var(--fs-1);
+    padding: 0 var(--st-space-8);
+    color: var(--st-text-tertiary);
+    font-size: var(--vc-size-caption);
     cursor: pointer;
   }
   .tg-files {
@@ -182,13 +186,13 @@
   .tg-file {
     display: flex;
     align-items: center;
-    gap: var(--sp-1);
+    gap: var(--st-space-4);
     min-height: 30px;
-    padding-left: var(--sp-2);
-    border-radius: var(--r-sm);
+    padding-left: var(--st-space-8);
+    border-radius: var(--st-radius-sm);
   }
   .tg-file:hover {
-    background: var(--l0-hover);
+    background: var(--st-chrome-hover);
   }
   .tg-file input,
   .tg-head input {
@@ -199,12 +203,12 @@
     display: flex;
     flex: 1 1 auto;
     align-items: center;
-    gap: var(--sp-2);
+    gap: var(--st-space-8);
     min-width: 0;
     height: 28px;
-    padding: 0 var(--sp-2) 0 var(--sp-1);
+    padding: 0 var(--st-space-8) 0 var(--st-space-4);
     border: 0;
-    border-radius: var(--r-sm);
+    border-radius: var(--st-radius-sm);
     background: transparent;
     color: inherit;
     font: inherit;
@@ -212,11 +216,11 @@
     cursor: pointer;
   }
   .tg-open:focus-visible {
-    outline: 2px solid var(--focus);
+    outline: 2px solid var(--st-accent);
     outline-offset: -2px;
   }
   .is-unpicked .tg-name {
-    color: var(--l0-ink-3);
+    color: var(--st-text-tertiary);
   }
   .tg-name {
     flex: 1 1 auto;
@@ -225,34 +229,34 @@
   .tg-st {
     flex: none;
     width: 12px;
-    font-family: var(--mono);
+    font-family: var(--st-font-mono);
     font-size: 11px;
-    font-weight: var(--fw-semibold);
+    font-weight: var(--st-weight-semibold);
     text-align: center;
   }
   .tg-st-M,
   .tg-st-C {
-    color: var(--st-blocked-ink);
+    color: var(--vc-blocked-ink);
   }
   .tg-st-A,
   .tg-st-U {
-    color: var(--diff-add-ink);
+    color: var(--vc-diff-add-ink);
   }
   .tg-st-D {
-    color: var(--diff-del-ink);
+    color: var(--vc-diff-del-ink);
   }
   .tg-n {
     display: inline-flex;
     flex: none;
-    gap: var(--sp-1);
-    font-family: var(--mono);
+    gap: var(--st-space-4);
+    font-family: var(--st-font-mono);
     font-size: 11px;
   }
   .add {
-    color: var(--diff-add-ink);
+    color: var(--vc-diff-add-ink);
   }
   .del {
-    color: var(--diff-del-ink);
+    color: var(--vc-diff-del-ink);
   }
   .tg-text {
     min-height: 56px;
@@ -261,23 +265,23 @@
   .tg-acts {
     display: flex;
     align-items: center;
-    gap: var(--sp-2);
+    gap: var(--st-space-8);
   }
   .tg-empty {
     margin: 0;
-    padding: var(--sp-2);
-    color: var(--l0-ink-2);
+    padding: var(--st-space-8);
+    color: var(--st-text-secondary);
   }
   .tg-note {
-    padding: 0 var(--sp-2);
-    color: var(--l0-ink-2);
-    font-size: var(--fs-1);
+    padding: 0 var(--st-space-8);
+    color: var(--st-text-secondary);
+    font-size: var(--vc-size-caption);
   }
   .tg-note:empty {
     display: none;
   }
   .tg-note.fail {
-    color: var(--st-fail-ink);
+    color: var(--vc-fail-ink);
   }
   .ellipsis {
     overflow: hidden;
@@ -291,9 +295,9 @@
     max-height: 160px;
     overflow: auto;
     margin: 0;
-    padding: var(--sp-2);
-    border-radius: var(--r-sm);
-    background: var(--well-bg);
+    padding: var(--st-space-8);
+    border-radius: var(--st-radius-sm);
+    background: var(--st-surface-input-on-card);
     font-size: 11px;
     white-space: pre-wrap;
   }

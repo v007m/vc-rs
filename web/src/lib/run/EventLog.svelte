@@ -5,18 +5,22 @@
   let min: Level = $state('info');
   let text = $state('');
   let shown = $derived(visibleLines(events, min, text));
-  const icon: Record<Level, string> = { info: 'dot', warn: 'dot block', error: 'dot fail' };
+  const icon: Record<Level, string> = {
+    info: 'st-dot',
+    warn: 'st-dot vc-blocked',
+    error: 'st-dot vc-fail',
+  };
 </script>
 
 <section class="events" aria-labelledby="events-h">
   <div class="sechead">
-    <h2 class="h2" id="events-h">Events</h2>
-    <span class="muted"
+    <h2 class="st-title3" id="events-h">Events</h2>
+    <span class="st-secondary"
       >{shown.length} of {events.length}{dropped ? ` · ${dropped} older not kept` : ''}</span
     >
   </div>
   <div class="evtools">
-    <div class="seg" role="group" aria-label="Level">
+    <div class="st-segmented" role="group" aria-label="Level">
       {#each levelFilters as f (f.min)}
         <button type="button" aria-pressed={min === f.min} onclick={() => (min = f.min)}>
           {f.label}
@@ -24,8 +28,8 @@
       {/each}
     </div>
     <label class="filter">
-      <span class="sr">Filter events</span>
-      <input class="input" type="search" placeholder="Filter events" bind:value={text} />
+      <span class="vc-sr">Filter events</span>
+      <input class="st-input" type="search" placeholder="Filter events" bind:value={text} />
     </label>
   </div>
   <div class="evlist" role="log" aria-label="Run events, newest first">
@@ -36,7 +40,7 @@
         <span><span class="who">{line.who}</span> <span class="msg">{line.message}</span></span>
       </div>
     {:else}
-      <p class="muted none">
+      <p class="st-secondary none">
         {events.length ? 'No events match these filters.' : 'No events yet.'}
       </p>
     {/each}
@@ -48,7 +52,7 @@
     display: flex;
     flex-direction: column;
     min-width: 0;
-    border-top: 1px solid var(--line);
+    border-top: 1px solid var(--st-chrome-separator);
   }
   .sechead {
     display: flex;
@@ -63,13 +67,13 @@
     gap: 8px;
     align-items: center;
     padding: 0 16px 12px;
-    border-bottom: 1px solid var(--line);
+    border-bottom: 1px solid var(--st-chrome-separator);
   }
   .filter {
     flex: 1 1 140px;
     min-width: 0;
   }
-  .filter .input {
+  .filter .st-input {
     height: 30px;
     font-size: 12.5px;
   }
@@ -82,30 +86,30 @@
     grid-template-columns: 58px 16px minmax(0, 1fr);
     gap: 8px;
     padding: 8px 16px;
-    border-bottom: 1px solid var(--line);
+    border-bottom: 1px solid var(--st-chrome-separator);
     font-size: 12.5px;
     align-items: start;
     line-height: 1.45;
   }
   .ev.error {
-    background: color-mix(in srgb, var(--failSoft) 30%, var(--panel));
+    background: color-mix(in srgb, var(--vc-fail-soft) 30%, var(--st-surface-wash));
   }
-  .ev .dot {
+  .ev .st-dot {
     margin-top: 5px;
-    background: var(--ink3);
+    background: var(--st-text-tertiary);
   }
-  .ev .dot.block {
-    background: var(--block);
+  .ev .st-dot.vc-blocked {
+    background: var(--vc-blocked);
   }
-  .ev .dot.fail {
-    background: var(--fail);
+  .ev .st-dot.vc-fail {
+    background: var(--vc-fail);
   }
   .tm {
-    font: 11.5px var(--mono);
-    color: var(--ink2);
+    font: 11.5px var(--st-font-mono);
+    color: var(--st-text-secondary);
   }
   .who {
-    font: 500 12px var(--mono);
+    font: 500 12px var(--st-font-mono);
     word-break: break-all;
   }
   .none {

@@ -4,3 +4,5 @@ src/lib/gen/
 report/
 test-results/
 playwright-report/
+src/lib/styles/strata/tokens.css
+src/lib/styles/strata/strata.css

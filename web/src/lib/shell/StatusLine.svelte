@@ -9,17 +9,17 @@
 
   let check = $derived(project.check);
   let tone = $derived(
-    !check ? '' : check.errors ? 'st-fail' : check.warnings ? 'st-flaky' : 'st-pass',
+    !check ? '' : check.errors ? 'vc-fail' : check.warnings ? 'vc-flaky' : 'vc-pass',
   );
 </script>
 
 <footer class="statusline" aria-label="Status">
   <span class="item">vc <b>{project.version ?? '…'}</b></span>
   {#if project.name}<span class="item hide-narrow">project <b>{project.name}</b></span>{/if}
-  {#if branch}<span class="item hide-narrow">branch <b class="mono">{branch}</b></span>{/if}
-  <span class="grow"></span>
+  {#if branch}<span class="item hide-narrow">branch <b class="vc-mono">{branch}</b></span>{/if}
+  <span class="vc-grow"></span>
   <span class="item" title={project.error}>
-    {#if tone}<span class="dot {tone}" aria-hidden="true"></span>{/if}
+    {#if tone}<span class="st-dot {tone}" aria-hidden="true"></span>{/if}
     {checkLine(check)}
   </span>
 </footer>

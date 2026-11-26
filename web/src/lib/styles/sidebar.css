@@ -1,14 +1,15 @@
-/* The space switcher and the sidebar of UI v2, from design/mockups/ui-v2/sidebar.css
-   (docs/design/ui.md §3, D512-D515): the icon rail (or the row at the sidebar foot), the
-   sidebar frame, its collapsible sections and rows, and how both behave by width.
+/* The space switcher and the sidebar of UI v2 on Strata (docs/design/ui.md §3, D512-D515,
+   D590): the icon rail (or the row at the sidebar foot), the sidebar frame, its collapsible
+   sections and rows, and how both behave by width. All of it is chrome on the canvas: no box,
+   no border; a row is exactly --st-row high, its icon and text centred.
 
      nav.rail > a.rail-brand, ul.rail-list > li > a.sp-btn, ul.rail-end
      aside.sidebar > .sb-top (h2.sb-title, .sb-hide) > .sb-body > nav.sb-spaces (foot only)
      .sb-secs > section.sb-sec(.is-open) > .sb-sec-head > button.sb-sec-btn + .sb-sec-body
      ul.sb-nav > li > a.sb-row (.title .meta) */
 
-/* ---- space switcher (L0) ------------------------------------------------- */
-/* "Icon rail": a slim column left of the sidebar. The current space is a raised L2 pill. */
+/* ---- space switcher (on the canvas) --------------------------------------- */
+/* "Icon rail": a slim column left of the sidebar. The current space is a selected chrome plate. */
 .rail {
   flex: none;
   position: relative;
@@ -16,18 +17,18 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--sp-2);
-  width: var(--rail-w);
+  gap: var(--st-space-8);
+  width: var(--vc-rail-w);
   min-height: 0;
-  padding-bottom: var(--sp-3);
-  color: var(--l0-ink-2);
+  padding-bottom: var(--st-space-12);
+  color: var(--st-text-secondary);
 }
 .rail-brand {
   display: grid;
   place-items: center;
   flex: none;
-  height: var(--topbar-h);
-  color: var(--l0-ink);
+  height: var(--st-titlebar-height);
+  color: var(--st-text-primary);
   text-decoration: none;
 }
 .rail-brand .mark {
@@ -39,10 +40,10 @@
   stroke-linejoin: round;
 }
 .rail-brand .hex {
-  stroke: var(--accent);
+  stroke: var(--st-accent);
 }
 .rail-brand .vee {
-  stroke: var(--l0-ink);
+  stroke: var(--st-text-primary);
 }
 .rail-list,
 .sb-spaces-list {
@@ -51,7 +52,7 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--sp-1);
+  gap: var(--st-space-4);
 }
 .rail-end {
   margin-top: auto;
@@ -65,40 +66,51 @@
   width: 52px;
   height: 50px;
   padding: 0;
-  border: 1px solid transparent;
-  border-radius: var(--r-lg);
+  border: 0;
+  border-radius: var(--st-radius-md);
   background: transparent;
-  color: var(--l0-ink-2);
-  font-size: var(--fs-0);
-  font-weight: var(--fw-medium);
+  color: var(--st-text-secondary);
+  font: var(--st-type-micro);
   line-height: 1;
   text-decoration: none;
   transition:
-    background-color var(--dur-2) var(--ease),
-    color var(--dur-2) var(--ease);
+    background-color var(--st-duration-fast) var(--st-ease-standard),
+    color var(--st-duration-fast) var(--st-ease-standard);
 }
-.sp-btn .ico {
+.sp-btn .st-icon {
   width: 18px;
   height: 18px;
 }
 .sp-btn:hover {
-  background: var(--l0-hover);
-  color: var(--l0-ink);
+  background: var(--st-chrome-hover);
+  color: var(--st-text-primary);
 }
 .sp-btn[aria-current='page'] {
-  color: var(--l0-ink);
-  background: var(--l2-bg);
-  border-color: var(--l2-border);
-  box-shadow: var(--sh-l2);
+  color: var(--st-text-primary);
+  background: var(--st-chrome-selected);
+  box-shadow: var(--st-shadow-xs);
 }
-.sp-label {
+.sp-label,
+.sp-hint {
   white-space: nowrap;
+}
+/* holding the modifier (D600): each space's shortcut, plain tertiary text, in place of its label */
+.sp-hint {
+  display: none;
+  color: var(--st-text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+.app.is-hints .sp-hint {
+  display: inline;
+}
+.app.is-hints .sp-label {
+  display: none;
 }
 /* "Sidebar bottom": the five icons in a row at the sidebar foot */
 .sb-spaces {
   flex: none;
-  padding-top: var(--sp-2);
-  border-top: 1px solid var(--l0-rule);
+  padding-top: var(--st-space-8);
+  border-top: 1px solid var(--st-chrome-separator);
 }
 .sb-spaces-list {
   flex-direction: row;
@@ -114,54 +126,58 @@
 .app[data-switcher='foot'] .rail .sp-label {
   display: none;
 }
+.app.is-hints .sb-spaces .sp-btn .st-icon,
+.app.is-hints[data-switcher='foot'] .rail .sp-btn .st-icon {
+  display: none;
+}
 /* ... and while the sidebar is out of the layout, a minimal strip of the same icons */
 .app[data-switcher='foot'] .rail {
-  width: var(--strip-w);
+  width: var(--vc-strip-w);
 }
 
-/* ---- sidebar (L0) -------------------------------------------------------- */
+/* ---- sidebar (on the canvas) ---------------------------------------------- */
 .sidebar {
   flex: none;
   display: flex;
   flex-direction: column;
-  width: var(--sidebar-w);
+  width: var(--st-sidebar-width);
   min-height: 0;
-  padding: 0 var(--sp-1) var(--sp-3) 0;
-  gap: var(--sp-2);
-  color: var(--l0-ink); /* R2: straight on L0, no panel background */
+  padding: 0 var(--st-space-4) var(--st-space-12) 0;
+  gap: var(--st-space-8);
+  color: var(--st-text-primary); /* R2: straight on the canvas, no panel background */
 }
 .app[data-switcher='foot'] .sidebar {
-  padding-left: var(--sp-1);
+  padding-left: var(--st-space-4);
 }
 .sb-top {
   display: flex;
   align-items: center;
-  gap: var(--sp-2);
+  gap: var(--st-space-8);
   flex: none;
-  height: var(--topbar-h); /* lines up with the top row */
-  padding-left: var(--sp-3);
+  height: var(--st-titlebar-height); /* lines up with the top row */
+  padding-left: var(--st-space-12);
 }
 .app[data-switcher='foot'] .sb-top {
-  padding-left: var(--sp-2);
+  padding-left: var(--st-space-8);
 }
 .sb-title {
   flex: 1 1 auto;
   min-width: 0;
   margin: 0;
-  font-size: var(--fs-3);
-  font-weight: var(--fw-semibold);
-  color: var(--l0-ink);
+  font: var(--st-type-title3);
+  letter-spacing: var(--st-tracking-title3);
+  color: var(--st-text-primary);
 }
 .sb-hide {
   margin-left: auto;
-  color: var(--l0-ink-2);
+  color: var(--st-text-secondary);
 }
 .sb-body {
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--sp-4);
+  gap: var(--st-space-16);
   overflow-y: auto;
   overflow-x: hidden;
   padding: 0 2px;
@@ -171,13 +187,13 @@
   overflow: hidden;
 }
 
-/* collapsible sections: quiet L0 header rows; open sections share the height */
+/* collapsible sections: quiet header rows on the canvas; open sections share the height */
 .sb-secs {
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--sp-1);
+  gap: var(--st-space-4);
 }
 .sb-sec {
   flex: none;
@@ -189,46 +205,43 @@
   flex: 1 1 0;
 }
 .sb-sec + .sb-sec {
-  border-top: 1px solid var(--l0-rule);
-  padding-top: var(--sp-1);
+  border-top: 1px solid var(--st-chrome-separator);
+  padding-top: var(--st-space-4);
 }
 .sb-sec-head {
   position: relative;
   flex: none;
   display: flex;
   align-items: center;
-  gap: var(--sp-1);
-  min-height: 32px;
-  padding: 0 var(--sp-2) 0 var(--sp-3);
-  border-radius: var(--r-md);
-  color: var(--l0-ink-3);
+  gap: var(--st-space-4);
+  height: var(--st-row);
+  padding: 0 var(--st-space-8) 0 var(--st-space-10);
+  border-radius: var(--st-radius-md);
+  color: var(--st-text-tertiary);
 }
 .sb-sec-head:hover {
-  color: var(--l0-ink-2);
+  color: var(--st-text-secondary);
 }
 .sb-sec-head:has(.sb-sec-btn:focus-visible) {
-  outline: 2px solid var(--focus);
-  outline-offset: -2px;
+  box-shadow: var(--st-focus-ring);
 }
 .sb-sec-btn {
   flex: 1 1 auto;
   display: flex;
   align-items: center;
-  gap: var(--sp-2);
+  gap: var(--st-space-8);
   min-width: 0;
-  height: 32px;
+  height: 100%;
   padding: 0;
   border: 0;
   background: transparent;
   color: inherit;
   text-align: left;
-  font-size: var(--fs-1);
-  font-weight: var(--fw-semibold);
-  letter-spacing: var(--tracking-label);
-  text-transform: uppercase;
+  font: var(--st-type-label);
+  letter-spacing: var(--st-tracking-label);
 }
 .sb-sec-btn:focus-visible {
-  outline: none;
+  box-shadow: none;
 }
 .sb-sec-btn::after {
   content: '';
@@ -237,9 +250,9 @@
   border-radius: inherit;
 } /* the whole row toggles */
 .sb-sec-meta {
-  font-weight: var(--fw-medium);
+  font: var(--st-type-caption);
   letter-spacing: 0;
-  color: var(--l0-ink-3);
+  color: var(--st-text-tertiary);
   font-variant-numeric: tabular-nums;
 }
 .sb-sec-acts {
@@ -249,12 +262,12 @@
   align-items: center;
   gap: 2px;
   flex: none;
-  color: var(--l0-ink-2);
+  color: var(--st-text-secondary);
 }
 .sb-sec-chev {
   flex: none;
   pointer-events: none;
-  transition: rotate var(--dur-2) var(--ease);
+  transition: rotate var(--st-duration-fast) var(--st-ease-standard);
 }
 .sb-sec:not(.is-open) .sb-sec-chev {
   rotate: -90deg;
@@ -270,15 +283,13 @@
 .sb-label {
   display: flex;
   align-items: center;
-  gap: var(--sp-2);
+  gap: var(--st-space-8);
   margin: 0;
-  padding: 0 var(--sp-3);
-  min-height: 24px;
-  font-size: var(--fs-1);
-  font-weight: var(--fw-semibold);
-  letter-spacing: var(--tracking-label);
-  text-transform: uppercase;
-  color: var(--l0-ink-3);
+  padding: 0 var(--st-space-10);
+  height: 24px;
+  font: var(--st-type-label);
+  letter-spacing: var(--st-tracking-label);
+  color: var(--st-text-tertiary);
 }
 .sb-section {
   display: flex;
@@ -290,12 +301,12 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--sp-2);
-  padding-bottom: var(--sp-1);
+  gap: var(--st-space-8);
+  padding-bottom: var(--st-space-4);
 }
-.sb-section-head .btn {
+.sb-section-head .st-btn {
   margin-right: 2px;
-  color: var(--l0-ink-2);
+  color: var(--st-text-secondary);
 }
 .sb-nav {
   list-style: none;
@@ -306,37 +317,43 @@
   gap: 2px;
 }
 
-/* L0 list rows: flat, highlighted on hover, "selected" is a soft plate */
+/* list rows on the canvas, as Strata's .st-row: flat, washed on hover, "selected" a white plate */
 .sb-row {
   display: flex;
   align-items: center;
-  gap: var(--sp-2);
-  min-height: 32px;
-  padding: 4px var(--sp-3);
+  gap: var(--st-space-8);
+  height: var(--st-row);
+  padding: 0 var(--st-space-10);
   border: 0;
-  border-radius: var(--r-md);
+  border-radius: var(--st-radius-md);
   background: transparent;
-  color: var(--l0-ink);
+  color: var(--st-text-secondary);
   text-align: left;
   text-decoration: none;
   width: 100%;
   min-width: 0;
-  font-size: var(--fs-2);
+  font: var(--st-type-body);
+  white-space: nowrap;
+  transition:
+    background-color var(--st-duration-fast) var(--st-ease-standard),
+    color var(--st-duration-fast) var(--st-ease-standard);
 }
 .sb-row:hover {
-  background: var(--l0-hover);
+  background: var(--st-chrome-hover);
+  color: var(--st-text-primary);
 }
 .sb-row[aria-current='page'],
+.sb-row[aria-current='true'],
 .sb-row.is-selected {
-  background: var(--l0-selected);
-  box-shadow:
-    inset 0 1px 0 var(--l2-highlight),
-    var(--sh-row);
+  background: var(--st-chrome-selected);
+  color: var(--st-text-primary);
+  font: var(--st-type-body-strong);
+  box-shadow: var(--st-shadow-xs);
 }
 .sb-row .meta {
   margin-left: auto;
-  color: var(--l0-ink-2);
-  font-size: var(--fs-1);
+  color: var(--st-text-secondary);
+  font-size: var(--vc-size-caption);
   flex: none;
 }
 .sb-row .title {
@@ -353,9 +370,9 @@
   display: grid;
   place-items: center;
   border: 0;
-  border-radius: var(--r-xs);
+  border-radius: var(--st-radius-xs);
   background: transparent;
-  color: var(--l0-ink-2);
+  color: var(--st-text-secondary);
   opacity: 0;
 }
 .sb-row:hover .close,
@@ -364,8 +381,7 @@
   opacity: 1;
 }
 .sb-row .close:hover {
-  background: var(--l0-hover);
-  color: var(--l0-ink);
+  color: var(--st-text-primary);
 }
 
 .search-field {
@@ -422,25 +438,26 @@
     z-index: 40;
     top: 0;
     bottom: 0;
-    left: var(--rail-w);
-    width: min(var(--sidebar-w), calc(100% - var(--rail-w) - 16px));
-    padding-left: var(--sp-1);
-    background: var(--l3-bg);
-    -webkit-backdrop-filter: blur(var(--blur-l3));
-    backdrop-filter: blur(var(--blur-l3));
-    box-shadow: var(--sh-l3);
+    left: var(--vc-rail-w);
+    width: min(var(--st-sidebar-width), calc(100% - var(--vc-rail-w) - 16px));
+    padding-left: var(--st-space-4);
+    border-radius: 0 var(--st-radius-overlay) var(--st-radius-overlay) 0;
+    background: var(--st-surface-overlay);
+    -webkit-backdrop-filter: var(--st-overlay-filter);
+    backdrop-filter: var(--st-overlay-filter);
+    box-shadow: var(--vc-shadow-overlay);
     transform: translateX(-12px);
     opacity: 0;
     visibility: hidden;
     transition:
-      transform var(--dur-3) var(--ease),
-      opacity var(--dur-3) var(--ease),
-      visibility var(--dur-3);
+      transform var(--st-duration-base) var(--st-ease-standard),
+      opacity var(--st-duration-base) var(--st-ease-standard),
+      visibility var(--st-duration-base);
   }
   .app[data-switcher='foot'] .sidebar {
     left: 0;
     z-index: 46;
-    width: min(var(--sidebar-w), calc(100% - 16px));
+    width: min(var(--st-sidebar-width), calc(100% - 16px));
   }
   .app.is-drawer-open .sidebar {
     transform: none;
@@ -451,6 +468,6 @@
     position: absolute;
     inset: 0;
     z-index: 35;
-    background: var(--l3-backdrop);
+    background: var(--st-scrim);
   }
 }

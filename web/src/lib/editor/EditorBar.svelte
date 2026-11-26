@@ -52,16 +52,19 @@
 </script>
 
 <div class="head">
-  <p class="path mono" title={path}>
+  <p class="path vc-mono" title={path}>
     <span class="dir">{dirName(path) && `${dirName(path)}/`}</span>{baseName(path)}
   </p>
-  <span class="pill" class:accent={editor.dirty && !errors} class:fail={errors > 0} role="status"
-    >{status}</span
+  <span
+    class="st-badge"
+    class:vc-accent={editor.dirty && !errors}
+    class:vc-fail={errors > 0}
+    role="status">{status}</span
   >
-  <span class="grow"></span>
+  <span class="vc-grow"></span>
   <button
     type="button"
-    class="btn sm"
+    class="st-btn st-btn--sm"
     aria-pressed={showDiff}
     onclick={() => (showDiff = !showDiff)}
   >
@@ -69,31 +72,35 @@
         >−{changes.del}</span
       >{/if}
   </button>
-  <button type="button" class="btn sm" disabled={!editor.dirty} onclick={() => editor.revert()}
-    >Revert</button
+  <button
+    type="button"
+    class="st-btn st-btn--sm"
+    disabled={!editor.dirty}
+    onclick={() => editor.revert()}>Revert</button
   >
   {#if fixable}
-    <button type="button" class="btn sm" onclick={() => editor.fixAll()}>Fix all ({fixable})</button
+    <button type="button" class="st-btn st-btn--sm" onclick={() => editor.fixAll()}
+      >Fix all ({fixable})</button
     >
   {/if}
-  <button type="button" class="btn sm" onclick={() => void editor.check()}>Check</button>
+  <button type="button" class="st-btn st-btn--sm" onclick={() => void editor.check()}>Check</button>
   {#if session.running}
     <StopControls {session} />
   {:else if runnable(path)}
     <button
       type="button"
-      class="btn sm"
+      class="st-btn st-btn--sm"
       onclick={() => void session.start({ selection: { paths: [path] } })}>Run file</button
     >
   {/if}
   <button
     type="button"
-    class="btn sm primary"
+    class="st-btn st-btn--sm st-btn--primary"
     disabled={!editor.canSave}
     title="Save (Ctrl+S or Cmd+S)"
     onclick={() => void editor.save()}>Save</button
   >
-  <Menu label="File actions" items={actions} button="btn btn-ghost btn-icon btn-sm" onpick={pick}>
+  <Menu label="File actions" items={actions} button="st-icon-btn st-icon-btn--sm" onpick={pick}>
     <span aria-hidden="true">⋯</span>
   </Menu>
 </div>
@@ -112,12 +119,12 @@
     white-space: nowrap;
   }
   .dir {
-    color: var(--ink3);
+    color: var(--st-text-tertiary);
   }
   .plus {
-    color: var(--pass);
+    color: var(--vc-pass);
   }
   .minus {
-    color: var(--fail);
+    color: var(--vc-fail);
   }
 </style>

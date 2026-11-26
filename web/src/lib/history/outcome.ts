@@ -1,10 +1,10 @@
 import type { RunOutcome } from './port.ts';
 
-/** The `dot` and `pill` modifier class of each run outcome (controls.css). */
+/** The `st-dot` and `st-badge` modifier class of each run outcome (strata/vibranium.css). */
 export const outcomeClass: Readonly<Record<RunOutcome, string>> = {
-  passed: 'pass',
-  failed: 'fail',
-  cancelled: 'block',
+  passed: 'vc-pass',
+  failed: 'vc-fail',
+  cancelled: 'vc-blocked',
   unfinished: '',
 };
 

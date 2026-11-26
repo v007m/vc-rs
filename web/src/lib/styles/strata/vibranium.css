@@ -1,0 +1,504 @@
+/* Vibranium's layer over Strata 1.0.0 (docs/design/ui.md §2, Round 95). It loads after the
+   vendored strata/tokens.css and strata/strata.css, which are never edited, so a Strata update
+   is a plain copy. Everything Vibranium changes or adds is here, in four parts:
+     1. Strata token overrides: the font stack with the bundled Inter, the input height, the
+        window inset, the matte grain and the slate dark surfaces.
+     2. Vibranium tokens (--vc-*): the status language shared with the CLI, TUI and report, HTTP
+        methods, YAML syntax, diffs, the waterfall, the prod profile and the shell's sizes.
+     3. Strata recipe overrides where Sarath's rules differ: capsule segmented, switch and slider
+        with a glassy debossed thumb, capsule badges, buttons that wrap instead of clipping,
+        dialogs, toasts and overlays as native <dialog> and [popover] elements.
+     4. Vibranium recipes Strata lacks: status badges and dots, tabs, wells and utilities.
+   Shapes (one rule per element kind): cards 10px and overlays 14px; buttons, icon buttons, rows
+   and tabs 8px; single-line fields, search, segmented controls, switches and badges are
+   capsules; form fields and multi-line fields are 8px rounded rects (.st-input--rect). A shape
+   nested in a padded one uses the outer radius minus the padding (--vc-radius-inner). */
+
+/* ---- 1. token overrides ---------------------------------------------------------------- */
+:root {
+  --st-font-sans:
+    'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Inter Variable', Inter, 'Segoe UI Variable',
+    'Segoe UI', system-ui, sans-serif;
+  --st-font-display:
+    'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Inter Variable', Inter,
+    'Segoe UI Variable', system-ui, sans-serif;
+  /* one row height: a field beside a button is as tall as the button (24/30/36) */
+  --st-size-input-height: var(--st-size-control-md);
+  /* a page has no desktop behind it, so the canvas is opaque */
+  --st-window-opacity: 1;
+  --vc-grain: 0.12;
+  --vc-grain-blend: multiply;
+}
+@media (min-width: 1601px) {
+  :root {
+    --st-window-inset: 10px;
+  }
+}
+/* Dark cards are a quiet slate, never black or neutral grey. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --st-surface-solid: #253137;
+    --st-surface-glass: #2531379e;
+    --st-surface-overlay: #27343aeb;
+    --st-surface-input-on-card: #1c262b;
+    --vc-grain: 0.4;
+    --vc-grain-blend: soft-light;
+  }
+}
+:root[data-theme='dark'] {
+  --st-surface-solid: #253137;
+  --st-surface-glass: #2531379e;
+  --st-surface-overlay: #27343aeb;
+  --st-surface-input-on-card: #1c262b;
+  --vc-grain: 0.4;
+  --vc-grain-blend: soft-light;
+}
+/* Reduced transparency again, after the slate: Strata's own rule loses to its dark blocks. */
+@media (prefers-reduced-transparency: reduce) {
+  :root:not([data-transparency='full']) {
+    --st-surface-glass: var(--st-surface-solid);
+    --st-surface-overlay: var(--st-surface-solid);
+    --st-surface-input: var(--st-surface-input-on-card);
+    --st-blur-glass: 0px;
+    --st-blur-overlay: 0px;
+    --st-blur-chrome: 0px;
+  }
+}
+:root[data-transparency='reduced'] {
+  --st-surface-glass: var(--st-surface-solid);
+  --st-surface-overlay: var(--st-surface-solid);
+  --st-surface-input: var(--st-surface-input-on-card);
+  --st-blur-glass: 0px;
+  --st-blur-overlay: 0px;
+  --st-blur-chrome: 0px;
+}
+
+/* ---- 2. Vibranium tokens ------------------------------------------------------------------ */
+/* light-dark(LIGHT, DARK) follows the color-scheme that Strata's mode blocks set. */
+:root {
+  /* status (D41): each has a mark colour, a soft fill and an ink that passes AA on that fill */
+  --vc-pass: light-dark(#0f6039, #55d99a);
+  --vc-pass-soft: light-dark(#ddf3e7, rgb(70 208 143 / 0.15));
+  --vc-pass-ink: light-dark(#0f5c37, #7fe2b3);
+  --vc-fail: light-dark(#a01c1c, #ffa8aa);
+  --vc-fail-soft: light-dark(#fde5e4, rgb(255 107 112 / 0.15));
+  --vc-fail-ink: light-dark(#9c1f1f, #ff9ea1);
+  --vc-blocked: light-dark(#7a4600, #f5b75a);
+  --vc-blocked-soft: light-dark(#fbefd9, rgb(243 173 69 / 0.15));
+  --vc-blocked-ink: light-dark(#784600, #f8c57a);
+  --vc-skipped: light-dark(#4c5260, #c0c5ce);
+  --vc-skipped-soft: light-dark(#eaecef, rgb(160 166 178 / 0.15));
+  --vc-skipped-ink: light-dark(#434956, #c5cad3);
+  --vc-flaky: light-dark(#204caa, #a2c3ff);
+  --vc-flaky-soft: light-dark(#e3ebfc, rgb(126 170 255 / 0.15));
+  --vc-flaky-ink: light-dark(#1f4699, #a9c6ff);
+  --vc-allow: light-dark(#8c2c67, #f6a8d3);
+  --vc-allow-soft: light-dark(#f9e4f0, rgb(240 143 196 / 0.15));
+  --vc-allow-ink: light-dark(#80285f, #f6b5d9);
+  --vc-warn: var(--vc-blocked);
+  --vc-info: var(--vc-flaky);
+  /* a live data profile reads as a warning everywhere it shows */
+  --vc-prod-bg: light-dark(oklch(0.93 0.05 25 / 0.9), oklch(0.42 0.15 25 / 0.55));
+  --vc-prod-border: light-dark(oklch(0.62 0.18 25 / 0.5), oklch(0.72 0.16 25 / 0.5));
+  --vc-prod-ink: light-dark(#8f1d1d, #ffe1e1);
+  /* one hue per profile, the same everywhere (local blue, dev teal, staging amber, prod red) */
+  --vc-profile-hue: 255;
+  /* HTTP methods */
+  --vc-m-get: light-dark(#0f5e39, #6ee0aa);
+  --vc-m-post: light-dark(#214ca6, #a3c2ff);
+  --vc-m-put: light-dark(#7a4600, #f3b860);
+  --vc-m-patch: light-dark(#6436ab, #d2b8ff);
+  --vc-m-delete: light-dark(#9e1e1e, #ffa3a6);
+  --vc-m-stream: light-dark(#095863, #6fdde8);
+  /* YAML and JSON syntax */
+  --vc-syn-key: light-dark(#5038c0, #b9a8ff);
+  --vc-syn-string: light-dark(#0f5e39, #8fe0b0);
+  --vc-syn-number: light-dark(#862a63, #f5a3cf);
+  --vc-syn-bool: light-dark(#7a4600, #f3c06b);
+  --vc-syn-null: light-dark(#4a4f5d, #adb2bd);
+  --vc-syn-punct: light-dark(#636976, #8a909b);
+  --vc-syn-var: var(--st-accent);
+  --vc-syn-var-bg: var(--st-accent-soft);
+  /* diffs */
+  --vc-diff-add-bg: light-dark(#e3f5ea, rgb(70 208 143 / 0.13));
+  --vc-diff-add-ink: light-dark(#0f5c37, #8fe6b9);
+  --vc-diff-del-bg: light-dark(#fde8e7, rgb(255 107 112 / 0.13));
+  --vc-diff-del-ink: light-dark(#9c1f1f, #ffa4a7);
+  /* the timing waterfall */
+  --vc-wf-dns: oklch(0.7 0.1 230);
+  --vc-wf-connect: oklch(0.68 0.13 200);
+  --vc-wf-tls: oklch(0.72 0.12 175);
+  --vc-wf-wait: oklch(0.74 0.14 75);
+  --vc-wf-down: oklch(0.66 0.16 25);
+  /* surfaces Strata has no name for */
+  --vc-rule-strong: color-mix(in srgb, var(--st-text-primary) 18%, transparent);
+  --vc-deboss: inset 0 1px 2px var(--st-shadow-ink), inset 0 0 0 0.5px var(--st-edge-hairline);
+  --vc-thumb-bg: light-dark(#ffffffd9, #ffffff29);
+  --vc-thumb-shadow:
+    inset 0 1px 1px var(--st-shadow-ink), inset 0 0 0 0.5px var(--st-edge-hairline),
+    0 0.5px 0 var(--st-edge-highlight);
+  --vc-radius-inner: var(--st-radius-sm);
+  --vc-accent-mid: color-mix(in srgb, var(--st-accent) 45%, transparent);
+  --vc-shadow-overlay: var(--st-edge-card), var(--st-shadow-lg);
+  /* the type sizes of Strata's roles, for rules that set only a size */
+  --vc-size-micro: 11px;
+  --vc-size-caption: 12px;
+  --vc-size-body: 13px;
+  --vc-size-callout: 14px;
+  --vc-size-title3: 15px;
+  --vc-size-title2: 17px;
+  --vc-size-title1: 20px;
+  --vc-size-large-title: 26px;
+  --vc-lh: 1.45;
+  --vc-lh-code: 1.5;
+  /* the shell */
+  --vc-rail-w: 64px;
+  --vc-strip-w: 64px;
+  --vc-statusline-h: 28px;
+}
+
+/* ---- 3. recipe overrides ------------------------------------------------------------------ */
+/* the matte grain as a file: vc ui's CSP (img-src 'self') blocks Strata's data: URI */
+.st-canvas::after {
+  opacity: var(--vc-grain);
+  mix-blend-mode: var(--vc-grain-blend);
+  background-image: url('../grain.svg');
+  background-size: 200px 200px;
+}
+/* cards are glass unless the viewer chose solid ones */
+[data-cards='solid'] .st-card--glass {
+  background: var(--st-surface-solid);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+/* buttons: one emboss, the 24/30/36 scale as a floor, and a long label wraps, never clips */
+.st-btn {
+  height: auto;
+  min-height: var(--st-size-control-md);
+  max-width: 100%;
+  padding-block: var(--st-space-4);
+  white-space: normal;
+  text-align: center;
+  text-decoration: none;
+  user-select: none;
+  cursor: pointer;
+}
+.st-btn--sm {
+  min-height: var(--st-size-control-sm);
+  padding-block: var(--st-space-2);
+}
+.st-btn--lg {
+  min-height: var(--st-size-control-lg);
+}
+.st-btn[aria-pressed='true'],
+.st-btn[aria-expanded='true'] {
+  box-shadow: var(--vc-deboss);
+}
+.st-btn[aria-disabled='true'] {
+  opacity: var(--st-opacity-disabled);
+  pointer-events: none;
+}
+.st-btn--ghost[aria-pressed='true'],
+.st-btn--ghost[aria-expanded='true'] {
+  background: var(--st-surface-wash);
+  box-shadow: none;
+}
+/* a destructive action that is not the view's primary one: red text on a normal button */
+.vc-btn--destructive,
+.st-card .vc-btn--destructive {
+  color: var(--vc-fail-ink);
+}
+/* icon buttons: as tall as the buttons beside them; never a fill or a border */
+.st-icon-btn {
+  width: var(--st-size-control-md);
+  height: var(--st-size-control-md);
+  text-decoration: none;
+  cursor: pointer;
+}
+.st-icon-btn--sm {
+  width: var(--st-size-control-sm);
+  height: var(--st-size-control-sm);
+}
+.st-icon-btn[aria-disabled='true'] {
+  opacity: var(--st-opacity-disabled);
+  pointer-events: none;
+}
+
+/* fields: select and the class on a bare control share the input shape */
+select.st-input {
+  width: 100%;
+  min-width: 0;
+  padding: 0 var(--st-space-12);
+  border: 0;
+  outline: 0;
+  font: var(--st-type-body);
+}
+textarea.st-input {
+  min-height: 96px;
+  font: var(--st-type-code);
+}
+.st-input[aria-invalid='true'] {
+  box-shadow:
+    var(--st-emboss),
+    0 0 0 1px var(--vc-fail);
+}
+
+/* segmented: a capsule track with a glassy, debossed capsule thumb (iOS-style) */
+.st-segmented {
+  flex-wrap: wrap;
+  align-items: center;
+  max-width: 100%;
+  border-radius: var(--st-radius-capsule);
+}
+.st-segmented button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--st-space-6);
+  height: calc(var(--st-size-control-md) - 4px);
+  border-radius: var(--st-radius-capsule);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.st-segmented button[aria-pressed='true'] {
+  background: var(--vc-thumb-bg);
+  box-shadow: var(--vc-thumb-shadow);
+  -webkit-backdrop-filter: var(--st-glass-filter);
+  backdrop-filter: var(--st-glass-filter);
+}
+.st-segmented button:disabled {
+  opacity: var(--st-opacity-disabled);
+  pointer-events: none;
+}
+/* the switch and the slider match it: the same track, the same thumb */
+.st-switch::after,
+.st-slider::-webkit-slider-thumb {
+  background: light-dark(#ffffff, #e9eef0);
+  box-shadow:
+    0 1px 2px var(--st-shadow-ink),
+    inset 0 -1px 0 var(--st-edge-lowlight);
+}
+.st-slider::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: var(--st-radius-capsule);
+  box-shadow: var(--vc-deboss);
+}
+.st-slider::-webkit-slider-thumb {
+  margin-top: -5px;
+}
+
+/* badges: capsules, a little larger than Strata's, with room around the word */
+.st-badge {
+  height: 22px;
+  padding: 0 var(--st-space-10);
+  gap: var(--st-space-4);
+  border-radius: var(--st-radius-capsule);
+  font: var(--st-type-caption);
+  font-weight: var(--st-weight-medium);
+  white-space: nowrap;
+  flex: none;
+  background: var(--st-surface-wash);
+  color: var(--st-text-secondary);
+}
+
+/* overlays as native elements: <dialog> and [popover] bring their own borders and margins */
+dialog.st-overlay,
+[popover].st-overlay {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+dialog.st-overlay {
+  margin: auto;
+  max-width: min(720px, calc(100vw - 32px));
+  max-height: min(86vh, 820px);
+  overflow: hidden;
+}
+dialog.st-overlay::backdrop {
+  background: var(--st-scrim);
+}
+dialog.st-overlay[open],
+[popover].st-overlay:popover-open {
+  animation: st-pop var(--st-duration-fast) var(--st-ease-standard) both;
+}
+/* component display rules must not keep a closed popover on screen */
+[popover]:not(:popover-open) {
+  display: none !important;
+}
+/* dialogs: a Title2 heading; actions at the bottom right, Cancel first */
+.st-dialog {
+  width: min(480px, calc(100vw - 32px));
+}
+.st-dialog > :is(h1, h2, h3):first-child,
+.st-dialog .st-dialog-title {
+  font: var(--st-type-title2);
+  letter-spacing: var(--st-tracking-title2);
+  margin: 0;
+}
+/* toasts: a capsule at the bottom centre, centred text, an optional Undo capsule */
+.st-toast {
+  position: fixed;
+  left: 50%;
+  bottom: var(--st-space-24);
+  translate: -50% 0;
+  justify-content: center;
+  max-width: calc(100vw - 32px);
+  text-align: center;
+  background: var(--st-surface-overlay);
+  -webkit-backdrop-filter: var(--st-overlay-filter);
+  backdrop-filter: var(--st-overlay-filter);
+  animation: st-rise var(--st-duration-base) var(--st-ease-standard) both;
+}
+.st-toast .st-btn {
+  border-radius: var(--st-radius-capsule);
+}
+/* a section label on the canvas or a card: Strata's role, never upper case */
+.st-section-label {
+  margin: 0;
+}
+/* native radios and checkboxes not drawn as .st-check take the space's accent */
+input:is([type='radio'], [type='checkbox']) {
+  accent-color: var(--st-accent);
+}
+/* strata.css gives a bare input.st-input `flex: 1` so it fills a row; in a column it would
+   stretch into a tall oval, so a single-line field never grows past its height */
+input.st-input {
+  max-block-size: var(--st-size-input-height);
+}
+
+/* ---- 4. Vibranium recipes ----------------------------------------------------------------- */
+/* status badges and dots carry a word or a shape beside the colour (D41) */
+.st-badge.vc-pass {
+  color: var(--vc-pass-ink);
+  background: var(--vc-pass-soft);
+}
+.st-badge.vc-fail {
+  color: var(--vc-fail-ink);
+  background: var(--vc-fail-soft);
+}
+.st-badge.vc-blocked {
+  color: var(--vc-blocked-ink);
+  background: var(--vc-blocked-soft);
+}
+.st-badge.vc-skipped {
+  color: var(--vc-skipped-ink);
+  background: var(--vc-skipped-soft);
+}
+.st-badge.vc-flaky {
+  color: var(--vc-flaky-ink);
+  background: var(--vc-flaky-soft);
+}
+.st-badge.vc-accent {
+  color: var(--st-text-primary);
+  background: var(--st-accent-soft);
+}
+.st-dot {
+  display: inline-block;
+  background: var(--st-text-tertiary);
+}
+.st-dot.vc-pass {
+  background: var(--vc-pass);
+}
+.st-dot.vc-fail {
+  background: var(--vc-fail);
+}
+.st-dot.vc-blocked {
+  background: var(--vc-blocked);
+}
+.st-dot.vc-skipped {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--vc-skipped);
+}
+.st-dot.vc-flaky {
+  background: conic-gradient(var(--vc-flaky) 0 50%, transparent 0);
+  box-shadow: inset 0 0 0 1.5px var(--vc-flaky);
+}
+.st-dot.vc-live {
+  background: var(--vc-pass);
+  box-shadow: 0 0 0 3px var(--vc-pass-soft);
+  animation: vc-pulse 1.6s ease-in-out infinite;
+}
+@keyframes vc-pulse {
+  50% {
+    box-shadow: 0 0 0 6px transparent;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .st-dot.vc-live {
+    animation: none;
+  }
+}
+
+/* tabs: one component everywhere; on the canvas the open tab is a chrome plate, on a card a wash */
+.vc-tabs {
+  display: flex;
+  align-items: center;
+  gap: var(--st-space-2);
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.vc-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--st-space-6);
+  flex: none;
+  height: var(--st-size-control-md);
+  padding: 0 var(--st-space-12);
+  border: 0;
+  border-radius: var(--st-radius-md);
+  background: transparent;
+  color: var(--st-text-secondary);
+  font: var(--st-type-body-strong);
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background var(--st-duration-fast) var(--st-ease-standard),
+    color var(--st-duration-fast);
+}
+.vc-tab:hover {
+  color: var(--st-text-primary);
+  background: var(--st-chrome-hover);
+}
+.vc-tab:is([aria-selected='true'], [aria-current='page']) {
+  color: var(--st-text-primary);
+  background: var(--st-chrome-selected);
+  box-shadow: var(--st-shadow-xs);
+}
+.st-card .vc-tab:hover {
+  background: var(--st-surface-wash);
+}
+.st-card .vc-tab:is([aria-selected='true'], [aria-current='page']) {
+  background: var(--st-accent-soft);
+  box-shadow: none;
+}
+
+/* a debossed well inside a card, for code, logs and read-only viewers */
+.vc-well {
+  min-width: 0;
+  border-radius: var(--vc-radius-inner);
+  background: var(--st-surface-input-on-card);
+  box-shadow: var(--vc-deboss);
+}
+
+/* utilities */
+.vc-grow {
+  flex: 1 1 auto;
+}
+.vc-mono {
+  font-family: var(--st-font-mono);
+  font-size: var(--vc-size-caption);
+}
+.vc-icon-sm {
+  width: var(--st-size-icon-sm);
+  height: var(--st-size-icon-sm);
+}
+.vc-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

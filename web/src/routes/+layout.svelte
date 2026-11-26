@@ -1,12 +1,10 @@
 <script lang="ts">
   import '#lib/fonts/fonts.css';
-  import '#lib/styles/tokens.css';
-  import '#lib/styles/legacy.css';
-  import '#lib/styles/glass.css';
+  import '#lib/styles/strata/tokens.css';
+  import '#lib/styles/strata/strata.css';
+  import '#lib/styles/strata/vibranium.css';
   import '#lib/styles/shell.css';
   import '#lib/styles/sidebar.css';
-  import '#lib/styles/controls.css';
-  import '#lib/styles/status.css';
   import '#lib/styles/client.css';
   import { goto } from '$app/navigation';
   import { page } from '$app/state';

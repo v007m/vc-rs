@@ -44,27 +44,27 @@
 </script>
 
 <Dialog title="Move to trash" {onclose}>
-  <p>Move <code class="mono">{path}</code> to the trash? You can restore it from there.</p>
+  <p>Move <code class="vc-mono">{path}</code> to the trash? You can restore it from there.</p>
   {#if note}
-    <p class="muted" role="status">{note}</p>
+    <p class="st-secondary" role="status">{note}</p>
   {:else if references === undefined}
-    <p class="muted" role="status">Looking for tests that use it…</p>
+    <p class="st-secondary" role="status">Looking for tests that use it…</p>
   {:else if references.length}
     <p role="alert">
       {references.length}
       {references.length === 1 ? 'test refers' : 'tests refer'} to it and will break:
     </p>
-    <ul class="refs mono">
+    <ul class="refs vc-mono">
       {#each references as id (id)}<li>{id}</li>{/each}
     </ul>
   {:else}
-    <p class="muted" role="status">No other test refers to it.</p>
+    <p class="st-secondary" role="status">No other test refers to it.</p>
   {/if}
   <div class="actions">
-    <button type="button" class="btn" onclick={onclose}>Cancel</button>
+    <button type="button" class="st-btn" onclick={onclose}>Cancel</button>
     <button
       type="button"
-      class="btn btn-danger"
+      class="st-btn vc-btn--destructive"
       disabled={busy || references === undefined}
       onclick={() => void trash()}>Move to trash</button
     >

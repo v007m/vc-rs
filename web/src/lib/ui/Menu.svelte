@@ -13,7 +13,7 @@
     label,
     items,
     onpick,
-    button = 'btn',
+    button = 'st-btn',
     children,
   }: {
     label: string;
@@ -83,7 +83,7 @@
   </button>
   {#if open}
     <div
-      class="pop l3"
+      class="pop st-overlay st-menu"
       role="menu"
       id="{uid}-menu"
       aria-label={label}
@@ -94,7 +94,7 @@
         <button
           type="button"
           role="menuitem"
-          class="pop-item"
+          class="st-menu-item"
           tabindex="-1"
           aria-disabled={item.disabled}
           onclick={() => pick(item)}
@@ -112,44 +112,24 @@
     position: relative;
     display: inline-flex;
   }
+  /* Strata's menu recipe on an overlay; only the anchoring is local. */
   .pop {
     position: absolute;
-    z-index: 30;
     top: calc(100% + 6px);
     right: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
     width: max-content;
-    min-width: 200px;
     max-width: min(320px, calc(100vw - 24px));
-    padding: var(--sp-2);
-    border-radius: var(--r-lg);
   }
-  .pop-item {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-2);
-    min-height: 36px;
-    padding: 6px var(--sp-3);
-    border: 0;
-    border-radius: var(--r-sm);
+  .st-menu-item:focus-visible {
+    background: var(--st-accent-soft);
+  }
+  .st-menu-item[aria-disabled='true'] {
+    color: var(--st-text-disabled);
     background: transparent;
-    color: var(--ink);
-    font-size: var(--fs-2);
-    text-align: left;
-  }
-  .pop-item:is(:hover, :focus-visible) {
-    background: var(--row-hover);
-    outline: none;
-  }
-  .pop-item[aria-disabled='true'] {
-    color: var(--ink-disabled);
-    cursor: not-allowed;
   }
   .meta {
     margin-left: auto;
-    color: var(--ink-3);
-    font-size: var(--fs-1);
+    color: var(--st-text-tertiary);
+    font: var(--st-type-caption);
   }
 </style>

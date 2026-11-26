@@ -30,7 +30,7 @@
     <label class="field">
       <span>Until</span>
       <input
-        class="input"
+        class="st-input"
         type="date"
         value={change.until}
         aria-describedby="{uid}-until"
@@ -40,7 +40,7 @@
     <label class="field reason">
       <span>Reason</span>
       <input
-        class="input"
+        class="st-input"
         type="text"
         required
         value={change.reason}
@@ -65,16 +65,16 @@
     {/each}
   {/if}
   <div class="actions">
-    <button type="button" class="btn sm" onclick={oncancel}>Cancel</button>
+    <button type="button" class="st-btn st-btn--sm" onclick={oncancel}>Cancel</button>
     <button
       type="button"
-      class="btn sm"
+      class="st-btn st-btn--sm"
       disabled={!change.ready}
       onclick={() => void change.showPreview()}>Preview</button
     >
     <button
       type="button"
-      class="btn sm primary"
+      class="st-btn st-btn--sm st-btn--primary"
       disabled={!change.preview || !change.ready}
       onclick={write}>{verb}</button
     >
@@ -103,10 +103,10 @@
     flex-basis: 100%;
     margin: 0;
     font-size: 12px;
-    color: var(--ink2);
+    color: var(--st-text-secondary);
   }
   .error {
-    color: var(--fail);
+    color: var(--vc-fail);
   }
   .skipform :global(.diff) {
     flex-basis: 100%;

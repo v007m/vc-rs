@@ -1,0 +1,56 @@
+/* The HTML report keeps its own look (tokens.css, controls.css) and does not load Strata. The
+   components it shares with the app (results, timing, run progress) are written against the
+   app's Strata and Vibranium names (D590), so this file gives those names the report's values. */
+:root {
+  --st-font-sans: var(--font);
+  --st-text-primary: var(--ink);
+  --st-text-secondary: var(--ink2);
+  --st-chrome-separator: var(--line);
+  --st-surface-wash: var(--panel2);
+  --st-surface-input-on-card: var(--panel3);
+  --st-accent: var(--accent);
+  --st-accent-soft: var(--accentSoft);
+  --vc-pass: var(--pass);
+  --vc-fail: var(--fail);
+  --vc-fail-soft: var(--failSoft);
+  --vc-blocked: var(--block);
+  --vc-flaky: var(--flaky);
+  --vc-skipped: var(--skip);
+}
+.vc-mono {
+  font-family: var(--mono);
+  font-size: 12.5px;
+}
+.st-secondary {
+  color: var(--ink2);
+}
+.vc-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.st-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  flex: none;
+}
+.st-dot.vc-pass {
+  background: var(--pass);
+}
+.st-dot.vc-fail {
+  background: var(--fail);
+}
+.st-dot.vc-blocked {
+  background: var(--block);
+}
+.st-dot.vc-flaky {
+  background: var(--flaky);
+}
+.st-dot.vc-skipped {
+  background: var(--skip);
+}

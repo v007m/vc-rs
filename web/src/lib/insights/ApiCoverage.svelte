@@ -22,8 +22,8 @@
 </script>
 
 <section aria-labelledby="coverage" class="coverage">
-  <h2 class="h2" id="coverage">API coverage</h2>
-  <p class="muted">
+  <h2 class="st-title3" id="coverage">API coverage</h2>
+  <p class="st-secondary">
     Every api in the api files and the operations of their openapi/ snapshots · statuses seen in the {rangeLabel}
   </p>
   {#each notes as note (note)}
@@ -33,7 +33,7 @@
     </p>
   {/each}
   {#if rows.length === 0}
-    <p class="muted">No api is defined yet.</p>
+    <p class="st-secondary">No api is defined yet.</p>
   {:else}
     <div class="tools">
       <label class="toggle"
@@ -57,12 +57,12 @@
         <tbody>
           {#each shown as row (row.file + row.apiId)}
             <tr>
-              <th scope="row" class="mono">
+              <th scope="row" class="vc-mono">
                 <span class="id"><MethodTag method={row.method} /> {row.apiId}</span>
               </th>
               <td>
-                <span class="mono path line" title={row.path}>{row.path}</span>
-                <span class="muted small line"
+                <span class="vc-mono path line" title={row.path}>{row.path}</span>
+                <span class="st-secondary small line"
                   >{row.specOnly ? `only in ${row.file}` : row.file}</span
                 >
               </td>
@@ -74,7 +74,7 @@
                 <span class="codes">
                   {#each row.codes as code (code.text)}
                     <span class="code {code.kind}" title={meaning[code.kind]}
-                      >{code.text}<span class="sr">: {meaning[code.kind]};</span></span
+                      >{code.text}<span class="vc-sr">: {meaning[code.kind]};</span></span
                     >
                   {/each}
                 </span>
@@ -82,7 +82,7 @@
             </tr>
           {:else}
             <tr
-              ><td colspan="4" class="muted"
+              ><td colspan="4" class="st-secondary"
                 >No gaps: every api was called and every status seen.</td
               ></tr
             >
@@ -90,7 +90,7 @@
         </tbody>
       </table>
     </div>
-    <p class="muted small">
+    <p class="st-secondary small">
       {rows.length - untested} of {rows.length} apis called in the range · {untested} untested. Untested
       means no call of it is stored in the range; Tests counts the tests that call it, skipped ones included.
     </p>
@@ -102,7 +102,7 @@
     margin: 4px 0 0;
   }
   .note {
-    color: var(--block);
+    color: var(--vc-blocked);
     font-size: 13px;
   }
   .tools {
@@ -123,7 +123,7 @@
     flex-wrap: wrap;
     gap: 12px;
     font-size: 12px;
-    color: var(--ink2);
+    color: var(--st-text-secondary);
   }
   .legend > span {
     display: inline-flex;
@@ -144,14 +144,14 @@
   thead th {
     position: sticky;
     top: 0;
-    background: var(--panel);
-    color: var(--ink2);
+    background: var(--st-surface-wash);
+    color: var(--st-text-secondary);
     font-weight: 500;
   }
   th,
   td {
     padding: 7px 8px;
-    border-bottom: 1px solid var(--line);
+    border-bottom: 1px solid var(--st-chrome-separator);
     text-align: left;
     vertical-align: middle;
   }
@@ -169,13 +169,13 @@
   }
   .path {
     font-size: 11.5px;
-    color: var(--ink2);
+    color: var(--st-text-secondary);
   }
   .small {
     font-size: 11.5px;
   }
   .none {
-    color: var(--block);
+    color: var(--vc-blocked);
     font-weight: 600;
   }
   .codes {
@@ -189,23 +189,23 @@
     height: 20px;
     padding: 0 6px;
     border-radius: 5px;
-    font: 500 11px var(--mono);
+    font: 500 11px var(--st-font-mono);
   }
   .code.seen {
-    background: var(--passSoft);
-    color: var(--pass);
+    background: var(--vc-pass-soft);
+    color: var(--vc-pass);
   }
   .code.missed {
-    box-shadow: inset 0 0 0 1px var(--line2);
-    color: var(--ink2);
+    box-shadow: inset 0 0 0 1px var(--vc-rule-strong);
+    color: var(--st-text-secondary);
     text-decoration: line-through;
-    text-decoration-color: var(--ink3);
+    text-decoration-color: var(--st-text-tertiary);
   }
   .code.undocumented {
-    background: var(--blockSoft);
-    color: var(--block);
+    background: var(--vc-blocked-soft);
+    color: var(--vc-blocked);
   }
-  .muted {
-    color: var(--ink2);
+  .st-secondary {
+    color: var(--st-text-secondary);
   }
 </style>

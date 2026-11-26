@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { RunSession } from '#lib/run/session.svelte.ts';
   import type { Snippet } from 'svelte';
-  import Background from './Background.svelte';
+  import { cycleRegion, watchModifier } from './keys.ts';
   import type { ProjectStatus } from './project.svelte.ts';
   import Rail from './Rail.svelte';
   import { drawerWidth, shortcutSpace, type ShellState } from './state.svelte.ts';
@@ -12,9 +12,9 @@
   import TopBar from './TopBar.svelte';
 
   /**
-   * The five-space shell (D512-D514): L0 background, the space switcher, the space's sidebar,
-   * the one top row, the screen on an L1 card, and the status line. `navigate` is SvelteKit's
-   * goto in the app and a spy in tests.
+   * The five-space shell (D512-D514) on Strata (D590): the space's canvas, with the space
+   * switcher, the sidebar, the one top row and the status line on it, and the screen on a card.
+   * `navigate` is SvelteKit's goto in the app and a spy in tests.
    */
   let {
     shell,
@@ -45,8 +45,11 @@
   let space = $derived(spaceOf(pathname));
   let title = $derived(viewOf(pathname)?.title ?? space.label);
   let sidebarShown = $derived(inLayout ? !shell.prefs.sbCollapsed : shell.drawer);
+  let hints = $state(false);
+  let app: HTMLElement | undefined = $state();
 
   $effect(() => shell.remember(pathname, search));
+  $effect(() => watchModifier(window, (held) => (hints = held)));
   $effect(() => {
     void pathname;
     shell.drawer = false;
@@ -61,6 +64,10 @@
       shell.drawer = false;
       return;
     }
+    if (event.key === 'F6' && app && cycleRegion(app, document.activeElement, event.shiftKey)) {
+      event.preventDefault();
+      return;
+    }
     const key = shortcutSpace(event);
     if (!key) return;
     event.preventDefault();
@@ -71,21 +78,23 @@
 <svelte:window {onkeydown} />
 
 <div
-  class="app"
+  class="app st-root st-canvas"
+  data-space={space.preset}
   data-switcher={shell.prefs.switcher}
   class:is-sb-collapsed={shell.prefs.sbCollapsed}
   class:is-drawer-open={shell.drawer}
+  class:is-hints={hints}
   bind:clientWidth={width}
+  bind:this={app}
 >
-  <Background />
   <div class="shell">
     <Rail {shell} {pathname} />
     <Sidebar {shell} {space} {pathname} body={slots.sidebar} ontoggle={toggle} />
     <div class="main">
       <TopBar {title} {session} {project} {sidebarShown} left={slots.top} ontoggle={toggle} />
-      <main class="stage" id="view" tabindex="-1">
+      <main class="stage" id="view" tabindex="-1" data-region>
         <!-- One wrapper either way: switching to a bare stage must not remount the screen. -->
-        <div class={slots.bare ? 'bare' : 'glass card'}>
+        <div class={slots.bare ? 'bare' : 'st-card st-card--glass card'}>
           {@render children()}
         </div>
       </main>

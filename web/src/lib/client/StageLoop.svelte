@@ -9,25 +9,25 @@
 </script>
 
 {#if stage.locked}
-  <span class="mono">{stage.loop.kind}</span>
+  <span class="vc-mono">{stage.loop.kind}</span>
   <span class="hint">As written in the file; change it in the editor.</span>
 {:else}
   <div class="loop">
-    <select class="input" aria-label="Stage {n} runs" bind:value={stage.loop.kind}>
+    <select class="st-input" aria-label="Stage {n} runs" bind:value={stage.loop.kind}>
       {#each LOOPS as loop (loop.id)}
         <option value={loop.id}>{loop.label}</option>
       {/each}
     </select>
     {#if stage.loop.kind === 'repeat'}
       <input
-        class="input mono short"
+        class="st-input vc-mono short"
         inputmode="numeric"
         aria-label="Stage {n} times"
         bind:value={stage.loop.times}
       />
     {:else if stage.loop.kind === 'forEach'}
       <input
-        class="input mono"
+        class="st-input vc-mono"
         spellcheck="false"
         aria-label="Stage {n} items"
         placeholder={'${var.ids}'}
@@ -35,14 +35,18 @@
       />
     {:else if stage.loop.kind === 'poll'}
       <input
-        class="input mono short"
+        class="st-input vc-mono short"
         inputmode="numeric"
         aria-label="Stage {n} until status"
         bind:value={stage.loop.until}
       />
-      <input class="input mono short" aria-label="Stage {n} every" bind:value={stage.loop.every} />
       <input
-        class="input mono short"
+        class="st-input vc-mono short"
+        aria-label="Stage {n} every"
+        bind:value={stage.loop.every}
+      />
+      <input
+        class="st-input vc-mono short"
         aria-label="Stage {n} timeout"
         bind:value={stage.loop.timeout}
       />
@@ -61,6 +65,6 @@
   }
   .hint {
     display: block;
-    color: var(--ink2);
+    color: var(--st-text-secondary);
   }
 </style>

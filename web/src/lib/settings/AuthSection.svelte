@@ -6,7 +6,7 @@
 </script>
 
 <section class="auths" aria-labelledby="auths-title">
-  <h2 id="auths-title" class="h2">Auth</h2>
+  <h2 id="auths-title" class="st-title3">Auth</h2>
   <p class="intro">
     Testing an auth obtains its credentials under <strong>{profile || 'the default profile'}</strong
     >
@@ -18,19 +18,19 @@
     <p class="empty">The config defines no auth.</p>
   {:else}
     <table>
-      <caption class="sr">Auths</caption>
+      <caption class="vc-sr">Auths</caption>
       <thead>
         <tr>
           <th scope="col">Auth</th>
           <th scope="col">Result</th>
-          <th scope="col"><span class="sr">Test</span></th>
+          <th scope="col"><span class="vc-sr">Test</span></th>
         </tr>
       </thead>
       <tbody>
         {#each auth.auths as id (id)}
           {@const result = auth.results[id]}
           <tr>
-            <th scope="row" class="mono">{id}</th>
+            <th scope="row" class="vc-mono">{id}</th>
             <td>
               {#if !result}
                 <span class="idle">Not tested</span>
@@ -39,13 +39,13 @@
               {:else}
                 <dl>
                   <dt>Api</dt>
-                  <dd class="mono">{result.api}</dd>
+                  <dd class="vc-mono">{result.api}</dd>
                   <dt>Headers</dt>
-                  <dd class="mono">{names(result.headers)}</dd>
+                  <dd class="vc-mono">{names(result.headers)}</dd>
                   <dt>Query</dt>
-                  <dd class="mono">{names(result.query)}</dd>
+                  <dd class="vc-mono">{names(result.query)}</dd>
                   <dt>Cookies</dt>
-                  <dd class="mono">{names(result.cookies)}</dd>
+                  <dd class="vc-mono">{names(result.cookies)}</dd>
                   <dt>Expires in</dt>
                   <dd>
                     {result.expiresInMs === undefined ? 'not given' : lifetime(result.expiresInMs)}
@@ -57,7 +57,7 @@
             <td class="act">
               <button
                 type="button"
-                class="btn sm"
+                class="st-btn st-btn--sm"
                 aria-label="Test {id}"
                 disabled={auth.testing !== undefined}
                 onclick={() => void auth.test(id, profile)}
@@ -81,7 +81,7 @@
   .idle,
   .note {
     margin: 0;
-    color: var(--ink2);
+    color: var(--st-text-secondary);
   }
   table {
     width: 100%;
@@ -90,12 +90,12 @@
   th,
   td {
     padding: 6px 8px;
-    border-bottom: 1px solid var(--line);
+    border-bottom: 1px solid var(--st-chrome-separator);
     text-align: left;
     vertical-align: top;
   }
   thead th {
-    color: var(--ink2);
+    color: var(--st-text-secondary);
     font-weight: 500;
   }
   tbody th {
@@ -112,7 +112,7 @@
     margin: 0;
   }
   dt {
-    color: var(--ink2);
+    color: var(--st-text-secondary);
   }
   dd {
     margin: 0;
@@ -122,6 +122,6 @@
   }
   .error {
     margin: 0;
-    color: var(--fail);
+    color: var(--vc-fail);
   }
 </style>

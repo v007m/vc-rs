@@ -7,7 +7,7 @@
 </script>
 
 <figure class="wf">
-  <table class="mono" aria-label="Timing waterfall">
+  <table class="vc-mono" aria-label="Timing waterfall">
     <tbody>
       {#each bars as bar (bar.name)}
         <tr>
@@ -47,12 +47,12 @@
     padding: 5px 10px 5px 0;
     font-weight: 500;
     text-align: left;
-    color: var(--ink2);
+    color: var(--st-text-secondary);
   }
   .track {
     position: relative;
     height: 12px;
-    background: var(--panel2);
+    background: var(--st-surface-wash);
     border-radius: 4px;
     overflow: hidden;
   }
@@ -62,22 +62,22 @@
     bottom: 0;
     min-width: 2px;
     border-radius: 3px;
-    background: var(--accent);
+    background: var(--st-accent);
   }
   .bar.dns {
-    background: var(--wf-dns);
+    background: var(--vc-wf-dns);
   }
   .bar.connect {
-    background: var(--wf-connect);
+    background: var(--vc-wf-connect);
   }
   .bar.tls {
-    background: var(--wf-tls);
+    background: var(--vc-wf-tls);
   }
   .bar.firstByte {
-    background: var(--wf-wait);
+    background: var(--vc-wf-wait);
   }
   .bar.download {
-    background: var(--wf-down);
+    background: var(--vc-wf-down);
   }
   .num {
     width: 72px;
@@ -87,13 +87,13 @@
   .total th,
   .total td {
     padding-top: 9px;
-    border-top: 1px solid var(--line);
+    border-top: 1px solid var(--st-chrome-separator);
     font-weight: 600;
-    color: var(--ink);
+    color: var(--st-text-primary);
   }
   .note {
     margin-top: 8px;
     font-size: 12.5px;
-    color: var(--ink2);
+    color: var(--st-text-secondary);
   }
 </style>

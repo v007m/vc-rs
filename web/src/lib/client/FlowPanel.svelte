@@ -42,23 +42,27 @@
 
 <section class="flow" aria-labelledby="flow-title">
   <div class="head">
-    <h3 class="h3 grow" id="flow-title"><span class="mono">{flow.id}</span></h3>
-    <button type="button" class="btn sm" disabled={!flow.dirty} onclick={() => flow.discard()}
-      >Discard</button
+    <h3 class="h3 vc-grow" id="flow-title"><span class="vc-mono">{flow.id}</span></h3>
+    <button
+      type="button"
+      class="st-btn st-btn--sm"
+      disabled={!flow.dirty}
+      onclick={() => flow.discard()}>Discard</button
     >
     <button
       type="button"
-      class="btn sm primary"
+      class="st-btn st-btn--sm st-btn--primary"
       disabled={!flow.dirty || flow.problem !== undefined || busy}
       onclick={() => (saving = true)}>Save changes to flow</button
     >
   </div>
   {#if flow.state === 'conflict' && !saving}
     <div class="banner" role="alert">
-      <span class="grow"
+      <span class="vc-grow"
         >Not saved: <code>{flow.written?.path}</code> changed on disk since it was read.</span
       >
-      <button type="button" class="btn sm" onclick={() => void flow.load()}>Reload from disk</button
+      <button type="button" class="st-btn st-btn--sm" onclick={() => void flow.load()}
+        >Reload from disk</button
       >
     </div>
   {/if}
@@ -73,7 +77,7 @@
         <th scope="col">Uses</th>
         <th scope="col">Saves</th>
         <th scope="col">Runs</th>
-        <th><span class="sr">Actions</span></th>
+        <th><span class="vc-sr">Actions</span></th>
       </tr>
     </thead>
     <tbody bind:this={rows}>
@@ -82,7 +86,11 @@
           <td>{i + 1}</td>
           <td>
             {#if stage.kind === 'call'}
-              <select class="input mono" aria-label="Stage {i + 1} api" bind:value={stage.target}>
+              <select
+                class="st-input vc-mono"
+                aria-label="Stage {i + 1} api"
+                bind:value={stage.target}
+              >
                 {#if !apis.some((api) => api.id === stage.target)}
                   <option value={stage.target}>{stage.target}</option>
                 {/if}
@@ -91,17 +99,17 @@
                 {/each}
               </select>
             {:else}
-              <span class="mono">{stage.kind}: {stage.target}</span>
+              <span class="vc-mono">{stage.kind}: {stage.target}</span>
             {/if}
-            {#if stage.name}<span class="hint mono">{stage.name}</span>{/if}
+            {#if stage.name}<span class="hint vc-mono">{stage.name}</span>{/if}
           </td>
-          <td class="mono">{stage.uses.join(', ')}</td>
-          <td class="mono">{stage.saves.join(', ')}</td>
+          <td class="vc-mono">{stage.uses.join(', ')}</td>
+          <td class="vc-mono">{stage.saves.join(', ')}</td>
           <td><StageLoop {stage} n={i + 1} /></td>
           <td class="actions">
             <button
               type="button"
-              class="btn sm"
+              class="st-btn st-btn--sm"
               data-move="-1"
               aria-label="Move up stage {i + 1}"
               disabled={i === 0}
@@ -109,7 +117,7 @@
             >
             <button
               type="button"
-              class="btn sm"
+              class="st-btn st-btn--sm"
               data-move="1"
               aria-label="Move down stage {i + 1}"
               disabled={i === flow.stages.length - 1}
@@ -117,7 +125,7 @@
             >
             <button
               type="button"
-              class="btn sm"
+              class="st-btn st-btn--sm"
               aria-label="Remove stage {i + 1}"
               onclick={() => flow.removeStage(i)}>Remove</button
             >
@@ -128,16 +136,18 @@
       {/each}
     </tbody>
   </table>
-  <p class="sr" role="status">{moved}</p>
+  <p class="vc-sr" role="status">{moved}</p>
   <div class="add">
-    <label class="sr" for="flow-add">Api to add</label>
-    <select id="flow-add" class="input mono" bind:value={adding}>
+    <label class="vc-sr" for="flow-add">Api to add</label>
+    <select id="flow-add" class="st-input vc-mono" bind:value={adding}>
       <option value="">Pick an api…</option>
       {#each apis as api (api.id)}
         <option value={api.id}>{api.id}</option>
       {/each}
     </select>
-    <button type="button" class="btn sm" disabled={!adding} onclick={add}>Add stage</button>
+    <button type="button" class="st-btn st-btn--sm" disabled={!adding} onclick={add}
+      >Add stage</button
+    >
   </div>
   {#if flow.problem}
     <p class="error">{flow.problem}</p>
@@ -183,7 +193,7 @@
   }
   .banner {
     padding: 8px 12px;
-    border: 1px solid var(--fail);
+    border: 1px solid var(--vc-fail);
     border-radius: 6px;
   }
   .stages {
@@ -193,7 +203,7 @@
   th {
     font-weight: 500;
     text-align: left;
-    color: var(--ink2);
+    color: var(--st-text-secondary);
   }
   td {
     padding: 4px 6px 4px 0;
@@ -205,10 +215,10 @@
   .hint {
     display: block;
     margin: 0;
-    color: var(--ink2);
+    color: var(--st-text-secondary);
   }
   .error {
     margin: 0;
-    color: var(--fail);
+    color: var(--vc-fail);
   }
 </style>

@@ -48,7 +48,7 @@
   {#snippet actions()}
     <button
       type="button"
-      class="btn btn-ghost btn-icon btn-sm on-l0"
+      class="st-icon-btn st-icon-btn--sm"
       aria-label="New request"
       title="New request"
       onclick={() => {
@@ -58,14 +58,14 @@
     >
     <button
       type="button"
-      class="btn btn-ghost btn-icon btn-sm on-l0"
+      class="st-icon-btn st-icon-btn--sm"
       aria-label="Import HAR"
       title="Import HAR"
       onclick={onhar}><Icon name="import" small /></button
     >
   {/snippet}
   <input
-    class="input sb-filter"
+    class="st-input sb-filter"
     type="search"
     autocomplete="off"
     aria-label="Filter apis"
@@ -116,13 +116,13 @@
 
 <style>
   .sb-filter {
-    width: calc(100% - 2 * var(--sp-2));
-    margin: 0 var(--sp-2) var(--sp-2);
+    width: calc(100% - 2 * var(--st-space-8));
+    margin: 0 var(--st-space-8) var(--st-space-8);
   }
   .sb-quiet {
     margin: 0;
-    padding: var(--sp-1) var(--sp-3);
-    color: var(--l0-ink-2);
-    font-size: var(--fs-1);
+    padding: var(--st-space-4) var(--st-space-12);
+    color: var(--st-text-secondary);
+    font-size: var(--vc-size-caption);
   }
 </style>

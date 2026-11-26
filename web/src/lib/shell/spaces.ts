@@ -29,8 +29,13 @@ export interface Space {
   readonly home: RouteId;
   /** Its shortcut with ⌘ (or Ctrl): `1`–`4`, and `,` for Settings. */
   readonly shortcut: string;
+  /** Its Strata colour preset, the canvas and accent of `data-space` (D591). */
+  readonly preset: SpacePreset;
   readonly sections: readonly Section[];
 }
+
+/** Strata's colour presets (strata/tokens.css). */
+export type SpacePreset = 'lilac' | 'ember' | 'tide' | 'grove' | 'graphite';
 
 /** The icons the shell draws (Icon.svelte holds their paths). */
 export type IconName =
@@ -56,6 +61,7 @@ const view = (route: RouteId, label: string, title = label): View => ({ route, l
 export const spaces: readonly Space[] = [
   {
     key: 'client',
+    preset: 'tide',
     label: 'Client',
     icon: 'send',
     home: '/client',
@@ -66,6 +72,7 @@ export const spaces: readonly Space[] = [
   },
   {
     key: 'tests',
+    preset: 'lilac',
     label: 'Tests',
     icon: 'flow',
     home: '/tests',
@@ -80,6 +87,7 @@ export const spaces: readonly Space[] = [
   },
   {
     key: 'runs',
+    preset: 'ember',
     label: 'Runs',
     icon: 'runs',
     home: '/runs',
@@ -97,6 +105,7 @@ export const spaces: readonly Space[] = [
   },
   {
     key: 'agents',
+    preset: 'grove',
     label: 'Agents',
     icon: 'bot',
     home: '/agents',
@@ -105,6 +114,7 @@ export const spaces: readonly Space[] = [
   },
   {
     key: 'settings',
+    preset: 'graphite',
     label: 'Settings',
     icon: 'gear',
     home: '/settings',

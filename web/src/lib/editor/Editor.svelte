@@ -100,10 +100,10 @@
 
 <div class="editor">
   <aside class="files" aria-label="Project files">
-    <label class="sr" for="file-filter">Filter files</label>
+    <label class="vc-sr" for="file-filter">Filter files</label>
     <input
       id="file-filter"
-      class="input"
+      class="st-input"
       type="search"
       placeholder="Filter files"
       bind:value={filter}
@@ -111,18 +111,20 @@
     {#if shown.length}
       <FileTree folders={shown} current={buffer?.path} onopen={choose} />
     {:else}
-      <p class="muted">{editor.files.length ? 'No file matches.' : 'No files yet.'}</p>
+      <p class="st-secondary">{editor.files.length ? 'No file matches.' : 'No files yet.'}</p>
     {/if}
-    <button type="button" class="btn sm" onclick={() => (dialog = 'new')}>New file…</button>
+    <button type="button" class="st-btn st-btn--sm" onclick={() => (dialog = 'new')}
+      >New file…</button
+    >
   </aside>
 
   <section class="main" aria-label="Editor">
     {#if editor.error}<p class="banner err" role="alert">{editor.error}</p>{/if}
     {#if pending}
       <div class="banner warn" role="alert">
-        <span class="grow">Discard your unsaved changes to {baseName(buffer?.path ?? '')}?</span>
-        <button type="button" class="btn sm" onclick={discard}>Discard and open</button>
-        <button type="button" class="btn sm" onclick={() => (pending = undefined)}
+        <span class="vc-grow">Discard your unsaved changes to {baseName(buffer?.path ?? '')}?</span>
+        <button type="button" class="st-btn st-btn--sm" onclick={discard}>Discard and open</button>
+        <button type="button" class="st-btn st-btn--sm" onclick={() => (pending = undefined)}
           >Keep editing</button
         >
       </div>
@@ -131,28 +133,30 @@
       <p class="empty">{editor.state === 'loading' ? 'Opening…' : 'Pick a file to edit.'}</p>
     {:else}
       <EditorBar {editor} {session} {changes} bind:showDiff onaction={act} />
-      {#if notice}<p class="muted" role="status">{notice}</p>{/if}
+      {#if notice}<p class="st-secondary" role="status">{notice}</p>{/if}
       {#if editor.confirming}
         <div class="banner err" role="alert">
-          <span class="grow"
+          <span class="vc-grow"
             >This file has {editor.errorCount}
             {editor.errorCount === 1 ? 'error' : 'errors'}. Save it anyway?</span
           >
-          <button type="button" class="btn sm btn-danger" onclick={() => void editor.saveAnyway()}
-            >Save anyway</button
+          <button
+            type="button"
+            class="st-btn st-btn--sm vc-btn--destructive"
+            onclick={() => void editor.saveAnyway()}>Save anyway</button
           >
-          <button type="button" class="btn sm" onclick={() => editor.cancelSave()}
+          <button type="button" class="st-btn st-btn--sm" onclick={() => editor.cancelSave()}
             >Keep editing</button
           >
         </div>
       {/if}
       {#if editor.state === 'conflict'}
         <div class="banner err" role="alert">
-          <span class="grow">Not saved: this file changed on disk since you opened it.</span>
-          <button type="button" class="btn sm" onclick={() => void editor.reload()}
+          <span class="vc-grow">Not saved: this file changed on disk since you opened it.</span>
+          <button type="button" class="st-btn st-btn--sm" onclick={() => void editor.reload()}
             >Reload from disk</button
           >
-          <button type="button" class="btn sm" onclick={() => void editor.keepMine()}
+          <button type="button" class="st-btn st-btn--sm" onclick={() => void editor.keepMine()}
             >Keep my version</button
           >
         </div>
@@ -224,12 +228,12 @@
     gap: 10px;
     min-width: 0;
   }
-  .files .btn {
+  .files .st-btn {
     align-self: flex-start;
   }
-  .muted,
+  .st-secondary,
   .empty {
-    color: var(--ink3);
+    color: var(--st-text-tertiary);
   }
   .banner {
     display: flex;
@@ -241,12 +245,12 @@
     border-radius: 10px;
   }
   .err {
-    background: var(--failSoft);
-    color: var(--fail);
+    background: var(--vc-fail-soft);
+    color: var(--vc-fail);
   }
   .warn {
-    background: var(--blockSoft);
-    color: var(--block);
+    background: var(--vc-blocked-soft);
+    color: var(--vc-blocked);
   }
   @container card (width < 660px) {
     .editor {

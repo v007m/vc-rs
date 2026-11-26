@@ -39,7 +39,7 @@
 </script>
 
 <div class="body-tools">
-  <div class="seg" role="group" aria-label="Body view">
+  <div class="st-segmented" role="group" aria-label="Body view">
     {#each views as v (v.id)}
       <button type="button" aria-pressed={view === v.id} onclick={() => (view = v.id)}
         >{v.label}</button
@@ -48,7 +48,7 @@
   </div>
   {#if view === 'tree'}
     <input
-      class="input"
+      class="st-input"
       type="search"
       autocomplete="off"
       spellcheck="false"
@@ -59,9 +59,9 @@
   {/if}
 </div>
 
-<div class="body-view glass-dense">
+<div class="body-view vc-well">
   {#if view === 'raw'}
-    <pre class="raw mono">{raw(body)}</pre>
+    <pre class="raw vc-mono">{raw(body)}</pre>
   {:else if view === 'preview'}
     {#if html !== undefined}
       <iframe class="preview" title="HTML preview" sandbox="" srcdoc={html}></iframe>
@@ -79,7 +79,7 @@
     {:else if filter}
       <p class="note" role="status">
         <b>{filter.exact.size}</b>
-        {filter.exact.size === 1 ? 'match' : 'matches'} for <b class="mono">{query.trim()}</b>
+        {filter.exact.size === 1 ? 'match' : 'matches'} for <b class="vc-mono">{query.trim()}</b>
       </p>
     {/if}
     <JsonTree {body} {filter} {oncheck} />
@@ -89,8 +89,8 @@
 <style>
   .raw {
     margin: 0;
-    padding: var(--sp-3) var(--sp-4);
-    font-size: var(--fs-2);
+    padding: var(--st-space-12) var(--st-space-16);
+    font-size: var(--vc-size-body);
     white-space: pre-wrap;
     overflow-wrap: anywhere;
   }
@@ -103,8 +103,8 @@
   }
   .note {
     margin: 0;
-    padding: var(--sp-3) var(--sp-4) 0;
-    color: var(--ink-2);
-    font-size: var(--fs-1);
+    padding: var(--st-space-12) var(--st-space-16) 0;
+    color: var(--st-text-secondary);
+    font-size: var(--vc-size-caption);
   }
 </style>

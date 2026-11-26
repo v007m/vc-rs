@@ -109,7 +109,7 @@
             data-path={row.path}
             {onkeydown}
             onclick={() => pick(row)}>{literal(row.value)}</button
-          >{#if checked.has(row.path)}<span class="sr"> (checked)</span><span
+          >{#if checked.has(row.path)}<span class="vc-sr"> (checked)</span><span
               class="tick"
               aria-hidden="true">✓</span
             >{/if}
@@ -127,22 +127,27 @@
 </ul>
 
 {#snippet picker(row: JsonRow)}
-  <div class="pick l3" role="group" aria-label="Add a check on {row.path}">
-    <p class="pick-path mono">{row.path} = <b>{literal(row.value)}</b> · {jsonType(row.value)}</p>
+  <div class="pick st-overlay" role="group" aria-label="Add a check on {row.path}">
+    <p class="pick-path vc-mono">
+      {row.path} = <b>{literal(row.value)}</b> · {jsonType(row.value)}
+    </p>
     <div class="pick-ops">
-      <button type="button" class="btn btn-sm" {onkeydown} onclick={() => add('equals')}
+      <button type="button" class="st-btn st-btn--sm" {onkeydown} onclick={() => add('equals')}
         >Equals</button
       >
-      <button type="button" class="btn btn-sm" {onkeydown} onclick={() => add('exists')}
+      <button type="button" class="st-btn st-btn--sm" {onkeydown} onclick={() => add('exists')}
         >Exists</button
       >
       {#if typeof row.value === 'string'}
-        <button type="button" class="btn btn-sm" {onkeydown} onclick={() => add('contains')}
+        <button type="button" class="st-btn st-btn--sm" {onkeydown} onclick={() => add('contains')}
           >Contains</button
         >
       {/if}
-      <button type="button" class="btn btn-sm btn-ghost" {onkeydown} onclick={() => void close()}
-        >Cancel</button
+      <button
+        type="button"
+        class="st-btn st-btn--sm st-btn--ghost"
+        {onkeydown}
+        onclick={() => void close()}>Cancel</button
       >
     </div>
     {#if problem}<p class="pick-problem" role="alert">{problem}</p>{/if}
@@ -152,10 +157,10 @@
 <style>
   .json {
     margin: 0;
-    padding: var(--sp-3) var(--sp-4);
+    padding: var(--st-space-12) var(--st-space-16);
     list-style: none;
-    font-family: var(--mono);
-    font-size: var(--fs-2);
+    font-family: var(--st-font-mono);
+    font-size: var(--vc-size-body);
     line-height: 1.75;
     min-width: 0;
   }
@@ -168,7 +173,7 @@
   }
   li[data-shade='hit'] > .jk {
     border-radius: 3px;
-    background: var(--accent-soft);
+    background: var(--st-accent-soft);
   }
   .tog {
     display: inline-grid;
@@ -180,28 +185,28 @@
     border: 0;
     border-radius: 4px;
     background: transparent;
-    color: var(--ink-3);
+    color: var(--st-text-tertiary);
     vertical-align: -3px;
   }
   .tog:hover {
-    color: var(--ink);
-    background: var(--row-hover);
+    color: var(--st-text-primary);
+    background: var(--st-surface-wash);
   }
   .tog :global(svg) {
-    transition: transform var(--dur-1) var(--ease);
+    transition: transform var(--st-duration-instant) var(--st-ease-standard);
   }
   .tog[aria-expanded='false'] :global(svg) {
     transform: rotate(-90deg);
   }
   .jk {
-    color: var(--syn-key);
+    color: var(--vc-syn-key);
   }
   .jp {
-    color: var(--syn-punct);
+    color: var(--vc-syn-punct);
   }
   .jsum {
     margin: 0 4px;
-    color: var(--ink-3);
+    color: var(--st-text-tertiary);
     font-style: italic;
   }
   .jv {
@@ -217,53 +222,53 @@
   }
   button.jv:hover,
   button.jv[aria-expanded='true'] {
-    background: var(--accent-soft);
-    box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--accent) 40%, transparent);
+    background: var(--st-accent-soft);
+    box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--st-accent) 40%, transparent);
   }
   .jv[data-t='string'] {
-    color: var(--syn-string);
+    color: var(--vc-syn-string);
   }
   .jv[data-t='number'] {
-    color: var(--syn-number);
+    color: var(--vc-syn-number);
   }
   .jv[data-t='boolean'] {
-    color: var(--syn-bool);
+    color: var(--vc-syn-bool);
   }
   .jv[data-t='null'] {
-    color: var(--syn-null);
+    color: var(--vc-syn-null);
     font-style: italic;
   }
   .tick {
     margin-left: 6px;
-    color: var(--st-pass-ink);
+    color: var(--vc-pass-ink);
     font-size: 11px;
   }
   .pick {
     display: flex;
     flex-direction: column;
-    gap: var(--sp-2);
+    gap: var(--st-space-8);
     width: max-content;
     max-width: min(420px, 100%);
     margin: 4px 0 8px;
-    padding: var(--sp-3);
-    border-radius: var(--r-lg);
+    padding: var(--st-space-12);
+    border-radius: var(--st-radius-card);
     white-space: normal;
-    font-family: var(--font);
+    font-family: var(--st-font-sans);
   }
   .pick-path {
     margin: 0;
-    color: var(--ink-2);
-    font-size: var(--fs-1);
+    color: var(--st-text-secondary);
+    font-size: var(--vc-size-caption);
     overflow-wrap: anywhere;
   }
   .pick-ops {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--sp-2);
+    gap: var(--st-space-8);
   }
   .pick-problem {
     margin: 0;
-    color: var(--st-fail-ink);
-    font-size: var(--fs-1);
+    color: var(--vc-fail-ink);
+    font-size: var(--vc-size-caption);
   }
 </style>

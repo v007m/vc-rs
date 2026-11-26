@@ -14,10 +14,10 @@
 </script>
 
 <section aria-labelledby="slowest" class="slowest">
-  <h2 class="h2" id="slowest">Slowest APIs</h2>
-  <p class="muted">Response time across all tests · {rangeLabel}</p>
+  <h2 class="st-title3" id="slowest">Slowest APIs</h2>
+  <p class="st-secondary">Response time across all tests · {rangeLabel}</p>
   {#if rows.length === 0}
-    <p class="muted">No api answered in this range yet.</p>
+    <p class="st-secondary">No api answered in this range yet.</p>
   {:else}
     <p class="legend" aria-hidden="true">
       <span><span class="sw p50"></span>p50</span><span><span class="sw p95"></span>p95</span>
@@ -26,7 +26,7 @@
     <ol>
       {#each rows as t (t.apiId)}
         <li>
-          <span class="id mono">
+          <span class="id vc-mono">
             <MethodTag method={t.method} />
             <span class="name" title={t.apiId}>{t.apiId}</span>
           </span>
@@ -34,8 +34,8 @@
             <span class="p95" style:width={width(t.p95Ms)}></span>
             <span class="p50" style:width={width(t.p50Ms)}></span>
           </span>
-          <span class="n mono"
-            >{latency(t.p50Ms ?? 0)} / {latency(t.p95Ms ?? 0)}<br /><span class="muted small"
+          <span class="n vc-mono"
+            >{latency(t.p50Ms ?? 0)} / {latency(t.p95Ms ?? 0)}<br /><span class="st-secondary small"
               >{calls(t.calls)}</span
             ></span
           >
@@ -54,7 +54,7 @@
     flex-wrap: wrap;
     gap: 14px;
     font-size: 12px;
-    color: var(--ink2);
+    color: var(--st-text-secondary);
   }
   .legend span {
     display: inline-flex;
@@ -80,7 +80,7 @@
     gap: 10px 14px;
     align-items: center;
     padding: 7px 0;
-    border-bottom: 1px solid var(--line);
+    border-bottom: 1px solid var(--st-chrome-separator);
     font-size: 12px;
   }
   li:last-child {
@@ -101,7 +101,7 @@
     position: relative;
     height: 10px;
     border-radius: 5px;
-    background: var(--panel3);
+    background: var(--st-surface-input-on-card);
   }
   .bar span {
     position: absolute;
@@ -111,10 +111,10 @@
     border-radius: 5px;
   }
   .p95 {
-    background: var(--accentMid);
+    background: var(--vc-accent-mid);
   }
   .p50 {
-    background: var(--accent);
+    background: var(--st-accent);
   }
   .n {
     text-align: right;
@@ -124,8 +124,8 @@
   .small {
     font-size: 11px;
   }
-  .muted {
-    color: var(--ink2);
+  .st-secondary {
+    color: var(--st-text-secondary);
   }
   @container card (width < 480px) {
     li {

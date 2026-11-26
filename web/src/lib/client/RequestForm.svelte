@@ -42,9 +42,9 @@
       <tbody>
         {#each inherited as header (header.name)}
           <tr>
-            <th scope="row" class="mono">{header.name}</th>
-            <td class="mono">{header.value}</td>
-            <td class="mono">{header.from}</td>
+            <th scope="row" class="vc-mono">{header.name}</th>
+            <td class="vc-mono">{header.value}</td>
+            <td class="vc-mono">{header.from}</td>
           </tr>
         {/each}
       </tbody>
@@ -60,7 +60,7 @@
     onremove={(at) => request.removeRow('headers', at)}
   />
 {:else}
-  <div class="seg" role="group" aria-label="Body">
+  <div class="st-segmented" role="group" aria-label="Body">
     {#each modes as mode (mode.id)}
       <button
         type="button"
@@ -73,12 +73,12 @@
   {#if request.form.bodyMode === 'none'}
     <p class="hint">No body is sent with this request.</p>
   {:else}
-    <label class="sr" for="request-body"
+    <label class="vc-sr" for="request-body"
       >{request.form.bodyMode === 'json' ? 'JSON body' : 'Text body'}</label
     >
     <textarea
       id="request-body"
-      class="textarea mono body"
+      class="st-input st-input--rect vc-mono body"
       rows="8"
       spellcheck="false"
       readonly={masked}
@@ -102,7 +102,7 @@
     width: 100%;
     margin-bottom: 6px;
     border-collapse: collapse;
-    color: var(--ink-2);
+    color: var(--st-text-secondary);
   }
   .inherited caption {
     text-align: left;
@@ -118,9 +118,9 @@
   }
   .hint {
     margin: 4px 0 0;
-    color: var(--ink-2);
+    color: var(--st-text-secondary);
   }
   .error {
-    color: var(--st-fail-ink);
+    color: var(--vc-fail-ink);
   }
 </style>

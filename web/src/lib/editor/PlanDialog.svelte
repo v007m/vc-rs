@@ -23,19 +23,19 @@
 
 <Dialog title="Plan of {path}" {onclose}>
   {#if note}
-    <p class="muted" role="status">{note}</p>
+    <p class="st-secondary" role="status">{note}</p>
   {:else if !preview}
-    <p class="muted" role="status">Planning…</p>
+    <p class="st-secondary" role="status">Planning…</p>
   {:else}
     {@const n = preview.instances.length}
     <h3 class="h3">{n} {n === 1 ? 'instance' : 'instances'}</h3>
     <ul class="list">
       {#each preview.instances as instance (instance.id)}
         <li>
-          <span class="mono">{instance.id}</span>
-          <span class="muted">{instance.name}</span>
+          <span class="vc-mono">{instance.id}</span>
+          <span class="st-secondary">{instance.name}</span>
           {#if instance.expects.length}
-            <ul class="expects mono" aria-label="Expects of {instance.id}">
+            <ul class="expects vc-mono" aria-label="Expects of {instance.id}">
               {#each instance.expects as expect, i (i)}<li>{expect}</li>{/each}
             </ul>
           {/if}
@@ -43,7 +43,7 @@
       {/each}
     </ul>
     <h3 class="h3">Lifecycle order</h3>
-    <ol class="list mono">
+    <ol class="list vc-mono">
       {#each preview.order as step, i (i)}
         <li><span class="phase">{step.phase}</span> {step.target}</li>
       {/each}
@@ -67,9 +67,9 @@
   .expects {
     margin: 2px 0 0;
     padding-left: 16px;
-    color: var(--ink-2);
+    color: var(--st-text-secondary);
   }
   .phase {
-    color: var(--syn-key);
+    color: var(--vc-syn-key);
   }
 </style>

@@ -16,14 +16,14 @@
 
 <details class="exchange" bind:open>
   <summary>
-    <span class="mono">{exchange.method} {exchange.url}</span>
-    <span class="muted">→ {status}{time}</span>
+    <span class="vc-mono">{exchange.method} {exchange.url}</span>
+    <span class="st-secondary">→ {status}{time}</span>
   </summary>
   {#if open}
     {#if exchange.timing}<Waterfall timing={exchange.timing} />{/if}
     {#each parts as part (part.title)}
       {#if part.headers.length}
-        <table class="mono" aria-label="{part.title} headers">
+        <table class="vc-mono" aria-label="{part.title} headers">
           <tbody>
             {#each part.headers as [name, value], i (i)}
               <tr><th scope="row">{name}</th><td>{value}</td></tr>
@@ -35,7 +35,7 @@
     {/each}
     {#if exchange.messages}<BodyView title="Messages" load={exchange.messages} />{/if}
     {#if exchange.truncated}
-      <p class="muted">
+      <p class="st-secondary">
         {exchange.messages ? 'Bodies and messages were' : 'Bodies were'} cut at history.maxBodySize.
       </p>
     {/if}
@@ -44,10 +44,10 @@
 
 <style>
   .exchange {
-    border: 1px solid var(--line);
+    border: 1px solid var(--st-chrome-separator);
     border-radius: 10px;
     padding: 8px 12px;
-    background: var(--panel);
+    background: var(--st-surface-wash);
   }
   summary {
     cursor: pointer;
@@ -64,18 +64,18 @@
   th,
   td {
     padding: 3px 6px;
-    border-bottom: 1px solid var(--line);
+    border-bottom: 1px solid var(--st-chrome-separator);
     text-align: left;
     vertical-align: top;
     overflow-wrap: anywhere;
   }
   th {
     font-weight: 500;
-    color: var(--ink2);
+    color: var(--st-text-secondary);
     width: 35%;
   }
-  .muted {
-    color: var(--ink2);
+  .st-secondary {
+    color: var(--st-text-secondary);
   }
   p {
     margin: 8px 0 0;

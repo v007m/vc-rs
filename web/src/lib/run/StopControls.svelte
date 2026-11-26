@@ -10,14 +10,14 @@
 </script>
 
 {#if session.stopState === 'none'}
-  <button type="button" class="btn" onclick={() => session.stop()}>Stop</button>
+  <button type="button" class="st-btn" onclick={() => session.stop()}>Stop</button>
 {:else}
-  <span class="muted" role="status">
+  <span class="st-secondary" role="status">
     {session.stopState === 'stopping' ? 'Stopping: running the cleanups' : 'Skipping the cleanups'}
   </span>
   {#if session.stopState === 'stopping'}
-    <button type="button" class="btn" onclick={() => session.stop()}>Stop now</button>
-    <button type="button" class="btn btn-danger" onclick={() => session.skipCleanups()}>
+    <button type="button" class="st-btn" onclick={() => session.stop()}>Stop now</button>
+    <button type="button" class="st-btn vc-btn--destructive" onclick={() => session.skipCleanups()}>
       Skip cleanups
     </button>
   {/if}

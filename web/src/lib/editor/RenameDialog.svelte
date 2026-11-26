@@ -56,25 +56,36 @@
 
 <Dialog title="Rename or move" {onclose}>
   <label for="{uid}-to">New path</label>
-  <input id="{uid}-to" class="input mono" bind:value={to} oninput={() => (preview = undefined)} />
-  {#if note}<p class="muted" role="status">{note}</p>{/if}
+  <input
+    id="{uid}-to"
+    class="st-input vc-mono"
+    bind:value={to}
+    oninput={() => (preview = undefined)}
+  />
+  {#if note}<p class="st-secondary" role="status">{note}</p>{/if}
   {#if preview}
-    <p class="muted">{preview.length} {preview.length === 1 ? 'file changes' : 'files change'}.</p>
+    <p class="st-secondary">
+      {preview.length}
+      {preview.length === 1 ? 'file changes' : 'files change'}.
+    </p>
     {#each preview as change (change.path)}
-      <h3 class="mono file">{change.path}</h3>
+      <h3 class="vc-mono file">{change.path}</h3>
       <DiffView before={change.before} after={change.after} />
     {/each}
   {/if}
   <div class="actions">
-    <button type="button" class="btn" onclick={onclose}>Cancel</button>
+    <button type="button" class="st-btn" onclick={onclose}>Cancel</button>
     {#if preview}
-      <button type="button" class="btn primary" disabled={busy} onclick={() => void rename()}
-        >Rename</button
+      <button
+        type="button"
+        class="st-btn st-btn--primary"
+        disabled={busy}
+        onclick={() => void rename()}>Rename</button
       >
     {:else}
       <button
         type="button"
-        class="btn primary"
+        class="st-btn st-btn--primary"
         disabled={busy || to.trim() === '' || to.trim() === path}
         onclick={() => void review()}>Preview</button
       >
@@ -83,7 +94,7 @@
 </Dialog>
 
 <style>
-  .input {
+  .st-input {
     width: 100%;
     margin-top: 6px;
   }

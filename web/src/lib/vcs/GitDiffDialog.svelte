@@ -30,16 +30,16 @@
 </script>
 
 <Dialog title={file.path} {onclose}>
-  <p class="muted">{letters[file.change]} · {file.change} · against the last commit</p>
+  <p class="st-secondary">{letters[file.change]} · {file.change} · against the last commit</p>
   {#if failed}
     <p role="alert">{failed}</p>
   {:else if diff === undefined}
-    <p class="muted" role="status">Loading the diff…</p>
+    <p class="st-secondary" role="status">Loading the diff…</p>
   {:else if diff === ''}
-    <p class="muted">No changes in this file.</p>
+    <p class="st-secondary">No changes in this file.</p>
   {:else}
     <pre
-      class="diff mono"
+      class="diff vc-mono"
       aria-label="Diff of {file.path}">{#each diff.split('\n') as line, i (i)}<span
           class={tone(line)}>{line || ' '}</span
         >{/each}</pre>
@@ -51,27 +51,27 @@
     max-height: 60vh;
     overflow: auto;
     margin: 0;
-    padding: var(--sp-2) 0;
-    border-radius: var(--r-md);
-    background: var(--well-bg);
-    font-size: var(--fs-1);
+    padding: var(--st-space-8) 0;
+    border-radius: var(--st-radius-md);
+    background: var(--st-surface-input-on-card);
+    font-size: var(--vc-size-caption);
     line-height: 1.5;
   }
   .diff span {
     display: block;
-    padding: 0 var(--sp-3);
+    padding: 0 var(--st-space-12);
     white-space: pre;
   }
   .add {
-    background: var(--diff-add-bg);
-    color: var(--diff-add-ink);
+    background: var(--vc-diff-add-bg);
+    color: var(--vc-diff-add-ink);
   }
   .del {
-    background: var(--diff-del-bg);
-    color: var(--diff-del-ink);
+    background: var(--vc-diff-del-bg);
+    color: var(--vc-diff-del-ink);
   }
   .hunk,
   .meta {
-    color: var(--ink-3);
+    color: var(--st-text-tertiary);
   }
 </style>

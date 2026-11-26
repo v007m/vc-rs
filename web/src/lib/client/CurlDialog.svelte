@@ -21,24 +21,24 @@
     Resolved for the active profile, with your unsaved edits and vars. Auth is left out because vc
     applies it; the first line names it. Use <code>vc call</code> to send it with auth.
   </p>
-  <pre class="curl mono" aria-label="cURL command">{curl}</pre>
+  <pre class="curl vc-mono" aria-label="cURL command">{curl}</pre>
   <div class="actions">
-    <p class="help grow" role="status">{copied}</p>
-    <button type="button" class="btn" onclick={onclose}>Close</button>
-    <button type="button" class="btn primary" onclick={() => void copy()}>Copy</button>
+    <p class="help vc-grow" role="status">{copied}</p>
+    <button type="button" class="st-btn" onclick={onclose}>Close</button>
+    <button type="button" class="st-btn st-btn--primary" onclick={() => void copy()}>Copy</button>
   </div>
 </Dialog>
 
 <style>
   .help {
     margin: 0 0 10px;
-    color: var(--ink2);
+    color: var(--st-text-secondary);
   }
   .curl {
     margin: 0;
     padding: 8px 12px;
     overflow-x: auto;
-    border: 1px solid var(--line);
+    border: 1px solid var(--st-chrome-separator);
     border-radius: 6px;
     white-space: pre-wrap;
     word-break: break-all;

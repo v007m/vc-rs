@@ -1,5 +1,6 @@
 import './tokens.css';
 import './controls.css';
+import './shared-names.css';
 import './report.css';
 import { mount } from 'svelte';
 import Report from './Report.svelte';

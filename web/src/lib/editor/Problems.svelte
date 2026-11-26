@@ -37,8 +37,8 @@
   <div class="head">
     <button type="button" class="title" aria-expanded={open} onclick={() => (open = !open)}>
       <span class="chev" aria-hidden="true">{open ? '▾' : '▸'}</span>Problems
-      <span class="pill" class:fail={errors > 0}>{count(errors, 'error')}</span>
-      <span class="pill" class:block={warnings > 0}>{count(warnings, 'warning')}</span>
+      <span class="st-badge" class:vc-fail={errors > 0}>{count(errors, 'error')}</span>
+      <span class="st-badge" class:vc-blocked={warnings > 0}>{count(warnings, 'warning')}</span>
     </button>
     <span class="note"
       >{live
@@ -57,9 +57,9 @@
           {@const error = d.severity === Severity.ERROR}
           <li class="prob" class:error>
             <button type="button" class="go" onclick={() => ongo(d)}>
-              <span class="dot" class:fail={error} class:block={!error}></span>
-              <span class="sr">{error ? 'Error' : 'Warning'}</span>
-              <span class="mono code">{d.code}</span>
+              <span class="st-dot" class:vc-fail={error} class:vc-blocked={!error}></span>
+              <span class="vc-sr">{error ? 'Error' : 'Warning'}</span>
+              <span class="vc-mono code">{d.code}</span>
               <span class="msg">{d.message}</span>
               <span class="where">{where(d)}</span>
             </button>
@@ -67,7 +67,7 @@
             {#if d.fixes.length}
               <div class="fixes">
                 {#each d.fixes as fix (fix.title)}
-                  <button type="button" class="btn sm" onclick={() => onfix(fix)}
+                  <button type="button" class="st-btn st-btn--sm" onclick={() => onfix(fix)}
                     >{fix.title}</button
                   >
                 {/each}
@@ -82,7 +82,7 @@
 
 <style>
   .probs {
-    border-top: 1px solid var(--line);
+    border-top: 1px solid var(--st-chrome-separator);
     padding: 8px 0 0;
   }
   .head {
@@ -97,24 +97,24 @@
     gap: 8px;
     border: 0;
     background: none;
-    font: 600 13px var(--font);
-    color: var(--ink);
+    font: 600 13px var(--st-font-sans);
+    color: var(--st-text-primary);
     cursor: pointer;
     padding: 4px;
     border-radius: 6px;
   }
   .chev {
     width: 12px;
-    color: var(--ink3);
+    color: var(--st-text-tertiary);
   }
   .note,
   .none,
   .where {
-    color: var(--ink3);
+    color: var(--st-text-tertiary);
     font-size: 12px;
   }
   .none.failed {
-    color: var(--fail);
+    color: var(--vc-fail);
   }
   ul {
     list-style: none;
@@ -125,7 +125,7 @@
   }
   .prob {
     padding: 4px 0;
-    border-bottom: 1px solid var(--line);
+    border-bottom: 1px solid var(--st-chrome-separator);
   }
   .go {
     display: flex;
@@ -135,17 +135,17 @@
     border: 0;
     background: none;
     text-align: left;
-    font: 13px var(--font);
-    color: var(--ink);
+    font: 13px var(--st-font-sans);
+    color: var(--st-text-primary);
     padding: 4px 6px;
     border-radius: 6px;
     cursor: pointer;
   }
   .go:hover {
-    background: var(--panel2);
+    background: var(--st-surface-wash);
   }
   .code {
-    color: var(--ink2);
+    color: var(--st-text-secondary);
   }
   .msg {
     flex: 1 1 auto;
@@ -154,7 +154,7 @@
   .help {
     margin: 2px 0 0 30px;
     font-size: 12.5px;
-    color: var(--ink2);
+    color: var(--st-text-secondary);
   }
   .fixes {
     display: flex;

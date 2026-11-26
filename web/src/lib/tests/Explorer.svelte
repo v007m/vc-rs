@@ -74,7 +74,7 @@
 <div class="explorer">
   <aside class="facets" aria-label="Filters">
     {#each facetLists as list (list.key)}
-      <h2 class="h2">{list.label}</h2>
+      <h2 class="st-title3">{list.label}</h2>
       <ul>
         {#each list.items as item (item.value)}
           <li>
@@ -84,7 +84,7 @@
               aria-pressed={pressed(list.key, item.value)}
               onclick={() => (text = toggleFilter(text, list.key, item.value))}
             >
-              <span class="grow">{item.value}</span><span class="count">{item.count}</span>
+              <span class="vc-grow">{item.value}</span><span class="count">{item.count}</span>
             </button>
           </li>
         {/each}
@@ -93,18 +93,20 @@
   </aside>
 
   <section class="list" aria-labelledby="list-h">
-    <h2 id="list-h" class="sr">Test list</h2>
+    <h2 id="list-h" class="vc-sr">Test list</h2>
     <p class="summary">{count(catalog.rows.length, 'test')} in {count(fileCount, 'file')}</p>
     <div class="query">
-      <label class="sr" for="test-query">Filter tests with query syntax</label>
+      <label class="vc-sr" for="test-query">Filter tests with query syntax</label>
       <input
         id="test-query"
-        class="input grow mono"
+        class="st-input vc-grow vc-mono"
         type="search"
         placeholder="tag:smoke service:users"
         bind:value={text}
       />
-      {#if text}<button class="btn sm" type="button" onclick={() => (text = '')}>Clear</button>{/if}
+      {#if text}<button class="st-btn st-btn--sm" type="button" onclick={() => (text = '')}
+          >Clear</button
+        >{/if}
     </div>
     <p class="hint">
       Filters: {filterKeys.map((k) => `${k}:`).join(' ')} · they combine with AND; quote values with spaces
@@ -120,7 +122,7 @@
     {:else if !shown.length}
       <div class="empty">
         <p>{text ? `No test matches “${text}”.` : 'This project has no tests yet.'}</p>
-        {#if text}<button class="btn sm" type="button" onclick={() => (text = '')}
+        {#if text}<button class="st-btn st-btn--sm" type="button" onclick={() => (text = '')}
             >Clear filters</button
           >{/if}
       </div>
@@ -129,12 +131,12 @@
     {/if}
     {#if selected.size}
       <div class="selbar" role="region" aria-label="Selection">
-        <span class="grow">{selected.size} selected</span>
-        <button class="btn sm" type="button" onclick={() => selected.clear()}
+        <span class="vc-grow">{selected.size} selected</span>
+        <button class="st-btn st-btn--sm" type="button" onclick={() => selected.clear()}
           >Clear selection</button
         >
         <button
-          class="btn primary sm"
+          class="st-btn st-btn--primary st-btn--sm"
           type="button"
           disabled={session.running}
           onclick={() => run([...selected])}
@@ -210,17 +212,17 @@
     border: 0;
     border-radius: 6px;
     background: transparent;
-    color: var(--ink2);
+    color: var(--st-text-secondary);
     font: inherit;
     cursor: pointer;
     text-align: left;
   }
   .facet[aria-pressed='true'] {
-    background: var(--accentSoft);
-    color: var(--accentInk);
+    background: var(--st-accent-soft);
+    color: var(--st-accent);
   }
   .count {
-    color: var(--ink3);
+    color: var(--st-text-tertiary);
   }
   .list {
     display: grid;
@@ -231,11 +233,11 @@
   .hint,
   .empty p {
     margin: 0;
-    color: var(--ink2);
+    color: var(--st-text-secondary);
   }
   .hint {
     font-size: 12px;
-    color: var(--ink3);
+    color: var(--st-text-tertiary);
   }
   .query,
   .selbar {
@@ -246,9 +248,9 @@
   .selbar {
     padding: 8px 12px;
     border-radius: 10px;
-    background: var(--panel3);
+    background: var(--st-surface-input-on-card);
   }
   .error {
-    color: var(--fail);
+    color: var(--vc-fail);
   }
 </style>

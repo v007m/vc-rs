@@ -25,12 +25,12 @@
   } = $props();
 </script>
 
-<aside class="sidebar" id="sidebar" aria-label="{space.label} sidebar">
+<aside class="sidebar" id="sidebar" aria-label="{space.label} sidebar" data-region>
   <div class="sb-top">
     <h2 class="sb-title">{space.label}</h2>
     <button
       type="button"
-      class="btn btn-ghost btn-icon btn-sm on-l0 sb-hide"
+      class="st-icon-btn st-icon-btn--sm sb-hide"
       aria-controls="sidebar"
       aria-label="Hide sidebar"
       title="Hide sidebar"

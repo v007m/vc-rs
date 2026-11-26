@@ -27,12 +27,12 @@
   }
 </script>
 
-<div class="tabs" role="tablist" aria-label={label} bind:this={list}>
+<div class="vc-tabs" role="tablist" aria-label={label} bind:this={list}>
   {#each tabs as tab (tab.id)}
     <button
       type="button"
       role="tab"
-      class="tab"
+      class="vc-tab"
       id="{uid}-{tab.id}"
       data-tab={tab.id}
       aria-selected={selected === tab.id}
@@ -52,16 +52,16 @@
 </div>
 
 <style>
-  /* The look is the shared .tabs/.tab of controls.css: the selected tab is a raised L2 pill. */
+  /* The look is the shared .vc-tabs/.vc-tab of strata/vibranium.css: chrome on the canvas, a wash on a card. */
   .count {
-    font-size: var(--fs-0);
+    font-size: var(--vc-size-micro);
     font-variant-numeric: tabular-nums;
-    color: var(--ink-3);
+    color: var(--st-text-tertiary);
   }
   .count.bad {
-    color: var(--st-fail-ink);
+    color: var(--vc-fail-ink);
   }
   .panel {
-    padding: var(--sp-3) 0;
+    padding: var(--st-space-12) 0;
   }
 </style>

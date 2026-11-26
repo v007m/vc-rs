@@ -29,7 +29,7 @@
 
 {#snippet shown(value: string)}
   {#if value === MASKED}
-    <span class="masked">{MASKED}<span class="sr">{maskedNote}</span></span>
+    <span class="masked">{MASKED}<span class="vc-sr">{maskedNote}</span></span>
   {:else}
     {value}
   {/if}
@@ -47,7 +47,7 @@
   <label class="profile">
     Profile
     <select
-      class="input"
+      class="st-input"
       value={settings.profile}
       disabled={settings.profiles.length === 0}
       onchange={(e) => void settings.choose(e.currentTarget.value)}
@@ -64,7 +64,7 @@
     <p class="notice">{notice}</p>
   {/each}
   <table aria-busy={settings.loading}>
-    <caption class="h2">Effective settings</caption>
+    <caption class="st-title3">Effective settings</caption>
     <thead>
       <tr><th scope="col">Key</th><th scope="col">Value</th><th scope="col">Set by</th></tr>
     </thead>
@@ -72,8 +72,8 @@
       {#each settings.values as { key, layers } (key)}
         {@const [winner, ...replaced] = layers}
         <tr>
-          <th scope="row" class="mono">{key}</th>
-          <td class="mono"
+          <th scope="row" class="vc-mono">{key}</th>
+          <td class="vc-mono"
             >{#if winner}{@render shown(winner.value)}{/if}</td
           >
           <td>
@@ -82,7 +82,7 @@
               <ul class="over">
                 {#each replaced as layer, i (i)}
                   <li>
-                    over <span class="mono">{@render shown(layer.value)}</span> ({layer.source})
+                    over <span class="vc-mono">{@render shown(layer.value)}</span> ({layer.source})
                   </li>
                 {/each}
               </ul>
@@ -110,13 +110,13 @@
   }
   .intro {
     margin: 0;
-    color: var(--ink2);
+    color: var(--st-text-secondary);
   }
   .profile {
     display: flex;
     gap: 8px;
     align-items: center;
-    color: var(--ink2);
+    color: var(--st-text-secondary);
   }
   table {
     width: 100%;
@@ -129,12 +129,12 @@
   th,
   td {
     padding: 6px 8px;
-    border-bottom: 1px solid var(--line);
+    border-bottom: 1px solid var(--st-chrome-separator);
     text-align: left;
     vertical-align: top;
   }
   thead th {
-    color: var(--ink2);
+    color: var(--st-text-secondary);
     font-weight: 500;
   }
   tbody th {
@@ -145,16 +145,16 @@
     padding: 0;
     list-style: none;
     font-size: 13px;
-    color: var(--ink2);
+    color: var(--st-text-secondary);
   }
   .masked {
     letter-spacing: 1px;
   }
   .empty,
   .notice {
-    color: var(--ink2);
+    color: var(--st-text-secondary);
   }
   .error {
-    color: var(--fail);
+    color: var(--vc-fail);
   }
 </style>

@@ -22,11 +22,11 @@
   }
 </script>
 
-<section class="glass" aria-labelledby="scratch-title">
+<section class="st-card st-card--glass" aria-labelledby="scratch-title">
   <div class="card-head">
     <span class="method" data-m={tab.badge}>{tab.badge}</span>
-    <h2 class="card-title grow" id="scratch-title">
-      <label class="sr" for="scratch-name">Tab name</label>
+    <h2 class="card-title vc-grow" id="scratch-title">
+      <label class="vc-sr" for="scratch-name">Tab name</label>
       <input id="scratch-name" class="title-input" autocomplete="off" bind:value={tab.title} />
     </h2>
   </div>
@@ -58,15 +58,17 @@
           onremove={(at) => tab.removeRow('headers', at)}
         />
       {:else}
-        <label class="sr" for="scratch-body">Body</label>
+        <label class="vc-sr" for="scratch-body">Body</label>
         <textarea
           id="scratch-body"
-          class="textarea mono"
+          class="st-input st-input--rect vc-mono"
           rows="10"
           spellcheck="false"
           placeholder={'{ "name": "${userName}" }'}
           bind:value={tab.body}></textarea>
-        <p class="muted">Templates like <code>${'{var.name}'}</code> resolve at send time.</p>
+        <p class="st-secondary">
+          Templates like <code>${'{var.name}'}</code> resolve at send time.
+        </p>
       {/if}
     {/snippet}
   </Tabs>
@@ -78,21 +80,21 @@
     min-width: 0;
     padding: 0;
     border: 0;
-    border-radius: var(--r-xs);
+    border-radius: var(--st-radius-xs);
     background: transparent;
     color: inherit;
     font: inherit;
     letter-spacing: inherit;
   }
   .title-input:hover {
-    background: var(--row-hover);
+    background: var(--st-surface-wash);
   }
   .note {
-    margin: 0 var(--card-pad) var(--sp-3);
-    color: var(--ink-2);
+    margin: 0 var(--st-card-padding) var(--st-space-12);
+    color: var(--st-text-secondary);
   }
   .error {
-    color: var(--st-fail-ink);
+    color: var(--vc-fail-ink);
   }
   textarea {
     width: 100%;

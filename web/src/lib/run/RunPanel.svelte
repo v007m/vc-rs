@@ -15,11 +15,11 @@
 
   const pills: Record<RunPhase, [string, string]> = {
     idle: ['', 'Not started'],
-    running: ['accent', 'Running'],
-    passed: ['pass', 'Passed'],
-    failed: ['fail', 'Failed'],
-    cancelled: ['block', 'Cancelled'],
-    error: ['fail', 'Stopped by an error'],
+    running: ['vc-accent', 'Running'],
+    passed: ['vc-pass', 'Passed'],
+    failed: ['vc-fail', 'Failed'],
+    cancelled: ['vc-blocked', 'Cancelled'],
+    error: ['vc-fail', 'Stopped by an error'],
   };
   let view = $derived(session.view);
   let pill = $derived(pills[view.phase]);
@@ -38,37 +38,37 @@
 
 {#if view.phase === 'idle'}
   <div class="empty">
-    <p class="muted">No run yet. Start one from the Tests screen, or run every test here.</p>
-    <button type="button" class="btn primary" onclick={() => session.start({})}>
+    <p class="st-secondary">No run yet. Start one from the Tests screen, or run every test here.</p>
+    <button type="button" class="st-btn st-btn--primary" onclick={() => session.start({})}>
       Run all tests
     </button>
   </div>
 {:else}
   <div class="head">
-    <h2 class="h2">{title}</h2>
-    <span class="pill {pill[0]}" role="status">{pill[1]}</span>
+    <h2 class="st-title3">{title}</h2>
+    <span class="st-badge {pill[0]}" role="status">{pill[1]}</span>
     {#if started}
-      <span class="muted">
+      <span class="st-secondary">
         Started <time datetime={started.toISOString()}>{started.toLocaleTimeString()}</time>
       </span>
     {/if}
-    {#if view.error}<span class="muted">{view.error}</span>{/if}
-    <span class="grow"></span>
+    {#if view.error}<span class="st-secondary">{view.error}</span>{/if}
+    <span class="vc-grow"></span>
     {#if session.running}
       <StopControls {session} />
     {:else}
       {#if onopen && view.runId !== undefined}
         {@const id = Number(view.runId)}
-        <button type="button" class="btn" onclick={() => onopen(id)}>Open report</button>
+        <button type="button" class="st-btn" onclick={() => onopen(id)}>Open report</button>
       {/if}
       {#if canRerun}
-        <button type="button" class="btn" onclick={() => session.rerunFailed()}
+        <button type="button" class="st-btn" onclick={() => session.rerunFailed()}
           >Re-run failed</button
         >
       {/if}
       <button
         type="button"
-        class="btn"
+        class="st-btn"
         onclick={() => session.request && session.start(session.request)}
       >
         Run again
@@ -78,11 +78,11 @@
   {#if !session.running && view.htmlReport}
     {@const path = view.htmlReport}
     <p class="file">
-      <span class="muted">HTML report</span>
-      <code class="mono path">{path}</code>
+      <span class="st-secondary">HTML report</span>
+      <code class="vc-mono path">{path}</code>
       <button
         type="button"
-        class="btn"
+        class="st-btn"
         onclick={() => void copy(path)}
         onblur={() => (copied = false)}>{copied ? 'Copied' : 'Copy path'}</button
       >

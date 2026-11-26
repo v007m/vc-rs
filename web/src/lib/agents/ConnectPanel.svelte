@@ -31,9 +31,9 @@
 </script>
 
 <section class="connect" aria-labelledby="connect-h">
-  <h2 id="connect-h" class="h2">Connect an agent</h2>
+  <h2 id="connect-h" class="st-title3">Connect an agent</h2>
   <p class="lead">Once per project. The agent starts Vibranium’s MCP server when it needs it.</p>
-  <div class="seg" role="group" aria-label="Agent">
+  <div class="st-segmented" role="group" aria-label="Agent">
     {#each setups as setup (setup.label)}
       <button
         type="button"
@@ -49,8 +49,8 @@
   {#if 'code' in chosen}
     {@const code = chosen.code}
     <div class="code">
-      <pre class="mono">{code}</pre>
-      <button class="btn sm" type="button" onclick={() => copy(code)}>Copy</button>
+      <pre class="vc-mono">{code}</pre>
+      <button class="st-btn st-btn--sm" type="button" onclick={() => copy(code)}>Copy</button>
     </div>
     <p class="note" role="status">{copied}</p>
   {:else}
@@ -73,7 +73,7 @@
   }
   .lead,
   .note {
-    color: var(--ink2);
+    color: var(--st-text-secondary);
   }
   .code {
     display: flex;
@@ -86,7 +86,7 @@
     margin: 0;
     padding: 12px;
     border-radius: 8px;
-    background: var(--panel2);
+    background: var(--st-surface-wash);
     white-space: pre-wrap;
   }
 </style>
