@@ -23,7 +23,7 @@
     check?: SecretCheck;
     auth?: AuthTest;
   } = $props();
-  const editorHref = `${resolve('/editor')}?file=vibranium.config.yaml`;
+  const editorHref = `${resolve('/tests/editor')}?file=vibranium.config.yaml`;
   const maskedNote = ' (secret, masked)';
 </script>
 
@@ -39,7 +39,7 @@
   <p class="intro">
     Where each setting's value comes from under the profile you pick, as
     <code>vc config explain</code> shows it. Change them{form ? ' below or' : ''} in
-    <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- editorHref is resolve('/editor') plus a query -->
+    <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- editorHref is resolve('/tests/editor') plus a query -->
     <a href={editorHref} aria-label="Open vibranium.config.yaml in the editor"
       ><code>vibranium.config.yaml</code></a
     >; secrets are declared in <code>.env.schema</code>{schema ? ', below,' : ''} and always show masked.

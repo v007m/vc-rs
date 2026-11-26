@@ -66,13 +66,13 @@
     background: var(--fail);
   }
   .s-block {
-    background: #c27a00;
+    background: var(--block);
   }
   .s-flaky {
     background: var(--flaky);
   }
   .s-skip {
-    background: #a9a5ba;
+    background: var(--skip);
   }
   .stats {
     display: grid;

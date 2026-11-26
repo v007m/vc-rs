@@ -187,7 +187,7 @@
   .said:empty {
     display: none;
   }
-  @media (width < 720px) {
+  @container card (width < 620px) {
     .client {
       grid-template-columns: 1fr;
     }

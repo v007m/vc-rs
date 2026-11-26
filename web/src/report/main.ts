@@ -1,5 +1,5 @@
-import '#lib/styles/tokens.css';
-import '#lib/styles/controls.css';
+import './tokens.css';
+import './controls.css';
 import './report.css';
 import { mount } from 'svelte';
 import Report from './Report.svelte';

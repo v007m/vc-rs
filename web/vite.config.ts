@@ -89,6 +89,9 @@ export default defineConfig({
     }),
     vcSession(),
   ],
+  // Fonts and the grain texture ship as files: vc ui's CSP (`default-src 'self'`) refuses the
+  // data: URIs Vite would otherwise inline small assets as.
+  build: { assetsInlineLimit: 0 },
   // `pnpm dev` proxies the engine API to a running `vc ui --no-open`. The dev page's origin is
   // not vc ui's, so the proxy presents vc ui's origin, and `vcSession` adds the session cookie.
   // No CORS: Vite would otherwise let any localhost page read what the proxy answers.

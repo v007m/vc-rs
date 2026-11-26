@@ -75,7 +75,7 @@ solo('saves a call with a var as a test expecting a body field', async ({ page }
   await dialog.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByRole('status')).toContainText('users.crud#createsGrace');
 
-  await page.goto('/editor?file=services/users/crud.test.yaml');
+  await page.goto('/tests/editor?file=services/users/crud.test.yaml');
   await expect(page.getByRole('textbox', { name: 'services/users/crud.test.yaml' })).toHaveValue(
     /id: createsGrace[\s\S]*email: grace@example\.com/,
   );
@@ -135,7 +135,7 @@ solo('moves a recorded flow stage up and saves the steps in their new order', as
   await save.getByRole('button', { name: 'Save' }).click();
   await expect(save).toBeHidden();
 
-  await page.goto('/editor?file=services/users/reordered.test.yaml');
+  await page.goto('/tests/editor?file=services/users/reordered.test.yaml');
   const file = page.getByRole('textbox', { name: 'services/users/reordered.test.yaml' });
   await expect(file).toHaveValue(new RegExp(`call: ${second}[\\s\\S]*call: ${first}`));
 });

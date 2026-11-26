@@ -1,0 +1,34 @@
+/* The v1 token names, mapped onto the v2 tokens, so the screens built before UI v2 take the new
+   look without each one being rewritten. New code uses the v2 names; the per-space redesigns
+   drop these as they go. The HTML report keeps the v1 values in src/report/tokens.css. */
+:root {
+  --ink2: var(--ink-2);
+  --ink3: var(--ink-3);
+  --inkHover: var(--ink);
+  --line: var(--rule);
+  --line2: var(--rule-strong);
+  --hover: var(--row-hover);
+  --on: var(--row-selected);
+  /* R5: no box inside a card, so the old panel fills become the quiet v2 surfaces */
+  --panel: var(--l2-bg);
+  --panel2: var(--well-alt);
+  --panel3: var(--well-bg);
+  --bg1: var(--l0-base);
+  --bg2: var(--l0-base);
+  --bg3: var(--l0-base);
+  --accentInk: var(--accent-ink);
+  --accentSoft: var(--accent-soft);
+  --accentMid: color-mix(in oklab, var(--accent) 45%, transparent);
+  --pass: var(--st-pass);
+  --passSoft: var(--st-pass-soft);
+  --fail: var(--st-fail);
+  --failSoft: var(--st-fail-soft);
+  --block: var(--st-blocked);
+  --blockSoft: var(--st-blocked-soft);
+  --skip: var(--st-skipped);
+  --skipSoft: var(--st-skipped-soft);
+  --flaky: var(--st-flaky);
+  --flakySoft: var(--st-flaky-soft);
+  --radius: var(--r-lg);
+  --shadow: var(--sh-l1);
+}

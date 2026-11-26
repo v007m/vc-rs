@@ -244,7 +244,7 @@
     background: var(--blockSoft);
     color: var(--block);
   }
-  @media (max-width: 760px) {
+  @container card (width < 660px) {
     .editor {
       grid-template-columns: minmax(0, 1fr);
     }

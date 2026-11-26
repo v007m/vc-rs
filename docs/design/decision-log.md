@@ -994,6 +994,22 @@ Round 91 (26 November 2026; Sarath's fifth mockup review of UI v2, the five-spac
 | D524 | Open tabs | Each open tab in the top strip has a 1 px hairline border and no fill; the current tab has a stronger border and full-ink text | D507 (raised pill in the top strip) |
 | D525 | Graphs fill | Status strips, sparklines and charts stretch to their card's width and height; no fixed small chart sizes or max-width caps leave empty space | D511 (extends) |
 
+Round 92 (26 November 2026; the UI v2 build, batch A: tokens, fonts, the five-space shell and #114; in-design refinements decided by the web worker, the fonts licence approved by Sarath):
+
+| # | Topic | Decision | Supersedes |
+| --- | --- | --- | --- |
+| D526 | Fonts | Geist and Geist Mono are bundled from `@fontsource-variable/geist` and `@fontsource-variable/geist-mono` 5.3.0 (OFL-1.1, text in `web/src/lib/fonts/OFL.txt` and `NOTICE`), self-hosted as files. Vite inlines no assets, so the CSP stays `default-src 'self'`. deny.toml allows OFL-1.1, Sarath 2026-11-26 | — |
+| D527 | Routes | Each space has its own URLs: `/client`, `/tests`, `/tests/editor`, `/runs`, `/runs/overview`, `/agents` and `/settings`. `/` redirects to `/client`. The old `/editor` and `/insights` redirect permanently (308) to their new paths and keep the query | — |
+| D528 | UI prefs | The shell keeps its prefs in localStorage under `vc.ui.prefs`: the last route of each space, the closed sidebar sections, whether the sidebar is hidden, and the switcher. Each field is read only if it has the right shape. Storage that throws or is blocked leaves the defaults in memory | — |
+| D529 | Space buttons | A rail button reopens the space's last screen with its query. The current space's button goes to its home screen. Shortcuts are ⌘ or Ctrl with 1–5 or `,`; Alt or Shift turns them off. Esc closes the drawer | — |
+| D530 | Shell widths | The shell's widths are container queries on the app, not media queries on the window. Above 1100 px the sidebar is in the layout. At 1100 px and below it is a drawer over the stage, and the rail stays, as in the mockup. Screens lay themselves out with `@container card` | D472 (rail under 1100 px, drawer under 760 px) |
+| D531 | Report styles | The static report keeps its own v1 tokens and controls in `web/src/report/`, so the report does not change with the app. Until each screen is redesigned, the app maps the v1 token names onto v2 ones in `legacy.css` | — |
+| D532 | Status line | The status line shows the vc version, the project name and the `vc check` result (errors and warnings, from GetProject and Check), each with text, not colour alone. The branch joins it when the server exposes git status (D518) | — |
+| D533 | Top row for now | The env pill shows the default profile and links to Settings until its popover is built. Search ⌘K is present but disabled until the palette exists. During a run the status reads "Running · n of m". The per-space primary action comes with each space's redesign | — |
+| D534 | Tests layout (#114) | The Tests explorer lays out by the card's width. At 1040 px and wider it has three columns (filters, list, detail). Below that, the filters become a row above the list and detail. Below 640 px it is one column. Long test IDs truncate, so the tree never runs under the detail | — |
+| D535 | Phase colours | The timing waterfall's phases use `--wf-*` tokens, the mockup's cool-to-warm run, and each bar keeps its text label. The run progress strip's blocked and skipped segments use the status tokens, so the report changes with them | — |
+| D536 | Sidebars for now | Until a space is redesigned, its sidebar has one section listing its existing screens: Client (Request), Tests (All tests, Editor), Runs (Overview, History), Agents (Activity) and Settings (Project) | — |
+
 ## Open
 
 All decisions needed for the PRD and technical design are settled. The language is decided by the spike (D6, D36, D37, D41).

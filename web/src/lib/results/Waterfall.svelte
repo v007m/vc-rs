@@ -65,19 +65,19 @@
     background: var(--accent);
   }
   .bar.dns {
-    background: #8e8aa3;
+    background: var(--wf-dns);
   }
   .bar.connect {
-    background: #2459b8;
+    background: var(--wf-connect);
   }
   .bar.tls {
-    background: #6b2ea3;
+    background: var(--wf-tls);
   }
   .bar.firstByte {
-    background: #5440d6;
+    background: var(--wf-wait);
   }
   .bar.download {
-    background: #1a7148;
+    background: var(--wf-down);
   }
   .num {
     width: 72px;

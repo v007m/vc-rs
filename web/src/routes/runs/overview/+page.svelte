@@ -10,6 +10,6 @@
   void insights.open();
 </script>
 
-<Screen title="Insights">
+<Screen title="Runs overview">
   <InsightsScreen {insights} skips={skipPort(engine)} />
 </Screen>

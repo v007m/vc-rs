@@ -26,7 +26,7 @@
     if (skipping && skipping.target !== row.id) skipping = undefined;
   });
 
-  let editorHref = $derived(`${resolve('/editor')}?file=${encodeURIComponent(row.path)}`);
+  let editorHref = $derived(`${resolve('/tests/editor')}?file=${encodeURIComponent(row.path)}`);
   let where = $derived(row.line ? `${row.path}:${row.line}` : row.path);
 </script>
 
@@ -59,7 +59,7 @@
     <button class="btn primary sm" type="button" disabled={running} onclick={() => onrun([row.id])}>
       Run this test
     </button>
-    <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- editorHref is resolve('/editor') plus a query -->
+    <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- editorHref is resolve('/tests/editor') plus a query -->
     <a class="btn sm" href={editorHref}>Open in editor</a>
     <button
       class="btn sm"

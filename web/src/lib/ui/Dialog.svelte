@@ -31,22 +31,26 @@
 </dialog>
 
 <style>
+  /* L3: the strongest glass, over a dimmed backdrop (glass.css). */
   .dialog {
     width: min(640px, calc(100vw - 32px));
     max-height: calc(100vh - 64px);
-    padding: 18px;
-    border: 1px solid var(--line2);
-    border-radius: 12px;
-    background: var(--panel);
+    padding: var(--sp-5);
+    border: 1px solid var(--l3-border);
+    border-radius: var(--r-xl);
+    background: var(--l3-bg);
+    -webkit-backdrop-filter: blur(var(--blur-l3));
+    backdrop-filter: blur(var(--blur-l3));
+    box-shadow: var(--sh-l3);
     color: var(--ink);
   }
   .dialog::backdrop {
-    background: rgb(20 18 35 / 40%);
+    background: var(--l3-backdrop);
   }
   .head {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 12px;
+    margin-bottom: var(--sp-3);
   }
 </style>

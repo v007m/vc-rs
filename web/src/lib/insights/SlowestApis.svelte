@@ -127,7 +127,7 @@
   .muted {
     color: var(--ink2);
   }
-  @media (max-width: 560px) {
+  @container card (width < 480px) {
     li {
       grid-template-columns: minmax(0, 1fr) auto;
     }

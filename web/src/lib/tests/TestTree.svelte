@@ -107,6 +107,7 @@
     display: flex;
     align-items: center;
     gap: 8px;
+    min-width: 0;
     min-height: 32px;
     padding: 0 10px;
     border-radius: 8px;
@@ -132,7 +133,19 @@
     color: var(--ink3);
     font-weight: 400;
   }
+  .row .mono {
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .row .pill {
+    flex: none;
+  }
   .name {
+    flex: 1 1 auto;
+    min-width: 0;
     color: var(--ink2);
     overflow: hidden;
     text-overflow: ellipsis;
