@@ -8,16 +8,20 @@ import {
   frameKind,
   frameLimit,
   shownFrames,
+  type Direction,
+  type Schedule,
   type StreamFrame,
 } from './stream.svelte.ts';
 
 const call: StreamCall = { api: 'chat#room', vars: [] };
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+/** Flushes in a microtask, so a test that settles sees what came without waiting for a paint. */
+const soon: Schedule = (flush) => queueMicrotask(flush);
 
 describe('stream session', () => {
   it('opens, takes messages in order, sends, and closes through the engine', async () => {
     const fake = fakeStream();
-    const session = new StreamSession(fake.port);
+    const session = new StreamSession(fake.port, soon);
     const reading = session.connect(call);
     expect(session.status).toBe('connecting');
     fake.push({ kind: 'opened', stream: 's1', runId: 3 });
@@ -44,7 +48,7 @@ describe('stream session', () => {
 
   it('holds messages back while paused and shows them on resume', async () => {
     const fake = fakeStream();
-    const session = new StreamSession(fake.port);
+    const session = new StreamSession(fake.port, soon);
     const reading = session.connect(call);
     fake.push({ kind: 'opened', stream: 's1', runId: 0 });
     session.setPaused(true);
@@ -76,6 +80,42 @@ describe('stream session', () => {
     expect(session.frames[0]?.n).toBe(6);
   });
 
+  it('takes a burst in one flush, keeps the newest in order, and still pauses (D756)', async () => {
+    const fake = fakeStream();
+    const due: (() => void)[] = [];
+    const session = new StreamSession(fake.port, (flush) => due.push(flush));
+    const reading = session.connect(call);
+    const message = (i: number): StreamEvent => ({
+      kind: 'message',
+      direction: 'in',
+      atMs: i,
+      json: `{"I":${i}}`,
+    });
+    const run = (from: number, count: number) => Array.from({ length: count }, (_, i) => from + i);
+    fake.push({ kind: 'opened', stream: 's1', runId: 1 }, ...run(1, 5000).map(message));
+    await settle();
+    expect([due.length, session.frames.length]).toEqual([1, 0]);
+    due.shift()?.();
+    expect(session.frames.map((f) => f.n)).toEqual(run(4001, frameLimit));
+    expect(session.frames[0]?.search).toBe('{"i":4001}');
+
+    session.setPaused(true);
+    fake.push(...run(5001, 5).map(message));
+    await settle();
+    expect(due.length).toBe(1);
+    due.shift()?.();
+    expect([session.frames.at(-1)?.n, session.held.map((f) => f.n)]).toEqual([5000, run(5001, 5)]);
+    session.setPaused(false);
+    expect([session.frames.length, session.frames[0]?.n, session.frames.at(-1)?.n]).toEqual([
+      frameLimit,
+      4006,
+      5005,
+    ]);
+    expect(session.held).toEqual([]);
+    fake.end();
+    await reading;
+  });
+
   it('says why a stream failed, but not when it was aborted', async () => {
     const fake = fakeStream();
     const session = new StreamSession(fake.port);
@@ -95,10 +135,18 @@ describe('stream session', () => {
   });
 
   it('filters frames by direction and text, and names their kind and body', () => {
-    const frames: StreamFrame[] = [
-      { n: 1, direction: 'in', atMs: 0, json: '{"event":"price","data":"{\\"p\\":1}"}', size: 1 },
-      { n: 2, direction: 'out', atMs: 0, json: '{"text":"Hello"}', size: 1 },
-      { n: 3, direction: 'in', atMs: 0, json: '{"data":"[1,2]"}', size: 1 },
+    const frame = (n: number, direction: Direction, json: string): StreamFrame => ({
+      n,
+      direction,
+      atMs: 0,
+      json,
+      size: 1,
+      search: json.toLowerCase(),
+    });
+    const frames = [
+      frame(1, 'in', '{"event":"price","data":"{\\"p\\":1}"}'),
+      frame(2, 'out', '{"text":"Hello"}'),
+      frame(3, 'in', '{"data":"[1,2]"}'),
     ];
     expect(shownFrames(frames, { direction: 'in', filter: '' }).map((f) => f.n)).toEqual([1, 3]);
     expect(shownFrames(frames, { direction: 'all', filter: 'hello' }).map((f) => f.n)).toEqual([2]);
@@ -107,6 +155,8 @@ describe('stream session', () => {
     expect(frameBody(frames[0]?.json ?? '')).toBe('{\n  "p": 1\n}');
     expect(frameBody(frames[1]?.json ?? '')).toBe('Hello');
     expect(frameBody('{"other":1}')).toBe('{\n  "other": 1\n}');
+    const cached = { ...frame(2, 'out', '{}'), search: 'needle' };
+    expect(shownFrames([cached], { direction: 'all', filter: 'NEEDLE' })).toEqual([cached]);
   });
 
   it('unwraps data and text of any JSON type, and falls back to the envelope without them (D754)', () => {

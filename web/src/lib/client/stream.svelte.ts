@@ -13,6 +13,8 @@ export type StreamFrame = Readonly<{
   atMs: number;
   json: string;
   size: number;
+  /** `json` in lower case, made once, for the filter (D756). */
+  search: string;
 }>;
 
 export type StreamEnd = Readonly<{ reason: string; failed: boolean; code?: number }>;
@@ -22,16 +24,31 @@ export const frameLimit = 1000;
 
 const encoder = new TextEncoder();
 
+/** Runs `flush` once, later: before the next paint, or in a microtask where nothing paints. */
+export type Schedule = (flush: () => void) => void;
+
+const nextPaint: Schedule = (flush) => {
+  if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => flush());
+  else queueMicrotask(flush);
+};
+
+/** `kept` then `incoming`, newest last, cut to the limit without copying a long burst whole. */
+function joined(kept: readonly StreamFrame[], incoming: readonly StreamFrame[]): StreamFrame[] {
+  const tail = incoming.length > frameLimit ? incoming.slice(-frameLimit) : incoming;
+  return kept.concat(tail).slice(-frameLimit);
+}
+
 /**
  * One open SSE or WebSocket stream (D564): its messages as they come, how it ended, and what
  * the view shows of them. Pausing holds new messages back until resumed; the stream keeps
- * reading. Closing asks the engine to close it; aborting stops reading at once.
+ * reading. Closing asks the engine to close it; aborting stops reading at once. Messages are
+ * batched and shown once per paint, so a burst replaces the list once, not once per message (D756).
  */
 export class StreamSession {
   status: StreamStatus = $state('idle');
-  frames: StreamFrame[] = $state([]);
+  frames: readonly StreamFrame[] = $state.raw([]);
   /** Messages that came while paused, shown on resume. */
-  held: StreamFrame[] = $state([]);
+  held: readonly StreamFrame[] = $state.raw([]);
   paused = $state(false);
   head: ExchangeLine | undefined = $state();
   runId: number | undefined = $state();
@@ -40,10 +57,15 @@ export class StreamSession {
   #stream: string | undefined;
   #abort: AbortController | undefined;
   #next = 1;
+  /** Messages taken since the last flush. */
+  #incoming: StreamFrame[] = [];
+  #due = false;
   readonly #port: StreamPort;
+  readonly #schedule: Schedule;
 
-  constructor(port: StreamPort) {
+  constructor(port: StreamPort, schedule: Schedule = nextPaint) {
     this.#port = port;
+    this.#schedule = schedule;
   }
 
   get live(): boolean {
@@ -63,6 +85,7 @@ export class StreamSession {
       if (!abort.signal.aborted) this.error = adhocWords(message(error));
     } finally {
       if (this.#abort === abort) this.#abort = undefined;
+      this.#flush();
       this.status = 'ended';
     }
   }
@@ -97,15 +120,17 @@ export class StreamSession {
   }
 
   setPaused(paused: boolean): void {
+    this.#flush();
     this.paused = paused;
     if (paused) return;
-    this.#keep(this.held);
+    this.frames = joined(this.frames, this.held);
     this.held = [];
   }
 
   clear(): void {
     this.frames = [];
     this.held = [];
+    this.#incoming = [];
   }
 
   #reset(): void {
@@ -133,13 +158,30 @@ export class StreamSession {
       return;
     }
     const { direction, atMs, json } = event;
-    const frame = { n: this.#next++, direction, atMs, json, size: encoder.encode(json).length };
-    if (this.paused) this.held = [...this.held, frame].slice(-frameLimit);
-    else this.#keep([frame]);
+    const size = encoder.encode(json).length;
+    this.#incoming.push({
+      n: this.#next++,
+      direction,
+      atMs,
+      json,
+      size,
+      search: json.toLowerCase(),
+    });
+    if (this.#due) return;
+    this.#due = true;
+    this.#schedule(() => {
+      this.#due = false;
+      this.#flush();
+    });
   }
 
-  #keep(frames: readonly StreamFrame[]): void {
-    if (frames.length > 0) this.frames = [...this.frames, ...frames].slice(-frameLimit);
+  /** Shows what came since the last flush, or holds it while paused. */
+  #flush(): void {
+    const incoming = this.#incoming;
+    if (incoming.length === 0) return;
+    this.#incoming = [];
+    if (this.paused) this.held = joined(this.held, incoming);
+    else this.frames = joined(this.frames, incoming);
   }
 }
 
@@ -151,7 +193,7 @@ export function shownFrames(frames: readonly StreamFrame[], view: FrameView): St
   return frames.filter(
     (f) =>
       (view.direction === 'all' || f.direction === view.direction) &&
-      (text === '' || f.json.toLowerCase().includes(text)),
+      (text === '' || f.search.includes(text)),
   );
 }
 
