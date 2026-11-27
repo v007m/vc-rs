@@ -1254,6 +1254,21 @@ Round 104 (27 November 2026; the desktop shell, after the wry, Tauri 2 and GPUI 
 | D745 | Desktop transport | When a desktop shell is built, the engine runs in process and the webview talks to it over the loopback Connect transport with the session token, exactly as `vc ui` does. Neither wry's nor Tauri's custom protocol can stream a response, so live runs cannot use IPC | D470 (in process over IPC) |
 | D746 | Desktop binary | The desktop app is its own app crate and binary (`vc-desktop`), built in its own PR after the UI PR merges. `vc-cli` never links a webview, so the CLI never needs WebKitGTK on Linux. Its arch-tests row is added by Sarath | — |
 
+Round 105 (27 November 2026; fixes from the final `/code-review` of the UI branch; in-design refinements decided by the orchestrator):
+
+| # | Topic | Decision | Supersedes |
+| --- | --- | --- | --- |
+| D747 | Cron day fields | A day-of-month or day-of-week field counts as unrestricted only when it is exactly `*`, as in vixie cron. A stepped star (`*/2`) restricts the day, and when both day fields are restricted a day matches either | — |
+| D748 | Cron `N/step` | `N/step` runs from N to the field's top for every step, 1 included, so `5/1` is 5–23 | — |
+| D749 | Lossless schedule writes | Saving an existing schedule edits only the keys that changed, in place. Comments, unknown keys, an unknown runner and mapping-valued channel settings are kept | — |
+| D750 | One fire per minute | The scheduler records the last minute it fired each schedule and never fires that minute or an earlier one again, so an early wake or a clock stepped back cannot run a schedule twice | — |
+| D751 | Plugin add rollback | If the config write fails after a plugin is installed from the Client, the plugin that call installed is uninstalled again, so no install is left that no config names | — |
+| D752 | Git pane line counts | Untracked files are counted in chunks. A file over 1 MiB, or with a NUL in its first 8,000 bytes, counts as binary with no lines | — |
+| D753 | Client `--set` errors | A Client set that is not `key=value` gets the same error as `vc run`, and the call does not go out | — |
+| D754 | Stream frame body | A stream frame shows its `data` or `text` whatever its JSON type; only a frame with neither shows the whole envelope | — |
+| D755 | Markdown line breaks | A lone CR, U+2028 and U+2029 end a line in rendered markdown, and a line no block takes becomes a paragraph, so parsing always ends | — |
+| D756 | Stream batching | Incoming stream frames are flushed into the view once per animation frame, held in raw state and cut to 1,000; each frame keeps its lower-case search text | — |
+
 ## Open
 
 All decisions needed for the PRD and technical design are settled. The language is decided by the spike (D6, D36, D37, D41).
