@@ -33,6 +33,7 @@
 
 mod adhoc;
 mod agent_gate;
+mod agent_usage;
 mod agent_write;
 mod alert_samples;
 mod alerts;
@@ -84,6 +85,7 @@ mod import_recorded;
 mod import_titles;
 mod import_write;
 mod init;
+mod init_client;
 mod interrupt;
 mod list;
 mod list_detail;
@@ -97,10 +99,12 @@ mod migrate;
 mod notify;
 mod paths;
 mod plan;
+mod plugin_client;
 mod plugin_hosts;
 mod plugin_intact;
 mod plugin_lock;
 mod plugin_manifest;
+mod plugin_state;
 mod plugins;
 mod policy;
 mod ports;
@@ -116,6 +120,8 @@ mod run_feed;
 #[cfg(test)]
 mod sample;
 mod save_call;
+mod schedule_export;
+mod schedules;
 mod schema;
 mod secured;
 mod selection;
@@ -134,11 +140,14 @@ mod sync_snapshot;
 mod test_auth;
 mod test_history;
 mod user;
+mod user_settings;
+mod user_settings_text;
 mod vcs_pane;
 mod wanted;
 mod watch;
 mod yaml_out;
 
+pub use agent_usage::{AgentTotals, AgentUsage, MAX_USAGE_DAYS, ToolUsage, USAGE_DAYS, UsageCount};
 pub use agent_write::WriteRequest;
 pub use alert_samples::AlertSent;
 pub use approvals::{APPROVAL_WAIT, Admission, AgentOutcome};
@@ -167,6 +176,7 @@ pub use file_refs::{FileReference, FileReferences};
 pub use fix::FixReport;
 pub use import::{ImportRequest, Keep};
 pub use init::INIT_FOLDERS;
+pub use init_client::{InitChange, InitChoices};
 pub use interrupt::{Interrupter, Interrupts, interrupts};
 pub use list::{ListReport, Listed};
 pub use list_detail::{ApiCall, action_call};
@@ -174,6 +184,7 @@ pub use live_call::{LiveEvent, LiveIo, LiveSend};
 pub use load_report::{ErrorKind, LoadBreach, LoadEnding, LoadReport, LoadRequest, LoadTestReport, LoadWatch};
 pub use paths::under;
 pub use plan::PlanReport;
+pub use plugin_client::PluginChange;
 pub use plugin_hosts::launch_plugin;
 pub use plugins::{PluginListing, PluginOffer, PluginState};
 pub use policy::{AgentCall, Permission};
@@ -184,6 +195,8 @@ pub use request::{
 pub use run::RunReport;
 pub use run_feed::{RunFeed, RunWatch};
 pub use save_call::CallAsTest;
+pub use schedule_export::ScheduleExport;
+pub use schedules::{DueSchedule, NotifyChannel, ScheduleEdit, ScheduleListing, ScheduleSpec};
 pub use schema::SchemaFile;
 pub use skip::SkipRequest;
 pub use stored::{HistoryReport, ReportFiles, ReportRequest, StoredRun, instance_label, started};
@@ -191,6 +204,7 @@ pub use sync::{SyncMode, SyncReport, SyncRequest};
 pub use sync_plan::SyncSide;
 pub use test_auth::{AuthTested, TestAuthRequest};
 pub use test_history::{MOST_RUNS, TestResults};
+pub use user_settings::{NEW_FILE, UserSetting, UserSettingEdit, UserSettings, UserSettingsChange};
 pub use vc_diagnostics::{
     Code, Diagnostic, Diagnostics, DiagnosticsError, Fix, JsonRenderer, Label, Render, Severity, Summary, TextRenderer,
 };
@@ -201,6 +215,6 @@ pub use vc_interfaces::{
 };
 pub use vc_model::{
     ActionId, Bodies, CheckKind, CheckResult, CleanupRecord, Event, Exchange, Failure, FileKind, HostStats, InstanceId,
-    Location, Method, Names, Origin, OwnerKey, Planned, RunStatus, Sequenced, SourceFileId, SourceFiles, SourcePath,
-    SourceSpan, TestResult, TestStatus, Totals, check_label, check_parts, cut_body,
+    Location, Method, Names, Origin, OwnerKey, Planned, RunStatus, ScheduleRunner, Sequenced, SourceFileId,
+    SourceFiles, SourcePath, SourceSpan, TestResult, TestStatus, Totals, check_label, check_parts, cut_body,
 };

@@ -263,7 +263,7 @@ fn stale(path: &SourcePath, reason: &str) -> EngineError {
 }
 
 /// `bytes` in lowercase hex.
-fn hex(bytes: &[u8]) -> String {
+pub fn hex(bytes: &[u8]) -> String {
     bytes.iter().fold(String::with_capacity(bytes.len() * 2), |mut text, byte| {
         let _ = write!(text, "{byte:02x}");
         text

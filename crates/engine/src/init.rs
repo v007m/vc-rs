@@ -8,6 +8,7 @@ use vc_parser::write_text;
 
 use crate::authoring::refused;
 use crate::edit::{Changes, FileChange, internal};
+use crate::import_write::new_file;
 use crate::project::sources_error;
 use crate::{Engine, EngineError};
 
@@ -16,11 +17,10 @@ const CONFIG: &str = include_str!("init/vibranium.config.yaml");
 const SAMPLE_API: &str = include_str!("init/sample.api.yaml");
 const SAMPLE_TESTS: &str = include_str!("init/basics.test.yaml");
 pub const ENV_SCHEMA: &str = include_str!("init/env.schema");
-/// The config's sample-only parts: placeholder, text with the sample, text without it.
-const SAMPLE_PARTS: [(&str, &str, &str); 2] = [
-    ("{sampleVars}", "vars:\n  sampleUrl: http://localhost:7421    # the demo service used by services/sample\n\n", ""),
-    ("{profileVar}", "sampleUrl: https://sample.staging.example", "baseUrl: https://api.staging.example"),
-];
+/// The config's var for the sample's demo service.
+const SAMPLE_VAR: &str = "  sampleUrl: http://localhost:7421    # the demo service used by services/sample\n";
+/// The config's commented profile var: with the sample, and without it.
+const PROFILE_VAR: [&str; 2] = ["sampleUrl: https://sample.staging.example", "baseUrl: https://api.staging.example"];
 const GITIGNORE: &str = ".gitignore";
 /// The lines `vc init` puts in `.gitignore`: its generated data, and the secrets (D286).
 const IGNORED: [&str; 2] = [".vibranium/", ".env"];
@@ -31,6 +31,21 @@ const DEFINITIONS: [(&str, FileKind, &str); 3] = [
     ("services/sample/sample.api.yaml", FileKind::Api, SAMPLE_API),
     ("services/sample/basics.test.yaml", FileKind::Test, SAMPLE_TESTS),
 ];
+
+/// The wizard's choices for a new project (D716): each is checked before it gets here.
+#[derive(Clone, Debug, Default)]
+pub struct Start<'a> {
+    /// With the sample api and test files.
+    pub sample: bool,
+    /// The project's name; the folder's when `None`.
+    pub name: Option<&'a str>,
+    /// The default profile's ID; `default` when `None`.
+    pub profile: Option<&'a str>,
+    /// The first service, as a file ID word, given its own api file.
+    pub service: Option<&'a str>,
+    /// The `baseUrl` var, which the first service's api file uses.
+    pub base_url: Option<&'a str>,
+}
 
 /// The empty folders of the conventional layout, which the app creates.
 pub const INIT_FOLDERS: [&str; 5] = ["schemas", "datasets", "hooks", "openapi", "load"];
@@ -45,24 +60,42 @@ impl Engine {
     /// [`EngineError::Edit`] when a definition file it would write exists (a project is here
     /// already) or the guard refuses; [`EngineError::Sources`] when the folder cannot be read.
     pub fn init(&self, sample: bool) -> Result<Changes, EngineError> {
-        let wanted = if sample { &DEFINITIONS[..] } else { &DEFINITIONS[..1] };
-        let existing = self.existing(wanted.iter().map(|(path, _, _)| *path))?;
+        self.init_from(&Start { sample, ..Start::default() })
+    }
+
+    /// [`Engine::init`] with the wizard's choices in `start`.
+    ///
+    /// # Errors
+    ///
+    /// As [`Engine::init`].
+    pub(crate) fn init_from(&self, start: &Start<'_>) -> Result<Changes, EngineError> {
+        let mut files = self.definitions(start);
+        if let Some(service) = start.service {
+            let body = if start.base_url.is_some() { "baseUrl: ${var.baseUrl}\n" } else { "" };
+            files.push(new_file(FileKind::Api, service, body)?);
+        }
+        let existing = self.existing(files.iter().map(|file| file.path.as_str()))?;
         if let Some(path) = existing.first() {
             let help = "`vc init` never overwrites a file; `vc check` checks the project that is here";
             return Err(refused(format!("{path} already exists"), help));
         }
         let project = self.authoring()?;
-        let name =
-            self.root().file_name().map_or_else(|| "project".to_owned(), |name| name.to_string_lossy().into_owned());
-        let files = wanted
-            .iter()
-            .map(|(path, kind, text)| created(path, &definition(*kind, &sampled(text, sample), &name)))
-            .collect();
-        let titles = wanted.iter().map(|(path, _, _)| format!("Create {path}")).collect();
+        let titles = files.iter().map(|file| format!("Create {}", file.path)).collect();
         let mut changes = self.guarded(&project, Changes { files, titles })?;
         self.scaffold(&mut changes)?;
         changes.files.sort_by(|a, b| a.path.cmp(&b.path));
         Ok(changes)
+    }
+
+    /// The config, and with `start.sample` the sample files, with `start`'s choices in.
+    fn definitions(&self, start: &Start<'_>) -> Vec<FileChange> {
+        let wanted = if start.sample { &DEFINITIONS[..] } else { &DEFINITIONS[..1] };
+        let folder = self.root().file_name().map(|name| name.to_string_lossy().into_owned());
+        let name = start.name.map(str::to_owned).or(folder).unwrap_or_else(|| "project".to_owned());
+        wanted
+            .iter()
+            .map(|(path, kind, text)| created(path, &definition(*kind, &sampled(text, start), &name)))
+            .collect()
     }
 
     /// Adds `.env.schema` when there is none, and to `.gitignore` the lines of [`IGNORED`] it lacks.
@@ -106,11 +139,20 @@ fn definition(kind: FileKind, text: &str, name: &str) -> String {
     format!("{}\n{}", schema_line(kind), text.replace("{project}", &write_text(name, false)))
 }
 
-/// `text` with the config's sample-only parts filled in, or left out without the sample.
-fn sampled(text: &str, sample: bool) -> String {
-    SAMPLE_PARTS.iter().fold(text.to_owned(), |text, (placeholder, with, without)| {
-        text.replace(placeholder, if sample { with } else { without })
-    })
+/// `text` with the config's parts filled in from `start`: its vars (the sample's demo service,
+/// the base URL), the commented profile var, and the default profile's ID.
+fn sampled(text: &str, start: &Start<'_>) -> String {
+    let sample = if start.sample { SAMPLE_VAR } else { "" };
+    let base = start.base_url.map(|url| format!("  baseUrl: {}\n", write_text(url, false))).unwrap_or_default();
+    let vars = format!("{sample}{base}");
+    let vars = if vars.is_empty() { vars } else { format!("vars:\n{vars}\n") };
+    let profile = format!("- id: {}\n", start.profile.unwrap_or("default"));
+    let profile_var = PROFILE_VAR[usize::from(!start.sample)];
+    text.replacen("{sampleVars}", &vars, 1).replacen("{profileVar}", profile_var, 1).replacen(
+        "- id: default\n",
+        &profile,
+        1,
+    )
 }
 
 /// The lines of [`IGNORED`] that `.gitignore`'s text `text` lacks; a leading `/` counts as the line.
@@ -129,7 +171,7 @@ fn ignored(text: &str, lines: &[&str]) -> String {
 mod tests {
     use vc_model::FileKind;
 
-    use super::{CONFIG, definition, ignored, lacking, sampled};
+    use super::{CONFIG, Start, definition, ignored, lacking, sampled};
 
     #[test]
     fn each_ignore_line_goes_on_a_line_of_its_own() {
@@ -148,8 +190,9 @@ mod tests {
 
     #[test]
     fn the_config_mentions_the_sample_only_with_it() {
-        assert!(sampled(CONFIG, true).contains("\nvars:\n  sampleUrl: http://localhost:7421 "));
-        let bare = sampled(CONFIG, false);
+        let sample = Start { sample: true, ..Start::default() };
+        assert!(sampled(CONFIG, &sample).contains("\nvars:\n  sampleUrl: http://localhost:7421 "));
+        let bare = sampled(CONFIG, &Start::default());
         assert!(!bare.contains("sample") && !bare.contains("{sampleVars}") && !bare.contains("{profileVar}"), "{bare}");
     }
 

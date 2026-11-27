@@ -1,0 +1,16 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2302_schedule_runner/project
+---
+error[V2302]: expected one of vcServer, githubActions, found `jenkins`
+ --> vibranium.config.yaml:9:13
+  |
+9 |     runner: jenkins
+  |             ^^^^^^^ not a known value
+  = help: expected one of `vcServer`, `githubActions`
+
+error[V2302]: expected boolean, found text
+  --> vibranium.config.yaml:10:14
+   |
+10 |     enabled: sometimes
+   |              ^^^^^^^^^ expected boolean

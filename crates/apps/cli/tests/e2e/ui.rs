@@ -221,6 +221,32 @@ mod served {
 
     /// rmcp needs `clientInfo`; `/mcp` fills it in as stdio does, so a client that names itself
     /// nowhere, or gives an empty `clientInfo`, is served and logged as `agent`.
+    /// A JSON call of `method` on the engine service with `body`; the reply's body.
+    fn json_rpc(port: &str, cookie: &str, (method, body): (&str, &str)) -> String {
+        let head = format!(
+            "POST {ENGINE}/{method}\r\nCookie: {cookie}\r\nOrigin: http://127.0.0.1:{port}\r\nContent-Type: application/json"
+        );
+        let reply = http(port, &head, body);
+        assert!(reply.starts_with("HTTP/1.1 200"), "{reply}");
+        reply.split("\r\n\r\n").nth(1).unwrap_or_default().to_owned()
+    }
+
+    #[test]
+    fn with_no_project_it_serves_the_folder_and_the_wizard_writes_one_there() {
+        let folder = Project::new(&[]);
+        let ui = Ui::start(&folder);
+        let cookie = ui.sign_in();
+        assert!(!json_rpc(&ui.port, &cookie, ("GetProject", "{}")).contains(r#""configured":true"#));
+        let preview = json_rpc(&ui.port, &cookie, ("Init", r#"{"service":"users","profile":"dev"}"#));
+        let digest = preview.split(r#""digest":""#).nth(1).and_then(|rest| rest.split('"').next()).unwrap();
+        assert!(!folder.path().join("vibranium.config.yaml").exists(), "{preview}");
+        let write = format!(r#"{{"service":"users","profile":"dev","write":true,"expectedDigest":"{digest}"}}"#);
+        json_rpc(&ui.port, &cookie, ("Init", &write));
+        assert!(folder.path().join("services/users/users.api.yaml").is_file());
+        assert!(json_rpc(&ui.port, &cookie, ("GetProject", "{}")).contains(r#""configured":true"#));
+        ui.stop();
+    }
+
     #[tokio::test(flavor = "multi_thread")]
     async fn a_client_without_client_info_is_served_at_mcp_and_logged_as_agent() {
         let server = MockServer::start().await.unwrap();

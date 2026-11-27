@@ -34,7 +34,9 @@ impl Engine {
     /// [`Engine::admit`] otherwise.
     pub(crate) async fn gated(&self, call: AgentCall) -> Result<Gated, EngineError> {
         match self.admit(&call, APPROVAL_WAIT).await? {
-            Admission::Allowed { approved_by } => Ok((call, approved_by)),
+            Admission::Allowed { approved_by } => {
+                Ok((AgentCall { started_ms: Some(self.clock.now_ms()), ..call }, approved_by))
+            }
             Admission::Refused { reason } => Err(EngineError::Refused { reason, help: Some(REFUSED_HELP.to_owned()) }),
         }
     }

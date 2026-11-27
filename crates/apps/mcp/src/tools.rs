@@ -25,6 +25,9 @@ pub struct Cx {
     pub profiles: Vec<String>,
     /// `vc mcp --set`.
     pub sets: Vec<String>,
+    /// When the call came in, by the engine's clock: how long a reading tool took counts from
+    /// here (D710).
+    pub started_ms: u64,
 }
 
 /// One MCP tool.

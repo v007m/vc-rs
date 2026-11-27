@@ -153,12 +153,17 @@ impl core::fmt::Display for vc_interfaces::CompileCacheError
 pub fn vc_interfaces::CompileCacheError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_interfaces::CompileCacheError
 #[non_exhaustive] pub enum vc_interfaces::ConfigSourceError
+pub vc_interfaces::ConfigSourceError::Changed
+pub vc_interfaces::ConfigSourceError::Changed::origin: alloc::string::String
 pub vc_interfaces::ConfigSourceError::Malformed
 pub vc_interfaces::ConfigSourceError::Malformed::entry: alloc::string::String
 pub vc_interfaces::ConfigSourceError::Malformed::origin: alloc::string::String
 pub vc_interfaces::ConfigSourceError::Unreadable
 pub vc_interfaces::ConfigSourceError::Unreadable::origin: alloc::string::String
 pub vc_interfaces::ConfigSourceError::Unreadable::reason: alloc::string::String
+pub vc_interfaces::ConfigSourceError::Unwritable
+pub vc_interfaces::ConfigSourceError::Unwritable::origin: alloc::string::String
+pub vc_interfaces::ConfigSourceError::Unwritable::reason: alloc::string::String
 impl core::clone::Clone for vc_interfaces::ConfigSourceError
 pub fn vc_interfaces::ConfigSourceError::clone(&self) -> Self
 impl core::cmp::Eq for vc_interfaces::ConfigSourceError
@@ -758,13 +763,17 @@ pub vc_interfaces::AgentAction::agent: alloc::string::String
 pub vc_interfaces::AgentAction::approved_by: core::option::Option<alloc::string::String>
 pub vc_interfaces::AgentAction::arguments: alloc::string::String
 pub vc_interfaces::AgentAction::profile: core::option::Option<alloc::string::String>
+pub vc_interfaces::AgentAction::ran: bool
 pub vc_interfaces::AgentAction::result: alloc::string::String
+pub vc_interfaces::AgentAction::took_ms: core::option::Option<u64>
 pub vc_interfaces::AgentAction::tool: alloc::string::String
 impl core::clone::Clone for vc_interfaces::AgentAction
 pub fn vc_interfaces::AgentAction::clone(&self) -> Self
 impl core::cmp::Eq for vc_interfaces::AgentAction
 impl core::cmp::PartialEq for vc_interfaces::AgentAction
 pub fn vc_interfaces::AgentAction::eq(&self, &Self) -> bool
+impl core::default::Default for vc_interfaces::AgentAction
+pub fn vc_interfaces::AgentAction::default() -> Self
 impl core::fmt::Debug for vc_interfaces::AgentAction
 pub fn vc_interfaces::AgentAction::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_interfaces::AgentAction
@@ -1580,6 +1589,7 @@ pub struct vc_interfaces::RunFilter
 pub vc_interfaces::RunFilter::branch: core::option::Option<alloc::string::String>
 pub vc_interfaces::RunFilter::kind: core::option::Option<alloc::string::String>
 pub vc_interfaces::RunFilter::profile: core::option::Option<alloc::string::String>
+pub vc_interfaces::RunFilter::schedule: core::option::Option<alloc::string::String>
 impl vc_interfaces::RunFilter
 pub fn vc_interfaces::RunFilter::matches(&self, &vc_interfaces::RunStart) -> bool
 impl core::clone::Clone for vc_interfaces::RunFilter
@@ -1634,6 +1644,7 @@ pub vc_interfaces::RunStart::git_branch: core::option::Option<alloc::string::Str
 pub vc_interfaces::RunStart::git_commit: core::option::Option<alloc::string::String>
 pub vc_interfaces::RunStart::kind: alloc::string::String
 pub vc_interfaces::RunStart::profiles: alloc::vec::Vec<alloc::string::String>
+pub vc_interfaces::RunStart::schedule: core::option::Option<alloc::string::String>
 pub vc_interfaces::RunStart::seed: core::option::Option<u64>
 pub vc_interfaces::RunStart::selector: alloc::string::String
 pub vc_interfaces::RunStart::started_ms: u64
@@ -1933,6 +1944,7 @@ pub trait vc_interfaces::AgentActionLog: vc_interfaces::AgentActionWriter + vc_i
 impl<T: vc_interfaces::AgentActionWriter + vc_interfaces::AgentActionReader + ?core::marker::Sized> vc_interfaces::AgentActionLog for T
 pub trait vc_interfaces::AgentActionReader: core::marker::Send + core::marker::Sync
 pub fn vc_interfaces::AgentActionReader::recent(&self, usize) -> core::result::Result<alloc::vec::Vec<vc_interfaces::LoggedAction>, vc_interfaces::ApprovalError>
+pub fn vc_interfaces::AgentActionReader::since(&self, u64) -> core::result::Result<alloc::vec::Vec<vc_interfaces::LoggedAction>, vc_interfaces::ApprovalError>
 pub trait vc_interfaces::AgentActionWriter: core::marker::Send + core::marker::Sync
 pub fn vc_interfaces::AgentActionWriter::record(&self, &vc_interfaces::AgentAction) -> core::result::Result<(), vc_interfaces::ApprovalError>
 pub trait vc_interfaces::Approvals: core::marker::Send + core::marker::Sync

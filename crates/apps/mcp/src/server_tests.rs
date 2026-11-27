@@ -33,6 +33,11 @@ async fn a_reading_tool_answers_with_structured_content_and_is_logged() {
     assert_eq!(content(&answered)["items"][0]["id"], "users.crud#listsUsers");
     let row = ("claude".to_owned(), "search".to_owned(), Some("dev".to_owned()), "ok".to_owned());
     assert_eq!(logged(dir.path()), [row]);
+    let db = rusqlite::Connection::open(dir.path().join(".vibranium/history.db")).unwrap();
+    let timed: (bool, bool) = db
+        .query_row("SELECT took_ms IS NOT NULL, ran FROM agent_actions", [], |row| Ok((row.get(0)?, row.get(1)?)))
+        .unwrap();
+    assert_eq!(timed, (true, false), "a reading tool is timed and starts no run (D710)");
 }
 
 #[tokio::test]

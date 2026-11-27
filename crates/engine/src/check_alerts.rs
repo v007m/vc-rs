@@ -1,5 +1,5 @@
-//! `vc check`'s V5117 warnings for an `alerts` channel no notifier builds, or one whose
-//! settings its notifier refuses. The compiler stays pure and knows no channel kinds; the
+//! `vc check`'s V5117 warnings for an `alerts` or `schedules` channel no notifier builds, or
+//! one whose settings its notifier refuses. The compiler stays pure and knows no channel kinds; the
 //! engine's notifier registry does.
 
 use std::sync::Arc;
@@ -16,7 +16,8 @@ use crate::Engine;
 use crate::explain::did_you_mean;
 use crate::restricted::Restricted;
 
-/// A warning at each `alerts[].notify[]` key of the config that is none of `known`.
+/// A warning at each `alerts[].notify[]` and `schedules[].notify[]` key of the config that is
+/// none of `known`.
 pub fn unknown_channels(files: &SourceFiles, known: &[String]) -> Vec<Diagnostic> {
     let entries = channel_entries(files).into_iter().filter(|entry| !known.contains(&entry.key));
     entries.map(|entry| unknown(&entry, known)).collect()
@@ -25,7 +26,8 @@ pub fn unknown_channels(files: &SourceFiles, known: &[String]) -> Vec<Diagnostic
 /// A warning at each channel of `program` whose settings, written without a template, the
 /// notifier `factory` builds for it refuses. Templated settings are checked when the run ends.
 pub fn bad_settings(files: &SourceFiles, program: &Program, factory: &dyn NotifierFactory) -> Vec<Diagnostic> {
-    let channels = program.config.alerts.iter().flat_map(|alert| &alert.notify);
+    let alerts = program.config.alerts.iter().flat_map(|alert| &alert.notify);
+    let channels = alerts.chain(program.config.schedules.iter().flat_map(|schedule| &schedule.notify));
     let check = |(entry, channel): (Entry, &AlertChannel)| {
         let settings = plain(&channel.settings)?;
         match factory.create(&channel.kind, &settings) {
@@ -36,12 +38,14 @@ pub fn bad_settings(files: &SourceFiles, program: &Program, factory: &dyn Notifi
     channel_entries(files).into_iter().zip(channels).filter_map(check).collect()
 }
 
-/// The `alerts[].notify[]` entries of the config, in written order: one per channel.
+/// The `alerts[].notify[]` entries of the config, then the `schedules[].notify[]` ones, each in
+/// written order: one per channel, as the program lists them.
 fn channel_entries(files: &SourceFiles) -> Vec<Entry> {
     let Some((id, file)) = config(files) else { return Vec::new() };
     let (root, _) = vc_parser::parse(id, Syntax::of(&file.path), &file.text);
-    let alerts = root.as_ref().and_then(|root| root.get("alerts")).map(Node::items).unwrap_or_default();
-    let notify = alerts.iter().flat_map(|alert| alert.get("notify").map(Node::items).unwrap_or_default());
+    let Some(root) = root else { return Vec::new() };
+    let lists = ["alerts", "schedules"].map(|key| root.get(key).map(Node::items).unwrap_or_default());
+    let notify = lists.into_iter().flatten().flat_map(|item| item.get("notify").map(Node::items).unwrap_or_default());
     notify.flat_map(Node::entries).cloned().collect()
 }
 
@@ -62,7 +66,9 @@ impl Engine {
     /// through cannot be built, which a run reports. [`Engine::check`] is a blocking call (the
     /// server runs it on a blocking thread), so the client is built on its caller's thread.
     pub(crate) fn channel_settings(&self, program: &Program, files: &SourceFiles) -> Vec<Diagnostic> {
-        if program.config.alerts.is_empty() {
+        if program.config.alerts.is_empty()
+            && program.config.schedules.iter().all(|schedule| schedule.notify.is_empty())
+        {
             return Vec::new();
         }
         let environment = self.environment.clone().unwrap_or_else(|| Arc::new(SystemEnvironment::capture()));
@@ -119,6 +125,19 @@ mod tests {
         );
         assert_eq!(warnings[0].primary.span.start.line, 3, "it points at the key");
         assert!(warnings.iter().all(|warning| !warning.is_error()), "an alert never fails a check");
+    }
+
+    #[test]
+    fn a_schedules_channel_is_checked_as_an_alerts_one_is() {
+        let known = ["slack".to_owned()];
+        let config = concat!(
+            "alerts:\n  - notify:\n      - slack: {channel: '#qa'}\n",
+            "schedules:\n  - id: nightly\n    cron: 0 2 * * *\n    notify:\n      - slak: {channel: '#qa'}\n",
+        );
+        let warnings = unknown_channels(&files(config), &known);
+        assert_eq!(warnings.len(), 1);
+        assert_eq!(warnings[0].message, "no alert channel `slak`; a run cannot send to it");
+        assert_eq!(warnings[0].primary.span.start.line, 8);
     }
 
     #[test]

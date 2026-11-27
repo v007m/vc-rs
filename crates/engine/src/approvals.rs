@@ -135,7 +135,7 @@ impl Engine {
         self.agent_log().recent(limit).map_err(|error| store_error(&error))
     }
 
-    fn agent_log(&self) -> Arc<dyn AgentActionLog> {
+    pub(crate) fn agent_log(&self) -> Arc<dyn AgentActionLog> {
         match &self.approvals {
             Some((_, log)) => Arc::clone(log),
             None => Arc::new(SqliteApprovals::new(&self.history_path())),
@@ -164,6 +164,8 @@ impl Engine {
             arguments,
             result: outcome.result.clone(),
             approved_by: outcome.approved_by.clone(),
+            took_ms: call.started_ms.map(|started| self.clock.now_ms().saturating_sub(started)),
+            ran: call.runs && call.started_ms.is_some(),
         };
         self.agent_log().record(&action).map_err(|error| store_error(&error))
     }

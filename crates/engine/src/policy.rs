@@ -48,6 +48,9 @@ pub struct AgentCall {
     pub summary: String,
     /// The call's arguments, as the agent sent them; redacted before they are stored.
     pub arguments: Value,
+    /// When it went ahead, in milliseconds since the Unix epoch: set by the gate, or by the app
+    /// for a reading tool, which has none. The log counts how long it took from here (D710).
+    pub started_ms: Option<u64>,
 }
 
 /// What the policy says about an [`AgentCall`].

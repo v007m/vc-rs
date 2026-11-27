@@ -81,7 +81,7 @@ impl FsSources {
 
 /// A hidden file beside `target` for one write to stage its text in, named after the file, the
 /// process, the thread and the time, so two writes never share one.
-fn temp_beside(target: &Path) -> PathBuf {
+pub fn temp_beside(target: &Path) -> PathBuf {
     let name = target.file_name().map(|name| name.to_string_lossy().into_owned()).unwrap_or_default();
     let thread: String = format!("{:?}", std::thread::current().id()).chars().filter(char::is_ascii_digit).collect();
     let nanos = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_nanos();
@@ -90,7 +90,7 @@ fn temp_beside(target: &Path) -> PathBuf {
 
 /// Writes `text` to `temp`, a new file, with the folders it needs and the permissions of
 /// `target` when it exists; a read-only `target` is refused, as a plain write refuses it.
-fn stage(target: &Path, temp: &Path, text: &str) -> std::io::Result<()> {
+pub fn stage(target: &Path, temp: &Path, text: &str) -> std::io::Result<()> {
     let kept = std::fs::metadata(target).ok().map(|found| found.permissions());
     if kept.as_ref().is_some_and(std::fs::Permissions::readonly) {
         return Err(std::io::ErrorKind::PermissionDenied.into());

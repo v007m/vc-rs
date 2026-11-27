@@ -16,7 +16,7 @@ const RESERVED: [&str; 11] =
     ["var", "env", "secret", "response", "request", "example", "item", "iteration", "fake", "dataset", "run"];
 
 /// The config's top-level lists whose items have IDs.
-const CONFIG_ITEMS: [&str; 4] = ["profiles", "auth", "generators", "plugins"];
+const CONFIG_ITEMS: [&str; 5] = ["profiles", "auth", "generators", "plugins", "schedules"];
 
 /// The items of the config `root`'s lists below the top level that have IDs: `datasets.files`
 /// and `http.tls.clients`.

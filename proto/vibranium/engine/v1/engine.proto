@@ -42,6 +42,8 @@ service EngineService {
   rpc DecideApproval(DecideApprovalRequest) returns (DecideApprovalResponse);
   // What agents did through MCP, newest first.
   rpc ListAgentActions(ListAgentActionsRequest) returns (ListAgentActionsResponse);
+  // What agents did over the last days: per agent and day, and per agent and tool (D709).
+  rpc AgentUsage(AgentUsageRequest) returns (AgentUsageResponse);
   // Sends one api's request, as `vc call` does. The person at the browser is no agent, so the
   // profiles' agent policy and the agent log do not apply (D241).
   rpc Call(CallRequest) returns (CallResponse);
@@ -128,6 +130,39 @@ service EngineService {
   // Fast-forwards the branch to its upstream with the user's own git credentials; refused when
   // the branches have diverged.
   rpc VcsPull(VcsPullRequest) returns (VcsPullResponse);
+  // The config's `schedules`, each with its next run time and its last run from the history
+  // (D705).
+  rpc ListSchedules(ListSchedulesRequest) returns (ListSchedulesResponse);
+  // Adds, replaces or removes one schedule in the config: a preview, or the config written
+  // with the preview's digest (D706).
+  rpc WriteSchedule(WriteScheduleRequest) returns (WriteScheduleResponse);
+  // A GitHub Actions workflow that runs one schedule on its cron, at a path the engine fixes
+  // (`.github/workflows/vibranium-<id>.yml`): a preview, or the file written (D707).
+  rpc ExportSchedule(ExportScheduleRequest) returns (ExportScheduleResponse);
+  // The user config (D129's user layer) at the one path the engine fixes, never one a client
+  // names: its settings, masked, each saying whether this project's config overrides it (D711).
+  rpc ReadUserSettings(ReadUserSettingsRequest) returns (ReadUserSettingsResponse);
+  // Sets or removes user config settings: a preview, or the file written with the preview's
+  // digest (D712).
+  rpc WriteUserSettings(WriteUserSettingsRequest) returns (WriteUserSettingsResponse);
+  // `vc alerts test`: a sample notice, titled `[test]`, through every channel of every alert
+  // rule whose profiles match, under the request's profiles and sets over the server's (D713).
+  rpc TestAlert(TestAlertRequest) returns (TestAlertResponse);
+  // `vc plugin list`: each plugin of the config or `vibranium.lock`, and whether a run can use it.
+  rpc PluginList(PluginListRequest) returns (PluginListResponse);
+  // Adds a plugin from a registry package or a folder inside the project: a preview of what it
+  // asks to reach and the config and lock changes, or it installed and written with the
+  // preview's digest (D714).
+  rpc PluginAdd(PluginAddRequest) returns (PluginAddResponse);
+  // Removes a plugin from the config and the lock, and uninstalls it: a preview, or it written
+  // with the preview's digest (D715).
+  rpc PluginRemove(PluginRemoveRequest) returns (PluginRemoveResponse);
+  // `vc init` from the onboarding wizard, in the folder `vc ui` was started in: a preview of the
+  // new project's files, or them written with the preview's digest (D716).
+  rpc Init(InitRequest) returns (InitResponse);
+  // The demo project (`vc init`'s with the sample) in that folder, previewed or written the same
+  // way, and whether `vc demo`'s service answers; the server never starts it (D717).
+  rpc Demo(DemoRequest) returns (DemoResponse);
 }
 
 // Which tests or apis to act on, as `vc run` selects them.
@@ -157,6 +192,8 @@ message GetProjectResponse {
   string vc_version = 4;
   // The auth IDs the config defines, in its order.
   repeated string auths = 5;
+  // Whether the folder holds `vibranium.config.yaml`; without it the UI offers onboarding (D716).
+  bool configured = 6;
 }
 
 // What to list.
@@ -613,6 +650,10 @@ message AgentAction {
   string result = 5;
   optional string approved_by = 6;
   uint64 at_ms = 7;
+  // From the gate letting it through to its end; unset for a call that never went ahead (D710).
+  optional uint64 took_ms = 8;
+  // It started a run.
+  bool ran = 9;
 }
 
 message ListAgentActionsRequest {
@@ -622,6 +663,50 @@ message ListAgentActionsRequest {
 
 message ListAgentActionsResponse {
   repeated AgentAction actions = 1;
+}
+
+message AgentUsageRequest {
+  // Days in UTC, today included: 7 when 0, at most 90.
+  uint32 days = 1;
+}
+
+message AgentUsageResponse {
+  // The start of the first day, in milliseconds since the Unix epoch.
+  uint64 from_ms = 1;
+  // Now, when the window ends.
+  uint64 to_ms = 2;
+  // The busiest first.
+  repeated AgentTotals agents = 3;
+  // By agent, then the most called first.
+  repeated ToolUsage tools = 4;
+}
+
+// Calls, the runs they started, and how long the timed ones took. The engine sees no agent's
+// requests or tokens, so those are not counted.
+message UsageCount {
+  uint64 calls = 1;
+  uint64 runs = 2;
+  uint64 took_ms = 3;
+}
+
+message AgentTotals {
+  string agent = 1;
+  UsageCount total = 2;
+  // One for each day, the oldest first.
+  repeated UsageCount daily = 3;
+}
+
+message ToolUsage {
+  string agent = 1;
+  string tool = 2;
+  uint64 calls = 3;
+  uint64 ok = 4;
+  uint64 failed = 5;
+  // Refused by the policy, denied by a person or not decided in time.
+  uint64 refused = 6;
+  // Went ahead once a person approved them.
+  uint64 approved = 7;
+  uint64 took_ms = 8;
 }
 
 message CallRequest {
@@ -1103,6 +1188,8 @@ message ListRunsRequest {
   optional string profile = 3;
   // Only runs on this git branch; every branch when absent.
   optional string branch = 4;
+  // Only runs this schedule started, by its `id`; every run when absent (D704).
+  optional string schedule = 5;
 }
 
 message ListRunsResponse {
@@ -1440,4 +1527,270 @@ message VcsPullRequest {}
 message VcsPullResponse {
   // What git said, masked.
   string output = 1;
+}
+
+message ListSchedulesRequest {}
+
+message ListSchedulesResponse {
+  repeated ScheduleListing schedules = 1;
+}
+
+// One schedule as the config has it.
+message Schedule {
+  // camelCase, unique among the config's schedules.
+  string id = 1;
+  optional string name = 2;
+  // Five fields in UTC: minute, hour, day of the month, month, day of the week.
+  string cron = 3;
+  // What runs, as `vc run`'s selector words; every test when empty.
+  repeated string selector = 4;
+  repeated string profiles = 5;
+  // Where a failed or blocked scheduled run is sent.
+  repeated NotifyChannel notify = 6;
+  // `vcServer` (the default) or `githubActions`.
+  string runner = 7;
+  bool enabled = 8;
+}
+
+// One `notify` entry: a channel kind (`slack`, `webhook`, ...) and its settings as written, in
+// written order, templates and all; a secret is a `${secret.NAME}` reference, never its value.
+message NotifyChannel {
+  string kind = 1;
+  repeated NotifySetting settings = 2;
+}
+
+message NotifySetting {
+  string key = 1;
+  string value = 2;
+}
+
+message ScheduleListing {
+  Schedule schedule = 1;
+  // When it next fires, in milliseconds since the Unix epoch; absent when it is disabled, runs
+  // on GitHub Actions or its cron matches no day.
+  optional uint64 next_ms = 2;
+  // Its newest run in the history.
+  optional vibranium.results.v1.Run last = 3;
+}
+
+message WriteScheduleRequest {
+  // The schedule to add, or to put in place of the one with its `id`.
+  optional Schedule schedule = 1;
+  // The `id` of a schedule to remove; with `schedule` unset.
+  optional string remove = 2;
+  // Write the config; a preview when false.
+  bool write = 3;
+  // The digest the preview gave; a write is aborted when the config changed since, or without it.
+  optional string expected_digest = 4;
+}
+
+message WriteScheduleResponse {
+  repeated FileChange files = 1;
+  repeated string titles = 2;
+  // The digest of the files as previewed, which the write passes back.
+  string digest = 3;
+}
+
+message ExportScheduleRequest {
+  // The schedule's `id`.
+  string id = 1;
+  // Write the workflow; a preview when false.
+  bool write = 2;
+  // The digest the preview gave; a write is aborted when the project changed since, or without it.
+  optional string expected_digest = 3;
+}
+
+message ExportScheduleResponse {
+  repeated FileChange files = 1;
+  repeated string titles = 2;
+  string digest = 3;
+  // The workflow's path, relative to the project root.
+  string path = 4;
+}
+
+message ReadUserSettingsRequest {}
+
+message ReadUserSettingsResponse {
+  // Where the user config is, with the home folder as `~`.
+  string path = 1;
+  // The file's digest, which a write passes back; `new` when there is no file yet.
+  string digest = 2;
+  repeated UserSetting settings = 3;
+}
+
+message UserSetting {
+  // The dotted key, such as `defaults.timeout` or `vars.userId`.
+  string key = 1;
+  // The value as written, masked; a list joined with `,`.
+  string value = 2;
+  // Whether this project's config sets the key, so the user's value does not count here.
+  bool shadowed = 3;
+}
+
+// One setting to change: `profile`, a `defaults.*` or `reports.*` key `--set` takes, or
+// `vars.<name>`.
+message UserSettingEdit {
+  string key = 1;
+  // The value as `--set` writes it, a list joined with `,`; unset removes the key.
+  optional string value = 2;
+}
+
+message WriteUserSettingsRequest {
+  repeated UserSettingEdit edits = 1;
+  // Write the file; a preview when false.
+  bool write = 2;
+  // The digest the preview gave; a write is aborted when the file changed since, or without it.
+  optional string expected_digest = 3;
+}
+
+message WriteUserSettingsResponse {
+  // Where the user config is, with the home folder as `~`.
+  string path = 1;
+  // The text before, masked; unset when there was no file.
+  optional string before = 2;
+  // The text after, masked.
+  string after = 3;
+  // The digest to write with: the file's when previewed, the new one once written.
+  string digest = 4;
+}
+
+message TestAlertRequest {
+  repeated string profiles = 1;
+  // `--set` values over the server's.
+  repeated string sets = 2;
+}
+
+message TestAlertResponse {
+  // One per channel, in written order; empty when no rule matches the profiles.
+  repeated AlertSent sent = 1;
+}
+
+message AlertSent {
+  // The rule's place in `alerts`, counting from 1.
+  uint32 rule = 1;
+  // The channel's kind: `slack`, `webhook`, ...
+  string channel = 2;
+  // Why it was not sent; never a URL or a key.
+  optional string error = 3;
+}
+
+message PluginListRequest {}
+
+message PluginListResponse {
+  repeated PluginListing plugins = 1;
+}
+
+message PluginListing {
+  string id = 1;
+  // The config's source, else the lock's.
+  string source = 2;
+  // The installed manifest; unset when it is not installed here.
+  optional PluginManifest manifest = 3;
+  // What `vibranium.lock` lets it reach; empty when it is not approved.
+  PluginPermissions granted = 4;
+  // `ready`, `notInstalled`, `notApproved`, `asksForMore`, `notInConfig`, `changed` or `noEntry`.
+  string state = 5;
+  // `ready`, or what is wrong and how to fix it, as `vc plugin list` says it.
+  string detail = 6;
+}
+
+message PluginManifest {
+  string id = 1;
+  string version = 2;
+  // `auth`, `reporter`, ...
+  string kind = 3;
+  // The entry program and its arguments.
+  string command = 4;
+  repeated string args = 5;
+  // What it asks to reach.
+  PluginPermissions permissions = 6;
+}
+
+message PluginPermissions {
+  // Hosts it may call.
+  repeated string network = 1;
+  // Secrets it may read.
+  repeated string secrets = 2;
+  // Project files it may read.
+  repeated string files = 3;
+}
+
+message PluginAddRequest {
+  // `npm:<package>[@<range>]`, a registry package only, or `path:<folder>`, a folder inside the
+  // project (V5132).
+  string source = 1;
+  bool write = 2;
+  // The preview's digest; required when `write` is set.
+  optional string expected_digest = 3;
+}
+
+message PluginAddResponse {
+  // The fetched manifest, with what it asks to reach.
+  PluginManifest manifest = 1;
+  // What the source resolved to, and a hash of what was fetched.
+  string resolved = 2;
+  string integrity = 3;
+  // What a run will trip over unless it is fixed.
+  repeated string warnings = 4;
+  repeated FileChange files = 5;
+  repeated string titles = 6;
+  // The digest of the changes as previewed, which the write passes back.
+  string digest = 7;
+}
+
+message PluginRemoveRequest {
+  // The plugin's ID, as `PluginList` names it.
+  string id = 1;
+  bool write = 2;
+  // The preview's digest; required when `write` is set.
+  optional string expected_digest = 3;
+}
+
+message PluginRemoveResponse {
+  repeated FileChange files = 1;
+  repeated string titles = 2;
+  // The digest of the changes as previewed, which the write passes back.
+  string digest = 3;
+}
+
+message InitRequest {
+  // The project's name; the folder's when absent. At most 64 characters, on one line.
+  optional string name = 1;
+  // The first service, a lower-case word such as `users`, given `services/<service>/<service>.api.yaml`.
+  optional string service = 2;
+  // The `baseUrl` var the first service calls: an http or https URL with no user or password.
+  optional string base_url = 3;
+  // The default profile's ID, a lower-case word; `default` when absent.
+  optional string profile = 4;
+  // With `vc init`'s sample api and test files.
+  bool sample = 5;
+  bool write = 6;
+  // The preview's digest; required when `write` is set.
+  optional string expected_digest = 7;
+}
+
+message InitResponse {
+  repeated FileChange files = 1;
+  repeated string titles = 2;
+  // The digest of the changes as previewed, which the write passes back.
+  string digest = 3;
+  // The folder the files go in, with the home folder as `~`.
+  string root = 4;
+}
+
+message DemoRequest {
+  bool write = 1;
+  // The preview's digest; required when `write` is set.
+  optional string expected_digest = 2;
+}
+
+message DemoResponse {
+  // The demo project's files; none when its sample is in the folder already.
+  InitResponse project = 1;
+  // Whether `vc demo`'s service answers at `url`.
+  bool running = 2;
+  // Where the sample calls the demo service.
+  string url = 3;
+  // The command that starts it, which the UI shows to copy.
+  string start = 4;
 }

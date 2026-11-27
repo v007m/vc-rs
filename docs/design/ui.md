@@ -240,11 +240,10 @@ A wizard with six steps: Source (OpenAPI, HAR, Postman, Bruno, .http, cURL paste
 - KPIs: the pass rate trend, the duration trend, a flaky list with a Quarantine action, the slowest apis (p50/p95), api coverage gaps, skips that are expiring, and per-service cards.
 
 ### Schedules (D520)
-- Stored in `vibranium.config.yaml` under `schedules:` (name, selector, profile, cron, notify), so they are in git.
-- The vc server runs them while it is up (`vc ui` locally, or `vc serve` on a shared machine) and records each in run history.
-- **Export to CI** writes a GitHub Actions cron workflow, for machines that sleep.
-- The list shows the cron in words, the selector, profile, runner, next run and last result, with an on/off switch. New schedule saves through a diff.
-- The mockup proposes two more keys per schedule, `runner: vcServer | githubActions` and `enabled: false`. Their exact syntax goes into `syntax-reference.md` when the server is built (D520).
+- Stored in `vibranium.config.yaml` under `schedules:` (id, name, cron, selector, profile, notify, `runner: vcServer | githubActions`, `enabled`), so they are in git; the syntax is in `syntax-reference.md`, Schedules (D700).
+- `vc ui`'s server runs them while it is up and records each in run history with its schedule (D703, D704). It starts a run only from the compiled config, never because a client asked.
+- **Export to CI** writes a GitHub Actions cron workflow at `.github/workflows/vibranium-<id>.yml`, for machines that sleep (D707).
+- The list shows the cron in words, the selector, profile, runner, next run and last result, with an on/off switch. New schedule saves through a diff (D706).
 
 ## 7. Agents and Settings spaces
 
@@ -254,7 +253,7 @@ Five views in the sidebar, each opening with one sentence on what it is for:
 - **Permissions:** a switch for each tool and each profile (prod off by default); edits apply through "Review N changes".
 - **Connection:** MCP server status, connected clients, and the snippets to connect Claude Code, Cursor or HTTP.
 - **Activity:** a one-line log of each run or edit, with a filter.
-- **Usage:** requests, tool calls, runs started and time per agent over 7 days, with a table per agent and tool.
+- **Usage:** tool calls, runs started and time per agent over 7 days, with a table per agent and tool (D709: the engine sees no agent's requests or tokens).
 - Runs made by agents carry an agent badge in Runs.
 
 ### Settings (D522)
@@ -275,8 +274,9 @@ Built so far (D620): ⌘K or the top row's search opens it, grown out of the sea
 - Every action has a shortcut, and `?` opens a cheat sheet.
 
 ### Onboarding
-- If there's no project, offer an **Init wizard**, which runs `vc init` (name, first service, base URL, profile).
-- Or offer **Open the demo**: `vc demo`'s mock API and project.
+- `vc ui` started outside a project serves the folder it started in, and `GetProject.configured` is false there (D716).
+- If there's no project, offer an **Init wizard**, which runs `vc init` (name, first service, base URL, profile) as a preview, then writes it with the preview's digest.
+- Or offer **Open the demo**: `vc demo`'s sample project, written the same way. The server says whether the demo service answers; if not, show `vc demo start --detach` to copy, since the server never starts a process (D717).
 - Or offer **Import**.
 
 ## 9. Security
@@ -300,13 +300,13 @@ Built so far (D620): ⌘K or the top row's search opens it, grown out of the sea
 | 7 | Done (D551–D553): `Cancel{run, level}`, where `run` is the `handle` the client gave `RunRequest` (its own pick, such as a UUID: at most 64 ASCII letters, digits, `-` and `_`) and `level` is `CANCEL_LEVEL_STOP` (one Ctrl-C: grace period, then cleanups; a second `stop` ends the grace period) or `CANCEL_LEVEL_ABANDON` (the third Ctrl-C: the cleanups still to run are skipped). It answers at once; the run's stream ends with its report (exit 130). A handle a running run holds is `already_exists`; one not running is `not_found` | Stop, then Skip cleanups |
 | 8 | Done (D674–D678): `RunLoad{scenario, profiles, sets, seed, handle}` streams a `LoadTick` as each second closes (users, RPS, p50/p90/p95/p99, errors, the breaching thresholds, and `host`: the generator's CPU percent of one core, resident memory, the HTTP connections it holds open and the iterations that started late, each unset when the platform cannot tell), then the `LoadReport` `vc load --json` gives; closing the stream interrupts the run once and a `handle` lets `Cancel` stop it | Load tests |
 | 9 | Done (D672, D673): `CompareRuns{a, b, slower_threshold}` (0 for a run is the last; the threshold is a share, 0.2 for 20%, the default when 0) gives `b`'s tests newly failing, newly blocked, fixed, still failing, slower and faster than in `a`, and each api and status whose JSON response shape changed (paths added, removed and retyped; never values; only from the bodies the runs kept). `TestHistory{test, limit}` gives the test in each of the newest 20 (at most 100) test runs, newest first: its worst status (unspecified when not run), time and instances | Compare runs, per-test strip |
-| 10 | `Init`, `Demo` | Onboarding |
-| 11 | `TestAlert`, `PluginList`/`Add`/`Remove` | Settings |
-| 12 | User-config read and write (scoped) | Settings, the "You only" scope |
+| 10 | Done (D716, D717): `GetProject.configured` (whether `vibranium.config.yaml` is there; with no project `vc ui` serves the folder it started in), `Init{name, service, base_url, profile, sample, write, expected_digest}` (`vc init`'s files for the wizard's choices, each checked and never echoed: a preview with `files`, `titles`, `digest` and `root`, the folder they go in, written only with that digest, each file only while it is still absent) and `Demo{write, expected_digest}` (the same with `vc demo`'s sample project, no change once it is there; `running` says whether the demo service answers on `url`, and `start` is the command that starts it, which the server never runs). Every file goes to a path the engine fixes under the folder `vc ui` serves | Onboarding |
+| 11 | Done (D713–D715): `TestAlert{profiles, sets}` (`vc alerts test`; each channel tried as `rule`, `channel` and `error`, never a URL or key; sets checked as `Run`'s), `PluginList` (each plugin's `id`, `source`, `manifest`, `granted`, `state` as a camelCase word and its `detail` text), `PluginAdd{source, write, expected_digest}` and `PluginRemove{id, write, expected_digest}` (a preview of the config and `vibranium.lock` changes with their `digest`, then installed or uninstalled and written only with that digest). A client's source is an npm registry package and range, or a `path:` folder inside the project (V5132); a refusal never echoes it | Settings |
+| 12 | Done (D711, D712): `ReadUserSettings` (`path`, with the home folder as `~`; `digest`, `new` when there is no file; `settings`, each `key`, masked `value` and `shadowed` when this project sets the key) and `WriteUserSettings{edits, write, expected_digest}` (each edit a `key` and a `value`, unset to remove it; a preview with `before`, `after` and `digest`, written only with that digest). The path is the one the engine fixes, never a client's. Only `--set` keys and `vars.<name>` may change, not `plugins.allowUnconfined`; values are checked as `--set` checks them, a `profile` must be one of the project's and a `reports.dir` a folder inside the project (V5132) | Settings, the "You only" scope |
 | 13 | Done (D671): `RunRequest` carries `strict`, `reports`, `out` and `single_file`, as `vc run --strict --report --out --single-file`. `out` must be a folder inside the project (relative, no `..`, no link out); anything else is `invalid_argument` with V5132, and so is a `reports.dir` in any call's `sets` that leaves the project (D685). An unknown format ends the stream with an error before the run starts | Run dialog |
 | 14 | Done (D546–D550): `VcsStatus` (`branch`, `upstream`, `ahead`, `behind`, `files`: each `path`, `change` (`added`, `modified`, `deleted`, `untracked`, `conflicted`), `added`, `removed`, `binary`), `VcsDiff{path}` (a masked unified diff, empty for an unchanged file), `VcsCommit{paths, message}` (the short ID; only those files are committed), `VcsPush` and `VcsPull` (fast-forward only; what git said, masked). UI only, never agents. A git failure is `failed_precondition` with git's message, no URL's credentials in it | The git pane |
-| 15 | Schedules: list, write (through the config diff), the server's scheduler, `ExportSchedule` (GitHub Actions) | Schedules |
-| 16 | `AgentUsage` (per agent and tool, over a window) | Agents › Usage |
+| 15 | Done (D700–D708): `ListSchedules` (each `schedule` as the config writes it, with `next_ms`, when the scheduler next starts it, and `last`, its newest run), `WriteSchedule{schedule | remove, write, expected_digest}` (adds, replaces by `id` or removes one schedule through the guarded config diff: a preview with `files`, `titles` and `digest`, written only with that digest; a bad cron is V2317) and `ExportSchedule{id, write, expected_digest}` (the GitHub Actions workflow at the path the engine fixes, `.github/workflows/vibranium-<id>.yml`, returned as `path`; an existing file is refused). `vc ui`'s scheduler starts each enabled `vcServer` schedule on its UTC cron, as `Run` would, under the handle `schedule-<id>` for `Cancel`; `ListRuns{schedule}` lists its runs and `Run.schedule` names it | Schedules |
+| 16 | Done (D709, D710): `AgentUsage{days}` (UTC days, today included; 7 when 0, at most 90) gives `from_ms`, `to_ms`, `agents` (each `agent` with its `total` and `daily` counts of `calls`, `runs` and `took_ms`, the oldest day first, the busiest agent first) and `tools` (each agent and tool with `calls`, `ok`, `failed`, `refused`, `approved` and `took_ms`). Requests and tokens are not counted: the engine does not see them. `AgentAction` also carries `took_ms` and `ran` | Agents › Usage |
 | 17 | Done (D670): a check run is `Run` with `record: false` (`true` when absent). It writes no history entry, no report files and calls no reporter plugin or alert; its events still stream, and its report comes last with no `run` | Check run in Tests |
 
 ## 11. Decisions (Round 88)
@@ -465,7 +465,7 @@ Each step is one or two PRs, and each RPC gets its own small engine PR first.
 - **Step 8.** The load screen's charts with threshold lines and breach markers (D641), the Hosts panel and the report (D639), at `/runs/load` and `/runs/load/<n>`.
 - **Step 9, compare and check parts.** Compare at `/runs/compare/<a>/<b>` (D637), the per-test history strip (D638), and Run file as a check run (D645). The Overview has its profile and branch scope (D643).
 - **Wired to the engine.** Compare and the history strip use `CompareRuns` and `TestHistory` (§10 row 9; D646, D647); load runs use `RunLoad` (row 8; D648). An older engine still gets "needs a newer engine".
-- **Not built yet:** Schedules (batch E), the Agent filter, starting a load run from Tests (with the load editor), a load run's profile and seed, a duration estimate in the plan line, and Quarantine from the Overview.
+- **Not built yet:** the Schedules screen (batch E; the engine side is done, row 15), the Agent filter, starting a load run from Tests (with the load editor), a load run's profile and seed, a duration estimate in the plan line, and Quarantine from the Overview.
 
 **Strata restyle (Round 99):**
 

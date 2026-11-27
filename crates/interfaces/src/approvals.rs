@@ -214,7 +214,7 @@ pub struct StandingRule {
 }
 
 /// One logged agent tool call.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 #[expect(
     clippy::exhaustive_structs,
     reason = "built or matched in other crates, shared across the workspace; every user is in this repo (D160)"
@@ -232,6 +232,11 @@ pub struct AgentAction {
     pub result: String,
     /// Who approved it, when it needed approval.
     pub approved_by: Option<String>,
+    /// How long it took from its admission to its end, in milliseconds; `None` for a call
+    /// refused or failed before it was admitted, or logged before step 8 (D710).
+    pub took_ms: Option<u64>,
+    /// Whether it started a run: an admitted call that runs tests (D710).
+    pub ran: bool,
 }
 
 /// Why the queue or the log could not be used.

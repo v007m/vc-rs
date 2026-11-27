@@ -177,6 +177,9 @@ pub struct RunStart {
     pub vc_version: String,
     /// A hash of `vibranium.config.yaml`.
     pub config_hash: String,
+    /// The ID of the config's schedule that started it, for a run `vc ui`'s scheduler started
+    /// (D704).
+    pub schedule: Option<String>,
 }
 
 /// How a run ended.

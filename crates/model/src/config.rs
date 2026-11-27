@@ -4,7 +4,8 @@ use serde_json::Value;
 
 use crate::{
     ActionId, AgentPolicy, Alert, AuthId, ClientCert, Duration, FileId, HistoryConfig, Matcher, Method, ProfileId,
-    RedactRule, Retry, SecretsConfig, StatusPattern, Sym, Template, TemplateValue, TestId, TlsConfig, VarDefs,
+    RedactRule, Retry, Schedule, SecretsConfig, StatusPattern, Sym, Template, TemplateValue, TestId, TlsConfig,
+    VarDefs,
 };
 
 /// How long before expiry credentials are fetched again when `refreshBefore` is not written.
@@ -51,6 +52,7 @@ pub struct Config {
     pub alerts: Vec<Alert>,
     /// `plugins`.
     pub plugins: Vec<PluginRef>,
+    pub schedules: Vec<Schedule>,
 }
 
 /// `defaults`.

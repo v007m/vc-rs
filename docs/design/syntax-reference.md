@@ -37,7 +37,7 @@ A project is one `vibranium.config.yaml` at the root plus api, test and load fil
 
 | File | Holds | Top-level keys | Item IDs |
 | --- | --- | --- | --- |
-| `vibranium.config.yaml` | Project settings, vars, profiles (at least one), auth, secrets, generators, datasets, reports, history, alerts, plugins, run-level lifecycle blocks | `syntaxVersion`, `project`, `paths`, `defaults`, `vars`, `profiles`, `auth`, `secrets`, `generators`, `datasets`, `reports`, `history`, `hooks`, `alerts`, `plugins`, `redact`, `beforeRun`, `afterRun` | auth: `partnerLogin` |
+| `vibranium.config.yaml` | Project settings, vars, profiles (at least one), auth, secrets, generators, datasets, reports, history, alerts, schedules, plugins, run-level lifecycle blocks | `syntaxVersion`, `project`, `paths`, `defaults`, `vars`, `profiles`, `auth`, `secrets`, `generators`, `datasets`, `reports`, `history`, `hooks`, `alerts`, `schedules`, `plugins`, `redact`, `beforeRun`, `afterRun` | auth: `partnerLogin` |
 | `*.api.yaml` | How to call endpoints, and how to undo them | `id`, `name`, `type`, `baseUrl`, `auth`, `headers`, `vars`, `profiles`, `source`, `beforeRequest`, `afterResponse`, `apis` | `users#create` |
 | `*.test.yaml` | Tests and the lifecycle blocks around them | `id`, `name`, `tags`, `vars`, `profiles`, `beforeAll`, `afterAll`, `beforeEach`, `afterEach`, `tests` | `users.crud#getsCreatedUser` |
 | `*.load.yaml` | A load scenario built from tests | `id`, `name`, `mix`, `stages`, `thinkTime`, `checks`, `thresholds`, `abortOn` | `checkout.peak` |
@@ -143,6 +143,7 @@ Settings are layered, lowest to highest: built-in defaults < user config (`~/.co
 | `history` | `bodies` (`none`, `failures`, `all`), `maxBodySize`, `keep` (a number of runs or `all`) | bodies of failures only, `64kb`, `50` (D170) | Run history and retention: bodies are cut at `maxBodySize` before they are stored, and the oldest runs past `keep` are deleted when a run ends, each with its report folder `<reports.dir>/<run>/`, which `vc` marks with an empty `.vc-run` file; anything else under `reports.dir` stays, a folder named by a number among it, and the run that just ended keeps its own folder even with `keep: 0` |
 | `hooks` | `threads`, an integer from 1 to 64 | `1` (D325) | How many QuickJS runtimes run TypeScript and JavaScript hooks, each on its own thread: a call goes to a free runtime and never waits behind a busy one while another is free. Each runtime keeps its own module state, so a hook must not rely on module-level state across calls. The cap holds because each runtime costs memory and an OS thread |
 | `alerts` | list | none | Notifications |
+| `schedules` | list | none | Runs `vc ui` starts on a cron (see Schedules) |
 | `plugins` | list | none | Third-party plugins |
 | `redact` | `headers`, `fields`, `rules` | auth headers and secrets | Extra values to mask; `rules` are your own `regex`, `cel` or `function` masks (see Secrets) |
 | `beforeRun`, `afterRun` | lists of actions | none | Run-level lifecycle blocks (see Lifecycle blocks) |
@@ -1518,6 +1519,38 @@ auth:
 Each plugin runs as one process per run, started the first time the run uses it; a plugin that fails or is not ready fails only the work that used it. `plugin-protocol.md` is the contract a plugin author writes against.
 
 Alert channels: `webhook`, `slack`, `teams`, `pagerduty`, `email`.
+
+## Schedules
+
+`schedules` lists runs that start on a cron while `vc ui` is up (D520, D700). They are in the config, so they are in git, and the web UI's Runs space lists, adds, changes and removes them through a previewed diff of this file:
+
+```yaml
+schedules:
+  - id: nightlySmoke                # camelCase, unique; required
+    name: Nightly smoke             # optional, free text
+    cron: "0 2 * * 1-5"            # required: five fields, in UTC
+    selector: [users.crud, payments.refunds]   # vc run's selector words; every test when absent
+    profile: staging                # a profile ID, or a list of them; the default profiles when absent
+    notify:                         # told when a scheduled run fails or is blocked
+      - slack:
+          webhook: ${secret.SLACK_WEBHOOK}
+    runner: vcServer                # vcServer (the default) or githubActions
+    enabled: true                   # the default; false keeps the schedule but never starts it
+```
+
+`cron` is the five-field cron GitHub Actions reads, in UTC: minute (0-59), hour (0-23), day of the month (1-31), month (1-12) and day of the week (0-7; 0 and 7 are Sunday). Each field is `*`, a number, a range `a-b`, a step `*/n` or `a-b/n`, or a list of those joined with `,`. Names (`MON`, `JAN`), a seconds field and shortcuts (`@daily`) are not read; anything else is V2317, which names the field. When both day fields are restricted, a day matching either fires, as in POSIX cron.
+
+`selector` and `profile` each take one text or a list. A selector word is read as `vc run` reads an argument it cannot find on disk: a full ID, a file ID, a `#id` or a glob over IDs; a word with a `/` is a folder or file path filter. `profile` names profiles from `profiles` (V2002 otherwise). `notify` takes the channels and keys of `alerts[].notify`, and `vc check` checks them the same way (V5117, V5120). A scheduled run also tells the config's `alerts` as any run does; `notify` is for this schedule's failures only (D702).
+
+`vc ui`'s server checks the schedules at the start of every minute and starts each enabled `vcServer` schedule whose cron fires then, unless its previous run is still going. The run uses the server's own `--profile` and `--set` under the schedule's profiles, prints nothing, and is recorded in the history with its schedule, which `ListRuns` can filter by. A project with errors starts no scheduled run until it is fixed. `runner: githubActions` leaves the schedule to CI: the server does not start it, and **Export to CI** writes `.github/workflows/vibranium-<id>.yml`, a workflow that installs this version of `vc` and runs `vc run <selector> --profile <profile>` on the same cron. An existing workflow at that path is never written over. In CI the schedule's `notify` is not sent; the config's `alerts` are.
+
+A wrong `cron`:
+
+```yaml
+schedules:
+  - id: nightlySmoke
+    cron: "0 25 * * MON-FRI"   # V2317: `25` in the hour field is outside 0-23
+```
 
 ## v1 to v2
 

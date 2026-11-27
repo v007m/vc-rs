@@ -346,6 +346,9 @@ pub struct GetProjectResponse {
     /// The auth IDs the config defines, in its order.
     #[prost(string, repeated, tag="5")]
     pub auths: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Whether the folder holds `vibranium.config.yaml`; without it the UI offers onboarding (D716).
+    #[prost(bool, tag="6")]
+    pub configured: bool,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ListDefinitionsRequest {
@@ -897,6 +900,12 @@ pub struct AgentAction {
     pub approved_by: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(uint64, tag="7")]
     pub at_ms: u64,
+    /// From the gate letting it through to its end; unset for a call that never went ahead (D710).
+    #[prost(uint64, optional, tag="8")]
+    pub took_ms: ::core::option::Option<u64>,
+    /// It started a run.
+    #[prost(bool, tag="9")]
+    pub ran: bool,
 }
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ListAgentActionsRequest {
@@ -908,6 +917,69 @@ pub struct ListAgentActionsRequest {
 pub struct ListAgentActionsResponse {
     #[prost(message, repeated, tag="1")]
     pub actions: ::prost::alloc::vec::Vec<AgentAction>,
+}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct AgentUsageRequest {
+    /// Days in UTC, today included: 7 when 0, at most 90.
+    #[prost(uint32, tag="1")]
+    pub days: u32,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AgentUsageResponse {
+    /// The start of the first day, in milliseconds since the Unix epoch.
+    #[prost(uint64, tag="1")]
+    pub from_ms: u64,
+    /// Now, when the window ends.
+    #[prost(uint64, tag="2")]
+    pub to_ms: u64,
+    /// The busiest first.
+    #[prost(message, repeated, tag="3")]
+    pub agents: ::prost::alloc::vec::Vec<AgentTotals>,
+    /// By agent, then the most called first.
+    #[prost(message, repeated, tag="4")]
+    pub tools: ::prost::alloc::vec::Vec<ToolUsage>,
+}
+/// Calls, the runs they started, and how long the timed ones took. The engine sees no agent's
+/// requests or tokens, so those are not counted.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct UsageCount {
+    #[prost(uint64, tag="1")]
+    pub calls: u64,
+    #[prost(uint64, tag="2")]
+    pub runs: u64,
+    #[prost(uint64, tag="3")]
+    pub took_ms: u64,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AgentTotals {
+    #[prost(string, tag="1")]
+    pub agent: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="2")]
+    pub total: ::core::option::Option<UsageCount>,
+    /// One for each day, the oldest first.
+    #[prost(message, repeated, tag="3")]
+    pub daily: ::prost::alloc::vec::Vec<UsageCount>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ToolUsage {
+    #[prost(string, tag="1")]
+    pub agent: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub tool: ::prost::alloc::string::String,
+    #[prost(uint64, tag="3")]
+    pub calls: u64,
+    #[prost(uint64, tag="4")]
+    pub ok: u64,
+    #[prost(uint64, tag="5")]
+    pub failed: u64,
+    /// Refused by the policy, denied by a person or not decided in time.
+    #[prost(uint64, tag="6")]
+    pub refused: u64,
+    /// Went ahead once a person approved them.
+    #[prost(uint64, tag="7")]
+    pub approved: u64,
+    #[prost(uint64, tag="8")]
+    pub took_ms: u64,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CallRequest {
@@ -1556,6 +1628,9 @@ pub struct ListRunsRequest {
     /// Only runs on this git branch; every branch when absent.
     #[prost(string, optional, tag="4")]
     pub branch: ::core::option::Option<::prost::alloc::string::String>,
+    /// Only runs this schedule started, by its `id`; every run when absent (D704).
+    #[prost(string, optional, tag="5")]
+    pub schedule: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ListRunsResponse {
@@ -1999,6 +2074,375 @@ pub struct VcsPullResponse {
     /// What git said, masked.
     #[prost(string, tag="1")]
     pub output: ::prost::alloc::string::String,
+}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ListSchedulesRequest {
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListSchedulesResponse {
+    #[prost(message, repeated, tag="1")]
+    pub schedules: ::prost::alloc::vec::Vec<ScheduleListing>,
+}
+/// One schedule as the config has it.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Schedule {
+    /// camelCase, unique among the config's schedules.
+    #[prost(string, tag="1")]
+    pub id: ::prost::alloc::string::String,
+    #[prost(string, optional, tag="2")]
+    pub name: ::core::option::Option<::prost::alloc::string::String>,
+    /// Five fields in UTC: minute, hour, day of the month, month, day of the week.
+    #[prost(string, tag="3")]
+    pub cron: ::prost::alloc::string::String,
+    /// What runs, as `vc run`'s selector words; every test when empty.
+    #[prost(string, repeated, tag="4")]
+    pub selector: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, repeated, tag="5")]
+    pub profiles: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Where a failed or blocked scheduled run is sent.
+    #[prost(message, repeated, tag="6")]
+    pub notify: ::prost::alloc::vec::Vec<NotifyChannel>,
+    /// `vcServer` (the default) or `githubActions`.
+    #[prost(string, tag="7")]
+    pub runner: ::prost::alloc::string::String,
+    #[prost(bool, tag="8")]
+    pub enabled: bool,
+}
+/// One `notify` entry: a channel kind (`slack`, `webhook`, ...) and its settings as written, in
+/// written order, templates and all; a secret is a `${secret.NAME}` reference, never its value.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct NotifyChannel {
+    #[prost(string, tag="1")]
+    pub kind: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag="2")]
+    pub settings: ::prost::alloc::vec::Vec<NotifySetting>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct NotifySetting {
+    #[prost(string, tag="1")]
+    pub key: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub value: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ScheduleListing {
+    #[prost(message, optional, tag="1")]
+    pub schedule: ::core::option::Option<Schedule>,
+    /// When it next fires, in milliseconds since the Unix epoch; absent when it is disabled, runs
+    /// on GitHub Actions or its cron matches no day.
+    #[prost(uint64, optional, tag="2")]
+    pub next_ms: ::core::option::Option<u64>,
+    /// Its newest run in the history.
+    #[prost(message, optional, tag="3")]
+    pub last: ::core::option::Option<super::super::results::v1::Run>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct WriteScheduleRequest {
+    /// The schedule to add, or to put in place of the one with its `id`.
+    #[prost(message, optional, tag="1")]
+    pub schedule: ::core::option::Option<Schedule>,
+    /// The `id` of a schedule to remove; with `schedule` unset.
+    #[prost(string, optional, tag="2")]
+    pub remove: ::core::option::Option<::prost::alloc::string::String>,
+    /// Write the config; a preview when false.
+    #[prost(bool, tag="3")]
+    pub write: bool,
+    /// The digest the preview gave; a write is aborted when the config changed since, or without it.
+    #[prost(string, optional, tag="4")]
+    pub expected_digest: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct WriteScheduleResponse {
+    #[prost(message, repeated, tag="1")]
+    pub files: ::prost::alloc::vec::Vec<FileChange>,
+    #[prost(string, repeated, tag="2")]
+    pub titles: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// The digest of the files as previewed, which the write passes back.
+    #[prost(string, tag="3")]
+    pub digest: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ExportScheduleRequest {
+    /// The schedule's `id`.
+    #[prost(string, tag="1")]
+    pub id: ::prost::alloc::string::String,
+    /// Write the workflow; a preview when false.
+    #[prost(bool, tag="2")]
+    pub write: bool,
+    /// The digest the preview gave; a write is aborted when the project changed since, or without it.
+    #[prost(string, optional, tag="3")]
+    pub expected_digest: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ExportScheduleResponse {
+    #[prost(message, repeated, tag="1")]
+    pub files: ::prost::alloc::vec::Vec<FileChange>,
+    #[prost(string, repeated, tag="2")]
+    pub titles: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, tag="3")]
+    pub digest: ::prost::alloc::string::String,
+    /// The workflow's path, relative to the project root.
+    #[prost(string, tag="4")]
+    pub path: ::prost::alloc::string::String,
+}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ReadUserSettingsRequest {
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ReadUserSettingsResponse {
+    /// Where the user config is, with the home folder as `~`.
+    #[prost(string, tag="1")]
+    pub path: ::prost::alloc::string::String,
+    /// The file's digest, which a write passes back; `new` when there is no file yet.
+    #[prost(string, tag="2")]
+    pub digest: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag="3")]
+    pub settings: ::prost::alloc::vec::Vec<UserSetting>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct UserSetting {
+    /// The dotted key, such as `defaults.timeout` or `vars.userId`.
+    #[prost(string, tag="1")]
+    pub key: ::prost::alloc::string::String,
+    /// The value as written, masked; a list joined with `,`.
+    #[prost(string, tag="2")]
+    pub value: ::prost::alloc::string::String,
+    /// Whether this project's config sets the key, so the user's value does not count here.
+    #[prost(bool, tag="3")]
+    pub shadowed: bool,
+}
+/// One setting to change: `profile`, a `defaults.*` or `reports.*` key `--set` takes, or
+/// `vars.<name>`.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct UserSettingEdit {
+    #[prost(string, tag="1")]
+    pub key: ::prost::alloc::string::String,
+    /// The value as `--set` writes it, a list joined with `,`; unset removes the key.
+    #[prost(string, optional, tag="2")]
+    pub value: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct WriteUserSettingsRequest {
+    #[prost(message, repeated, tag="1")]
+    pub edits: ::prost::alloc::vec::Vec<UserSettingEdit>,
+    /// Write the file; a preview when false.
+    #[prost(bool, tag="2")]
+    pub write: bool,
+    /// The digest the preview gave; a write is aborted when the file changed since, or without it.
+    #[prost(string, optional, tag="3")]
+    pub expected_digest: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct WriteUserSettingsResponse {
+    /// Where the user config is, with the home folder as `~`.
+    #[prost(string, tag="1")]
+    pub path: ::prost::alloc::string::String,
+    /// The text before, masked; unset when there was no file.
+    #[prost(string, optional, tag="2")]
+    pub before: ::core::option::Option<::prost::alloc::string::String>,
+    /// The text after, masked.
+    #[prost(string, tag="3")]
+    pub after: ::prost::alloc::string::String,
+    /// The digest to write with: the file's when previewed, the new one once written.
+    #[prost(string, tag="4")]
+    pub digest: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct TestAlertRequest {
+    #[prost(string, repeated, tag="1")]
+    pub profiles: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// `--set` values over the server's.
+    #[prost(string, repeated, tag="2")]
+    pub sets: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct TestAlertResponse {
+    /// One per channel, in written order; empty when no rule matches the profiles.
+    #[prost(message, repeated, tag="1")]
+    pub sent: ::prost::alloc::vec::Vec<AlertSent>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct AlertSent {
+    /// The rule's place in `alerts`, counting from 1.
+    #[prost(uint32, tag="1")]
+    pub rule: u32,
+    /// The channel's kind: `slack`, `webhook`, ...
+    #[prost(string, tag="2")]
+    pub channel: ::prost::alloc::string::String,
+    /// Why it was not sent; never a URL or a key.
+    #[prost(string, optional, tag="3")]
+    pub error: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct PluginListRequest {
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PluginListResponse {
+    #[prost(message, repeated, tag="1")]
+    pub plugins: ::prost::alloc::vec::Vec<PluginListing>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct PluginListing {
+    #[prost(string, tag="1")]
+    pub id: ::prost::alloc::string::String,
+    /// The config's source, else the lock's.
+    #[prost(string, tag="2")]
+    pub source: ::prost::alloc::string::String,
+    /// The installed manifest; unset when it is not installed here.
+    #[prost(message, optional, tag="3")]
+    pub manifest: ::core::option::Option<PluginManifest>,
+    /// What `vibranium.lock` lets it reach; empty when it is not approved.
+    #[prost(message, optional, tag="4")]
+    pub granted: ::core::option::Option<PluginPermissions>,
+    /// `ready`, `notInstalled`, `notApproved`, `asksForMore`, `notInConfig`, `changed` or `noEntry`.
+    #[prost(string, tag="5")]
+    pub state: ::prost::alloc::string::String,
+    /// `ready`, or what is wrong and how to fix it, as `vc plugin list` says it.
+    #[prost(string, tag="6")]
+    pub detail: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct PluginManifest {
+    #[prost(string, tag="1")]
+    pub id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub version: ::prost::alloc::string::String,
+    /// `auth`, `reporter`, ...
+    #[prost(string, tag="3")]
+    pub kind: ::prost::alloc::string::String,
+    /// The entry program and its arguments.
+    #[prost(string, tag="4")]
+    pub command: ::prost::alloc::string::String,
+    #[prost(string, repeated, tag="5")]
+    pub args: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// What it asks to reach.
+    #[prost(message, optional, tag="6")]
+    pub permissions: ::core::option::Option<PluginPermissions>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct PluginPermissions {
+    /// Hosts it may call.
+    #[prost(string, repeated, tag="1")]
+    pub network: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Secrets it may read.
+    #[prost(string, repeated, tag="2")]
+    pub secrets: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Project files it may read.
+    #[prost(string, repeated, tag="3")]
+    pub files: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct PluginAddRequest {
+    /// `npm:<package>\[@<range>\]`, a registry package only, or `path:<folder>`, a folder inside the
+    /// project (V5132).
+    #[prost(string, tag="1")]
+    pub source: ::prost::alloc::string::String,
+    #[prost(bool, tag="2")]
+    pub write: bool,
+    /// The preview's digest; required when `write` is set.
+    #[prost(string, optional, tag="3")]
+    pub expected_digest: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PluginAddResponse {
+    /// The fetched manifest, with what it asks to reach.
+    #[prost(message, optional, tag="1")]
+    pub manifest: ::core::option::Option<PluginManifest>,
+    /// What the source resolved to, and a hash of what was fetched.
+    #[prost(string, tag="2")]
+    pub resolved: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub integrity: ::prost::alloc::string::String,
+    /// What a run will trip over unless it is fixed.
+    #[prost(string, repeated, tag="4")]
+    pub warnings: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(message, repeated, tag="5")]
+    pub files: ::prost::alloc::vec::Vec<FileChange>,
+    #[prost(string, repeated, tag="6")]
+    pub titles: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// The digest of the changes as previewed, which the write passes back.
+    #[prost(string, tag="7")]
+    pub digest: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct PluginRemoveRequest {
+    /// The plugin's ID, as `PluginList` names it.
+    #[prost(string, tag="1")]
+    pub id: ::prost::alloc::string::String,
+    #[prost(bool, tag="2")]
+    pub write: bool,
+    /// The preview's digest; required when `write` is set.
+    #[prost(string, optional, tag="3")]
+    pub expected_digest: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PluginRemoveResponse {
+    #[prost(message, repeated, tag="1")]
+    pub files: ::prost::alloc::vec::Vec<FileChange>,
+    #[prost(string, repeated, tag="2")]
+    pub titles: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// The digest of the changes as previewed, which the write passes back.
+    #[prost(string, tag="3")]
+    pub digest: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct InitRequest {
+    /// The project's name; the folder's when absent. At most 64 characters, on one line.
+    #[prost(string, optional, tag="1")]
+    pub name: ::core::option::Option<::prost::alloc::string::String>,
+    /// The first service, a lower-case word such as `users`, given `services/<service>/<service>.api.yaml`.
+    #[prost(string, optional, tag="2")]
+    pub service: ::core::option::Option<::prost::alloc::string::String>,
+    /// The `baseUrl` var the first service calls: an http or https URL with no user or password.
+    #[prost(string, optional, tag="3")]
+    pub base_url: ::core::option::Option<::prost::alloc::string::String>,
+    /// The default profile's ID, a lower-case word; `default` when absent.
+    #[prost(string, optional, tag="4")]
+    pub profile: ::core::option::Option<::prost::alloc::string::String>,
+    /// With `vc init`'s sample api and test files.
+    #[prost(bool, tag="5")]
+    pub sample: bool,
+    #[prost(bool, tag="6")]
+    pub write: bool,
+    /// The preview's digest; required when `write` is set.
+    #[prost(string, optional, tag="7")]
+    pub expected_digest: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct InitResponse {
+    #[prost(message, repeated, tag="1")]
+    pub files: ::prost::alloc::vec::Vec<FileChange>,
+    #[prost(string, repeated, tag="2")]
+    pub titles: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// The digest of the changes as previewed, which the write passes back.
+    #[prost(string, tag="3")]
+    pub digest: ::prost::alloc::string::String,
+    /// The folder the files go in, with the home folder as `~`.
+    #[prost(string, tag="4")]
+    pub root: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct DemoRequest {
+    #[prost(bool, tag="1")]
+    pub write: bool,
+    /// The preview's digest; required when `write` is set.
+    #[prost(string, optional, tag="2")]
+    pub expected_digest: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct DemoResponse {
+    /// The demo project's files; none when its sample is in the folder already.
+    #[prost(message, optional, tag="1")]
+    pub project: ::core::option::Option<InitResponse>,
+    /// Whether `vc demo`'s service answers at `url`.
+    #[prost(bool, tag="2")]
+    pub running: bool,
+    /// Where the sample calls the demo service.
+    #[prost(string, tag="3")]
+    pub url: ::prost::alloc::string::String,
+    /// The command that starts it, which the UI shows to copy.
+    #[prost(string, tag="4")]
+    pub start: ::prost::alloc::string::String,
 }
 /// What to list.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]

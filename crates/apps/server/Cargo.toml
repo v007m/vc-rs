@@ -20,7 +20,7 @@ rust-embed = { workspace = true, optional = true, features = ["debug-embed"] }
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
-tokio = { workspace = true, features = ["net", "rt-multi-thread"] }
+tokio = { workspace = true, features = ["io-util", "net", "rt-multi-thread"] }
 tower.workspace = true
 vc-contracts.workspace = true
 vc-engine.workspace = true

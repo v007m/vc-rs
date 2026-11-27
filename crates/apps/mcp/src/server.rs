@@ -81,6 +81,7 @@ impl VcServer {
             agent: agent.to_owned(),
             profiles: self.layers.0.clone(),
             sets: self.layers.1.clone(),
+            started_ms: self.engine.now_ms(),
         };
         let mut outcome = match known(&tool.schema(), &args) {
             Ok(()) => tool.call(&cx, &args).await,
@@ -104,6 +105,7 @@ impl Cx {
             profiles: self.profiles.clone(),
             summary: tool.to_owned(),
             arguments: Value::Object(args),
+            started_ms: Some(self.started_ms),
             ..AgentCall::default()
         };
         self.engine.record_agent_action(&call, &AgentOutcome { result, approved_by: None }).await?;

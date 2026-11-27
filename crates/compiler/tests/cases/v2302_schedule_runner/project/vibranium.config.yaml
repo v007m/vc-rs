@@ -1,0 +1,10 @@
+syntaxVersion: 2
+project: shop
+profiles:
+  - id: dev
+    default: true
+schedules:
+  - id: nightlySmoke
+    cron: "0 2 * * 1-5"
+    runner: jenkins
+    enabled: sometimes

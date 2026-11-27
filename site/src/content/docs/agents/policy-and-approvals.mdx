@@ -184,10 +184,12 @@ Every MCP tool call is logged in `.vibranium/history.db` (table `agent_actions`)
 | `arguments` | The arguments, with secrets redacted |
 | `result` | `ok`, `failed`, or `failed: <reason>` |
 | `approved_by` | Who approved it, when a person did |
+| `took_ms` | How long it took, in milliseconds, from the moment the policy let it through; empty for a call that never went ahead |
+| `ran` | `1` when the call started a test run |
 
 Calls that fail before the gate are logged too, such as a selection that matches no test or a write that would not compile.
 
-Read the log on the web UI's Agents page (**Activity**: filter by agent, expand a row to see its arguments and result). There is no `vc` command that prints it yet; from a terminal, query the database:
+Read the log on the web UI's Agents page (**Activity**: filter by agent, expand a row to see its arguments and result). **Usage** counts it over the last 7 days: each agent's calls, the runs they started and their time per day, and a row per agent and tool with how many calls ended `ok`, failed, were refused or needed a person's approval. Requests to the model and tokens are the agent's own, so `vc` does not count them. There is no `vc` command that prints it yet; from a terminal, query the database:
 
 ```console
 sqlite3 .vibranium/history.db "select at, agent, tool, result, approved_by from agent_actions order by id desc limit 20"

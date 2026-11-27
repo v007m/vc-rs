@@ -21,7 +21,10 @@ A run started from the web UI, or any client of `vc ui`'s server, may name the f
 project: relative to the project root, with no `..`, and inside the project on disk, links followed. An absolute path,
 a `..` part, or a folder that leads outside through a link is refused before the run starts, and nothing runs. A folder
 outside the project is yours to choose at the command line with `vc run --out <dir>`, or with
-`vc ui --set reports.dir=<dir>` for every run the server starts, which are not checked (D327, D671, D685).
+`vc ui --set reports.dir=<dir>` for every run the server starts, which are not checked (D327, D671, D685). The same
+check applies to a `reports.dir` the web UI writes into your user config; edit that file yourself for a folder
+outside the project (D712). It applies as well to a `path:` plugin source added from the web UI's Settings; add a
+plugin from a folder outside the project with `vc plugin add` (D714).
 
 ## Wrong
 

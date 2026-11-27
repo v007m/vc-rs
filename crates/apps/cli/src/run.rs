@@ -97,6 +97,7 @@ impl RunArgs {
             unrecorded: false,
             agent: None,
             watch: None,
+            schedule: None,
         }))
     }
 }

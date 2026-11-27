@@ -1,11 +1,13 @@
 //! The history and agent RPCs: `ListRuns`, `GetRun`, `Trends`, `ApiTrends`, `ApiCoverage`,
-//! `ListAgentActions`, `ListApprovals` and `DecideApproval`, each over its engine method.
+//! `ListAgentActions`, `AgentUsage`, `ListApprovals` and `DecideApproval`, each over its engine
+//! method.
 
 use std::sync::Arc;
 
 use vc_contracts::engine::v1 as wire;
 use vc_engine::{
-    ApiTrend, Approval, ApprovalId, ApprovalStatus, CoveredApi, Engine, LoggedAction, RunFilter, TestTrend, Verdict,
+    ApiTrend, Approval, ApprovalId, ApprovalStatus, CoveredApi, Engine, LoggedAction, RunFilter, TestTrend, ToolUsage,
+    UsageCount, Verdict,
 };
 
 use crate::engine_api::{EngineApi, Rpcs};
@@ -24,6 +26,7 @@ pub fn register(rpcs: Rpcs) -> Rpcs {
         .unary("ApiTrends", api_trends)
         .unary("ApiCoverage", api_coverage)
         .unary("ListAgentActions", list_agent_actions)
+        .unary("AgentUsage", agent_usage)
         .unary("ListApprovals", list_approvals)
         .unary("DecideApproval", decide_approval)
 }
@@ -36,12 +39,13 @@ fn limit(limit: u32) -> usize {
     }
 }
 
-async fn list_runs(
+pub async fn list_runs(
     api: Arc<EngineApi>,
     request: wire::ListRunsRequest,
 ) -> Result<wire::ListRunsResponse, ConnectError> {
-    let (most, filter) =
-        (limit(request.limit), RunFilter { kind: request.kind, profile: request.profile, branch: request.branch });
+    let filter =
+        RunFilter { kind: request.kind, profile: request.profile, branch: request.branch, schedule: request.schedule };
+    let most = limit(request.limit);
     let report = api.blocking(move |engine| engine.history(most, &filter)).await?;
     Ok(wire::ListRunsResponse { runs: report.runs().iter().map(run).collect() })
 }
@@ -135,6 +139,44 @@ fn action(logged: LoggedAction) -> wire::AgentAction {
         result: action.result,
         approved_by: action.approved_by,
         at_ms: logged.at_ms,
+        took_ms: action.took_ms,
+        ran: action.ran,
+    }
+}
+
+/// What the agents did over the days asked for (D709).
+pub async fn agent_usage(
+    api: Arc<EngineApi>,
+    request: wire::AgentUsageRequest,
+) -> Result<wire::AgentUsageResponse, ConnectError> {
+    let usage = api.blocking(move |engine| engine.agent_usage(request.days)).await?;
+    let agents = usage.agents.into_iter().map(|agent| wire::AgentTotals {
+        agent: agent.agent,
+        total: Some(count(agent.total)),
+        daily: agent.daily.into_iter().map(count).collect(),
+    });
+    Ok(wire::AgentUsageResponse {
+        from_ms: usage.from_ms,
+        to_ms: usage.to_ms,
+        agents: agents.collect(),
+        tools: usage.tools.into_iter().map(tool_usage).collect(),
+    })
+}
+
+const fn count(count: UsageCount) -> wire::UsageCount {
+    wire::UsageCount { calls: count.calls, runs: count.runs, took_ms: count.took_ms }
+}
+
+fn tool_usage(tool: ToolUsage) -> wire::ToolUsage {
+    wire::ToolUsage {
+        agent: tool.agent,
+        tool: tool.tool,
+        calls: tool.calls,
+        ok: tool.ok,
+        failed: tool.failed,
+        refused: tool.refused,
+        approved: tool.approved,
+        took_ms: tool.took_ms,
     }
 }
 

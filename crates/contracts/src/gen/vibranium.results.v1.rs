@@ -211,6 +211,9 @@ pub struct Run {
     /// For an `adhoc` run, the call it made, from its first exchange (D542).
     #[prost(message, optional, tag="13")]
     pub call: ::core::option::Option<CallSummary>,
+    /// The schedule that started the run, its `id`; absent for a run a person or agent started (D704).
+    #[prost(string, optional, tag="14")]
+    pub schedule: ::core::option::Option<::prost::alloc::string::String>,
 }
 /// What an `adhoc` run sent and got: a History row (D542). The URL is masked.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]

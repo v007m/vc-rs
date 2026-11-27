@@ -5,6 +5,7 @@
 
 use std::collections::BTreeSet;
 use std::hash::{BuildHasher as _, Hasher as _, RandomState};
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use vc_adapter_auth::{AuthTypes, PluginAuth};
@@ -83,9 +84,15 @@ impl Engine {
         Ok(Layered { program, notices, settings, environment: Arc::new(environment), dot_env, entries })
     }
 
+    /// Where the user config is: the builder's path, else the default one `environment` names;
+    /// `None` when it names no home folder. Never a path a client gave (D711).
+    pub(crate) fn user_config_path(&self, environment: &dyn Environment) -> Option<PathBuf> {
+        self.user_config.clone().or_else(|| UserConfig::default_path(environment))
+    }
+
     /// The user config: the builder's path, else the default one `environment` names.
     pub(crate) fn user_layer(&self, environment: &dyn Environment) -> Result<UserConfig, EngineError> {
-        let path = self.user_config.clone().or_else(|| UserConfig::default_path(environment));
+        let path = self.user_config_path(environment);
         path.map_or_else(|| Ok(UserConfig::default()), |path| UserConfig::read(&path))
             .map_err(|error| settings::source_error(&error))
     }

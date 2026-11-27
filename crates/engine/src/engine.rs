@@ -58,6 +58,12 @@ impl Engine {
         vc_adapter_system::project_path(&self.root, &base.join(path))
     }
 
+    /// Now, by the engine's clock, in milliseconds since the Unix epoch.
+    #[must_use]
+    pub fn now_ms(&self) -> u64 {
+        self.clock.now_ms()
+    }
+
     /// The gauges a load run's ticks read their host figures from, starting now.
     pub(crate) fn gauges(&self) -> crate::load_gauges::Gauges {
         crate::load_gauges::Gauges::new(Arc::clone(&self.host), Arc::clone(&self.transports), Arc::clone(&self.clock))

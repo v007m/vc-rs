@@ -186,6 +186,8 @@ message Run {
   Totals totals = 12;
   // For an `adhoc` run, the call it made, from its first exchange (D542).
   optional CallSummary call = 13;
+  // The schedule that started the run, its `id`; absent for a run a person or agent started (D704).
+  optional string schedule = 14;
 }
 
 // What an `adhoc` run sent and got: a History row (D542). The URL is masked.
