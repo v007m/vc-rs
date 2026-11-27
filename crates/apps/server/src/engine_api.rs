@@ -15,7 +15,7 @@ use crate::live_rpcs::LiveStreams;
 use crate::{
     Code, ConnectError, ConnectService, McpAccess, Sink, authoring_rpcs, cancel_rpcs, client_rpcs, compare_rpcs,
     edit_rpcs, editor_rpcs, file_rpcs, history_rpcs, live_rpcs, load_stream, project_rpcs, run_stream, schedule_rpcs,
-    scheduler, vcs_rpcs,
+    scheduler, user_settings_rpcs, vcs_rpcs,
 };
 
 /// The service's full protobuf name.
@@ -56,7 +56,8 @@ impl EngineApi {
     }
 
     fn serving(api: Arc<Self>) -> ConnectService {
-        let rpcs = schedule_rpcs::register(Rpcs { service: ConnectService::new(SERVICE), api });
+        let rpcs = user_settings_rpcs::register(Rpcs { service: ConnectService::new(SERVICE), api });
+        let rpcs = schedule_rpcs::register(rpcs);
         let rpcs = project_rpcs::register(client_rpcs::register(edit_rpcs::register(rpcs)));
         let rpcs = run_stream::register(authoring_rpcs::register(history_rpcs::register(cancel_rpcs::register(rpcs))));
         let rpcs = load_stream::register(compare_rpcs::register(vcs_rpcs::register(live_rpcs::register(rpcs))));

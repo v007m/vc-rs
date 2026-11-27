@@ -862,6 +862,9 @@ pub async fn vc_engine::Engine::test_auth(&self, &vc_engine::TestAuthRequest) ->
 impl vc_engine::Engine
 pub fn vc_engine::Engine::test_history(&self, &str, usize) -> core::result::Result<alloc::vec::Vec<vc_engine::TestResults>, vc_engine::EngineError>
 impl vc_engine::Engine
+pub async fn vc_engine::Engine::user_settings(&self) -> core::result::Result<vc_engine::UserSettings, vc_engine::EngineError>
+pub async fn vc_engine::Engine::user_settings_write(&self, &[vc_engine::UserSettingEdit], core::option::Option<&str>) -> core::result::Result<vc_engine::UserSettingsChange, vc_engine::EngineError>
+impl vc_engine::Engine
 pub fn vc_engine::Engine::vcs_commit(&self, (&[alloc::string::String], &str)) -> core::result::Result<alloc::string::String, vc_engine::EngineError>
 pub async fn vc_engine::Engine::vcs_diff(&self, &str) -> core::result::Result<alloc::string::String, vc_engine::EngineError>
 pub async fn vc_engine::Engine::vcs_pull(&self) -> core::result::Result<alloc::string::String, vc_engine::EngineError>
@@ -1807,6 +1810,56 @@ impl core::fmt::Debug for vc_engine::UsageCount
 pub fn vc_engine::UsageCount::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Copy for vc_engine::UsageCount
 impl core::marker::StructuralPartialEq for vc_engine::UsageCount
+#[non_exhaustive] pub struct vc_engine::UserSetting
+pub vc_engine::UserSetting::key: alloc::string::String
+pub vc_engine::UserSetting::shadowed: bool
+pub vc_engine::UserSetting::value: alloc::string::String
+impl core::clone::Clone for vc_engine::UserSetting
+pub fn vc_engine::UserSetting::clone(&self) -> Self
+impl core::cmp::Eq for vc_engine::UserSetting
+impl core::cmp::PartialEq for vc_engine::UserSetting
+pub fn vc_engine::UserSetting::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_engine::UserSetting
+pub fn vc_engine::UserSetting::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_engine::UserSetting
+pub struct vc_engine::UserSettingEdit
+pub vc_engine::UserSettingEdit::key: alloc::string::String
+pub vc_engine::UserSettingEdit::value: core::option::Option<alloc::string::String>
+impl core::clone::Clone for vc_engine::UserSettingEdit
+pub fn vc_engine::UserSettingEdit::clone(&self) -> Self
+impl core::cmp::Eq for vc_engine::UserSettingEdit
+impl core::cmp::PartialEq for vc_engine::UserSettingEdit
+pub fn vc_engine::UserSettingEdit::eq(&self, &Self) -> bool
+impl core::default::Default for vc_engine::UserSettingEdit
+pub fn vc_engine::UserSettingEdit::default() -> Self
+impl core::fmt::Debug for vc_engine::UserSettingEdit
+pub fn vc_engine::UserSettingEdit::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_engine::UserSettingEdit
+#[non_exhaustive] pub struct vc_engine::UserSettings
+pub vc_engine::UserSettings::digest: alloc::string::String
+pub vc_engine::UserSettings::entries: alloc::vec::Vec<vc_engine::UserSetting>
+pub vc_engine::UserSettings::path: alloc::string::String
+impl core::clone::Clone for vc_engine::UserSettings
+pub fn vc_engine::UserSettings::clone(&self) -> Self
+impl core::cmp::Eq for vc_engine::UserSettings
+impl core::cmp::PartialEq for vc_engine::UserSettings
+pub fn vc_engine::UserSettings::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_engine::UserSettings
+pub fn vc_engine::UserSettings::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_engine::UserSettings
+#[non_exhaustive] pub struct vc_engine::UserSettingsChange
+pub vc_engine::UserSettingsChange::after: alloc::string::String
+pub vc_engine::UserSettingsChange::before: core::option::Option<alloc::string::String>
+pub vc_engine::UserSettingsChange::digest: alloc::string::String
+pub vc_engine::UserSettingsChange::path: alloc::string::String
+impl core::clone::Clone for vc_engine::UserSettingsChange
+pub fn vc_engine::UserSettingsChange::clone(&self) -> Self
+impl core::cmp::Eq for vc_engine::UserSettingsChange
+impl core::cmp::PartialEq for vc_engine::UserSettingsChange
+pub fn vc_engine::UserSettingsChange::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_engine::UserSettingsChange
+pub fn vc_engine::UserSettingsChange::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_engine::UserSettingsChange
 pub struct vc_engine::WriteRequest
 pub vc_engine::WriteRequest::agent: alloc::string::String
 pub vc_engine::WriteRequest::path: alloc::string::String
@@ -1839,6 +1892,7 @@ pub const vc_engine::APPROVAL_WAIT: core::time::Duration
 pub const vc_engine::INIT_FOLDERS: [&str; 5]
 pub const vc_engine::MAX_USAGE_DAYS: u32
 pub const vc_engine::MOST_RUNS: usize
+pub const vc_engine::NEW_FILE: &str
 pub const vc_engine::SLOWER: f64
 pub const vc_engine::USAGE_DAYS: u32
 pub fn vc_engine::action_call(&vc_model::names::Names, vc_model::ids::ActionId) -> core::option::Option<vc_engine::ApiCall>

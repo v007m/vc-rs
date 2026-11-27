@@ -48,6 +48,7 @@ mod scheduler;
 mod service;
 mod site;
 mod token;
+mod user_settings_rpcs;
 mod vcs_rpcs;
 mod wire_diagnostics;
 mod wire_events;

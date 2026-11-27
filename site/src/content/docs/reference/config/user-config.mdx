@@ -116,6 +116,19 @@ profiles:
 - `.env`, `VIB_*` and `--set` still beat it.
 - It is never read for `auth`, `secrets`, `history`, `redact` or other project keys.
 
+## From the web UI
+
+The **You only** scope of Settings in `vc ui` reads and changes this file. It shows each setting,
+with its value masked as a run's values are, and marks the ones this project overrides. A change
+shows the file before and after, and is written only if the file has not changed since. The
+comments you wrote are kept.
+
+The web UI can change `profile`, the `defaults` and `reports` keys that `--set` takes, and `vars`.
+Each value is checked as `--set` checks it. A `profile` must be one of the project's, and a
+`reports.dir` must be a folder inside the project (V5132). `plugins.allowUnconfined` can only be
+set by editing the file yourself. The web UI always uses the path in the table above, never one a
+browser sends.
+
 <Aside>Keep secrets out of it. Secrets belong in the environment or `.env`, declared in [`.env.schema`](/vc-rs/reference/config/env-schema/).</Aside>
 
 ## Related

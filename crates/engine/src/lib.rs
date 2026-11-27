@@ -137,6 +137,8 @@ mod sync_snapshot;
 mod test_auth;
 mod test_history;
 mod user;
+mod user_settings;
+mod user_settings_text;
 mod vcs_pane;
 mod wanted;
 mod watch;
@@ -197,6 +199,7 @@ pub use sync::{SyncMode, SyncReport, SyncRequest};
 pub use sync_plan::SyncSide;
 pub use test_auth::{AuthTested, TestAuthRequest};
 pub use test_history::{MOST_RUNS, TestResults};
+pub use user_settings::{NEW_FILE, UserSetting, UserSettingEdit, UserSettings, UserSettingsChange};
 pub use vc_diagnostics::{
     Code, Diagnostic, Diagnostics, DiagnosticsError, Fix, JsonRenderer, Label, Render, Severity, Summary, TextRenderer,
 };

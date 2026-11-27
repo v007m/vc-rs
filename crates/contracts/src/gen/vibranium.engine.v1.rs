@@ -2182,6 +2182,68 @@ pub struct ExportScheduleResponse {
     #[prost(string, tag="4")]
     pub path: ::prost::alloc::string::String,
 }
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ReadUserSettingsRequest {
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ReadUserSettingsResponse {
+    /// Where the user config is, with the home folder as `~`.
+    #[prost(string, tag="1")]
+    pub path: ::prost::alloc::string::String,
+    /// The file's digest, which a write passes back; `new` when there is no file yet.
+    #[prost(string, tag="2")]
+    pub digest: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag="3")]
+    pub settings: ::prost::alloc::vec::Vec<UserSetting>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct UserSetting {
+    /// The dotted key, such as `defaults.timeout` or `vars.userId`.
+    #[prost(string, tag="1")]
+    pub key: ::prost::alloc::string::String,
+    /// The value as written, masked; a list joined with `,`.
+    #[prost(string, tag="2")]
+    pub value: ::prost::alloc::string::String,
+    /// Whether this project's config sets the key, so the user's value does not count here.
+    #[prost(bool, tag="3")]
+    pub shadowed: bool,
+}
+/// One setting to change: `profile`, a `defaults.*` or `reports.*` key `--set` takes, or
+/// `vars.<name>`.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct UserSettingEdit {
+    #[prost(string, tag="1")]
+    pub key: ::prost::alloc::string::String,
+    /// The value as `--set` writes it, a list joined with `,`; unset removes the key.
+    #[prost(string, optional, tag="2")]
+    pub value: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct WriteUserSettingsRequest {
+    #[prost(message, repeated, tag="1")]
+    pub edits: ::prost::alloc::vec::Vec<UserSettingEdit>,
+    /// Write the file; a preview when false.
+    #[prost(bool, tag="2")]
+    pub write: bool,
+    /// The digest the preview gave; a write is aborted when the file changed since, or without it.
+    #[prost(string, optional, tag="3")]
+    pub expected_digest: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct WriteUserSettingsResponse {
+    /// Where the user config is, with the home folder as `~`.
+    #[prost(string, tag="1")]
+    pub path: ::prost::alloc::string::String,
+    /// The text before, masked; unset when there was no file.
+    #[prost(string, optional, tag="2")]
+    pub before: ::core::option::Option<::prost::alloc::string::String>,
+    /// The text after, masked.
+    #[prost(string, tag="3")]
+    pub after: ::prost::alloc::string::String,
+    /// The digest to write with: the file's when previewed, the new one once written.
+    #[prost(string, tag="4")]
+    pub digest: ::prost::alloc::string::String,
+}
 /// What to list.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]

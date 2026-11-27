@@ -139,6 +139,12 @@ service EngineService {
   // A GitHub Actions workflow that runs one schedule on its cron, at a path the engine fixes
   // (`.github/workflows/vibranium-<id>.yml`): a preview, or the file written (D707).
   rpc ExportSchedule(ExportScheduleRequest) returns (ExportScheduleResponse);
+  // The user config (D129's user layer) at the one path the engine fixes, never one a client
+  // names: its settings, masked, each saying whether this project's config overrides it (D711).
+  rpc ReadUserSettings(ReadUserSettingsRequest) returns (ReadUserSettingsResponse);
+  // Sets or removes user config settings: a preview, or the file written with the preview's
+  // digest (D712).
+  rpc WriteUserSettings(WriteUserSettingsRequest) returns (WriteUserSettingsResponse);
 }
 
 // Which tests or apis to act on, as `vc run` selects them.
@@ -1580,4 +1586,50 @@ message ExportScheduleResponse {
   string digest = 3;
   // The workflow's path, relative to the project root.
   string path = 4;
+}
+
+message ReadUserSettingsRequest {}
+
+message ReadUserSettingsResponse {
+  // Where the user config is, with the home folder as `~`.
+  string path = 1;
+  // The file's digest, which a write passes back; `new` when there is no file yet.
+  string digest = 2;
+  repeated UserSetting settings = 3;
+}
+
+message UserSetting {
+  // The dotted key, such as `defaults.timeout` or `vars.userId`.
+  string key = 1;
+  // The value as written, masked; a list joined with `,`.
+  string value = 2;
+  // Whether this project's config sets the key, so the user's value does not count here.
+  bool shadowed = 3;
+}
+
+// One setting to change: `profile`, a `defaults.*` or `reports.*` key `--set` takes, or
+// `vars.<name>`.
+message UserSettingEdit {
+  string key = 1;
+  // The value as `--set` writes it, a list joined with `,`; unset removes the key.
+  optional string value = 2;
+}
+
+message WriteUserSettingsRequest {
+  repeated UserSettingEdit edits = 1;
+  // Write the file; a preview when false.
+  bool write = 2;
+  // The digest the preview gave; a write is aborted when the file changed since, or without it.
+  optional string expected_digest = 3;
+}
+
+message WriteUserSettingsResponse {
+  // Where the user config is, with the home folder as `~`.
+  string path = 1;
+  // The text before, masked; unset when there was no file.
+  optional string before = 2;
+  // The text after, masked.
+  string after = 3;
+  // The digest to write with: the file's when previewed, the new one once written.
+  string digest = 4;
 }

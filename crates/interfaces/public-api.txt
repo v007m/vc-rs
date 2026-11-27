@@ -153,12 +153,17 @@ impl core::fmt::Display for vc_interfaces::CompileCacheError
 pub fn vc_interfaces::CompileCacheError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_interfaces::CompileCacheError
 #[non_exhaustive] pub enum vc_interfaces::ConfigSourceError
+pub vc_interfaces::ConfigSourceError::Changed
+pub vc_interfaces::ConfigSourceError::Changed::origin: alloc::string::String
 pub vc_interfaces::ConfigSourceError::Malformed
 pub vc_interfaces::ConfigSourceError::Malformed::entry: alloc::string::String
 pub vc_interfaces::ConfigSourceError::Malformed::origin: alloc::string::String
 pub vc_interfaces::ConfigSourceError::Unreadable
 pub vc_interfaces::ConfigSourceError::Unreadable::origin: alloc::string::String
 pub vc_interfaces::ConfigSourceError::Unreadable::reason: alloc::string::String
+pub vc_interfaces::ConfigSourceError::Unwritable
+pub vc_interfaces::ConfigSourceError::Unwritable::origin: alloc::string::String
+pub vc_interfaces::ConfigSourceError::Unwritable::reason: alloc::string::String
 impl core::clone::Clone for vc_interfaces::ConfigSourceError
 pub fn vc_interfaces::ConfigSourceError::clone(&self) -> Self
 impl core::cmp::Eq for vc_interfaces::ConfigSourceError

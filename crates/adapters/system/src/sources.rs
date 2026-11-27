@@ -301,7 +301,7 @@ fn root_error(root: &Path, error: &std::io::Error) -> SourceError {
 }
 
 #[path = "sources_write.rs"]
-mod write;
+pub mod write;
 
 #[cfg(test)]
 #[path = "sources_tests.rs"]
