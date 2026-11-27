@@ -18,6 +18,7 @@ mod body_file;
 mod builder;
 mod config;
 mod credential;
+mod cron;
 mod date;
 mod defs;
 mod error;
@@ -38,6 +39,7 @@ mod plan;
 mod printable;
 mod program;
 mod protocol;
+mod schedule;
 mod secrets;
 mod source;
 mod span;
@@ -58,13 +60,14 @@ pub use config::{
     LoadStage, MixEntry, PluginRef, Profile, auth_needs, auth_own_needs,
 };
 pub use credential::credential;
+pub use cron::Cron;
 pub use date::Date;
 pub use defs::{
     AllowFailure, AuthRef, CacheSpec, Examples, HookRef, Lifecycle, Loop, Method, Owner, Poll, RequestHooks, Retry,
     RunBlocks, SaveSpec, Skip, Tag, VarDefs,
 };
 pub use error::ModelError;
-pub use event::{Event, Feed, Sequenced};
+pub use event::{Event, Feed, HostStats, Sequenced};
 pub use exchange::{
     ConnectionInfo, Exchange, HttpResponse, HttpVersion, RenderedRequest, StreamMessage, Timing, wire_host,
 };
@@ -82,6 +85,7 @@ pub use plan::{Instance, InstanceId, Needs, Plan, PlannedAction, PlannedFile, Sk
 pub use printable::{one_line, printable};
 pub use program::Program;
 pub use protocol::{AllowedKeys, PROTOCOL_KEYS, PROTOCOL_NEEDS, Protocol, ProtocolKeys, STREAM_SHAPES, StreamShape};
+pub use schedule::{Schedule, ScheduleRunner};
 pub use secrets::{
     DEFAULT_SECRETS_PROVIDER, DEFAULT_SECRETS_SCHEMA, PROFILE_VARIABLE, RedactRule, SchemaNames, SecretsConfig,
     schema_names, secret_name,

@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use vc_model::{Alert, AlertChannel, AlertTrigger, Program, Tag, TemplateValue};
+use vc_model::{Alert, AlertChannel, AlertTrigger, Program, ScheduleRunner, Tag, TemplateValue};
 
 const CONFIG: &str = "syntaxVersion: 2\nproject: shop\nprofiles:\n  - id: staging\n    default: true\nplugins:\n  - id: acmeAuth\n    source: npm:@acme/vibranium-auth@2\n    config: {realm: partners, retries: 2}\n  - id: localReport\n    source: path:plugins/report\nalerts:\n  - on: [failure, recovery]\n    profiles: [staging, prod]\n    tags: [smoke]\n    notify:\n      - webhook: {url: https://hooks.example/vibranium}\n      - pagerduty: {routingKey: '${secret.PD_KEY}'}\n  - notify:\n      - slack: {channel: '#qa', webhook: '${secret.SLACK_HOOK}'}\n";
 
@@ -51,4 +51,22 @@ fn lowers_each_plugin_with_its_source_and_config() {
 fn a_config_without_alerts_or_plugins_has_none() {
     let program = program("syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\n");
     assert!(program.config.alerts.is_empty() && program.config.plugins.is_empty());
+}
+
+const SCHEDULES: &str = "syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\n  - id: staging\nschedules:\n  - id: nightlySmoke\n    name: Nightly smoke\n    cron: \"0 2 * * 1-5\"\n    selector: [users, payments.refunds]\n    profile: staging\n    notify:\n      - slack: {channel: '#qa', webhook: '${secret.SLACK_HOOK}'}\n    runner: githubActions\n    enabled: false\n  - id: hourly\n    cron: \"0 * * * *\"\n    selector: users.crud#listsUsers\n";
+
+#[test]
+fn lowers_each_schedule_with_its_cron_selection_and_channels() {
+    let program = program(SCHEDULES);
+    let [nightly, hourly] = program.config.schedules.as_slice() else { panic!("{:?}", program.config.schedules) };
+    assert_eq!((nightly.id.as_str(), nightly.name.as_deref()), ("nightlySmoke", Some("Nightly smoke")));
+    assert_eq!(nightly.cron.text(), "0 2 * * 1-5");
+    assert_eq!(nightly.selector, ["users", "payments.refunds"]);
+    assert_eq!(nightly.profiles, ["staging"], "one profile may be written as text");
+    let kinds = nightly.notify.iter().map(|channel| channel.kind.as_str()).collect::<Vec<_>>();
+    assert_eq!(kinds, ["slack"]);
+    assert_eq!((nightly.runner, nightly.enabled), (ScheduleRunner::GithubActions, false));
+    assert_eq!(hourly.selector, ["users.crud#listsUsers"], "one selector may be written as text");
+    assert!(hourly.profiles.is_empty() && hourly.notify.is_empty());
+    assert_eq!((hourly.runner, hourly.enabled), (ScheduleRunner::VcServer, true), "the defaults");
 }

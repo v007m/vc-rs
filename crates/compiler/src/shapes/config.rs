@@ -41,6 +41,7 @@ shape! {
         types::key("hooks", Ty::Obj(hooks)).doc("How TypeScript and JavaScript hooks run"),
         types::key("alerts", Ty::List(&Ty::Obj(alert))).doc("Notifications"),
         types::key("plugins", Ty::List(&Ty::Obj(plugin))).doc("Third-party plugins"),
+        types::key("schedules", Ty::List(&Ty::Obj(schedule))).doc("Runs started on a cron (D520)"),
         types::key("redact", Ty::Obj(redact)).default("auth headers and secrets").doc("Extra values to mask"),
         types::key("beforeRun", ACTIONS).doc("Actions run once before any test starts"),
         types::key("afterRun", ACTIONS).doc("Actions run once after the last test"),
@@ -255,6 +256,26 @@ shape! {
         types::key("notify", Ty::List(&VARS)).doc("Channels: webhook, slack, teams, pagerduty, email"),
     ])
 }
+
+shape! {
+    schedule = Shape::new("schedule", "A run started on a cron, by `vc ui`'s server or an exported CI workflow", &[
+        types::key("id", Ty::Id).required().doc("Names the schedule in history and the exported workflow")
+            .example("nightlySmoke"),
+        types::key("name", Ty::Text).doc("Shown in the Schedules list"),
+        types::key("cron", Ty::Text).required().doc("Minute, hour, day of the month, month, day of the week, in UTC (V2317)")
+            .example("\"0 2 * * 1-5\""),
+        types::key("selector", ONE_OR_MORE).default("every test").doc("What runs, as `vc run`'s selectors")
+            .example("[users, payments.refunds]"),
+        types::key("profile", ONE_OR_MORE).default("the default profile").doc("The profiles it runs under"),
+        types::key("notify", Ty::List(&VARS)).doc("Channels told when a run fails or is blocked, as in `alerts`"),
+        types::key("runner", Ty::Enum(&["vcServer", "githubActions"])).default("vcServer")
+            .doc("`vcServer`: `vc ui`'s server runs it; `githubActions`: an exported workflow does"),
+        types::key("enabled", Ty::Bool).default("true").doc("`false`: nothing starts it"),
+    ])
+}
+
+/// A text, or a list of texts.
+const ONE_OR_MORE: Ty = Ty::Either(&[Ty::Text, TEXTS]);
 
 shape! {
     plugin = Shape::new("plugin", "A third-party plugin", &[

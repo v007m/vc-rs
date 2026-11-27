@@ -6,6 +6,7 @@ use vc_testkit::{FakeVcs, MemoryApprovals, MemoryHistory, MemorySources};
 
 use super::{call_reach, plan_reach};
 use crate::plan::Extra;
+use crate::policy::AgentCall;
 use crate::sample::builder;
 use crate::{Engine, EngineError, PlanRequest, RunRequest, SelectRequest, interrupts};
 
@@ -159,4 +160,20 @@ async fn an_agents_run_that_fails_before_the_gate_is_logged_and_a_persons_is_not
     let person = RunRequest { agent: None, ..agent_run("staging", &["users.flow#nope"]) };
     assert!(engine.run(&person, interrupts().1).await.is_err());
     assert_eq!(queue.actions().len(), 1);
+}
+
+#[tokio::test]
+async fn a_gated_call_is_logged_with_how_long_it_took_and_that_it_ran_and_a_refused_one_with_neither() {
+    let queue = MemoryApprovals::new();
+    let engine = engine(&queue);
+    let profiles = vec!["staging".to_owned()];
+    let call =
+        AgentCall { agent: "claude".into(), tool: "run_tests".into(), profiles, runs: true, ..AgentCall::default() };
+    let gated = engine.gated(call.clone()).await.unwrap();
+    assert_eq!(gated.0.started_ms, Some(0), "the fixed clock's now");
+    engine.settle(Some(gated), true).await.unwrap();
+    assert!(engine.gated(AgentCall { profiles: vec!["bare".to_owned()], ..call }).await.is_err());
+    let logged = queue.actions();
+    assert_eq!((logged[0].result.as_str(), logged[0].took_ms, logged[0].ran), ("ok", Some(0), true));
+    assert_eq!((logged[1].took_ms, logged[1].ran), (None, false), "{:?}", logged[1]);
 }

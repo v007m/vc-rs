@@ -37,7 +37,7 @@ test('lists a skip that has ended and removes it after a preview', async ({ brow
   if (!vcUi) throw new Error('vc ui did not start');
   const page = await (await browser.newContext()).newPage();
   await page.goto(vcUi.printed.launchUrl);
-  await page.goto(`${vcUi.origin}/insights`);
+  await page.goto(`${vcUi.origin}/runs/overview`);
   const panel = page.getByRole('region', { name: 'Skips expiring soon' });
   const row = panel.getByRole('listitem').filter({ hasText: 'users.crud#listsUsers' });
   await expect(row).toContainText('ended 2000-01-01');

@@ -3,40 +3,54 @@ import { requiresVcUi } from './support';
 
 requiresVcUi();
 
-const screens = [
-  { label: 'Tests', path: '/tests' },
-  { label: 'Editor', path: '/editor' },
-  { label: 'Runs', path: '/runs' },
-  { label: 'AI agents', path: '/agents' },
+const spaces = [
+  { label: 'Client', path: '/client', title: 'API client' },
+  { label: 'Tests', path: '/tests', title: 'Tests' },
+  { label: 'Runs', path: '/runs', title: 'Runs' },
+  { label: 'Agents', path: '/agents', title: 'AI agents' },
+  { label: 'Settings', path: '/settings', title: 'Settings' },
 ];
 
-test('opens on the Tests screen', async ({ page }) => {
+test('opens in Client', async ({ page }) => {
   await page.goto('/');
-  await expect(page).toHaveURL(/\/tests$/);
+  await expect(page).toHaveURL(/\/client$/);
 });
 
-for (const { label, path } of screens) {
-  test(`the nav opens ${label} and marks it current`, async ({ page }) => {
-    await page.goto('/tests');
-    const nav = page.getByRole('navigation', { name: 'Main' });
-    await nav.getByRole('link', { name: label }).click();
+test('old links redirect, keeping their query', async ({ page }) => {
+  await page.goto('/editor?file=vibranium.config.yaml');
+  await expect(page).toHaveURL(/\/tests\/editor\?file=vibranium\.config\.yaml$/);
+  await page.goto('/insights');
+  await expect(page).toHaveURL(/\/runs\/overview$/);
+});
+
+for (const { label, path, title } of spaces) {
+  test(`the rail opens ${label} and marks it current`, async ({ page }) => {
+    await page.goto('/agents');
+    const rail = page.getByRole('navigation', { name: 'Spaces' });
+    await rail.getByRole('link', { name: label, exact: true }).click();
     await expect(page).toHaveURL(new RegExp(`${path}$`));
-    await expect(nav.getByRole('link', { name: label })).toHaveAttribute('aria-current', 'page');
-    await expect(page.getByRole('heading', { level: 1, name: label })).toBeVisible();
+    await expect(rail.getByRole('link', { name: label, exact: true })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+    await expect(page.getByRole('heading', { level: 1, name: title })).toBeVisible();
   });
 }
 
-test('the sidebar collapses to an icon rail and expands again', async ({ page }) => {
+test('the sidebar hides and shows again', async ({ page }) => {
   await page.goto('/tests');
-  await page.getByRole('button', { name: 'Collapse sidebar' }).click();
-  await expect(page.getByRole('link', { name: 'Tests' }).locator('.label')).toBeHidden();
-  await page.getByRole('button', { name: 'Expand sidebar' }).click();
-  await expect(page.getByRole('link', { name: 'Tests' }).locator('.label')).toBeVisible();
+  await page.getByRole('button', { name: 'Hide sidebar' }).click();
+  await expect(page.getByRole('complementary', { name: 'Tests sidebar' })).toBeHidden();
+  await page.getByRole('button', { name: 'Show sidebar' }).click();
+  await expect(page.getByRole('complementary', { name: 'Tests sidebar' })).toBeVisible();
 });
 
 test('announces a route change from a live region kept out of sight', async ({ page }) => {
   await page.goto('/tests');
-  await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Runs' }).click();
+  await page
+    .getByRole('navigation', { name: 'Spaces' })
+    .getByRole('link', { name: 'Runs' })
+    .click();
   const announcer = page.locator('#svelte-announcer');
   await expect(announcer).toHaveAttribute('aria-live', 'assertive');
   await expect(page).toHaveTitle('Runs · Vibranium');

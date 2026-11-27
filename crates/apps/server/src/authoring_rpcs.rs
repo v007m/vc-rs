@@ -32,10 +32,7 @@ pub fn register(rpcs: Rpcs) -> Rpcs {
 }
 
 pub async fn call(api: Arc<EngineApi>, request: wire::CallRequest) -> Result<wire::CallResponse, ConnectError> {
-    let (profiles, sets) = api.layers(request.profiles, request.sets);
-    let draft = request.draft.as_ref().map(client_rpcs::draft).transpose()?;
-    let call =
-        CallRequest { api: request.api, vars: request.vars, keep: request.keep, profiles, sets, agent: None, draft };
+    let call = call_request(&api, request)?;
     let report = api.blocking(move |engine| Handle::current().block_on(engine.call(&call))).await?;
     let exchange = report.exchange.as_ref().map(|exchange| bodied(&report, exchange));
     let checks = report.checks.iter().map(|check| wire_results::check(&report.names, check)).collect();
@@ -53,6 +50,16 @@ pub async fn call(api: Arc<EngineApi>, request: wire::CallRequest) -> Result<wir
         checks,
         saved: saved.collect(),
     })
+}
+
+/// The engine's request for `request`, a person's call over the server's profiles and `--set`
+/// values.
+pub fn call_request(api: &EngineApi, request: wire::CallRequest) -> Result<CallRequest, ConnectError> {
+    let (profiles, sets) = api.layers(request.profiles, request.sets)?;
+    let draft = request.draft.as_ref().map(client_rpcs::draft).transpose()?;
+    let adhoc = request.adhoc.as_ref().map(client_rpcs::adhoc);
+    let (api_id, vars, keep) = (request.api, request.vars, request.keep);
+    Ok(CallRequest { api: api_id, vars, keep, profiles, sets, agent: None, draft, adhoc })
 }
 
 /// The call's exchange with both bodies, whatever `history.bodies` says: the Client shows the
@@ -95,7 +102,7 @@ async fn save_call_as_test(
 
 async fn import(api: Arc<EngineApi>, request: wire::ImportRequest) -> Result<wire::ImportResponse, ConnectError> {
     let write = request.write;
-    let profiles = api.layers(request.profiles, Vec::new()).0;
+    let profiles = api.layers(request.profiles, Vec::new())?.0;
     let keep = request.keep.unwrap_or_default();
     let import = ImportRequest {
         kind: request.kind,
@@ -146,7 +153,11 @@ async fn unskip(api: Arc<EngineApi>, request: wire::UnskipRequest) -> Result<wir
 
 /// `changes` with the digest of their files as previewed; written first when `expected` holds
 /// the digest a preview gave and the files are still those.
-fn previewed(engine: &Engine, changes: Changes, expected: Option<String>) -> Result<(Changes, String), EngineError> {
+pub fn previewed(
+    engine: &Engine,
+    changes: Changes,
+    expected: Option<String>,
+) -> Result<(Changes, String), EngineError> {
     let digest = engine.preview_digest(&changes)?;
     if let Some(expected) = expected {
         engine.write_previewed(&changes, &expected)?;
@@ -154,7 +165,7 @@ fn previewed(engine: &Engine, changes: Changes, expected: Option<String>) -> Res
     Ok((changes, digest))
 }
 
-fn response(changes: Changes) -> wire::ImportResponse {
+pub fn response(changes: Changes) -> wire::ImportResponse {
     wire::ImportResponse { files: changes.files.into_iter().map(file_change).collect(), titles: changes.titles }
 }
 

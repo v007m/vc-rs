@@ -7,12 +7,12 @@
   /** The pill modifier of each state; queued and running are not outcomes, so they have their own. */
   function pillOf(state: PlanState): string {
     if (state === 'queued') return '';
-    return state === 'running' ? 'accent' : statusClass[state];
+    return state === 'running' ? 'vc-accent' : statusClass[state];
   }
 </script>
 
 <section class="plan">
-  <h2 class="h2" id="plan-h">Tests</h2>
+  <h2 class="st-title3" id="plan-h">Tests</h2>
   <div class="scroll" role="region" aria-labelledby="plan-h">
     <table class="tbl">
       <thead>
@@ -21,8 +21,8 @@
       <tbody>
         {#each plan as row (row.instance)}
           <tr>
-            <td class="mono name">{row.label}</td>
-            <td><span class="pill {pillOf(row.state)}">{row.state}</span></td>
+            <td class="vc-mono name">{row.label}</td>
+            <td><span class="st-badge {pillOf(row.state)}">{row.state}</span></td>
             <td class="num">{ms(row.ms)}</td>
           </tr>
         {/each}
@@ -33,10 +33,10 @@
 
 <style>
   .plan {
-    border-top: 1px solid var(--line);
+    border-top: 1px solid var(--st-chrome-separator);
     min-width: 0;
   }
-  .plan .h2 {
+  .plan .st-title3 {
     padding: 14px 20px 10px;
   }
   .scroll {

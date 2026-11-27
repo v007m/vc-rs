@@ -2,6 +2,7 @@ import { create } from '@bufbuild/protobuf';
 import { Code, ConnectError } from '@connectrpc/connect';
 import { FixSchema, Severity } from '#lib/gen/vibranium/engine/v1/engine_pb.ts';
 import { describe, expect, it, vi } from 'vitest';
+import { available, notYet } from '#lib/api/maybe.ts';
 import { fakeEngine } from '#lib/testing/engine.ts';
 import { EditorSession } from './session.svelte.ts';
 
@@ -20,7 +21,10 @@ function disk(text = 'name: one\n') {
   const state = { text, digest: 'd1', stale: false, writes: 0 };
   const client = fakeEngine({
     listDefinitions: () => ({
-      definitions: [{ path: 'b.test.yaml' }, { path: 'a.api.yaml' }],
+      definitions: [
+        { path: 'b.test.yaml', id: 'b' },
+        { path: 'a.api.yaml', id: 'a' },
+      ],
     }),
     readFile: () => ({ text: state.text, digest: state.digest }),
     writeFile: (request) => {
@@ -66,14 +70,14 @@ function later<T>() {
 }
 
 describe('EditorSession', () => {
-  it('checks the unsaved text once typing pauses and blocks saving while it has errors', async () => {
+  it('checks the unsaved text once typing pauses, and lets it be saved with errors', async () => {
     const { overlays, editor } = overlayDisk();
     await editor.open(path);
     editor.edit('name: b');
     editor.edit('name: bad');
     await vi.waitFor(() => expect(editor.errorCount).toBe(1));
     expect(overlays).toEqual(['name: bad']);
-    expect(editor.canSave).toBe(false);
+    expect(editor.canSave).toBe(true);
     editor.edit('name: good');
     await vi.waitFor(() => expect(editor.errorCount).toBe(0));
     expect(editor.canSave).toBe(true);
@@ -127,6 +131,45 @@ describe('EditorSession', () => {
     expect(editor.state).toBe('idle');
   });
 
+  it('keeps each listed file’s ID', async () => {
+    const { editor } = disk();
+    await editor.loadFiles();
+    expect(editor.fileId('b.test.yaml')).toBe('b');
+    expect(editor.fileId('missing.yaml')).toBe('');
+  });
+
+  it('fixes a saved buffer through the engine, unsaved, and the typed text itself', async () => {
+    const { state, editor } = disk('id: x\n');
+    await editor.open(path);
+    const asked: string[][] = [];
+    const port = {
+      fix: (_: string, codes: readonly string[]) => {
+        asked.push([...codes]);
+        return Promise.resolve(available('id: fixed\n'));
+      },
+    };
+    expect(await editor.fix(port)).toBeUndefined();
+    expect(editor.buffer?.text).toBe('id: fixed\n');
+    expect(editor.dirty).toBe(true);
+    await editor.check();
+    const fix = create(FixSchema, { edits: [{ file: path, start: 4, end: 9, newText: 'typed' }] });
+    await editor.fix(port, { fix, code: 'V4001' });
+    expect(editor.buffer?.text).toBe('id: typed\n');
+    expect(asked).toEqual([[]]);
+    expect(state.writes).toBe(0);
+  });
+
+  it('says there is nothing to fix, and falls back to the buffer without the engine', async () => {
+    const { editor } = disk('id: x\n');
+    await editor.open(path);
+    const none = { fix: () => Promise.resolve(available(undefined)) };
+    expect(await editor.fix(none)).toBe('Nothing to fix.');
+    const fix = create(FixSchema, { edits: [{ file: path, start: 4, end: 5, newText: 'y' }] });
+    const old = { fix: () => Promise.resolve(notYet('old engine')) };
+    expect(await editor.fix(old, { fix, code: 'V4001' })).toBeUndefined();
+    expect(editor.buffer?.text).toBe('id: y\n');
+  });
+
   it('applies a fix to the buffer without saving it', async () => {
     const { state, editor } = disk('name: één\nid: x\n');
     await editor.open(path);
@@ -143,16 +186,92 @@ describe('EditorSession', () => {
     expect(state.writes).toBe(0);
   });
 
-  it('checks the text again on save and refuses it when the last check is out of date', async () => {
+  it('checks the text again on save and asks before writing it with errors', async () => {
     const { writes, editor } = overlayDisk(60_000);
     await editor.open(path);
     editor.edit('name: bad');
-    expect(editor.canSave).toBe(true);
     await editor.save();
     expect(writes).toEqual([]);
     expect(editor.errorCount).toBe(1);
-    expect(editor.state).toBe('idle');
+    expect(editor.confirming).toBe(true);
     expect(editor.dirty).toBe(true);
+    await editor.saveAnyway();
+    expect(writes).toEqual(['name: bad']);
+    expect(editor.confirming).toBe(false);
+    expect(editor.dirty).toBe(false);
+  });
+
+  it('drops the save-anyway prompt on the next edit or on cancel', async () => {
+    const { writes, editor } = overlayDisk(60_000);
+    await editor.open(path);
+    editor.edit('name: bad');
+    await editor.save();
+    expect(editor.confirming).toBe(true);
+    editor.edit('name: bad, more');
+    expect(editor.confirming).toBe(false);
+    await editor.save();
+    editor.cancelSave();
+    expect(editor.confirming).toBe(false);
+    expect(writes).toEqual([]);
+  });
+
+  it('checks the typed text at once on Check', async () => {
+    const { overlays, editor } = overlayDisk(60_000);
+    await editor.open(path);
+    editor.edit('name: bad');
+    await editor.check();
+    expect(overlays).toEqual(['name: bad']);
+    expect(editor.errorCount).toBe(1);
+  });
+
+  it('applies each first certain fix on Fix all, skipping overlaps and other files', async () => {
+    const fix = (start: number, end: number, newText: string, file = path) => ({
+      title: newText,
+      certain: true,
+      edits: [{ file, start, end, newText }],
+    });
+    const client = fakeEngine({
+      readFile: () => ({ text: 'a: 1\nb: 2\n', digest: 'd1' }),
+      check: () => ({
+        diagnostics: [
+          { ...diagnostic(path, 'V4001'), fixes: [fix(0, 1, 'x')] },
+          { ...diagnostic(path, 'V4002'), fixes: [fix(5, 6, 'z'), fix(0, 1, 'y')] },
+          { ...diagnostic(path, 'V4005'), fixes: [fix(0, 1, 'y')] },
+          { ...diagnostic(path, 'V4003'), fixes: [fix(0, 1, 'w', 'other.yaml')] },
+          { ...diagnostic(path, 'V4004'), fixes: [{ ...fix(8, 9, '9'), certain: false }] },
+        ],
+      }),
+    });
+    const editor = new EditorSession(client, 60_000);
+    await editor.open(path);
+    expect(editor.fixableCount).toBe(2);
+    expect(editor.fixAll()).toBe(2);
+    expect(editor.buffer?.text).toBe('x: 1\nz: 2\n');
+  });
+
+  it('offers no fixes once the text moved on from the text that was checked', async () => {
+    const fix = {
+      title: 'x',
+      certain: true,
+      edits: [{ file: path, start: 0, end: 1, newText: 'x' }],
+    };
+    const editor = new EditorSession(
+      fakeEngine({
+        readFile: () => ({ text: 'a: 1\n', digest: 'd1' }),
+        check: () => ({ diagnostics: [{ ...diagnostic(path, 'V4001'), fixes: [fix] }] }),
+      }),
+      60_000,
+    );
+    await editor.open(path);
+    expect(editor.fixable).toBe(true);
+    editor.edit('# note\na: 1\n');
+    expect(editor.fixable).toBe(false);
+    expect(editor.fixableCount).toBe(0);
+    expect(editor.fixAll()).toBe(0);
+    editor.applyFix(create(FixSchema, fix));
+    expect(editor.buffer?.text).toBe('# note\na: 1\n');
+    await editor.check();
+    expect(editor.fixable).toBe(true);
   });
 
   it('keeps keys typed while a save is in flight, unsaved', async () => {

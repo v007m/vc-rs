@@ -27,12 +27,12 @@
   }
 </script>
 
-<div class="tabs" role="tablist" aria-label={label} bind:this={list}>
+<div class="vc-tabs" role="tablist" aria-label={label} bind:this={list}>
   {#each tabs as tab (tab.id)}
     <button
       type="button"
       role="tab"
-      class="tab"
+      class="vc-tab"
       id="{uid}-{tab.id}"
       data-tab={tab.id}
       aria-selected={selected === tab.id}
@@ -52,33 +52,16 @@
 </div>
 
 <style>
-  .tabs {
-    display: flex;
-    gap: 2px;
-    border-bottom: 1px solid var(--line);
-  }
-  .tab {
-    height: 32px;
-    padding: 0 12px;
-    border: 0;
-    border-bottom: 2px solid transparent;
-    background: none;
-    color: var(--ink2);
-    font: 500 13px var(--font);
-    cursor: pointer;
-  }
-  .tab[aria-selected='true'] {
-    border-bottom-color: var(--accent);
-    color: var(--ink);
-  }
+  /* The look is the shared .vc-tabs/.vc-tab of strata/vibranium.css: chrome on the canvas, a wash on a card. */
   .count {
-    color: var(--ink2);
-    font-weight: 400;
+    font-size: var(--vc-size-micro);
+    font-variant-numeric: tabular-nums;
+    color: var(--st-text-tertiary);
   }
   .count.bad {
-    color: var(--fail);
+    color: var(--vc-fail-ink);
   }
   .panel {
-    padding: 12px 0;
+    padding: var(--st-space-12) 0;
   }
 </style>

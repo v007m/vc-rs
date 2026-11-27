@@ -1,0 +1,313 @@
+/* The Client space (ui.md §4, D560): the request bar on the canvas, and the request and response cards
+   on a resizable split. Ported from the ui-v2 mockup; the tab strip styles itself. */
+
+/* ---- method pill and status code --------------------------------------------- */
+/* a method tag is a badge, so a capsule like every badge (D668) */
+.method {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  min-width: 40px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: var(--st-radius-capsule);
+  font-family: var(--st-font-mono);
+  font-size: 10px;
+  font-weight: var(--st-weight-semibold);
+  letter-spacing: 0.02em;
+  color: var(--vc-m-get);
+  background: color-mix(in oklab, var(--vc-m-get) 14%, transparent);
+}
+.method[data-m='POST'] {
+  color: var(--vc-m-post);
+  background: color-mix(in oklab, var(--vc-m-post) 14%, transparent);
+}
+.method[data-m='PUT'] {
+  color: var(--vc-m-put);
+  background: color-mix(in oklab, var(--vc-m-put) 14%, transparent);
+}
+.method[data-m='PATCH'] {
+  color: var(--vc-m-patch);
+  background: color-mix(in oklab, var(--vc-m-patch) 14%, transparent);
+}
+.method[data-m='DELETE'] {
+  color: var(--vc-m-delete);
+  background: color-mix(in oklab, var(--vc-m-delete) 14%, transparent);
+}
+.method:is([data-m='WS'], [data-m='SSE']) {
+  color: var(--vc-m-stream);
+  background: color-mix(in oklab, var(--vc-m-stream) 14%, transparent);
+}
+.hs {
+  font-family: var(--st-font-mono);
+  font-weight: var(--st-weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+.hs[data-class='2'] {
+  color: var(--vc-pass-ink);
+}
+.hs[data-class='3'] {
+  color: var(--vc-flaky-ink);
+}
+.hs[data-class='4'] {
+  color: var(--vc-blocked-ink);
+}
+.hs[data-class='5'] {
+  color: var(--vc-fail-ink);
+}
+
+/* ---- the screen: request bar on the canvas, then the split --------------------------- */
+.client {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--st-space-12);
+  min-height: 0;
+  min-width: 0;
+}
+.reqbar {
+  display: flex;
+  align-items: center;
+  gap: var(--st-space-8);
+  flex: none;
+  min-width: 0;
+}
+.reqbar > :is(.st-btn, .st-input, .url),
+.reqbar .btn-split .st-btn {
+  height: var(--st-size-control-lg);
+}
+/* the Layout menu's icon button sits in the same row, so it takes the row's 40 (D660) */
+.reqbar .st-icon-btn {
+  width: var(--st-size-control-lg);
+  height: var(--st-size-control-lg);
+}
+.reqbar .st-input {
+  flex: none;
+  width: auto;
+  border-radius: var(--st-radius-capsule);
+  font-family: var(--st-font-mono);
+  font-weight: var(--st-weight-semibold);
+}
+.url {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  padding: 0 var(--st-space-16);
+  border-radius: var(--st-radius-capsule);
+  background: var(--st-surface-input);
+  box-shadow: var(--st-emboss);
+  font-family: var(--st-font-mono);
+  font-size: var(--vc-size-body);
+  color: var(--st-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+}
+.url:focus-within {
+  background: var(--st-surface-input-focus);
+  box-shadow: var(--st-emboss), var(--st-focus-ring);
+}
+.url .q {
+  flex: none;
+  color: var(--st-text-tertiary);
+}
+.url input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+}
+.url input::placeholder {
+  color: var(--st-text-tertiary);
+}
+.btn-split {
+  position: relative;
+  display: inline-flex;
+  align-items: stretch;
+}
+.btn-split > .st-btn:first-child {
+  border-radius: var(--st-radius-capsule) 0 0 var(--st-radius-capsule);
+  padding-right: var(--st-space-12);
+}
+.btn-split > :nth-child(2) > .st-btn {
+  border-radius: 0 var(--st-radius-capsule) var(--st-radius-capsule) 0;
+  padding: 0 10px;
+  box-shadow:
+    var(--st-emboss),
+    inset 1px 0 0 color-mix(in srgb, var(--st-text-on-accent) 28%, transparent);
+}
+
+/* ---- split: request | response ------------------------------------------------ */
+.split {
+  --split: 50%;
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-columns: minmax(280px, var(--split)) var(--st-card-gap) minmax(280px, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  min-height: 0;
+  min-width: 0;
+}
+.split > .st-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  container: card / inline-size;
+}
+.divider {
+  display: grid;
+  place-items: center;
+  cursor: col-resize;
+  touch-action: none;
+  border-radius: var(--st-radius-sm);
+}
+.divider::before {
+  content: '';
+  width: 4px;
+  height: 36px;
+  border-radius: var(--st-radius-capsule);
+  background: var(--st-text-tertiary);
+  opacity: 0.45;
+  transition:
+    opacity var(--st-duration-fast) var(--st-ease-standard),
+    height var(--st-duration-fast) var(--st-ease-standard);
+}
+.divider:is(:hover, :focus-visible)::before {
+  opacity: 0.9;
+  height: 56px;
+}
+.split[data-orient='stack'] {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(160px, var(--split)) var(--st-card-gap) minmax(160px, 1fr);
+}
+.split[data-orient='stack'] .divider {
+  cursor: row-resize;
+}
+.split[data-orient='stack'] .divider::before {
+  width: 36px;
+  height: 4px;
+}
+@container app (max-width: 1100px) {
+  .split:not([data-orient='side']) {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(160px, var(--split)) var(--st-card-gap) minmax(160px, 1fr);
+  }
+  .split:not([data-orient='side']) .divider {
+    cursor: row-resize;
+  }
+  .split:not([data-orient='side']) .divider::before {
+    width: 36px;
+    height: 4px;
+  }
+}
+
+/* ---- inside a card: head, tabs, body ------------------------------------------- */
+.card-head {
+  display: flex;
+  align-items: center;
+  gap: var(--st-space-8);
+  flex-wrap: wrap;
+  min-width: 0;
+  padding: var(--st-card-padding) var(--st-card-padding) var(--st-space-12);
+}
+.card-title {
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: var(--st-type-title3);
+  letter-spacing: var(--st-tracking-title3);
+}
+.file-ref {
+  font-family: var(--st-font-mono);
+  font-size: var(--vc-size-caption);
+  color: var(--st-text-tertiary);
+}
+/* the panel's tabs are the card's segmented track (D660), inset by the card padding */
+.split > .st-card > [role='tablist'] {
+  max-width: calc(100% - 2 * var(--st-card-padding));
+  margin: 0 var(--st-card-padding);
+}
+.split > .st-card > [role='tabpanel'] {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--st-space-16);
+  padding: var(--st-card-padding);
+  font-size: var(--vc-size-body);
+}
+.resp-empty {
+  display: flex;
+  flex-direction: column;
+  padding: var(--st-space-12);
+}
+.resp-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--st-space-8);
+  flex-wrap: wrap;
+  min-width: 0;
+  color: var(--st-text-secondary);
+}
+.resp-meta .hs {
+  font-size: var(--vc-size-callout);
+}
+.resp-meta b {
+  color: var(--st-text-primary);
+  font-weight: var(--st-weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+.body-tools {
+  display: flex;
+  align-items: center;
+  gap: var(--st-space-8);
+  flex-wrap: wrap;
+}
+.body-tools .st-input {
+  flex: 1 1 220px;
+  width: auto;
+  font-family: var(--st-font-mono);
+}
+.body-view {
+  flex: 1 1 auto;
+  min-height: 140px;
+  overflow: auto;
+}
+.client-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--vc-size-body);
+  font-variant-numeric: tabular-nums;
+}
+.client-table th {
+  padding: 8px var(--st-space-12);
+  color: var(--st-text-tertiary);
+  font: var(--st-type-label);
+  letter-spacing: var(--st-tracking-label);
+  text-align: left;
+}
+.client-table tbody th {
+  color: var(--st-text-primary);
+  font-size: var(--vc-size-body);
+  font-weight: var(--st-weight-regular);
+  letter-spacing: 0;
+}
+/* the header rule is the stronger hairline; both stop 12px short (D669) */
+.client-table thead th {
+  --vc-hair-ink: var(--vc-rule-strong);
+}
+.client-table :is(td, tbody th) {
+  padding: 6px var(--st-space-12);
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+.client-table.readonly :is(td, th) {
+  color: var(--st-text-secondary);
+}

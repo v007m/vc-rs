@@ -116,12 +116,20 @@ impl Recorder {
 /// masked, named as the recorder names a test's, its bodies cut and kept as a failed test's are.
 #[must_use]
 pub fn failed_exchange(names: &Names, action: Option<ActionId>, exchange: &Exchange) -> ExchangeRow {
+    history_exchange(names, (action, exchange), true)
+}
+
+/// An exchange as the history keeps it outside a test, an ad hoc call's (D542): already masked,
+/// named as the recorder names a test's, its bodies cut and kept as a test's are when it
+/// `failed` or passed.
+#[must_use]
+pub fn history_exchange(names: &Names, (action, exchange): (Option<ActionId>, &Exchange), failed: bool) -> ExchangeRow {
     let history = names.program().config.history;
     let keeping = Keeping { bodies: history.bodies, max_body: history.max_body() };
     let view = exchange::view(exchange, keeping.max_body);
     let action_name = action.map(|action| names.action(action)).unwrap_or_default();
     let view = ExchangeView { action: action_name, api: action.and_then(|action| names.api_of(action)), ..view };
-    rows::exchange(&kept(view, keeping.bodies_of(true)))
+    rows::exchange(&kept(view, keeping.bodies_of(failed)))
 }
 
 fn kept(view: ExchangeView, bodies: bool) -> ExchangeView {

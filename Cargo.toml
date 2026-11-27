@@ -113,6 +113,8 @@ jsonschema = { version = "0.61.0", default-features = false }
 keyring-core = "1.0.1"
 landlock = "0.4.7"
 linux-keyutils-keyring-store = "1.0.0"
+# The Hosts panel's resident memory (D676): one call per platform, no unsafe code of ours.
+memory-stats = "1.2.0"
 notify = "=8.2.1"
 oas3 = { version = "0.22.0", default-features = false }
 oxc_allocator = "0.155.0"
@@ -155,6 +157,9 @@ smallvec = "1.16.4"
 strsim = "0.11.1"
 syn = { version = "3.0.9", features = ["full", "visit"] }
 tempfile = "3.27.0"
+# The web UI's TrashFile (D683): the OS trash. Linux needs `freedesktop`; Windows needs one COM model
+# (the crate's default); `jiff`, which only dates listed items, is off.
+trash = { version = "5.4.0", default-features = false, features = ["coinit_apartmentthreaded", "freedesktop"] }
 thiserror = "2.0.21"
 tokio = { version = "1.54.1", features = ["macros", "rt", "sync", "time"] }
 tokio-rustls = { version = "0.26.6", default-features = false, features = ["ring", "tls12"] }

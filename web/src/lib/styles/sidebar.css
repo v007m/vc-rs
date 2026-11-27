@@ -1,0 +1,473 @@
+/* The space switcher and the sidebar of UI v2 on Strata (docs/design/ui.md §3, D512-D515,
+   D590): the icon rail (or the row at the sidebar foot), the sidebar frame, its collapsible
+   sections and rows, and how both behave by width. All of it is chrome on the canvas: no box,
+   no border; a row is exactly --st-row high, its icon and text centred.
+
+     nav.rail > a.rail-brand, ul.rail-list > li > a.sp-btn, ul.rail-end
+     aside.sidebar > .sb-top (h2.sb-title, .sb-hide) > .sb-body > nav.sb-spaces (foot only)
+     .sb-secs > section.sb-sec(.is-open) > .sb-sec-head > button.sb-sec-btn + .sb-sec-body
+     ul.sb-nav > li > a.sb-row (.title .meta) */
+
+/* ---- space switcher (on the canvas) --------------------------------------- */
+/* "Icon rail": a slim column left of the sidebar. The current space is a selected chrome plate. */
+.rail {
+  flex: none;
+  position: relative;
+  z-index: 45; /* above the drawer scrim: switching space works with the drawer open */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--st-space-8);
+  width: var(--vc-rail-w);
+  min-height: 0;
+  padding-bottom: var(--st-space-12);
+  color: var(--st-text-secondary);
+}
+.rail-brand {
+  display: grid;
+  place-items: center;
+  flex: none;
+  height: var(--st-titlebar-height);
+  color: var(--st-text-primary);
+  text-decoration: none;
+}
+.rail-brand .mark {
+  width: 24px;
+  height: 24px;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.rail-brand .hex {
+  stroke: var(--st-accent);
+}
+.rail-brand .vee {
+  stroke: var(--st-text-primary);
+}
+.rail-list,
+.sb-spaces-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--st-space-4);
+}
+.rail-end {
+  margin-top: auto;
+}
+.sp-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  width: 52px;
+  height: 50px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--st-radius-md);
+  background: transparent;
+  color: var(--st-text-secondary);
+  font: var(--st-type-micro);
+  line-height: 1;
+  text-decoration: none;
+  transition:
+    background-color var(--st-duration-fast) var(--st-ease-standard),
+    color var(--st-duration-fast) var(--st-ease-standard);
+}
+.sp-btn .st-icon {
+  width: 18px;
+  height: 18px;
+}
+.sp-btn:hover {
+  background: var(--st-chrome-hover);
+  color: var(--st-text-primary);
+}
+.sp-btn[aria-current='page'] {
+  color: var(--st-text-primary);
+  background: var(--st-chrome-selected);
+  box-shadow: var(--st-shadow-xs);
+}
+.sp-label,
+.sp-hint {
+  white-space: nowrap;
+}
+/* holding the modifier (D600): each space's shortcut, plain tertiary text, in place of its label */
+.sp-hint {
+  display: none;
+  color: var(--st-text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+.app.is-hints .sp-hint {
+  display: inline;
+}
+.app.is-hints .sp-label {
+  display: none;
+}
+/* "Sidebar bottom": the five icons in a row at the sidebar foot */
+.sb-spaces {
+  flex: none;
+  padding-top: var(--st-space-8);
+  border-top: 1px solid var(--st-chrome-separator);
+}
+.sb-spaces-list {
+  flex-direction: row;
+  justify-content: space-between;
+  gap: 2px;
+}
+.sb-spaces .sp-btn,
+.app[data-switcher='foot'] .rail .sp-btn {
+  width: 40px;
+  height: 40px;
+}
+.sb-spaces .sp-label,
+.app[data-switcher='foot'] .rail .sp-label {
+  display: none;
+}
+.app.is-hints .sb-spaces .sp-btn .st-icon,
+.app.is-hints[data-switcher='foot'] .rail .sp-btn .st-icon {
+  display: none;
+}
+/* ... and while the sidebar is out of the layout, a minimal strip of the same icons */
+.app[data-switcher='foot'] .rail {
+  width: var(--vc-strip-w);
+}
+
+/* ---- sidebar (on the canvas) ---------------------------------------------- */
+.sidebar {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  width: var(--st-sidebar-width);
+  min-height: 0;
+  padding: 0 var(--st-space-4) var(--st-space-12) 0;
+  gap: var(--st-space-8);
+  color: var(--st-text-primary); /* R2: straight on the canvas, no panel background */
+}
+.app[data-switcher='foot'] .sidebar {
+  padding-left: var(--st-space-4);
+}
+.sb-top {
+  display: flex;
+  align-items: center;
+  gap: var(--st-space-8);
+  flex: none;
+  height: var(--st-titlebar-height); /* lines up with the top row */
+  padding-left: var(--st-space-12);
+}
+.app[data-switcher='foot'] .sb-top {
+  padding-left: var(--st-space-8);
+}
+.sb-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  font: var(--st-type-title3);
+  letter-spacing: var(--st-tracking-title3);
+  color: var(--st-text-primary);
+}
+.sb-hide {
+  margin-left: auto;
+  color: var(--st-text-secondary);
+}
+.sb-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--st-space-16);
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0 2px;
+  margin-inline: -2px;
+}
+.sb-body:has(> .sb-secs) {
+  overflow: hidden;
+}
+
+/* collapsible sections: quiet header rows on the canvas; open sections share the height */
+.sb-secs {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--st-space-4);
+}
+.sb-sec {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.sb-sec.is-open {
+  flex: 1 1 0;
+}
+.sb-sec + .sb-sec {
+  border-top: 1px solid var(--st-chrome-separator);
+  padding-top: var(--st-space-4);
+}
+.sb-sec-head {
+  position: relative;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--st-space-4);
+  height: var(--st-row);
+  padding: 0 var(--st-space-8) 0 var(--st-space-10);
+  border-radius: var(--st-radius-md);
+  color: var(--st-text-tertiary);
+}
+.sb-sec-head:hover {
+  color: var(--st-text-secondary);
+}
+.sb-sec-head:has(.sb-sec-btn:focus-visible) {
+  box-shadow: var(--st-focus-ring);
+}
+.sb-sec-btn {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  gap: var(--st-space-8);
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  font: var(--st-type-label);
+  letter-spacing: var(--st-tracking-label);
+}
+.sb-sec-btn:focus-visible {
+  box-shadow: none;
+}
+.sb-sec-btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+} /* the whole row toggles */
+.sb-sec-meta {
+  font: var(--st-type-caption);
+  letter-spacing: 0;
+  color: var(--st-text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+.sb-sec-acts {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: none;
+  color: var(--st-text-secondary);
+}
+.sb-sec-chev {
+  flex: none;
+  pointer-events: none;
+  transition: rotate var(--st-duration-fast) var(--st-ease-standard);
+}
+.sb-sec:not(.is-open) .sb-sec-chev {
+  rotate: -90deg;
+}
+.sb-sec-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 2px 2px 0;
+}
+
+.sb-label {
+  display: flex;
+  align-items: center;
+  gap: var(--st-space-8);
+  margin: 0;
+  padding: 0 var(--st-space-10);
+  height: 24px;
+  font: var(--st-type-label);
+  letter-spacing: var(--st-tracking-label);
+  color: var(--st-text-tertiary);
+}
+.sb-section {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.sb-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--st-space-8);
+  padding-bottom: var(--st-space-4);
+}
+.sb-section-head .st-btn {
+  margin-right: 2px;
+  color: var(--st-text-secondary);
+}
+.sb-nav {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* list rows on the canvas, as Strata's .st-row: flat, washed on hover, "selected" a white plate */
+.sb-row {
+  display: flex;
+  align-items: center;
+  gap: var(--st-space-8);
+  height: var(--st-row);
+  padding: 0 var(--st-space-10);
+  border: 0;
+  border-radius: var(--st-radius-md);
+  background: transparent;
+  color: var(--st-text-secondary);
+  text-align: left;
+  text-decoration: none;
+  width: 100%;
+  min-width: 0;
+  font: var(--st-type-body);
+  white-space: nowrap;
+  transition:
+    background-color var(--st-duration-fast) var(--st-ease-standard),
+    color var(--st-duration-fast) var(--st-ease-standard);
+}
+.sb-row:hover {
+  background: var(--st-chrome-hover);
+  color: var(--st-text-primary);
+}
+.sb-row[aria-current='page'],
+.sb-row[aria-current='true'],
+.sb-row.is-selected {
+  background: var(--st-chrome-selected);
+  color: var(--st-text-primary);
+  font: var(--st-type-body-strong);
+  box-shadow: var(--st-shadow-xs);
+}
+.sb-row .meta {
+  margin-left: auto;
+  color: var(--st-text-secondary);
+  font-size: var(--vc-size-caption);
+  flex: none;
+}
+.sb-row .title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sb-row .close {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: var(--st-radius-xs);
+  background: transparent;
+  color: var(--st-text-secondary);
+  opacity: 0;
+}
+.sb-row:hover .close,
+.sb-row:focus-within .close,
+.sb-row[aria-current='page'] .close {
+  opacity: 1;
+}
+.sb-row .close:hover {
+  color: var(--st-text-primary);
+}
+
+.search-field {
+  position: relative;
+  flex: 0 1 260px;
+  min-width: 0;
+}
+
+/* B7: one hue per profile, the same everywhere (local blue, dev teal, staging amber, prod red) */
+.tint-dot[data-p='local'] {
+  --h: 255;
+}
+.tint-dot[data-p='dev'] {
+  --h: 190;
+}
+.tint-dot[data-p='staging'] {
+  --h: 70;
+}
+.tint-dot[data-p='prod'] {
+  --h: 25;
+}
+
+/* ---- wide (> 1100): the sidebar is in the layout --------------------------- */
+@container app (min-width: 1101px) {
+  .app.is-sb-collapsed .sidebar {
+    display: none;
+  }
+  /* "Sidebar bottom": the strip shows only while the sidebar is hidden */
+  .app[data-switcher='foot']:not(.is-sb-collapsed) .rail {
+    display: none;
+  }
+  .app.is-sb-collapsed[data-switcher='foot'] .shell {
+    padding-left: env(safe-area-inset-left, 0px);
+  }
+}
+
+/* ---- drawer (<= 1100): the sidebar slides over the stage ------------------ */
+/* The rail (or the foot strip) stays, so a space is always one click away. */
+@container app (max-width: 1100px) {
+  .shell {
+    padding-left: env(safe-area-inset-left, 0px);
+  }
+  .app[data-switcher='foot'] .shell {
+    padding-left: env(safe-area-inset-left, 0px);
+  }
+  .topbar .sb-show {
+    display: inline-flex;
+  }
+  .search-field {
+    flex-basis: 220px;
+  }
+  .sidebar {
+    position: absolute;
+    z-index: 40;
+    top: 0;
+    bottom: 0;
+    left: var(--vc-rail-w);
+    width: min(var(--st-sidebar-width), calc(100% - var(--vc-rail-w) - 16px));
+    padding-left: var(--st-space-4);
+    border-radius: 0 var(--st-radius-overlay) var(--st-radius-overlay) 0;
+    background: var(--st-surface-overlay);
+    -webkit-backdrop-filter: var(--st-overlay-filter);
+    backdrop-filter: var(--st-overlay-filter);
+    box-shadow: var(--vc-shadow-overlay);
+    transform: translateX(-12px);
+    opacity: 0;
+    visibility: hidden;
+    transition:
+      transform var(--st-duration-base) var(--st-ease-standard),
+      opacity var(--st-duration-base) var(--st-ease-standard),
+      visibility var(--st-duration-base);
+  }
+  .app[data-switcher='foot'] .sidebar {
+    left: 0;
+    z-index: 46;
+    width: min(var(--st-sidebar-width), calc(100% - 16px));
+  }
+  .app.is-drawer-open .sidebar {
+    transform: none;
+    opacity: 1;
+    visibility: visible;
+  }
+  .scrim-drawer {
+    position: absolute;
+    inset: 0;
+    z-index: 35;
+    background: var(--st-scrim);
+  }
+}

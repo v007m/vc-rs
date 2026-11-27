@@ -54,4 +54,18 @@ pub enum ConfigSourceError {
         /// The entry as written.
         entry: String,
     },
+    /// The layer's file is not the one a caller read, so nothing was written (D711).
+    #[error("{origin}: nothing was written: it changed since it was read")]
+    Changed {
+        /// The layer, such as the user config's path.
+        origin: String,
+    },
+    /// The layer's file cannot be written.
+    #[error("cannot write {origin}: {reason}")]
+    Unwritable {
+        /// The layer, such as the user config's path.
+        origin: String,
+        /// What went wrong.
+        reason: String,
+    },
 }

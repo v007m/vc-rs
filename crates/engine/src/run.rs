@@ -11,7 +11,7 @@ use vc_executor::{
     ActionCx, ActionExecutors, ActionKindTag, CommandExecutor, Defined, EventBus, Executor, ExecutorError, HostLimits,
     MaskRules, PipelineParts, RuleHooks, RunHandle, RunInputs, RunOptions,
 };
-use vc_interfaces::{ConfigEntry, HookRunner, Random, RunId, RunStart, RunSummary, Secret, TestRow};
+use vc_interfaces::{HookRunner, Random, RunId, RunStart, RunSummary, Secret, TestRow};
 use vc_model::{ActionId, Feed, Part, RunStatus, Template, TemplateValue, Totals};
 
 use crate::agent_gate::run_call;
@@ -20,7 +20,7 @@ use crate::load::RUN_KIND;
 use crate::notify::Alerting;
 use crate::plan::{Extra, Prepared};
 use crate::plugin_hosts::Hosts;
-use crate::reporting::{self, Reported, Reporters, Setup};
+use crate::reporting::{self, Chosen, Reported, Reporters, Setup};
 use crate::run_feed::Watching;
 use crate::secured::Secured;
 use crate::{Engine, EngineError, Interrupts, RunRequest, history, notify};
@@ -104,7 +104,9 @@ impl Engine {
     ) -> Result<RunReport, EngineError> {
         let heard = plugins.heard();
         let (seed, random, started_ms) = (prepared.draw.seed, Arc::clone(&prepared.draw.random), self.clock.now_ms());
-        let alerting = self.alerting(&prepared, &secured, RUN_KIND);
+        let alerting = (!request.unrecorded)
+            .then(|| self.alerting(&prepared, &secured, (RUN_KIND, request.schedule.as_deref())))
+            .flatten();
         let (reporters, unrecorded) = self.reporters(request, &prepared, (seed, plugins.clone(), started_ms))?;
         let run_id = reporters.run_id().map_or(0, RunId::get);
         let reached = crate::body_files::reached(&prepared.program, &prepared.plan);
@@ -134,7 +136,7 @@ impl Engine {
 
     /// The reporters `request` chooses, the reporter plugins among `plugins`, recording into the
     /// history, and a notice for each plugin the run cannot use; a history that cannot be opened
-    /// leaves the run unrecorded, with a notice saying so. The history's start is `started_ms`,
+    /// leaves the run unrecorded, with a notice saying so. A check run writes neither (D670). The history's start is `started_ms`,
     /// the clock read `${run.startedAt}` gives too.
     fn reporters(
         &self,
@@ -143,29 +145,25 @@ impl Engine {
         (seed, plugins, started_ms): (u64, Hosts, u64),
     ) -> Result<(Reporters, Vec<String>), EngineError> {
         let chosen = reporting::choose(request.console.as_deref(), &prepared.settings, &prepared.program)?;
-        let (chosen, withheld) = chosen.under(self.root()).flat(request.files.out.is_some()).confined(self.root());
-        let selector = history::selector(&request.plan.select);
-        let selector = if request.failed { format!("--failed {selector}").trim_end().to_owned() } else { selector };
-        let start = RunStart {
-            kind: RUN_KIND.to_owned(),
-            started_ms,
-            profiles: prepared.names.clone(),
-            selector,
-            seed: Some(seed),
-            vc_version: env!("CARGO_PKG_VERSION").to_owned(),
-            ..RunStart::default()
-        };
+        let chosen = chosen.under(self.root()).flat(request.files.out.is_some());
+        let (chosen, withheld) =
+            if request.unrecorded { (unwritten(chosen), None) } else { chosen.confined(self.root()) };
         let mut notices = plugins.notices(&chosen.plugins);
         notices.extend(withheld);
         let folders = chosen.per_run.then(|| chosen.dir.clone());
-        let recording = self.recording(&start).map(|recording| recording.pruning(folders)).inspect_err(|error| {
-            notices.push(format!("history: {error}; this run is not recorded"));
+        let opened = (!request.unrecorded).then(|| self.recording(&run_start(request, prepared, (seed, started_ms))));
+        let recording = opened.and_then(|opened| match opened {
+            Ok(recording) => Some(recording.pruning(folders)),
+            Err(error) => {
+                notices.push(format!("history: {error}; this run is not recorded"));
+                None
+            }
         });
         let headline = format!("plan  {}", prepared.report().line());
         let (program, plan) = (Arc::clone(&prepared.program), Arc::clone(&prepared.plan));
         let (color, quiet, root) = (request.color, request.quiet(), self.root().to_path_buf());
         let setup = Setup { program, plan, headline, color, seed, quiet, plugins, root };
-        Ok((Reporters::create(chosen, setup, recording.ok())?, notices))
+        Ok((Reporters::create(chosen, setup, recording)?, notices))
     }
 
     /// The executor for `prepared` with the inputs, plugins and what it is secured with `given`,
@@ -272,27 +270,30 @@ pub fn config_inputs(prepared: &Prepared, random: Arc<dyn Random>) -> RunInputs 
         .with_vars(vars(&prepared.settings.vars))
 }
 
-/// What the run adds to its plan request: `rerun`, its setting flags, `--seed` and `--strict`.
-fn extra(request: &RunRequest, rerun: Vec<TestRow>) -> Extra {
-    Extra { flags: flags(request), rerun, seed: request.seed, strict: request.strict }
+/// How the history starts recording `request`'s run of `prepared` with `seed`, at `started_ms`.
+fn run_start(request: &RunRequest, prepared: &Prepared, (seed, started_ms): (u64, u64)) -> RunStart {
+    let selector = history::selector(&request.plan.select);
+    let selector = if request.failed { format!("--failed {selector}").trim_end().to_owned() } else { selector };
+    RunStart {
+        kind: RUN_KIND.to_owned(),
+        started_ms,
+        profiles: prepared.names.clone(),
+        selector,
+        seed: Some(seed),
+        vc_version: env!("CARGO_PKG_VERSION").to_owned(),
+        schedule: request.schedule.clone(),
+        ..RunStart::default()
+    }
 }
 
-/// The run flags that are settings, as the layer between `VIB_*` and `--set` (D129).
-fn flags(request: &RunRequest) -> Vec<ConfigEntry> {
-    let mut flags = Vec::new();
-    if let Some(concurrency) = request.concurrency {
-        flags.push(ConfigEntry::new("defaults.concurrency", concurrency.to_string(), "--concurrency"));
-    }
-    if !request.files.formats.is_empty() {
-        flags.push(ConfigEntry::new("reports.formats", request.files.formats.join(","), "--report"));
-    }
-    if request.files.single_file {
-        flags.push(ConfigEntry::new("reports.html.layout", "single", "--single-file"));
-    }
-    if let Some(out) = &request.files.out {
-        flags.push(ConfigEntry::new("reports.dir", out.to_string_lossy(), "--out"));
-    }
-    flags
+/// `chosen` writing no report file and calling no reporter plugin: a check run's (D670).
+fn unwritten(chosen: Chosen) -> Chosen {
+    Chosen { files: Vec::new(), plugins: Vec::new(), per_run: false, ..chosen }
+}
+
+/// What the run adds to its plan request: `rerun`, its setting flags, `--seed` and `--strict`.
+fn extra(request: &RunRequest, rerun: Vec<TestRow>) -> Extra {
+    Extra { flags: request.flags(), rerun, seed: request.seed, strict: request.strict }
 }
 
 /// What a run's end needs besides its reporters: the seed and whether the run generated data

@@ -1,6 +1,6 @@
 use vc_interfaces::{
-    ApiTrend, CheckRow, ExchangeRow, FindingKind, FindingRow, HistoryReader, HistoryWriter, Row, RunEnd, RunFilter,
-    RunId, RunRef, RunStart, TestRow, TestTrend, TimingRow,
+    ApiTrend, CallSummary, CheckRow, ExchangeRow, FindingKind, FindingRow, HistoryReader, HistoryWriter, Row, RunEnd,
+    RunFilter, RunId, RunRef, RunStart, TestRow, TestTrend, TimingRow,
 };
 use vc_model::{Keep, RunStatus, TestStatus, Totals};
 
@@ -20,13 +20,14 @@ pub fn history_reader_suite(make: &mut MakeHistory<'_>) {
     knows_nothing_at_first(make);
     lists_the_newest_runs_first(make);
     takes_the_last_run_to_be_no_ad_hoc_call(make);
+    sums_up_an_ad_hoc_call_by_its_first_exchange(make);
     leaves_exchanges_out_of_tests(make);
     sums_up_each_test_over_the_newest_runs(make);
     counts_only_the_runs_a_filter_matches(make);
     sums_up_each_api_over_the_newest_runs(make);
 }
 
-/// A run started with `profiles`, its seed past `i64::MAX` as half of all seeds are.
+/// A run started with `profiles` by a schedule, its seed past `i64::MAX` as half of all seeds are.
 fn start(profiles: &[&str]) -> RunStart {
     RunStart {
         kind: "run".into(),
@@ -38,6 +39,7 @@ fn start(profiles: &[&str]) -> RunStart {
         git_branch: Some("main".into()),
         vc_version: "2.0.0".into(),
         config_hash: "f00d".into(),
+        schedule: Some("nightlySmoke".into()),
     }
 }
 
@@ -195,6 +197,27 @@ fn takes_the_last_run_to_be_no_ad_hoc_call(make: &mut MakeHistory<'_>) {
     assert_eq!(named, Some(call), "it is still found by its number");
 }
 
+fn sums_up_an_ad_hoc_call_by_its_first_exchange(make: &mut MakeHistory<'_>) {
+    let (writer, reader) = make();
+    let stored = |kind: &str, rows: Vec<Row>| {
+        let run = writer.begin(&RunStart { kind: kind.into(), ..start(&["dev"]) }).unwrap_or(RunId::new(0));
+        assert_eq!(writer.record(run, rows), Ok(()));
+        assert_eq!(writer.finish(run, end(b"")), Ok(()));
+        run
+    };
+    let (sent, retried) = (call(("vc-adhoc#call", "POST"), Some(201), 5.0), call(("users#get", "GET"), None, 1.0));
+    let adhoc = stored("adhoc", vec![Row::Exchange(sent), Row::Exchange(retried.clone())]);
+    let tests = stored("run", vec![Row::Exchange(retried)]);
+    let unsent = stored("adhoc", Vec::new());
+    let summary = |run| reader.run(RunRef::Id(run)).ok().flatten().and_then(|row| row.call);
+    let expected = CallSummary { method: "POST".into(), url: "https://api.test/x".into(), status: Some(201) };
+    assert_eq!(summary(adhoc), Some(expected.clone()), "the first exchange, masked as stored");
+    assert_eq!((summary(tests), summary(unsent)), (None, None), "only an ad hoc call that sent one has it");
+    let listed = reader.runs(9, &filter(Some("adhoc"), None, None)).unwrap_or_default();
+    let listed: Vec<(RunId, Option<CallSummary>)> = listed.into_iter().map(|row| (row.id, row.call)).collect();
+    assert_eq!(listed, vec![(unsent, None), (adhoc, Some(expected))], "the History lists the calls alone");
+}
+
 fn leaves_exchanges_out_of_tests(make: &mut MakeHistory<'_>) {
     let (writer, reader) = make();
     let open = writer.begin(&start(&["dev"])).unwrap_or(RunId::new(0));
@@ -242,7 +265,7 @@ fn sums_up_each_test_over_the_newest_runs(make: &mut MakeHistory<'_>) {
 /// A filter of the runs of `kind`, under `profile`, on `branch`.
 fn filter(kind: Option<&str>, profile: Option<&str>, branch: Option<&str>) -> RunFilter {
     let owned = |text: Option<&str>| text.map(str::to_owned);
-    RunFilter { kind: owned(kind), profile: owned(profile), branch: owned(branch) }
+    RunFilter { kind: owned(kind), profile: owned(profile), branch: owned(branch), schedule: None }
 }
 
 fn counts_only_the_runs_a_filter_matches(make: &mut MakeHistory<'_>) {
@@ -259,7 +282,8 @@ fn counts_only_the_runs_a_filter_matches(make: &mut MakeHistory<'_>) {
     let feature = stored(feature, vec![ended(a, TestStatus::Passed, 30.0)]);
     let load =
         stored(RunStart { kind: "load".into(), ..start(&["staging"]) }, vec![ended(a, TestStatus::Failed, 90.0)]);
-    stored(start(&["dev"]), vec![ended(a, TestStatus::Passed, 50.0)]);
+    let hourly = RunStart { schedule: Some("hourly".into()), ..start(&["dev"]) };
+    let hourly = stored(hourly, vec![ended(a, TestStatus::Passed, 50.0)]);
     let ids = |limit: usize, filter: &RunFilter| -> Vec<RunId> {
         reader.runs(limit, filter).unwrap_or_default().into_iter().map(|row| row.id).collect()
     };
@@ -267,6 +291,8 @@ fn counts_only_the_runs_a_filter_matches(make: &mut MakeHistory<'_>) {
     assert_eq!(ids(9, &filter(Some("run"), Some("staging"), Some("main"))), vec![staging]);
     assert_eq!(ids(9, &filter(None, Some("eu"), None)), vec![staging], "any of a run's profiles");
     assert_eq!(ids(9, &filter(None, Some("prod"), None)), Vec::new());
+    let by_schedule = RunFilter { schedule: Some("hourly".into()), ..RunFilter::default() };
+    assert_eq!(ids(9, &by_schedule), vec![hourly], "the runs one schedule started");
     let trend =
         |results: u32, failed: u32, mean_ms: f64| TestTrend { test_id: a.into(), results, failed, flaky: 0, mean_ms };
     let under_staging = reader.trends(1, &filter(None, Some("staging"), None));

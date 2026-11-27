@@ -112,6 +112,7 @@ alerts:
 - Alerts go out after the reports are written, so a message can name the report file.
 - A channel that cannot be built or reached adds a `V5117` warning. The run's result and exit code stay the same. The warning never holds the channel's URL path or key.
 - A message lists at most ten failures, each cut to 200 characters, and counts the rest.
+- `vc alerts test`, and Send test alert in the web UI's Settings → Alerts, send one sample notice through every channel of every rule the profiles match, ignoring `on` and `tags`. Nothing runs and nothing is recorded. Each channel reports whether it sent, and a failure never shows its URL or key.
 - `vc check` warns about an unknown channel name, and about settings the channel refuses, such as a missing `webhook` or a `severity` PagerDuty does not know. A setting written as a `${…}` template is checked when the run ends.
 
 <Aside type="caution" title="No email channel">

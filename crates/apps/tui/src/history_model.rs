@@ -2,19 +2,12 @@
 //! tests that keep failing or flaking, and the figures a run's row shows.
 
 use std::cmp::Reverse;
-use std::collections::HashMap;
-use vc_engine::{RunRow, TestRow, TestStatus, TestTrend, Totals, instance_label};
+use vc_engine::{RunRow, SLOWER, TestChange, TestRow, TestTrend, Totals, compare_tests};
 
-use crate::run_screen::failing;
 use crate::theme::clean;
 
-/// A test is slower when its time grows by more than this factor (20%).
-const SLOWER: f64 = 1.2;
 /// The kind the engine stores a load run as.
 const LOAD: &str = "load";
-
-/// One test instance across runs: its ID, `examples` row and repeat.
-type Key<'a> = (&'a str, Option<u32>, u32);
 
 /// A test that took longer in the later run.
 #[derive(Clone, Debug, PartialEq)]
@@ -47,14 +40,20 @@ pub struct Comparison {
 }
 
 impl Comparison {
-    /// `after`'s tests (run `runs.1`) against `before`'s (run `runs.0`), in `after`'s order.
+    /// `after`'s tests (run `runs.1`) against `before`'s (run `runs.0`), in `after`'s order, as
+    /// the engine compares them ([`compare_tests`]).
     pub fn new(runs: (u64, u64), before: &[TestRow], after: &[TestRow]) -> Self {
-        let earlier: HashMap<Key<'_>, &TestRow> = before.iter().map(|test| (key(test), test)).collect();
-        let mut comparison = Self { before: runs.0, after: runs.1, ..Self::default() };
-        for test in after {
-            comparison.add(earlier.get(&key(test)).copied(), test);
+        let compared = compare_tests(runs, (before, after), SLOWER);
+        let labels = |changes: Vec<TestChange>| changes.into_iter().map(|change| clean(&change.label)).collect();
+        Self {
+            before: compared.before,
+            after: compared.after,
+            slower: compared.slower.into_iter().map(slower).collect(),
+            newly_failing: labels(compared.newly_failing),
+            newly_blocked: labels(compared.newly_blocked),
+            fixed: labels(compared.fixed),
+            still_failing: labels(compared.still_failing),
         }
-        comparison
     }
 
     /// Whether nothing changed for the worse or the better.
@@ -65,38 +64,12 @@ impl Comparison {
             && self.slower.is_empty()
             && self.still_failing.is_empty()
     }
-
-    fn add(&mut self, before: Option<&TestRow>, after: &TestRow) {
-        let label = label(after);
-        if let Some(before) = before.filter(|before| slower(before, after)) {
-            let (before_ms, after_ms) = (before.duration_ms, after.duration_ms);
-            self.slower.push(Slower { test: label.clone(), before_ms, after_ms });
-        }
-        let was = before.and_then(|before| before.status).is_some_and(failing);
-        match (was, after.status) {
-            (false, Some(TestStatus::Failed)) => self.newly_failing.push(label),
-            (false, Some(TestStatus::Blocked)) => self.newly_blocked.push(label),
-            (true, Some(TestStatus::Passed | TestStatus::Flaky)) => self.fixed.push(label),
-            (true, Some(TestStatus::Failed | TestStatus::Blocked)) => self.still_failing.push(label),
-            _ => {}
-        }
-    }
 }
 
-const fn key(test: &TestRow) -> Key<'_> {
-    (test.test_id.as_str(), test.example_row, test.repeat_index)
-}
-
-/// Whether `after` ran more than 20% longer than `before`; a test that did not run is never
-/// slower.
-fn slower(before: &TestRow, after: &TestRow) -> bool {
-    let ran = |test: &TestRow| test.status.is_some_and(|status| status != TestStatus::Skipped);
-    ran(before) && ran(after) && before.duration_ms > 0.0 && after.duration_ms > before.duration_ms * SLOWER
-}
-
-/// A test instance as `vc history show` names it ([`instance_label`]), fit for the screen.
-pub fn label(test: &TestRow) -> String {
-    clean(&instance_label(test))
+/// A test the engine found slower, fit for the screen.
+fn slower(change: TestChange) -> Slower {
+    let TestChange { label, before_ms, after_ms, .. } = change;
+    Slower { test: clean(&label), before_ms: before_ms.unwrap_or_default(), after_ms }
 }
 
 /// The tests that failed, were blocked or were flaky over the trend's runs, the most

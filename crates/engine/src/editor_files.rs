@@ -141,6 +141,39 @@ impl Engine {
         self.guarded(&project, Changes { files: vec![change], titles: vec![title] })
     }
 
+    /// Sends the api, test or load file at `path` to the system's trash (D683) when it is the
+    /// file the editor opened with `expected_digest`, and gives where it went as the system
+    /// names it, or an empty string. Nothing is deleted.
+    ///
+    /// # Errors
+    ///
+    /// [`EngineError::Edit`] as [`Engine::read_file`], and for the config or `.env.schema`;
+    /// [`EngineError::NoFilesMatch`] when there is no file there; [`EngineError::Stale`] when it
+    /// changed since it was opened; [`EngineError::Sources`] when the trash does not take it.
+    pub fn trash_file(&self, path: &str, expected_digest: &str) -> Result<String, EngineError> {
+        let path = self.definition_path(path)?;
+        let file = self.current(&path)?.ok_or_else(|| EngineError::NoFilesMatch { path: path.to_string() })?;
+        fresh(&path, Some(&file), Some(expected_digest))?;
+        let writer = self.writer.as_ref().ok_or_else(|| internal("this engine has no folder to write into"))?;
+        writer.trash(&path, file.hash).map_err(|error| match error {
+            SourceError::Changed { .. } => stale(&path, "it changed since it was opened"),
+            other => sources_error(other),
+        })
+    }
+
+    /// `text` as the path of an api, test or load file the editor opens: never the config or
+    /// `.env.schema`, which hold no items to refer to and are never trashed.
+    ///
+    /// # Errors
+    ///
+    /// [`EngineError::Edit`] and [`EngineError::Sources`] as [`Engine::read_file`].
+    pub(crate) fn definition_path(&self, text: &str) -> Result<SourcePath, EngineError> {
+        match self.editable(text)? {
+            (path, EditorKind::Definition) => Ok(path),
+            (path, _) => Err(refused(format!("`{path}` is not an api, test or load file"), PATH_HELP)),
+        }
+    }
+
     /// `text` as a definition path the editor checks unsaved: the config or an api, test or load
     /// file outside a hidden folder that discovery reads, that is not a link out of the project
     /// or to a hidden file and that can be read when it is there. A file that is not there yet is
@@ -230,7 +263,7 @@ fn stale(path: &SourcePath, reason: &str) -> EngineError {
 }
 
 /// `bytes` in lowercase hex.
-fn hex(bytes: &[u8]) -> String {
+pub fn hex(bytes: &[u8]) -> String {
     bytes.iter().fold(String::with_capacity(bytes.len() * 2), |mut text, byte| {
         let _ = write!(text, "{byte:02x}");
         text

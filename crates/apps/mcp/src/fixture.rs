@@ -28,7 +28,8 @@ pub fn project() -> (TempDir, Arc<Engine>) {
 
 /// A call from the agent `claude` under `profile`.
 pub fn cx(engine: &Arc<Engine>, profile: &str) -> Cx {
-    Cx { engine: engine.clone(), agent: "claude".to_owned(), profiles: vec![profile.to_owned()], sets: Vec::new() }
+    let profiles = vec![profile.to_owned()];
+    Cx { engine: engine.clone(), agent: "claude".to_owned(), profiles, sets: Vec::new(), started_ms: engine.now_ms() }
 }
 
 /// `value` as tool arguments.

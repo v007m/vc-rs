@@ -130,6 +130,8 @@ cases!(
     v1005_sigv4_keys,
     v2302_sigv4_payload,
     v2316_sigv4_scope,
+    v2317_schedule_cron,
+    v2302_schedule_runner,
     v4014_literal_aws_key,
     v2201_one_of,
     v2301_bad_unit,

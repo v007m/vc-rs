@@ -5,11 +5,11 @@
   let { counts, planned }: { counts: Counts; planned: number } = $props();
 
   const outcomes = [
-    { key: 'passed', bar: 's-pass', dot: 'pass' },
-    { key: 'failed', bar: 's-fail', dot: 'fail' },
-    { key: 'blocked', bar: 's-block', dot: 'block' },
-    { key: 'flaky', bar: 's-flaky', dot: 'flaky' },
-    { key: 'skipped', bar: 's-skip', dot: 'skip' },
+    { key: 'passed', bar: 's-pass', dot: 'vc-pass' },
+    { key: 'failed', bar: 's-fail', dot: 'vc-fail' },
+    { key: 'blocked', bar: 's-block', dot: 'vc-blocked' },
+    { key: 'flaky', bar: 's-flaky', dot: 'vc-flaky' },
+    { key: 'skipped', bar: 's-skip', dot: 'vc-skipped' },
   ] as const satisfies readonly { key: keyof Counts; bar: string; dot: string }[];
 
   let done = $derived(doneCount(counts));
@@ -27,13 +27,13 @@
       <span class={o.bar} style:width={width(counts[o.key])}></span>
     {/each}
   </div>
-  <p class="muted"><b>{done}</b> of {total} tests done · {pct}%</p>
+  <p class="st-secondary"><b>{done}</b> of {total} tests done · {pct}%</p>
 </div>
 <dl class="stats">
   {#each outcomes as o (o.key)}
     <div class="stat">
       <dt class="l">{o.key}</dt>
-      <dd class="v"><span class="dot {o.dot}"></span>{counts[o.key]}</dd>
+      <dd class="v"><span class="st-dot {o.dot}"></span>{counts[o.key]}</dd>
     </div>
   {/each}
 </dl>
@@ -53,39 +53,39 @@
     height: 12px;
     border-radius: 6px;
     overflow: hidden;
-    background: var(--panel3);
+    background: var(--st-surface-input-on-card);
   }
   .pbar span {
     height: 12px;
     transition: width 0.6s ease;
   }
   .s-pass {
-    background: var(--pass);
+    background: var(--vc-pass);
   }
   .s-fail {
-    background: var(--fail);
+    background: var(--vc-fail);
   }
   .s-block {
-    background: #c27a00;
+    background: var(--vc-blocked);
   }
   .s-flaky {
-    background: var(--flaky);
+    background: var(--vc-flaky);
   }
   .s-skip {
-    background: #a9a5ba;
+    background: var(--vc-skipped);
   }
   .stats {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
     margin: 0;
-    border-top: 1px solid var(--line);
+    border-top: 1px solid var(--st-chrome-separator);
   }
   .stat {
     padding: 12px 16px;
     display: flex;
     flex-direction: column-reverse;
     gap: 3px;
-    border-right: 1px solid var(--line);
+    border-right: 1px solid var(--st-chrome-separator);
     min-width: 0;
   }
   .stat:last-child {
@@ -93,7 +93,7 @@
   }
   .v {
     margin: 0;
-    font: 600 20px var(--font);
+    font: 600 20px var(--st-font-sans);
     font-variant-numeric: tabular-nums;
     display: flex;
     align-items: center;
@@ -101,6 +101,6 @@
   }
   .l {
     font-size: 12px;
-    color: var(--ink2);
+    color: var(--st-text-secondary);
   }
 </style>

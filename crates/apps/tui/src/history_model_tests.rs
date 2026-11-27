@@ -1,6 +1,6 @@
 use vc_engine::{RunId, RunRow, RunStart, TestRow, TestStatus, TestTrend, Totals};
 
-use super::{Comparison, Slower, checkout, label, mean, pass_rate, percent, seconds, took, troubled};
+use super::{Comparison, Slower, checkout, mean, pass_rate, percent, seconds, took, troubled};
 
 fn test(id: &str, status: TestStatus, duration_ms: f64) -> TestRow {
     TestRow { test_id: id.to_owned(), status: Some(status), duration_ms, attempts: 1, ..TestRow::default() }
@@ -53,8 +53,9 @@ fn instances_are_matched_by_row_and_repeat_and_skipped_ones_are_never_slower() {
 
 #[test]
 fn a_label_numbers_rows_and_repeats_from_one_and_drops_control_characters() {
-    let repeated = TestRow { example_row: Some(2), repeat_index: 1, ..test("a#b\u{1b}c", TestStatus::Passed, 0.0) };
-    assert_eq!(label(&repeated), "a#b\u{fffd}c [row 3, repeat 2]", "replaced as `vc history show` does");
+    let repeated = TestRow { example_row: Some(2), repeat_index: 1, ..test("a#b\u{1b}c", TestStatus::Failed, 0.0) };
+    let comparison = Comparison::new((1, 2), &[], &[repeated]);
+    assert_eq!(comparison.newly_failing, ["a#b\u{fffd}c [row 3, repeat 2]"], "replaced as `vc history show` does");
 }
 
 #[test]
@@ -72,6 +73,7 @@ fn a_runs_figures_read_as_its_row_shows_them() {
         finished_ms: None,
         status: None,
         totals: Totals::default(),
+        call: None,
     };
     assert_eq!((percent(&run.totals), took(&run), checkout(&run)), ("–".to_owned(), None, "–".to_owned()));
     run.totals = Totals { passed: 960, flaky: 1, failed: 30, blocked: 9, skipped: 5, allowed_failures: 0 };

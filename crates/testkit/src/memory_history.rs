@@ -2,8 +2,8 @@ use std::collections::BTreeMap;
 use std::sync::mpsc::{self, Sender};
 
 use vc_interfaces::{
-    ApiTrend, ExchangeRow, FindingRow, HistoryError, HistoryReader, HistoryWriter, Row, RunEnd, RunFilter, RunId,
-    RunRef, RunRow, RunStart, TestRow, TestTrend, api_trends,
+    ApiTrend, CallSummary, ExchangeRow, FindingRow, HistoryError, HistoryReader, HistoryWriter, Row, RunEnd, RunFilter,
+    RunId, RunRef, RunRow, RunStart, TestRow, TestTrend, api_trends,
 };
 use vc_model::{Keep, TestStatus, Totals};
 
@@ -89,8 +89,8 @@ impl State {
 
     fn begin(&mut self, start: RunStart) -> RunId {
         self.next += 1;
-        let row =
-            RunRow { id: RunId::new(self.next), start, finished_ms: None, status: None, totals: Totals::default() };
+        let (id, totals) = (RunId::new(self.next), Totals::default());
+        let row = RunRow { id, start, finished_ms: None, status: None, totals, call: None };
         self.runs.push(Stored { row, tests: Vec::new(), exchanges: Vec::new(), findings: Vec::new(), snapshot: None });
         RunId::new(self.next)
     }
@@ -103,7 +103,10 @@ impl State {
                     stored.exchanges.extend(test.exchanges.iter().cloned());
                     stored.tests.push(test);
                 }
-                Row::Exchange(exchange) => stored.exchanges.push(exchange),
+                Row::Exchange(exchange) => {
+                    summed(&mut stored.row, &exchange);
+                    stored.exchanges.push(exchange);
+                }
                 Row::Finding(finding) => stored.findings.push(finding),
                 Row::Interval(_) => {}
             }
@@ -162,6 +165,13 @@ impl State {
             .into_values()
             .map(|trend| TestTrend { mean_ms: trend.mean_ms / f64::from(trend.results), ..trend })
             .collect()
+    }
+}
+
+/// Gives an `adhoc` run the summary of its first exchange, as the SQLite reader reads it (D542).
+fn summed(row: &mut RunRow, exchange: &ExchangeRow) {
+    if row.start.kind == "adhoc" && row.call.is_none() {
+        row.call = Some(CallSummary::of(exchange));
     }
 }
 

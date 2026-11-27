@@ -32,7 +32,7 @@
 </script>
 
 <p class="hint">From the api's <code>expect</code>. Read-only here; edit them in the api file.</p>
-<ul class="list mono" aria-label="Api checks">
+<ul class="list vc-mono" aria-label="Api checks">
   {#each own as line (line)}
     <li>{line}</li>
   {:else}
@@ -44,10 +44,10 @@
 <ul class="list" aria-label="Added checks">
   {#each request.checks as check, i (i)}
     <li>
-      <span class="mono grow">{checkText(check)}</span>
+      <span class="vc-mono vc-grow">{checkText(check)}</span>
       <button
         type="button"
-        class="btn sm"
+        class="st-btn st-btn--ghost st-btn--sm vc-btn--row-danger"
         aria-label="Remove {checkText(check)}"
         onclick={() => request.removeCheck(i)}>Remove</button
       >
@@ -56,34 +56,34 @@
 </ul>
 <form class="add" onsubmit={add}>
   <label>
-    <span class="sr">Check</span>
-    <select class="input" bind:value={kind} onchange={picked}>
+    <span class="vc-sr">Check</span>
+    <select class="st-input" bind:value={kind} onchange={picked}>
       {#each kinds as k (k.id)}<option value={k.id}>{k.label}</option>{/each}
     </select>
   </label>
   {#if kind === 'body'}
     <label>
-      <span class="sr">Body path</span>
-      <input class="input mono" placeholder="$.id" spellcheck="false" bind:value={path} />
+      <span class="vc-sr">Body path</span>
+      <input class="st-input vc-mono" placeholder="$.id" spellcheck="false" bind:value={path} />
     </label>
   {:else if kind === 'timing'}
     <label>
-      <span class="sr">Phase</span>
-      <select class="input mono" bind:value={path}>
+      <span class="vc-sr">Phase</span>
+      <select class="st-input vc-mono" bind:value={path}>
         {#each PHASES as phase (phase)}<option value={phase}>{phase}</option>{/each}
       </select>
     </label>
   {/if}
   <label>
-    <span class="sr">Matcher</span>
-    <select class="input mono" bind:value={op}>
+    <span class="vc-sr">Matcher</span>
+    <select class="st-input vc-mono" bind:value={op}>
       {#each ops as o (o)}<option value={o}>{o}</option>{/each}
     </select>
   </label>
   <label>
-    <span class="sr">Expected value</span>
+    <span class="vc-sr">Expected value</span>
     <input
-      class="input mono"
+      class="st-input vc-mono"
       placeholder={kind === 'timing' ? '500ms' : kind === 'status' ? '201' : 'value'}
       spellcheck="false"
       aria-invalid={problem !== undefined}
@@ -91,7 +91,7 @@
       bind:value
     />
   </label>
-  <button type="submit" class="btn sm">Add check</button>
+  <button type="submit" class="st-btn st-btn--sm">Add check</button>
   {#if problem}<p class="error" id="check-problem">{problem}</p>{/if}
 </form>
 <p class="hint">Added checks run on every send of this request and are never saved to the api.</p>
@@ -99,7 +99,7 @@
 <style>
   .hint {
     margin: 4px 0;
-    color: var(--ink2);
+    color: var(--st-text-secondary);
   }
   .h3 {
     margin: 14px 0 4px;
@@ -123,6 +123,6 @@
   .error {
     flex-basis: 100%;
     margin: 0;
-    color: var(--fail);
+    color: var(--vc-fail);
   }
 </style>

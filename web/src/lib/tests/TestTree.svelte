@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Icon from '#lib/shell/Icon.svelte';
   import { TreeFocus } from '#lib/tree/focus.svelte.ts';
   import type { FileGroup } from './catalog.ts';
 
@@ -46,8 +47,8 @@
       onkeydown={focus.onkeydown}
     >
       <span class="row file">
-        <span class="chev" aria-hidden="true">{open ? '▾' : '▸'}</span>
-        <span class="mono">{group.fileId}</span>
+        <Icon name="chevron" class="vc-chev {open ? '' : 'is-closed'}" />
+        <span class="vc-mono">{group.fileId}</span>
         <span class="count">{group.tests.length}</span>
       </span>
       {#if open}
@@ -79,10 +80,10 @@
                     ontoggle(test.id);
                   }}
                 ></span>
-                <span class="mono">{test.local}</span>
+                <span class="vc-mono">{test.local}</span>
                 <span class="name">{test.name}</span>
-                {#if test.skipped}<span class="pill block">skipped</span>{/if}
-                {#each test.tags as tag (tag)}<span class="pill">{tag}</span>{/each}
+                {#if test.skipped}<span class="st-badge vc-blocked">skipped</span>{/if}
+                {#each test.tags as tag (tag)}<span class="st-badge">{tag}</span>{/each}
               </span>
             </li>
           {/each}
@@ -107,12 +108,13 @@
     display: flex;
     align-items: center;
     gap: 8px;
+    min-width: 0;
     min-height: 32px;
     padding: 0 10px;
     border-radius: 8px;
   }
   .row:hover {
-    background: var(--panel2);
+    background: var(--st-surface-wash);
   }
   .file {
     font-weight: 600;
@@ -121,33 +123,52 @@
     padding-left: 28px;
   }
   .test.current {
-    background: var(--accentSoft);
-  }
-  .chev {
-    width: 12px;
-    color: var(--ink3);
+    background: var(--st-accent-soft);
   }
   .count {
     margin-left: auto;
-    color: var(--ink3);
+    color: var(--st-text-tertiary);
     font-weight: 400;
   }
-  .name {
-    color: var(--ink2);
+  .row .vc-mono {
+    flex: 0 1 auto;
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .check {
-    width: 14px;
-    height: 14px;
+  .row .st-badge {
     flex: none;
-    border: 1.5px solid var(--ink3);
-    border-radius: 4px;
+  }
+  .name {
+    flex: 1 1 auto;
+    min-width: 0;
+    color: var(--st-text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  /* drawn like Strata's .st-check, so it matches every other checkbox (D668) */
+  .check {
+    display: inline-grid;
+    place-items: center;
+    width: 16px;
+    height: 16px;
+    flex: none;
+    border-radius: var(--st-radius-xs);
+    background: var(--st-surface-input-on-card);
+    box-shadow: var(--st-emboss);
   }
   .check.on {
-    background: var(--accent);
-    border-color: var(--accent);
-    box-shadow: inset 0 0 0 2px var(--panel);
+    background: var(--st-accent);
+  }
+  .check.on::after {
+    content: '';
+    width: 8px;
+    height: 4px;
+    border: 2px solid var(--st-text-on-accent);
+    border-top: 0;
+    border-right: 0;
+    transform: translateY(-1px) rotate(-45deg);
   }
 </style>

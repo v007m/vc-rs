@@ -1,0 +1,254 @@
+/* ==========================================================================
+   Vibranium UI v2 · sidebar.css: the space switcher (icon rail or the row at
+   the sidebar foot), the sidebar frame, its collapsible sections and rows,
+   and how both behave by width. Loaded right after shell.css.
+   --------------------------------------------------------------------------
+   Markup (shell-spaces.js):
+     nav.rail > .traffic, ul.rail-list > li > button.sp-btn, ul.rail-end
+     aside.sidebar#sidebar > .sb-top (h2.sb-title | .traffic, .sb-hide)
+                           > .sb-body (the space's sidebar())
+                           > nav.sb-spaces (Sidebar bottom only)
+     VC.sbSections: .sb-secs > section.sb-sec(.is-open) > .sb-sec-head
+                    (button.sb-sec-btn > .sb-sec-label .sb-sec-meta,
+                     .sb-sec-acts, .sb-sec-chev) + .sb-sec-body
+     VC.sbNav:      ul.sb-nav > li > button.sb-row (.title .meta)
+   ========================================================================== */
+
+
+.traffic { display: flex; gap: 8px; align-items: center; flex: none; }
+.traffic span {
+  width: 12px; height: 12px; border-radius: 50%;
+  box-shadow: inset 0 0 0 0.5px var(--traffic-edge), inset 0 1px 0 var(--traffic-shine);
+}
+.traffic span:nth-child(1) { background: var(--traffic-1); }
+.traffic span:nth-child(2) { background: var(--traffic-2); }
+.traffic span:nth-child(3) { background: var(--traffic-3); }
+
+/* ---- space switcher (L0) ------------------------------------------------- */
+/* "Icon rail": a slim column left of the sidebar. The current space is a raised L2 pill. */
+.rail {
+  flex: none;
+  position: relative;
+  z-index: 45;   /* above the drawer scrim: switching space works with the drawer open */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-2);
+  width: var(--rail-w);
+  min-height: 0;
+  padding-bottom: var(--sp-3);
+  color: var(--l0-ink-2);
+}
+.rail > .traffic { height: var(--topbar-h); }
+.rail-list, .sb-spaces-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-1); }
+.rail-end { margin-top: auto; }
+.sp-btn {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  width: 52px; height: 50px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--r-lg);
+  background: transparent;
+  color: var(--l0-ink-2);
+  font-size: var(--fs-0);
+  font-weight: var(--fw-medium);
+  line-height: 1;
+  transition: background-color var(--dur-2) var(--ease), color var(--dur-2) var(--ease);
+}
+.sp-btn .ico { width: 18px; height: 18px; }
+.sp-btn:hover { background: var(--l0-hover); color: var(--l0-ink); }
+.sp-btn[aria-current="page"] {
+  color: var(--l0-ink);
+  background: var(--l2-bg);
+  border-color: var(--l2-border);
+  box-shadow: var(--sh-l2);
+}
+.sp-label { white-space: nowrap; }
+/* "Sidebar bottom": the five icons in a row at the sidebar foot */
+.sb-spaces { flex: none; padding-top: var(--sp-2); border-top: 1px solid var(--l0-rule); }
+.sb-spaces-list { flex-direction: row; justify-content: space-between; gap: 2px; }
+.sb-spaces .sp-btn, .app[data-switcher="foot"] .rail .sp-btn { width: 40px; height: 40px; }
+.sb-spaces .sp-label, .app[data-switcher="foot"] .rail .sp-label { display: none; }
+/* ... and while the sidebar is out of the layout, a minimal strip of the same icons */
+.app[data-switcher="foot"] .rail { width: var(--strip-w); }
+
+/* ---- sidebar (L0) -------------------------------------------------------- */
+.sidebar {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  width: var(--sidebar-w);
+  min-height: 0;
+  padding: 0 var(--sp-1) var(--sp-3) 0;
+  gap: var(--sp-2);
+  color: var(--l0-ink);   /* R2: straight on L0, no panel background */
+}
+.app[data-switcher="foot"] .sidebar { padding-left: var(--sp-1); }
+.sb-top {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex: none;
+  height: var(--topbar-h);   /* lines up with the top row */
+  padding-left: var(--sp-3);
+}
+.app[data-switcher="foot"] .sb-top { padding-left: var(--sp-2); }
+.sb-title { flex: 1 1 auto; min-width: 0; margin: 0; font-size: var(--fs-3); font-weight: var(--fw-semibold); color: var(--l0-ink); }
+.sb-hide { margin-left: auto; color: var(--l0-ink-2); }
+.sb-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0 2px;
+  margin-inline: -2px;
+}
+.sb-body:has(> .sb-secs) { overflow: hidden; }
+
+/* collapsible sections: quiet L0 header rows; open sections share the height */
+.sb-secs { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: var(--sp-1); }
+.sb-sec { flex: none; display: flex; flex-direction: column; min-height: 0; }
+.sb-sec.is-open { flex: 1 1 0; }
+.sb-sec + .sb-sec { border-top: 1px solid var(--l0-rule); padding-top: var(--sp-1); }
+.sb-sec-head {
+  position: relative;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  min-height: 32px;
+  padding: 0 var(--sp-2) 0 var(--sp-3);
+  border-radius: var(--r-md);
+  color: var(--l0-ink-3);
+}
+.sb-sec-head:hover { color: var(--l0-ink-2); }
+.sb-sec-head:has(.sb-sec-btn:focus-visible) { outline: 2px solid var(--focus); outline-offset: -2px; }
+.sb-sec-btn {
+  flex: 1 1 auto;
+  display: flex; align-items: center; gap: var(--sp-2);
+  min-width: 0; height: 32px;
+  padding: 0; border: 0;
+  background: transparent; color: inherit; text-align: left;
+  font-size: var(--fs-1);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+.sb-sec-btn:focus-visible { outline: none; }
+.sb-sec-btn::after { content: ""; position: absolute; inset: 0; border-radius: inherit; }   /* the whole row toggles */
+.sb-sec-meta { font-weight: var(--fw-medium); letter-spacing: 0; color: var(--l0-ink-3); font-variant-numeric: tabular-nums; }
+.sb-sec-acts { position: relative; z-index: 1; display: flex; align-items: center; gap: 2px; flex: none; color: var(--l0-ink-2); }
+.sb-sec-chev { flex: none; pointer-events: none; transition: rotate var(--dur-2) var(--ease); }
+.sb-sec:not(.is-open) .sb-sec-chev { rotate: -90deg; }
+.sb-sec-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 2px 2px 0;
+}
+
+.sb-label {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0;
+  padding: 0 var(--sp-3);
+  min-height: 24px;
+  font-size: var(--fs-1);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--l0-ink-3);
+}
+.sb-section { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.sb-section-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); padding-bottom: var(--sp-1); }
+.sb-section-head .btn { margin-right: 2px; color: var(--l0-ink-2); }
+.sb-nav { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+
+/* L0 list rows: flat, highlighted on hover, "selected" is a soft plate */
+.sb-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: 32px;
+  padding: 4px var(--sp-3);
+  border: 0;
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--l0-ink);
+  text-align: left;
+  text-decoration: none;
+  width: 100%;
+  min-width: 0;
+  font-size: var(--fs-2);
+}
+.sb-row:hover { background: var(--l0-hover); }
+.sb-row[aria-current="page"],
+.sb-row.is-selected {
+  background: var(--l0-selected);
+  box-shadow: inset 0 1px 0 var(--l2-highlight), var(--sh-row);
+}
+.sb-row .meta { margin-left: auto; color: var(--l0-ink-2); font-size: var(--fs-1); flex: none; }
+.sb-row .title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sb-row .close {
+  flex: none;
+  width: 20px; height: 20px;
+  display: grid; place-items: center;
+  border: 0; border-radius: var(--r-xs);
+  background: transparent; color: var(--l0-ink-2);
+  opacity: 0;
+}
+.sb-row:hover .close, .sb-row:focus-within .close, .sb-row[aria-current="page"] .close { opacity: 1; }
+.sb-row .close:hover { background: var(--l0-hover); color: var(--l0-ink); }
+
+/* the tree filter: a section action; a dot marks it on */
+.sb-filter { position: relative; }
+.sb-filter.is-on { color: var(--accent); }
+.sb-filter.is-on::after { content: ""; position: absolute; top: 4px; right: 4px; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+.search-field { position: relative; flex: 0 1 260px; min-width: 0; }
+
+/* B7: one hue per profile, the same everywhere (local blue, dev teal, staging amber, prod red) */
+.tint-dot[data-p="local"] { --h: 255; }
+.tint-dot[data-p="dev"] { --h: 190; }
+.tint-dot[data-p="staging"] { --h: 70; }
+.tint-dot[data-p="prod"] { --h: 25; }
+
+/* ---- wide (> 1100): the sidebar is in the layout --------------------------- */
+@container app (min-width: 1101px) {
+  .app.is-sb-collapsed .sidebar { display: none; }
+  /* "Sidebar bottom": the strip shows only while the sidebar is hidden */
+  .app[data-switcher="foot"]:not(.is-sb-collapsed) .rail { display: none; }
+  .app.is-sb-collapsed[data-switcher="foot"] .shell { padding-left: env(safe-area-inset-left, 0px); }
+}
+
+/* ---- drawer (<= 1100): the sidebar slides over the stage ------------------ */
+/* The rail (or the foot strip) stays, so a space is always one click away. */
+@container app (max-width: 1100px) {
+  .shell { padding-left: env(safe-area-inset-left, 0px); }
+  .app[data-switcher="foot"] .shell { padding-left: env(safe-area-inset-left, 0px); }
+  .topbar .sb-show { display: inline-flex; }
+  .search-field { flex-basis: 220px; }
+  .sidebar {
+    position: absolute;
+    z-index: 40;
+    top: 0; bottom: 0;
+    left: var(--rail-w);
+    width: min(var(--sidebar-w), calc(100% - var(--rail-w) - 16px));
+    padding-left: var(--sp-1);
+    background: var(--l3-bg);
+    -webkit-backdrop-filter: blur(var(--blur-l3));
+    backdrop-filter: blur(var(--blur-l3));
+    box-shadow: var(--sh-l3);
+    transform: translateX(-12px);
+    opacity: 0;
+    visibility: hidden;
+    transition: transform var(--dur-3) var(--ease), opacity var(--dur-3) var(--ease), visibility var(--dur-3);
+  }
+  .app[data-switcher="foot"] .sidebar { left: 0; z-index: 46; width: min(var(--sidebar-w), calc(100% - 16px)); }
+  .app.is-drawer-open .sidebar { transform: none; opacity: 1; visibility: visible; }
+  .scrim-drawer { position: absolute; inset: 0; z-index: 35; background: var(--l3-backdrop); }
+}

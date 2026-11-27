@@ -23,13 +23,13 @@
     check?: SecretCheck;
     auth?: AuthTest;
   } = $props();
-  const editorHref = `${resolve('/editor')}?file=vibranium.config.yaml`;
+  const editorHref = `${resolve('/tests/editor')}?file=vibranium.config.yaml`;
   const maskedNote = ' (secret, masked)';
 </script>
 
 {#snippet shown(value: string)}
   {#if value === MASKED}
-    <span class="masked">{MASKED}<span class="sr">{maskedNote}</span></span>
+    <span class="masked">{MASKED}<span class="vc-sr">{maskedNote}</span></span>
   {:else}
     {value}
   {/if}
@@ -39,7 +39,7 @@
   <p class="intro">
     Where each setting's value comes from under the profile you pick, as
     <code>vc config explain</code> shows it. Change them{form ? ' below or' : ''} in
-    <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- editorHref is resolve('/editor') plus a query -->
+    <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- editorHref is resolve('/tests/editor') plus a query -->
     <a href={editorHref} aria-label="Open vibranium.config.yaml in the editor"
       ><code>vibranium.config.yaml</code></a
     >; secrets are declared in <code>.env.schema</code>{schema ? ', below,' : ''} and always show masked.
@@ -47,7 +47,7 @@
   <label class="profile">
     Profile
     <select
-      class="input"
+      class="st-input"
       value={settings.profile}
       disabled={settings.profiles.length === 0}
       onchange={(e) => void settings.choose(e.currentTarget.value)}
@@ -63,8 +63,8 @@
   {#each settings.notices as notice, i (i)}
     <p class="notice">{notice}</p>
   {/each}
-  <table aria-busy={settings.loading}>
-    <caption class="h2">Effective settings</caption>
+  <table class="vc-table" aria-busy={settings.loading}>
+    <caption class="st-title3">Effective settings</caption>
     <thead>
       <tr><th scope="col">Key</th><th scope="col">Value</th><th scope="col">Set by</th></tr>
     </thead>
@@ -72,8 +72,8 @@
       {#each settings.values as { key, layers } (key)}
         {@const [winner, ...replaced] = layers}
         <tr>
-          <th scope="row" class="mono">{key}</th>
-          <td class="mono"
+          <th scope="row" class="vc-mono">{key}</th>
+          <td class="vc-mono"
             >{#if winner}{@render shown(winner.value)}{/if}</td
           >
           <td>
@@ -82,7 +82,7 @@
               <ul class="over">
                 {#each replaced as layer, i (i)}
                   <li>
-                    over <span class="mono">{@render shown(layer.value)}</span> ({layer.source})
+                    over <span class="vc-mono">{@render shown(layer.value)}</span> ({layer.source})
                   </li>
                 {/each}
               </ul>
@@ -110,51 +110,42 @@
   }
   .intro {
     margin: 0;
-    color: var(--ink2);
+    color: var(--st-text-secondary);
   }
   .profile {
     display: flex;
     gap: 8px;
     align-items: center;
-    color: var(--ink2);
+    color: var(--st-text-secondary);
   }
-  table {
-    width: 100%;
-    border-collapse: collapse;
+  .profile select {
+    flex: 0 1 240px;
+    min-width: 0;
   }
   caption {
     text-align: left;
     margin-bottom: 8px;
   }
-  th,
-  td {
-    padding: 6px 8px;
-    border-bottom: 1px solid var(--line);
-    text-align: left;
+  /* the shared table recipe (D669), cells to the top for multi-line values */
+  .vc-table th,
+  .vc-table td {
     vertical-align: top;
-  }
-  thead th {
-    color: var(--ink2);
-    font-weight: 500;
-  }
-  tbody th {
-    font-weight: 400;
   }
   .over {
     margin: 4px 0 0;
     padding: 0;
     list-style: none;
     font-size: 13px;
-    color: var(--ink2);
+    color: var(--st-text-secondary);
   }
   .masked {
     letter-spacing: 1px;
   }
   .empty,
   .notice {
-    color: var(--ink2);
+    color: var(--st-text-secondary);
   }
   .error {
-    color: var(--fail);
+    color: var(--vc-fail);
   }
 </style>

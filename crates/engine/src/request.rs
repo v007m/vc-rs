@@ -3,6 +3,7 @@
 use std::path::PathBuf;
 use std::time::Duration;
 
+use vc_interfaces::ConfigEntry;
 use vc_model::SourcePath;
 
 use crate::{CallDraft, RunWatch};
@@ -83,6 +84,9 @@ pub struct RunRequest {
     pub no_cache: bool,
     /// `--strict`: every failure fails the run, whatever `allowFailure` says (D248).
     pub strict: bool,
+    /// A check run (D517, D670): no history entry, no report files or reporter plugins and no
+    /// alerts; the watch still gets every event. `false` for `vc run`.
+    pub unrecorded: bool,
     /// The agent starting the run (MCP), when one is: the run then passes the profiles' agent
     /// policy for `run` and every method its plan sends, with one approval for the whole run,
     /// prints nothing to stdout, and is logged (D195). `None` for a person at the CLI.
@@ -90,13 +94,35 @@ pub struct RunRequest {
     /// Where the run's live [`crate::RunFeed`] goes (the TUI, the server's `Run` stream), as
     /// well as to the reporters; `None` for no watcher.
     pub watch: Option<RunWatch>,
+    /// The schedule that started the run (`vc ui`'s scheduler, D703): recorded with the run, its
+    /// `notify` channels told when it fails (D702, D704), and nothing printed. `None` for every
+    /// other run.
+    pub schedule: Option<String>,
 }
 
 impl RunRequest {
-    /// Whether the console prints nothing: a run an agent started over stdio, or a watched
-    /// run, whose watcher shows it.
+    /// Whether the console prints nothing: a run an agent started over stdio, a watched run,
+    /// whose watcher shows it, or a scheduled one, which the Runs space shows from the history.
     pub(crate) const fn quiet(&self) -> bool {
-        self.agent.is_some() || self.watch.is_some()
+        self.agent.is_some() || self.watch.is_some() || self.schedule.is_some()
+    }
+
+    /// The run flags that are settings, as the layer between `VIB_*` and `--set` (D129).
+    pub(crate) fn flags(&self) -> Vec<ConfigEntry> {
+        let mut flags = Vec::new();
+        if let Some(concurrency) = self.concurrency {
+            flags.push(ConfigEntry::new("defaults.concurrency", concurrency.to_string(), "--concurrency"));
+        }
+        if !self.files.formats.is_empty() {
+            flags.push(ConfigEntry::new("reports.formats", self.files.formats.join(","), "--report"));
+        }
+        if self.files.single_file {
+            flags.push(ConfigEntry::new("reports.html.layout", "single", "--single-file"));
+        }
+        if let Some(out) = &self.files.out {
+            flags.push(ConfigEntry::new("reports.dir", out.to_string_lossy(), "--out"));
+        }
+        flags
     }
 }
 
@@ -183,4 +209,33 @@ pub struct CallRequest {
     /// Edits the web UI's API client made to the api's file and has not saved: the call sends
     /// the api as edited, and the file is left as it is (D245).
     pub draft: Option<CallDraft>,
+    /// A call the web UI's Client describes in full, sent in place of an api: `api` and `draft`
+    /// are then empty (D540, D541).
+    pub adhoc: Option<AdhocCall>,
+}
+
+/// A call made with no api in a `*.api.yaml`: it is compiled as one, so its `${…}` templates,
+/// auth and redaction work as an api's do, and the file is never written (D541).
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "built by the apps with `..Default::default()`; every user is in this repo (D160)"
+)]
+pub struct AdhocCall {
+    /// `http`, `sse` or `websocket`; `http` when empty.
+    pub kind: String,
+    /// The HTTP method; `GET` when empty. A `websocket` call takes none.
+    pub method: String,
+    /// The whole URL, `https://api.test/users`, or one that starts with a template,
+    /// `${var.usersUrl}/users`.
+    pub url: String,
+    /// Headers, in order; a later one of the same name wins. Values may be templates.
+    pub headers: Vec<(String, String)>,
+    /// Query entries, in order; a later one of the same name wins. Values may be templates.
+    pub query: Vec<(String, String)>,
+    /// The body: a JSON map or list is sent as JSON, other text as written. A `websocket` call
+    /// takes none.
+    pub body: Option<String>,
+    /// The ID of one of the project's auths; `None` sends no auth (D541).
+    pub auth: Option<String>,
 }

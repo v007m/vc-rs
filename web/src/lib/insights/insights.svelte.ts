@@ -17,6 +17,8 @@ export type Window = (typeof windows)[number];
 /** Insights' state: the newest runs in the window and scope, and each test's and api's trend over them. */
 export class Insights {
   window: Window = $state(30);
+  /** The profile and branch the runs are read for (D643); empty means every one. */
+  scope: Scope = $state.raw({});
   /** Oldest first, as the charts read left to right. */
   runs: readonly RunSummary[] = $state([]);
   trends: readonly TestTrend[] = $state([]);
@@ -60,7 +62,7 @@ export class Insights {
 
   async load(): Promise<void> {
     this.loading = true;
-    const scope: Scope = {};
+    const scope = this.scope;
     try {
       const [runs, trends, apiTrends] = await Promise.all([
         this.#port.runs(this.window, scope),
@@ -76,6 +78,12 @@ export class Insights {
     } finally {
       this.loading = false;
     }
+  }
+
+  /** Reads the runs again for `scope`. */
+  async rescope(scope: Scope): Promise<void> {
+    this.scope = scope;
+    await this.load();
   }
 
   async choose(window: Window): Promise<void> {

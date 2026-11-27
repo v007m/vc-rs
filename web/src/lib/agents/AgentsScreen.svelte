@@ -33,6 +33,6 @@
     max-width: 960px;
   }
   .error {
-    color: var(--fail);
+    color: var(--vc-fail);
   }
 </style>

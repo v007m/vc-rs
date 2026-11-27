@@ -2,6 +2,133 @@
 // jscpd:ignore-start
 
 // @generated
+impl serde::Serialize for CallSummary {
+    #[allow(deprecated)]
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let mut len = 0;
+        if !self.method.is_empty() {
+            len += 1;
+        }
+        if !self.url.is_empty() {
+            len += 1;
+        }
+        if self.status.is_some() {
+            len += 1;
+        }
+        let mut struct_ser = serializer.serialize_struct("vibranium.results.v1.CallSummary", len)?;
+        if !self.method.is_empty() {
+            struct_ser.serialize_field("method", &self.method)?;
+        }
+        if !self.url.is_empty() {
+            struct_ser.serialize_field("url", &self.url)?;
+        }
+        if let Some(v) = self.status.as_ref() {
+            struct_ser.serialize_field("status", v)?;
+        }
+        struct_ser.end()
+    }
+}
+impl<'de> serde::Deserialize<'de> for CallSummary {
+    #[allow(deprecated)]
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        const FIELDS: &[&str] = &[
+            "method",
+            "url",
+            "status",
+        ];
+
+        #[allow(clippy::enum_variant_names)]
+        enum GeneratedField {
+            Method,
+            Url,
+            Status,
+        }
+        impl<'de> serde::Deserialize<'de> for GeneratedField {
+            fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                struct GeneratedVisitor;
+
+                impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+                    type Value = GeneratedField;
+
+                    fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                        write!(formatter, "expected one of: {:?}", &FIELDS)
+                    }
+
+                    #[allow(unused_variables)]
+                    fn visit_str<E>(self, value: &str) -> std::result::Result<GeneratedField, E>
+                    where
+                        E: serde::de::Error,
+                    {
+                        match value {
+                            "method" => Ok(GeneratedField::Method),
+                            "url" => Ok(GeneratedField::Url),
+                            "status" => Ok(GeneratedField::Status),
+                            _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
+                        }
+                    }
+                }
+                deserializer.deserialize_identifier(GeneratedVisitor)
+            }
+        }
+        struct GeneratedVisitor;
+        impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+            type Value = CallSummary;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("struct vibranium.results.v1.CallSummary")
+            }
+
+            fn visit_map<V>(self, mut map_: V) -> std::result::Result<CallSummary, V::Error>
+                where
+                    V: serde::de::MapAccess<'de>,
+            {
+                let mut method__ = None;
+                let mut url__ = None;
+                let mut status__ = None;
+                while let Some(k) = map_.next_key()? {
+                    match k {
+                        GeneratedField::Method => {
+                            if method__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("method"));
+                            }
+                            method__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::Url => {
+                            if url__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("url"));
+                            }
+                            url__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::Status => {
+                            if status__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("status"));
+                            }
+                            status__ = 
+                                map_.next_value::<::std::option::Option<::pbjson::private::NumberDeserialize<_>>>()?.map(|x| x.0)
+                            ;
+                        }
+                    }
+                }
+                Ok(CallSummary {
+                    method: method__.unwrap_or_default(),
+                    url: url__.unwrap_or_default(),
+                    status: status__,
+                })
+            }
+        }
+        deserializer.deserialize_struct("vibranium.results.v1.CallSummary", FIELDS, GeneratedVisitor)
+    }
+}
 impl serde::Serialize for Check {
     #[allow(deprecated)]
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
@@ -1035,6 +1162,12 @@ impl serde::Serialize for Run {
         if self.totals.is_some() {
             len += 1;
         }
+        if self.call.is_some() {
+            len += 1;
+        }
+        if self.schedule.is_some() {
+            len += 1;
+        }
         let mut struct_ser = serializer.serialize_struct("vibranium.results.v1.Run", len)?;
         if self.id != 0 {
             #[allow(clippy::needless_borrow)]
@@ -1082,6 +1215,12 @@ impl serde::Serialize for Run {
         if let Some(v) = self.totals.as_ref() {
             struct_ser.serialize_field("totals", v)?;
         }
+        if let Some(v) = self.call.as_ref() {
+            struct_ser.serialize_field("call", v)?;
+        }
+        if let Some(v) = self.schedule.as_ref() {
+            struct_ser.serialize_field("schedule", v)?;
+        }
         struct_ser.end()
     }
 }
@@ -1109,6 +1248,8 @@ impl<'de> serde::Deserialize<'de> for Run {
             "vcVersion",
             "status",
             "totals",
+            "call",
+            "schedule",
         ];
 
         #[allow(clippy::enum_variant_names)]
@@ -1125,6 +1266,8 @@ impl<'de> serde::Deserialize<'de> for Run {
             VcVersion,
             Status,
             Totals,
+            Call,
+            Schedule,
         }
         impl<'de> serde::Deserialize<'de> for GeneratedField {
             fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
@@ -1158,6 +1301,8 @@ impl<'de> serde::Deserialize<'de> for Run {
                             "vcVersion" | "vc_version" => Ok(GeneratedField::VcVersion),
                             "status" => Ok(GeneratedField::Status),
                             "totals" => Ok(GeneratedField::Totals),
+                            "call" => Ok(GeneratedField::Call),
+                            "schedule" => Ok(GeneratedField::Schedule),
                             _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
                         }
                     }
@@ -1189,6 +1334,8 @@ impl<'de> serde::Deserialize<'de> for Run {
                 let mut vc_version__ = None;
                 let mut status__ = None;
                 let mut totals__ = None;
+                let mut call__ = None;
+                let mut schedule__ = None;
                 while let Some(k) = map_.next_key()? {
                     match k {
                         GeneratedField::Id => {
@@ -1271,6 +1418,18 @@ impl<'de> serde::Deserialize<'de> for Run {
                             }
                             totals__ = map_.next_value()?;
                         }
+                        GeneratedField::Call => {
+                            if call__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("call"));
+                            }
+                            call__ = map_.next_value()?;
+                        }
+                        GeneratedField::Schedule => {
+                            if schedule__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("schedule"));
+                            }
+                            schedule__ = map_.next_value()?;
+                        }
                     }
                 }
                 Ok(Run {
@@ -1286,6 +1445,8 @@ impl<'de> serde::Deserialize<'de> for Run {
                     vc_version: vc_version__.unwrap_or_default(),
                     status: status__.unwrap_or_default(),
                     totals: totals__,
+                    call: call__,
+                    schedule: schedule__,
                 })
             }
         }

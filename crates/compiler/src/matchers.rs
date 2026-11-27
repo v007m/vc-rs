@@ -221,7 +221,8 @@ fn scalar_on_list(call: &MatcherCall, key: &str) -> Diagnostic {
     Diagnostic::new(Code::V2306, call.span, message).label("not a list matcher").help(help)
 }
 
-fn names() -> impl Iterator<Item = &'static str> {
+/// Every matcher's name, in docs order.
+pub fn names() -> impl Iterator<Item = &'static str> {
     MATCHERS.iter().map(|kind| kind.name)
 }
 

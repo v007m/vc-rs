@@ -39,11 +39,11 @@ fn samples_close_as_one_row_per_test_per_second() {
     let (a, b) = ids();
     let mut recorder = Recorder::new();
     for sample in [
-        Sample { test: b, second: 0, latency: ms(5), failed: false },
-        Sample { test: a, second: 0, latency: ms(7), failed: true },
-        Sample { test: a, second: 0, latency: ms(9), failed: false },
-        Sample { test: a, second: 1, latency: ms(4), failed: false },
-        Sample { test: a, second: 2, latency: ms(4), failed: false },
+        Sample { test: b, second: 0, latency: ms(5), failed: false, late: false },
+        Sample { test: a, second: 0, latency: ms(7), failed: true, late: false },
+        Sample { test: a, second: 0, latency: ms(9), failed: false, late: false },
+        Sample { test: a, second: 1, latency: ms(4), failed: false, late: false },
+        Sample { test: a, second: 2, latency: ms(4), failed: false, late: false },
     ] {
         recorder.record(sample).unwrap();
     }
@@ -56,8 +56,8 @@ fn samples_close_as_one_row_per_test_per_second() {
 fn a_late_sample_counts_in_the_oldest_open_second() {
     let (a, _) = ids();
     let mut recorder = Recorder::new();
-    recorder.record(Sample { test: a, second: 0, latency: ms(1), failed: false }).unwrap();
+    recorder.record(Sample { test: a, second: 0, latency: ms(1), failed: false, late: false }).unwrap();
     assert_eq!(rows(&mut recorder, 1).len(), 1);
-    recorder.record(Sample { test: a, second: 0, latency: ms(1), failed: true }).unwrap();
+    recorder.record(Sample { test: a, second: 0, latency: ms(1), failed: true, late: false }).unwrap();
     assert_eq!(rows(&mut recorder, 2), [(1, a, 1, 1)]);
 }

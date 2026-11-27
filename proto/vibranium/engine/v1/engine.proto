@@ -15,9 +15,19 @@ service EngineService {
   rpc ListDefinitions(ListDefinitionsRequest) returns (ListDefinitionsResponse);
   // The project's diagnostics, as `vc check` reports them.
   rpc Check(CheckRequest) returns (CheckResponse);
+  // What a run of the selection would do, as `vc plan` shows it, without sending a request (D682).
+  rpc Plan(PlanRequest) returns (PlanResponse);
   // Runs a selection and streams its events, then its report. Closing the stream cancels the
   // run as one Ctrl-C does: cleanups still run.
   rpc Run(RunRequest) returns (stream RunResponse);
+  // Stops a running `Run` by the `handle` it was started with (D551–D553): `stop` as one
+  // Ctrl-C (cleanups run; a second `stop` ends the grace period), `abandon` as the third (the
+  // cleanups still to run are skipped). It answers at once; the run's stream tells how it ended.
+  rpc Cancel(CancelRequest) returns (CancelResponse);
+  // Runs a load scenario as `vc load` does, streaming a tick as each second closes, then its
+  // report (D678). Closing the stream cancels it as one Ctrl-C does; a run with a `handle` can
+  // also be stopped by `Cancel`.
+  rpc RunLoad(RunLoadRequest) returns (stream RunLoadResponse);
   // A project file's text, for the editor.
   rpc ReadFile(ReadFileRequest) returns (ReadFileResponse);
   // Saves a project file the editor changed, unless it changed on disk since it was read.
@@ -32,13 +42,43 @@ service EngineService {
   rpc DecideApproval(DecideApprovalRequest) returns (DecideApprovalResponse);
   // What agents did through MCP, newest first.
   rpc ListAgentActions(ListAgentActionsRequest) returns (ListAgentActionsResponse);
+  // What agents did over the last days: per agent and day, and per agent and tool (D709).
+  rpc AgentUsage(AgentUsageRequest) returns (AgentUsageResponse);
   // Sends one api's request, as `vc call` does. The person at the browser is no agent, so the
   // profiles' agent policy and the agent log do not apply (D241).
   rpc Call(CallRequest) returns (CallResponse);
+  // Opens an `sse` or `websocket` call and streams its messages as they arrive, each masked
+  // (D543). The first event names the stream for `StreamSend`; the last says how it ended.
+  // Closing this stream closes the call.
+  rpc CallStream(CallStreamRequest) returns (stream CallStreamResponse);
+  // Sends one WebSocket message on a stream `CallStream` opened, or closes the stream (D544). A
+  // message on an `sse` stream fails with `failed_precondition`; the stream stays open.
+  rpc StreamSend(StreamSendRequest) returns (StreamSendResponse);
   // An api or test as its file writes it, for the Client's forms to edit (D245, D251).
   rpc ReadDefinition(ReadDefinitionRequest) returns (ReadDefinitionResponse);
   // How the API client would send an api: its vars, inherited headers, auth and curl (D245).
   rpc ExplainApi(ExplainApiRequest) returns (ExplainApiResponse);
+  // A test or api as a run under the profiles sees it, as `vc explain <id>` shows it, its values
+  // masked; or a diagnostic code's page, as `vc explain V2003` (D679).
+  rpc Explain(ExplainRequest) returns (ExplainResponse);
+  // The certain fixes of the project's diagnostics, as `vc check --fix` makes them: a preview
+  // with the diff, or the files written. Refused when the result adds an error (D107, D680).
+  rpc ApplyFixes(ApplyFixesRequest) returns (ApplyFixesResponse);
+  // The YAML editor's completions at a cursor: keys, values, IDs, matchers and var names (D681).
+  rpc Complete(CompleteRequest) returns (CompleteResponse);
+  // The YAML editor's hover at a cursor: a key's docs, and the explained reference (D681).
+  rpc Hover(HoverRequest) returns (HoverResponse);
+  // A new api, test or load file from `vc new file`'s template, previewed or written (D683).
+  rpc CreateFile(CreateFileRequest) returns (CreateFileResponse);
+  // `vc rename`: an item, a file (which moves) or a var, auth or dataset, with every file it
+  // changes previewed, then written (D683).
+  rpc Rename(RenameRequest) returns (RenameResponse);
+  // The editor's unsaved text in `vc fmt`'s house style, never written (D684).
+  rpc Format(FormatRequest) returns (FormatResponse);
+  // The `call:` and `test:` references in other files to one file's items (D683).
+  rpc FileReferences(FileReferencesRequest) returns (FileReferencesResponse);
+  // Sends a definition file to the system's trash; never deletes it (D683).
+  rpc TrashFile(TrashFileRequest) returns (TrashFileResponse);
   // Writes a call as a test, as `vc call --save-as` does.
   rpc SaveCallAsTest(SaveCallAsTestRequest) returns (SaveCallAsTestResponse);
   // Imports a spec or recording, as `vc import` does: a preview, or the files written.
@@ -52,6 +92,11 @@ service EngineService {
   rpc ListRuns(ListRunsRequest) returns (ListRunsResponse);
   // One run of the history with its tests.
   rpc GetRun(GetRunRequest) returns (GetRunResponse);
+  // Run `b` against the earlier run `a`: the tests newly failing, newly blocked, fixed, still
+  // failing, slower and faster, and the apis whose JSON response shapes changed (D672).
+  rpc CompareRuns(CompareRunsRequest) returns (CompareRunsResponse);
+  // One test's results over the newest test runs, newest first, for its history strip (D673).
+  rpc TestHistory(TestHistoryRequest) returns (TestHistoryResponse);
   // Each test's results over the last runs, as `vc history --trends` reports them.
   rpc Trends(TrendsRequest) returns (TrendsResponse);
   // Each api's calls and response times over the same runs, for Insights' slowest apis.
@@ -69,6 +114,55 @@ service EngineService {
   // Where an MCP client connects and the agent token it sends, for the Connect panel. Only the
   // browser's session cookie reaches it, never the agent token (D239).
   rpc Connection(ConnectionRequest) returns (ConnectionResponse);
+  // The git pane (D546–D550): the branch, how far it is from its upstream, and each changed file
+  // under the project root with its kind and line counts. Only the web UI calls the `Vcs*` rpcs;
+  // no MCP tool does. A git failure is `failed_precondition`, its message holding no URL's
+  // credentials.
+  rpc VcsStatus(VcsStatusRequest) returns (VcsStatusResponse);
+  // One file's unified diff against the last commit, the whole file when it is untracked; masked.
+  rpc VcsDiff(VcsDiffRequest) returns (VcsDiffResponse);
+  // Commits the named files as they are now, and nothing else staged.
+  rpc VcsCommit(VcsCommitRequest) returns (VcsCommitResponse);
+  // Pushes the branch to its upstream with the user's own git credentials, never asking for any.
+  // A push or pull still running after 120 s is stopped: `failed_precondition`, saying it may be
+  // waiting for an SSH passphrase (D554).
+  rpc VcsPush(VcsPushRequest) returns (VcsPushResponse);
+  // Fast-forwards the branch to its upstream with the user's own git credentials; refused when
+  // the branches have diverged.
+  rpc VcsPull(VcsPullRequest) returns (VcsPullResponse);
+  // The config's `schedules`, each with its next run time and its last run from the history
+  // (D705).
+  rpc ListSchedules(ListSchedulesRequest) returns (ListSchedulesResponse);
+  // Adds, replaces or removes one schedule in the config: a preview, or the config written
+  // with the preview's digest (D706).
+  rpc WriteSchedule(WriteScheduleRequest) returns (WriteScheduleResponse);
+  // A GitHub Actions workflow that runs one schedule on its cron, at a path the engine fixes
+  // (`.github/workflows/vibranium-<id>.yml`): a preview, or the file written (D707).
+  rpc ExportSchedule(ExportScheduleRequest) returns (ExportScheduleResponse);
+  // The user config (D129's user layer) at the one path the engine fixes, never one a client
+  // names: its settings, masked, each saying whether this project's config overrides it (D711).
+  rpc ReadUserSettings(ReadUserSettingsRequest) returns (ReadUserSettingsResponse);
+  // Sets or removes user config settings: a preview, or the file written with the preview's
+  // digest (D712).
+  rpc WriteUserSettings(WriteUserSettingsRequest) returns (WriteUserSettingsResponse);
+  // `vc alerts test`: a sample notice, titled `[test]`, through every channel of every alert
+  // rule whose profiles match, under the request's profiles and sets over the server's (D713).
+  rpc TestAlert(TestAlertRequest) returns (TestAlertResponse);
+  // `vc plugin list`: each plugin of the config or `vibranium.lock`, and whether a run can use it.
+  rpc PluginList(PluginListRequest) returns (PluginListResponse);
+  // Adds a plugin from a registry package or a folder inside the project: a preview of what it
+  // asks to reach and the config and lock changes, or it installed and written with the
+  // preview's digest (D714).
+  rpc PluginAdd(PluginAddRequest) returns (PluginAddResponse);
+  // Removes a plugin from the config and the lock, and uninstalls it: a preview, or it written
+  // with the preview's digest (D715).
+  rpc PluginRemove(PluginRemoveRequest) returns (PluginRemoveResponse);
+  // `vc init` from the onboarding wizard, in the folder `vc ui` was started in: a preview of the
+  // new project's files, or them written with the preview's digest (D716).
+  rpc Init(InitRequest) returns (InitResponse);
+  // The demo project (`vc init`'s with the sample) in that folder, previewed or written the same
+  // way, and whether `vc demo`'s service answers; the server never starts it (D717).
+  rpc Demo(DemoRequest) returns (DemoResponse);
 }
 
 // Which tests or apis to act on, as `vc run` selects them.
@@ -98,6 +192,8 @@ message GetProjectResponse {
   string vc_version = 4;
   // The auth IDs the config defines, in its order.
   repeated string auths = 5;
+  // Whether the folder holds `vibranium.config.yaml`; without it the UI offers onboarding (D716).
+  bool configured = 6;
 }
 
 // What to list.
@@ -216,6 +312,29 @@ message CheckResponse {
   repeated string notices = 3;
 }
 
+// What `vc plan` takes: `Run`'s selection, profiles, sets and repeat.
+message PlanRequest {
+  Selection selection = 1;
+  repeated string profiles = 2;
+  repeated string sets = 3;
+  optional uint32 repeat = 4;
+}
+
+// The plan, as `vc plan` prints it. Its rows are labelled offline and masked by the config's
+// rules; no secret is loaded and no value drawn from the environment is shown (D316).
+message PlanResponse {
+  // `4 tests (6 instances) in 2 files · beforeEach ×3 actions · profile dev`.
+  string line = 1;
+  // The lifecycle blocks and test instances in run order, indented.
+  string tree = 2;
+  // The plan as `vc plan --json` gives it (D130), as JSON text.
+  string plan_json = 3;
+  // How many test instances it runs.
+  uint32 instances = 4;
+  // Problems that did not stop the plan, one line each.
+  repeated string notices = 5;
+}
+
 message RunRequest {
   Selection selection = 1;
   // Profiles to layer, in order; the default profile when empty.
@@ -233,10 +352,163 @@ message RunRequest {
   bool failed = 8;
   // Ignore the action cache.
   bool no_cache = 9;
+  // A name the client picks for the run, such as a UUID, for `Cancel`: at most 64 ASCII
+  // letters, digits, `-` and `_`, and held by no other running run. Empty: only closing the
+  // stream stops the run.
+  string handle = 10;
+  // Whether the run is kept in the run history; `true` when absent. `false` is a check run
+  // (D670): no history entry, no report files or reporter plugins and no alerts, while its
+  // events still stream and its report comes last, with no `run`.
+  optional bool record = 11;
+  // `--strict`: every failure fails the run, whatever `allowFailure` says (D248).
+  bool strict = 12;
+  // `--report`: the report formats (`ctrf`, `junit`, `html`), each may be a comma list; over
+  // `reports.formats`. An unknown format fails the run before it starts (D671).
+  repeated string reports = 13;
+  // `--out`: the folder the report files go in, as they are, over `reports.dir`. A folder
+  // inside the project, relative to its root, with no `..` and no link out of it; anything
+  // else is `invalid_argument` with V5132 (D671). Empty: each run's files go in
+  // `<reports.dir>/<run>/`.
+  string out = 14;
+  // `--single-file`: the HTML report as one self-contained file, over `reports.html.layout`.
+  bool single_file = 15;
 }
+
+// How far `Cancel` stops a run.
+enum CancelLevel {
+  CANCEL_LEVEL_UNSPECIFIED = 0;
+  // As one Ctrl-C: work in flight gets its grace period, then the cleanups run.
+  CANCEL_LEVEL_STOP = 1;
+  // As the third Ctrl-C: work in flight stops at once and the cleanups still to run are
+  // abandoned.
+  CANCEL_LEVEL_ABANDON = 2;
+}
+
+message CancelRequest {
+  // The `handle` of the running run.
+  string run = 1;
+  CancelLevel level = 2;
+}
+
+message CancelResponse {}
 
 message RunResponse {
   RunEvent event = 1;
+}
+
+message RunLoadRequest {
+  // The scenario's ID: its load file's ID, such as `checkout.peak`.
+  string scenario = 1;
+  // Profiles to layer, in order; the default profile when empty.
+  repeated string profiles = 2;
+  // `key=value` overrides, as `--set` gives them.
+  repeated string sets = 3;
+  // The seed the users pick their mix tests and draw generated data with; a fresh one when
+  // absent, which the report gives.
+  optional uint64 seed = 4;
+  // A name for `Cancel`, as `RunRequest.handle` takes it. Empty: only closing the stream stops
+  // the run.
+  string handle = 5;
+}
+
+// A closed second while the run runs, then the report last. A tick that finds a slow client
+// behind is dropped, never queued; the history keeps every second.
+message RunLoadResponse {
+  oneof kind {
+    LoadTick tick = 1;
+    LoadReport report = 2;
+  }
+}
+
+// How a load run ended.
+enum LoadEnding {
+  LOAD_ENDING_UNSPECIFIED = 0;
+  // Every stage ran.
+  LOAD_ENDING_FINISHED = 1;
+  // An `abortOn` threshold breached on the rolling window.
+  LOAD_ENDING_ABORTED = 2;
+  // Cancelled: the stream closed, or `Cancel`.
+  LOAD_ENDING_CANCELLED = 3;
+  // A `beforeRun` or `beforeAll` action failed, so no user started.
+  LOAD_ENDING_BLOCKED = 4;
+}
+
+// What a load run did, as `vc load --json` gives it; latencies in ms.
+message LoadReport {
+  // The exit code `vc load` would have: 0 within thresholds, 1 blocked, 3 a threshold
+  // breached, 130 cancelled.
+  uint32 exit = 1;
+  string scenario = 2;
+  // The scenario's `name`, when its load file gives one.
+  optional string name = 3;
+  LoadEnding ending = 4;
+  uint64 seconds = 5;
+  uint64 iterations = 6;
+  // Iterations that failed.
+  uint64 errors = 7;
+  double rps = 8;
+  double p50_ms = 9;
+  double p90_ms = 10;
+  double p95_ms = 11;
+  double p99_ms = 12;
+  double max_ms = 13;
+  // The thresholds the whole run breached.
+  repeated LoadBreach breaches = 14;
+  // Each mix test that ran, in test order.
+  repeated LoadTestReport tests = 15;
+  // Failed iterations by kind, most first.
+  repeated LoadErrorKind error_kinds = 16;
+  // The shared action's failure that kept the users from starting.
+  optional string blocked = 17;
+  // The run's number in the history.
+  optional uint64 run = 18;
+  // The seed the run used, to replay it.
+  uint64 seed = 19;
+  // Problems that did not change the result, such as a history that could not be written.
+  repeated string notices = 20;
+}
+
+// A threshold the run breached.
+message LoadBreach {
+  // `p95`, `errorRate`, `rps`, ...
+  string metric = 1;
+  // The test whose own threshold it is; unset for the scenario's.
+  optional string test = 2;
+  // The value measured, in `unit`, not rounded.
+  double actual = 3;
+  // `ms`, `share` (0 to 1) or `perSecond`.
+  string unit = 4;
+  // The threshold as JSON, in `unit`: `{"lt":30.0}`.
+  string limit_json = 5;
+  // As the summary shows it: `45.5 ms (lt 30 ms)`.
+  string shown = 6;
+}
+
+// One mix test's iterations over the whole run.
+message LoadTestReport {
+  // Its full ID: `checkout.flow#buysOneItem`.
+  string test = 1;
+  uint64 iterations = 2;
+  uint64 errors = 3;
+  double rps = 4;
+  double p50_ms = 5;
+  double p90_ms = 6;
+  double p95_ms = 7;
+  double p99_ms = 8;
+  double max_ms = 9;
+}
+
+// Failed iterations of one kind.
+message LoadErrorKind {
+  // The api the failing action calls; unset when it calls none.
+  optional string api = 1;
+  // The mix test whose iterations failed.
+  optional string test = 2;
+  // The failing action's last response status; unset when it got none.
+  optional uint32 status = 3;
+  // The failure's diagnostic code: `V5101` for a check, `V5105` for the transport, ...
+  optional string code = 4;
+  uint64 count = 5;
 }
 
 message ReadFileRequest {
@@ -378,6 +650,10 @@ message AgentAction {
   string result = 5;
   optional string approved_by = 6;
   uint64 at_ms = 7;
+  // From the gate letting it through to its end; unset for a call that never went ahead (D710).
+  optional uint64 took_ms = 8;
+  // It started a run.
+  bool ran = 9;
 }
 
 message ListAgentActionsRequest {
@@ -387,6 +663,50 @@ message ListAgentActionsRequest {
 
 message ListAgentActionsResponse {
   repeated AgentAction actions = 1;
+}
+
+message AgentUsageRequest {
+  // Days in UTC, today included: 7 when 0, at most 90.
+  uint32 days = 1;
+}
+
+message AgentUsageResponse {
+  // The start of the first day, in milliseconds since the Unix epoch.
+  uint64 from_ms = 1;
+  // Now, when the window ends.
+  uint64 to_ms = 2;
+  // The busiest first.
+  repeated AgentTotals agents = 3;
+  // By agent, then the most called first.
+  repeated ToolUsage tools = 4;
+}
+
+// Calls, the runs they started, and how long the timed ones took. The engine sees no agent's
+// requests or tokens, so those are not counted.
+message UsageCount {
+  uint64 calls = 1;
+  uint64 runs = 2;
+  uint64 took_ms = 3;
+}
+
+message AgentTotals {
+  string agent = 1;
+  UsageCount total = 2;
+  // One for each day, the oldest first.
+  repeated UsageCount daily = 3;
+}
+
+message ToolUsage {
+  string agent = 1;
+  string tool = 2;
+  uint64 calls = 3;
+  uint64 ok = 4;
+  uint64 failed = 5;
+  // Refused by the policy, denied by a person or not decided in time.
+  uint64 refused = 6;
+  // Went ahead once a person approved them.
+  uint64 approved = 7;
+  uint64 took_ms = 8;
 }
 
 message CallRequest {
@@ -401,7 +721,87 @@ message CallRequest {
   // Edits to the api's file that are not saved: the call sends the api as edited, and the
   // file is left as it is.
   optional ApiDraft draft = 6;
+  // A request with no api in a `*.api.yaml`, sent in place of `api`, which is then empty; no
+  // `draft` goes with it (D540, D541).
+  optional AdhocCall adhoc = 7;
 }
+
+// A scratch request the API client sends with no api file (D540, D541). Its values may hold
+// `${…}` templates, which render as an api's do under the active profiles.
+message AdhocCall {
+  // `http` (when empty), `sse` or `websocket`.
+  string type = 1;
+  // `GET` when empty; a `websocket` call takes none.
+  string method = 2;
+  // The full URL, or one starting with a template: `${var.usersUrl}/users`.
+  string url = 3;
+  repeated vibranium.results.v1.Header headers = 4;
+  // Added to the URL's own query.
+  repeated vibranium.results.v1.Header query = 5;
+  // As the editor holds it: JSON text with a map or a list is sent as JSON, any other text as
+  // written. A `websocket` call takes none.
+  optional string body = 6;
+  // An auth ID from the project's config, or `none`; no auth when absent. Never a credential.
+  optional string auth = 7;
+}
+
+message CallStreamRequest {
+  // The api, or the ad hoc request, to open; its `keep` is not used, as a stream registers no
+  // cleanup.
+  CallRequest call = 1;
+}
+
+message CallStreamResponse {
+  oneof event {
+    StreamOpened opened = 1;
+    StreamMessage message = 2;
+    StreamEnded ended = 3;
+  }
+}
+
+// The stream's opening answer, sent first.
+message StreamOpened {
+  // Names the stream for `StreamSend` while it is open.
+  string stream = 1;
+  // The history run the call is recorded as; 0 when the history could not be written.
+  uint64 run_id = 2;
+  // The request as sent and the opening response, masked; no messages.
+  vibranium.results.v1.Exchange head = 3;
+  // Whether `StreamSend` can send a message on it: a `websocket` stream can; an `sse` one only
+  // reads, and a send on it fails with `failed_precondition` and leaves it open (D544).
+  bool sends = 4;
+}
+
+// One message, as a `receive` item matches it, masked: `{event, data, id, text}` for `sse`,
+// `{type, data, text}` for `websocket`.
+message StreamMessage {
+  // `in` for one the server sent, `out` for one `StreamSend` sent.
+  string direction = 1;
+  uint64 at_ms = 2;
+  // The message's fields, as JSON text.
+  string json = 3;
+}
+
+// How the stream ended, sent last.
+message StreamEnded {
+  // Why: `the stream closed`, `the server answered 404`, `the connection dropped (…)`.
+  string reason = 1;
+  // It ended on an error rather than a close.
+  bool failed = 2;
+  // The WebSocket close code, when the server sent one.
+  optional uint32 code = 3;
+}
+
+message StreamSendRequest {
+  // As `StreamOpened` named it.
+  string stream = 1;
+  // The text to send as one message; a `${…}` in it is sent as written.
+  optional string text = 2;
+  // Closes the stream, with code 1000, instead of sending.
+  bool close = 3;
+}
+
+message StreamSendResponse {}
 
 // Pointer edits to an api file, made over it as it was opened; nothing is written.
 message ApiDraft {
@@ -451,6 +851,183 @@ message ExplainApiResponse {
   // The request as a curl command, the bearer token replaced by `$TOKEN`.
   string curl = 4;
   repeated string notices = 5;
+}
+
+message ExplainRequest {
+  // A full test or api ID (`users.crud#listsUsers`, `users#list`), or a diagnostic code
+  // (`V2003`, any case).
+  string target = 1;
+  // Profiles to layer, in order; the default profile when empty. Unused for a code.
+  repeated string profiles = 2;
+  // `key=value` overrides, as `--set` gives them. Unused for a code.
+  repeated string sets = 3;
+}
+
+message ExplainResponse {
+  // A code's page as Markdown (a `# V2003: …` heading, a paragraph, `## Wrong` and `## Right`
+  // examples), or a test's or api's explanation as plain text, one item per line, masked.
+  string text = 1;
+  // Whether `text` is a code's Markdown page.
+  bool markdown = 2;
+  // Problems that did not stop it, masked.
+  repeated string notices = 3;
+}
+
+message ApplyFixesRequest {
+  // Fix only the diagnostics with these codes (`V2011`); every certain fix when empty.
+  repeated string codes = 1;
+  // Fix only the diagnostics on files at or under these paths; every file when empty.
+  repeated string paths = 2;
+  // Write the files; a preview when false.
+  bool write = 3;
+  // The digest the preview gave; a write is aborted when a file changed since, or without it.
+  optional string expected_digest = 4;
+}
+
+message ApplyFixesResponse {
+  // Each file the fixes change, before and after; empty when there is nothing to fix.
+  repeated FileChange files = 1;
+  // Each fix's title, in the order taken.
+  repeated string titles = 2;
+  // The digest of the files as previewed, which the write passes back.
+  string digest = 3;
+}
+
+// A cursor in a file the editor holds, saved or not.
+message CompleteRequest {
+  // The file's path, relative to the project root; only its kind is read from it.
+  string path = 1;
+  // The text as the editor holds it.
+  string text = 2;
+  // The cursor, in UTF-16 code units from the start of `text`, as a browser counts.
+  uint32 offset = 3;
+}
+
+message CompleteResponse {
+  // Each completion that starts with what is written before the cursor.
+  repeated Completion items = 1;
+}
+
+// What a completion is.
+enum CompletionKind {
+  COMPLETION_KIND_UNSPECIFIED = 0;
+  COMPLETION_KIND_KEY = 1;
+  COMPLETION_KIND_VALUE = 2;
+  COMPLETION_KIND_REFERENCE = 3;
+  COMPLETION_KIND_VAR = 4;
+  COMPLETION_KIND_MATCHER = 5;
+}
+
+message Completion {
+  // The text it writes.
+  string label = 1;
+  CompletionKind kind = 2;
+  // A short note: a key's type, where a var is set (never its value), "api" or "test".
+  string detail = 3;
+  // A key's docs.
+  string doc = 4;
+}
+
+// A cursor, as `CompleteRequest`, under the profiles and sets an explained reference uses.
+message HoverRequest {
+  string path = 1;
+  string text = 2;
+  uint32 offset = 3;
+  repeated string profiles = 4;
+  repeated string sets = 5;
+}
+
+message HoverResponse {
+  // The key's docs as Markdown, then the reference its value names explained, masked; unset
+  // when the cursor is on no declared key.
+  optional string markdown = 1;
+}
+
+message CreateFileRequest {
+  // `api`, `test` or `load`; anything else is `invalid_argument`.
+  string kind = 1;
+  // The file ID, such as `users` (a new service's api file) or `users.crud`.
+  string id = 2;
+  // Write the file; a preview when false.
+  bool write = 3;
+  // The digest the preview gave; a write is aborted when the project changed since, or without it.
+  optional string expected_digest = 4;
+}
+
+message CreateFileResponse {
+  repeated FileChange files = 1;
+  repeated string titles = 2;
+  // The digest of the files as previewed, which the write passes back.
+  string digest = 3;
+  // The new file's path, relative to the project root.
+  string path = 4;
+}
+
+message RenameRequest {
+  // A full ID (`users#list`), a file ID (`users.crud`) or `var.`, `auth.` or `dataset.` and a name.
+  string from = 1;
+  string to = 2;
+  // Write the files; a preview when false.
+  bool write = 3;
+  // The digest the preview gave; a write is aborted when a file changed since, or without it.
+  optional string expected_digest = 4;
+}
+
+message RenameResponse {
+  // Every file the rename changes, references included; a moved file names `moved_from`.
+  repeated FileChange files = 1;
+  repeated string titles = 2;
+  string digest = 3;
+}
+
+message FormatRequest {
+  // The config or an api, test or load file the editor opens.
+  string path = 1;
+  // The editor's text, saved or not.
+  string text = 2;
+  // Drop the one-line comments `vc new` wrote, as `vc fmt --strip-comments` does.
+  bool strip_comments = 3;
+}
+
+message FormatResponse {
+  // The text in the house style, for the editor to put in place unsaved.
+  string text = 1;
+  // Whether it differs from the request's text.
+  bool changed = 2;
+}
+
+message FileReferencesRequest {
+  // An api, test or load file.
+  string path = 1;
+}
+
+// One `call:` or `test:` in another file naming an item of the file asked about.
+message FileReference {
+  string path = 1;
+  // From 1.
+  uint32 line = 2;
+  // The full ID of the test, api or action that holds it, or its top-level key (`beforeRun`).
+  string from = 3;
+  // The item it names, by full ID.
+  string target = 4;
+}
+
+message FileReferencesResponse {
+  repeated FileReference references = 1;
+  // Definition files that do not parse, so were not searched.
+  repeated string unread = 2;
+}
+
+message TrashFileRequest {
+  // An api, test or load file; never the config or `.env.schema`.
+  string path = 1;
+  // The digest `ReadFile` gave; the file is not moved when it changed since.
+  string expected_digest = 2;
+}
+
+message TrashFileResponse {
+  // Where it went, as the system names it; empty when the system does not say.
+  string trashed_to = 1;
 }
 
 // A header an api is sent with that it does not write itself.
@@ -604,12 +1181,15 @@ message UnskipResponse {
 message ListRunsRequest {
   // At most this many; all when 0.
   uint32 limit = 1;
-  // Only runs of this kind (`run`, `load`), the limit counted among them; every kind when absent.
+  // Only runs of this kind (`run`, `load`, `adhoc` for the calls the History lists), the limit
+  // counted among them; every kind when absent (D542).
   optional string kind = 2;
   // Only runs under this profile; every profile when absent.
   optional string profile = 3;
   // Only runs on this git branch; every branch when absent.
   optional string branch = 4;
+  // Only runs this schedule started, by its `id`; every run when absent (D704).
+  optional string schedule = 5;
 }
 
 message ListRunsResponse {
@@ -624,6 +1204,91 @@ message GetRunRequest {
 message GetRunResponse {
   vibranium.results.v1.Run run = 1;
   repeated vibranium.results.v1.Test tests = 2;
+}
+
+message CompareRunsRequest {
+  // The earlier run's number; the last run when 0.
+  uint64 a = 1;
+  // The later run's number; the last run when 0.
+  uint64 b = 2;
+  // How much longer a test must take in `b` to count as slower, and shorter to count as faster,
+  // as a share of its time in `a`: 0.2 for 20%, the default when 0. A negative share is refused.
+  double slower_threshold = 3;
+}
+
+// One test instance of the later run, with how it did in the earlier.
+message TestChange {
+  string test_id = 1;
+  // The instance as `GetRun` labels it: `users.crud#rejectsBadEmail [row 2]`.
+  string label = 2;
+  // Unspecified when the earlier run did not run it.
+  vibranium.results.v1.TestStatus before = 3;
+  vibranium.results.v1.TestStatus after = 4;
+  // Absent when the earlier run did not run it.
+  optional double before_ms = 5;
+  double after_ms = 6;
+}
+
+// A response path whose JSON types changed.
+message Retyped {
+  string path = 1;
+  // The types, `|`-joined: `number|null`.
+  string before = 2;
+  string after = 3;
+}
+
+// How one api's JSON responses with one status changed shape. Paths are JSON Pointers, `*` for
+// any array element, and only paths and types are compared, never values. Only the bodies the
+// runs kept count (by default those of failed tests), and an api and status count only when
+// both runs kept a whole JSON body for them.
+message ShapeChange {
+  string api_id = 1;
+  uint32 status = 2;
+  repeated string added = 3;
+  repeated string removed = 4;
+  repeated Retyped retyped = 5;
+}
+
+message CompareRunsResponse {
+  // The two runs' numbers.
+  uint64 a = 1;
+  uint64 b = 2;
+  // Failed in `b`, and neither failed nor blocked in `a` (or not run there).
+  repeated TestChange newly_failing = 3;
+  // Blocked in `b`, and neither failed nor blocked in `a`.
+  repeated TestChange newly_blocked = 4;
+  // Failed or blocked in `a`, and passed or flaky in `b`.
+  repeated TestChange fixed = 5;
+  // Failed or blocked in both.
+  repeated TestChange still_failing = 6;
+  // Ran in both and took longer by more than the threshold, then shorter.
+  repeated TestChange slower = 7;
+  repeated TestChange faster = 8;
+  repeated ShapeChange shapes = 9;
+}
+
+message TestHistoryRequest {
+  // The test's full ID: `users.crud#listsUsers`.
+  string test = 1;
+  // Over this many of the newest test runs: 20 when 0, at most 100.
+  uint32 limit = 2;
+}
+
+// How the test did in one run.
+message TestRunResult {
+  vibranium.results.v1.Run run = 1;
+  // The worst way an instance ended (failed, blocked, allowed failure, flaky, passed, skipped);
+  // unspecified when the run did not run the test.
+  vibranium.results.v1.TestStatus status = 2;
+  // The instances' time together.
+  double duration_ms = 3;
+  // Each example row and repeat, with checks and without exchanges; `GetRun` has those.
+  repeated vibranium.results.v1.Test instances = 4;
+}
+
+message TestHistoryResponse {
+  // Newest first.
+  repeated TestRunResult runs = 1;
 }
 
 message TrendsRequest {
@@ -788,4 +1453,344 @@ message ConnectionResponse {
   string mcp_url = 1;
   // The bearer token `/mcp` accepts, and nothing else does.
   string agent_token = 2;
+}
+
+message VcsStatusRequest {}
+
+// How a file changed since the last commit, staged or not.
+enum VcsChange {
+  VCS_CHANGE_UNSPECIFIED = 0;
+  VCS_CHANGE_ADDED = 1;
+  VCS_CHANGE_MODIFIED = 2;
+  VCS_CHANGE_DELETED = 3;
+  // New and not yet added; not ignored.
+  VCS_CHANGE_UNTRACKED = 4;
+  // Left with merge conflicts.
+  VCS_CHANGE_CONFLICTED = 5;
+}
+
+message VcsFile {
+  // Relative to the project root.
+  string path = 1;
+  VcsChange change = 2;
+  // Lines added since the last commit; every line of an untracked file.
+  uint32 added = 3;
+  uint32 removed = 4;
+  // A binary file has no line counts.
+  bool binary = 5;
+}
+
+message VcsStatusResponse {
+  // The checked-out branch; empty when `HEAD` is detached.
+  string branch = 1;
+  // The branch it tracks, `origin/main`; empty when it tracks none.
+  string upstream = 2;
+  // Commits the upstream lacks.
+  uint32 ahead = 3;
+  // Commits the branch lacks.
+  uint32 behind = 4;
+  // By path.
+  repeated VcsFile files = 5;
+}
+
+message VcsDiffRequest {
+  // Relative to the project root.
+  string path = 1;
+}
+
+message VcsDiffResponse {
+  // Empty when the file did not change or is ignored.
+  string diff = 1;
+}
+
+message VcsCommitRequest {
+  // Relative to the project root; at least one.
+  repeated string paths = 1;
+  // Not blank.
+  string message = 2;
+}
+
+message VcsCommitResponse {
+  // The new commit's short ID.
+  string commit = 1;
+}
+
+message VcsPushRequest {}
+
+message VcsPushResponse {
+  // What git said, masked.
+  string output = 1;
+}
+
+message VcsPullRequest {}
+
+message VcsPullResponse {
+  // What git said, masked.
+  string output = 1;
+}
+
+message ListSchedulesRequest {}
+
+message ListSchedulesResponse {
+  repeated ScheduleListing schedules = 1;
+}
+
+// One schedule as the config has it.
+message Schedule {
+  // camelCase, unique among the config's schedules.
+  string id = 1;
+  optional string name = 2;
+  // Five fields in UTC: minute, hour, day of the month, month, day of the week.
+  string cron = 3;
+  // What runs, as `vc run`'s selector words; every test when empty.
+  repeated string selector = 4;
+  repeated string profiles = 5;
+  // Where a failed or blocked scheduled run is sent.
+  repeated NotifyChannel notify = 6;
+  // `vcServer` (the default) or `githubActions`.
+  string runner = 7;
+  bool enabled = 8;
+}
+
+// One `notify` entry: a channel kind (`slack`, `webhook`, ...) and its settings as written, in
+// written order, templates and all; a secret is a `${secret.NAME}` reference, never its value.
+message NotifyChannel {
+  string kind = 1;
+  repeated NotifySetting settings = 2;
+}
+
+message NotifySetting {
+  string key = 1;
+  string value = 2;
+}
+
+message ScheduleListing {
+  Schedule schedule = 1;
+  // When it next fires, in milliseconds since the Unix epoch; absent when it is disabled, runs
+  // on GitHub Actions or its cron matches no day.
+  optional uint64 next_ms = 2;
+  // Its newest run in the history.
+  optional vibranium.results.v1.Run last = 3;
+}
+
+message WriteScheduleRequest {
+  // The schedule to add, or to put in place of the one with its `id`.
+  optional Schedule schedule = 1;
+  // The `id` of a schedule to remove; with `schedule` unset.
+  optional string remove = 2;
+  // Write the config; a preview when false.
+  bool write = 3;
+  // The digest the preview gave; a write is aborted when the config changed since, or without it.
+  optional string expected_digest = 4;
+}
+
+message WriteScheduleResponse {
+  repeated FileChange files = 1;
+  repeated string titles = 2;
+  // The digest of the files as previewed, which the write passes back.
+  string digest = 3;
+}
+
+message ExportScheduleRequest {
+  // The schedule's `id`.
+  string id = 1;
+  // Write the workflow; a preview when false.
+  bool write = 2;
+  // The digest the preview gave; a write is aborted when the project changed since, or without it.
+  optional string expected_digest = 3;
+}
+
+message ExportScheduleResponse {
+  repeated FileChange files = 1;
+  repeated string titles = 2;
+  string digest = 3;
+  // The workflow's path, relative to the project root.
+  string path = 4;
+}
+
+message ReadUserSettingsRequest {}
+
+message ReadUserSettingsResponse {
+  // Where the user config is, with the home folder as `~`.
+  string path = 1;
+  // The file's digest, which a write passes back; `new` when there is no file yet.
+  string digest = 2;
+  repeated UserSetting settings = 3;
+}
+
+message UserSetting {
+  // The dotted key, such as `defaults.timeout` or `vars.userId`.
+  string key = 1;
+  // The value as written, masked; a list joined with `,`.
+  string value = 2;
+  // Whether this project's config sets the key, so the user's value does not count here.
+  bool shadowed = 3;
+}
+
+// One setting to change: `profile`, a `defaults.*` or `reports.*` key `--set` takes, or
+// `vars.<name>`.
+message UserSettingEdit {
+  string key = 1;
+  // The value as `--set` writes it, a list joined with `,`; unset removes the key.
+  optional string value = 2;
+}
+
+message WriteUserSettingsRequest {
+  repeated UserSettingEdit edits = 1;
+  // Write the file; a preview when false.
+  bool write = 2;
+  // The digest the preview gave; a write is aborted when the file changed since, or without it.
+  optional string expected_digest = 3;
+}
+
+message WriteUserSettingsResponse {
+  // Where the user config is, with the home folder as `~`.
+  string path = 1;
+  // The text before, masked; unset when there was no file.
+  optional string before = 2;
+  // The text after, masked.
+  string after = 3;
+  // The digest to write with: the file's when previewed, the new one once written.
+  string digest = 4;
+}
+
+message TestAlertRequest {
+  repeated string profiles = 1;
+  // `--set` values over the server's.
+  repeated string sets = 2;
+}
+
+message TestAlertResponse {
+  // One per channel, in written order; empty when no rule matches the profiles.
+  repeated AlertSent sent = 1;
+}
+
+message AlertSent {
+  // The rule's place in `alerts`, counting from 1.
+  uint32 rule = 1;
+  // The channel's kind: `slack`, `webhook`, ...
+  string channel = 2;
+  // Why it was not sent; never a URL or a key.
+  optional string error = 3;
+}
+
+message PluginListRequest {}
+
+message PluginListResponse {
+  repeated PluginListing plugins = 1;
+}
+
+message PluginListing {
+  string id = 1;
+  // The config's source, else the lock's.
+  string source = 2;
+  // The installed manifest; unset when it is not installed here.
+  optional PluginManifest manifest = 3;
+  // What `vibranium.lock` lets it reach; empty when it is not approved.
+  PluginPermissions granted = 4;
+  // `ready`, `notInstalled`, `notApproved`, `asksForMore`, `notInConfig`, `changed` or `noEntry`.
+  string state = 5;
+  // `ready`, or what is wrong and how to fix it, as `vc plugin list` says it.
+  string detail = 6;
+}
+
+message PluginManifest {
+  string id = 1;
+  string version = 2;
+  // `auth`, `reporter`, ...
+  string kind = 3;
+  // The entry program and its arguments.
+  string command = 4;
+  repeated string args = 5;
+  // What it asks to reach.
+  PluginPermissions permissions = 6;
+}
+
+message PluginPermissions {
+  // Hosts it may call.
+  repeated string network = 1;
+  // Secrets it may read.
+  repeated string secrets = 2;
+  // Project files it may read.
+  repeated string files = 3;
+}
+
+message PluginAddRequest {
+  // `npm:<package>[@<range>]`, a registry package only, or `path:<folder>`, a folder inside the
+  // project (V5132).
+  string source = 1;
+  bool write = 2;
+  // The preview's digest; required when `write` is set.
+  optional string expected_digest = 3;
+}
+
+message PluginAddResponse {
+  // The fetched manifest, with what it asks to reach.
+  PluginManifest manifest = 1;
+  // What the source resolved to, and a hash of what was fetched.
+  string resolved = 2;
+  string integrity = 3;
+  // What a run will trip over unless it is fixed.
+  repeated string warnings = 4;
+  repeated FileChange files = 5;
+  repeated string titles = 6;
+  // The digest of the changes as previewed, which the write passes back.
+  string digest = 7;
+}
+
+message PluginRemoveRequest {
+  // The plugin's ID, as `PluginList` names it.
+  string id = 1;
+  bool write = 2;
+  // The preview's digest; required when `write` is set.
+  optional string expected_digest = 3;
+}
+
+message PluginRemoveResponse {
+  repeated FileChange files = 1;
+  repeated string titles = 2;
+  // The digest of the changes as previewed, which the write passes back.
+  string digest = 3;
+}
+
+message InitRequest {
+  // The project's name; the folder's when absent. At most 64 characters, on one line.
+  optional string name = 1;
+  // The first service, a lower-case word such as `users`, given `services/<service>/<service>.api.yaml`.
+  optional string service = 2;
+  // The `baseUrl` var the first service calls: an http or https URL with no user or password.
+  optional string base_url = 3;
+  // The default profile's ID, a lower-case word; `default` when absent.
+  optional string profile = 4;
+  // With `vc init`'s sample api and test files.
+  bool sample = 5;
+  bool write = 6;
+  // The preview's digest; required when `write` is set.
+  optional string expected_digest = 7;
+}
+
+message InitResponse {
+  repeated FileChange files = 1;
+  repeated string titles = 2;
+  // The digest of the changes as previewed, which the write passes back.
+  string digest = 3;
+  // The folder the files go in, with the home folder as `~`.
+  string root = 4;
+}
+
+message DemoRequest {
+  bool write = 1;
+  // The preview's digest; required when `write` is set.
+  optional string expected_digest = 2;
+}
+
+message DemoResponse {
+  // The demo project's files; none when its sample is in the folder already.
+  InitResponse project = 1;
+  // Whether `vc demo`'s service answers at `url`.
+  bool running = 2;
+  // Where the sample calls the demo service.
+  string url = 3;
+  // The command that starts it, which the UI shows to copy.
+  string start = 4;
 }

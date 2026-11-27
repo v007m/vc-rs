@@ -27,7 +27,7 @@ fn run(id: u64, totals: Totals, took: u64) -> RunRow {
         ..RunStart::default()
     };
     let status = if totals.failed + totals.blocked == 0 { RunStatus::Passed } else { RunStatus::Failed };
-    RunRow { id: RunId::new(id), start, finished_ms: Some(started_ms + took), status: Some(status), totals }
+    RunRow { id: RunId::new(id), start, finished_ms: Some(started_ms + took), status: Some(status), totals, call: None }
 }
 
 const fn totals(passed: usize, failed: usize, blocked: usize, flaky: usize) -> Totals {

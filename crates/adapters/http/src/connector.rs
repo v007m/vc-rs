@@ -12,6 +12,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tower_service::Service;
 
+use crate::Connections;
 use crate::error::ConnectError;
 use crate::stream::{Conn, ConnectRecord, Stream};
 use crate::{HttpAdapterError, tls};
@@ -25,11 +26,12 @@ const MAX_TUNNEL_REPLY: usize = 8 * 1024;
 pub struct TimedConnector {
     tls: Arc<ClientConfig>,
     proxy: Arc<Matcher>,
+    connections: Connections,
 }
 
 impl TimedConnector {
-    pub const fn new(tls: Arc<ClientConfig>, proxy: Arc<Matcher>) -> Self {
-        Self { tls, proxy }
+    pub const fn new(tls: Arc<ClientConfig>, proxy: Arc<Matcher>, connections: Connections) -> Self {
+        Self { tls, proxy, connections }
     }
 
     async fn connect(self, dst: Uri) -> Result<Conn, ConnectError> {
@@ -40,8 +42,9 @@ impl TimedConnector {
             None => target.clone(),
         };
         let (mut tcp, mut record) = open(&hop).await?;
+        let counted = self.connections.open();
         if !target.tls {
-            return Ok(Conn::new(Stream::Plain(tcp), record, proxy.is_some()));
+            return Ok(Conn::new(Stream::Plain(tcp), record, proxy.is_some()).counted(counted));
         }
         if let Some(found) = &proxy {
             let started = Instant::now();
@@ -51,7 +54,7 @@ impl TimedConnector {
         let started = Instant::now();
         let stream = tls::handshake(self.tls, tcp, &target.host).await?;
         record.tls = Some(started.elapsed());
-        Ok(Conn::new(Stream::Tls(Box::new(stream)), record, false))
+        Ok(Conn::new(Stream::Tls(Box::new(stream)), record, false).counted(counted))
     }
 }
 

@@ -1,0 +1,107 @@
+/* ==========================================================================
+   Vibranium UI v2 · runs-load.css: one load run in the Runs space (rl-), imported by
+   shared.css. Chart and KPI rules started as a copy of Tests › Load (ld-) in tests.css.
+   Every plot is a flex child sized by its card; the SVG sits absolute inside it and is
+   redrawn at the measured size, so charts fill their cards with no feedback loop.
+   ========================================================================== */
+.rl-page { display: flex; flex-direction: column; gap: var(--card-gap); min-width: 0; min-height: 100%; padding-bottom: var(--sp-2); }
+.rl-head { flex: none; }
+.rl-head .card-head { flex-wrap: wrap; row-gap: var(--sp-2); }
+.rl-head .card-title { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
+.rl-step { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2); margin: 0; font-size: var(--fs-1); }
+.rl-prog.is-stopping { opacity: 0.6; }
+.rl-page > .callout { margin: 0; align-items: center; flex-wrap: wrap; }
+.rl-now { display: flex; flex-direction: column; gap: var(--sp-4); padding: var(--card-pad); min-width: 0; }
+.rl-kpis { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--card-gap); }
+.rl-kpi { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.rl-kl { font-size: var(--fs-1); color: var(--ink-2); }
+.rl-kpi b { font-size: var(--fs-5); font-weight: var(--fw-semibold); color: var(--ink); line-height: 1.2; }
+.rl-ks { font-size: var(--fs-1); color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rl-kpi.is-bad b { color: var(--st-fail-ink); }
+.rl-kpi.is-bad .rl-kl::before { content: "✕ "; color: var(--st-fail-ink); }
+.rl-prog { flex: none; }
+.rl-charts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--card-gap); min-width: 0; }
+.rl-chart { margin: 0; display: flex; flex-direction: column; min-width: 0; padding-bottom: var(--card-pad); }
+.rl-chart > :not(.card-head) { margin-inline: var(--card-pad); }
+.rl-legend { list-style: none; margin: 0 0 4px; padding: 0; display: flex; flex-wrap: wrap; gap: 4px var(--sp-3); font-size: var(--fs-1); color: var(--ink-2); }
+.rl-legend li { display: inline-flex; align-items: center; gap: 6px; }
+.rl-sw { display: inline-block; width: 14px; height: 3px; border-radius: 2px; background: var(--ink-3); }
+/* p50 / p95 / p99: one desaturated ramp, told apart by dash as well as lightness */
+.rl-sw.s-p50 { height: 0; background: transparent; border-top: 2px dotted var(--lt-p50); }
+.rl-sw.s-p95 { height: 0; background: transparent; border-top: 2px dashed var(--lt-p95); }
+.rl-sw.s-p99 { background: var(--lt-p99); }
+.rl-sw.s-one { background: var(--lt-p95); }
+.rl-sw.is-th { height: 0; border-top: 2px dashed var(--ink-2); background: transparent; }
+.rl-plot { position: relative; min-width: 0; border-radius: var(--r-sm); }
+.rl-plot:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.rl-svg { display: block; max-width: 100%; height: auto; overflow: visible; font-family: var(--sans, inherit); }
+.rl-svg.is-fluid { width: 100%; }
+.rl-grid { stroke: var(--rule); stroke-width: 1; }
+.rl-base { stroke: var(--ink-3); stroke-width: 1; }
+.rl-ax { fill: var(--ink-3); font-size: 10.5px; font-variant-numeric: tabular-nums; }
+.rl-ax.is-name { fill: var(--ink-2); font-size: 11.5px; font-family: var(--mono); }
+.rl-band { fill: var(--st-fail-soft); opacity: 0.7; }
+.rl-band.is-warn { fill: var(--st-blocked-soft); }
+.rl-th { stroke: var(--ink-2); stroke-width: 1.5; stroke-dasharray: 5 4; }
+.rl-thl { fill: var(--ink-2); font-size: 10.5px; font-weight: var(--fw-medium); paint-order: stroke; stroke: var(--l1-solid); stroke-width: 3px; }
+.rl-line { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.rl-line.s-p50 { stroke: var(--lt-p50); stroke-dasharray: 1 4; }
+.rl-line.s-p95 { stroke: var(--lt-p95); stroke-dasharray: 6 3; }
+.rl-line.s-one { stroke: var(--lt-p95); }   /* a single-series chart stays solid */
+.rl-line.s-p99 { stroke: var(--lt-p99); }
+.rl-dot { stroke: var(--l1-solid); stroke-width: 2; }
+.rl-dot.s-p50 { fill: var(--lt-p50); }
+.rl-dot.s-p95 { fill: var(--lt-p95); }
+.rl-dot.s-p99 { fill: var(--lt-p99); }
+.rl-dot.s-one { fill: var(--lt-p95); }
+.rl-breach { fill: var(--st-fail); stroke: var(--l1-solid); stroke-width: 2; }
+.rl-bl { fill: var(--st-fail-ink); font-size: 10.5px; font-weight: var(--fw-semibold); paint-order: stroke; stroke: var(--l1-solid); stroke-width: 3px; }
+.rl-end { fill: var(--ink-2); font-size: 10.5px; font-variant-numeric: tabular-nums; }
+.rl-xline { stroke: var(--ink-3); stroke-width: 1; }
+.rl-hit { fill: transparent; cursor: crosshair; }
+.rl-area { fill: color-mix(in oklab, var(--lt-p95) 18%, transparent); }
+.rl-tip {
+  --tx: 0px;
+  position: absolute; top: 8px; left: var(--tx); z-index: 3;
+  display: none; flex-direction: column; gap: 2px;
+  min-width: 150px; padding: 6px var(--sp-2);
+  border-radius: var(--r-md); font-size: var(--fs-1); pointer-events: none;
+}
+.rl-tip.is-left { transform: translateX(-100%); }
+.rl-plot.is-hover .rl-tip, .rl-plot:focus-visible .rl-tip { display: flex; }
+.rl-tip > b { color: var(--ink); font-weight: var(--fw-semibold); }
+.rl-tr { display: flex; align-items: center; gap: 6px; color: var(--ink-2); }
+.rl-tr b { margin-left: auto; color: var(--ink); }
+.rl-over { display: inline-flex; align-items: center; gap: 2px; color: var(--st-fail-ink); font-weight: var(--fw-semibold); }
+.rl-tbl { max-height: 260px; }
+.rl-bad { color: var(--st-fail-ink); font-weight: var(--fw-semibold); }
+.rl-cap { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: var(--sp-2); font-size: var(--fs-1); color: var(--ink-2); }
+.rl-hosts { display: flex; flex-direction: column; min-width: 0; }
+.rl-hosts tr.is-warn :is(th, td) { color: var(--st-blocked); }   /* R6: state is ink, not a row fill */
+.rl-spark { display: block; width: 96px; height: 22px; overflow: visible; }
+.rl-spark .rl-line { stroke-width: 1.5; }
+.rl-hosts .callout { margin-top: var(--sp-2); }
+.rl-bar rect { fill: var(--lt-p95); }
+.rl-bar.is-over rect { fill: var(--st-fail); }
+.rl-bar:hover rect, .rl-bar:focus rect { opacity: 0.8; }
+.rl-bar:focus { outline: none; }
+.rl-bar:focus-visible rect { stroke: var(--focus); stroke-width: 2; }
+.rl-bv { fill: var(--ink); font-size: 10.5px; font-weight: var(--fw-semibold); opacity: 0; }
+.rl-bar:hover .rl-bv, .rl-bar:focus .rl-bv { opacity: 1; }
+.rl-hbar rect { fill: var(--lt-p50); }
+.rl-hbar.is-cur rect { fill: var(--lt-p95); }
+.rl-hbar.is-cur .rl-ax.is-name { fill: var(--ink); font-weight: var(--fw-semibold); }
+.rl-charts { flex: 1 1 auto; grid-auto-rows: minmax(300px, 1fr); }
+.rl-chart { flex: 1 1 auto; }
+.rl-plot { flex: 1 1 auto; min-height: 200px; }
+.rl-plot > .rl-svg { position: absolute; inset: 0; width: 100%; height: 100%; max-width: none; }
+.rl-hosts .card-body { flex-direction: column; }
+.rl-tbl { flex: 1 1 auto; max-height: none; min-height: 200px; }
+
+@container app (max-width: 1100px) {
+  .rl-charts { grid-template-columns: minmax(0, 1fr); grid-auto-rows: minmax(280px, auto); }
+}
+@container app (max-width: 759px) {
+  .rl-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .rl-charts { grid-auto-rows: minmax(240px, auto); }
+}

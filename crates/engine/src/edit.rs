@@ -2,9 +2,10 @@
 //! a change that would add an error `vc check` reports is refused, so nothing is written.
 
 use vc_diagnostics::{Diagnostic, Diagnostics};
-use vc_interfaces::{SourceError, SourceWriter};
+use vc_interfaces::{SourceError, SourceWriter, content_hash};
 use vc_model::{SourceFile, SourceFiles, SourcePath, schema_names};
 
+use crate::editor_files::hex;
 use crate::project::sources_error;
 use crate::snapshot_guard::is_snapshot;
 use crate::{Engine, EngineError};
@@ -71,7 +72,7 @@ impl Engine {
 
     /// Writes each file of `changes`, every one only while it is the text the change was made
     /// from when `every` is set, else only a spec snapshot.
-    fn write_each(&self, changes: &Changes, every: bool) -> Result<(), EngineError> {
+    pub(crate) fn write_each(&self, changes: &Changes, every: bool) -> Result<(), EngineError> {
         let writer = self.writer.as_ref().ok_or_else(|| internal("this engine has no folder to write into"))?;
         for change in &changes.files {
             let path = SourcePath::new(&change.path).map_err(internal)?;
@@ -237,6 +238,24 @@ pub fn internal(error: impl std::fmt::Display) -> EngineError {
 }
 
 /// The error for a file that changed since a preview of a change to it.
+/// The digest of `changes` themselves: each file's path, text before (or none) and text after,
+/// so a write made from fresh changes goes ahead only when they are the ones a preview showed.
+pub fn changes_digest(changes: &Changes) -> String {
+    let mut text = String::new();
+    for change in &changes.files {
+        for part in [change.path.as_str(), change.before.as_deref().unwrap_or("\0new"), change.after.as_str()] {
+            text.push_str(part);
+            text.push('\0');
+        }
+    }
+    hex(content_hash(text.as_bytes()).as_bytes())
+}
+
+/// Refuses a write as stale, with `reason`, unless its `expected` digest is `digest`.
+pub fn stale_unless(expected: &str, digest: &str, reason: &str) -> Result<(), EngineError> {
+    if expected == digest { Ok(()) } else { Err(EngineError::Stale { reason: reason.to_owned() }) }
+}
+
 fn changed(path: &str) -> EngineError {
     EngineError::Stale { reason: format!("{path}: changed since the preview; nothing was written") }
 }

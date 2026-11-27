@@ -65,6 +65,27 @@ impl Engine {
     }
 }
 
+impl Engine {
+    /// The editor's `text` for the definition file at `path` in the house style, as `vc fmt`
+    /// would write it, without writing it: the editor replaces its unsaved text, so Revert undoes
+    /// it (D575, D684). The text need not be saved, nor the project compile.
+    ///
+    /// # Errors
+    ///
+    /// [`EngineError::Edit`] when the editor does not open `path` (as [`Engine::read_file`]),
+    /// or the text does not parse or cannot be formatted without changing what it says.
+    pub fn format_text(&self, path: &str, text: &str, strip_comments: bool) -> Result<String, EngineError> {
+        let path = self.editor_path(path)?;
+        let kind = FileKind::from_path(&path).ok_or_else(|| internal(format!("{path} has no kind")))?;
+        let shown = path.to_string();
+        let file = source_file(path, text.as_bytes().to_vec()).map_err(internal)?;
+        let opened = Authoring::open((SourceFileId::new(0), &file))?;
+        opened.document.format(&HouseStyle { kind, strip: strip_comments }).map_err(|error| {
+            refused(format!("{shown}: {error}"), "format it by hand, or move the comment out of the `[..]` or `{..}`")
+        })
+    }
+}
+
 /// `text`, a new file at `path` of kind `kind`, in the house style.
 pub fn house_style(path: SourcePath, kind: FileKind, text: &str) -> Result<String, EngineError> {
     let file = source_file(path, text.as_bytes().to_vec()).map_err(internal)?;

@@ -30,9 +30,9 @@
   }
   function reqPanel() {
     switch (S.gqTab) {
-      case 'query': return `<div class="gql-editor"><pre class="code glass-dense" aria-label="Query" tabindex="0">${numbered(hlGql(G.query))}</pre></div>
-        <div class="row"><span class="subtle">operationName: ProductById · from catalog.api.yaml:10 · ⌃Space completes from the schema</span></div>`;
-      case 'variables': return `<pre class="code glass-dense" aria-label="Variables" tabindex="0">${numbered(hlJson(G.variables))}</pre>
+      case 'query': return `<div class="gql-editor well"><pre class="code" aria-label="Query" tabindex="0">${numbered(hlGql(G.query))}</pre>
+        <div class="editor-foot" title="operationName: ProductById · from catalog.api.yaml:10"><span><kbd class="kbd">⌃</kbd><kbd class="kbd">Space</kbd> completes from the schema</span><span class="grow"></span><span class="mono">ProductById</span></div></div>`;
+      case 'variables': return `<pre class="code glass-dense code-fill" aria-label="Variables" tabindex="0">${numbered(hlJson(G.variables))}</pre>
         ${layers({ inherited: [{ k: 'id', v: '${productId}', src: 'api', at: 'catalog.api.yaml:14' }], own: [{ k: 'withCost', v: 'true' }] }, 'gvars')}`;
       case 'schema': return schemaPanel();
       case 'headers': return layers({ inherited: [{ k: 'authorization', v: 'Bearer ••••', src: 'profile', at: 'auth: shopAuth' }, { k: 'x-client', v: 'vibranium', src: 'config', at: 'vibranium.config.yaml:11' }], own: [] }, 'gheaders');
@@ -44,11 +44,11 @@
   function errorsPanel() {
     const e = G.data.errors[0];
     return `${S.gqlErrorsAdded ? `<p class="callout" data-tone="ok">${ic('pass')}<span><b>Expected.</b> The FORBIDDEN error on product.costPrice is checked by <code>expect.errors</code>; V5128 no longer applies.</span></p>`
-      : `<p class="callout" data-tone="warn">${ic('warn')}<span><b>V5128 · partial data, and no errors check.</b> The response has <code>data</code> and one error. help: add <code>expect.errors</code> so a new error fails the test, or <code>errors: none</code> to forbid them. fix: the button below adds the error it saw.</span></p>`}
-      <div class="table-wrap glass-dense"><table class="table"><thead><tr><th scope="col">Code</th><th scope="col">Path</th><th scope="col">Message</th></tr></thead>
-      <tbody><tr><td><span class="chip">${esc(e.extensions.code)}</span></td><td class="err-path">${esc(e.path.join('.'))}</td><td>${esc(e.message)}<div class="subtle">requires ${esc(e.extensions.requires)}</div></td></tr></tbody></table></div>
-      <section class="layer"><div class="layer-head"><h3 class="section-label">errors[0] · raw</h3></div>${jsonTree(e, { root: 'errors[0]', sk: 'gql-err' })}</section>
-      ${S.gqlErrorsAdded ? '' : `<div class="row"><button class="btn" data-action="gql-add-errors" data-fk="gql-add-errors">${ic('plus')}Add expect.errors</button><span class="subtle">Shows the diff first</span></div>`}`;
+      : `<p class="callout" data-tone="warn">${ic('warn')}<span><b>Partial data, and no errors check</b> <span class="subtle">V5128</span><br>Add <code>expect.errors</code> so a new error fails the test.</span></p>`}
+      <div class="table-wrap gql-errors"><table class="table"><colgroup><col class="c-code"><col class="c-path"><col></colgroup><thead><tr><th scope="col">Code</th><th scope="col">Path</th><th scope="col">Message</th></tr></thead>
+      <tbody><tr><td><span class="chip">${esc(e.extensions.code)}</span></td><td class="err-path wrap">${esc(e.path.join('.'))}</td><td class="wrap">${esc(e.message)}<div class="subtle">requires ${esc(e.extensions.requires)}</div></td></tr></tbody></table></div>
+            ${S.gqlErrorsAdded ? '' : `<div class="row"><button class="btn" data-action="gql-add-errors" data-fk="gql-add-errors" title="Shows the diff first">${ic('plus')}Add expect.errors</button></div>`}
+      <details class="disc"><summary>${ic('chev-down', 'chev')}errors[0] as JSON</summary><div class="disc-body">${jsonTree(e, { root: 'errors[0]', sk: 'gql-err' })}</div></details>`;
   }
   function respPanel() {
     switch (S.gsTab) {
@@ -58,7 +58,7 @@
       case 'checks': return `<div class="table-wrap glass-dense"><table class="table"><thead><tr><th scope="col">Result</th><th scope="col">Check</th><th scope="col">Got</th><th scope="col">From</th></tr></thead><tbody>
         <tr><td>${badge('pass', null, true)}</td><td class="mono">status: 200</td><td class="mono">200</td><td>${chipSrc('api')}</td></tr>
         <tr><td>${badge('pass', null, true)}</td><td class="mono">data.product.id</td><td class="mono">"p_1042"</td><td>${chipSrc('api')}</td></tr>
-        <tr><td>${S.gqlErrorsAdded ? badge('pass', null, true) : badge('allow', 'warn', true)}</td><td class="mono">errors</td><td class="mono">1 error</td><td>${S.gqlErrorsAdded ? chipSrc('request') : '<span class="chip">V5128</span>'}</td></tr></tbody></table></div>`;
+        <tr><td>${S.gqlErrorsAdded ? badge('pass', null, true) : badge('allow', 'warn', true)}</td><td class="mono">errors</td><td class="mono">1 error</td><td>${S.gqlErrorsAdded ? chipSrc('request') : '<span class="subtle mono">V5128</span>'}</td></tr></tbody></table></div>`;
       default: return `<pre class="code glass-dense">${hlJson(G.data)}</pre>`;
     }
   }
@@ -69,20 +69,22 @@
     return `<div class="client">${VC.reqbar({ m: 'GQL', typeLabel: 'GraphQL', url: '${baseUrl}' + a.path })}
       <div class="split"${VC.splitAttrs()}>
         <section class="glass" aria-label="Operation">
-          <div class="card-head"><div class="req-name">${method('GQL')}<h2 class="card-title">${esc(a.name)}</h2><span class="file-ref hide-narrow">${esc(S.api)} · catalog.api.yaml:${a.line}</span></div>
-            <button class="btn btn-sm" data-action="toast" data-msg="Saved as test" data-sub="catalog.read#readsProduct updated">${ic('runs')}Save as test</button></div>
-          <div class="card-tabs">${VC.tabs('gq', 'Operation', [['query', 'Query'], ['variables', 'Variables', '<span class="count">2</span>'], ['schema', 'Schema'], ['headers', 'Headers', '<span class="count">2</span>'], ['expect', 'Expect']], S.gqTab, 'gq-tab')}</div>
+          <div class="card-head"><div class="req-name">${method('GQL')}${VC.titleEdit(a.name, 'edit-title', 'Rename operation', `Rename · ${S.api} in catalog.api.yaml:${a.line}`)}</div>
+            <button class="btn btn-sm" data-action="toast" data-msg="Saved as test" data-sub="catalog.read#readsProduct updated">${ic('runs')}Save as test</button>
+            ${VC.moreBtn('req-more', 'More operation actions')}</div>
+          <div class="card-tabs">${VC.tabs('gq', 'Operation', [['query', 'Query'], ['variables', 'Variables'], ['schema', 'Schema'], ['headers', 'Headers'], ['expect', 'Expect']], S.gqTab, 'gq-tab')}</div>
           ${VC.panel('gq', S.gqTab, reqPanel())}
         </section>
         ${VC.divider('Resize operation and response')}
         <section class="glass" aria-label="Response">
           <div class="card-head"><div class="resp-meta grow"><span class="hs" data-class="2">200</span><span class="stat">OK</span><span class="stat"><b>96</b> ms</span><span class="stat"><b>612 B</b></span>
-            ${S.gqlErrorsAdded ? badge('pass', 'errors expected', true) : badge('allow', 'partial data', true)}</div>${VC.orientToggle()}</div>
+            ${S.gqlErrorsAdded ? badge('pass', 'errors expected', true) : badge('allow', 'partial data', true)}</div>${VC.moreBtn('gql-resp-more', 'More response actions')}</div>
           <div class="card-tabs">${VC.tabs('gs', 'Response', [['data', 'Data'], ['errors', 'Errors', `<span class="count ${errs}">1</span>`], ['headers', 'Headers'], ['checks', 'Checks'], ['raw', 'Raw']], S.gsTab, 'gs-tab')}</div>
           ${VC.panel('gs', S.gsTab, respPanel())}
         </section>
       </div></div>`;
   }
+  A['gql-resp-more'] = (el) => VC.respMore(el, VC.menuItem('Copy response', 'toast', 'data-msg="Response copied" data-sub="612 B of JSON"', { ico: 'copy' }));
   A['gq-tab'] = (el) => { S.gqTab = el.dataset.v; VC.render(); };
   A['gs-tab'] = (el) => { S.gsTab = el.dataset.v; VC.render(); };
   A['gql-type'] = (el) => { S.schemaType = el.dataset.v; VC.render(); };
@@ -96,9 +98,10 @@
   });
 
   VC.screens['client-graphql'] = {
+    space: 'client',
     enter: ensure,
     crumbs: () => [D.project.name, 'catalog', VC.api().name],
-    status: () => `${ic('clock', 'ico-sm')} last sent <b>13:41</b> · <span class="hs" data-class="2">200</span> · 1 error`,
+    status: () => '',
     render,
     mount: (v) => VC.mountSplit(v),
     send: () => VC.toast('200 OK · 96 ms', S.gqlErrorsAdded ? 'data and 1 expected error' : 'Partial data: 1 error, V5128')

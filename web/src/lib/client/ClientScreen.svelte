@@ -1,35 +1,52 @@
 <script lang="ts">
   import { resolve } from '$app/paths';
   import type { RunSession } from '#lib/run/session.svelte.ts';
-  import GroupTree from '#lib/tree/GroupTree.svelte';
-  import { apiGroups } from './apis.ts';
+  import { getShellSlots } from '#lib/shell/slots.svelte.ts';
+  import ClientSidebar from './ClientSidebar.svelte';
+  import ClientTabStrip from './ClientTabStrip.svelte';
   import { FlowEditor } from './flow.svelte.ts';
   import FlowPanel from './FlowPanel.svelte';
   import HarDialog from './HarDialog.svelte';
   import { HarImport } from './har.svelte.ts';
+  import type { ClientLayout } from './layout.svelte.ts';
   import type { ClientPort } from './port.ts';
+  import RequestBar from './RequestBar.svelte';
   import RequestPanel from './RequestPanel.svelte';
   import ResponsePanel from './ResponsePanel.svelte';
   import SaveAsTest from './SaveAsTest.svelte';
+  import ScratchPanel from './ScratchPanel.svelte';
+  import type { HistorySource } from './seams.ts';
   import type { ClientSession } from './session.svelte.ts';
+  import Split from './Split.svelte';
+  import StreamPanel from './StreamPanel.svelte';
 
+  /**
+   * The Client space (ui.md §4): its sidebar and tab strip fill the shell's slots (D537); the
+   * stage holds the request bar over the request and response cards, or a flow test's editor.
+   */
   let {
     client,
     port,
     session,
+    layout,
+    history,
   }: {
     client: ClientSession;
     port: Pick<ClientPort, 'importHar' | 'readDefinition' | 'editFile'>;
     session: RunSession;
+    layout: ClientLayout;
+    history: HistorySource;
   } = $props();
 
   let mode: 'request' | 'flow' = $state('request');
-  let filter = $state('');
   let dialog: 'save' | 'har' | undefined = $state();
   let har: HarImport | undefined = $state();
   let said = $state('');
   let flow: FlowEditor | undefined = $state();
-  const groups = $derived(apiGroups(client.apis, filter));
+  const tab = $derived(client.tab);
+  const scratch = $derived(tab?.kind === 'scratch' ? tab : undefined);
+
+  $effect(() => getShellSlots().fill({ sidebar, top, bare: true }));
 
   function openHar(): void {
     har = new HarImport(port);
@@ -37,6 +54,8 @@
   }
 
   function edit(id: string): void {
+    mode = 'flow';
+    if (flow?.id === id) return;
     flow = new FlowEditor(port, id);
     void flow.load();
   }
@@ -47,80 +66,97 @@
   }
 </script>
 
-<div class="client">
-  <aside class="side" aria-label="Apis and flows">
-    <div class="seg" role="group" aria-label="Mode">
-      <button type="button" aria-pressed={mode === 'request'} onclick={() => (mode = 'request')}
-        >Request</button
-      >
-      <button type="button" aria-pressed={mode === 'flow'} onclick={() => (mode = 'flow')}
-        >Flow</button
-      >
-    </div>
-    <button type="button" class="btn sm" onclick={openHar}>Import HAR</button>
-    {#if mode === 'request'}
-      <input
-        class="input"
-        type="search"
-        aria-label="Filter apis"
-        placeholder="Filter apis"
-        bind:value={filter}
-      />
-      <GroupTree
-        label="Apis"
-        {groups}
-        current={client.current?.id}
-        onopen={(id) => void client.open(id)}
-      />
-      {#if groups.length === 0}
-        <p class="empty">{client.apis.length ? `No api matches “${filter}”.` : 'No apis yet.'}</p>
-      {/if}
-    {/if}
-  </aside>
+{#snippet sidebar()}
+  <ClientSidebar
+    {client}
+    {history}
+    flow={mode === 'flow' ? flow?.id : undefined}
+    onhar={openHar}
+    onapi={() => (mode = 'request')}
+    onflow={edit}
+  />
+{/snippet}
 
-  <div class="main">
-    {#if client.error && !dialog}
-      <p class="error" role="alert">{client.error}</p>
-    {/if}
-    {#if mode === 'request'}
-      <RequestPanel {client} onsaved={(what) => (said = what)} />
-      <ResponsePanel {client} onsave={() => (dialog = 'save')} />
-    {:else}
-      <section aria-labelledby="flows-title">
-        <h2 class="h2" id="flows-title">Flow tests</h2>
-        <p class="empty">
-          A flow is a test whose <code>steps</code> call apis in order, saving values between them.
-        </p>
-        <ul class="flows" aria-label="Flow tests">
-          {#each client.flows as listed (listed.id)}
-            <li>
-              <span class="grow"
-                ><span class="mono">{listed.id}</span> · {listed.name} · {listed.steps} steps</span
-              >
-              <button
-                type="button"
-                class="btn sm"
-                aria-label="Edit {listed.id}"
-                aria-pressed={flow?.id === listed.id}
-                onclick={() => edit(listed.id)}>Edit</button
-              >
-              <button
-                type="button"
-                class="btn sm"
-                aria-label="Run {listed.id}"
-                disabled={session.running || (flow?.id === listed.id && flow.dirty)}
-                onclick={() => session.start({ selection: { ids: [listed.id] } })}>Run</button
-              >
-            </li>
-          {:else}
-            <li class="empty">No flow tests yet. Import a HAR with a flow test to record one.</li>
-          {/each}
-        </ul>
-        {#if session.running}
-          <a href={resolve('/runs')}>See the running flow in Runs</a>
+{#snippet top()}
+  <ClientTabStrip {client} onpick={() => (mode = 'request')} />
+{/snippet}
+
+<h1 class="vc-sr">API client</h1>
+{#if client.error && !client.current && !dialog}
+  <p class="error" role="alert">{client.error}</p>
+{/if}
+{#if mode === 'request'}
+  <div class="client">
+    <RequestBar {client} {layout} />
+    <Split {layout}>
+      {#snippet first()}
+        {#if scratch}
+          <ScratchPanel tab={scratch} />
+        {:else}
+          <RequestPanel {client} onsaved={(what) => (said = what)} />
         {/if}
-      </section>
-      {#if flow}
+      {/snippet}
+      {#snippet second()}
+        {#if scratch && scratch.type !== 'http'}
+          <StreamPanel stream={scratch.stream} websocket={scratch.type === 'websocket'} />
+        {:else if scratch}
+          <ResponsePanel output={scratch.output} sending={scratch.sending} />
+        {:else}
+          <ResponsePanel
+            output={client.result?.output}
+            sending={client.sending}
+            oncheck={client.request ? (check) => client.request?.addCheck(check) : undefined}
+            onsave={client.call ? () => (dialog = 'save') : undefined}
+          />
+        {/if}
+      {/snippet}
+    </Split>
+  </div>
+{:else}
+  <div class="flows-view">
+    <section class="st-card st-card--glass flows-card" aria-labelledby="flows-title">
+      <div class="card-head">
+        <h2 class="card-title vc-grow" id="flows-title">Flow tests</h2>
+        <button type="button" class="st-btn st-btn--sm" onclick={() => (mode = 'request')}
+          >Back to requests</button
+        >
+      </div>
+      <p class="st-secondary pad">
+        A flow is a test whose <code>steps</code> call apis in order, saving values between them.
+      </p>
+      <ul class="flows pad" aria-label="Flow tests">
+        {#each client.flows as listed (listed.id)}
+          <li>
+            <span class="vc-grow"
+              ><span class="vc-mono">{listed.id}</span> · {listed.name} · {listed.steps} steps</span
+            >
+            <button
+              type="button"
+              class="st-btn st-btn--sm"
+              aria-label="Edit {listed.id}"
+              aria-pressed={flow?.id === listed.id}
+              onclick={() => edit(listed.id)}>Edit</button
+            >
+            <button
+              type="button"
+              class="st-btn st-btn--sm"
+              aria-label="Run {listed.id}"
+              disabled={session.running || (flow?.id === listed.id && flow.dirty)}
+              onclick={() => session.start({ selection: { ids: [listed.id] } })}>Run</button
+            >
+          </li>
+        {:else}
+          <li class="st-secondary">
+            No flow tests yet. Import a HAR with a flow test to record one.
+          </li>
+        {/each}
+      </ul>
+      {#if session.running}
+        <a class="pad" href={resolve('/runs')}>See the running flow in Runs</a>
+      {/if}
+    </section>
+    {#if flow}
+      <div class="st-card st-card--glass flow-card">
         <FlowPanel
           {flow}
           apis={client.apis}
@@ -129,11 +165,11 @@
             void client.load();
           }}
         />
-      {/if}
+      </div>
     {/if}
-    <p class="said" role="status">{said}</p>
   </div>
-</div>
+{/if}
+<p class="said" role="status">{said}</p>
 
 {#if dialog === 'save'}
   <SaveAsTest {client} onclose={() => (dialog = undefined)} onsaved={done} />
@@ -149,47 +185,39 @@
 {/if}
 
 <style>
-  .client {
-    display: grid;
-    grid-template-columns: minmax(220px, 280px) 1fr;
-    gap: 20px;
-    min-height: 0;
-  }
-  .side {
-    display: grid;
-    align-content: start;
-    gap: 10px;
-  }
-  .main {
-    display: grid;
-    align-content: start;
-    gap: 20px;
-    min-width: 0;
-  }
-  .empty {
-    color: var(--ink2);
-  }
   .error {
     margin: 0;
-    color: var(--fail);
+    color: var(--vc-fail-ink);
+  }
+  .said {
+    margin: 0;
+    color: var(--st-text-secondary);
+  }
+  .said:empty {
+    display: none;
+  }
+  .flows-view {
+    display: grid;
+    align-content: start;
+    gap: var(--st-space-16);
+    min-width: 0;
+    overflow: auto;
+  }
+  .flow-card {
+    padding: var(--st-card-padding);
+  }
+  .pad {
+    margin: 0;
+    padding: 0 var(--st-card-padding) var(--st-space-12);
   }
   .flows {
     display: grid;
-    gap: 6px;
-    padding: 0;
+    gap: var(--st-space-8);
     list-style: none;
   }
   .flows li {
     display: flex;
     align-items: center;
-    gap: 8px;
-  }
-  .said:empty {
-    display: none;
-  }
-  @media (width < 720px) {
-    .client {
-      grid-template-columns: 1fr;
-    }
+    gap: var(--st-space-8);
   }
 </style>

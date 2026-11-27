@@ -3,6 +3,7 @@
 
 use vc_model::Program;
 
+use crate::explain::CONFIG;
 use crate::{Engine, EngineError};
 
 /// The project at a glance.
@@ -19,6 +20,8 @@ pub struct ProjectInfo {
     pub auths: Vec<String>,
     /// This engine's version.
     pub vc_version: String,
+    /// Whether the root holds `vibranium.config.yaml`; without it the web UI offers onboarding.
+    pub configured: bool,
 }
 
 impl Engine {
@@ -31,8 +34,13 @@ impl Engine {
     pub fn project_info(&self) -> Result<ProjectInfo, EngineError> {
         let compiled = self.compiled()?;
         let folder = self.root().file_name().map(|name| name.to_string_lossy().into_owned()).unwrap_or_default();
-        let mut info =
-            ProjectInfo { name: folder, vc_version: env!("CARGO_PKG_VERSION").to_owned(), ..ProjectInfo::default() };
+        let configured = !self.existing(std::iter::once(CONFIG))?.is_empty();
+        let mut info = ProjectInfo {
+            name: folder,
+            vc_version: env!("CARGO_PKG_VERSION").to_owned(),
+            configured,
+            ..ProjectInfo::default()
+        };
         if let Some(program) = compiled.program {
             fill(&program, &mut info);
         }

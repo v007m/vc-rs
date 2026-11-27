@@ -1,6 +1,7 @@
 import type { Client } from '@connectrpc/connect';
 import {
   DefinitionKind,
+  type CallResponse,
   type EngineService,
   type FileChange as GenFileChange,
 } from '#lib/gen/vibranium/engine/v1/engine_pb.ts';
@@ -9,6 +10,7 @@ import { wireEdits, type PointerEdit } from '#lib/settings/configEdits.ts';
 import { editedOf, type Edited } from '#lib/settings/configForm.svelte.ts';
 import type { ConfigValue } from '#lib/settings/port.ts';
 import type { CheckLine, ExchangeLine } from '#lib/results/types.ts';
+import { Protocol, type Exchange } from '#lib/gen/vibranium/results/v1/results_pb.ts';
 
 /** An api the client can call, with the names of the vars it declares. */
 export type ApiInfo = Readonly<{ id: string; name: string; path: string; vars: readonly string[] }>;
@@ -68,6 +70,9 @@ export type ExplainedApi = Readonly<{
 /** A value the api's `save` took from the response: `from` as written, `value` masked. */
 export type SavedLine = Readonly<{ name: string; from: string; value: string }>;
 
+/** How the response came over the wire: its size, protocol and whether a connection was reused. */
+export type WireInfo = Readonly<{ size: number; protocol?: string; reused: boolean }>;
+
 /**
  * What a call gave back; `responseJson` is the masked `status`/`headers`/`body` value, and
  * `exchange` the request as sent and the response with its timing, absent when none came.
@@ -78,6 +83,7 @@ export type CallOutput = Readonly<{
   notices: readonly string[];
   responseJson?: string;
   exchange?: ExchangeLine;
+  wire?: WireInfo;
   checks: readonly CheckLine[];
   saved: readonly SavedLine[];
 }>;
@@ -147,6 +153,31 @@ export function fileChange(file: GenFileChange): FileChange {
 }
 
 /** The port over the engine client: a flow is a test with steps (R43). */
+const protocols: Readonly<Partial<Record<Protocol, string>>> = {
+  [Protocol.HTTP1]: 'HTTP/1.1',
+  [Protocol.HTTP2]: 'HTTP/2',
+};
+
+function wire(exchange: Exchange): WireInfo {
+  const protocol = protocols[exchange.protocol];
+  const info = { size: Number(exchange.wireSize), reused: exchange.connectionReused };
+  return protocol === undefined ? info : { ...info, protocol };
+}
+
+/** The engine's answer to a call as the Client shows it. */
+export function callOutput(out: CallResponse): CallOutput {
+  const { exit, text, notices, responseJson, exchange } = out;
+  return {
+    exit,
+    text,
+    notices,
+    checks: out.checks.map(checkLine),
+    saved: out.saved.map(({ name, from, value }) => ({ name, from, value })),
+    ...(responseJson === undefined ? {} : { responseJson }),
+    ...(exchange === undefined ? {} : { exchange: exchangeLine(exchange), wire: wire(exchange) }),
+  };
+}
+
 export function enginePort(client: EngineClient): ClientPort {
   return {
     async apis() {
@@ -166,19 +197,7 @@ export function enginePort(client: EngineClient): ClientPort {
     },
     async call({ api, vars, keep, draft }) {
       const sent = draft && { ...draft, edits: wireEdits(draft.edits) };
-      const out = await client.call({ api, vars: [...vars], keep, draft: sent });
-      const { exit, text, notices, responseJson, exchange } = out;
-      const checks = out.checks.map(checkLine);
-      const saved = out.saved.map(({ name, from, value }) => ({ name, from, value }));
-      return {
-        exit,
-        text,
-        notices,
-        checks,
-        saved,
-        ...(responseJson === undefined ? {} : { responseJson }),
-        ...(exchange === undefined ? {} : { exchange: exchangeLine(exchange) }),
-      };
+      return callOutput(await client.call({ api, vars: [...vars], keep, draft: sent }));
     },
     async readDefinition(id) {
       const { path, pointer, digest, json } = await client.readDefinition({ id });

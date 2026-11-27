@@ -75,14 +75,21 @@ pub fn check(project: &Project<'_>, diagnostics: &mut Diagnostics) {
             diagnostics.extend(profile.get("id").and_then(|id| globals.profile(id)));
         }
     }
-    let auths = project.config().map(|config| project::list(config.root, "auth")).unwrap_or_default();
-    diagnostics.extend(auths.iter().filter_map(|auth| globals.client_cert(auth)));
-    let clients = project.config().map(|config| project::tls_clients(config.root)).unwrap_or_default();
-    let profiles = clients.iter().flat_map(|client| project::list(client, "profiles"));
-    diagnostics.extend(profiles.filter_map(|profile| globals.profile(profile)));
-    if let Some(reports) = project.config().and_then(|config| config.root.get("reports")) {
+    diagnostics.extend(project.config().map(|config| in_config(config.root, &globals)).unwrap_or_default());
+}
+
+/// The config's references: each auth's `clientCert`, the profiles of each client certificate
+/// and schedule, and `reports.formats`.
+fn in_config(root: &Node, globals: &Globals<'_>) -> Vec<Diagnostic> {
+    let mut diagnostics: Vec<Diagnostic> =
+        project::list(root, "auth").iter().filter_map(|auth| globals.client_cert(auth)).collect();
+    let clients = project::tls_clients(root).iter().flat_map(|client| project::list(client, "profiles"));
+    let schedules = project::schedules(root).iter().flat_map(|schedule| project::one_or_more(schedule, "profile"));
+    diagnostics.extend(clients.chain(schedules).filter_map(|profile| globals.profile(profile)));
+    if let Some(reports) = root.get("reports") {
         diagnostics.extend(project::list(reports, "formats").iter().filter_map(|name| globals.format(name)));
     }
+    diagnostics
 }
 
 /// Every node that may hold `call`, `test`, `cleanup` or `auth`: actions, tests, apis and load

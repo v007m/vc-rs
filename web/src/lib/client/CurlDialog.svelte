@@ -1,5 +1,6 @@
 <script lang="ts">
   import Dialog from '#lib/ui/Dialog.svelte';
+  import Glyph from '#lib/ui/Glyph.svelte';
 
   /** The request as a curl command, resolved by the engine, its auth left out. */
   let { curl, onclose }: { curl: string; onclose: () => void } = $props();
@@ -21,35 +22,31 @@
     Resolved for the active profile, with your unsaved edits and vars. Auth is left out because vc
     applies it; the first line names it. Use <code>vc call</code> to send it with auth.
   </p>
-  <pre class="curl mono" aria-label="cURL command">{curl}</pre>
-  <div class="actions">
-    <p class="help grow" role="status">{copied}</p>
-    <button type="button" class="btn" onclick={onclose}>Close</button>
-    <button type="button" class="btn primary" onclick={() => void copy()}>Copy</button>
-  </div>
+  <pre class="curl vc-mono" aria-label="cURL command">{curl}</pre>
+  {#snippet actions()}
+    <p class="help said vc-grow" role="status">{copied}</p>
+    <button type="button" class="st-btn" onclick={onclose}>Close</button>
+    <button type="button" class="st-btn st-btn--primary" onclick={() => void copy()}
+      ><Glyph name={copied === 'Copied.' ? 'check' : 'copy'} />Copy</button
+    >
+  {/snippet}
 </Dialog>
 
 <style>
   .help {
     margin: 0 0 10px;
-    color: var(--ink2);
+    color: var(--st-text-secondary);
   }
   .curl {
     margin: 0;
     padding: 8px 12px;
     overflow-x: auto;
-    border: 1px solid var(--line);
-    border-radius: 6px;
+    border-radius: var(--vc-radius-inner);
+    background: var(--st-surface-wash);
     white-space: pre-wrap;
     word-break: break-all;
   }
-  .actions {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-top: 10px;
-  }
-  .actions .help {
+  .said {
     margin: 0;
   }
 </style>

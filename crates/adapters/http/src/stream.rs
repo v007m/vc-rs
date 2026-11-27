@@ -13,6 +13,8 @@ use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 use tokio::net::TcpStream;
 use tokio_rustls::client::TlsStream;
 
+use crate::connections::Open;
+
 /// How a connection was opened. Every response on the connection carries it (hyper copies the
 /// connector's `extra` into each response); the first response to claim it reports the
 /// connection as new, with these timings, and every later one as reused.
@@ -89,6 +91,7 @@ pub struct Conn {
     record: Arc<ConnectRecord>,
     proxied: bool,
     h2: bool,
+    _open: Option<Open>,
 }
 
 impl Conn {
@@ -96,7 +99,12 @@ impl Conn {
     /// proxy); a TLS stream that negotiated `h2` makes it speak HTTP/2.
     pub fn new(stream: Stream, record: ConnectRecord, proxied: bool) -> Self {
         let h2 = matches!(&stream, Stream::Tls(tls) if crate::tls::negotiated_h2(tls));
-        Self { io: TokioIo::new(stream), record: Arc::new(record), proxied, h2 }
+        Self { io: TokioIo::new(stream), record: Arc::new(record), proxied, h2, _open: None }
+    }
+
+    /// The connection, counted as `open` until hyper drops it.
+    pub fn counted(self, open: Open) -> Self {
+        Self { _open: Some(open), ..self }
     }
 }
 

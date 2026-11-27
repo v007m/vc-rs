@@ -1,229 +1,314 @@
-/* The app shell, from design/mockups/canvas/vib-web2.css: gradient ground, flat chrome, one
-   elevated content panel, and the sidebar that collapses to an icon rail. */
-* {
+/* The app frame of UI v2 on Strata (docs/design/ui.md §3, D590): base rules, the five-space
+   shell, the one top row, the stage with its card and the status line. The rail and the sidebar
+   are in sidebar.css. Chrome (rail, sidebar, top row, status line) sits on the canvas with no
+   box; only the screen's card and the search capsule are raised.
+
+     .app.st-root.st-canvas (container "app"; [data-space] [data-switcher=rail|foot]
+                             .is-sb-collapsed .is-drawer-open .is-hints)
+       .shell
+         nav.rail              the space switcher
+         aside.sidebar         the space's views and sections
+         .main
+           header.topbar       title · status · primary action ·· env pill, search
+           main.stage          > .st-card.card, the screen
+           footer.statusline   version · branch · vc check
+
+   Widths are container queries on .app: above 1100px the sidebar is in the layout (hiding it is
+   a saved pref); at 1100px and below it is a drawer over the stage. */
+
+/* ---- base ---------------------------------------------------------------- */
+*,
+*::before,
+*::after {
   box-sizing: border-box;
+}
+[hidden] {
+  display: none !important;
+}
+html,
+body {
+  height: 100%;
 }
 body {
   margin: 0;
-  font-family: var(--font);
-  color: var(--ink);
-  background: var(--bg1);
+  background: var(--st-canvas-base);
+  color: var(--st-text-primary);
+  font-family: var(--st-font-sans);
+  font-size: var(--vc-size-callout);
+  line-height: var(--vc-lh);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow: hidden;
+}
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+button {
+  cursor: pointer;
+}
+code,
+kbd,
+pre,
+samp {
+  font-family: var(--st-font-mono);
+}
+::selection {
+  background: var(--st-accent-soft);
+  color: var(--st-text-primary);
+}
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--vc-rule-strong) transparent;
+}
+a {
+  color: var(--st-accent);
+}
+a:hover {
+  color: var(--st-accent);
 }
 /* app.html's root holder; a class, not a style attribute, so the CSP needs no unsafe-inline. */
 .sveltekit-body {
   display: contents;
 }
-a {
-  color: var(--accentInk);
+
+/* ---- app frame ----------------------------------------------------------- */
+.app {
+  position: relative;
+  height: 100%;
+  width: 100%;
+  container: app / inline-size;
 }
-a:hover {
-  color: var(--accent);
+.shell {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  height: 100%;
+  min-width: 0;
+  padding-right: max(var(--st-window-inset), env(safe-area-inset-right, 0px));
+}
+.app[data-switcher='foot'] .shell {
+  padding-left: max(6px, env(safe-area-inset-left, 0px));
+}
+.main {
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-rows: var(--st-titlebar-height) minmax(0, 1fr) var(--vc-statusline-h);
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+  min-height: 0;
 }
 
-.app {
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  background: linear-gradient(140deg, var(--bg1) 0%, var(--bg2) 50%, var(--bg3) 100%);
-  font-size: 13.5px;
-}
+/* ---- the one top row (D514): chrome on the canvas, no panel ------------------ */
 .topbar {
   display: flex;
   align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-  padding: 10px 16px 8px;
-  min-height: 52px;
+  gap: var(--st-space-12);
+  min-width: 0;
+  padding: 0 var(--st-space-8) 0 var(--st-space-4);
 }
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-weight: 600;
-  font-size: 14px;
-  color: var(--ink);
-  text-decoration: none;
-}
-.frame {
-  flex: 1 1 auto;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  padding: 0 10px 10px;
-  min-height: 0;
-  align-items: stretch;
-}
-.side {
-  flex: 0 1 232px;
-  min-width: 200px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 4px 4px 12px;
-  transition:
-    flex-basis 0.18s ease,
-    min-width 0.18s ease;
-}
-.side-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px;
-  padding: 2px 2px 4px;
-}
-.navitem {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  height: 32px;
-  padding: 0 10px;
-  border-radius: 8px;
-  color: var(--ink);
-  text-decoration: none;
-  font-size: 13.5px;
-  width: 100%;
-}
-.navitem:hover {
-  background: var(--hover);
-  color: var(--ink);
-}
-.navitem.on {
-  background: var(--on);
-  box-shadow: 0 1px 1px rgba(27, 24, 48, 0.05);
-  font-weight: 500;
-}
-.navitem svg {
+.topbar .sb-show {
+  display: none;
   flex: none;
+  color: var(--st-text-secondary);
 }
-.navitem .label {
+.app.is-sb-collapsed .topbar .sb-show {
+  display: inline-flex;
+}
+.tb-title {
+  flex: 0 1 auto;
+  min-width: 0;
+  margin: 0;
+  font: var(--st-type-title3);
+  letter-spacing: var(--st-tracking-title3);
+  color: var(--st-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tb-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 1 auto;
+  min-width: 0;
+  font-size: var(--vc-size-body);
+  color: var(--st-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.topbar-end {
+  display: flex;
+  align-items: center;
+  gap: var(--st-space-8);
+  flex: none;
+  margin-left: auto;
+}
+
+/* the environment control: the search field's capsule and height, no button box and no inner
+   box (D611); caption, profile dot, profile. A prod profile reads as live data. */
+.env-pill {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 1 auto;
+  min-width: 0;
+  height: var(--st-size-control-md);
+  gap: var(--st-space-8);
+  padding: 0 var(--st-space-16) 0 var(--st-space-12);
+  border-radius: var(--st-radius-capsule);
+  background: var(--st-surface-input);
+  box-shadow: var(--st-emboss);
+  font: var(--st-type-body);
+  color: var(--st-text-primary);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.env-pill:hover {
+  color: var(--st-text-primary);
+  background: color-mix(in srgb, var(--st-surface-input), var(--st-chrome-hover));
+}
+.env-pill .env-cap {
+  flex: none;
+  font: var(--st-type-caption);
+  color: var(--st-text-secondary);
+}
+.env-pill .env-name {
+  font-weight: var(--st-weight-semibold);
+}
+.env-pill:has(.tint-dot[data-p='prod']) {
+  color: var(--vc-prod-ink);
+  background: var(--vc-prod-bg);
+  box-shadow:
+    var(--st-emboss),
+    inset 0 0 0 1px var(--vc-prod-border);
+}
+.tint-dot {
+  --h: 255;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: none;
+  background: oklch(0.66 0.19 var(--h));
+  box-shadow: 0 0 0 3px color-mix(in oklab, oklch(0.66 0.19 var(--h)) 25%, transparent);
+}
+/* the search field: the command capsule, embossed on the canvas (D594); its hint is plain text */
+.search-btn {
+  display: inline-flex;
+  align-items: center;
+  width: 240px;
+  height: var(--st-size-control-md);
+  gap: var(--st-space-8);
+  padding: 0 var(--st-space-16) 0 var(--st-space-12);
+  border: 0;
+  border-radius: var(--st-radius-capsule);
+  background: var(--st-surface-input);
+  box-shadow: var(--st-emboss);
+  font: var(--st-type-body);
+  color: var(--st-text-secondary);
+  cursor: default;
+}
+.search-btn:hover {
+  background: color-mix(in srgb, var(--st-surface-input), var(--st-chrome-hover));
+}
+.search-btn .st-kbd {
+  flex: none;
+  color: var(--st-text-tertiary);
+}
+.search-btn .label {
+  flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.navitem .live {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  margin-left: auto;
-  color: var(--ink2);
-  font-size: 12px;
-  white-space: nowrap;
-}
-.navitem .live::before {
-  content: '';
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--accent);
-}
-.iconbtn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  border: 0;
-  background: transparent;
-  color: var(--ink2);
-  cursor: pointer;
-}
-.iconbtn:hover {
-  background: var(--panel3);
-  color: var(--ink);
-}
-.panel {
-  flex: 999 1 620px;
-  min-width: 0;
-  background: var(--panel);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  container-type: inline-size;
-}
-.panel-head {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-  padding: 14px 20px;
-  border-bottom: 1px solid var(--line);
-}
-.panel-body {
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  min-width: 0;
-}
-.h1 {
-  margin: 0;
-  font-size: 22px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-}
-.muted {
-  color: var(--ink2);
+  text-align: left;
 }
 
-.app.side-collapsed .side {
-  flex: 0 0 56px;
-  min-width: 56px;
-}
-.app.side-collapsed .side .navitem {
-  justify-content: center;
-  padding: 0;
-  width: 44px;
-  height: 36px;
-  margin: 0 auto;
-}
-.app.side-collapsed .side .navitem .label {
-  display: none;
-}
-.app.side-collapsed .side .navitem {
+/* ---- stage and the card ------------------------------------------------------ */
+.stage {
   position: relative;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--st-card-gap);
 }
-.app.side-collapsed .side .navitem .live {
-  position: absolute;
-  top: 6px;
-  right: 8px;
+/* .stage > .card, not .card: screens keep using .card for their own panels (ApprovalQueue).
+   Screens size their layouts with @container card (...), so the sidebar and drawer count. */
+/* A screen that fills the stage itself (D537) lays its cards out in the stage. */
+.stage > .bare {
+  display: contents;
 }
-.app.side-collapsed .side .navitem .live .text {
-  position: absolute;
-  width: 1px;
-  height: 1px;
+.stage > .card {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
   overflow: hidden;
-  clip: rect(0 0 0 0);
+  container: card / inline-size;
 }
-.app.side-collapsed .side .side-head {
-  justify-content: center;
+.card-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: var(--st-card-padding);
+  display: flex;
+  flex-direction: column;
+  gap: var(--st-space-20);
+  font-size: var(--vc-size-body);
 }
 
-@media (max-width: 860px) {
-  .side,
-  .app.side-collapsed .side {
-    flex: 1 1 100%;
-    flex-direction: row;
-    overflow-x: auto;
-    min-width: 0;
-    padding: 0 2px 6px;
+/* ---- status line: chrome on the canvas ---------------------------------------- */
+.statusline {
+  display: flex;
+  align-items: center;
+  gap: var(--st-space-24);
+  padding: 0 var(--st-space-12);
+  font-size: var(--vc-size-caption);
+  color: var(--st-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  min-width: 0;
+}
+.statusline .item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.statusline .item b {
+  color: var(--st-text-primary);
+  font-weight: var(--st-weight-medium);
+}
+
+/* ---- widths ---------------------------------------------------------------- */
+@container app (max-width: 1024px) {
+  .shell {
+    --st-card-padding: 20px;
   }
-  .side .navitem {
-    width: auto;
-    flex: none;
+}
+@container app (max-width: 900px) {
+  .topbar .search-btn {
+    width: var(--st-size-control-md);
+    padding: 0;
+    justify-content: center;
   }
-  .app.side-collapsed .side .navitem .label {
-    display: inline;
-  }
-  .side-head {
+  .topbar .env-pill .env-cap {
     display: none;
   }
-  .panel-body {
-    padding: 14px;
+  .topbar .search-btn :is(.label, .st-kbd) {
+    display: none;
+  }
+}
+@container app (max-width: 759px) {
+  .topbar {
+    gap: var(--st-space-8);
+    padding-left: 0;
+  }
+  .app .hide-narrow {
+    display: none;
   }
 }
 

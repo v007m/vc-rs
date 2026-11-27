@@ -174,6 +174,9 @@ impl Flatten {
     }
 }
 
+#[path = "user_config_write.rs"]
+mod write;
+
 #[cfg(test)]
 mod tests {
     use std::path::PathBuf;

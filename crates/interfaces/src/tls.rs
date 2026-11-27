@@ -30,6 +30,12 @@ pub trait TransportFactory: Send + Sync {
         let _ = probes;
         Vec::new()
     }
+
+    /// How many connections the transports it built hold open now, for a load run's Hosts
+    /// panel (D675); `None`, the default, when it does not count them.
+    fn open_connections(&self) -> Option<u64> {
+        None
+    }
 }
 
 /// A rendered `http.tls`: the `ca` entries, and the client identities the run's profiles allow.

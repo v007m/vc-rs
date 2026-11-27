@@ -15,8 +15,9 @@ struct Owner {
 /// Adds a run and gives its ID.
 pub fn begin(connection: &Connection, start: &RunStart) -> rusqlite::Result<RunId> {
     connection.execute(
-        "INSERT INTO runs (started_at, profiles, selector, git_commit, git_branch, seed, vc_version, config_hash, kind)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+        "INSERT INTO runs (started_at, profiles, selector, git_commit, git_branch, seed, vc_version, config_hash, kind,
+                           schedule)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
         (
             start.started_ms,
             json(&start.profiles)?,
@@ -27,6 +28,7 @@ pub fn begin(connection: &Connection, start: &RunStart) -> rusqlite::Result<RunI
             &start.vc_version,
             &start.config_hash,
             &start.kind,
+            &start.schedule,
         ),
     )?;
     Ok(RunId::new(connection.last_insert_rowid().unsigned_abs()))

@@ -1,97 +1,140 @@
 <script lang="ts">
   import CheckList from '#lib/results/CheckList.svelte';
   import Waterfall from '#lib/results/Waterfall.svelte';
+  import EmptyState from '#lib/ui/EmptyState.svelte';
   import Tabs from '#lib/ui/Tabs.svelte';
-  import { headline } from './response.ts';
-  import type { ClientSession } from './session.svelte.ts';
+  import type { AddedCheck } from './apiForm.ts';
+  import BodyView from './BodyView.svelte';
+  import type { CallOutput } from './port.ts';
+  import { headline, parseResponse } from './response.ts';
+  import { cookies, size, statusClass } from './wire.ts';
 
-  let { client, onsave }: { client: ClientSession; onsave: () => void } = $props();
+  /**
+   * The response card (ui.md §4, D560): a status line, then the body, headers, cookies, timing,
+   * checks, saved values and the call's own text. A body value can add a check (D562).
+   */
+  let {
+    output,
+    sending = false,
+    oncheck,
+    onsave,
+  }: {
+    output: CallOutput | undefined;
+    sending?: boolean;
+    oncheck?: (check: AddedCheck) => string | undefined;
+    /** Saves the call as a test; absent where a call cannot be saved. */
+    onsave?: () => void;
+  } = $props();
 
   let tab = $state('body');
-  const result = $derived(client.result);
-  const timing = $derived(result?.output.exchange?.timing);
+  const response = $derived(parseResponse(output?.responseJson));
+  const timing = $derived(output?.exchange?.timing);
+  const jar = $derived(response ? cookies(response.headers) : []);
+  const failed = $derived(output?.checks.filter((c) => !c.passed).length ?? 0);
   const tabs = $derived([
     { id: 'body', label: 'Body' },
     { id: 'headers', label: 'Headers' },
+    { id: 'cookies', label: 'Cookies' },
     ...(timing ? [{ id: 'timing', label: 'Timing' }] : []),
-    { id: 'checks', label: 'Checks' },
+    { id: 'checks', label: 'Checks', ...checkCount() },
     { id: 'saved', label: 'Saved' },
     { id: 'output', label: 'Output' },
   ]);
   /** The tabs that show what the call itself reported, with or without a response. */
   const reported = new Set(['checks', 'saved', 'output']);
 
-  function pretty(body: unknown): string {
-    return typeof body === 'string' ? body : JSON.stringify(body, null, 2);
+  function checkCount(): { count?: string; bad?: boolean } {
+    const all = output?.checks.length ?? 0;
+    return all ? { count: `${all - failed}/${all}`, bad: failed > 0 } : {};
+  }
+
+  /** The headline after its status code, which the chip shows: `Created · 9 ms · …`. */
+  function rest(text: string, status: number | undefined): string {
+    const line = headline(text);
+    return status !== undefined && line.startsWith(`${status} `)
+      ? line.slice(String(status).length + 1)
+      : line;
   }
 </script>
 
-<section class="response" aria-labelledby="response-title">
-  <div class="head">
-    <h2 class="h2 grow" id="response-title">Response</h2>
-    {#if result}
-      <button type="button" class="btn sm" disabled={!result.response} onclick={onsave}
-        >Save as test</button
-      >
-    {/if}
-  </div>
-  {#if !result}
-    <p class="empty">Send the request to see its response.</p>
+<section class="st-card st-card--glass" aria-label="Response">
+  {#if !output}
+    <div class="resp-empty vc-grow">
+      <EmptyState
+        icon="send"
+        title={sending ? 'Sending…' : 'No response yet'}
+        caption={sending ? undefined : 'Send the request to see the response (⌘↵).'}
+      />
+    </div>
   {:else}
-    <p class="status">
-      <span class="dot {result.output.exit === 0 ? 'pass' : 'fail'}" aria-hidden="true"></span>
-      <span class="mono">{headline(result.output.text)}</span>
-      <span class="sr">{result.output.exit === 0 ? 'Expect held' : 'Expect failed'}</span>
-    </p>
+    <div class="card-head">
+      <p class="resp-meta vc-grow">
+        {#if response}<span class="hs" data-class={statusClass(response.status)}
+            >{response.status}</span
+          >{/if}
+        <span>{rest(output.text, response?.status)}</span>
+        {#if output.wire}
+          <span><b>{size(output.wire.size)}</b></span>
+          {#if output.wire.protocol}<span class="vc-mono">{output.wire.protocol}</span>{/if}
+        {/if}
+        {#if output.checks.length}
+          <span class="checks" class:is-fail={failed > 0}
+            >{failed ? `${failed} failed` : 'checks pass'}</span
+          >
+        {/if}
+      </p>
+      {#if onsave}
+        <button type="button" class="st-btn st-btn--sm" disabled={!response} onclick={onsave}
+          >Save as test</button
+        >
+      {/if}
+    </div>
     <Tabs
       label="Response"
       {tabs}
       bind:selected={() => (tabs.some((t) => t.id === tab) ? tab : 'body'), (id) => (tab = id)}
     >
       {#snippet panel(id)}
-        {#if !result.response && !reported.has(id)}
-          <p class="empty">No response came back; the Output tab says why.</p>
-        {:else if id === 'body' && result.response}
-          <pre class="mono code">{pretty(result.response.body)}</pre>
-        {:else if id === 'headers' && result.response}
-          <dl class="headers mono">
-            {#each result.response.headers as [name, value] (name)}
-              <dt>{name}</dt>
-              <dd>{value}</dd>
-            {/each}
-          </dl>
+        {#if !response && !reported.has(id)}
+          <p class="st-secondary">No response came back; the Output tab says why.</p>
+        {:else if id === 'body' && response}
+          <BodyView {response} {oncheck} />
+        {:else if id === 'headers' && response}
+          {@render pairs('Response headers', ['Header', 'Value'], response.headers)}
+        {:else if id === 'cookies'}
+          {#if jar.length}
+            {@render pairs(
+              'Cookies',
+              ['Cookie', 'Value', 'Domain', 'Path', 'Expires', 'Flags'],
+              jar.map((c) => [c.name, c.value, c.domain, c.path, c.expires, c.flags]),
+            )}
+          {:else}
+            <p class="st-secondary">The response set no cookies.</p>
+          {/if}
         {:else if id === 'timing' && timing}
           <Waterfall {timing} />
         {:else if id === 'checks'}
-          {#if result.output.checks.length}
-            <CheckList checks={result.output.checks} />
+          {#if output.checks.length}
+            <CheckList checks={output.checks} />
           {:else}
-            <p class="empty">No checks ran. Add an expect to the api to check its responses.</p>
+            <p class="st-secondary">
+              No checks ran. Add one on the Expect tab, or click a value in the body.
+            </p>
           {/if}
         {:else if id === 'saved'}
-          {#if result.output.saved.length}
-            <table class="saved mono" aria-label="Saved values">
-              <thead
-                ><tr
-                  ><th scope="col">Name</th><th scope="col">From</th><th scope="col">Value</th></tr
-                ></thead
-              >
-              <tbody>
-                {#each result.output.saved as value (value.name)}
-                  <tr
-                    ><th scope="row">{value.name}</th><td>{value.from}</td><td>{value.value}</td
-                    ></tr
-                  >
-                {/each}
-              </tbody>
-            </table>
+          {#if output.saved.length}
+            {@render pairs(
+              'Saved values',
+              ['Name', 'From', 'Value'],
+              output.saved.map((s) => [s.name, s.from, s.value]),
+            )}
           {:else}
-            <p class="empty">The api saves nothing from its response.</p>
+            <p class="st-secondary">The api saves nothing from its response.</p>
           {/if}
         {:else}
-          <pre class="mono code">{result.output.text}</pre>
-          {#each result.output.notices as notice, i (i)}
-            <p class="notice">{notice}</p>
+          <pre class="out vc-mono">{output.text}</pre>
+          {#each output.notices as notice, i (i)}
+            <p class="st-secondary">{notice}</p>
           {/each}
         {/if}
       {/snippet}
@@ -99,56 +142,36 @@
   {/if}
 </section>
 
+{#snippet pairs(label: string, head: readonly string[], rows: readonly (readonly string[])[])}
+  <table class="client-table" aria-label={label}>
+    <thead>
+      <tr>
+        {#each head as name (name)}<th scope="col">{name}</th>{/each}
+      </tr>
+    </thead>
+    <tbody>
+      {#each rows as [first, ...more], i (i)}
+        <tr>
+          <th scope="row" class="vc-mono">{first}</th>
+          {#each more as cell, j (j)}<td class="vc-mono">{cell}</td>{/each}
+        </tr>
+      {/each}
+    </tbody>
+  </table>
+{/snippet}
+
 <style>
-  .head {
-    display: flex;
-    align-items: center;
-    gap: 12px;
+  /* a status word in the text line, not a badge: badges never sit in a control row (D611) */
+  .checks {
+    color: var(--vc-pass-ink);
+    font-weight: var(--st-weight-medium);
   }
-  .status {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin: 8px 0;
+  .checks.is-fail {
+    color: var(--vc-fail-ink);
   }
-  .empty,
-  .notice {
-    color: var(--ink2);
-  }
-  .code {
-    max-height: 420px;
+  .out {
     margin: 0;
-    overflow: auto;
     white-space: pre-wrap;
     overflow-wrap: anywhere;
-  }
-  .headers {
-    display: grid;
-    grid-template-columns: max-content 1fr;
-    gap: 4px 16px;
-    margin: 0;
-  }
-  .headers dt {
-    color: var(--ink2);
-  }
-  .headers dd {
-    margin: 0;
-    overflow-wrap: anywhere;
-  }
-  .saved {
-    width: 100%;
-    border-collapse: collapse;
-  }
-  .saved th,
-  .saved td {
-    padding: 4px 8px;
-    border-bottom: 1px solid var(--line);
-    text-align: left;
-    vertical-align: top;
-    overflow-wrap: anywhere;
-  }
-  .saved thead th {
-    color: var(--ink2);
-    font-weight: 500;
   }
 </style>

@@ -98,6 +98,7 @@ impl Tool for CallApi {
             sets: cx.sets.clone(),
             agent: Some(cx.agent.clone()),
             draft: None,
+            adhoc: None,
         };
         let report = cx.engine.call(&request).await?;
         Ok(json!({ "exit": report.exit, "response": report.response, "text": report.text, "notices": report.notices }))

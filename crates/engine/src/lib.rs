@@ -31,13 +31,16 @@
 //! assert_eq!(schemas[0].file_name, "config.schema.json");
 //! ```
 
+mod adhoc;
 mod agent_gate;
+mod agent_usage;
 mod agent_write;
 mod alert_samples;
 mod alerts;
 mod approvals;
 mod authoring;
 mod body_files;
+mod body_shape;
 mod builder;
 mod cache;
 mod call;
@@ -50,6 +53,8 @@ mod check_profiles;
 mod check_secrets;
 mod check_tls;
 mod client_certs;
+mod client_out;
+mod compare;
 mod complete;
 mod config_explain;
 mod config_values;
@@ -63,12 +68,14 @@ mod create_vars;
 mod edit;
 mod edit_pointers;
 mod editor_files;
+mod editor_help;
 mod engine;
 mod error;
 mod examples;
 mod explain;
 mod failed;
 mod fetch;
+mod file_refs;
 mod fix;
 mod format;
 mod history;
@@ -78,21 +85,26 @@ mod import_recorded;
 mod import_titles;
 mod import_write;
 mod init;
+mod init_client;
 mod interrupt;
 mod list;
 mod list_detail;
+mod live_call;
 mod load;
 mod load_findings;
+mod load_gauges;
 mod load_live;
 mod load_report;
 mod migrate;
 mod notify;
 mod paths;
 mod plan;
+mod plugin_client;
 mod plugin_hosts;
 mod plugin_intact;
 mod plugin_lock;
 mod plugin_manifest;
+mod plugin_state;
 mod plugins;
 mod policy;
 mod ports;
@@ -108,6 +120,9 @@ mod run_feed;
 #[cfg(test)]
 mod sample;
 mod save_call;
+mod schedule_export;
+mod schedule_put;
+mod schedules;
 mod schema;
 mod secured;
 mod selection;
@@ -124,20 +139,27 @@ mod sync_plan;
 mod sync_rules;
 mod sync_snapshot;
 mod test_auth;
+mod test_history;
 mod user;
+mod user_settings;
+mod user_settings_text;
+mod vcs_pane;
 mod wanted;
 mod watch;
 mod yaml_out;
 
+pub use agent_usage::{AgentTotals, AgentUsage, MAX_USAGE_DAYS, ToolUsage, USAGE_DAYS, UsageCount};
 pub use agent_write::WriteRequest;
 pub use alert_samples::AlertSent;
 pub use approvals::{APPROVAL_WAIT, Admission, AgentOutcome};
+pub use body_shape::{Retyped, ShapeChange};
 pub use builder::EngineBuilder;
 pub use cache::CacheReport;
 pub use call_draft::{CallDraft, WrittenNode};
 pub use call_report::{CallReport, SavedValue};
 pub use check::{CheckReport, CheckRequest};
 pub use check_secrets::{SecretCheck, SecretsChecked};
+pub use compare::{RunComparison, SLOWER, TestChange, compare_tests};
 pub use complete::CompleteKind;
 pub use config_values::{ConfigLayer, ConfigValue, ConfigValues};
 pub use coverage::{Coverage, CoveredApi};
@@ -147,44 +169,53 @@ pub use create_auth::{NewAuth, auth_fields};
 pub use edit::{Changes, FileChange};
 pub use edit_pointers::{EditOp, EditedFile, PointerEdit, PointerEdits};
 pub use editor_files::{OpenedFile, SaveFile, SavedFile};
+pub use editor_help::{Completion, CompletionKind, EditorRequest, Hover, hover_at};
 pub use engine::Engine;
 pub use error::EngineError;
 pub use explain::{ApiExplained, AuthShown, ExplainReport, SentHeader};
+pub use file_refs::{FileReference, FileReferences};
 pub use fix::FixReport;
 pub use import::{ImportRequest, Keep};
 pub use init::INIT_FOLDERS;
+pub use init_client::{InitChange, InitChoices};
 pub use interrupt::{Interrupter, Interrupts, interrupts};
 pub use list::{ListReport, Listed};
 pub use list_detail::{ApiCall, action_call};
+pub use live_call::{LiveEvent, LiveIo, LiveSend};
 pub use load_report::{ErrorKind, LoadBreach, LoadEnding, LoadReport, LoadRequest, LoadTestReport, LoadWatch};
 pub use paths::under;
 pub use plan::PlanReport;
+pub use plugin_client::PluginChange;
 pub use plugin_hosts::launch_plugin;
 pub use plugins::{PluginListing, PluginOffer, PluginState};
 pub use policy::{AgentCall, Permission};
 pub use project_info::ProjectInfo;
 pub use request::{
-    CallRequest, ExplainRequest, ListKind, ListRequest, PlanRequest, ReportFlags, RunRequest, SelectRequest,
+    AdhocCall, CallRequest, ExplainRequest, ListKind, ListRequest, PlanRequest, ReportFlags, RunRequest, SelectRequest,
 };
 pub use run::RunReport;
 pub use run_feed::{RunFeed, RunWatch};
 pub use save_call::CallAsTest;
+pub use schedule_export::ScheduleExport;
+pub use schedules::{DueSchedule, NotifyChannel, ScheduleEdit, ScheduleListing, ScheduleSpec};
 pub use schema::SchemaFile;
 pub use skip::SkipRequest;
 pub use stored::{HistoryReport, ReportFiles, ReportRequest, StoredRun, instance_label, started};
 pub use sync::{SyncMode, SyncReport, SyncRequest};
 pub use sync_plan::SyncSide;
 pub use test_auth::{AuthTested, TestAuthRequest};
+pub use test_history::{MOST_RUNS, TestResults};
+pub use user_settings::{NEW_FILE, UserSetting, UserSettingEdit, UserSettings, UserSettingsChange};
 pub use vc_diagnostics::{
     Code, Diagnostic, Diagnostics, DiagnosticsError, Fix, JsonRenderer, Label, Render, Severity, Summary, TextRenderer,
 };
 pub use vc_interfaces::{
     AgentAction, ApiTrend, Approval, ApprovalId, ApprovalRequest, ApprovalStatus, CheckRow, Decided, ExchangeRow,
     LoggedAction, PluginKind, PluginManifest, PluginPermissions, PluginStderr, RunFilter, RunId, RunRow, RunStart,
-    TestRow, TestTrend, Verdict,
+    TestRow, TestTrend, VcsChange, VcsCommit, VcsFile, VcsStatus, Verdict,
 };
 pub use vc_model::{
-    ActionId, Bodies, CheckKind, CheckResult, CleanupRecord, Event, Exchange, Failure, FileKind, InstanceId, Location,
-    Method, Names, Origin, OwnerKey, Planned, RunStatus, Sequenced, SourceFileId, SourceFiles, SourcePath, SourceSpan,
-    TestResult, TestStatus, Totals, check_label, check_parts, cut_body,
+    ActionId, Bodies, CheckKind, CheckResult, CleanupRecord, Event, Exchange, Failure, FileKind, HostStats, InstanceId,
+    Location, Method, Names, Origin, OwnerKey, Planned, RunStatus, ScheduleRunner, Sequenced, SourceFileId,
+    SourceFiles, SourcePath, SourceSpan, TestResult, TestStatus, Totals, check_label, check_parts, cut_body,
 };

@@ -14,6 +14,20 @@ impl Interrupter {
     pub fn interrupt(&self) {
         self.inbox.send(()).ok();
     }
+
+    /// Three interrupts at once, as the web UI's abandon (D552): the run is cancelled, its grace
+    /// period ended and its cleanups abandoned; nothing once the run has finished.
+    pub fn abandon(&self) {
+        for _ in 0..ABANDON {
+            self.interrupt();
+        }
+    }
+
+    /// Whether the run these interrupts were for has finished, its [`Interrupts`] gone.
+    #[must_use]
+    pub fn is_finished(&self) -> bool {
+        self.inbox.is_closed()
+    }
 }
 
 /// The receiving end, handed to [`crate::Engine::run`].
@@ -58,3 +72,7 @@ impl Interrupts {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "interrupt_tests.rs"]
+mod tests;

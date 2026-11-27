@@ -78,6 +78,7 @@ code_table! {
     V2314 = 2314, Error, "GraphQL document does not fit the schema";
     V2315 = 2315, Error, "GraphQL variable value does not fit its type";
     V2316 = 2316, Error, "An AWS signing `region` or `service` is not a scope name";
+    V2317 = 2317, Error, "A schedule's `cron` is not five cron fields";
     // V3xxx: lifecycle
     V3101 = 3101, Error, "No profile defined, or no active profile for this run";
     V3102 = 3102, Error, "More than one default profile";
@@ -138,4 +139,5 @@ code_table! {
     V5129 = 5129, Warning, "Save skipped: the response has GraphQL errors";
     V5130 = 5130, Error, "A `receive` was not met before the stream ended or the time ran out";
     V5131 = 5131, Error, "The stream did not open";
+    V5132 = 5132, Error, "A client's report folder is not inside the project";
 }

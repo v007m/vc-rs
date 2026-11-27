@@ -1,0 +1,90 @@
+---
+title: "`schedules`"
+description: "Runs that `vc ui` starts on a cron, or that a GitHub Actions workflow runs for you."
+sidebar: { order: 76 }
+---
+
+import { Aside, LinkCard } from '@astrojs/starlight/components';
+
+`schedules` lists runs that start on a cron. `vc ui`'s server starts them while it is up, and
+each run is kept in the history with the schedule that started it. The Runs space of the web UI
+lists them, and adds, changes and removes them through a diff of this file.
+
+```yaml title="vibranium.config.yaml"
+profiles:
+  - id: dev
+    default: true
+  - id: staging
+schedules:
+  - id: nightlySmoke
+    name: Nightly smoke
+    cron: "0 2 * * 1-5"
+    profile: staging
+    notify:
+      - slack:
+          webhook: ${secret.SLACK_WEBHOOK}
+  - id: hourlyOnCi
+    cron: "30 * * * *"
+    runner: githubActions
+```
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `schedules[].id` | text | Required. camelCase, unique among the schedules. |
+| `schedules[].name` | text | Free text. |
+| `schedules[].cron` | text | Required. Five fields, in UTC: minute, hour, day of the month, month, day of the week. |
+| `schedules[].selector` | text or list | `vc run`'s selector words: IDs, file IDs, `#id`, globs, or a path with a `/`. Every test when absent. |
+| `schedules[].profile` | text or list | Profiles to run under. The default profiles when absent. |
+| `schedules[].notify` | list | Channels told when a scheduled run fails or is blocked, as in `alerts`. |
+| `schedules[].runner` | text | `vcServer` (the default) or `githubActions`. |
+| `schedules[].enabled` | boolean | `true` by default. `false` keeps the schedule but never starts it. |
+
+Each `cron` field is `*`, a number, a range `a-b`, a step `*/n` or `a-b/n`, or a list of those
+joined with `,`. The day of the week runs from 0 to 7, and both 0 and 7 are Sunday. When both day
+fields are restricted, a day that matches either one fires. Names such as `MON`, a seconds field
+and shortcuts such as `@daily` are not read, so a schedule reads the same in `vc ui` and in
+GitHub Actions.
+
+A wrong cron:
+
+```yaml wrong V2317 title="vibranium.config.yaml"
+syntaxVersion: 2
+profiles:
+  - id: dev
+    default: true
+schedules:
+  - id: nightlySmoke
+    cron: "0 25 * * MON-FRI"
+```
+
+```console
+$ vc check
+error[V2317]: `0 25 * * MON-FRI` is not a cron
+ --> vibranium.config.yaml:7:11
+  |
+7 |     cron: "0 25 * * MON-FRI"
+  |           ^^^^^^^^^^^^^^^^^^ `25` in the hour field is outside 0-23
+  = help: write minute, hour, day of the month, month and day of the week in UTC, such as `0 2 * * 1-5` (02:00 on weekdays); each is `*`, a number, `a-b`, `*/n` or a list joined with `,`
+```
+
+## How a schedule runs
+
+At the start of every minute, `vc ui`'s server starts each enabled `vcServer` schedule whose cron
+fires then, unless its last run is still going. The run uses the server's own `--profile` and
+`--set` under the schedule's profiles, and prints nothing. The schedule's `notify` channels are
+told when it fails or is blocked, and the config's `alerts` apply as they do to every run. A
+project with errors starts no scheduled run until it is fixed. A minute when the server was not
+up is not caught up later.
+
+<Aside>
+
+A laptop that sleeps misses its schedules. Set `runner: githubActions`, then use **Export to CI**
+in the Runs space. It writes `.github/workflows/vibranium-<id>.yml`, a workflow that installs this
+version of `vc` and runs `vc run <selector> --profile <profile>` on the same cron. Add the secrets
+your profiles read under the workflow's `env:`. In CI the config's `alerts` are sent, not the
+schedule's `notify`. An existing workflow at that path is never written over.
+
+</Aside>
+
+<LinkCard title="alerts" href="/vc-rs/reference/config/alerts/" />
+<LinkCard title="V2317" href="/vc-rs/reference/diagnostics/v2317/" />

@@ -32,4 +32,5 @@ pub use run::{Ending, Failed, LoadOutcome, LoadParts, Matching, Second, run_load
 pub use stage::{StageCommand, StageController, StageInput};
 pub use threshold::{Breach, aborts, breaches};
 pub use unit::Unit;
+pub use user::LATE;
 pub use window::{RATE_SECONDS, Totals, WINDOW_SECONDS, Window};

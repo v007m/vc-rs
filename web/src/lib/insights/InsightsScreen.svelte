@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { lens } from '#lib/ui/segmented.ts';
   import { SvelteMap } from 'svelte/reactivity';
   import type { SkipPort } from '#lib/skip/port.ts';
   import SkipForm from '#lib/skip/SkipForm.svelte';
@@ -12,7 +13,19 @@
   import type { RunSummary } from './port.ts';
   import { duration, flakiest, mean, median, niceMax, passRate, when } from './stats.ts';
 
-  let { insights, skips }: { insights: Insights; skips: SkipPort } = $props();
+  let {
+    insights,
+    skips,
+    profiles = [],
+    branches = [],
+  }: {
+    insights: Insights;
+    skips: SkipPort;
+    /** The scope's choices (D643): the project's profiles and the branches in the history. */
+    profiles?: readonly string[];
+    branches?: readonly string[];
+  } = $props();
+  const uid = $props.id();
 
   /** The skip being written or removed, one at a time. */
   let skipping: SkipChange | undefined = $state();
@@ -66,7 +79,7 @@
 </script>
 
 <div class="insights">
-  <div class="seg" role="group" aria-label="Time range">
+  <div class="st-segmented" role="group" {@attach lens} aria-label="Time range">
     {#each windows as w (w)}
       <button
         type="button"
@@ -74,6 +87,30 @@
         onclick={() => void insights.choose(w)}>Last {w} runs</button
       >
     {/each}
+  </div>
+  <div class="scope">
+    <label for="{uid}-profile">Profile</label>
+    <select
+      id="{uid}-profile"
+      class="st-input"
+      value={insights.scope.profile ?? ''}
+      onchange={(e) =>
+        void insights.rescope({ ...insights.scope, profile: e.currentTarget.value || undefined })}
+    >
+      <option value="">Every profile</option>
+      {#each profiles as p (p)}<option value={p}>{p}</option>{/each}
+    </select>
+    <label for="{uid}-branch">Branch</label>
+    <select
+      id="{uid}-branch"
+      class="st-input"
+      value={insights.scope.branch ?? ''}
+      onchange={(e) =>
+        void insights.rescope({ ...insights.scope, branch: e.currentTarget.value || undefined })}
+    >
+      <option value="">Every branch</option>
+      {#each branches as b (b)}<option value={b}>{b}</option>{/each}
+    </select>
   </div>
   {#if insights.error}
     <p class="error" role="alert">{insights.error}</p>
@@ -131,8 +168,8 @@
     />
   </div>
 
-  <table>
-    <caption class="h2">Last 10 runs in the range</caption>
+  <table class="vc-rules">
+    <caption class="st-title3">Last 10 runs in the range</caption>
     <thead>
       <tr>
         <th scope="col">Run</th><th scope="col">Date</th><th scope="col">Pass rate</th><th
@@ -150,36 +187,39 @@
           <td>{run.blocked}</td>
         </tr>
       {:else}
-        <tr><td colspan="5" class="muted">No runs yet. Start one from Tests or Runs.</td></tr>
+        <tr><td colspan="5" class="st-secondary">No runs yet. Start one from Tests or Runs.</td></tr
+        >
       {/each}
     </tbody>
   </table>
 
   <section aria-labelledby="flakiest" class="flakiest">
-    <h2 class="h2" id="flakiest">Flakiest tests</h2>
-    <p class="muted">Flaky or failed results per test · {rangeLabel}</p>
+    <h2 class="st-title3" id="flakiest">Flakiest tests</h2>
+    <p class="st-secondary">Flaky or failed results per test · {rangeLabel}</p>
     {#if worst.length === 0}
-      <p class="muted">No flaky or failing tests in this range.</p>
+      <p class="st-secondary">No flaky or failing tests in this range.</p>
     {:else}
       <ol>
         {#each worst as t (t.testId)}
           {@const done = skipped.get(t.testId)}
           <li>
-            <span class="mono">{t.testId}</span>
-            <span class="muted">{t.flaky} flaky · {t.failed} failed of {t.results} results</span>
+            <span class="vc-mono">{t.testId}</span>
+            <span class="st-secondary"
+              >{t.flaky} flaky · {t.failed} failed of {t.results} results</span
+            >
             <span class="acts">
               {#if done}
-                <span class="pill">{done}</span>
+                <span class="st-badge">{done}</span>
                 <button
                   type="button"
-                  class="btn sm"
+                  class="st-btn st-btn--sm"
                   aria-label="Undo the skip of {t.testId}"
                   onclick={() => openSkip(t.testId, true)}>Undo</button
                 >
               {:else}
                 <button
                   type="button"
-                  class="btn sm"
+                  class="st-btn st-btn--sm"
                   aria-label="Skip {t.testId} until…"
                   aria-expanded={skipping?.target === t.testId}
                   onclick={() => openSkip(t.testId)}>Skip until…</button
@@ -197,7 +237,7 @@
           </li>
         {/each}
       </ol>
-      <p class="muted note">
+      <p class="st-secondary note">
         Skip writes <code>skip: &lbrace; reason, until &rbrace;</code> into the test: it is reported as
         skipped with its reason, and runs again after the date.
       </p>
@@ -217,29 +257,44 @@
 </div>
 
 <style>
+  .scope {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 10px;
+  }
+  .scope select {
+    width: auto;
+    min-width: 160px;
+  }
   .insights {
     display: grid;
     gap: 20px;
     max-width: 1100px;
   }
-  .seg {
+  .st-segmented {
     justify-self: start;
   }
+  /* an even grid, never a ragged wrap (D669): 3 by 2 on a narrow card, 6 in a row on a wide one */
   .kpis {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 12px;
     margin: 0;
   }
+  @container card (width >= 960px) {
+    .kpis {
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+    }
+  }
+  /* stat figures float on the card, a hairline above each (D658) */
   .kpis div {
-    padding: 12px;
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    background: var(--panel2);
+    padding: 10px 0 0;
+    border-top: 1px solid var(--st-chrome-separator);
   }
   dt {
     font-size: 13px;
-    color: var(--ink2);
+    color: var(--st-text-secondary);
   }
   dd {
     margin: 4px 0 0;
@@ -258,13 +313,13 @@
     align-items: center;
     margin: 0;
     font-size: 13px;
-    color: var(--ink2);
+    color: var(--st-text-secondary);
   }
   .swatch {
     width: 10px;
     height: 10px;
     border-radius: 2px;
-    background: var(--block);
+    background: var(--vc-blocked);
   }
   table {
     width: 100%;
@@ -278,11 +333,10 @@
   th,
   td {
     padding: 6px 8px;
-    border-bottom: 1px solid var(--line);
     text-align: left;
   }
   thead th {
-    color: var(--ink2);
+    color: var(--st-text-secondary);
     font-weight: 500;
   }
   tbody th {
@@ -313,11 +367,11 @@
   .flakiest p {
     margin: 4px 0 0;
   }
-  .muted {
-    color: var(--ink2);
+  .st-secondary {
+    color: var(--st-text-secondary);
   }
   .error {
     margin: 0;
-    color: var(--fail);
+    color: var(--vc-fail);
   }
 </style>

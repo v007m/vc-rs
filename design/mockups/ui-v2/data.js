@@ -4,7 +4,7 @@
    Secrets are never stored as values: they carry only a source. */
 window.VC = window.VC || {};
 VC.data = {
-  project: { name: 'shop', root: '~/dev/shop', branch: 's/checkout-v2', engine: 'vc 2.0.0-beta.3', tint: 'violet', lastCheck: 'vc check · 0 errors · 2 warnings · 14:02' },
+  project: { name: 'shop', root: '~/dev/shop', branch: 's/checkout-v2', engine: 'vc 2.0.0-beta.3', tint: 'graphite', lastCheck: 'vc check · 0 errors · 2 warnings · 14:02' },
 
   profiles: [
     { id: 'local', baseUrl: 'http://localhost:7421', tint: null, note: 'vc demo mock' },

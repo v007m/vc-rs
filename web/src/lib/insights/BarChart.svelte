@@ -30,7 +30,7 @@
 
 <section class="chart" aria-labelledby="{id}-title">
   <div class="head">
-    <h2 class="h2" id="{id}-title">{title}</h2>
+    <h2 class="st-title3" id="{id}-title">{title}</h2>
     <p class="sub">{subtitle}</p>
   </div>
   <p class="readout" aria-hidden="true">{hover?.label ?? 'Hover for each run'}</p>
@@ -70,17 +70,16 @@
     gap: 6px;
     min-width: 0;
   }
+  /* the subtitle always sits under the title, so every chart's header has one shape */
   .head {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px 12px;
-    align-items: baseline;
+    display: grid;
+    gap: 2px;
   }
   .sub,
   .readout {
     margin: 0;
     font-size: 13px;
-    color: var(--ink2);
+    color: var(--st-text-secondary);
   }
   .readout {
     min-height: 1.4em;
@@ -100,7 +99,7 @@
     padding: 0;
     list-style: none;
     font-size: 12px;
-    color: var(--ink3);
+    color: var(--st-text-tertiary);
     text-align: right;
     font-variant-numeric: tabular-nums;
   }
@@ -111,13 +110,13 @@
     display: flex;
     gap: 2px;
     align-items: flex-end;
-    border-bottom: 1px solid var(--line2);
-    background: linear-gradient(var(--line) 1px, transparent 1px) 0 0 / 100% 50%;
+    border-bottom: 1px solid var(--vc-rule-strong);
+    background: linear-gradient(var(--st-chrome-separator) 1px, transparent 1px) 0 0 / 100% 50%;
   }
   .bars.empty {
     align-items: center;
     justify-content: center;
-    color: var(--ink2);
+    color: var(--st-text-secondary);
   }
   .slot {
     display: flex;
@@ -131,10 +130,10 @@
     max-width: 24px;
     min-height: 2px;
     border-radius: 4px 4px 0 0;
-    background: var(--accent);
+    background: var(--st-accent);
   }
   .bar.marked {
-    background: var(--block);
+    background: var(--vc-blocked);
   }
   .slot:hover .bar {
     opacity: 0.8;

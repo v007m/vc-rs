@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
 
+  /** A screen's body on the shell's L1 card; `title` names the page (the top row shows the view). */
   let { title, children }: { title: string; children?: Snippet } = $props();
 </script>
 
@@ -8,9 +9,6 @@
   <title>{title} · Vibranium</title>
 </svelte:head>
 
-<div class="panel-head">
-  <h1 class="h1">{title}</h1>
-</div>
-<div class="panel-body">
+<div class="card-body">
   {@render children?.()}
 </div>

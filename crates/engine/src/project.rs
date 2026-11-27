@@ -8,6 +8,7 @@ use vc_diagnostics::Diagnostics;
 use vc_interfaces::{Discovery, SourceError, SourceFilter};
 use vc_model::{DEFAULT_SECRETS_SCHEMA, FileKind, Program, SourceFile, SourceFiles, SourcePath, SourceSpan};
 
+use crate::adhoc;
 use crate::edit::{self, FileChange};
 use crate::{CheckReport, Engine, EngineError};
 
@@ -67,7 +68,8 @@ impl Engine {
         if changes.is_empty() {
             self.save_cache(&compiled.cache, &previous, &mut notices);
         }
-        let (mut diagnostics, mut files) = (compiled.diagnostics, compiled.files);
+        let (diagnostics, mut files) = (compiled.diagnostics, compiled.files);
+        let mut diagnostics = adhoc::unlinted(diagnostics, (&files, changes));
         vc_interfaces::add_problems(&found.problems, &mut diagnostics, &mut files);
         vc_interfaces::add_problems(&unread, &mut diagnostics, &mut files);
         Ok(Compiled { program: compiled.program, diagnostics, files, notices, secrets: compiled.secrets })

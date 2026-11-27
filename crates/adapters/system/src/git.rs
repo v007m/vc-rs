@@ -2,11 +2,13 @@
 
 use std::collections::BTreeSet;
 use std::path::PathBuf;
-use std::process::{Command, Output};
+use std::process::Output;
 use std::time::Duration;
 
-use vc_interfaces::{Vcs, VcsError};
+use vc_interfaces::{Vcs, VcsCommit, VcsError, VcsStatus};
 use vc_model::SourcePath;
+
+use crate::git_pane;
 
 /// A [`Vcs`] that runs the `git` on the `PATH` in the project root.
 ///
@@ -18,6 +20,8 @@ use vc_model::SourcePath;
 /// project root, which may be a folder inside the repository; files outside it are left out.
 /// The recent files come from `git log --since-as-filter=<seconds> seconds ago`, which needs git
 /// 2.37 or later and, unlike `--since`, does not stop at the first commit dated before the window.
+/// The git pane's status, diff, commit, push and pull are in [`git_pane`] (D546–D550); git never
+/// asks for credentials on a terminal (`GIT_TERMINAL_PROMPT=0`).
 #[derive(Clone, Debug)]
 pub struct GitVcs {
     root: PathBuf,
@@ -32,11 +36,7 @@ impl GitVcs {
 
     /// The `\0`-separated paths `git args` prints, or why it could not.
     fn paths(&self, base: &str, args: &[&str]) -> Result<Vec<String>, VcsError> {
-        let mut command = Command::new("git");
-        command.arg("-C").arg(&self.root).args(["-c", "core.fsmonitor=false", "-c", "core.quotePath=false"]);
-        let output =
-            command.args(args).output().map_err(|error| VcsError::Unavailable { reason: error.to_string() })?;
-        listed(base, &output)
+        listed(base, &git_pane::run(&self.root, args)?)
     }
 }
 
@@ -61,6 +61,26 @@ impl Vcs for GitVcs {
         paths.extend(self.changed("HEAD")?);
         Ok(paths.into_iter().collect())
     }
+
+    fn status(&self) -> Result<VcsStatus, VcsError> {
+        git_pane::status(&self.root)
+    }
+
+    fn diff(&self, path: &SourcePath) -> Result<String, VcsError> {
+        git_pane::diff(&self.root, path)
+    }
+
+    fn commit(&self, commit: &VcsCommit) -> Result<String, VcsError> {
+        git_pane::commit(&self.root, commit)
+    }
+
+    fn push(&self) -> Result<String, VcsError> {
+        git_pane::push(&self.root)
+    }
+
+    fn pull(&self) -> Result<String, VcsError> {
+        git_pane::pull(&self.root)
+    }
 }
 
 /// `error`, saying what is missing when the `git` on the `PATH` is older than 2.37 and refuses
@@ -83,7 +103,7 @@ fn sorted(paths: &[String]) -> BTreeSet<SourcePath> {
 /// The paths in `output`, or a [`VcsError::Failed`] with git's message when it failed.
 fn listed(base: &str, output: &Output) -> Result<Vec<String>, VcsError> {
     if !output.status.success() {
-        let reason = String::from_utf8_lossy(&output.stderr).trim().to_owned();
+        let reason = vc_interfaces::without_credentials(String::from_utf8_lossy(&output.stderr).trim());
         return Err(VcsError::Failed { base: base.to_owned(), reason });
     }
     let text = String::from_utf8_lossy(&output.stdout);

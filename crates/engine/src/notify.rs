@@ -9,7 +9,7 @@ use vc_diagnostics::Code;
 use vc_interfaces::{
     Environment, HistoryReader, Notice, NotifierFactory, RunFilter, RunRow, RunSummary, Secrets, Transport,
 };
-use vc_model::{AlertChannel, Namespace, Program, RunStatus, Totals};
+use vc_model::{Alert, AlertChannel, AlertTrigger, Namespace, Program, RunStatus, Totals};
 use vc_template::{PipeRegistry, RenderError, Renderer};
 
 use crate::Engine;
@@ -25,6 +25,8 @@ const LOOKBACK: usize = 50;
 /// What a run's end needs to send its alerts.
 pub struct Alerting {
     program: Arc<Program>,
+    /// The config's `alerts`, and a failure rule for the starting schedule's `notify` (D702).
+    rules: Vec<Alert>,
     project: String,
     root: PathBuf,
     previous: Option<RunStatus>,
@@ -39,18 +41,25 @@ pub struct Senders {
 }
 
 impl Engine {
-    /// What the end of a run of `prepared`, of `kind` (`run` or `load`), sends its alerts with,
-    /// over `secured`'s transport; `None` when the config has no `alerts`. Call it before the run
-    /// begins in the history: the previous run it reads is the last one stored.
-    pub(crate) fn alerting(&self, prepared: &Prepared, secured: &Secured, kind: &str) -> Option<Alerting> {
+    /// What the end of a run of `prepared`, of `kind` (`run` or `load`) and started by
+    /// `schedule` if one did, sends its alerts with, over `secured`'s transport; `None` when there
+    /// is no rule to send. Call it before the run begins in the history: the previous run it reads
+    /// is the last one stored.
+    pub(crate) fn alerting(
+        &self,
+        prepared: &Prepared,
+        secured: &Secured,
+        (kind, schedule): (&str, Option<&str>),
+    ) -> Option<Alerting> {
         let program = Arc::clone(&prepared.program);
-        if program.config.alerts.is_empty() {
+        let rules = rules(&program, schedule);
+        if rules.is_empty() {
             return None;
         }
         let senders = self.senders(prepared, (&secured.secrets, Arc::clone(&secured.transport)));
         let previous = previous(self.history_reader().as_ref(), kind, &prepared.names);
         let project = self.project_name(&program);
-        Some(Alerting { program, project, root: self.root().to_path_buf(), previous, senders })
+        Some(Alerting { program, rules, project, root: self.root().to_path_buf(), previous, senders })
     }
 
     /// What sends `prepared`'s alerts over `transport`, with `secrets` to fill their settings in.
@@ -63,6 +72,25 @@ impl Engine {
     pub(crate) fn project_name(&self, program: &Program) -> String {
         program.config.project.clone().unwrap_or_else(|| folder(self.root()))
     }
+}
+
+/// Whether a run of `program` may send an alert: the config has `alerts`, or a schedule has
+/// `notify` channels for the runs it starts (D702).
+pub fn alerted(program: &Program) -> bool {
+    let config = &program.config;
+    !config.alerts.is_empty() || config.schedules.iter().any(|schedule| !schedule.notify.is_empty())
+}
+
+/// The config's `alerts`, then a rule that tells the `notify` channels of the schedule `id`
+/// when its run fails or is blocked (D702).
+fn rules(program: &Program, schedule: Option<&str>) -> Vec<Alert> {
+    let mut rules = program.config.alerts.clone();
+    let started = schedule.and_then(|id| program.config.schedules.iter().find(|schedule| schedule.id == id));
+    if let Some(schedule) = started.filter(|schedule| !schedule.notify.is_empty()) {
+        let notify = schedule.notify.clone();
+        rules.push(Alert { on: vec![AlertTrigger::Failure], profiles: Vec::new(), tags: Vec::new(), notify });
+    }
+    rules
 }
 
 /// The name of the folder `root` is.
@@ -99,7 +127,7 @@ pub async fn send(alerting: Option<Alerting>, run: RunSummary, ending: Ending) -
         report: report.map(|path| path.to_string_lossy().replace('\\', "/")),
     };
     let mut problems = Vec::new();
-    for fired in alerts::decide(&alerting.program.config.alerts, &finished, alerting.previous) {
+    for fired in alerts::decide(&alerting.rules, &finished, alerting.previous) {
         for channel in &fired.rule.notify {
             if let Err(reason) = alerting.senders.send(&alerting.program, channel, &fired.notice).await {
                 problems.push(format!("{}: {reason}", Code::V5117));

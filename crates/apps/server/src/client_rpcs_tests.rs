@@ -178,3 +178,34 @@ async fn a_draft_never_reads_a_file_the_editor_does_not_open() {
     }
     assert_eq!(fs::read_to_string(dir.path().join(".env")).unwrap(), format!("SHOP_TOKEN={SECRET}\n"));
 }
+
+fn adhoc(url: String) -> wire::AdhocCall {
+    let header = vc_contracts::results::v1::Header { name: "x-key".into(), value: "${secret.SHOP_TOKEN}".into() };
+    let body = Some(r#"{"token": "${secret.SHOP_TOKEN}"}"#.to_owned());
+    wire::AdhocCall { method: "POST".into(), url, headers: vec![header], body, ..wire::AdhocCall::default() }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn an_ad_hoc_call_is_sent_to_its_url_with_its_secrets_masked() {
+    let (dir, api) = project();
+    let url = format!("{}/ping", serving(200, br#"{"ok": true}"#.to_vec()));
+    let sent = call(api.clone(), wire::CallRequest { adhoc: Some(adhoc(url)), ..wire::CallRequest::default() });
+    let sent = sent.await.unwrap();
+    assert_eq!(sent.exit, 0, "{}", sent.text);
+    let exchange = sent.exchange.as_ref().unwrap();
+    assert!(exchange.method == "POST" && exchange.url.ends_with("/ping"), "{exchange:?}");
+    assert!(!leaks(&sent), "{sent:?}");
+    assert!(!dir.path().join("services/vc-adhoc").exists(), "the call's api file is never written");
+}
+
+#[tokio::test]
+async fn an_ad_hoc_call_that_names_an_api_too_is_refused() {
+    let (_dir, api) = project();
+    let both = wire::CallRequest {
+        api: "users#list".into(),
+        adhoc: Some(adhoc("http://127.0.0.1:9/x".into())),
+        ..wire::CallRequest::default()
+    };
+    let refused = call(api, both).await.unwrap_err();
+    assert_eq!(refused.code, Code::InvalidArgument, "{refused:?}");
+}

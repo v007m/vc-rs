@@ -168,6 +168,21 @@ pub fn list<'n>(node: &'n Node, key: &str) -> &'n [Node] {
     node.get(key).map(Node::items).unwrap_or_default()
 }
 
+/// The nodes of `key` in a map node that takes one text or a list of them: the text itself, or
+/// the list's items.
+pub fn one_or_more<'n>(node: &'n Node, key: &str) -> Vec<&'n Node> {
+    match node.get(key) {
+        Some(value) if value.as_scalar().is_some() => vec![value],
+        Some(value) => value.items().iter().collect(),
+        None => Vec::new(),
+    }
+}
+
+/// The config's `schedules`, when `root` has any.
+pub fn schedules(root: &Node) -> &[Node] {
+    list(root, "schedules")
+}
+
 /// The config's `http.tls`, when `root` has one.
 pub fn tls(root: &Node) -> Option<&Node> {
     root.get("http")?.get("tls")

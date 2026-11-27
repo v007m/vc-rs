@@ -1,0 +1,165 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2317_schedule_cron/project
+---
+{
+  "summary": {
+    "errors": 6,
+    "warnings": 0,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "code": "V2317",
+      "severity": "error",
+      "message": "`0 25 * * MON-FRI` is not a cron",
+      "primary": {
+        "span": {
+          "path": "vibranium.config.yaml",
+          "line": 9,
+          "column": 11,
+          "endLine": 9,
+          "endColumn": 29
+        },
+        "text": "`25` in the hour field is outside 0-23"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "write minute, hour, day of the month, month and day of the week in UTC, such as `0 2 * * 1-5` (02:00 on weekdays); each is `*`, a number, `a-b`, `*/n` or a list joined with `,`"
+      ],
+      "fixes": []
+    },
+    {
+      "code": "V2317",
+      "severity": "error",
+      "message": "`0 3 * *` is not a cron",
+      "primary": {
+        "span": {
+          "path": "vibranium.config.yaml",
+          "line": 12,
+          "column": 11,
+          "endLine": 12,
+          "endColumn": 20
+        },
+        "text": "has 4 fields; a cron has 5: minute, hour, day of the month, month, day of the week"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "write minute, hour, day of the month, month and day of the week in UTC, such as `0 2 * * 1-5` (02:00 on weekdays); each is `*`, a number, `a-b`, `*/n` or a list joined with `,`"
+      ],
+      "fixes": []
+    },
+    {
+      "code": "V2002",
+      "severity": "error",
+      "message": "unknown profile `prod`",
+      "primary": {
+        "span": {
+          "path": "vibranium.config.yaml",
+          "line": 13,
+          "column": 24,
+          "endLine": 13,
+          "endColumn": 28
+        },
+        "text": "the config has no such profile"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "expected one of `dev`, `staging`"
+      ],
+      "fixes": []
+    },
+    {
+      "code": "V2001",
+      "severity": "error",
+      "message": "duplicate ID `weekly`",
+      "primary": {
+        "span": {
+          "path": "vibranium.config.yaml",
+          "line": 14,
+          "column": 9,
+          "endLine": 14,
+          "endColumn": 15
+        },
+        "text": "declared again"
+      },
+      "secondary": [
+        {
+          "span": {
+            "path": "vibranium.config.yaml",
+            "line": 11,
+            "column": 9,
+            "endLine": 11,
+            "endColumn": 15
+          },
+          "text": "first declared here"
+        }
+      ],
+      "notes": [],
+      "help": [
+        "IDs are unique within a file across every kind; rename one"
+      ],
+      "fixes": []
+    },
+    {
+      "code": "V2317",
+      "severity": "error",
+      "message": "`*/0 * * * *` is not a cron",
+      "primary": {
+        "span": {
+          "path": "vibranium.config.yaml",
+          "line": 15,
+          "column": 11,
+          "endLine": 15,
+          "endColumn": 24
+        },
+        "text": "a step of 0 in the minute field"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "write minute, hour, day of the month, month and day of the week in UTC, such as `0 2 * * 1-5` (02:00 on weekdays); each is `*`, a number, `a-b`, `*/n` or a list joined with `,`"
+      ],
+      "fixes": []
+    },
+    {
+      "code": "V2002",
+      "severity": "error",
+      "message": "unknown profile `stagin`",
+      "primary": {
+        "span": {
+          "path": "vibranium.config.yaml",
+          "line": 18,
+          "column": 14,
+          "endLine": 18,
+          "endColumn": 20
+        },
+        "text": "the config has no such profile"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "did you mean `staging`?"
+      ],
+      "fixes": [
+        {
+          "title": "Replace with staging",
+          "certain": true,
+          "edits": [
+            {
+              "path": "vibranium.config.yaml",
+              "range": {
+                "start": 334,
+                "end": 340
+              },
+              "newText": "staging"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

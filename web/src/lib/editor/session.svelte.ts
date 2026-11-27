@@ -7,6 +7,8 @@ import {
   type Fix,
   type WriteFileResponse,
 } from '#lib/gen/vibranium/engine/v1/engine_pb.ts';
+import { fixAll } from './marks.ts';
+import type { FixPort } from './seams.ts';
 import { applyEdits } from './text.ts';
 
 /** The part of the engine client the editor needs, so tests can pass a fake. */
@@ -29,10 +31,14 @@ export class EditorSession {
   state: EditorState = $state('idle');
   /** Why the check after the last save could not run; the file was written all the same. */
   checkError: string | undefined = $state();
+  /** The last Save found errors and waits for "Save anyway" or another edit (D227, D475). */
+  confirming = $state(false);
   readonly #client: EditorClient;
   readonly #checkDelayMs: number;
   /** Bumped by every edit, open and save, so a check of older text cannot land. */
   #version = 0;
+  /** The text the diagnostics describe; their fixes' offsets are only good for it. */
+  #checkedText: string | undefined = $state();
   /** Bumped by every open, so a read or save of a file no longer chosen cannot land. */
   #opening = 0;
   #timer: ReturnType<typeof setTimeout> | undefined;
@@ -40,6 +46,8 @@ export class EditorSession {
   #failure: string | undefined = $state();
   /** Why the check of the typed text failed; the next check of it clears it. */
   #checkFailure: string | undefined = $state();
+  /** Each file's ID by its path, as the listing gives it. */
+  #ids: Readonly<Record<string, string>> = $state.raw({});
 
   /** `checkDelayMs` is how long typing must pause before the unsaved text is checked. */
   constructor(client: EditorClient, checkDelayMs = 300) {
@@ -61,19 +69,39 @@ export class EditorSession {
     return this.diagnostics.filter((d) => d.primary?.span?.file === this.buffer?.path);
   }
 
-  /** How many errors the open file has; Save is blocked while there are any (R44). */
+  /** How many errors the open file has; saving one asks first (D227, D475). */
   get errorCount(): number {
     return this.diagnostics.filter((d) => isErrorIn(d, this.buffer?.path)).length;
   }
 
+  /** Whether the diagnostics describe the typed text, so their fixes can be applied to it. */
+  get fixable(): boolean {
+    return !!this.buffer && this.buffer.text === this.#checkedText;
+  }
+
+  /** How many fixes "Fix all" would apply: the certain ones whose edits are all in this file. */
+  get fixableCount(): number {
+    const buffer = this.buffer;
+    return buffer && this.fixable
+      ? fixAll(buffer.text, buffer.path, this.fileDiagnostics).applied
+      : 0;
+  }
+
+  /** The file ID of `path` (`users.crud`), as the engine names it; empty when not listed. */
+  fileId(path: string): string {
+    return Object.hasOwn(this.#ids, path) ? (this.#ids[path] ?? '') : '';
+  }
+
+  /** Saving always works, errors or not; with errors it asks first (D227). */
   get canSave(): boolean {
-    return this.dirty && this.errorCount === 0 && this.state !== 'saving';
+    return this.dirty && this.state !== 'saving';
   }
 
   async loadFiles(): Promise<void> {
     await this.#attempt(async () => {
       const response = await this.#client.listDefinitions({ kind: DefinitionKind.FILES });
       this.files = response.definitions.map((d) => d.path).sort();
+      this.#ids = Object.fromEntries(response.definitions.map((d) => [d.path, d.id]));
     });
   }
 
@@ -95,10 +123,22 @@ export class EditorSession {
     }
   }
 
+  /** Closes the open file, dropping any edits, as after it was moved to the trash. */
+  close(): void {
+    this.#opening += 1;
+    this.#invalidate();
+    this.buffer = undefined;
+    this.diagnostics = [];
+    this.#checkedText = undefined;
+    this.confirming = false;
+    this.state = 'idle';
+  }
+
   /** Changes the open file's text and checks it, unsaved, once typing pauses. */
   edit(text: string): void {
     if (!this.buffer) return;
     this.buffer = { ...this.buffer, text };
+    this.confirming = false;
     const { path } = this.buffer;
     const version = this.#invalidate();
     this.#timer = setTimeout(() => void this.#checkTyped(version, path, text), this.#checkDelayMs);
@@ -110,19 +150,51 @@ export class EditorSession {
   }
 
   /**
-   * Saves the open file unless it changed on disk since it was read, or its text has errors: the
-   * text is checked first, since the last check may predate the last keystroke (R44).
+   * Saves the open file unless it changed on disk since it was read. The text is checked first,
+   * since the last check may predate the last keystroke; if it has errors, nothing is written
+   * and `confirming` asks for "Save anyway" (D227, D475).
    */
   async save(): Promise<void> {
+    await this.#save(false);
+  }
+
+  /** Saves the open file with its errors, after the prompt of a Save that found some. */
+  async saveAnyway(): Promise<void> {
+    await this.#save(true);
+  }
+
+  /** Drops the "Save anyway" prompt and keeps editing. */
+  cancelSave(): void {
+    this.confirming = false;
+  }
+
+  /** Checks the typed text now, without waiting for typing to pause. */
+  async check(): Promise<void> {
+    const buffer = this.buffer;
+    if (buffer) await this.#checkTyped(this.#invalidate(), buffer.path, buffer.text);
+  }
+
+  /** Applies every certain fix of the open file that does not overlap another (Fix all). */
+  fixAll(): number {
+    const buffer = this.buffer;
+    if (!buffer || !this.fixable) return 0;
+    const fixed = fixAll(buffer.text, buffer.path, this.fileDiagnostics);
+    if (fixed.applied) this.edit(fixed.text);
+    return fixed.applied;
+  }
+
+  async #save(anyway: boolean): Promise<void> {
     const buffer = this.buffer;
     if (!buffer || !this.canSave) return;
     const { path, text, digest } = buffer;
     const opening = this.#opening;
     const version = this.#invalidate();
     this.state = 'saving';
+    this.confirming = false;
     try {
-      const checked = await this.#checkAs(version, path, text);
-      if (!checked.some((d) => isErrorIn(d, path))) {
+      const checked = anyway ? [] : await this.#checkAs(version, path, text);
+      if (checked.some((d) => isErrorIn(d, path))) this.confirming = version === this.#version;
+      else {
         const response = await this.#client.writeFile({ path, text, expectedDigest: digest });
         this.#saved(version, buffer, response);
       }
@@ -143,7 +215,7 @@ export class EditorSession {
     if (this.buffer) await this.open(this.buffer.path);
   }
 
-  /** After a conflict: saves the edits over the file as it is on disk now. */
+  /** After a conflict: saves the edits over the file as it is on disk now, errors or not. */
   async keepMine(): Promise<void> {
     const buffer = this.buffer;
     if (!buffer) return;
@@ -157,15 +229,44 @@ export class EditorSession {
       if (opening === this.#opening) this.#failed(ConnectError.from(error).rawMessage);
       return;
     }
-    await this.save();
+    await this.saveAnyway();
   }
 
-  /** Applies the fix's edits to the open file, unsaved. */
+  /** Applies the fix's edits to the open file, unsaved, unless it changed since it was checked. */
   applyFix(fix: Fix): void {
     const buffer = this.buffer;
-    if (!buffer) return;
+    if (!buffer || !this.fixable) return;
     const edits = fix.edits.filter((e) => e.file === buffer.path);
     this.edit(applyEdits(buffer.text, edits));
+  }
+
+  /**
+   * Fixes the open file (D652): through the engine's `ApplyFixes` while it is saved, the result
+   * put in place unsaved, so Save writes it and Revert undoes it; on the typed text otherwise, or
+   * on an engine without it. `chosen` is the fix a problem names; Fix all passes none. Gives a
+   * note when there was nothing to fix.
+   */
+  async fix(
+    port: FixPort,
+    chosen?: Readonly<{ fix: Fix; code: string }>,
+  ): Promise<string | undefined> {
+    const buffer = this.buffer;
+    if (!buffer) return undefined;
+    if (!this.dirty) {
+      const got = await port.fix(buffer.path, chosen ? [chosen.code] : []);
+      if (got.available) return this.#fixed(buffer, got.value);
+    }
+    if (chosen) this.applyFix(chosen.fix);
+    else this.fixAll();
+    return undefined;
+  }
+
+  /** Puts the engine's fixed text in place, unless another file or edit came first. */
+  #fixed(was: Buffer, text: string | undefined): string | undefined {
+    if (this.buffer !== was) return undefined;
+    if (text === undefined || text === was.text) return 'Nothing to fix.';
+    this.edit(text);
+    return undefined;
   }
 
   /**
@@ -175,7 +276,7 @@ export class EditorSession {
   async #checkAs(version: number, path: string, text?: string): Promise<Diagnostic[]> {
     const overlay = text === undefined ? {} : { [path]: text };
     const { diagnostics } = await this.#client.check({ paths: [path], overlay });
-    if (version === this.#version) this.#checked(diagnostics);
+    if (version === this.#version) this.#checked(diagnostics, text ?? this.buffer?.original);
     return diagnostics;
   }
 
@@ -188,7 +289,7 @@ export class EditorSession {
     if (live?.path === saved.path)
       this.buffer = { ...live, original: saved.text, digest: response.digest };
     if (version !== this.#version) return;
-    this.#checked(response.diagnostics);
+    this.#checked(response.diagnostics, saved.text);
     this.checkError = response.checkError || undefined;
   }
 
@@ -213,8 +314,9 @@ export class EditorSession {
     this.#failure = failure;
   }
 
-  #checked(diagnostics: Diagnostic[]): void {
+  #checked(diagnostics: Diagnostic[], text: string | undefined): void {
     this.diagnostics = diagnostics;
+    this.#checkedText = text;
     this.checkError = undefined;
     this.#checkFailure = undefined;
   }

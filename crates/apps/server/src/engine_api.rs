@@ -10,9 +10,12 @@ use serde::de::DeserializeOwned;
 use vc_contracts::engine::v1 as wire;
 use vc_engine::{Engine, EngineError};
 
+use crate::cancel_rpcs::Runs;
+use crate::live_rpcs::LiveStreams;
 use crate::{
-    Code, ConnectError, ConnectService, McpAccess, Sink, authoring_rpcs, client_rpcs, edit_rpcs, history_rpcs,
-    project_rpcs, run_stream,
+    Code, ConnectError, ConnectService, McpAccess, Sink, authoring_rpcs, cancel_rpcs, client_rpcs, compare_rpcs,
+    edit_rpcs, editor_rpcs, file_rpcs, history_rpcs, live_rpcs, load_stream, onboarding_rpcs, plugin_rpcs,
+    project_rpcs, run_stream, schedule_rpcs, scheduler, user_settings_rpcs, vcs_rpcs,
 };
 
 /// The service's full protobuf name.
@@ -23,23 +26,42 @@ pub struct EngineApi {
     engine: Arc<Engine>,
     profiles: Vec<String>,
     sets: Vec<String>,
+    live: LiveStreams,
+    runs: Runs,
 }
 
 impl EngineApi {
     /// The API over `engine`. A call that names no profile uses `profiles` (the config's default
-    /// ones when empty), and every call's `--set` values come after `sets`.
+    /// ones when empty), and every call's `--set` values come after `sets`. Built on a Tokio
+    /// runtime, it keeps its live streams and running runs there (D543, D551); built outside one, it
+    /// opens none and cancels none.
     #[must_use]
-    pub const fn new(engine: Arc<Engine>, profiles: Vec<String>, sets: Vec<String>) -> Self {
-        Self { engine, profiles, sets }
+    pub fn new(engine: Arc<Engine>, profiles: Vec<String>, sets: Vec<String>) -> Self {
+        Self { engine, profiles, sets, live: LiveStreams::spawn(), runs: Runs::spawn() }
     }
 
     /// The Connect service that serves every RPC.
     #[must_use]
     pub fn into_service(self) -> ConnectService {
-        let rpcs = Rpcs { service: ConnectService::new(SERVICE), api: Arc::new(self) };
+        Self::serving(Arc::new(self))
+    }
+
+    /// The Connect service, with `vc ui`'s scheduler running the config's schedules beside it
+    /// until the service is dropped (D703). Built outside a Tokio runtime, nothing is scheduled.
+    #[must_use]
+    pub fn into_scheduled_service(self) -> ConnectService {
+        let api = Arc::new(self);
+        scheduler::spawn(Arc::downgrade(&api));
+        Self::serving(api)
+    }
+
+    fn serving(api: Arc<Self>) -> ConnectService {
+        let rpcs = user_settings_rpcs::register(Rpcs { service: ConnectService::new(SERVICE), api });
+        let rpcs = onboarding_rpcs::register(plugin_rpcs::register(schedule_rpcs::register(rpcs)));
         let rpcs = project_rpcs::register(client_rpcs::register(edit_rpcs::register(rpcs)));
-        let rpcs = run_stream::register(authoring_rpcs::register(history_rpcs::register(rpcs)));
-        rpcs.service
+        let rpcs = run_stream::register(authoring_rpcs::register(history_rpcs::register(cancel_rpcs::register(rpcs))));
+        let rpcs = load_stream::register(compare_rpcs::register(vcs_rpcs::register(live_rpcs::register(rpcs))));
+        file_rpcs::register(editor_rpcs::register(rpcs)).service
     }
 
     /// The engine.
@@ -48,10 +70,28 @@ impl EngineApi {
         &self.engine
     }
 
-    /// A call's profiles and `--set` values over the server's.
-    pub(crate) fn layers(&self, profiles: Vec<String>, sets: Vec<String>) -> (Vec<String>, Vec<String>) {
+    /// The open live streams.
+    pub(crate) const fn live(&self) -> &LiveStreams {
+        &self.live
+    }
+
+    /// The running runs a `Cancel` can stop.
+    pub(crate) const fn runs(&self) -> &Runs {
+        &self.runs
+    }
+
+    /// A call's profiles and `--set` values over the server's. The call's own sets come from a
+    /// client, so a `reports.dir` among them must name a folder inside the project; the server's
+    /// own, from `vc ui --set`, are trusted (D327, D685). Only such a set reads the disk.
+    ///
+    /// # Errors
+    ///
+    /// `invalid_argument` (V5132) when one of the call's sets moves the report folder out; the
+    /// error `vc run` gives for a set that is not `key=value`.
+    pub(crate) fn layers(&self, profiles: Vec<String>, sets: Vec<String>) -> Result<Layers, ConnectError> {
+        self.engine.client_sets(&sets).map_err(|error| failed(&error))?;
         let profiles = if profiles.is_empty() { self.profiles.clone() } else { profiles };
-        (profiles, self.sets.iter().cloned().chain(sets).collect())
+        Ok((profiles, self.sets.iter().cloned().chain(sets).collect()))
     }
 
     /// Runs `work` with the engine on the blocking pool.
@@ -67,6 +107,9 @@ impl EngineApi {
             .map_err(|error| failed(&error))
     }
 }
+
+/// A call's profiles and `--set` values, over the server's.
+type Layers = (Vec<String>, Vec<String>);
 
 /// The service as its RPCs are added, each handler given the API.
 pub struct Rpcs {

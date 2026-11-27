@@ -1,13 +1,11 @@
 use std::fs;
 use std::path::Path;
-use std::sync::Arc;
 
-use vc_adapter_plugins::FsPluginStore;
-use vc_adapter_system::FsSources;
 use vc_diagnostics::{Code, Severity};
-use vc_testkit::{FakeVcs, MemoryCompileCache, MemoryEnvironment};
+use vc_interfaces::PluginStderr;
 
-use crate::{CheckRequest, Engine, EngineBuilder};
+use crate::sample::plugin_engine;
+use crate::{CheckRequest, Engine};
 
 const CONFIG: &str = "syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\n";
 
@@ -17,16 +15,7 @@ fn project() -> (tempfile::TempDir, Engine) {
     fs::write(dir.path().join("vibranium.config.yaml"), CONFIG).unwrap();
     plugin(dir.path(), "report", "kind: reporter\npermissions: {secrets: [reportToken]}\n");
     plugin(dir.path(), "stamp", "kind: auth\npermissions: {}\n");
-    let folder = Arc::new(FsSources::new(dir.path()).unwrap());
-    let engine = EngineBuilder::new(dir.path().to_path_buf())
-        .vcs(Arc::new(FakeVcs::default()))
-        .environment(Arc::new(MemoryEnvironment::new(&[])))
-        .compile_cache(Arc::new(MemoryCompileCache::new()))
-        .sources(folder.clone())
-        .writer(folder)
-        .plugins(Arc::new(FsPluginStore::new(dir.path())))
-        .build()
-        .unwrap();
+    let engine = plugin_engine(dir.path(), PluginStderr::Inherit);
     (dir, engine)
 }
 

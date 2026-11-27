@@ -49,7 +49,9 @@ The server answers only to `127.0.0.1` and `localhost`. A request that names ano
 | Code | When |
 | --- | --- |
 | `0` | Stopped with Ctrl-C |
-| `2` | No project, the port is taken, or this `vc` was built without the UI |
+| `2` | The port is taken, or this `vc` was built without the UI |
+
+Outside a project, `vc ui` serves the folder it starts in (or `--project`), and the web UI offers to [start a project](/vc-rs/guides/web-ui/#start-a-project) there.
 
 ```console
 $ vc ui

@@ -21,7 +21,7 @@ use crate::connector::{TimedConnector, bare_host};
 use crate::error::{ConnectError, causes, chain};
 use crate::hosts::{ClientTable, HostRules};
 use crate::stream::ConnectRecord;
-use crate::{ClientIdentity, HttpAdapterError, ProxyConfig, body, tls};
+use crate::{ClientIdentity, Connections, HttpAdapterError, ProxyConfig, body, tls};
 
 /// How the HTTP transport is set up. The engine builds it from config and the environment.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -33,11 +33,14 @@ pub struct HttpOptions {
     pub tls: TlsOptions,
     /// How long an idle pooled connection is kept.
     pub pool_idle: Duration,
+    /// The open connections' count the transport adds to (D675).
+    pub connections: Connections,
 }
 
 impl Default for HttpOptions {
     fn default() -> Self {
-        Self { proxy: ProxyConfig::default(), tls: TlsOptions::default(), pool_idle: Duration::from_secs(90) }
+        let pool_idle = Duration::from_secs(90);
+        Self { proxy: ProxyConfig::default(), tls: TlsOptions::default(), pool_idle, connections: Connections::new() }
     }
 }
 
@@ -110,7 +113,7 @@ impl HttpTransport {
     ) -> Result<Self, HttpAdapterError> {
         let proxy = Arc::new(options.proxy.matcher());
         let build = |config| {
-            let connector = TimedConnector::new(config, Arc::clone(&proxy));
+            let connector = TimedConnector::new(config, Arc::clone(&proxy), options.connections.clone());
             let mut builder = Client::builder(TokioExecutor::new());
             builder.pool_idle_timeout(options.pool_idle).pool_timer(TokioTimer::new()).build(connector)
         };

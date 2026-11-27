@@ -26,21 +26,21 @@
     if (skipping && skipping.target !== row.id) skipping = undefined;
   });
 
-  let editorHref = $derived(`${resolve('/editor')}?file=${encodeURIComponent(row.path)}`);
+  let editorHref = $derived(`${resolve('/tests/editor')}?file=${encodeURIComponent(row.path)}`);
   let where = $derived(row.line ? `${row.path}:${row.line}` : row.path);
 </script>
 
 <section class="detail" aria-labelledby="detail-h">
-  <h2 id="detail-h" class="h2">{row.name}</h2>
-  <p class="mono id">{row.id}</p>
-  <p class="mono path">{where}</p>
-  {#if row.steps}<p class="muted steps">A flow of {row.steps} steps</p>{/if}
+  <h2 id="detail-h" class="st-title3">{row.name}</h2>
+  <p class="vc-mono id">{row.id}</p>
+  <p class="vc-mono path">{where}</p>
+  {#if row.steps}<p class="st-secondary steps">A flow of {row.steps} steps</p>{/if}
   {#if row.skipped}
     <p class="note">This test is skipped. It stays in reports with its reason.</p>
   {/if}
   {#if row.tags.length}
     <ul class="tags" aria-label="Tags">
-      {#each row.tags as tag (tag)}<li class="pill">{tag}</li>{/each}
+      {#each row.tags as tag (tag)}<li class="st-badge">{tag}</li>{/each}
     </ul>
   {/if}
   {#if row.calls.length}
@@ -48,21 +48,26 @@
     <ol class="calls" aria-labelledby="calls-h">
       {#each row.calls as call, i (i)}
         <li>
-          <span class="method mono">{call.method}</span>
-          <span class="mono">{call.path}</span>
-          <span class="mono api">{call.api}</span>
+          <span class="method vc-mono">{call.method}</span>
+          <span class="vc-mono">{call.path}</span>
+          <span class="vc-mono api">{call.api}</span>
         </li>
       {/each}
     </ol>
   {/if}
   <div class="actions">
-    <button class="btn primary sm" type="button" disabled={running} onclick={() => onrun([row.id])}>
+    <button
+      class="st-btn st-btn--primary st-btn--sm"
+      type="button"
+      disabled={running}
+      onclick={() => onrun([row.id])}
+    >
       Run this test
     </button>
-    <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- editorHref is resolve('/editor') plus a query -->
-    <a class="btn sm" href={editorHref}>Open in editor</a>
+    <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- editorHref is resolve('/tests/editor') plus a query -->
+    <a class="st-btn st-btn--sm" href={editorHref}>Open in editor</a>
     <button
-      class="btn sm"
+      class="st-btn st-btn--sm"
       type="button"
       aria-expanded={skipping !== undefined}
       onclick={() => (skipping = skipping ? undefined : new SkipChange(skips, row.id, row.skipped))}
@@ -90,7 +95,7 @@
   .id,
   .path {
     margin: 0;
-    color: var(--ink2);
+    color: var(--st-text-secondary);
     overflow-wrap: anywhere;
   }
   .steps {
@@ -120,11 +125,11 @@
     font-weight: 600;
   }
   .api {
-    color: var(--ink2);
+    color: var(--st-text-secondary);
   }
   .note {
     margin: 0;
-    color: var(--block);
+    color: var(--vc-blocked);
   }
   .tags {
     display: flex;

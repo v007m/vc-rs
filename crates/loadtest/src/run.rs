@@ -57,6 +57,8 @@ pub struct Second {
     pub rps: u64,
     /// The thresholds failing in the rolling window.
     pub breaching: Vec<Breach>,
+    /// The iterations so far that started late (see [`crate::LATE`]).
+    pub late: u64,
 }
 
 /// How a load run ended.
@@ -130,7 +132,7 @@ async fn drive(scenario: &LoadScenario, parts: LoadParts, matching: Matching<'_>
                 let second = run.tick(&judge(matching))?;
                 send(&parts.seconds, second).await;
             }
-            Some(sample) = inbox.recv() => run.recorder.record(sample)?,
+            Some(sample) = inbox.recv() => run.record(sample)?,
         }
     }
     run.finish(&mut inbox, (&parts.seconds, matching)).await
@@ -158,6 +160,7 @@ struct Run<'s> {
     recorder: Recorder,
     window: Window,
     totals: Totals,
+    late: u64,
 }
 
 impl<'s> Run<'s> {
@@ -173,7 +176,14 @@ impl<'s> Run<'s> {
             recorder: Recorder::new(),
             window: Window::new(),
             totals: Totals::new()?,
+            late: 0,
         })
+    }
+
+    /// Records `sample` in its second, counting it when it started late.
+    fn record(&mut self, sample: Sample) -> Result<(), LoadError> {
+        self.late = self.late.saturating_add(u64::from(sample.late));
+        self.recorder.record(sample)
     }
 
     /// A second boundary: closes the second before, judges the rolling window and moves the
@@ -198,7 +208,8 @@ impl<'s> Run<'s> {
         self.window.advance(at, rows.iter().cloned());
         let window = self.window.totals()?;
         let breaching = breaches(self.scenario, &window, judge)?;
-        Ok(Second { at, users: self.controller.users(), rows, window, rps: self.window.rps(), breaching })
+        let (users, rps, late) = (self.controller.users(), self.window.rps(), self.late);
+        Ok(Second { at, users, rows, window, rps, breaching, late })
     }
 
     fn total(&mut self, rows: &[Interval]) -> Result<(), LoadError> {
@@ -251,13 +262,14 @@ impl<'s> Run<'s> {
     ) -> Result<LoadOutcome, LoadError> {
         let span = self.ticks.saturating_sub(1);
         while let Some(sample) = inbox.recv().await {
-            self.recorder.record(sample)?;
+            self.record(sample)?;
         }
         let rows = self.recorder.close(u64::MAX);
         self.total(&rows)?;
         let window = self.window.totals()?;
         let rps = self.window.rps();
-        send(seconds, Some(Second { at: span, users: 0, rows, window, rps, breaching: Vec::new() })).await;
+        let last = Second { at: span, users: 0, rows, window, rps, breaching: Vec::new(), late: self.late };
+        send(seconds, Some(last)).await;
         self.totals.cover(span);
         let breaches = breaches(self.scenario, &self.totals, &judge(matching))?;
         Ok(LoadOutcome { ending: self.ending, totals: self.totals, breaches })

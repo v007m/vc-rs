@@ -29,6 +29,14 @@ jobs:
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
       - run: pnpm install --frozen-lockfile
+      # GATE-STYLE (D720) drives the built web UI in Playwright's headless Chromium.
+      - id: playwright
+        run: echo "version=$(pnpm --dir web exec playwright --version | awk '{print $2}')" >>"$GITHUB_OUTPUT"
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+      - run: pnpm --dir web exec playwright install --with-deps --only-shell chromium
       # D205: on a PR update, mutation testing covers only the commits pushed since the last run.
       # A PR's first run, or a history that was rewritten, measures against the base branch.
       - id: mutants-base
@@ -129,6 +137,14 @@ jobs:
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
       - run: pnpm install --frozen-lockfile
+      # The GATE-STYLE fixture needs the same headless Chromium as the gates job.
+      - id: playwright
+        run: echo "version=$(pnpm --dir web exec playwright --version | awk '{print $2}')" >>"$GITHUB_OUTPUT"
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+      - run: pnpm --dir web exec playwright install --with-deps --only-shell chromium
       - run: cargo fetch --locked
       - run: scripts/gates-selftest.sh
 

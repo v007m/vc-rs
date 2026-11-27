@@ -48,6 +48,7 @@ fn tick(second: u64, errors: u64, breaching: &[&str]) -> Update {
         p99: ms(140 + 9 * second),
         errors,
         breaching: breaching.iter().map(|name| (*name).to_owned()).collect(),
+        host: vc_engine::HostStats::default(),
     })
 }
 

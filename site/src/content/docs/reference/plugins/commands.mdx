@@ -118,6 +118,15 @@ reports:
 - `vc plugin remove` leaves the plugin's data folder, `.vibranium/plugin-data/<id>/`, in place.
 - Every command exits 0 on success and 2 on an error.
 
+## From the web UI
+
+Settings → Plugins in `vc ui` lists the same plugins and adds and removes them in the same way, with two differences:
+
+- **A preview first.** Add and Remove show the plugin's manifest, what it asks to reach and the changes to `vibranium.config.yaml` and `vibranium.lock`. Nothing is installed or written until you confirm, and if the files or the plugin changed since the preview, nothing is written and the page asks you to look again.
+- **Fewer sources.** A source from the web UI is `npm:` with a package name from the registry and an optional range or tag, such as `npm:@acme/vibranium-report@^2`, or `path:` with a folder inside the project. An npm `file:`, git, `github:` or tarball spec is refused, since `npm pack` would run that package's scripts, and so is a `path:` folder that is absolute, has a `..` part or leads out through a link ([V5132](/vc-rs/reference/diagnostics/v5132/)). Use `vc plugin add` for those.
+
+An error from the web UI never repeats the source you typed.
+
 ## Common errors
 
 | Message or code | Fix |

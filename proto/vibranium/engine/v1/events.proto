@@ -177,6 +177,21 @@ message LoadTick {
   uint64 errors = 7;
   // The thresholds failing, such as `p95` or `<test>: errorRate`.
   repeated string breaching = 8;
+  // What the generator itself uses as the second closes, for the Hosts panel.
+  HostStats host = 10;
+}
+
+// The `vc` process generating the load: a slow p99 from a busy generator is the generator's.
+// A figure the platform or transport does not tell is unset.
+message HostStats {
+  // CPU over the last second, in percent of one core: four busy cores read 400.
+  optional uint32 cpu_percent = 1;
+  // Resident memory, in bytes.
+  optional uint64 memory_bytes = 2;
+  // The connections the run's transports hold open.
+  optional uint64 connections = 3;
+  // The iterations so far that started more than 50 ms after their schedule.
+  uint64 late_iterations = 4;
 }
 
 // The stream fell behind and dropped `count` events; the run's history has them.

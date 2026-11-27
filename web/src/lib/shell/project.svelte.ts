@@ -1,0 +1,101 @@
+import { ConnectError, type Client } from '@connectrpc/connect';
+import { createContext } from 'svelte';
+import {
+  DefinitionKind,
+  Severity,
+  type EngineService,
+} from '#lib/gen/vibranium/engine/v1/engine_pb.ts';
+
+/** The part of the engine the shell's status line and env pill read, so tests can pass a fake. */
+export type ProjectClient = Pick<
+  Client<typeof EngineService>,
+  'getProject' | 'check' | 'listDefinitions'
+>;
+
+/** What `vc check` found over the whole project. */
+export type CheckSummary = Readonly<{ errors: number; warnings: number; files: number }>;
+
+/**
+ * The project facts the shell shows on every screen: vc's version and the default profile (the
+ * env pill), and the last whole-project `vc check` (the status line). Each loads once; a failure
+ * leaves its part blank with the reason, and the screens keep working.
+ */
+export class ProjectStatus {
+  name: string | undefined = $state();
+  version: string | undefined = $state();
+  profile: string | undefined = $state();
+  /** Every profile the config names, in its order (the Run dialog's picker, D633). */
+  profiles: readonly string[] = $state.raw([]);
+  check: CheckSummary | undefined = $state();
+  /** Whether the folder `vc ui` serves has a `vibranium.config.yaml`; unknown until it loads (D716). */
+  configured: boolean | undefined = $state();
+  error: string | undefined = $state();
+  /** The project's files, for the palette's Open; read when the palette first asks. */
+  files: readonly string[] = $state.raw([]);
+  readonly #client: ProjectClient;
+
+  constructor(client: ProjectClient) {
+    this.#client = client;
+  }
+
+  /** Loads the project and checks it; resolves when both have settled. */
+  async load(): Promise<void> {
+    await Promise.all([this.#project(), this.#check()]);
+  }
+
+  /** Makes `profile` the session's profile: the env pill and the Run dialog's default. */
+  useProfile(profile: string): void {
+    if (this.profiles.includes(profile)) this.profile = profile;
+  }
+
+  /** Reads the project's file paths; a failure leaves the list as it was. */
+  async listFiles(): Promise<void> {
+    try {
+      const { definitions } = await this.#client.listDefinitions({ kind: DefinitionKind.FILES });
+      this.files = definitions.map((d) => d.path).sort();
+    } catch {
+      // The palette lists screens and actions without the files.
+    }
+  }
+
+  async #project(): Promise<void> {
+    try {
+      const got = await this.#client.getProject({});
+      const { name, vcVersion, defaultProfile, profiles } = got;
+      this.configured = got.configured;
+      this.name = name;
+      this.version = vcVersion;
+      this.profile = defaultProfile ?? profiles[0];
+      this.profiles = profiles;
+    } catch (error) {
+      this.error = ConnectError.from(error).rawMessage;
+    }
+  }
+
+  async #check(): Promise<void> {
+    try {
+      const { diagnostics, checked } = await this.#client.check({});
+      const count = (severity: Severity) =>
+        diagnostics.filter((d) => d.severity === severity).length;
+      this.check = {
+        errors: count(Severity.ERROR),
+        warnings: count(Severity.WARNING),
+        files: checked,
+      };
+    } catch (error) {
+      this.error = ConnectError.from(error).rawMessage;
+    }
+  }
+}
+
+/** The status line's words for `check`: what vc check found, never colour alone. */
+export function checkLine(check: CheckSummary | undefined): string {
+  if (!check) return 'vc check …';
+  const { errors, warnings } = check;
+  if (errors === 0 && warnings === 0) return 'vc check: clean';
+  const part = (n: number, word: string) => (n ? [`${n} ${word}${n === 1 ? '' : 's'}`] : []);
+  return `vc check: ${[...part(errors, 'error'), ...part(warnings, 'warning')].join(', ')}`;
+}
+
+/** The app's project facts: the root layout sets them, and a screen that needs a profile reads them. */
+export const [getProjectStatus, setProjectStatus] = createContext<ProjectStatus>();

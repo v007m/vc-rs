@@ -73,13 +73,13 @@
   VC.panel = (id, cur, html, cls) => `<div class="card-body${cls ? ' ' + cls : ''}" role="tabpanel" id="${id}-panel" aria-labelledby="${id}-${cur}" tabindex="0" data-sk="${id}-panel">${html}</div>`;
   VC.reqbar = function (opts) {
     return `<div class="reqbar on-l0" role="group" aria-label="Request">
-      <button class="btn btn-ghost type-btn" data-action="type-menu" aria-haspopup="menu" aria-label="Request type: ${esc(opts.typeLabel)}" data-fk="type">${method(opts.m)}${ic('chev-down', 'ico-sm')}</button>
+      <button class="btn type-btn" data-action="type-menu" aria-haspopup="menu" aria-label="Request type: ${esc(opts.typeLabel)}" data-fk="type">${method(opts.m)}${ic('chev-down', 'ico-sm')}</button>
       <div class="url">${opts.input ? `<input value="${esc(opts.url)}" placeholder="Paste a URL or a cURL command, or type \${baseUrl}/…" aria-label="URL" data-fk="url-input">` : `<span class="url-text">${urlTokens(opts.url)}</span>`}</div>
       ${opts.extra || ''}
-      <div class="btn-split">
+      ${opts.conn ? opts.conn : `<div class="btn-split">
         <button class="btn btn-primary" data-action="send" data-fk="send"${S.sending ? ' aria-busy="true"' : ''}>${ic(opts.sendIco || 'send')}${esc(opts.sendLabel || 'Send')}<span class="kbd hide-narrow">⌘↵</span></button>
         <button class="btn btn-primary" data-action="send-menu" aria-haspopup="menu" aria-label="More send options" data-fk="send-menu">${ic('chev-down')}</button>
-      </div>
+      </div>`}
     </div>`;
   };
 
@@ -124,11 +124,11 @@
 
   /* ---- REST: request card ------------------------------------------------ */
   const allExpect = () => ({ inherited: D.request.expect.inherited, own: D.request.expect.own.concat(S.added) });
+  /* D3: no counts on tabs, except a new-check marker on Expect */
   function reqTabs() {
-    const n = (x) => `<span class="count">${x}</span>`;
     return [
-      ['params', 'Params', n(3)], ['headers', 'Headers', n(5)], ['auth', 'Auth', `<span class="count">${ic('lock', 'ico-sm')}</span>`],
-      ['body', 'Body'], ['vars', 'Vars', n(3)], ['expect', 'Expect', `<span class="count${S.added.length ? ' is-good' : ''}">${2 + 2 + S.added.length}</span>`], ['options', 'Options', n(1)]
+      ['params', 'Params'], ['headers', 'Headers'], ['auth', 'Auth'], ['body', 'Body'], ['vars', 'Vars'],
+      ['expect', 'Expect', S.added.length ? `<span class="count is-good">+${S.added.length}</span>` : ''], ['options', 'Options']
     ];
   }
   function bodyPanel() {
@@ -137,15 +137,15 @@
       return `<div class="body-modes"><div class="seg seg-sm" role="group" aria-label="Body type">${['none', 'json', 'form', 'multipart', 'raw', 'file'].map((m) => `<button aria-pressed="${m === 'none'}">${m}</button>`).join('')}</div></div>
         <div class="empty">${ic('braces')}<b>No body</b><span>${esc(a.m)} requests usually send none. Pick a type to add one for this request only.</span></div>`;
     }
-    return `<div class="body-modes"><div class="seg seg-sm" role="group" aria-label="Body type">${['none', 'json', 'form', 'multipart', 'raw', 'file'].map((m) => `<button aria-pressed="${m === 'json'}">${m}</button>`).join('')}</div><span class="subtle">from users.api.yaml:42 · edits stay in this tab</span></div>
-      <pre class="code glass-dense">${hlJson('{\n  "name": "Ada Lovelace",\n  "email": "ada+${uuid()}@shop.test",\n  "role": "admin"\n}')}</pre>`;
+    return `<div class="body-modes"><div class="seg seg-sm" role="group" aria-label="Body type">${['none', 'json', 'form', 'multipart', 'raw', 'file'].map((m) => `<button aria-pressed="${m === 'json'}">${m}</button>`).join('')}</div></div>
+      <pre class="code glass-dense code-fill">${hlJson('{\n  "name": "Ada Lovelace",\n  "email": "ada+${uuid()}@shop.test",\n  "role": "admin"\n}')}</pre>`;
   }
   function expectPanel() {
     const ex = allExpect();
     const yaml = 'expect:\n' + ex.inherited.concat(ex.own).map((r) => `  ${r.k}: ${r.v}`).join('\n');
     return `${layers(ex, 'expect')}
       <section class="layer" aria-label="Merged expect">
-        <div class="layer-head"><h3 class="section-label">Merged · what runs</h3><span class="subtle">a test's expect adds to these and replaces matching keys</span></div>
+        <div class="layer-head"><h3 class="section-label">Merged · what runs</h3></div>
         <pre class="code glass-dense expect-yaml">${hlYaml(yaml)}</pre>
       </section>
       <p class="callout" data-tone="info">${ic('info')}<span>Click any value in the response body to add a check here: equals, type, exists, regex, oneOf, between or schema.</span></p>`;
@@ -161,28 +161,44 @@
       default: return layers(D.request.options, 'options');
     }
   }
+  /* B1: an editable title. Hover shows a pencil; click turns it into an input */
+  VC.titleEdit = (name, action, label, tip) => `<h2 class="card-title"><button class="title-edit" data-action="${action}" aria-label="${esc(label)}: ${esc(name)}" title="${esc(tip || 'Rename')}" data-fk="${action}"><span class="t">${esc(name)}</span>${ic('pencil')}</button></h2>`;
   function requestCard() {
     const a = VC.api();
     return `<section class="glass" aria-label="Request">
       <div class="card-head">
-        <div class="req-name">${method(a.m)}<h2 class="card-title">${esc(a.name)}</h2><span class="file-ref hide-narrow">${esc(S.api)} · ${esc(VC.fileOf().split('/').pop())}:${a.line}</span></div>
+        <div class="req-name">${method(a.m)}${VC.titleEdit(a.name, 'edit-title', 'Rename request', `Rename · ${S.api} in ${VC.fileOf().split('/').pop()}:${a.line}`)}</div>
         <button class="btn btn-sm" data-action="save-test" data-fk="save-test">${ic('runs')}Save as test</button>
-        <button class="btn btn-sm" data-action="save-api" data-fk="save-api">${ic('file')}Save as api</button>
+        ${VC.moreBtn('req-more', 'More request actions')}
       </div>
       <div class="card-tabs">${VC.tabs('rq', 'Request', reqTabs(), S.reqTab, 'req-tab')}</div>
       ${VC.panel('rq', S.reqTab, reqPanel())}
     </section>`;
   }
   A['req-tab'] = (el) => { S.reqTab = el.dataset.v; VC.render(); };
+  A['edit-title'] = (el) => {
+    const a = VC.api();
+    VC.inlineEdit(el, a.name, (v) => { a.name = v; VC.render(); VC.toast('Request renamed', `name: ${v} · written to ${VC.fileOf().split('/').pop()}:${a.line}`); }, 'Request name');
+  };
+  A['req-more'] = (el) => {
+    const a = VC.api();
+    VC.menu(el, `${VC.menuItem('Save as api', 'save-api', '', { ico: 'file' })}
+      ${VC.menuItem('Copy as cURL', 'copy-curl', '', { ico: 'terminal' })}
+      ${VC.menuItem('Copy as <code>vc call</code>', 'copy-vc', '', { ico: 'copy' })}
+      <div class="pop-sep"></div>
+      ${VC.menuItem('Copy id', 'copy-id', '', { ico: 'copy', meta: esc(S.api) })}
+      ${VC.menuItem('Open in editor', 'toast', `data-msg="Opened ${esc(VC.fileOf())}" data-sub="line ${a.line}"`, { ico: 'external', meta: `${esc(VC.fileOf().split('/').pop())}:${a.line}` })}`);
+  };
+  A['copy-id'] = () => VC.copy(S.api, 'Copied id', S.api);
 
   /* ---- REST: response card ----------------------------------------------- */
   const R = D.response;
   function respTabs() {
     const fails = R.checks.filter((c) => c.st === 'fail').length;
     return [
-      ['body', 'Body'], ['headers', 'Headers', `<span class="count">${R.headers.length}</span>`], ['cookies', 'Cookies', `<span class="count">${R.cookies.length}</span>`],
-      ['timing', 'Timing'], ['checks', 'Checks', `<span class="count ${fails ? 'is-bad' : 'is-good'}">${R.checks.length - fails}/${R.checks.length}</span>`],
-      ['saved', 'Saved', `<span class="count">${R.saved.length}</span>`], ['raw', 'Raw']
+      ['body', 'Body'], ['headers', 'Headers'], ['cookies', 'Cookies'], ['timing', 'Timing'],
+      ['checks', 'Checks', `<span class="count ${fails ? 'is-bad' : 'is-good'}">${R.checks.length - fails}/${R.checks.length}</span>`],
+      ['saved', 'Saved']
     ];
   }
   /* JSONPath-ish ($.a.b, $.orders[*].id, body.x) or CEL (size(body.orders) > 0) */
@@ -215,8 +231,7 @@
   function bodyPanelResp() {
     return `<div class="body-tools">
         <div class="seg seg-sm" role="group" aria-label="Body view">${[['tree', 'Tree'], ['raw', 'Raw'], ['preview', 'Preview']].map(([k, l]) => `<button aria-pressed="${S.bodyView === k}" data-action="body-view" data-v="${k}" data-fk="bv-${k}">${l}</button>`).join('')}</div>
-        <div class="input-group">${ic('filter')}<input class="input input-sm mono" id="resp-filter" value="${esc(S.filter)}" placeholder="$.orders[*].id  or  size(body.orders) > 0" aria-label="Filter the body with JSONPath or CEL" data-fk="resp-filter"></div>
-        <button class="btn btn-ghost btn-icon btn-sm" data-action="copy-body" aria-label="Copy body">${ic('copy')}</button>
+        <div class="input-group">${ic('filter')}<input class="input input-sm mono" id="resp-filter" value="${esc(S.filter)}" placeholder="Filter: $.orders[*].id or CEL" title="JSONPath ($.orders[*].id) or CEL (size(body.orders) > 0)" aria-label="Filter the body with JSONPath or CEL" data-fk="resp-filter"></div>
       </div>
       <div class="body-view glass-dense" id="body-view">${bodyView()}</div>`;
   }
@@ -238,7 +253,7 @@
       <ol class="events glass-dense">${R.events.map((e) => `<li class="e-${e.kind}"><span class="t">${esc(e.t)}</span>${ic(e.ico)}<span><b>${esc(e.title)}</b><small>${esc(e.sub)}</small></span></li>`).join('')}</ol></section>`;
   }
   function checksPanel() {
-    const rows = R.checks.map((c) => `<tr><td>${badge(c.st, null, true)}</td><td class="mono">${esc(c.what)}</td><td class="mono">${VC.h.hlVars(c.exp)}</td><td class="mono">${esc(c.got)}${c.code ? ` <span class="chip">${esc(c.code)}</span>` : ''}</td><td>${chipSrc(c.from)}</td></tr>`)
+    const rows = R.checks.map((c) => `<tr><td>${badge(c.st, null, true)}</td><td class="mono">${esc(c.what)}</td><td class="mono">${VC.h.hlVars(c.exp)}</td><td class="mono"${c.code ? ` title="${esc(c.code)}"` : ''}>${esc(c.got)}</td><td>${chipSrc(c.from)}</td></tr>`)
       .concat(S.added.map((c) => `<tr><td>${badge('skipped', 'not run', true)}</td><td class="mono">${esc(c.k)}</td><td class="mono">${esc(c.v)}</td><td class="subtle">send to evaluate</td><td>${chipSrc('request')}</td></tr>`));
     return `${table(['Result', 'Check', 'Expected', 'Got', 'From'], rows)}
       <p class="callout" data-tone="danger">${ic('fail')}<span><b>V5120 · body.email does not match.</b> Expected <code>^[^@]+@shop\\.test$</code>, got <code>"ada@shop.example"</code>. help: the demo seeds <code>@shop.example</code> addresses. fix: change the regex in this request's expect, or keep it to catch the seed.</span></p>`;
@@ -251,26 +266,51 @@
       case 'timing': return timingPanel();
       case 'checks': return checksPanel();
       case 'saved': return `${table(['Var', 'Value', 'Rule'], R.saved.map((s) => `<tr><td class="mono">${esc(s.k)}</td><td class="mono">${esc(s.v)}</td><td class="mono muted">${esc(s.from)}</td></tr>`))}<p class="subtle">Saved vars are visible to later calls under this profile, as \${userEmail}.</p>`;
-      default: return `<pre class="code glass-dense">HTTP/2 ${R.status}\n${R.headers.map(([k, v]) => `${esc(k)}: ${esc(v).replace('••••', '<span class="redacted">••••</span>')}`).join('\n')}\n\n${hlJson(R.body)}</pre>`;
+      default: return bodyPanelResp();
     }
   }
+  function rawExchange() {
+    return `HTTP/2 ${R.status}\n${R.headers.map(([k, v]) => `${esc(k)}: ${esc(v).replace('••••', '<span class="redacted">••••</span>')}`).join('\n')}\n\n${hlJson(R.body)}`;
+  }
+  /* B2: before the first send the pane says one quiet line, with no tabs */
+  VC.emptyResponse = (last) => `<section class="glass resp-empty" aria-label="Response">
+      <div class="empty empty-quiet" role="status">${S.sending ? `<span>${ic('refresh')} Sending…</span>` : `<span>Send the request to see the response<span class="keys-inline" aria-label="Command Enter"><kbd class="kbd">⌘</kbd><kbd class="kbd">↵</kbd></span></span>
+        ${last ? `<button class="btn btn-ghost btn-sm" data-action="show-last" data-fk="show-last">${ic('history')}Show last response (${esc(last)})</button>` : ''}`}</div>
+    </section>`;
   function responseCard() {
+    if (S.noResp) return VC.emptyResponse(S.sentAt);
     const fails = R.checks.filter((c) => c.st === 'fail').length;
     return `<section class="glass" aria-label="Response">
       <div class="card-head">
         <div class="resp-meta grow">
           ${S.sending ? `<span class="stat">${ic('refresh')} Sending…</span>` : `<span class="hs" data-class="2">${R.status}</span><span class="stat">${esc(R.text)}</span>
-          <span class="stat"><b>${R.ms}</b> ms</span><span class="stat"><b>${esc(R.size)}</b></span>
-          <span class="chip hide-narrow">${ic('refresh', 'ico-sm')}retried 1×</span><span class="chip hide-narrow">${ic('key', 'ico-sm')}token refreshed</span>
+          <span class="stat" title="Final attempt; retried once, token refreshed"><b>${R.ms}</b> ms</span><span class="stat"><b>${esc(R.size)}</b></span>
           ${fails ? badge('fail', `${fails} check failed`, true) : badge('pass', 'checks pass', true)}`}
         </div>
-        ${VC.orientToggle()}
+        ${VC.moreBtn('resp-more', 'More response actions')}
       </div>
       <div class="card-tabs">${VC.tabs('rs', 'Response', respTabs(), S.respTab, 'resp-tab')}</div>
       ${VC.panel('rs', S.respTab, respPanel())}
-      <div class="card-foot"><span>${ic('clock', 'ico-sm')} sent ${esc(S.sentAt)} · profile ${esc([S.profile].concat(S.layers).join(' + '))}</span><span class="grow"></span><span>2 values redacted</span></div>
     </section>`;
   }
+  /* response ⋯: layout and copy live here instead of in the head */
+  VC.respMore = (el, extra) => {
+    const o = VC.effectiveOrient();
+    VC.menu(el, `<div class="pop-label">Layout</div>
+      ${VC.menuItem('Side by side', 'orient', 'data-v="side"', { radio: true, checked: o === 'side', ico: 'columns' })}
+      ${VC.menuItem('Stacked', 'orient', 'data-v="stack"', { radio: true, checked: o === 'stack', ico: 'rows' })}
+      ${extra ? '<div class="pop-sep"></div>' + extra : ''}`);
+  };
+  A['resp-more'] = (el) => VC.respMore(el, `${VC.menuItem('View raw exchange', 'raw-exchange', '', { ico: 'code' })}
+    ${VC.menuItem('Copy body', 'copy-body', '', { ico: 'copy', meta: esc(R.size) })}
+    ${VC.menuItem('Open in history', 'go', 'data-route="history"', { ico: 'history', meta: esc(S.sentAt) })}`);
+  A['show-last'] = () => { S.noResp = false; VC.render(); };
+  A['raw-exchange'] = () => VC.dialog(`<div class="dlg is-raw">
+      <div class="dlg-head"><div class="grow"><h2 id="dlg-title">Raw exchange</h2><div class="sub">The final attempt as it went over the wire; secrets redacted</div></div>
+        <button class="btn btn-ghost btn-icon" data-action="close-dialog" aria-label="Close">${ic('x')}</button></div>
+      <div class="dlg-body"><pre class="code" data-sk="resp-raw-x">${rawExchange()}</pre></div>
+      <div class="dlg-foot"><button class="btn btn-primary" data-action="close-dialog" autofocus>Done</button></div>
+    </div>`);
   A['resp-tab'] = (el) => { S.respTab = el.dataset.v; VC.render(); };
   A['body-view'] = (el) => { S.bodyView = el.dataset.v; VC.render(); };
   A['copy-body'] = () => VC.copy(JSON.stringify(R.body, null, 2), 'Body copied', '1.84 KB of JSON');
@@ -363,6 +403,7 @@
     S.sending = true; VC.render();
     sendTimer = setTimeout(() => {
       S.sending = false;
+      S.noResp = false;
       const d = new Date(); S.sentAt = d.toTimeString().slice(0, 5);
       VC.render();
       VC.toast('200 OK · 142 ms', '3 of 4 checks pass · 1 retry · token refreshed');
@@ -371,9 +412,10 @@
 
   const ensureHttp = () => { if (['GQL', 'WS', 'SSE'].includes(VC.api().m)) S.api = 'users#get'; };
   VC.screens['client-rest'] = {
+    space: 'client',
     enter: ensureHttp,
     crumbs: () => [D.project.name, VC.serviceOf(), VC.api().name],
-    status: () => `${VC.h.ic('clock', 'ico-sm')} last sent <b>${esc(S.sentAt)}</b> · <span class="hs" data-class="2">200</span> · 142 ms`,
+    status: () => '',
     render: () => {
       const a = VC.api();
       return `<div class="client">${VC.reqbar({ m: a.m, typeLabel: 'HTTP', url: '${baseUrl}' + a.path + (a.q || '') })}
@@ -386,23 +428,22 @@
 
   /* ---- scratch tab (⌘T) ---------------------------------------------------- */
   S.scratchUrl = 'https://httpbin.org/anything?probe=1';
+  const scratchTab = () => S.tabs.find((t) => t.id === S.tab && !t.api) || S.tabs.find((t) => !t.api);
+  const scratchName = () => { const t = scratchTab(); return (t && (t.title || t.name)) || 'Untitled request'; };
   VC.screens['client-scratch'] = {
-    crumbs: () => [D.project.name, 'Scratch', 'Untitled request'],
-    status: () => 'not saved · kept in history',
+    space: 'client',
+    crumbs: () => [D.project.name, 'Scratch', scratchName()],
+    status: () => 'Not saved',
     render: () => `<div class="client">${VC.reqbar({ m: 'GET', typeLabel: 'HTTP', url: S.scratchUrl, input: true })}
       <div class="split"${VC.splitAttrs()}>
         <section class="glass" aria-label="Request">
-          <div class="card-head"><div class="req-name">${ic('tab')}<h2 class="card-title">Untitled request</h2><span class="file-ref">scratch · not in any file</span></div>
+          <div class="card-head"><div class="req-name">${ic('tab')}${VC.titleEdit(scratchName(), 'edit-scratch', 'Rename tab', 'Rename this tab')}</div>
             <button class="btn btn-sm" data-action="scratch-save-api" data-fk="sc-save">${ic('file')}Save as api</button></div>
           <div class="card-tabs">${VC.tabs('sq', 'Request', [['params', 'Params'], ['headers', 'Headers'], ['auth', 'Auth'], ['body', 'Body']], 'params', 'noop')}</div>
-          ${VC.panel('sq', 'params', `${layers({ inherited: [{ k: 'x-client', v: 'vibranium', src: 'config', at: 'vibranium.config.yaml:11' }], own: [{ k: 'probe', v: '1' }] }, 'sparams')}
-            <p class="callout" data-tone="info">${ic('info')}<span>Scratch requests still use the active profile and project headers. Paste a cURL command into the URL bar to fill every tab at once.</span></p>`)}
+          ${VC.panel('sq', 'params', layers({ inherited: [{ k: 'x-client', v: 'vibranium', src: 'config', at: 'vibranium.config.yaml:11' }], own: [{ k: 'probe', v: '1' }] }, 'sparams'))}
         </section>
         ${VC.divider()}
-        <section class="glass" aria-label="Response">
-          <div class="card-head"><div class="resp-meta grow"><span class="stat">No response yet</span></div>${VC.orientToggle()}</div>
-          <div class="card-body"><div class="empty">${ic('send')}<b>Send to see a response</b><span>⌘↵ sends. Responses land in history, so closing this tab loses nothing.</span></div></div>
-        </section>
+        ${VC.emptyResponse(null)}
       </div></div>`,
     mount: (v) => {
       VC.mountSplit(v);
@@ -410,6 +451,10 @@
       if (inp) inp.addEventListener('change', () => { S.scratchUrl = inp.value; });
     },
     send: () => VC.toast('Sent · 200 OK · 311 ms', 'Scratch call saved to history (ui).')
+  };
+  A['edit-scratch'] = (el) => {
+    const t = scratchTab();
+    VC.inlineEdit(el, scratchName(), (v) => { if (t) { t.title = v; t.name = v; } VC.render(); VC.toast('Tab renamed', v); }, 'Tab name');
   };
   A['scratch-save-api'] = () => VC.diffDialog({
     title: 'Save as api', sub: 'Turns this scratch request into an api other tests can call.',

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { Verdict, type Approval } from '#lib/gen/vibranium/engine/v1/engine_pb.ts';
+  import Icon from '#lib/shell/Icon.svelte';
   import { ago, type AgentDesk } from './desk.svelte.ts';
 
   let { desk, now }: { desk: AgentDesk; now: number } = $props();
@@ -14,33 +15,34 @@
 </script>
 
 <section class="queue" aria-labelledby="queue-h">
-  <h2 id="queue-h" class="h2">Waiting for you</h2>
+  <h2 id="queue-h" class="st-title3">Waiting for you</h2>
   <p class="lead">
     The agent is paused until you decide. With no browser open, <code>vc mcp</code> asks in its terminal
     instead.
   </p>
   {#each desk.pending as approval (approval.id)}
     {@const busy = desk.deciding === approval.id}
-    <article class="card" aria-labelledby="ask-{approval.id}">
+    <article class="ask-item" aria-labelledby="ask-{approval.id}">
       <h3 id="ask-{approval.id}" class="ask">
-        <strong>{approval.agent}</strong> wants to <span class="mono">{approval.tool}</span> on
-        <span class="pill accent">{approval.profile}</span>
+        <strong>{approval.agent}</strong> wants to <span class="vc-mono">{approval.tool}</span> on
+        <span class="st-badge vc-accent">{approval.profile}</span>
       </h3>
       <p class="meta">
-        {#each approval.methods as method (method)}<span class="pill mono">{method}</span>{/each}
+        {#each approval.methods as method (method)}<span class="st-badge vc-mono">{method}</span
+          >{/each}
         <span>Asked {ago(approval.createdMs, now)}</span>
       </p>
       <p>{approval.summary}</p>
       <details>
-        <summary>Arguments</summary>
-        <pre class="mono">{approval.arguments}</pre>
+        <summary class="vc-disclosure"><Icon name="chevron" class="vc-chev" />Arguments</summary>
+        <pre class="vc-mono">{approval.arguments}</pre>
       </details>
       {#if confirming === approval.id}
         <div class="confirm" role="group" aria-label="Confirm always allow">
           {#if approval.methods.length > 0}
             <p>
               Always allow keeps a rule in <code>.vibranium/history.db</code> on this machine, never
-              in the YAML, so later <span class="mono">{approval.tool}</span> calls on
+              in the YAML, so later <span class="vc-mono">{approval.tool}</span> calls on
               {approval.profile} that send only {approval.methods.join(', ')} run without asking. A write,
               or a run that reaches a <code>command:</code> or <code>function:</code> action, still asks.
             </p>
@@ -51,21 +53,21 @@
             </p>
           {/if}
           <button
-            class="btn primary sm"
+            class="st-btn st-btn--primary st-btn--sm"
             type="button"
             disabled={busy}
             onclick={() => decide(approval, Verdict.ALWAYS_ALLOW)}
           >
             {approval.methods.length > 0 ? 'Save rule and approve' : 'Approve this once'}
           </button>
-          <button class="btn sm" type="button" onclick={() => (confirming = undefined)}
+          <button class="st-btn st-btn--sm" type="button" onclick={() => (confirming = undefined)}
             >Cancel</button
           >
         </div>
       {:else}
         <div class="actions">
           <button
-            class="btn primary sm"
+            class="st-btn st-btn--primary st-btn--sm"
             type="button"
             disabled={busy}
             onclick={() => decide(approval, Verdict.APPROVE)}
@@ -73,7 +75,7 @@
             Approve once
           </button>
           <button
-            class="btn sm"
+            class="st-btn st-btn--sm"
             type="button"
             disabled={busy}
             onclick={() => (confirming = approval.id)}
@@ -81,7 +83,7 @@
             Always allow on {approval.profile}
           </button>
           <button
-            class="btn sm"
+            class="st-btn st-btn--sm"
             type="button"
             disabled={busy}
             onclick={() => decide(approval, Verdict.DENY)}
@@ -108,23 +110,23 @@
   .meta,
   .empty p {
     margin: 0;
-    color: var(--ink2);
+    color: var(--st-text-secondary);
   }
-  .card {
+  /* one request per row of the screen's card, never a card in the card (D590): rows split by a rule */
+  .ask-item {
     display: grid;
     gap: 8px;
-    padding: 16px;
-    border: 1px solid var(--line2);
-    border-radius: var(--radius);
-    background: var(--panel);
+    padding-block: 16px;
   }
-  .card p {
+  .ask-item + .ask-item {
+    border-top: 1px solid var(--st-chrome-separator);
+  }
+  .ask-item p {
     margin: 0;
   }
   .ask {
     margin: 0;
-    font-size: 15px;
-    font-weight: 400;
+    font: var(--st-type-callout);
   }
   .meta {
     display: flex;
@@ -136,7 +138,7 @@
     margin: 8px 0 0;
     padding: 12px;
     border-radius: 8px;
-    background: var(--panel2);
+    background: var(--st-surface-wash);
     white-space: pre-wrap;
     overflow-wrap: anywhere;
   }

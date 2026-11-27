@@ -45,8 +45,7 @@
         <button class="btn btn-ghost btn-icon" data-action="close-dialog" aria-label="Close">${ic('x')}</button></div>
       <div class="dlg-body">${o.fields || ''}<div id="diff-body">${diffBody(o)}</div>
         ${o.callout ? `<p class="callout" data-tone="info">${ic('info')}<span>${esc(o.callout)}</span></p>` : ''}</div>
-      <div class="dlg-foot"><span class="note">${o.files.length} file${o.files.length === 1 ? '' : 's'} · +${ta} −${td} · vc fmt runs on write, then vc check</span>
-        <button class="btn" data-action="close-dialog">Cancel</button><button class="btn btn-primary" data-action="diff-confirm" autofocus>${ic('check')}${esc(o.confirm || 'Write')}</button></div>
+      <div class="dlg-foot"><button class="btn" data-action="close-dialog">Cancel</button><button class="btn btn-primary" data-action="diff-confirm" autofocus title="${o.files.length} file${o.files.length === 1 ? '' : 's'} · +${ta} −${td} · vc fmt runs on write, then vc check">${ic('check')}${esc(o.confirm || 'Write')}</button></div>
     </div>`, o.files.length > 1 ? 'is-wide' : '');
   };
   A['diff-file'] = (el) => { cur.sel = +el.dataset.i; $('#diff-body').innerHTML = diffBody(cur); const b = $(`#diff-body [data-i="${cur.sel}"]`); if (b) b.focus(); };
@@ -67,17 +66,17 @@
   }
   function curlBody() {
     return `<label class="switch is-danger"><input type="checkbox" id="curl-creds" ${creds ? 'checked' : ''}><span class="track"></span><span>Include credentials</span></label>
-      ${creds ? `<p class="callout" data-tone="warn">${ic('warn')}<span><b>The copy will hold a live token.</b> Anyone with it can call the api as shop-tests until it expires (59 min). The toggle turns itself off after this copy.</span></p>`
-        : `<p class="subtle">Secrets copy as shell placeholders (<code>$VC_TOKEN</code>). Run <code>export VC_TOKEN=$(vc auth token shopAuth)</code> first.</p>`}
+      ${creds ? `<p class="callout" data-tone="warn">${ic('warn')}<span><b>The copy will hold a live token</b> for 59 min. This turns itself off after one copy.</span></p>`
+        : `<p class="subtle" title="export VC_TOKEN=$(vc auth token shopAuth)">Secrets copy as <code>$VC_TOKEN</code>.</p>`}
       <pre class="code glass-dense wrap">${esc(curlText(creds))}</pre>`;
   }
   VC.curlDialog = function () {
     creds = false;
     VC.dialog(`<div class="dlg dlg-narrow is-curl">
-      <div class="dlg-head"><div class="grow"><h2 id="dlg-title">Copy as cURL</h2><div class="sub">${esc(S.api)} under profile ${esc([S.profile].concat(S.layers).join(' + '))}</div></div>
+      <div class="dlg-head"><div class="grow"><h2 id="dlg-title">Copy as cURL</h2><div class="sub" title="Inherited headers and auth are resolved">${esc(S.api)} under ${esc([S.profile].concat(S.layers).join(' + '))}</div></div>
         <button class="btn btn-ghost btn-icon" data-action="close-dialog" aria-label="Close">${ic('x')}</button></div>
       <div class="dlg-body" id="curl-body">${curlBody()}</div>
-      <div class="dlg-foot"><span class="note">Inherited headers and auth are resolved.</span><button class="btn" data-action="close-dialog">Cancel</button><button class="btn btn-primary" data-action="curl-copy" autofocus>${ic('copy')}Copy</button></div>
+      <div class="dlg-foot"><button class="btn" data-action="close-dialog">Cancel</button><button class="btn btn-primary" data-action="curl-copy" autofocus>${ic('copy')}Copy</button></div>
     </div>`);
   };
   A['copy-curl'] = () => VC.curlDialog();
@@ -96,8 +95,9 @@
 
   /* ---- command palette ----------------------------------------------------------- */
   const SCREENS = [['client-auth', 'Auth registry', 'key'], ['history', 'History', 'history'], ['import', 'Import…', 'import'], ['welcome', 'Welcome', 'sparkle'],
-    ['tests', 'Tests · Explorer', 'flow'], ['tests-editor', 'Tests · Editor', 'code'], ['tests-run', 'Tests · Runner', 'play'], ['tests-load', 'Tests · Load', 'chart'],
-    ['runs', 'Runs', 'runs'], ['runs/compare', 'Compare runs #481 → #482', 'columns'], ['insights', 'Insights', 'chart'], ['agents', 'Agents', 'bot'], ['project-settings', 'Project settings', 'gear']];
+    ['tests', 'Tests', 'flow'], ['tests-load', 'Tests · Load', 'chart'],
+    ['runs', 'Runs', 'runs'], ['runs/compare', 'Compare runs #481 → #482', 'columns'], ['runs-live', 'Runs · Live run', 'play'], ['runs-load', 'Runs · Load run', 'chart'],
+    ['insights', 'Runs · Insights', 'chart'], ['schedules', 'Runs · Schedules', 'clock'], ['agents', 'Agents', 'bot'], ['project-settings', 'Settings', 'gear']];
   const P = { q: '', i: 0, items: [], args: {} };
   function items(q) {
     q = q.trim().toLowerCase();
@@ -119,7 +119,7 @@
     return `<div ${attr}>${ic('terminal')}<span class="mono">${esc(it.c.cmd)}</span>${it.c.args.map((a) => `<span class="arg">&lt;${esc(a.n)}&gt;</span>`).join(' ')}<span class="meta">command</span></div>`;
   }
   function listHtml() {
-    if (!P.items.length) return `<div class="empty">${ic('search')}<b>No matches</b><span>Type <span class="kbd">&gt;</span> for commands only.</span></div>`;
+    if (!P.items.length) return `<div class="empty empty-quiet" role="status"><span>No matches</span><span class="subtle">Type <span class="kbd">&gt;</span> for commands only</span></div>`;
     let last = '';
     return P.items.map((it, i) => {
       const g = { api: 'Jump to api', go: 'Screens', cmd: 'Commands' }[it.kind];
@@ -175,7 +175,7 @@
     if (it.kind === 'go') return VC.goView(it.r);
     const c = it.c;
     if (c.cmd === 'vc import') return VC.go('import');
-    if (c.cmd === 'vc run') { VC.toast(`$ ${cmdLine(c)}`, 'Running in Tests mode · 6 tests'); return VC.go('tests'); }
+    if (c.cmd === 'vc run') { VC.toast(`$ ${cmdLine(c)}`, 'Running 6 tests'); return VC.go(VC.screens['runs-live'] ? 'runs-live' : 'runs'); }
     VC.toast(`$ ${cmdLine(c)}`, c.preview);
   }
   A['pal-run'] = (el) => run(+el.dataset.i);
@@ -201,14 +201,14 @@
 
   /* ---- shortcut sheet (?) --------------------------------------------------------- */
   const KEYS = [
-    ['Navigate', [['Command palette', ['⌘', 'K']], ['Client mode', ['⌘', '1']], ['Tests mode', ['⌘', '2']], ['Run tests', ['⌘', 'R']], ['Shortcuts', ['?']], ['Close drawer / menu', ['esc']]]],
+    ['Navigate', [['Command palette', ['⌘', 'K']], ['Client · Tests · Runs · Agents', ['⌘', '1–4']], ['Settings', ['⌘', ',']], ['Run tests', ['⌘', 'R']], ['Shortcuts', ['?']], ['Close drawer / menu', ['esc']]]],
     ['Tabs', [['New scratch tab', ['⌘', 'T']], ['Close tab', ['⌘', 'W']], ['Next tab', ['⌃', 'Tab']], ['Previous tab', ['⌃', '⇧', 'Tab']]]],
     ['Request', [['Send', ['⌘', '↵']], ['Switch tab', ['←', '→']], ['Resize split', ['←', '→']], ['Resize faster', ['⇧', '←']]]],
     ['Tree and lists', [['Move', ['↑', '↓']], ['Expand / collapse', ['→', '←']], ['Open', ['↵']], ['First / last', ['Home', 'End']]]]
   ];
   VC.openShortcuts = function () {
     VC.dialog(`<div class="dlg">
-      <div class="dlg-head"><div class="grow"><h2 id="dlg-title">Keyboard shortcuts</h2><div class="sub">⌘ is Ctrl on Windows and Linux. Browsers may keep ⌘T and ⌘W; Alt+T and Alt+W also work.</div></div>
+      <div class="dlg-head"><div class="grow"><h2 id="dlg-title">Keyboard shortcuts</h2><div class="sub" title="Browsers may keep ⌘T and ⌘W; Alt+T and Alt+W also work">⌘ is Ctrl on Windows and Linux.</div></div>
         <button class="btn btn-ghost btn-icon" data-action="close-dialog" aria-label="Close" autofocus>${ic('x')}</button></div>
       <div class="dlg-body"><div class="keys">${KEYS.map(([g, rows]) => `<section><h3 class="section-label">${g}</h3><dl>${rows.map(([l, ks]) => `<dt>${l}</dt><dd>${ks.map((k) => `<span class="kbd">${k}</span>`).join('')}</dd>`).join('')}</dl></section>`).join('')}</div></div>
     </div>`);

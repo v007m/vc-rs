@@ -276,4 +276,41 @@ afterAll:
     { run: 'Wed 16:40', branch: 'master', p99: 688, rps: 3012, err: 0.19, verdict: 'pass' },
     { run: 'Mon 09:15', branch: 'master', p99: 741, rps: 2901, err: 0.27, verdict: 'pass' }
   ];
+
+  /* ---- load tests listed in the Tests space (the first one has the full design) */
+  TD.loadList = [
+    { id: 'checkout.peak', name: 'Black Friday checkout mix', path: 'load/checkout/peak.load.yaml', st: 'fail', last: 'p99 862 ms', tags: ['checkout', 'peak'] },
+    { id: 'catalog.browse', name: 'Catalog browse soak', path: 'load/catalog/browse.load.yaml', st: 'pass', last: 'p99 412 ms', tags: ['catalog', 'soak'], sample: true }
+  ];
+  TD.quick = { users: 1, secs: 10, rps: 6.8, p95: 214, p50: 96, err: 0, iters: 68 };
+
+  /* ---- a check run (Run on a test card): verifies one test, not saved to Runs */
+  const OK = (s) => [{ st: 'pass', what: 'status', exp: String(s), got: String(s) }, { st: 'pass', what: 'headers.content-type', exp: '{ contains: json }', got: 'application/json' }];
+  TD.checkRun = function (full) {
+    const t = TD.tests[full];
+    if (full === TD.drill.id) {
+      const m = TD.drill.exchanges.find((x) => x.main);
+      return { st: 'fail', ms: 353, checks: TD.drill.checks, req: `${m.m} ${m.path}`, status: m.s, body: TD.drill.diff.filter(([k]) => k !== '-' && k !== '@').map(([, l]) => l) };
+    }
+    if (t.st === 'blocked') return { st: 'blocked', ms: 64, checks: [{ st: 'fail', what: 'beforeEach carts#addItem', exp: '201', got: '409' }], req: 'POST /carts/c_91x/items', status: 409, body: ['{', '  "error": "item already in cart"', '}'] };
+    const a = (VC.data.apis || {})[t.apis[t.apis.length - 1]] || { m: 'GET', path: '/' };
+    const s = a.m === 'POST' ? 201 : a.m === 'DELETE' ? 204 : 200;
+    const ms = Math.round((t.ms || 120) * 1.04);
+    return { st: 'pass', ms, checks: OK(s).concat({ st: 'pass', what: 'timing.total', exp: '{ lt: 800ms }', got: `${ms} ms` }), req: `${a.m} ${a.path}`, status: s, body: s === 204 ? [] : ['{', `  "id": "${t.file.split('.')[0].slice(0, 1)}_3kd8",`, '  "ok": true', '}'] };
+  };
+
+  /* ---- git: the working tree of the test files (the Changes pane) --------- */
+  TD.git = {
+    branch: 's/checkout-v2', upstream: 'origin/s/checkout-v2', ahead: 0, behind: 1, base: 'origin/master',
+    files: [
+      { path: 'services/orders/checkout.test.yaml', st: 'M', staged: true,
+        lines: [['@', '@@ -34,9 +34,10 @@ tests:'], [' ', '  - id: rejectsDeclinedCard'], [' ', '    name: Rejects a declined card with 402'], [' ', '    call: payments#charge'], ['-', '    tags: [negative]'], ['+', '    tags: [negative, needs-triage]'], [' ', '    expect:'], ['+', '      timing: { total: { lt: 800ms } }']] },
+      { path: 'services/users/crud.test.yaml', st: 'M', staged: true,
+        lines: [['@', '@@ -14,4 +14,4 @@ tests:'], [' ', '  - id: getsCreatedUser'], ['-', '    repeat: 3'], ['+', '    repeat: 5'], [' ', '    call: users#get']] },
+      { path: 'services/orders/coupons.test.yaml', st: 'A', staged: true, isNew: true,
+        lines: [['@', '@@ -0,0 +1,9 @@'], ['+', 'name: Coupons'], ['+', 'tests:'], ['+', '  - id: rejectsExpiredCoupon'], ['+', '    name: Rejects a coupon past its end date'], ['+', '    call: orders#create'], ['+', '    with: { body: { coupon: SPRING24 } }'], ['+', '    expect:'], ['+', '      status: 422'], ['+', '      body: { match: { error.code: coupon_expired } }']] },
+      { path: 'load/catalog/browse-old.load.yaml', st: 'D', staged: true,
+        lines: [['@', '@@ -1,6 +0,0 @@'], ['-', 'name: Catalog browse (old)'], ['-', 'stages:'], ['-', '  - { duration: 5m, users: 200 }'], ['-', 'mix:'], ['-', '  - { test: catalog.read#readsProduct, weight: 1 }'], ['-', 'thresholds: { p99: { lt: 600ms } }']] }
+    ]
+  };
 })();

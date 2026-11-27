@@ -1,0 +1,4 @@
+/* Inter (SIL OFL 1.1, see OFL.txt beside this file), self-hosted: vc ui's CSP (font-src 'self')
+   loads no font from a CDN. It is the web fallback of the Strata stack, after the system SF Pro;
+   vibranium.css names it in --st-font-sans. One variable file per subset covers every weight. */
+@import '@fontsource-variable/inter/wght.css';

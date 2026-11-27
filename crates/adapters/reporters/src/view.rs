@@ -8,7 +8,7 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use vc_interfaces::{ReportError, RunSummary};
+use vc_interfaces::{ExchangeRow, ReportError, RunSummary};
 use vc_model::{Location, RunStatus, TestStatus, Totals};
 
 /// The snapshot layout; a snapshot of another version is refused, not misread.
@@ -269,6 +269,12 @@ impl RunSnapshot {
         &self.run
     }
 
+    /// Every test's exchanges as history rows, their bodies kept and cut as the run kept them.
+    #[must_use]
+    pub fn exchanges(&self) -> Vec<ExchangeRow> {
+        self.tests.iter().flat_map(|test| &test.exchanges).map(crate::rows::exchange).collect()
+    }
+
     /// The snapshot as JSON, the form the history keeps.
     ///
     /// # Errors
@@ -331,5 +337,21 @@ mod tests {
         let error = RunSnapshot::from_json(&snapshot.to_json().unwrap()).unwrap_err();
         assert!(error.to_string().contains("layout 99"), "{error}");
         assert!(RunSnapshot::from_json(b"[1,2]").is_err());
+    }
+
+    #[test]
+    fn gives_every_kept_exchange_as_a_history_row() {
+        let snapshot = crate::sample_snapshot(20);
+        let rows = snapshot.exchanges();
+        let kept: Vec<_> = snapshot.tests.iter().flat_map(|test| &test.exchanges).collect();
+        assert_eq!(rows.len(), kept.len());
+        assert_eq!(rows.len(), 2, "one failing test in ten keeps its exchange");
+        for (row, view) in rows.iter().zip(kept) {
+            assert_eq!(
+                (row.api_id.as_ref(), row.status, row.url.as_str()),
+                (view.api.as_ref(), Some(view.status), view.url.as_str())
+            );
+            assert_eq!(row.response_body, view.response_body.clone().map(String::into_bytes));
+        }
     }
 }

@@ -23,6 +23,13 @@ pub trait AgentActionReader: Send + Sync {
     ///
     /// An [`ApprovalError`] when the log cannot be read.
     fn recent(&self, limit: usize) -> Result<Vec<LoggedAction>, ApprovalError>;
+
+    /// The calls logged at or after `from_ms`, newest first, for the agents' usage (D709).
+    ///
+    /// # Errors
+    ///
+    /// An [`ApprovalError`] when the log cannot be read.
+    fn since(&self, from_ms: u64) -> Result<Vec<LoggedAction>, ApprovalError>;
 }
 
 /// The agent log, written and read through one store.

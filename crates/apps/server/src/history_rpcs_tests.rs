@@ -2,11 +2,15 @@ use std::fs;
 
 use vc_contracts::engine::v1 as wire;
 use vc_contracts::results::v1::{RunStatus, TestStatus};
-use vc_engine::{PlanRequest, RunRequest, interrupts};
+use vc_engine::{AgentCall, AgentOutcome, EngineBuilder, PlanRequest, RunRequest, interrupts};
 
-use super::{api_coverage, api_trends, decide_approval, get_run, list_approvals, list_runs, trends};
+use super::{
+    agent_usage, api_coverage, api_trends, decide_approval, get_run, list_agent_actions, list_approvals, list_runs,
+    trends,
+};
 use crate::Code;
-use crate::engine_fixture::{CONFIG, project, serving};
+use crate::authoring_rpcs::call;
+use crate::engine_fixture::{CONFIG, SECRET, project, serving};
 
 #[tokio::test]
 async fn an_empty_history_lists_no_run_and_has_no_last_one() {
@@ -21,9 +25,12 @@ async fn an_empty_history_lists_no_run_and_has_no_last_one() {
 async fn a_stored_run_comes_back_with_its_tests_and_trends() {
     let (_dir, api) = project();
     api.engine().run(&RunRequest::default(), interrupts().1).await.unwrap();
-    let runs = list_runs(api.clone(), wire::ListRunsRequest { limit: 0, kind: None, profile: None, branch: None })
-        .await
-        .unwrap();
+    let runs = list_runs(
+        api.clone(),
+        wire::ListRunsRequest { limit: 0, kind: None, profile: None, branch: None, schedule: None },
+    )
+    .await
+    .unwrap();
     let [listed] = runs.runs.as_slice() else { panic!("{runs:?}") };
     assert_eq!((listed.kind.as_str(), listed.status()), ("run", RunStatus::Failed));
     let found = get_run(api.clone(), wire::GetRunRequest { id: Some(listed.id) }).await.unwrap();
@@ -41,8 +48,13 @@ async fn runs_list_by_kind_with_the_limit_counted_among_them() {
     for _ in 0..2 {
         api.engine().run(&RunRequest::default(), interrupts().1).await.unwrap();
     }
-    let of =
-        |kind: &str, limit| wire::ListRunsRequest { limit, kind: Some(kind.to_owned()), profile: None, branch: None };
+    let of = |kind: &str, limit| wire::ListRunsRequest {
+        limit,
+        kind: Some(kind.to_owned()),
+        profile: None,
+        branch: None,
+        schedule: None,
+    };
     let runs = list_runs(api.clone(), of("run", 0)).await.unwrap();
     let [newest, older] = runs.runs.as_slice() else { panic!("{runs:?}") };
     assert_eq!((newest.kind.as_str(), older.kind.as_str()), ("run", "run"));
@@ -137,4 +149,39 @@ async fn a_decision_needs_a_verdict_and_a_known_approval() {
     assert_eq!(none.code, Code::InvalidArgument);
     let unknown = wire::DecideApprovalRequest { id: 7, verdict: wire::Verdict::Approve.into() };
     assert_ne!(decide_approval(api, unknown).await.unwrap_err().code, Code::Internal);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn the_history_lists_ad_hoc_calls_by_method_url_and_status_their_secrets_masked() {
+    let (_dir, api) = project();
+    let url = format!("{}/ping?key=${{secret.SHOP_TOKEN}}", serving(204, Vec::new()));
+    let adhoc = wire::AdhocCall { method: "DELETE".into(), url, ..wire::AdhocCall::default() };
+    call(api.clone(), wire::CallRequest { adhoc: Some(adhoc), ..wire::CallRequest::default() }).await.unwrap();
+    api.engine().run(&RunRequest::default(), interrupts().1).await.unwrap();
+    let calls = wire::ListRunsRequest { kind: Some("adhoc".into()), ..wire::ListRunsRequest::default() };
+    let runs = list_runs(api.clone(), calls).await.unwrap();
+    let [listed] = runs.runs.as_slice() else { panic!("{runs:?}") };
+    let summary = listed.call.as_ref().unwrap();
+    assert_eq!((summary.method.as_str(), summary.status), ("DELETE", Some(204)));
+    assert!(summary.url.contains("/ping?key=") && !summary.url.contains(SECRET), "{summary:?}");
+    let all = list_runs(api, wire::ListRunsRequest::default()).await.unwrap();
+    assert!(all.runs.iter().any(|run| run.kind == "run" && run.call.is_none()), "{all:?}");
+}
+
+#[tokio::test]
+async fn agent_usage_counts_the_logged_calls_by_agent_and_tool_and_refuses_over_ninety_days() {
+    let (dir, api) = project();
+    let engine = EngineBuilder::for_project(dir.path()).unwrap().build().unwrap();
+    let (agent, tool) = ("claude".to_owned(), "call_api".to_owned());
+    let call = AgentCall { agent, tool, started_ms: Some(engine.now_ms()), ..AgentCall::default() };
+    engine.record_agent_action(&call, &AgentOutcome { result: "ok".into(), approved_by: None }).await.unwrap();
+    let usage = agent_usage(api.clone(), wire::AgentUsageRequest::default()).await.unwrap();
+    let [claude] = usage.agents.as_slice() else { panic!("{usage:?}") };
+    let calls = claude.total.as_ref().map(|total| total.calls);
+    assert_eq!((claude.agent.as_str(), calls, claude.daily.len()), ("claude", Some(1), 7), "seven days by default");
+    assert_eq!((usage.tools[0].tool.as_str(), usage.tools[0].calls, usage.tools[0].ok), ("call_api", 1, 1));
+    let logged = list_agent_actions(api.clone(), wire::ListAgentActionsRequest::default()).await.unwrap();
+    assert!(logged.actions[0].took_ms.is_some() && !logged.actions[0].ran, "{logged:?}");
+    let refused = agent_usage(api, wire::AgentUsageRequest { days: 91 }).await.unwrap_err();
+    assert_eq!(refused.code, Code::InvalidArgument);
 }

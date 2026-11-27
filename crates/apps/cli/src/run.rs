@@ -94,8 +94,10 @@ impl RunArgs {
             failed: self.failed,
             no_cache: self.no_cache,
             strict: self.strict,
+            unrecorded: false,
             agent: None,
             watch: None,
+            schedule: None,
         }))
     }
 }

@@ -11,10 +11,11 @@ use tokio::sync::mpsc;
 use vc_executor::{Arguments, CancelTree, IterationReport, MatcherRegistry, ProgramIterations};
 use vc_interfaces::{IntervalRow, Random, Row};
 use vc_loadtest::{Breach, Failed, LoadError, LoadOutcome, LoadParts, Second, run_load};
-use vc_model::{ActionId, ApiId, Event, Exchange, LoadScenario, Part, Program, TemplateValue, TestId};
+use vc_model::{ActionId, ApiId, Event, Exchange, HostStats, LoadScenario, Part, Program, TemplateValue, TestId};
 use vc_template::RenderError;
 
 use crate::history::Recording;
+use crate::load_gauges::Gauges;
 use crate::{ErrorKind, Interrupts};
 
 /// What failed an iteration: the api its failing action calls, the test, that action's last
@@ -34,6 +35,9 @@ struct Tally {
     samples: Vec<Sample>,
 }
 
+/// Where the closed seconds go as ticks, and the gauges that read their host figures.
+pub type Ticks = (mpsc::Sender<Event>, Gauges);
+
 /// Closed seconds the stage loop may queue before it waits for the history.
 const SECONDS_QUEUE: usize = 16;
 
@@ -42,14 +46,14 @@ pub struct Live {
     program: Arc<Program>,
     /// The history's run, until it is closed.
     pub recording: Option<Recording>,
-    ticks: Option<mpsc::Sender<Event>>,
+    ticks: Option<Ticks>,
     kinds: BTreeMap<Kind, Tally>,
     /// The first rows the history could not take.
     pub problem: Option<String>,
 }
 
 impl Live {
-    pub const fn new(program: Arc<Program>, recording: Option<Recording>, ticks: Option<mpsc::Sender<Event>>) -> Self {
+    pub const fn new(program: Arc<Program>, recording: Option<Recording>, ticks: Option<Ticks>) -> Self {
         Self { program, recording, ticks, kinds: BTreeMap::new(), problem: None }
     }
 
@@ -109,8 +113,9 @@ impl Live {
         {
             self.problem = Some(format!("history: {error}; the run's seconds are not all recorded"));
         }
-        if let Some(ticks) = &self.ticks {
-            let _dropped = ticks.try_send(tick(&self.program, second));
+        if let Some((ticks, gauges)) = &mut self.ticks {
+            let host = gauges.stats(second.late);
+            let _dropped = ticks.try_send(tick(&self.program, second, host));
         }
     }
 
@@ -127,7 +132,7 @@ impl Live {
 
 /// The live view's line for `second`: its rate over the last few seconds, the rest over the
 /// rolling window.
-fn tick(program: &Program, second: &Second) -> Event {
+fn tick(program: &Program, second: &Second, host: HostStats) -> Event {
     let all = second.window.all();
     let latencies = all.latencies();
     Event::LoadTick {
@@ -140,6 +145,7 @@ fn tick(program: &Program, second: &Second) -> Event {
         p99: millis(latencies.quantile_ms(0.99)),
         errors: all.errors(),
         breaching: second.breaching.iter().map(|breach| breach_name(program, breach)).collect(),
+        host,
     }
 }
 

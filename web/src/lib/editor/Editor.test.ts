@@ -1,11 +1,14 @@
 import { Code, ConnectError } from '@connectrpc/connect';
 import { render, screen, within } from '@testing-library/svelte';
 import { userEvent } from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { Severity } from '#lib/gen/vibranium/engine/v1/engine_pb.ts';
 import { RunSession } from '#lib/run/session.svelte.ts';
+import { codeView, findCodeView, selected, typeAtEnd } from '#lib/testing/codeView.ts';
 import { fakeEngine } from '#lib/testing/engine.ts';
+import { available } from '#lib/api/maybe.ts';
 import Editor from './Editor.svelte';
+import { noEditorSeams, type EditorSeams } from './seams.ts';
 import { EditorSession } from './session.svelte.ts';
 
 const crud = 'services/users/crud.test.yaml';
@@ -19,17 +22,19 @@ const badId = {
   fixes: [
     {
       title: 'Rename to getsUser',
+      certain: true,
       edits: [{ file: crud, start: 15, end: 22, newText: 'getsUser' }],
     },
   ],
 };
 
-async function setup(conflict = { next: false }) {
+async function setup(conflict = { next: false }, seams: EditorSeams = noEditorSeams) {
   const disk = new Map([
     [crud, 'name: crud\nid: GetUser\n'],
     [api, 'name: users\n'],
   ]);
   const runs: string[][] = [];
+  const records: (boolean | undefined)[] = [];
   const engine = fakeEngine({
     listDefinitions: () => ({ definitions: [...disk.keys()].map((path) => ({ path })) }),
     readFile: ({ path }) => ({ text: disk.get(path) ?? '', digest: 'd' }),
@@ -49,62 +54,118 @@ async function setup(conflict = { next: false }) {
     // eslint-disable-next-line require-yield -- the run ends without events
     async *run(request) {
       runs.push(request.selection?.paths ?? []);
+      records.push(request.record);
     },
   });
   const editor = new EditorSession(engine, 0);
   await editor.loadFiles();
-  render(Editor, { editor, session: new RunSession(engine) });
+  render(Editor, { editor, session: new RunSession(engine), seams });
   const user = userEvent.setup();
   const open = async (name: string) => {
     await user.click(within(screen.getByRole('tree', { name: 'Files' })).getByText(name));
   };
-  return { disk, runs, user, open };
+  return { disk, runs, records, user, open };
 }
 
 describe('Editor', () => {
   it('opens a file from the tree, edits it and saves with Ctrl+S', async () => {
     const { disk, user, open } = await setup();
     await open('users.api.yaml');
-    const text = await screen.findByRole('textbox', { name: api });
-    await user.type(text, '# done');
-    expect(screen.getByText('Unsaved changes')).toBeTruthy();
+    typeAtEnd(await findCodeView(api), '# done');
+    expect(await screen.findByText('Unsaved')).toBeTruthy();
     await user.keyboard('{Control>}s{/Control}');
     expect(await screen.findByText('Saved')).toBeTruthy();
     expect(disk.get(api)).toBe('name: users\n# done');
   });
 
-  it('blocks saving while the unsaved text has errors', async () => {
+  it('asks before saving text with errors, and saves it anyway on request', async () => {
     const { disk, user, open } = await setup();
     await open('crud.test.yaml');
-    await user.type(await screen.findByRole('textbox', { name: crud }), '# more');
-    expect(await screen.findByText('Fix 1 error to save')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Save' })).toHaveProperty('disabled', true);
-    await user.keyboard('{Control>}s{/Control}');
+    typeAtEnd(await findCodeView(crud), '# more');
+    expect(await screen.findByText('Unsaved, 1 error')).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    const ask = await screen.findByRole('alert');
+    expect(ask.textContent?.replace(/\s+/g, ' ')).toContain(
+      'This file has 1 error. Save it anyway?',
+    );
     expect(disk.get(crud)).toBe('name: crud\nid: GetUser\n');
+    await user.click(within(ask).getByRole('button', { name: 'Save anyway' }));
+    expect(await screen.findByText('Saved')).toBeTruthy();
+    expect(disk.get(crud)).toBe('name: crud\nid: GetUser\n# more');
+  });
+
+  it('applies every certain fix with Fix all', async () => {
+    const { user, open } = await setup();
+    await open('crud.test.yaml');
+    const view = await findCodeView(crud);
+    await user.click(await screen.findByRole('button', { name: 'Fix all (1)' }));
+    expect(view.state.doc.toString()).toBe('name: crud\nid: getsUser\n');
+    expect(await screen.findByText('Unsaved')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /^Fix all/ })).toBeNull();
+  });
+
+  it('fixes a saved file through the engine, unsaved, so Revert undoes it', async () => {
+    const asked: string[][] = [];
+    const fixes = {
+      fix: (_: string, codes: readonly string[]) => {
+        asked.push([...codes]);
+        return Promise.resolve(available('name: crud\nid: getsUser # engine\n'));
+      },
+    };
+    const { user, open } = await setup(undefined, { ...noEditorSeams, fixes });
+    await open('crud.test.yaml');
+    const view = await findCodeView(crud);
     const problems = screen.getByRole('region', { name: 'Problems' });
     await user.click(within(problems).getByRole('button', { name: 'Rename to getsUser' }));
-    expect(await screen.findByText('Unsaved changes')).toBeTruthy();
-    await user.click(screen.getByRole('button', { name: 'Save' }));
-    expect(await screen.findByText('Saved')).toBeTruthy();
-    expect(disk.get(crud)).toBe('name: crud\nid: getsUser\n# more');
+    await vi.waitFor(() => expect(view.state.doc.toString()).toContain('# engine'));
+    expect(asked).toEqual([['V4001']]);
+    await user.click(screen.getByRole('button', { name: 'Revert' }));
+    await user.click(await screen.findByRole('button', { name: 'Fix all (1)' }));
+    await vi.waitFor(() => expect(asked).toEqual([['V4001'], []]));
+  });
+
+  it('says so when the engine finds nothing to fix', async () => {
+    const fixes = { fix: () => Promise.resolve(available(undefined)) };
+    const { user, open } = await setup(undefined, { ...noEditorSeams, fixes });
+    await open('crud.test.yaml');
+    await user.click(await screen.findByRole('button', { name: 'Fix all (1)' }));
+    expect(await screen.findByText('Nothing to fix.')).toBeTruthy();
+  });
+
+  it('explains a problem’s code beside the code, and closes it', async () => {
+    const explain = {
+      explain: (target: string) =>
+        Promise.resolve(
+          available({ text: `# ${target}\n\nUse \`camelCase\`.`, markdown: true, notices: [] }),
+        ),
+    };
+    const { user, open } = await setup(undefined, { ...noEditorSeams, explain });
+    await open('crud.test.yaml');
+    const problems = screen.getByRole('region', { name: 'Problems' });
+    await user.click(within(problems).getByRole('button', { name: 'Explain V4001' }));
+    const panel = await screen.findByRole('complementary', { name: 'Explain V4001' });
+    expect(await within(panel).findByRole('heading', { name: 'V4001' })).toBeTruthy();
+    expect(within(panel).getByText('camelCase').tagName).toBe('CODE');
+    await user.click(within(panel).getByRole('button', { name: 'Close' }));
+    expect(screen.queryByRole('complementary', { name: 'Explain V4001' })).toBeNull();
   });
 
   it('asks before dropping unsaved changes for another file', async () => {
     const { user, open } = await setup();
     await open('crud.test.yaml');
-    await user.type(await screen.findByRole('textbox', { name: crud }), 'x');
+    typeAtEnd(await findCodeView(crud), 'x');
     await open('users.api.yaml');
     await user.click(screen.getByRole('button', { name: 'Keep editing' }));
-    expect(screen.getByRole('textbox', { name: crud })).toBeTruthy();
+    expect(codeView(crud)).toBeTruthy();
     await open('users.api.yaml');
     await user.click(screen.getByRole('button', { name: 'Discard and open' }));
-    expect(await screen.findByRole('textbox', { name: api })).toBeTruthy();
+    expect(await findCodeView(api)).toBeTruthy();
   });
 
   it('offers reload or keep-mine when the file changed on disk', async () => {
     const { disk, user, open } = await setup({ next: true });
     await open('users.api.yaml');
-    await user.type(await screen.findByRole('textbox', { name: api }), '!');
+    typeAtEnd(await findCodeView(api), '!');
     await user.click(screen.getByRole('button', { name: 'Save' }));
     const banner = await screen.findByRole('alert');
     expect(banner.textContent).toContain('changed on disk');
@@ -116,20 +177,20 @@ describe('Editor', () => {
   it('lists problems, jumps to one and applies its fix', async () => {
     const { user, open } = await setup();
     await open('crud.test.yaml');
-    const text = (await screen.findByRole('textbox', { name: crud })) as HTMLTextAreaElement;
+    const view = await findCodeView(crud);
     const problems = screen.getByRole('region', { name: 'Problems' });
     expect(within(problems).getByText('1 error')).toBeTruthy();
     await user.click(within(problems).getByRole('button', { name: /test IDs are camelCase/ }));
-    expect(document.activeElement).toBe(text);
-    expect(text.value.slice(text.selectionStart, text.selectionEnd)).toBe('GetUser');
+    await vi.waitFor(() => expect(selected(view)).toBe('GetUser'));
+    expect(view.hasFocus).toBe(true);
     await user.click(within(problems).getByRole('button', { name: 'Rename to getsUser' }));
-    expect(text.value).toBe('name: crud\nid: getsUser\n');
+    expect(view.state.doc.toString()).toBe('name: crud\nid: getsUser\n');
   });
 
   it('shows the diff and reverts it', async () => {
     const { user, open } = await setup();
     await open('users.api.yaml');
-    await user.type(await screen.findByRole('textbox', { name: api }), 'tags: one');
+    typeAtEnd(await findCodeView(api), 'tags: one');
     await user.click(screen.getByRole('button', { name: /^Diff/ }));
     const diff = screen.getByRole('region', { name: 'Changes since the last save' });
     expect(within(diff).getByText('tags: one')).toBeTruthy();
@@ -137,15 +198,16 @@ describe('Editor', () => {
     expect(within(diff).getByText('No changes since the last save.')).toBeTruthy();
   });
 
-  it('runs a test file, and offers no run for an api file', async () => {
-    const { runs, user, open } = await setup();
+  it('runs a test file as a check run, and offers no run for an api file', async () => {
+    const { runs, records, user, open } = await setup();
     await open('users.api.yaml');
-    await screen.findByRole('textbox', { name: api });
+    await findCodeView(api);
     expect(screen.queryByRole('button', { name: 'Run file' })).toBeNull();
     await open('crud.test.yaml');
-    await screen.findByRole('textbox', { name: crud });
+    await findCodeView(crud);
     await user.click(screen.getByRole('button', { name: 'Run file' }));
     expect(runs).toEqual([[crud]]);
+    expect(records).toEqual([false]);
   });
 
   it('moves through the file tree with the keyboard', async () => {
@@ -153,6 +215,6 @@ describe('Editor', () => {
     const items = within(screen.getByRole('tree', { name: 'Files' })).getAllByRole('treeitem');
     items[0]?.focus();
     await user.keyboard('{ArrowDown}{ArrowDown}{Enter}');
-    expect(await screen.findByRole('textbox', { name: api })).toBeTruthy();
+    expect(await findCodeView(api)).toBeTruthy();
   });
 });

@@ -1,0 +1,78 @@
+<script lang="ts">
+  import { ConnectError } from '@connectrpc/connect';
+  import { untrack } from 'svelte';
+  import Dialog from '#lib/ui/Dialog.svelte';
+  import type { FileOps, Template } from './seams.ts';
+
+  /** New test file, load file or service, from the templates `vc new file` uses (ui.md §5, D653). */
+  let {
+    files,
+    service: start,
+    onclose,
+    oncreated,
+  }: {
+    files: FileOps;
+    /** The service of the open file, the default home of a new file. */
+    service: string;
+    onclose: () => void;
+    oncreated: (path: string) => void;
+  } = $props();
+
+  const uid = $props.id();
+  let template = $state<Template>('test');
+  let service = $state(untrack(() => start));
+  let name = $state('');
+  let busy = $state(false);
+  let note: string | undefined = $state();
+  let ready = $derived(name.trim() !== '' && (template === 'service' || service.trim() !== ''));
+
+  async function create(): Promise<void> {
+    busy = true;
+    note = undefined;
+    try {
+      const made = await files.create(template, name.trim(), service.trim());
+      if (made.available) oncreated(made.value);
+      else note = made.reason;
+    } catch (error) {
+      note = ConnectError.from(error).rawMessage;
+    } finally {
+      busy = false;
+    }
+  }
+</script>
+
+<Dialog title="New file" {onclose}>
+  <div class="form">
+    <label for="{uid}-kind">Kind</label>
+    <select id="{uid}-kind" class="st-input" bind:value={template}>
+      <option value="test">Test file</option>
+      <option value="load">Load file</option>
+      <option value="service">Service</option>
+    </select>
+    {#if template !== 'service'}
+      <label for="{uid}-service">Service</label>
+      <input id="{uid}-service" class="st-input vc-mono" bind:value={service} />
+    {/if}
+    <label for="{uid}-name">{template === 'service' ? 'Name' : 'Area'}</label>
+    <input id="{uid}-name" class="st-input vc-mono" bind:value={name} placeholder="crud" />
+  </div>
+  {#if note}<p class="st-secondary" role="status">{note}</p>{/if}
+  {#snippet actions()}
+    <button type="button" class="st-btn" onclick={onclose}>Cancel</button>
+    <button
+      type="button"
+      class="st-btn st-btn--primary"
+      disabled={!ready || busy}
+      onclick={() => void create()}>{busy ? 'Creating…' : 'Create'}</button
+    >
+  {/snippet}
+</Dialog>
+
+<style>
+  .form {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    align-items: center;
+    gap: 8px 12px;
+  }
+</style>

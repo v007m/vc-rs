@@ -1,13 +1,15 @@
 //! The API client's RPCs (D245, D251): `ReadDefinition`, an api or test as its file writes it
 //! for the Client's forms to start from; `ExplainApi`, how an api would be sent; and the draft
-//! a `Call` sends in place of the file. They read only a file the editor opens, mask what a
-//! run masks, and write nothing; saving a draft is an `EditFile`.
+//! a `Call` sends in place of the file, or the ad hoc call it sends in place of an api. They
+//! read only a file the editor opens, mask what a run masks, and write nothing; saving a draft
+//! is an `EditFile`.
 
 use std::sync::Arc;
 
 use tokio::runtime::Handle;
 use vc_contracts::engine::v1 as wire;
-use vc_engine::{CallDraft, CallRequest};
+use vc_contracts::results::v1::Header;
+use vc_engine::{AdhocCall, CallDraft, CallRequest};
 
 use crate::ConnectError;
 use crate::edit_rpcs::pointer_edit;
@@ -40,7 +42,7 @@ async fn explain_api(
     api: Arc<EngineApi>,
     request: wire::ExplainApiRequest,
 ) -> Result<wire::ExplainApiResponse, ConnectError> {
-    let (profiles, sets) = api.layers(request.profiles, request.sets);
+    let (profiles, sets) = api.layers(request.profiles, request.sets)?;
     let draft = request.draft.as_ref().map(draft).transpose()?;
     let call = CallRequest { api: request.api, vars: request.vars, profiles, sets, draft, ..CallRequest::default() };
     let explained = api.blocking(move |engine| Handle::current().block_on(engine.explain_api(&call))).await?;
@@ -68,6 +70,22 @@ async fn explain_api(
 pub fn draft(draft: &wire::ApiDraft) -> Result<CallDraft, ConnectError> {
     let edits = draft.edits.iter().enumerate().map(pointer_edit).collect::<Result<Vec<_>, _>>()?;
     Ok(CallDraft { path: draft.path.clone(), digest: draft.digest.clone(), edits })
+}
+
+/// An ad hoc call as the engine takes it (D540): what it sends is checked when it is compiled.
+pub fn adhoc(call: &wire::AdhocCall) -> AdhocCall {
+    let pairs = |headers: &[Header]| -> Vec<(String, String)> {
+        headers.iter().map(|header| (header.name.clone(), header.value.clone())).collect()
+    };
+    AdhocCall {
+        kind: call.r#type.clone(),
+        method: call.method.clone(),
+        url: call.url.clone(),
+        headers: pairs(&call.headers),
+        query: pairs(&call.query),
+        body: call.body.clone(),
+        auth: call.auth.clone(),
+    }
 }
 
 #[cfg(test)]
