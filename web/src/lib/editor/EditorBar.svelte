@@ -12,7 +12,8 @@
 
   /**
    * The open file's bar: its path and save state, then Diff, Revert, Fix all, Check, Run file
-   * (Stop while it runs), Save, and the file menu.
+   * (Stop while it runs), Save, and the file menu. Run file is a check run (`record: false`,
+   * D670): it writes no history entry, report or alert.
    */
   let {
     editor,
@@ -90,7 +91,9 @@
     <button
       type="button"
       class="st-btn st-btn--sm"
-      onclick={() => void session.start({ selection: { paths: [path] } })}>Run file</button
+      title="A check run: its results show here and are not kept in Runs"
+      onclick={() => void session.start({ selection: { paths: [path] }, record: false })}
+      >Run file</button
     >
   {/if}
   <button

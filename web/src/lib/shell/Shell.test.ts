@@ -189,6 +189,21 @@ describe('Shell', () => {
     expect(container.querySelector('.stage > .card')).not.toBeNull();
   });
 
+  it("puts a screen's primary action and title in the top row until it unmounts", async () => {
+    const slots = new ShellSlots();
+    const empty = slots.fill({
+      primary: createRawSnippet(() => ({ render: () => '<button>Run…</button>' })),
+      title: 'Run #12',
+    });
+    setup('/runs/run', memory(), slots);
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Run #12');
+    expect(screen.getByRole('button', { name: 'Run…' })).toBeTruthy();
+    empty();
+    await tick();
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('All runs');
+    expect(screen.queryByRole('button', { name: 'Run…' })).toBeNull();
+  });
+
   it('keeps the screen mounted when it asks for a bare stage', async () => {
     let mounts = 0;
     const counted = createRawSnippet(() => ({

@@ -12,7 +12,7 @@ describe('spaces', () => {
     expect(viewOf('/tests/editor')?.label).toBe('Editor');
     expect(spaceOf('/runs/overview').key).toBe('runs');
     expect(viewOf('/runs/overview')?.title).toBe('Runs overview');
-    expect(viewOf('/runs')?.title).toBe('Runs');
+    expect(viewOf('/runs')?.title).toBe('All runs');
   });
 
   it('matches the longest route a path is under', () => {

@@ -1,34 +1,48 @@
 import { ConnectError } from '@connectrpc/connect';
-import type { HistoryPort, RunLine, StoredRun, TestDetail } from './port.ts';
+import type { HistoryPort, RunLine, RunOutcome, RunScope, StoredRun, TestDetail } from './port.ts';
 
-/** How many recent runs the Runs screen lists. */
-export const RECENT = 20;
+/** How many recent runs the Runs sidebar lists. */
+export const RECENT = 12;
 
-/** A selector the recent runs used, and how many of them used it. */
-export type SelectorUse = Readonly<{ selector: string; runs: number }>;
+/** How many runs All runs lists. */
+export const ALL = 200;
 
-/** Each selector `runs` used, newest first, with how many used it; `''` is all tests. */
-export function selectorsOf(runs: readonly RunLine[]): SelectorUse[] {
-  const used = runs.map((run) => run.selector);
-  const selectors = used.filter((selector, at) => used.indexOf(selector) === at);
-  return selectors.map((selector) => ({
-    selector,
-    runs: used.filter((other) => other === selector).length,
-  }));
+/** All runs' filters that the engine does not apply: a status, and words to look for. */
+export type RunFilter = Readonly<{ outcome?: RunOutcome; query?: string }>;
+
+/** Whether `run` has the outcome and every word of `filter.query` (in its number, selector, profile or branch). */
+export function matches(run: RunLine, filter: RunFilter): boolean {
+  if (filter.outcome && run.outcome !== filter.outcome) return false;
+  const text = [`#${run.id}`, run.selector, ...run.profiles, run.branch ?? '', run.commit ?? '']
+    .join(' ')
+    .toLowerCase();
+  const words = (filter.query ?? '').toLowerCase().split(/\s+/).filter(Boolean);
+  return words.every((word) => text.includes(word));
 }
 
-/** The Runs screen's history: the recent runs, the stored run open, and its open test. */
+/** Each value `pick` gives over `runs`, once, in first-seen order (the filter menus' choices). */
+export function distinct(
+  runs: readonly RunLine[],
+  pick: (run: RunLine) => readonly string[],
+): string[] {
+  return runs.flatMap(pick).filter((v, i, all) => v && all.indexOf(v) === i);
+}
+
+/**
+ * The Runs space's history (D631): the recent runs for the sidebar, All runs in its scope and
+ * filter, and the stored run open with its open test.
+ */
 export class RunHistory {
-  runs: readonly RunLine[] = $state([]);
+  recent: readonly RunLine[] = $state.raw([]);
+  runs: readonly RunLine[] = $state.raw([]);
+  scope: RunScope = $state.raw({});
+  filter: RunFilter = $state.raw({});
   /** Read once, never changed in place. */
   open: StoredRun | undefined = $state.raw();
   current: string | undefined = $state();
   error: string | undefined = $state();
-  /** The selector the recent runs are filtered by; none lists them all. */
-  selector: string | undefined = $state();
-  readonly selectors: readonly SelectorUse[] = $derived(selectorsOf(this.runs));
   readonly shown: readonly RunLine[] = $derived(
-    this.runs.filter((run) => this.selector === undefined || run.selector === this.selector),
+    this.runs.filter((run) => matches(run, this.filter)),
   );
   readonly opened: TestDetail | undefined = $derived(
     this.open?.tests.find((test) => test.row.key === this.current),
@@ -41,26 +55,32 @@ export class RunHistory {
 
   /** The test IDs that failed or were blocked in the open run, each once. */
   get failedIds(): string[] {
-    const ids = (this.open?.tests ?? [])
-      .filter(({ row }) => row.status === 'failed' || row.status === 'blocked')
-      .map(({ id }) => id);
-    return ids.filter((id, at) => ids.indexOf(id) === at);
+    return failedIds(this.open?.tests ?? []);
   }
 
+  /** Reads the recent runs and All runs again. */
   async load(): Promise<void> {
     await this.#read(async () => {
-      this.runs = await this.#port.runs(RECENT);
-      if (!this.runs.some((run) => run.selector === this.selector)) this.selector = undefined;
+      const [recent, runs] = await Promise.all([
+        this.#port.runs(RECENT),
+        this.#port.runs(ALL, this.scope),
+      ]);
+      this.recent = recent;
+      this.runs = runs;
     });
   }
 
-  /** Lists only the runs that used `selector`, or all of them again when it is the one in use. */
-  filter(selector: string): void {
-    this.selector = this.selector === selector ? undefined : selector;
+  /** Lists the runs in `scope`, which the engine narrows. */
+  async rescope(scope: RunScope): Promise<void> {
+    this.scope = scope;
+    await this.#read(async () => {
+      this.runs = await this.#port.runs(ALL, scope);
+    });
   }
 
   /** Opens run `id`, its first test that did not pass selected. */
   async show(id: number): Promise<void> {
+    if (this.open?.run.id === id) return;
     await this.#read(async () => {
       const stored = await this.#port.run(id);
       this.open = stored;
@@ -69,7 +89,13 @@ export class RunHistory {
     });
   }
 
-  /** Back to the live run. */
+  /** The run before `id` in All runs (of the same kind), to compare it with. */
+  previous(id: number): RunLine | undefined {
+    const at = this.runs.findIndex((run) => run.id === id);
+    const kind = this.runs[at]?.kind;
+    return at < 0 ? undefined : this.runs.slice(at + 1).find((run) => run.kind === kind);
+  }
+
   close(): void {
     this.open = undefined;
     this.current = undefined;
@@ -83,4 +109,12 @@ export class RunHistory {
       this.error = ConnectError.from(error).rawMessage;
     }
   }
+}
+
+/** The IDs of the tests that failed or were blocked, each once: what **Re-run failed** runs. */
+export function failedIds(tests: readonly TestDetail[]): string[] {
+  const ids = tests
+    .filter(({ row }) => row.status === 'failed' || row.status === 'blocked')
+    .map(({ id }) => id);
+  return ids.filter((id, i) => ids.indexOf(id) === i);
 }

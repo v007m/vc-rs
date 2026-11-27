@@ -17,6 +17,7 @@
     project,
     sidebarShown,
     left,
+    primary,
     ontoggle,
     onsearch,
   }: {
@@ -26,6 +27,8 @@
     sidebarShown: boolean;
     /** The screen's own left side (the Client tabs, D537), in place of the title and status. */
     left?: Snippet | undefined;
+    /** The screen's primary action, after the status (D630). */
+    primary?: Snippet | undefined;
     ontoggle: () => void;
     /** Opens the command palette out of the search field (D620). */
     onsearch: (field: HTMLElement) => void;
@@ -63,6 +66,7 @@
       Running · {doneCount(view.counts)} of {view.planned || '…'}
     </span>
   {/if}
+  {#if primary}{@render primary()}{/if}
   {#if !left}<span class="vc-grow"></span>{/if}
   <div class="topbar-end">
     <a class="env-pill" href={resolve('/settings')} title={envTitle}>

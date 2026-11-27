@@ -1,16 +1,11 @@
 <script lang="ts">
-  import { engine } from '#lib/api/transport.ts';
-  import { RunHistory } from '#lib/history/history.svelte.ts';
-  import { enginePort } from '#lib/history/port.ts';
-  import RunsScreen from '#lib/history/RunsScreen.svelte';
+  import AllRuns from '#lib/history/AllRuns.svelte';
+  import { getRunsSpace } from '#lib/history/space.svelte.ts';
   import Screen from '#lib/Screen.svelte';
-  import { getRunSession } from '#lib/run/context.ts';
 
-  const session = getRunSession();
-  const history = new RunHistory(enginePort(engine));
-  void history.load();
+  const space = getRunsSpace();
 </script>
 
-<Screen title="Runs">
-  <RunsScreen {history} {session} />
+<Screen title="All runs">
+  <AllRuns history={space.history} onrun={(selector) => space.run(selector)} />
 </Screen>

@@ -1,4 +1,5 @@
 import { ConnectError, type Client } from '@connectrpc/connect';
+import { createContext } from 'svelte';
 import { Severity, type EngineService } from '#lib/gen/vibranium/engine/v1/engine_pb.ts';
 
 /** The part of the engine the shell's status line and env pill read, so tests can pass a fake. */
@@ -16,6 +17,8 @@ export class ProjectStatus {
   name: string | undefined = $state();
   version: string | undefined = $state();
   profile: string | undefined = $state();
+  /** Every profile the config names, in its order (the Run dialog's picker, D633). */
+  profiles: readonly string[] = $state.raw([]);
   check: CheckSummary | undefined = $state();
   error: string | undefined = $state();
   readonly #client: ProjectClient;
@@ -35,6 +38,7 @@ export class ProjectStatus {
       this.name = name;
       this.version = vcVersion;
       this.profile = defaultProfile ?? profiles[0];
+      this.profiles = profiles;
     } catch (error) {
       this.error = ConnectError.from(error).rawMessage;
     }
@@ -64,3 +68,6 @@ export function checkLine(check: CheckSummary | undefined): string {
   const part = (n: number, word: string) => (n ? [`${n} ${word}${n === 1 ? '' : 's'}`] : []);
   return `vc check: ${[...part(errors, 'error'), ...part(warnings, 'warning')].join(', ')}`;
 }
+
+/** The app's project facts: the root layout sets them, and a screen that needs a profile reads them. */
+export const [getProjectStatus, setProjectStatus] = createContext<ProjectStatus>();

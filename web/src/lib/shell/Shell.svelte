@@ -46,7 +46,7 @@
   // Before the first measure (and in jsdom, which measures nothing) the sidebar counts as in the layout.
   let inLayout = $derived(width === 0 || width > drawerWidth);
   let space = $derived(spaceOf(pathname));
-  let title = $derived(viewOf(pathname)?.title ?? space.label);
+  let title = $derived(slots.title ?? viewOf(pathname)?.title ?? space.label);
   let sidebarShown = $derived(inLayout ? !shell.prefs.sbCollapsed : shell.drawer);
   let hints = $state(false);
   let app: HTMLElement | undefined = $state();
@@ -112,6 +112,7 @@
         {project}
         {sidebarShown}
         left={slots.top}
+        primary={slots.primary}
         ontoggle={toggle}
         onsearch={openPalette}
       />

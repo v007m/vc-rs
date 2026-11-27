@@ -44,10 +44,13 @@ export type TestDetail = Readonly<{
 
 export type StoredRun = Readonly<{ run: RunLine; tests: readonly TestDetail[] }>;
 
+/** Which runs a listing keeps (`ListRuns`): one kind, profile or branch; absent keeps all. */
+export type RunScope = Readonly<{ kind?: string; profile?: string; branch?: string }>;
+
 /** What the Runs screen asks of the history. Every value is already masked by the engine. */
 export interface HistoryPort {
-  /** The newest `limit` runs of every kind, newest first. */
-  runs(limit: number): Promise<RunLine[]>;
+  /** The newest `limit` runs in `scope` (every run without one), newest first. */
+  runs(limit: number, scope?: RunScope): Promise<RunLine[]>;
   /** One run by its number, with its tests. */
   run(id: number): Promise<StoredRun>;
 }
@@ -70,7 +73,8 @@ const statuses: Readonly<Record<TestStatus, Status>> = {
   [TestStatus.ALLOWED_FAILURE]: 'failed',
 };
 
-function runLine(run: Run): RunLine {
+/** A results `Run` as the history lists it. */
+export function runLine(run: Run): RunLine {
   const { passed = 0, failed = 0, blocked = 0, flaky = 0, skipped = 0 } = run.totals ?? {};
   const finished =
     run.finishedMs === undefined ? {} : { durationMs: Number(run.finishedMs - run.startedMs) };
@@ -88,7 +92,8 @@ function runLine(run: Run): RunLine {
   };
 }
 
-function testDetail(test: Test): TestDetail {
+/** A results `Test` as a run shows it: stored ones and the live run's finished ones (D634). */
+export function testDetail(test: Test): TestDetail {
   return {
     row: {
       key: test.label || test.id,
@@ -113,8 +118,8 @@ export function enginePort(
   client: Pick<Client<typeof EngineService>, 'listRuns' | 'getRun'>,
 ): HistoryPort {
   return {
-    async runs(limit) {
-      const { runs } = await client.listRuns({ limit });
+    async runs(limit, scope = {}) {
+      const { runs } = await client.listRuns({ limit, ...scope });
       return runs.map(runLine);
     },
     async run(id) {

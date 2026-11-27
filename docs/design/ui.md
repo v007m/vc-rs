@@ -197,7 +197,7 @@ A wizard with six steps: Source (OpenAPI, HAR, Postman, Bruno, .http, cURL paste
   - Format uses `vc fmt`.
   - Delete moves the file to the project's trash, `.vibranium/trash/` (D683), after a confirmation that lists the tests that reference it.
 - **Plan preview** (`vc plan --explain`) for the selection shows the instances, the lifecycle order and the merged expects.
-- **Built so far (Round 98):** the YAML view only; the form view and Split come with the form editors. The view lives in a shadow root so its styles pass the CSP (D568). The editor bar holds Diff, Revert, Fix all, Check, Run file (Stop while it runs), Save and the file menu (D573). The plan preview covers the open file, not yet a selection (D576). Run file is a recorded run until the check run's `record: false` lands (D574).
+- **Built so far (Round 98):** the YAML view only; the form view and Split come with the form editors. The view lives in a shadow root so its styles pass the CSP (D568). The editor bar holds Diff, Revert, Fix all, Check, Run file (Stop while it runs), Save and the file menu (D573). The plan preview covers the open file, not yet a selection (D576). Run file is a check run, `record: false`, so it leaves nothing in Runs (D645).
 
 ## 6. Runs space (D519)
 
@@ -205,8 +205,8 @@ A wizard with six steps: Source (OpenAPI, HAR, Postman, Bruno, .http, cURL paste
 - **Run…** is the top row's primary action (⌘R).
 
 ### Run dialog and live run
-- **Run dialog** (or ⌘R on a selection; D502): a 560 px form.
-  - Visible: selector, profile, concurrency, bail and a one-line plan ("17 tests · 4 files · ~2 s").
+- **Run dialog** (or ⌘R on a selection; D502, D632): a 560 px form. ⌘R opens it anywhere in the Runs space (D635).
+  - Visible: selector, profile, concurrency, bail and a one-line plan ("17 tests · 4 files · 1 skipped", from ListDefinitions; no time estimate yet, D642).
   - Under a collapsed "More options": layers, "since commit" for `--changed`, seed, repeat, strict, reporters and the command preview.
   - Footer: Cancel and Run.
 - **Live run view:**
@@ -224,11 +224,12 @@ A wizard with six steps: Source (OpenAPI, HAR, Postman, Bruno, .http, cURL paste
 
 ### Runs and reports
 - **Runs list:** filter by status, profile, branch, kind (test, load, adhoc) and agent.
-- **Stored run** (D509): a summary header (status, counts, duration, profile, branch @ commit, start time) with Open report, an Export menu (HTML, CTRF JSON, JUnit XML, NDJSON, copy `vc report`) and a ⋯ (Re-run failed, Compare, Copy run command); below it, the same view as a live run. Each runs-list row has these actions in its ⋯.
-- **Compare two runs:** newly failing, fixed, slower and faster tests (with a threshold), and changed response shapes.
+- **Stored run** (D509, D636): a summary header (status, counts, duration, profile, branch @ commit, start time), an Export menu that copies `vc report N --format html|ctrf|junit`, `vc history show N --json` and the HTML report's path (the server serves no report files, so there is no Open report), and a ⋯ (Re-run failed, Compare, Copy run command); below it, the same view as a live run (D634). Each runs-list row has Compare, Run again and Copy run command in its ⋯. Routes: `/runs/<n>`, `/runs/load/<n>` and `/runs/compare/<a>/<b>` (D644).
+- **Compare two runs** (D637): newly failing, fixed, slower and faster tests (20 % and 50 ms or more), and changed response shapes.
+- **Per-test history strip** (D638): the open test's newest 30 results, a sparkline of its time, and its pass rate, flake rate and median.
 
 ### Overview (the former Insights)
-- A profile and branch scope, which the port already supports.
+- A profile and branch scope (D643): the project's profiles and the branches in the history.
 - KPIs: the pass rate trend, the duration trend, a flaky list with a Quarantine action, the slowest apis (p50/p95), api coverage gaps, skips that are expiring, and per-service cards.
 
 ### Schedules (D520)
@@ -448,6 +449,16 @@ Each step is one or two PRs, and each RPC gets its own small engine PR first.
 - **Step 9, git part.** The Changes section of the Tests sidebar commits, pushes and pulls through the Vcs RPCs, with each file's diff (D578–D580), and the status line shows the branch (D581).
 - **Needs the engine.** Completion, hover, the file operations and the plan wait for `Complete` and `Hover`, `CreateFile`, `Rename` (with its preview), `Format`, the references list, `TrashFile`, `Plan` and `ApplyFixes` (§10, rows 4–6); against today's engine each says "needs a newer engine". Run file is recorded until `Run` takes `record: false` (row 17).
 - **Not built yet:** the form view and Split, Explain in a side panel, the Tests table's bulk actions and saved views, test detail, Quarantine and the per-test history strip (listed in Round 98).
+
+**Done so far (batch D, Round 100):**
+
+- **Runs space.** The layout fills the shell's sidebar, primary and title slots (D630): Overview, All runs and Recent with the live run first, and Run… (⌘R) at the top right (D631, D635). All runs filters by kind, status, profile, branch and a search, and compares two ticked runs.
+- **Run dialog.** The 560 px form with the plan line and More options, Strict and Report files included (D632, D642, D671).
+- **Step 7, drill-down part.** The live run and a stored run share `RunDetail` (D634); a stored run has its header, Export and ⋯ (D636).
+- **Step 8.** The load screen's charts with threshold lines and breach markers (D641), the Hosts panel and the report (D639), at `/runs/load` and `/runs/load/<n>`.
+- **Step 9, compare and check parts.** Compare at `/runs/compare/<a>/<b>` (D637), the per-test history strip (D638), and Run file as a check run (D645). The Overview has its profile and branch scope (D643).
+- **Needs the engine.** Compare and the history strip wait for `CompareRuns` and `TestHistory` (§10 row 9); load runs wait for `RunLoad` and `load_tick` (row 8). Against today's engine each says "needs a newer engine".
+- **Not built yet:** Schedules (batch E), the Agent filter, starting a load run from Tests (with the load editor), a duration estimate in the plan line, and Quarantine from the Overview.
 
 **Strata restyle (Round 99):**
 
