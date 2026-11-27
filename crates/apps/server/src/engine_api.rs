@@ -67,7 +67,7 @@ impl EngineApi {
 
     /// A call's profiles and `--set` values over the server's. The call's own sets come from a
     /// client, so a `reports.dir` among them must name a folder inside the project; the server's
-    /// own, from `vc serve --set`, are trusted (D327, D685). Only such a set reads the disk.
+    /// own, from `vc ui --set`, are trusted (D327, D685). Only such a set reads the disk.
     ///
     /// # Errors
     ///

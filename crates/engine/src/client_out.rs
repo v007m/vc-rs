@@ -1,4 +1,4 @@
-//! The report folder a client of `vc serve` names for a run, as `out` or as a `reports.dir`
+//! The report folder a client of `vc ui`'s server names for a run, as `out` or as a `reports.dir`
 //! among its `sets`: kept inside the project (D671, D685).
 
 use std::path::{Component, Path, PathBuf};
