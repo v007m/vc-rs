@@ -10,9 +10,9 @@ Status: approved by Sarath; the build is under way (§13). The decisions are fro
   - **Runs** holds every run, schedule and report, with the Overview.
   - **Agents** and **Settings** hold agent access and every setting.
 - **Everything runs on the engine:** profiles, vars, auth, checks, history, diagnostics and fixes. The UI never re-implements engine logic.
-- **One Svelte UI, two shells:**
-  - Tauri 2 desktop (#98) comes first: a frameless window, with the engine in process over IPC.
-  - The web `vc ui` uses the same layout in a browser tab, over Connect at `/api`.
+- **One Svelte UI:**
+  - The web `vc ui` shows it in a browser tab, over Connect at `/api`.
+  - The desktop app (#98) is deferred (D744). When it is built, it is its own `vc-desktop` binary with the engine in process, and its webview uses the same loopback Connect transport and session token as `vc ui` (D745, D746).
   - The transport sits behind the existing per-feature ports, so the shell swaps it and nothing else changes.
 - **Keyboard first, WCAG 2.1 AA, dark and light themes, fast with 10k tests.**
 
@@ -292,7 +292,7 @@ One stack at the bottom centre, at most three (D724): writes, palette actions, f
 - **Secrets are never rendered.** They show as `••••` with their source, and Reveal is never offered for `secret` values.
 - The redactor applies to history, the copy actions and the agent log.
 - **Every write is review first** (a diff) and digest guarded. Deletes go to the trash.
-- **Desktop:** the Tauri IPC allow-list holds only the engine commands. There is no shell or fs plugin, and no remote content.
+- **Desktop (deferred, D744):** the webview exposes no IPC to the page, loads no remote content, and talks to the engine only over the guarded loopback transport (D745).
 
 ## 10. Engine work this needs (new RPCs and fields)
 
@@ -320,7 +320,7 @@ One stack at the bottom centre, at most three (D724): writes, palette actions, f
 
 | D | Decision |
 |---|---|
-| D470 | One UI with two shells: Tauri 2 first (#98), and the web `vc ui`. The transport sits behind the ports |
+| D470 | One UI with two shells: Tauri 2 first (#98), and the web `vc ui`. The transport sits behind the ports. Superseded by D744–D746: the desktop app is deferred, and a later shell uses loopback |
 | D471 | Arc-style layers L0–L3, tokens only; dark default plus light; a tint per project, overridden per profile; reduce motion and reduce transparency honoured |
 | D472 | A sidebar mode switch (Client and Tests); Runs, Insights, Agents and Settings shared at the foot |
 | D473 | Ad hoc requests are allowed, with Save as api (a new `Call` shape) |
@@ -433,7 +433,7 @@ Round 91 (the fifth mockup review: five spaces):
 9. Compare runs, per-test history, check runs and the git pane.
 10. Schedules and Agents usage.
 11. Settings scopes, onboarding and the palette.
-12. The Tauri shell (#98).
+12. The desktop shell (#98), deferred (D744).
 
 Each step is one or two PRs, and each RPC gets its own small engine PR first.
 

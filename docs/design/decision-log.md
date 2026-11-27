@@ -1246,6 +1246,14 @@ Round 103 (27 November 2026; UI v2 batch E, web side, and the style gate; D720 d
 | D742 | Dialog frame | Every dialog keeps its header and its actions row fixed; only the body scrolls, so Cancel and the primary button stay visible at bottom right. `Dialog` takes the actions as a snippet and, for a form dialog, the submit handler, so the frame owns the layout. The style audit's `cta` rule fails an open dialog whose primary button (else its last button) is outside the viewport or the dialog | — |
 | D743 | Onboarding sidebar | While `configured` is false the space's sidebar list is hidden; the space stays selected. It is the simpler of the two options (no route or space state changes) and the sidebar no longer shows "Requests / Request" with nothing configured | — |
 
+Round 104 (27 November 2026; the desktop shell, after the wry, Tauri 2 and GPUI spikes; decided by Sarath):
+
+| # | Topic | Decision | Supersedes |
+| --- | --- | --- | --- |
+| D744 | Desktop app deferred | The desktop app (#98) is deferred; v2 ships the web UI through `vc ui` in a browser only. The shell (wry + tao, Tauri 2 or GPUI) is chosen when #98 is picked up again, from the spike results recorded on #98 | D470 (Tauri first) |
+| D745 | Desktop transport | When a desktop shell is built, the engine runs in process and the webview talks to it over the loopback Connect transport with the session token, exactly as `vc ui` does. Neither wry's nor Tauri's custom protocol can stream a response, so live runs cannot use IPC | D470 (in process over IPC) |
+| D746 | Desktop binary | The desktop app is its own app crate and binary (`vc-desktop`), built in its own PR after the UI PR merges. `vc-cli` never links a webview, so the CLI never needs WebKitGTK on Linux. Its arch-tests row is added by Sarath | — |
+
 ## Open
 
 All decisions needed for the PRD and technical design are settled. The language is decided by the spike (D6, D36, D37, D41).
