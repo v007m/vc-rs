@@ -262,7 +262,8 @@ Five views in the sidebar, each opening with one sentence on what it is for:
 - **Project** (`vibranium.config.yaml`):
   - general, paths, defaults, profiles, vars per profile, http, tls, auth (with Test), secrets (`.env.schema`), reports and history, alerts (with Send test alert), agent access and plugins.
   - Each has a form, plus a pending-changes bar with a diff.
-- **You only** (`~/.config/vibranium`): the same form, clearly badged.
+- **You only** (`~/.config/vibranium`): the same form, clearly badged. Built (D733, D734): a Project / You only switch in the top row; Your settings is a table of the user file's keys with a Shadowed tag, masked values only replaceable, and Preview then Save with the digest.
+- Built: **Alerts** shows the rules as written with Send a test alert (D735); **Plugins** lists, adds (`npm:` or `path:` only) and removes, each previewed then written with the digest (D736).
 - **This app › Appearance** (built, D722): theme, accent (each space's own or one preset everywhere), density and Reduce motion, saved in this browser and applied at once. Cards (glass or solid), transparency, the tab idle time and the space switcher come later.
 - Radios are Strata's own round `.vc-radio`; the style audit refuses the browser's (D721).
 

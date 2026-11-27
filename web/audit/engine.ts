@@ -145,6 +145,9 @@ function framed(messages: readonly Uint8Array[]): Buffer {
   );
 }
 
+/** Thrown by a fake to refuse the call as the engine would (a 400 with its words). */
+export class Refused extends Error {}
+
 function answer(
   name: string,
   body: Buffer,
@@ -165,12 +168,22 @@ function answer(
 
 /**
  * Serves the engine API from the fakes, with a state's own `extra` answers over them; an RPC
- * with no fake answers Unimplemented (a seam).
+ * with no fake answers Unimplemented (a seam), and a fake that throws `Refused` refuses.
  */
 export async function routeEngine(page: Page, extra: Fakes = {}): Promise<void> {
   await page.route('**/api/**', (route) => {
     const name = new URL(route.request().url()).pathname.split('/').pop() ?? '';
-    const reply = answer(name, route.request().postDataBuffer() ?? Buffer.alloc(0), extra);
+    let reply: ReturnType<typeof answer>;
+    try {
+      reply = answer(name, route.request().postDataBuffer() ?? Buffer.alloc(0), extra);
+    } catch (error) {
+      if (!(error instanceof Refused)) throw error;
+      return route.fulfill({
+        status: 400,
+        contentType: 'application/json',
+        body: JSON.stringify({ code: 'failed_precondition', message: error.message }),
+      });
+    }
     if (reply) return route.fulfill({ status: 200, contentType: reply.type, body: reply.body });
     return route.fulfill({
       status: 501,
