@@ -50,14 +50,23 @@ function paragraph(lines: Lines): Block {
   return { kind: 'paragraph', spans: spans(text.join(' ')) };
 }
 
+const headingLine = /^(#{1,6}) ([^\n]*)$/;
+
 /** Whether `line` ends a paragraph: a blank line or the start of another block. */
 function starts(line: string): boolean {
   return line.trim() === '' || /^(#{1,6} |```|[-*] )/.test(line);
 }
 
+/** One line as a paragraph of its own, when no block would take it. */
+function single(lines: Lines): Block {
+  const text = (lines.all[lines.at] ?? '').trim();
+  lines.at += 1;
+  return { kind: 'paragraph', spans: spans(text) };
+}
+
 function block(lines: Lines): Block | undefined {
   const line = lines.all[lines.at] ?? '';
-  const heading = /^(#{1,6}) (.*)$/.exec(line);
+  const heading = headingLine.exec(line);
   if (line.trim() === '') {
     lines.at += 1;
     return undefined;
@@ -72,13 +81,16 @@ function block(lines: Lines): Block | undefined {
   return paragraph(lines);
 }
 
-/** `markdown` as blocks, in order. */
+/** `markdown` as blocks, in order. Every line break, `\r` and U+2028/U+2029 too, ends a line. */
 export function blocks(markdown: string): Block[] {
-  const lines: Lines = { all: markdown.replace(/\r\n/g, '\n').split('\n'), at: 0 };
+  const lines: Lines = { all: markdown.split(/\r\n|[\r\n\u2028\u2029]/), at: 0 };
   const out: Block[] = [];
   while (lines.at < lines.all.length) {
+    const at = lines.at;
     const next = block(lines);
     if (next) out.push(next);
+    // a block that took no line would loop forever: show the line as text and move on
+    if (lines.at === at) out.push(single(lines));
   }
   return out;
 }
