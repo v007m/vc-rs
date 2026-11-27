@@ -14,6 +14,8 @@ type Rgba = [number, number, number, number];
 type Box = { x: number; y: number; w: number; h: number };
 /** A run of text, an input's value or placeholder, or an icon, for the contrast pass. */
 export type Ink = { box: Box; ink: Rgba; min: number; what: string };
+/** An unchecked checkbox, radio or switch, whose edge or track the contrast pass measures. */
+export type Edge = { box: Box; what: string };
 
 /** The sRGB value of any CSS colour, through a 1px canvas (computed styles keep oklch). */
 function rgba(color: string): Rgba {
@@ -245,6 +247,32 @@ function overlays(): string[] {
   return out;
 }
 
+/** A row's actions are quiet (D739): no filled danger button inside a table row. */
+function rowActions(): string[] {
+  const out: string[] = [];
+  for (const b of document.querySelectorAll('tr .st-btn--danger, [role="row"] .st-btn--danger'))
+    if (shown(b)) out.push(`row action: ${describe(b)} is a filled danger button in a row`);
+  return out;
+}
+
+/** Every open dialog keeps its primary action in view: the body scrolls, not the actions. */
+function dialogActions(): string[] {
+  const out: string[] = [];
+  for (const d of document.querySelectorAll('dialog[open]')) {
+    // not `shown`: a button scrolled out of the dialog is the very case to catch
+    const buttons = [...d.querySelectorAll('.st-btn')].filter((b) => b.getClientRects().length > 0);
+    const main = buttons.find((b) => b.matches('.st-btn--primary')) ?? buttons.at(-1);
+    if (!main) continue;
+    const b = boxOf(main);
+    const f = boxOf(d);
+    const top = Math.max(0, f.y);
+    const bottom = Math.min(innerHeight, f.y + f.h);
+    if (b.y < top - 0.5 || b.y + b.h > bottom + 0.5)
+      out.push(`cta: ${describe(main)} in ${describe(d)} is out of view`);
+  }
+  return out;
+}
+
 const OVERLAY = 'dialog, [popover], .st-overlay';
 const WELL = '.vc-well, .vc-wash, pre, code, .cm-editor, .cm-editor *, svg *';
 const MARKED =
@@ -273,7 +301,16 @@ function cardOnCard(): string[] {
 
 /** The structural checks, in one pass. */
 function structure(): string[] {
-  return [...rowHeights(), ...capsules(), ...nested(), ...overlays(), ...cardOnCard(), ...system()];
+  return [
+    ...rowHeights(),
+    ...capsules(),
+    ...nested(),
+    ...overlays(),
+    ...dialogActions(),
+    ...rowActions(),
+    ...cardOnCard(),
+    ...system(),
+  ];
 }
 
 /** The page's text runs, field text and icons, with the ink each is drawn in. Icons get a
@@ -337,6 +374,20 @@ function inks(): Ink[] {
       min: disabled ? 2 : 3,
       what: `icon in ${describe(svg.parentElement ?? svg)}`,
     });
+  }
+  return out;
+}
+
+/** The unchecked, enabled checkboxes, radios and switches: WCAG 1.4.11 asks 3:1 of their
+ * boundary against what is behind them (D738). A disabled control is exempt. */
+function edges(): Edge[] {
+  const out: Edge[] = [];
+  for (const el of document.querySelectorAll(
+    'input:is([type=checkbox], [type=radio]):not(:checked, :disabled)',
+  )) {
+    // a closed <details> keeps its controls laid out but unpainted
+    if (!shown(el) || !el.checkVisibility()) continue;
+    out.push({ box: boxOf(el), what: describe(el) });
   }
   return out;
 }
@@ -426,9 +477,12 @@ export function pageScript(): string {
     outerOf,
     nested,
     overlays,
+    dialogActions,
+    rowActions,
     cardOnCard,
     structure,
     inks,
+    edges,
     rings,
     ringIssue,
     focusRings,
@@ -436,11 +490,16 @@ export function pageScript(): string {
   ];
   const consts = { CONTROL, ROW, OVERLAY, WELL, MARKED, FIELD, SECONDARY, TAGS, GLYPHS };
   const values = Object.entries(consts).map(([k, v]) => `const ${k} = ${JSON.stringify(v)};`);
-  return `(() => { ${values.join('\n')}\n${fns.map(String).join('\n')}\nwindow.vcAudit = { structure, inks, focusRings }; })();`;
+  return `(() => { ${values.join('\n')}\n${fns.map(String).join('\n')}\nwindow.vcAudit = { structure, inks, edges, focusRings }; })();`;
 }
 
 declare global {
   interface Window {
-    vcAudit: { structure: () => string[]; inks: () => Ink[]; focusRings: () => string[] };
+    vcAudit: {
+      structure: () => string[];
+      inks: () => Ink[];
+      edges: () => Edge[];
+      focusRings: () => string[];
+    };
   }
 }

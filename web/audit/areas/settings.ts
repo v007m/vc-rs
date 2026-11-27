@@ -59,7 +59,7 @@ const plugins: MessageInitShape<typeof E.PluginListingSchema>[] = [
     },
     granted: {},
     state: 'notApproved',
-    detail: 'not approved yet: run vc plugin add path:plugins/shop-auth to approve it',
+    detail: 'not approved: `vc plugin add` it',
   },
 ];
 
