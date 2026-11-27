@@ -167,7 +167,6 @@
 }
 .st-btn--ghost[aria-pressed='true'],
 .st-btn--ghost[aria-expanded='true'] {
-  background: var(--st-surface-wash);
   box-shadow: none;
 }
 /* a destructive action that is not the view's primary one: red text on a normal button */
@@ -305,6 +304,32 @@ dialog.st-overlay::backdrop {
 /* a section label on the canvas or a card: Strata's role, never upper case */
 .st-section-label {
   margin: 0;
+}
+/* Disclosure (D668): one chevron, pointing down when open and turned a quarter left when
+   closed, for a tree row, a section and a <details> alike; the native marker never shows. */
+summary {
+  list-style: none;
+  cursor: pointer;
+}
+summary::-webkit-details-marker {
+  display: none;
+}
+.vc-disclosure {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.vc-chev {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  color: var(--st-text-secondary);
+  stroke-width: 2;
+  transition: rotate var(--st-duration-fast) var(--st-ease-standard);
+}
+.vc-chev.is-closed,
+details:not([open]) > summary .vc-chev {
+  rotate: -90deg;
 }
 /* native radios and checkboxes not drawn as .st-check take the space's accent */
 input:is([type='radio'], [type='checkbox']) {
@@ -769,7 +794,31 @@ select.st-input:disabled {
    28/32/40. A disabled control keeps its shape and reads at 3:1 (Strata's 38% opacity left
    it near 2:1); a disabled primary drops to the secondary fill. A key hint on a primary button
    takes the button's ink. The ember space's light accent darkens so white text and accent
-   text on its soft fill both pass AA. */
+   text on its soft fill both pass AA.
+   One secondary fill everywhere (D667): Strata gave a button on a card the lavender field
+   fill and one in a dialog or a menu a translucent white, so the two read as different
+   buttons. Every secondary button now draws one opaque raised fill (white in light, a step
+   above the slate card in dark), on the canvas, a card or an overlay alike, and a ghost
+   button hovers and presses to that same fill. A field keeps the sunken lavender well. */
+:root {
+  --vc-btn-surface: #fff;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --vc-btn-surface: color-mix(in oklab, var(--st-surface-solid), #fff 9%);
+  }
+}
+:root[data-theme='dark'] {
+  --vc-btn-surface: color-mix(in oklab, var(--st-surface-solid), #fff 9%);
+}
+.st-btn:not(.st-btn--primary, .st-btn--danger, .st-btn--ghost) {
+  background: var(--vc-btn-surface);
+}
+.st-btn--ghost:hover,
+.st-btn--ghost[aria-pressed='true'],
+.st-btn--ghost[aria-expanded='true'] {
+  background: var(--vc-btn-surface);
+}
 .st-btn:disabled,
 .st-btn[aria-disabled='true'],
 .st-btn--primary:disabled,
@@ -777,12 +826,8 @@ select.st-input:disabled {
 .st-btn--primary[aria-disabled='true'] {
   opacity: 1;
   color: var(--st-text-disabled);
-  background: var(--st-surface-input);
+  background: var(--vc-btn-surface);
   box-shadow: 0 0 0 0.5px var(--st-edge-hairline);
-}
-.st-card .st-btn:disabled,
-.st-card .st-btn[aria-disabled='true'] {
-  background: var(--st-surface-input-on-card);
 }
 .st-btn--ghost:disabled,
 .st-btn--ghost[aria-disabled='true'] {
@@ -980,14 +1025,15 @@ dialog.st-overlay.vc-anchored.is-rest[open] {
   .vc-strike,
   .st-segmented[data-lens]::before,
   .vc-anchored,
-  .vc-anchored > * {
+  .vc-anchored > *,
+  .vc-chev {
     animation: none;
     transition: none;
   }
 }
 
-/* Tables in the Runs space (D640): hairline rows inset like separators, tabular figures,
-   secondary column heads. */
+/* Tables (D640): tabular figures, secondary column heads, the outer text 12px in like a field
+   row's (any ruled table, D669), and hairline rows. */
 .vc-table {
   width: 100%;
   border-collapse: collapse;
@@ -996,9 +1042,39 @@ dialog.st-overlay.vc-anchored.is-rest[open] {
 .vc-table th,
 .vc-table td {
   padding: 6px 8px;
-  border-bottom: 1px solid var(--st-chrome-separator);
   text-align: left;
   vertical-align: middle;
+}
+:is(.vc-table, .vc-rules) :is(th, td):first-child {
+  padding-left: 12px;
+}
+:is(.vc-table, .vc-rules) :is(th, td):last-child {
+  padding-right: 12px;
+}
+/* Table hairlines stop 12px short of both edges like every separator (Strata 1.1, D669). A
+   collapsed cell border cannot be inset, so each cell draws its stretch of the line as a 1px
+   background, the outer cells 12px shorter. A row's line sits at its foot; `vc-rule-top`
+   moves it to the head (a total line), and `--vc-hair-ink` recolours it (a header rule). */
+:is(.vc-table, .vc-rules, .client-table) :is(th, td),
+.vc-rule-top > :is(th, td) {
+  --vc-hair: var(--vc-hair-ink, var(--st-chrome-separator));
+  background-image: linear-gradient(var(--vc-hair), var(--vc-hair));
+  background-repeat: no-repeat;
+  background-size: 100% 1px;
+  background-position: 0 var(--vc-hair-at, 100%);
+}
+:is(.vc-table, .vc-rules, .client-table, .vc-rule-top) :is(th, td):first-child {
+  background-size: calc(100% - 12px) 1px;
+  background-position: 12px var(--vc-hair-at, 100%);
+}
+:is(.vc-table, .vc-rules, .client-table, .vc-rule-top) :is(th, td):last-child {
+  background-size: calc(100% - 12px) 1px;
+}
+:is(.vc-table, .vc-rules, .client-table, .vc-rule-top) :is(th, td):only-child {
+  background-size: calc(100% - 24px) 1px;
+}
+.vc-rule-top {
+  --vc-hair-at: 0;
 }
 .vc-table thead th {
   color: var(--st-text-secondary);
@@ -1008,8 +1084,9 @@ dialog.st-overlay.vc-anchored.is-rest[open] {
 .vc-table tbody th {
   font-weight: 400;
 }
-.vc-table tr:last-child > * {
-  border-bottom: 0;
+:is(.vc-table, .vc-rules, .client-table) tbody tr:last-child > *,
+.vc-table thead th {
+  background-image: none;
 }
 .vc-table .r {
   text-align: right;

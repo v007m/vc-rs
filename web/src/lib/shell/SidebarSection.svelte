@@ -2,7 +2,7 @@
   import { resolve } from '$app/paths';
   import Icon from './Icon.svelte';
   import type { ShellState } from './state.svelte.ts';
-  import { viewOf, type Section, type SpaceKey } from './spaces.ts';
+  import { navOf, type Section, type SpaceKey } from './spaces.ts';
   import type { Snippet } from 'svelte';
 
   /**
@@ -29,7 +29,7 @@
 
   const uid = $props.id();
   let open = $derived(!shell.isClosed(space, section.id));
-  let current = $derived(viewOf(pathname)?.route);
+  let current = $derived(navOf(pathname)?.route);
 </script>
 
 <section class="sb-sec" class:is-open={open} aria-labelledby="{uid}-h">

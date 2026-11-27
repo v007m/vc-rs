@@ -91,5 +91,7 @@ it('names a run that is going as the live run, with how far it has got', async (
   const live = recent().getByRole('link');
   expect(live.textContent).toContain('Live run');
   expect(live.getAttribute('aria-current')).toBe('page');
+  // the live run has its own row, so All runs does not light up with it (D669)
+  expect(screen.getByRole('link', { name: 'All runs' }).hasAttribute('aria-current')).toBe(false);
   end();
 });

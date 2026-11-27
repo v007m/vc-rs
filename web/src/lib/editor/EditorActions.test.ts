@@ -83,6 +83,41 @@ describe('Editor actions', () => {
     expect(checks.at(-1)).toBe('name: crud\nid: x\n');
   });
 
+  it('folds the bar into its menu on a narrow pane instead of wrapping (D669)', async () => {
+    // jsdom has no layout: report a 500px bar to the bar's own width watcher only
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        constructor(private readonly seen: () => void) {}
+        observe(el: Element): void {
+          if (el.classList.contains('vc-toolbar')) this.seen();
+        }
+        unobserve(): void {}
+        disconnect(): void {}
+      },
+    );
+    const width = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(500);
+    try {
+      const { checks, user } = await setup();
+      for (const name of ['Diff', 'Revert', 'Check', 'Run file'])
+        expect(screen.queryByRole('button', { name })).toBeNull();
+      expect(screen.getByRole('button', { name: 'Save' })).toBeTruthy();
+      await user.click(screen.getByRole('button', { name: 'File actions' }));
+      const items = screen.getAllByRole('menuitem').map((item) => item.textContent?.trim());
+      expect(items.slice(0, 5)).toEqual(['Show diff', 'Revert', 'Check', 'Run file', 'New file…']);
+      expect(screen.getByRole('menuitem', { name: 'Revert' }).getAttribute('aria-disabled')).toBe(
+        'true',
+      );
+      await user.keyboard('{Escape}');
+      typeAtEnd(await findCodeView(crud), 'id: x\n');
+      await pick(user, 'Check');
+      expect(checks.at(-1)).toBe('name: crud\nid: x\n');
+    } finally {
+      width.mockRestore();
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('runs the file and stops it from the bar, then skips the cleanups', async () => {
     const { cancels, user } = await setup();
     await user.click(screen.getByRole('button', { name: 'Run file' }));

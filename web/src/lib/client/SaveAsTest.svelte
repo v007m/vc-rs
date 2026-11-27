@@ -42,7 +42,7 @@
       <legend>Expect status {status} and these body fields at the values that came back</legend>
       {#each client.result?.fields ?? [] as field (field)}
         <label class="check vc-mono">
-          <input type="checkbox" value={field} bind:group={fields} />
+          <input type="checkbox" class="st-check" value={field} bind:group={fields} />
           {field}
         </label>
       {:else}

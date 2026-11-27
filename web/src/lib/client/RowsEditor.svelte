@@ -34,7 +34,12 @@
     {#each rows as row, i (i)}
       <tr>
         <td>
-          <input type="checkbox" aria-label="Send {row.name || noun}" bind:checked={row.on} />
+          <input
+            type="checkbox"
+            class="st-check"
+            aria-label="Send {row.name || noun}"
+            bind:checked={row.on}
+          />
         </td>
         <td>
           <input

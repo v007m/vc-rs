@@ -13,7 +13,8 @@
     align-items: center;
     min-width: 44px;
     height: 18px;
-    border-radius: 5px;
+    padding: 0 6px;
+    border-radius: var(--st-radius-capsule);
     font-size: 10.5px;
     font-weight: 600;
     background: var(--st-accent-soft);

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Icon from '#lib/shell/Icon.svelte';
   import { TreeFocus } from './focus.svelte.ts';
   import type { Group } from './tree.ts';
 
@@ -41,7 +42,7 @@
       onkeydown={focus.onkeydown}
     >
       <span class="row folder">
-        <span class="chev" aria-hidden="true">{open ? '▾' : '▸'}</span>
+        <Icon name="chevron" class="vc-chev {open ? '' : 'is-closed'}" />
         <span class="vc-mono name">{group.label}</span>
         <span class="count">{group.leaves.length}</span>
       </span>
@@ -105,10 +106,6 @@
   .file.current {
     background: var(--st-accent-soft);
     color: var(--st-text-primary);
-  }
-  .chev {
-    width: 12px;
-    color: var(--st-text-tertiary);
   }
   .name {
     overflow: hidden;

@@ -40,6 +40,7 @@
         <td
           ><input
             type="checkbox"
+            class="st-check"
             aria-label="Pick run #{run.id} to compare"
             checked={picked.includes(run.id)}
             onchange={(event) => ontoggle(run.id, event.currentTarget.checked)}

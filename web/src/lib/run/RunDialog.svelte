@@ -2,6 +2,7 @@
   import { ConnectError } from '@connectrpc/connect';
   import { untrack } from 'svelte';
   import Dialog from '#lib/ui/Dialog.svelte';
+  import Icon from '#lib/shell/Icon.svelte';
   import Glyph from '#lib/ui/Glyph.svelte';
   import { planLine, type EstimatePort } from './estimate.ts';
   import {
@@ -137,7 +138,7 @@
   {/if}
   <p class="plan st-secondary" aria-live="polite"><span class="vc-sr">Plan: </span>{plan}</p>
   <details class="more" bind:open={more}>
-    <summary>More options</summary>
+    <summary class="vc-disclosure"><Icon name="chevron" class="vc-chev" />More options</summary>
     <div class="form">
       {#if profiles.length > 1}
         <span class="lbl" id="{uid}-layers">Layer profiles</span>
@@ -146,6 +147,7 @@
             <label class="chip"
               ><input
                 type="checkbox"
+                class="st-check"
                 checked={layers.includes(name)}
                 onchange={(event) => toggleLayer(name, event.currentTarget.checked)}
               />{name}</label
@@ -195,6 +197,7 @@
           <label class="chip"
             ><input
               type="checkbox"
+              class="st-check"
               checked={form.reports.includes(format)}
               onchange={(event) => toggleReport(format, event.currentTarget.checked)}
             />{format}</label
@@ -275,7 +278,6 @@
     border-top: 1px solid var(--st-chrome-separator);
   }
   .more summary {
-    cursor: pointer;
     margin-bottom: 10px;
     font-weight: 500;
   }

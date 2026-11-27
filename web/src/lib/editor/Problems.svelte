@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Icon from '#lib/shell/Icon.svelte';
   import { Severity, type Diagnostic, type Fix } from '#lib/gen/vibranium/engine/v1/engine_pb.ts';
   import { byImportance } from './files.ts';
 
@@ -39,7 +40,7 @@
 <section class="probs" aria-label="Problems">
   <div class="head">
     <button type="button" class="title" aria-expanded={open} onclick={() => (open = !open)}>
-      <span class="chev" aria-hidden="true">{open ? '▾' : '▸'}</span>Problems
+      <Icon name="chevron" class="vc-chev {open ? '' : 'is-closed'}" />Problems
       <span class="st-badge" class:vc-fail={errors > 0}>{count(errors, 'error')}</span>
       <span class="st-badge" class:vc-blocked={warnings > 0}>{count(warnings, 'warning')}</span>
     </button>
@@ -113,10 +114,6 @@
     cursor: pointer;
     padding: 4px;
     border-radius: 6px;
-  }
-  .chev {
-    width: 12px;
-    color: var(--st-text-tertiary);
   }
   .note,
   .none,

@@ -19,7 +19,7 @@
           <td class="num">{ms(bar.ms)} ms</td>
         </tr>
       {/each}
-      <tr class="total">
+      <tr class="total vc-rule-top">
         <th scope="row">total</th>
         <td aria-hidden="true"></td>
         <td class="num">{ms(timing.totalMs)} ms</td>
@@ -87,7 +87,6 @@
   .total th,
   .total td {
     padding-top: 9px;
-    border-top: 1px solid var(--st-chrome-separator);
     font-weight: 600;
     color: var(--st-text-primary);
   }

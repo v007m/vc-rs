@@ -41,7 +41,7 @@
       >
     </div>
   {/if}
-  <table aria-busy={busy}>
+  <table class="vc-table" aria-busy={busy}>
     <caption class="vc-sr">Declared secrets</caption>
     <thead>
       <tr>
@@ -152,23 +152,10 @@
     margin: 0;
     color: var(--st-text-secondary);
   }
-  table {
-    width: 100%;
-    border-collapse: collapse;
-  }
-  th,
-  td {
-    padding: 6px 8px;
-    border-bottom: 1px solid var(--st-chrome-separator);
-    text-align: left;
+  /* the shared table recipe (D669), cells to the top for multi-line values */
+  .vc-table th,
+  .vc-table td {
     vertical-align: top;
-  }
-  thead th {
-    color: var(--st-text-secondary);
-    font-weight: 500;
-  }
-  tbody th {
-    font-weight: 400;
   }
   .act {
     width: 1%;

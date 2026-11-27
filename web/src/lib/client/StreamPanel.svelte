@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Icon from '#lib/shell/Icon.svelte';
   import { lens } from '#lib/ui/segmented.ts';
   import {
     frameBody,
@@ -93,6 +94,7 @@
       <li class="msg" data-dir={frame.direction}>
         <details>
           <summary>
+            <Icon name="chevron" class="vc-chev" />
             <span class="arrow" aria-hidden="true">{frame.direction === 'in' ? '↓' : '↑'}</span>
             <span class="vc-sr">{frame.direction === 'in' ? 'Received' : 'Sent'}</span>
             <span class="vc-mono at">{frameTime(frame.atMs)}</span>
@@ -165,7 +167,6 @@
     align-items: center;
     gap: var(--st-space-12);
     min-height: 32px;
-    cursor: pointer;
     font-size: var(--vc-size-body);
   }
   .arrow {

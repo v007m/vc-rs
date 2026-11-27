@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Icon from '#lib/shell/Icon.svelte';
   import { TreeFocus } from '#lib/tree/focus.svelte.ts';
   import type { FileGroup } from './catalog.ts';
 
@@ -46,7 +47,7 @@
       onkeydown={focus.onkeydown}
     >
       <span class="row file">
-        <span class="chev" aria-hidden="true">{open ? '▾' : '▸'}</span>
+        <Icon name="chevron" class="vc-chev {open ? '' : 'is-closed'}" />
         <span class="vc-mono">{group.fileId}</span>
         <span class="count">{group.tests.length}</span>
       </span>
@@ -124,10 +125,6 @@
   .test.current {
     background: var(--st-accent-soft);
   }
-  .chev {
-    width: 12px;
-    color: var(--st-text-tertiary);
-  }
   .count {
     margin-left: auto;
     color: var(--st-text-tertiary);
@@ -151,16 +148,27 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+  /* drawn like Strata's .st-check, so it matches every other checkbox (D668) */
   .check {
-    width: 14px;
-    height: 14px;
+    display: inline-grid;
+    place-items: center;
+    width: 16px;
+    height: 16px;
     flex: none;
-    border: 1.5px solid var(--st-text-tertiary);
-    border-radius: 4px;
+    border-radius: var(--st-radius-xs);
+    background: var(--st-surface-input-on-card);
+    box-shadow: var(--st-emboss);
   }
   .check.on {
     background: var(--st-accent);
-    border-color: var(--st-accent);
-    box-shadow: inset 0 0 0 2px var(--st-surface-wash);
+  }
+  .check.on::after {
+    content: '';
+    width: 8px;
+    height: 4px;
+    border: 2px solid var(--st-text-on-accent);
+    border-top: 0;
+    border-right: 0;
+    transform: translateY(-1px) rotate(-45deg);
   }
 </style>

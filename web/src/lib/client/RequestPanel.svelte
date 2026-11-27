@@ -78,7 +78,7 @@
           <ChecksEditor {request} />
         {:else}
           <label class="check">
-            <input type="checkbox" bind:checked={client.keep} />
+            <input type="checkbox" class="st-check" bind:checked={client.keep} />
             Keep what the call creates (skip the api's cleanup, like <code>--keep</code>)
           </label>
         {/if}

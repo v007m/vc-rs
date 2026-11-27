@@ -37,7 +37,8 @@
   {:else}
     <div class="tools">
       <label class="toggle"
-        ><input type="checkbox" bind:checked={gapsOnly} />Only gaps: untested or statuses never seen</label
+        ><input type="checkbox" class="st-check" bind:checked={gapsOnly} />Only gaps: untested or
+        statuses never seen</label
       >
       <p class="legend" aria-hidden="true">
         <span><span class="code seen">201</span>{meaning.seen}</span>
@@ -46,7 +47,7 @@
       </p>
     </div>
     <div class="wrap">
-      <table>
+      <table class="vc-rules">
         <thead>
           <tr>
             <th scope="col">Api</th><th scope="col">Path · file</th><th scope="col">Tests</th><th
@@ -144,14 +145,13 @@
   thead th {
     position: sticky;
     top: 0;
-    background: var(--st-surface-wash);
+    background-color: var(--st-surface-wash);
     color: var(--st-text-secondary);
     font-weight: 500;
   }
   th,
   td {
     padding: 7px 8px;
-    border-bottom: 1px solid var(--st-chrome-separator);
     text-align: left;
     vertical-align: middle;
   }
@@ -187,8 +187,8 @@
     display: inline-flex;
     align-items: center;
     height: 20px;
-    padding: 0 6px;
-    border-radius: 5px;
+    padding: 0 8px;
+    border-radius: var(--st-radius-capsule);
     font: 500 11px var(--st-font-mono);
   }
   .code.seen {
