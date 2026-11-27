@@ -20,6 +20,8 @@ export class ProjectStatus {
   /** Every profile the config names, in its order (the Run dialog's picker, D633). */
   profiles: readonly string[] = $state.raw([]);
   check: CheckSummary | undefined = $state();
+  /** Whether the folder `vc ui` serves has a `vibranium.config.yaml`; unknown until it loads (D716). */
+  configured: boolean | undefined = $state();
   error: string | undefined = $state();
   readonly #client: ProjectClient;
 
@@ -34,7 +36,9 @@ export class ProjectStatus {
 
   async #project(): Promise<void> {
     try {
-      const { name, vcVersion, defaultProfile, profiles } = await this.#client.getProject({});
+      const got = await this.#client.getProject({});
+      const { name, vcVersion, defaultProfile, profiles } = got;
+      this.configured = got.configured;
       this.name = name;
       this.version = vcVersion;
       this.profile = defaultProfile ?? profiles[0];

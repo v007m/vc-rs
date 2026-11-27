@@ -1,7 +1,20 @@
 import type { Page } from '@playwright/test';
+import * as onboarding from './areas/onboarding.ts';
+import * as schedules from './areas/schedules.ts';
+import * as settings from './areas/settings.ts';
+import * as usage from './areas/usage.ts';
+import type { Fakes } from './engine.ts';
 
-/** One screen the audit checks: a route, and what to do there before checking it. */
-export type State = { name: string; path: string; act?: (page: Page) => Promise<void> };
+/**
+ * One screen the audit checks: a route, what to do there before checking it, and any engine
+ * answers of its own over the shared fakes (a project not yet set up, say).
+ */
+export type State = {
+  name: string;
+  path: string;
+  act?: (page: Page) => Promise<void>;
+  fakes?: Fakes;
+};
 
 const click = (page: Page, name: RegExp | string) =>
   page
@@ -154,4 +167,8 @@ export const states: State[] = [
   { name: 'live', path: '/runs/live' },
   { name: 'agents', path: '/agents' },
   { name: 'settings', path: '/settings' },
+  ...schedules.states,
+  ...usage.states,
+  ...onboarding.states,
+  ...settings.states,
 ];

@@ -15,6 +15,7 @@
   import Shell from '#lib/shell/Shell.svelte';
   import { setShellSlots, ShellSlots } from '#lib/shell/slots.svelte.ts';
   import { setShellState, ShellState } from '#lib/shell/state.svelte.ts';
+  import { setToasts, Toasts } from '#lib/ui/toasts.svelte.ts';
   import { setVcsSession } from '#lib/vcs/context.ts';
   import { enginePort as vcsPort } from '#lib/vcs/port.ts';
   import { VcsSession } from '#lib/vcs/session.svelte.ts';
@@ -26,6 +27,7 @@
   setRunSession(session);
   const shell = setShellState(new ShellState());
   const slots = setShellSlots(new ShellSlots());
+  setToasts(new Toasts());
   const project = setProjectStatus(new ProjectStatus(engine));
   void project.load();
   const vcs = setVcsSession(new VcsSession(vcsPort(engine)));

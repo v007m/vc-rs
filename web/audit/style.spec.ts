@@ -74,7 +74,7 @@ for (const scheme of ['light', 'dark'] as const) {
             ],
           });
           await page.addInitScript({ content: pageScript() });
-          await routeEngine(page);
+          await routeEngine(page, state.fakes);
           await open(page, state);
           // `VC_AUDIT_SHOTS=<dir>` also keeps a screenshot of each state, for review by eye
           const shots = process.env.VC_AUDIT_SHOTS;

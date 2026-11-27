@@ -102,6 +102,7 @@ export const spaces: readonly Space[] = [
         views: [
           view('/runs/overview', 'Overview', 'Runs overview'),
           view('/runs', 'All runs', 'All runs'),
+          view('/runs/schedules', 'Schedules'),
         ],
       },
     ],
@@ -113,7 +114,16 @@ export const spaces: readonly Space[] = [
     icon: 'bot',
     home: '/agents',
     shortcut: '4',
-    sections: [{ id: 'views', label: 'Agents', views: [view('/agents', 'Activity', 'AI agents')] }],
+    sections: [
+      {
+        id: 'views',
+        label: 'Agents',
+        views: [
+          view('/agents', 'Activity', 'AI agents'),
+          view('/agents/usage', 'Usage', 'Agent usage'),
+        ],
+      },
+    ],
   },
   {
     key: 'settings',
@@ -123,7 +133,17 @@ export const spaces: readonly Space[] = [
     home: '/settings',
     shortcut: ',',
     sections: [
-      { id: 'project', label: 'Project', views: [view('/settings', 'Project', 'Settings')] },
+      {
+        id: 'project',
+        label: 'Project',
+        views: [
+          view('/settings', 'Config', 'Settings'),
+          view('/settings/alerts', 'Alerts'),
+          view('/settings/plugins', 'Plugins'),
+        ],
+      },
+      { id: 'user', label: 'You only', views: [view('/settings/user', 'Your settings')] },
+      { id: 'app', label: 'This app', views: [view('/settings/appearance', 'Appearance')] },
     ],
   },
 ];

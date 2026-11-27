@@ -10,6 +10,10 @@ import type { Page } from '@playwright/test';
 import * as E from '#lib/gen/vibranium/engine/v1/engine_pb.ts';
 import * as R from '#lib/gen/vibranium/results/v1/results_pb.ts';
 import * as F from './fixtures.ts';
+import * as onboarding from './areas/onboarding.ts';
+import * as schedules from './areas/schedules.ts';
+import * as settings from './areas/settings.ts';
+import * as usage from './areas/usage.ts';
 import { compareRuns, diagnosticsOf, loadTicks, loadReport, testHistory, vcs } from './scenes.ts';
 
 type Methods = (typeof E.EngineService)['method'];
@@ -18,7 +22,7 @@ type Answer<M extends Methods[keyof Methods]> = MessageInitShape<M['output']>;
 type Fake<M extends Methods[keyof Methods]> = (
   request: MessageShape<M['input']>,
 ) => Answer<M> | readonly Answer<M>[];
-type Fakes = { [K in keyof Methods]?: Fake<Methods[K]> };
+export type Fakes = { [K in keyof Methods]?: Fake<Methods[K]> };
 
 const callJson = JSON.stringify({
   status: 201,
@@ -33,6 +37,7 @@ const fakes: Fakes = {
     defaultProfile: 'staging',
     vcVersion: '2.0.0-dev',
     auths: ['bearer'],
+    configured: true,
   }),
   listDefinitions: ({ kind }) => ({
     definitions:
@@ -118,6 +123,10 @@ const fakes: Fakes = {
   }),
   vcsStatus: vcs.status,
   vcsDiff: vcs.diff,
+  ...schedules.fakes,
+  ...usage.fakes,
+  ...onboarding.fakes,
+  ...settings.fakes,
 };
 
 const bin = <D extends DescMessage>(schema: D, value: MessageInitShape<D>): Uint8Array =>
@@ -136,9 +145,14 @@ function framed(messages: readonly Uint8Array[]): Buffer {
   );
 }
 
-function answer(name: string, body: Buffer): { type: string; body: Buffer } | undefined {
+function answer(
+  name: string,
+  body: Buffer,
+  extra: Fakes,
+): { type: string; body: Buffer } | undefined {
   const method = E.EngineService.methods.find((m) => m.name === name);
-  const fake = method && (fakes as Record<string, Fake<Methods[keyof Methods]>>)[method.localName];
+  const known = { ...fakes, ...extra } as Record<string, Fake<Methods[keyof Methods]>>;
+  const fake = method && known[method.localName];
   if (!method || !fake) return undefined;
   const streamed = method.methodKind === 'server_streaming';
   const input = streamed ? body.subarray(5) : body;
@@ -149,11 +163,14 @@ function answer(name: string, body: Buffer): { type: string; body: Buffer } | un
     : { type: 'application/proto', body: Buffer.from(all[0] ?? []) };
 }
 
-/** Serves the engine API from the fakes; an RPC with no fake answers Unimplemented (a seam). */
-export async function routeEngine(page: Page): Promise<void> {
+/**
+ * Serves the engine API from the fakes, with a state's own `extra` answers over them; an RPC
+ * with no fake answers Unimplemented (a seam).
+ */
+export async function routeEngine(page: Page, extra: Fakes = {}): Promise<void> {
   await page.route('**/api/**', (route) => {
     const name = new URL(route.request().url()).pathname.split('/').pop() ?? '';
-    const reply = answer(name, route.request().postDataBuffer() ?? Buffer.alloc(0));
+    const reply = answer(name, route.request().postDataBuffer() ?? Buffer.alloc(0), extra);
     if (reply) return route.fulfill({ status: 200, contentType: reply.type, body: reply.body });
     return route.fulfill({
       status: 501,

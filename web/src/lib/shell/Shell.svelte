@@ -13,6 +13,8 @@
   import { spaceOf, spaces, viewOf } from './spaces.ts';
   import StatusLine from './StatusLine.svelte';
   import TopBar from './TopBar.svelte';
+  import ToastStack from '#lib/ui/ToastStack.svelte';
+  import { getToasts } from '#lib/ui/toasts.svelte.ts';
 
   /**
    * The five-space shell (D512-D514) on Strata (D590): the space's canvas, with the space
@@ -53,6 +55,7 @@
   /** The command palette, open with what it grows from (D620). */
   let palette: { anchor: Element | null } | undefined = $state();
   const items = paletteItems(spaces, (route) => resolve(route));
+  const toasts = getToasts();
 
   function openPalette(anchor: Element | null): void {
     palette ??= { anchor };
@@ -133,6 +136,7 @@
         onclose={() => (palette = undefined)}
       />
     {/if}
+    <ToastStack {toasts} />
     {#if shell.drawer && !inLayout}
       <button
         type="button"
