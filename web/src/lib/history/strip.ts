@@ -24,18 +24,27 @@ export function summarize(points: readonly HistoryPoint[]): StripSummary {
   };
 }
 
-/** The duration sparkline's path over `[w, h]`, oldest result on the left. */
+/**
+ * The duration sparkline's path over `[w, h]`, oldest result on the left; a run that did not run
+ * the test breaks the line rather than dipping to zero.
+ */
 export function sparkline(
   points: readonly HistoryPoint[],
   [w, h]: readonly [number, number],
 ): string {
-  const ms = [...points].reverse().map((p) => p.ms);
-  const top = Math.max(1, ...ms);
-  const step = ms.length > 1 ? w / (ms.length - 1) : 0;
-  return ms
-    .map(
-      (v, i) =>
-        `${i ? 'L' : 'M'}${(i * step).toFixed(1)},${(h - (v / top) * (h - 2) - 1).toFixed(1)}`,
-    )
+  const shown = [...points].reverse();
+  const top = Math.max(1, ...shown.map((p) => p.ms));
+  const step = shown.length > 1 ? w / (shown.length - 1) : 0;
+  let pen = 'M';
+  return shown
+    .flatMap((p, i) => {
+      if (p.status === 'skipped') {
+        pen = 'M';
+        return [];
+      }
+      const at = `${pen}${(i * step).toFixed(1)},${(h - (p.ms / top) * (h - 2) - 1).toFixed(1)}`;
+      pen = 'L';
+      return [at];
+    })
     .join(' ');
 }
