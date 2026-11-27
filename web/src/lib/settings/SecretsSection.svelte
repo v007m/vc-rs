@@ -32,7 +32,7 @@
     <p class="error" role="alert">{schema.error}</p>
   {/if}
   {#if schema.state === 'conflict'}
-    <div class="banner" role="alert">
+    <div class="vc-banner" role="alert">
       <span class="vc-grow"
         >Not saved: <code>.env.schema</code> changed on disk since you opened it.</span
       >
@@ -176,8 +176,7 @@
   }
   .add,
   .check,
-  .actions,
-  .banner {
+  .actions {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
@@ -206,11 +205,6 @@
   }
   .state.not-checked {
     color: var(--st-text-secondary);
-  }
-  .banner {
-    padding: 8px 12px;
-    border: 1px solid var(--vc-fail);
-    border-radius: 6px;
   }
   .error {
     margin: 0;

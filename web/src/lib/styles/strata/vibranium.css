@@ -749,6 +749,21 @@ select.st-input:disabled {
   background: none;
   box-shadow: none;
 }
+/* an inline alert (a save conflict, the save-anyway question): a flat row between hairlines in
+   the status ink, never a tinted or bordered box (D658) */
+.vc-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 8px 0;
+  border-block: 1px solid var(--st-chrome-separator);
+  color: var(--vc-fail-ink);
+}
+.vc-banner--warn {
+  color: var(--vc-blocked-ink);
+}
 
 /* BUTTONS (D657): one capsule in four variants (primary, secondary, ghost, danger) at
    28/32/40. A disabled control keeps its shape and reads at 3:1 (Strata's 38% opacity left

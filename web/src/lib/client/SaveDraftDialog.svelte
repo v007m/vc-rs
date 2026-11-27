@@ -43,7 +43,7 @@
 <Dialog title="Save changes to {api}" {onclose}>
   <p class="help">{@render children(path)}</p>
   {#if request.state === 'conflict'}
-    <div class="banner" role="alert">
+    <div class="vc-banner" role="alert">
       <span class="vc-grow"
         >Not saved: <code>{path}</code> changed on disk since you opened it.</span
       >
@@ -77,18 +77,14 @@
     margin: 0 0 10px;
     color: var(--st-text-secondary);
   }
-  .banner,
   .actions {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: 8px;
   }
-  .banner {
+  .vc-banner {
     margin-bottom: 10px;
-    padding: 8px 12px;
-    border: 1px solid var(--vc-fail);
-    border-radius: 6px;
   }
   .actions {
     justify-content: flex-end;

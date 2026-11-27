@@ -129,9 +129,9 @@
   </aside>
 
   <section class="main" aria-label="Editor">
-    {#if editor.error}<p class="banner err" role="alert">{editor.error}</p>{/if}
+    {#if editor.error}<p class="vc-banner" role="alert">{editor.error}</p>{/if}
     {#if pending}
-      <div class="banner warn" role="alert">
+      <div class="vc-banner vc-banner--warn" role="alert">
         <span class="vc-grow">Discard your unsaved changes to {baseName(buffer?.path ?? '')}?</span>
         <button type="button" class="st-btn st-btn--sm" onclick={discard}>Discard and open</button>
         <button type="button" class="st-btn st-btn--sm" onclick={() => (pending = undefined)}
@@ -153,7 +153,7 @@
       />
       {#if notice}<p class="st-secondary" role="status">{notice}</p>{/if}
       {#if editor.confirming}
-        <div class="banner err" role="alert">
+        <div class="vc-banner" role="alert">
           <span class="vc-grow"
             >This file has {editor.errorCount}
             {editor.errorCount === 1 ? 'error' : 'errors'}. Save it anyway?</span
@@ -169,7 +169,7 @@
         </div>
       {/if}
       {#if editor.state === 'conflict'}
-        <div class="banner err" role="alert">
+        <div class="vc-banner" role="alert">
           <span class="vc-grow">Not saved: this file changed on disk since you opened it.</span>
           <button type="button" class="st-btn st-btn--sm" onclick={() => void editor.reload()}
             >Reload from disk</button
@@ -269,23 +269,6 @@
   .st-secondary,
   .empty {
     color: var(--st-text-tertiary);
-  }
-  .banner {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 8px;
-    margin: 0;
-    padding: 8px 12px;
-    border-radius: 10px;
-  }
-  .err {
-    background: var(--vc-fail-soft);
-    color: var(--vc-fail);
-  }
-  .warn {
-    background: var(--vc-blocked-soft);
-    color: var(--vc-blocked);
   }
   @container card (width < 960px) {
     .editor.explaining {

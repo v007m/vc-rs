@@ -57,7 +57,7 @@
     >
   </div>
   {#if flow.state === 'conflict' && !saving}
-    <div class="banner" role="alert">
+    <div class="vc-banner" role="alert">
       <span class="vc-grow"
         >Not saved: <code>{flow.written?.path}</code> changed on disk since it was read.</span
       >
@@ -179,8 +179,7 @@
     gap: 8px;
   }
   .head,
-  .add,
-  .banner {
+  .add {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -190,11 +189,6 @@
     margin: 0;
     font-size: 13px;
     font-weight: 600;
-  }
-  .banner {
-    padding: 8px 12px;
-    border: 1px solid var(--vc-fail);
-    border-radius: 6px;
   }
   .stages {
     width: 100%;

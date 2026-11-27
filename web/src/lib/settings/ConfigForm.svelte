@@ -56,7 +56,7 @@
     <p class="error" role="alert">{form.error}</p>
   {/if}
   {#if form.state === 'conflict'}
-    <div class="banner" role="alert">
+    <div class="vc-banner" role="alert">
       <span class="vc-grow"
         >Not saved: <code>vibranium.config.yaml</code> changed on disk since you opened it.</span
       >
@@ -315,8 +315,7 @@
   .rows li,
   .rows label,
   .add,
-  .actions,
-  .banner {
+  .actions {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
@@ -360,11 +359,6 @@
   }
   .add .error {
     flex-basis: 100%;
-  }
-  .banner {
-    padding: 8px 12px;
-    border-radius: var(--st-radius-md);
-    background: var(--vc-fail-soft);
   }
   .diff {
     margin: 0;

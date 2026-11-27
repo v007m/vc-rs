@@ -96,6 +96,17 @@ export const states: State[] = [
       await page.getByRole('menuitem', { name: 'Rename or move…' }).click();
     },
   },
+  {
+    name: 'editor-save-anyway',
+    path: '/tests/editor?file=services/users/crud.test.yaml',
+    act: async (page) => {
+      await page.locator('.cm-line').nth(10).click();
+      await page.keyboard.press('End');
+      await page.keyboard.type('X');
+      await page.waitForTimeout(600);
+      await click(page, 'Save');
+    },
+  },
   { name: 'runs', path: '/runs' },
   { name: 'runs-row-menu', path: '/runs', act: (page) => click(page, /Run #\d+ actions/) },
   { name: 'run-dialog', path: '/runs', act: (page) => click(page, /^Run…/) },

@@ -50,7 +50,7 @@
       <p class="error" role="alert">{request?.error ?? client.error}</p>
     {/if}
     {#if request?.state === 'conflict'}
-      <div class="banner" role="alert">
+      <div class="vc-banner" role="alert">
         <span class="vc-grow"
           >Not sent or saved: <code>{request.written?.path}</code> changed on disk since it was read.</span
         >
@@ -134,15 +134,8 @@
 {/if}
 
 <style>
-  .banner {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 8px;
+  .vc-banner {
     margin: 0 var(--st-card-padding) var(--st-space-12);
-    padding: 8px 12px;
-    border: 1px solid var(--vc-fail);
-    border-radius: var(--st-radius-md);
   }
   .error {
     margin: 0 var(--st-card-padding) var(--st-space-12);
