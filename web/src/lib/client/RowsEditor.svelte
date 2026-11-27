@@ -77,9 +77,14 @@
     {/each}
   </tbody>
 </table>
-<button type="button" class="st-btn st-btn--sm" onclick={onadd}>Add {noun}</button>
+<button type="button" class="st-btn st-btn--sm add" onclick={onadd}>Add {noun}</button>
 
 <style>
+  /* sized to its label like every other button, not stretched by a column parent */
+  .add {
+    align-self: flex-start;
+    justify-self: start;
+  }
   .rows {
     width: 100%;
     margin: 6px 0;

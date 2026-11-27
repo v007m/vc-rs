@@ -68,7 +68,7 @@
   }
 </script>
 
-<figure class="chart st-card" aria-labelledby="{uid}-t">
+<figure class="chart vc-panel" aria-labelledby="{uid}-t">
   <div class="head">
     <h3 class="st-title3" id="{uid}-t">{title}</h3>
     <span class="st-secondary">{sub} · {now}</span>
@@ -177,9 +177,6 @@
   .chart {
     display: grid;
     gap: 8px;
-    min-width: 0;
-    margin: 0;
-    padding: 14px 16px;
   }
   .head {
     display: grid;

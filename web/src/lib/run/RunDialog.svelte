@@ -202,7 +202,7 @@
         {/each}
       </div>
     </div>
-    <div class="cmd">
+    <div class="cmd vc-well">
       <code class="vc-mono" aria-label="Command">{command}</code>
       <button
         type="button"
@@ -222,9 +222,10 @@
 </Dialog>
 
 <style>
+  /* one label column for both grids, so More options lines up with the fields above it */
   .form {
     display: grid;
-    grid-template-columns: max-content minmax(0, 1fr);
+    grid-template-columns: 10.5rem minmax(0, 1fr);
     align-items: center;
     gap: 10px 12px;
   }
@@ -284,8 +285,7 @@
     gap: 8px;
     margin-top: 12px;
     padding: 8px 10px;
-    border-radius: var(--vc-radius-inner);
-    background: var(--st-surface-wash);
+    border-radius: var(--vc-radius-dialog-inner);
   }
   .cmd code {
     flex: 1;

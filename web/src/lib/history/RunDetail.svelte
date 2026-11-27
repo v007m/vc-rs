@@ -124,11 +124,11 @@
   p {
     margin: 0;
   }
+  /* a flat row on the card, not a box (D658) */
   .message {
     margin: 0;
-    padding: 8px 10px;
-    border-radius: var(--vc-radius-inner);
-    background: var(--vc-fail-soft);
+    padding: 8px 0;
+    border-bottom: 0.5px solid var(--st-chrome-separator);
     color: var(--vc-fail-ink);
     white-space: pre-wrap;
   }

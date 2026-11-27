@@ -131,7 +131,7 @@
   }
   .row[aria-selected='true'] {
     background: var(--st-accent-soft);
-    color: var(--st-accent);
+    color: var(--st-text-primary);
   }
   .name {
     display: flex;

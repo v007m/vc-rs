@@ -104,7 +104,7 @@
   }
   .file.current {
     background: var(--st-accent-soft);
-    color: var(--st-accent);
+    color: var(--st-text-primary);
   }
   .chev {
     width: 12px;

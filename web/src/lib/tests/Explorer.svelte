@@ -219,7 +219,7 @@
   }
   .facet[aria-pressed='true'] {
     background: var(--st-accent-soft);
-    color: var(--st-accent);
+    color: var(--st-text-primary);
   }
   .count {
     color: var(--st-text-tertiary);

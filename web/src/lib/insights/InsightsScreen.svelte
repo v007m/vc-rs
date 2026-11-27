@@ -281,10 +281,10 @@
     gap: 12px;
     margin: 0;
   }
+  /* stat figures float on the card, a hairline above each (D658) */
   .kpis div {
-    padding: 12px;
-    border-radius: var(--vc-radius-inner);
-    background: var(--st-surface-wash);
+    padding: 10px 0 0;
+    border-top: 1px solid var(--st-chrome-separator);
   }
   dt {
     font-size: 13px;

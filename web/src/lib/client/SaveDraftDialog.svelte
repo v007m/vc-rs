@@ -99,7 +99,7 @@
     margin: 0;
     padding: 8px 12px;
     overflow: auto;
-    border-radius: var(--vc-radius-inner);
+    border-radius: var(--vc-radius-dialog-inner);
     background: var(--st-surface-wash);
     white-space: pre;
   }

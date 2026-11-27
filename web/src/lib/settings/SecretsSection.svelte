@@ -109,7 +109,7 @@
       bind:value={name}
       oninput={() => (problem = undefined)}
     />
-    <button type="submit" class="st-btn st-btn--sm" disabled={busy || !name.trim()}>Add</button>
+    <button type="submit" class="st-btn" disabled={busy || !name.trim()}>Add</button>
     {#if problem}<p id="secret-name-problem" class="error">{problem}</p>{/if}
   </form>
   <!-- the status, then Discard, then the primary last at the right (D616) -->

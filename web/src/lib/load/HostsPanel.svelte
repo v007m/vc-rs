@@ -15,7 +15,7 @@
     n === undefined ? '—' : n.toLocaleString('en-US');
 </script>
 
-<section class="hosts st-card" aria-labelledby="{uid}-t">
+<section class="hosts vc-panel" aria-labelledby="{uid}-t">
   <h3 class="st-title3" id="{uid}-t">Hosts</h3>
   <p class="st-secondary sub">The load generator on this machine</p>
   {#if host}
@@ -48,7 +48,6 @@
     display: grid;
     gap: 8px;
     align-content: start;
-    padding: 14px 16px;
   }
   h3,
   .sub {

@@ -129,8 +129,7 @@
         bind:value={profile}
         oninput={() => (profileError = undefined)}
       />
-      <button type="submit" class="st-btn st-btn--sm" disabled={busy || !profile.trim()}>Add</button
-      >
+      <button type="submit" class="st-btn" disabled={busy || !profile.trim()}>Add</button>
       {#if profileError}<p id="profile-id-problem" class="error">{profileError}</p>{/if}
     </form>
   </fieldset>
@@ -200,8 +199,7 @@
         placeholder="http://localhost:8081"
         bind:value={varValue}
       />
-      <button type="submit" class="st-btn st-btn--sm" disabled={busy || !varName.trim()}>Add</button
-      >
+      <button type="submit" class="st-btn" disabled={busy || !varName.trim()}>Add</button>
       {#if varError}<p id="var-name-problem" class="error">{varError}</p>{/if}
     </form>
   </fieldset>

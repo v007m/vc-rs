@@ -28,19 +28,17 @@
     list-style: none;
     margin: 0;
     padding: 0;
-    display: grid;
-    gap: 6px;
   }
+  /* flat rows with hairline separators, never boxes on the card (D658) */
   li {
     display: grid;
     grid-template-columns: 16px minmax(0, 1fr);
     gap: 8px;
-    padding: 8px 10px;
-    border-radius: 8px;
-    background: var(--st-surface-wash);
+    padding: 8px 2px;
+    border-bottom: 1px solid var(--st-chrome-separator);
   }
-  li.failed {
-    background: var(--vc-fail-soft);
+  li:last-child {
+    border-bottom: 0;
   }
   .mark {
     color: var(--vc-pass);

@@ -75,6 +75,11 @@
 .reqbar .btn-split .st-btn {
   height: var(--st-size-control-lg);
 }
+/* the Layout menu's icon button sits in the same row, so it takes the row's 40 (D660) */
+.reqbar .st-icon-btn {
+  width: var(--st-size-control-lg);
+  height: var(--st-size-control-lg);
+}
 .reqbar .st-input {
   flex: none;
   width: auto;
@@ -123,11 +128,11 @@
   align-items: stretch;
 }
 .btn-split > .st-btn:first-child {
-  border-radius: var(--st-radius-md) 0 0 var(--st-radius-md);
+  border-radius: var(--st-radius-capsule) 0 0 var(--st-radius-capsule);
   padding-right: var(--st-space-12);
 }
 .btn-split > :nth-child(2) > .st-btn {
-  border-radius: 0 var(--st-radius-md) var(--st-radius-md) 0;
+  border-radius: 0 var(--st-radius-capsule) var(--st-radius-capsule) 0;
   padding: 0 10px;
   box-shadow:
     var(--st-emboss),
@@ -222,10 +227,10 @@
   font-size: var(--vc-size-caption);
   color: var(--st-text-tertiary);
 }
+/* the panel's tabs are the card's segmented track (D660), inset by the card padding */
 .split > .st-card > [role='tablist'] {
-  flex: none;
-  padding: 0 var(--st-card-padding) var(--st-space-12);
-  border-bottom: 1px solid var(--st-chrome-separator);
+  max-width: calc(100% - 2 * var(--st-card-padding));
+  margin: 0 var(--st-card-padding);
 }
 .split > .st-card > [role='tabpanel'] {
   flex: 1 1 auto;

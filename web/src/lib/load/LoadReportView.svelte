@@ -28,7 +28,7 @@
   {#if report.blocked}
     <p class="blocked wide" role="alert">No user started: {report.blocked}</p>
   {/if}
-  <section class="st-card wide" aria-labelledby="{uid}-sum">
+  <section class="vc-panel wide" aria-labelledby="{uid}-sum">
     <h3 class="st-title3" id="{uid}-sum">Whole run</h3>
     <dl class="figures">
       {#each figures as [label, value] (label)}
@@ -40,7 +40,7 @@
     </dl>
     <p class="st-secondary">Seed {report.seed}, to replay it.</p>
   </section>
-  <section class="st-card" aria-labelledby="{uid}-breaches">
+  <section class="vc-panel" aria-labelledby="{uid}-breaches">
     <h3 class="st-title3" id="{uid}-breaches">Thresholds</h3>
     {#if report.breaches.length}
       <ul class="rows">
@@ -56,7 +56,7 @@
       <p class="st-secondary"><span aria-hidden="true">✓</span> No threshold was breached.</p>
     {/if}
   </section>
-  <section class="st-card" aria-labelledby="{uid}-errors">
+  <section class="vc-panel" aria-labelledby="{uid}-errors">
     <h3 class="st-title3" id="{uid}-errors">Failed iterations</h3>
     {#if report.errorKinds.length}
       <table class="vc-table">
@@ -81,7 +81,7 @@
       <p class="st-secondary">No iteration failed.</p>
     {/if}
   </section>
-  <section class="st-card wide" aria-labelledby="{uid}-mix">
+  <section class="vc-panel wide" aria-labelledby="{uid}-mix">
     <h3 class="st-title3" id="{uid}-mix">Mix tests</h3>
     <table class="vc-table">
       <thead>
@@ -116,14 +116,12 @@
   .report {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-    gap: 12px;
+    gap: 16px 24px;
   }
   .report > section {
     display: grid;
     gap: 10px;
     align-content: start;
-    min-width: 0;
-    padding: 14px 16px;
     overflow-x: auto;
   }
   .wide {

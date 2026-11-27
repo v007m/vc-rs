@@ -135,7 +135,9 @@ it('lists the load scenarios and starts the one picked', async () => {
   const session = new LoadSession(port);
   await session.listScenarios();
   render(LoadScreen, { session });
-  await userEvent.selectOptions(screen.getByLabelText('Load scenario'), 'search.soak');
+  const picker = screen.getByLabelText<HTMLSelectElement>('Load scenario');
+  expect(picker.value).toBe('checkout.peak');
+  await userEvent.selectOptions(picker, 'search.soak');
   await userEvent.click(screen.getByRole('button', { name: 'Start' }));
   expect(port.stops).toHaveLength(1);
 });
@@ -149,4 +151,5 @@ it('says a stored load run keeps no ticks', async () => {
   await session.open(12);
   render(LoadScreen, { session });
   expect(screen.getByText(/keeps a load run's verdict, not its ticks/)).toBeTruthy();
+  expect(screen.queryAllByRole('figure')).toEqual([]);
 });

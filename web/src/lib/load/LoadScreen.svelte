@@ -22,6 +22,8 @@
   /** The x axis's end: the planned length, or the ticks so far when it is not known. */
   const tMax = $derived(run ? Math.max(run.plannedS, run.ticks.at(-1)?.t ?? 0, 10) : 0);
   const scenario = $derived(picked || session.scenarios[0] || '');
+  /** A stored run has no ticks to chart (D677), so it shows no empty charts either. */
+  const verdictOnly = $derived(!!run && !session.running && !run.ticks.length && !run.report);
 </script>
 
 {#if !run}
@@ -37,7 +39,12 @@
       {#if session.scenarios.length}
         <div class="start">
           <label class="vc-sr" for="{uid}-scenario">Load scenario</label>
-          <select id="{uid}-scenario" class="st-input vc-mono" bind:value={picked}>
+          <select
+            id="{uid}-scenario"
+            class="st-input vc-mono"
+            value={scenario}
+            onchange={(e) => (picked = e.currentTarget.value)}
+          >
             {#each session.scenarios as id (id)}<option value={id}>{id}</option>{/each}
           </select>
           <button
@@ -66,7 +73,7 @@
         >
       </div>
     {/if}
-    {#if shown === 'live'}
+    {#if shown === 'live' && !verdictOnly}
       <label class="tbl"
         ><input type="checkbox" class="st-switch" bind:checked={table} /> Table</label
       >
@@ -82,17 +89,18 @@
     {/if}
   </header>
   {#if session.note}<p class="st-secondary" role="status">{session.note}</p>{/if}
-  {#if !session.running && !run.ticks.length && !run.report}
-    <p class="st-secondary" role="note">
-      The history keeps a load run's verdict, not its ticks. Run it again to watch one.
-    </p>
-  {/if}
-  {#if shown === 'report' && run.report}
+  {#if verdictOnly}
+    <EmptyState
+      icon="runs"
+      title="No charts for this run"
+      caption="The history keeps a load run's verdict, not its ticks. Run it again to watch one."
+    />
+  {:else if shown === 'report' && run.report}
     <LoadReportView report={run.report} />
   {:else}
     <dl class="kpis">
       {#each kpis(run) as [label, value] (label)}
-        <div class="st-card">
+        <div>
           <dt>{label}</dt>
           <dd>{value}</dd>
         </div>
@@ -144,7 +152,7 @@
     margin: 0;
   }
   .kpis > div {
-    padding: 10px 14px;
+    padding: 2px 0;
   }
   dt {
     font: var(--st-type-caption);
@@ -159,7 +167,7 @@
   .grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
-    gap: 12px;
+    gap: 16px 24px;
   }
   @media (max-width: 1100px) {
     .grid {
