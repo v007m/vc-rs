@@ -2,7 +2,8 @@
 //! the source fetched into staging, the config and `vibranium.lock` changes built through the
 //! guard, the staging dropped, and a digest of the changes given back. A write fetches again,
 //! builds the changes again and goes ahead only when they hash to that digest, then installs
-//! (or uninstalls) and writes each file only while it is the text the change was made from.
+//! (or uninstalls) and writes each file only while it is the text the change was made from. A
+//! plugin installed for a write that then fails is uninstalled again (D751).
 //!
 //! A client's source is held to less than `vc plugin add` takes: `npm:` with a registry
 //! package name and range only (no `file:`, git or tarball spec, which `npm pack` would run
@@ -100,8 +101,7 @@ impl Engine {
         let digest = changes_digest(&changes);
         if let Some(expected) = write {
             stale_unless(expected, &digest, STALE)?;
-            self.install(offer)?;
-            self.write_each(&changes, true)?;
+            self.installed_and_written(offer, &changes)?;
         }
         Ok(PluginChange {
             manifest: Some(offer.manifest.clone()),
@@ -111,6 +111,19 @@ impl Engine {
             changes,
             digest,
         })
+    }
+
+    /// `offer` installed and `changes` written; a plugin this installed is taken out again when
+    /// the write fails, so a failed write never leaves an install the config does not name (D751).
+    fn installed_and_written(&self, offer: &PluginOffer, changes: &Changes) -> Result<(), EngineError> {
+        let id = &offer.manifest.id;
+        let fresh = self.installed(id)?.is_none();
+        self.install(offer)?;
+        let written = self.write_each(changes, true);
+        if written.is_err() && fresh {
+            drop(self.uninstall(id));
+        }
+        written
     }
 
     /// Refuses a source a client may not name.
