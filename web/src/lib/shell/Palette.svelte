@@ -53,7 +53,8 @@
 
   function pick(item: PaletteItem | undefined): void {
     if (!item) return;
-    onpick(item.href);
+    if (item.run) item.run();
+    else if (item.href) onpick(item.href);
     close();
   }
 
@@ -97,7 +98,7 @@
       aria-activedescendant={activeItem ? optionId(activeItem) : undefined}
       autocomplete="off"
       spellcheck="false"
-      placeholder="Search screens…"
+      placeholder="Search screens, files and actions…"
       onkeydown={keys}
     />
   </div>

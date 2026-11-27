@@ -18,7 +18,8 @@ export class HarImport {
   busy = $state(false);
   written: readonly string[] | undefined = $state();
   error: string | undefined = $state();
-  #source: string | undefined;
+  /** The recording read in; state, since `ready` turns on it. */
+  #source: string | undefined = $state();
   readonly #port: Pick<ClientPort, 'importHar'>;
 
   constructor(port: Pick<ClientPort, 'importHar'>) {

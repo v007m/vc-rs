@@ -17,7 +17,7 @@
   {#if !lines.some((l) => l.kind === 'add' || l.kind === 'del')}
     <p class="none">{empty}</p>
   {:else}
-    <div class="scroll vc-mono">
+    <div class="scroll vc-well vc-mono">
       {#each lines as line, i (i)}
         {#if line.kind === 'gap'}
           <div class="gap">{line.count} unchanged line{line.count === 1 ? '' : 's'}</div>
@@ -43,8 +43,6 @@
   }
   .scroll {
     overflow: auto;
-    border-radius: var(--vc-radius-inner);
-    background: var(--st-surface-wash);
     padding: 6px 0;
   }
   .ln {
@@ -54,7 +52,7 @@
     line-height: 20px;
   }
   .no {
-    color: var(--st-text-tertiary);
+    color: var(--st-text-secondary);
     text-align: right;
     padding-right: 6px;
   }

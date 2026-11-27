@@ -9,12 +9,15 @@
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
   import { engine } from '#lib/api/transport.ts';
+  import Onboarding from '#lib/onboarding/Onboarding.svelte';
+  import { onboardingPort } from '#lib/onboarding/port.ts';
   import { setRunSession } from '#lib/run/context.ts';
   import { RunSession } from '#lib/run/session.svelte.ts';
   import { ProjectStatus, setProjectStatus } from '#lib/shell/project.svelte.ts';
   import Shell from '#lib/shell/Shell.svelte';
   import { setShellSlots, ShellSlots } from '#lib/shell/slots.svelte.ts';
   import { setShellState, ShellState } from '#lib/shell/state.svelte.ts';
+  import { setToasts, Toasts } from '#lib/ui/toasts.svelte.ts';
   import { setVcsSession } from '#lib/vcs/context.ts';
   import { enginePort as vcsPort } from '#lib/vcs/port.ts';
   import { VcsSession } from '#lib/vcs/session.svelte.ts';
@@ -26,6 +29,7 @@
   setRunSession(session);
   const shell = setShellState(new ShellState());
   const slots = setShellSlots(new ShellSlots());
+  setToasts(new Toasts());
   const project = setProjectStatus(new ProjectStatus(engine));
   void project.load();
   const vcs = setVcsSession(new VcsSession(vcsPort(engine)));
@@ -51,5 +55,9 @@
   {slots}
   branch={vcs.branch}
 >
-  {@render children()}
+  {#if project.configured === false}
+    <Onboarding {project} port={onboardingPort(engine)} />
+  {:else}
+    {@render children()}
+  {/if}
 </Shell>

@@ -1,12 +1,20 @@
 import type { PlainRoute, Space } from './spaces.ts';
 
-/** One result of the command palette: a screen to open, under its space. */
+/**
+ * One result of the command palette: a screen or file to open (`href`), or an action to take
+ * there and then (`run`: switch profile or theme), under its heading.
+ */
 export interface PaletteItem {
   readonly id: string;
   readonly label: string;
-  /** The space it belongs to, the heading it is grouped under. */
+  /** The space it belongs to, or the kind of action: the heading it is grouped under. */
   readonly group: string;
-  readonly href: string;
+  readonly href?: string;
+  readonly run?: () => void;
+  /** Words it is also found by (a file's path parts), beyond its label and heading. */
+  readonly keywords?: string;
+  /** Shown only once something is typed (the files, too many to list unasked). */
+  readonly searchOnly?: boolean;
   /** The space's shortcut, on its home screen only. */
   readonly shortcut?: string;
 }
@@ -37,7 +45,7 @@ export function paletteItems(
 
 /** Whether every word of `query` starts a word of the item's label or group (case-insensitive). */
 function matches(item: PaletteItem, words: readonly string[]): boolean {
-  const hay = `${item.label} ${item.group}`.toLowerCase().split(/[\s/]+/);
+  const hay = `${item.label} ${item.group} ${item.keywords ?? ''}`.toLowerCase().split(/[\s/]+/);
   return words.every((word) => hay.some((part) => part.startsWith(word)));
 }
 
@@ -46,7 +54,7 @@ export function filterPalette(items: readonly PaletteItem[], query: string): Pal
   const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
   const groups = new Map<string, PaletteItem[]>();
   for (const item of items) {
-    if (!matches(item, words)) continue;
+    if (!matches(item, words) || (item.searchOnly && words.length === 0)) continue;
     const list = groups.get(item.group) ?? [];
     list.push(item);
     groups.set(item.group, list);

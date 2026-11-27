@@ -45,7 +45,7 @@
 <header class="topbar" data-region>
   <button
     type="button"
-    class="st-icon-btn st-icon-btn--sm sb-show"
+    class="st-icon-btn sb-show"
     aria-controls="sidebar"
     aria-expanded={sidebarShown}
     aria-label="Show sidebar"

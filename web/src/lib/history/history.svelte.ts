@@ -60,21 +60,23 @@ export class RunHistory {
 
   /** Reads the recent runs and All runs again. */
   async load(): Promise<void> {
+    const scope = this.scope;
     await this.#read(async () => {
       const [recent, runs] = await Promise.all([
         this.#port.runs(RECENT),
-        this.#port.runs(ALL, this.scope),
+        this.#port.runs(ALL, scope),
       ]);
       this.recent = recent;
-      this.runs = runs;
+      if (this.scope === scope) this.runs = runs;
     });
   }
 
-  /** Lists the runs in `scope`, which the engine narrows. */
+  /** Lists the runs in `scope`, which the engine narrows; a listing for an older scope is dropped. */
   async rescope(scope: RunScope): Promise<void> {
     this.scope = scope;
     await this.#read(async () => {
-      this.runs = await this.#port.runs(ALL, scope);
+      const runs = await this.#port.runs(ALL, scope);
+      if (this.scope === scope) this.runs = runs;
     });
   }
 

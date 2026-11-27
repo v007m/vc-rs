@@ -44,8 +44,14 @@ export type TestDetail = Readonly<{
 
 export type StoredRun = Readonly<{ run: RunLine; tests: readonly TestDetail[] }>;
 
-/** Which runs a listing keeps (`ListRuns`): one kind, profile or branch; absent keeps all. */
-export type RunScope = Readonly<{ kind?: string; profile?: string; branch?: string }>;
+/** Which runs a listing keeps (`ListRuns`): one kind, profile, branch or schedule; absent keeps all. */
+export type RunScope = Readonly<{
+  kind?: string;
+  profile?: string;
+  branch?: string;
+  /** The schedule that started the runs (D705). */
+  schedule?: string;
+}>;
 
 /** What the Runs screen asks of the history. Every value is already masked by the engine. */
 export interface HistoryPort {

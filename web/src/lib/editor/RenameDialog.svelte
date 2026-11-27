@@ -79,7 +79,7 @@
       <DiffView before={change.before} after={change.after} />
     {/each}
   {/if}
-  <div class="actions">
+  {#snippet actions()}
     <button type="button" class="st-btn" onclick={onclose}>Cancel</button>
     {#if preview}
       <button
@@ -96,7 +96,7 @@
         onclick={() => void review()}>Preview</button
       >
     {/if}
-  </div>
+  {/snippet}
 </Dialog>
 
 <style>
@@ -107,11 +107,5 @@
   .file {
     margin: 12px 0 6px;
     font-size: 12.5px;
-  }
-  .actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
-    margin-top: 16px;
   }
 </style>

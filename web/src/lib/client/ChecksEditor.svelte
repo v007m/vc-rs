@@ -47,7 +47,7 @@
       <span class="vc-mono vc-grow">{checkText(check)}</span>
       <button
         type="button"
-        class="st-btn st-btn--sm"
+        class="st-btn st-btn--ghost st-btn--sm vc-btn--row-danger"
         aria-label="Remove {checkText(check)}"
         onclick={() => request.removeCheck(i)}>Remove</button
       >

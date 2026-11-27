@@ -73,4 +73,19 @@ describe('enginePort', () => {
       ],
     );
   });
+
+  it('asks the engine for the runs one schedule started', async () => {
+    const asked: ListRunsRequest[] = [];
+    const port = enginePort(
+      fakeEngine({
+        listRuns: (request) => {
+          asked.push(request);
+          return { runs: [] };
+        },
+      }),
+    );
+    await port.runs(200, { schedule: 'nightly' });
+    await port.runs(12);
+    expect(asked.map(({ schedule }) => schedule)).toEqual(['nightly', undefined]);
+  });
 });

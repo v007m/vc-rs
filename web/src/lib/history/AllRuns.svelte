@@ -1,5 +1,7 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
+  import { resolve } from '$app/paths';
+  import Icon from '#lib/shell/Icon.svelte';
   import Menu from '#lib/ui/Menu.svelte';
   import { lens } from '#lib/ui/segmented.ts';
   import { distinct, type RunHistory } from './history.svelte.ts';
@@ -10,6 +12,7 @@
 
   /**
    * All runs (D631): words to look for, the kind, status, profile and branch, then the table.
+   * Runs listed for one schedule (`?schedule=`, D705) show it as a chip that removes the filter.
    * Ticking two runs offers **Compare**; each row's ⋯ has Compare with previous, Run again and
    * Copy run command.
    */
@@ -27,6 +30,13 @@
   const profiles = $derived(distinct(history.runs, (run) => run.profiles));
   const branches = $derived(distinct(history.runs, (run) => [run.branch ?? '']));
   const pair = $derived([...picked].sort((a, b) => a - b));
+
+  /** Lists every schedule's runs, and drops `?schedule=` from the address, which then agrees. */
+  async function unschedule(): Promise<void> {
+    const rescoped = history.rescope({ ...history.scope, schedule: undefined });
+    await goto(resolve('/runs'));
+    await rescoped;
+  }
 
   function pick(id: string, all: string): string | undefined {
     return id === all ? undefined : id;
@@ -106,6 +116,17 @@
   >
     Branch: {history.scope.branch ?? 'Any'}
   </Menu>
+  {#if history.scope.schedule}
+    <span class="chip"
+      >Schedule: <span class="vc-mono">{history.scope.schedule}</span><button
+        type="button"
+        class="st-icon-btn st-icon-btn--sm"
+        aria-label="Remove the schedule filter"
+        title="Show runs from every schedule"
+        onclick={() => void unschedule()}><Icon name="x" small /></button
+      ></span
+    >
+  {/if}
   <span class="vc-grow"></span>
   <span class="st-secondary count" aria-live="polite">
     {picked.length ? `${picked.length} of 2 picked` : `${history.shown.length} runs`}
@@ -140,7 +161,17 @@
     margin-bottom: 12px;
   }
   .search {
-    width: 220px;
+    flex: 1 0 160px;
+    max-width: 220px;
+  }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    height: 28px;
+    padding: 0 2px 0 12px;
+    border-radius: var(--st-radius-capsule);
+    background: var(--st-surface-wash);
   }
   .count {
     font-variant-numeric: tabular-nums;

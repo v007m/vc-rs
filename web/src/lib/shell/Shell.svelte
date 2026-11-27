@@ -1,7 +1,7 @@
 <script lang="ts">
   import { resolve } from '$app/paths';
   import type { RunSession } from '#lib/run/session.svelte.ts';
-  import type { Snippet } from 'svelte';
+  import { untrack, type Snippet } from 'svelte';
   import { cycleRegion, isPaletteKey, watchModifier } from './keys.ts';
   import Palette from './Palette.svelte';
   import { paletteItems } from './palette.ts';
@@ -13,6 +13,11 @@
   import { spaceOf, spaces, viewOf } from './spaces.ts';
   import StatusLine from './StatusLine.svelte';
   import TopBar from './TopBar.svelte';
+  import { applyAppearance, presetFor } from './appearance.ts';
+  import { commandItems } from './commands.ts';
+  import { runEnded } from './runToast.ts';
+  import ToastStack from '#lib/ui/ToastStack.svelte';
+  import { getToasts } from '#lib/ui/toasts.svelte.ts';
 
   /**
    * The five-space shell (D512-D514) on Strata (D590): the space's canvas, with the space
@@ -52,11 +57,49 @@
   let app: HTMLElement | undefined = $state();
   /** The command palette, open with what it grows from (D620). */
   let palette: { anchor: Element | null } | undefined = $state();
-  const items = paletteItems(spaces, (route) => resolve(route));
+  const screens = paletteItems(spaces, (route) => resolve(route));
+  const toasts = getToasts();
+  let items = $derived([
+    ...screens,
+    ...commandItems({
+      runHref: `${resolve('/runs')}?run=ask`,
+      fileHref: (path) => `${resolve('/tests/editor')}?file=${encodeURIComponent(path)}`,
+      files: project.files,
+      profiles: project.profiles,
+      profile: project.profile,
+      appearance: shell.prefs.appearance,
+      useProfile: (profile) => project.useProfile(profile),
+      setAppearance: (change) => shell.setAppearance(change),
+      say: (text) => toasts.show(text),
+    }),
+  ]);
 
   function openPalette(anchor: Element | null): void {
+    if (project.files.length === 0) void project.listFiles();
     palette ??= { anchor };
   }
+
+  $effect(() => applyAppearance(document.documentElement, shell.prefs.appearance));
+  // A run that ends, on any screen, says how it went, with a way to its report.
+  let wasRunning = false;
+  $effect(() => {
+    const running = session.running;
+    if (wasRunning && !running) {
+      const ended = runEnded(session.view);
+      untrack(() =>
+        toasts.show(ended.text, ended.tone, {
+          label: 'Open',
+          run: () =>
+            navigate(
+              ended.id === undefined
+                ? resolve('/runs/live')
+                : resolve('/runs/[id=integer]', { id: ended.id }),
+            ),
+        }),
+      );
+    }
+    wasRunning = running;
+  });
 
   $effect(() => shell.remember(pathname, search));
   $effect(() => watchModifier(window, (held) => (hints = held)));
@@ -94,7 +137,7 @@
 
 <div
   class="app st-root st-canvas"
-  data-space={space.preset}
+  data-space={presetFor(shell.prefs.appearance, space.preset)}
   data-switcher={shell.prefs.switcher}
   class:is-sb-collapsed={shell.prefs.sbCollapsed}
   class:is-drawer-open={shell.drawer}
@@ -104,7 +147,14 @@
 >
   <div class="shell">
     <Rail {shell} {pathname} />
-    <Sidebar {shell} {space} {pathname} body={slots.sidebar} ontoggle={toggle} />
+    <Sidebar
+      {shell}
+      {space}
+      {pathname}
+      body={slots.sidebar}
+      bare={project.configured === false}
+      ontoggle={toggle}
+    />
     <div class="main">
       <TopBar
         {title}
@@ -133,6 +183,7 @@
         onclose={() => (palette = undefined)}
       />
     {/if}
+    <ToastStack {toasts} />
     {#if shell.drawer && !inLayout}
       <button
         type="button"

@@ -71,7 +71,7 @@
         <td>
           <button
             type="button"
-            class="st-btn st-btn--sm"
+            class="st-btn st-btn--ghost st-btn--sm vc-btn--row-danger"
             aria-label="Remove {row.name || noun}"
             onclick={() => onremove(i)}>Remove</button
           >

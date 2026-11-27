@@ -216,12 +216,12 @@
       >
     </div>
   </details>
-  <div class="actions">
+  {#snippet actions()}
     <button type="button" class="st-btn" onclick={onclose}>Cancel</button>
     <button type="button" class="st-btn st-btn--primary" onclick={() => onrun(runRequest(form))}
       >Run</button
     >
-  </div>
+  {/snippet}
 </Dialog>
 
 <style>
@@ -294,11 +294,5 @@
     min-width: 0;
     overflow-wrap: anywhere;
     user-select: all;
-  }
-  .actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
-    margin-top: 16px;
   }
 </style>

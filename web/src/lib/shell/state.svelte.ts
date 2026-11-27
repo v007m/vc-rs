@@ -9,6 +9,7 @@ import {
   type Switcher,
   type UiPrefs,
 } from './prefs.ts';
+import type { Appearance } from './appearance.ts';
 import { isKnown, spaceByKey, spaceOf, type SpaceKey } from './spaces.ts';
 
 /** Above this width of the app the sidebar is in the layout; at it and below, a drawer. */
@@ -71,6 +72,11 @@ export class ShellState {
 
   setSwitcher(switcher: Switcher): void {
     this.#set({ switcher });
+  }
+
+  /** Changes part of the appearance; the shell puts it on the page at once. */
+  setAppearance(change: Partial<Appearance>): void {
+    this.#set({ appearance: { ...this.prefs.appearance, ...change } });
   }
 
   #set(change: Partial<UiPrefs>): void {

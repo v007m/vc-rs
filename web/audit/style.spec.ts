@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { lowContrast } from './contrast.ts';
+import { lowContrast, weakEdges } from './contrast.ts';
 import { routeEngine } from './engine.ts';
 import { pageScript } from './page.ts';
 import { states, type State } from './states.ts';
@@ -10,7 +10,7 @@ import { states, type State } from './states.ts';
  * icons 3:1) against the real backdrop, controls of one row at different heights, a
  * single-line control that is not a capsule, a nested surface off the concentric radius, an
  * overlay off centre or away from its trigger, a focus ring past its spec, and a box drawn
- * on a card. Run it with `pnpm audit:style`.
+ * on a card, an unchecked control whose edge is under 3:1. Run it with `pnpm audit:style`.
  */
 
 const HIDE_INK = `*, *::before, *::after, ::placeholder {
@@ -46,8 +46,12 @@ async function open(page: Page, state: State): Promise<void> {
 async function audit(page: Page, blank: Page): Promise<string[]> {
   const structure = await page.evaluate(() => window.vcAudit.structure());
   const inks = await page.evaluate(() => window.vcAudit.inks());
+  const edges = await page.evaluate(() => window.vcAudit.edges());
   const shot = await withSheet(page, HIDE_INK, () => page.screenshot({ animations: 'disabled' }));
-  const contrast = await lowContrast(blank, shot, inks);
+  const contrast = [
+    ...(await lowContrast(blank, shot, inks)),
+    ...(await weakEdges(blank, shot, edges)),
+  ];
   await page.keyboard.press('Shift');
   const focus = await page.evaluate(() => window.vcAudit.focusRings());
   return [...structure, ...contrast, ...focus];
@@ -74,7 +78,7 @@ for (const scheme of ['light', 'dark'] as const) {
             ],
           });
           await page.addInitScript({ content: pageScript() });
-          await routeEngine(page);
+          await routeEngine(page, state.fakes);
           await open(page, state);
           // `VC_AUDIT_SHOTS=<dir>` also keeps a screenshot of each state, for review by eye
           const shots = process.env.VC_AUDIT_SHOTS;

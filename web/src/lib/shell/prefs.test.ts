@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { defaultAppearance } from './appearance.ts';
 import {
   defaultPrefs,
   loadPrefs,
@@ -62,12 +63,21 @@ describe('prefs', () => {
       sbClosed: ['a:b', 3],
       sbCollapsed: 'yes',
       switcher: 'side',
+      appearance: { theme: 'dark', accent: 'neon', density: 'compact', motion: 1 },
     });
     expect(parsePrefs(raw)).toEqual({
       lastRoute: { tests: '/tests' },
       sbClosed: ['a:b'],
       sbCollapsed: false,
       switcher: 'rail',
+      appearance: { theme: 'dark', accent: 'space', density: 'compact', motion: 'system' },
     });
+  });
+  it('starts with the default appearance, and keeps a saved one', () => {
+    expect(parsePrefs('{}').appearance).toEqual(defaultAppearance);
+    const store = memory();
+    const appearance = { theme: 'light', accent: 'tide', density: 'compact', motion: 'reduced' };
+    savePrefs({ ...defaultPrefs, appearance } as typeof defaultPrefs, store);
+    expect(loadPrefs(store).appearance).toEqual(appearance);
   });
 });

@@ -48,16 +48,16 @@ Each space sets `data-space` on the app, which picks the blobs and the accent (D
 - Marks are one system: every disclosure (tree row, section, `<details>`) shows one chevron that points down when open and turns a quarter left when closed, never a ▶/▾ glyph or the native marker; a checkbox is Strata's `.st-check` in the space accent (D668).
 - A toolbar never wraps: the editor bar folds Revert and Check, then Diff, Fix all and Run file, into its … menu as its pane narrows. KPI tiles sit in an even grid, 3 by 2 on a narrow card and 6 in a row on a wide one. The sidebar lights only the item whose route is the page's; a page with no item lights none (D669).
 - Focus: buttons and toggles get a 2 px accent outline at 2 px offset; a text field gets a 1.5 px ring at 40 % accent, offset 0, on its own capsule radius (D612, D661).
-- Contrast is WCAG AA against the real backdrop, glass over the gradient: 4.5:1 for all text, 3:1 for disabled text, icons, control borders and focus rings; primary text about 7:1. A selected row in dark chrome is a deeper plate under white ink; a selected row on a card is the accent's soft fill under primary ink (D656, D663).
-- `pnpm audit:style` (`web/audit/`) checks every route and overlay in both themes at 1440 and 1024 px against these rules: contrast, row heights, capsules, concentric radii, centred overlays, focus rings and boxes on cards (D665), plus one secondary button fill, capsule tags, one disclosure chevron, single-row toolbars, Strata checkboxes and no edge-to-edge table borders (D667–D669). It is GATE-STYLE in `scripts/gates.sh`, so every PR must pass it (D720).
+- Contrast is WCAG AA against the real backdrop, glass over the gradient: 4.5:1 for all text, 3:1 for disabled text, icons, control borders and focus rings; an unchecked checkbox or radio and an off switch draw a `--vc-control-edge` boundary for that 3:1 (D738); primary text about 7:1. A selected row in dark chrome is a deeper plate under white ink; a selected row on a card is the accent's soft fill under primary ink (D656, D663).
+- `pnpm audit:style` (`web/audit/`) checks every route and overlay in both themes at 1440 and 1024 px against these rules: contrast, row heights, capsules, concentric radii, centred overlays, focus rings and boxes on cards (D665), plus one secondary button fill, capsule tags, one disclosure chevron, single-row toolbars, Strata checkboxes and no edge-to-edge table borders (D667–D669), and unchecked controls at 3:1 (`control-contrast`), no filled danger button in a row and every open dialog's primary button in view (D738, D739, D742). It is GATE-STYLE in `scripts/gates.sh`, so every PR must pass it (D720).
 - Settings rows are left aligned, at least 44 px tall. Separators stop 12 px short of both ends everywhere, table rows included: a ruled table (`vc-table`, `vc-rules`, `client-table`) draws each row's hairline as an inset cell background and sets its outer text 12 px in (D603, D614, D669).
-- Dialogs have a Title2 heading and actions at the bottom right, Cancel first; focus stays inside and Esc cancels. Toasts are capsules at the bottom centre for about 3 s, with an optional Undo (D604).
+- Dialogs have a Title2 heading and actions at the bottom right, Cancel first; focus stays inside and Esc cancels. The heading and actions stay fixed and only the body scrolls (D742). A row action such as Remove is the quiet ghost button, red only on hover or focus, and asks to confirm (D739). Toasts are capsules at the bottom centre for about 3 s, with an optional Undo (D604).
 - The search capsule in the top row is embossed, shows its shortcut and opens the command palette (D595, D620).
 
 ### Type, motion and preferences
 - **Type:** Strata's SF Pro-first stack, with Inter (variable, OFL 1.1) bundled as the fallback off Apple platforms; the mono stack is Strata's (SF Mono, then the system monospace). Roles are Strata's (`--st-type-*`): micro, caption, label, body, Title3, Title2 (D599).
 - **Themes:** the OS setting by default; `data-theme` forces light or dark.
-- **Motion** uses two springs as `linear()` curves, 480 ms with a little overshoot and 280 ms critically damped for closing (D617). Overlays grow out of their anchor with a translate and a clip, never a scale (D618); symbols are written on, rotate, bounce or wiggle like SF Symbols (D619). Reduced motion stops the blobs and transitions and shows end states. `data-transparency="reduced"` makes cards and overlays solid; `data-density="compact"` tightens rows. The Appearance settings that set these come later (D605).
+- **Motion** uses two springs as `linear()` curves, 480 ms with a little overshoot and 280 ms critically damped for closing (D617). Overlays grow out of their anchor with a translate and a clip, never a scale (D618); symbols are written on, rotate, bounce or wiggle like SF Symbols (D619). Reduced motion stops the blobs and transitions and shows end states. `data-transparency="reduced"` makes cards and overlays solid; `data-density="compact"` tightens rows. Settings › Appearance sets theme, accent, density and Reduce motion for this browser; reduced motion there is `data-motion="reduced"` on the root, which turns motion off as the OS setting does (D722).
 - **Keyboard hints** are plain tertiary text, never keycaps: `⌘K` on Apple platforms, `Ctrl+K` elsewhere. Holding the modifier alone for 450 ms shows each space's shortcut beside its rail button. F6 and Shift+F6 move between the regions: rail, sidebar, top row and main (D600).
 
 ### Status language
@@ -244,6 +244,7 @@ A wizard with six steps: Source (OpenAPI, HAR, Postman, Bruno, .http, cURL paste
 - `vc ui`'s server runs them while it is up and records each in run history with its schedule (D703, D704). It starts a run only from the compiled config, never because a client asked.
 - **Export to CI** writes a GitHub Actions cron workflow at `.github/workflows/vibranium-<id>.yml`, for machines that sleep (D707).
 - The list shows the cron in words, the selector, profile, runner, next run and last result, with an on/off switch. New schedule saves through a diff (D706).
+- Built (D727–D729): the cron in words in UTC (otherwise as written), the next run relative to now; New, Edit, Remove and Export each preview a diff and write with its digest; the switch writes at once and moves back on a failure. Each name links to All runs scoped by `?schedule=<id>`, shown as a removable chip.
 
 ## 7. Agents and Settings spaces
 
@@ -253,7 +254,7 @@ Five views in the sidebar, each opening with one sentence on what it is for:
 - **Permissions:** a switch for each tool and each profile (prod off by default); edits apply through "Review N changes".
 - **Connection:** MCP server status, connected clients, and the snippets to connect Claude Code, Cursor or HTTP.
 - **Activity:** a one-line log of each run or edit, with a filter.
-- **Usage:** tool calls, runs started and time per agent over 7 days, with a table per agent and tool (D709: the engine sees no agent's requests or tokens).
+- **Usage:** tool calls, runs started and time per agent over 7 days, with a table per agent and tool (D709: the engine sees no agent's requests or tokens). Built (D730): 7, 30 or 90 UTC days, a stacked daily bar chart of calls per agent with a legend and a screen-reader table, then By agent and per-agent tools tables.
 - Runs made by agents carry an agent badge in Runs.
 
 ### Settings (D522)
@@ -261,23 +262,29 @@ Five views in the sidebar, each opening with one sentence on what it is for:
 - **Project** (`vibranium.config.yaml`):
   - general, paths, defaults, profiles, vars per profile, http, tls, auth (with Test), secrets (`.env.schema`), reports and history, alerts (with Send test alert), agent access and plugins.
   - Each has a form, plus a pending-changes bar with a diff.
-- **You only** (`~/.config/vibranium`): the same form, clearly badged.
-- **This app:** theme, cards (glass or solid), motion and transparency, density, the tab idle time and the space switcher (Icon rail or Sidebar bottom).
+- **You only** (`~/.config/vibranium`): the same form, clearly badged. Built (D733, D734): a Project / You only switch in the top row; Your settings is a table of the user file's keys with a Shadowed tag, masked values only replaceable, and Preview then Save with the digest.
+- Built: **Alerts** shows the rules as written with Send a test alert (D735); **Plugins** lists, adds (`npm:` or `path:` only) and removes, each previewed then written with the digest (D736), with each state in words and the next command in code style (D740).
+- **This app › Appearance** (built, D722): theme, accent (each space's own or one preset everywhere; the swatches sit under the label, D741), density and Reduce motion, saved in this browser and applied at once. Cards (glass or solid), transparency, the tab idle time and the space switcher come later.
+- Radios are Strata's own round `.vc-radio`; the style audit refuses the browser's (D721).
 
 ## 8. Shared overlays
 
 ### Command palette (⌘K)
-Built so far (D620): ⌘K or the top row's search opens it, grown out of the search field; it lists every screen grouped by space, filtered by word prefix, with arrows, Enter and Esc. The rest of this list comes later.
+Built so far (D620): ⌘K or the top row's search opens it, grown out of the search field; it lists every screen grouped by space, filtered by word prefix, with arrows, Enter and Esc. After the screens come actions (D723): **Run tests…**, **Use profile X**, the other themes, density and Reduce motion, each confirmed by a toast; typing also finds every project file, which opens in the editor. The rest of this list comes later.
 - Jump to any api, test, file, run or setting.
 - Run any `vc` command with typed arguments and a preview: check, run with a selector, plan, fmt, rename, import, sync, explain a code, and new.
 - Recent items come first.
 - Every action has a shortcut, and `?` opens a cheat sheet.
+
+### Toasts
+One stack at the bottom centre, at most three (D724): writes, palette actions, finished runs (with **Open**, D726) and errors. A done toast stays 3.2 s, an error 6 s and is read out assertively.
 
 ### Onboarding
 - `vc ui` started outside a project serves the folder it started in, and `GetProject.configured` is false there (D716).
 - If there's no project, offer an **Init wizard**, which runs `vc init` (name, first service, base URL, profile) as a preview, then writes it with the preview's digest.
 - Or offer **Open the demo**: `vc demo`'s sample project, written the same way. The server says whether the demo service answers; if not, show `vc demo start --detach` to copy, since the server never starts a process (D717).
 - Or offer **Import**.
+- Built (D731, D732): **Get started** replaces the screen while the project is not configured, with Set up this folder (the Init wizard) and Try the demo; Import comes later. The sidebar lists nothing until then (D743).
 
 ## 9. Security
 - **Session cookie:** a launch link is exchanged for a cookie that is HttpOnly, SameSite=Strict and, new, **Secure**. This works on localhost.

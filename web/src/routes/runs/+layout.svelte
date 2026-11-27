@@ -44,6 +44,15 @@
     wasRunning = running;
   });
 
+  // The palette's "Run tests…" lands here with `?run=ask`: open the Run dialog, drop the query.
+  $effect(() => {
+    if (page.url.searchParams.get('run') !== 'ask') return;
+    untrack(() => {
+      if (!space.dialog && !session.running) space.run();
+      void goto(resolve('/runs'), { replace: true, reset: false });
+    });
+  });
+
   function run(init: RunInit): void {
     space.dialog = undefined;
     void session.start(init);

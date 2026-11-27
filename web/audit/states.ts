@@ -1,19 +1,21 @@
 import type { Page } from '@playwright/test';
+import * as onboarding from './areas/onboarding.ts';
+import * as schedules from './areas/schedules.ts';
+import * as settings from './areas/settings.ts';
+import * as usage from './areas/usage.ts';
+import { click, sidebar } from './act.ts';
+import type { Fakes } from './engine.ts';
 
-/** One screen the audit checks: a route, and what to do there before checking it. */
-export type State = { name: string; path: string; act?: (page: Page) => Promise<void> };
-
-const click = (page: Page, name: RegExp | string) =>
-  page
-    .getByRole('button', { name, exact: typeof name === 'string' })
-    .first()
-    .click();
-
-/** Shows the sidebar, a drawer at 1024 px. */
-async function sidebar(page: Page): Promise<void> {
-  const drawer = page.getByRole('button', { name: /show sidebar/i });
-  if (await drawer.isVisible()) await drawer.click();
-}
+/**
+ * One screen the audit checks: a route, what to do there before checking it, and any engine
+ * answers of its own over the shared fakes (a project not yet set up, say).
+ */
+export type State = {
+  name: string;
+  path: string;
+  act?: (page: Page) => Promise<void>;
+  fakes?: Fakes;
+};
 
 /** Opens the users.crud create request in the Client; at 1024 px the sidebar is a drawer. */
 async function openRequest(page: Page): Promise<void> {
@@ -65,6 +67,34 @@ export const states: State[] = [
     },
   },
   { name: 'palette', path: '/client', act: (page) => page.locator('.search-btn').click() },
+  {
+    name: 'palette-files',
+    path: '/client',
+    act: async (page) => {
+      await page.locator('.search-btn').click();
+      await page.getByRole('combobox', { name: 'Search or run' }).fill('open users');
+    },
+  },
+  {
+    name: 'palette-run-dialog',
+    path: '/client',
+    act: async (page) => {
+      await page.locator('.search-btn').click();
+      await page.getByRole('combobox', { name: 'Search or run' }).fill('run tests');
+      await page.keyboard.press('Enter');
+      await page.getByRole('dialog', { name: /Run/ }).waitFor();
+    },
+  },
+  {
+    name: 'toast',
+    path: '/tests',
+    act: async (page) => {
+      await page.locator('.search-btn').click();
+      await page.getByRole('combobox', { name: 'Search or run' }).fill('density compact');
+      await page.keyboard.press('Enter');
+      await page.getByRole('status').filter({ hasText: 'Density' }).waitFor();
+    },
+  },
   { name: 'tests', path: '/tests' },
   {
     name: 'tests-git-menu',
@@ -154,4 +184,18 @@ export const states: State[] = [
   { name: 'live', path: '/runs/live' },
   { name: 'agents', path: '/agents' },
   { name: 'settings', path: '/settings' },
+  { name: 'settings-appearance', path: '/settings/appearance' },
+  {
+    name: 'settings-appearance-set',
+    path: '/settings/appearance',
+    act: async (page) => {
+      await page.getByRole('radio', { name: 'Ember' }).check();
+      await click(page, 'Compact');
+      await page.getByRole('checkbox', { name: 'Reduce motion' }).check();
+    },
+  },
+  ...schedules.states,
+  ...usage.states,
+  ...onboarding.states,
+  ...settings.states,
 ];

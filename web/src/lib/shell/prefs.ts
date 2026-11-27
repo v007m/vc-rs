@@ -1,3 +1,4 @@
+import { defaultAppearance, parseAppearance, type Appearance } from './appearance.ts';
 import type { SpaceKey } from './spaces.ts';
 
 /** Where the space switcher sits: an icon rail left of the sidebar, or a row at its foot. */
@@ -12,6 +13,8 @@ export type UiPrefs = Readonly<{
   /** Whether the sidebar is hidden while it is in the layout (wider than 1100px). */
   sbCollapsed: boolean;
   switcher: Switcher;
+  /** Theme, accent, density and motion (Settings › Appearance). */
+  appearance: Appearance;
 }>;
 
 export const defaultPrefs: UiPrefs = {
@@ -19,6 +22,7 @@ export const defaultPrefs: UiPrefs = {
   sbClosed: [],
   sbCollapsed: false,
   switcher: 'rail',
+  appearance: defaultAppearance,
 };
 
 /** The localStorage key; prefs are a convenience, so nothing breaks without them. */
@@ -65,6 +69,7 @@ export function parsePrefs(raw: string | null): UiPrefs {
     sbClosed: closed.filter((key): key is string => typeof key === 'string'),
     sbCollapsed: value.sbCollapsed === true,
     switcher: value.switcher === 'foot' ? 'foot' : 'rail',
+    appearance: parseAppearance(value.appearance),
   };
 }
 
