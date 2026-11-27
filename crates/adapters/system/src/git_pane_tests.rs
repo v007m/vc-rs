@@ -63,6 +63,24 @@ fn the_status_names_the_branch_and_each_changed_file_with_its_kind_and_line_coun
 }
 
 #[test]
+fn an_untracked_file_over_a_mebibyte_or_with_a_nul_is_binary_and_not_counted() {
+    let repo = TempDir::new().unwrap();
+    repository(repo.path());
+    let big = "line\n".repeat(300_000);
+    let late_nul = format!("{}\0\n", "a\n".repeat(5_000));
+    write(repo.path(), &[("big.txt", &big), ("image.png", "PNG\0\x01\n"), ("late.txt", &late_nul), ("small.txt", "a\nb")]);
+    let files = GitVcs::new(repo.path()).status().unwrap().files;
+    let binary = |text: &str| VcsFile { binary: true, ..changed(text, VcsChange::Untracked, (0, 0)) };
+    let expected = vec![
+        binary("big.txt"),
+        binary("image.png"),
+        changed("late.txt", VcsChange::Untracked, (5_001, 0)),
+        changed("small.txt", VcsChange::Untracked, (2, 0)),
+    ];
+    assert_eq!(files, expected, "a NUL past the first 8000 bytes is text, as git reads it");
+}
+
+#[test]
 fn the_status_of_a_project_inside_the_repository_leaves_out_the_files_outside_it() {
     let repo = TempDir::new().unwrap();
     repository(repo.path());
