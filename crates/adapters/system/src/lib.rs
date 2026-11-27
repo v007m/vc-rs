@@ -32,6 +32,7 @@ mod clock;
 pub use clock::SystemClock;
 
 host! {
+    mod bin;
     mod browser;
     mod command;
     mod compile_cache;
@@ -45,6 +46,7 @@ host! {
     mod user_config;
     mod watcher;
 
+    pub use bin::Bin;
     pub use browser::SystemBrowser;
     pub use command::ProcessRunner;
     pub use compile_cache::FsCompileCache;

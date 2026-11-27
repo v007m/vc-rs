@@ -537,6 +537,8 @@ pub vc_interfaces::SourceError::Read::reason: alloc::string::String
 pub vc_interfaces::SourceError::Root
 pub vc_interfaces::SourceError::Root::reason: alloc::string::String
 pub vc_interfaces::SourceError::Root::root: alloc::string::String
+pub vc_interfaces::SourceError::Untrashed
+pub vc_interfaces::SourceError::Untrashed::path: alloc::string::String
 pub vc_interfaces::SourceError::Write
 pub vc_interfaces::SourceError::Write::path: alloc::string::String
 pub vc_interfaces::SourceError::Write::reason: alloc::string::String
@@ -1925,7 +1927,6 @@ pub const vc_interfaces::MANIFEST_FILE: &str
 pub const vc_interfaces::NEAR_NAMES: usize
 pub const vc_interfaces::PERMISSION_DENIED: i64
 pub const vc_interfaces::PLUGINS_DIR: &str
-pub const vc_interfaces::TRASH: &str
 pub trait vc_interfaces::ActionRunner: core::marker::Send + core::marker::Sync
 pub fn vc_interfaces::ActionRunner::run<'life0, 'async_trait>(&'life0 self) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::result::Result<vc_interfaces::Credentials, vc_interfaces::AuthError>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait
 pub trait vc_interfaces::AgentActionLog: vc_interfaces::AgentActionWriter + vc_interfaces::AgentActionReader

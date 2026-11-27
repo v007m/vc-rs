@@ -2735,7 +2735,7 @@ export const TrashFileRequestSchema: GenMessage<TrashFileRequest> = /*@__PURE__*
  */
 export type TrashFileResponse = Message<"vibranium.engine.v1.TrashFileResponse"> & {
   /**
-   * Where it went, relative to the project root: `.vibranium/trash/<stamp>/<path>`.
+   * Where it went, as the system names it; empty when the system does not say.
    *
    * @generated from field: string trashed_to = 1;
    */
@@ -5234,7 +5234,7 @@ export const EngineService: GenService<{
     output: typeof FileReferencesResponseSchema;
   },
   /**
-   * Moves a definition file into the project's trash, `.vibranium/trash/` (D683).
+   * Sends a definition file to the system's trash; never deletes it (D683).
    *
    * @generated from rpc vibranium.engine.v1.EngineService.TrashFile
    */

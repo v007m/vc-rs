@@ -2,7 +2,7 @@
 
 use std::path::{Path, PathBuf};
 
-use vc_interfaces::{SourceError, SourceWriter, TRASH, content_hash};
+use vc_interfaces::{SourceError, SourceWriter, content_hash};
 use vc_model::{ContentHash, SourcePath};
 
 use super::FsSources;
@@ -43,16 +43,13 @@ impl SourceWriter for FsSources {
         std::fs::remove_file(&target).map_err(|error| write_error(path, &error))
     }
 
-    /// Moves the file, or the link, at `path` to a fresh folder under the trash, once the
-    /// trash's nearest folder that exists is known to resolve inside the root; nothing is
-    /// created through a link out of it.
+    /// Sends the file, or the link, at `path` to the bin, the system's trash unless another was
+    /// given, once it is known to be inside the root and unchanged; a file the bin does not take
+    /// is left where it is, never deleted.
     fn trash(&self, path: &SourcePath, was: ContentHash) -> Result<String, SourceError> {
         let target = self.inside(path)?;
         unchanged(path, &target, Some(was))?;
-        let place = format!("{TRASH}/{}/{path}", stamp());
-        let to = self.trash_place(path, &place)?;
-        std::fs::rename(&target, &to).map_err(|error| write_error(path, &error))?;
-        Ok(place)
+        self.bin.put(&target).map_err(|_| SourceError::Untrashed { path: path.to_string() })
     }
 }
 
@@ -67,21 +64,6 @@ impl FsSources {
             return Err(SourceError::OutsideRoot { path: path.to_string() });
         }
         Ok(target)
-    }
-
-    /// Where `place`, under the trash, is on disk, with the folders it needs; refused when the
-    /// nearest part of it that exists leads out of the root.
-    fn trash_place(&self, path: &SourcePath, place: &str) -> Result<PathBuf, SourceError> {
-        let to = self.root.join(place);
-        let existing = to.ancestors().find(|at| at.symlink_metadata().is_ok()).unwrap_or(&self.root);
-        let resolved = std::fs::canonicalize(existing).map_err(|error| write_error(path, &error))?;
-        if !resolved.starts_with(&self.root) {
-            return Err(SourceError::OutsideRoot { path: path.to_string() });
-        }
-        if let Some(folder) = to.parent() {
-            std::fs::create_dir_all(folder).map_err(|error| write_error(path, &error))?;
-        }
-        Ok(to)
     }
 
     /// Where `path` is on disk, as [`FsSources::inside`] finds it, with a link at its end
@@ -104,12 +86,6 @@ fn temp_beside(target: &Path) -> PathBuf {
     let thread: String = format!("{:?}", std::thread::current().id()).chars().filter(char::is_ascii_digit).collect();
     let nanos = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_nanos();
     target.with_file_name(format!(".{name}.{}-{thread}-{nanos}.vc-tmp", std::process::id()))
-}
-
-/// A trash folder name from the time, to the nanosecond, so two trashings never share one.
-fn stamp() -> String {
-    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default();
-    format!("{}.{:09}", now.as_secs(), now.subsec_nanos())
 }
 
 /// Writes `text` to `temp`, a new file, with the folders it needs and the permissions of

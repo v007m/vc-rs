@@ -102,19 +102,17 @@ pub trait SourceWriter: Send + Sync {
     /// As [`SourceWriter::write`].
     fn remove(&self, path: &SourcePath) -> Result<(), SourceError>;
 
-    /// Moves the file at `path` into a fresh `<stamp>/` folder under the project's [`TRASH`],
-    /// at its own path there, only while it still hashes to `was`, and gives the place it went, relative to the root (D683). The
-    /// file is kept, never deleted; a person restores it by moving it back.
+    /// Sends the file at `path` to the system's trash, only while it still hashes to `was`, and
+    /// gives where it went as the system names it, or an empty string when the system does not
+    /// say (D683). The file is never deleted: one the trash does not take stays where it is.
     ///
     /// # Errors
     ///
-    /// [`SourceError::Changed`] when the file is not the one read, and nothing is moved; as
-    /// [`SourceWriter::write`] otherwise, the trash folder included.
+    /// [`SourceError::Changed`] when the file is not the one read, and nothing is moved;
+    /// [`SourceError::Untrashed`] when the trash does not take it; as [`SourceWriter::write`]
+    /// otherwise.
     fn trash(&self, path: &SourcePath, was: ContentHash) -> Result<String, SourceError>;
 }
-
-/// The folder, relative to the project root, a trashed definition file is moved into (D683).
-pub const TRASH: &str = ".vibranium/trash";
 
 /// What one discovery found.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -195,6 +193,15 @@ pub enum SourceError {
         /// The file.
         path: String,
     },
+    /// The system's trash did not take the file, as on a Linux host with no trash, so it was
+    /// left in the project; nothing is deleted instead (D683).
+    #[error(
+        "{path}: the system trash did not take it, so it is still in the project (on Linux this needs a freedesktop trash)"
+    )]
+    Untrashed {
+        /// The file.
+        path: String,
+    },
     /// A `paths.include` or `paths.exclude` glob does not parse.
     #[error("invalid glob {glob:?}: {reason}")]
     InvalidGlob {
@@ -224,7 +231,8 @@ impl SourceError {
             | Self::NotUtf8 { path }
             | Self::InvalidPath { path }
             | Self::OutsideRoot { path }
-            | Self::Changed { path } => Some(path),
+            | Self::Changed { path }
+            | Self::Untrashed { path } => Some(path),
             Self::InvalidGlob { .. } | Self::Root { .. } => None,
         }
     }
