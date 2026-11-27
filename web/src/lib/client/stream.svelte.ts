@@ -13,6 +13,8 @@ export type StreamFrame = Readonly<{
   atMs: number;
   json: string;
   size: number;
+  /** `json` in lower case, made once, for the filter (D756). */
+  search: string;
 }>;
 
 export type StreamEnd = Readonly<{ reason: string; failed: boolean; code?: number }>;
@@ -22,16 +24,31 @@ export const frameLimit = 1000;
 
 const encoder = new TextEncoder();
 
+/** Runs `flush` once, later: before the next paint, or in a microtask where nothing paints. */
+export type Schedule = (flush: () => void) => void;
+
+const nextPaint: Schedule = (flush) => {
+  if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => flush());
+  else queueMicrotask(flush);
+};
+
+/** `kept` then `incoming`, newest last, cut to the limit without copying a long burst whole. */
+function joined(kept: readonly StreamFrame[], incoming: readonly StreamFrame[]): StreamFrame[] {
+  const tail = incoming.length > frameLimit ? incoming.slice(-frameLimit) : incoming;
+  return kept.concat(tail).slice(-frameLimit);
+}
+
 /**
  * One open SSE or WebSocket stream (D564): its messages as they come, how it ended, and what
  * the view shows of them. Pausing holds new messages back until resumed; the stream keeps
- * reading. Closing asks the engine to close it; aborting stops reading at once.
+ * reading. Closing asks the engine to close it; aborting stops reading at once. Messages are
+ * batched and shown once per paint, so a burst replaces the list once, not once per message (D756).
  */
 export class StreamSession {
   status: StreamStatus = $state('idle');
-  frames: StreamFrame[] = $state([]);
+  frames: readonly StreamFrame[] = $state.raw([]);
   /** Messages that came while paused, shown on resume. */
-  held: StreamFrame[] = $state([]);
+  held: readonly StreamFrame[] = $state.raw([]);
   paused = $state(false);
   head: ExchangeLine | undefined = $state();
   runId: number | undefined = $state();
@@ -40,10 +57,15 @@ export class StreamSession {
   #stream: string | undefined;
   #abort: AbortController | undefined;
   #next = 1;
+  /** Messages taken since the last flush. */
+  #incoming: StreamFrame[] = [];
+  #due = false;
   readonly #port: StreamPort;
+  readonly #schedule: Schedule;
 
-  constructor(port: StreamPort) {
+  constructor(port: StreamPort, schedule: Schedule = nextPaint) {
     this.#port = port;
+    this.#schedule = schedule;
   }
 
   get live(): boolean {
@@ -63,6 +85,7 @@ export class StreamSession {
       if (!abort.signal.aborted) this.error = adhocWords(message(error));
     } finally {
       if (this.#abort === abort) this.#abort = undefined;
+      this.#flush();
       this.status = 'ended';
     }
   }
@@ -97,15 +120,17 @@ export class StreamSession {
   }
 
   setPaused(paused: boolean): void {
+    this.#flush();
     this.paused = paused;
     if (paused) return;
-    this.#keep(this.held);
+    this.frames = joined(this.frames, this.held);
     this.held = [];
   }
 
   clear(): void {
     this.frames = [];
     this.held = [];
+    this.#incoming = [];
   }
 
   #reset(): void {
@@ -133,13 +158,30 @@ export class StreamSession {
       return;
     }
     const { direction, atMs, json } = event;
-    const frame = { n: this.#next++, direction, atMs, json, size: encoder.encode(json).length };
-    if (this.paused) this.held = [...this.held, frame].slice(-frameLimit);
-    else this.#keep([frame]);
+    const size = encoder.encode(json).length;
+    this.#incoming.push({
+      n: this.#next++,
+      direction,
+      atMs,
+      json,
+      size,
+      search: json.toLowerCase(),
+    });
+    if (this.#due) return;
+    this.#due = true;
+    this.#schedule(() => {
+      this.#due = false;
+      this.#flush();
+    });
   }
 
-  #keep(frames: readonly StreamFrame[]): void {
-    if (frames.length > 0) this.frames = [...this.frames, ...frames].slice(-frameLimit);
+  /** Shows what came since the last flush, or holds it while paused. */
+  #flush(): void {
+    const incoming = this.#incoming;
+    if (incoming.length === 0) return;
+    this.#incoming = [];
+    if (this.paused) this.held = joined(this.held, incoming);
+    else this.frames = joined(this.frames, incoming);
   }
 }
 
@@ -151,7 +193,7 @@ export function shownFrames(frames: readonly StreamFrame[], view: FrameView): St
   return frames.filter(
     (f) =>
       (view.direction === 'all' || f.direction === view.direction) &&
-      (text === '' || f.json.toLowerCase().includes(text)),
+      (text === '' || f.search.includes(text)),
   );
 }
 
@@ -166,21 +208,32 @@ function fields(json: string): Record<string, unknown> {
   }
 }
 
-/** A frame's kind as the list shows it: an SSE event's name, else `text` or `json`. */
-export function frameKind(json: string): string {
-  const { event, data, text } = fields(json);
-  if (typeof event === 'string' && event !== '') return event;
-  const payload = data ?? text;
-  if (typeof payload !== 'string') return 'json';
-  return /^\s*[[{]/.test(payload) && parses(payload) ? 'json' : 'text';
+/** What a frame carried: its SSE `data` or WebSocket `text`, of any JSON type, if it has one. */
+function payload(json: string): { value: unknown } | undefined {
+  const envelope = fields(json);
+  if ('data' in envelope) return { value: envelope.data };
+  if ('text' in envelope) return { value: envelope.text };
+  return undefined;
 }
 
-/** What a frame carried, pretty when it is JSON: the SSE `data` or WebSocket `text` field. */
+/** A frame's kind as the list shows it: an SSE event's name, else `text` or `json`. */
+export function frameKind(json: string): string {
+  const { event } = fields(json);
+  if (typeof event === 'string' && event !== '') return event;
+  const carried = payload(json)?.value;
+  if (typeof carried !== 'string') return 'json';
+  return /^\s*[[{]/.test(carried) && parses(carried) ? 'json' : 'text';
+}
+
+/**
+ * What a frame carried, pretty when it is JSON (D754). The engine sends SSE `data` already parsed,
+ * so it may be any JSON value; only a frame with neither `data` nor `text` shows its envelope.
+ */
 export function frameBody(json: string): string {
-  const { data, text } = fields(json);
-  const payload = data ?? text;
-  if (typeof payload !== 'string') return pretty(json);
-  return pretty(payload);
+  const carried = payload(json);
+  if (carried === undefined) return pretty(json);
+  const { value } = carried;
+  return typeof value === 'string' ? pretty(value) : JSON.stringify(value, null, 2);
 }
 
 function parses(text: string): boolean {

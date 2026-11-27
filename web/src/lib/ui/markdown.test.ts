@@ -62,6 +62,49 @@ describe('the safe Markdown renderer', () => {
     expect(dom.querySelector('pre code')?.textContent).toBe('<script>x</script>');
   });
 
+  it('ends a heading at any line break: lone CR, U+2028 and U+2029 (D755)', () => {
+    const heading = (text: string) => ({
+      kind: 'heading',
+      level: 1,
+      spans: [{ text, code: false }],
+    });
+    const more = { kind: 'paragraph', spans: [{ text: 'more', code: false }] };
+    expect(blocks('# Title\rmore')).toEqual([heading('Title'), more]);
+    expect(blocks('# T\u2028more')).toEqual([heading('T'), more]);
+    expect(blocks('# T\u2029more')).toEqual([heading('T'), more]);
+    expect(blocks('# T x')).toEqual([heading('T x')]);
+    expect(blocks('#\tT')).toEqual([{ kind: 'paragraph', spans: [{ text: '#\tT', code: false }] }]);
+  });
+
+  it('always ends, whatever odd characters a line holds (D755)', () => {
+    const odd = [
+      '#',
+      ' ',
+      '\r',
+      '\n',
+      '\u2028',
+      '\u2029',
+      '\u0085',
+      '\v',
+      '\f',
+      '\t',
+      '`',
+      '-',
+      '*',
+      'x',
+    ];
+    let seed = 7;
+    const pick = () => {
+      seed = (seed * 1103515245 + 12345) % 2147483648;
+      return odd[seed % odd.length] ?? 'x';
+    };
+    for (let round = 0; round < 2000; round += 1) {
+      const text = Array.from({ length: 1 + (round % 12) }, pick).join('');
+      const out = blocks(text);
+      expect(out.length).toBeLessThanOrEqual(text.length + 1);
+    }
+  });
+
   it('renders the same blocks in Svelte, as text', () => {
     const { container } = render(Markdown, { text: `${page}\n\n<b>bold</b>` });
     expect(container.querySelector('h3')?.textContent).toBe('V2003 unknown reference');
