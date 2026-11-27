@@ -244,6 +244,7 @@ A wizard with six steps: Source (OpenAPI, HAR, Postman, Bruno, .http, cURL paste
 - `vc ui`'s server runs them while it is up and records each in run history with its schedule (D703, D704). It starts a run only from the compiled config, never because a client asked.
 - **Export to CI** writes a GitHub Actions cron workflow at `.github/workflows/vibranium-<id>.yml`, for machines that sleep (D707).
 - The list shows the cron in words, the selector, profile, runner, next run and last result, with an on/off switch. New schedule saves through a diff (D706).
+- Built (D727–D729): the cron in words in UTC (otherwise as written), the next run relative to now; New, Edit, Remove and Export each preview a diff and write with its digest; the switch writes at once and moves back on a failure. Each name links to All runs scoped by `?schedule=<id>`, shown as a removable chip.
 
 ## 7. Agents and Settings spaces
 

@@ -64,6 +64,23 @@ describe('RunHistory', () => {
     expect(history.previous(3)).toBeUndefined();
   });
 
+  it('keeps All runs for the newest scope when an older listing answers last', async () => {
+    const answers: ((runs: RunLine[]) => void)[] = [];
+    const port: HistoryPort = {
+      runs: (limit) =>
+        limit === RECENT ? Promise.resolve([]) : new Promise((done) => answers.push(done)),
+      run: () => Promise.reject(new Error('unused')),
+    };
+    const history = new RunHistory(port);
+    const unscoped = history.load();
+    const scoped = history.rescope({ schedule: 'nightly' });
+    answers[1]?.([line(3, 'tag:smoke')]);
+    await scoped;
+    answers[0]?.([line(9, 'all'), line(8, 'all')]);
+    await unscoped;
+    expect(history.runs.map((run) => run.id)).toEqual([3]);
+  });
+
   it('says why a run could not be read', async () => {
     const { history } = setup([]);
     await history.show(9);

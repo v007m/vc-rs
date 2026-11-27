@@ -29,7 +29,7 @@ const RUNS = [
   line(5, { selector: 'users.crud' }),
 ];
 
-async function rendered() {
+async function rendered(scope: RunScope = {}) {
   const asked: [number, RunScope | undefined][] = [];
   const port: HistoryPort = {
     runs: (limit, scope) => {
@@ -39,6 +39,7 @@ async function rendered() {
     run: () => Promise.reject(new Error('unused')),
   };
   const history = new RunHistory(port);
+  history.scope = scope;
   await history.load();
   render(AllRuns, { history, onrun: vi.fn() });
   return { asked, user: userEvent.setup() };
@@ -78,4 +79,19 @@ it('asks the history for the runs of the kind chosen', async () => {
   expect(load.getAttribute('aria-pressed')).toBe('true');
   await user.click(screen.getByRole('button', { name: 'All' }));
   expect(asked.at(-1)).toEqual([ALL, { kind: undefined }]);
+});
+
+it('shows the schedule the runs are listed for, and lists every run once it is removed', async () => {
+  const { asked, user } = await rendered({ schedule: 'nightly' });
+  expect(asked.at(-1)).toEqual([ALL, { schedule: 'nightly' }]);
+  expect(screen.getByText('nightly')).toBeTruthy();
+  await user.click(screen.getByRole('button', { name: 'Remove the schedule filter' }));
+  expect(goto).toHaveBeenCalledWith('/runs');
+  expect(asked.at(-1)).toEqual([ALL, { schedule: undefined }]);
+  expect(screen.queryByRole('button', { name: 'Remove the schedule filter' })).toBeNull();
+});
+
+it('shows no schedule chip for runs from every schedule', async () => {
+  await rendered();
+  expect(screen.queryByRole('button', { name: 'Remove the schedule filter' })).toBeNull();
 });
