@@ -1,11 +1,16 @@
 use std::fs;
 use std::path::Path;
+use std::sync::Arc;
 
-use vc_interfaces::PluginStderr;
+use vc_adapter_plugins::FsPluginStore;
+use vc_adapter_system::FsSources;
+use vc_interfaces::{PluginStderr, SourceError, SourceWriter};
+use vc_model::{ContentHash, SourcePath};
+use vc_testkit::{FakeVcs, MemoryCompileCache, MemoryEnvironment};
 
 use super::registry_spec;
 use crate::sample::plugin_engine;
-use crate::{Engine, EngineError, PluginState};
+use crate::{Engine, EngineBuilder, EngineError, PluginState};
 
 const CONFIG: &str = "syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\n";
 const MANIFEST: &str = concat!(
@@ -88,6 +93,50 @@ fn a_write_after_the_files_or_the_plugin_changed_is_stale_and_installs_nothing()
     let error = engine.client_plugin_add("path:plugin", Some(&preview.digest)).unwrap_err();
     assert!(matches!(error, EngineError::Stale { .. }), "{error:?}");
     assert!(!dir.path().join("vibranium.lock").exists());
+}
+
+/// A writer that another edit beats: it changes the config just before each unchanged write,
+/// after the engine compared the digest it read.
+struct Raced(FsSources);
+
+impl SourceWriter for Raced {
+    fn write(&self, path: &SourcePath, text: &str) -> Result<(), SourceError> {
+        self.0.write(path, text)
+    }
+
+    fn write_unchanged(&self, path: &SourcePath, text: &str, was: Option<ContentHash>) -> Result<(), SourceError> {
+        self.0.write(&SourcePath::new("vibranium.config.yaml").unwrap(), &format!("{CONFIG}# raced\n"))?;
+        self.0.write_unchanged(path, text, was)
+    }
+
+    fn remove(&self, path: &SourcePath) -> Result<(), SourceError> {
+        self.0.remove(path)
+    }
+
+    fn trash(&self, path: &SourcePath, was: ContentHash) -> Result<String, SourceError> {
+        self.0.trash(path, was)
+    }
+}
+
+#[test]
+fn a_write_that_fails_after_the_digest_matched_leaves_no_install() {
+    let (dir, _) = project();
+    let root = dir.path();
+    let engine = EngineBuilder::new(root.to_path_buf())
+        .vcs(Arc::new(FakeVcs::default()))
+        .environment(Arc::new(MemoryEnvironment::new(&[])))
+        .compile_cache(Arc::new(MemoryCompileCache::new()))
+        .sources(Arc::new(FsSources::new(root).unwrap()))
+        .writer(Arc::new(Raced(FsSources::new(root).unwrap())))
+        .plugins(Arc::new(FsPluginStore::new(root)))
+        .build()
+        .unwrap();
+    let preview = engine.client_plugin_add("path:plugin", None).unwrap();
+    let error = engine.client_plugin_add("path:plugin", Some(&preview.digest)).unwrap_err();
+    assert!(matches!(error, EngineError::Stale { .. }), "{error:?}");
+    assert!(!root.join(".vibranium/plugins/report").exists(), "the plugin installed for the write is taken out");
+    assert!(!root.join("vibranium.lock").exists());
+    assert!(nothing_staged(root));
 }
 
 #[test]

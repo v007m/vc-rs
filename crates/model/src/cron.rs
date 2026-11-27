@@ -1,8 +1,9 @@
 //! A schedule's `cron` (D520, D700): five fields, minute, hour, day of the month, month and day
 //! of the week, read in UTC as GitHub Actions reads them. Each field is `*`, a number, a range
-//! `a-b`, a step `*/n` or `a-b/n`, or a list of those joined with `,`. When both day fields are
-//! restricted, a day matching either fires, as POSIX cron has it; a day of the week of `7` is
-//! Sunday, as `0` is.
+//! `a-b`, a step `*/n`, `a-b/n` or `a/n` (`a` up to the field's top), or a list of those joined
+//! with `,`. A day field is unrestricted only when it is exactly `*` (D747): `*/2` restricts it.
+//! When both day fields are restricted, a day matching either fires, as vixie cron has it; a day
+//! of the week of `7` is Sunday, as `0` is.
 
 use std::fmt;
 
@@ -51,7 +52,7 @@ impl Cron {
         if sets[4] & (1 << 7) != 0 {
             sets[4] = (sets[4] | 1) & !(1 << 7);
         }
-        let any = |index: usize| parts.get(index).is_some_and(|part| part.starts_with('*'));
+        let any = |index: usize| parts.get(index).is_some_and(|part| *part == "*");
         Ok(Self { text: parts.join(" "), sets, any_day: any(2), any_weekday: any(4) })
     }
 
@@ -143,12 +144,13 @@ fn values(part: &str, (name, low, high): (&str, u8, u8)) -> Result<u64, String> 
     let mut set = 0;
     for item in part.split(',') {
         let (range, step) = item.split_once('/').map_or((item, None), |(range, step)| (range, Some(step)));
+        let to_the_top = step.is_some();
         let step = step.map_or(Ok(1), |step| stepped(step, name))?;
         let (from, to) = match range {
             "*" => (low, high),
             _ => match range.split_once('-') {
                 Some((from, to)) => (number(from, name)?, number(to, name)?),
-                None if step > 1 => (number(range, name)?, high),
+                None if to_the_top => (number(range, name)?, high),
                 None => (number(range, name)?, number(range, name)?),
             },
         };

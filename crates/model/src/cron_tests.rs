@@ -102,3 +102,32 @@ fn a_cron_is_written_back_as_text() {
     assert_eq!(back, cron);
     assert!(serde_json::from_value::<Cron>(serde_json::json!("nope")).is_err());
 }
+
+#[test]
+fn a_stepped_day_field_restricts_the_day() {
+    let every_other_day = cron("0 0 */2 * *");
+    assert!(every_other_day.fires_at(FRIDAY + 2 * DAY), "the 29th is odd, so it fires");
+    assert!(!every_other_day.fires_at(FRIDAY + 3 * DAY), "the 30th is even, so it does not");
+    let every_other_weekday = cron("0 0 * * */2");
+    assert!(!every_other_weekday.fires_at(FRIDAY), "Friday is day 5");
+    assert!(every_other_weekday.fires_at(FRIDAY + 2 * DAY), "Sunday is day 0");
+}
+
+#[test]
+fn a_stepped_day_of_the_month_and_a_weekday_match_either() {
+    let stepped_or_monday = cron("0 0 */3 * 1");
+    assert!(stepped_or_monday.fires_at(FRIDAY + 3 * DAY), "Monday the 30th fires by the weekday");
+    assert!(stepped_or_monday.fires_at(FRIDAY + DAY), "Saturday the 28th matches */3 (1, 4, ... 28)");
+    assert!(stepped_or_monday.fires_at(FRIDAY + 4 * DAY), "Tuesday 1 December matches */3");
+    assert!(!stepped_or_monday.fires_at(FRIDAY + 2 * DAY), "Sunday the 29th matches neither");
+    assert!(!stepped_or_monday.fires_at(FRIDAY + 5 * DAY), "Wednesday 2 December matches neither");
+}
+
+#[test]
+fn a_start_with_a_step_of_one_runs_to_the_top_of_the_field() {
+    let from_five = cron("0 5/1 * * *");
+    assert!(from_five.fires_at(FRIDAY + 23 * HOUR));
+    assert!(from_five.fires_at(FRIDAY + 5 * HOUR));
+    assert!(!from_five.fires_at(FRIDAY + 4 * HOUR));
+    assert_eq!(cron("0 5/1 * * *"), Cron { text: "0 5/1 * * *".into(), ..cron("0 5-23 * * *") });
+}

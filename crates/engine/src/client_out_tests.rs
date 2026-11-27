@@ -70,8 +70,20 @@ fn sets_refused(engine: &Engine, sets: &[&str]) -> String {
 fn a_client_reports_dir_set_inside_the_project_is_kept_and_other_sets_are_not_read() {
     let (dir, engine) = project();
     fs::create_dir(dir.path().join("reports")).unwrap();
-    let sets = ["reports.dir=reports/ci", " reports.dir = './new' ", "defaults.concurrency=4", "vars.dir=/tmp", "x"];
+    let sets = ["reports.dir=reports/ci", " reports.dir = './new' ", "defaults.concurrency=4", "vars.dir=/tmp"];
     engine.client_sets(&sets.map(str::to_owned)).unwrap();
+}
+
+#[test]
+fn a_client_set_with_no_equals_sign_gives_the_diagnostic_vc_run_gives() {
+    let (_dir, engine) = project();
+    let sets = ["defaults.concurrency=4".to_owned(), "baseUrl".to_owned()];
+    let error = engine.client_sets(&sets).unwrap_err();
+    assert!(matches!(&error, EngineError::Setting { origin, .. } if origin == "--set"), "{error:?}");
+    let set = vc_adapter_system::SetFlags::new(sets.to_vec());
+    let run = crate::settings::ordered(&[&set], &[]).unwrap_err();
+    assert_eq!(error.to_string(), run.to_string());
+    assert_eq!(error.to_string(), "--set: `baseUrl` is not key=value");
 }
 
 #[test]

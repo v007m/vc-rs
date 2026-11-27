@@ -233,16 +233,42 @@ fn counts(root: &Path, base: &str) -> Result<Vec<Counted>, VcsError> {
 }
 
 /// An untracked file's line count, and whether it is binary (a NUL in its first 8000 bytes, as
-/// git decides). A link is one line, its target, and is never followed.
+/// git decides). A file over 1 MiB is not read and counts as binary, as git counts one past its
+/// big-file threshold (D752). A link is one line, its target, and is never followed.
 fn lines(path: &Path) -> Counts {
-    let is_link = std::fs::symlink_metadata(path).is_ok_and(|meta| meta.file_type().is_symlink());
-    let bytes = if is_link { b"link\n".to_vec() } else { std::fs::read(path).unwrap_or_default() };
-    if bytes.iter().take(8000).any(|byte| *byte == 0) {
+    let Ok(meta) = std::fs::symlink_metadata(path) else { return (0, 0, false) };
+    if meta.file_type().is_symlink() {
+        return (1, 0, false);
+    }
+    if meta.len() > MOST_COUNTED {
         return (0, 0, true);
     }
-    let pieces = bytes.split(|byte| *byte == b'\n').count();
-    let ended = usize::from(bytes.is_empty() || bytes.ends_with(b"\n"));
-    (u32::try_from(pieces - ended).unwrap_or(u32::MAX), 0, false)
+    std::fs::File::open(path).map_or((0, 0, false), |file| counted(io::Read::take(file, MOST_COUNTED)))
+}
+
+/// The largest untracked file whose lines are counted.
+const MOST_COUNTED: u64 = 1 << 20;
+
+/// The bytes git looks at for a NUL to call a file binary.
+const SNIFFED: usize = 8000;
+
+/// The lines `reader` holds, a chunk at a time, or binary at a NUL in its first [`SNIFFED`]
+/// bytes; a read that fails ends the count.
+fn counted(mut reader: impl io::Read) -> Counts {
+    let mut chunk = [0_u8; 8192];
+    let (mut newlines, mut seen, mut last) = (0_usize, 0_usize, b'\n');
+    while let Ok(read @ 1..) = reader.read(&mut chunk) {
+        let bytes = chunk.get(..read).unwrap_or_default();
+        let sniffed = bytes.get(..SNIFFED.saturating_sub(seen).min(read)).unwrap_or_default();
+        if sniffed.contains(&0) {
+            return (0, 0, true);
+        }
+        newlines += bytes.iter().map(|byte| usize::from(*byte == b'\n')).sum::<usize>();
+        last = bytes.last().copied().unwrap_or(last);
+        seen += read;
+    }
+    let unended = usize::from(last != b'\n');
+    (u32::try_from(newlines + unended).unwrap_or(u32::MAX), 0, false)
 }
 
 /// `HEAD`, or the empty tree before the first commit.

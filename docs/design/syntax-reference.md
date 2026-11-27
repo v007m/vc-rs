@@ -1522,7 +1522,7 @@ Alert channels: `webhook`, `slack`, `teams`, `pagerduty`, `email`.
 
 ## Schedules
 
-`schedules` lists runs that start on a cron while `vc ui` is up (D520, D700). They are in the config, so they are in git, and the web UI's Runs space lists, adds, changes and removes them through a previewed diff of this file:
+`schedules` lists runs that start on a cron while `vc ui` is up (D520, D700). They are in the config, so they are in git, and the web UI's Runs space lists, adds, changes and removes them through a previewed diff of this file. A change edits the schedule in place, only the keys that changed (D749), so comments, keys the Runs space does not show, a `runner` this version does not know and a channel setting that is not text stay as written:
 
 ```yaml
 schedules:
@@ -1538,7 +1538,7 @@ schedules:
     enabled: true                   # the default; false keeps the schedule but never starts it
 ```
 
-`cron` is the five-field cron GitHub Actions reads, in UTC: minute (0-59), hour (0-23), day of the month (1-31), month (1-12) and day of the week (0-7; 0 and 7 are Sunday). Each field is `*`, a number, a range `a-b`, a step `*/n` or `a-b/n`, or a list of those joined with `,`. Names (`MON`, `JAN`), a seconds field and shortcuts (`@daily`) are not read; anything else is V2317, which names the field. When both day fields are restricted, a day matching either fires, as in POSIX cron.
+`cron` is the five-field cron GitHub Actions reads, in UTC: minute (0-59), hour (0-23), day of the month (1-31), month (1-12) and day of the week (0-7; 0 and 7 are Sunday). Each field is `*`, a number, a range `a-b`, a step `*/n` or `a-b/n`, a start with a step `a/n` (from `a` up to the field's top, so `5/1` in the hour field is 5-23; D748), or a list of those joined with `,`. Names (`MON`, `JAN`), a seconds field and shortcuts (`@daily`) are not read; anything else is V2317, which names the field. A day field is unrestricted only when it is exactly `*`; a step such as `*/2` restricts it, so `0 0 */2 * *` fires every other day of the month (D747). When both day fields are restricted, a day matching either fires, as in vixie cron: `0 0 */3 * 1` fires on the 1st, 4th, 7th … and on every Monday.
 
 `selector` and `profile` each take one text or a list. A selector word is read as `vc run` reads an argument it cannot find on disk: a full ID, a file ID, a `#id` or a glob over IDs; a word with a `/` is a folder or file path filter. `profile` names profiles from `profiles` (V2002 otherwise). `notify` takes the channels and keys of `alerts[].notify`, and `vc check` checks them the same way (V5117, V5120). A scheduled run also tells the config's `alerts` as any run does; `notify` is for this schedule's failures only (D702).
 
