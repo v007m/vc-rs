@@ -195,9 +195,10 @@ A wizard with six steps: Source (OpenAPI, HAR, Postman, Bruno, .http, cURL paste
   - New service, api file or test file, from the same templates as `vc new`.
   - Rename uses `vc rename`, with a diff preview of every file it changes.
   - Format uses `vc fmt`.
-  - Delete moves the file to the project's trash, `.vibranium/trash/` (D683), after a confirmation that lists the tests that reference it.
+  - Move to Trash sends the file to the Trash (D654; the engine's D683), after a confirmation that lists the tests that reference it.
 - **Plan preview** (`vc plan --explain`) for the selection shows the instances, the lifecycle order and the merged expects.
 - **Built so far (Round 98):** the YAML view only; the form view and Split come with the form editors. The view lives in a shadow root so its styles pass the CSP (D568). The editor bar holds Diff, Revert, Fix all, Check, Run file (Stop while it runs), Save and the file menu (D573). The plan preview covers the open file, not yet a selection (D576). Run file is a check run, `record: false`, so it leaves nothing in Runs (D645).
+- **Wired to the engine (Round 100):** completion and hover (D650), Explain in a side panel (D651), fixes through `ApplyFixes` (D652), the file operations (D653, D654) and the plan as `vc plan` prints it (D655).
 
 ## 6. Runs space (D519)
 
@@ -218,15 +219,15 @@ A wizard with six steps: Source (OpenAPI, HAR, Postman, Bruno, .http, cURL paste
 
 ### Load runs (`*.load.yaml`)
 - The load editor (stages, ramp and hold, executors, thresholds and scenarios) lives in Tests; its runs open here.
-- **Live run:** RPS, latency p50/p95/p99 and the error rate as hand-built SVG charts, with threshold lines and breach markers. A **Hosts panel** shows the load generator's own CPU, memory, open connections and dropped iterations. The engine must collect this; it's a new `load_tick` field.
-- **Report:** breaches, a latency histogram, the per-scenario split, and a comparison with earlier load runs.
-- **RPC:** load fields on `RunRequest`, or a `RunLoad` stream. The plan picks `RunLoad`, because the event shape differs.
+- **Live run:** RPS, latency p50/p95/p99 and the error rate as hand-built SVG charts, with threshold lines and breach markers. A **Hosts panel** shows the load generator's own CPU, memory, open connections and late starts (D677). Breaches are marked where a tick says a threshold is breaching (D648).
+- **Report** (D648): the whole run's figures and seed, the thresholds breached, failed iterations by kind, and the mix tests.
+- **RPC:** the `RunLoad` stream (D678). With no run open, `/runs/load` lists the load files to start.
 
 ### Runs and reports
 - **Runs list:** filter by status, profile, branch, kind (test, load, adhoc) and agent.
 - **Stored run** (D509, D636): a summary header (status, counts, duration, profile, branch @ commit, start time), an Export menu that copies `vc report N --format html|ctrf|junit`, `vc history show N --json` and the HTML report's path (the server serves no report files, so there is no Open report), and a ⋯ (Re-run failed, Compare, Copy run command); below it, the same view as a live run (D634). Each runs-list row has Compare, Run again and Copy run command in its ⋯. Routes: `/runs/<n>`, `/runs/load/<n>` and `/runs/compare/<a>/<b>` (D644).
-- **Compare two runs** (D637): newly failing, fixed, slower and faster tests (20 % and 50 ms or more), and changed response shapes.
-- **Per-test history strip** (D638): the open test's newest 30 results, a sparkline of its time, and its pass rate, flake rate and median.
+- **Compare two runs** (D637, D646): newly failing (blocked included), fixed, slower and faster tests (20 % and 50 ms or more), and changed response shapes, from `CompareRuns`.
+- **Per-test history strip** (D638, D647): the open test's newest 30 results from `TestHistory`, a sparkline of its time, and its pass rate, flake rate and median.
 
 ### Overview (the former Insights)
 - A profile and branch scope (D643): the project's profiles and the branches in the history.
@@ -447,8 +448,8 @@ Each step is one or two PRs, and each RPC gets its own small engine PR first.
 - **Step 6.** New file, Rename or move with its preview, Format, Move to trash and the plan preview are built behind `FileOps` and `PlanPort` (D575, D576).
 - **Step 7, Cancel part.** Stop, Stop now and Skip cleanups cancel a run by its handle (D577).
 - **Step 9, git part.** The Changes section of the Tests sidebar commits, pushes and pulls through the Vcs RPCs, with each file's diff (D578–D580), and the status line shows the branch (D581).
-- **Needs the engine.** Completion, hover, the file operations and the plan wait for `Complete` and `Hover`, `CreateFile`, `Rename` (with its preview), `Format`, the references list, `TrashFile`, `Plan` and `ApplyFixes` (§10, rows 4–6); against today's engine each says "needs a newer engine". Run file is recorded until `Run` takes `record: false` (row 17).
-- **Not built yet:** the form view and Split, Explain in a side panel, the Tests table's bulk actions and saved views, test detail, Quarantine and the per-test history strip (listed in Round 98).
+- **Wired in batch D (Round 100).** Completion, hover, the file operations, the plan and `ApplyFixes` use §10 rows 4–6 (D650–D655); Run file is a check run (row 17). An older engine still gets "needs a newer engine".
+- **Not built yet:** the form view and Split, the Tests table's bulk actions and saved views, test detail, Quarantine and the per-test history strip (listed in Round 98).
 
 **Done so far (batch D, Round 100):**
 
@@ -457,8 +458,8 @@ Each step is one or two PRs, and each RPC gets its own small engine PR first.
 - **Step 7, drill-down part.** The live run and a stored run share `RunDetail` (D634); a stored run has its header, Export and ⋯ (D636).
 - **Step 8.** The load screen's charts with threshold lines and breach markers (D641), the Hosts panel and the report (D639), at `/runs/load` and `/runs/load/<n>`.
 - **Step 9, compare and check parts.** Compare at `/runs/compare/<a>/<b>` (D637), the per-test history strip (D638), and Run file as a check run (D645). The Overview has its profile and branch scope (D643).
-- **Needs the engine.** Compare and the history strip wait for `CompareRuns` and `TestHistory` (§10 row 9); load runs wait for `RunLoad` and `load_tick` (row 8). Against today's engine each says "needs a newer engine".
-- **Not built yet:** Schedules (batch E), the Agent filter, starting a load run from Tests (with the load editor), a duration estimate in the plan line, and Quarantine from the Overview.
+- **Wired to the engine.** Compare and the history strip use `CompareRuns` and `TestHistory` (§10 row 9; D646, D647); load runs use `RunLoad` (row 8; D648). An older engine still gets "needs a newer engine".
+- **Not built yet:** Schedules (batch E), the Agent filter, starting a load run from Tests (with the load editor), a load run's profile and seed, a duration estimate in the plan line, and Quarantine from the Overview.
 
 **Strata restyle (Round 99):**
 
