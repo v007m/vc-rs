@@ -145,6 +145,18 @@ service EngineService {
   // Sets or removes user config settings: a preview, or the file written with the preview's
   // digest (D712).
   rpc WriteUserSettings(WriteUserSettingsRequest) returns (WriteUserSettingsResponse);
+  // `vc alerts test`: a sample notice, titled `[test]`, through every channel of every alert
+  // rule whose profiles match, under the request's profiles and sets over the server's (D713).
+  rpc TestAlert(TestAlertRequest) returns (TestAlertResponse);
+  // `vc plugin list`: each plugin of the config or `vibranium.lock`, and whether a run can use it.
+  rpc PluginList(PluginListRequest) returns (PluginListResponse);
+  // Adds a plugin from a registry package or a folder inside the project: a preview of what it
+  // asks to reach and the config and lock changes, or it installed and written with the
+  // preview's digest (D714).
+  rpc PluginAdd(PluginAddRequest) returns (PluginAddResponse);
+  // Removes a plugin from the config and the lock, and uninstalls it: a preview, or it written
+  // with the preview's digest (D715).
+  rpc PluginRemove(PluginRemoveRequest) returns (PluginRemoveResponse);
 }
 
 // Which tests or apis to act on, as `vc run` selects them.
@@ -1632,4 +1644,103 @@ message WriteUserSettingsResponse {
   string after = 3;
   // The digest to write with: the file's when previewed, the new one once written.
   string digest = 4;
+}
+
+message TestAlertRequest {
+  repeated string profiles = 1;
+  // `--set` values over the server's.
+  repeated string sets = 2;
+}
+
+message TestAlertResponse {
+  // One per channel, in written order; empty when no rule matches the profiles.
+  repeated AlertSent sent = 1;
+}
+
+message AlertSent {
+  // The rule's place in `alerts`, counting from 1.
+  uint32 rule = 1;
+  // The channel's kind: `slack`, `webhook`, ...
+  string channel = 2;
+  // Why it was not sent; never a URL or a key.
+  optional string error = 3;
+}
+
+message PluginListRequest {}
+
+message PluginListResponse {
+  repeated PluginListing plugins = 1;
+}
+
+message PluginListing {
+  string id = 1;
+  // The config's source, else the lock's.
+  string source = 2;
+  // The installed manifest; unset when it is not installed here.
+  optional PluginManifest manifest = 3;
+  // What `vibranium.lock` lets it reach; empty when it is not approved.
+  PluginPermissions granted = 4;
+  // `ready`, `notInstalled`, `notApproved`, `asksForMore`, `notInConfig`, `changed` or `noEntry`.
+  string state = 5;
+  // `ready`, or what is wrong and how to fix it, as `vc plugin list` says it.
+  string detail = 6;
+}
+
+message PluginManifest {
+  string id = 1;
+  string version = 2;
+  // `auth`, `reporter`, ...
+  string kind = 3;
+  // The entry program and its arguments.
+  string command = 4;
+  repeated string args = 5;
+  // What it asks to reach.
+  PluginPermissions permissions = 6;
+}
+
+message PluginPermissions {
+  // Hosts it may call.
+  repeated string network = 1;
+  // Secrets it may read.
+  repeated string secrets = 2;
+  // Project files it may read.
+  repeated string files = 3;
+}
+
+message PluginAddRequest {
+  // `npm:<package>[@<range>]`, a registry package only, or `path:<folder>`, a folder inside the
+  // project (V5132).
+  string source = 1;
+  bool write = 2;
+  // The preview's digest; required when `write` is set.
+  optional string expected_digest = 3;
+}
+
+message PluginAddResponse {
+  // The fetched manifest, with what it asks to reach.
+  PluginManifest manifest = 1;
+  // What the source resolved to, and a hash of what was fetched.
+  string resolved = 2;
+  string integrity = 3;
+  // What a run will trip over unless it is fixed.
+  repeated string warnings = 4;
+  repeated FileChange files = 5;
+  repeated string titles = 6;
+  // The digest of the changes as previewed, which the write passes back.
+  string digest = 7;
+}
+
+message PluginRemoveRequest {
+  // The plugin's ID, as `PluginList` names it.
+  string id = 1;
+  bool write = 2;
+  // The preview's digest; required when `write` is set.
+  optional string expected_digest = 3;
+}
+
+message PluginRemoveResponse {
+  repeated FileChange files = 1;
+  repeated string titles = 2;
+  // The digest of the changes as previewed, which the write passes back.
+  string digest = 3;
 }

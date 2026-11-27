@@ -44,7 +44,7 @@ impl Engine {
     }
 
     /// `folder`, which the client names as `name`, when it stays inside the project.
-    fn folder_inside(&self, folder: &str, name: &str) -> Result<PathBuf, EngineError> {
+    pub(crate) fn folder_inside(&self, folder: &str, name: &str) -> Result<PathBuf, EngineError> {
         let folder = Path::new(folder);
         let plain = folder.components().all(|part| matches!(part, Component::Normal(_) | Component::CurDir));
         if plain && resolves_inside(self.root(), &self.root().join(folder)) {

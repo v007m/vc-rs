@@ -3,11 +3,9 @@
 //! config (through the compile guard), its permissions into `vibranium.lock`, and its files to
 //! `.vibranium/plugins/<id>/`. Removing it takes all three back out.
 
-use std::fmt;
 use std::path::PathBuf;
 
 use vc_adapter_plugins::entry_found;
-use vc_diagnostics::Code;
 use vc_interfaces::{
     Fetched, LOCK_FILE, MANIFEST_FILE, PLUGINS_DIR, PluginManifest, PluginPermissions, PluginStoreError,
 };
@@ -20,6 +18,7 @@ use crate::edit::{Changes, FileChange, internal};
 use crate::explain::did_you_mean;
 use crate::plugin_lock::{self, Locked};
 use crate::plugin_manifest;
+pub use crate::plugin_state::{PluginState, no_entry, state};
 use crate::{Engine, EngineError};
 
 /// The sources `vc plugin add` takes, each with the help for one it cannot fetch.
@@ -27,6 +26,17 @@ const SCHEMES: [(&str, &str); 2] = [
     ("npm:", "check the package name and range, and that `npm` is on the path and can reach its registry"),
     ("path:", "check the folder: a `path:` source is a folder, from the project root, holding vibranium-plugin.yaml"),
 ];
+
+/// What a plugin's manifest needs, for a refusal's help.
+pub const MANIFEST_HELP: &str = "a plugin's vibranium-plugin.yaml has id, version, kind, entry.command and permissions";
+
+/// Why a source gave no offer.
+pub enum Unfetched {
+    /// The store could not fetch it.
+    Store(PluginStoreError),
+    /// What is wrong with its manifest.
+    Manifest(String),
+}
 
 /// A plugin `vc plugin add` fetched, waiting for what it asks to reach to be approved.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -61,51 +71,6 @@ pub struct PluginListing {
     pub state: PluginState,
 }
 
-/// Whether a run can use a plugin, and if not, why.
-#[derive(Clone, Debug, PartialEq, Eq)]
-#[non_exhaustive]
-pub enum PluginState {
-    /// In the config, approved and installed, asking for no more than it was granted.
-    Ready,
-    /// Approved but not installed here (`.vibranium/` is not committed): add it again.
-    NotInstalled,
-    /// In the config but not in `vibranium.lock`.
-    NotApproved,
-    /// Its installed manifest asks for these beyond what the lock grants: `secret apiKey`.
-    AsksForMore(Vec<String>),
-    /// In `vibranium.lock` but not in the config.
-    NotInConfig,
-    /// Its installed files no longer hash to what `vibranium.lock` approved (V5118): a run
-    /// refuses to start it.
-    Changed,
-    /// The program its `entry.command` names cannot be found: a run cannot start it.
-    NoEntry(String),
-}
-
-impl fmt::Display for PluginState {
-    /// `ready`, or what is wrong and how to fix it.
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Ready => f.write_str("ready"),
-            Self::NotInstalled => f.write_str("not installed: `vc plugin add` it again"),
-            Self::NotApproved => f.write_str("not approved: `vc plugin add` it"),
-            Self::AsksForMore(more) => write!(f, "asks for more: {}; `vc plugin add` it again", more.join(", ")),
-            Self::NotInConfig => f.write_str("not in the config: `vc plugin remove` it"),
-            Self::Changed => write!(
-                f,
-                "{}: its installed files changed since {LOCK_FILE} approved them; `vc plugin add` it again",
-                Code::V5118
-            ),
-            Self::NoEntry(command) => write!(f, "{}", no_entry(command)),
-        }
-    }
-}
-
-/// Why a run cannot start a plugin whose entry program `command` cannot be found.
-fn no_entry(command: &str) -> String {
-    format!("its entry program `{command}` cannot be found: install it, or fix `entry.command` in its {MANIFEST_FILE}")
-}
-
 impl Engine {
     /// Fetches the plugin at `source` (`npm:<package>` or `path:<folder>`) and reads its manifest,
     /// for the user to approve with [`Engine::plugin_approve`] or turn down with
@@ -120,7 +85,17 @@ impl Engine {
             let help = "a plugin source is `npm:<package>[@<range>]` or `path:<folder>`";
             return Err(refused(format!("`{source}` is not a plugin source"), help));
         };
-        let fetched = self.plugins.fetch(source).map_err(|error| refused(error.to_string(), help))?;
+        self.offer(source).map_err(|unfetched| match unfetched {
+            Unfetched::Store(error) => refused(error.to_string(), help),
+            Unfetched::Manifest(reason) => {
+                refused(format!("the {MANIFEST_FILE} of `{source}`: {reason}"), MANIFEST_HELP)
+            }
+        })
+    }
+
+    /// The plugin at `source` fetched and its manifest read; nothing is left behind on an error.
+    pub(crate) fn offer(&self, source: &str) -> Result<PluginOffer, Unfetched> {
+        let fetched = self.plugins.fetch(source).map_err(Unfetched::Store)?;
         match plugin_manifest::manifest(&fetched.manifest) {
             Ok(manifest) => Ok(PluginOffer {
                 source: source.to_owned(),
@@ -132,8 +107,7 @@ impl Engine {
             }),
             Err(reason) => {
                 self.plugins.discard(&fetched);
-                let help = format!("a plugin's {MANIFEST_FILE} has id, version, kind, entry.command and permissions");
-                Err(refused(format!("the {MANIFEST_FILE} of `{source}`: {reason}"), &help))
+                Err(Unfetched::Manifest(reason))
             }
         }
     }
@@ -162,6 +136,18 @@ impl Engine {
     }
 
     fn approved(&self, offer: &PluginOffer) -> Result<Changes, EngineError> {
+        let changes = self.approval(offer)?;
+        self.install(offer)?;
+        Ok(changes)
+    }
+
+    /// Moves a fetched plugin into `.vibranium/plugins/<id>/`.
+    pub(crate) fn install(&self, offer: &PluginOffer) -> Result<(), EngineError> {
+        self.plugins.install(&offer.fetched, &offer.manifest.id).map_err(|error| store_error(&error))
+    }
+
+    /// The changes that approve `offer`, through the guard; nothing is installed.
+    pub(crate) fn approval(&self, offer: &PluginOffer) -> Result<Changes, EngineError> {
         let id = &offer.manifest.id;
         let project = self.authoring()?;
         let mut changes = Changes::default();
@@ -172,7 +158,6 @@ impl Engine {
         let mut changes = self.guarded(&project, changes)?;
         changes.files.push(self.lock_change(|plugins| plugin_lock::with(plugins, locked(offer)))?);
         changes.titles.push(format!("Approve what {id} may reach in {LOCK_FILE}"));
-        self.plugins.install(&offer.fetched, id).map_err(|error| store_error(&error))?;
         Ok(changes)
     }
 
@@ -234,6 +219,18 @@ impl Engine {
     /// the guard refuses the change (an auth still uses it); [`EngineError::Sources`] when its
     /// folder cannot be removed.
     pub fn plugin_remove(&self, id: &str) -> Result<Changes, EngineError> {
+        let changes = self.removal(id)?;
+        self.uninstall(id)?;
+        Ok(changes)
+    }
+
+    /// Removes `.vibranium/plugins/<id>/`.
+    pub(crate) fn uninstall(&self, id: &str) -> Result<(), EngineError> {
+        self.plugins.uninstall(id).map_err(|error| store_error(&error))
+    }
+
+    /// The changes that take the plugin `id` out of the config and the lock; nothing is uninstalled.
+    pub(crate) fn removal(&self, id: &str) -> Result<Changes, EngineError> {
         let project = self.authoring()?;
         let opened = config(&project)?;
         let (_, locked) = self.locked()?;
@@ -255,7 +252,6 @@ impl Engine {
             changes.files.push(self.lock_change(|plugins| plugins.into_iter().filter(|old| old.id != id).collect())?);
             changes.titles.push(format!("Drop what {id} may reach from {LOCK_FILE}"));
         }
-        self.plugins.uninstall(id).map_err(|error| store_error(&error))?;
         Ok(changes)
     }
 
@@ -347,17 +343,6 @@ fn locked(offer: &PluginOffer) -> Locked {
     }
 }
 
-/// Whether a run can use a plugin with these parts.
-pub fn state(configured: bool, lock: Option<&Locked>, manifest: Option<&PluginManifest>) -> PluginState {
-    let Some(lock) = lock else { return PluginState::NotApproved };
-    if !configured {
-        return PluginState::NotInConfig;
-    }
-    let Some(manifest) = manifest else { return PluginState::NotInstalled };
-    let beyond = manifest.permissions.beyond(&lock.permissions);
-    if beyond.is_empty() { PluginState::Ready } else { PluginState::AsksForMore(beyond) }
-}
-
 /// The refusal for an ID no plugin has, with the close ones in `known`.
 fn unknown(id: &str, known: &[String]) -> EngineError {
     let near = vc_planner::closest(id, known.iter().map(String::as_str));
@@ -365,7 +350,7 @@ fn unknown(id: &str, known: &[String]) -> EngineError {
     refused(format!("there is no plugin `{id}`"), &help)
 }
 
-fn store_error(error: &PluginStoreError) -> EngineError {
+pub fn store_error(error: &PluginStoreError) -> EngineError {
     EngineError::Sources { reason: error.to_string() }
 }
 

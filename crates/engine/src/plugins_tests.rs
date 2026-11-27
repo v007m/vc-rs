@@ -4,13 +4,12 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use serde_json::Value;
-use vc_adapter_plugins::FsPluginStore;
-use vc_adapter_system::FsSources;
 use vc_interfaces::{PluginError, PluginKind, PluginStderr, Secrets};
-use vc_testkit::{FakeVcs, MemoryCompileCache, MemoryEnvironment};
+use vc_testkit::{FakeVcs, MemoryEnvironment};
 
 use super::PluginState;
 use crate::plugin_hosts::{ALLOW_UNCONFINED_ENV, Hosts};
+use crate::sample::plugin_engine;
 use crate::{Engine, EngineBuilder, EngineError};
 
 const CONFIG: &str = "syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\n";
@@ -32,17 +31,7 @@ fn project_with(stderr: PluginStderr) -> (tempfile::TempDir, Engine) {
     fs::create_dir_all(dir.path().join("plugin")).unwrap();
     fs::write(dir.path().join("plugin/vibranium-plugin.yaml"), MANIFEST).unwrap();
     fs::write(dir.path().join("plugin/report.py"), "print()\n").unwrap();
-    let folder = Arc::new(FsSources::new(dir.path()).unwrap());
-    let engine = EngineBuilder::new(dir.path().to_path_buf())
-        .vcs(Arc::new(FakeVcs::default()))
-        .environment(Arc::new(MemoryEnvironment::new(&[])))
-        .compile_cache(Arc::new(MemoryCompileCache::new()))
-        .sources(folder.clone())
-        .writer(folder)
-        .plugins(Arc::new(FsPluginStore::new(dir.path())))
-        .plugin_stderr(stderr)
-        .build()
-        .unwrap();
+    let engine = plugin_engine(dir.path(), stderr);
     (dir, engine)
 }
 

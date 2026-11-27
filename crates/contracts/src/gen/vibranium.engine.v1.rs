@@ -2244,6 +2244,144 @@ pub struct WriteUserSettingsResponse {
     #[prost(string, tag="4")]
     pub digest: ::prost::alloc::string::String,
 }
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct TestAlertRequest {
+    #[prost(string, repeated, tag="1")]
+    pub profiles: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// `--set` values over the server's.
+    #[prost(string, repeated, tag="2")]
+    pub sets: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct TestAlertResponse {
+    /// One per channel, in written order; empty when no rule matches the profiles.
+    #[prost(message, repeated, tag="1")]
+    pub sent: ::prost::alloc::vec::Vec<AlertSent>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct AlertSent {
+    /// The rule's place in `alerts`, counting from 1.
+    #[prost(uint32, tag="1")]
+    pub rule: u32,
+    /// The channel's kind: `slack`, `webhook`, ...
+    #[prost(string, tag="2")]
+    pub channel: ::prost::alloc::string::String,
+    /// Why it was not sent; never a URL or a key.
+    #[prost(string, optional, tag="3")]
+    pub error: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct PluginListRequest {
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PluginListResponse {
+    #[prost(message, repeated, tag="1")]
+    pub plugins: ::prost::alloc::vec::Vec<PluginListing>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct PluginListing {
+    #[prost(string, tag="1")]
+    pub id: ::prost::alloc::string::String,
+    /// The config's source, else the lock's.
+    #[prost(string, tag="2")]
+    pub source: ::prost::alloc::string::String,
+    /// The installed manifest; unset when it is not installed here.
+    #[prost(message, optional, tag="3")]
+    pub manifest: ::core::option::Option<PluginManifest>,
+    /// What `vibranium.lock` lets it reach; empty when it is not approved.
+    #[prost(message, optional, tag="4")]
+    pub granted: ::core::option::Option<PluginPermissions>,
+    /// `ready`, `notInstalled`, `notApproved`, `asksForMore`, `notInConfig`, `changed` or `noEntry`.
+    #[prost(string, tag="5")]
+    pub state: ::prost::alloc::string::String,
+    /// `ready`, or what is wrong and how to fix it, as `vc plugin list` says it.
+    #[prost(string, tag="6")]
+    pub detail: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct PluginManifest {
+    #[prost(string, tag="1")]
+    pub id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub version: ::prost::alloc::string::String,
+    /// `auth`, `reporter`, ...
+    #[prost(string, tag="3")]
+    pub kind: ::prost::alloc::string::String,
+    /// The entry program and its arguments.
+    #[prost(string, tag="4")]
+    pub command: ::prost::alloc::string::String,
+    #[prost(string, repeated, tag="5")]
+    pub args: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// What it asks to reach.
+    #[prost(message, optional, tag="6")]
+    pub permissions: ::core::option::Option<PluginPermissions>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct PluginPermissions {
+    /// Hosts it may call.
+    #[prost(string, repeated, tag="1")]
+    pub network: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Secrets it may read.
+    #[prost(string, repeated, tag="2")]
+    pub secrets: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Project files it may read.
+    #[prost(string, repeated, tag="3")]
+    pub files: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct PluginAddRequest {
+    /// `npm:<package>\[@<range>\]`, a registry package only, or `path:<folder>`, a folder inside the
+    /// project (V5132).
+    #[prost(string, tag="1")]
+    pub source: ::prost::alloc::string::String,
+    #[prost(bool, tag="2")]
+    pub write: bool,
+    /// The preview's digest; required when `write` is set.
+    #[prost(string, optional, tag="3")]
+    pub expected_digest: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PluginAddResponse {
+    /// The fetched manifest, with what it asks to reach.
+    #[prost(message, optional, tag="1")]
+    pub manifest: ::core::option::Option<PluginManifest>,
+    /// What the source resolved to, and a hash of what was fetched.
+    #[prost(string, tag="2")]
+    pub resolved: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub integrity: ::prost::alloc::string::String,
+    /// What a run will trip over unless it is fixed.
+    #[prost(string, repeated, tag="4")]
+    pub warnings: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(message, repeated, tag="5")]
+    pub files: ::prost::alloc::vec::Vec<FileChange>,
+    #[prost(string, repeated, tag="6")]
+    pub titles: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// The digest of the changes as previewed, which the write passes back.
+    #[prost(string, tag="7")]
+    pub digest: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct PluginRemoveRequest {
+    /// The plugin's ID, as `PluginList` names it.
+    #[prost(string, tag="1")]
+    pub id: ::prost::alloc::string::String,
+    #[prost(bool, tag="2")]
+    pub write: bool,
+    /// The preview's digest; required when `write` is set.
+    #[prost(string, optional, tag="3")]
+    pub expected_digest: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PluginRemoveResponse {
+    #[prost(message, repeated, tag="1")]
+    pub files: ::prost::alloc::vec::Vec<FileChange>,
+    #[prost(string, repeated, tag="2")]
+    pub titles: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// The digest of the changes as previewed, which the write passes back.
+    #[prost(string, tag="3")]
+    pub digest: ::prost::alloc::string::String,
+}
 /// What to list.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]

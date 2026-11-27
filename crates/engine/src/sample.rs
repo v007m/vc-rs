@@ -1,9 +1,11 @@
 //! The sample project the engine's unit tests plan and list.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use vc_interfaces::{SourceProvider, Vcs};
+use vc_adapter_plugins::FsPluginStore;
+use vc_adapter_system::FsSources;
+use vc_interfaces::{PluginStderr, SourceProvider, Vcs};
 use vc_model::Date;
 use vc_testkit::{FakeVcs, FixedClock, MemoryApprovals, MemoryCompileCache, MemoryEnvironment, MemorySources};
 
@@ -61,4 +63,20 @@ pub fn builder(vcs: impl Vcs + 'static) -> EngineBuilder {
         .clock(Arc::new(FixedClock(Date::new(2026, 11, 5).unwrap())))
         .environment(Arc::new(MemoryEnvironment::new(&[])))
         .vcs(Arc::new(vcs))
+}
+
+/// An engine over the files under `root`, with the standard plugin store, its plugins' stderr
+/// going to `stderr`.
+pub fn plugin_engine(root: &Path, stderr: PluginStderr) -> Engine {
+    let folder = Arc::new(FsSources::new(root).unwrap());
+    EngineBuilder::new(root.to_path_buf())
+        .vcs(Arc::new(FakeVcs::default()))
+        .environment(Arc::new(MemoryEnvironment::new(&[])))
+        .compile_cache(Arc::new(MemoryCompileCache::new()))
+        .sources(folder.clone())
+        .writer(folder)
+        .plugins(Arc::new(FsPluginStore::new(root)))
+        .plugin_stderr(stderr)
+        .build()
+        .unwrap()
 }

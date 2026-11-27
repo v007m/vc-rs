@@ -71,7 +71,7 @@ impl Engine {
 
     /// Writes each file of `changes`, every one only while it is the text the change was made
     /// from when `every` is set, else only a spec snapshot.
-    fn write_each(&self, changes: &Changes, every: bool) -> Result<(), EngineError> {
+    pub(crate) fn write_each(&self, changes: &Changes, every: bool) -> Result<(), EngineError> {
         let writer = self.writer.as_ref().ok_or_else(|| internal("this engine has no folder to write into"))?;
         for change in &changes.files {
             let path = SourcePath::new(&change.path).map_err(internal)?;
