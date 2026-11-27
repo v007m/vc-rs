@@ -13,18 +13,43 @@
    */
   let { session }: { session: LoadSession } = $props();
 
+  const uid = $props.id();
   let view = $state<'live' | 'report'>('live');
   let table = $state(false);
+  let picked = $state('');
   const run = $derived(session.run);
   const shown = $derived(run?.report ? view : 'live');
+  /** The x axis's end: the planned length, or the ticks so far when it is not known. */
+  const tMax = $derived(run ? Math.max(run.plannedS, run.ticks.at(-1)?.t ?? 0, 10) : 0);
+  const scenario = $derived(picked || session.scenarios[0] || '');
 </script>
 
 {#if !run}
   <EmptyState
     icon="runs"
     title="No load run is open"
-    caption={session.note ?? 'Open a load run from All runs; it shows here.'}
-  />
+    caption={session.note ??
+      (session.scenarios.length
+        ? 'Start a load scenario, or open a load run from All runs.'
+        : 'Open a load run from All runs; it shows here.')}
+  >
+    {#snippet action()}
+      {#if session.scenarios.length}
+        <div class="start">
+          <label class="vc-sr" for="{uid}-scenario">Load scenario</label>
+          <select id="{uid}-scenario" class="st-input vc-mono" bind:value={picked}>
+            {#each session.scenarios as id (id)}<option value={id}>{id}</option>{/each}
+          </select>
+          <button
+            type="button"
+            class="st-btn st-btn--primary"
+            disabled={!scenario}
+            onclick={() => void session.start(scenario)}>Start</button
+          >
+        </div>
+      {/if}
+    {/snippet}
+  </EmptyState>
 {:else}
   <header class="head">
     <h2 class="st-title2 vc-mono">{run.file}</h2>
@@ -57,6 +82,11 @@
     {/if}
   </header>
   {#if session.note}<p class="st-secondary" role="status">{session.note}</p>{/if}
+  {#if !session.running && !run.ticks.length && !run.report}
+    <p class="st-secondary" role="note">
+      The history keeps a load run's verdict, not its ticks. Run it again to watch one.
+    </p>
+  {/if}
   {#if shown === 'report' && run.report}
     <LoadReportView report={run.report} />
   {:else}
@@ -73,7 +103,7 @@
         <LineChart
           {...chart}
           ticks={run.ticks}
-          tMax={run.plannedS}
+          {tMax}
           threshold={thresholdFor(run, chart)}
           {table}
         />
@@ -92,6 +122,15 @@
   }
   h2 {
     margin: 0;
+  }
+  .start {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .start select {
+    width: auto;
+    min-width: 200px;
   }
   .tbl {
     display: inline-flex;

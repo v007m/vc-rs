@@ -73,6 +73,11 @@ const statuses: Readonly<Record<TestStatus, Status>> = {
   [TestStatus.ALLOWED_FAILURE]: 'failed',
 };
 
+/** A stored test status as the screens show it. */
+export function statusOf(status: TestStatus): Status {
+  return statuses[status] ?? 'skipped';
+}
+
 /** A results `Run` as the history lists it. */
 export function runLine(run: Run): RunLine {
   const { passed = 0, failed = 0, blocked = 0, flaky = 0, skipped = 0 } = run.totals ?? {};
@@ -99,7 +104,7 @@ export function testDetail(test: Test): TestDetail {
       key: test.label || test.id,
       label: test.label || test.id,
       file: test.id.split('#')[0] ?? '',
-      status: statuses[test.status] ?? 'skipped',
+      status: statusOf(test.status),
       ms: test.durationMs,
       tags: [],
     },

@@ -1,7 +1,7 @@
 <script lang="ts">
   import CheckList from '#lib/results/CheckList.svelte';
   import ExchangeView from '#lib/results/ExchangeView.svelte';
-  import { ms } from '#lib/results/status.ts';
+  import { testTime } from '#lib/results/status.ts';
   import TestList from '#lib/results/TestList.svelte';
   import Tabs from '#lib/ui/Tabs.svelte';
   import { lens } from '#lib/ui/segmented.ts';
@@ -54,7 +54,7 @@
       <section class="test" aria-labelledby="{uid}-t">
         <h3 class="st-title3" id="{uid}-t">{open.row.label}</h3>
         <p class="st-secondary vc-mono">
-          {open.id} · {open.row.status} · {ms(open.row.ms)} ms{open.attempts > 1
+          {open.id} · {open.row.status} · {testTime(open.row.status, open.row.ms)}{open.attempts > 1
             ? ` · ${open.attempts} attempts`
             : ''}
         </p>

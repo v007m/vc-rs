@@ -4,12 +4,15 @@
 
   /**
    * The load generator's own state at the newest tick (D639, `load_tick.host`): CPU, memory,
-   * open connections and dropped iterations, with a warning when the generator is the limit.
+   * open connections and late starts (D674), with a warning when the generator is the limit. A
+   * figure the platform does not tell shows a dash.
    */
   let { host }: { host: HostStats | undefined } = $props();
 
   const uid = $props.id();
   const warning = $derived(host ? hostWarning(host) : undefined);
+  const count = (n: number | undefined): string =>
+    n === undefined ? '—' : n.toLocaleString('en-US');
 </script>
 
 <section class="hosts st-card" aria-labelledby="{uid}-t">
@@ -19,19 +22,19 @@
     <dl>
       <div>
         <dt>CPU</dt>
-        <dd>{Math.round(host.cpu)} %</dd>
+        <dd>{host.cpu === undefined ? '—' : `${Math.round(host.cpu)} %`}</dd>
       </div>
       <div>
         <dt>Memory</dt>
-        <dd>{Math.round(host.memMb).toLocaleString('en-US')} MB</dd>
+        <dd>{host.memMb === undefined ? '—' : `${count(Math.round(host.memMb))} MB`}</dd>
       </div>
       <div>
         <dt>Connections</dt>
-        <dd>{host.conns.toLocaleString('en-US')}</dd>
+        <dd>{count(host.conns)}</dd>
       </div>
       <div>
-        <dt>Dropped</dt>
-        <dd class:bad={host.dropped > 0}>{host.dropped.toLocaleString('en-US')}</dd>
+        <dt>Late starts</dt>
+        <dd class:bad={host.late > 0}>{count(host.late)}</dd>
       </div>
     </dl>
     {#if warning}<p class="warn" role="note"><span aria-hidden="true">⚠</span> {warning}</p>{/if}

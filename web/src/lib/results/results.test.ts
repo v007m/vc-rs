@@ -111,7 +111,7 @@ describe('TestList', () => {
     const { list } = rendered();
     const options = within(list).getAllByRole('option');
     expect(options.length).toBeLessThan(60);
-    expect(text(options[9])).toBe('Checks thing 9 , failed users.crud 4.0');
+    expect(text(options[9])).toBe('Checks thing 9 , failed users.crud 4.0 ms');
     expect(options[0]?.getAttribute('aria-setsize')).toBe('10000');
   });
 

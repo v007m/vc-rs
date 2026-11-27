@@ -6,7 +6,7 @@
 </script>
 
 <script lang="ts">
-  import { breaches, clock, linePath, margin, peakIndex, scale, timeTicks, yTop } from './chart.ts';
+  import { breachOf, clock, linePath, margin, peakIndex, scale, timeTicks, yTop } from './chart.ts';
   import type { LoadThreshold, LoadTick } from './port.ts';
 
   /**
@@ -42,7 +42,9 @@
   const metrics = $derived(series.map((s) => s.metric));
   const at = $derived(scale([Math.max(240, width), height], tMax, yTop(ticks, metrics, threshold)));
   const grid = $derived([0, 0.25, 0.5, 0.75, 1].map((f) => f * at.yMax));
-  const spans = $derived(threshold ? breaches(ticks, threshold.metric, threshold.limit) : []);
+  const breach = $derived(breachOf(ticks, metrics, threshold));
+  const spans = $derived(breach.spans);
+  const marked = $derived(breach.metric);
   const last = $derived(ticks.at(-1));
   const now = $derived(
     last ? `now ${fmt(last[series.at(-1)?.metric ?? 'rps'])}${unit}` : 'waiting for the first tick',
@@ -50,7 +52,7 @@
   const rows = $derived(ticks.filter((_, i) => i % 6 === 0));
   const summary = $derived(
     spans.length
-      ? `${threshold?.label} breached from ${spans.map(([a, b]) => `${clock(ticks[a]?.t ?? 0)} to ${clock(ticks[b]?.t ?? 0)}`).join(', ')}`
+      ? `${threshold?.label ?? marked} breached from ${spans.map(([a, b]) => `${clock(ticks[a]?.t ?? 0)} to ${clock(ticks[b]?.t ?? 0)}`).join(', ')}`
       : threshold
         ? `${threshold.label} held`
         : '',
@@ -61,7 +63,8 @@
   }
 
   function over(tick: LoadTick, metric: LoadMetric): boolean {
-    return threshold?.metric === metric && tick[metric] > threshold.limit;
+    if (marked !== metric) return false;
+    return threshold ? tick[metric] > threshold.limit : tick.breaching.includes(metric);
   }
 </script>
 
@@ -117,16 +120,16 @@
         {#each timeTicks(tMax, at.width) as t (t)}
           <text class="ax" x={at.x(t)} y={at.height - 8} text-anchor="middle">{clock(t)}</text>
         {/each}
+        {#each spans as [a, b] (a)}
+          <rect
+            class="band"
+            x={at.x(ticks[a]?.t ?? 0)}
+            y={margin.t}
+            width={Math.max(2, at.x(ticks[b]?.t ?? 0) - at.x(ticks[a]?.t ?? 0))}
+            height={at.height - margin.t - margin.b}
+          />
+        {/each}
         {#if threshold}
-          {#each spans as [a, b] (a)}
-            <rect
-              class="band"
-              x={at.x(ticks[a]?.t ?? 0)}
-              y={margin.t}
-              width={Math.max(2, at.x(ticks[b]?.t ?? 0) - at.x(ticks[a]?.t ?? 0))}
-              height={at.height - margin.t - margin.b}
-            />
-          {/each}
           <line
             class="th"
             x1={margin.l}
@@ -146,15 +149,15 @@
             <text class="end" x={at.x(last.t) + 8} y={at.y(last[s.metric]) + 4}>{s.label}</text>
           {/if}
         {/each}
-        {#if threshold}
+        {#if marked}
           {#each spans as span (span[0])}
-            {@const peak = ticks[peakIndex(ticks, threshold.metric, span)]}
+            {@const peak = ticks[peakIndex(ticks, marked, span)]}
             {#if peak}
               <g class="breach">
-                <circle cx={at.x(peak.t)} cy={at.y(peak[threshold.metric])} r="5" />
+                <circle cx={at.x(peak.t)} cy={at.y(peak[marked])} r="5" />
                 <text
                   x={at.x(peak.t)}
-                  y={Math.max(margin.t + 10, at.y(peak[threshold.metric]) - 10)}
+                  y={Math.max(margin.t + 10, at.y(peak[marked]) - 10)}
                   text-anchor="middle">✕ breach {clock(ticks[span[0]]?.t ?? 0)}</text
                 >
               </g>

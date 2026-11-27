@@ -3,105 +3,113 @@
   import type { LoadReport } from './port.ts';
 
   /**
-   * A finished load run's report (D639): each threshold's verdict, the latency histogram, the
-   * scenario split, and p99 against earlier runs of the same file.
+   * A finished load run's report, as `vc load --json` gives it (D639, D678): the whole run's
+   * figures, the thresholds it breached, each mix test, and the failed iterations by kind.
    */
   let { report }: { report: LoadReport } = $props();
 
   const uid = $props.id();
-  const most = $derived(Math.max(1, ...report.histogram.map(([, n]) => n)));
-  const slowest = $derived(Math.max(1, ...report.previous.map((p) => p.p99)));
-  const num = (v: number): string => String(+v.toFixed(2));
+  const whole = (n: number): string => Math.round(n).toLocaleString('en-US');
+  const share = (errors: number, of: number): string =>
+    of > 0 ? `${+((errors / of) * 100).toFixed(2)} %` : '—';
+  const figures = $derived<readonly (readonly [string, string])[]>([
+    ['Length', clock(report.seconds)],
+    ['Iterations', whole(report.iterations)],
+    ['Requests a second', whole(report.rps)],
+    ['Errors', share(report.errors, report.iterations)],
+    ['p50', `${whole(report.latency.p50)} ms`],
+    ['p95', `${whole(report.latency.p95)} ms`],
+    ['p99', `${whole(report.latency.p99)} ms`],
+    ['Max', `${whole(report.latency.max)} ms`],
+  ]);
 </script>
 
 <div class="report">
-  <section class="st-card wide" aria-labelledby="{uid}-verdicts">
-    <h3 class="st-title3" id="{uid}-verdicts">Thresholds</h3>
-    {#if report.verdicts.length}
+  {#if report.blocked}
+    <p class="blocked wide" role="alert">No user started: {report.blocked}</p>
+  {/if}
+  <section class="st-card wide" aria-labelledby="{uid}-sum">
+    <h3 class="st-title3" id="{uid}-sum">Whole run</h3>
+    <dl class="figures">
+      {#each figures as [label, value] (label)}
+        <div>
+          <dt>{label}</dt>
+          <dd>{value}</dd>
+        </div>
+      {/each}
+    </dl>
+    <p class="st-secondary">Seed {report.seed}, to replay it.</p>
+  </section>
+  <section class="st-card" aria-labelledby="{uid}-breaches">
+    <h3 class="st-title3" id="{uid}-breaches">Thresholds</h3>
+    {#if report.breaches.length}
+      <ul class="rows">
+        {#each report.breaches as b (`${b.test ?? ''} ${b.metric}`)}
+          <li>
+            <span class="st-badge vc-fail">✕ Breached</span>
+            <span class="vc-mono">{b.test ? `${b.test}: ` : ''}{b.metric}</span>
+            <span class="st-secondary">{b.shown}</span>
+          </li>
+        {/each}
+      </ul>
+    {:else}
+      <p class="st-secondary"><span aria-hidden="true">✓</span> No threshold was breached.</p>
+    {/if}
+  </section>
+  <section class="st-card" aria-labelledby="{uid}-errors">
+    <h3 class="st-title3" id="{uid}-errors">Failed iterations</h3>
+    {#if report.errorKinds.length}
       <table class="vc-table">
         <thead>
           <tr>
-            <th scope="col">Threshold</th><th scope="col">Scope</th><th scope="col">Verdict</th>
-            <th scope="col" class="r">Worst</th><th scope="col" class="r">At</th>
-            <th scope="col" class="r">Whole run</th>
+            <th scope="col">Where</th><th scope="col">Status</th><th scope="col">Code</th>
+            <th scope="col" class="r">Count</th>
           </tr>
         </thead>
         <tbody>
-          {#each report.verdicts as v (`${v.threshold.label} ${v.scope}`)}
+          {#each report.errorKinds as k, i (i)}
             <tr>
-              <td class="vc-mono">{v.threshold.label}</td>
-              <td>{v.scope}</td>
-              <td>
-                <span class="st-badge {v.held ? 'vc-pass' : 'vc-fail'}"
-                  >{v.held ? '✓ Held' : '✕ Breached'}</span
-                >
-              </td>
-              <td class="r">{num(v.worst)}</td>
-              <td class="r vc-mono">{clock(v.at)}</td>
-              <td class="r">{num(v.whole)}</td>
+              <td class="vc-mono">{k.api ?? k.test ?? '—'}</td>
+              <td>{k.status ?? '—'}</td>
+              <td class="vc-mono">{k.code ?? '—'}</td>
+              <td class="r">{whole(k.count)}</td>
             </tr>
           {/each}
         </tbody>
       </table>
     {:else}
-      <p class="st-secondary">This load file sets no thresholds.</p>
+      <p class="st-secondary">No iteration failed.</p>
     {/if}
   </section>
-  <section class="st-card" aria-labelledby="{uid}-hist">
-    <h3 class="st-title3" id="{uid}-hist">Latency histogram</h3>
-    <ul class="bars">
-      {#each report.histogram as [upper, n] (upper)}
-        <li>
-          <span class="lbl vc-mono">≤ {upper} ms</span>
-          <span class="bar"><i style:width="{(n / most) * 100}%"></i></span>
-          <span class="n">{n.toLocaleString('en-US')}</span>
-        </li>
-      {/each}
-    </ul>
-  </section>
-  <section class="st-card" aria-labelledby="{uid}-prev">
-    <h3 class="st-title3" id="{uid}-prev">p99 against earlier runs</h3>
-    <ul class="bars">
-      {#each report.previous as p, i (p.run)}
-        <li class:this={i === 0}>
-          <span class="lbl vc-mono">#{p.run}{i === 0 ? ' (this)' : ''}</span>
-          <span class="bar"><i style:width="{(p.p99 / slowest) * 100}%"></i></span>
-          <span class="n">{Math.round(p.p99)} ms</span>
-        </li>
-      {/each}
-    </ul>
-  </section>
   <section class="st-card wide" aria-labelledby="{uid}-mix">
-    <h3 class="st-title3" id="{uid}-mix">Scenarios</h3>
+    <h3 class="st-title3" id="{uid}-mix">Mix tests</h3>
     <table class="vc-table">
       <thead>
         <tr>
-          <th scope="col">Test</th><th scope="col" class="r">Weight</th>
-          <th scope="col" class="r">Iterations</th><th scope="col" class="r">p50</th>
+          <th scope="col">Test</th><th scope="col" class="r">Iterations</th>
+          <th scope="col" class="r">rps</th><th scope="col" class="r">p50</th>
           <th scope="col" class="r">p95</th><th scope="col" class="r">p99</th>
-          <th scope="col" class="r">Errors</th><th scope="col">Verdict</th>
+          <th scope="col" class="r">Errors</th>
         </tr>
       </thead>
       <tbody>
-        {#each report.scenarios as s (s.test)}
+        {#each report.tests as t (t.test)}
           <tr>
-            <td class="vc-mono">{s.test}</td>
-            <td class="r">{s.weight}</td>
-            <td class="r">{s.iterations.toLocaleString('en-US')}</td>
-            <td class="r">{Math.round(s.p50)} ms</td>
-            <td class="r">{Math.round(s.p95)} ms</td>
-            <td class="r">{Math.round(s.p99)} ms</td>
-            <td class="r">{num(s.errorRate)} %</td>
-            <td>
-              <span class="st-badge {s.held ? 'vc-pass' : 'vc-fail'}"
-                >{s.held ? '✓ Held' : '✕ Breached'}</span
-              >
-            </td>
+            <td class="vc-mono">{t.test}</td>
+            <td class="r">{whole(t.iterations)}</td>
+            <td class="r">{whole(t.rps)}</td>
+            <td class="r">{whole(t.latency.p50)} ms</td>
+            <td class="r">{whole(t.latency.p95)} ms</td>
+            <td class="r">{whole(t.latency.p99)} ms</td>
+            <td class="r">{share(t.errors, t.iterations)}</td>
           </tr>
         {/each}
       </tbody>
     </table>
   </section>
+  {#each report.notices as notice (notice)}
+    <p class="st-secondary wide" role="note">{notice}</p>
+  {/each}
 </div>
 
 <style>
@@ -121,43 +129,46 @@
   .wide {
     grid-column: 1 / -1;
   }
-  h3 {
+  h3,
+  p {
     margin: 0;
   }
-  .bars {
+  .figures {
     display: grid;
-    gap: 6px;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 10px 16px;
+    margin: 0;
+  }
+  dt {
+    font: var(--st-type-caption);
+    color: var(--st-text-secondary);
+  }
+  dd {
+    margin: 2px 0 0;
+    font-size: var(--vc-size-callout);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  .rows {
+    display: grid;
     margin: 0;
     padding: 0;
     list-style: none;
   }
-  .bars li {
-    display: grid;
-    grid-template-columns: 96px minmax(0, 1fr) 72px;
+  .rows li {
+    display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 10px;
-    font-size: var(--vc-size-caption);
+    gap: 6px 10px;
+    padding: 8px 0;
+    border-top: 1px solid var(--st-chrome-separator);
   }
-  .bar {
-    height: 8px;
-    border-radius: 4px;
-    background: var(--st-surface-wash);
-    overflow: hidden;
+  .rows li:first-child {
+    border-top: 0;
   }
-  .bar i {
-    display: block;
-    height: 100%;
-    background: var(--vc-info);
-  }
-  .this .bar i {
-    background: var(--st-accent);
-  }
-  .this {
+  .blocked {
+    color: var(--vc-fail-ink);
     font-weight: 600;
-  }
-  .n {
-    text-align: right;
-    font-variant-numeric: tabular-nums;
   }
   .r {
     text-align: right;

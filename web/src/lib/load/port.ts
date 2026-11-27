@@ -1,7 +1,11 @@
 import { notYet, type Maybe } from '#lib/api/maybe.ts';
 
-/** The load generator's own state at one tick (`load_tick`, ui.md §6). */
-export type HostStats = Readonly<{ cpu: number; memMb: number; conns: number; dropped: number }>;
+/**
+ * The load generator's own state at one tick (`LoadTick.host`, D674–D677): CPU in percent of one
+ * core, resident memory, open connections, each absent when the platform does not tell it, and
+ * the iterations so far that started late.
+ */
+export type HostStats = Readonly<{ cpu?: number; memMb?: number; conns?: number; late: number }>;
 
 /** One tick of a load run: seconds from its start and what it measured over the window. */
 export type LoadTick = Readonly<{
@@ -13,6 +17,8 @@ export type LoadTick = Readonly<{
   p99: number;
   /** In percent. */
   errorRate: number;
+  /** The thresholds failing over the window, such as `p95` or `<test>: errorRate`. */
+  breaching: readonly string[];
   host: HostStats;
 }>;
 
@@ -27,37 +33,44 @@ export type LoadThreshold = Readonly<{
   abortOn: boolean;
 }>;
 
-/** One threshold's verdict in the report. */
-export type ThresholdVerdict = Readonly<{
-  threshold: LoadThreshold;
-  scope: string;
-  held: boolean;
-  worst: number;
-  /** Seconds from the start of the worst window. */
-  at: number;
-  whole: number;
-}>;
+/** One threshold the whole run breached, as the summary shows it: `45.5 ms (lt 30 ms)`. */
+export type LoadBreach = Readonly<{ metric: string; test?: string; shown: string }>;
 
-/** One test of the scenario mix. */
-export type ScenarioLine = Readonly<{
+/** Latencies in ms, from a whole run or one mix test. */
+export type Latency = Readonly<{ p50: number; p90: number; p95: number; p99: number; max: number }>;
+
+/** One mix test's iterations over the whole run. */
+export type LoadTestLine = Readonly<{
   test: string;
-  weight: number;
   iterations: number;
-  p50: number;
-  p95: number;
-  p99: number;
-  errorRate: number;
-  held: boolean;
+  errors: number;
+  rps: number;
+  latency: Latency;
 }>;
 
-/** The report of a finished load run (ui.md §6). */
+/** Failed iterations of one kind: the api, test, last status and code they share. */
+export type LoadErrorLine = Readonly<{
+  api?: string;
+  test?: string;
+  status?: number;
+  code?: string;
+  count: number;
+}>;
+
+/** The report of a finished load run, as `vc load --json` gives it (D678). */
 export type LoadReport = Readonly<{
-  verdicts: readonly ThresholdVerdict[];
-  /** Iterations per latency bucket, by its upper bound in ms. */
-  histogram: readonly (readonly [number, number])[];
-  scenarios: readonly ScenarioLine[];
-  /** p99 of earlier runs of the same file, newest first, this run first. */
-  previous: readonly Readonly<{ run: number; p99: number }>[];
+  seconds: number;
+  iterations: number;
+  errors: number;
+  rps: number;
+  latency: Latency;
+  breaches: readonly LoadBreach[];
+  tests: readonly LoadTestLine[];
+  errorKinds: readonly LoadErrorLine[];
+  /** The shared action's failure that kept the users from starting. */
+  blocked?: string;
+  seed: string;
+  notices: readonly string[];
 }>;
 
 /** Where a load run is. */
@@ -66,10 +79,11 @@ export type LoadPhase = 'running' | 'held' | 'breached' | 'stopped';
 /** One load run, live or from the history. */
 export type LoadRun = Readonly<{
   id?: number;
+  /** The scenario's ID: its load file's ID, such as `checkout.peak`. */
   file: string;
   profile: string;
   startedMs: number;
-  /** Its stages' whole length, in seconds. */
+  /** Its stages' whole length in seconds, when known; the axis grows with the ticks without. */
   plannedS: number;
   phase: LoadPhase;
   thresholds: readonly LoadThreshold[];
@@ -80,7 +94,7 @@ export type LoadRun = Readonly<{
 /** What a running load run sends: a tick, or how it ended with its report. */
 export type LoadUpdate =
   | Readonly<{ tick: LoadTick }>
-  | Readonly<{ finished: Exclude<LoadPhase, 'running'>; id: number; report: LoadReport }>;
+  | Readonly<{ finished: Exclude<LoadPhase, 'running'>; id?: number; report: LoadReport }>;
 
 /** The load runs' RPCs (ui.md §10 row 8): `RunLoad`, a stream, and a stored load run. */
 export interface LoadPort {
@@ -90,12 +104,15 @@ export interface LoadPort {
     signal: AbortSignal,
   ): Promise<Maybe<Readonly<{ run: LoadRun; updates: AsyncIterable<LoadUpdate> }>>>;
   stored(id: number): Promise<Maybe<LoadRun>>;
+  /** The project's load scenarios by ID, to start one. */
+  scenarios(): Promise<Maybe<readonly string[]>>;
 }
 
 export const loadNotYet = 'Load runs need a newer engine.';
 
-/** Today's engine: no load runs. */
+/** An engine older than row 8: no load runs. */
 export const noLoadPort: LoadPort = {
   start: () => Promise.resolve(notYet(loadNotYet)),
   stored: () => Promise.resolve(notYet(loadNotYet)),
+  scenarios: () => Promise.resolve(notYet(loadNotYet)),
 };

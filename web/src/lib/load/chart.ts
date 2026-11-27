@@ -39,24 +39,49 @@ export function linePath(ticks: readonly LoadTick[], metric: LoadMetric, at: Sca
     .join('');
 }
 
-/** Each run of ticks over `limit`, as the first and last tick's index. */
-export function breaches(
+/** Each run of ticks where `over` holds, as the first and last tick's index. */
+export function spansWhere(
   ticks: readonly LoadTick[],
-  metric: LoadMetric,
-  limit: number,
+  over: (tick: LoadTick) => boolean,
 ): [number, number][] {
   const spans: [number, number][] = [];
   let start = -1;
   ticks.forEach((tick, i) => {
-    const over = tick[metric] > limit;
-    if (over && start < 0) start = i;
-    if (!over && start >= 0) {
+    const on = over(tick);
+    if (on && start < 0) start = i;
+    if (!on && start >= 0) {
       spans.push([start, i - 1]);
       start = -1;
     }
   });
   if (start >= 0) spans.push([start, ticks.length - 1]);
   return spans;
+}
+
+/** Each run of ticks over `limit`, as the first and last tick's index. */
+export function breaches(
+  ticks: readonly LoadTick[],
+  metric: LoadMetric,
+  limit: number,
+): [number, number][] {
+  return spansWhere(ticks, (tick) => tick[metric] > limit);
+}
+
+/**
+ * The metric a chart marks breaches of, and the ticks where it breached: the threshold's when the
+ * run's thresholds are known, else the first shown metric a tick names in `breaching`.
+ */
+export function breachOf(
+  ticks: readonly LoadTick[],
+  metrics: readonly LoadMetric[],
+  threshold?: LoadThreshold,
+): Readonly<{ metric?: LoadMetric; spans: [number, number][] }> {
+  if (threshold)
+    return { metric: threshold.metric, spans: breaches(ticks, threshold.metric, threshold.limit) };
+  const metric = metrics.find((m) => ticks.some((t) => t.breaching.includes(m)));
+  return metric
+    ? { metric, spans: spansWhere(ticks, (t) => t.breaching.includes(metric)) }
+    : { spans: [] };
 }
 
 /** The index of the tick with the highest `metric` in `[from, to]`. */

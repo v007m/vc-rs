@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { HostStats, LoadRun, LoadThreshold, LoadTick } from './port.ts';
 import { charts, hostWarning, kpis, thresholdFor } from './view.ts';
 
-const HOST: HostStats = { cpu: 40, memMb: 512, conns: 80, dropped: 0 };
+const HOST: HostStats = { cpu: 40, memMb: 512, conns: 80, late: 0 };
 
 const TICK: LoadTick = {
   t: 30,
@@ -12,6 +12,7 @@ const TICK: LoadTick = {
   p95: 210.4,
   p99: 349.6,
   errorRate: 0.1234,
+  breaching: [],
   host: HOST,
 };
 
@@ -61,9 +62,9 @@ describe('kpis', () => {
 });
 
 describe('hostWarning', () => {
-  it('warns when the generator dropped iterations, before a busy CPU', () => {
-    expect(hostWarning({ ...HOST, cpu: 95, dropped: 3 })).toBe(
-      '3 iterations were dropped: the generator could not keep up, so the service saw less load than planned.',
+  it('warns when iterations started late, before a busy CPU', () => {
+    expect(hostWarning({ ...HOST, cpu: 95, late: 3 })).toBe(
+      '3 iterations started late: the generator could not keep up, so the service saw less load than planned.',
     );
   });
 
@@ -75,5 +76,6 @@ describe('hostWarning', () => {
 
   it('says nothing while the generator has room', () => {
     expect(hostWarning(HOST)).toBeUndefined();
+    expect(hostWarning({ late: 0 })).toBeUndefined();
   });
 });

@@ -32,6 +32,11 @@ export const statusGlyph: Readonly<Record<Status, string>> = {
   skipped: '–',
 };
 
+/** A test's time with its unit, `212 ms`; a dash for a skipped test or an unknown time. */
+export function testTime(status: Status, value: number | null | undefined): string {
+  return status === 'skipped' || value === null || value === undefined ? '—' : `${ms(value)} ms`;
+}
+
 /** `12.0`, `9.5`, `1234`: a duration in ms, finer below 10 ms; empty when unknown. */
 export function ms(value: number | null | undefined): string {
   if (value === null || value === undefined) return '';
