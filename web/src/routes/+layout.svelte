@@ -9,6 +9,8 @@
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
   import { engine } from '#lib/api/transport.ts';
+  import Onboarding from '#lib/onboarding/Onboarding.svelte';
+  import { onboardingPort } from '#lib/onboarding/port.ts';
   import { setRunSession } from '#lib/run/context.ts';
   import { RunSession } from '#lib/run/session.svelte.ts';
   import { ProjectStatus, setProjectStatus } from '#lib/shell/project.svelte.ts';
@@ -53,5 +55,9 @@
   {slots}
   branch={vcs.branch}
 >
-  {@render children()}
+  {#if project.configured === false}
+    <Onboarding {project} port={onboardingPort(engine)} />
+  {:else}
+    {@render children()}
+  {/if}
 </Shell>

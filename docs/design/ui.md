@@ -254,7 +254,7 @@ Five views in the sidebar, each opening with one sentence on what it is for:
 - **Permissions:** a switch for each tool and each profile (prod off by default); edits apply through "Review N changes".
 - **Connection:** MCP server status, connected clients, and the snippets to connect Claude Code, Cursor or HTTP.
 - **Activity:** a one-line log of each run or edit, with a filter.
-- **Usage:** tool calls, runs started and time per agent over 7 days, with a table per agent and tool (D709: the engine sees no agent's requests or tokens).
+- **Usage:** tool calls, runs started and time per agent over 7 days, with a table per agent and tool (D709: the engine sees no agent's requests or tokens). Built (D730): 7, 30 or 90 UTC days, a stacked daily bar chart of calls per agent with a legend and a screen-reader table, then By agent and per-agent tools tables.
 - Runs made by agents carry an agent badge in Runs.
 
 ### Settings (D522)
@@ -283,6 +283,7 @@ One stack at the bottom centre, at most three (D724): writes, palette actions, f
 - If there's no project, offer an **Init wizard**, which runs `vc init` (name, first service, base URL, profile) as a preview, then writes it with the preview's digest.
 - Or offer **Open the demo**: `vc demo`'s sample project, written the same way. The server says whether the demo service answers; if not, show `vc demo start --detach` to copy, since the server never starts a process (D717).
 - Or offer **Import**.
+- Built (D731, D732): **Get started** replaces the screen while the project is not configured, with Set up this folder (the Init wizard) and Try the demo; Import comes later.
 
 ## 9. Security
 - **Session cookie:** a launch link is exchanged for a cookie that is HttpOnly, SameSite=Strict and, new, **Secure**. This works on localhost.
