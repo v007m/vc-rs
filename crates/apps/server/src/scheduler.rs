@@ -18,8 +18,15 @@ use crate::engine_api::EngineApi;
 
 const MINUTE_MS: u64 = 60_000;
 
-/// The scheduled runs still running, by schedule ID.
-pub type Running = HashMap<String, Interrupter>;
+/// What the scheduler keeps from one minute to the next.
+#[derive(Default)]
+pub struct Fired {
+    /// The scheduled runs still running, by schedule ID.
+    running: HashMap<String, Interrupter>,
+    /// The minute each schedule last fired in, by schedule ID: a minute no later is never fired
+    /// again, when the timer wakes early or the wall clock steps back (D750).
+    last: HashMap<String, u64>,
+}
 
 /// Starts the scheduler on the current Tokio runtime; outside one, nothing is scheduled.
 pub fn spawn(api: Weak<EngineApi>) {
@@ -30,29 +37,32 @@ pub fn spawn(api: Weak<EngineApi>) {
 
 /// Fires each minute until the API has gone.
 async fn tick(api: Weak<EngineApi>) {
-    let mut running = Running::new();
+    let mut fired = Fired::default();
     loop {
         let now = now_ms();
         let minute = (now / MINUTE_MS + 1) * MINUTE_MS;
         tokio::time::sleep(Duration::from_millis(minute.saturating_sub(now))).await;
         let Some(api) = api.upgrade() else { return };
-        drop(fire(&api, minute, &mut running).await);
+        drop(fire(&api, minute, &mut fired).await);
     }
 }
 
-/// Starts each schedule due in the minute that starts at `minute_ms` and not still in
-/// `running`; the IDs of those started. A project with errors starts none that minute.
-pub async fn fire(api: &Arc<EngineApi>, minute_ms: u64, running: &mut Running) -> Vec<String> {
-    running.retain(|_, run| !run.is_finished());
+/// Starts each schedule due in the minute that starts at `minute_ms`, not still running and not
+/// fired in that minute or a later one; the IDs of those started. A project with errors starts
+/// none that minute.
+pub async fn fire(api: &Arc<EngineApi>, minute_ms: u64, fired: &mut Fired) -> Vec<String> {
+    fired.running.retain(|_, run| !run.is_finished());
     let Ok(due) = api.blocking(move |engine| engine.due_schedules(minute_ms)).await else { return Vec::new() };
     let mut started = Vec::new();
     for schedule in due {
-        if running.contains_key(&schedule.id) {
+        let again = fired.last.get(&schedule.id).is_some_and(|last| minute_ms <= *last);
+        if again || fired.running.contains_key(&schedule.id) {
             continue;
         }
         let id = schedule.id.clone();
+        let _earlier = fired.last.insert(id.clone(), minute_ms);
         if let Ok(run) = start(api, schedule).await {
-            drop(running.insert(id.clone(), run));
+            drop(fired.running.insert(id.clone(), run));
             started.push(id);
         }
     }
