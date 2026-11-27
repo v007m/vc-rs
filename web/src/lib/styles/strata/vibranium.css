@@ -875,6 +875,11 @@ select.st-input:disabled {
   color: inherit;
   opacity: 1;
 }
+/* white on dark's lighter red is 3:1; the danger fill darkens there to pass 4.5:1 */
+.st-btn--danger,
+.st-card .st-btn--danger {
+  background: light-dark(var(--st-status-danger), #c8372f);
+}
 /* light accents darkened to pass 4.5:1 as text on the glass (D656); dark keeps Strata's */
 [data-space='ember'] {
   --st-accent: #a8461a;
@@ -1156,11 +1161,19 @@ dialog.st-overlay.vc-anchored.is-rest[open] {
   --vc-spring-quick-dur: 0ms;
   --vc-fade-dur: 0ms;
 }
-:root[data-motion='reduced'] *,
-:root[data-motion='reduced'] *::before,
-:root[data-motion='reduced'] *::after {
-  animation-duration: 0.01ms !important;
-  animation-iteration-count: 1 !important;
-  transition-duration: 0.01ms !important;
-  scroll-behavior: auto !important;
+:root[data-motion='reduced']
+  :is(
+    .st-dot.vc-live,
+    .vc-sym-write,
+    .vc-sym-rotate,
+    .vc-sym-bounce,
+    .vc-sym-wiggle,
+    .vc-strike,
+    .vc-anchored,
+    .vc-anchored > *,
+    .vc-chev
+  ),
+:root[data-motion='reduced'] .st-segmented[data-lens]::before {
+  animation: none;
+  transition: none;
 }
