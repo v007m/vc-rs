@@ -34,10 +34,11 @@ pub fn run(_args: &UiArgs, _project: Option<&Path>) -> anyhow::Result<Outcome> {
 }
 
 /// `vc ui [--port] [--no-open] [--profile] [--set]`: serves until Ctrl-C, then exit 0; exit 2
-/// when the project cannot be found or the port cannot be listened on.
+/// when the port cannot be listened on. With no project found it serves the folder it started
+/// in, where the onboarding's Init or Demo writes one (D716).
 #[cfg(feature = "web-ui")]
 pub fn run(args: &UiArgs, project: Option<&Path>) -> anyhow::Result<Outcome> {
-    let located = match crate::project::locate(project)? {
+    let located = match crate::project::locate_or_start(project)? {
         Ok(located) => located,
         Err(outcome) => return Ok(outcome),
     };

@@ -6892,6 +6892,257 @@ impl<'de> serde::Deserialize<'de> for DefinitionKind {
         deserializer.deserialize_any(GeneratedVisitor)
     }
 }
+impl serde::Serialize for DemoRequest {
+    #[allow(deprecated)]
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let mut len = 0;
+        if self.write {
+            len += 1;
+        }
+        if self.expected_digest.is_some() {
+            len += 1;
+        }
+        let mut struct_ser = serializer.serialize_struct("vibranium.engine.v1.DemoRequest", len)?;
+        if self.write {
+            struct_ser.serialize_field("write", &self.write)?;
+        }
+        if let Some(v) = self.expected_digest.as_ref() {
+            struct_ser.serialize_field("expectedDigest", v)?;
+        }
+        struct_ser.end()
+    }
+}
+impl<'de> serde::Deserialize<'de> for DemoRequest {
+    #[allow(deprecated)]
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        const FIELDS: &[&str] = &[
+            "write",
+            "expected_digest",
+            "expectedDigest",
+        ];
+
+        #[allow(clippy::enum_variant_names)]
+        enum GeneratedField {
+            Write,
+            ExpectedDigest,
+        }
+        impl<'de> serde::Deserialize<'de> for GeneratedField {
+            fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                struct GeneratedVisitor;
+
+                impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+                    type Value = GeneratedField;
+
+                    fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                        write!(formatter, "expected one of: {:?}", &FIELDS)
+                    }
+
+                    #[allow(unused_variables)]
+                    fn visit_str<E>(self, value: &str) -> std::result::Result<GeneratedField, E>
+                    where
+                        E: serde::de::Error,
+                    {
+                        match value {
+                            "write" => Ok(GeneratedField::Write),
+                            "expectedDigest" | "expected_digest" => Ok(GeneratedField::ExpectedDigest),
+                            _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
+                        }
+                    }
+                }
+                deserializer.deserialize_identifier(GeneratedVisitor)
+            }
+        }
+        struct GeneratedVisitor;
+        impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+            type Value = DemoRequest;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("struct vibranium.engine.v1.DemoRequest")
+            }
+
+            fn visit_map<V>(self, mut map_: V) -> std::result::Result<DemoRequest, V::Error>
+                where
+                    V: serde::de::MapAccess<'de>,
+            {
+                let mut write__ = None;
+                let mut expected_digest__ = None;
+                while let Some(k) = map_.next_key()? {
+                    match k {
+                        GeneratedField::Write => {
+                            if write__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("write"));
+                            }
+                            write__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::ExpectedDigest => {
+                            if expected_digest__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("expectedDigest"));
+                            }
+                            expected_digest__ = map_.next_value()?;
+                        }
+                    }
+                }
+                Ok(DemoRequest {
+                    write: write__.unwrap_or_default(),
+                    expected_digest: expected_digest__,
+                })
+            }
+        }
+        deserializer.deserialize_struct("vibranium.engine.v1.DemoRequest", FIELDS, GeneratedVisitor)
+    }
+}
+impl serde::Serialize for DemoResponse {
+    #[allow(deprecated)]
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let mut len = 0;
+        if self.project.is_some() {
+            len += 1;
+        }
+        if self.running {
+            len += 1;
+        }
+        if !self.url.is_empty() {
+            len += 1;
+        }
+        if !self.start.is_empty() {
+            len += 1;
+        }
+        let mut struct_ser = serializer.serialize_struct("vibranium.engine.v1.DemoResponse", len)?;
+        if let Some(v) = self.project.as_ref() {
+            struct_ser.serialize_field("project", v)?;
+        }
+        if self.running {
+            struct_ser.serialize_field("running", &self.running)?;
+        }
+        if !self.url.is_empty() {
+            struct_ser.serialize_field("url", &self.url)?;
+        }
+        if !self.start.is_empty() {
+            struct_ser.serialize_field("start", &self.start)?;
+        }
+        struct_ser.end()
+    }
+}
+impl<'de> serde::Deserialize<'de> for DemoResponse {
+    #[allow(deprecated)]
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        const FIELDS: &[&str] = &[
+            "project",
+            "running",
+            "url",
+            "start",
+        ];
+
+        #[allow(clippy::enum_variant_names)]
+        enum GeneratedField {
+            Project,
+            Running,
+            Url,
+            Start,
+        }
+        impl<'de> serde::Deserialize<'de> for GeneratedField {
+            fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                struct GeneratedVisitor;
+
+                impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+                    type Value = GeneratedField;
+
+                    fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                        write!(formatter, "expected one of: {:?}", &FIELDS)
+                    }
+
+                    #[allow(unused_variables)]
+                    fn visit_str<E>(self, value: &str) -> std::result::Result<GeneratedField, E>
+                    where
+                        E: serde::de::Error,
+                    {
+                        match value {
+                            "project" => Ok(GeneratedField::Project),
+                            "running" => Ok(GeneratedField::Running),
+                            "url" => Ok(GeneratedField::Url),
+                            "start" => Ok(GeneratedField::Start),
+                            _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
+                        }
+                    }
+                }
+                deserializer.deserialize_identifier(GeneratedVisitor)
+            }
+        }
+        struct GeneratedVisitor;
+        impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+            type Value = DemoResponse;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("struct vibranium.engine.v1.DemoResponse")
+            }
+
+            fn visit_map<V>(self, mut map_: V) -> std::result::Result<DemoResponse, V::Error>
+                where
+                    V: serde::de::MapAccess<'de>,
+            {
+                let mut project__ = None;
+                let mut running__ = None;
+                let mut url__ = None;
+                let mut start__ = None;
+                while let Some(k) = map_.next_key()? {
+                    match k {
+                        GeneratedField::Project => {
+                            if project__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("project"));
+                            }
+                            project__ = map_.next_value()?;
+                        }
+                        GeneratedField::Running => {
+                            if running__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("running"));
+                            }
+                            running__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::Url => {
+                            if url__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("url"));
+                            }
+                            url__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::Start => {
+                            if start__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("start"));
+                            }
+                            start__ = Some(map_.next_value()?);
+                        }
+                    }
+                }
+                Ok(DemoResponse {
+                    project: project__,
+                    running: running__.unwrap_or_default(),
+                    url: url__.unwrap_or_default(),
+                    start: start__.unwrap_or_default(),
+                })
+            }
+        }
+        deserializer.deserialize_struct("vibranium.engine.v1.DemoResponse", FIELDS, GeneratedVisitor)
+    }
+}
 impl serde::Serialize for Diagnostic {
     #[allow(deprecated)]
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
@@ -9818,6 +10069,9 @@ impl serde::Serialize for GetProjectResponse {
         if !self.auths.is_empty() {
             len += 1;
         }
+        if self.configured {
+            len += 1;
+        }
         let mut struct_ser = serializer.serialize_struct("vibranium.engine.v1.GetProjectResponse", len)?;
         if !self.name.is_empty() {
             struct_ser.serialize_field("name", &self.name)?;
@@ -9833,6 +10087,9 @@ impl serde::Serialize for GetProjectResponse {
         }
         if !self.auths.is_empty() {
             struct_ser.serialize_field("auths", &self.auths)?;
+        }
+        if self.configured {
+            struct_ser.serialize_field("configured", &self.configured)?;
         }
         struct_ser.end()
     }
@@ -9851,6 +10108,7 @@ impl<'de> serde::Deserialize<'de> for GetProjectResponse {
             "vc_version",
             "vcVersion",
             "auths",
+            "configured",
         ];
 
         #[allow(clippy::enum_variant_names)]
@@ -9860,6 +10118,7 @@ impl<'de> serde::Deserialize<'de> for GetProjectResponse {
             DefaultProfile,
             VcVersion,
             Auths,
+            Configured,
         }
         impl<'de> serde::Deserialize<'de> for GeneratedField {
             fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
@@ -9886,6 +10145,7 @@ impl<'de> serde::Deserialize<'de> for GetProjectResponse {
                             "defaultProfile" | "default_profile" => Ok(GeneratedField::DefaultProfile),
                             "vcVersion" | "vc_version" => Ok(GeneratedField::VcVersion),
                             "auths" => Ok(GeneratedField::Auths),
+                            "configured" => Ok(GeneratedField::Configured),
                             _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
                         }
                     }
@@ -9910,6 +10170,7 @@ impl<'de> serde::Deserialize<'de> for GetProjectResponse {
                 let mut default_profile__ = None;
                 let mut vc_version__ = None;
                 let mut auths__ = None;
+                let mut configured__ = None;
                 while let Some(k) = map_.next_key()? {
                     match k {
                         GeneratedField::Name => {
@@ -9942,6 +10203,12 @@ impl<'de> serde::Deserialize<'de> for GetProjectResponse {
                             }
                             auths__ = Some(map_.next_value()?);
                         }
+                        GeneratedField::Configured => {
+                            if configured__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("configured"));
+                            }
+                            configured__ = Some(map_.next_value()?);
+                        }
                     }
                 }
                 Ok(GetProjectResponse {
@@ -9950,6 +10217,7 @@ impl<'de> serde::Deserialize<'de> for GetProjectResponse {
                     default_profile: default_profile__,
                     vc_version: vc_version__.unwrap_or_default(),
                     auths: auths__.unwrap_or_default(),
+                    configured: configured__.unwrap_or_default(),
                 })
             }
         }
@@ -11188,6 +11456,343 @@ impl<'de> serde::Deserialize<'de> for InheritedHeader {
             }
         }
         deserializer.deserialize_struct("vibranium.engine.v1.InheritedHeader", FIELDS, GeneratedVisitor)
+    }
+}
+impl serde::Serialize for InitRequest {
+    #[allow(deprecated)]
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let mut len = 0;
+        if self.name.is_some() {
+            len += 1;
+        }
+        if self.service.is_some() {
+            len += 1;
+        }
+        if self.base_url.is_some() {
+            len += 1;
+        }
+        if self.profile.is_some() {
+            len += 1;
+        }
+        if self.sample {
+            len += 1;
+        }
+        if self.write {
+            len += 1;
+        }
+        if self.expected_digest.is_some() {
+            len += 1;
+        }
+        let mut struct_ser = serializer.serialize_struct("vibranium.engine.v1.InitRequest", len)?;
+        if let Some(v) = self.name.as_ref() {
+            struct_ser.serialize_field("name", v)?;
+        }
+        if let Some(v) = self.service.as_ref() {
+            struct_ser.serialize_field("service", v)?;
+        }
+        if let Some(v) = self.base_url.as_ref() {
+            struct_ser.serialize_field("baseUrl", v)?;
+        }
+        if let Some(v) = self.profile.as_ref() {
+            struct_ser.serialize_field("profile", v)?;
+        }
+        if self.sample {
+            struct_ser.serialize_field("sample", &self.sample)?;
+        }
+        if self.write {
+            struct_ser.serialize_field("write", &self.write)?;
+        }
+        if let Some(v) = self.expected_digest.as_ref() {
+            struct_ser.serialize_field("expectedDigest", v)?;
+        }
+        struct_ser.end()
+    }
+}
+impl<'de> serde::Deserialize<'de> for InitRequest {
+    #[allow(deprecated)]
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        const FIELDS: &[&str] = &[
+            "name",
+            "service",
+            "base_url",
+            "baseUrl",
+            "profile",
+            "sample",
+            "write",
+            "expected_digest",
+            "expectedDigest",
+        ];
+
+        #[allow(clippy::enum_variant_names)]
+        enum GeneratedField {
+            Name,
+            Service,
+            BaseUrl,
+            Profile,
+            Sample,
+            Write,
+            ExpectedDigest,
+        }
+        impl<'de> serde::Deserialize<'de> for GeneratedField {
+            fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                struct GeneratedVisitor;
+
+                impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+                    type Value = GeneratedField;
+
+                    fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                        write!(formatter, "expected one of: {:?}", &FIELDS)
+                    }
+
+                    #[allow(unused_variables)]
+                    fn visit_str<E>(self, value: &str) -> std::result::Result<GeneratedField, E>
+                    where
+                        E: serde::de::Error,
+                    {
+                        match value {
+                            "name" => Ok(GeneratedField::Name),
+                            "service" => Ok(GeneratedField::Service),
+                            "baseUrl" | "base_url" => Ok(GeneratedField::BaseUrl),
+                            "profile" => Ok(GeneratedField::Profile),
+                            "sample" => Ok(GeneratedField::Sample),
+                            "write" => Ok(GeneratedField::Write),
+                            "expectedDigest" | "expected_digest" => Ok(GeneratedField::ExpectedDigest),
+                            _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
+                        }
+                    }
+                }
+                deserializer.deserialize_identifier(GeneratedVisitor)
+            }
+        }
+        struct GeneratedVisitor;
+        impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+            type Value = InitRequest;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("struct vibranium.engine.v1.InitRequest")
+            }
+
+            fn visit_map<V>(self, mut map_: V) -> std::result::Result<InitRequest, V::Error>
+                where
+                    V: serde::de::MapAccess<'de>,
+            {
+                let mut name__ = None;
+                let mut service__ = None;
+                let mut base_url__ = None;
+                let mut profile__ = None;
+                let mut sample__ = None;
+                let mut write__ = None;
+                let mut expected_digest__ = None;
+                while let Some(k) = map_.next_key()? {
+                    match k {
+                        GeneratedField::Name => {
+                            if name__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("name"));
+                            }
+                            name__ = map_.next_value()?;
+                        }
+                        GeneratedField::Service => {
+                            if service__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("service"));
+                            }
+                            service__ = map_.next_value()?;
+                        }
+                        GeneratedField::BaseUrl => {
+                            if base_url__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("baseUrl"));
+                            }
+                            base_url__ = map_.next_value()?;
+                        }
+                        GeneratedField::Profile => {
+                            if profile__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("profile"));
+                            }
+                            profile__ = map_.next_value()?;
+                        }
+                        GeneratedField::Sample => {
+                            if sample__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("sample"));
+                            }
+                            sample__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::Write => {
+                            if write__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("write"));
+                            }
+                            write__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::ExpectedDigest => {
+                            if expected_digest__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("expectedDigest"));
+                            }
+                            expected_digest__ = map_.next_value()?;
+                        }
+                    }
+                }
+                Ok(InitRequest {
+                    name: name__,
+                    service: service__,
+                    base_url: base_url__,
+                    profile: profile__,
+                    sample: sample__.unwrap_or_default(),
+                    write: write__.unwrap_or_default(),
+                    expected_digest: expected_digest__,
+                })
+            }
+        }
+        deserializer.deserialize_struct("vibranium.engine.v1.InitRequest", FIELDS, GeneratedVisitor)
+    }
+}
+impl serde::Serialize for InitResponse {
+    #[allow(deprecated)]
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let mut len = 0;
+        if !self.files.is_empty() {
+            len += 1;
+        }
+        if !self.titles.is_empty() {
+            len += 1;
+        }
+        if !self.digest.is_empty() {
+            len += 1;
+        }
+        if !self.root.is_empty() {
+            len += 1;
+        }
+        let mut struct_ser = serializer.serialize_struct("vibranium.engine.v1.InitResponse", len)?;
+        if !self.files.is_empty() {
+            struct_ser.serialize_field("files", &self.files)?;
+        }
+        if !self.titles.is_empty() {
+            struct_ser.serialize_field("titles", &self.titles)?;
+        }
+        if !self.digest.is_empty() {
+            struct_ser.serialize_field("digest", &self.digest)?;
+        }
+        if !self.root.is_empty() {
+            struct_ser.serialize_field("root", &self.root)?;
+        }
+        struct_ser.end()
+    }
+}
+impl<'de> serde::Deserialize<'de> for InitResponse {
+    #[allow(deprecated)]
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        const FIELDS: &[&str] = &[
+            "files",
+            "titles",
+            "digest",
+            "root",
+        ];
+
+        #[allow(clippy::enum_variant_names)]
+        enum GeneratedField {
+            Files,
+            Titles,
+            Digest,
+            Root,
+        }
+        impl<'de> serde::Deserialize<'de> for GeneratedField {
+            fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                struct GeneratedVisitor;
+
+                impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+                    type Value = GeneratedField;
+
+                    fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                        write!(formatter, "expected one of: {:?}", &FIELDS)
+                    }
+
+                    #[allow(unused_variables)]
+                    fn visit_str<E>(self, value: &str) -> std::result::Result<GeneratedField, E>
+                    where
+                        E: serde::de::Error,
+                    {
+                        match value {
+                            "files" => Ok(GeneratedField::Files),
+                            "titles" => Ok(GeneratedField::Titles),
+                            "digest" => Ok(GeneratedField::Digest),
+                            "root" => Ok(GeneratedField::Root),
+                            _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
+                        }
+                    }
+                }
+                deserializer.deserialize_identifier(GeneratedVisitor)
+            }
+        }
+        struct GeneratedVisitor;
+        impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+            type Value = InitResponse;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("struct vibranium.engine.v1.InitResponse")
+            }
+
+            fn visit_map<V>(self, mut map_: V) -> std::result::Result<InitResponse, V::Error>
+                where
+                    V: serde::de::MapAccess<'de>,
+            {
+                let mut files__ = None;
+                let mut titles__ = None;
+                let mut digest__ = None;
+                let mut root__ = None;
+                while let Some(k) = map_.next_key()? {
+                    match k {
+                        GeneratedField::Files => {
+                            if files__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("files"));
+                            }
+                            files__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::Titles => {
+                            if titles__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("titles"));
+                            }
+                            titles__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::Digest => {
+                            if digest__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("digest"));
+                            }
+                            digest__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::Root => {
+                            if root__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("root"));
+                            }
+                            root__ = Some(map_.next_value()?);
+                        }
+                    }
+                }
+                Ok(InitResponse {
+                    files: files__.unwrap_or_default(),
+                    titles: titles__.unwrap_or_default(),
+                    digest: digest__.unwrap_or_default(),
+                    root: root__.unwrap_or_default(),
+                })
+            }
+        }
+        deserializer.deserialize_struct("vibranium.engine.v1.InitResponse", FIELDS, GeneratedVisitor)
     }
 }
 impl serde::Serialize for Label {

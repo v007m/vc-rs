@@ -41,6 +41,16 @@ this sign-in link was used already; use the open tab or restart vc ui
 
 Every start of `vc ui` makes new tokens, so links and agent tokens from an earlier start stop working.
 
+### Start a project
+
+Run `vc ui` in a folder with no `vibranium.config.yaml` and it serves that folder, offering three ways in:
+
+- **Init wizard.** Pick a project name, a first service, its base URL and a profile. You see the files first, the same ones [`vc init`](/vc-rs/reference/cli/init/) writes (no empty folders), and nothing is written until you confirm. If the folder changes in between, the write stops and you get a fresh preview.
+- **Open the demo.** Writes the sample project that calls [`vc demo`](/vc-rs/reference/cli/demo/)'s service. The UI says whether that service is running; if not, it shows the command to start it, `vc demo start --detach`, for you to run. The server never starts a program for you.
+- **Import** an OpenAPI spec you paste.
+
+Files only go into the folder `vc ui` serves, at the paths `vc init` uses. The service is a lower-case word such as `users`, the profile one such as `dev`, and the base URL an `http` or `https` address with no user name or password in it; the server turns away anything else without repeating it back.
+
 ## The screens
 
 A sidebar on the left links the seven screens. Use the button at its top to collapse it to icons.

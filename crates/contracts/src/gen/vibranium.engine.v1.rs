@@ -346,6 +346,9 @@ pub struct GetProjectResponse {
     /// The auth IDs the config defines, in its order.
     #[prost(string, repeated, tag="5")]
     pub auths: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Whether the folder holds `vibranium.config.yaml`; without it the UI offers onboarding (D716).
+    #[prost(bool, tag="6")]
+    pub configured: bool,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ListDefinitionsRequest {
@@ -2381,6 +2384,65 @@ pub struct PluginRemoveResponse {
     /// The digest of the changes as previewed, which the write passes back.
     #[prost(string, tag="3")]
     pub digest: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct InitRequest {
+    /// The project's name; the folder's when absent. At most 64 characters, on one line.
+    #[prost(string, optional, tag="1")]
+    pub name: ::core::option::Option<::prost::alloc::string::String>,
+    /// The first service, a lower-case word such as `users`, given `services/<service>/<service>.api.yaml`.
+    #[prost(string, optional, tag="2")]
+    pub service: ::core::option::Option<::prost::alloc::string::String>,
+    /// The `baseUrl` var the first service calls: an http or https URL with no user or password.
+    #[prost(string, optional, tag="3")]
+    pub base_url: ::core::option::Option<::prost::alloc::string::String>,
+    /// The default profile's ID, a lower-case word; `default` when absent.
+    #[prost(string, optional, tag="4")]
+    pub profile: ::core::option::Option<::prost::alloc::string::String>,
+    /// With `vc init`'s sample api and test files.
+    #[prost(bool, tag="5")]
+    pub sample: bool,
+    #[prost(bool, tag="6")]
+    pub write: bool,
+    /// The preview's digest; required when `write` is set.
+    #[prost(string, optional, tag="7")]
+    pub expected_digest: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct InitResponse {
+    #[prost(message, repeated, tag="1")]
+    pub files: ::prost::alloc::vec::Vec<FileChange>,
+    #[prost(string, repeated, tag="2")]
+    pub titles: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// The digest of the changes as previewed, which the write passes back.
+    #[prost(string, tag="3")]
+    pub digest: ::prost::alloc::string::String,
+    /// The folder the files go in, with the home folder as `~`.
+    #[prost(string, tag="4")]
+    pub root: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct DemoRequest {
+    #[prost(bool, tag="1")]
+    pub write: bool,
+    /// The preview's digest; required when `write` is set.
+    #[prost(string, optional, tag="2")]
+    pub expected_digest: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct DemoResponse {
+    /// The demo project's files; none when its sample is in the folder already.
+    #[prost(message, optional, tag="1")]
+    pub project: ::core::option::Option<InitResponse>,
+    /// Whether `vc demo`'s service answers at `url`.
+    #[prost(bool, tag="2")]
+    pub running: bool,
+    /// Where the sample calls the demo service.
+    #[prost(string, tag="3")]
+    pub url: ::prost::alloc::string::String,
+    /// The command that starts it, which the UI shows to copy.
+    #[prost(string, tag="4")]
+    pub start: ::prost::alloc::string::String,
 }
 /// What to list.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]

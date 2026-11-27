@@ -157,6 +157,12 @@ service EngineService {
   // Removes a plugin from the config and the lock, and uninstalls it: a preview, or it written
   // with the preview's digest (D715).
   rpc PluginRemove(PluginRemoveRequest) returns (PluginRemoveResponse);
+  // `vc init` from the onboarding wizard, in the folder `vc ui` was started in: a preview of the
+  // new project's files, or them written with the preview's digest (D716).
+  rpc Init(InitRequest) returns (InitResponse);
+  // The demo project (`vc init`'s with the sample) in that folder, previewed or written the same
+  // way, and whether `vc demo`'s service answers; the server never starts it (D717).
+  rpc Demo(DemoRequest) returns (DemoResponse);
 }
 
 // Which tests or apis to act on, as `vc run` selects them.
@@ -186,6 +192,8 @@ message GetProjectResponse {
   string vc_version = 4;
   // The auth IDs the config defines, in its order.
   repeated string auths = 5;
+  // Whether the folder holds `vibranium.config.yaml`; without it the UI offers onboarding (D716).
+  bool configured = 6;
 }
 
 // What to list.
@@ -1743,4 +1751,46 @@ message PluginRemoveResponse {
   repeated string titles = 2;
   // The digest of the changes as previewed, which the write passes back.
   string digest = 3;
+}
+
+message InitRequest {
+  // The project's name; the folder's when absent. At most 64 characters, on one line.
+  optional string name = 1;
+  // The first service, a lower-case word such as `users`, given `services/<service>/<service>.api.yaml`.
+  optional string service = 2;
+  // The `baseUrl` var the first service calls: an http or https URL with no user or password.
+  optional string base_url = 3;
+  // The default profile's ID, a lower-case word; `default` when absent.
+  optional string profile = 4;
+  // With `vc init`'s sample api and test files.
+  bool sample = 5;
+  bool write = 6;
+  // The preview's digest; required when `write` is set.
+  optional string expected_digest = 7;
+}
+
+message InitResponse {
+  repeated FileChange files = 1;
+  repeated string titles = 2;
+  // The digest of the changes as previewed, which the write passes back.
+  string digest = 3;
+  // The folder the files go in, with the home folder as `~`.
+  string root = 4;
+}
+
+message DemoRequest {
+  bool write = 1;
+  // The preview's digest; required when `write` is set.
+  optional string expected_digest = 2;
+}
+
+message DemoResponse {
+  // The demo project's files; none when its sample is in the folder already.
+  InitResponse project = 1;
+  // Whether `vc demo`'s service answers at `url`.
+  bool running = 2;
+  // Where the sample calls the demo service.
+  string url = 3;
+  // The command that starts it, which the UI shows to copy.
+  string start = 4;
 }

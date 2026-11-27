@@ -30,7 +30,7 @@ pub fn register(rpcs: Rpcs) -> Rpcs {
         .unary("TestAuth", test_auth)
 }
 
-async fn get_project(
+pub async fn get_project(
     api: Arc<EngineApi>,
     _: wire::GetProjectRequest,
 ) -> Result<wire::GetProjectResponse, ConnectError> {
@@ -41,6 +41,7 @@ async fn get_project(
         profiles: info.profiles,
         vc_version: info.vc_version,
         auths: info.auths,
+        configured: info.configured,
     })
 }
 

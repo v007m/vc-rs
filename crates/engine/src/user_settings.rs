@@ -157,14 +157,23 @@ impl Engine {
 
     /// The user config's path, and how it is shown.
     fn user_file(&self) -> Result<(PathBuf, String), EngineError> {
-        let process = self.environment.clone().unwrap_or_else(|| Arc::new(SystemEnvironment::capture()));
-        let path = self.user_config_path(process.as_ref()).ok_or_else(|| EngineError::Setting {
+        let path = self.user_config_path(self.process().as_ref()).ok_or_else(|| EngineError::Setting {
             origin: ORIGIN.to_owned(),
             reason: "there is no home folder to keep it in".to_owned(),
             help: Some("set HOME (or XDG_CONFIG_HOME, or APPDATA on Windows)".to_owned()),
         })?;
-        let shown = home_shown(&path, process.as_ref());
+        let shown = self.shown_path(&path);
         Ok((path, shown))
+    }
+
+    /// `path` with the home folder as `~`, for a client to show.
+    pub(crate) fn shown_path(&self, path: &Path) -> String {
+        home_shown(path, self.process().as_ref())
+    }
+
+    /// The process environment: the builder's, else this process's.
+    fn process(&self) -> Arc<dyn Environment> {
+        self.environment.clone().unwrap_or_else(|| Arc::new(SystemEnvironment::capture()))
     }
 
     /// Refuses edit `at` unless its key is a setting and its value fits it.

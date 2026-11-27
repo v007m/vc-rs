@@ -9,16 +9,18 @@
 //! scripts for), and `path:` with a folder inside the project (V5132). A refusal never echoes
 //! the source or ID a client sent.
 
-use vc_interfaces::{MANIFEST_FILE, PluginManifest, content_hash};
+use vc_interfaces::{MANIFEST_FILE, PluginManifest};
 
 use crate::authoring::refused;
-use crate::edit::Changes;
-use crate::editor_files::hex;
+use crate::edit::{Changes, changes_digest, stale_unless};
 use crate::plugins::{MANIFEST_HELP, PluginOffer, Unfetched};
 use crate::{Engine, EngineError};
 
 /// What a client's source may be.
 const SOURCE_HELP: &str = "a plugin source is `npm:<package>[@<range>]`, a package of the npm registry, or `path:<folder>`, a folder inside the project";
+
+/// Why a write found the changes differ from the preview's.
+const STALE: &str = "the plugin change: nothing was written: the files or the plugin changed since the preview";
 
 /// The longest npm package name.
 const NAME_MAX: usize = 214;
@@ -74,9 +76,9 @@ impl Engine {
             ));
         }
         let removed = self.removal(id).and_then(|changes| {
-            let digest = digest(&changes);
+            let digest = changes_digest(&changes);
             if let Some(expected) = write {
-                fresh(expected, &digest)?;
+                stale_unless(expected, &digest, STALE)?;
                 self.write_each(&changes, true)?;
                 self.uninstall(id)?;
             }
@@ -95,9 +97,9 @@ impl Engine {
     /// `offer`'s changes, and once `write` gives their digest, the plugin installed and written.
     fn client_added(&self, offer: &PluginOffer, write: Option<&str>) -> Result<PluginChange, EngineError> {
         let changes = self.approval(offer)?;
-        let digest = digest(&changes);
+        let digest = changes_digest(&changes);
         if let Some(expected) = write {
-            fresh(expected, &digest)?;
+            stale_unless(expected, &digest, STALE)?;
             self.install(offer)?;
             self.write_each(&changes, true)?;
         }
@@ -189,28 +191,6 @@ fn scrubbed(error: EngineError, (sent, words): (&str, &str)) -> EngineError {
         EngineError::Edit { reason, help } => EngineError::Edit { reason: scrub(reason), help: help.map(scrub) },
         other => other,
     }
-}
-
-/// Refuses a write whose `expected` digest is not the changes' `digest` now.
-fn fresh(expected: &str, digest: &str) -> Result<(), EngineError> {
-    if expected == digest {
-        return Ok(());
-    }
-    Err(EngineError::Stale {
-        reason: "the plugin change: nothing was written: the files or the plugin changed since the preview".to_owned(),
-    })
-}
-
-/// The digest of `changes`: each file's path, text before (or none) and text after.
-fn digest(changes: &Changes) -> String {
-    let mut text = String::new();
-    for change in &changes.files {
-        for part in [change.path.as_str(), change.before.as_deref().unwrap_or("\0new"), change.after.as_str()] {
-            text.push_str(part);
-            text.push('\0');
-        }
-    }
-    hex(content_hash(text.as_bytes()).as_bytes())
 }
 
 #[cfg(test)]

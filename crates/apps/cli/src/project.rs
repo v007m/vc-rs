@@ -48,6 +48,23 @@ pub fn locate_with(
     Ok(Ok(Located { engine, base }))
 }
 
+/// As [`locate`], but with no project found the engine is rooted at the folder the search
+/// started in, where the web UI's onboarding writes a new one (D716).
+#[cfg_attr(not(feature = "web-ui"), expect(dead_code, reason = "only `vc ui` starts without a project"))]
+pub fn locate_or_start(project: Option<&Path>) -> anyhow::Result<Result<Located, Outcome>> {
+    match locate(project)? {
+        Err(Outcome::Engine(vc_engine::EngineError::NoProject { .. })) => {
+            let cwd = std::env::current_dir()?;
+            let start = project.map_or_else(|| cwd.clone(), |dir| cwd.join(dir));
+            Ok(launcher(EngineBuilder::new(start))
+                .build()
+                .map(|engine| Located { engine, base: cwd })
+                .map_err(Outcome::Engine))
+        }
+        other => Ok(other),
+    }
+}
+
 /// `builder`, confining plugins on Linux through this program as their launcher (D254); as it
 /// is when the program's path cannot be found.
 fn launcher(builder: EngineBuilder) -> EngineBuilder {

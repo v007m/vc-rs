@@ -41,6 +41,7 @@ mod guard;
 mod history_rpcs;
 mod live_rpcs;
 mod load_stream;
+mod onboarding_rpcs;
 mod plugin_rpcs;
 mod project_rpcs;
 mod run_stream;
