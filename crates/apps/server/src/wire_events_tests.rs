@@ -3,7 +3,7 @@ use std::time::Duration;
 use vc_contracts::engine::v1 as wire;
 use vc_engine::{Event, HostStats};
 
-use super::load_tick;
+use super::{load_tick, wire_path};
 
 #[test]
 fn a_load_tick_carries_each_percentile_in_milliseconds() {
@@ -21,4 +21,11 @@ fn a_load_tick_carries_each_percentile_in_milliseconds() {
     assert_eq!([tick.p50_ms, tick.p90_ms, tick.p95_ms, tick.p99_ms], [2.0, 4.5, 6.0, 9.25]);
     assert_eq!(tick.breaching, ["errorRate", "users.crud#getsCreatedUser: p90"]);
     assert_eq!(load_tick(Event::RunStarted { files: 1, instances: 1 }), wire::LoadTick::default());
+}
+
+#[test]
+fn a_report_path_uses_forward_slashes_on_every_platform() {
+    let path = std::path::Path::new("custom\\nested\\report.html");
+    assert_eq!(wire_path(path), "custom/nested/report.html");
+    assert_eq!(wire_path(std::path::Path::new("custom/report.html")), "custom/report.html");
 }

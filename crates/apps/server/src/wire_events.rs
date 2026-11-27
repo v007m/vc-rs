@@ -216,7 +216,7 @@ fn run_finished(status: RunStatus, sum: Totals) -> wire::RunFinished {
 
 /// How the run ended, as `vc run` reports it, with its HTML report's path as text only (D320).
 fn run_report(report: RunReport) -> wire::RunReport {
-    let html_report = report.html_report.map(|path| path.display().to_string());
+    let html_report = report.html_report.as_deref().map(wire_path);
     wire::RunReport {
         exit: u32::from(report.exit),
         seed: report.seed,
@@ -224,6 +224,11 @@ fn run_report(report: RunReport) -> wire::RunReport {
         run: report.run,
         html_report,
     }
+}
+
+/// A path as the wire carries it: with `/` on every platform, so Windows sends `custom/report.html`.
+fn wire_path(path: &std::path::Path) -> String {
+    path.to_string_lossy().replace('\\', "/")
 }
 
 #[cfg(test)]
