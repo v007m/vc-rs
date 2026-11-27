@@ -78,6 +78,8 @@ for patch in tests/gate-fixtures/*.patch; do
   tail -n +2 "$patch" >"$scratch/body.patch"
   git worktree add --detach --quiet "$wt" HEAD
   if [[ -d "$repo/node_modules" ]]; then ln -s "$repo/node_modules" "$wt/node_modules"; fi
+  # GATE-STYLE builds web/ with its own dependencies.
+  if [[ -d "$repo/web/node_modules" ]]; then ln -s "$repo/web/node_modules" "$wt/web/node_modules"; fi
   printf '%s ... ' "$name"
   status=0
   check_fixture "$scratch/body.patch" "${expect[0]}" >"$log" 2>&1 || status=$?

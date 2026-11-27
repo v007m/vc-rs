@@ -1,0 +1,12 @@
+# expect: GATE-STYLE contrast:
+diff --git a/web/src/lib/styles/strata/vibranium.css b/web/src/lib/styles/strata/vibranium.css
+index d5582ae4..704f9377 100644
+--- a/web/src/lib/styles/strata/vibranium.css
++++ b/web/src/lib/styles/strata/vibranium.css
+@@ -1114,3 +1114,6 @@ dialog.st-overlay.vc-anchored.is-rest[open] {
+ .vc-count[data-st='skipped'] {
+   color: var(--vc-skipped-ink);
+ }
++
++/* Gate fixture: secondary text far below AA contrast. */
++.st-row, p, td { color: light-dark(#d8d8dc, #3a3f44) !important; }

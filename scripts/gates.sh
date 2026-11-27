@@ -55,6 +55,11 @@ proto_contract() {
   return "$status"
 }
 
+# The style audit (D720): every screen in both themes at 1440 and 1024 against the polish rules.
+style_audit() {
+  pnpm --dir web audit:style
+}
+
 tests() {
   cargo nextest run --workspace --locked && cargo test --workspace --doc --locked
 }
@@ -68,6 +73,7 @@ gate GATE-JSLICENSE "licences of production JS dependencies (deny.toml allow lis
 gate GATE-PROTO "buf lint, and no breaking change in proto/" proto_contract
 gate GATE-MACHETE "unused dependencies" cargo machete
 gate GATE-DUP "duplicated blocks of 10+ lines" duplication
+gate GATE-STYLE "web style audit: contrast, shapes, radii, overlays, focus" style_audit
 gate GATE-TEST "tests and doctests" tests
 if [[ "${GATES_MUTANTS:-0}" == "1" ]]; then
   gate GATE-MUTANTS "mutation score on the diff" scripts/mutants.sh diff "${GATES_BASE:-origin/master}"
