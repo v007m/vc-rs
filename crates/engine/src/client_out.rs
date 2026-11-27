@@ -8,6 +8,7 @@ use vc_adapter_system::SetFlags;
 use vc_diagnostics::Code;
 use vc_interfaces::ConfigSource;
 
+use crate::settings::source_error;
 use crate::{Engine, EngineError};
 
 /// The setting that names the report folder.
@@ -27,15 +28,15 @@ impl Engine {
     }
 
     /// Refuses `sets`, the `--set` values a client sends, when one sets `reports.dir` to a folder
-    /// [`Engine::client_report_folder`] would refuse (D685). Only such a set reads the disk; a set
-    /// that does not parse is left to the layering, which refuses it.
+    /// [`Engine::client_report_folder`] would refuse (D685). Only such a set reads the disk.
     ///
     /// # Errors
     ///
-    /// [`EngineError::Reporter`] with V5132, as [`Engine::client_report_folder`].
+    /// [`EngineError::Reporter`] with V5132, as [`Engine::client_report_folder`];
+    /// [`EngineError::Setting`] for a set that is not `key=value`, as `vc run` gives it (D753).
     pub fn client_sets(&self, sets: &[String]) -> Result<(), EngineError> {
         for set in sets {
-            let entries = SetFlags::new(vec![set.clone()]).entries().unwrap_or_default();
+            let entries = SetFlags::new(vec![set.clone()]).entries().map_err(|error| source_error(&error))?;
             for entry in entries.iter().filter(|entry| entry.key == REPORTS_DIR) {
                 self.folder_inside(&entry.value, "`reports.dir`")?;
             }

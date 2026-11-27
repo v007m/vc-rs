@@ -86,7 +86,8 @@ impl EngineApi {
     ///
     /// # Errors
     ///
-    /// `invalid_argument` (V5132) when one of the call's sets moves the report folder out.
+    /// `invalid_argument` (V5132) when one of the call's sets moves the report folder out; the
+    /// error `vc run` gives for a set that is not `key=value`.
     pub(crate) fn layers(&self, profiles: Vec<String>, sets: Vec<String>) -> Result<Layers, ConnectError> {
         self.engine.client_sets(&sets).map_err(|error| failed(&error))?;
         let profiles = if profiles.is_empty() { self.profiles.clone() } else { profiles };
