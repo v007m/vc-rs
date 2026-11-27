@@ -32,3 +32,16 @@ fn a_tool_is_found_by_its_name_only() {
     assert_eq!(tools.get("run_tests").map(|tool| tool.name()), Some("run_tests"));
     assert!(tools.get("run").is_none());
 }
+
+/// What an agent sends cannot move the report folder: no tool takes sets or an `out`, so the
+/// only `--set` values are `vc mcp --set`'s, which the person chose (D327, D685). A tool that
+/// takes them must refuse a `reports.dir` outside the project first, as `vc serve` does.
+#[test]
+fn no_tool_takes_sets_or_a_report_folder_from_the_agent() {
+    for tool in Tools::standard().specs() {
+        let properties = tool.input_schema.get("properties").and_then(|found| found.as_object()).cloned();
+        for key in properties.unwrap_or_default().keys() {
+            assert!(!["set", "sets", "out", "reports", "reportsDir"].contains(&key.as_str()), "{}: {key}", tool.name);
+        }
+    }
+}

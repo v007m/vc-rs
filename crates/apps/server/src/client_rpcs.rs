@@ -42,7 +42,7 @@ async fn explain_api(
     api: Arc<EngineApi>,
     request: wire::ExplainApiRequest,
 ) -> Result<wire::ExplainApiResponse, ConnectError> {
-    let (profiles, sets) = api.layers(request.profiles, request.sets);
+    let (profiles, sets) = api.layers(request.profiles, request.sets)?;
     let draft = request.draft.as_ref().map(draft).transpose()?;
     let call = CallRequest { api: request.api, vars: request.vars, profiles, sets, draft, ..CallRequest::default() };
     let explained = api.blocking(move |engine| Handle::current().block_on(engine.explain_api(&call))).await?;

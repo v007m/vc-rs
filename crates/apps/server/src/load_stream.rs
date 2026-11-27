@@ -34,8 +34,9 @@ async fn run_load(
 ) -> Result<(), ConnectError> {
     let (interrupter, interrupts) = vc_engine::interrupts();
     let (ticks, heard) = mpsc::channel(TICKS);
-    api.runs().open(&request.handle, &interrupter).await?;
-    let request = load_request(&api, request);
+    let handle = request.handle.clone();
+    let request = load_request(&api, request)?;
+    api.runs().open(&handle, &interrupter).await?;
     let watch = LoadWatch { interrupts, ticks: Some(ticks) };
     let running = api.blocking(move |engine| Handle::current().block_on(engine.load(&request, watch)));
     let (ran, relayed) = tokio::join!(running, relay(heard, (&sink, &interrupter), tick_response));
@@ -44,10 +45,11 @@ async fn run_load(
     sink.send(&wire::RunLoadResponse { kind: Some(Kind::Report(load_report(report))) }).await
 }
 
-/// The engine's request for `request`, over the server's profiles and `--set` values.
-fn load_request(api: &EngineApi, request: wire::RunLoadRequest) -> LoadRequest {
-    let (profiles, sets) = api.layers(request.profiles, request.sets);
-    LoadRequest { scenario: request.scenario, profiles, sets, seed: request.seed }
+/// The engine's request for `request`, over the server's profiles and `--set` values; refused
+/// before the run holds its handle when a set moves the report folder out (D685).
+fn load_request(api: &EngineApi, request: wire::RunLoadRequest) -> Result<LoadRequest, ConnectError> {
+    let (profiles, sets) = api.layers(request.profiles, request.sets)?;
+    Ok(LoadRequest { scenario: request.scenario, profiles, sets, seed: request.seed })
 }
 
 /// The message that streams one tick.

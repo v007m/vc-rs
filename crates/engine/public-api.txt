@@ -706,6 +706,7 @@ impl vc_engine::Engine
 pub async fn vc_engine::Engine::check_secrets(&self, &vc_engine::ExplainRequest) -> core::result::Result<vc_engine::SecretsChecked, vc_engine::EngineError>
 impl vc_engine::Engine
 pub fn vc_engine::Engine::client_report_folder(&self, &str) -> core::result::Result<std::path::PathBuf, vc_engine::EngineError>
+pub fn vc_engine::Engine::client_sets(&self, &[alloc::string::String]) -> core::result::Result<(), vc_engine::EngineError>
 impl vc_engine::Engine
 pub fn vc_engine::Engine::compare_runs(&self, (&str, &str), f64) -> core::result::Result<vc_engine::RunComparison, vc_engine::EngineError>
 impl vc_engine::Engine
