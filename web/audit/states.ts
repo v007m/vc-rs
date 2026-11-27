@@ -84,6 +84,15 @@ export const states: State[] = [
   },
   { name: 'editor', path: '/tests/editor?file=services/users/crud.test.yaml' },
   {
+    name: 'editor-quickfix',
+    path: '/tests/editor?file=services/users/crud.test.yaml',
+    act: async (page) => {
+      const mark = page.locator('.cm-lintRange-error, .cm-lintRange-warning').first();
+      await mark.hover();
+      await page.locator('.cm-tooltip-hover').waitFor();
+    },
+  },
+  {
     name: 'editor-file-menu',
     path: '/tests/editor?file=services/users/crud.test.yaml',
     act: (page) => click(page, 'File actions'),

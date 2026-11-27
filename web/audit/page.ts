@@ -5,6 +5,11 @@
  * as strings naming the element, so a failure reads as a list of what to fix.
  */
 
+import { GLYPHS, SECONDARY, systemFns, TAGS } from './system.ts';
+
+/** The system rules (`system.ts`), defined in the same page script. */
+declare function system(): string[];
+
 type Rgba = [number, number, number, number];
 type Box = { x: number; y: number; w: number; h: number };
 /** A run of text, an input's value or placeholder, or an icon, for the contrast pass. */
@@ -266,7 +271,7 @@ function cardOnCard(): string[] {
 
 /** The structural checks, in one pass. */
 function structure(): string[] {
-  return [...rowHeights(), ...capsules(), ...nested(), ...overlays(), ...cardOnCard()];
+  return [...rowHeights(), ...capsules(), ...nested(), ...overlays(), ...cardOnCard(), ...system()];
 }
 
 /** The page's text runs, field text and icons, with the ink each is drawn in. Icons get a
@@ -425,8 +430,9 @@ export function pageScript(): string {
     rings,
     ringIssue,
     focusRings,
+    ...systemFns,
   ];
-  const consts = { CONTROL, ROW, OVERLAY, WELL, MARKED, FIELD };
+  const consts = { CONTROL, ROW, OVERLAY, WELL, MARKED, FIELD, SECONDARY, TAGS, GLYPHS };
   const values = Object.entries(consts).map(([k, v]) => `const ${k} = ${JSON.stringify(v)};`);
   return `(() => { ${values.join('\n')}\n${fns.map(String).join('\n')}\nwindow.vcAudit = { structure, inks, focusRings }; })();`;
 }
