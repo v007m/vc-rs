@@ -166,21 +166,32 @@ function fields(json: string): Record<string, unknown> {
   }
 }
 
-/** A frame's kind as the list shows it: an SSE event's name, else `text` or `json`. */
-export function frameKind(json: string): string {
-  const { event, data, text } = fields(json);
-  if (typeof event === 'string' && event !== '') return event;
-  const payload = data ?? text;
-  if (typeof payload !== 'string') return 'json';
-  return /^\s*[[{]/.test(payload) && parses(payload) ? 'json' : 'text';
+/** What a frame carried: its SSE `data` or WebSocket `text`, of any JSON type, if it has one. */
+function payload(json: string): { value: unknown } | undefined {
+  const envelope = fields(json);
+  if ('data' in envelope) return { value: envelope.data };
+  if ('text' in envelope) return { value: envelope.text };
+  return undefined;
 }
 
-/** What a frame carried, pretty when it is JSON: the SSE `data` or WebSocket `text` field. */
+/** A frame's kind as the list shows it: an SSE event's name, else `text` or `json`. */
+export function frameKind(json: string): string {
+  const { event } = fields(json);
+  if (typeof event === 'string' && event !== '') return event;
+  const carried = payload(json)?.value;
+  if (typeof carried !== 'string') return 'json';
+  return /^\s*[[{]/.test(carried) && parses(carried) ? 'json' : 'text';
+}
+
+/**
+ * What a frame carried, pretty when it is JSON (D754). The engine sends SSE `data` already parsed,
+ * so it may be any JSON value; only a frame with neither `data` nor `text` shows its envelope.
+ */
 export function frameBody(json: string): string {
-  const { data, text } = fields(json);
-  const payload = data ?? text;
-  if (typeof payload !== 'string') return pretty(json);
-  return pretty(payload);
+  const carried = payload(json);
+  if (carried === undefined) return pretty(json);
+  const { value } = carried;
+  return typeof value === 'string' ? pretty(value) : JSON.stringify(value, null, 2);
 }
 
 function parses(text: string): boolean {

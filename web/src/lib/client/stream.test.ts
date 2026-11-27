@@ -108,4 +108,17 @@ describe('stream session', () => {
     expect(frameBody(frames[1]?.json ?? '')).toBe('Hello');
     expect(frameBody('{"other":1}')).toBe('{\n  "other": 1\n}');
   });
+
+  it('unwraps data and text of any JSON type, and falls back to the envelope without them (D754)', () => {
+    expect(frameKind('{"data":{"a":1}}')).toBe('json');
+    expect(frameBody('{"data":{"a":1}}')).toBe('{\n  "a": 1\n}');
+    expect(frameKind('{"event":"tick","data":[1,2]}')).toBe('tick');
+    expect(frameBody('{"event":"tick","data":[1,2]}')).toBe('[\n  1,\n  2\n]');
+    expect(frameKind('{"data":42}')).toBe('json');
+    expect(frameBody('{"data":42}')).toBe('42');
+    expect(frameBody('{"data":null,"id":"7"}')).toBe('null');
+    expect(frameBody('{"text":true}')).toBe('true');
+    expect(frameBody('{"data":"plain words"}')).toBe('plain words');
+    expect(frameBody('{"id":"7"}')).toBe('{\n  "id": "7"\n}');
+  });
 });
