@@ -193,12 +193,14 @@ function nested(): string[] {
     const at = outerOf(el);
     if (!at) continue;
     const R = radiusOf(at.outer);
-    const [l = 0, r = 0, t = 0, bt = 0] = at.d;
+    const clips = getComputedStyle(at.outer).overflow !== 'visible';
+    // in a clipping outer, an edge the element runs past (scrolled under it) is not a corner
+    const edge = (d: number) => (clips && d < -0.5 ? Infinity : d);
+    const [l, r, t, bt] = at.d.map(edge) as [number, number, number, number];
     const corner = Math.min(Math.max(l, t), Math.max(r, t), Math.max(l, bt), Math.max(r, bt));
     const row = el.matches(ROW) && Math.max(l, r) < R ? Math.max(l, r) : Infinity;
     const gap = Math.min(corner, row);
     if (gap >= R - 0.5 || gap < -0.5) continue;
-    const clips = getComputedStyle(at.outer).overflow !== 'visible';
     if (clips && gap < 1) continue;
     const want = R - gap;
     const has = radiusOf(el);
