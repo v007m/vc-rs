@@ -7,7 +7,10 @@ export type StatusChange = Readonly<{ id: string; was: Status; now: Status; why?
 /** A test's duration in the base run and the head run, in ms. */
 export type TimingChange = Readonly<{ id: string; baseMs: number; headMs: number }>;
 
-/** A response field whose presence or type differs between the two runs' stored bodies. */
+/**
+ * A response field whose presence or type differs between the two runs' stored bodies: `api` is
+ * the api and status, `type` the JSON types before and after for a `type` change (D672).
+ */
 export type ShapeChange = Readonly<{
   api: string;
   path: string;
@@ -35,13 +38,13 @@ export interface TestHistoryPort {
   history(id: string, limit: number): Promise<Maybe<readonly HistoryPoint[]>>;
 }
 
-/** The Runs space's seams over RPCs the engine has not got yet (D538, ui.md §10 row 9). */
+/** The Runs space's seams over `CompareRuns` and `TestHistory` (D538, ui.md §10 row 9). */
 export type RunsSeams = Readonly<{ compare: ComparePort; tests: TestHistoryPort }>;
 
 export const compareNotYet = 'Comparing runs needs a newer engine.';
 export const historyNotYet = 'The test’s history needs a newer engine.';
 
-/** Today's engine: neither compare nor a test's history; each says why. */
+/** An engine older than row 9: neither compare nor a test's history; each says why. */
 export const noRunsSeams: RunsSeams = {
   compare: { compare: () => Promise.resolve(notYet(compareNotYet)) },
   tests: { history: () => Promise.resolve(notYet(historyNotYet)) },

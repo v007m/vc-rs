@@ -1,9 +1,10 @@
 <script lang="ts">
-  import type { Diagnostic } from '#lib/gen/vibranium/engine/v1/engine_pb.ts';
+  import type { Diagnostic, Fix } from '#lib/gen/vibranium/engine/v1/engine_pb.ts';
   import type { RunSession } from '#lib/run/session.svelte.ts';
   import CodeView from './CodeView.svelte';
   import DiffView from './DiffView.svelte';
   import EditorBar, { type FileAction } from './EditorBar.svelte';
+  import ExplainPanel from './ExplainPanel.svelte';
   import FileTree from './FileTree.svelte';
   import { baseName, folders } from './files.ts';
   import { marks } from './marks.ts';
@@ -30,6 +31,8 @@
   let dialog: Exclude<FileAction, 'format'> | undefined = $state();
   /** What the last quick file action said, such as why Format is not there yet. */
   let notice: string | undefined = $state();
+  /** The code the explain panel shows, while it is open (D651). */
+  let explaining: string | undefined = $state();
   let view: ReturnType<typeof CodeView> | undefined = $state();
   let buffer = $derived(editor.buffer);
   let shown = $derived(folders(editor.files, filter));
@@ -44,6 +47,7 @@
 
   function choose(path: string): void {
     if (path === buffer?.path) return;
+    notice = undefined;
     if (editor.dirty) pending = path;
     else void editor.open(path);
   }
@@ -76,6 +80,11 @@
     if (got.available) editor.edit(got.value);
   }
 
+  /** A fix from a squiggle or a problem, or Fix all when `chosen` is unset (D652). */
+  async function fix(chosen?: Readonly<{ fix: Fix; code: string }>): Promise<void> {
+    notice = await editor.fix(seams.fixes, chosen);
+  }
+
   function act(action: FileAction): void {
     notice = undefined;
     if (action === 'format') void format();
@@ -89,16 +98,17 @@
     await editor.open(path);
   }
 
-  async function trashed(): Promise<void> {
+  async function trashed(to: string): Promise<void> {
     dialog = undefined;
     editor.close();
+    notice = to ? `Moved to Trash: ${to}` : 'Moved to Trash';
     await editor.loadFiles();
   }
 </script>
 
 <svelte:window {onkeydown} />
 
-<div class="editor">
+<div class="editor" class:explaining>
   <aside class="files" aria-label="Project files">
     <label class="vc-sr" for="file-filter">Filter files</label>
     <input
@@ -119,9 +129,9 @@
   </aside>
 
   <section class="main" aria-label="Editor">
-    {#if editor.error}<p class="banner err" role="alert">{editor.error}</p>{/if}
+    {#if editor.error}<p class="vc-banner" role="alert">{editor.error}</p>{/if}
     {#if pending}
-      <div class="banner warn" role="alert">
+      <div class="vc-banner vc-banner--warn" role="alert">
         <span class="vc-grow">Discard your unsaved changes to {baseName(buffer?.path ?? '')}?</span>
         <button type="button" class="st-btn st-btn--sm" onclick={discard}>Discard and open</button>
         <button type="button" class="st-btn st-btn--sm" onclick={() => (pending = undefined)}
@@ -129,13 +139,21 @@
         >
       </div>
     {/if}
+    {#if !buffer && notice}<p class="st-secondary" role="status">{notice}</p>{/if}
     {#if !buffer}
       <p class="empty">{editor.state === 'loading' ? 'Opening…' : 'Pick a file to edit.'}</p>
     {:else}
-      <EditorBar {editor} {session} {changes} bind:showDiff onaction={act} />
+      <EditorBar
+        {editor}
+        {session}
+        {changes}
+        bind:showDiff
+        onaction={act}
+        onfixall={() => void fix()}
+      />
       {#if notice}<p class="st-secondary" role="status">{notice}</p>{/if}
       {#if editor.confirming}
-        <div class="banner err" role="alert">
+        <div class="vc-banner" role="alert">
           <span class="vc-grow"
             >This file has {editor.errorCount}
             {editor.errorCount === 1 ? 'error' : 'errors'}. Save it anyway?</span
@@ -151,7 +169,7 @@
         </div>
       {/if}
       {#if editor.state === 'conflict'}
-        <div class="banner err" role="alert">
+        <div class="vc-banner" role="alert">
           <span class="vc-grow">Not saved: this file changed on disk since you opened it.</span>
           <button type="button" class="st-btn st-btn--sm" onclick={() => void editor.reload()}
             >Reload from disk</button
@@ -174,7 +192,7 @@
             marks={placed}
             assist={seams.assist}
             onedit={(text) => editor.edit(text)}
-            onfix={(fix) => editor.applyFix(fix)}
+            onfix={(f, code) => void fix({ fix: f, code })}
           />
         {/key}
       {/if}
@@ -183,10 +201,18 @@
         failure={editor.checkError}
         live={false}
         ongo={go}
-        onfix={(fix) => editor.applyFix(fix)}
+        onfix={(f, code) => void fix({ fix: f, code })}
+        onexplain={(code) => (explaining = code)}
       />
     {/if}
   </section>
+  {#if explaining}
+    <ExplainPanel
+      port={seams.explain}
+      target={explaining}
+      onclose={() => (explaining = undefined)}
+    />
+  {/if}
 </div>
 
 {#if dialog === 'new'}
@@ -200,6 +226,7 @@
   <RenameDialog
     files={seams.files}
     path={buffer.path}
+    id={editor.fileId(buffer.path)}
     onclose={() => (dialog = undefined)}
     onrenamed={(path) => void reopen(path)}
   />
@@ -207,8 +234,9 @@
   <TrashDialog
     files={seams.files}
     path={buffer.path}
+    digest={buffer.digest}
     onclose={() => (dialog = undefined)}
-    ontrashed={() => void trashed()}
+    ontrashed={(to) => void trashed(to)}
   />
 {:else if buffer && dialog === 'plan'}
   <PlanDialog plan={seams.plan} path={buffer.path} onclose={() => (dialog = undefined)} />
@@ -220,6 +248,9 @@
     grid-template-columns: minmax(200px, 260px) minmax(0, 1fr);
     gap: 20px;
     min-height: 0;
+  }
+  .editor.explaining {
+    grid-template-columns: minmax(200px, 260px) minmax(0, 1fr) minmax(240px, 320px);
   }
   .files,
   .main {
@@ -239,26 +270,21 @@
   .empty {
     color: var(--st-text-tertiary);
   }
-  .banner {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 8px;
-    margin: 0;
-    padding: 8px 12px;
-    border-radius: 10px;
-  }
-  .err {
-    background: var(--vc-fail-soft);
-    color: var(--vc-fail);
-  }
-  .warn {
-    background: var(--vc-blocked-soft);
-    color: var(--vc-blocked);
+  @container card (width < 960px) {
+    .editor.explaining {
+      grid-template-columns: minmax(200px, 260px) minmax(0, 1fr);
+    }
+    .editor.explaining > :global(.explain) {
+      grid-column: 2;
+    }
   }
   @container card (width < 660px) {
-    .editor {
+    .editor,
+    .editor.explaining {
       grid-template-columns: minmax(0, 1fr);
+    }
+    .editor.explaining > :global(.explain) {
+      grid-column: auto;
     }
   }
 </style>

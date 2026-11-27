@@ -63,7 +63,7 @@
   {#each settings.notices as notice, i (i)}
     <p class="notice">{notice}</p>
   {/each}
-  <table aria-busy={settings.loading}>
+  <table class="vc-table" aria-busy={settings.loading}>
     <caption class="st-title3">Effective settings</caption>
     <thead>
       <tr><th scope="col">Key</th><th scope="col">Value</th><th scope="col">Set by</th></tr>
@@ -122,27 +122,14 @@
     flex: 0 1 240px;
     min-width: 0;
   }
-  table {
-    width: 100%;
-    border-collapse: collapse;
-  }
   caption {
     text-align: left;
     margin-bottom: 8px;
   }
-  th,
-  td {
-    padding: 6px 8px;
-    border-bottom: 1px solid var(--st-chrome-separator);
-    text-align: left;
+  /* the shared table recipe (D669), cells to the top for multi-line values */
+  .vc-table th,
+  .vc-table td {
     vertical-align: top;
-  }
-  thead th {
-    color: var(--st-text-secondary);
-    font-weight: 500;
-  }
-  tbody th {
-    font-weight: 400;
   }
   .over {
     margin: 4px 0 0;

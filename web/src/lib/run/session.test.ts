@@ -169,4 +169,18 @@ describe('RunSession', () => {
     expect(session.view.phase).toBe('error');
     expect(session.view.error).toBe('engine went away');
   });
+
+  it('shows a refused reports.dir as the engine words it', async () => {
+    const said = 'V5132: reports.dir must be a folder inside the project';
+    const session = new RunSession(
+      fakeEngine({
+        // eslint-disable-next-line require-yield
+        async *run() {
+          throw new ConnectError(said, Code.InvalidArgument);
+        },
+      }),
+    );
+    await session.start({});
+    expect(session.view.error).toBe(said);
+  });
 });

@@ -5,7 +5,7 @@
 
   /**
    * Strata's empty state (D609): a 28px icon, a Title3 title, a caption and at most one
-   * button, centred in a wash.
+   * button, floating centred on the card itself, with no box of its own (D658).
    */
   let {
     icon,
@@ -15,7 +15,7 @@
   }: { icon: IconName; title: string; caption?: string; action?: Snippet } = $props();
 </script>
 
-<div class="empty vc-wash">
+<div class="empty vc-empty">
   <Icon name={icon} />
   <p class="title">{title}</p>
   {#if caption}<p class="caption">{caption}</p>{/if}
@@ -36,6 +36,8 @@
     padding: var(--st-space-24);
     text-align: center;
     color: var(--st-text-tertiary);
+    background: none;
+    border: 0;
   }
   .empty :global(svg) {
     width: 28px;

@@ -70,11 +70,10 @@
     gap: 6px;
     min-width: 0;
   }
+  /* the subtitle always sits under the title, so every chart's header has one shape */
   .head {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px 12px;
-    align-items: baseline;
+    display: grid;
+    gap: 2px;
   }
   .sub,
   .readout {

@@ -23,6 +23,7 @@ import {
   type ViewUpdate,
 } from '@codemirror/view';
 import type { Fix } from '#lib/gen/vibranium/engine/v1/engine_pb.ts';
+import { markdownDom } from '#lib/ui/markdown.ts';
 import type { EditorAssist, HoverCard, Suggestion } from './assist.ts';
 import type { Mark } from './marks.ts';
 import { yamlTheme } from './yamlTheme.ts';
@@ -41,13 +42,14 @@ const kinds: Record<Suggestion['kind'], string> = {
   matcher: 'method',
   pipe: 'method',
   key: 'property',
+  value: 'enum',
 };
 
 /** The marks as CodeMirror's lint diagnostics, each certain fix a quick-fix action. */
 export function lintMarks(
   marks: readonly Mark[],
   size: number,
-  onfix: (fix: Fix) => void,
+  onfix: (fix: Fix, code: string) => void,
 ): LintMark[] {
   return marks.map((mark) => ({
     from: Math.min(mark.from, size),
@@ -55,33 +57,24 @@ export function lintMarks(
     severity: mark.severity,
     source: mark.code,
     message: mark.message,
-    actions: mark.fixes.map((fix) => ({ name: fix.title, apply: () => onfix(fix) })),
+    actions: mark.fixes.map((fix) => ({ name: fix.title, apply: () => onfix(fix, mark.code) })),
   }));
 }
 
 /** The suggestions as CodeMirror completions. */
 export function completions(items: readonly Suggestion[]): Completion[] {
-  return items.map(({ label, kind, detail, insert }) => ({
+  return items.map(({ label, kind, detail, doc, insert }) => ({
     label,
     type: kinds[kind],
     ...(detail === undefined ? {} : { detail }),
+    ...(doc === undefined ? {} : { info: doc }),
     ...(insert === undefined ? {} : { apply: insert }),
   }));
 }
 
 /** The hover card's DOM, from text nodes only, so no value from a file can become markup. */
 export function hoverDom(card: HoverCard): HTMLElement {
-  const dom = document.createElement('div');
-  dom.className = 'cm-hover';
-  const line = (className: string, text: string) => {
-    const el = dom.appendChild(document.createElement('div'));
-    el.className = className;
-    el.textContent = text;
-  };
-  line('cm-hover-title', card.type ? `${card.title}: ${card.type}` : card.title);
-  if (card.value !== undefined) line('cm-hover-meta', `= ${card.value}`);
-  if (card.docs) line('cm-hover-docs', card.docs);
-  return dom;
+  return markdownDom(card.markdown, 'cm-hover');
 }
 
 function completer(hooks: ViewHooks) {

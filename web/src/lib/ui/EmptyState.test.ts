@@ -10,5 +10,5 @@ it('shows a title and caption in a wash, with its icon hidden from assistive tec
   });
   expect(screen.getByText('No response yet').classList.contains('title')).toBe(true);
   expect(screen.getByText('Send the request.')).toBeTruthy();
-  expect(container.querySelector('.empty.vc-wash')).toBeTruthy();
+  expect(container.querySelector('.empty.vc-empty')).toBeTruthy();
 });

@@ -7,6 +7,8 @@ export class LoadSession {
   run: LoadRun | undefined = $state.raw();
   /** Why there is no run: the engine has no load runs, or the stream broke off. */
   note: string | undefined = $state();
+  /** The project's load scenarios, to start one; empty until listed. */
+  scenarios: readonly string[] = $state([]);
   #abort: AbortController | undefined;
   readonly #port: LoadPort;
 
@@ -23,6 +25,15 @@ export class LoadSession {
       const stored = await this.#port.stored(id);
       if (stored.available) this.run = stored.value;
       else this.note = stored.reason;
+    });
+  }
+
+  /** Lists the project's load scenarios. */
+  async listScenarios(): Promise<void> {
+    await this.#guard(async () => {
+      const found = await this.#port.scenarios();
+      if (found.available) this.scenarios = found.value;
+      else this.note = found.reason;
     });
   }
 

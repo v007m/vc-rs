@@ -54,6 +54,7 @@
       <label class="tg-head">
         <input
           type="checkbox"
+          class="st-check"
           checked={count === status.files.length}
           indeterminate={count > 0 && count < status.files.length}
           onchange={() => vcs.toggleAll()}
@@ -67,6 +68,7 @@
           <li class="tg-file" class:is-unpicked={!vcs.picked.includes(file.path)}>
             <input
               type="checkbox"
+              class="st-check"
               checked={vcs.picked.includes(file.path)}
               onchange={() => vcs.toggle(file.path)}
               aria-label="Pick {file.path}"

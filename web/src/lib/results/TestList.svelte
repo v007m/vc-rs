@@ -1,6 +1,6 @@
 <script lang="ts">
   import { listMove, scrollFor, windowOf } from './list.ts';
-  import { ms, statusClass } from './status.ts';
+  import { statusClass, testTime } from './status.ts';
   import type { TestRow } from './types.ts';
 
   /** Height of one row in px; the list renders only the rows in view (10,000 tests stay fast). */
@@ -91,7 +91,7 @@
             <span class="vc-sr">, {row.status}</span>
           </span>
           <span class="file vc-mono">{row.file}</span>
-          <span class="num">{ms(row.ms)}</span>
+          <span class="num">{testTime(row.status, row.ms)}</span>
         </div>
       {/each}
     </div>
@@ -131,7 +131,7 @@
   }
   .row[aria-selected='true'] {
     background: var(--st-accent-soft);
-    color: var(--st-accent);
+    color: var(--st-text-primary);
   }
   .name {
     display: flex;

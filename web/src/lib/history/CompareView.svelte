@@ -161,8 +161,8 @@
         {#each rows as row (row.id)}
           <tr>
             <td class="vc-mono">{row.id}</td>
-            <td class="r">{ms(row.baseMs)}</td>
-            <td class="r">{ms(row.headMs)}</td>
+            <td class="r">{ms(row.baseMs)} ms</td>
+            <td class="r">{ms(row.headMs)} ms</td>
             <td class="r">{percentChange(row) > 0 ? '+' : ''}{percentChange(row)} %</td>
           </tr>
         {/each}
@@ -184,7 +184,7 @@
           <tr>
             <td class="vc-mono">{row.api}</td>
             <td class="vc-mono">{row.path}</td>
-            <td>{row.change === 'type' ? `now ${row.type}` : `${row.change} (${row.type})`}</td>
+            <td>{row.change === 'type' ? row.type : row.change}</td>
           </tr>
         {/each}
       </tbody>

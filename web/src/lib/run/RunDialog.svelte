@@ -2,6 +2,7 @@
   import { ConnectError } from '@connectrpc/connect';
   import { untrack } from 'svelte';
   import Dialog from '#lib/ui/Dialog.svelte';
+  import Icon from '#lib/shell/Icon.svelte';
   import Glyph from '#lib/ui/Glyph.svelte';
   import { planLine, type EstimatePort } from './estimate.ts';
   import {
@@ -137,7 +138,7 @@
   {/if}
   <p class="plan st-secondary" aria-live="polite"><span class="vc-sr">Plan: </span>{plan}</p>
   <details class="more" bind:open={more}>
-    <summary>More options</summary>
+    <summary class="vc-disclosure"><Icon name="chevron" class="vc-chev" />More options</summary>
     <div class="form">
       {#if profiles.length > 1}
         <span class="lbl" id="{uid}-layers">Layer profiles</span>
@@ -146,6 +147,7 @@
             <label class="chip"
               ><input
                 type="checkbox"
+                class="st-check"
                 checked={layers.includes(name)}
                 onchange={(event) => toggleLayer(name, event.currentTarget.checked)}
               />{name}</label
@@ -195,6 +197,7 @@
           <label class="chip"
             ><input
               type="checkbox"
+              class="st-check"
               checked={form.reports.includes(format)}
               onchange={(event) => toggleReport(format, event.currentTarget.checked)}
             />{format}</label
@@ -202,7 +205,7 @@
         {/each}
       </div>
     </div>
-    <div class="cmd">
+    <div class="cmd vc-well">
       <code class="vc-mono" aria-label="Command">{command}</code>
       <button
         type="button"
@@ -222,9 +225,10 @@
 </Dialog>
 
 <style>
+  /* one label column for both grids, so More options lines up with the fields above it */
   .form {
     display: grid;
-    grid-template-columns: max-content minmax(0, 1fr);
+    grid-template-columns: 10.5rem minmax(0, 1fr);
     align-items: center;
     gap: 10px 12px;
   }
@@ -274,7 +278,6 @@
     border-top: 1px solid var(--st-chrome-separator);
   }
   .more summary {
-    cursor: pointer;
     margin-bottom: 10px;
     font-weight: 500;
   }
@@ -284,8 +287,7 @@
     gap: 8px;
     margin-top: 12px;
     padding: 8px 10px;
-    border-radius: var(--vc-radius-inner);
-    background: var(--st-surface-wash);
+    border-radius: var(--vc-radius-dialog-inner);
   }
   .cmd code {
     flex: 1;

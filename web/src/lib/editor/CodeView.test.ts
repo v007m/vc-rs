@@ -48,7 +48,7 @@ describe('CodeView', () => {
     });
     expect(found[0]).toMatchObject({ from: 15, to: 22, severity: 'error', source: 'V4001' });
     found[0]?.actions?.[0]?.apply(view, 15, 22);
-    expect(onfix).toHaveBeenCalledWith(fix);
+    expect(onfix).toHaveBeenCalledWith(fix, 'V4001');
   });
 
   it('completes from the assist seam at the cursor', async () => {

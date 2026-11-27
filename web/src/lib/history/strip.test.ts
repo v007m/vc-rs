@@ -25,4 +25,9 @@ describe('the per-test history strip', () => {
     const d = sparkline([point(2, 'passed', 100), point(1, 'passed', 50)], [10, 12]);
     expect(d).toBe('M0.0,6.0 L10.0,1.0');
   });
+
+  it('breaks the line at a run that did not run the test', () => {
+    const points = [point(3, 'passed', 100), point(2, 'skipped', 0), point(1, 'passed', 100)];
+    expect(sparkline(points, [10, 12])).toBe('M0.0,1.0 M10.0,1.0');
+  });
 });

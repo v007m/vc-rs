@@ -38,15 +38,32 @@ const TICK: LoadUpdate = {
     p95: 210,
     p99: 340,
     errorRate: 0.5,
-    host: { cpu: 40, memMb: 512, conns: 80, dropped: 0 },
+    breaching: [],
+    host: { cpu: 40, memMb: 512, conns: 80, late: 0 },
   },
 };
 
+const LATENCY = { p50: 80, p90: 180, p95: 210, p99: 340, max: 900 };
+
 const REPORT: LoadReport = {
-  verdicts: [{ threshold: P99, scope: 'whole run', held: true, worst: 340, at: 5, whole: 300 }],
-  histogram: [[100, 40]],
-  scenarios: [],
-  previous: [{ run: 12, p99: 340 }],
+  seconds: 120,
+  iterations: 144000,
+  errors: 720,
+  rps: 1200,
+  latency: LATENCY,
+  breaches: [{ metric: 'p99', shown: '612 ms (lt 500 ms)' }],
+  tests: [
+    {
+      test: 'checkout.flow#buysOneItem',
+      iterations: 144000,
+      errors: 720,
+      rps: 1200,
+      latency: LATENCY,
+    },
+  ],
+  errorKinds: [{ api: 'checkout#pay', status: 502, code: 'V5101', count: 720 }],
+  seed: '42',
+  notices: [],
 };
 
 /** A load port whose one run sends `updates`, then, when `hold`, stays open until stopped. */
@@ -63,6 +80,7 @@ function portOf(updates: LoadUpdate[], hold: boolean): LoadPort & { stops: Abort
       return Promise.resolve(available({ run: RUN, updates: stream(signal) }));
     },
     stored: () => Promise.resolve(available(RUN)),
+    scenarios: () => Promise.resolve(available(['checkout.peak', 'search.soak'])),
   };
 }
 
@@ -95,16 +113,43 @@ it('shows a running load run’s KPIs, charts and hosts, and stops it', async ()
   expect(screen.getByRole('button', { name: 'Run again' })).toBeTruthy();
 });
 
-it('offers the report of a finished run, with each threshold’s verdict', async () => {
-  const finished: LoadUpdate = { finished: 'held', id: 12, report: REPORT };
+it('offers the report of a finished run, with the thresholds it breached', async () => {
+  const finished: LoadUpdate = { finished: 'breached', id: 12, report: REPORT };
   const session = new LoadSession(portOf([TICK, finished], false));
   await session.start('checkout.load');
   render(LoadScreen, { session });
-  expect(screen.getByText('Thresholds held')).toBeTruthy();
+  expect(screen.getByText('Threshold breached')).toBeTruthy();
   await userEvent.click(screen.getByRole('button', { name: 'Report' }));
-  const verdicts = within(screen.getByRole('region', { name: 'Thresholds' }));
-  const row = verdicts.getByRole('row', { name: /p99 < 500ms/ });
-  expect(row.textContent).toContain('✓ Held');
+  const breaches = within(screen.getByRole('region', { name: 'Thresholds' }));
+  expect(breaches.getByText('612 ms (lt 500 ms)')).toBeTruthy();
+  const kinds = within(screen.getByRole('region', { name: 'Failed iterations' }));
+  expect(kinds.getByRole('row', { name: /checkout#pay/ }).textContent).toContain('502');
+  const mix = within(screen.getByRole('region', { name: 'Mix tests' }));
+  expect(mix.getByRole('row', { name: /buysOneItem/ }).textContent).toContain('0.5 %');
   expect(screen.queryAllByRole('figure')).toEqual([]);
   expect(screen.getByText('staging · #12')).toBeTruthy();
+});
+
+it('lists the load scenarios and starts the one picked', async () => {
+  const port = portOf([], false);
+  const session = new LoadSession(port);
+  await session.listScenarios();
+  render(LoadScreen, { session });
+  const picker = screen.getByLabelText<HTMLSelectElement>('Load scenario');
+  expect(picker.value).toBe('checkout.peak');
+  await userEvent.selectOptions(picker, 'search.soak');
+  await userEvent.click(screen.getByRole('button', { name: 'Start' }));
+  expect(port.stops).toHaveLength(1);
+});
+
+it('says a stored load run keeps no ticks', async () => {
+  const port = {
+    ...portOf([], false),
+    stored: () => Promise.resolve(available({ ...RUN, phase: 'held' as const })),
+  };
+  const session = new LoadSession(port);
+  await session.open(12);
+  render(LoadScreen, { session });
+  expect(screen.getByText(/keeps a load run's verdict, not its ticks/)).toBeTruthy();
+  expect(screen.queryAllByRole('figure')).toEqual([]);
 });

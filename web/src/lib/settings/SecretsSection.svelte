@@ -32,7 +32,7 @@
     <p class="error" role="alert">{schema.error}</p>
   {/if}
   {#if schema.state === 'conflict'}
-    <div class="banner" role="alert">
+    <div class="vc-banner" role="alert">
       <span class="vc-grow"
         >Not saved: <code>.env.schema</code> changed on disk since you opened it.</span
       >
@@ -41,7 +41,7 @@
       >
     </div>
   {/if}
-  <table aria-busy={busy}>
+  <table class="vc-table" aria-busy={busy}>
     <caption class="vc-sr">Declared secrets</caption>
     <thead>
       <tr>
@@ -109,7 +109,7 @@
       bind:value={name}
       oninput={() => (problem = undefined)}
     />
-    <button type="submit" class="st-btn st-btn--sm" disabled={busy || !name.trim()}>Add</button>
+    <button type="submit" class="st-btn" disabled={busy || !name.trim()}>Add</button>
     {#if problem}<p id="secret-name-problem" class="error">{problem}</p>{/if}
   </form>
   <!-- the status, then Discard, then the primary last at the right (D616) -->
@@ -152,23 +152,10 @@
     margin: 0;
     color: var(--st-text-secondary);
   }
-  table {
-    width: 100%;
-    border-collapse: collapse;
-  }
-  th,
-  td {
-    padding: 6px 8px;
-    border-bottom: 1px solid var(--st-chrome-separator);
-    text-align: left;
+  /* the shared table recipe (D669), cells to the top for multi-line values */
+  .vc-table th,
+  .vc-table td {
     vertical-align: top;
-  }
-  thead th {
-    color: var(--st-text-secondary);
-    font-weight: 500;
-  }
-  tbody th {
-    font-weight: 400;
   }
   .act {
     width: 1%;
@@ -176,8 +163,7 @@
   }
   .add,
   .check,
-  .actions,
-  .banner {
+  .actions {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
@@ -206,11 +192,6 @@
   }
   .state.not-checked {
     color: var(--st-text-secondary);
-  }
-  .banner {
-    padding: 8px 12px;
-    border: 1px solid var(--vc-fail);
-    border-radius: 6px;
   }
   .error {
     margin: 0;

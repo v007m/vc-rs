@@ -52,7 +52,7 @@
     overflow: auto;
     margin: 0;
     padding: var(--st-space-8) 0;
-    border-radius: var(--st-radius-md);
+    border-radius: var(--vc-radius-dialog-inner);
     background: var(--st-surface-input-on-card);
     font-size: var(--vc-size-caption);
     line-height: 1.5;

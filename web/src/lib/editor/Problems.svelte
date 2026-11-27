@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Icon from '#lib/shell/Icon.svelte';
   import { Severity, type Diagnostic, type Fix } from '#lib/gen/vibranium/engine/v1/engine_pb.ts';
   import { byImportance } from './files.ts';
 
@@ -8,6 +9,7 @@
     live,
     ongo,
     onfix,
+    onexplain,
   }: {
     diagnostics: readonly Diagnostic[];
     /** Why the last check could not run; shown in place of its diagnostics. */
@@ -15,7 +17,9 @@
     /** Whether the list follows the unsaved text, or only the last check of the file on disk. */
     live: boolean;
     ongo: (diagnostic: Diagnostic) => void;
-    onfix: (fix: Fix) => void;
+    onfix: (fix: Fix, code: string) => void;
+    /** Opens the explain panel on a code (D651); no Explain buttons without it. */
+    onexplain?: (code: string) => void;
   } = $props();
 
   let open = $state(true);
@@ -36,7 +40,7 @@
 <section class="probs" aria-label="Problems">
   <div class="head">
     <button type="button" class="title" aria-expanded={open} onclick={() => (open = !open)}>
-      <span class="chev" aria-hidden="true">{open ? '▾' : '▸'}</span>Problems
+      <Icon name="chevron" class="vc-chev {open ? '' : 'is-closed'}" />Problems
       <span class="st-badge" class:vc-fail={errors > 0}>{count(errors, 'error')}</span>
       <span class="st-badge" class:vc-blocked={warnings > 0}>{count(warnings, 'warning')}</span>
     </button>
@@ -64,13 +68,21 @@
               <span class="where">{where(d)}</span>
             </button>
             {#each d.help as help (help)}<p class="help">help: {help}</p>{/each}
-            {#if d.fixes.length}
+            {#if d.fixes.length || (onexplain && d.code)}
               <div class="fixes">
                 {#each d.fixes as fix (fix.title)}
-                  <button type="button" class="st-btn st-btn--sm" onclick={() => onfix(fix)}
+                  <button type="button" class="st-btn st-btn--sm" onclick={() => onfix(fix, d.code)}
                     >{fix.title}</button
                   >
                 {/each}
+                {#if onexplain && d.code}
+                  <button
+                    type="button"
+                    class="st-btn st-btn--sm"
+                    aria-label="Explain {d.code}"
+                    onclick={() => onexplain(d.code)}>Explain</button
+                  >
+                {/if}
               </div>
             {/if}
           </li>
@@ -102,10 +114,6 @@
     cursor: pointer;
     padding: 4px;
     border-radius: 6px;
-  }
-  .chev {
-    width: 12px;
-    color: var(--st-text-tertiary);
   }
   .note,
   .none,

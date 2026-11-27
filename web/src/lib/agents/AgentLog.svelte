@@ -37,7 +37,7 @@
     </label>
   </div>
   {#if shown.length}
-    <table>
+    <table class="vc-rules">
       <thead>
         <tr
           ><th scope="col">Tool</th><th scope="col">When</th><th scope="col">Agent</th><th
@@ -109,7 +109,6 @@
   th,
   td {
     padding: 6px 8px;
-    border-bottom: 1px solid var(--st-chrome-separator);
     text-align: left;
     vertical-align: top;
   }

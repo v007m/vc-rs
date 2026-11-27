@@ -1,8 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { breaches, clock, linePath, niceCeil, peakIndex, scale, timeTicks, yTop } from './chart.ts';
+import {
+  breachOf,
+  breaches,
+  clock,
+  linePath,
+  niceCeil,
+  peakIndex,
+  scale,
+  timeTicks,
+  yTop,
+} from './chart.ts';
 import type { LoadTick } from './port.ts';
 
-const host = { cpu: 10, memMb: 100, conns: 4, dropped: 0 };
+const host = { cpu: 10, memMb: 100, conns: 4, late: 0 };
 const tick = (t: number, p99: number): LoadTick => ({
   t,
   users: 10,
@@ -11,6 +21,7 @@ const tick = (t: number, p99: number): LoadTick => ({
   p95: p99 / 2,
   p99,
   errorRate: 0,
+  breaching: p99 > 500 ? ['p99'] : [],
   host,
 });
 
@@ -53,5 +64,13 @@ describe('load chart geometry', () => {
     expect(clock(125)).toBe('2:05');
     expect(timeTicks(180, 800)).toEqual([0, 60, 120, 180]);
     expect(timeTicks(180, 400)).toEqual([0, 120]);
+  });
+});
+
+describe('breachOf', () => {
+  it('marks the seconds the engine said were breaching when no threshold is known', () => {
+    const ticks = [tick(1, 200), tick(2, 700), tick(3, 800), tick(4, 300)];
+    expect(breachOf(ticks, ['p50', 'p95', 'p99'])).toEqual({ metric: 'p99', spans: [[1, 2]] });
+    expect(breachOf(ticks, ['p50'])).toEqual({ spans: [] });
   });
 });

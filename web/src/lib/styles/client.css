@@ -2,14 +2,15 @@
    on a resizable split. Ported from the ui-v2 mockup; the tab strip styles itself. */
 
 /* ---- method pill and status code --------------------------------------------- */
+/* a method tag is a badge, so a capsule like every badge (D668) */
 .method {
   display: inline-grid;
   place-items: center;
   flex: none;
-  min-width: 34px;
+  min-width: 40px;
   height: 18px;
-  padding: 0 4px;
-  border-radius: 5px;
+  padding: 0 6px;
+  border-radius: var(--st-radius-capsule);
   font-family: var(--st-font-mono);
   font-size: 10px;
   font-weight: var(--st-weight-semibold);
@@ -75,6 +76,11 @@
 .reqbar .btn-split .st-btn {
   height: var(--st-size-control-lg);
 }
+/* the Layout menu's icon button sits in the same row, so it takes the row's 40 (D660) */
+.reqbar .st-icon-btn {
+  width: var(--st-size-control-lg);
+  height: var(--st-size-control-lg);
+}
 .reqbar .st-input {
   flex: none;
   width: auto;
@@ -123,11 +129,11 @@
   align-items: stretch;
 }
 .btn-split > .st-btn:first-child {
-  border-radius: var(--st-radius-md) 0 0 var(--st-radius-md);
+  border-radius: var(--st-radius-capsule) 0 0 var(--st-radius-capsule);
   padding-right: var(--st-space-12);
 }
 .btn-split > :nth-child(2) > .st-btn {
-  border-radius: 0 var(--st-radius-md) var(--st-radius-md) 0;
+  border-radius: 0 var(--st-radius-capsule) var(--st-radius-capsule) 0;
   padding: 0 10px;
   box-shadow:
     var(--st-emboss),
@@ -222,10 +228,10 @@
   font-size: var(--vc-size-caption);
   color: var(--st-text-tertiary);
 }
+/* the panel's tabs are the card's segmented track (D660), inset by the card padding */
 .split > .st-card > [role='tablist'] {
-  flex: none;
-  padding: 0 var(--st-card-padding) var(--st-space-12);
-  border-bottom: 1px solid var(--st-chrome-separator);
+  max-width: calc(100% - 2 * var(--st-card-padding));
+  margin: 0 var(--st-card-padding);
 }
 .split > .st-card > [role='tabpanel'] {
   flex: 1 1 auto;
@@ -282,7 +288,6 @@
 }
 .client-table th {
   padding: 8px var(--st-space-12);
-  border-bottom: 1px solid var(--vc-rule-strong);
   color: var(--st-text-tertiary);
   font: var(--st-type-label);
   letter-spacing: var(--st-tracking-label);
@@ -293,11 +298,13 @@
   font-size: var(--vc-size-body);
   font-weight: var(--st-weight-regular);
   letter-spacing: 0;
-  border-bottom: 0;
+}
+/* the header rule is the stronger hairline; both stop 12px short (D669) */
+.client-table thead th {
+  --vc-hair-ink: var(--vc-rule-strong);
 }
 .client-table :is(td, tbody th) {
   padding: 6px var(--st-space-12);
-  border-top: 1px solid var(--st-chrome-separator);
   vertical-align: top;
   overflow-wrap: anywhere;
 }

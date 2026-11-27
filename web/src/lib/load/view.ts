@@ -67,14 +67,14 @@ export function kpis(run: LoadRun): readonly (readonly [string, string])[] {
   ];
 }
 
-/** CPU over this share, or any dropped iteration, means the generator itself is the limit. */
+/** CPU over this share of one core, or any late start, means the generator itself is the limit. */
 export const HOST_BUSY = 85;
 
-/** Why the numbers may understate the service, when the load generator is short of room. */
+/** Why the numbers may understate the service, when the load generator is short of room (D674). */
 export function hostWarning(host: HostStats): string | undefined {
-  if (host.dropped > 0)
-    return `${host.dropped} iterations were dropped: the generator could not keep up, so the service saw less load than planned.`;
-  if (host.cpu >= HOST_BUSY)
+  if (host.late > 0)
+    return `${host.late.toLocaleString('en-US')} iterations started late: the generator could not keep up, so the service saw less load than planned.`;
+  if (host.cpu !== undefined && host.cpu >= HOST_BUSY)
     return `The generator is at ${Math.round(host.cpu)} % CPU, so its own delay may add to the latency shown.`;
   return undefined;
 }

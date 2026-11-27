@@ -29,22 +29,28 @@ The UI is built on the Strata design system (D590), adopted at Sarath's request 
 | Layer | What sits on it | Treatment |
 |---|---|---|
 | Canvas (`.st-canvas`) | rail, sidebar, top row, section labels, status line | Four soft colour blobs over the base, under a matte grain (a local `grain.svg`, since the CSP blocks `data:`; D602). Pastel in light; charcoal with deep blue, slate and burnt orange in dark. Chrome has no boxes: no panel, border or fill on the sidebar, tabs, labels, icons or toolbar |
-| Card (`.st-card`) | the main content (one per view; a split shows two) | Glass that shows the canvas (white at 42 % in light, the slate at 45 % in dark; D608), solid as a viewer option (`data-cards="solid"`) or with reduced transparency. Dark cards are a slate (`#253137` solid), never black or neutral grey (D601). Never a card inside a card: a surface inside a card is a wash with no border (D609) |
-| Overlay (`.st-overlay`) | menus, popovers, dialogs, toasts, the palette | The strongest surface, as native `<dialog>` and `[popover]` elements. It grows out of what opened it (D618) |
+| Card (`.st-card`) | the main content (one per view; a split shows two) | Glass that shows the canvas (white at 60 % in light, the slate at 72 % in dark; D608, D656), solid as a viewer option (`data-cards="solid"`) or with reduced transparency. Dark cards are a slate (`#253137` solid), never black or neutral grey (D601). Never a card inside a card: a section inside a card has no fill or border, only a hairline above it, and lists, check rows and failure lines are flat rows with hairline separators. An inline alert (a save conflict, the editor's save-anyway question) is a `vc-banner`: a flat row between hairlines in the status ink, not a tinted or bordered box (D609, D658) |
+| Overlay (`.st-overlay`) | menus, popovers, dialogs, toasts, the palette | The strongest surface, as native `<dialog>` and `[popover]` elements. It grows out of what opened it (D618). Dialogs land centred in the window, the palette centred in the top third; menus anchor to their trigger and flip above it rather than clip (D662) |
 
 ### Spaces
 Each space sets `data-space` on the app, which picks the blobs and the accent (D591): Tests lilac, Client tide, Runs ember, Agents grove, Settings graphite. The primary button, focus rings, selected controls and native checkboxes take the space's accent.
 
 ### Layout and shape
 - Cards sit 8 px from the window on the top, right and bottom (10 px above 1600 px wide), and 0 on the sidebar side. A split has an 8 px gap with its handle in the gap (D594).
-- Corners are concentric, inner = outer − gap: window 20 px, cards 12, overlays 18 with 12 px items, the palette 22 with 14 px items, dialogs 28; a surface on a card takes 8 (D610).
+- Corners are concentric, inner = outer − gap: window 20 px, cards 12, overlays 18 with 12 px items, the palette 22 with 14 px items, dialogs 28; a surface on a card takes 8, a well in a dialog's 24 px padding takes 4, and a selected row follows the same rule (D610, D659).
 - Every single-line control is a capsule: fields, selects (with a gradient-drawn chevron, D621), the Env control and search. Multi-line fields are 8 px rounded rects. Controls are 28, 32 (default) or 40 px, border-box, and a row's items share one height; badges never sit in a control row (D611).
-- Empty panes show the empty state: icon, Title3 title and caption, centred in a wash (D609).
+- Empty panes show the empty state: icon, Title3 title, caption and at most one button, floating centred on the card with no box of its own (D609, D658).
+- Tabs inside a card are the segmented control: a 32 px capsule track inset by the card padding, with 28 px capsule tabs (D660).
 - In a row every item has the same height, with icon and text centred; icons have no border or background (D596).
+- Buttons are one capsule in four variants (primary, secondary, ghost, danger) at 28, 32 or 40 px, sized to their label; filter buttons are secondary. A disabled button keeps its shape and reads at 3:1 (D657). A secondary button draws one opaque raised fill everywhere (`--vc-btn-surface`: white in light, a step above the slate card in dark), on the canvas, a card or an overlay alike; a ghost button hovers and presses to it, and an editor quick fix is the small secondary button (D667).
 - Buttons have one emboss, and a long label wraps instead of clipping. The primary button is the space's accent, one per view, last at the bottom right with Cancel-like actions before it; each Settings section ends in a footer on the card's own surface. Fields are capped in width, not stretched (D597, D616).
-- The switch and slider are iOS liquid glass: a capsule track and a glassy debossed thumb. The segmented control has one glass lens that springs between options (D598, D615). Badges are capsules, larger than 18 px.
-- Focus: buttons and toggles get a 2 px accent outline at 2 px offset; a text field gets a 1.5 px accent ring on itself (D612).
-- Settings rows are left aligned, at least 44 px tall. Separators stop 12 px short of both ends everywhere (D603, D614).
+- The switch and slider are iOS liquid glass: a capsule track and a glassy debossed thumb. The segmented control has one glass lens that springs between options (D598, D615). Badges are capsules, larger than 18 px, and so are method and status-code tags (D668).
+- Marks are one system: every disclosure (tree row, section, `<details>`) shows one chevron that points down when open and turns a quarter left when closed, never a ▶/▾ glyph or the native marker; a checkbox is Strata's `.st-check` in the space accent (D668).
+- A toolbar never wraps: the editor bar folds Revert and Check, then Diff, Fix all and Run file, into its … menu as its pane narrows. KPI tiles sit in an even grid, 3 by 2 on a narrow card and 6 in a row on a wide one. The sidebar lights only the item whose route is the page's; a page with no item lights none (D669).
+- Focus: buttons and toggles get a 2 px accent outline at 2 px offset; a text field gets a 1.5 px ring at 40 % accent, offset 0, on its own capsule radius (D612, D661).
+- Contrast is WCAG AA against the real backdrop, glass over the gradient: 4.5:1 for all text, 3:1 for disabled text, icons, control borders and focus rings; primary text about 7:1. A selected row in dark chrome is a deeper plate under white ink; a selected row on a card is the accent's soft fill under primary ink (D656, D663).
+- `pnpm audit:style` (`web/audit/`) checks every route and overlay in both themes at 1440 and 1024 px against these rules: contrast, row heights, capsules, concentric radii, centred overlays, focus rings and boxes on cards (D665), plus one secondary button fill, capsule tags, one disclosure chevron, single-row toolbars, Strata checkboxes and no edge-to-edge table borders (D667–D669).
+- Settings rows are left aligned, at least 44 px tall. Separators stop 12 px short of both ends everywhere, table rows included: a ruled table (`vc-table`, `vc-rules`, `client-table`) draws each row's hairline as an inset cell background and sets its outer text 12 px in (D603, D614, D669).
 - Dialogs have a Title2 heading and actions at the bottom right, Cancel first; focus stays inside and Esc cancels. Toasts are capsules at the bottom centre for about 3 s, with an optional Undo (D604).
 - The search capsule in the top row is embossed, shows its shortcut and opens the command palette (D595, D620).
 
@@ -195,9 +201,10 @@ A wizard with six steps: Source (OpenAPI, HAR, Postman, Bruno, .http, cURL paste
   - New service, api file or test file, from the same templates as `vc new`.
   - Rename uses `vc rename`, with a diff preview of every file it changes.
   - Format uses `vc fmt`.
-  - Delete sends the file to the system's trash (D683), after a confirmation that lists the tests that reference it. A host with no trash, such as a Linux server without one, refuses it and the file stays.
+  - Move to Trash sends the file to the system's Trash (D654, D683), after a confirmation that lists the tests that reference it. A host with no trash, such as a Linux server without one, refuses it with the engine's message and the file stays.
 - **Plan preview** (`vc plan --explain`) for the selection shows the instances, the lifecycle order and the merged expects.
 - **Built so far (Round 98):** the YAML view only; the form view and Split come with the form editors. The view lives in a shadow root so its styles pass the CSP (D568). The editor bar holds Diff, Revert, Fix all, Check, Run file (Stop while it runs), Save and the file menu (D573). The plan preview covers the open file, not yet a selection (D576). Run file is a check run, `record: false`, so it leaves nothing in Runs (D645).
+- **Wired to the engine (Round 100):** completion and hover (D650), Explain in a side panel (D651), fixes through `ApplyFixes` (D652), the file operations (D653, D654) and the plan as `vc plan` prints it (D655).
 
 ## 6. Runs space (D519)
 
@@ -218,15 +225,15 @@ A wizard with six steps: Source (OpenAPI, HAR, Postman, Bruno, .http, cURL paste
 
 ### Load runs (`*.load.yaml`)
 - The load editor (stages, ramp and hold, executors, thresholds and scenarios) lives in Tests; its runs open here.
-- **Live run:** RPS, latency p50/p95/p99 and the error rate as hand-built SVG charts, with threshold lines and breach markers. A **Hosts panel** shows the load generator's own CPU, memory, open connections and dropped iterations. The engine must collect this; it's a new `load_tick` field.
-- **Report:** breaches, a latency histogram, the per-scenario split, and a comparison with earlier load runs.
-- **RPC:** load fields on `RunRequest`, or a `RunLoad` stream. The plan picks `RunLoad`, because the event shape differs.
+- **Live run:** RPS, latency p50/p95/p99 and the error rate as hand-built SVG charts, with threshold lines and breach markers. A **Hosts panel** shows the load generator's own CPU, memory, open connections and late starts (D677). Breaches are marked where a tick says a threshold is breaching (D648).
+- **Report** (D648): the whole run's figures and seed, the thresholds breached, failed iterations by kind, and the mix tests.
+- **RPC:** the `RunLoad` stream (D678). With no run open, `/runs/load` lists the load files to start.
 
 ### Runs and reports
 - **Runs list:** filter by status, profile, branch, kind (test, load, adhoc) and agent.
 - **Stored run** (D509, D636): a summary header (status, counts, duration, profile, branch @ commit, start time), an Export menu that copies `vc report N --format html|ctrf|junit`, `vc history show N --json` and the HTML report's path (the server serves no report files, so there is no Open report), and a ⋯ (Re-run failed, Compare, Copy run command); below it, the same view as a live run (D634). Each runs-list row has Compare, Run again and Copy run command in its ⋯. Routes: `/runs/<n>`, `/runs/load/<n>` and `/runs/compare/<a>/<b>` (D644).
-- **Compare two runs** (D637): newly failing, fixed, slower and faster tests (20 % and 50 ms or more), and changed response shapes.
-- **Per-test history strip** (D638): the open test's newest 30 results, a sparkline of its time, and its pass rate, flake rate and median.
+- **Compare two runs** (D637, D646): newly failing (blocked included), fixed, slower and faster tests (20 % and 50 ms or more), and changed response shapes, from `CompareRuns`.
+- **Per-test history strip** (D638, D647): the open test's newest 30 results from `TestHistory`, a sparkline of its time, and its pass rate, flake rate and median.
 
 ### Overview (the former Insights)
 - A profile and branch scope (D643): the project's profiles and the branches in the history.
@@ -447,8 +454,8 @@ Each step is one or two PRs, and each RPC gets its own small engine PR first.
 - **Step 6.** New file, Rename or move with its preview, Format, Move to trash and the plan preview are built behind `FileOps` and `PlanPort` (D575, D576).
 - **Step 7, Cancel part.** Stop, Stop now and Skip cleanups cancel a run by its handle (D577).
 - **Step 9, git part.** The Changes section of the Tests sidebar commits, pushes and pulls through the Vcs RPCs, with each file's diff (D578–D580), and the status line shows the branch (D581).
-- **Needs the engine.** Completion, hover, the file operations and the plan wait for `Complete` and `Hover`, `CreateFile`, `Rename` (with its preview), `Format`, the references list, `TrashFile`, `Plan` and `ApplyFixes` (§10, rows 4–6); against today's engine each says "needs a newer engine". Run file is recorded until `Run` takes `record: false` (row 17).
-- **Not built yet:** the form view and Split, Explain in a side panel, the Tests table's bulk actions and saved views, test detail, Quarantine and the per-test history strip (listed in Round 98).
+- **Wired in batch D (Round 100).** Completion, hover, the file operations, the plan and `ApplyFixes` use §10 rows 4–6 (D650–D655); Run file is a check run (row 17). An older engine still gets "needs a newer engine".
+- **Not built yet:** the form view and Split, the Tests table's bulk actions and saved views, test detail, Quarantine and the per-test history strip (listed in Round 98).
 
 **Done so far (batch D, Round 100):**
 
@@ -457,8 +464,8 @@ Each step is one or two PRs, and each RPC gets its own small engine PR first.
 - **Step 7, drill-down part.** The live run and a stored run share `RunDetail` (D634); a stored run has its header, Export and ⋯ (D636).
 - **Step 8.** The load screen's charts with threshold lines and breach markers (D641), the Hosts panel and the report (D639), at `/runs/load` and `/runs/load/<n>`.
 - **Step 9, compare and check parts.** Compare at `/runs/compare/<a>/<b>` (D637), the per-test history strip (D638), and Run file as a check run (D645). The Overview has its profile and branch scope (D643).
-- **Needs the engine.** Compare and the history strip wait for `CompareRuns` and `TestHistory` (§10 row 9); load runs wait for `RunLoad` and `load_tick` (row 8). Against today's engine each says "needs a newer engine".
-- **Not built yet:** Schedules (batch E), the Agent filter, starting a load run from Tests (with the load editor), a duration estimate in the plan line, and Quarantine from the Overview.
+- **Wired to the engine.** Compare and the history strip use `CompareRuns` and `TestHistory` (§10 row 9; D646, D647); load runs use `RunLoad` (row 8; D648). An older engine still gets "needs a newer engine".
+- **Not built yet:** Schedules (batch E), the Agent filter, starting a load run from Tests (with the load editor), a load run's profile and seed, a duration estimate in the plan line, and Quarantine from the Overview.
 
 **Strata restyle (Round 99):**
 

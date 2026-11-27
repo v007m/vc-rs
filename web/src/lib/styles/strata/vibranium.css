@@ -72,7 +72,7 @@
   --vc-pass-ink: light-dark(#0f5c37, #7fe2b3);
   --vc-fail: light-dark(#a01c1c, #ffa8aa);
   --vc-fail-soft: light-dark(#fde5e4, rgb(255 107 112 / 0.15));
-  --vc-fail-ink: light-dark(#9c1f1f, #ff9ea1);
+  --vc-fail-ink: light-dark(#9c1f1f, #ffb8ba);
   --vc-blocked: light-dark(#7a4600, #f5b75a);
   --vc-blocked-soft: light-dark(#fbefd9, rgb(243 173 69 / 0.15));
   --vc-blocked-ink: light-dark(#784600, #f8c57a);
@@ -95,10 +95,10 @@
   --vc-profile-hue: 255;
   /* HTTP methods */
   --vc-m-get: light-dark(#0f5e39, #6ee0aa);
-  --vc-m-post: light-dark(#214ca6, #a3c2ff);
+  --vc-m-post: light-dark(#1d4396, #bcd2ff);
   --vc-m-put: light-dark(#7a4600, #f3b860);
   --vc-m-patch: light-dark(#6436ab, #d2b8ff);
-  --vc-m-delete: light-dark(#9e1e1e, #ffa3a6);
+  --vc-m-delete: light-dark(#8e1a1a, #ffbabc);
   --vc-m-stream: light-dark(#095863, #6fdde8);
   /* YAML and JSON syntax */
   --vc-syn-key: light-dark(#5038c0, #b9a8ff);
@@ -106,7 +106,7 @@
   --vc-syn-number: light-dark(#862a63, #f5a3cf);
   --vc-syn-bool: light-dark(#7a4600, #f3c06b);
   --vc-syn-null: light-dark(#4a4f5d, #adb2bd);
-  --vc-syn-punct: light-dark(#636976, #8a909b);
+  --vc-syn-punct: light-dark(#525865, #aab0ba);
   --vc-syn-var: var(--st-accent);
   --vc-syn-var-bg: var(--st-accent-soft);
   /* diffs */
@@ -167,7 +167,6 @@
 }
 .st-btn--ghost[aria-pressed='true'],
 .st-btn--ghost[aria-expanded='true'] {
-  background: var(--st-surface-wash);
   box-shadow: none;
 }
 /* a destructive action that is not the view's primary one: red text on a normal button */
@@ -306,6 +305,32 @@ dialog.st-overlay::backdrop {
 .st-section-label {
   margin: 0;
 }
+/* Disclosure (D668): one chevron, pointing down when open and turned a quarter left when
+   closed, for a tree row, a section and a <details> alike; the native marker never shows. */
+summary {
+  list-style: none;
+  cursor: pointer;
+}
+summary::-webkit-details-marker {
+  display: none;
+}
+.vc-disclosure {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.vc-chev {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  color: var(--st-text-secondary);
+  stroke-width: 2;
+  transition: rotate var(--st-duration-fast) var(--st-ease-standard);
+}
+.vc-chev.is-closed,
+details:not([open]) > summary .vc-chev {
+  rotate: -90deg;
+}
 /* native radios and checkboxes not drawn as .st-check take the space's accent */
 input:is([type='radio'], [type='checkbox']) {
   accent-color: var(--st-accent);
@@ -415,12 +440,36 @@ input.st-input {
   background: var(--st-chrome-selected);
   box-shadow: var(--st-shadow-xs);
 }
-.st-card .vc-tab:hover {
+/* on a card the tabs are a segmented control (D660): the same 32px capsule track, 28px capsule
+   tabs and the glass lens on the open one, so "Checks" matches "All · Not passed" beside it */
+.st-card .vc-tabs {
+  flex: none;
+  align-self: flex-start;
+  width: fit-content;
+  max-width: 100%;
+  height: var(--st-size-control-md);
+  padding: 2px;
+  border-radius: var(--st-radius-capsule);
   background: var(--st-surface-wash);
+  box-shadow:
+    inset 0 1px 2px var(--st-shadow-ink),
+    inset 0 0 0 0.5px var(--st-edge-hairline);
+}
+.st-card .vc-tab {
+  height: 100%;
+  border-radius: var(--st-radius-capsule);
+  font: var(--st-type-body);
+  font-weight: var(--st-weight-medium);
+  color: color-mix(in srgb, var(--st-text-primary) 78%, transparent);
+}
+.st-card .vc-tab:hover {
+  background: transparent;
+  color: var(--st-text-primary);
 }
 .st-card .vc-tab:is([aria-selected='true'], [aria-current='page']) {
-  background: var(--st-accent-soft);
-  box-shadow: none;
+  color: var(--st-text-primary);
+  background: var(--vc-lens-bg);
+  box-shadow: var(--st-emboss), var(--st-shadow-xs);
 }
 
 /* a well inside a card, for code, logs and read-only viewers: the wash, never a card on a
@@ -458,7 +507,8 @@ input.st-input {
 
 /* SHAPE (D610): concentric radii, inner = outer - gap: the window 20 minus its 8px inset is the
    card's 12; an overlay 18 holds items of 12 at 6px padding, the palette 22 items of 14 at 8px;
-   a dialog is 28. A well on a card's 24px padding would come out below zero, so it takes 8. */
+   a dialog is 28, and a well at its 24px padding takes the 4 left over (D659). A well on a
+   card's 24px padding would come out below zero, so it takes 8. */
 :root {
   --st-radius-window: 20px;
   --st-window-inset: 8px;
@@ -468,14 +518,15 @@ input.st-input {
   --vc-radius-palette: 22px;
   --vc-radius-palette-item: 14px;
   --vc-radius-dialog: 28px;
+  --vc-radius-dialog-inner: 4px;
   --vc-radius-inner: 8px;
   /* HEIGHT (D611): one row, one height, border-box: 28, 32 (the default) or 40 */
   --st-size-control-sm: 28px;
   --st-size-control-md: 32px;
   --st-size-control-lg: 40px;
   --st-size-input-height: var(--st-size-control-md);
-  /* FOCUS (D612): Strata's ring token becomes the field ring, 1.5px at about 40% accent */
-  --st-focus-ring: 0 0 0 1.5px color-mix(in srgb, var(--st-accent) 40%, transparent);
+  /* FOCUS (D612): Strata's ring token is the field ring, 1.5px at 40% accent (set in
+     SURFACES below, where [data-space] rebuilds it from the width and opacity) */
   --vc-focus-outline: 2px solid var(--st-accent);
   /* MOTION (D617): two springs as linear() curves, the standard one with a little overshoot
      and a quicker, critically damped one for closing */
@@ -524,22 +575,48 @@ input.st-input {
   --vc-spring-quick-dur: 280ms;
   --vc-fade-dur: 90ms;
   /* SURFACES (D608, D613): glass that shows the canvas, a light near-white lens for segmented */
-  --st-surface-glass: #ffffff6b;
+  --st-surface-glass: #ffffff99;
   --vc-lens-bg: #fffffff0;
+  /* CONTRAST (D656): every ink passes WCAG AA on the real backdrop, glass over the gradient:
+     4.5:1 for all text down to tertiary, 3:1 for disabled text and icons; primary reaches 7:1 */
+  --st-text-primary: #1a1724f2;
+  --st-text-secondary: #1a1724cc;
+  --st-text-tertiary: #1a1724bf;
+  --st-text-disabled: #1a17248c;
+  --st-icon-default: #1a1724bf;
+  --st-icon-active: #1a1724f2;
+  --st-focus-ring-width: 1.5px;
+  --st-opacity-focus-ring: 0.4;
   --vc-grain: 0.32;
   --vc-grain-filter: saturate(1.8) brightness(0.78);
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
-    --st-surface-glass: #25313773;
+    --st-surface-glass: #253137b8;
     --vc-lens-bg: #41525a;
+    --st-text-primary: #fffffff2;
+    --st-text-secondary: #ffffffcc;
+    --st-text-tertiary: #ffffffb8;
+    --st-text-disabled: #ffffff8c;
+    --st-icon-default: #ffffffb8;
+    --st-icon-active: #fffffff2;
+    /* a selected row on the dark chrome is a deeper plate, not a light pill under white ink */
+    --st-chrome-selected: #00000047;
     --vc-grain: 0.28;
     --vc-grain-filter: saturate(1.6) brightness(1.7);
   }
 }
 :root[data-theme='dark'] {
-  --st-surface-glass: #25313773;
+  --st-surface-glass: #253137b8;
   --vc-lens-bg: #41525a;
+  --st-text-primary: #fffffff2;
+  --st-text-secondary: #ffffffcc;
+  --st-text-tertiary: #ffffffb8;
+  --st-text-disabled: #ffffff8c;
+  --st-icon-default: #ffffffb8;
+  --st-icon-active: #fffffff2;
+  /* a selected row on the dark chrome is a deeper plate, not a light pill under white ink */
+  --st-chrome-selected: #00000047;
   --vc-grain: 0.28;
   --vc-grain-filter: saturate(1.6) brightness(1.7);
 }
@@ -559,21 +636,6 @@ input.st-input {
   }
 }
 
-/* SHAPE: smooth corners where the engine has them (WebKit and so Tauri do not yet; plain
-   border-radius is the fallback). Capsules stay true capsules. */
-@supports (corner-shape: superellipse(2)) {
-  .st-card,
-  .st-overlay,
-  .vc-well,
-  .vc-wash,
-  .st-input--rect,
-  textarea.st-input,
-  .st-row,
-  .st-menu-item,
-  .vc-palette-item {
-    corner-shape: superellipse(2);
-  }
-}
 .st-menu.st-overlay {
   padding: var(--st-space-6);
 }
@@ -700,6 +762,96 @@ select.st-input:disabled {
   border-radius: var(--vc-radius-inner);
   background: var(--st-surface-wash);
   box-shadow: none;
+}
+/* a section of a card (a chart, a figure group, a table): no fill and no border of its own,
+   only a hairline above it, so nothing is a card on a card (D658) */
+.vc-panel {
+  min-width: 0;
+  margin: 0;
+  padding: var(--st-space-12) 0 0;
+  border: 0;
+  border-top: 1px solid var(--st-chrome-separator);
+  background: none;
+  box-shadow: none;
+}
+/* an inline alert (a save conflict, the save-anyway question): a flat row between hairlines in
+   the status ink, never a tinted or bordered box (D658) */
+.vc-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 8px 0;
+  border-block: 1px solid var(--st-chrome-separator);
+  color: var(--vc-fail-ink);
+}
+.vc-banner--warn {
+  color: var(--vc-blocked-ink);
+}
+
+/* BUTTONS (D657): one capsule in four variants (primary, secondary, ghost, danger) at
+   28/32/40. A disabled control keeps its shape and reads at 3:1 (Strata's 38% opacity left
+   it near 2:1); a disabled primary drops to the secondary fill. A key hint on a primary button
+   takes the button's ink. The ember space's light accent darkens so white text and accent
+   text on its soft fill both pass AA.
+   One secondary fill everywhere (D667): Strata gave a button on a card the lavender field
+   fill and one in a dialog or a menu a translucent white, so the two read as different
+   buttons. Every secondary button now draws one opaque raised fill (white in light, a step
+   above the slate card in dark), on the canvas, a card or an overlay alike, and a ghost
+   button hovers and presses to that same fill. A field keeps the sunken lavender well. */
+:root {
+  --vc-btn-surface: #fff;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --vc-btn-surface: color-mix(in oklab, var(--st-surface-solid), #fff 9%);
+  }
+}
+:root[data-theme='dark'] {
+  --vc-btn-surface: color-mix(in oklab, var(--st-surface-solid), #fff 9%);
+}
+.st-btn:not(.st-btn--primary, .st-btn--danger, .st-btn--ghost) {
+  background: var(--vc-btn-surface);
+}
+.st-btn--ghost:hover,
+.st-btn--ghost[aria-pressed='true'],
+.st-btn--ghost[aria-expanded='true'] {
+  background: var(--vc-btn-surface);
+}
+.st-btn:disabled,
+.st-btn[aria-disabled='true'],
+.st-btn--primary:disabled,
+.st-card .st-btn--primary:disabled,
+.st-btn--primary[aria-disabled='true'] {
+  opacity: 1;
+  color: var(--st-text-disabled);
+  background: var(--vc-btn-surface);
+  box-shadow: 0 0 0 0.5px var(--st-edge-hairline);
+}
+.st-btn--ghost:disabled,
+.st-btn--ghost[aria-disabled='true'] {
+  background: transparent;
+  box-shadow: none;
+}
+.st-icon-btn:disabled,
+.st-icon-btn[aria-disabled='true'],
+.st-segmented button:disabled,
+select.st-input:disabled {
+  opacity: 1;
+  color: var(--st-text-disabled);
+}
+.st-btn--primary .st-kbd,
+.st-btn--danger .st-kbd {
+  color: inherit;
+  opacity: 1;
+}
+/* light accents darkened to pass 4.5:1 as text on the glass (D656); dark keeps Strata's */
+[data-space='ember'] {
+  --st-accent: #a8461a;
+}
+[data-space='grove'] {
+  --st-accent: #2a7047;
 }
 
 /* CONTROLS (D615): segmented is a 32px capsule track with one sliding glass lens; the lens
@@ -873,14 +1025,15 @@ dialog.st-overlay.vc-anchored.is-rest[open] {
   .vc-strike,
   .st-segmented[data-lens]::before,
   .vc-anchored,
-  .vc-anchored > * {
+  .vc-anchored > *,
+  .vc-chev {
     animation: none;
     transition: none;
   }
 }
 
-/* Tables in the Runs space (D640): hairline rows inset like separators, tabular figures,
-   secondary column heads. */
+/* Tables (D640): tabular figures, secondary column heads, the outer text 12px in like a field
+   row's (any ruled table, D669), and hairline rows. */
 .vc-table {
   width: 100%;
   border-collapse: collapse;
@@ -889,9 +1042,39 @@ dialog.st-overlay.vc-anchored.is-rest[open] {
 .vc-table th,
 .vc-table td {
   padding: 6px 8px;
-  border-bottom: 1px solid var(--st-chrome-separator);
   text-align: left;
   vertical-align: middle;
+}
+:is(.vc-table, .vc-rules) :is(th, td):first-child {
+  padding-left: 12px;
+}
+:is(.vc-table, .vc-rules) :is(th, td):last-child {
+  padding-right: 12px;
+}
+/* Table hairlines stop 12px short of both edges like every separator (Strata 1.1, D669). A
+   collapsed cell border cannot be inset, so each cell draws its stretch of the line as a 1px
+   background, the outer cells 12px shorter. A row's line sits at its foot; `vc-rule-top`
+   moves it to the head (a total line), and `--vc-hair-ink` recolours it (a header rule). */
+:is(.vc-table, .vc-rules, .client-table) :is(th, td),
+.vc-rule-top > :is(th, td) {
+  --vc-hair: var(--vc-hair-ink, var(--st-chrome-separator));
+  background-image: linear-gradient(var(--vc-hair), var(--vc-hair));
+  background-repeat: no-repeat;
+  background-size: 100% 1px;
+  background-position: 0 var(--vc-hair-at, 100%);
+}
+:is(.vc-table, .vc-rules, .client-table, .vc-rule-top) :is(th, td):first-child {
+  background-size: calc(100% - 12px) 1px;
+  background-position: 12px var(--vc-hair-at, 100%);
+}
+:is(.vc-table, .vc-rules, .client-table, .vc-rule-top) :is(th, td):last-child {
+  background-size: calc(100% - 12px) 1px;
+}
+:is(.vc-table, .vc-rules, .client-table, .vc-rule-top) :is(th, td):only-child {
+  background-size: calc(100% - 24px) 1px;
+}
+.vc-rule-top {
+  --vc-hair-at: 0;
 }
 .vc-table thead th {
   color: var(--st-text-secondary);
@@ -901,8 +1084,9 @@ dialog.st-overlay.vc-anchored.is-rest[open] {
 .vc-table tbody th {
   font-weight: 400;
 }
-.vc-table tr:last-child > * {
-  border-bottom: 0;
+:is(.vc-table, .vc-rules, .client-table) tbody tr:last-child > *,
+.vc-table thead th {
+  background-image: none;
 }
 .vc-table .r {
   text-align: right;

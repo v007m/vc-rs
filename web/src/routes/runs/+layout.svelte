@@ -3,12 +3,12 @@
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
   import { engine } from '#lib/api/transport.ts';
+  import { engineRunsSeams } from '#lib/history/engine.ts';
   import { RunHistory } from '#lib/history/history.svelte.ts';
   import { enginePort } from '#lib/history/port.ts';
   import RunsSidebar from '#lib/history/RunsSidebar.svelte';
-  import { noRunsSeams } from '#lib/history/seams.ts';
   import { RunsSpace, setRunsSpace } from '#lib/history/space.svelte.ts';
-  import { noLoadPort } from '#lib/load/port.ts';
+  import { engineLoadPort } from '#lib/load/engine.ts';
   import { LoadSession } from '#lib/load/session.svelte.ts';
   import { getRunSession } from '#lib/run/context.ts';
   import { engineEstimate } from '#lib/run/estimate.ts';
@@ -27,8 +27,8 @@
   const project = getProjectStatus();
   const space = setRunsSpace(
     new RunsSpace(new RunHistory(enginePort(engine)), {
-      seams: noRunsSeams,
-      load: new LoadSession(noLoadPort),
+      seams: engineRunsSeams(engine),
+      load: new LoadSession(engineLoadPort(engine)),
       estimate: engineEstimate(engine),
     }),
   );

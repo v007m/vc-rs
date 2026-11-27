@@ -15,7 +15,8 @@
     "lint": "prettier --check . && eslint .",
     "format": "prettier --write .",
     "test": "playwright test",
-    "test:unit": "vitest run"
+    "test:unit": "vitest run",
+    "audit:style": "vite build && playwright test -c audit/playwright.config.ts"
   },
   "dependencies": {
     "@bufbuild/protobuf": "2.17.0",

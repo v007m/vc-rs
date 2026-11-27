@@ -1,7 +1,7 @@
 <script lang="ts">
   import CheckList from '#lib/results/CheckList.svelte';
   import ExchangeView from '#lib/results/ExchangeView.svelte';
-  import { ms } from '#lib/results/status.ts';
+  import { testTime } from '#lib/results/status.ts';
   import TestList from '#lib/results/TestList.svelte';
   import Tabs from '#lib/ui/Tabs.svelte';
   import { lens } from '#lib/ui/segmented.ts';
@@ -54,7 +54,7 @@
       <section class="test" aria-labelledby="{uid}-t">
         <h3 class="st-title3" id="{uid}-t">{open.row.label}</h3>
         <p class="st-secondary vc-mono">
-          {open.id} · {open.row.status} · {ms(open.row.ms)} ms{open.attempts > 1
+          {open.id} · {open.row.status} · {testTime(open.row.status, open.row.ms)}{open.attempts > 1
             ? ` · ${open.attempts} attempts`
             : ''}
         </p>
@@ -124,11 +124,11 @@
   p {
     margin: 0;
   }
+  /* a flat row on the card, not a box (D658) */
   .message {
     margin: 0;
-    padding: 8px 10px;
-    border-radius: var(--vc-radius-inner);
-    background: var(--vc-fail-soft);
+    padding: 8px 0;
+    border-bottom: 0.5px solid var(--st-chrome-separator);
     color: var(--vc-fail-ink);
     white-space: pre-wrap;
   }

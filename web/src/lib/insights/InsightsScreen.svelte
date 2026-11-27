@@ -168,7 +168,7 @@
     />
   </div>
 
-  <table>
+  <table class="vc-rules">
     <caption class="st-title3">Last 10 runs in the range</caption>
     <thead>
       <tr>
@@ -275,16 +275,22 @@
   .st-segmented {
     justify-self: start;
   }
+  /* an even grid, never a ragged wrap (D669): 3 by 2 on a narrow card, 6 in a row on a wide one */
   .kpis {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 12px;
     margin: 0;
   }
+  @container card (width >= 960px) {
+    .kpis {
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+    }
+  }
+  /* stat figures float on the card, a hairline above each (D658) */
   .kpis div {
-    padding: 12px;
-    border-radius: var(--vc-radius-inner);
-    background: var(--st-surface-wash);
+    padding: 10px 0 0;
+    border-top: 1px solid var(--st-chrome-separator);
   }
   dt {
     font-size: 13px;
@@ -327,7 +333,6 @@
   th,
   td {
     padding: 6px 8px;
-    border-bottom: 1px solid var(--st-chrome-separator);
     text-align: left;
   }
   thead th {

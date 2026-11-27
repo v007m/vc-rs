@@ -159,6 +159,15 @@ export function viewOf(pathname: string): View | undefined {
   return match(pathname)?.view;
 }
 
+/**
+ * The sidebar item `pathname` lights (D669): the view whose route it is, exactly. A page under
+ * a view that has no item of its own (the live run, a load run, a stored run) lights none.
+ */
+export function navOf(pathname: string): View | undefined {
+  const path = pathname.length > 1 ? pathname.replace(/\/$/, '') : pathname;
+  return views.find((entry) => entry.view.route === path)?.view;
+}
+
 /** The space `key` names. */
 export function spaceByKey(key: SpaceKey): Space {
   return spaces.find((space) => space.key === key) ?? clientSpace;

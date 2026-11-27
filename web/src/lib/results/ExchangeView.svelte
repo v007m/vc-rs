@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Icon from '#lib/shell/Icon.svelte';
   import BodyView from './BodyView.svelte';
   import { ms } from './status.ts';
   import Waterfall from './Waterfall.svelte';
@@ -16,6 +17,7 @@
 
 <details class="exchange" bind:open>
   <summary>
+    <Icon name="chevron" class="vc-chev" />
     <span class="vc-mono">{exchange.method} {exchange.url}</span>
     <span class="st-secondary">→ {status}{time}</span>
   </summary>
@@ -23,7 +25,7 @@
     {#if exchange.timing}<Waterfall timing={exchange.timing} />{/if}
     {#each parts as part (part.title)}
       {#if part.headers.length}
-        <table class="vc-mono" aria-label="{part.title} headers">
+        <table class="vc-mono vc-rules" aria-label="{part.title} headers">
           <tbody>
             {#each part.headers as [name, value], i (i)}
               <tr><th scope="row">{name}</th><td>{value}</td></tr>
@@ -52,6 +54,7 @@
     cursor: pointer;
     display: flex;
     flex-wrap: wrap;
+    align-items: center;
     gap: 4px 8px;
     overflow-wrap: anywhere;
   }
@@ -63,7 +66,6 @@
   th,
   td {
     padding: 3px 6px;
-    border-bottom: 1px solid var(--st-chrome-separator);
     text-align: left;
     vertical-align: top;
     overflow-wrap: anywhere;

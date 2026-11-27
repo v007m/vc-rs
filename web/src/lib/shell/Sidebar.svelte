@@ -30,7 +30,7 @@
     <h2 class="sb-title">{space.label}</h2>
     <button
       type="button"
-      class="st-icon-btn st-icon-btn--sm sb-hide"
+      class="st-icon-btn sb-hide"
       aria-controls="sidebar"
       aria-label="Hide sidebar"
       title="Hide sidebar"

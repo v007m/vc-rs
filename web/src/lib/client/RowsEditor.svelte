@@ -34,7 +34,12 @@
     {#each rows as row, i (i)}
       <tr>
         <td>
-          <input type="checkbox" aria-label="Send {row.name || noun}" bind:checked={row.on} />
+          <input
+            type="checkbox"
+            class="st-check"
+            aria-label="Send {row.name || noun}"
+            bind:checked={row.on}
+          />
         </td>
         <td>
           <input
@@ -77,9 +82,14 @@
     {/each}
   </tbody>
 </table>
-<button type="button" class="st-btn st-btn--sm" onclick={onadd}>Add {noun}</button>
+<button type="button" class="st-btn st-btn--sm add" onclick={onadd}>Add {noun}</button>
 
 <style>
+  /* sized to its label like every other button, not stretched by a column parent */
+  .add {
+    align-self: flex-start;
+    justify-self: start;
+  }
   .rows {
     width: 100%;
     margin: 6px 0;

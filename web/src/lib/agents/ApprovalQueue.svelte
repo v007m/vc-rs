@@ -1,5 +1,6 @@
 <script lang="ts">
   import { Verdict, type Approval } from '#lib/gen/vibranium/engine/v1/engine_pb.ts';
+  import Icon from '#lib/shell/Icon.svelte';
   import { ago, type AgentDesk } from './desk.svelte.ts';
 
   let { desk, now }: { desk: AgentDesk; now: number } = $props();
@@ -33,7 +34,7 @@
       </p>
       <p>{approval.summary}</p>
       <details>
-        <summary>Arguments</summary>
+        <summary class="vc-disclosure"><Icon name="chevron" class="vc-chev" />Arguments</summary>
         <pre class="vc-mono">{approval.arguments}</pre>
       </details>
       {#if confirming === approval.id}

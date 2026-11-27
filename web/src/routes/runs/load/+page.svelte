@@ -5,6 +5,8 @@
 
   /** The load run on screen (D639): the one running, or the last one opened. */
   const space = getRunsSpace();
+  const load = space.ports.load;
+  if (!load.run) void load.listScenarios();
 
   $effect(() => {
     space.title = 'Load run';
@@ -13,5 +15,5 @@
 </script>
 
 <Screen title="Load run">
-  <LoadScreen session={space.ports.load} />
+  <LoadScreen session={load} />
 </Screen>

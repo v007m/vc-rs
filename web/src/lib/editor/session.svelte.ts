@@ -8,6 +8,7 @@ import {
   type WriteFileResponse,
 } from '#lib/gen/vibranium/engine/v1/engine_pb.ts';
 import { fixAll } from './marks.ts';
+import type { FixPort } from './seams.ts';
 import { applyEdits } from './text.ts';
 
 /** The part of the engine client the editor needs, so tests can pass a fake. */
@@ -45,6 +46,8 @@ export class EditorSession {
   #failure: string | undefined = $state();
   /** Why the check of the typed text failed; the next check of it clears it. */
   #checkFailure: string | undefined = $state();
+  /** Each file's ID by its path, as the listing gives it. */
+  #ids: Readonly<Record<string, string>> = $state.raw({});
 
   /** `checkDelayMs` is how long typing must pause before the unsaved text is checked. */
   constructor(client: EditorClient, checkDelayMs = 300) {
@@ -84,6 +87,11 @@ export class EditorSession {
       : 0;
   }
 
+  /** The file ID of `path` (`users.crud`), as the engine names it; empty when not listed. */
+  fileId(path: string): string {
+    return Object.hasOwn(this.#ids, path) ? (this.#ids[path] ?? '') : '';
+  }
+
   /** Saving always works, errors or not; with errors it asks first (D227). */
   get canSave(): boolean {
     return this.dirty && this.state !== 'saving';
@@ -93,6 +101,7 @@ export class EditorSession {
     await this.#attempt(async () => {
       const response = await this.#client.listDefinitions({ kind: DefinitionKind.FILES });
       this.files = response.definitions.map((d) => d.path).sort();
+      this.#ids = Object.fromEntries(response.definitions.map((d) => [d.path, d.id]));
     });
   }
 
@@ -229,6 +238,35 @@ export class EditorSession {
     if (!buffer || !this.fixable) return;
     const edits = fix.edits.filter((e) => e.file === buffer.path);
     this.edit(applyEdits(buffer.text, edits));
+  }
+
+  /**
+   * Fixes the open file (D652): through the engine's `ApplyFixes` while it is saved, the result
+   * put in place unsaved, so Save writes it and Revert undoes it; on the typed text otherwise, or
+   * on an engine without it. `chosen` is the fix a problem names; Fix all passes none. Gives a
+   * note when there was nothing to fix.
+   */
+  async fix(
+    port: FixPort,
+    chosen?: Readonly<{ fix: Fix; code: string }>,
+  ): Promise<string | undefined> {
+    const buffer = this.buffer;
+    if (!buffer) return undefined;
+    if (!this.dirty) {
+      const got = await port.fix(buffer.path, chosen ? [chosen.code] : []);
+      if (got.available) return this.#fixed(buffer, got.value);
+    }
+    if (chosen) this.applyFix(chosen.fix);
+    else this.fixAll();
+    return undefined;
+  }
+
+  /** Puts the engine's fixed text in place, unless another file or edit came first. */
+  #fixed(was: Buffer, text: string | undefined): string | undefined {
+    if (this.buffer !== was) return undefined;
+    if (text === undefined || text === was.text) return 'Nothing to fix.';
+    this.edit(text);
+    return undefined;
   }
 
   /**
