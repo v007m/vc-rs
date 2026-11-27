@@ -11,6 +11,10 @@ use vc_model::TestId;
 
 use crate::{Failed, Mix, Sample};
 
+/// How long after its scheduled start an iteration may begin before it counts as late: past
+/// it the users wait on the generator, not on their think time.
+pub const LATE: Duration = Duration::from_millis(50);
+
 /// What every user of one run shares.
 pub struct Crew {
     pub iterations: Arc<dyn Iterations>,
@@ -62,6 +66,7 @@ pub async fn user(crew: Arc<Crew>, seat: Seat) {
             () = seat.retire.cancelled() => return,
             () = tokio::time::sleep_until(scheduled) => {}
         }
+        let late = Instant::now().saturating_duration_since(scheduled) > LATE;
         let test = crew.mix.pick(crew.random.next_u64());
         let report = crew.iterations.iterate(test, seat.user).await;
         if seat.run.is_cancelled() {
@@ -69,7 +74,7 @@ pub async fn user(crew: Arc<Crew>, seat: Seat) {
         }
         let end = Instant::now();
         let second = end.duration_since(crew.start).as_secs();
-        let sample = Sample { test, second, latency: end.duration_since(scheduled), failed: !report.passed };
+        let sample = Sample { test, second, latency: end.duration_since(scheduled), failed: !report.passed, late };
         if crew.samples.send(sample).is_err() {
             return;
         }

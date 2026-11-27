@@ -15,6 +15,7 @@
 mod alert;
 mod body;
 mod body_stream;
+mod connections;
 mod connector;
 mod error;
 mod factory;
@@ -30,6 +31,7 @@ mod tls;
 mod transport;
 mod websocket;
 
+pub use connections::Connections;
 pub use error::HttpAdapterError;
 pub use factory::HttpTransports;
 pub use identity::ClientIdentity;

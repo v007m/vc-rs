@@ -1,7 +1,9 @@
 use prost::Message as _;
 use vc_contracts::engine::v1 as wire;
 
-use super::{check, check_secrets, explain_config, get_project, list_definitions, read_file, test_auth, write_file};
+use super::{
+    check, check_secrets, explain_config, get_project, list_definitions, plan, read_file, test_auth, write_file,
+};
 use crate::Code;
 use crate::engine_fixture::{API, CONFIG, CRUD, SECRET, TESTS, USERS, project};
 
@@ -193,4 +195,21 @@ async fn test_auth_refuses_an_unknown_auth() {
     let (_dir, api) = project();
     let request = wire::TestAuthRequest { auth: "nope".into(), ..wire::TestAuthRequest::default() };
     assert_eq!(test_auth(api, request).await.unwrap_err().code, Code::InvalidArgument);
+}
+
+#[tokio::test]
+async fn plan_shows_what_a_run_of_the_selection_would_do_without_sending() {
+    let (_dir, api) = project();
+    let selection = wire::Selection { ids: vec!["users.crud#listsUsers".into()], ..wire::Selection::default() };
+    let request = wire::PlanRequest { selection: Some(selection), repeat: Some(2), ..wire::PlanRequest::default() };
+    let planned = plan(api.clone(), request.clone()).await.unwrap();
+    assert!(planned.line.starts_with("1 test (2 instances) in 1 file") && planned.instances == 2, "{planned:?}");
+    assert!(planned.tree.contains("users.crud#listsUsers"), "{planned:?}");
+    let json: serde_json::Value = serde_json::from_str(&planned.plan_json).unwrap();
+    assert!(json.is_object(), "{json}");
+    let unknown = wire::PlanRequest { profiles: vec!["nope".into()], ..request };
+    assert_eq!(plan(api.clone(), unknown).await.unwrap_err().code, Code::InvalidArgument);
+    let none = wire::Selection { ids: vec!["users.crud#nothing".into()], ..wire::Selection::default() };
+    let refused = plan(api, wire::PlanRequest { selection: Some(none), ..wire::PlanRequest::default() }).await;
+    assert_eq!(refused.unwrap_err().code, Code::InvalidArgument);
 }

@@ -259,6 +259,26 @@ pub struct LoadTick {
     /// The thresholds failing, such as `p95` or `<test>: errorRate`.
     #[prost(string, repeated, tag="8")]
     pub breaching: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// What the generator itself uses as the second closes, for the Hosts panel.
+    #[prost(message, optional, tag="10")]
+    pub host: ::core::option::Option<HostStats>,
+}
+/// The `vc` process generating the load: a slow p99 from a busy generator is the generator's.
+/// A figure the platform or transport does not tell is unset.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct HostStats {
+    /// CPU over the last second, in percent of one core: four busy cores read 400.
+    #[prost(uint32, optional, tag="1")]
+    pub cpu_percent: ::core::option::Option<u32>,
+    /// Resident memory, in bytes.
+    #[prost(uint64, optional, tag="2")]
+    pub memory_bytes: ::core::option::Option<u64>,
+    /// The connections the run's transports hold open.
+    #[prost(uint64, optional, tag="3")]
+    pub connections: ::core::option::Option<u64>,
+    /// The iterations so far that started more than 50 ms after their schedule.
+    #[prost(uint64, tag="4")]
+    pub late_iterations: u64,
 }
 /// The stream fell behind and dropped `count` events; the run's history has them.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
@@ -469,6 +489,38 @@ pub struct CheckResponse {
     #[prost(string, repeated, tag="3")]
     pub notices: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
+/// What `vc plan` takes: `Run`'s selection, profiles, sets and repeat.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct PlanRequest {
+    #[prost(message, optional, tag="1")]
+    pub selection: ::core::option::Option<Selection>,
+    #[prost(string, repeated, tag="2")]
+    pub profiles: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, repeated, tag="3")]
+    pub sets: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(uint32, optional, tag="4")]
+    pub repeat: ::core::option::Option<u32>,
+}
+/// The plan, as `vc plan` prints it. Its rows are labelled offline and masked by the config's
+/// rules; no secret is loaded and no value drawn from the environment is shown (D316).
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct PlanResponse {
+    /// `4 tests (6 instances) in 2 files · beforeEach ×3 actions · profile dev`.
+    #[prost(string, tag="1")]
+    pub line: ::prost::alloc::string::String,
+    /// The lifecycle blocks and test instances in run order, indented.
+    #[prost(string, tag="2")]
+    pub tree: ::prost::alloc::string::String,
+    /// The plan as `vc plan --json` gives it (D130), as JSON text.
+    #[prost(string, tag="3")]
+    pub plan_json: ::prost::alloc::string::String,
+    /// How many test instances it runs.
+    #[prost(uint32, tag="4")]
+    pub instances: u32,
+    /// Problems that did not stop the plan, one line each.
+    #[prost(string, repeated, tag="5")]
+    pub notices: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct RunRequest {
     #[prost(message, optional, tag="1")]
@@ -501,6 +553,27 @@ pub struct RunRequest {
     /// stream stops the run.
     #[prost(string, tag="10")]
     pub handle: ::prost::alloc::string::String,
+    /// Whether the run is kept in the run history; `true` when absent. `false` is a check run
+    /// (D670): no history entry, no report files or reporter plugins and no alerts, while its
+    /// events still stream and its report comes last, with no `run`.
+    #[prost(bool, optional, tag="11")]
+    pub record: ::core::option::Option<bool>,
+    /// `--strict`: every failure fails the run, whatever `allowFailure` says (D248).
+    #[prost(bool, tag="12")]
+    pub strict: bool,
+    /// `--report`: the report formats (`ctrf`, `junit`, `html`), each may be a comma list; over
+    /// `reports.formats`. An unknown format fails the run before it starts (D671).
+    #[prost(string, repeated, tag="13")]
+    pub reports: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// `--out`: the folder the report files go in, as they are, over `reports.dir`. A folder
+    /// inside the project, relative to its root, with no `..` and no link out of it; anything
+    /// else is `invalid_argument` with V5132 (D671). Empty: each run's files go in
+    /// `<reports.dir>/<run>/`.
+    #[prost(string, tag="14")]
+    pub out: ::prost::alloc::string::String,
+    /// `--single-file`: the HTML report as one self-contained file, over `reports.html.layout`.
+    #[prost(bool, tag="15")]
+    pub single_file: bool,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct CancelRequest {
@@ -517,6 +590,161 @@ pub struct CancelResponse {
 pub struct RunResponse {
     #[prost(message, optional, tag="1")]
     pub event: ::core::option::Option<RunEvent>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct RunLoadRequest {
+    /// The scenario's ID: its load file's ID, such as `checkout.peak`.
+    #[prost(string, tag="1")]
+    pub scenario: ::prost::alloc::string::String,
+    /// Profiles to layer, in order; the default profile when empty.
+    #[prost(string, repeated, tag="2")]
+    pub profiles: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// `key=value` overrides, as `--set` gives them.
+    #[prost(string, repeated, tag="3")]
+    pub sets: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// The seed the users pick their mix tests and draw generated data with; a fresh one when
+    /// absent, which the report gives.
+    #[prost(uint64, optional, tag="4")]
+    pub seed: ::core::option::Option<u64>,
+    /// A name for `Cancel`, as `RunRequest.handle` takes it. Empty: only closing the stream stops
+    /// the run.
+    #[prost(string, tag="5")]
+    pub handle: ::prost::alloc::string::String,
+}
+/// A closed second while the run runs, then the report last. A tick that finds a slow client
+/// behind is dropped, never queued; the history keeps every second.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RunLoadResponse {
+    #[prost(oneof="run_load_response::Kind", tags="1, 2")]
+    pub kind: ::core::option::Option<run_load_response::Kind>,
+}
+/// Nested message and enum types in `RunLoadResponse`.
+pub mod run_load_response {
+    #[derive(Clone, PartialEq, ::prost::Oneof)]
+    pub enum Kind {
+        #[prost(message, tag="1")]
+        Tick(super::LoadTick),
+        #[prost(message, tag="2")]
+        Report(super::LoadReport),
+    }
+}
+/// What a load run did, as `vc load --json` gives it; latencies in ms.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct LoadReport {
+    /// The exit code `vc load` would have: 0 within thresholds, 1 blocked, 3 a threshold
+    /// breached, 130 cancelled.
+    #[prost(uint32, tag="1")]
+    pub exit: u32,
+    #[prost(string, tag="2")]
+    pub scenario: ::prost::alloc::string::String,
+    /// The scenario's `name`, when its load file gives one.
+    #[prost(string, optional, tag="3")]
+    pub name: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(enumeration="LoadEnding", tag="4")]
+    pub ending: i32,
+    #[prost(uint64, tag="5")]
+    pub seconds: u64,
+    #[prost(uint64, tag="6")]
+    pub iterations: u64,
+    /// Iterations that failed.
+    #[prost(uint64, tag="7")]
+    pub errors: u64,
+    #[prost(double, tag="8")]
+    pub rps: f64,
+    #[prost(double, tag="9")]
+    pub p50_ms: f64,
+    #[prost(double, tag="10")]
+    pub p90_ms: f64,
+    #[prost(double, tag="11")]
+    pub p95_ms: f64,
+    #[prost(double, tag="12")]
+    pub p99_ms: f64,
+    #[prost(double, tag="13")]
+    pub max_ms: f64,
+    /// The thresholds the whole run breached.
+    #[prost(message, repeated, tag="14")]
+    pub breaches: ::prost::alloc::vec::Vec<LoadBreach>,
+    /// Each mix test that ran, in test order.
+    #[prost(message, repeated, tag="15")]
+    pub tests: ::prost::alloc::vec::Vec<LoadTestReport>,
+    /// Failed iterations by kind, most first.
+    #[prost(message, repeated, tag="16")]
+    pub error_kinds: ::prost::alloc::vec::Vec<LoadErrorKind>,
+    /// The shared action's failure that kept the users from starting.
+    #[prost(string, optional, tag="17")]
+    pub blocked: ::core::option::Option<::prost::alloc::string::String>,
+    /// The run's number in the history.
+    #[prost(uint64, optional, tag="18")]
+    pub run: ::core::option::Option<u64>,
+    /// The seed the run used, to replay it.
+    #[prost(uint64, tag="19")]
+    pub seed: u64,
+    /// Problems that did not change the result, such as a history that could not be written.
+    #[prost(string, repeated, tag="20")]
+    pub notices: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+/// A threshold the run breached.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct LoadBreach {
+    /// `p95`, `errorRate`, `rps`, ...
+    #[prost(string, tag="1")]
+    pub metric: ::prost::alloc::string::String,
+    /// The test whose own threshold it is; unset for the scenario's.
+    #[prost(string, optional, tag="2")]
+    pub test: ::core::option::Option<::prost::alloc::string::String>,
+    /// The value measured, in `unit`, not rounded.
+    #[prost(double, tag="3")]
+    pub actual: f64,
+    /// `ms`, `share` (0 to 1) or `perSecond`.
+    #[prost(string, tag="4")]
+    pub unit: ::prost::alloc::string::String,
+    /// The threshold as JSON, in `unit`: `{"lt":30.0}`.
+    #[prost(string, tag="5")]
+    pub limit_json: ::prost::alloc::string::String,
+    /// As the summary shows it: `45.5 ms (lt 30 ms)`.
+    #[prost(string, tag="6")]
+    pub shown: ::prost::alloc::string::String,
+}
+/// One mix test's iterations over the whole run.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct LoadTestReport {
+    /// Its full ID: `checkout.flow#buysOneItem`.
+    #[prost(string, tag="1")]
+    pub test: ::prost::alloc::string::String,
+    #[prost(uint64, tag="2")]
+    pub iterations: u64,
+    #[prost(uint64, tag="3")]
+    pub errors: u64,
+    #[prost(double, tag="4")]
+    pub rps: f64,
+    #[prost(double, tag="5")]
+    pub p50_ms: f64,
+    #[prost(double, tag="6")]
+    pub p90_ms: f64,
+    #[prost(double, tag="7")]
+    pub p95_ms: f64,
+    #[prost(double, tag="8")]
+    pub p99_ms: f64,
+    #[prost(double, tag="9")]
+    pub max_ms: f64,
+}
+/// Failed iterations of one kind.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct LoadErrorKind {
+    /// The api the failing action calls; unset when it calls none.
+    #[prost(string, optional, tag="1")]
+    pub api: ::core::option::Option<::prost::alloc::string::String>,
+    /// The mix test whose iterations failed.
+    #[prost(string, optional, tag="2")]
+    pub test: ::core::option::Option<::prost::alloc::string::String>,
+    /// The failing action's last response status; unset when it got none.
+    #[prost(uint32, optional, tag="3")]
+    pub status: ::core::option::Option<u32>,
+    /// The failure's diagnostic code: `V5101` for a check, `V5105` for the transport, ...
+    #[prost(string, optional, tag="4")]
+    pub code: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(uint64, tag="5")]
+    pub count: u64,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ReadFileRequest {
@@ -881,6 +1109,230 @@ pub struct ExplainApiResponse {
     #[prost(string, repeated, tag="5")]
     pub notices: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ExplainRequest {
+    /// A full test or api ID (`users.crud#listsUsers`, `users#list`), or a diagnostic code
+    /// (`V2003`, any case).
+    #[prost(string, tag="1")]
+    pub target: ::prost::alloc::string::String,
+    /// Profiles to layer, in order; the default profile when empty. Unused for a code.
+    #[prost(string, repeated, tag="2")]
+    pub profiles: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// `key=value` overrides, as `--set` gives them. Unused for a code.
+    #[prost(string, repeated, tag="3")]
+    pub sets: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ExplainResponse {
+    /// A code's page as Markdown (a `# V2003: …` heading, a paragraph, `## Wrong` and `## Right`
+    /// examples), or a test's or api's explanation as plain text, one item per line, masked.
+    #[prost(string, tag="1")]
+    pub text: ::prost::alloc::string::String,
+    /// Whether `text` is a code's Markdown page.
+    #[prost(bool, tag="2")]
+    pub markdown: bool,
+    /// Problems that did not stop it, masked.
+    #[prost(string, repeated, tag="3")]
+    pub notices: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ApplyFixesRequest {
+    /// Fix only the diagnostics with these codes (`V2011`); every certain fix when empty.
+    #[prost(string, repeated, tag="1")]
+    pub codes: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Fix only the diagnostics on files at or under these paths; every file when empty.
+    #[prost(string, repeated, tag="2")]
+    pub paths: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Write the files; a preview when false.
+    #[prost(bool, tag="3")]
+    pub write: bool,
+    /// The digest the preview gave; a write is aborted when a file changed since, or without it.
+    #[prost(string, optional, tag="4")]
+    pub expected_digest: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ApplyFixesResponse {
+    /// Each file the fixes change, before and after; empty when there is nothing to fix.
+    #[prost(message, repeated, tag="1")]
+    pub files: ::prost::alloc::vec::Vec<FileChange>,
+    /// Each fix's title, in the order taken.
+    #[prost(string, repeated, tag="2")]
+    pub titles: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// The digest of the files as previewed, which the write passes back.
+    #[prost(string, tag="3")]
+    pub digest: ::prost::alloc::string::String,
+}
+/// A cursor in a file the editor holds, saved or not.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct CompleteRequest {
+    /// The file's path, relative to the project root; only its kind is read from it.
+    #[prost(string, tag="1")]
+    pub path: ::prost::alloc::string::String,
+    /// The text as the editor holds it.
+    #[prost(string, tag="2")]
+    pub text: ::prost::alloc::string::String,
+    /// The cursor, in UTF-16 code units from the start of `text`, as a browser counts.
+    #[prost(uint32, tag="3")]
+    pub offset: u32,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CompleteResponse {
+    /// Each completion that starts with what is written before the cursor.
+    #[prost(message, repeated, tag="1")]
+    pub items: ::prost::alloc::vec::Vec<Completion>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct Completion {
+    /// The text it writes.
+    #[prost(string, tag="1")]
+    pub label: ::prost::alloc::string::String,
+    #[prost(enumeration="CompletionKind", tag="2")]
+    pub kind: i32,
+    /// A short note: a key's type, where a var is set (never its value), "api" or "test".
+    #[prost(string, tag="3")]
+    pub detail: ::prost::alloc::string::String,
+    /// A key's docs.
+    #[prost(string, tag="4")]
+    pub doc: ::prost::alloc::string::String,
+}
+/// A cursor, as `CompleteRequest`, under the profiles and sets an explained reference uses.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct HoverRequest {
+    #[prost(string, tag="1")]
+    pub path: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub text: ::prost::alloc::string::String,
+    #[prost(uint32, tag="3")]
+    pub offset: u32,
+    #[prost(string, repeated, tag="4")]
+    pub profiles: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, repeated, tag="5")]
+    pub sets: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct HoverResponse {
+    /// The key's docs as Markdown, then the reference its value names explained, masked; unset
+    /// when the cursor is on no declared key.
+    #[prost(string, optional, tag="1")]
+    pub markdown: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct CreateFileRequest {
+    /// `api`, `test` or `load`; anything else is `invalid_argument`.
+    #[prost(string, tag="1")]
+    pub kind: ::prost::alloc::string::String,
+    /// The file ID, such as `users` (a new service's api file) or `users.crud`.
+    #[prost(string, tag="2")]
+    pub id: ::prost::alloc::string::String,
+    /// Write the file; a preview when false.
+    #[prost(bool, tag="3")]
+    pub write: bool,
+    /// The digest the preview gave; a write is aborted when the project changed since, or without it.
+    #[prost(string, optional, tag="4")]
+    pub expected_digest: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CreateFileResponse {
+    #[prost(message, repeated, tag="1")]
+    pub files: ::prost::alloc::vec::Vec<FileChange>,
+    #[prost(string, repeated, tag="2")]
+    pub titles: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// The digest of the files as previewed, which the write passes back.
+    #[prost(string, tag="3")]
+    pub digest: ::prost::alloc::string::String,
+    /// The new file's path, relative to the project root.
+    #[prost(string, tag="4")]
+    pub path: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct RenameRequest {
+    /// A full ID (`users#list`), a file ID (`users.crud`) or `var.`, `auth.` or `dataset.` and a name.
+    #[prost(string, tag="1")]
+    pub from: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub to: ::prost::alloc::string::String,
+    /// Write the files; a preview when false.
+    #[prost(bool, tag="3")]
+    pub write: bool,
+    /// The digest the preview gave; a write is aborted when a file changed since, or without it.
+    #[prost(string, optional, tag="4")]
+    pub expected_digest: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RenameResponse {
+    /// Every file the rename changes, references included; a moved file names `moved_from`.
+    #[prost(message, repeated, tag="1")]
+    pub files: ::prost::alloc::vec::Vec<FileChange>,
+    #[prost(string, repeated, tag="2")]
+    pub titles: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, tag="3")]
+    pub digest: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct FormatRequest {
+    /// The config or an api, test or load file the editor opens.
+    #[prost(string, tag="1")]
+    pub path: ::prost::alloc::string::String,
+    /// The editor's text, saved or not.
+    #[prost(string, tag="2")]
+    pub text: ::prost::alloc::string::String,
+    /// Drop the one-line comments `vc new` wrote, as `vc fmt --strip-comments` does.
+    #[prost(bool, tag="3")]
+    pub strip_comments: bool,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct FormatResponse {
+    /// The text in the house style, for the editor to put in place unsaved.
+    #[prost(string, tag="1")]
+    pub text: ::prost::alloc::string::String,
+    /// Whether it differs from the request's text.
+    #[prost(bool, tag="2")]
+    pub changed: bool,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct FileReferencesRequest {
+    /// An api, test or load file.
+    #[prost(string, tag="1")]
+    pub path: ::prost::alloc::string::String,
+}
+/// One `call:` or `test:` in another file naming an item of the file asked about.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct FileReference {
+    #[prost(string, tag="1")]
+    pub path: ::prost::alloc::string::String,
+    /// From 1.
+    #[prost(uint32, tag="2")]
+    pub line: u32,
+    /// The full ID of the test, api or action that holds it, or its top-level key (`beforeRun`).
+    #[prost(string, tag="3")]
+    pub from: ::prost::alloc::string::String,
+    /// The item it names, by full ID.
+    #[prost(string, tag="4")]
+    pub target: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct FileReferencesResponse {
+    #[prost(message, repeated, tag="1")]
+    pub references: ::prost::alloc::vec::Vec<FileReference>,
+    /// Definition files that do not parse, so were not searched.
+    #[prost(string, repeated, tag="2")]
+    pub unread: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct TrashFileRequest {
+    /// An api, test or load file; never the config or `.env.schema`.
+    #[prost(string, tag="1")]
+    pub path: ::prost::alloc::string::String,
+    /// The digest `ReadFile` gave; the file is not moved when it changed since.
+    #[prost(string, tag="2")]
+    pub expected_digest: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct TrashFileResponse {
+    /// Where it went, relative to the project root: `.vibranium/trash/<stamp>/<path>`.
+    #[prost(string, tag="1")]
+    pub trashed_to: ::prost::alloc::string::String,
+}
 /// A header an api is sent with that it does not write itself.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct InheritedHeader {
@@ -1122,6 +1574,124 @@ pub struct GetRunResponse {
     pub run: ::core::option::Option<super::super::results::v1::Run>,
     #[prost(message, repeated, tag="2")]
     pub tests: ::prost::alloc::vec::Vec<super::super::results::v1::Test>,
+}
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct CompareRunsRequest {
+    /// The earlier run's number; the last run when 0.
+    #[prost(uint64, tag="1")]
+    pub a: u64,
+    /// The later run's number; the last run when 0.
+    #[prost(uint64, tag="2")]
+    pub b: u64,
+    /// How much longer a test must take in `b` to count as slower, and shorter to count as faster,
+    /// as a share of its time in `a`: 0.2 for 20%, the default when 0. A negative share is refused.
+    #[prost(double, tag="3")]
+    pub slower_threshold: f64,
+}
+/// One test instance of the later run, with how it did in the earlier.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct TestChange {
+    #[prost(string, tag="1")]
+    pub test_id: ::prost::alloc::string::String,
+    /// The instance as `GetRun` labels it: `users.crud#rejectsBadEmail \[row 2\]`.
+    #[prost(string, tag="2")]
+    pub label: ::prost::alloc::string::String,
+    /// Unspecified when the earlier run did not run it.
+    #[prost(enumeration="super::super::results::v1::TestStatus", tag="3")]
+    pub before: i32,
+    #[prost(enumeration="super::super::results::v1::TestStatus", tag="4")]
+    pub after: i32,
+    /// Absent when the earlier run did not run it.
+    #[prost(double, optional, tag="5")]
+    pub before_ms: ::core::option::Option<f64>,
+    #[prost(double, tag="6")]
+    pub after_ms: f64,
+}
+/// A response path whose JSON types changed.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct Retyped {
+    #[prost(string, tag="1")]
+    pub path: ::prost::alloc::string::String,
+    /// The types, `|`-joined: `number|null`.
+    #[prost(string, tag="2")]
+    pub before: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub after: ::prost::alloc::string::String,
+}
+/// How one api's JSON responses with one status changed shape. Paths are JSON Pointers, `*` for
+/// any array element, and only paths and types are compared, never values. Only the bodies the
+/// runs kept count (by default those of failed tests), and an api and status count only when
+/// both runs kept a whole JSON body for them.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ShapeChange {
+    #[prost(string, tag="1")]
+    pub api_id: ::prost::alloc::string::String,
+    #[prost(uint32, tag="2")]
+    pub status: u32,
+    #[prost(string, repeated, tag="3")]
+    pub added: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, repeated, tag="4")]
+    pub removed: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(message, repeated, tag="5")]
+    pub retyped: ::prost::alloc::vec::Vec<Retyped>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CompareRunsResponse {
+    /// The two runs' numbers.
+    #[prost(uint64, tag="1")]
+    pub a: u64,
+    #[prost(uint64, tag="2")]
+    pub b: u64,
+    /// Failed in `b`, and neither failed nor blocked in `a` (or not run there).
+    #[prost(message, repeated, tag="3")]
+    pub newly_failing: ::prost::alloc::vec::Vec<TestChange>,
+    /// Blocked in `b`, and neither failed nor blocked in `a`.
+    #[prost(message, repeated, tag="4")]
+    pub newly_blocked: ::prost::alloc::vec::Vec<TestChange>,
+    /// Failed or blocked in `a`, and passed or flaky in `b`.
+    #[prost(message, repeated, tag="5")]
+    pub fixed: ::prost::alloc::vec::Vec<TestChange>,
+    /// Failed or blocked in both.
+    #[prost(message, repeated, tag="6")]
+    pub still_failing: ::prost::alloc::vec::Vec<TestChange>,
+    /// Ran in both and took longer by more than the threshold, then shorter.
+    #[prost(message, repeated, tag="7")]
+    pub slower: ::prost::alloc::vec::Vec<TestChange>,
+    #[prost(message, repeated, tag="8")]
+    pub faster: ::prost::alloc::vec::Vec<TestChange>,
+    #[prost(message, repeated, tag="9")]
+    pub shapes: ::prost::alloc::vec::Vec<ShapeChange>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct TestHistoryRequest {
+    /// The test's full ID: `users.crud#listsUsers`.
+    #[prost(string, tag="1")]
+    pub test: ::prost::alloc::string::String,
+    /// Over this many of the newest test runs: 20 when 0, at most 100.
+    #[prost(uint32, tag="2")]
+    pub limit: u32,
+}
+/// How the test did in one run.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct TestRunResult {
+    #[prost(message, optional, tag="1")]
+    pub run: ::core::option::Option<super::super::results::v1::Run>,
+    /// The worst way an instance ended (failed, blocked, allowed failure, flaky, passed, skipped);
+    /// unspecified when the run did not run the test.
+    #[prost(enumeration="super::super::results::v1::TestStatus", tag="2")]
+    pub status: i32,
+    /// The instances' time together.
+    #[prost(double, tag="3")]
+    pub duration_ms: f64,
+    /// Each example row and repeat, with checks and without exchanges; `GetRun` has those.
+    #[prost(message, repeated, tag="4")]
+    pub instances: ::prost::alloc::vec::Vec<super::super::results::v1::Test>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct TestHistoryResponse {
+    /// Newest first.
+    #[prost(message, repeated, tag="1")]
+    pub runs: ::prost::alloc::vec::Vec<TestRunResult>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct TrendsRequest {
@@ -1529,6 +2099,46 @@ impl CancelLevel {
         }
     }
 }
+/// How a load run ended.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum LoadEnding {
+    Unspecified = 0,
+    /// Every stage ran.
+    Finished = 1,
+    /// An `abortOn` threshold breached on the rolling window.
+    Aborted = 2,
+    /// Cancelled: the stream closed, or `Cancel`.
+    Cancelled = 3,
+    /// A `beforeRun` or `beforeAll` action failed, so no user started.
+    Blocked = 4,
+}
+impl LoadEnding {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "LOAD_ENDING_UNSPECIFIED",
+            Self::Finished => "LOAD_ENDING_FINISHED",
+            Self::Aborted => "LOAD_ENDING_ABORTED",
+            Self::Cancelled => "LOAD_ENDING_CANCELLED",
+            Self::Blocked => "LOAD_ENDING_BLOCKED",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "LOAD_ENDING_UNSPECIFIED" => Some(Self::Unspecified),
+            "LOAD_ENDING_FINISHED" => Some(Self::Finished),
+            "LOAD_ENDING_ABORTED" => Some(Self::Aborted),
+            "LOAD_ENDING_CANCELLED" => Some(Self::Cancelled),
+            "LOAD_ENDING_BLOCKED" => Some(Self::Blocked),
+            _ => None,
+        }
+    }
+}
 /// What an edit does at its pointer.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
@@ -1636,6 +2246,45 @@ impl Verdict {
             "VERDICT_APPROVE" => Some(Self::Approve),
             "VERDICT_ALWAYS_ALLOW" => Some(Self::AlwaysAllow),
             "VERDICT_DENY" => Some(Self::Deny),
+            _ => None,
+        }
+    }
+}
+/// What a completion is.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum CompletionKind {
+    Unspecified = 0,
+    Key = 1,
+    Value = 2,
+    Reference = 3,
+    Var = 4,
+    Matcher = 5,
+}
+impl CompletionKind {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "COMPLETION_KIND_UNSPECIFIED",
+            Self::Key => "COMPLETION_KIND_KEY",
+            Self::Value => "COMPLETION_KIND_VALUE",
+            Self::Reference => "COMPLETION_KIND_REFERENCE",
+            Self::Var => "COMPLETION_KIND_VAR",
+            Self::Matcher => "COMPLETION_KIND_MATCHER",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "COMPLETION_KIND_UNSPECIFIED" => Some(Self::Unspecified),
+            "COMPLETION_KIND_KEY" => Some(Self::Key),
+            "COMPLETION_KIND_VALUE" => Some(Self::Value),
+            "COMPLETION_KIND_REFERENCE" => Some(Self::Reference),
+            "COMPLETION_KIND_VAR" => Some(Self::Var),
+            "COMPLETION_KIND_MATCHER" => Some(Self::Matcher),
             _ => None,
         }
     }

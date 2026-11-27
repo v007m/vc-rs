@@ -44,6 +44,8 @@
 //!   `.vibranium/plugins/`, and reads `vibranium.lock` and the installed manifests.
 //! - [`TransportFactory`]: builds the transport a run sends through, reading and checking the
 //!   roots and client identities of `http.tls` once, before the first request (D390, D399).
+//! - [`HostProbe`]: what the `vc` process uses of the machine, its CPU time and resident
+//!   memory, for a load run's Hosts panel (D676).
 //!
 //! ```
 //! use vc_interfaces::{SourceFilter, content_hash, source_file};
@@ -72,6 +74,7 @@ mod held_sources;
 mod history;
 mod history_rows;
 mod hooks;
+mod host;
 mod import;
 mod keychain;
 mod notifier;
@@ -114,6 +117,7 @@ pub use history::{
 };
 pub use history_rows::{CallSummary, CheckRow, ExchangeRow, FindingKind, FindingRow, TestRow, TimingRow};
 pub use hooks::{Budget, HookCall, HookError, HookOutput, HookRunner, Limit};
+pub use host::{HostProbe, HostSample};
 pub use import::{
     DraftApi, DraftBefore, DraftCleanup, DraftExample, DraftFlow, DraftGroup, DraftStep, DraftTest, ImportDraft,
     ImportError, ImportNote, ImportOptions, ImportSource, Importer, RecordingFilter, SecretFinding,
@@ -129,7 +133,7 @@ pub use random::Random;
 pub use reporter::{Artifact, ReportError, Reporter, RunSummary};
 pub use run_filter::RunFilter;
 pub use secrets::{Secret, SecretError, SecretProvider, SecretQuery, Secrets};
-pub use source::{Discovery, SourceError, SourceProvider, SourceWriter, content_hash, source_file};
+pub use source::{Discovery, SourceError, SourceProvider, SourceWriter, TRASH, content_hash, source_file};
 pub use source_problems::add_problems;
 pub use stream::{MessageStream, Opened, OutgoingFrame, StreamFrame, StreamMode, StreamTransport};
 pub use tls::{

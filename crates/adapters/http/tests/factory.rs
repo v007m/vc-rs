@@ -65,3 +65,22 @@ async fn the_built_stream_port_opens_a_body_stream() -> TestResult {
     assert_eq!(first, Some(Ok(StreamFrame::Chunk(bytes::Bytes::from_static(b"id: 1\ndata: 1\n\n")))));
     Ok(())
 }
+
+#[tokio::test]
+async fn the_factory_counts_the_connections_its_transports_hold_open() -> TestResult {
+    let mock = MockServer::start().await?;
+    let factory = HttpTransports::new();
+    assert_eq!(factory.open_connections(), Some(0));
+    let transport = factory.build(&TlsSpec::default(), &MemoryEnvironment::new(&[]))?.transport;
+    let request = RenderedRequest::new(Method::GET, Uri::try_from(format!("{}/echo", mock.base_url()))?);
+    let _sent = transport.send(request.clone(), &SendContext::default()).await?;
+    let _again = transport.send(request, &SendContext::default()).await?;
+    assert_eq!(factory.open_connections(), Some(1), "the pooled connection is counted once, and reused");
+    drop(transport);
+    let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(5);
+    while factory.open_connections() != Some(0) && tokio::time::Instant::now() < deadline {
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+    }
+    assert_eq!(factory.open_connections(), Some(0), "a closed pool's connections are no longer counted");
+    Ok(())
+}

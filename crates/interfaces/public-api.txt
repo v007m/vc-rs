@@ -1336,6 +1336,22 @@ pub fn vc_interfaces::HookOutput::default() -> Self
 impl core::fmt::Debug for vc_interfaces::HookOutput
 pub fn vc_interfaces::HookOutput::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_interfaces::HookOutput
+#[non_exhaustive] pub struct vc_interfaces::HostSample
+pub vc_interfaces::HostSample::cpu: core::option::Option<core::time::Duration>
+pub vc_interfaces::HostSample::resident_bytes: core::option::Option<u64>
+impl vc_interfaces::HostSample
+pub const fn vc_interfaces::HostSample::new(core::option::Option<core::time::Duration>, core::option::Option<u64>) -> Self
+impl core::clone::Clone for vc_interfaces::HostSample
+pub fn vc_interfaces::HostSample::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::HostSample
+impl core::cmp::PartialEq for vc_interfaces::HostSample
+pub fn vc_interfaces::HostSample::eq(&self, &Self) -> bool
+impl core::default::Default for vc_interfaces::HostSample
+pub fn vc_interfaces::HostSample::default() -> Self
+impl core::fmt::Debug for vc_interfaces::HostSample
+pub fn vc_interfaces::HostSample::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for vc_interfaces::HostSample
+impl core::marker::StructuralPartialEq for vc_interfaces::HostSample
 pub struct vc_interfaces::ImportDraft
 pub vc_interfaces::ImportDraft::flow: core::option::Option<vc_interfaces::DraftFlow>
 pub vc_interfaces::ImportDraft::groups: alloc::vec::Vec<vc_interfaces::DraftGroup>
@@ -1909,6 +1925,7 @@ pub const vc_interfaces::MANIFEST_FILE: &str
 pub const vc_interfaces::NEAR_NAMES: usize
 pub const vc_interfaces::PERMISSION_DENIED: i64
 pub const vc_interfaces::PLUGINS_DIR: &str
+pub const vc_interfaces::TRASH: &str
 pub trait vc_interfaces::ActionRunner: core::marker::Send + core::marker::Sync
 pub fn vc_interfaces::ActionRunner::run<'life0, 'async_trait>(&'life0 self) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::result::Result<vc_interfaces::Credentials, vc_interfaces::AuthError>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait
 pub trait vc_interfaces::AgentActionLog: vc_interfaces::AgentActionWriter + vc_interfaces::AgentActionReader
@@ -1966,6 +1983,8 @@ pub fn vc_interfaces::HistoryWriter::prune(&self, vc_model::history::Keep) -> co
 pub fn vc_interfaces::HistoryWriter::record(&self, vc_interfaces::RunId, alloc::vec::Vec<vc_interfaces::Row>) -> core::result::Result<(), vc_interfaces::HistoryError>
 pub trait vc_interfaces::HookRunner: core::marker::Send + core::marker::Sync
 pub fn vc_interfaces::HookRunner::call<'life0, 'async_trait>(&'life0 self, vc_interfaces::HookCall) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::result::Result<vc_interfaces::HookOutput, vc_interfaces::HookError>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait
+pub trait vc_interfaces::HostProbe: core::marker::Send + core::marker::Sync
+pub fn vc_interfaces::HostProbe::sample(&self) -> vc_interfaces::HostSample
 pub trait vc_interfaces::Importer: core::marker::Send + core::marker::Sync
 pub fn vc_interfaces::Importer::keeps_snapshot(&self) -> bool
 pub fn vc_interfaces::Importer::read<'life0, 'life1, 'life2, 'async_trait>(&'life0 self, &'life1 vc_interfaces::ImportSource, &'life2 vc_interfaces::ImportOptions) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::result::Result<vc_interfaces::ImportDraft, vc_interfaces::ImportError>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait, 'life1: 'async_trait, 'life2: 'async_trait
@@ -2022,6 +2041,7 @@ pub fn vc_interfaces::MemorySources::read_outside(&self, &[(vc_model::source::So
 pub fn vc_interfaces::MemorySources::real(&self, &vc_model::source::SourcePath) -> core::option::Option<vc_model::source::SourcePath>
 pub trait vc_interfaces::SourceWriter: core::marker::Send + core::marker::Sync
 pub fn vc_interfaces::SourceWriter::remove(&self, &vc_model::source::SourcePath) -> core::result::Result<(), vc_interfaces::SourceError>
+pub fn vc_interfaces::SourceWriter::trash(&self, &vc_model::source::SourcePath, vc_model::source::ContentHash) -> core::result::Result<alloc::string::String, vc_interfaces::SourceError>
 pub fn vc_interfaces::SourceWriter::write(&self, &vc_model::source::SourcePath, &str) -> core::result::Result<(), vc_interfaces::SourceError>
 pub fn vc_interfaces::SourceWriter::write_unchanged(&self, &vc_model::source::SourcePath, &str, core::option::Option<vc_model::source::ContentHash>) -> core::result::Result<(), vc_interfaces::SourceError>
 pub trait vc_interfaces::SpecFetcher: core::marker::Send + core::marker::Sync
@@ -2035,6 +2055,7 @@ pub fn vc_interfaces::Transport::send<'life0, 'life1, 'async_trait>(&'life0 self
 pub trait vc_interfaces::TransportFactory: core::marker::Send + core::marker::Sync
 pub fn vc_interfaces::TransportFactory::build(&self, &vc_interfaces::TlsSpec, &dyn vc_interfaces::Environment) -> core::result::Result<vc_interfaces::TransportPorts, vc_interfaces::TlsError>
 pub fn vc_interfaces::TransportFactory::inspect(&self, &[vc_interfaces::TlsProbe]) -> alloc::vec::Vec<vc_interfaces::TlsFinding>
+pub fn vc_interfaces::TransportFactory::open_connections(&self) -> core::option::Option<u64>
 pub trait vc_interfaces::Vcs: core::marker::Send + core::marker::Sync
 pub fn vc_interfaces::Vcs::changed(&self, &str) -> core::result::Result<alloc::vec::Vec<vc_model::source::SourcePath>, vc_interfaces::VcsError>
 pub fn vc_interfaces::Vcs::changed_within(&self, core::time::Duration) -> core::result::Result<alloc::vec::Vec<vc_model::source::SourcePath>, vc_interfaces::VcsError>

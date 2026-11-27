@@ -7,8 +7,8 @@ use std::sync::Arc;
 use vc_adapter_plugins::Confiner;
 use vc_interfaces::{
     AuthProvider, Browser, CacheStore, Clock, CommandRunner, CompileCacheStore, Environment, FileWatcher,
-    HistoryReader, HistoryWriter, HookRunner, Keychain, NotifierFactory, PluginStore, SourceProvider, SourceWriter,
-    StreamTransport, TransportFactory, Vcs,
+    HistoryReader, HistoryWriter, HookRunner, HostProbe, Keychain, NotifierFactory, PluginStore, SourceProvider,
+    SourceWriter, StreamTransport, TransportFactory, Vcs,
 };
 
 use crate::builder::{ApprovalPorts, PluginProcesses};
@@ -40,6 +40,8 @@ pub struct Engine {
     pub(crate) plugin_processes: PluginProcesses,
     /// How every plugin host confines its plugin, asking the OS once whether it can.
     pub(crate) confiner: Arc<Confiner>,
+    /// What the process uses of the machine, for a load run's Hosts panel (D676).
+    pub(crate) host: Arc<dyn HostProbe>,
 }
 
 impl Engine {
@@ -54,6 +56,11 @@ impl Engine {
     #[must_use]
     pub fn project_path(&self, base: &Path, path: &Path) -> Option<String> {
         vc_adapter_system::project_path(&self.root, &base.join(path))
+    }
+
+    /// The gauges a load run's ticks read their host figures from, starting now.
+    pub(crate) fn gauges(&self) -> crate::load_gauges::Gauges {
+        crate::load_gauges::Gauges::new(Arc::clone(&self.host), Arc::clone(&self.transports), Arc::clone(&self.clock))
     }
 }
 

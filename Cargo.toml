@@ -113,6 +113,8 @@ jsonschema = { version = "0.61.0", default-features = false }
 keyring-core = "1.0.1"
 landlock = "0.4.7"
 linux-keyutils-keyring-store = "1.0.0"
+# The Hosts panel's resident memory (D676): one call per platform, no unsafe code of ours.
+memory-stats = "1.2.0"
 notify = "=8.2.1"
 oas3 = { version = "0.22.0", default-features = false }
 oxc_allocator = "0.155.0"

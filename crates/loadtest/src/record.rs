@@ -76,6 +76,9 @@ pub struct Sample {
     pub latency: Duration,
     /// Whether it failed.
     pub failed: bool,
+    /// Whether it started more than [`crate::LATE`] after its scheduled start: the generator
+    /// fell behind, as an open-model tool would have dropped it.
+    pub late: bool,
 }
 
 /// One test's iterations in one second: a `load_intervals` row.

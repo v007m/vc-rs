@@ -1,4 +1,4 @@
-//! The project's RPCs: `GetProject`, `ListDefinitions`, `Check`, the editor's `ReadFile` and
+//! The project's RPCs: `GetProject`, `ListDefinitions`, `Check`, `Plan`, the editor's `ReadFile` and
 //! `WriteFile`, `ExplainConfig`, whose values the engine masks (D229), and `CheckSecrets` and
 //! `TestAuth`, which send no value. Each reads and compiles the project on the blocking pool, never on an
 //! async worker.
@@ -9,8 +9,8 @@ use tokio::runtime::Handle;
 use vc_contracts::engine::v1 as wire;
 use vc_contracts::results::v1::Span;
 use vc_engine::{
-    ApiCall, CheckRequest, ConfigValue, ExplainRequest, ListKind, ListRequest, Listed, SaveFile, SecretCheck,
-    SelectRequest, TestAuthRequest,
+    ApiCall, CheckRequest, ConfigValue, ExplainRequest, ListKind, ListRequest, Listed, PlanRequest, SaveFile,
+    SecretCheck, SelectRequest, TestAuthRequest,
 };
 
 use crate::ConnectError;
@@ -22,6 +22,7 @@ pub fn register(rpcs: Rpcs) -> Rpcs {
     rpcs.unary("GetProject", get_project)
         .unary("ListDefinitions", list_definitions)
         .unary("Check", check)
+        .unary("Plan", plan)
         .unary("ReadFile", read_file)
         .unary("WriteFile", write_file)
         .unary("ExplainConfig", explain_config)
@@ -110,6 +111,21 @@ async fn check(api: Arc<EngineApi>, request: wire::CheckRequest) -> Result<wire:
         diagnostics: diagnostics(&report),
         checked: u32::try_from(report.checked).unwrap_or(u32::MAX),
         notices: report.notices,
+    })
+}
+
+/// `vc plan` for the web UI's plan preview: the selection under the request's profiles and
+/// sets over the server's, planned as a run would plan it (D682).
+async fn plan(api: Arc<EngineApi>, request: wire::PlanRequest) -> Result<wire::PlanResponse, ConnectError> {
+    let (profiles, sets) = api.layers(request.profiles, request.sets);
+    let plan = PlanRequest { select: select(request.selection), repeat: request.repeat, profiles, sets };
+    let report = api.blocking(move |engine| Handle::current().block_on(engine.plan(&plan))).await?;
+    Ok(wire::PlanResponse {
+        line: report.line(),
+        tree: report.tree(),
+        plan_json: report.json().to_string(),
+        instances: u32::try_from(report.instance_count()).unwrap_or(u32::MAX),
+        notices: report.notices().to_vec(),
     })
 }
 

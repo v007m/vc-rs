@@ -53,6 +53,21 @@ impl Engine {
         let explainer = Explainer { program, active: &active, names: &names, entries: &layered.entries };
         Ok(ExplainReport { text: explainer.explain(id)?, notices: layered.notices })
     }
+
+    /// As [`Engine::explain`], with the text and notices masked as a run's values are, for a
+    /// view that is not the person's terminal: the web UI's Explain (D679).
+    ///
+    /// # Errors
+    ///
+    /// As [`Engine::explain`].
+    pub async fn explain_masked(&self, id: &str, request: &ExplainRequest) -> Result<ExplainReport, EngineError> {
+        let report = self.explain(id, request)?;
+        let mut notices = Vec::with_capacity(report.notices.len());
+        for notice in &report.notices {
+            notices.push(self.masked_text(notice).await);
+        }
+        Ok(ExplainReport { text: self.masked_text(&report.text).await, notices })
+    }
 }
 
 /// The program, the active profiles and the settings a definition is explained under.

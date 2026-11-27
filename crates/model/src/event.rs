@@ -128,7 +128,27 @@ pub enum Event {
         /// The names of the thresholds failing in the rolling window, such as `p95` or
         /// `errorRate`; a test's own threshold is `<test>: <metric>`.
         breaching: Vec<String>,
+        /// What the generator itself is using, for the Hosts panel (D674–D677).
+        host: HostStats,
     },
+}
+
+/// What the `vc` process generating a load uses as one second closes: a slow p99 from a busy
+/// generator is the generator's, not the api's. A figure the platform or transport does not
+/// tell is `None`.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct HostStats {
+    /// The process's CPU use over the last second, in percent of one core: a generator busy
+    /// on four cores reads 400.
+    pub cpu_percent: Option<u32>,
+    /// The process's resident memory, in bytes.
+    pub memory_bytes: Option<u64>,
+    /// The connections the run's transports hold open.
+    pub connections: Option<u64>,
+    /// The iterations so far that started more than 50 ms after their schedule, because the
+    /// generator could not keep up (D674).
+    pub late: u64,
 }
 
 /// An event with its run-wide sequence number, from 1.

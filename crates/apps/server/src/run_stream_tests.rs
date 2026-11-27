@@ -233,3 +233,91 @@ async fn the_report_names_no_html_file_written_up_and_out_of_the_project() {
     assert_eq!(report.html_report, None, "`../` leaves the project, so the path is never sent");
     assert!(std::fs::read_dir(out.path()).unwrap().next().is_some(), "the report is still written there");
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_check_run_streams_every_event_but_leaves_no_history_entry_and_no_report_file() {
+    let (root, api) = project();
+    std::fs::write(root.path().join("vibranium.config.yaml"), format!("{CONFIG}reports: {{formats: [html]}}\n"))
+        .unwrap();
+    let (events, end) = parse(&stream_from(api, &wire::RunRequest { record: Some(false), ..Default::default() }).await);
+    assert_eq!(end, json!({}));
+    assert!(events.iter().any(|event| matches!(event.kind, Some(Kind::TestFinished(_)))), "{events:?}");
+    let Some(Kind::Report(report)) = events.last().and_then(|event| event.kind.clone()) else { panic!("{events:?}") };
+    assert_eq!((report.exit, report.run, report.html_report), (1, None, None));
+    let engine = vc_engine::EngineBuilder::for_project(root.path()).unwrap().build().unwrap();
+    let history = engine.history(10, &vc_engine::RunFilter::default()).unwrap();
+    assert_eq!(history.runs(), [], "a check run is not kept");
+    assert!(!root.path().join(".vibranium/reports").exists(), "no report file is written");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_run_that_asks_to_be_recorded_or_says_nothing_is_kept_in_the_history() {
+    for record in [None, Some(true)] {
+        let (_root, api) = project();
+        let (events, _) = parse(&stream_from(api, &wire::RunRequest { record, ..Default::default() }).await);
+        let Some(Kind::Report(report)) = events.last().and_then(|event| event.kind.clone()) else { panic!() };
+        assert_eq!(report.run, Some(1), "{record:?}");
+    }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_run_writes_the_report_files_it_asks_for_in_the_folder_it_names() {
+    let (root, api) = project();
+    let request = wire::RunRequest {
+        reports: vec!["junit,html".to_owned()],
+        out: "custom".to_owned(),
+        single_file: true,
+        ..Default::default()
+    };
+    let (events, _) = parse(&stream_from(api, &request).await);
+    let Some(Kind::Report(report)) = events.last().and_then(|event| event.kind.clone()) else { panic!("{events:?}") };
+    let mut written: Vec<String> = std::fs::read_dir(root.path().join("custom"))
+        .unwrap()
+        .filter_map(|entry| entry.unwrap().path().extension().map(|found| found.to_string_lossy().into_owned()))
+        .collect();
+    written.sort();
+    assert_eq!(written, ["html", "xml"], "the formats asked for, the HTML as one self-contained file");
+    let Some(path) = report.html_report else { panic!("the HTML file is inside the project") };
+    assert!(path.starts_with("custom/"), "{path}");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_strict_run_fails_on_an_allowed_failure() {
+    for (strict, exit) in [(false, 0), (true, 1)] {
+        let (root, api) = project();
+        let tests = format!("allowFailure: true\n{}", crate::engine_fixture::CRUD);
+        std::fs::write(root.path().join(crate::engine_fixture::TESTS), tests).unwrap();
+        let (events, _) = parse(&stream_from(api, &wire::RunRequest { strict, ..Default::default() }).await);
+        let Some(Kind::Report(report)) = events.last().and_then(|event| event.kind.clone()) else { panic!() };
+        assert_eq!(report.exit, exit, "strict: {strict}");
+    }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_run_that_asks_for_an_unknown_report_format_ends_with_an_error() {
+    let request = wire::RunRequest { reports: vec!["pdf".to_owned()], ..Default::default() };
+    let (events, end) = parse(&stream(&request).await);
+    assert!(events.iter().all(|event| !matches!(event.kind, Some(Kind::Report(_)))), "{events:?}");
+    assert!(end["error"]["message"].as_str().is_some_and(|message| message.contains("pdf")), "{end}");
+}
+
+#[cfg(unix)]
+#[tokio::test(flavor = "multi_thread")]
+async fn a_run_whose_out_leaves_the_project_is_refused_before_it_starts() {
+    let outside = tempfile::tempdir().unwrap();
+    let absolute = outside.path().to_string_lossy().into_owned();
+    for out in [absolute.as_str(), "../elsewhere", "reports/../../elsewhere", "linked", "linked/ci"] {
+        let (root, api) = project();
+        std::os::unix::fs::symlink(outside.path(), root.path().join("linked")).unwrap();
+        let request = wire::RunRequest { out: out.to_owned(), ..Default::default() };
+        let (events, end) = parse(&stream_from(api, &request).await);
+        assert_eq!(events, [], "{out}: nothing ran");
+        assert_eq!(end["error"]["code"], "invalid_argument", "{out}: {end}");
+        let message = end["error"]["message"].as_str().unwrap();
+        assert!(message.starts_with("V5132"), "{out}: {message}");
+        assert!(!message.contains(&absolute), "{out}: the path is not echoed");
+        let engine = vc_engine::EngineBuilder::for_project(root.path()).unwrap().build().unwrap();
+        assert_eq!(engine.history(10, &vc_engine::RunFilter::default()).unwrap().runs(), [], "{out}");
+    }
+    assert_eq!(std::fs::read_dir(outside.path()).unwrap().count(), 0, "nothing is written outside");
+}
