@@ -128,6 +128,15 @@ service EngineService {
   // Fast-forwards the branch to its upstream with the user's own git credentials; refused when
   // the branches have diverged.
   rpc VcsPull(VcsPullRequest) returns (VcsPullResponse);
+  // The config's `schedules`, each with its next run time and its last run from the history
+  // (D705).
+  rpc ListSchedules(ListSchedulesRequest) returns (ListSchedulesResponse);
+  // Adds, replaces or removes one schedule in the config: a preview, or the config written
+  // with the preview's digest (D706).
+  rpc WriteSchedule(WriteScheduleRequest) returns (WriteScheduleResponse);
+  // A GitHub Actions workflow that runs one schedule on its cron, at a path the engine fixes
+  // (`.github/workflows/vibranium-<id>.yml`): a preview, or the file written (D707).
+  rpc ExportSchedule(ExportScheduleRequest) returns (ExportScheduleResponse);
 }
 
 // Which tests or apis to act on, as `vc run` selects them.
@@ -1103,6 +1112,8 @@ message ListRunsRequest {
   optional string profile = 3;
   // Only runs on this git branch; every branch when absent.
   optional string branch = 4;
+  // Only runs this schedule started, by its `id`; every run when absent (D704).
+  optional string schedule = 5;
 }
 
 message ListRunsResponse {
@@ -1440,4 +1451,83 @@ message VcsPullRequest {}
 message VcsPullResponse {
   // What git said, masked.
   string output = 1;
+}
+
+message ListSchedulesRequest {}
+
+message ListSchedulesResponse {
+  repeated ScheduleListing schedules = 1;
+}
+
+// One schedule as the config has it.
+message Schedule {
+  // camelCase, unique among the config's schedules.
+  string id = 1;
+  optional string name = 2;
+  // Five fields in UTC: minute, hour, day of the month, month, day of the week.
+  string cron = 3;
+  // What runs, as `vc run`'s selector words; every test when empty.
+  repeated string selector = 4;
+  repeated string profiles = 5;
+  // Where a failed or blocked scheduled run is sent.
+  repeated NotifyChannel notify = 6;
+  // `vcServer` (the default) or `githubActions`.
+  string runner = 7;
+  bool enabled = 8;
+}
+
+// One `notify` entry: a channel kind (`slack`, `webhook`, ...) and its settings as written, in
+// written order, templates and all; a secret is a `${secret.NAME}` reference, never its value.
+message NotifyChannel {
+  string kind = 1;
+  repeated NotifySetting settings = 2;
+}
+
+message NotifySetting {
+  string key = 1;
+  string value = 2;
+}
+
+message ScheduleListing {
+  Schedule schedule = 1;
+  // When it next fires, in milliseconds since the Unix epoch; absent when it is disabled, runs
+  // on GitHub Actions or its cron matches no day.
+  optional uint64 next_ms = 2;
+  // Its newest run in the history.
+  optional vibranium.results.v1.Run last = 3;
+}
+
+message WriteScheduleRequest {
+  // The schedule to add, or to put in place of the one with its `id`.
+  optional Schedule schedule = 1;
+  // The `id` of a schedule to remove; with `schedule` unset.
+  optional string remove = 2;
+  // Write the config; a preview when false.
+  bool write = 3;
+  // The digest the preview gave; a write is aborted when the config changed since, or without it.
+  optional string expected_digest = 4;
+}
+
+message WriteScheduleResponse {
+  repeated FileChange files = 1;
+  repeated string titles = 2;
+  // The digest of the files as previewed, which the write passes back.
+  string digest = 3;
+}
+
+message ExportScheduleRequest {
+  // The schedule's `id`.
+  string id = 1;
+  // Write the workflow; a preview when false.
+  bool write = 2;
+  // The digest the preview gave; a write is aborted when the project changed since, or without it.
+  optional string expected_digest = 3;
+}
+
+message ExportScheduleResponse {
+  repeated FileChange files = 1;
+  repeated string titles = 2;
+  string digest = 3;
+  // The workflow's path, relative to the project root.
+  string path = 4;
 }

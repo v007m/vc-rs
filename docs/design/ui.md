@@ -233,11 +233,10 @@ A wizard with six steps: Source (OpenAPI, HAR, Postman, Bruno, .http, cURL paste
 - KPIs: the pass rate trend, the duration trend, a flaky list with a Quarantine action, the slowest apis (p50/p95), api coverage gaps, skips that are expiring, and per-service cards.
 
 ### Schedules (D520)
-- Stored in `vibranium.config.yaml` under `schedules:` (name, selector, profile, cron, notify), so they are in git.
-- The vc server runs them while it is up (`vc ui` locally, or `vc serve` on a shared machine) and records each in run history.
-- **Export to CI** writes a GitHub Actions cron workflow, for machines that sleep.
-- The list shows the cron in words, the selector, profile, runner, next run and last result, with an on/off switch. New schedule saves through a diff.
-- The mockup proposes two more keys per schedule, `runner: vcServer | githubActions` and `enabled: false`. Their exact syntax goes into `syntax-reference.md` when the server is built (D520).
+- Stored in `vibranium.config.yaml` under `schedules:` (id, name, cron, selector, profile, notify, `runner: vcServer | githubActions`, `enabled`), so they are in git; the syntax is in `syntax-reference.md`, Schedules (D700).
+- `vc ui`'s server runs them while it is up and records each in run history with its schedule (D703, D704). It starts a run only from the compiled config, never because a client asked.
+- **Export to CI** writes a GitHub Actions cron workflow at `.github/workflows/vibranium-<id>.yml`, for machines that sleep (D707).
+- The list shows the cron in words, the selector, profile, runner, next run and last result, with an on/off switch. New schedule saves through a diff (D706).
 
 ## 7. Agents and Settings spaces
 
@@ -298,7 +297,7 @@ Built so far (D620): ⌘K or the top row's search opens it, grown out of the sea
 | 12 | User-config read and write (scoped) | Settings, the "You only" scope |
 | 13 | Done (D671): `RunRequest` carries `strict`, `reports`, `out` and `single_file`, as `vc run --strict --report --out --single-file`. `out` must be a folder inside the project (relative, no `..`, no link out); anything else is `invalid_argument` with V5132, and so is a `reports.dir` in any call's `sets` that leaves the project (D685). An unknown format ends the stream with an error before the run starts | Run dialog |
 | 14 | Done (D546–D550): `VcsStatus` (`branch`, `upstream`, `ahead`, `behind`, `files`: each `path`, `change` (`added`, `modified`, `deleted`, `untracked`, `conflicted`), `added`, `removed`, `binary`), `VcsDiff{path}` (a masked unified diff, empty for an unchanged file), `VcsCommit{paths, message}` (the short ID; only those files are committed), `VcsPush` and `VcsPull` (fast-forward only; what git said, masked). UI only, never agents. A git failure is `failed_precondition` with git's message, no URL's credentials in it | The git pane |
-| 15 | Schedules: list, write (through the config diff), the server's scheduler, `ExportSchedule` (GitHub Actions) | Schedules |
+| 15 | Done (D700–D708): `ListSchedules` (each `schedule` as the config writes it, with `next_ms`, when the scheduler next starts it, and `last`, its newest run), `WriteSchedule{schedule | remove, write, expected_digest}` (adds, replaces by `id` or removes one schedule through the guarded config diff: a preview with `files`, `titles` and `digest`, written only with that digest; a bad cron is V2317) and `ExportSchedule{id, write, expected_digest}` (the GitHub Actions workflow at the path the engine fixes, `.github/workflows/vibranium-<id>.yml`, returned as `path`; an existing file is refused). `vc ui`'s scheduler starts each enabled `vcServer` schedule on its UTC cron, as `Run` would, under the handle `schedule-<id>` for `Cancel`; `ListRuns{schedule}` lists its runs and `Run.schedule` names it | Schedules |
 | 16 | `AgentUsage` (per agent and tool, over a window) | Agents › Usage |
 | 17 | Done (D670): a check run is `Run` with `record: false` (`true` when absent). It writes no history entry, no report files and calls no reporter plugin or alert; its events still stream, and its report comes last with no `run` | Check run in Tests |
 
@@ -458,7 +457,7 @@ Each step is one or two PRs, and each RPC gets its own small engine PR first.
 - **Step 8.** The load screen's charts with threshold lines and breach markers (D641), the Hosts panel and the report (D639), at `/runs/load` and `/runs/load/<n>`.
 - **Step 9, compare and check parts.** Compare at `/runs/compare/<a>/<b>` (D637), the per-test history strip (D638), and Run file as a check run (D645). The Overview has its profile and branch scope (D643).
 - **Needs the engine.** Compare and the history strip wait for `CompareRuns` and `TestHistory` (§10 row 9); load runs wait for `RunLoad` and `load_tick` (row 8). Against today's engine each says "needs a newer engine".
-- **Not built yet:** Schedules (batch E), the Agent filter, starting a load run from Tests (with the load editor), a duration estimate in the plan line, and Quarantine from the Overview.
+- **Not built yet:** the Schedules screen (batch E; the engine side is done, row 15), the Agent filter, starting a load run from Tests (with the load editor), a duration estimate in the plan line, and Quarantine from the Overview.
 
 **Strata restyle (Round 99):**
 

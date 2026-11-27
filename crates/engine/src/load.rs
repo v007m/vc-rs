@@ -64,7 +64,7 @@ impl Engine {
             let (exit, ending) = (crate::secured::EXIT_CANCELLED, LoadEnding::Cancelled);
             return Ok(LoadReport { exit, ending, ..session.report });
         };
-        session.alerting = self.alerting(&session.prepared, &secured, LOAD_KIND);
+        session.alerting = self.alerting(&session.prepared, &secured, (LOAD_KIND, None));
         let ticks = watch.ticks.map(|ticks| (ticks, self.gauges()));
         let live = Live::new(Arc::clone(&session.prepared.program), self.load_recording(&mut session), ticks);
         let plugins = self.plugin_hosts(&session.prepared.program, &secured.secrets);

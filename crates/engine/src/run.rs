@@ -104,7 +104,9 @@ impl Engine {
     ) -> Result<RunReport, EngineError> {
         let heard = plugins.heard();
         let (seed, random, started_ms) = (prepared.draw.seed, Arc::clone(&prepared.draw.random), self.clock.now_ms());
-        let alerting = (!request.unrecorded).then(|| self.alerting(&prepared, &secured, RUN_KIND)).flatten();
+        let alerting = (!request.unrecorded)
+            .then(|| self.alerting(&prepared, &secured, (RUN_KIND, request.schedule.as_deref())))
+            .flatten();
         let (reporters, unrecorded) = self.reporters(request, &prepared, (seed, plugins.clone(), started_ms))?;
         let run_id = reporters.run_id().map_or(0, RunId::get);
         let reached = crate::body_files::reached(&prepared.program, &prepared.plan);
@@ -279,6 +281,7 @@ fn run_start(request: &RunRequest, prepared: &Prepared, (seed, started_ms): (u64
         selector,
         seed: Some(seed),
         vc_version: env!("CARGO_PKG_VERSION").to_owned(),
+        schedule: request.schedule.clone(),
         ..RunStart::default()
     }
 }

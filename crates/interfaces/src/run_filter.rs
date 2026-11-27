@@ -16,6 +16,8 @@ pub struct RunFilter {
     pub profile: Option<String>,
     /// Only runs on this git branch; a run whose branch is not known is left out.
     pub branch: Option<String>,
+    /// Only runs the scheduler started for the schedule with this ID (D704).
+    pub schedule: Option<String>,
 }
 
 impl RunFilter {
@@ -25,6 +27,7 @@ impl RunFilter {
         self.kind.as_ref().is_none_or(|kind| &start.kind == kind)
             && self.profile.as_ref().is_none_or(|profile| start.profiles.contains(profile))
             && self.branch.as_ref().is_none_or(|branch| start.git_branch.as_ref() == Some(branch))
+            && self.schedule.as_ref().is_none_or(|schedule| start.schedule.as_ref() == Some(schedule))
     }
 }
 
@@ -46,6 +49,7 @@ mod tests {
             kind: Some(kind.into()),
             profile: Some(profile.into()),
             branch: Some(branch.into()),
+            schedule: None,
         };
         assert!(wanted("run", "eu", "main").matches(&run), "any of its profiles");
         assert!(!wanted("load", "eu", "main").matches(&run));
@@ -53,5 +57,15 @@ mod tests {
         assert!(!wanted("run", "eu", "feat/x").matches(&run));
         let on_main = RunFilter { branch: Some("main".into()), ..RunFilter::default() };
         assert!(!on_main.matches(&start("run", &[], None)), "an unknown branch is not `main`");
+    }
+
+    #[test]
+    fn a_schedule_filter_matches_only_the_runs_that_schedule_started() {
+        let nightly = RunStart { schedule: Some("nightlySmoke".into()), ..start("run", &[], None) };
+        let wanted = RunFilter { schedule: Some("nightlySmoke".into()), ..RunFilter::default() };
+        assert!(wanted.matches(&nightly));
+        assert!(!wanted.matches(&start("run", &[], None)), "a run started by hand has no schedule");
+        let other = RunStart { schedule: Some("hourly".into()), ..nightly };
+        assert!(!wanted.matches(&other));
     }
 }

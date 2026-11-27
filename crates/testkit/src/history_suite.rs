@@ -27,7 +27,7 @@ pub fn history_reader_suite(make: &mut MakeHistory<'_>) {
     sums_up_each_api_over_the_newest_runs(make);
 }
 
-/// A run started with `profiles`, its seed past `i64::MAX` as half of all seeds are.
+/// A run started with `profiles` by a schedule, its seed past `i64::MAX` as half of all seeds are.
 fn start(profiles: &[&str]) -> RunStart {
     RunStart {
         kind: "run".into(),
@@ -39,6 +39,7 @@ fn start(profiles: &[&str]) -> RunStart {
         git_branch: Some("main".into()),
         vc_version: "2.0.0".into(),
         config_hash: "f00d".into(),
+        schedule: Some("nightlySmoke".into()),
     }
 }
 
@@ -264,7 +265,7 @@ fn sums_up_each_test_over_the_newest_runs(make: &mut MakeHistory<'_>) {
 /// A filter of the runs of `kind`, under `profile`, on `branch`.
 fn filter(kind: Option<&str>, profile: Option<&str>, branch: Option<&str>) -> RunFilter {
     let owned = |text: Option<&str>| text.map(str::to_owned);
-    RunFilter { kind: owned(kind), profile: owned(profile), branch: owned(branch) }
+    RunFilter { kind: owned(kind), profile: owned(profile), branch: owned(branch), schedule: None }
 }
 
 fn counts_only_the_runs_a_filter_matches(make: &mut MakeHistory<'_>) {
@@ -281,7 +282,8 @@ fn counts_only_the_runs_a_filter_matches(make: &mut MakeHistory<'_>) {
     let feature = stored(feature, vec![ended(a, TestStatus::Passed, 30.0)]);
     let load =
         stored(RunStart { kind: "load".into(), ..start(&["staging"]) }, vec![ended(a, TestStatus::Failed, 90.0)]);
-    stored(start(&["dev"]), vec![ended(a, TestStatus::Passed, 50.0)]);
+    let hourly = RunStart { schedule: Some("hourly".into()), ..start(&["dev"]) };
+    let hourly = stored(hourly, vec![ended(a, TestStatus::Passed, 50.0)]);
     let ids = |limit: usize, filter: &RunFilter| -> Vec<RunId> {
         reader.runs(limit, filter).unwrap_or_default().into_iter().map(|row| row.id).collect()
     };
@@ -289,6 +291,8 @@ fn counts_only_the_runs_a_filter_matches(make: &mut MakeHistory<'_>) {
     assert_eq!(ids(9, &filter(Some("run"), Some("staging"), Some("main"))), vec![staging]);
     assert_eq!(ids(9, &filter(None, Some("eu"), None)), vec![staging], "any of a run's profiles");
     assert_eq!(ids(9, &filter(None, Some("prod"), None)), Vec::new());
+    let by_schedule = RunFilter { schedule: Some("hourly".into()), ..RunFilter::default() };
+    assert_eq!(ids(9, &by_schedule), vec![hourly], "the runs one schedule started");
     let trend =
         |results: u32, failed: u32, mean_ms: f64| TestTrend { test_id: a.into(), results, failed, flaky: 0, mean_ms };
     let under_staging = reader.trends(1, &filter(None, Some("staging"), None));

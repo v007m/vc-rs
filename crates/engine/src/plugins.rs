@@ -277,7 +277,7 @@ impl Engine {
 }
 
 /// The project's config, opened for editing.
-fn config(project: &Authoring) -> Result<Opened<'_>, EngineError> {
+pub fn config(project: &Authoring) -> Result<Opened<'_>, EngineError> {
     let config = project.entries().find(|(_, found)| found.kind() == Some(FileKind::Config));
     Authoring::open(config.ok_or_else(|| internal("a project without its config"))?)
 }

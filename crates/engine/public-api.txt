@@ -43,6 +43,7 @@ pub use vc_engine::RunId
 pub use vc_engine::RunRow
 pub use vc_engine::RunStart
 pub use vc_engine::RunStatus
+pub use vc_engine::ScheduleRunner
 pub use vc_engine::Sequenced
 pub use vc_engine::Severity
 pub use vc_engine::SourceFileId
@@ -284,6 +285,17 @@ impl core::clone::Clone for vc_engine::RunFeed
 pub fn vc_engine::RunFeed::clone(&self) -> Self
 impl core::fmt::Debug for vc_engine::RunFeed
 pub fn vc_engine::RunFeed::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+#[non_exhaustive] pub enum vc_engine::ScheduleEdit
+pub vc_engine::ScheduleEdit::Put(vc_engine::ScheduleSpec)
+pub vc_engine::ScheduleEdit::Remove(alloc::string::String)
+impl core::clone::Clone for vc_engine::ScheduleEdit
+pub fn vc_engine::ScheduleEdit::clone(&self) -> Self
+impl core::cmp::Eq for vc_engine::ScheduleEdit
+impl core::cmp::PartialEq for vc_engine::ScheduleEdit
+pub fn vc_engine::ScheduleEdit::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_engine::ScheduleEdit
+pub fn vc_engine::ScheduleEdit::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_engine::ScheduleEdit
 pub enum vc_engine::SyncMode
 pub vc_engine::SyncMode::Check
 pub vc_engine::SyncMode::DryRun
@@ -647,6 +659,18 @@ pub fn vc_engine::CoveredApi::default() -> Self
 impl core::fmt::Debug for vc_engine::CoveredApi
 pub fn vc_engine::CoveredApi::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_engine::CoveredApi
+#[non_exhaustive] pub struct vc_engine::DueSchedule
+pub vc_engine::DueSchedule::id: alloc::string::String
+pub vc_engine::DueSchedule::profiles: alloc::vec::Vec<alloc::string::String>
+pub vc_engine::DueSchedule::select: vc_engine::SelectRequest
+impl core::clone::Clone for vc_engine::DueSchedule
+pub fn vc_engine::DueSchedule::clone(&self) -> Self
+impl core::cmp::Eq for vc_engine::DueSchedule
+impl core::cmp::PartialEq for vc_engine::DueSchedule
+pub fn vc_engine::DueSchedule::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_engine::DueSchedule
+pub fn vc_engine::DueSchedule::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_engine::DueSchedule
 #[non_exhaustive] pub struct vc_engine::EditedFile
 pub vc_engine::EditedFile::check: core::option::Option<core::result::Result<vc_engine::CheckReport, vc_engine::EngineError>>
 pub vc_engine::EditedFile::diff: alloc::string::String
@@ -718,6 +742,10 @@ pub async fn vc_engine::Engine::config_explain(&self, &str, &vc_engine::ExplainR
 impl vc_engine::Engine
 pub fn vc_engine::Engine::coverage(&self) -> core::result::Result<vc_engine::Coverage, vc_engine::EngineError>
 impl vc_engine::Engine
+pub fn vc_engine::Engine::due_schedules(&self, u64) -> core::result::Result<alloc::vec::Vec<vc_engine::DueSchedule>, vc_engine::EngineError>
+pub fn vc_engine::Engine::schedule_write(&self, &vc_engine::ScheduleEdit) -> core::result::Result<vc_engine::Changes, vc_engine::EngineError>
+pub fn vc_engine::Engine::schedules(&self) -> core::result::Result<alloc::vec::Vec<vc_engine::ScheduleListing>, vc_engine::EngineError>
+impl vc_engine::Engine
 pub async fn vc_engine::Engine::edit_by_pointer(&self, &vc_engine::PointerEdits) -> core::result::Result<vc_engine::EditedFile, vc_engine::EngineError>
 impl vc_engine::Engine
 pub fn vc_engine::Engine::edit_file(&self, &vc_engine::SaveFile) -> core::result::Result<vc_engine::Changes, vc_engine::EngineError>
@@ -784,6 +812,8 @@ impl vc_engine::Engine
 pub async fn vc_engine::Engine::run(&self, &vc_engine::RunRequest, vc_engine::Interrupts) -> core::result::Result<vc_engine::RunReport, vc_engine::EngineError>
 impl vc_engine::Engine
 pub fn vc_engine::Engine::save_call_as_test(&self, &vc_engine::CallAsTest) -> core::result::Result<vc_engine::Added, vc_engine::EngineError>
+impl vc_engine::Engine
+pub fn vc_engine::Engine::schedule_export(&self, &str) -> core::result::Result<vc_engine::ScheduleExport, vc_engine::EngineError>
 impl vc_engine::Engine
 pub fn vc_engine::Engine::schema_bundle() -> core::result::Result<alloc::string::String, vc_engine::EngineError>
 pub fn vc_engine::Engine::schema_export() -> core::result::Result<alloc::vec::Vec<vc_engine::SchemaFile>, vc_engine::EngineError>
@@ -1208,6 +1238,19 @@ pub fn vc_engine::NewTest::default() -> Self
 impl core::fmt::Debug for vc_engine::NewTest
 pub fn vc_engine::NewTest::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_engine::NewTest
+pub struct vc_engine::NotifyChannel
+pub vc_engine::NotifyChannel::kind: alloc::string::String
+pub vc_engine::NotifyChannel::settings: alloc::vec::Vec<(alloc::string::String, alloc::string::String)>
+impl core::clone::Clone for vc_engine::NotifyChannel
+pub fn vc_engine::NotifyChannel::clone(&self) -> Self
+impl core::cmp::Eq for vc_engine::NotifyChannel
+impl core::cmp::PartialEq for vc_engine::NotifyChannel
+pub fn vc_engine::NotifyChannel::eq(&self, &Self) -> bool
+impl core::default::Default for vc_engine::NotifyChannel
+pub fn vc_engine::NotifyChannel::default() -> Self
+impl core::fmt::Debug for vc_engine::NotifyChannel
+pub fn vc_engine::NotifyChannel::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_engine::NotifyChannel
 #[non_exhaustive] pub struct vc_engine::OpenedFile
 pub vc_engine::OpenedFile::digest: alloc::string::String
 pub vc_engine::OpenedFile::text: alloc::string::String
@@ -1412,6 +1455,7 @@ pub vc_engine::RunRequest::failed: bool
 pub vc_engine::RunRequest::files: vc_engine::ReportFlags
 pub vc_engine::RunRequest::no_cache: bool
 pub vc_engine::RunRequest::plan: vc_engine::PlanRequest
+pub vc_engine::RunRequest::schedule: core::option::Option<alloc::string::String>
 pub vc_engine::RunRequest::seed: core::option::Option<u64>
 pub vc_engine::RunRequest::strict: bool
 pub vc_engine::RunRequest::unrecorded: bool
@@ -1473,6 +1517,48 @@ pub fn vc_engine::SavedValue::eq(&self, &Self) -> bool
 impl core::fmt::Debug for vc_engine::SavedValue
 pub fn vc_engine::SavedValue::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_engine::SavedValue
+#[non_exhaustive] pub struct vc_engine::ScheduleExport
+pub vc_engine::ScheduleExport::changes: vc_engine::Changes
+pub vc_engine::ScheduleExport::path: alloc::string::String
+impl core::clone::Clone for vc_engine::ScheduleExport
+pub fn vc_engine::ScheduleExport::clone(&self) -> Self
+impl core::cmp::Eq for vc_engine::ScheduleExport
+impl core::cmp::PartialEq for vc_engine::ScheduleExport
+pub fn vc_engine::ScheduleExport::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_engine::ScheduleExport
+pub fn vc_engine::ScheduleExport::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_engine::ScheduleExport
+#[non_exhaustive] pub struct vc_engine::ScheduleListing
+pub vc_engine::ScheduleListing::last: core::option::Option<vc_interfaces::history::RunRow>
+pub vc_engine::ScheduleListing::next_ms: core::option::Option<u64>
+pub vc_engine::ScheduleListing::spec: vc_engine::ScheduleSpec
+impl core::clone::Clone for vc_engine::ScheduleListing
+pub fn vc_engine::ScheduleListing::clone(&self) -> Self
+impl core::cmp::Eq for vc_engine::ScheduleListing
+impl core::cmp::PartialEq for vc_engine::ScheduleListing
+pub fn vc_engine::ScheduleListing::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_engine::ScheduleListing
+pub fn vc_engine::ScheduleListing::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_engine::ScheduleListing
+pub struct vc_engine::ScheduleSpec
+pub vc_engine::ScheduleSpec::cron: alloc::string::String
+pub vc_engine::ScheduleSpec::enabled: bool
+pub vc_engine::ScheduleSpec::id: alloc::string::String
+pub vc_engine::ScheduleSpec::name: core::option::Option<alloc::string::String>
+pub vc_engine::ScheduleSpec::notify: alloc::vec::Vec<vc_engine::NotifyChannel>
+pub vc_engine::ScheduleSpec::profiles: alloc::vec::Vec<alloc::string::String>
+pub vc_engine::ScheduleSpec::runner: vc_model::schedule::ScheduleRunner
+pub vc_engine::ScheduleSpec::selector: alloc::vec::Vec<alloc::string::String>
+impl core::clone::Clone for vc_engine::ScheduleSpec
+pub fn vc_engine::ScheduleSpec::clone(&self) -> Self
+impl core::cmp::Eq for vc_engine::ScheduleSpec
+impl core::cmp::PartialEq for vc_engine::ScheduleSpec
+pub fn vc_engine::ScheduleSpec::eq(&self, &Self) -> bool
+impl core::default::Default for vc_engine::ScheduleSpec
+pub fn vc_engine::ScheduleSpec::default() -> Self
+impl core::fmt::Debug for vc_engine::ScheduleSpec
+pub fn vc_engine::ScheduleSpec::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_engine::ScheduleSpec
 #[non_exhaustive] pub struct vc_engine::SchemaFile
 pub vc_engine::SchemaFile::file_name: alloc::string::String
 pub vc_engine::SchemaFile::kind: vc_model::source::FileKind

@@ -1,0 +1,18 @@
+syntaxVersion: 2
+project: shop
+profiles:
+  - id: dev
+    default: true
+  - id: staging
+schedules:
+  - id: nightlySmoke
+    cron: "0 25 * * MON-FRI"
+    selector: users
+  - id: weekly
+    cron: "0 3 * *"
+    profile: [staging, prod]
+  - id: weekly
+    cron: "*/0 * * * *"
+  - id: everyQuarterHour
+    cron: "*/15 * * * *"
+    profile: stagin

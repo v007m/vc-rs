@@ -116,6 +116,8 @@ mod run_feed;
 #[cfg(test)]
 mod sample;
 mod save_call;
+mod schedule_export;
+mod schedules;
 mod schema;
 mod secured;
 mod selection;
@@ -184,6 +186,8 @@ pub use request::{
 pub use run::RunReport;
 pub use run_feed::{RunFeed, RunWatch};
 pub use save_call::CallAsTest;
+pub use schedule_export::ScheduleExport;
+pub use schedules::{DueSchedule, NotifyChannel, ScheduleEdit, ScheduleListing, ScheduleSpec};
 pub use schema::SchemaFile;
 pub use skip::SkipRequest;
 pub use stored::{HistoryReport, ReportFiles, ReportRequest, StoredRun, instance_label, started};
@@ -201,6 +205,6 @@ pub use vc_interfaces::{
 };
 pub use vc_model::{
     ActionId, Bodies, CheckKind, CheckResult, CleanupRecord, Event, Exchange, Failure, FileKind, HostStats, InstanceId,
-    Location, Method, Names, Origin, OwnerKey, Planned, RunStatus, Sequenced, SourceFileId, SourceFiles, SourcePath,
-    SourceSpan, TestResult, TestStatus, Totals, check_label, check_parts, cut_body,
+    Location, Method, Names, Origin, OwnerKey, Planned, RunStatus, ScheduleRunner, Sequenced, SourceFileId,
+    SourceFiles, SourcePath, SourceSpan, TestResult, TestStatus, Totals, check_label, check_parts, cut_body,
 };

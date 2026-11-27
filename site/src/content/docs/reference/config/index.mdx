@@ -45,6 +45,7 @@ Only `syntaxVersion` and one profile are required. Everything else has a default
 | [`history`](/vc-rs/reference/config/history/) | `bodies`, `maxBodySize`, `keep` | `failures`, `64kb`, `50` | no | What `history.db` keeps. |
 | [`hooks`](/vc-rs/reference/config/hooks/) | `threads` | `1` | no | How many runtimes run hooks at once. |
 | [`alerts`](/vc-rs/reference/config/alerts/) | list | — | no | Notifications after a run. |
+| [`schedules`](/vc-rs/reference/config/schedules/) | list | — | no | Runs `vc ui` starts on a cron, or exports to GitHub Actions. |
 | [`plugins`](/vc-rs/reference/config/plugins/) | list | — | no | Third-party plugins. |
 | [`redact`](/vc-rs/reference/config/redact/) | `headers`, `fields`, `rules` | auth headers and secrets | no | Extra values to mask. |
 | [`beforeRun`, `afterRun`](/vc-rs/reference/config/before-run-after-run/) | lists of actions | — | no | Run once around the whole run. |

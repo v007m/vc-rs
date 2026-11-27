@@ -1,0 +1,53 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2302_schedule_runner/project
+---
+{
+  "summary": {
+    "errors": 2,
+    "warnings": 0,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "code": "V2302",
+      "severity": "error",
+      "message": "expected one of vcServer, githubActions, found `jenkins`",
+      "primary": {
+        "span": {
+          "path": "vibranium.config.yaml",
+          "line": 9,
+          "column": 13,
+          "endLine": 9,
+          "endColumn": 20
+        },
+        "text": "not a known value"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "expected one of `vcServer`, `githubActions`"
+      ],
+      "fixes": []
+    },
+    {
+      "code": "V2302",
+      "severity": "error",
+      "message": "expected boolean, found text",
+      "primary": {
+        "span": {
+          "path": "vibranium.config.yaml",
+          "line": 10,
+          "column": 14,
+          "endLine": 10,
+          "endColumn": 23
+        },
+        "text": "expected boolean"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [],
+      "fixes": []
+    }
+  ]
+}

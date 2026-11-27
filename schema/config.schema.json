@@ -1372,6 +1372,90 @@
       ],
       "type": "object"
     },
+    "schedule": {
+      "additionalProperties": false,
+      "description": "A run started on a cron, by `vc ui`'s server or an exported CI workflow",
+      "properties": {
+        "cron": {
+          "description": "Minute, hour, day of the month, month, day of the week, in UTC (V2317)",
+          "examples": [
+            "0 2 * * 1-5"
+          ],
+          "type": "string"
+        },
+        "enabled": {
+          "default": true,
+          "description": "`false`: nothing starts it",
+          "type": "boolean"
+        },
+        "id": {
+          "description": "Names the schedule in history and the exported workflow",
+          "examples": [
+            "nightlySmoke"
+          ],
+          "type": "string"
+        },
+        "name": {
+          "description": "Shown in the Schedules list",
+          "type": "string"
+        },
+        "notify": {
+          "description": "Channels told when a run fails or is blocked, as in `alerts`",
+          "items": {
+            "additionalProperties": {},
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "profile": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          ],
+          "description": "The profiles it runs under"
+        },
+        "runner": {
+          "default": "vcServer",
+          "description": "`vcServer`: `vc ui`'s server runs it; `githubActions`: an exported workflow does",
+          "enum": [
+            "vcServer",
+            "githubActions"
+          ]
+        },
+        "selector": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          ],
+          "description": "What runs, as `vc run`'s selectors",
+          "examples": [
+            [
+              "users",
+              "payments.refunds"
+            ]
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "cron"
+      ],
+      "type": "object"
+    },
     "secrets": {
       "additionalProperties": false,
       "description": "Where secrets come from",
@@ -1607,6 +1691,13 @@
     "reports": {
       "$ref": "#/$defs/reports",
       "description": "Output formats and folder"
+    },
+    "schedules": {
+      "description": "Runs started on a cron (D520)",
+      "items": {
+        "$ref": "#/$defs/schedule"
+      },
+      "type": "array"
     },
     "secrets": {
       "$ref": "#/$defs/secrets",

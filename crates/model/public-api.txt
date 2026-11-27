@@ -708,6 +708,28 @@ impl serde_core::ser::Serialize for vc_model::ScalarStyle
 pub fn vc_model::ScalarStyle::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
 impl<'de> serde_core::de::Deserialize<'de> for vc_model::ScalarStyle
 pub fn vc_model::ScalarStyle::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub enum vc_model::ScheduleRunner
+pub vc_model::ScheduleRunner::GithubActions
+pub vc_model::ScheduleRunner::VcServer
+impl vc_model::ScheduleRunner
+pub const vc_model::ScheduleRunner::ALL: [Self; 2]
+pub const fn vc_model::ScheduleRunner::name(self) -> &'static str
+pub fn vc_model::ScheduleRunner::named(&str) -> core::option::Option<Self>
+impl core::clone::Clone for vc_model::ScheduleRunner
+pub fn vc_model::ScheduleRunner::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::ScheduleRunner
+impl core::cmp::PartialEq for vc_model::ScheduleRunner
+pub fn vc_model::ScheduleRunner::eq(&self, &Self) -> bool
+impl core::default::Default for vc_model::ScheduleRunner
+pub fn vc_model::ScheduleRunner::default() -> Self
+impl core::fmt::Debug for vc_model::ScheduleRunner
+pub fn vc_model::ScheduleRunner::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for vc_model::ScheduleRunner
+impl core::marker::StructuralPartialEq for vc_model::ScheduleRunner
+impl serde_core::ser::Serialize for vc_model::ScheduleRunner
+pub fn vc_model::ScheduleRunner::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::ScheduleRunner
+pub fn vc_model::ScheduleRunner::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub enum vc_model::Segment
 pub vc_model::Segment::All
 pub vc_model::Segment::Index(i64)
@@ -1241,6 +1263,7 @@ pub vc_model::Config::redact_headers: alloc::vec::Vec<alloc::string::String>
 pub vc_model::Config::redact_rules: alloc::vec::Vec<vc_model::RedactRule>
 pub vc_model::Config::report_formats: alloc::vec::Vec<alloc::string::String>
 pub vc_model::Config::reports_dir: core::option::Option<alloc::string::String>
+pub vc_model::Config::schedules: alloc::vec::Vec<vc_model::Schedule>
 pub vc_model::Config::secrets: vc_model::SecretsConfig
 pub vc_model::Config::syntax_version: u32
 pub vc_model::Config::vars: vc_model::VarDefs
@@ -1292,6 +1315,31 @@ impl core::hash::Hash for vc_model::ContentHash
 pub fn vc_model::ContentHash::hash<__H: core::hash::Hasher>(&self, &mut __H)
 impl core::marker::Copy for vc_model::ContentHash
 impl core::marker::StructuralPartialEq for vc_model::ContentHash
+pub struct vc_model::Cron
+impl vc_model::Cron
+pub fn vc_model::Cron::fires_at(&self, u64) -> bool
+pub fn vc_model::Cron::next_after(&self, u64) -> core::option::Option<u64>
+pub fn vc_model::Cron::parse(&str) -> core::result::Result<Self, alloc::string::String>
+pub fn vc_model::Cron::text(&self) -> &str
+impl core::clone::Clone for vc_model::Cron
+pub fn vc_model::Cron::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::Cron
+impl core::cmp::PartialEq for vc_model::Cron
+pub fn vc_model::Cron::eq(&self, &Self) -> bool
+impl core::convert::From<vc_model::Cron> for alloc::string::String
+pub fn alloc::string::String::from(vc_model::Cron) -> Self
+impl core::convert::TryFrom<alloc::string::String> for vc_model::Cron
+pub type vc_model::Cron::Error = alloc::string::String
+pub fn vc_model::Cron::try_from(alloc::string::String) -> core::result::Result<Self, Self::Error>
+impl core::fmt::Debug for vc_model::Cron
+pub fn vc_model::Cron::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for vc_model::Cron
+pub fn vc_model::Cron::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::Cron
+impl serde_core::ser::Serialize for vc_model::Cron
+pub fn vc_model::Cron::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::Cron
+pub fn vc_model::Cron::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub struct vc_model::Dataset
 pub vc_model::Dataset::file: alloc::string::String
 pub vc_model::Dataset::id: vc_model::DatasetId
@@ -2270,6 +2318,27 @@ impl serde_core::ser::Serialize for vc_model::ScalarSource
 pub fn vc_model::ScalarSource::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
 impl<'de> serde_core::de::Deserialize<'de> for vc_model::ScalarSource
 pub fn vc_model::ScalarSource::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub struct vc_model::Schedule
+pub vc_model::Schedule::cron: vc_model::Cron
+pub vc_model::Schedule::enabled: bool
+pub vc_model::Schedule::id: alloc::string::String
+pub vc_model::Schedule::name: core::option::Option<alloc::string::String>
+pub vc_model::Schedule::notify: alloc::vec::Vec<vc_model::AlertChannel>
+pub vc_model::Schedule::profiles: alloc::vec::Vec<alloc::string::String>
+pub vc_model::Schedule::runner: vc_model::ScheduleRunner
+pub vc_model::Schedule::selector: alloc::vec::Vec<alloc::string::String>
+impl core::clone::Clone for vc_model::Schedule
+pub fn vc_model::Schedule::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::Schedule
+impl core::cmp::PartialEq for vc_model::Schedule
+pub fn vc_model::Schedule::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::Schedule
+pub fn vc_model::Schedule::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::Schedule
+impl serde_core::ser::Serialize for vc_model::Schedule
+pub fn vc_model::Schedule::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::Schedule
+pub fn vc_model::Schedule::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub struct vc_model::SchemaNames
 pub vc_model::SchemaNames::declared: alloc::vec::Vec<alloc::string::String>
 pub vc_model::SchemaNames::optional: alloc::vec::Vec<alloc::string::String>

@@ -96,6 +96,25 @@ async fn settings_that_cannot_be_filled_in_and_unknown_channels_are_warnings() {
     assert_eq!(log.take(), [], "the staging rule is not for this run's profiles");
 }
 
+#[tokio::test]
+async fn a_scheduled_run_that_fails_tells_its_schedules_channels_and_a_run_by_hand_does_not() {
+    let (notifiers, log) = FakeNotifiers::new(&["webhook"]);
+    let schedules =
+        "schedules:\n  - id: nightly\n    cron: '0 2 * * *'\n    notify:\n      - webhook: {url: '${secret.HOOK}'}\n";
+    let config = format!("{CONFIG}{schedules}");
+    let transport = FakeTransport::scripted(vec![Ok(status(500)), Ok(status(500))]);
+    let engine = project(&config).notifiers(Arc::new(notifiers)).transport(Arc::new(transport)).build().unwrap();
+    let by_hand = run(&engine).await;
+    assert_eq!((by_hand.exit, log.take()), (1, vec![]), "the schedule's channels are for its own runs");
+    let request = RunRequest { schedule: Some("nightly".to_owned()), ..RunRequest::default() };
+    let report = engine.run(&request, interrupts().1).await.unwrap();
+    assert_eq!((report.exit, unsent(&report)), (1, Vec::<&str>::new()), "{:?}", report.notices);
+    let sent = log.take();
+    let [sent] = sent.as_slice() else { panic!("{sent:?}") };
+    assert_eq!((sent.channel.as_str(), &sent.settings), ("webhook", &json!({"url": HOOK})));
+    assert_eq!(sent.notice.trigger, AlertTrigger::Failure);
+}
+
 #[test]
 fn a_declared_secret_read_from_env_is_refused_without_its_value() {
     let mut program = Program::default();

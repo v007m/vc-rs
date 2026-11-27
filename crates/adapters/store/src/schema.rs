@@ -80,6 +80,7 @@ CREATE INDEX load_findings_by_run ON load_findings(run_id);
 ALTER TABLE exchanges ADD COLUMN load_finding_id INTEGER REFERENCES load_findings(id) ON DELETE SET NULL;
 CREATE INDEX exchanges_by_finding ON exchanges(load_finding_id);
 ",
+    "ALTER TABLE runs ADD COLUMN schedule TEXT;",
 ];
 
 /// What a file without `load_findings` (D322) reads in its place: the same columns, no rows.
@@ -148,9 +149,9 @@ pub fn open_for_reading(path: &Path) -> Result<Option<Connection>, HistoryError>
 }
 
 /// Shadows each table that lacks a column a later step added (`runs.allowed_failures`, D248;
-/// `test_results.label`, D316; `exchanges.load_finding_id`, D326) with a temporary view that adds it as `NULL`, and a missing
-/// `load_findings` table with an empty view, so the reader's queries hold for a file not
-/// brought up to date.
+/// `test_results.label`, D316; `exchanges.load_finding_id`, D326; `runs.schedule`, D704) with a
+/// temporary view that adds each such column as `NULL`, and a missing `load_findings` table with
+/// an empty view, so the reader's queries hold for a file not brought up to date.
 fn older_columns(connection: &Connection) -> rusqlite::Result<()> {
     let has_findings: bool = connection.query_row(
         "SELECT EXISTS (SELECT 1 FROM sqlite_master WHERE name = 'load_findings')",
@@ -160,16 +161,26 @@ fn older_columns(connection: &Connection) -> rusqlite::Result<()> {
     if !has_findings {
         connection.execute_batch(NO_FINDINGS)?;
     }
-    let added = [("runs", "allowed_failures"), ("test_results", "label"), ("exchanges", "load_finding_id")];
-    for (table, column) in added {
-        let has: bool = connection.query_row(
-            "SELECT EXISTS (SELECT 1 FROM pragma_table_info(?1) WHERE name = ?2)",
-            (table, column),
-            |row| row.get(0),
-        )?;
-        if !has {
-            connection
-                .execute_batch(&format!("CREATE TEMP VIEW {table} AS SELECT *, NULL AS {column} FROM main.{table}"))?;
+    let added: [(&str, &[&str]); 3] = [
+        ("runs", &["allowed_failures", "schedule"]),
+        ("test_results", &["label"]),
+        ("exchanges", &["load_finding_id"]),
+    ];
+    for (table, columns) in added {
+        let mut missing = Vec::new();
+        for column in columns {
+            let has: bool = connection.query_row(
+                "SELECT EXISTS (SELECT 1 FROM pragma_table_info(?1) WHERE name = ?2)",
+                (table, column),
+                |row| row.get(0),
+            )?;
+            if !has {
+                missing.push(format!(", NULL AS {column}"));
+            }
+        }
+        if !missing.is_empty() {
+            let nulls = missing.concat();
+            connection.execute_batch(&format!("CREATE TEMP VIEW {table} AS SELECT *{nulls} FROM main.{table}"))?;
         }
     }
     Ok(())
@@ -360,6 +371,8 @@ mod tests {
         assert_eq!(sampled, None);
         let passed: i64 = connection.query_row("SELECT passed FROM runs", [], |row| row.get(0)).unwrap();
         assert_eq!(passed, 3);
+        let schedule: Option<String> = connection.query_row("SELECT schedule FROM runs", [], |row| row.get(0)).unwrap();
+        assert_eq!(schedule, None, "two columns added to one table read as `NULL` side by side");
     }
 
     #[test]

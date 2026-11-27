@@ -74,7 +74,7 @@ mod serve {
     /// until Ctrl-C.
     pub async fn serve(mcp: VcServer, args: &UiArgs) -> anyhow::Result<Outcome> {
         let layers = args.layers.request();
-        let engine = EngineApi::new(mcp.engine(), layers.profiles, layers.sets).into_service();
+        let engine = EngineApi::new(mcp.engine(), layers.profiles, layers.sets).into_scheduled_service();
         let (service, stop_mcp) = mcp.into_http();
         let ui = EmbeddedUi::default();
         if ui.is_empty() {

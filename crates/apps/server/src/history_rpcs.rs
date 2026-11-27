@@ -36,12 +36,13 @@ fn limit(limit: u32) -> usize {
     }
 }
 
-async fn list_runs(
+pub async fn list_runs(
     api: Arc<EngineApi>,
     request: wire::ListRunsRequest,
 ) -> Result<wire::ListRunsResponse, ConnectError> {
-    let (most, filter) =
-        (limit(request.limit), RunFilter { kind: request.kind, profile: request.profile, branch: request.branch });
+    let filter =
+        RunFilter { kind: request.kind, profile: request.profile, branch: request.branch, schedule: request.schedule };
+    let most = limit(request.limit);
     let report = api.blocking(move |engine| engine.history(most, &filter)).await?;
     Ok(wire::ListRunsResponse { runs: report.runs().iter().map(run).collect() })
 }

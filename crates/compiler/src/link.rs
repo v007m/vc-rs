@@ -23,6 +23,7 @@ mod protocol_needs;
 mod refs;
 mod reports_dir;
 mod saves;
+mod schedules;
 mod secrets;
 mod shared;
 mod sigv4;
@@ -137,6 +138,7 @@ fn always(
     diagnostics.extend(protocol_needs::check(project));
     diagnostics.extend(protocol_checks::check(project, data.documents()));
     diagnostics.extend(reports_dir::check(project));
+    diagnostics.extend(schedules::check(project));
     diagnostics.extend(shared::profiles(project));
     diagnostics.extend(world.secrets.map(|names| secrets::check(project, &names.declared)).unwrap_or_default());
 }

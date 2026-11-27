@@ -1580,6 +1580,7 @@ pub struct vc_interfaces::RunFilter
 pub vc_interfaces::RunFilter::branch: core::option::Option<alloc::string::String>
 pub vc_interfaces::RunFilter::kind: core::option::Option<alloc::string::String>
 pub vc_interfaces::RunFilter::profile: core::option::Option<alloc::string::String>
+pub vc_interfaces::RunFilter::schedule: core::option::Option<alloc::string::String>
 impl vc_interfaces::RunFilter
 pub fn vc_interfaces::RunFilter::matches(&self, &vc_interfaces::RunStart) -> bool
 impl core::clone::Clone for vc_interfaces::RunFilter
@@ -1634,6 +1635,7 @@ pub vc_interfaces::RunStart::git_branch: core::option::Option<alloc::string::Str
 pub vc_interfaces::RunStart::git_commit: core::option::Option<alloc::string::String>
 pub vc_interfaces::RunStart::kind: alloc::string::String
 pub vc_interfaces::RunStart::profiles: alloc::vec::Vec<alloc::string::String>
+pub vc_interfaces::RunStart::schedule: core::option::Option<alloc::string::String>
 pub vc_interfaces::RunStart::seed: core::option::Option<u64>
 pub vc_interfaces::RunStart::selector: alloc::string::String
 pub vc_interfaces::RunStart::started_ms: u64

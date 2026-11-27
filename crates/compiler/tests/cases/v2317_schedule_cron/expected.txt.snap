@@ -1,0 +1,49 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2317_schedule_cron/project
+---
+error[V2317]: `0 25 * * MON-FRI` is not a cron
+ --> vibranium.config.yaml:9:11
+  |
+9 |     cron: "0 25 * * MON-FRI"
+  |           ^^^^^^^^^^^^^^^^^^ `25` in the hour field is outside 0-23
+  = help: write minute, hour, day of the month, month and day of the week in UTC, such as `0 2 * * 1-5` (02:00 on weekdays); each is `*`, a number, `a-b`, `*/n` or a list joined with `,`
+
+error[V2317]: `0 3 * *` is not a cron
+  --> vibranium.config.yaml:12:11
+   |
+12 |     cron: "0 3 * *"
+   |           ^^^^^^^^^ has 4 fields; a cron has 5: minute, hour, day of the month, month, day of the week
+   = help: write minute, hour, day of the month, month and day of the week in UTC, such as `0 2 * * 1-5` (02:00 on weekdays); each is `*`, a number, `a-b`, `*/n` or a list joined with `,`
+
+error[V2002]: unknown profile `prod`
+  --> vibranium.config.yaml:13:24
+   |
+13 |     profile: [staging, prod]
+   |                        ^^^^ the config has no such profile
+   = help: expected one of `dev`, `staging`
+
+error[V2001]: duplicate ID `weekly`
+  --> vibranium.config.yaml:14:9
+   |
+11 |   - id: weekly
+   |         ------ first declared here
+...
+14 |   - id: weekly
+   |         ^^^^^^ declared again
+   = help: IDs are unique within a file across every kind; rename one
+
+error[V2317]: `*/0 * * * *` is not a cron
+  --> vibranium.config.yaml:15:11
+   |
+15 |     cron: "*/0 * * * *"
+   |           ^^^^^^^^^^^^^ a step of 0 in the minute field
+   = help: write minute, hour, day of the month, month and day of the week in UTC, such as `0 2 * * 1-5` (02:00 on weekdays); each is `*`, a number, `a-b`, `*/n` or a list joined with `,`
+
+error[V2002]: unknown profile `stagin`
+  --> vibranium.config.yaml:18:14
+   |
+18 |     profile: stagin
+   |              ^^^^^^ the config has no such profile
+   = help: did you mean `staging`?
+   = fix: Replace with staging (certain)

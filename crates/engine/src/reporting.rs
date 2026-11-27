@@ -259,7 +259,7 @@ impl Reporters {
         let destination = Arc::new(FsDestination::new(&chosen.dir).quiet(setup.quiet));
         let color = if setup.color { Color::Ansi } else { Color::Plain };
         let keep = setup.program.config.history.keep;
-        let watch = (!setup.program.config.alerts.is_empty()).then(|| Watch::of(&setup.program));
+        let watch = crate::notify::alerted(&setup.program).then(|| Watch::of(&setup.program));
         let context =
             ReporterContext::new(setup.program, setup.plan, destination).color(color).headline(setup.headline);
         let internal = |error: ReportError| EngineError::Internal { reason: error.to_string() };

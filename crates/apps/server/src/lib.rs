@@ -43,6 +43,8 @@ mod live_rpcs;
 mod load_stream;
 mod project_rpcs;
 mod run_stream;
+mod schedule_rpcs;
+mod scheduler;
 mod service;
 mod site;
 mod token;

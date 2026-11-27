@@ -14,7 +14,7 @@ use crate::schema;
 /// The columns a run is read from, in [`run_row`]'s order: an `adhoc` run's first exchange
 /// last, for its [`CallSummary`] (D542).
 const RUN_COLUMNS: &str = "id, started_at, finished_at, profiles, selector, git_commit, git_branch, seed, vc_version,
-    config_hash, kind, status, passed, failed, blocked, skipped, flaky, allowed_failures,
+    config_hash, kind, status, passed, failed, blocked, skipped, flaky, allowed_failures, schedule,
     (SELECT method FROM exchanges WHERE exchanges.run_id = runs.id AND runs.kind = 'adhoc' ORDER BY exchanges.id LIMIT 1),
     (SELECT url FROM exchanges WHERE exchanges.run_id = runs.id AND runs.kind = 'adhoc' ORDER BY exchanges.id LIMIT 1),
     (SELECT status FROM exchanges WHERE exchanges.run_id = runs.id AND runs.kind = 'adhoc' ORDER BY exchanges.id LIMIT 1)";
@@ -22,11 +22,12 @@ const RUN_COLUMNS: &str = "id, started_at, finished_at, profiles, selector, git_
 /// The kind of the runs trends are taken over when a filter names none.
 const TREND_KIND: &str = "run";
 
-/// The runs a [`RunFilter`] matches, its kind, profile and branch bound to `?2`, `?3` and `?4`; a
-/// `NULL` matches every run.
+/// The runs a [`RunFilter`] matches, its kind, profile, branch and schedule bound to `?2` to
+/// `?5`; a `NULL` matches every run.
 const MATCHING: &str = "(?2 IS NULL OR kind = ?2)
     AND (?3 IS NULL OR EXISTS (SELECT 1 FROM json_each(runs.profiles) WHERE value = ?3))
-    AND (?4 IS NULL OR git_branch = ?4)";
+    AND (?4 IS NULL OR git_branch = ?4)
+    AND (?5 IS NULL OR schedule = ?5)";
 
 /// The calls of an api in the newest `?1` runs [`MATCHING`] matches, newest first: the window's run
 /// IDs bound the scan, so only their exchanges are read (`exchanges_by_run`).
@@ -64,7 +65,8 @@ impl HistoryReader for SqliteHistoryReader {
         self.read(|connection| {
             let sql = format!("SELECT {RUN_COLUMNS} FROM runs WHERE {MATCHING} ORDER BY id DESC LIMIT ?1");
             let mut statement = connection.prepare(&sql)?;
-            statement.query_map((limit, &filter.kind, &filter.profile, &filter.branch), run_row)?.collect()
+            let parameters = params![limit, filter.kind, filter.profile, filter.branch, filter.schedule];
+            statement.query_map(parameters, run_row)?.collect()
         })
     }
 
@@ -106,9 +108,9 @@ impl HistoryReader for SqliteHistoryReader {
     fn trends(&self, window: usize, filter: &RunFilter) -> Result<Vec<TestTrend>, HistoryError> {
         self.read(|connection| {
             let sql = format!(
-                "SELECT test_id, COUNT(*), SUM(status IN (?5, ?6)), SUM(status = ?7), AVG(duration_ms)
+                "SELECT test_id, COUNT(*), SUM(status IN (?6, ?7)), SUM(status = ?8), AVG(duration_ms)
                  FROM test_results
-                 WHERE status <> ?8 AND run_id IN (SELECT id FROM runs WHERE {MATCHING} ORDER BY id DESC LIMIT ?1)
+                 WHERE status <> ?9 AND run_id IN (SELECT id FROM runs WHERE {MATCHING} ORDER BY id DESC LIMIT ?1)
                  GROUP BY test_id ORDER BY test_id"
             );
             let mut statement = connection.prepare(&sql)?;
@@ -119,6 +121,7 @@ impl HistoryReader for SqliteHistoryReader {
                 kind,
                 filter.profile,
                 filter.branch,
+                filter.schedule,
                 text(TestStatus::Failed),
                 text(TestStatus::Blocked),
                 text(TestStatus::Flaky),
@@ -132,7 +135,9 @@ impl HistoryReader for SqliteHistoryReader {
         let calls: Vec<ExchangeRow> = self.read(|connection| {
             let mut statement = connection.prepare(&api_calls())?;
             let kind = filter.kind.as_deref().unwrap_or(TREND_KIND);
-            statement.query_map(params![window, kind, filter.profile, filter.branch], call_row)?.collect()
+            statement
+                .query_map(params![window, kind, filter.profile, filter.branch, filter.schedule], call_row)?
+                .collect()
         })?;
         Ok(api_trends(&calls))
     }
@@ -182,6 +187,7 @@ fn run_row(row: &SqlRow<'_>) -> rusqlite::Result<RunRow> {
         vc_version: row.get(8)?,
         config_hash: row.get(9)?,
         kind: row.get(10)?,
+        schedule: row.get(18)?,
     };
     let status: Option<String> = row.get(11)?;
     let status = status.map(|text| run_status(&text).ok_or_else(|| unreadable(11, &text))).transpose()?;
@@ -201,8 +207,8 @@ fn run_row(row: &SqlRow<'_>) -> rusqlite::Result<RunRow> {
 /// The call an `adhoc` run made, from [`RUN_COLUMNS`]' last three; `None` for any other run and
 /// for one whose exchange is not stored.
 fn call_summary(row: &SqlRow<'_>) -> rusqlite::Result<Option<CallSummary>> {
-    let Some(method) = row.get::<_, Option<String>>(18)? else { return Ok(None) };
-    Ok(Some(CallSummary { method, url: row.get(19)?, status: row.get(20)? }))
+    let Some(method) = row.get::<_, Option<String>>(19)? else { return Ok(None) };
+    Ok(Some(CallSummary { method, url: row.get(20)?, status: row.get(21)? }))
 }
 
 fn trend_row(row: &SqlRow<'_>) -> rusqlite::Result<TestTrend> {

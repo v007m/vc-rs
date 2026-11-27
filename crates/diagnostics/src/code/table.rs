@@ -78,6 +78,7 @@ code_table! {
     V2314 = 2314, Error, "GraphQL document does not fit the schema";
     V2315 = 2315, Error, "GraphQL variable value does not fit its type";
     V2316 = 2316, Error, "An AWS signing `region` or `service` is not a scope name";
+    V2317 = 2317, Error, "A schedule's `cron` is not five cron fields";
     // V3xxx: lifecycle
     V3101 = 3101, Error, "No profile defined, or no active profile for this run";
     V3102 = 3102, Error, "More than one default profile";

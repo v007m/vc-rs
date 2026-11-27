@@ -1556,6 +1556,9 @@ pub struct ListRunsRequest {
     /// Only runs on this git branch; every branch when absent.
     #[prost(string, optional, tag="4")]
     pub branch: ::core::option::Option<::prost::alloc::string::String>,
+    /// Only runs this schedule started, by its `id`; every run when absent (D704).
+    #[prost(string, optional, tag="5")]
+    pub schedule: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ListRunsResponse {
@@ -1999,6 +2002,116 @@ pub struct VcsPullResponse {
     /// What git said, masked.
     #[prost(string, tag="1")]
     pub output: ::prost::alloc::string::String,
+}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ListSchedulesRequest {
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListSchedulesResponse {
+    #[prost(message, repeated, tag="1")]
+    pub schedules: ::prost::alloc::vec::Vec<ScheduleListing>,
+}
+/// One schedule as the config has it.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Schedule {
+    /// camelCase, unique among the config's schedules.
+    #[prost(string, tag="1")]
+    pub id: ::prost::alloc::string::String,
+    #[prost(string, optional, tag="2")]
+    pub name: ::core::option::Option<::prost::alloc::string::String>,
+    /// Five fields in UTC: minute, hour, day of the month, month, day of the week.
+    #[prost(string, tag="3")]
+    pub cron: ::prost::alloc::string::String,
+    /// What runs, as `vc run`'s selector words; every test when empty.
+    #[prost(string, repeated, tag="4")]
+    pub selector: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, repeated, tag="5")]
+    pub profiles: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Where a failed or blocked scheduled run is sent.
+    #[prost(message, repeated, tag="6")]
+    pub notify: ::prost::alloc::vec::Vec<NotifyChannel>,
+    /// `vcServer` (the default) or `githubActions`.
+    #[prost(string, tag="7")]
+    pub runner: ::prost::alloc::string::String,
+    #[prost(bool, tag="8")]
+    pub enabled: bool,
+}
+/// One `notify` entry: a channel kind (`slack`, `webhook`, ...) and its settings as written, in
+/// written order, templates and all; a secret is a `${secret.NAME}` reference, never its value.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct NotifyChannel {
+    #[prost(string, tag="1")]
+    pub kind: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag="2")]
+    pub settings: ::prost::alloc::vec::Vec<NotifySetting>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct NotifySetting {
+    #[prost(string, tag="1")]
+    pub key: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub value: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ScheduleListing {
+    #[prost(message, optional, tag="1")]
+    pub schedule: ::core::option::Option<Schedule>,
+    /// When it next fires, in milliseconds since the Unix epoch; absent when it is disabled, runs
+    /// on GitHub Actions or its cron matches no day.
+    #[prost(uint64, optional, tag="2")]
+    pub next_ms: ::core::option::Option<u64>,
+    /// Its newest run in the history.
+    #[prost(message, optional, tag="3")]
+    pub last: ::core::option::Option<super::super::results::v1::Run>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct WriteScheduleRequest {
+    /// The schedule to add, or to put in place of the one with its `id`.
+    #[prost(message, optional, tag="1")]
+    pub schedule: ::core::option::Option<Schedule>,
+    /// The `id` of a schedule to remove; with `schedule` unset.
+    #[prost(string, optional, tag="2")]
+    pub remove: ::core::option::Option<::prost::alloc::string::String>,
+    /// Write the config; a preview when false.
+    #[prost(bool, tag="3")]
+    pub write: bool,
+    /// The digest the preview gave; a write is aborted when the config changed since, or without it.
+    #[prost(string, optional, tag="4")]
+    pub expected_digest: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct WriteScheduleResponse {
+    #[prost(message, repeated, tag="1")]
+    pub files: ::prost::alloc::vec::Vec<FileChange>,
+    #[prost(string, repeated, tag="2")]
+    pub titles: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// The digest of the files as previewed, which the write passes back.
+    #[prost(string, tag="3")]
+    pub digest: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ExportScheduleRequest {
+    /// The schedule's `id`.
+    #[prost(string, tag="1")]
+    pub id: ::prost::alloc::string::String,
+    /// Write the workflow; a preview when false.
+    #[prost(bool, tag="2")]
+    pub write: bool,
+    /// The digest the preview gave; a write is aborted when the project changed since, or without it.
+    #[prost(string, optional, tag="3")]
+    pub expected_digest: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ExportScheduleResponse {
+    #[prost(message, repeated, tag="1")]
+    pub files: ::prost::alloc::vec::Vec<FileChange>,
+    #[prost(string, repeated, tag="2")]
+    pub titles: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, tag="3")]
+    pub digest: ::prost::alloc::string::String,
+    /// The workflow's path, relative to the project root.
+    #[prost(string, tag="4")]
+    pub path: ::prost::alloc::string::String,
 }
 /// What to list.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]

@@ -94,13 +94,17 @@ pub struct RunRequest {
     /// Where the run's live [`crate::RunFeed`] goes (the TUI, the server's `Run` stream), as
     /// well as to the reporters; `None` for no watcher.
     pub watch: Option<RunWatch>,
+    /// The schedule that started the run (`vc ui`'s scheduler, D703): recorded with the run, its
+    /// `notify` channels told when it fails (D702, D704), and nothing printed. `None` for every
+    /// other run.
+    pub schedule: Option<String>,
 }
 
 impl RunRequest {
-    /// Whether the console prints nothing: a run an agent started over stdio, or a watched
-    /// run, whose watcher shows it.
+    /// Whether the console prints nothing: a run an agent started over stdio, a watched run,
+    /// whose watcher shows it, or a scheduled one, which the Runs space shows from the history.
     pub(crate) const fn quiet(&self) -> bool {
-        self.agent.is_some() || self.watch.is_some()
+        self.agent.is_some() || self.watch.is_some() || self.schedule.is_some()
     }
 
     /// The run flags that are settings, as the layer between `VIB_*` and `--set` (D129).

@@ -19,6 +19,7 @@ pub fn run(row: &RunRow) -> wire::Run {
         git_commit: start.git_commit.clone(),
         git_branch: start.git_branch.clone(),
         vc_version: start.vc_version.clone(),
+        schedule: start.schedule.clone(),
         status: row.status.map_or(wire::RunStatus::Unspecified, wire::RunStatus::from).into(),
         totals: Some(row.totals.into()),
         call: row.call.as_ref().map(|call| wire::CallSummary {
