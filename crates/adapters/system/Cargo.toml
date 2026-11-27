@@ -11,7 +11,7 @@ publish.workspace = true
 [features]
 default = ["host"]
 # Everything but the clock: files, processes and file events. The playground builds without it (D293).
-host = ["dep:async-trait", "dep:ignore", "dep:memory-stats", "dep:notify", "dep:rustix", "dep:saphyr-parser", "dep:tokio"]
+host = ["dep:async-trait", "dep:ignore", "dep:memory-stats", "dep:notify", "dep:rustix", "dep:saphyr-parser", "dep:tokio", "dep:trash"]
 
 [dependencies]
 async-trait = { workspace = true, optional = true }
@@ -20,6 +20,7 @@ memory-stats = { workspace = true, optional = true }
 notify = { workspace = true, optional = true }
 saphyr-parser = { workspace = true, optional = true }
 tokio = { workspace = true, features = ["io-util", "process", "time"], optional = true }
+trash = { workspace = true, optional = true }
 vc-interfaces.workspace = true
 vc-model.workspace = true
 

@@ -55,7 +55,7 @@ pub async fn call(api: Arc<EngineApi>, request: wire::CallRequest) -> Result<wir
 /// The engine's request for `request`, a person's call over the server's profiles and `--set`
 /// values.
 pub fn call_request(api: &EngineApi, request: wire::CallRequest) -> Result<CallRequest, ConnectError> {
-    let (profiles, sets) = api.layers(request.profiles, request.sets);
+    let (profiles, sets) = api.layers(request.profiles, request.sets)?;
     let draft = request.draft.as_ref().map(client_rpcs::draft).transpose()?;
     let adhoc = request.adhoc.as_ref().map(client_rpcs::adhoc);
     let (api_id, vars, keep) = (request.api, request.vars, request.keep);
@@ -102,7 +102,7 @@ async fn save_call_as_test(
 
 async fn import(api: Arc<EngineApi>, request: wire::ImportRequest) -> Result<wire::ImportResponse, ConnectError> {
     let write = request.write;
-    let profiles = api.layers(request.profiles, Vec::new()).0;
+    let profiles = api.layers(request.profiles, Vec::new())?.0;
     let keep = request.keep.unwrap_or_default();
     let import = ImportRequest {
         kind: request.kind,

@@ -39,7 +39,7 @@ async fn run(
     let (sender, feed) = mpsc::channel(FEED);
     let handle = request.handle.clone();
     let out = client_out(&api, std::mem::take(&mut request.out)).await?;
-    let request = run_request(&api, (request, out), RunWatch::new(sender));
+    let request = run_request(&api, (request, out), RunWatch::new(sender))?;
     api.runs().open(&handle, &interrupter).await?;
     let running = api.blocking(move |engine| Handle::current().block_on(engine.run(&request, interrupts)));
     let mut wire = WireFeed::default();
@@ -60,12 +60,17 @@ async fn client_out(api: &Arc<EngineApi>, out: String) -> Result<Option<PathBuf>
 }
 
 /// The engine's request for `request`, writing its report files to `out`, over the server's
-/// profiles and `--set` values, with `watch` following it.
-fn run_request(api: &EngineApi, (request, out): (wire::RunRequest, Option<PathBuf>), watch: RunWatch) -> RunRequest {
+/// profiles and `--set` values, with `watch` following it; refused when a set moves the report
+/// folder out (D685).
+fn run_request(
+    api: &EngineApi,
+    (request, out): (wire::RunRequest, Option<PathBuf>),
+    watch: RunWatch,
+) -> Result<RunRequest, ConnectError> {
     let files = ReportFlags { formats: request.reports, out, single_file: request.single_file };
-    let (profiles, sets) = api.layers(request.profiles, request.sets);
+    let (profiles, sets) = api.layers(request.profiles, request.sets)?;
     let plan = PlanRequest { select: select(request.selection), repeat: request.repeat, profiles, sets };
-    RunRequest {
+    Ok(RunRequest {
         plan,
         seed: request.seed,
         bail: request.bail,
@@ -77,7 +82,7 @@ fn run_request(api: &EngineApi, (request, out): (wire::RunRequest, Option<PathBu
         files,
         watch: Some(watch),
         ..RunRequest::default()
-    }
+    })
 }
 
 /// Sends the messages `messages` makes of each feed item to `sink`, in order, until every

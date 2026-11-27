@@ -58,3 +58,41 @@ fn a_folder_that_leads_out_through_a_link_is_refused() {
     fs::create_dir(dir.path().join("reports")).unwrap();
     assert_eq!(engine.client_report_folder("inner/ci").unwrap(), Path::new("inner/ci"));
 }
+
+/// The refusal of `sets`, which names the code and not the folder.
+fn sets_refused(engine: &Engine, sets: &[&str]) -> String {
+    let sets: Vec<String> = sets.iter().map(|&set| set.to_owned()).collect();
+    let Err(error @ EngineError::Reporter { .. }) = engine.client_sets(&sets) else { panic!("{sets:?} are kept") };
+    error.to_string()
+}
+
+#[test]
+fn a_client_reports_dir_set_inside_the_project_is_kept_and_other_sets_are_not_read() {
+    let (dir, engine) = project();
+    fs::create_dir(dir.path().join("reports")).unwrap();
+    let sets = ["reports.dir=reports/ci", " reports.dir = './new' ", "defaults.concurrency=4", "vars.dir=/tmp", "x"];
+    engine.client_sets(&sets.map(str::to_owned)).unwrap();
+}
+
+#[test]
+fn a_client_reports_dir_set_that_is_absolute_or_climbs_is_refused_without_echoing_it() {
+    let (dir, engine) = project();
+    let inside = format!("reports.dir={}", dir.path().join("reports").display());
+    let message = sets_refused(&engine, &["defaults.concurrency=2", &inside]);
+    assert!(message.starts_with("V5132") && message.contains("`reports.dir`"), "{message}");
+    assert!(!message.contains(&*dir.path().to_string_lossy()), "{message}");
+    for set in ["reports.dir=/tmp", "reports.dir=../elsewhere", "reports.dir=\"reports/../..\"", "reports.dir=.."] {
+        assert!(sets_refused(&engine, &[set]).starts_with("V5132"), "{set}");
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn a_client_reports_dir_set_that_leads_out_through_a_link_is_refused() {
+    let (dir, engine) = project();
+    let outside = tempfile::tempdir().unwrap();
+    std::os::unix::fs::symlink(outside.path(), dir.path().join("linked")).unwrap();
+    for set in ["reports.dir=linked", "reports.dir=linked/ci"] {
+        assert!(sets_refused(&engine, &[set]).starts_with("V5132"), "{set}");
+    }
+}

@@ -187,15 +187,15 @@ async fn with_failure_bodies_kept_the_feed_sends_none_even_for_a_failing_exchang
 }
 
 /// The report a run streams last when the fixture's config has `reports: <reports>` and the
-/// request sets `reports.dir` to `dir`, a folder the user chose (D327), when it names one.
+/// server was started with `--set reports.dir=<dir>`, a folder the user chose (D327), when it
+/// names one; a client's own `reports.dir` stays inside the project (D685).
 async fn streamed_report(reports: &str, dir: Option<String>) -> (tempfile::TempDir, wire::RunReport) {
-    let (root, api) = project();
+    let (root, _) = project();
     std::fs::write(root.path().join("vibranium.config.yaml"), format!("{CONFIG}reports: {reports}\n")).unwrap();
-    let request = wire::RunRequest {
-        sets: dir.map(|dir| format!("reports.dir={dir}")).into_iter().collect(),
-        ..Default::default()
-    };
-    let (events, _) = parse(&stream_from(api, &request).await);
+    let engine = Arc::new(vc_engine::EngineBuilder::for_project(root.path()).unwrap().build().unwrap());
+    let sets = dir.map(|dir| format!("reports.dir={dir}")).into_iter().collect();
+    let api = Arc::new(EngineApi::new(engine, Vec::new(), sets));
+    let (events, _) = parse(&stream_from(api, &wire::RunRequest::default()).await);
     let Some(Kind::Report(report)) = events.last().and_then(|event| event.kind.clone()) else { panic!("{events:?}") };
     (root, report)
 }
@@ -318,6 +318,26 @@ async fn a_run_whose_out_leaves_the_project_is_refused_before_it_starts() {
         assert!(!message.contains(&absolute), "{out}: the path is not echoed");
         let engine = vc_engine::EngineBuilder::for_project(root.path()).unwrap().build().unwrap();
         assert_eq!(engine.history(10, &vc_engine::RunFilter::default()).unwrap().runs(), [], "{out}");
+    }
+    assert_eq!(std::fs::read_dir(outside.path()).unwrap().count(), 0, "nothing is written outside");
+}
+
+#[cfg(unix)]
+#[tokio::test(flavor = "multi_thread")]
+async fn a_run_whose_reports_dir_set_leaves_the_project_is_refused_before_it_takes_its_handle() {
+    let outside = tempfile::tempdir().unwrap();
+    let absolute = outside.path().to_string_lossy().into_owned();
+    for dir in [absolute.as_str(), "../elsewhere", "reports/../..", "linked", "linked/ci"] {
+        let (root, api) = project();
+        std::os::unix::fs::symlink(outside.path(), root.path().join("linked")).unwrap();
+        let sets = vec!["defaults.concurrency=1".to_owned(), format!("reports.dir={dir}")];
+        let request = wire::RunRequest { sets, handle: "../not-a-name".to_owned(), ..Default::default() };
+        let (events, end) = parse(&stream_from(api, &request).await);
+        assert_eq!(events, [], "{dir}: nothing ran");
+        assert_eq!(end["error"]["code"], "invalid_argument", "{dir}: {end}");
+        let message = end["error"]["message"].as_str().unwrap();
+        assert!(message.starts_with("V5132"), "{dir}: refused before the handle is read: {message}");
+        assert!(!message.contains(&absolute), "{dir}: the path is not echoed");
     }
     assert_eq!(std::fs::read_dir(outside.path()).unwrap().count(), 0, "nothing is written outside");
 }

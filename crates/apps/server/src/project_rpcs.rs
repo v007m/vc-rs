@@ -117,7 +117,7 @@ async fn check(api: Arc<EngineApi>, request: wire::CheckRequest) -> Result<wire:
 /// `vc plan` for the web UI's plan preview: the selection under the request's profiles and
 /// sets over the server's, planned as a run would plan it (D682).
 async fn plan(api: Arc<EngineApi>, request: wire::PlanRequest) -> Result<wire::PlanResponse, ConnectError> {
-    let (profiles, sets) = api.layers(request.profiles, request.sets);
+    let (profiles, sets) = api.layers(request.profiles, request.sets)?;
     let plan = PlanRequest { select: select(request.selection), repeat: request.repeat, profiles, sets };
     let report = api.blocking(move |engine| Handle::current().block_on(engine.plan(&plan))).await?;
     Ok(wire::PlanResponse {
@@ -154,7 +154,7 @@ async fn explain_config(
     api: Arc<EngineApi>,
     request: wire::ExplainConfigRequest,
 ) -> Result<wire::ExplainConfigResponse, ConnectError> {
-    let (profiles, sets) = api.layers(request.profiles, request.sets);
+    let (profiles, sets) = api.layers(request.profiles, request.sets)?;
     let explain = ExplainRequest { profiles, sets };
     let keys = request.keys;
     let found = api.blocking(move |engine| Handle::current().block_on(engine.config_values(&keys, &explain))).await?;
@@ -174,7 +174,7 @@ async fn check_secrets(
     api: Arc<EngineApi>,
     request: wire::CheckSecretsRequest,
 ) -> Result<wire::CheckSecretsResponse, ConnectError> {
-    let (profiles, sets) = api.layers(request.profiles, request.sets);
+    let (profiles, sets) = api.layers(request.profiles, request.sets)?;
     let explain = ExplainRequest { profiles, sets };
     let found = api.blocking(move |engine| Handle::current().block_on(engine.check_secrets(&explain))).await?;
     Ok(wire::CheckSecretsResponse {
@@ -193,7 +193,7 @@ async fn test_auth(
     api: Arc<EngineApi>,
     request: wire::TestAuthRequest,
 ) -> Result<wire::TestAuthResponse, ConnectError> {
-    let (profiles, sets) = api.layers(request.profiles, request.sets);
+    let (profiles, sets) = api.layers(request.profiles, request.sets)?;
     let asked = TestAuthRequest { auth: request.auth, api: request.api, profiles, sets };
     let tested = api.blocking(move |engine| Handle::current().block_on(engine.test_auth(&asked))).await?;
     Ok(wire::TestAuthResponse {

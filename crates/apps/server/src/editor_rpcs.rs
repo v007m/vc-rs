@@ -25,7 +25,7 @@ async fn explain(api: Arc<EngineApi>, request: wire::ExplainRequest) -> Result<w
     if is_code(&request.target) {
         return code_page(&request.target);
     }
-    let (profiles, sets) = api.layers(request.profiles, request.sets);
+    let (profiles, sets) = api.layers(request.profiles, request.sets)?;
     let layers = ExplainRequest { profiles, sets };
     let target = request.target;
     let report =
@@ -87,7 +87,7 @@ async fn hover(api: Arc<EngineApi>, request: wire::HoverRequest) -> Result<wire:
         return Ok(wire::HoverResponse::default());
     };
     let Some(id) = found.reference else { return Ok(wire::HoverResponse { markdown: Some(found.markdown) }) };
-    let (profiles, sets) = api.layers(request.profiles, request.sets);
+    let (profiles, sets) = api.layers(request.profiles, request.sets)?;
     let layers = ExplainRequest { profiles, sets };
     let explained = api.blocking(move |engine| Handle::current().block_on(engine.explain_masked(&id, &layers))).await;
     let markdown = explained.map_or_else(

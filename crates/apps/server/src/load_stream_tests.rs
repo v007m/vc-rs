@@ -97,3 +97,22 @@ async fn a_handle_that_is_not_a_name_is_refused_before_the_run_starts() {
     assert!(kinds.is_empty(), "{kinds:?}");
     assert_eq!(end["error"]["code"], "invalid_argument", "{end}");
 }
+
+#[cfg(unix)]
+#[tokio::test(flavor = "multi_thread")]
+async fn a_load_run_whose_reports_dir_set_leaves_the_project_is_refused_before_it_takes_its_handle() {
+    let outside = tempfile::tempdir().unwrap();
+    let absolute = outside.path().to_string_lossy().into_owned();
+    for dir in [absolute.as_str(), "../elsewhere", "linked/ci"] {
+        let (root, api) = loaded();
+        std::os::unix::fs::symlink(outside.path(), root.path().join("linked")).unwrap();
+        let sets = vec![format!("reports.dir={dir}")];
+        let request = wire::RunLoadRequest { sets, handle: "../peak".into(), ..peak() };
+        let (kinds, end) = parse(&stream(api, &request).await);
+        assert!(kinds.is_empty(), "{dir}: {kinds:?}");
+        assert_eq!(end["error"]["code"], "invalid_argument", "{dir}: {end}");
+        let message = end["error"]["message"].as_str().unwrap();
+        assert!(message.starts_with("V5132") && !message.contains(&absolute), "{dir}: {message}");
+    }
+    assert_eq!(fs::read_dir(outside.path()).unwrap().count(), 0, "nothing is written outside");
+}

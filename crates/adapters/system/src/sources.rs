@@ -1,8 +1,12 @@
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use ignore::{DirEntry, WalkBuilder};
 use vc_interfaces::{Discovery, SourceError, SourceFilter, SourceProvider};
 use vc_model::{SourcePath, hidden_part};
+
+use crate::Bin;
+use crate::bin::SystemTrash;
 
 /// Reads a project's definition files from disk, and lists the other files as assets; reads
 /// any file by path on request.
@@ -12,10 +16,12 @@ use vc_model::{SourcePath, hidden_part};
 /// the same files. Folders the filter excludes are not entered. Links to folders are not
 /// followed; a link to a file is read only when its target is inside the root and outside
 /// every hidden file and folder, or, when the link's own path is hidden, a secrets schema
-/// outside `.git` and `.vibranium`.
+/// outside `.git` and `.vibranium`. A trashed file goes to the system's trash unless
+/// [`FsSources::with_bin`] names another bin.
 #[derive(Clone, Debug)]
 pub struct FsSources {
     root: PathBuf,
+    bin: Arc<dyn Bin>,
 }
 
 impl FsSources {
@@ -26,7 +32,13 @@ impl FsSources {
     /// [`SourceError::Root`] when `root` cannot be resolved.
     pub fn new(root: &Path) -> Result<Self, SourceError> {
         let root = std::fs::canonicalize(root).map_err(|error| root_error(root, &error))?;
-        Ok(Self { root })
+        Ok(Self { root, bin: Arc::new(SystemTrash) })
+    }
+
+    /// These sources, sending a trashed file to `bin` instead of the system's trash.
+    #[must_use]
+    pub fn with_bin(self, bin: Arc<dyn Bin>) -> Self {
+        Self { bin, ..self }
     }
 
     /// The project root, with links resolved.
