@@ -61,9 +61,9 @@ fn a_call_with_no_profile_takes_the_servers_and_its_sets_come_last() {
     let (_dir, api) = project();
     let engine = Arc::clone(&api.engine);
     let api = EngineApi::new(engine, vec!["bare".into()], vec!["vars.a=1".into()]);
-    let (profiles, sets) = api.layers(Vec::new(), vec!["vars.a=2".into()]);
+    let (profiles, sets) = api.layers(Vec::new(), vec!["vars.a=2".into()]).unwrap();
     assert_eq!((profiles, sets), (vec!["bare".to_owned()], vec!["vars.a=1".to_owned(), "vars.a=2".to_owned()]));
-    let (profiles, _) = api.layers(vec!["dev".into()], Vec::new());
+    let (profiles, _) = api.layers(vec!["dev".into()], Vec::new()).unwrap();
     assert_eq!(profiles, ["dev"]);
 }
 
@@ -109,4 +109,22 @@ async fn connection_gives_the_browser_the_mcp_url_and_the_agent_token() {
     assert_eq!((reply.mcp_url.as_str(), reply.agent_token.as_str()), ("http://127.0.0.1:7420/mcp", token.agent()));
     let alone = served(&api, &token, false);
     assert_eq!(status(&alone, rpc("Connection").header(header::COOKIE, cookie(&token))).await, StatusCode::NOT_FOUND);
+}
+
+#[cfg(unix)]
+#[test]
+fn a_call_s_reports_dir_set_must_stay_inside_the_project_and_the_server_s_own_is_trusted() {
+    let (root, _) = project();
+    let outside = tempfile::tempdir().unwrap();
+    std::os::unix::fs::symlink(outside.path(), root.path().join("linked")).unwrap();
+    let engine = Arc::new(vc_engine::EngineBuilder::for_project(root.path()).unwrap().build().unwrap());
+    let api = EngineApi::new(engine, Vec::new(), vec!["reports.dir=/srv/reports".into()]);
+    let absolute = outside.path().to_string_lossy().into_owned();
+    for dir in [absolute.as_str(), "../up", "reports/../..", "linked"] {
+        let error = api.layers(Vec::new(), vec![format!("reports.dir={dir}")]).unwrap_err();
+        assert_eq!(error.code, Code::InvalidArgument, "{dir}");
+        assert!(error.message.starts_with("V5132") && !error.message.contains(&absolute), "{dir}: {error:?}");
+    }
+    let (_, sets) = api.layers(Vec::new(), vec!["reports.dir=reports/ci".into()]).unwrap();
+    assert_eq!(sets, ["reports.dir=/srv/reports", "reports.dir=reports/ci"]);
 }

@@ -1,7 +1,8 @@
 use std::fs;
+use std::path::Path;
 use std::sync::Arc;
 
-use vc_adapter_system::FsSources;
+use vc_adapter_system::{Bin, FsSources};
 use vc_testkit::FakeVcs;
 
 use super::FileReference;
@@ -14,13 +15,25 @@ const CRUD: &str = "tests:\n  - id: listsUsers\n    name: Lists users\n    call:
 const API: &str = "services/users/users.api.yaml";
 const TESTS: &str = "services/users/crud.test.yaml";
 
+/// A bin that names each file it is given and leaves it beside itself, renamed.
+#[derive(Debug)]
+struct Beside;
+
+impl Bin for Beside {
+    fn put(&self, file: &Path) -> std::io::Result<String> {
+        let to = file.with_extension("binned");
+        fs::rename(file, &to)?;
+        Ok("binned".into())
+    }
+}
+
 fn project() -> (tempfile::TempDir, Engine) {
     let dir = tempfile::tempdir().unwrap();
     fs::write(dir.path().join("vibranium.config.yaml"), CONFIG).unwrap();
     fs::create_dir_all(dir.path().join("services/users")).unwrap();
     fs::write(dir.path().join(API), USERS).unwrap();
     fs::write(dir.path().join(TESTS), CRUD).unwrap();
-    let folder = Arc::new(FsSources::new(dir.path()).unwrap());
+    let folder = Arc::new(FsSources::new(dir.path()).unwrap().with_bin(Arc::new(Beside)));
     (dir, builder(FakeVcs::default()).sources(folder.clone()).writer(folder).build().unwrap())
 }
 
@@ -46,16 +59,14 @@ fn the_references_list_names_each_call_from_another_file_and_the_files_it_could_
 }
 
 #[test]
-fn a_trashed_file_moves_under_the_project_trash_only_while_it_is_the_file_opened() {
+fn a_trashed_file_goes_to_the_bin_only_while_it_is_the_file_opened() {
     let (dir, engine) = project();
     let opened = engine.read_file(TESTS).unwrap();
     let stale = engine.trash_file(TESTS, "0");
     assert!(matches!(stale, Err(EngineError::Stale { .. })), "{stale:?}");
-    let place = engine.trash_file(TESTS, &opened.digest).unwrap();
-    assert!(place.starts_with(".vibranium/trash/") && place.ends_with(&format!("/{TESTS}")), "{place}");
+    assert_eq!(engine.trash_file(TESTS, &opened.digest).unwrap(), "binned");
     assert!(!dir.path().join(TESTS).exists());
-    assert_eq!(fs::read_to_string(dir.path().join(&place)).unwrap(), CRUD);
-    assert_eq!(engine.file_references(API).unwrap(), super::FileReferences::default(), "the trash is not discovered");
+    assert_eq!(fs::read_to_string(dir.path().join("services/users/crud.test.binned")).unwrap(), CRUD);
     let config = engine.read_file("vibranium.config.yaml").unwrap();
     let refused = engine.trash_file("vibranium.config.yaml", &config.digest);
     assert!(matches!(refused, Err(EngineError::Edit { .. })), "{refused:?}");

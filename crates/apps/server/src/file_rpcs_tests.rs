@@ -53,7 +53,7 @@ async fn format_gives_the_house_style_unsaved() {
 }
 
 #[tokio::test]
-async fn trash_lists_the_references_first_then_moves_the_file_it_read() {
+async fn trash_lists_the_references_first_and_refuses_a_stale_or_hidden_file() {
     let (dir, api) = project();
     let found = file_references(api.clone(), wire::FileReferencesRequest { path: API.into() }).await.unwrap();
     let reference = wire::FileReference {
@@ -65,11 +65,9 @@ async fn trash_lists_the_references_first_then_moves_the_file_it_read() {
     assert_eq!((found.references, found.unread), (vec![reference], Vec::new()));
     let stale = wire::TrashFileRequest { path: TESTS.into(), expected_digest: "0".into() };
     assert_eq!(trash_file(api.clone(), stale).await.unwrap_err().code, Code::Aborted);
-    let digest = api.engine().read_file(TESTS).unwrap().digest;
-    let request = wire::TrashFileRequest { path: TESTS.into(), expected_digest: digest };
-    let trashed = trash_file(api.clone(), request).await.unwrap();
-    assert!(trashed.trashed_to.starts_with(".vibranium/trash/"), "{trashed:?}");
-    assert_eq!(fs::read_to_string(dir.path().join(&trashed.trashed_to)).unwrap(), CRUD);
+    assert_eq!(fs::read_to_string(dir.path().join(TESTS)).unwrap(), CRUD);
+    let missing = wire::TrashFileRequest { path: "services/users/none.test.yaml".into(), expected_digest: "0".into() };
+    assert_eq!(trash_file(api.clone(), missing).await.unwrap_err().code, Code::NotFound);
     let env = wire::TrashFileRequest { path: ".env".into(), expected_digest: String::new() };
     assert_eq!(trash_file(api, env).await.unwrap_err().code, Code::InvalidArgument);
 }

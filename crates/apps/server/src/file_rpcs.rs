@@ -76,7 +76,7 @@ async fn file_references(
     })
 }
 
-/// Moves the file into `.vibranium/trash/` when it is the one the editor read (D683).
+/// Sends the file to the system's trash when it is the one the editor read (D683).
 async fn trash_file(
     api: Arc<EngineApi>,
     request: wire::TrashFileRequest,

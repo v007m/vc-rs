@@ -141,15 +141,15 @@ impl Engine {
         self.guarded(&project, Changes { files: vec![change], titles: vec![title] })
     }
 
-    /// Moves the api, test or load file at `path` into the project's trash
-    /// (`.vibranium/trash/<stamp>/<path>`, D683) when it is the file the editor opened with
-    /// `expected_digest`, and gives the place it went. Nothing is deleted.
+    /// Sends the api, test or load file at `path` to the system's trash (D683) when it is the
+    /// file the editor opened with `expected_digest`, and gives where it went as the system
+    /// names it, or an empty string. Nothing is deleted.
     ///
     /// # Errors
     ///
     /// [`EngineError::Edit`] as [`Engine::read_file`], and for the config or `.env.schema`;
     /// [`EngineError::NoFilesMatch`] when there is no file there; [`EngineError::Stale`] when it
-    /// changed since it was opened; [`EngineError::Sources`] when it cannot be moved.
+    /// changed since it was opened; [`EngineError::Sources`] when the trash does not take it.
     pub fn trash_file(&self, path: &str, expected_digest: &str) -> Result<String, EngineError> {
         let path = self.definition_path(path)?;
         let file = self.current(&path)?.ok_or_else(|| EngineError::NoFilesMatch { path: path.to_string() })?;

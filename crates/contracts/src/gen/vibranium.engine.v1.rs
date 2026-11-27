@@ -1329,7 +1329,7 @@ pub struct TrashFileRequest {
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct TrashFileResponse {
-    /// Where it went, relative to the project root: `.vibranium/trash/<stamp>/<path>`.
+    /// Where it went, as the system names it; empty when the system does not say.
     #[prost(string, tag="1")]
     pub trashed_to: ::prost::alloc::string::String,
 }

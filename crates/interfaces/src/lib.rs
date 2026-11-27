@@ -133,7 +133,7 @@ pub use random::Random;
 pub use reporter::{Artifact, ReportError, Reporter, RunSummary};
 pub use run_filter::RunFilter;
 pub use secrets::{Secret, SecretError, SecretProvider, SecretQuery, Secrets};
-pub use source::{Discovery, SourceError, SourceProvider, SourceWriter, TRASH, content_hash, source_file};
+pub use source::{Discovery, SourceError, SourceProvider, SourceWriter, content_hash, source_file};
 pub use source_problems::add_problems;
 pub use stream::{MessageStream, Opened, OutgoingFrame, StreamFrame, StreamMode, StreamTransport};
 pub use tls::{
