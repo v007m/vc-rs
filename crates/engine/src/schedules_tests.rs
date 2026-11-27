@@ -153,10 +153,93 @@ fn a_schedule_put_again_is_changed_in_place_and_the_others_stay() {
         written.starts_with(&format!("{PROFILES}{}", &SCHEDULES[..SCHEDULES.find("  - id: paused").unwrap()])),
         "{written}"
     );
-    let comment = format!("  # paused · schedule · keys: {DOCS}#schedules\n");
-    assert!(written.ends_with(&format!("{comment}  - id: paused\n    cron: \"*/10 * * * *\"\n")), "{written}");
+    assert!(written.ends_with("  - id: paused\n    cron: '*/10 * * * *'\n    enabled: true\n"), "{written}");
     let listed = engine.schedules().unwrap();
     assert_eq!((listed.len(), &listed[2].spec), (3, &paused));
+}
+
+const KEPT: &str = concat!(
+    "schedules:\n",
+    "  # nightly · schedule\n",
+    "  - id: nightly\n",
+    "    name: Nightly smoke  # shown in the Runs space\n",
+    "    cron: '0 2 * * *'\n",
+    "    selector: [users.crud, '#listsUsers']\n",
+    "    profile: staging\n",
+    "    notify:\n",
+    "      - webhook:\n",
+    "          url: https://hooks.example/qa\n",
+    "          headers:\n",
+    "            X-Team: qa\n",
+    "    owner: qa-team\n",
+    "  - id: weekly\n",
+    "    cron: '0 6 * * 1'  # Mondays\n",
+    "    runner: gitlabCi\n",
+);
+
+/// `config` after one put of the listed schedule `at` as `change` makes it.
+fn put_back(config_text: &str, at: usize, change: impl Fn(&mut ScheduleSpec)) -> String {
+    let (dir, engine, _) = project(&format!("{PROFILES}{config_text}"));
+    let mut spec = engine.schedules().unwrap()[at].spec.clone();
+    change(&mut spec);
+    let changes = engine.schedule_write(&ScheduleEdit::Put(spec)).unwrap();
+    engine.write(&changes).unwrap();
+    config(dir.path()).strip_prefix(PROFILES).unwrap().to_owned()
+}
+
+#[test]
+fn a_toggle_changes_only_the_enabled_line_and_keeps_comments_keys_and_a_mapped_setting() {
+    let off = put_back(KEPT, 0, |spec| spec.enabled = false);
+    assert_eq!(off, KEPT.replace("    owner: qa-team\n", "    owner: qa-team\n    enabled: false\n"));
+    let on = put_back(&off, 0, |spec| spec.enabled = true);
+    assert_eq!(on, KEPT.replace("    owner: qa-team\n", "    owner: qa-team\n    enabled: true\n"));
+}
+
+#[test]
+fn a_changed_cron_is_set_in_place_and_an_unknown_runner_stays() {
+    let changed = put_back(KEPT, 1, |spec| spec.cron = "0 7 * * 1".into());
+    assert_eq!(changed, KEPT.replace("'0 6 * * 1'  # Mondays", "'0 7 * * 1'  # Mondays"));
+}
+
+#[test]
+fn a_changed_setting_is_set_in_place_and_a_new_channel_goes_last() {
+    let changed = put_back(KEPT, 0, |spec| {
+        spec.notify[0].settings = vec![("url".into(), "https://hooks.example/ops".into())];
+        spec.notify.push(NotifyChannel { kind: "slack".into(), settings: vec![("channel".into(), "#qa".into())] });
+        spec.selector = vec!["users.crud".into()];
+        spec.name = None;
+    });
+    let expected = KEPT
+        .replace("hooks.example/qa", "hooks.example/ops")
+        .replace("            X-Team: qa\n", "            X-Team: qa\n      - slack:\n          channel: \"#qa\"\n")
+        .replace("    name: Nightly smoke  # shown in the Runs space\n", "")
+        .replace("[users.crud, '#listsUsers']", "users.crud");
+    assert_eq!(changed, expected);
+}
+
+#[test]
+fn a_channel_added_first_or_removed_moves_only_its_own_lines() {
+    let two = put_back(KEPT, 0, |spec| spec.notify.insert(0, NotifyChannel { kind: "slack".into(), settings: vec![] }));
+    assert_eq!(two, KEPT.replace("    notify:\n", "    notify:\n      - slack: {}\n"));
+    let back = put_back(&two, 0, |spec| {
+        spec.notify.remove(0);
+    });
+    assert_eq!(back, KEPT);
+}
+
+#[test]
+fn a_flow_channel_and_lists_are_changed_in_place() {
+    let changed = put_back(SCHEDULES, 0, |spec| {
+        spec.notify[0].settings[0].1 = "#ops".into();
+        spec.notify[0].settings.push(("mention".into(), "here".into()));
+        spec.selector.push("orders".into());
+        spec.profiles = vec!["staging".into(), "dev".into()];
+    });
+    let expected = SCHEDULES
+        .replace("'#qa', webhook: '${secret.SLACK_HOOK}'}", "'#ops', webhook: '${secret.SLACK_HOOK}', mention: here}")
+        .replace("'#listsUsers']", "\"#listsUsers\", orders]")
+        .replace("    profile: staging\n", "    profile: [staging, dev]\n");
+    assert_eq!(changed, expected);
 }
 
 #[test]

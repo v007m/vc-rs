@@ -121,6 +121,7 @@ mod run_feed;
 mod sample;
 mod save_call;
 mod schedule_export;
+mod schedule_put;
 mod schedules;
 mod schema;
 mod secured;

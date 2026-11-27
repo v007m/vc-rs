@@ -1522,7 +1522,7 @@ Alert channels: `webhook`, `slack`, `teams`, `pagerduty`, `email`.
 
 ## Schedules
 
-`schedules` lists runs that start on a cron while `vc ui` is up (D520, D700). They are in the config, so they are in git, and the web UI's Runs space lists, adds, changes and removes them through a previewed diff of this file:
+`schedules` lists runs that start on a cron while `vc ui` is up (D520, D700). They are in the config, so they are in git, and the web UI's Runs space lists, adds, changes and removes them through a previewed diff of this file. A change edits the schedule in place, only the keys that changed (D749), so comments, keys the Runs space does not show, a `runner` this version does not know and a channel setting that is not text stay as written:
 
 ```yaml
 schedules:

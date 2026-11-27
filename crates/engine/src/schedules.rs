@@ -1,5 +1,5 @@
 //! The config's `schedules` for the Runs space (D520, D705–D706): each listed with when it next
-//! fires and its last run, one added, replaced or removed through the compile guard, and the
+//! fires and its last run, one added, changed in place or removed through the compile guard, and the
 //! ones due in a minute for `vc ui`'s scheduler.
 
 use vc_interfaces::RunFilter;
@@ -7,8 +7,8 @@ use vc_model::{Cron, ScheduleRunner};
 use vc_parser::{Node, write_text};
 
 use crate::authoring::{Opened, item, refused};
-use crate::create::{DOCS, ListItem, block, commented_item};
-use crate::edit::{Changes, FileChange, internal};
+use crate::create::{DOCS, ListItem, commented_item};
+use crate::edit::{Changes, internal};
 use crate::explain::did_you_mean;
 use crate::plugins::config;
 use crate::{Engine, EngineError, RunRow, SelectRequest};
@@ -77,7 +77,7 @@ pub struct DueSchedule {
     pub profiles: Vec<String>,
 }
 
-const LIST: &str = "schedules";
+pub const LIST: &str = "schedules";
 
 impl Engine {
     /// The config's schedules in written order, each with its next firing after now and its
@@ -149,10 +149,11 @@ fn selected(words: &[String]) -> SelectRequest {
 
 fn put(opened: &Opened<'_>, spec: &ScheduleSpec) -> Result<Changes, EngineError> {
     let yaml = yaml(spec)?;
-    let comment = format!("# {} · schedule · keys: {DOCS}#schedules", spec.id);
-    let (change, title) = match item(opened.document.root(), LIST, &spec.id) {
-        Some(node) => (replaced(opened, node, (&yaml, &comment))?, "Change"),
-        None => (commented_item(opened, &ListItem { list: LIST, yaml: &yaml, comment: &comment })?.0, "Add"),
+    let (change, title) = if item(opened.document.root(), LIST, &spec.id).is_some() {
+        (crate::schedule_put::patched(opened, spec)?, "Change")
+    } else {
+        let comment = format!("# {} · schedule · keys: {DOCS}#schedules", spec.id);
+        (commented_item(opened, &ListItem { list: LIST, yaml: &yaml, comment: &comment })?.0, "Add")
     };
     Ok(Changes { files: vec![change], titles: vec![format!("{title} schedule {}", spec.id)] })
 }
@@ -170,16 +171,6 @@ fn remove(opened: &Opened<'_>, id: &str) -> Result<Changes, EngineError> {
     Ok(Changes { files: vec![change], titles: vec![format!("Remove schedule {id}")] })
 }
 
-/// The change that puts `yaml`, under `comment`, where the item `node` and its comments are.
-fn replaced(opened: &Opened<'_>, node: &Node, (yaml, comment): (&str, &str)) -> Result<FileChange, EngineError> {
-    let edit = opened.document.remove(node).map_err(internal)?;
-    let text = opened.document.text();
-    let indent: String = text.get(edit.range.start..).unwrap_or_default().chars().take_while(|c| *c == ' ').collect();
-    let newline = if text.contains("\r\n") { "\r\n" } else { "\n" };
-    let new_text = format!("{indent}{comment}\n{}", block(&indent, yaml)).replace('\n', newline);
-    opened.change(&[vc_diagnostics::TextEdit { new_text, ..edit }])
-}
-
 /// `spec` as the YAML of one list item, every text quoted where YAML needs it.
 fn yaml(spec: &ScheduleSpec) -> Result<String, EngineError> {
     if !vc_compiler::is_camel_id(&spec.id) {
@@ -195,7 +186,7 @@ fn yaml(spec: &ScheduleSpec) -> Result<String, EngineError> {
     if !spec.notify.is_empty() {
         lines.push("notify:".to_owned());
         for channel in &spec.notify {
-            lines.extend(channel_lines(channel)?);
+            lines.extend(channel_lines(channel)?.into_iter().map(|line| format!("  {line}")));
         }
     }
     if spec.runner != ScheduleRunner::VcServer {
@@ -219,16 +210,17 @@ fn words(key: &str, values: &[String]) -> Option<String> {
     }
 }
 
-fn channel_lines(channel: &NotifyChannel) -> Result<Vec<String>, EngineError> {
+/// `channel` as the lines of one block list item, at the list's own indent.
+pub fn channel_lines(channel: &NotifyChannel) -> Result<Vec<String>, EngineError> {
     let help = "a channel kind and its setting keys are words such as `slack` and `webhook`";
     if !is_word(&channel.kind) || channel.settings.iter().any(|(key, _)| !is_word(key)) {
         return Err(refused("a `notify` entry's kind or setting key is not a word", help));
     }
     if channel.settings.is_empty() {
-        return Ok(vec![format!("  - {}: {{}}", channel.kind)]);
+        return Ok(vec![format!("- {}: {{}}", channel.kind)]);
     }
-    let mut lines = vec![format!("  - {}:", channel.kind)];
-    lines.extend(channel.settings.iter().map(|(key, value)| format!("      {key}: {}", write_text(value, false))));
+    let mut lines = vec![format!("- {}:", channel.kind)];
+    lines.extend(channel.settings.iter().map(|(key, value)| format!("    {key}: {}", write_text(value, false))));
     Ok(lines)
 }
 
@@ -239,7 +231,7 @@ fn is_word(text: &str) -> bool {
 }
 
 /// The schedule the config item `node` writes; `None` without an `id`.
-fn spec(node: &Node) -> Option<ScheduleSpec> {
+pub fn spec(node: &Node) -> Option<ScheduleSpec> {
     let text = |key: &str| node.get(key).and_then(Node::as_str).map(str::to_owned);
     let runner = text("runner").and_then(|runner| ScheduleRunner::named(&runner)).unwrap_or_default();
     let disabled = node.get("enabled").and_then(Node::as_scalar).is_some_and(|scalar| scalar.text == "false");
@@ -260,13 +252,13 @@ fn id_of(node: &Node) -> Option<String> {
 }
 
 /// The texts under `key`: one text, or a list of them.
-fn listed(node: &Node, key: &str) -> Vec<String> {
+pub fn listed(node: &Node, key: &str) -> Vec<String> {
     let Some(value) = node.get(key) else { return Vec::new() };
     let one = value.as_str().map(|text| vec![text.to_owned()]);
     one.unwrap_or_else(|| value.items().iter().filter_map(Node::as_str).map(str::to_owned).collect())
 }
 
-fn channel(item: &Node) -> Option<NotifyChannel> {
+pub fn channel(item: &Node) -> Option<NotifyChannel> {
     let entry = item.entries().first()?;
     let settings = entry.value.entries().iter().filter_map(|setting| {
         let text = setting.value.as_scalar()?.text.clone();
