@@ -30,6 +30,9 @@ const STATUSES: [(ApprovalStatus, &str); 4] = [
 /// The columns a request is read from, in [`approval`]'s order.
 const COLUMNS: &str = "id, created_at, agent, tool, profile, methods, summary, arguments, status, decided_by";
 
+/// The columns [`logged`] reads, in its order.
+const ACTION_COLUMNS: &str = "at, agent, tool, profile, arguments, result, approved_by, took_ms, ran";
+
 /// The agent approval queue, its standing rules and the agent call log, in `history.db`
 /// (D195).
 ///
@@ -204,8 +207,8 @@ impl AgentActionWriter for SqliteApprovals {
         self.write(|connection| {
             connection
                 .execute(
-                    "INSERT INTO agent_actions (at, agent, tool, profile, arguments, result, approved_by)
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                    "INSERT INTO agent_actions (at, agent, tool, profile, arguments, result, approved_by, took_ms, ran)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
                     params![
                         now_ms(),
                         &action.agent,
@@ -214,6 +217,8 @@ impl AgentActionWriter for SqliteApprovals {
                         &action.arguments,
                         &action.result,
                         &action.approved_by,
+                        action.took_ms,
+                        action.ran,
                     ],
                 )
                 .map(drop)
@@ -224,11 +229,18 @@ impl AgentActionWriter for SqliteApprovals {
 impl AgentActionReader for SqliteApprovals {
     fn recent(&self, limit: usize) -> Result<Vec<LoggedAction>, ApprovalError> {
         self.read(|connection| {
-            let sql = "SELECT at, agent, tool, profile, arguments, result, approved_by FROM agent_actions
-                       ORDER BY id DESC LIMIT ?1";
+            let sql = format!("SELECT {ACTION_COLUMNS} FROM agent_actions ORDER BY id DESC LIMIT ?1");
             let limit = if limit == 0 { -1 } else { i64::try_from(limit).unwrap_or(i64::MAX) };
-            let mut statement = connection.prepare(sql)?;
+            let mut statement = connection.prepare(&sql)?;
             statement.query_map([limit], logged)?.collect()
+        })
+    }
+
+    fn since(&self, from_ms: u64) -> Result<Vec<LoggedAction>, ApprovalError> {
+        self.read(|connection| {
+            let sql = format!("SELECT {ACTION_COLUMNS} FROM agent_actions WHERE at >= ?1 ORDER BY id DESC");
+            let mut statement = connection.prepare(&sql)?;
+            statement.query_map([from_ms], logged)?.collect()
         })
     }
 }
@@ -301,6 +313,8 @@ fn logged(row: &SqlRow<'_>) -> rusqlite::Result<LoggedAction> {
         arguments: row.get(4)?,
         result: row.get(5)?,
         approved_by: row.get(6)?,
+        took_ms: row.get(7)?,
+        ran: row.get::<_, Option<bool>>(8)?.unwrap_or(false),
     };
     Ok(LoggedAction { at_ms: row.get(0)?, action })
 }

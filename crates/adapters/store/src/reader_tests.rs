@@ -83,17 +83,19 @@ fn objects(path: &Path) -> Vec<String> {
     let mut statement =
         connection.prepare("SELECT sql FROM sqlite_master WHERE sql IS NOT NULL ORDER BY name").unwrap();
     let objects: Vec<String> = statement.query_map([], |row| row.get(0)).unwrap().collect::<Result<_, _>>().unwrap();
-    objects.into_iter().filter(|object| !object.starts_with("CREATE TABLE runs (")).collect()
+    let altered = ["CREATE TABLE runs (", "CREATE TABLE agent_actions ("];
+    objects.into_iter().filter(|object| !altered.iter().any(|table| object.starts_with(table))).collect()
 }
 
-/// Whether the runs table of the file at `path` has step 7's `schedule` column.
-fn has_schedule(path: &Path) -> bool {
+/// Whether the file at `path` has step 7's `runs.schedule` and step 8's `agent_actions.took_ms`
+/// and `ran` columns.
+fn has_later_columns(path: &Path) -> bool {
     let connection = Connection::open(path).unwrap();
-    connection
-        .query_row("SELECT EXISTS (SELECT 1 FROM pragma_table_info('runs') WHERE name = 'schedule')", [], |row| {
-            row.get(0)
-        })
-        .unwrap()
+    let has = |table: &str, column: &str| -> bool {
+        let sql = "SELECT EXISTS (SELECT 1 FROM pragma_table_info(?1) WHERE name = ?2)";
+        connection.query_row(sql, (table, column), |row| row.get(0)).unwrap()
+    };
+    has("runs", "schedule") && has("agent_actions", "took_ms") && has("agent_actions", "ran")
 }
 
 fn applied(path: &Path) -> usize {
@@ -113,7 +115,7 @@ fn an_older_file_gains_only_the_findings_table_and_reads_its_load_run_as_finding
         let runs = reader.runs(10, &RunFilter::default()).unwrap();
         assert_eq!((runs.len(), runs[0].start.kind.as_str(), runs[0].totals.passed), (1, "load", 37));
         assert_eq!(applied(&path), MIGRATIONS.len());
-        assert!(has_schedule(&path), "after {steps} steps");
+        assert!(has_later_columns(&path), "after {steps} steps");
         let after = objects(&path);
         let added: Vec<&str> = after.iter().filter(|object| !before.contains(object)).map(String::as_str).collect();
         let kept = before.iter().filter(|object| after.contains(object)).count();
@@ -151,7 +153,7 @@ fn a_file_with_findings_gains_only_the_sample_column_and_its_index_and_keeps_its
     let findings = reader.findings(RunId::new(1)).unwrap();
     assert_eq!((findings.len(), findings[0].count, findings[0].samples.len()), (1, Some(3), 0));
     assert_eq!(applied(&path), MIGRATIONS.len());
-    assert!(has_schedule(&path));
+    assert!(has_later_columns(&path));
     let after = objects(&path);
     let added: Vec<&str> = after.iter().filter(|object| !before.contains(object)).map(String::as_str).collect();
     let gone: Vec<&str> = before.iter().filter(|object| !after.contains(object)).map(String::as_str).collect();

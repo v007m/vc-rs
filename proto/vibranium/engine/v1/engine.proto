@@ -42,6 +42,8 @@ service EngineService {
   rpc DecideApproval(DecideApprovalRequest) returns (DecideApprovalResponse);
   // What agents did through MCP, newest first.
   rpc ListAgentActions(ListAgentActionsRequest) returns (ListAgentActionsResponse);
+  // What agents did over the last days: per agent and day, and per agent and tool (D709).
+  rpc AgentUsage(AgentUsageRequest) returns (AgentUsageResponse);
   // Sends one api's request, as `vc call` does. The person at the browser is no agent, so the
   // profiles' agent policy and the agent log do not apply (D241).
   rpc Call(CallRequest) returns (CallResponse);
@@ -622,6 +624,10 @@ message AgentAction {
   string result = 5;
   optional string approved_by = 6;
   uint64 at_ms = 7;
+  // From the gate letting it through to its end; unset for a call that never went ahead (D710).
+  optional uint64 took_ms = 8;
+  // It started a run.
+  bool ran = 9;
 }
 
 message ListAgentActionsRequest {
@@ -631,6 +637,50 @@ message ListAgentActionsRequest {
 
 message ListAgentActionsResponse {
   repeated AgentAction actions = 1;
+}
+
+message AgentUsageRequest {
+  // Days in UTC, today included: 7 when 0, at most 90.
+  uint32 days = 1;
+}
+
+message AgentUsageResponse {
+  // The start of the first day, in milliseconds since the Unix epoch.
+  uint64 from_ms = 1;
+  // Now, when the window ends.
+  uint64 to_ms = 2;
+  // The busiest first.
+  repeated AgentTotals agents = 3;
+  // By agent, then the most called first.
+  repeated ToolUsage tools = 4;
+}
+
+// Calls, the runs they started, and how long the timed ones took. The engine sees no agent's
+// requests or tokens, so those are not counted.
+message UsageCount {
+  uint64 calls = 1;
+  uint64 runs = 2;
+  uint64 took_ms = 3;
+}
+
+message AgentTotals {
+  string agent = 1;
+  UsageCount total = 2;
+  // One for each day, the oldest first.
+  repeated UsageCount daily = 3;
+}
+
+message ToolUsage {
+  string agent = 1;
+  string tool = 2;
+  uint64 calls = 3;
+  uint64 ok = 4;
+  uint64 failed = 5;
+  // Refused by the policy, denied by a person or not decided in time.
+  uint64 refused = 6;
+  // Went ahead once a person approved them.
+  uint64 approved = 7;
+  uint64 took_ms = 8;
 }
 
 message CallRequest {

@@ -897,6 +897,12 @@ pub struct AgentAction {
     pub approved_by: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(uint64, tag="7")]
     pub at_ms: u64,
+    /// From the gate letting it through to its end; unset for a call that never went ahead (D710).
+    #[prost(uint64, optional, tag="8")]
+    pub took_ms: ::core::option::Option<u64>,
+    /// It started a run.
+    #[prost(bool, tag="9")]
+    pub ran: bool,
 }
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ListAgentActionsRequest {
@@ -908,6 +914,69 @@ pub struct ListAgentActionsRequest {
 pub struct ListAgentActionsResponse {
     #[prost(message, repeated, tag="1")]
     pub actions: ::prost::alloc::vec::Vec<AgentAction>,
+}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct AgentUsageRequest {
+    /// Days in UTC, today included: 7 when 0, at most 90.
+    #[prost(uint32, tag="1")]
+    pub days: u32,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AgentUsageResponse {
+    /// The start of the first day, in milliseconds since the Unix epoch.
+    #[prost(uint64, tag="1")]
+    pub from_ms: u64,
+    /// Now, when the window ends.
+    #[prost(uint64, tag="2")]
+    pub to_ms: u64,
+    /// The busiest first.
+    #[prost(message, repeated, tag="3")]
+    pub agents: ::prost::alloc::vec::Vec<AgentTotals>,
+    /// By agent, then the most called first.
+    #[prost(message, repeated, tag="4")]
+    pub tools: ::prost::alloc::vec::Vec<ToolUsage>,
+}
+/// Calls, the runs they started, and how long the timed ones took. The engine sees no agent's
+/// requests or tokens, so those are not counted.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct UsageCount {
+    #[prost(uint64, tag="1")]
+    pub calls: u64,
+    #[prost(uint64, tag="2")]
+    pub runs: u64,
+    #[prost(uint64, tag="3")]
+    pub took_ms: u64,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AgentTotals {
+    #[prost(string, tag="1")]
+    pub agent: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="2")]
+    pub total: ::core::option::Option<UsageCount>,
+    /// One for each day, the oldest first.
+    #[prost(message, repeated, tag="3")]
+    pub daily: ::prost::alloc::vec::Vec<UsageCount>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ToolUsage {
+    #[prost(string, tag="1")]
+    pub agent: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub tool: ::prost::alloc::string::String,
+    #[prost(uint64, tag="3")]
+    pub calls: u64,
+    #[prost(uint64, tag="4")]
+    pub ok: u64,
+    #[prost(uint64, tag="5")]
+    pub failed: u64,
+    /// Refused by the policy, denied by a person or not decided in time.
+    #[prost(uint64, tag="6")]
+    pub refused: u64,
+    /// Went ahead once a person approved them.
+    #[prost(uint64, tag="7")]
+    pub approved: u64,
+    #[prost(uint64, tag="8")]
+    pub took_ms: u64,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CallRequest {

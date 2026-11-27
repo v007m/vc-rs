@@ -33,6 +33,7 @@
 
 mod adhoc;
 mod agent_gate;
+mod agent_usage;
 mod agent_write;
 mod alert_samples;
 mod alerts;
@@ -141,6 +142,7 @@ mod wanted;
 mod watch;
 mod yaml_out;
 
+pub use agent_usage::{AgentTotals, AgentUsage, MAX_USAGE_DAYS, ToolUsage, USAGE_DAYS, UsageCount};
 pub use agent_write::WriteRequest;
 pub use alert_samples::AlertSent;
 pub use approvals::{APPROVAL_WAIT, Admission, AgentOutcome};

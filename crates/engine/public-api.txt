@@ -363,6 +363,7 @@ pub vc_engine::AgentCall::code: alloc::vec::Vec<alloc::string::String>
 pub vc_engine::AgentCall::methods: alloc::vec::Vec<vc_model::defs::Method>
 pub vc_engine::AgentCall::profiles: alloc::vec::Vec<alloc::string::String>
 pub vc_engine::AgentCall::runs: bool
+pub vc_engine::AgentCall::started_ms: core::option::Option<u64>
 pub vc_engine::AgentCall::summary: alloc::string::String
 pub vc_engine::AgentCall::tool: alloc::string::String
 pub vc_engine::AgentCall::writes: bool
@@ -387,6 +388,35 @@ pub fn vc_engine::AgentOutcome::eq(&self, &Self) -> bool
 impl core::fmt::Debug for vc_engine::AgentOutcome
 pub fn vc_engine::AgentOutcome::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_engine::AgentOutcome
+#[non_exhaustive] pub struct vc_engine::AgentTotals
+pub vc_engine::AgentTotals::agent: alloc::string::String
+pub vc_engine::AgentTotals::daily: alloc::vec::Vec<vc_engine::UsageCount>
+pub vc_engine::AgentTotals::total: vc_engine::UsageCount
+impl core::clone::Clone for vc_engine::AgentTotals
+pub fn vc_engine::AgentTotals::clone(&self) -> Self
+impl core::cmp::Eq for vc_engine::AgentTotals
+impl core::cmp::PartialEq for vc_engine::AgentTotals
+pub fn vc_engine::AgentTotals::eq(&self, &Self) -> bool
+impl core::default::Default for vc_engine::AgentTotals
+pub fn vc_engine::AgentTotals::default() -> Self
+impl core::fmt::Debug for vc_engine::AgentTotals
+pub fn vc_engine::AgentTotals::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_engine::AgentTotals
+#[non_exhaustive] pub struct vc_engine::AgentUsage
+pub vc_engine::AgentUsage::agents: alloc::vec::Vec<vc_engine::AgentTotals>
+pub vc_engine::AgentUsage::from_ms: u64
+pub vc_engine::AgentUsage::to_ms: u64
+pub vc_engine::AgentUsage::tools: alloc::vec::Vec<vc_engine::ToolUsage>
+impl core::clone::Clone for vc_engine::AgentUsage
+pub fn vc_engine::AgentUsage::clone(&self) -> Self
+impl core::cmp::Eq for vc_engine::AgentUsage
+impl core::cmp::PartialEq for vc_engine::AgentUsage
+pub fn vc_engine::AgentUsage::eq(&self, &Self) -> bool
+impl core::default::Default for vc_engine::AgentUsage
+pub fn vc_engine::AgentUsage::default() -> Self
+impl core::fmt::Debug for vc_engine::AgentUsage
+pub fn vc_engine::AgentUsage::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_engine::AgentUsage
 #[non_exhaustive] pub struct vc_engine::AlertSent
 pub vc_engine::AlertSent::channel: alloc::string::String
 pub vc_engine::AlertSent::error: core::option::Option<alloc::string::String>
@@ -706,6 +736,8 @@ pub fn vc_engine::Engine::approvals_decide(&self, vc_interfaces::approvals::Appr
 pub fn vc_engine::Engine::approvals_list(&self, bool) -> core::result::Result<alloc::vec::Vec<vc_interfaces::approvals::Approval>, vc_engine::EngineError>
 pub async fn vc_engine::Engine::record_agent_action(&self, &vc_engine::AgentCall, &vc_engine::AgentOutcome) -> core::result::Result<(), vc_engine::EngineError>
 impl vc_engine::Engine
+pub fn vc_engine::Engine::agent_usage(&self, u32) -> core::result::Result<vc_engine::AgentUsage, vc_engine::EngineError>
+impl vc_engine::Engine
 pub fn vc_engine::Engine::api_trends(&self, usize, &vc_interfaces::run_filter::RunFilter) -> core::result::Result<alloc::vec::Vec<vc_interfaces::trend::ApiTrend>, vc_engine::EngineError>
 pub fn vc_engine::Engine::history(&self, usize, &vc_interfaces::run_filter::RunFilter) -> core::result::Result<vc_engine::HistoryReport, vc_engine::EngineError>
 pub fn vc_engine::Engine::report(&self, &vc_engine::ReportRequest) -> core::result::Result<vc_engine::ReportFiles, vc_engine::EngineError>
@@ -786,6 +818,10 @@ impl vc_engine::Engine
 pub fn vc_engine::Engine::new_file(&self, vc_model::source::FileKind, &str) -> core::result::Result<vc_engine::Added, vc_engine::EngineError>
 pub fn vc_engine::Engine::new_test(&self, &vc_engine::NewTest) -> core::result::Result<vc_engine::Added, vc_engine::EngineError>
 impl vc_engine::Engine
+pub fn vc_engine::Engine::now_ms(&self) -> u64
+pub fn vc_engine::Engine::project_path(&self, &std::path::Path, &std::path::Path) -> core::option::Option<alloc::string::String>
+pub fn vc_engine::Engine::root(&self) -> &std::path::Path
+impl vc_engine::Engine
 pub async fn vc_engine::Engine::plan(&self, &vc_engine::PlanRequest) -> core::result::Result<vc_engine::PlanReport, vc_engine::EngineError>
 impl vc_engine::Engine
 pub fn vc_engine::Engine::plugin_approve(&self, &vc_engine::PluginOffer) -> core::result::Result<vc_engine::Changes, vc_engine::EngineError>
@@ -801,9 +837,6 @@ pub fn vc_engine::Engine::write(&self, &vc_engine::Changes) -> core::result::Res
 pub fn vc_engine::Engine::write_previewed(&self, &vc_engine::Changes, &str) -> core::result::Result<(), vc_engine::EngineError>
 impl vc_engine::Engine
 pub fn vc_engine::Engine::project_info(&self) -> core::result::Result<vc_engine::ProjectInfo, vc_engine::EngineError>
-impl vc_engine::Engine
-pub fn vc_engine::Engine::project_path(&self, &std::path::Path, &std::path::Path) -> core::option::Option<alloc::string::String>
-pub fn vc_engine::Engine::root(&self) -> &std::path::Path
 impl vc_engine::Engine
 pub fn vc_engine::Engine::prune_history(&self, core::option::Option<u32>) -> core::result::Result<usize, vc_engine::EngineError>
 impl vc_engine::Engine
@@ -1740,6 +1773,40 @@ pub fn vc_engine::TestResults::eq(&self, &Self) -> bool
 impl core::fmt::Debug for vc_engine::TestResults
 pub fn vc_engine::TestResults::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_engine::TestResults
+#[non_exhaustive] pub struct vc_engine::ToolUsage
+pub vc_engine::ToolUsage::agent: alloc::string::String
+pub vc_engine::ToolUsage::approved: u64
+pub vc_engine::ToolUsage::calls: u64
+pub vc_engine::ToolUsage::failed: u64
+pub vc_engine::ToolUsage::ok: u64
+pub vc_engine::ToolUsage::refused: u64
+pub vc_engine::ToolUsage::took_ms: u64
+pub vc_engine::ToolUsage::tool: alloc::string::String
+impl core::clone::Clone for vc_engine::ToolUsage
+pub fn vc_engine::ToolUsage::clone(&self) -> Self
+impl core::cmp::Eq for vc_engine::ToolUsage
+impl core::cmp::PartialEq for vc_engine::ToolUsage
+pub fn vc_engine::ToolUsage::eq(&self, &Self) -> bool
+impl core::default::Default for vc_engine::ToolUsage
+pub fn vc_engine::ToolUsage::default() -> Self
+impl core::fmt::Debug for vc_engine::ToolUsage
+pub fn vc_engine::ToolUsage::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_engine::ToolUsage
+#[non_exhaustive] pub struct vc_engine::UsageCount
+pub vc_engine::UsageCount::calls: u64
+pub vc_engine::UsageCount::runs: u64
+pub vc_engine::UsageCount::took_ms: u64
+impl core::clone::Clone for vc_engine::UsageCount
+pub fn vc_engine::UsageCount::clone(&self) -> Self
+impl core::cmp::Eq for vc_engine::UsageCount
+impl core::cmp::PartialEq for vc_engine::UsageCount
+pub fn vc_engine::UsageCount::eq(&self, &Self) -> bool
+impl core::default::Default for vc_engine::UsageCount
+pub fn vc_engine::UsageCount::default() -> Self
+impl core::fmt::Debug for vc_engine::UsageCount
+pub fn vc_engine::UsageCount::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for vc_engine::UsageCount
+impl core::marker::StructuralPartialEq for vc_engine::UsageCount
 pub struct vc_engine::WriteRequest
 pub vc_engine::WriteRequest::agent: alloc::string::String
 pub vc_engine::WriteRequest::path: alloc::string::String
@@ -1770,8 +1837,10 @@ pub fn vc_engine::WrittenNode::fmt(&self, &mut core::fmt::Formatter<'_>) -> core
 impl core::marker::StructuralPartialEq for vc_engine::WrittenNode
 pub const vc_engine::APPROVAL_WAIT: core::time::Duration
 pub const vc_engine::INIT_FOLDERS: [&str; 5]
+pub const vc_engine::MAX_USAGE_DAYS: u32
 pub const vc_engine::MOST_RUNS: usize
 pub const vc_engine::SLOWER: f64
+pub const vc_engine::USAGE_DAYS: u32
 pub fn vc_engine::action_call(&vc_model::names::Names, vc_model::ids::ActionId) -> core::option::Option<vc_engine::ApiCall>
 pub fn vc_engine::auth_fields(&str) -> alloc::vec::Vec<&'static str>
 pub fn vc_engine::compare_tests((u64, u64), (&[vc_interfaces::history_rows::TestRow], &[vc_interfaces::history_rows::TestRow]), f64) -> vc_engine::RunComparison

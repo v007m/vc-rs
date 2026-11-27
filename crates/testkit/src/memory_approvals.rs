@@ -177,6 +177,11 @@ impl AgentActionReader for MemoryApprovals {
         }
         Ok(logged)
     }
+    fn since(&self, from_ms: u64) -> Result<Vec<LoggedAction>, ApprovalError> {
+        let mut logged = self.recent(0)?;
+        logged.retain(|logged| logged.at_ms >= from_ms);
+        Ok(logged)
+    }
 }
 
 #[cfg(test)]

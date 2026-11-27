@@ -618,6 +618,12 @@ impl serde::Serialize for AgentAction {
         if self.at_ms != 0 {
             len += 1;
         }
+        if self.took_ms.is_some() {
+            len += 1;
+        }
+        if self.ran {
+            len += 1;
+        }
         let mut struct_ser = serializer.serialize_struct("vibranium.engine.v1.AgentAction", len)?;
         if !self.agent.is_empty() {
             struct_ser.serialize_field("agent", &self.agent)?;
@@ -642,6 +648,14 @@ impl serde::Serialize for AgentAction {
             #[allow(clippy::needless_borrows_for_generic_args)]
             struct_ser.serialize_field("atMs", ToString::to_string(&self.at_ms).as_str())?;
         }
+        if let Some(v) = self.took_ms.as_ref() {
+            #[allow(clippy::needless_borrow)]
+            #[allow(clippy::needless_borrows_for_generic_args)]
+            struct_ser.serialize_field("tookMs", ToString::to_string(&v).as_str())?;
+        }
+        if self.ran {
+            struct_ser.serialize_field("ran", &self.ran)?;
+        }
         struct_ser.end()
     }
 }
@@ -661,6 +675,9 @@ impl<'de> serde::Deserialize<'de> for AgentAction {
             "approvedBy",
             "at_ms",
             "atMs",
+            "took_ms",
+            "tookMs",
+            "ran",
         ];
 
         #[allow(clippy::enum_variant_names)]
@@ -672,6 +689,8 @@ impl<'de> serde::Deserialize<'de> for AgentAction {
             Result,
             ApprovedBy,
             AtMs,
+            TookMs,
+            Ran,
         }
         impl<'de> serde::Deserialize<'de> for GeneratedField {
             fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
@@ -700,6 +719,8 @@ impl<'de> serde::Deserialize<'de> for AgentAction {
                             "result" => Ok(GeneratedField::Result),
                             "approvedBy" | "approved_by" => Ok(GeneratedField::ApprovedBy),
                             "atMs" | "at_ms" => Ok(GeneratedField::AtMs),
+                            "tookMs" | "took_ms" => Ok(GeneratedField::TookMs),
+                            "ran" => Ok(GeneratedField::Ran),
                             _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
                         }
                     }
@@ -726,6 +747,8 @@ impl<'de> serde::Deserialize<'de> for AgentAction {
                 let mut result__ = None;
                 let mut approved_by__ = None;
                 let mut at_ms__ = None;
+                let mut took_ms__ = None;
+                let mut ran__ = None;
                 while let Some(k) = map_.next_key()? {
                     match k {
                         GeneratedField::Agent => {
@@ -772,6 +795,20 @@ impl<'de> serde::Deserialize<'de> for AgentAction {
                                 Some(map_.next_value::<::pbjson::private::NumberDeserialize<_>>()?.0)
                             ;
                         }
+                        GeneratedField::TookMs => {
+                            if took_ms__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("tookMs"));
+                            }
+                            took_ms__ = 
+                                map_.next_value::<::std::option::Option<::pbjson::private::NumberDeserialize<_>>>()?.map(|x| x.0)
+                            ;
+                        }
+                        GeneratedField::Ran => {
+                            if ran__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("ran"));
+                            }
+                            ran__ = Some(map_.next_value()?);
+                        }
                     }
                 }
                 Ok(AgentAction {
@@ -782,10 +819,382 @@ impl<'de> serde::Deserialize<'de> for AgentAction {
                     result: result__.unwrap_or_default(),
                     approved_by: approved_by__,
                     at_ms: at_ms__.unwrap_or_default(),
+                    took_ms: took_ms__,
+                    ran: ran__.unwrap_or_default(),
                 })
             }
         }
         deserializer.deserialize_struct("vibranium.engine.v1.AgentAction", FIELDS, GeneratedVisitor)
+    }
+}
+impl serde::Serialize for AgentTotals {
+    #[allow(deprecated)]
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let mut len = 0;
+        if !self.agent.is_empty() {
+            len += 1;
+        }
+        if self.total.is_some() {
+            len += 1;
+        }
+        if !self.daily.is_empty() {
+            len += 1;
+        }
+        let mut struct_ser = serializer.serialize_struct("vibranium.engine.v1.AgentTotals", len)?;
+        if !self.agent.is_empty() {
+            struct_ser.serialize_field("agent", &self.agent)?;
+        }
+        if let Some(v) = self.total.as_ref() {
+            struct_ser.serialize_field("total", v)?;
+        }
+        if !self.daily.is_empty() {
+            struct_ser.serialize_field("daily", &self.daily)?;
+        }
+        struct_ser.end()
+    }
+}
+impl<'de> serde::Deserialize<'de> for AgentTotals {
+    #[allow(deprecated)]
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        const FIELDS: &[&str] = &[
+            "agent",
+            "total",
+            "daily",
+        ];
+
+        #[allow(clippy::enum_variant_names)]
+        enum GeneratedField {
+            Agent,
+            Total,
+            Daily,
+        }
+        impl<'de> serde::Deserialize<'de> for GeneratedField {
+            fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                struct GeneratedVisitor;
+
+                impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+                    type Value = GeneratedField;
+
+                    fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                        write!(formatter, "expected one of: {:?}", &FIELDS)
+                    }
+
+                    #[allow(unused_variables)]
+                    fn visit_str<E>(self, value: &str) -> std::result::Result<GeneratedField, E>
+                    where
+                        E: serde::de::Error,
+                    {
+                        match value {
+                            "agent" => Ok(GeneratedField::Agent),
+                            "total" => Ok(GeneratedField::Total),
+                            "daily" => Ok(GeneratedField::Daily),
+                            _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
+                        }
+                    }
+                }
+                deserializer.deserialize_identifier(GeneratedVisitor)
+            }
+        }
+        struct GeneratedVisitor;
+        impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+            type Value = AgentTotals;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("struct vibranium.engine.v1.AgentTotals")
+            }
+
+            fn visit_map<V>(self, mut map_: V) -> std::result::Result<AgentTotals, V::Error>
+                where
+                    V: serde::de::MapAccess<'de>,
+            {
+                let mut agent__ = None;
+                let mut total__ = None;
+                let mut daily__ = None;
+                while let Some(k) = map_.next_key()? {
+                    match k {
+                        GeneratedField::Agent => {
+                            if agent__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("agent"));
+                            }
+                            agent__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::Total => {
+                            if total__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("total"));
+                            }
+                            total__ = map_.next_value()?;
+                        }
+                        GeneratedField::Daily => {
+                            if daily__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("daily"));
+                            }
+                            daily__ = Some(map_.next_value()?);
+                        }
+                    }
+                }
+                Ok(AgentTotals {
+                    agent: agent__.unwrap_or_default(),
+                    total: total__,
+                    daily: daily__.unwrap_or_default(),
+                })
+            }
+        }
+        deserializer.deserialize_struct("vibranium.engine.v1.AgentTotals", FIELDS, GeneratedVisitor)
+    }
+}
+impl serde::Serialize for AgentUsageRequest {
+    #[allow(deprecated)]
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let mut len = 0;
+        if self.days != 0 {
+            len += 1;
+        }
+        let mut struct_ser = serializer.serialize_struct("vibranium.engine.v1.AgentUsageRequest", len)?;
+        if self.days != 0 {
+            struct_ser.serialize_field("days", &self.days)?;
+        }
+        struct_ser.end()
+    }
+}
+impl<'de> serde::Deserialize<'de> for AgentUsageRequest {
+    #[allow(deprecated)]
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        const FIELDS: &[&str] = &[
+            "days",
+        ];
+
+        #[allow(clippy::enum_variant_names)]
+        enum GeneratedField {
+            Days,
+        }
+        impl<'de> serde::Deserialize<'de> for GeneratedField {
+            fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                struct GeneratedVisitor;
+
+                impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+                    type Value = GeneratedField;
+
+                    fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                        write!(formatter, "expected one of: {:?}", &FIELDS)
+                    }
+
+                    #[allow(unused_variables)]
+                    fn visit_str<E>(self, value: &str) -> std::result::Result<GeneratedField, E>
+                    where
+                        E: serde::de::Error,
+                    {
+                        match value {
+                            "days" => Ok(GeneratedField::Days),
+                            _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
+                        }
+                    }
+                }
+                deserializer.deserialize_identifier(GeneratedVisitor)
+            }
+        }
+        struct GeneratedVisitor;
+        impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+            type Value = AgentUsageRequest;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("struct vibranium.engine.v1.AgentUsageRequest")
+            }
+
+            fn visit_map<V>(self, mut map_: V) -> std::result::Result<AgentUsageRequest, V::Error>
+                where
+                    V: serde::de::MapAccess<'de>,
+            {
+                let mut days__ = None;
+                while let Some(k) = map_.next_key()? {
+                    match k {
+                        GeneratedField::Days => {
+                            if days__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("days"));
+                            }
+                            days__ = 
+                                Some(map_.next_value::<::pbjson::private::NumberDeserialize<_>>()?.0)
+                            ;
+                        }
+                    }
+                }
+                Ok(AgentUsageRequest {
+                    days: days__.unwrap_or_default(),
+                })
+            }
+        }
+        deserializer.deserialize_struct("vibranium.engine.v1.AgentUsageRequest", FIELDS, GeneratedVisitor)
+    }
+}
+impl serde::Serialize for AgentUsageResponse {
+    #[allow(deprecated)]
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let mut len = 0;
+        if self.from_ms != 0 {
+            len += 1;
+        }
+        if self.to_ms != 0 {
+            len += 1;
+        }
+        if !self.agents.is_empty() {
+            len += 1;
+        }
+        if !self.tools.is_empty() {
+            len += 1;
+        }
+        let mut struct_ser = serializer.serialize_struct("vibranium.engine.v1.AgentUsageResponse", len)?;
+        if self.from_ms != 0 {
+            #[allow(clippy::needless_borrow)]
+            #[allow(clippy::needless_borrows_for_generic_args)]
+            struct_ser.serialize_field("fromMs", ToString::to_string(&self.from_ms).as_str())?;
+        }
+        if self.to_ms != 0 {
+            #[allow(clippy::needless_borrow)]
+            #[allow(clippy::needless_borrows_for_generic_args)]
+            struct_ser.serialize_field("toMs", ToString::to_string(&self.to_ms).as_str())?;
+        }
+        if !self.agents.is_empty() {
+            struct_ser.serialize_field("agents", &self.agents)?;
+        }
+        if !self.tools.is_empty() {
+            struct_ser.serialize_field("tools", &self.tools)?;
+        }
+        struct_ser.end()
+    }
+}
+impl<'de> serde::Deserialize<'de> for AgentUsageResponse {
+    #[allow(deprecated)]
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        const FIELDS: &[&str] = &[
+            "from_ms",
+            "fromMs",
+            "to_ms",
+            "toMs",
+            "agents",
+            "tools",
+        ];
+
+        #[allow(clippy::enum_variant_names)]
+        enum GeneratedField {
+            FromMs,
+            ToMs,
+            Agents,
+            Tools,
+        }
+        impl<'de> serde::Deserialize<'de> for GeneratedField {
+            fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                struct GeneratedVisitor;
+
+                impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+                    type Value = GeneratedField;
+
+                    fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                        write!(formatter, "expected one of: {:?}", &FIELDS)
+                    }
+
+                    #[allow(unused_variables)]
+                    fn visit_str<E>(self, value: &str) -> std::result::Result<GeneratedField, E>
+                    where
+                        E: serde::de::Error,
+                    {
+                        match value {
+                            "fromMs" | "from_ms" => Ok(GeneratedField::FromMs),
+                            "toMs" | "to_ms" => Ok(GeneratedField::ToMs),
+                            "agents" => Ok(GeneratedField::Agents),
+                            "tools" => Ok(GeneratedField::Tools),
+                            _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
+                        }
+                    }
+                }
+                deserializer.deserialize_identifier(GeneratedVisitor)
+            }
+        }
+        struct GeneratedVisitor;
+        impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+            type Value = AgentUsageResponse;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("struct vibranium.engine.v1.AgentUsageResponse")
+            }
+
+            fn visit_map<V>(self, mut map_: V) -> std::result::Result<AgentUsageResponse, V::Error>
+                where
+                    V: serde::de::MapAccess<'de>,
+            {
+                let mut from_ms__ = None;
+                let mut to_ms__ = None;
+                let mut agents__ = None;
+                let mut tools__ = None;
+                while let Some(k) = map_.next_key()? {
+                    match k {
+                        GeneratedField::FromMs => {
+                            if from_ms__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("fromMs"));
+                            }
+                            from_ms__ = 
+                                Some(map_.next_value::<::pbjson::private::NumberDeserialize<_>>()?.0)
+                            ;
+                        }
+                        GeneratedField::ToMs => {
+                            if to_ms__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("toMs"));
+                            }
+                            to_ms__ = 
+                                Some(map_.next_value::<::pbjson::private::NumberDeserialize<_>>()?.0)
+                            ;
+                        }
+                        GeneratedField::Agents => {
+                            if agents__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("agents"));
+                            }
+                            agents__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::Tools => {
+                            if tools__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("tools"));
+                            }
+                            tools__ = Some(map_.next_value()?);
+                        }
+                    }
+                }
+                Ok(AgentUsageResponse {
+                    from_ms: from_ms__.unwrap_or_default(),
+                    to_ms: to_ms__.unwrap_or_default(),
+                    agents: agents__.unwrap_or_default(),
+                    tools: tools__.unwrap_or_default(),
+                })
+            }
+        }
+        deserializer.deserialize_struct("vibranium.engine.v1.AgentUsageResponse", FIELDS, GeneratedVisitor)
     }
 }
 impl serde::Serialize for ApiAuth {
@@ -20156,6 +20565,241 @@ impl<'de> serde::Deserialize<'de> for TextEdit {
         deserializer.deserialize_struct("vibranium.engine.v1.TextEdit", FIELDS, GeneratedVisitor)
     }
 }
+impl serde::Serialize for ToolUsage {
+    #[allow(deprecated)]
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let mut len = 0;
+        if !self.agent.is_empty() {
+            len += 1;
+        }
+        if !self.tool.is_empty() {
+            len += 1;
+        }
+        if self.calls != 0 {
+            len += 1;
+        }
+        if self.ok != 0 {
+            len += 1;
+        }
+        if self.failed != 0 {
+            len += 1;
+        }
+        if self.refused != 0 {
+            len += 1;
+        }
+        if self.approved != 0 {
+            len += 1;
+        }
+        if self.took_ms != 0 {
+            len += 1;
+        }
+        let mut struct_ser = serializer.serialize_struct("vibranium.engine.v1.ToolUsage", len)?;
+        if !self.agent.is_empty() {
+            struct_ser.serialize_field("agent", &self.agent)?;
+        }
+        if !self.tool.is_empty() {
+            struct_ser.serialize_field("tool", &self.tool)?;
+        }
+        if self.calls != 0 {
+            #[allow(clippy::needless_borrow)]
+            #[allow(clippy::needless_borrows_for_generic_args)]
+            struct_ser.serialize_field("calls", ToString::to_string(&self.calls).as_str())?;
+        }
+        if self.ok != 0 {
+            #[allow(clippy::needless_borrow)]
+            #[allow(clippy::needless_borrows_for_generic_args)]
+            struct_ser.serialize_field("ok", ToString::to_string(&self.ok).as_str())?;
+        }
+        if self.failed != 0 {
+            #[allow(clippy::needless_borrow)]
+            #[allow(clippy::needless_borrows_for_generic_args)]
+            struct_ser.serialize_field("failed", ToString::to_string(&self.failed).as_str())?;
+        }
+        if self.refused != 0 {
+            #[allow(clippy::needless_borrow)]
+            #[allow(clippy::needless_borrows_for_generic_args)]
+            struct_ser.serialize_field("refused", ToString::to_string(&self.refused).as_str())?;
+        }
+        if self.approved != 0 {
+            #[allow(clippy::needless_borrow)]
+            #[allow(clippy::needless_borrows_for_generic_args)]
+            struct_ser.serialize_field("approved", ToString::to_string(&self.approved).as_str())?;
+        }
+        if self.took_ms != 0 {
+            #[allow(clippy::needless_borrow)]
+            #[allow(clippy::needless_borrows_for_generic_args)]
+            struct_ser.serialize_field("tookMs", ToString::to_string(&self.took_ms).as_str())?;
+        }
+        struct_ser.end()
+    }
+}
+impl<'de> serde::Deserialize<'de> for ToolUsage {
+    #[allow(deprecated)]
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        const FIELDS: &[&str] = &[
+            "agent",
+            "tool",
+            "calls",
+            "ok",
+            "failed",
+            "refused",
+            "approved",
+            "took_ms",
+            "tookMs",
+        ];
+
+        #[allow(clippy::enum_variant_names)]
+        enum GeneratedField {
+            Agent,
+            Tool,
+            Calls,
+            Ok,
+            Failed,
+            Refused,
+            Approved,
+            TookMs,
+        }
+        impl<'de> serde::Deserialize<'de> for GeneratedField {
+            fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                struct GeneratedVisitor;
+
+                impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+                    type Value = GeneratedField;
+
+                    fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                        write!(formatter, "expected one of: {:?}", &FIELDS)
+                    }
+
+                    #[allow(unused_variables)]
+                    fn visit_str<E>(self, value: &str) -> std::result::Result<GeneratedField, E>
+                    where
+                        E: serde::de::Error,
+                    {
+                        match value {
+                            "agent" => Ok(GeneratedField::Agent),
+                            "tool" => Ok(GeneratedField::Tool),
+                            "calls" => Ok(GeneratedField::Calls),
+                            "ok" => Ok(GeneratedField::Ok),
+                            "failed" => Ok(GeneratedField::Failed),
+                            "refused" => Ok(GeneratedField::Refused),
+                            "approved" => Ok(GeneratedField::Approved),
+                            "tookMs" | "took_ms" => Ok(GeneratedField::TookMs),
+                            _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
+                        }
+                    }
+                }
+                deserializer.deserialize_identifier(GeneratedVisitor)
+            }
+        }
+        struct GeneratedVisitor;
+        impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+            type Value = ToolUsage;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("struct vibranium.engine.v1.ToolUsage")
+            }
+
+            fn visit_map<V>(self, mut map_: V) -> std::result::Result<ToolUsage, V::Error>
+                where
+                    V: serde::de::MapAccess<'de>,
+            {
+                let mut agent__ = None;
+                let mut tool__ = None;
+                let mut calls__ = None;
+                let mut ok__ = None;
+                let mut failed__ = None;
+                let mut refused__ = None;
+                let mut approved__ = None;
+                let mut took_ms__ = None;
+                while let Some(k) = map_.next_key()? {
+                    match k {
+                        GeneratedField::Agent => {
+                            if agent__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("agent"));
+                            }
+                            agent__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::Tool => {
+                            if tool__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("tool"));
+                            }
+                            tool__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::Calls => {
+                            if calls__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("calls"));
+                            }
+                            calls__ = 
+                                Some(map_.next_value::<::pbjson::private::NumberDeserialize<_>>()?.0)
+                            ;
+                        }
+                        GeneratedField::Ok => {
+                            if ok__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("ok"));
+                            }
+                            ok__ = 
+                                Some(map_.next_value::<::pbjson::private::NumberDeserialize<_>>()?.0)
+                            ;
+                        }
+                        GeneratedField::Failed => {
+                            if failed__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("failed"));
+                            }
+                            failed__ = 
+                                Some(map_.next_value::<::pbjson::private::NumberDeserialize<_>>()?.0)
+                            ;
+                        }
+                        GeneratedField::Refused => {
+                            if refused__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("refused"));
+                            }
+                            refused__ = 
+                                Some(map_.next_value::<::pbjson::private::NumberDeserialize<_>>()?.0)
+                            ;
+                        }
+                        GeneratedField::Approved => {
+                            if approved__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("approved"));
+                            }
+                            approved__ = 
+                                Some(map_.next_value::<::pbjson::private::NumberDeserialize<_>>()?.0)
+                            ;
+                        }
+                        GeneratedField::TookMs => {
+                            if took_ms__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("tookMs"));
+                            }
+                            took_ms__ = 
+                                Some(map_.next_value::<::pbjson::private::NumberDeserialize<_>>()?.0)
+                            ;
+                        }
+                    }
+                }
+                Ok(ToolUsage {
+                    agent: agent__.unwrap_or_default(),
+                    tool: tool__.unwrap_or_default(),
+                    calls: calls__.unwrap_or_default(),
+                    ok: ok__.unwrap_or_default(),
+                    failed: failed__.unwrap_or_default(),
+                    refused: refused__.unwrap_or_default(),
+                    approved: approved__.unwrap_or_default(),
+                    took_ms: took_ms__.unwrap_or_default(),
+                })
+            }
+        }
+        deserializer.deserialize_struct("vibranium.engine.v1.ToolUsage", FIELDS, GeneratedVisitor)
+    }
+}
 impl serde::Serialize for TrashFileRequest {
     #[allow(deprecated)]
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
@@ -20824,6 +21468,144 @@ impl<'de> serde::Deserialize<'de> for UnskipResponse {
             }
         }
         deserializer.deserialize_struct("vibranium.engine.v1.UnskipResponse", FIELDS, GeneratedVisitor)
+    }
+}
+impl serde::Serialize for UsageCount {
+    #[allow(deprecated)]
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let mut len = 0;
+        if self.calls != 0 {
+            len += 1;
+        }
+        if self.runs != 0 {
+            len += 1;
+        }
+        if self.took_ms != 0 {
+            len += 1;
+        }
+        let mut struct_ser = serializer.serialize_struct("vibranium.engine.v1.UsageCount", len)?;
+        if self.calls != 0 {
+            #[allow(clippy::needless_borrow)]
+            #[allow(clippy::needless_borrows_for_generic_args)]
+            struct_ser.serialize_field("calls", ToString::to_string(&self.calls).as_str())?;
+        }
+        if self.runs != 0 {
+            #[allow(clippy::needless_borrow)]
+            #[allow(clippy::needless_borrows_for_generic_args)]
+            struct_ser.serialize_field("runs", ToString::to_string(&self.runs).as_str())?;
+        }
+        if self.took_ms != 0 {
+            #[allow(clippy::needless_borrow)]
+            #[allow(clippy::needless_borrows_for_generic_args)]
+            struct_ser.serialize_field("tookMs", ToString::to_string(&self.took_ms).as_str())?;
+        }
+        struct_ser.end()
+    }
+}
+impl<'de> serde::Deserialize<'de> for UsageCount {
+    #[allow(deprecated)]
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        const FIELDS: &[&str] = &[
+            "calls",
+            "runs",
+            "took_ms",
+            "tookMs",
+        ];
+
+        #[allow(clippy::enum_variant_names)]
+        enum GeneratedField {
+            Calls,
+            Runs,
+            TookMs,
+        }
+        impl<'de> serde::Deserialize<'de> for GeneratedField {
+            fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                struct GeneratedVisitor;
+
+                impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+                    type Value = GeneratedField;
+
+                    fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                        write!(formatter, "expected one of: {:?}", &FIELDS)
+                    }
+
+                    #[allow(unused_variables)]
+                    fn visit_str<E>(self, value: &str) -> std::result::Result<GeneratedField, E>
+                    where
+                        E: serde::de::Error,
+                    {
+                        match value {
+                            "calls" => Ok(GeneratedField::Calls),
+                            "runs" => Ok(GeneratedField::Runs),
+                            "tookMs" | "took_ms" => Ok(GeneratedField::TookMs),
+                            _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
+                        }
+                    }
+                }
+                deserializer.deserialize_identifier(GeneratedVisitor)
+            }
+        }
+        struct GeneratedVisitor;
+        impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+            type Value = UsageCount;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("struct vibranium.engine.v1.UsageCount")
+            }
+
+            fn visit_map<V>(self, mut map_: V) -> std::result::Result<UsageCount, V::Error>
+                where
+                    V: serde::de::MapAccess<'de>,
+            {
+                let mut calls__ = None;
+                let mut runs__ = None;
+                let mut took_ms__ = None;
+                while let Some(k) = map_.next_key()? {
+                    match k {
+                        GeneratedField::Calls => {
+                            if calls__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("calls"));
+                            }
+                            calls__ = 
+                                Some(map_.next_value::<::pbjson::private::NumberDeserialize<_>>()?.0)
+                            ;
+                        }
+                        GeneratedField::Runs => {
+                            if runs__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("runs"));
+                            }
+                            runs__ = 
+                                Some(map_.next_value::<::pbjson::private::NumberDeserialize<_>>()?.0)
+                            ;
+                        }
+                        GeneratedField::TookMs => {
+                            if took_ms__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("tookMs"));
+                            }
+                            took_ms__ = 
+                                Some(map_.next_value::<::pbjson::private::NumberDeserialize<_>>()?.0)
+                            ;
+                        }
+                    }
+                }
+                Ok(UsageCount {
+                    calls: calls__.unwrap_or_default(),
+                    runs: runs__.unwrap_or_default(),
+                    took_ms: took_ms__.unwrap_or_default(),
+                })
+            }
+        }
+        deserializer.deserialize_struct("vibranium.engine.v1.UsageCount", FIELDS, GeneratedVisitor)
     }
 }
 impl serde::Serialize for VcsChange {

@@ -43,6 +43,9 @@ pub fn agent_action_reader_suite(log: &dyn AgentActionLog) {
     assert!(read.len() == 2 && read[0].0 >= read[1].0 && read[1].0 > 0, "{read:?}");
     assert_eq!((&read[0].1, &read[1].1), (&refused, &action), "newest first");
     assert_eq!(must(log.recent(1)).len(), 1);
+    let since: Vec<_> = must(log.since(read[0].0)).into_iter().map(|logged| logged.action).collect();
+    assert_eq!(since.first(), Some(&refused), "the newest is at or after its own time");
+    assert_eq!(must(log.since(read[0].0 + 1)), Vec::new(), "nothing is later than the newest");
 }
 
 /// An allowed call, then a refused one.
@@ -54,8 +57,17 @@ fn actions() -> [AgentAction; 2] {
         arguments: r#"{"api":"users#delete"}"#.into(),
         result: "ok".into(),
         approved_by: Some("sam".into()),
+        took_ms: Some(120),
+        ran: true,
     };
-    let refused = AgentAction { profile: None, approved_by: None, result: "denied".into(), ..action.clone() };
+    let refused = AgentAction {
+        profile: None,
+        approved_by: None,
+        result: "denied".into(),
+        took_ms: None,
+        ran: false,
+        ..action.clone()
+    };
     [action, refused]
 }
 
