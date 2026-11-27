@@ -44,9 +44,6 @@
 <Dialog {title} {onclose}>
   {#if done}
     <p class="said" role="status">{done}</p>
-    <div class="actions">
-      <button type="button" class="st-btn st-btn--primary" onclick={onclose}>Done</button>
-    </div>
   {:else}
     <p class="intro">{intro}</p>
     {#if staged.note}<p class="note" role="status">{staged.note}</p>{/if}
@@ -55,7 +52,11 @@
     {:else if staged.busy}
       <p class="note" role="status">Previewing…</p>
     {/if}
-    <div class="actions">
+  {/if}
+  {#snippet actions()}
+    {#if done}
+      <button type="button" class="st-btn st-btn--primary" onclick={onclose}>Done</button>
+    {:else}
       <button type="button" class="st-btn" onclick={onclose}>Cancel</button>
       <button
         type="button"
@@ -63,8 +64,8 @@
         disabled={staged.busy || !staged.shown}
         onclick={() => void write()}>{action}</button
       >
-    </div>
-  {/if}
+    {/if}
+  {/snippet}
 </Dialog>
 
 <style>
@@ -75,11 +76,5 @@
   .note {
     margin: 0 0 12px;
     color: var(--st-text-secondary);
-  }
-  .actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
-    margin-top: 16px;
   }
 </style>

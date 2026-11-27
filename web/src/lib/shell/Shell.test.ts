@@ -71,6 +71,15 @@ describe('Shell', () => {
     expect(screen.getByRole('main').textContent).toContain('screen body');
   });
 
+  it('lists nothing in the sidebar while the project has no config (D743)', async () => {
+    const { props, rerender } = setup('/client/request');
+    const sidebar = () => screen.getByRole('complementary', { name: 'Client sidebar' });
+    expect(within(sidebar()).queryAllByRole('link').length).toBeGreaterThan(0);
+    props.project.configured = false;
+    await rerender(props);
+    expect(within(sidebar()).queryAllByRole('link')).toEqual([]);
+  });
+
   it('links each space to its last screen, and the current one to its home', async () => {
     const { rail, rerender, props } = setup('/tests/editor');
     await rerender({ ...props, pathname: '/client' });

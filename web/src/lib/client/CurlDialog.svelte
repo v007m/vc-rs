@@ -23,13 +23,13 @@
     applies it; the first line names it. Use <code>vc call</code> to send it with auth.
   </p>
   <pre class="curl vc-mono" aria-label="cURL command">{curl}</pre>
-  <div class="actions">
-    <p class="help vc-grow" role="status">{copied}</p>
+  {#snippet actions()}
+    <p class="help said vc-grow" role="status">{copied}</p>
     <button type="button" class="st-btn" onclick={onclose}>Close</button>
     <button type="button" class="st-btn st-btn--primary" onclick={() => void copy()}
       ><Glyph name={copied === 'Copied.' ? 'check' : 'copy'} />Copy</button
     >
-  </div>
+  {/snippet}
 </Dialog>
 
 <style>
@@ -46,13 +46,7 @@
     white-space: pre-wrap;
     word-break: break-all;
   }
-  .actions {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-top: 10px;
-  }
-  .actions .help {
+  .said {
     margin: 0;
   }
 </style>

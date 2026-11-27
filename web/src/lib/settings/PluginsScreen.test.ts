@@ -91,11 +91,14 @@ describe('PluginsScreen', () => {
     expect(ready.textContent).toContain('2.1.0 · reporter');
     expect(ready.textContent).toContain('npm:@acme/vibranium-report@^2');
     expect(within(ready).getAllByText('files .vc/reports/**')).toHaveLength(2);
-    expect(within(ready).getByText('ready').classList.contains('vc-pass')).toBe(true);
+    expect(within(ready).getByText('Ready').classList.contains('vc-pass')).toBe(true);
     const waiting = screen.getByRole('row', { name: /shopAuth/ });
     expect(waiting.textContent).toContain('Nothing yet');
-    expect(within(waiting).getByText('notApproved').classList.contains('vc-blocked')).toBe(true);
-    expect(waiting.textContent).toContain('not approved: run vc plugin add');
+    expect(within(waiting).getByText('Not approved').classList.contains('vc-blocked')).toBe(true);
+    expect(waiting.textContent).toContain(
+      'Not approved yet. Run vc plugin add path:plugins/shop-auth to approve it.',
+    );
+    expect(within(waiting).getByText('vc plugin add path:plugins/shop-auth').tagName).toBe('CODE');
   });
 
   it('previews an add, then adds with the digest and lists again', async () => {

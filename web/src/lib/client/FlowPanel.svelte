@@ -125,7 +125,7 @@
             >
             <button
               type="button"
-              class="st-btn st-btn--sm"
+              class="st-btn st-btn--ghost st-btn--sm vc-btn--row-danger"
               aria-label="Remove stage {i + 1}"
               onclick={() => flow.removeStage(i)}>Remove</button
             >

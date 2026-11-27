@@ -56,8 +56,12 @@
   }
 </script>
 
-<Dialog title={editing ? `Edit ${editing.name ?? editing.id}` : 'New schedule'} {onclose}>
-  <form class="sheet" onsubmit={(event) => void submit(event)} novalidate>
+<Dialog
+  title={editing ? `Edit ${editing.name ?? editing.id}` : 'New schedule'}
+  {onclose}
+  onsubmit={(event) => void submit(event)}
+>
+  <div class="sheet">
     <div class="form">
       <label for="{uid}-id">ID</label>
       <div class="field">
@@ -148,13 +152,13 @@
     {#if staged.shown}
       <div class="diff"><ChangeList files={staged.shown.files} /></div>
     {/if}
-    <div class="actions">
-      <button type="button" class="st-btn" onclick={onclose}>Cancel</button>
-      <button type="submit" class="st-btn st-btn--primary" disabled={staged.busy}
-        >{staged.shown ? 'Write' : 'Preview'}</button
-      >
-    </div>
-  </form>
+  </div>
+  {#snippet actions()}
+    <button type="button" class="st-btn" onclick={onclose}>Cancel</button>
+    <button type="submit" class="st-btn st-btn--primary" disabled={staged.busy}
+      >{staged.shown ? 'Write' : 'Preview'}</button
+    >
+  {/snippet}
 </Dialog>
 
 <style>
@@ -201,11 +205,5 @@
     margin-top: 12px;
     padding-top: 12px;
     border-top: 1px solid var(--st-chrome-separator);
-  }
-  .actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
-    margin-top: 16px;
   }
 </style>

@@ -66,7 +66,7 @@
           <td class="act">
             <button
               type="button"
-              class="st-btn st-btn--sm"
+              class="st-btn st-btn--ghost st-btn--sm vc-btn--row-danger"
               aria-label="Remove {entry.name}"
               disabled={busy}
               onclick={() => schema.remove(entry.name)}>Remove</button

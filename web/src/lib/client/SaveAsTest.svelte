@@ -22,8 +22,8 @@
   }
 </script>
 
-<Dialog title="Save as test" {onclose}>
-  <form class="form" onsubmit={save}>
+<Dialog title="Save as test" {onclose} onsubmit={save}>
+  <div class="form">
     <label class="field">
       <span>Test ID</span>
       <input
@@ -52,13 +52,13 @@
     {#if client.error}
       <p class="error" role="alert">{client.error}</p>
     {/if}
-    <div class="actions">
-      <button type="button" class="st-btn" onclick={onclose}>Cancel</button>
-      <button type="submit" class="st-btn st-btn--primary" disabled={saving || !testId.trim()}
-        >Save</button
-      >
-    </div>
-  </form>
+  </div>
+  {#snippet actions()}
+    <button type="button" class="st-btn" onclick={onclose}>Cancel</button>
+    <button type="submit" class="st-btn st-btn--primary" disabled={saving || !testId.trim()}
+      >Save</button
+    >
+  {/snippet}
 </Dialog>
 
 <style>
@@ -91,10 +91,5 @@
   .error {
     margin: 0;
     color: var(--vc-fail);
-  }
-  .actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
   }
 </style>

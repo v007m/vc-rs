@@ -8,19 +8,22 @@
 
   /**
    * The current space's sidebar on L0: its title, its sections (or the screen's own `body`, D537),
-   * and the foot switcher if chosen.
+   * and the foot switcher if chosen. A project with no config yet is `bare`: onboarding is the
+   * screen, so the space lists nothing (D743).
    */
   let {
     shell,
     space,
     pathname,
     body,
+    bare = false,
     ontoggle,
   }: {
     shell: ShellState;
     space: Space;
     pathname: string;
     body?: Snippet | undefined;
+    bare?: boolean;
     ontoggle: () => void;
   } = $props();
 </script>
@@ -41,7 +44,9 @@
   </div>
   <div class="sb-body">
     <div class="sb-secs">
-      {#if body}
+      {#if bare}
+        <!-- onboarding first: nothing to list until the project has a config -->
+      {:else if body}
         {@render body()}
       {:else}
         {#each space.sections as section (section.id)}

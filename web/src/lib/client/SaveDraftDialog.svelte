@@ -61,7 +61,7 @@
   {:else if request.state === 'reviewing'}
     <p class="help">Reviewing…</p>
   {/if}
-  <div class="actions">
+  {#snippet actions()}
     <button type="button" class="st-btn" onclick={onclose}>Cancel</button>
     <button
       type="button"
@@ -69,7 +69,7 @@
       disabled={busy || !request.dirty || request.state === 'conflict'}
       onclick={() => void save()}>{request.state === 'saving' ? 'Saving…' : 'Save'}</button
     >
-  </div>
+  {/snippet}
 </Dialog>
 
 <style>
@@ -77,18 +77,8 @@
     margin: 0 0 10px;
     color: var(--st-text-secondary);
   }
-  .actions {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 8px;
-  }
   .vc-banner {
     margin-bottom: 10px;
-  }
-  .actions {
-    justify-content: flex-end;
-    margin-top: 10px;
   }
   .diff {
     max-height: 320px;

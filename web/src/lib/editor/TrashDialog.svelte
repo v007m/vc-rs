@@ -75,7 +75,7 @@
       <span class="vc-mono">{uses.unread.join(', ')}</span>
     </p>
   {/if}
-  <div class="actions">
+  {#snippet actions()}
     <button type="button" class="st-btn" onclick={onclose}>Cancel</button>
     <button
       type="button"
@@ -83,7 +83,7 @@
       disabled={busy || uses === undefined}
       onclick={() => void trash()}>Move to Trash</button
     >
-  </div>
+  {/snippet}
 </Dialog>
 
 <style>
@@ -93,11 +93,5 @@
     margin: 0;
     padding-left: 20px;
     font-size: 12.5px;
-  }
-  .actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
-    margin-top: 16px;
   }
 </style>

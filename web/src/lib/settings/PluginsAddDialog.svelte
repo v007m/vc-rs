@@ -37,8 +37,8 @@
   }
 </script>
 
-<Dialog title="Add a plugin" onclose={close}>
-  <form class="body" onsubmit={review}>
+<Dialog title="Add a plugin" onclose={close} onsubmit={review}>
+  <div class="body">
     <label class="field" for="{uid}-source">Source</label>
     <input
       id="{uid}-source"
@@ -81,25 +81,22 @@
         <ChangeList files={offer.files} />
       </section>
     {/if}
-
-    <div class="actions">
-      <button type="button" class="st-btn" onclick={close}>Cancel</button>
-      {#if offer}
-        <button
-          type="button"
-          class="st-btn st-btn--primary"
-          disabled={staged.busy}
-          onclick={() => void add()}>{staged.busy ? 'Adding…' : 'Add'}</button
-        >
-      {:else}
-        <button
-          type="submit"
-          class="st-btn st-btn--primary"
-          disabled={staged.busy || !source.trim()}>{staged.busy ? 'Fetching…' : 'Preview'}</button
-        >
-      {/if}
-    </div>
-  </form>
+  </div>
+  {#snippet actions()}
+    <button type="button" class="st-btn" onclick={close}>Cancel</button>
+    {#if offer}
+      <button
+        type="button"
+        class="st-btn st-btn--primary"
+        disabled={staged.busy}
+        onclick={() => void add()}>{staged.busy ? 'Adding…' : 'Add'}</button
+      >
+    {:else}
+      <button type="submit" class="st-btn st-btn--primary" disabled={staged.busy || !source.trim()}
+        >{staged.busy ? 'Fetching…' : 'Preview'}</button
+      >
+    {/if}
+  {/snippet}
 </Dialog>
 
 <style>
@@ -140,11 +137,5 @@
     gap: 4px;
     margin: 0;
     overflow-wrap: anywhere;
-  }
-  .actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
-    margin-top: 16px;
   }
 </style>

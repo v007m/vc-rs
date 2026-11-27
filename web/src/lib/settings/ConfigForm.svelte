@@ -106,7 +106,7 @@
           </label>
           <button
             type="button"
-            class="st-btn st-btn--sm"
+            class="st-btn st-btn--ghost st-btn--sm vc-btn--row-danger"
             aria-label="Remove profile {entry.id}"
             disabled={busy}
             onclick={() => form.removeProfile(entry.id)}>Remove</button
@@ -167,7 +167,7 @@
           </label>
           <button
             type="button"
-            class="st-btn st-btn--sm"
+            class="st-btn st-btn--ghost st-btn--sm vc-btn--row-danger"
             aria-label="Remove variable {name}"
             disabled={busy}
             onclick={() => form.removeVar(name)}>Remove</button

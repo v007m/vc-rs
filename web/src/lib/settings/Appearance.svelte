@@ -6,7 +6,7 @@
   /**
    * Settings › Appearance (D722): theme, accent, density and motion for this app in this
    * browser only, applied at once. Each is a flat row with an inset hairline: the setting and
-   * what it does on the left, its control on the right.
+   * what it does on the left, its control on the right; the accent's swatches sit under it.
    */
   let { shell }: { shell: ShellState } = $props();
 
@@ -34,7 +34,7 @@
     </div>
   </div>
 
-  <div class="row">
+  <div class="row stack">
     <div class="what">
       <p class="name" id="{uid}-accent">Accent</p>
       <p class="say">Each space keeps its own colour, or one colour goes on every space.</p>
@@ -112,6 +112,13 @@
     background: linear-gradient(var(--st-chrome-separator), var(--st-chrome-separator)) no-repeat
       12px 100% / calc(100% - 24px) 1px;
   }
+  /* six swatches do not fit beside their words: they take the row under them, so none is
+     left alone on a line of its own (D741) */
+  .stack {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
   .what {
     min-width: 0;
   }
@@ -127,8 +134,7 @@
   .swatches {
     display: flex;
     flex-wrap: wrap;
-    justify-content: flex-end;
-    gap: 8px 16px;
+    gap: 8px 20px;
   }
   .swatch {
     display: inline-flex;

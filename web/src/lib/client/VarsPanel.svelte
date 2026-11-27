@@ -26,8 +26,10 @@
         bind:value={row.value}
       />
       {#if !declared.has(row.name)}
-        <button type="button" class="st-btn st-btn--sm" onclick={() => client.removeVar(i)}
-          >Remove</button
+        <button
+          type="button"
+          class="st-btn st-btn--ghost st-btn--sm vc-btn--row-danger"
+          onclick={() => client.removeVar(i)}>Remove</button
         >
       {/if}
     </li>

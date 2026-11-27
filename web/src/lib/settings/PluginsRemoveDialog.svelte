@@ -27,16 +27,16 @@
     {:else if staged.busy}
       <p class="intro" role="status">Previewing…</p>
     {/if}
-    <div class="actions">
-      <button type="button" class="st-btn" onclick={() => plugins.closeRemove()}>Cancel</button>
-      <button
-        type="button"
-        class="st-btn st-btn--danger"
-        disabled={staged.busy || !staged.shown}
-        onclick={() => void remove()}>{staged.busy && staged.shown ? 'Removing…' : 'Remove'}</button
-      >
-    </div>
   </div>
+  {#snippet actions()}
+    <button type="button" class="st-btn" onclick={() => plugins.closeRemove()}>Cancel</button>
+    <button
+      type="button"
+      class="st-btn st-btn--danger"
+      disabled={staged.busy || !staged.shown}
+      onclick={() => void remove()}>{staged.busy && staged.shown ? 'Removing…' : 'Remove'}</button
+    >
+  {/snippet}
 </Dialog>
 
 <style>
@@ -51,11 +51,5 @@
   .error {
     margin: 0;
     color: var(--vc-fail-ink);
-  }
-  .actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
-    margin-top: 4px;
   }
 </style>

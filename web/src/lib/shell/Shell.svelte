@@ -147,7 +147,14 @@
 >
   <div class="shell">
     <Rail {shell} {pathname} />
-    <Sidebar {shell} {space} {pathname} body={slots.sidebar} ontoggle={toggle} />
+    <Sidebar
+      {shell}
+      {space}
+      {pathname}
+      body={slots.sidebar}
+      bare={project.configured === false}
+      ontoggle={toggle}
+    />
     <div class="main">
       <TopBar
         {title}

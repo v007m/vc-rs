@@ -3,6 +3,7 @@
   import { getToasts, type Toasts } from '#lib/ui/toasts.svelte.ts';
   import PluginsAddDialog from './PluginsAddDialog.svelte';
   import PluginsRemoveDialog from './PluginsRemoveDialog.svelte';
+  import { stateView } from './pluginStates.ts';
   import { reachTags, type Plugins, type PluginReach } from './plugins.svelte.ts';
 
   /** The project's plugins (D715): each one's source, reach and state, added and removed here. */
@@ -61,6 +62,7 @@
       </thead>
       <tbody>
         {#each plugins.list as plugin (plugin.id)}
+          {@const view = stateView(plugin)}
           <tr>
             <th scope="row">
               <span class="vc-mono">{plugin.id}</span>
@@ -72,17 +74,16 @@
             <td>{@render tags(plugin.asks, 'Nothing')}</td>
             <td>{@render tags(plugin.granted, 'Nothing yet')}</td>
             <td>
-              <span class="st-badge {plugin.state === 'ready' ? 'vc-pass' : 'vc-blocked'}"
-                >{plugin.state}</span
-              >
-              {#if plugin.detail && plugin.detail !== plugin.state}<span class="quiet detail"
-                  >{plugin.detail}</span
+              <span class="st-badge {view.tone}">{view.label}</span>
+              {#if view.hint.length > 0}<span class="quiet detail"
+                  >{#each view.hint as part, i (i)}{#if part.code}<code>{part.text}</code
+                      >{:else}{part.text}{/if}{/each}</span
                 >{/if}
             </td>
             <td class="act">
               <button
                 type="button"
-                class="st-btn st-btn--danger st-btn--sm"
+                class="st-btn st-btn--ghost st-btn--sm vc-btn--row-danger"
                 aria-label="Remove {plugin.id}"
                 onclick={() => void plugins.previewRemove(plugin.id)}>Remove</button
               >

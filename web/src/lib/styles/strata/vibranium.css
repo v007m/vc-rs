@@ -73,6 +73,8 @@
   --vc-fail: light-dark(#a01c1c, #ffa8aa);
   --vc-fail-soft: light-dark(#fde5e4, rgb(255 107 112 / 0.15));
   --vc-fail-ink: light-dark(#9c1f1f, #ffb8ba);
+  /* an unchecked control's edge: 3:1 or more on cards, glass and the canvas (D738) */
+  --vc-control-edge: light-dark(#6e737c, #8b919a);
   --vc-blocked: light-dark(#7a4600, #f5b75a);
   --vc-blocked-soft: light-dark(#fbefd9, rgb(243 173 69 / 0.15));
   --vc-blocked-ink: light-dark(#784600, #f8c57a);
@@ -172,6 +174,11 @@
 /* a destructive action that is not the view's primary one: red text on a normal button */
 .vc-btn--destructive,
 .st-card .vc-btn--destructive {
+  color: var(--vc-fail-ink);
+}
+/* a row's action is quiet, a ghost button: one that removes turns red only on hover or
+   focus, and asks first where the removal cannot be undone (D739) */
+.st-btn--ghost.vc-btn--row-danger:is(:hover, :focus-visible) {
   color: var(--vc-fail-ink);
 }
 /* icon buttons: as tall as the buttons beside them; never a fill or a border */
@@ -363,6 +370,14 @@ input:is([type='radio'], [type='checkbox']) {
 }
 .vc-radio:disabled {
   opacity: var(--st-opacity-disabled);
+}
+/* WCAG 1.4.11: Strata's embossed well and the off switch's wash are about 1.1:1 on the card,
+   so an unchecked checkbox, radio or switch is outlined in a 1px edge of 3:1 or more; the
+   checked fill carries its own contrast (D738) */
+.st-check:not(:checked),
+.vc-radio:not(:checked),
+.st-switch:not(:checked) {
+  box-shadow: inset 0 0 0 1px var(--vc-control-edge);
 }
 /* strata.css gives a bare input.st-input `flex: 1` so it fills a row; in a column it would
    stretch into a tall oval, so a single-line field never grows past its height */

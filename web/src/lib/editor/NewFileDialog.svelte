@@ -57,7 +57,7 @@
     <input id="{uid}-name" class="st-input vc-mono" bind:value={name} placeholder="crud" />
   </div>
   {#if note}<p class="st-secondary" role="status">{note}</p>{/if}
-  <div class="actions">
+  {#snippet actions()}
     <button type="button" class="st-btn" onclick={onclose}>Cancel</button>
     <button
       type="button"
@@ -65,7 +65,7 @@
       disabled={!ready || busy}
       onclick={() => void create()}>{busy ? 'Creating…' : 'Create'}</button
     >
-  </div>
+  {/snippet}
 </Dialog>
 
 <style>
@@ -74,11 +74,5 @@
     grid-template-columns: max-content minmax(0, 1fr);
     align-items: center;
     gap: 8px 12px;
-  }
-  .actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
-    margin-top: 16px;
   }
 </style>

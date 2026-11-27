@@ -118,7 +118,7 @@
                 >
                 <button
                   type="button"
-                  class="st-btn st-btn--ghost st-btn--sm"
+                  class="st-btn st-btn--ghost st-btn--sm vc-btn--row-danger"
                   aria-label="Remove {row.key}"
                   onclick={() => settings.remove(row.key)}>Remove</button
                 >

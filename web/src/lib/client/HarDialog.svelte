@@ -76,19 +76,19 @@
         {/each}
       </ul>
     {/if}
-    <div class="actions">
-      <button type="button" class="st-btn" onclick={onclose}>Cancel</button>
-      <button type="button" class="st-btn" disabled={!har.ready} onclick={() => har.showPreview()}
-        >Preview</button
-      >
-      <button
-        type="button"
-        class="st-btn st-btn--primary"
-        disabled={!har.preview || har.busy}
-        onclick={write}>Write files</button
-      >
-    </div>
   </div>
+  {#snippet actions()}
+    <button type="button" class="st-btn" onclick={onclose}>Cancel</button>
+    <button type="button" class="st-btn" disabled={!har.ready} onclick={() => har.showPreview()}
+      >Preview</button
+    >
+    <button
+      type="button"
+      class="st-btn st-btn--primary"
+      disabled={!har.preview || har.busy}
+      onclick={write}>Write files</button
+    >
+  {/snippet}
 </Dialog>
 
 <style>
@@ -128,10 +128,5 @@
     background: var(--st-surface-wash);
     color: var(--st-text-primary);
     cursor: pointer;
-  }
-  .actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
   }
 </style>

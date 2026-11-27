@@ -48,10 +48,10 @@ Each space sets `data-space` on the app, which picks the blobs and the accent (D
 - Marks are one system: every disclosure (tree row, section, `<details>`) shows one chevron that points down when open and turns a quarter left when closed, never a ▶/▾ glyph or the native marker; a checkbox is Strata's `.st-check` in the space accent (D668).
 - A toolbar never wraps: the editor bar folds Revert and Check, then Diff, Fix all and Run file, into its … menu as its pane narrows. KPI tiles sit in an even grid, 3 by 2 on a narrow card and 6 in a row on a wide one. The sidebar lights only the item whose route is the page's; a page with no item lights none (D669).
 - Focus: buttons and toggles get a 2 px accent outline at 2 px offset; a text field gets a 1.5 px ring at 40 % accent, offset 0, on its own capsule radius (D612, D661).
-- Contrast is WCAG AA against the real backdrop, glass over the gradient: 4.5:1 for all text, 3:1 for disabled text, icons, control borders and focus rings; primary text about 7:1. A selected row in dark chrome is a deeper plate under white ink; a selected row on a card is the accent's soft fill under primary ink (D656, D663).
-- `pnpm audit:style` (`web/audit/`) checks every route and overlay in both themes at 1440 and 1024 px against these rules: contrast, row heights, capsules, concentric radii, centred overlays, focus rings and boxes on cards (D665), plus one secondary button fill, capsule tags, one disclosure chevron, single-row toolbars, Strata checkboxes and no edge-to-edge table borders (D667–D669). It is GATE-STYLE in `scripts/gates.sh`, so every PR must pass it (D720).
+- Contrast is WCAG AA against the real backdrop, glass over the gradient: 4.5:1 for all text, 3:1 for disabled text, icons, control borders and focus rings; an unchecked checkbox or radio and an off switch draw a `--vc-control-edge` boundary for that 3:1 (D738); primary text about 7:1. A selected row in dark chrome is a deeper plate under white ink; a selected row on a card is the accent's soft fill under primary ink (D656, D663).
+- `pnpm audit:style` (`web/audit/`) checks every route and overlay in both themes at 1440 and 1024 px against these rules: contrast, row heights, capsules, concentric radii, centred overlays, focus rings and boxes on cards (D665), plus one secondary button fill, capsule tags, one disclosure chevron, single-row toolbars, Strata checkboxes and no edge-to-edge table borders (D667–D669), and unchecked controls at 3:1 (`control-contrast`), no filled danger button in a row and every open dialog's primary button in view (D738, D739, D742). It is GATE-STYLE in `scripts/gates.sh`, so every PR must pass it (D720).
 - Settings rows are left aligned, at least 44 px tall. Separators stop 12 px short of both ends everywhere, table rows included: a ruled table (`vc-table`, `vc-rules`, `client-table`) draws each row's hairline as an inset cell background and sets its outer text 12 px in (D603, D614, D669).
-- Dialogs have a Title2 heading and actions at the bottom right, Cancel first; focus stays inside and Esc cancels. Toasts are capsules at the bottom centre for about 3 s, with an optional Undo (D604).
+- Dialogs have a Title2 heading and actions at the bottom right, Cancel first; focus stays inside and Esc cancels. The heading and actions stay fixed and only the body scrolls (D742). A row action such as Remove is the quiet ghost button, red only on hover or focus, and asks to confirm (D739). Toasts are capsules at the bottom centre for about 3 s, with an optional Undo (D604).
 - The search capsule in the top row is embossed, shows its shortcut and opens the command palette (D595, D620).
 
 ### Type, motion and preferences
@@ -263,8 +263,8 @@ Five views in the sidebar, each opening with one sentence on what it is for:
   - general, paths, defaults, profiles, vars per profile, http, tls, auth (with Test), secrets (`.env.schema`), reports and history, alerts (with Send test alert), agent access and plugins.
   - Each has a form, plus a pending-changes bar with a diff.
 - **You only** (`~/.config/vibranium`): the same form, clearly badged. Built (D733, D734): a Project / You only switch in the top row; Your settings is a table of the user file's keys with a Shadowed tag, masked values only replaceable, and Preview then Save with the digest.
-- Built: **Alerts** shows the rules as written with Send a test alert (D735); **Plugins** lists, adds (`npm:` or `path:` only) and removes, each previewed then written with the digest (D736).
-- **This app › Appearance** (built, D722): theme, accent (each space's own or one preset everywhere), density and Reduce motion, saved in this browser and applied at once. Cards (glass or solid), transparency, the tab idle time and the space switcher come later.
+- Built: **Alerts** shows the rules as written with Send a test alert (D735); **Plugins** lists, adds (`npm:` or `path:` only) and removes, each previewed then written with the digest (D736), with each state in words and the next command in code style (D740).
+- **This app › Appearance** (built, D722): theme, accent (each space's own or one preset everywhere; the swatches sit under the label, D741), density and Reduce motion, saved in this browser and applied at once. Cards (glass or solid), transparency, the tab idle time and the space switcher come later.
 - Radios are Strata's own round `.vc-radio`; the style audit refuses the browser's (D721).
 
 ## 8. Shared overlays
@@ -284,7 +284,7 @@ One stack at the bottom centre, at most three (D724): writes, palette actions, f
 - If there's no project, offer an **Init wizard**, which runs `vc init` (name, first service, base URL, profile) as a preview, then writes it with the preview's digest.
 - Or offer **Open the demo**: `vc demo`'s sample project, written the same way. The server says whether the demo service answers; if not, show `vc demo start --detach` to copy, since the server never starts a process (D717).
 - Or offer **Import**.
-- Built (D731, D732): **Get started** replaces the screen while the project is not configured, with Set up this folder (the Init wizard) and Try the demo; Import comes later.
+- Built (D731, D732): **Get started** replaces the screen while the project is not configured, with Set up this folder (the Init wizard) and Try the demo; Import comes later. The sidebar lists nothing until then (D743).
 
 ## 9. Security
 - **Session cookie:** a launch link is exchanged for a cookie that is HttpOnly, SameSite=Strict and, new, **Secure**. This works on localhost.
