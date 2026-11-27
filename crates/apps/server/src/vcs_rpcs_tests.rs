@@ -8,6 +8,10 @@ use super::{commit, diff, pull, push, status};
 use crate::Code;
 use crate::engine_fixture::{CONFIG, SECRET, project};
 
+/// The settings each test repository uses, the same on every platform: no CRLF checkout on Windows.
+const IDENTITY: [(&str, &str); 4] =
+    [("user.name", "vc"), ("user.email", "vc@example.test"), ("commit.gpgsign", "false"), ("core.autocrlf", "false")];
+
 fn git(root: &Path, args: &[&str]) -> String {
     let output = Command::new("git").arg("-C").arg(root).args(args).output().unwrap();
     assert!(output.status.success(), "git {args:?}: {}", String::from_utf8_lossy(&output.stderr));
@@ -17,7 +21,7 @@ fn git(root: &Path, args: &[&str]) -> String {
 /// The fixture project committed in a repository of its own, then its config changed.
 fn committed(root: &Path) {
     git(root, &["init", "-q", "-b", "main"]);
-    for (key, value) in [("user.name", "vc"), ("user.email", "vc@example.test"), ("commit.gpgsign", "false")] {
+    for (key, value) in IDENTITY {
         git(root, &["config", key, value]);
     }
     fs::write(root.join(".gitignore"), ".env\n.vibranium/\n").unwrap();
@@ -77,7 +81,7 @@ fn tracked(root: &Path, remotes: &Path) -> std::path::PathBuf {
     git(root, &["remote", "add", "origin", bare.to_str().unwrap()]);
     git(root, &["push", "-q", "-u", "origin", "main"]);
     git(remotes, &["clone", "-q", bare.to_str().unwrap(), other.to_str().unwrap()]);
-    for (key, value) in [("user.name", "vc"), ("user.email", "vc@example.test"), ("commit.gpgsign", "false")] {
+    for (key, value) in IDENTITY {
         git(&other, &["config", key, value]);
     }
     other
