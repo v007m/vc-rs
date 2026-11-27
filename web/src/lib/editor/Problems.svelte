@@ -8,6 +8,7 @@
     live,
     ongo,
     onfix,
+    onexplain,
   }: {
     diagnostics: readonly Diagnostic[];
     /** Why the last check could not run; shown in place of its diagnostics. */
@@ -15,7 +16,9 @@
     /** Whether the list follows the unsaved text, or only the last check of the file on disk. */
     live: boolean;
     ongo: (diagnostic: Diagnostic) => void;
-    onfix: (fix: Fix) => void;
+    onfix: (fix: Fix, code: string) => void;
+    /** Opens the explain panel on a code (D651); no Explain buttons without it. */
+    onexplain?: (code: string) => void;
   } = $props();
 
   let open = $state(true);
@@ -64,13 +67,21 @@
               <span class="where">{where(d)}</span>
             </button>
             {#each d.help as help (help)}<p class="help">help: {help}</p>{/each}
-            {#if d.fixes.length}
+            {#if d.fixes.length || (onexplain && d.code)}
               <div class="fixes">
                 {#each d.fixes as fix (fix.title)}
-                  <button type="button" class="st-btn st-btn--sm" onclick={() => onfix(fix)}
+                  <button type="button" class="st-btn st-btn--sm" onclick={() => onfix(fix, d.code)}
                     >{fix.title}</button
                   >
                 {/each}
+                {#if onexplain && d.code}
+                  <button
+                    type="button"
+                    class="st-btn st-btn--sm"
+                    aria-label="Explain {d.code}"
+                    onclick={() => onexplain(d.code)}>Explain</button
+                  >
+                {/if}
               </div>
             {/if}
           </li>

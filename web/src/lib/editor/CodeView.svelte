@@ -27,7 +27,8 @@
     label: string;
     marks: readonly Mark[];
     onedit: (text: string) => void;
-    onfix: (fix: Fix) => void;
+    /** A quick fix taken from a squiggle, with its diagnostic's code. */
+    onfix: (fix: Fix, code: string) => void;
     assist?: EditorAssist;
   } = $props();
 

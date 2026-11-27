@@ -2,6 +2,7 @@ import { create } from '@bufbuild/protobuf';
 import { Code, ConnectError } from '@connectrpc/connect';
 import { FixSchema, Severity } from '#lib/gen/vibranium/engine/v1/engine_pb.ts';
 import { describe, expect, it, vi } from 'vitest';
+import { available, notYet } from '#lib/api/maybe.ts';
 import { fakeEngine } from '#lib/testing/engine.ts';
 import { EditorSession } from './session.svelte.ts';
 
@@ -20,7 +21,10 @@ function disk(text = 'name: one\n') {
   const state = { text, digest: 'd1', stale: false, writes: 0 };
   const client = fakeEngine({
     listDefinitions: () => ({
-      definitions: [{ path: 'b.test.yaml' }, { path: 'a.api.yaml' }],
+      definitions: [
+        { path: 'b.test.yaml', id: 'b' },
+        { path: 'a.api.yaml', id: 'a' },
+      ],
     }),
     readFile: () => ({ text: state.text, digest: state.digest }),
     writeFile: (request) => {
@@ -125,6 +129,45 @@ describe('EditorSession', () => {
     await editor.reload();
     expect(editor.buffer?.text).toBe('theirs\n');
     expect(editor.state).toBe('idle');
+  });
+
+  it('keeps each listed file’s ID', async () => {
+    const { editor } = disk();
+    await editor.loadFiles();
+    expect(editor.fileId('b.test.yaml')).toBe('b');
+    expect(editor.fileId('missing.yaml')).toBe('');
+  });
+
+  it('fixes a saved buffer through the engine, unsaved, and the typed text itself', async () => {
+    const { state, editor } = disk('id: x\n');
+    await editor.open(path);
+    const asked: string[][] = [];
+    const port = {
+      fix: (_: string, codes: readonly string[]) => {
+        asked.push([...codes]);
+        return Promise.resolve(available('id: fixed\n'));
+      },
+    };
+    expect(await editor.fix(port)).toBeUndefined();
+    expect(editor.buffer?.text).toBe('id: fixed\n');
+    expect(editor.dirty).toBe(true);
+    await editor.check();
+    const fix = create(FixSchema, { edits: [{ file: path, start: 4, end: 9, newText: 'typed' }] });
+    await editor.fix(port, { fix, code: 'V4001' });
+    expect(editor.buffer?.text).toBe('id: typed\n');
+    expect(asked).toEqual([[]]);
+    expect(state.writes).toBe(0);
+  });
+
+  it('says there is nothing to fix, and falls back to the buffer without the engine', async () => {
+    const { editor } = disk('id: x\n');
+    await editor.open(path);
+    const none = { fix: () => Promise.resolve(available(undefined)) };
+    expect(await editor.fix(none)).toBe('Nothing to fix.');
+    const fix = create(FixSchema, { edits: [{ file: path, start: 4, end: 5, newText: 'y' }] });
+    const old = { fix: () => Promise.resolve(notYet('old engine')) };
+    expect(await editor.fix(old, { fix, code: 'V4001' })).toBeUndefined();
+    expect(editor.buffer?.text).toBe('id: y\n');
   });
 
   it('applies a fix to the buffer without saving it', async () => {

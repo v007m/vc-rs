@@ -15,23 +15,27 @@ describe('the YAML view adapters', () => {
     expect(lint).toMatchObject({ from: 4, to: 10, severity: 'error', source: 'V2001' });
     expect(lint?.actions?.map((a) => a.name)).toEqual(['use getsUser']);
     lint?.actions?.[0]?.apply(undefined as never, 4, 10);
-    expect(onfix).toHaveBeenCalledWith(fix);
+    expect(onfix).toHaveBeenCalledWith(fix, 'V2001');
   });
 
   it('maps suggestions to completions, inserting the label unless told otherwise', () => {
     const got = completions([
       { label: 'userId', kind: 'var', detail: 'string' },
       { label: 'eq', kind: 'matcher', insert: 'eq: ' },
+      { label: 'POST', kind: 'value', doc: 'The method.' },
     ]);
     expect(got).toEqual([
       { label: 'userId', type: 'variable', detail: 'string' },
       { label: 'eq', type: 'method', apply: 'eq: ' },
+      { label: 'POST', type: 'enum', info: 'The method.' },
     ]);
   });
 
-  it('builds the hover card from text only, so a value cannot become markup', () => {
-    const dom = hoverDom({ title: 'baseUrl', type: 'url', value: '<img src=x onerror=alert(1)>' });
-    expect(dom.textContent).toBe('baseUrl: url= <img src=x onerror=alert(1)>');
+  it('builds the hover card from the Markdown as text only, so a value cannot become markup', () => {
+    const dom = hoverDom({ markdown: '## `baseUrl`\n\nThe url: <img src=x onerror=alert(1)>' });
+    expect(dom.className).toBe('cm-hover');
+    expect(dom.querySelector('h4 code')?.textContent).toBe('baseUrl');
+    expect(dom.querySelector('p')?.textContent).toBe('The url: <img src=x onerror=alert(1)>');
     expect(dom.querySelector('img')).toBeNull();
   });
 });

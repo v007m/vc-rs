@@ -6,7 +6,9 @@ import { Severity } from '#lib/gen/vibranium/engine/v1/engine_pb.ts';
 import { RunSession } from '#lib/run/session.svelte.ts';
 import { codeView, findCodeView, selected, typeAtEnd } from '#lib/testing/codeView.ts';
 import { fakeEngine } from '#lib/testing/engine.ts';
+import { available } from '#lib/api/maybe.ts';
 import Editor from './Editor.svelte';
+import { noEditorSeams, type EditorSeams } from './seams.ts';
 import { EditorSession } from './session.svelte.ts';
 
 const crud = 'services/users/crud.test.yaml';
@@ -26,7 +28,7 @@ const badId = {
   ],
 };
 
-async function setup(conflict = { next: false }) {
+async function setup(conflict = { next: false }, seams: EditorSeams = noEditorSeams) {
   const disk = new Map([
     [crud, 'name: crud\nid: GetUser\n'],
     [api, 'name: users\n'],
@@ -57,7 +59,7 @@ async function setup(conflict = { next: false }) {
   });
   const editor = new EditorSession(engine, 0);
   await editor.loadFiles();
-  render(Editor, { editor, session: new RunSession(engine) });
+  render(Editor, { editor, session: new RunSession(engine), seams });
   const user = userEvent.setup();
   const open = async (name: string) => {
     await user.click(within(screen.getByRole('tree', { name: 'Files' })).getByText(name));
@@ -100,6 +102,52 @@ describe('Editor', () => {
     expect(view.state.doc.toString()).toBe('name: crud\nid: getsUser\n');
     expect(await screen.findByText('Unsaved')).toBeTruthy();
     expect(screen.queryByRole('button', { name: /^Fix all/ })).toBeNull();
+  });
+
+  it('fixes a saved file through the engine, unsaved, so Revert undoes it', async () => {
+    const asked: string[][] = [];
+    const fixes = {
+      fix: (_: string, codes: readonly string[]) => {
+        asked.push([...codes]);
+        return Promise.resolve(available('name: crud\nid: getsUser # engine\n'));
+      },
+    };
+    const { user, open } = await setup(undefined, { ...noEditorSeams, fixes });
+    await open('crud.test.yaml');
+    const view = await findCodeView(crud);
+    const problems = screen.getByRole('region', { name: 'Problems' });
+    await user.click(within(problems).getByRole('button', { name: 'Rename to getsUser' }));
+    await vi.waitFor(() => expect(view.state.doc.toString()).toContain('# engine'));
+    expect(asked).toEqual([['V4001']]);
+    await user.click(screen.getByRole('button', { name: 'Revert' }));
+    await user.click(await screen.findByRole('button', { name: 'Fix all (1)' }));
+    await vi.waitFor(() => expect(asked).toEqual([['V4001'], []]));
+  });
+
+  it('says so when the engine finds nothing to fix', async () => {
+    const fixes = { fix: () => Promise.resolve(available(undefined)) };
+    const { user, open } = await setup(undefined, { ...noEditorSeams, fixes });
+    await open('crud.test.yaml');
+    await user.click(await screen.findByRole('button', { name: 'Fix all (1)' }));
+    expect(await screen.findByText('Nothing to fix.')).toBeTruthy();
+  });
+
+  it('explains a problem’s code beside the code, and closes it', async () => {
+    const explain = {
+      explain: (target: string) =>
+        Promise.resolve(
+          available({ text: `# ${target}\n\nUse \`camelCase\`.`, markdown: true, notices: [] }),
+        ),
+    };
+    const { user, open } = await setup(undefined, { ...noEditorSeams, explain });
+    await open('crud.test.yaml');
+    const problems = screen.getByRole('region', { name: 'Problems' });
+    await user.click(within(problems).getByRole('button', { name: 'Explain V4001' }));
+    const panel = await screen.findByRole('complementary', { name: 'Explain V4001' });
+    expect(await within(panel).findByRole('heading', { name: 'V4001' })).toBeTruthy();
+    expect(within(panel).getByText('camelCase').tagName).toBe('CODE');
+    await user.click(within(panel).getByRole('button', { name: 'Close' }));
+    expect(screen.queryByRole('complementary', { name: 'Explain V4001' })).toBeNull();
   });
 
   it('asks before dropping unsaved changes for another file', async () => {

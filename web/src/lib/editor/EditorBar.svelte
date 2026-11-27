@@ -21,12 +21,15 @@
     showDiff = $bindable(),
     changes,
     onaction,
+    onfixall,
   }: {
     editor: EditorSession;
     session: RunSession;
     showDiff: boolean;
     changes: Readonly<{ add: number; del: number }>;
     onaction: (action: FileAction) => void;
+    /** Fix all: the screen fixes through the engine when it can (D652). */
+    onfixall: () => void;
   } = $props();
 
   const actions = [
@@ -34,7 +37,7 @@
     { id: 'rename', label: 'Rename or move…' },
     { id: 'format', label: 'Format' },
     { id: 'plan', label: 'Plan preview…' },
-    { id: 'trash', label: 'Move to trash…' },
+    { id: 'trash', label: 'Move to Trash…' },
   ] as const;
 
   let path = $derived(editor.buffer?.path ?? '');
@@ -80,9 +83,7 @@
     onclick={() => editor.revert()}>Revert</button
   >
   {#if fixable}
-    <button type="button" class="st-btn st-btn--sm" onclick={() => editor.fixAll()}
-      >Fix all ({fixable})</button
-    >
+    <button type="button" class="st-btn st-btn--sm" onclick={onfixall}>Fix all ({fixable})</button>
   {/if}
   <button type="button" class="st-btn st-btn--sm" onclick={() => void editor.check()}>Check</button>
   {#if session.running}

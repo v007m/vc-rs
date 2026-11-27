@@ -4,7 +4,7 @@
   import Dialog from '#lib/ui/Dialog.svelte';
   import type { FileOps, Template } from './seams.ts';
 
-  /** New service, api file or test file, from the templates `vc new` uses (ui.md §5). */
+  /** New test file, load file or service, from the templates `vc new file` uses (ui.md §5, D653). */
   let {
     files,
     service: start,
@@ -46,14 +46,14 @@
     <label for="{uid}-kind">Kind</label>
     <select id="{uid}-kind" class="st-input" bind:value={template}>
       <option value="test">Test file</option>
-      <option value="api">Api file</option>
+      <option value="load">Load file</option>
       <option value="service">Service</option>
     </select>
     {#if template !== 'service'}
       <label for="{uid}-service">Service</label>
       <input id="{uid}-service" class="st-input vc-mono" bind:value={service} />
     {/if}
-    <label for="{uid}-name">{template === 'test' ? 'Area' : 'Name'}</label>
+    <label for="{uid}-name">{template === 'service' ? 'Name' : 'Area'}</label>
     <input id="{uid}-name" class="st-input vc-mono" bind:value={name} placeholder="crud" />
   </div>
   {#if note}<p class="st-secondary" role="status">{note}</p>{/if}

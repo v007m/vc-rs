@@ -18,7 +18,9 @@ async function setup(seams: EditorSeams = noEditorSeams) {
   const checks: string[] = [];
   const cancels: CancelLevel[] = [];
   const engine = fakeEngine({
-    listDefinitions: () => ({ definitions: [...disk.keys()].map((path) => ({ path })) }),
+    listDefinitions: () => ({
+      definitions: [...disk.keys()].map((path) => ({ path, id: 'users.crud' })),
+    }),
     readFile: ({ path }) => ({ text: disk.get(path) ?? '', digest: 'd' }),
     check: ({ overlay }) => {
       checks.push(overlay[crud] ?? '');
@@ -40,6 +42,13 @@ async function setup(seams: EditorSeams = noEditorSeams) {
   return { disk, checks, cancels, editor, user: userEvent.setup() };
 }
 
+const moved = {
+  path: 'services/users/cruds.test.yaml',
+  movedFrom: crud,
+  before: 'name: crud\n',
+  after: 'name: cruds\n',
+};
+
 /** File operations that all work, recording what they were asked. */
 function workingFiles(asked: string[]): FileOps {
   const said = <T>(what: string, value: T) => {
@@ -48,12 +57,15 @@ function workingFiles(asked: string[]): FileOps {
   };
   return {
     create: (template, name, service) => said(`create ${template} ${service}/${name}`, crud),
-    previewRename: (from, to) =>
-      said(`preview ${from} ${to}`, [{ path: to, before: 'name: crud\n', after: 'name: cruds\n' }]),
-    rename: (from, to) => said(`rename ${from} ${to}`, undefined),
+    previewRename: (from, to) => said(`preview ${from} ${to}`, { files: [moved], digest: 'p1' }),
+    rename: (from, to, digest) => said(`rename ${from} ${to} ${digest}`, [moved]),
     format: (_, text) => said('format', `${text.trim()}\n# formatted\n`),
-    references: (path) => said(`references ${path}`, ['orders.flow#placesOrder']),
-    trash: (path) => said(`trash ${path}`, undefined),
+    references: (path) =>
+      said(`references ${path}`, {
+        uses: [`orders.flow#placesOrder · services/orders/flow.test.yaml:4`],
+        unread: ['services/orders/broken.test.yaml'],
+      }),
+    trash: (path, digest) => said(`trash ${path} ${digest}`, '/Trash/crud.test.yaml'),
   };
 }
 
@@ -96,32 +108,36 @@ describe('Editor actions', () => {
     expect(editor.dirty).toBe(true);
   });
 
-  it('previews a rename before making it, then opens the file at its new path', async () => {
-    const asked: string[] = [];
-    const { user } = await setup({ ...noEditorSeams, files: workingFiles(asked) });
-    await pick(user, 'Rename or move…');
-    const dialog = screen.getByRole('dialog', { name: 'Rename or move' });
-    const to = within(dialog).getByLabelText('New path');
-    await user.clear(to);
-    await user.type(to, 'services/users/cruds.test.yaml');
-    await user.click(within(dialog).getByRole('button', { name: 'Preview' }));
-    expect(await within(dialog).findByText('1 file changes.')).toBeTruthy();
-    await user.click(within(dialog).getByRole('button', { name: 'Rename' }));
-    expect(asked).toEqual([
-      `preview ${crud} services/users/cruds.test.yaml`,
-      `rename ${crud} services/users/cruds.test.yaml`,
-    ]);
-  });
-
-  it('lists the tests that use a file before moving it to the trash', async () => {
+  it('previews a rename of the file ID, then renames with its digest and opens the new path', async () => {
     const asked: string[] = [];
     const { editor, user } = await setup({ ...noEditorSeams, files: workingFiles(asked) });
-    await pick(user, 'Move to trash…');
-    const dialog = screen.getByRole('dialog', { name: 'Move to trash' });
-    expect(await within(dialog).findByText('orders.flow#placesOrder')).toBeTruthy();
-    await user.click(within(dialog).getByRole('button', { name: 'Move to trash' }));
+    await pick(user, 'Rename or move…');
+    const dialog = screen.getByRole('dialog', { name: 'Rename or move' });
+    const to = within(dialog).getByLabelText('New file ID');
+    expect(to).toHaveProperty('value', 'users.crud');
+    await user.clear(to);
+    await user.type(to, 'users.cruds');
+    await user.click(within(dialog).getByRole('button', { name: 'Preview' }));
+    expect(await within(dialog).findByText('1 file changes.')).toBeTruthy();
+    expect(within(dialog).getByText(`${crud} → services/users/cruds.test.yaml`)).toBeTruthy();
+    await user.click(within(dialog).getByRole('button', { name: 'Rename' }));
+    expect(asked).toEqual(['preview users.crud users.cruds', 'rename users.crud users.cruds p1']);
+    await vi.waitFor(() => expect(editor.buffer?.path).toBe('services/users/cruds.test.yaml'));
+  });
+
+  it('lists what refers to a file before moving it to the Trash, then says where it went', async () => {
+    const asked: string[] = [];
+    const { editor, user } = await setup({ ...noEditorSeams, files: workingFiles(asked) });
+    await pick(user, 'Move to Trash…');
+    const dialog = screen.getByRole('dialog', { name: 'Move to Trash' });
+    expect(within(dialog).getByText(/to the Trash\?$/)).toBeTruthy();
+    const use = 'orders.flow#placesOrder · services/orders/flow.test.yaml:4';
+    expect(await within(dialog).findByText(use)).toBeTruthy();
+    expect(within(dialog).getByText('services/orders/broken.test.yaml')).toBeTruthy();
+    await user.click(within(dialog).getByRole('button', { name: 'Move to Trash' }));
     await vi.waitFor(() => expect(editor.buffer).toBeUndefined());
-    expect(asked).toEqual([`references ${crud}`, `trash ${crud}`]);
+    expect(asked).toEqual([`references ${crud}`, `trash ${crud} d`]);
+    expect(await screen.findByText('Moved to Trash: /Trash/crud.test.yaml')).toBeTruthy();
   });
 
   it('makes a new test file in the open file’s service', async () => {
@@ -134,37 +150,41 @@ describe('Editor actions', () => {
     await vi.waitFor(() => expect(asked).toEqual(['create test users/search']));
   });
 
-  it('shows the plan of the file: instances, merged expects and the lifecycle order', async () => {
+  it('offers a test file, a load file and a service', async () => {
+    await setup({ ...noEditorSeams, files: workingFiles([]) });
+    await userEvent.setup().click(screen.getByRole('button', { name: 'New file…' }));
+    const kinds = within(screen.getByRole('dialog', { name: 'New file' })).getAllByRole('option');
+    expect(kinds.map((o) => o.textContent)).toEqual(['Test file', 'Load file', 'Service']);
+  });
+
+  it('shows the plan of the file as vc plan prints it: line, tree, notices', async () => {
+    const tree = 'users.crud\n└─ getsUser\n   expect status: 200';
     const plan = {
       plan: () =>
         Promise.resolve(
           available({
-            instances: [
-              { id: 'users.crud#getsUser', name: 'gets a user', expects: ['status: 200'] },
-            ],
-            order: [
-              { phase: 'beforeAll', target: 'users.crud' },
-              { phase: 'test', target: 'users.crud#getsUser' },
-            ],
+            line: '1 instance in 1 file',
+            tree,
+            instances: 1,
+            notices: ['profile dev from the config'],
           }),
         ),
     };
     const { user } = await setup({ ...noEditorSeams, plan });
     await pick(user, 'Plan preview…');
     const dialog = await screen.findByRole('dialog', { name: `Plan of ${crud}` });
-    expect(await within(dialog).findByText('1 instance')).toBeTruthy();
-    const expects = within(dialog).getByRole('list', { name: 'Expects of users.crud#getsUser' });
-    expect(expects.textContent).toBe('status: 200');
-    expect(within(dialog).getByText('beforeAll')).toBeTruthy();
+    expect(await within(dialog).findByText('1 instance in 1 file')).toBeTruthy();
+    expect(dialog.querySelector('pre')?.textContent).toBe(tree);
+    expect(within(dialog).getByText('profile dev from the config')).toBeTruthy();
   });
 
   it('keeps a failed file action quiet when the engine lacks it', async () => {
     const files = { ...workingFiles([]), references: () => Promise.resolve(notYet('nope')) };
     const { user } = await setup({ ...noEditorSeams, files });
-    await pick(user, 'Move to trash…');
-    const dialog = screen.getByRole('dialog', { name: 'Move to trash' });
+    await pick(user, 'Move to Trash…');
+    const dialog = screen.getByRole('dialog', { name: 'Move to Trash' });
     expect(await within(dialog).findByText('nope')).toBeTruthy();
-    expect(within(dialog).getByRole('button', { name: 'Move to trash' })).toHaveProperty(
+    expect(within(dialog).getByRole('button', { name: 'Move to Trash' })).toHaveProperty(
       'disabled',
       true,
     );
