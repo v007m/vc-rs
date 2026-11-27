@@ -95,6 +95,7 @@
           <label class="pick">
             <input
               type="radio"
+              class="vc-radio"
               name="default-profile"
               checked={entry.isDefault}
               disabled={busy}

@@ -1,6 +1,6 @@
 /**
  * The style audit's system rules (D667–D669): the checks that keep one button surface, one
- * disclosure mark, capsule tags, Strata checkboxes, single-row toolbars and inset table
+ * disclosure mark, capsule tags, Strata checkboxes and radios, single-row toolbars and inset table
  * hairlines across every route. Like `page.ts`, these run in the audited page: `pageScript`
  * sends their source with the rest, so the helpers they call are only declared here.
  */
@@ -98,6 +98,14 @@ function checkboxes(): string[] {
     .map((el) => `checkbox: ${describe(el)} is the browser's own, not .st-check`);
 }
 
+/** Strata has no radio: every radio is the round .vc-radio, never the browser's own (D721). */
+function radios(): string[] {
+  return [...document.querySelectorAll('input[type=radio]')]
+    .filter(shown)
+    .filter((el) => !el.matches('.vc-radio') || getComputedStyle(el).appearance !== 'none')
+    .map((el) => `radio: ${describe(el)} is the browser's own, not .vc-radio`);
+}
+
 /** A collapsed cell border runs edge to edge; table hairlines stop 12px short (D669). */
 function hairlines(): string[] {
   const found = new Set<string>();
@@ -121,6 +129,7 @@ function system(): string[] {
     ...disclosures(),
     ...toolbars(),
     ...checkboxes(),
+    ...radios(),
     ...hairlines(),
   ];
 }
@@ -133,6 +142,7 @@ export const systemFns = [
   disclosures,
   toolbars,
   checkboxes,
+  radios,
   hairlines,
   system,
 ];

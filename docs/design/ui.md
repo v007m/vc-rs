@@ -57,7 +57,7 @@ Each space sets `data-space` on the app, which picks the blobs and the accent (D
 ### Type, motion and preferences
 - **Type:** Strata's SF Pro-first stack, with Inter (variable, OFL 1.1) bundled as the fallback off Apple platforms; the mono stack is Strata's (SF Mono, then the system monospace). Roles are Strata's (`--st-type-*`): micro, caption, label, body, Title3, Title2 (D599).
 - **Themes:** the OS setting by default; `data-theme` forces light or dark.
-- **Motion** uses two springs as `linear()` curves, 480 ms with a little overshoot and 280 ms critically damped for closing (D617). Overlays grow out of their anchor with a translate and a clip, never a scale (D618); symbols are written on, rotate, bounce or wiggle like SF Symbols (D619). Reduced motion stops the blobs and transitions and shows end states. `data-transparency="reduced"` makes cards and overlays solid; `data-density="compact"` tightens rows. The Appearance settings that set these come later (D605).
+- **Motion** uses two springs as `linear()` curves, 480 ms with a little overshoot and 280 ms critically damped for closing (D617). Overlays grow out of their anchor with a translate and a clip, never a scale (D618); symbols are written on, rotate, bounce or wiggle like SF Symbols (D619). Reduced motion stops the blobs and transitions and shows end states. `data-transparency="reduced"` makes cards and overlays solid; `data-density="compact"` tightens rows. Settings › Appearance sets theme, accent, density and Reduce motion for this browser; reduced motion there is `data-motion="reduced"` on the root, which turns motion off as the OS setting does (D722).
 - **Keyboard hints** are plain tertiary text, never keycaps: `⌘K` on Apple platforms, `Ctrl+K` elsewhere. Holding the modifier alone for 450 ms shows each space's shortcut beside its rail button. F6 and Shift+F6 move between the regions: rail, sidebar, top row and main (D600).
 
 ### Status language
@@ -262,16 +262,20 @@ Five views in the sidebar, each opening with one sentence on what it is for:
   - general, paths, defaults, profiles, vars per profile, http, tls, auth (with Test), secrets (`.env.schema`), reports and history, alerts (with Send test alert), agent access and plugins.
   - Each has a form, plus a pending-changes bar with a diff.
 - **You only** (`~/.config/vibranium`): the same form, clearly badged.
-- **This app:** theme, cards (glass or solid), motion and transparency, density, the tab idle time and the space switcher (Icon rail or Sidebar bottom).
+- **This app › Appearance** (built, D722): theme, accent (each space's own or one preset everywhere), density and Reduce motion, saved in this browser and applied at once. Cards (glass or solid), transparency, the tab idle time and the space switcher come later.
+- Radios are Strata's own round `.vc-radio`; the style audit refuses the browser's (D721).
 
 ## 8. Shared overlays
 
 ### Command palette (⌘K)
-Built so far (D620): ⌘K or the top row's search opens it, grown out of the search field; it lists every screen grouped by space, filtered by word prefix, with arrows, Enter and Esc. The rest of this list comes later.
+Built so far (D620): ⌘K or the top row's search opens it, grown out of the search field; it lists every screen grouped by space, filtered by word prefix, with arrows, Enter and Esc. After the screens come actions (D723): **Run tests…**, **Use profile X**, the other themes, density and Reduce motion, each confirmed by a toast; typing also finds every project file, which opens in the editor. The rest of this list comes later.
 - Jump to any api, test, file, run or setting.
 - Run any `vc` command with typed arguments and a preview: check, run with a selector, plan, fmt, rename, import, sync, explain a code, and new.
 - Recent items come first.
 - Every action has a shortcut, and `?` opens a cheat sheet.
+
+### Toasts
+One stack at the bottom centre, at most three (D724): writes, palette actions, finished runs (with **Open**, D726) and errors. A done toast stays 3.2 s, an error 6 s and is read out assertively.
 
 ### Onboarding
 - `vc ui` started outside a project serves the folder it started in, and `GetProject.configured` is false there (D716).

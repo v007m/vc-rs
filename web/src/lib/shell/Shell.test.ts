@@ -228,11 +228,13 @@ describe('Shell', () => {
     expect(screen.getByText('counted screen')).toBe(before);
   });
   it('opens the palette from the search field or ⌘K and goes to the picked screen', async () => {
-    const { user, navigate } = setup('/client');
+    const { user, navigate, shell } = setup('/client');
     await user.click(screen.getByRole('button', { name: /Search or run/ }));
     const palette = screen.getByRole('dialog', { name: 'Search or run' });
     const field = within(palette).getByRole('combobox', { name: 'Search or run' });
-    expect(within(palette).getAllByRole('group').length).toBe(5);
+    // the five spaces' screens, then the actions and the appearance commands (D723)
+    expect(within(palette).getAllByRole('group').length).toBe(7);
+    expect(within(palette).getByRole('option', { name: 'Run tests…' })).toBeTruthy();
     await user.type(field, 'edit');
     expect(
       within(palette).getByRole('option', { name: 'Editor' }).getAttribute('aria-selected'),
@@ -243,8 +245,10 @@ describe('Shell', () => {
 
     await fireEvent.keyDown(window, { key: 'k', metaKey: true });
     const again = screen.getByRole('dialog', { name: 'Search or run' });
+    // up from the first item wraps to the last, an action run in place: Reduce motion
     await user.keyboard('{ArrowDown}{ArrowUp}{ArrowUp}{Enter}');
-    expect(navigate).toHaveBeenLastCalledWith('/settings');
+    expect(shell.prefs.appearance.motion).toBe('reduced');
+    expect(screen.getByRole('status').textContent).toContain('Motion reduced.');
     expect(again.isConnected).toBe(false);
   });
 });

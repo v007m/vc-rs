@@ -1,9 +1,16 @@
 import { ConnectError, type Client } from '@connectrpc/connect';
 import { createContext } from 'svelte';
-import { Severity, type EngineService } from '#lib/gen/vibranium/engine/v1/engine_pb.ts';
+import {
+  DefinitionKind,
+  Severity,
+  type EngineService,
+} from '#lib/gen/vibranium/engine/v1/engine_pb.ts';
 
 /** The part of the engine the shell's status line and env pill read, so tests can pass a fake. */
-export type ProjectClient = Pick<Client<typeof EngineService>, 'getProject' | 'check'>;
+export type ProjectClient = Pick<
+  Client<typeof EngineService>,
+  'getProject' | 'check' | 'listDefinitions'
+>;
 
 /** What `vc check` found over the whole project. */
 export type CheckSummary = Readonly<{ errors: number; warnings: number; files: number }>;
@@ -23,6 +30,8 @@ export class ProjectStatus {
   /** Whether the folder `vc ui` serves has a `vibranium.config.yaml`; unknown until it loads (D716). */
   configured: boolean | undefined = $state();
   error: string | undefined = $state();
+  /** The project's files, for the palette's Open; read when the palette first asks. */
+  files: readonly string[] = $state.raw([]);
   readonly #client: ProjectClient;
 
   constructor(client: ProjectClient) {
@@ -32,6 +41,21 @@ export class ProjectStatus {
   /** Loads the project and checks it; resolves when both have settled. */
   async load(): Promise<void> {
     await Promise.all([this.#project(), this.#check()]);
+  }
+
+  /** Makes `profile` the session's profile: the env pill and the Run dialog's default. */
+  useProfile(profile: string): void {
+    if (this.profiles.includes(profile)) this.profile = profile;
+  }
+
+  /** Reads the project's file paths; a failure leaves the list as it was. */
+  async listFiles(): Promise<void> {
+    try {
+      const { definitions } = await this.#client.listDefinitions({ kind: DefinitionKind.FILES });
+      this.files = definitions.map((d) => d.path).sort();
+    } catch {
+      // The palette lists screens and actions without the files.
+    }
   }
 
   async #project(): Promise<void> {

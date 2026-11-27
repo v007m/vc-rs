@@ -335,6 +335,35 @@ details:not([open]) > summary .vc-chev {
 input:is([type='radio'], [type='checkbox']) {
   accent-color: var(--st-accent);
 }
+/* Strata has no radio, so .vc-radio is .st-check made round (D721): an embossed 16px well,
+   the accent with a centred dot when chosen; the audit refuses a native radio */
+.vc-radio {
+  appearance: none;
+  -webkit-appearance: none;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  border-radius: 50%;
+  background: var(--st-surface-input-on-card);
+  box-shadow: var(--st-emboss);
+  display: inline-grid;
+  place-items: center;
+  cursor: default;
+}
+.vc-radio:checked {
+  background: var(--st-accent);
+}
+.vc-radio:checked::after {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--st-text-on-accent);
+}
+.vc-radio:disabled {
+  opacity: var(--st-opacity-disabled);
+}
 /* strata.css gives a bare input.st-input `flex: 1` so it fills a row; in a column it would
    stretch into a tall oval, so a single-line field never grows past its height */
 input.st-input {
@@ -1113,4 +1142,25 @@ dialog.st-overlay.vc-anchored.is-rest[open] {
 }
 .vc-count[data-st='skipped'] {
   color: var(--vc-skipped-ink);
+}
+
+/* Settings › Appearance › Motion: Reduced (D722) turns motion off here as the OS setting does */
+:root[data-motion='reduced'] {
+  --st-duration-instant: 0ms;
+  --st-duration-fast: 0ms;
+  --st-duration-base: 0ms;
+  --st-duration-slow: 0ms;
+  --st-duration-slower: 0ms;
+  --st-ease-spring: var(--st-ease-standard);
+  --vc-spring-dur: 0ms;
+  --vc-spring-quick-dur: 0ms;
+  --vc-fade-dur: 0ms;
+}
+:root[data-motion='reduced'] *,
+:root[data-motion='reduced'] *::before,
+:root[data-motion='reduced'] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
 }

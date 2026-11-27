@@ -48,6 +48,32 @@ describe('ProjectStatus', () => {
     expect(project.version).toBeUndefined();
     expect(project.error).toBeTruthy();
   });
+
+  it('switches to a known profile only', async () => {
+    const project = new ProjectStatus(
+      fakeEngine({ getProject: () => ({ profiles: ['dev', 'qa'] }) }),
+    );
+    await project.load();
+    project.useProfile('qa');
+    project.useProfile('nowhere');
+    expect(project.profile).toBe('qa');
+  });
+
+  it('lists the project files in order for the palette, and keeps them on a failure', async () => {
+    let fail = false;
+    const project = new ProjectStatus(
+      fakeEngine({
+        listDefinitions: () => {
+          if (fail) throw new ConnectError('gone', Code.Unavailable);
+          return { definitions: [{ path: 'b.test.yaml' }, { path: 'a.api.yaml' }] };
+        },
+      }),
+    );
+    await project.listFiles();
+    fail = true;
+    await project.listFiles();
+    expect(project.files).toEqual(['a.api.yaml', 'b.test.yaml']);
+  });
 });
 
 describe('checkLine', () => {
