@@ -1,3 +1,4 @@
+import { Code, ConnectError } from '@connectrpc/connect';
 import { render, screen, within } from '@testing-library/svelte';
 import { userEvent } from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
@@ -138,6 +139,26 @@ describe('Editor actions', () => {
     await vi.waitFor(() => expect(editor.buffer).toBeUndefined());
     expect(asked).toEqual([`references ${crud}`, `trash ${crud} d`]);
     expect(await screen.findByText('Moved to Trash: /Trash/crud.test.yaml')).toBeTruthy();
+  });
+
+  it('says Moved to Trash when the engine names no place', async () => {
+    const files = { ...workingFiles([]), trash: () => Promise.resolve(available('')) };
+    const { user } = await setup({ ...noEditorSeams, files });
+    await pick(user, 'Move to Trash…');
+    const dialog = screen.getByRole('dialog', { name: 'Move to Trash' });
+    await user.click(within(dialog).getByRole('button', { name: 'Move to Trash' }));
+    expect(await screen.findByText('Moved to Trash')).toBeTruthy();
+  });
+
+  it('shows the engine’s message and keeps the file when the host has no trash', async () => {
+    const refused = new ConnectError('this host has no trash', Code.FailedPrecondition);
+    const files = { ...workingFiles([]), trash: () => Promise.reject(refused) };
+    const { editor, user } = await setup({ ...noEditorSeams, files });
+    await pick(user, 'Move to Trash…');
+    const dialog = screen.getByRole('dialog', { name: 'Move to Trash' });
+    await user.click(within(dialog).getByRole('button', { name: 'Move to Trash' }));
+    expect(await within(dialog).findByText('this host has no trash')).toBeTruthy();
+    expect(editor.buffer?.path).toBe(crud);
   });
 
   it('makes a new test file in the open file’s service', async () => {
