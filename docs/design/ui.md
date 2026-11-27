@@ -29,21 +29,25 @@ The UI is built on the Strata design system (D590), adopted at Sarath's request 
 | Layer | What sits on it | Treatment |
 |---|---|---|
 | Canvas (`.st-canvas`) | rail, sidebar, top row, section labels, status line | Four soft colour blobs over the base, under a matte grain (a local `grain.svg`, since the CSP blocks `data:`; D602). Pastel in light; charcoal with deep blue, slate and burnt orange in dark. Chrome has no boxes: no panel, border or fill on the sidebar, tabs, labels, icons or toolbar |
-| Card (`.st-card`) | the main content (one per view; a split shows two) | Glass that shows the canvas (white at 42 % in light, the slate at 45 % in dark; D608), solid as a viewer option (`data-cards="solid"`) or with reduced transparency. Dark cards are a slate (`#253137` solid), never black or neutral grey (D601). Never a card inside a card: a surface inside a card is a wash with no border (D609) |
-| Overlay (`.st-overlay`) | menus, popovers, dialogs, toasts, the palette | The strongest surface, as native `<dialog>` and `[popover]` elements. It grows out of what opened it (D618) |
+| Card (`.st-card`) | the main content (one per view; a split shows two) | Glass that shows the canvas (white at 60 % in light, the slate at 72 % in dark; D608, D656), solid as a viewer option (`data-cards="solid"`) or with reduced transparency. Dark cards are a slate (`#253137` solid), never black or neutral grey (D601). Never a card inside a card: a section inside a card has no fill or border, only a hairline above it, and lists, check rows and failure lines are flat rows with hairline separators (D609, D658) |
+| Overlay (`.st-overlay`) | menus, popovers, dialogs, toasts, the palette | The strongest surface, as native `<dialog>` and `[popover]` elements. It grows out of what opened it (D618). Dialogs land centred in the window, the palette centred in the top third; menus anchor to their trigger and flip above it rather than clip (D662) |
 
 ### Spaces
 Each space sets `data-space` on the app, which picks the blobs and the accent (D591): Tests lilac, Client tide, Runs ember, Agents grove, Settings graphite. The primary button, focus rings, selected controls and native checkboxes take the space's accent.
 
 ### Layout and shape
 - Cards sit 8 px from the window on the top, right and bottom (10 px above 1600 px wide), and 0 on the sidebar side. A split has an 8 px gap with its handle in the gap (D594).
-- Corners are concentric, inner = outer − gap: window 20 px, cards 12, overlays 18 with 12 px items, the palette 22 with 14 px items, dialogs 28; a surface on a card takes 8 (D610).
+- Corners are concentric, inner = outer − gap: window 20 px, cards 12, overlays 18 with 12 px items, the palette 22 with 14 px items, dialogs 28; a surface on a card takes 8, a well in a dialog's 24 px padding takes 4, and a selected row follows the same rule (D610, D659).
 - Every single-line control is a capsule: fields, selects (with a gradient-drawn chevron, D621), the Env control and search. Multi-line fields are 8 px rounded rects. Controls are 28, 32 (default) or 40 px, border-box, and a row's items share one height; badges never sit in a control row (D611).
-- Empty panes show the empty state: icon, Title3 title and caption, centred in a wash (D609).
+- Empty panes show the empty state: icon, Title3 title, caption and at most one button, floating centred on the card with no box of its own (D609, D658).
+- Tabs inside a card are the segmented control: a 32 px capsule track inset by the card padding, with 28 px capsule tabs (D660).
 - In a row every item has the same height, with icon and text centred; icons have no border or background (D596).
+- Buttons are one capsule in four variants (primary, secondary, ghost, danger) at 28, 32 or 40 px, sized to their label; filter buttons are secondary. A disabled button keeps its shape and reads at 3:1 (D657).
 - Buttons have one emboss, and a long label wraps instead of clipping. The primary button is the space's accent, one per view, last at the bottom right with Cancel-like actions before it; each Settings section ends in a footer on the card's own surface. Fields are capped in width, not stretched (D597, D616).
 - The switch and slider are iOS liquid glass: a capsule track and a glassy debossed thumb. The segmented control has one glass lens that springs between options (D598, D615). Badges are capsules, larger than 18 px.
-- Focus: buttons and toggles get a 2 px accent outline at 2 px offset; a text field gets a 1.5 px accent ring on itself (D612).
+- Focus: buttons and toggles get a 2 px accent outline at 2 px offset; a text field gets a 1.5 px ring at 40 % accent, offset 0, on its own capsule radius (D612, D661).
+- Contrast is WCAG AA against the real backdrop, glass over the gradient: 4.5:1 for all text, 3:1 for disabled text, icons, control borders and focus rings; primary text about 7:1. A selected row in dark chrome is a deeper plate under white ink; a selected row on a card is the accent's soft fill under primary ink (D656, D663).
+- `pnpm audit:style` (`web/audit/`) checks every route and overlay in both themes at 1440 and 1024 px against these rules: contrast, row heights, capsules, concentric radii, centred overlays, focus rings and boxes on cards (D665).
 - Settings rows are left aligned, at least 44 px tall. Separators stop 12 px short of both ends everywhere (D603, D614).
 - Dialogs have a Title2 heading and actions at the bottom right, Cancel first; focus stays inside and Esc cancels. Toasts are capsules at the bottom centre for about 3 s, with an optional Undo (D604).
 - The search capsule in the top row is embossed, shows its shortcut and opens the command palette (D595, D620).
